@@ -141,6 +141,7 @@ pub enum UsageEvent {
         table_name: String,
         ingress: u64,
         egress: u64,
+        ingress_v2: u64,
     },
     TextBandwidth {
         id: String,

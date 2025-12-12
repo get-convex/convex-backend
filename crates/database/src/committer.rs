@@ -113,7 +113,7 @@ use value::{
     TableMapping,
     TableName,
 };
-use vector::DocInVectorIndex;
+use vector::VectorIndexWriteSize;
 
 use crate::{
     bootstrap_model::defaults::BootstrapTableIds,
@@ -758,14 +758,14 @@ impl<RT: Runtime> Committer<RT> {
             .latest_snapshot()
             .unwrap_or_else(|| self.snapshot_manager.read().latest_snapshot());
         for &document_update in ordered_updates.iter() {
-            let (updates, doc_in_vector_index, text_index_write_size) =
+            let (updates, vector_index_write_size, text_index_write_size) =
                 latest_pending_snapshot.update(document_update, commit_ts)?;
             index_writes.extend(updates);
             document_writes.push(ValidatedDocumentWrite {
                 commit_ts,
                 id: document_update.id.into(),
                 write: document_update.new_document.clone(),
-                doc_in_vector_index,
+                vector_index_write_size,
                 text_index_write_size,
                 prev_ts: document_update.old_document.as_ref().map(|&(_, ts)| ts),
             });
@@ -1040,7 +1040,7 @@ impl<RT: Runtime> Committer<RT> {
         for validated_write in document_writes {
             let ValidatedDocumentWrite {
                 write: document,
-                doc_in_vector_index,
+                vector_index_write_size,
                 text_index_write_size,
                 ..
             } = validated_write;
@@ -1073,11 +1073,20 @@ impl<RT: Runtime> Committer<RT> {
                         table_name.is_system()
                             && !virtual_system_mapping.has_virtual_table(&table_name),
                     );
-                    if *doc_in_vector_index == DocInVectorIndex::Present {
+                    if vector_index_write_size.0 > 0 {
                         usage_tracker.track_vector_ingress_size(
                             component_path.clone(),
                             table_name.to_string(),
                             document_write_size as u64,
+                            vector_index_write_size.0,
+                            table_name.is_system(),
+                        );
+                    }
+                    if text_index_write_size.0 > 0 {
+                        usage_tracker.track_text_ingress_size(
+                            component_path.clone(),
+                            table_name.to_string(),
+                            text_index_write_size.0,
                             table_name.is_system(),
                         );
                     }
@@ -1127,7 +1136,7 @@ struct ValidatedDocumentWrite {
     commit_ts: Timestamp,
     id: InternalDocumentId,
     write: Option<ResolvedDocument>,
-    doc_in_vector_index: DocInVectorIndex,
+    vector_index_write_size: VectorIndexWriteSize,
     text_index_write_size: TextIndexWriteSize,
     prev_ts: Option<Timestamp>,
 }

@@ -444,6 +444,7 @@ impl UsageCounter {
                 table_name,
                 ingress: ingress_size,
                 egress: 0,
+                ingress_v2: 0,
             });
         }
         for ((component_path, table_name), egress_size) in stats.vector_egress_size {
@@ -454,6 +455,18 @@ impl UsageCounter {
                 table_name,
                 ingress: 0,
                 egress: egress_size,
+                ingress_v2: 0,
+            });
+        }
+        for ((component_path, table_name), ingress_size) in stats.vector_ingress_size_v2 {
+            usage_metrics.push(UsageEvent::VectorBandwidth {
+                id: execution_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                ingress: ingress_size,
+                egress: 0,
+                ingress_v2: ingress_size,
             });
         }
         for ((component_path, table_name), ingress_size) in stats.text_ingress_size {
@@ -707,6 +720,7 @@ impl FunctionUsageTracker {
         component_path: ComponentPath,
         table_name: String,
         ingress_size: u64,
+        ingress_size_v2: u64,
         skip_logging: bool,
     ) {
         if skip_logging {
@@ -717,8 +731,13 @@ impl FunctionUsageTracker {
         let key = (component_path, table_name);
         state
             .vector_ingress_size
-            .mutate_entry_or_default(key, |count| {
+            .mutate_entry_or_default(key.clone(), |count| {
                 *count += ingress_size;
+            });
+        state
+            .vector_ingress_size_v2
+            .mutate_entry_or_default(key, |count| {
+                *count += ingress_size_v2;
             });
     }
 
@@ -866,6 +885,7 @@ pub struct FunctionUsageStats {
     pub database_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub database_egress_rows: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    pub vector_ingress_size_v2: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub text_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub text_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
@@ -883,6 +903,7 @@ impl FunctionUsageStats {
             vector_index_write_bytes: self.vector_ingress_size.values().sum(),
             text_index_read_bytes: self.text_egress_size.values().sum(),
             text_index_write_bytes: self.text_ingress_size.values().sum(),
+            vector_index_write_bytes_v2: self.vector_ingress_size_v2.values().sum(),
         }
     }
 
@@ -925,6 +946,10 @@ impl FunctionUsageStats {
         for (key, egress_size) in other.vector_egress_size {
             self.vector_egress_size
                 .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
+        }
+        for (key, ingress_size) in other.vector_ingress_size_v2 {
+            self.vector_ingress_size_v2
+                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
         }
     }
 }
@@ -1005,6 +1030,12 @@ mod usage_arbitrary {
                     0..=4,
                 )
                 .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
             );
             strategies
                 .prop_map(
@@ -1020,6 +1051,7 @@ mod usage_arbitrary {
                         vector_egress_size,
                         text_ingress_size,
                         text_egress_size,
+                        vector_ingress_size_v2,
                     )| FunctionUsageStats {
                         storage_calls,
                         storage_ingress_size,
@@ -1032,6 +1064,7 @@ mod usage_arbitrary {
                         vector_egress_size,
                         text_ingress_size,
                         text_egress_size,
+                        vector_ingress_size_v2,
                     },
                 )
                 .boxed()
@@ -1111,6 +1144,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             vector_egress_size: to_by_tag_count(stats.vector_egress_size.into_iter()),
             text_ingress_size: to_by_tag_count(stats.text_ingress_size.into_iter()),
             text_egress_size: to_by_tag_count(stats.text_egress_size.into_iter()),
+            vector_ingress_size_v2: to_by_tag_count(stats.vector_ingress_size_v2.into_iter()),
         }
     }
 }
@@ -1132,6 +1166,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let vector_egress_size = from_by_tag_count(stats.vector_egress_size)?.collect();
         let text_ingress_size = from_by_tag_count(stats.text_ingress_size)?.collect();
         let text_egress_size = from_by_tag_count(stats.text_egress_size)?.collect();
+        let vector_ingress_size_v2 = from_by_tag_count(stats.vector_ingress_size_v2)?.collect();
 
         Ok(FunctionUsageStats {
             storage_calls,
@@ -1145,6 +1180,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             vector_egress_size,
             text_ingress_size,
             text_egress_size,
+            vector_ingress_size_v2,
         })
     }
 }
@@ -1162,6 +1198,7 @@ pub struct AggregatedFunctionUsageStats {
     pub vector_index_write_bytes: u64,
     pub text_index_read_bytes: u64,
     pub text_index_write_bytes: u64,
+    pub vector_index_write_bytes_v2: u64,
 }
 
 #[cfg(test)]

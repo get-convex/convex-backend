@@ -184,6 +184,125 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
 }
 
 #[convex_macro::test_runtime]
+async fn vector_insert_with_no_index_does_not_count_usage_v2(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+
+    let table_name: TableName = "my_table".parse()?;
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document_vec_array(&mut tx, &table_name, [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Action {
+                env: ModuleEnvironment::Isolate,
+                duration: Duration::from_secs(10),
+                memory_in_mb: 10,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    assert!(stats.recent_vector_ingress_size_v2.is_empty());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn vector_insert_counts_usage_v2_for_backfilling_indexes(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+    let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Mutation {
+                occ_info: None,
+                duration: Duration::ZERO,
+                memory_in_mb: 0,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    let value = stats
+        .recent_vector_ingress_size_v2
+        .get(&(*index_name.table()).to_string())
+        .cloned();
+
+    assert!(value.unwrap() > 0);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn vector_insert_counts_usage_v2_for_enabled_indexes(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+    let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Action {
+                env: ModuleEnvironment::Isolate,
+                duration: Duration::from_secs(10),
+                memory_in_mb: 10,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    let value = stats
+        .recent_vector_ingress_size_v2
+        .get(&(*index_name.table()).to_string())
+        .cloned();
+
+    assert_eq!(value, Some(58_u64));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
     let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;

@@ -61,7 +61,7 @@ use crate::{
     },
     searcher::VectorSearcher,
     CompiledVectorSearch,
-    DocInVectorIndex,
+    VectorIndexWriteSize,
 };
 
 #[derive(Clone)]
@@ -203,25 +203,26 @@ impl VectorIndexManager {
         deletion: Option<&ResolvedDocument>,
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
-    ) -> anyhow::Result<DocInVectorIndex> {
+    ) -> anyhow::Result<VectorIndexWriteSize> {
+        let mut write_size = VectorIndexWriteSize(0);
         let timer = metrics::index_manager_update_timer();
         let Some(id) = deletion.as_ref().or(insertion.as_ref()).map(|d| d.id()) else {
             finish_index_manager_update_timer(timer, metrics::IndexUpdateType::None);
-            return Ok(DocInVectorIndex::Absent);
+            return Ok(write_size);
         };
         if self.update_vector_index_metadata(id, index_registry, deletion, insertion, ts)? {
             finish_index_manager_update_timer(timer, metrics::IndexUpdateType::IndexMetadata);
-            return Ok(DocInVectorIndex::Absent);
+            return Ok(write_size);
         }
 
-        if let IndexState::Ready(..) = self.indexes
-            && self.update_vector_index_contents(id, index_registry, deletion, insertion, ts)?
-        {
+        if let IndexState::Ready(..) = self.indexes {
+            write_size =
+                self.update_vector_index_contents(id, index_registry, deletion, insertion, ts)?;
             finish_index_manager_update_timer(timer, metrics::IndexUpdateType::Document);
-            return Ok(DocInVectorIndex::Present);
+            return Ok(write_size);
         }
         finish_index_manager_update_timer(timer, metrics::IndexUpdateType::None);
-        Ok(DocInVectorIndex::Absent)
+        Ok(write_size)
     }
 
     fn update_vector_index_contents(
@@ -231,8 +232,8 @@ impl VectorIndexManager {
         deletion: Option<&ResolvedDocument>,
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
-    ) -> anyhow::Result<bool> {
-        let mut at_least_one_matching_index = false;
+    ) -> anyhow::Result<VectorIndexWriteSize> {
+        let mut write_size = VectorIndexWriteSize(0);
         for index in index_registry.vector_indexes_by_table(id.tablet_id) {
             let IndexConfig::Vector { ref spec, .. } = index.metadata.config else {
                 continue;
@@ -240,13 +241,15 @@ impl VectorIndexManager {
             let qdrant_schema = QdrantSchema::new(spec);
             let old_value = deletion.as_ref().and_then(|d| qdrant_schema.index(d));
             let new_value = insertion.as_ref().and_then(|d| qdrant_schema.index(d));
-            at_least_one_matching_index =
-                at_least_one_matching_index || old_value.is_some() || new_value.is_some();
+
+            // We need to add the size of the document id to the write size because it's
+            // also stored in the vector index.
+            write_size.0 += (qdrant_schema.estimate_vector_size() + id.size()) as u64;
             self.indexes.update(&index.id, None, |memory_index| {
                 memory_index.update(id.internal_id(), ts, old_value, new_value)
             })?;
         }
-        Ok(at_least_one_matching_index)
+        Ok(write_size)
     }
 
     fn update_vector_index_metadata(

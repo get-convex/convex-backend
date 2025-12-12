@@ -43,8 +43,8 @@ use value::{
     TabletId,
 };
 use vector::{
-    DocInVectorIndex,
     VectorIndexManager,
+    VectorIndexWriteSize,
 };
 
 use crate::{
@@ -225,7 +225,7 @@ impl Snapshot {
         commit_ts: Timestamp,
     ) -> anyhow::Result<(
         Vec<DatabaseIndexUpdate>,
-        DocInVectorIndex,
+        VectorIndexWriteSize,
         TextIndexWriteSize,
     )> {
         block_in_place(|| {
@@ -285,7 +285,7 @@ impl Snapshot {
                 )
                 .context("Search index update failed")?;
 
-            let doc_in_vector_index = self
+            let vector_index_write_size = self
                 .vector_indexes
                 .update(
                     &self.index_registry,
@@ -296,7 +296,7 @@ impl Snapshot {
                 .context("Vector index update failed")?;
             Ok((
                 in_memory_index_updates,
-                doc_in_vector_index,
+                vector_index_write_size,
                 text_index_write_size,
             ))
         })
