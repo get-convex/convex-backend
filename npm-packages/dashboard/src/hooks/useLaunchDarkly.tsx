@@ -7,12 +7,14 @@ const flagDefaults: {
   singleSignOn: boolean;
   workOsEnvironmentProvisioningDashboardUi: boolean;
   enableNewDashboardVersionNotification: boolean;
+  enableStatuspageWidget: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
   singleSignOn: false,
   workOsEnvironmentProvisioningDashboardUi: false,
   enableNewDashboardVersionNotification: false,
+  enableStatuspageWidget: true,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

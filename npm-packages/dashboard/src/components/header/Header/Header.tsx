@@ -11,6 +11,7 @@ import { useCurrentProject } from "api/projects";
 import { User } from "@workos-inc/node";
 import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
 import { useConvexStatus } from "hooks/useConvexStatus";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { UserMenu } from "../UserMenu/UserMenu";
 
 type HeaderProps = {
@@ -58,6 +59,7 @@ function Support() {
 
 export function Header({ children, logoLink = "/", user }: HeaderProps) {
   const project = useCurrentProject();
+  const { enableStatuspageWidget } = useLaunchDarkly();
 
   return (
     <header
@@ -85,7 +87,7 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
       {project && <DeploymentDisplay project={project} />}
       <div className="flex items-center bg-background-secondary px-2">
         <div className="flex items-center">
-          <ConvexStatus />
+          {enableStatuspageWidget && <ConvexStatus />}
           <AskAI />
           <Support />
         </div>
