@@ -309,7 +309,7 @@
     "happy-dom": "~20.0.7",
     "inquirer": "^9.1.4",
     "inquirer-search-list": "~1.2.6",
-    "jsdom": "~26.1.0",
+    "jsdom": "~27.1.0",
     "json5": "~2.2.3",
     "knip": "~5.68.0",
     "napi-wasm": "1.1.3",
