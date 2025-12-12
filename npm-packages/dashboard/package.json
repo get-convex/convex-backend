@@ -59,7 +59,7 @@
     "openapi-fetch": "~0.15.0",
     "react-sparklines": "~1.7.0",
     "posthog-js": "~1.290.0",
-    "shx": "~0.3.4",
+    "shx": "~0.4.0",
     "cmdk": "~1.1.1",
     "react-hotkeys-hook": "~4.4.0",
     "@workos-inc/authkit-nextjs": "~2.11.1",
