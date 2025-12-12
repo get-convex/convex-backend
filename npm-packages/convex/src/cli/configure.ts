@@ -41,7 +41,7 @@ import {
 import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
 import path from "path";
 import { projectDashboardUrl } from "./lib/dashboard.js";
-import { doInitialCodegen } from "./lib/codegen.js";
+import { doInitConvexFolder } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
 import {
   promptOptions,
@@ -587,7 +587,7 @@ async function selectNewProject(
     );
   }
 
-  await doInitialCodegen(ctx, { init: true });
+  await doInitConvexFolder(ctx);
   return { teamSlug, projectSlug, devDeployment };
 }
 
@@ -640,9 +640,6 @@ async function selectExistingProject(
         : undefined,
   });
 
-  showSpinner(`Reinitializing project ${projectSlug}...\n`);
-  // TODO: Do we need to do codegen for existing projects? (-Ian)
-  await doInitialCodegen(ctx, { init: false });
   logFinishedStep(`Reinitialized project ${chalkStderr.bold(projectSlug)}`);
   return { teamSlug, projectSlug, devDeployment };
 }

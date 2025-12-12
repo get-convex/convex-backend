@@ -32,7 +32,7 @@ import {
   doFinalComponentCodegen,
   doInitialComponentCodegen,
   CodegenOptions,
-  doInitCodegen,
+  doInitConvexFolder,
   doCodegen,
 } from "./codegen.js";
 import {
@@ -87,7 +87,7 @@ export async function runCodegen(
   const functionsDirectoryPath = functionsDir(configPath, projectConfig);
 
   if (options.init) {
-    await doInitCodegen(ctx, functionsDirectoryPath, false, {
+    await doInitConvexFolder(ctx, functionsDirectoryPath, {
       dryRun: options.dryRun,
       debug: options.debug,
     });

@@ -43,7 +43,7 @@ import { isAnonymousDeployment } from "../deployment.js";
 import { createProject } from "../api.js";
 import { removeAnonymousPrefix } from "../deployment.js";
 import { nodeFs } from "../../../bundler/fs.js";
-import { doInitialCodegen } from "../codegen.js";
+import { doInitConvexFolder } from "../codegen.js";
 
 export async function handleAnonymousDeployment(
   ctx: Context,
@@ -178,7 +178,7 @@ export async function handleAnonymousDeployment(
   });
 
   if (deployment.kind === "new") {
-    await doInitialCodegen(ctx, { init: true });
+    await doInitConvexFolder(ctx);
   }
   return {
     adminKey,
