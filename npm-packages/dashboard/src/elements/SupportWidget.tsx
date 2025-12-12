@@ -239,8 +239,7 @@ function SupportForm() {
       </Button>
       {subscription && profile?.email && (
         <p className="text-xs text-content-secondary">
-          The Convex support team will respond by email to {profile.email}{" "}
-          within 24 business hours.
+          The Convex support team will respond by email to {profile.email}.
         </p>
       )}
     </form>

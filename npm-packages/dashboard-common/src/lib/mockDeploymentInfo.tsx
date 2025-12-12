@@ -44,6 +44,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   TeamMemberLink: ({ name }: { name: string }) => (
     <span className="font-semibold">{name}</span>
   ),
+  DisconnectOverlay: () => <div>Disconnected</div>,
   useTeamUsageState: () => "Default",
   teamsURI: "",
   projectsURI: "",

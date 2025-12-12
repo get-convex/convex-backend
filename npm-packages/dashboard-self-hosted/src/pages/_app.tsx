@@ -30,6 +30,7 @@ import {
   WaitForDeploymentApi,
   DeploymentInfo,
   DeploymentInfoContext,
+  SelfHostedDisconnectOverlay,
 } from "@common/lib/deploymentContext";
 import { Tooltip } from "@ui/Tooltip";
 import { DeploymentCredentialsForm } from "components/DeploymentCredentialsForm";
@@ -252,6 +253,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
     <ErrorBoundary>{children}</ErrorBoundary>
   ),
+  DisconnectOverlay: () => <SelfHostedDisconnectOverlay />,
   useTeamUsageState: () => "Default",
   teamsURI: "",
   projectsURI: "",

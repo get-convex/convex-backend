@@ -11,6 +11,9 @@ import { reportHttpError } from "hooks/fetching";
 import {
   DeploymentInfo,
   DeploymentInfoContext,
+  LocalDeploymentDisconnectOverlay,
+  CloudDisconnectOverlay,
+  ConnectedDeployment,
 } from "@common/lib/deploymentContext";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useCurrentDeployment } from "api/deployments";
@@ -27,6 +30,9 @@ import { useProjectEnvironmentVariables } from "api/environmentVariables";
 import { useCurrentProject } from "api/projects";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useDeploymentWorkOSEnvironment } from "api/workos";
+import { useSupportFormOpen } from "elements/SupportWidget";
+import { useConvexStatus } from "hooks/useConvexStatus";
+import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
@@ -41,6 +47,47 @@ function DeploymentErrorBoundary({
 }) {
   return (
     <ErrorBoundary fallback={fallback ?? Fallback}>{children}</ErrorBoundary>
+  );
+}
+
+function CloudDashboardDisconnectOverlay({
+  deployment,
+  deploymentName,
+}: {
+  deployment: ConnectedDeployment;
+  deploymentName: string;
+}) {
+  const [, setOpenState] = useSupportFormOpen();
+  const { status } = useConvexStatus();
+
+  const openSupportForm = (defaultSubject: string, defaultMessage: string) => {
+    setOpenState({
+      defaultSubject,
+      defaultMessage,
+    });
+  };
+
+  if (deploymentName.startsWith("local-")) {
+    return <LocalDeploymentDisconnectOverlay />;
+  }
+
+  return (
+    <CloudDisconnectOverlay
+      deployment={deployment}
+      deploymentName={deploymentName}
+      openSupportForm={openSupportForm}
+      statusWidget={
+        <>
+          <ConvexStatusWidget status={status} />
+          {status?.indicator === "none" && (
+            <p className="mt-2 text-xs text-content-secondary">
+              For emerging issues, it may take the Convex team a few minutes to
+              update system status.
+            </p>
+          )}
+        </>
+      }
+    />
   );
 }
 
@@ -92,6 +139,7 @@ export function DeploymentInfoProvider({
         TeamMemberLink,
         CloudImport,
         ErrorBoundary: DeploymentErrorBoundary,
+        DisconnectOverlay: CloudDashboardDisconnectOverlay,
         teamsURI,
         projectsURI,
         deploymentsURI,
