@@ -23,7 +23,7 @@ function ConvexStatus() {
   const { status } = useConvexStatus();
 
   // Only show if there are issues (not operational) or still loading
-  if (status && status.indicator === "none") {
+  if (!status || status.indicator === "none") {
     return null;
   }
 
