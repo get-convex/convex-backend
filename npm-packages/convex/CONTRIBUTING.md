@@ -37,8 +37,8 @@ more which test this code but are not located in this repository.
 
 Code generally lives in the src/ directory.
 
-There nearly-empty directories for each entry point at the top level implement
-the 'package-json-redirects' strategy described at
+The nearly-empty directories for each entry point at the top level implement the
+'package-json-redirects' strategy described at
 https://github.com/andrewbranch/example-subpath-exports-ts-compat in an effort
 to make the convex npm package as compatible as possible while making the
 published package mirror the filesystem of this repository.
