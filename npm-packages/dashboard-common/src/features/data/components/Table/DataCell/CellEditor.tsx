@@ -46,8 +46,12 @@ export function CellEditor({
     defaultValue === undefined ? value : defaultValue,
   );
 
+  const [wasInCommonUTCTimestampRange] = useState(
+    typeof editedValue === "number" && isInCommonUTCTimestampRange(editedValue),
+  );
+
   const isTimestampLike =
-    typeof editedValue === "number" && isInCommonUTCTimestampRange(editedValue);
+    typeof editedValue === "number" && wasInCommonUTCTimestampRange;
 
   const [showAsDate, setShowAsDate] = useState(isTimestampLike);
 
@@ -84,27 +88,11 @@ export function CellEditor({
       {showAsDate && isTimestampLike && typeof editedValue === "number" ? (
         <div className="w-full">
           <DateTimePicker
-            date={new Date(editedValue as number)}
+            date={new Date(editedValue)}
             onChange={(date) => setEditedValue(date.getTime())}
-            className="w-fit rounded-none border-none p-0 pt-px pb-[1.1875rem] font-mono text-xs"
-            mode="text-only"
-            onError={setError}
-            onKeyDown={(e, date) => {
-              if (e.key === "Enter") {
-                if (date === undefined) {
-                  // User cleared the input - check if undefined is allowed
-                  if (!allowTopLevelUndefined) {
-                    setError("This field is required and cannot be unset");
-                    return;
-                  }
-                  setEditedValue(UNDEFINED_PLACEHOLDER);
-                  void saveEditedValue(UNDEFINED_PLACEHOLDER);
-                } else {
-                  setEditedValue(date.getTime());
-                  void saveEditedValue(date.getTime());
-                }
-              }
-            }}
+            onSave={() => saveEditedValue(editedValue)}
+            className="mb-5 -ml-px font-mono"
+            autoFocus
           />
         </div>
       ) : (

@@ -6,7 +6,7 @@ const meta = {
   component: DateTimePicker,
   args: {
     onChange: fn(),
-    date: new Date(),
+    date: new Date("2024-10-07T14:35:32"),
   },
 } satisfies Meta<typeof DateTimePicker>;
 
@@ -15,10 +15,35 @@ type Story = StoryObj<typeof meta>;
 
 export const Primary: Story = {};
 
-export const RestrictedRange: Story = {
+export const Disabled: Story = {
   args: {
-    minDate: new Date(Date.now() - 4 * 7 * 24 * 60 * 60 * 1000),
-    maxDate: new Date(Date.now() + 4 * 7 * 24 * 60 * 60 * 1000),
-    onChange: fn(),
+    disabled: true,
+  },
+};
+
+export const WithAutoFocus: Story = {
+  args: {
+    autoFocus: true,
+  },
+};
+
+export const WithOnSave: Story = {
+  args: {
+    onSave: fn(() => {
+      console.log("Save triggered!");
+    }),
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: "Press Enter after changing the date to trigger onSave callback",
+      },
+    },
+  },
+};
+
+export const WithCustomClassName: Story = {
+  args: {
+    className: "border-2 border-blue-500 rounded p-2",
   },
 };
