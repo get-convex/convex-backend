@@ -505,21 +505,20 @@ impl SubscriptionManager {
                 let num_subscriptions_invalidated = to_notify.len();
                 let should_splay_invalidations =
                     num_subscriptions_invalidated > *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD;
+                let splay_amt_millis = num_subscriptions_invalidated as u64
+                    * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER;
                 if should_splay_invalidations {
                     tracing::info!(
                         "Splaying subscription invalidations since there are {} subscriptions to \
-                         invalidate. The threshold is {}",
+                         invalidate. The threshold is {}. Splaying up to {} ms",
                         num_subscriptions_invalidated,
-                        *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD
+                        *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD,
+                        splay_amt_millis,
                     );
                 }
                 for (subscriber_id, invalid_ts) in to_notify {
-                    let delay = should_splay_invalidations.then(|| {
-                        Duration::from_millis(rand::random_range(
-                            0..=num_subscriptions_invalidated as u64
-                                * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
-                        ))
-                    });
+                    let delay = should_splay_invalidations
+                        .then(|| Duration::from_millis(rand::random_range(0..=splay_amt_millis)));
                     self._remove(subscriber_id, delay, Some(invalid_ts));
                 }
                 log_subscriptions_invalidated(num_subscriptions_invalidated);
