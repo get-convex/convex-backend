@@ -204,7 +204,7 @@ do:
 const messages = await ctx.db
   .query("messages")
   .withIndex("by_channel", q => q.eq("channel", channel))
-  .filter(q => q.neq(q.field("user"), myUserId)
+  .filter(q => q.neq(q.field("user"), myUserId))
   .collect();
 ```
 
