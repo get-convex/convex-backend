@@ -28,7 +28,14 @@
   "dependencies": {
     "openapi-fetch": "~0.15.0"
   },
-  "zshy": "./src/index.ts",
+  "zshy": {
+    "exports": {
+      ".": "./src/index.ts",
+      "./deploymentApi": "./src/generatedDeploymentApi.ts",
+      "./logStreamApi": "./src/generatedLogStreamApi.ts",
+      "./managementApi": "./src/generatedManagementApi.ts"
+    }
+  },
   "files": [
     "dist"
   ],
@@ -40,6 +47,21 @@
       "types": "./dist/index.d.cts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./deploymentApi": {
+      "types": "./dist/generatedDeploymentApi.d.cts",
+      "import": "./dist/generatedDeploymentApi.js",
+      "require": "./dist/generatedDeploymentApi.cjs"
+    },
+    "./logStreamApi": {
+      "types": "./dist/generatedLogStreamApi.d.cts",
+      "import": "./dist/generatedLogStreamApi.js",
+      "require": "./dist/generatedLogStreamApi.cjs"
+    },
+    "./managementApi": {
+      "types": "./dist/generatedManagementApi.d.cts",
+      "import": "./dist/generatedManagementApi.js",
+      "require": "./dist/generatedManagementApi.cjs"
     }
   }
 }
