@@ -210,7 +210,7 @@ const messages = await ctx.db
 
 In this case the performance of this query will be based on how many messages
 are in the channel. Convex will consider each message in the channel and only
-return the messages where the `user` field matches `myUserId`.
+return the messages where the `user` field doesn't match `myUserId`.
 
 ## Sorting with indexes
 
