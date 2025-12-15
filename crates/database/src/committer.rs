@@ -804,6 +804,7 @@ impl<RT: Runtime> Committer<RT> {
         persistence: Arc<dyn Persistence>,
         index_writes: Arc<Vec<PersistenceIndexEntry>>,
         document_writes: Arc<Vec<DocumentLogEntry>>,
+        write_source: WriteSource,
     ) -> anyhow::Result<()> {
         let timer = metrics::commit_persistence_write_timer();
         persistence
@@ -813,7 +814,7 @@ impl<RT: Runtime> Committer<RT> {
                 ConflictStrategy::Error,
             )
             .await
-            .context("Commit failed to write to persistence")?;
+            .with_context(|| format!("Commit ({write_source:?}) failed to write to persistence"))?;
 
         timer.finish();
         Ok(())
@@ -900,7 +901,7 @@ impl<RT: Runtime> Committer<RT> {
             index_writes,
             document_writes,
             pending_write,
-        } = match block_in_place(|| self.validate_commit(transaction, write_source)) {
+        } = match block_in_place(|| self.validate_commit(transaction, write_source.clone())) {
             Ok(v) => v,
             Err(e) => {
                 let _ = result.send(Err(e));
@@ -958,6 +959,7 @@ impl<RT: Runtime> Committer<RT> {
                             persistence.clone(),
                             index_writes.clone(),
                             document_writes.clone(),
+                            write_source.clone(),
                         )
                         .in_span(Span::enter_with_local_parent(name)),
                     ));
