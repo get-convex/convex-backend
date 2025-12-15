@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p convex/tsconfig.json --noEmit",
+    "dev": "convex dev",
     "test": "vitest",
     "test:once": "vitest run",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",

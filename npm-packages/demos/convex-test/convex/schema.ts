@@ -7,4 +7,14 @@ export default defineSchema({
     content: v.string(),
     author: v.string(),
   }),
+
+  tasks: defineTable({
+    author: v.optional(v.string()),
+    text: v.optional(v.string()),
+  }),
+
+  messages: defineTable({
+    body: v.string(),
+    author: v.string(),
+  }),
 });
