@@ -4,7 +4,13 @@ use std::{
         btree_map::Entry,
         BTreeMap,
     },
-    fmt,
+    error::Error,
+    fmt::{
+        self,
+        Debug,
+        Display,
+    },
+    mem,
     sync::LazyLock,
 };
 
@@ -71,7 +77,7 @@ impl<T: Into<anyhow::Error>> From<T> for MainError {
     }
 }
 
-impl std::fmt::Debug for MainError {
+impl Debug for MainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Just print the `Display` of the error rather than `Debug`, as `report_error`
         // above will already print the stack trace when `RUST_BACKTRACE` is set.
@@ -95,16 +101,33 @@ fn strip_pii(err: &mut anyhow::Error) {
         transformed = regex.replace_all(&transformed, *replacement).to_string();
     }
     if s != transformed {
-        // How to get the backtrace properly into the anyhow? This is not what we want,
-        // but works.
-        let em = err.downcast_mut::<ErrorMetadata>().cloned();
-        if let Some(em) = em {
-            *err = anyhow::anyhow!(err.backtrace().to_string())
-                .context(transformed)
-                .context(em);
-        } else {
-            *err = anyhow::anyhow!(err.backtrace().to_string()).context(transformed);
+        struct WithBacktrace(String, anyhow::Error);
+        impl Error for WithBacktrace {
+            fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
+                request.provide_ref(self.1.backtrace());
+            }
         }
+        impl Display for WithBacktrace {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(&self.0)
+            }
+        }
+        impl Debug for WithBacktrace {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(&self.0)
+            }
+        }
+        let em = err.downcast_ref::<ErrorMetadata>().cloned();
+        let mut transformed_error = anyhow::Error::new(WithBacktrace(
+            transformed,
+            // this is not ideal as the anyhow! itself takes a backtrace that we
+            // then throw away
+            mem::replace(err, anyhow::anyhow!("")),
+        ));
+        if let Some(em) = em {
+            transformed_error = transformed_error.context(em);
+        }
+        *err = transformed_error;
     }
 }
 
