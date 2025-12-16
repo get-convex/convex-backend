@@ -546,3 +546,19 @@ pub fn log_query_invalidated(
         );
     }
 }
+
+register_convex_counter!(
+    SYNC_INVALIDATION_FUTURES_CREATED_TOTAL,
+    "Count of invalidation futures created in SyncState after updating queries",
+    &["partition_id"]
+);
+pub fn log_create_invalidation_futures(partition_id: u64, increment: u64) {
+    log_counter_with_labels(
+        &SYNC_INVALIDATION_FUTURES_CREATED_TOTAL,
+        increment,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
