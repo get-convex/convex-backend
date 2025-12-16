@@ -1,5 +1,3 @@
-use anyhow::Context;
-
 use super::OpProvider;
 
 #[convex_macro::v8_op]

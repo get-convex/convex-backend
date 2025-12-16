@@ -1,4 +1,5 @@
 #![feature(const_type_name)]
+#![feature(error_generic_member_access)]
 #![feature(exclusive_wrapper)]
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
@@ -8,11 +9,13 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(round_char_boundary)]
 #![feature(ptr_metadata)]
+#![feature(exit_status_error)]
 
 mod array_buffer_allocator;
 pub mod bundled_js;
 pub mod client;
 mod concurrency_limiter;
+mod convert_v8;
 pub mod environment;
 pub mod error;
 mod execution_scope;

@@ -116,7 +116,6 @@ divan = "0.1.14"
 dotenvy = "0.15.7"
 dynfmt = "0.1.5"
 either = "1.9.0"
-elliptic-curve = { version = "0.13", features = [ "std", "pem" ] }
 encoding_rs = "0.8.32"
 enum-iterator = "2.1.0"
 event-listener = "5.3.1"
@@ -144,6 +143,7 @@ humansize = { version = "2.1.3", features = [ "impl_style" ] }
 hyper = "1.3.1"
 hyper-util = { version = "0.1.5", features = [ "server-graceful", "tokio" ] }
 imbl = "5.0.0"
+indexmap = "2"
 itertools = "0.14"
 jemalloc_pprof = "0.8"
 jsonschema = "0.33"
@@ -162,13 +162,12 @@ native-tls = { version = "0.2", features = [ "alpn", "vendored" ] }
 num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
-openssl = { version = "0.10.72", features = [ "aws-lc" ] }
-p256 = { version = "0.13", features = [ "ecdh" ] }
-p384 = "0.13"
+openssl = { version = "0.10.75", features = [ "aws-lc" ] }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }
 phf = { version = "0.11.2", features = [ "macros" ] }
 pin-project = "1"
+pkcs8 = "0.10.2"
 portpicker = "0.1"
 postgres-protocol = { version = "0.6" }
 pretty_assertions = "1"
@@ -207,7 +206,6 @@ serde = { version = "1", features = [ "derive" ] }
 serde_bytes = "0.11.14"
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth" ] }
 serde_with = "3.16.1"
-sha1 = { version = "0.10.5", features = [ "oid" ] }
 sha2 = { version = "0.10.8" }
 short_future = { version = "0.1.1" }
 slab = "0.4.9"

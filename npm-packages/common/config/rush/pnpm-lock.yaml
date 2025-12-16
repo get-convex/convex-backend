@@ -5695,9 +5695,6 @@ importers:
       web-streams-polyfill:
         specifier: ~3.3.0
         version: 3.3.3
-      zod:
-        specifier: ^3.24.0
-        version: 3.25.76
     devDependencies:
       '@types/object-inspect':
         specifier: ^1.8.1
@@ -5742,6 +5739,9 @@ importers:
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.130
+      tsx:
+        specifier: ^4.19.4
+        version: 4.19.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4

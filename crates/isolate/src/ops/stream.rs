@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use anyhow::Context;
 use common::runtime::Runtime;
 use deno_core::{
     serde_v8,

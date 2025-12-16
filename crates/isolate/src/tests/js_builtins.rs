@@ -1,4 +1,12 @@
-use std::time::Duration;
+use std::{
+    io::Write,
+    path::Path,
+    process::{
+        Command,
+        Stdio,
+    },
+    time::Duration,
+};
 
 use common::{
     assert_obj,
@@ -10,9 +18,15 @@ use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use value::ConvexValue;
 
-use crate::test_helpers::{
-    UdfTest,
-    UdfTestType,
+use crate::{
+    test_helpers::{
+        UdfTest,
+        UdfTestConfig,
+        UdfTestType,
+        DEFAULT_CONFIG,
+    },
+    ConcurrencyLimiter,
+    IsolateConfig,
 };
 
 #[convex_macro::test_runtime]
@@ -42,12 +56,6 @@ async fn test_crypto(rt: TestRuntime) -> anyhow::Result<()> {
                 .await?,
             "Not implemented: wrapKey for SubtleCrypto",
         );
-
-        assert_contains(
-            &t.query_js_error("js_builtins/crypto:generateX25519NotImplemented", assert_obj!())
-                .await?,
-            "Generating X25519 keys is not yet supported",
-        );
         Ok(())
     }).await
 }
@@ -59,6 +67,58 @@ async fn test_crypto_in_action(rt: TestRuntime) -> anyhow::Result<()> {
         assert_eq!(String::from(r), "success".to_string());
         Ok(())
     }).await
+}
+
+#[convex_macro::test_runtime]
+async fn test_crypto_interop_from_node(rt: TestRuntime) -> anyhow::Result<()> {
+    let output = Command::new("npm")
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../npm-packages/udf-tests"))
+        .args(["-s", "run", "generate_crypto_interop_data"])
+        .stderr(Stdio::inherit())
+        .output()?
+        .exit_ok()?;
+    let data = str::from_utf8(&output.stdout)?;
+    let t = UdfTest::default_with_config(
+        UdfTestConfig {
+            isolate_config: IsolateConfig::new_with_max_user_timeout(
+                "test",
+                Some(Duration::from_secs(30)),
+                ConcurrencyLimiter::unlimited(),
+            ),
+            ..DEFAULT_CONFIG.clone()
+        },
+        1,
+        rt,
+    )
+    .await?;
+    assert_eq!(
+        t.query(
+            "js_builtins/crypto:consumeInteropData",
+            assert_obj! {"json" => data}
+        )
+        .await?,
+        ConvexValue::Null
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_crypto_interop_to_node(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let data: String = t
+        .action("js_builtins/crypto:generateInteropData", assert_obj!())
+        .await?
+        .try_into()?;
+    let mut cmd = Command::new("npm")
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../npm-packages/udf-tests"))
+        .args(["-s", "run", "consume_crypto_interop_data"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
+    cmd.stdin.take().unwrap().write_all(data.as_bytes())?;
+    let output = cmd.wait_with_output()?.exit_ok()?;
+    assert_eq!(str::from_utf8(&output.stdout)?, "ok\n");
+    Ok(())
 }
 
 #[convex_macro::test_runtime]

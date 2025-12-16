@@ -1,4 +1,3 @@
-use anyhow::Context;
 use deno_core::ToJsBuffer;
 use serde_bytes::ByteBuf;
 use uuid::Uuid;

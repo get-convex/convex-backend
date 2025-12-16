@@ -63,6 +63,7 @@ declare_strings!(
     asyncSyscall,
     data,
     default,
+    DOMException,
     dynamic_import_unsupported => "dynamic module import unsupported",
     empty => "",
     export,
@@ -86,4 +87,14 @@ declare_strings!(
     setup,
     stack,
     syscall,
+
+    // crypto
+    CryptoKey,
+    publicKey,
+    privateKey,
+    r#type => "type",
+    extractable,
+    algorithm,
+    usages,
+    name,
 );

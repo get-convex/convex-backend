@@ -19,6 +19,7 @@ use deno_core::{
     v8,
     ModuleSpecifier,
 };
+use rand::Rng;
 use uuid::Uuid;
 use value::heap_size::WithHeapSize;
 
@@ -34,7 +35,6 @@ use super::{
 };
 use crate::{
     environment::UncatchableDeveloperError,
-    ops::CryptoOps,
     request_scope::{
         ReadableStream,
         StreamListener,
@@ -122,7 +122,7 @@ impl ContextState {
     }
 
     pub fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid> {
-        let uuid = CryptoOps::random_uuid(self.environment.rng()?)?;
+        let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.blob_parts.insert(uuid, bytes);
         Ok(uuid)
     }
@@ -132,7 +132,7 @@ impl ContextState {
     }
 
     pub fn create_stream(&mut self) -> anyhow::Result<Uuid> {
-        let id = CryptoOps::random_uuid(self.environment.rng()?)?;
+        let id = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.streams.insert(id, Ok(ReadableStream::default()));
         Ok(id)
     }
@@ -177,7 +177,7 @@ impl ContextState {
     }
 
     pub fn create_text_decoder(&mut self, resource: TextDecoderResource) -> anyhow::Result<Uuid> {
-        let id = CryptoOps::random_uuid(self.environment.rng()?)?;
+        let id = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.text_decoders.insert(id, resource);
         Ok(id)
     }

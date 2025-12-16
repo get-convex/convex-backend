@@ -7,35 +7,6 @@ import {
   throwUncatchableDeveloperError,
 } from "./helpers.js";
 import { performOp } from "udf-syscall-ffi";
-import {
-  ArrayPrototypeIncludes,
-  WeakMapPrototypeGet,
-  copyBuffer,
-} from "./crypto/helpers.js";
-import {
-  normalizeAlgorithmDeriveBits,
-  normalizeAlgorithmDigest,
-  normalizeAlgorithmEncryptDecrypt,
-  normalizeAlgorithmGenerateKey,
-  normalizeAlgorithmGetKeyLength,
-  normalizeAlgorithmImportKey,
-  normalizeAlgorithmSign,
-  normalizeAlgorithmVerify,
-} from "./crypto/normalize_algorithm.js";
-import {
-  KEY_STORE,
-  CryptoKeyPair,
-  CryptoKey,
-  _handle,
-  _type,
-  _algorithm,
-  _usages,
-} from "./crypto/crypto_key.js";
-import * as ImportKey from "./crypto/import_key.js";
-import * as ExportKey from "./crypto/export_key.js";
-import * as GenerateKey from "./crypto/generate_key.js";
-import { deriveBits } from "./crypto/derive_bits.js";
-import getKeyLength from "./crypto/get_key_length.js";
 
 class Crypto {
   constructor() {
@@ -77,13 +48,19 @@ class Crypto {
   }
 
   get subtle() {
-    return Object.create(SubtleCrypto.prototype);
+    return subtleImpl;
   }
 
   inspect() {
     return "Crypto {}";
   }
 }
+
+Object.defineProperty(Crypto.prototype, Symbol.toStringTag, {
+  value: "Crypto",
+  writable: false,
+  enumerable: false,
+});
 
 class SubtleCrypto {
   constructor() {
@@ -96,14 +73,7 @@ class SubtleCrypto {
   ): Promise<ArrayBuffer> {
     const prefix = "Failed to execute 'digest' on 'SubtleCrypto'";
     requiredArguments(arguments.length, 2, prefix);
-
-    data = copyBuffer(data);
-
-    algorithm = normalizeAlgorithmDigest(algorithm);
-
-    const result = performOp("crypto/digest", algorithm.name, data);
-
-    return result.buffer;
+    return performOp("crypto/subtle/digest", algorithm, data) as ArrayBuffer;
   }
 
   async encrypt(
@@ -118,33 +88,12 @@ class SubtleCrypto {
   ): Promise<ArrayBuffer> {
     const prefix = "Failed to execute 'encrypt' on 'SubtleCrypto'";
     requiredArguments(arguments.length, 3, prefix);
-    const dataCopy = copyBuffer(data);
-    const normalizedAlgorithm = normalizeAlgorithmEncryptDecrypt(algorithm);
-    const handle = key[_handle];
-    const innerKey = KEY_STORE.get(handle);
-    if (normalizedAlgorithm.name !== key.algorithm.name) {
-      throw new DOMException(
-        "Encryption algorithm doesn't match key algorithm.",
-        "InvalidAccessError",
-      );
-    }
-    if (!key[_usages].includes("encrypt")) {
-      throw new DOMException(
-        "Key does not support the 'encrypt' operation.",
-        "InvalidAccessError",
-      );
-    }
-    switch (normalizedAlgorithm.name) {
-      case "AES-GCM":
-        if (![16, 24, 32].includes(innerKey.data.length)) {
-          throwUncatchableDeveloperError(
-            `Unsupported AES-GCM key length: ${innerKey.data.length * 8}; only 128, 192, and 256 bit keys supported`,
-          );
-        }
-        break;
-    }
-    return performOp("crypto/encrypt", normalizedAlgorithm, innerKey, dataCopy)
-      .buffer;
+    return performOp(
+      "crypto/subtle/encrypt",
+      algorithm,
+      key,
+      data,
+    ) as ArrayBuffer;
   }
 
   async decrypt(
@@ -159,47 +108,12 @@ class SubtleCrypto {
   ): Promise<ArrayBuffer> {
     const prefix = "Failed to execute 'decrypt' on 'SubtleCrypto'";
     requiredArguments(arguments.length, 3, prefix);
-    const dataCopy = copyBuffer(data);
-    const normalizedAlgorithm = normalizeAlgorithmEncryptDecrypt(algorithm);
-    const handle = key[_handle];
-    const innerKey = KEY_STORE.get(handle);
-    if (normalizedAlgorithm.name !== key.algorithm.name) {
-      throw new DOMException(
-        "Decryption algorithm doesn't match key algorithm.",
-        "InvalidAccessError",
-      );
-    }
-    if (!key[_usages].includes("decrypt")) {
-      throw new DOMException(
-        "Key does not support the 'decrypt' operation.",
-        "InvalidAccessError",
-      );
-    }
-    switch (normalizedAlgorithm.name) {
-      case "AES-GCM":
-        if (![16, 24, 32].includes(innerKey.data.length)) {
-          throwUncatchableDeveloperError(
-            `Unsupported AES-GCM key length: ${innerKey.data.length * 8}`,
-          );
-        }
-        if (dataCopy.byteLength < normalizedAlgorithm.tagLength / 8) {
-          throw new DOMException(
-            "The provided data is too small.",
-            "OperationError",
-          );
-        }
-        break;
-    }
-    const result = performOp(
-      "crypto/decrypt",
-      normalizedAlgorithm,
-      innerKey,
-      dataCopy,
-    );
-    if (result === null) {
-      throw new DOMException("Decryption failed", "OperationError");
-    }
-    return result.buffer;
+    return performOp(
+      "crypto/subtle/decrypt",
+      algorithm,
+      key,
+      data,
+    ) as ArrayBuffer;
   }
 
   async sign(
@@ -209,397 +123,68 @@ class SubtleCrypto {
   ): Promise<ArrayBuffer> {
     const prefix = "Failed to execute 'sign' on 'SubtleCrypto'";
     requiredArguments(arguments.length, 3, prefix);
-
-    // TODO: real input validation - CX-4399
-
-    // 1.
-    const dataCopy = copyBuffer(data);
-
-    // 2.
-    const normalizedAlgorithm = normalizeAlgorithmSign(algorithm);
-
-    const handle = key[_handle];
-    const innerKey = KEY_STORE.get(handle);
-
-    // 8.
-    if (normalizedAlgorithm.name !== key.algorithm.name) {
-      throw new DOMException(
-        "Signing algorithm doesn't match key algorithm.",
-        "InvalidAccessError",
-      );
-    }
-
-    // 9.
-    if (!key.usages.includes("sign")) {
-      throw new DOMException(
-        "Key does not support the 'sign' operation.",
-        "InvalidAccessError",
-      );
-    }
-
-    const algorithmName = normalizedAlgorithm.name;
-    switch (algorithmName) {
-      case "RSASSA-PKCS1-v1_5": {
-        // 1.
-        if (key[_type] !== "private") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-
-        // 2.
-        const hashAlgorithm = key[_algorithm].hash.name;
-        const signature = performOp("crypto/sign", {
-          key: innerKey.data,
-          algorithm: "RSASSA-PKCS1-v1_5",
-          hash: hashAlgorithm,
-          data: dataCopy,
-        });
-
-        return signature.buffer;
-      }
-      case "RSA-PSS": {
-        // 1.
-        if (key[_type] !== "private") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-
-        // 2.
-        const hashAlgorithm = key[_algorithm].hash.name;
-        const signature = performOp("crypto/sign", {
-          key: innerKey.data,
-          algorithm: "RSA-PSS",
-          hash: hashAlgorithm,
-          saltLength: normalizedAlgorithm.saltLength,
-          data: dataCopy,
-        });
-
-        return signature.buffer;
-      }
-      case "ECDSA": {
-        // 1.
-        if (key[_type] !== "private") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-
-        // 2.
-        const hashAlgorithm = normalizedAlgorithm.hash.name;
-        const namedCurve = key[_algorithm].namedCurve;
-        if (
-          !ArrayPrototypeIncludes(ImportKey.supportedNamedCurves, namedCurve)
-        ) {
-          throw new DOMException("Curve not supported", "NotSupportedError");
-        }
-
-        if (
-          (key[_algorithm].namedCurve === "P-256" &&
-            hashAlgorithm !== "SHA-256") ||
-          (key[_algorithm].namedCurve === "P-384" &&
-            hashAlgorithm !== "SHA-384")
-        ) {
-          throw new DOMException("Not implemented", "NotSupportedError");
-        }
-
-        const signature = performOp("crypto/sign", {
-          key: innerKey.data,
-          algorithm: "ECDSA",
-          hash: hashAlgorithm,
-          namedCurve,
-          data: dataCopy,
-        });
-
-        return signature.buffer;
-      }
-      case "HMAC": {
-        const hashAlgorithm = key.algorithm.hash.name;
-
-        const signature = performOp("crypto/sign", {
-          key: innerKey.data,
-          algorithm: "HMAC",
-          hash: hashAlgorithm,
-          data: dataCopy,
-        });
-
-        return signature.buffer;
-      }
-      case "Ed25519": {
-        // 1.
-        if (key[_type] !== "private") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-
-        // https://briansmith.org/rustdoc/src/ring/ec/curve25519/ed25519/signing.rs.html#260
-        // N.B.: for Ed25519 keys, `innerKey` is the key data directly (not `innerKey.data`)
-        const signature = performOp("crypto/signEd25519", innerKey, dataCopy);
-        if (signature === null) {
-          throw new DOMException("Failed to sign", "OperationError");
-        }
-        return signature.buffer;
-      }
-    }
-
-    algorithmName satisfies never;
-    throw new TypeError(`Unknown algorithm name ${algorithmName}`);
+    return performOp("crypto/subtle/sign", algorithm, key, data) as ArrayBuffer;
   }
 
   async importKey(
-    format: "jwk" | "pkcs8" | "raw" | "spki",
-    keyData: BufferSource,
-    algorithm:
-      | AlgorithmIdentifier
-      | RsaHashedImportParams
-      | EcKeyImportParams
-      | HmacImportParams
-      | AesKeyAlgorithm,
-    extractable: boolean,
-    keyUsages: KeyUsage[],
-  ): Promise<CryptoKey> {
+    format: any,
+    keyData: any,
+    algorithm: any,
+    extractable: any,
+    keyUsages: any,
+  ) {
     const prefix = "Failed to execute 'importKey' on 'SubtleCrypto'";
-    requiredArguments(arguments.length, 4, prefix);
-
-    if (format === "jwk") {
-      if (ArrayBuffer.isView(keyData) || keyData instanceof ArrayBuffer) {
-        throw new TypeError("keyData is not a JsonWebKey");
-      }
-    } else {
-      if (ArrayBuffer.isView(keyData) || keyData instanceof ArrayBuffer) {
-        keyData = copyBuffer(keyData);
-      } else {
-        throw new TypeError("keyData is a JsonWebKey");
-      }
-    }
-
-    const normalizedAlgorithm = normalizeAlgorithmImportKey(algorithm);
-
-    const algorithmName = normalizedAlgorithm.name;
-
-    switch (algorithmName) {
-      case "HMAC": {
-        return ImportKey.hmac(
-          format,
-          normalizedAlgorithm,
-          keyData,
-          extractable,
-          keyUsages,
-        );
-      }
-      case "ECDH":
-      case "ECDSA": {
-        return ImportKey.ec(
-          format,
-          normalizedAlgorithm,
-          keyData,
-          extractable,
-          keyUsages,
-        );
-      }
-      case "RSASSA-PKCS1-v1_5":
-      case "RSA-PSS":
-      case "RSA-OAEP": {
-        return ImportKey.rsa(
-          format,
-          normalizedAlgorithm,
-          keyData,
-          extractable,
-          keyUsages,
-        );
-      }
-      case "HKDF": {
-        return ImportKey.hkdf(format, keyData, extractable, keyUsages);
-      }
-      case "PBKDF2": {
-        return ImportKey.pbkdf2(format, keyData, extractable, keyUsages);
-      }
-      case "AES-CTR":
-      case "AES-CBC":
-      case "AES-GCM":
-      case "AES-KW": {
-        return ImportKey.aes(
-          format,
-          normalizedAlgorithm,
-          keyData,
-          extractable,
-          keyUsages,
-        );
-      }
-      case "X25519": {
-        return ImportKey.x25519(format, keyData, extractable, keyUsages);
-      }
-      case "Ed25519": {
-        return ImportKey.ed25519(format, keyData, extractable, keyUsages);
-      }
-      default:
-        throw new DOMException("Not implemented", "NotSupportedError");
-    }
-  }
-
-  async exportKey(format: "jwk" | "pkcs8" | "raw" | "spki", key: CryptoKey) {
-    const prefix = "Failed to execute 'exportKey' on 'SubtleCrypto'";
-    requiredArguments(arguments.length, 2, prefix);
-
-    const handle = key[_handle];
-    // 2.
-    const innerKey = WeakMapPrototypeGet(KEY_STORE, handle);
-
-    const algorithmName = key[_algorithm].name;
-
-    let result;
-
-    switch (algorithmName) {
-      case "HMAC": {
-        result = ExportKey.hmac(format, key, innerKey);
-        break;
-      }
-      case "RSASSA-PKCS1-v1_5":
-      case "RSA-PSS":
-      case "RSA-OAEP": {
-        result = ExportKey.rsa(format, key, innerKey);
-        break;
-      }
-      case "ECDH":
-      case "ECDSA": {
-        result = ExportKey.ec(format, key, innerKey);
-        break;
-      }
-      case "Ed25519": {
-        result = ExportKey.ed25519(format, key, innerKey);
-        break;
-      }
-      case "X25519": {
-        result = ExportKey.x25519(format, key, innerKey);
-        break;
-      }
-      case "AES-CTR":
-      case "AES-CBC":
-      case "AES-GCM":
-      case "AES-KW": {
-        result = ExportKey.aes(format, key, innerKey);
-        break;
-      }
-      default:
-        throw new DOMException("Not implemented", "NotSupportedError");
-    }
-
-    if (key.extractable === false) {
-      throw new DOMException("Key is not extractable", "InvalidAccessError");
-    }
-
-    return result;
-  }
-
-  async deriveBits(
-    algorithm:
-      | AlgorithmIdentifier
-      | EcdhKeyDeriveParams
-      | HkdfParams
-      | Pbkdf2Params,
-    baseKey: CryptoKey,
-    length: number,
-  ): Promise<ArrayBuffer> {
-    const prefix = "Failed to execute 'deriveBits' on 'SubtleCrypto'";
-    requiredArguments(arguments.length, 3, prefix);
-
-    // TODO: real input validation - CX-4399
-
-    // 2.
-    const normalizedAlgorithm = normalizeAlgorithmDeriveBits(algorithm);
-    // 4-6.
-    const result = await deriveBits(normalizedAlgorithm, baseKey, length);
-    // 7.
-    if (normalizedAlgorithm.name !== baseKey[_algorithm].name) {
-      throw new DOMException("Invalid algorithm name", "InvalidAccessError");
-    }
-    // 8.
-    if (!baseKey[_usages].includes("deriveBits")) {
-      throw new DOMException(
-        "baseKey usages does not contain `deriveBits`",
-        "InvalidAccessError",
-      );
-    }
-    // 9-10.
-    return result;
-  }
-
-  async deriveKey(
-    algorithm:
-      | AlgorithmIdentifier
-      | EcdhKeyDeriveParams
-      | HkdfParams
-      | Pbkdf2Params,
-    baseKey: CryptoKey,
-    derivedKeyType:
-      | AlgorithmIdentifier
-      | HkdfParams
-      | Pbkdf2Params
-      | AesDerivedKeyParams
-      | HmacImportParams,
-    extractable: boolean,
-    keyUsages: Array<KeyUsage>,
-  ): Promise<CryptoKey> {
-    const prefix = "Failed to execute 'deriveKey' on 'SubtleCrypto'";
     requiredArguments(arguments.length, 5, prefix);
-    // TODO: real input validation for buffers.
-
-    // 2-3.
-    const normalizedAlgorithm = normalizeAlgorithmDeriveBits(algorithm);
-
-    // 4-5.
-    const normalizedDerivedKeyAlgorithmImport =
-      normalizeAlgorithmImportKey(derivedKeyType);
-
-    // 6-7.
-    const normalizedDerivedKeyAlgorithmLength =
-      normalizeAlgorithmGetKeyLength(derivedKeyType);
-
-    // 8-10.
-
-    // 11.
-    if (normalizedAlgorithm.name !== baseKey[_algorithm].name) {
-      throw new DOMException("Invalid algorithm name", "InvalidAccessError");
-    }
-
-    // 12.
-    if (!baseKey[_usages].includes("deriveKey")) {
-      throw new DOMException(
-        "baseKey usages does not contain `deriveKey`",
-        "InvalidAccessError",
-      );
-    }
-
-    // 13.
-    const length = getKeyLength(normalizedDerivedKeyAlgorithmLength);
-
-    // 14.
-    const secret = await deriveBits(normalizedAlgorithm, baseKey, length);
-
-    // 15.
-    const result = await this.importKey(
-      "raw",
-      secret,
-      normalizedDerivedKeyAlgorithmImport,
+    return performOp(
+      "crypto/subtle/importKey",
+      format,
+      keyData,
+      algorithm,
       extractable,
       keyUsages,
     );
+  }
 
-    // 16.
-    if (
-      ["private", "secret"].includes(result[_type]) &&
-      keyUsages.length === 0
-    ) {
-      throw new SyntaxError("Invalid key usages");
-    }
-    // 17.
+  async exportKey(
+    format: "jwk" | "pkcs8" | "raw" | "spki",
+    key: CryptoKey,
+  ): Promise<ArrayBuffer | JsonWebKey> {
+    const prefix = "Failed to execute 'exportKey' on 'SubtleCrypto'";
+    requiredArguments(arguments.length, 2, prefix);
+    const result = performOp("crypto/subtle/exportKey", format, key) as
+      | ArrayBuffer
+      | JsonWebKey;
     return result;
+  }
+
+  async deriveBits(algorithm: any, baseKey: any, length: any) {
+    const prefix = "Failed to execute 'deriveBits' on 'SubtleCrypto'";
+    requiredArguments(arguments.length, 3, prefix);
+    return performOp(
+      "crypto/subtle/deriveBits",
+      algorithm,
+      baseKey,
+      length,
+    ) as ArrayBuffer;
+  }
+
+  async deriveKey(
+    algorithm: any,
+    baseKey: any,
+    derivedKeyType: any,
+    extractable: any,
+    keyUsages: any,
+  ) {
+    const prefix = "Failed to execute 'deriveKey' on 'SubtleCrypto'";
+    requiredArguments(arguments.length, 5, prefix);
+    return performOp(
+      "crypto/subtle/deriveKey",
+      algorithm,
+      baseKey,
+      derivedKeyType,
+      extractable,
+      keyUsages,
+    );
   }
 
   async verify(
@@ -610,126 +195,13 @@ class SubtleCrypto {
   ) {
     const prefix = "Failed to execute 'verify' on 'SubtleCrypto'";
     requiredArguments(arguments.length, 4, prefix);
-
-    // TODO: real input validation for buffers.
-
-    // 2.
-    const signatureCopy = copyBuffer(signature);
-
-    // 3.
-    const dataCopy = copyBuffer(data);
-
-    const normalizedAlgorithm = normalizeAlgorithmVerify(algorithm);
-
-    const handle = key[_handle];
-    const keyData = KEY_STORE.get(handle);
-
-    // 8.
-    if (normalizedAlgorithm.name !== key.algorithm.name) {
-      throw new DOMException(
-        "Verifying algorithm doesn't match key algorithm.",
-        "InvalidAccessError",
-      );
-    }
-
-    // 9.
-    if (!key.usages.includes("verify")) {
-      throw new DOMException(
-        "Key does not support the 'verify' operation.",
-        "InvalidAccessError",
-      );
-    }
-
-    const algorithmName = normalizedAlgorithm.name;
-    switch (algorithmName) {
-      case "RSASSA-PKCS1-v1_5": {
-        if (key[_type] !== "public") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-
-        const hashAlgorithm = key[_algorithm].hash.name;
-        return await performOp("crypto/verify", {
-          key: keyData,
-          algorithm: "RSASSA-PKCS1-v1_5",
-          hash: hashAlgorithm,
-          signature,
-          data: dataCopy,
-        });
-      }
-      case "RSA-PSS": {
-        if (key[_type] !== "public") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-
-        const hashAlgorithm = key[_algorithm].hash.name;
-        return await performOp("crypto/verify", {
-          key: keyData,
-          algorithm: "RSA-PSS",
-          hash: hashAlgorithm,
-          signature,
-          saltLength: normalizedAlgorithm.saltLength,
-          data: dataCopy,
-        });
-      }
-      case "HMAC": {
-        const hash = key[_algorithm].hash.name;
-        return performOp("crypto/verify", {
-          key: keyData,
-          algorithm: "HMAC",
-          hash,
-          signature: signatureCopy,
-          data: dataCopy,
-        });
-      }
-      case "ECDSA": {
-        // 1.
-        if (key[_type] !== "public") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-        // 2.
-        const hash = normalizedAlgorithm.hash.name;
-
-        if (
-          (key[_algorithm].namedCurve === "P-256" && hash !== "SHA-256") ||
-          (key[_algorithm].namedCurve === "P-384" && hash !== "SHA-384")
-        ) {
-          throw new DOMException("Not implemented", "NotSupportedError");
-        }
-
-        // 3-8.
-        return await performOp("crypto/verify", {
-          key: keyData,
-          algorithm: "ECDSA",
-          hash,
-          signature,
-          namedCurve: key[_algorithm].namedCurve,
-          data: dataCopy,
-        });
-      }
-      case "Ed25519": {
-        // 1.
-        if (key[_type] !== "public") {
-          throw new DOMException(
-            "Key type not supported",
-            "InvalidAccessError",
-          );
-        }
-
-        return performOp("crypto/verifyEd25519", keyData, dataCopy, signature);
-      }
-    }
-
-    algorithmName satisfies never;
-    throw new TypeError(`Unknown algorithm name ${algorithmName}`);
+    return performOp(
+      "crypto/subtle/verify",
+      algorithm,
+      key,
+      signature,
+      data,
+    ) as boolean;
   }
 
   async wrapKey() {
@@ -752,35 +224,12 @@ class SubtleCrypto {
   ): Promise<CryptoKeyPair | CryptoKey> {
     const prefix = "Failed to execute 'generateKey' on 'SubtleCrypto'";
     requiredArguments(arguments.length, 3, prefix);
-
-    const normalizedAlgorithm = normalizeAlgorithmGenerateKey(algorithm);
-    const algorithmName = normalizedAlgorithm.name;
-    switch (algorithmName) {
-      case "HMAC": {
-        return GenerateKey.hmac(normalizedAlgorithm, extractable, keyUsages);
-      }
-      case "ECDH":
-      case "ECDSA":
-      case "RSASSA-PKCS1-v1_5":
-      case "RSA-PSS":
-      case "RSA-OAEP":
-      case "Ed25519": {
-        return GenerateKey.keyPair(normalizedAlgorithm, extractable, keyUsages);
-      }
-      case "AES-CTR":
-      case "AES-CBC":
-      case "AES-GCM":
-      case "AES-KW": {
-        return GenerateKey.aes(normalizedAlgorithm, extractable, keyUsages);
-      }
-      case "X25519": {
-        return throwUncatchableDeveloperError(
-          "Generating X25519 keys is not yet supported",
-        );
-      }
-    }
-    algorithmName satisfies never;
-    throw new DOMException("Not implemented", "NotSupportedError");
+    return performOp(
+      "crypto/subtle/generateKey",
+      algorithm,
+      extractable,
+      keyUsages,
+    ) as CryptoKey | CryptoKeyPair;
   }
 
   inspect() {
@@ -788,9 +237,24 @@ class SubtleCrypto {
   }
 }
 
+Object.defineProperty(SubtleCrypto.prototype, Symbol.toStringTag, {
+  value: "SubtleCrypto",
+  writable: false,
+  enumerable: false,
+});
+
+const subtleImpl: SubtleCrypto = Object.create(SubtleCrypto.prototype);
+
 export const setupCrypto = (global: any) => {
-  global.Crypto = Crypto;
-  global.crypto = Object.create(Crypto.prototype);
-  global.CryptoKey = CryptoKey;
-  global.SubtleCrypto = SubtleCrypto;
+  Object.defineProperty(global, "Crypto", { value: Crypto, enumerable: false });
+  Object.defineProperty(global, "SubtleCrypto", {
+    value: SubtleCrypto,
+    enumerable: false,
+  });
+  const cryptoImpl = Object.create(Crypto.prototype);
+  Object.defineProperty(global, "crypto", {
+    get() {
+      return cryptoImpl;
+    },
+  });
 };

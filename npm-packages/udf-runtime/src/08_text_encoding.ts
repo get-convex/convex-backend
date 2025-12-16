@@ -3,7 +3,7 @@
 // https://github.com/denoland/deno/blob/main/LICENSE.md
 
 import { performOp } from "udf-syscall-ffi";
-import { copyBuffer } from "./crypto/helpers.js";
+import { copyBuffer } from "./helpers.js";
 import inspect from "object-inspect";
 
 class TextEncoder {

@@ -136,6 +136,7 @@ fn main() -> anyhow::Result<()> {
     // Note that we only include the component directory,`convex` directory, and
     // package.json so we ignore changes to rush files.
     rerun_if_changed("../../npm-packages/udf-tests/convex/")?;
+    rerun_if_changed("../../npm-packages/udf-tests/src/")?;
     rerun_if_changed("../../npm-packages/udf-tests/package.json")?;
     rerun_if_changed("../../npm-packages/component-tests/package.json")?;
     for component in COMPONENTS {

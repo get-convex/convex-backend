@@ -14,6 +14,7 @@ mod random;
 mod storage;
 mod stream;
 mod structured_clone;
+mod subtle_crypto;
 mod text;
 mod time;
 mod validate_args;
@@ -34,10 +35,6 @@ use common::{
         EnvVarName,
         EnvVarValue,
     },
-};
-use crypto::{
-    op_crypto_decrypt,
-    op_crypto_encrypt,
 };
 use deno_core::{
     v8,
@@ -67,29 +64,8 @@ use self::{
         op_console_trace,
     },
     crypto::{
-        op_crypto_base64_url_decode,
-        op_crypto_base64_url_encode,
-        op_crypto_derive_bits,
-        op_crypto_digest,
-        op_crypto_export_key,
-        op_crypto_export_pkcs8_ed25519,
-        op_crypto_export_pkcs8_x25519,
-        op_crypto_export_spki_ed25519,
-        op_crypto_export_spki_x25519,
-        op_crypto_generate_key_bytes,
-        op_crypto_generate_keypair,
         op_crypto_get_random_values,
-        op_crypto_import_key,
-        op_crypto_import_pkcs8_ed25519,
-        op_crypto_import_pkcs8_x25519,
-        op_crypto_import_spki_ed25519,
-        op_crypto_import_spki_x25519,
-        op_crypto_jwk_x_ed25519,
         op_crypto_random_uuid,
-        op_crypto_sign,
-        op_crypto_sign_ed25519,
-        op_crypto_verify,
-        op_crypto_verify_ed25519,
     },
     database::op_get_table_mapping,
     environment_variables::op_environment_variables_get,
@@ -107,6 +83,7 @@ use self::{
         op_url_stringify_url_search_params,
         op_url_update_url_info,
     },
+    random::op_random,
     storage::{
         async_op_storage_get,
         async_op_storage_store,
@@ -132,10 +109,6 @@ use self::{
         op_now,
     },
     validate_args::op_validate_args,
-};
-pub use self::{
-    crypto::CryptoOps,
-    random::op_random,
 };
 use crate::{
     environment::{
@@ -402,29 +375,30 @@ pub fn run_op<'b, P: OpProvider<'b>>(
 
         "crypto/randomUUID" => op_crypto_random_uuid(provider, args, rv)?,
         "crypto/getRandomValues" => op_crypto_get_random_values(provider, args, rv)?,
-        "crypto/sign" => op_crypto_sign(provider, args, rv)?,
-        "crypto/signEd25519" => op_crypto_sign_ed25519(provider, args, rv)?,
-        "crypto/verify" => op_crypto_verify(provider, args, rv)?,
-        "crypto/verifyEd25519" => op_crypto_verify_ed25519(provider, args, rv)?,
-        "crypto/deriveBits" => op_crypto_derive_bits(provider, args, rv)?,
-        "crypto/digest" => op_crypto_digest(provider, args, rv)?,
-        "crypto/encrypt" => op_crypto_encrypt(provider, args, rv)?,
-        "crypto/decrypt" => op_crypto_decrypt(provider, args, rv)?,
-        "crypto/importKey" => op_crypto_import_key(provider, args, rv)?,
-        "crypto/importSpkiEd25519" => op_crypto_import_spki_ed25519(provider, args, rv)?,
-        "crypto/importPkcs8Ed25519" => op_crypto_import_pkcs8_ed25519(provider, args, rv)?,
-        "crypto/importSpkiX25519" => op_crypto_import_spki_x25519(provider, args, rv)?,
-        "crypto/importPkcs8X25519" => op_crypto_import_pkcs8_x25519(provider, args, rv)?,
-        "crypto/base64UrlEncode" => op_crypto_base64_url_encode(provider, args, rv)?,
-        "crypto/base64UrlDecode" => op_crypto_base64_url_decode(provider, args, rv)?,
-        "crypto/exportKey" => op_crypto_export_key(provider, args, rv)?,
-        "crypto/exportSpkiEd25519" => op_crypto_export_spki_ed25519(provider, args, rv)?,
-        "crypto/exportPkcs8Ed25519" => op_crypto_export_pkcs8_ed25519(provider, args, rv)?,
-        "crypto/JwkXEd25519" => op_crypto_jwk_x_ed25519(provider, args, rv)?,
-        "crypto/exportSpkiX25519" => op_crypto_export_spki_x25519(provider, args, rv)?,
-        "crypto/exportPkcs8X25519" => op_crypto_export_pkcs8_x25519(provider, args, rv)?,
-        "crypto/generateKeyPair" => op_crypto_generate_keypair(provider, args, rv)?,
-        "crypto/generateKeyBytes" => op_crypto_generate_key_bytes(provider, args, rv)?,
+        "crypto/subtle/decrypt" => subtle_crypto::op_crypto_subtle_decrypt(provider, args, rv)?,
+        "crypto/subtle/deriveBits" => {
+            subtle_crypto::op_crypto_subtle_derive_bits(provider, args, rv)?
+        },
+        "crypto/subtle/deriveKey" => {
+            subtle_crypto::op_crypto_subtle_derive_key(provider, args, rv)?
+        },
+        "crypto/subtle/digest" => subtle_crypto::op_crypto_subtle_digest(provider, args, rv)?,
+        "crypto/subtle/encrypt" => subtle_crypto::op_crypto_subtle_encrypt(provider, args, rv)?,
+        "crypto/subtle/exportKey" => {
+            subtle_crypto::op_crypto_subtle_export_key(provider, args, rv)?
+        },
+        "crypto/subtle/generateKey" => {
+            subtle_crypto::op_crypto_subtle_generate_key(provider, args, rv)?
+        },
+        "crypto/subtle/importKey" => {
+            subtle_crypto::op_crypto_subtle_import_key(provider, args, rv)?
+        },
+        "crypto/subtle/sign" => subtle_crypto::op_crypto_subtle_sign(provider, args, rv)?,
+        "crypto/subtle/unwrapKey" => {
+            subtle_crypto::op_crypto_subtle_unwrap_key(provider, args, rv)?
+        },
+        "crypto/subtle/verify" => subtle_crypto::op_crypto_subtle_verify(provider, args, rv)?,
+        "crypto/subtle/wrapKey" => subtle_crypto::op_crypto_subtle_wrap_key(provider, args, rv)?,
         _ => {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "UnknownOperation",

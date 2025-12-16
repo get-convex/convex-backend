@@ -29,6 +29,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use rand::Rng as _;
 use value::heap_size::{
     HeapSize,
     WithHeapSize,
@@ -36,6 +37,10 @@ use value::heap_size::{
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
+    convert_v8::{
+        JsException,
+        ToV8 as _,
+    },
     environment::{
         IsolateEnvironment,
         UncatchableDeveloperError,
@@ -60,7 +65,6 @@ use crate::{
     ops::{
         run_op,
         start_async_op,
-        CryptoOps,
     },
     strings,
     termination::{
@@ -163,15 +167,13 @@ impl HeapSize for StreamListener {
 
 impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
     pub fn create_blob_part(&mut self, bytes: bytes::Bytes) -> anyhow::Result<uuid::Uuid> {
-        let rng = self.environment.rng()?;
-        let uuid = CryptoOps::random_uuid(rng)?;
+        let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.blob_parts.insert(uuid, bytes);
         Ok(uuid)
     }
 
     pub fn create_stream(&mut self) -> anyhow::Result<uuid::Uuid> {
-        let rng = self.environment.rng()?;
-        let uuid = CryptoOps::random_uuid(rng)?;
+        let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.streams.insert(uuid, Ok(ReadableStream::default()));
         Ok(uuid)
     }
@@ -186,8 +188,7 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
         &mut self,
         decoder: TextDecoderResource,
     ) -> anyhow::Result<uuid::Uuid> {
-        let rng = self.environment.rng()?;
-        let uuid = CryptoOps::random_uuid(rng)?;
+        let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.text_decoders.insert(uuid, decoder);
         Ok(uuid)
     }
@@ -380,6 +381,17 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
             scope.throw_exception(exception);
             return;
         }
+
+        let err = match err.downcast::<JsException>() {
+            Ok(js_exception) => match js_exception.to_v8(scope) {
+                Ok(e) => {
+                    scope.throw_exception(e);
+                    return;
+                },
+                Err(e) => e,
+            },
+            Err(e) => e,
+        };
 
         if err.is_deterministic_user_error() {
             let message = err.user_facing_message();

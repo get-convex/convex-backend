@@ -3,6 +3,7 @@
 import { wrapInTests } from "./testHelpers";
 import { assert, expect } from "chai";
 import { action, query } from "../_generated/server.js";
+import { generateData, consumeData } from "../../src/crypto_interop";
 
 // -----------------------------------------------------------------------------
 // Begin tests from Deno
@@ -82,6 +83,22 @@ function randomUUID() {
   // vaguely resembles what browsers do
   assert.strictEqual(crypto.randomUUID().length, 36);
   assert.isString(crypto.randomUUID());
+}
+
+async function testX25519GenerateKey() {
+  const { privateKey, publicKey } = (await crypto.subtle.generateKey(
+    "X25519",
+    false,
+    ["deriveBits"],
+  )) as CryptoKeyPair;
+  assert.strictEqual(privateKey.extractable, false);
+  assert.deepEqual(privateKey.usages, ["deriveBits"]);
+  assert.deepEqual(privateKey.algorithm, { name: "X25519" });
+  assert.deepEqual(privateKey.type, "private");
+  assert.strictEqual(publicKey.extractable, true);
+  assert.deepEqual(publicKey.usages, []);
+  assert.deepEqual(publicKey.algorithm, { name: "X25519" });
+  assert.deepEqual(publicKey.type, "public");
 }
 
 // https://github.com/denoland/deno/issues/11664
@@ -186,52 +203,62 @@ const hashPlainTextVector = [
   },
 ];
 
-// async function testEncryptDecrypt() {
-//   const subtle = crypto.subtle;
-//   assert(subtle);
-//   for (const { hash, plainText } of hashPlainTextVector) {
-//     const keyPair = await subtle.generateKey(
-//       {
-//         name: "RSA-OAEP",
-//         modulusLength: 2048,
-//         publicExponent: new Uint8Array([1, 0, 1]),
-//         hash,
-//       },
-//       true,
-//       ["encrypt", "decrypt"],
-//     );
+async function testOaepEncryptDecrypt() {
+  const subtle = crypto.subtle;
+  assert(subtle);
+  for (const { hash, plainText } of hashPlainTextVector) {
+    const keyPair = await subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash,
+      },
+      true,
+      ["encrypt", "decrypt"],
+    );
 
-//     const encryptAlgorithm = { name: "RSA-OAEP" };
-//     const cipherText = await subtle.encrypt(
-//       encryptAlgorithm,
-//       keyPair.publicKey,
-//       plainText,
-//     );
+    const encryptAlgorithm = { name: "RSA-OAEP" };
+    const cipherText = await subtle.encrypt(
+      encryptAlgorithm,
+      keyPair.publicKey,
+      plainText,
+    );
 
-//     assert(cipherText);
-//     assert(cipherText.byteLength > 0);
-//     assert.equal(cipherText.byteLength * 8, 2048);
-//     assert(cipherText instanceof ArrayBuffer);
+    assert(cipherText);
+    assert(cipherText.byteLength > 0);
+    assert.equal(cipherText.byteLength * 8, 2048);
+    assert.instanceOf(cipherText, ArrayBuffer);
 
-//     const decrypted = await subtle.decrypt(
-//       encryptAlgorithm,
-//       keyPair.privateKey,
-//       cipherText,
-//     );
-//     assert(decrypted);
-//     assert(decrypted instanceof ArrayBuffer);
-//     assert.equal(new Uint8Array(decrypted), plainText);
+    const decrypted = await subtle.decrypt(
+      encryptAlgorithm,
+      keyPair.privateKey,
+      cipherText,
+    );
+    assert(decrypted);
+    assert.instanceOf(decrypted, ArrayBuffer);
+    assert.deepEqual(new Uint8Array(decrypted), plainText);
 
-//     const badPlainText = new Uint8Array(plainText.byteLength + 1);
-//     badPlainText.set(plainText, 0);
-//     badPlainText.set(new Uint8Array([32]), plainText.byteLength);
-//     await assertRejects(async () => {
-//       // Should fail
-//       await subtle.encrypt(encryptAlgorithm, keyPair.publicKey, badPlainText);
-//       throw new TypeError("unreachable");
-//     }, DOMException);
-//   }
-// }
+    await expect(
+      subtle.decrypt(
+        encryptAlgorithm,
+        keyPair.privateKey,
+        new ArrayBuffer(256),
+      ),
+    )
+      .to.eventually.be.rejectedWith(DOMException, "OAEP decryption failed")
+      .and.have.property("name", "OperationError");
+
+    const badPlainText = new Uint8Array(plainText.byteLength + 1);
+    badPlainText.set(plainText, 0);
+    badPlainText.set(new Uint8Array([32]), plainText.byteLength);
+    await expect(
+      subtle.encrypt(encryptAlgorithm, keyPair.publicKey, badPlainText),
+    )
+      .to.eventually.be.rejectedWith(DOMException, "OAEP encryption failed")
+      .and.have.property("name", "OperationError");
+  }
+}
 
 async function testGenerateRSAKey() {
   const subtle = crypto.subtle;
@@ -297,6 +324,16 @@ async function testECDSASignVerify() {
     encoded,
   );
   assert(verified);
+
+  // A signature of the wrong length should fail to verify
+  assert.isFalse(
+    await crypto.subtle.verify(
+      { hash: { name: "SHA-384" }, name: "ECDSA" },
+      key.publicKey,
+      new Uint8Array([1]),
+      encoded,
+    ),
+  );
 }
 
 // Tests the "bad paths" as a temporary replacement for sign_verify/ecdsa WPT.
@@ -318,7 +355,9 @@ async function testECDSASignVerifyFail() {
       key.publicKey,
       new Uint8Array([1]),
     ),
-  ).to.be.rejectedWith(DOMException);
+  )
+    .to.eventually.be.rejectedWith(DOMException)
+    .and.have.property("name", "InvalidAccessError");
 
   // Do a valid sign for later verifying.
   const signature = await crypto.subtle.sign(
@@ -335,7 +374,9 @@ async function testECDSASignVerifyFail() {
       signature,
       encoded,
     ),
-  ).to.be.rejectedWith(DOMException);
+  )
+    .to.eventually.be.rejectedWith(DOMException)
+    .and.have.property("name", "InvalidAccessError");
 }
 
 // https://github.com/denoland/deno/issues/11313
@@ -757,11 +798,12 @@ async function importNonInteroperableRsaPkcs8() {
         true,
         ["sign"],
       ),
-    ).to.be.rejectedWith(
-      // TODO: should be thrown as DOMException
-      // DOMException,
-      "unsupported algorithm",
-    );
+    )
+      .to.eventually.be.rejectedWith(
+        DOMException,
+        "algorithm is not rsaEncryption",
+      )
+      .and.have.property("name", "DataError");
   }
 }
 
@@ -783,6 +825,22 @@ const jwtRSAKeys = {
       dp: "qdd_QUzcaB-6jkKo1Ug-1xKIAgDLFsIjJUUfWt_iHL8ti2Kl2dOnTcCypgebPm5TT1bqHN-agGYAdK5zpX2UiQ",
       dq: "hNRfwOSplNfhLvxLUN7a2qA3yYm-1MSz_1DWQP7srlLORlUcYPht2FZmsnEeDcAqynBGPQUcbG2Av_hgHz2OZw",
       qi: "zbpJQAhinrxSbVKxBQ2EZGFUD2e3WCXbAJRYpk8HVQ5AA52OhKTicOye2hEHnrgpFKzC8iznTsCG3FMkvwcj4Q",
+    },
+    signatures: {
+      PS1: "aOn+h+tNHkk6B948btJoS4ydgbFHiT28LbAXA2liFRF0Ef/WBdjptCuYE8I96fA7nEB+yRFTzsP+hYSom5HNGeVZx+Nt1O+hzcWwgzNcJttPbcXk+2HFv0FCD3coLjF2wjGfKNbTB1w6jj87BnmXrkrVAyStJciC+hSoblNEgn4=",
+      PS256:
+        "ChAa0ltw+KN3jER/b0xyKkc39WtQnLmYu+6/1eI0KDVmjqaKlgJeCchfJN/p/TQWSPG3ZwoBklTbUnRyAJSn2Ibrmt1d2yK4wSHTbXr3fNPtfiYZ6o5zwGRKfM7G5wsdVaC0Ur+xK5WxAd5mJj/zP0nCXIqOScmRAQ0j9Rbc8Kw=",
+      PS384:
+        "BdGI8SR9zuvuAbGlS+V0lbRVv0MrKd3GX1bD/zgHVVNnJHNQHK/c7L9DYrS7ZS3As4dS5VA1+EY7APjFyvWO7u9ghbX8VfctBisJEXkA+09xWRDjdbCWi/NEK+S/kzyDshzoapzCMwfundWOhUswldg6gAsk4d+sHhi9RD/KzFE=",
+      PS512:
+        "aHkYwDFS5XlCHP8lDNZCWVLlb6m88HbFDgIRmeXndoGhFhkOjwG3cWKzNcXcQom9avyHCdIhPTPm7bbdeVzA7QEZRZoOKKFDtrfBFtMMd3qrupYEEzkNjAdkkOopZSxEFV39siloR2MzJsbx7lOQltlYuFf1OBkLvJ8Ts0uUiTw=",
+      RS1: "qGsvGdj6HfALDHHUcJwZ/UMUhW4Q8nlyZnnHuEdVo0cjhENWGS9+xu2jzJwbZUXsZfXl3aJIzc8m1eat44G/aAntn4+YHGq48eqvhPZg4ecvFrMi/8MBe8cAD0KleYGS72SZYs1wxcVgDIrONF8+cWxpsQPT1HL4BPGW1s0Rkno=",
+      RS256:
+        "miOVQjzG3cxFCZXCx7DE/zQ9K+WqhPWfsqY8Gwr6ZoawrV2PspzfWZoDQXu8Y66Bqt+6zwOoQKRXBQORojLDV6vT1LQFo5G6qfNGYS0RLGOJyZ095831rvjC19H/8ky6gZsjiMyYrs4v93GcBA9FM+oBcvpKfQUzvcqGh+f59i0=",
+      RS384:
+        "M/K8fTsMcWE1OHkqlHYh6OwsjqKqR+10lnyJAR4HjMbqSNh/Li7mGUzNyi9fota9BykGii0zOkoOWnVFUUJH+8rNOEV5EubPjf4hiTiMYZMArPnqZCTvFIQat+o6Y/CaK1zedzOyPPc9zLCdHhRqXadhe8oEcHDtz83G6KVzn7s=",
+      RS512:
+        "wnzWMG9C5W5qRlmJyvQzfV6K9n3lo5whOd/BzhrKOJck0WAcVgxugrzFeK3YxjiJddpgdaUccmEqJ96fHpXaOmHmWuhUZV5StndJvCT/TEledFD1YW9amNnYCqW5vkQT4er1gr4HSeAF4DV5lhnvW4OiS0uVDamBQ5zHx3LyDVM=",
     },
   },
 
@@ -806,6 +864,22 @@ const jwtRSAKeys = {
       q: "5HqMHLzb4IgXhUl4pLz7E4kjY8PH2YGzaQfK805zJMbOXzmlZK0hizKo34Qqd2nB9xos7QgzOYQrNfSWheARwVsSQzAE0vGvw3zHIPP_lTtChBlCTPctQcURjw4dXcnK1oQ-IT321FNOW3EO-YTsyGcypJqJujlZrLbxYjOjQE8",
       qi: "OQXzi9gypDnpdHatIi0FaUGP8LSzfVH0AUugURJXs4BTJpvA9y4hcpBQLrcl7H_vq6kbGmvC49V-9I5HNVX_AuxGIXKuLZr5WOxPq8gLTqHV7X5ZJDtWIP_nq2NNgCQQyNNRrxebiWlwGK9GnX_unewT6jopI_oFhwp0Q13rBR0",
     },
+    signatures: {
+      PS1: "F2BNRubNQEV2UQmCbXfvbP9SVouSapg8jk9FstJGIWVG+0aJT7kZ18axS2hu0vYNqLPPxTecbVCLev38NCOLyOmtG27EFE0fAC57bEA8j/Vdf2ld619XTCMHCHHWq6jvyElpcC0MaERn1CgEseICIskOKYyhYZ9llF+7hcoEqA5h2R9Gw4Ki/14h7gQxi6VkyRxagDR5NH2CIFtFrcO9UaBrncpQvDMq82E+02ut+ytFq2sX/hR3hv1HfcFeiVIAS8OMc5QZHbJaQHSMq07J8v1IXIAl/M0qIBNgJLJYEm3I+k74dRGcYhbKKTRzNgkn7NS6//+w29npjh04P4IxEg==",
+      PS256:
+        "GNk2xMfkt1zvug6d7qWDvW3jDo9AL3ja3HWSits2u+AJ7KoIEai7niiRfqraC7pcV9z4sDiZBSQGBAItWqTRhAh/sBxl/e1PGWxOBtlHLWdk8k3pQACacBfHpLeG3oHoOa3PSmsxA38ltYlLE0Gblu8VW4vMstd8rJPLi441eJn/hv29olubCqxcgxKibvXpYRwJ/fS+TeI1IVFFB0H5yQjOdRFlTClOyaIhSyojRdtXbrw8SXg5qB+ZBP3qno4b8la/S8tiKd4fv8TsyhmhFkTCYeUJlgo0IaNw3ZYxwoNpbDxxD4hrkagRjTe9nfdWGOyHphA6A9IxDjU7nklh2g==",
+      PS384:
+        "T9b52Ue9/M57xWUXBTGGkWGKvEi8+GXxxRQMCM7MUF+tf7jg60NU22RHkLU6HWdsKsagT3nZ5A/DMEUvgNgWdYh39aeoB7nO4KkVEBEbVM8GmdsKE4CjPJIQG/0aKfb5uaYoGDdVoxUEqnp94+P+0jPD4hk8281kEEYw+ZdDWEhXb6oODLTM3nDD2Wp6aA1h/qjvogQ+H/TkuyexWKFU6AatfMkZxrt7QQoO27Zv3TFPpAVgvFeSqQx2UZl5PCroNOyEoIecnC2p2kS72DjLDuIj3K/3TKkuPI2YpRcyP7xsb7EQSEzxzR+ATIY08YL3NitEPFEq2i5IRlLIyUeLBQ==",
+      PS512:
+        "fVSPVfSplUmfS5LyAsMsjKAJFnCfMUTCRTyWwA7RWA293ULI1VqZdoo7Paw/5pdcUTHYz7IGItsaAqEe/EFK179VFawWaw5ygPFUBTZEtuFToR2kEF8MiXGIY6uRtQER7p7VE23HL1OHFAWN8EZLLuKdJ7JO8pK2NKftDOBZ7Mn9BQ67rpCxelS7ynfqmruoNotNm5zz/Gtq1rPBHqBr7pLGSdFmQMNgVTbyRRgDoh0Lz6IWNWVMzeR9hD/sBC3r8ldd3EH4iGhxx9tJeu4nLnQUD1laAqXZ1OB+P5KFN8Stwd4D7XX71xOkfa8vZN157UlQp+Cc7usPDFTf6vVeBg==",
+      RS1: "Wgd/3kWFGLIPwWi4ZPdr0U2hNi1zb4Q4xyjFmz+qNyXAAls6s56277+I5yxGAOEx0rsiEZTJs+NK/9JEFIeqPIX1MViytUcHpfSvpnc/ZRnD3V6r3xgUOnrWuCd2kvohj7mOGefFK6D38i4nOZ72j6KmZKU7vsg0o+fN7vKTZxy7B2KJYqQ08BeJjbmfEN+MaNXA+fxcpzMlwvrir5QhS0K3A5d3ioagn3tuPP4HZis2yziOZTO+Nfn02v3oJMhvUABwZyxJG/h7ZwcnbQAKarD7p68rQWQQKA/VpAmAY2IvArjA4dBQZP+xgs+16HeYWk5ZtElC3TjVvxbQfGaPpA==",
+      RS256:
+        "Y4nhtBnxNsINRRSVp0g7fnlHsZ5PRm9gmsGN5+tw2Fpm9QWsLXsZXeP5JknLFwmuyaXEMWGlDzZg2SE3EQIuBmYeJaUTRn9C3JE70O6UDB6UrKzRLswWXNZ5CVgsIqIA1CZnLYwaeHp400l97ZsS81aKBWtiDISy/e5ng3DgAx6Pfyel/0alb+2ko/BJtnAhYVCUBbh2vAcmsQIQ4kePtjc/eC7E7H1KVBBoLlAQmZs7EtlJxTrMUk4b1k8CLb4nsxEeS1chK6+Zi9tQTFp7A/jC2Xres/J5wRhyI7EwqBC++asL3U4wyxhYH0FvWrIqnPpRHCYY14kIpEZUawo2Iw==",
+      RS384:
+        "IWP/7/V43BVVigSEZKKt+Yn+Ok4NmbrX60Vx8CAdnOwjUgS8Usazmyc104z/gIrsiEeFTCaTyeZik1sGfAFb+rtNIcXdC1bzSKUW5kapjp74O572S4b2unXJr+bq8ayxOb+49fEmnb4K+cgvbzYsboJcY3MnqYydA29iNrZMmkMzimL618xIfDzQYe9RwkMGvIexIkHKCXYt9S+m8zgUn9CrDuc51gIPWiT0kORigM2DFmhHl7MeWSo+GFDsCJlwFKDY56QmHti2l98z9Sm0cSv7Ckq3Fo858u2Zyf/FbzJfYynNO8NIfvXWFy51wcYvLzS3esNC+02Fx2k4Nkvdxw==",
+      RS512:
+        "hGhPzYh9FtA0WPygZf8E7TXBBKJk/ybTKGp8S+X9CcGhT0fgHEvlgMZPEx7mXhYxOpPMbzF2SPBAx10WAxshZora4fO/2gDUrGFKvuVLltxd0H7pnU2U6Ciyi1ZbI9inZKWk53sbp4VANJlzDopISuqLPUZPxLpvXD+mZZb/RLCHaCV6Bx7DEvpvPE62mcKlv5yottmFSuu5O8T/pQjL7BdSf8dZHMhxg/mpoDZSp0cvKW5H4FglXU6WcvxACYtT6vHwYRCsmqb4bx/ImP6UOt2wGEQ5o1oysglxEj+tW02ihpZHABDX8AKAYcOISurB2qrOG4G7eLzmxFo8KhbRdA==",
+    },
   },
   "4096": {
     size: 4096,
@@ -825,6 +899,22 @@ const jwtRSAKeys = {
       dq: "gT4iPbfyHyVEwWyQb4X4grjvg7bXSKSwG1SXMDAOzV9tg7LwJjKYNy8gJAtJgNNVdsfVLs-E_Epzpoph1AIWO9YZZXkov6Yc9zyEVONMX9S7ReU74hTBd8E9b2lMfMg9ogYk9jtSPTt-6kigW4fOh4cHqZ6_tP3cgfLD3JZ8FDPHE4WaySvLDq49yUBO5dQKyIU_xV6OGhQjOUjP_yEoMmzn9tOittsIHTxbXTxqQ6c1FvU9O6YTv8Jl5_Cl66khfX1I1RG38xvurcHULyUbYgeuZ_Iuo9XreT73h9_owo9RguGT29XH4vcNZmRGf5GIvRb4e5lvtleIZkwJA3u78w",
       qi: "JHmVKb1zwW5iRR6RCeexYnh2fmY-3DrPSdM8Dxhr0F8dayi-tlRqEdnG0hvp45n8gLUskWWcB9EXlUJObZGKDfGuxgMa3g_xeLA2vmFQ12MxPsyH4iCNZvsgmGxx7TuOHrnDh5EBVnM4_de63crEJON2sYI8Ozi-xp2OEmAr2seWKq4sxkFni6exLhqb-NE4m9HMKlng1EtQh2rLBFG1VYD3SYYpMLc5fxzqGvSxn3Fa-Xgg-IZPY3ubrcm52KYgmLUGmnYStfVqGSWSdhDXHlNgI5pdAA0FzpyBk3ZX-JsxhwcnneKrYBBweq06kRMGWgvdbdAQ-7wSeGqqj5VPwA",
     },
+    signatures: {
+      PS1: "a38dFvL/hQ0qjBerIhwWynGC+6Yjj+QgdlrnvPcBCHidhy1rEKJ/nUqopaiC/M9FLSXexPAyY5++WgQwhDTOOqN6QnrcNAqAecGK9HnW14Gqybm0aJqRKYTLe2l+LC6r2Nxkjbc1EBl8vnMcUBBcNDyPOko+IxwIOZz4VYEuauPlNVi1RXA6Hjfbi8ISZHazosLRDOeG/beGzqZbjRAdQWA1I0MrxtIWgbo2Qq0iesRH5MyDm58vC+f7+7BnFztu6oZH5O9Q/UhsyFVYiACN4Tm8smEVtSr4mQSyPSJ9FfA9sRzQz7SQmD9l7qeS3Cup7J3QmlRRAPMDT2UZrNS+hFBGbPfAjWXaOdiEeZ8fx4vmzaSjwPn1/zgsvr2VCgXBrFLsWJJdzZrYLZtcntlR8Hypyf4D9C2o6Cj4YF/gBRDM49w22+JnJY0lsKypdWToe5lz7e+n2gFH62/I+grLF9okYUNedO6Mf6HlfqK8T0FnHEjXgf2F1+mcLPEQg6nNA8PKXv7bFmyhGUUSleyknYFlkhXLLuM50ESi50jyo+sWPzkd5URcxhQKsSPzdLu9zekXGQBOwS+Lj/fLmqmm5/v4dL+l4BEVPYAl3gKkbOIZhRIL4krrfKQxhuxVkKIPUO/OYjY4w0ZS7KznjK7GW71Mjy6jmqUEbHfipK7h3Ys=",
+      PS256:
+        "15bjguWMKU7Oig7k66IuL3nX/uaqgfOO83LBci3hSyzV1oiUQDS2noIAqb6EKnI9SWoSxHJlxMoq5FQKf+5+H3GCSgxvia28heBVAQycAPdAc1pTBAPsJqDYCTCXhrLFTR7UgQi8V/e2wBlf5SrmWRdBkJ5wxckHMvi3V//G4L4I7iUEdCOv3Bd4O197NpOYa0F+Ig3MFAIrufJu+y58Fs72ro07HD2UB7nJ43nFbTl1Yeda7uzaUzXZw+o2RfLHf2oa7w86P8BsYEOdz8dcVnepFnCqfu+aW1UlnwCCB5jmyixDrqxhqdiHiuug+rBiJOzuRQIIUdbRY/dU/ud7v5CGeZhk/V1R+6dq7FGL9UQPVPpkTwpQCdomLLYFyrrD46v9p19i3Le0k2ipvRJtLYX3OaAlozBcWQmymeaTBc4pAFhfp7DdfIUmtSrr2fmvx5zbQjPU82VXDo8AIJAnP+teep7pfcq+e9Tom9Yb1yyX0wty0IYqXrucpFgBaEzpyFtw+N4aPzuZIUzRkSsZMnuTpoQfkAiJURx7lhFU19e9zZW2phaSzhilVTfUcWXMW7/v6jqKK+ZS7e6EUcr0fbjOzrIQttfL5UrBDhPAmjo6FkFQ9VH9Ph9ABcWNhJYqfBy/C3Va0fln34ALKp0r1G9Z5ZNBCeNeOprHmWPKAbQ=",
+      PS384:
+        "IO5qJWTFlnm5LmgPMqoQ9rBbTOkj/GBLOhIM5xmxZtC0bZil1FUeGYnkNotGP91br8RTLtdUJ6yBJ1JzekOLZClMbFB4nC2i7cx8+O0YLeThxRkNbzOxUxYnlSCJkh+cW9oA0OSS5Bm/Wq8dDx/F5m7mkDeSEfLObkGNuEJ6aGRVNZPaYChZyGvu4saysB5L9d0rJFpf0LbutOhx2o+WCuR3HvkYv9kDlbIHWPuwAXMdvJjfS5GK8SgOlLr20+Ex2iPCOR/PZGIi8iC1XaGchicVfouE2Zsgxzbq2+BPXqHp63LwtTNHOrcP6wrp8zBbTlOKN/I+pR811lGcsr4jur2dNvZtsTszolrvyqg1i0YDd3Qb5AiDW6M6dh4/5tRMVqM0o8vCi84acHlDSdGCZKCKELlJxtPI4h5sSO2pv+IcfGLfJV16ZDquWOQCsYULt5UWvsjpT7C7ZgGh2ULnd5J5xbdTQ/ZRRme7lFR2cUgjQacuyDUSxguqwA9RypiGewz+FUZ/yzqlKeLLTxQbVsU800CANUxYsQXzKMV4VxArD19ZY5UjljC5t5jnfRwIQSbGri5UdUOgaxveLY0q/2gUJr/eryYw18QZ1KTWzInR+k1T2J4Q0toNBl7UcsD1qOcWeKSg2cv0Hn0W0XHDOnulsae6VHD+yQSX6XAikPI=",
+      PS512:
+        "uDxVnOzdKyy364+Z3eXEoLz3WPzyJxziQA9SIe37JZD2sARndTCPDDZesWg0V0/YVoEtsJnF+btG/lCIcUoRsklVKzahPEKfwrE0ABmy7F3Z4tv3C59SF4c5Pof7BaShHCCea+GFl22E5YZmrzLH0qpbt6Zd1fhYGGKF+r3E2qiYfoKmwMICvXu3Nn2bI5KUpjRVOYz1hmgKDeTf+6irmT58o30thO9peRukgB5DIOhq+227sN6qTbzCIWWIn4JIsv7p5T2pFl/JyKkWQV11+7stGzV1hQBL/SS1AqkiskZpm0756cyege3QnM8gPp/weUcsXeizay805qYCTXL9r+9p4unltlIkr9fL/c/HKJ01w6UN3FgfT0UqH8TdtoXUkW2LOxnQEtW9LuckYWMOPhQEeq45dTz9T9IMuQuZ6S84WN9ziAzF1xhpvEeas+LOy+h2G/y5+ggrrLnzoEWTTT3rZBrrLq31/3FHLl4BqK966zkMnCDooHB1i7Vr4UAsqQcG8lGd7+5q4irkNennmZkmXUdpW++ZxjCUk2e6dVDVp6Pi+IMEt7Fq8EmvevlBGWDTkRsynQsA7lIkc0JljECst/T29d6Pix5wqjLyWMMUyrdJeeGga8YKBRmP97IyTKwBOb5uSOFYngtZimDfPQ1Q53iIsc6RSBE6yltTIrs=",
+      RS1: "D2fun2Te/MX3iW6KJcLkmFiaCFqZKP6AFLvnLZUmEpHtYjJlJS2LQSBdmlgVmeNxiM+o8dVfaGbldlxjyd/uSZb/4ZNNJ00zubswfYOEQOSZ5qUTDSc5yHu3/nAiul922yhSQ4puFiuG4mnquZxxvoZTtgq8FFnOW6l0RLj/HtG2zZplGgk/Ax/Zbmlc1Em7os0BpyPY7TE1kWgTduh2AcwIFgLB+4gjdftzHFypPlLxKEjcGRhnsIMxXoJljfagTUjB1BmHvYPr8/hSmlDLPfhxkEsz7ZfNOrT3CaMgmEPOGFFDlkzYV+hK4HGGHeLXq4i/sefcdUX6LsOw8vfENHbGQDXXCjcjutsPUylll0OCluvAUYY+av2O++s1uR15c0Ef7qfP1WuNcQjk0UF9dkOYiMEuFuTZZ+r2FwGoxZ92wBXEZiUv5YOkccXRH27WHFaEz1IQZOQSMz43Nc4bt+f5wh/1ml6+8jAAiuUirTBb4B7UZw+5kTjd+G17g8oGXQs+V88E/p6Q3l42yL7e6Y2jau9Jd/uXmPfhmDr+aVM3ecnZPrhJjA73N+HRoEgTpSOx6nAwivsyMFcivPHvFXXh0C5Gx/tnbP2NBcm9492352NwuBOe3o5iBfY/tB4921m6AKr6u+j32isa4LYRaUhQOFEO3VlhxDf+D5Qa0Xs=",
+      RS256:
+        "1/SNd+ZxGQ1oDypzENJK/uORQpHamObdSa/sGo8R2O9XXC8COQKgxRRauhcRvcAxoDF+ApZc7Ua5hAuWJ9AGy8OmfguxIPQHcPGPZo8rwAC+MNMDR5xXtiW6ZUwZDDID4rT7dmlRYJfGBuTk1KRwH6dF9jiZwy8JplGVa+pO9YlI0ZnCCz1y8K1uaqk49tha6w8ZSMeQejtsLBTPQ+H4zqa+cCGPFN/6eclMxJR0nZgVv5kDnf+ZUJWnhYCdCp3Xm7vH/oOK4rOlsTCpJfxP6k+Ojnf+gVEcqQeM1GSqZlrdzWJk8cdneQIDJ531IsTMxQzlxwciICp6bN/qYMmANQdtEUqM8MBwFnu2nYozr9m6TQ/dXCqMy3c9A1Pyijc6xI1sWNFtDPe9k7oSv+/DblD0SLeshs+H2eiBoKUBn/XcWkigthNd/BC36r/70iJHcs6MNQZCH7Ti15YoI1G8NZvwJRs3rLsLLLN72g0YAhs2s5A5QVWB6inNTHMU7a2F2n0DpHswkezun/j+jfS3pVcvzt4awsc8C9llnIhvsujZ0EfPj4GlHUYiV2tku6fsUbbJ2MCzJbqCuXmc6p+2baNOGSkUqDM/pDoNoi3j5nn6R5JWfWSl+jGnPB/GkwrTQVQ86qjiQ5jQ44JN3RqJ7EzkFOe5uu6xiu+4z9k2+U4=",
+      RS384:
+        "PpiTKV8MXYlCVbEi1t4N8QSjZToXPrVLnh7Kt3HXdTkf88m5Sg4mU3ns/rQDqcYZcZTIYnGlW7w8lK4mHxAvB099dQNTXA5D3N8mXy/zy5eY2wzbTng09DgIBQmiNkNYzBOeJaeJWclTF/8NCJXbV6WlIyKc/xsJJ7VJ3btSm59qj2Nicqp8USdBVrBw9lIBUryc00iyWf1BuAnIWdI3jMyyC0lO9pulj4mROykkTbdGJN3EEiJQEV41Y2CFrenGqtgL0gj2BsR1RgcmUso/2ZEKUhe9Jnsfytj7vEYToxNH66QfzBZpw1UuwOiUpK7hf2UZ5Qqu1SWkJb5ZoG/nHx2L9xJsZEEPc2J0NjNB74THcw2TBsnYDzXjf6l0uAOgtFvnNv5ZxRCvjZKhZ6Kw1KpeK5UDmFTwL9V0ubmzZor6Gt7kXGLTWW/zo/lPMvLwgUc95DK0lE2teVgcODX/7DNN3JDSy9JQ/EKkplKTr9rDApYPYor2l5Ku6lDNwuwcS9x8rKtRaWwDuaoGn9co5YQLJwgApb+C0FDBX75Y0JGO8K+8T5v+ZZfQZRmxMJuiaDonGC5qJHnXKEmjFwJzgu91mBGrtQ+lToHGOxGSsJ4dtbQJS/BSz2exKCgWwwJsRmAGkU4/dtnXed4+D6zpQY5XWRPnMdwx96ALYe6rgR0=",
+      RS512:
+        "XZG8gmxVcqTqECrhxZD/7vObvxeJVWW5kKvSw8FGdeRacRvO4FinFoOb44XmaqbUjGAeufPhfpiyH4mvvGKD4sfzIwOJM1Jz2tHdwjkvbpwjzOm8xElzlosx4FKO1VMOs/Zj5n6B0n96Hlx17+Gaw2MALMZNRR5R3vBV962dIA3fXTFPWAuWykQrMplyN1A2DWlL9qCkh/Gl5Nt1PI546vf6ZxsY+JDyZ60FgzkSZA1X4JXbHsPEl0hOsDNdQXo9lmPDy8pYlZyRvlCWHArMKOkLhzwPpm8tOTLy3C2o/QOeL3f+jT15I9TGbKHOLuBm8RSJVpwH0/ene97vfG9q9nTsNEm61wifkoRCDdKI7sJ3FHflGECdlab1o7H8PK93D75NSHziLnyNgzY+BIoeYEWBaGIbGEYtSmeje3c0onKcyLtd60WWxhGk9VGvEVfwFDyZFvR5hthOrD/S4odExJ9JxUooZAOVzN3yguTLVOTCxv0p+J3PvviSMvlnYcrxs+aiddOt3T4nu0Wp0INmZ15E4oWX/Ic7lkqsNBr2a8sTVwSGgu45IIyJKj+ABSteKw8GrpzyuyYdU/a+Z/LJF8mVDP3FdllSkDnpJSrXVHAl9Xivvws0WqbsZlNEYDWZxRDpUrDObAb6bG9/93ZWFRZcoHHTxknBGwblCfA9rik=",
+    },
   },
 };
 
@@ -833,19 +923,19 @@ async function testImportRsaJwk() {
   assert(subtle);
 
   for (const [_key, jwkData] of Object.entries(jwtRSAKeys)) {
-    const { size, publicJWK, privateJWK } = jwkData;
+    const { size, publicJWK, privateJWK, signatures } = jwkData;
     if (size < 2048) {
       continue;
     }
 
     // 1. Test import PSS
-    for (const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]) {
-      const hashMapPSS: Record<string, string> = {
+    for (const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"] as const) {
+      const hashMapPSS = {
         "SHA-1": "PS1",
         "SHA-256": "PS256",
         "SHA-384": "PS384",
         "SHA-512": "PS512",
-      };
+      } as const;
 
       if (size === 1024 && hash === "SHA-512") {
         continue;
@@ -864,7 +954,7 @@ async function testImportRsaJwk() {
         ["sign"],
       );
 
-      const _publicKeyPSS = await crypto.subtle.importKey(
+      const publicKeyPSS = await crypto.subtle.importKey(
         "jwk",
         {
           alg: hashMapPSS[hash],
@@ -881,25 +971,28 @@ async function testImportRsaJwk() {
       //   { name: "RSA-PSS", saltLength: 32 },
       //   privateKeyPSS,
       //   new Uint8Array([1, 2, 3, 4]),
-      // );
+      //);
 
-      // const verifyPSS = await crypto.subtle.verify(
-      //   { name: "RSA-PSS", saltLength: 32 },
-      //   publicKeyPSS,
-      //   signaturePSS,
-      //   new Uint8Array([1, 2, 3, 4]),
-      // );
-      // assert(verifyPSS);
+      // Check that an externally generated signature verifies
+      const signaturePSS = Uint8Array.fromBase64(signatures[hashMapPSS[hash]]);
+
+      const verifyPSS = await crypto.subtle.verify(
+        { name: "RSA-PSS", saltLength: 32 },
+        publicKeyPSS,
+        signaturePSS,
+        new Uint8Array([1, 2, 3, 4]),
+      );
+      assert(verifyPSS);
     }
 
     // 2. Test import PKCS1
-    for (const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]) {
-      const hashMapPKCS1: Record<string, string> = {
+    for (const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"] as const) {
+      const hashMapPKCS1 = {
         "SHA-1": "RS1",
         "SHA-256": "RS256",
         "SHA-384": "RS384",
         "SHA-512": "RS512",
-      };
+      } as const;
 
       if (size === 1024 && hash === "SHA-512") {
         continue;
@@ -936,6 +1029,11 @@ async function testImportRsaJwk() {
         privateKeyPKCS1,
         new Uint8Array([1, 2, 3, 4]),
       );
+      // These signatures are deterministic, assert exact equality
+      const expectedSignature = Uint8Array.fromBase64(
+        signatures[hashMapPKCS1[hash]],
+      );
+      assert.deepEqual(new Uint8Array(signaturePKCS1), expectedSignature);
 
       const verifyPKCS1 = await crypto.subtle.verify(
         { name: "RSASSA-PKCS1-v1_5", saltLength: 32 },
@@ -1026,6 +1124,16 @@ const jwtECKeys = {
       y: "zgN1UtSBRQzjm00QlXAbF1v6s0uObAmeGPHBmDWDYeg",
       d: "E9M6LVq_nPnrsh_4YNSu_m5W53eQ9N7ptAiE69M1ROo",
     },
+    signatures: {
+      "SHA-1":
+        "zEt4WGwNPRck686n4ZBspknRTsBM0pT3QfBFMzqkfs15uUkUUs/u9GkQ4V7QjTHxG45Fz0R9Jy4e7ya39jyHLg==",
+      "SHA-256":
+        "9NxsYdXOfT4xm70VSTUkUSGBRwr030nQN0Hkj9+9uPfPSUF77xhhCenC7L8kpW0B5dwqvkqgJPZ1d6DJk/IFYQ==",
+      "SHA-384":
+        "pKZOl30i2WDPNvtC6aCobMaG6AjtRi+NThHSO2L1uEstQvMM2yUR/PPxPFDgsXZbDt6/aZYlHd3lOIDWsllcpA==",
+      "SHA-512":
+        "l/b2SZQiga4ZOhS1Z1uNjX9C6jl65CRi3XnSc5rOauMgzzKOMnQBR9PKx1iOxQfAHbeaznyp4moZvmidmDLQCA==",
+    },
   },
   "384": {
     size: 384,
@@ -1042,6 +1150,43 @@ const jwtECKeys = {
       x: "IZwU1mYXs27G2IVrOFtzp000T9iude8EZDXdpU47RL1fvevR0I3Wni19wdwhjLQ1",
       y: "vSgTjMd4M3qEL2vWGyQOdCSfJGZ8KlgQp2v8KOAzX4imUB3sAZdtqFr7AIactqzo",
       d: "RTe1mQeE08LSLpao-S-hqkku6HPldqQVguFEGDyYiNEOa560ztSyzEAS5KxeqEBz",
+    },
+    signatures: {
+      "SHA-1":
+        "VYSjTIjZTif5KtbjzZQ3eyFqCSxHswImqnXzgbQLSeL7T3aY8EHCeOq9RvbAMR3JB9qy8Us1dF15so1kUbgSW34T1p12l9ziYQ+dwDO/A+Wt4I3NuSyHi+Tgy5L37OJO",
+      "SHA-256":
+        "RvDh+/LitQkKMPMSmSFtMoPPYVBvXlr9Sj3UKgIvhojmskh54ZSvO1wKVgrZBbxGo7Wco2I+gMdVhwMfEcREAstpDgffnK3SF+XnWzfRG3w2vDeI+ZvyGfCo4HTSIe7Y",
+      "SHA-384":
+        "IClgZJxB/Z8zqyaFw8mnD37c5moC0XS6AvCYWp6AiYz7K0ijEdbbainol8lF7nMyxlRMsYtKSYjX/6tS33DyeONzeOa5VEClD4tSroTbdcKRGz+gtq1Z0ChHPX2/0a7x",
+      "SHA-512":
+        "JzSnhUW6MD5HYcAXG5EMXuno76ThQpmXWUI/ub1ddx11PQQ1KVvB0mwoC2BNvLk865CsTI97jBkBXTyHk38wzfMuG7oDQZzhnszbdzcR31xVDh20E1eG72s1Cw/DPnR7",
+    },
+  },
+  "521": {
+    size: 512,
+    algo: "ES512",
+    privateJWK: {
+      kty: "EC",
+      crv: "P-521",
+      x: "ACG0NaV-sbtGdWpFGNbA39GPMDB-nH2-o2RJJow88d7AHB_KtXpqAZzPRYOed5mVdDFUpkcF6St31vQjYUvTulDQ",
+      y: "AWcRV4X9KS6rzQrJtAfcwilYkxKath5NRku80dsqOijgT9VgDrfBVEDenyFFwqqVVdEJC_q24EMW_A9Oqjx_Ehbx",
+      d: "Aefg_fgqAYiHiJh5ZqFjjA6doYfgxfu8rzQ3_En-CIgeWu95gEwjFftGcBGa0jBS1-XWOFmNVvw_rpyAFiufso6C",
+    },
+    publicJWK: {
+      kty: "EC",
+      crv: "P-521",
+      x: "ACG0NaV-sbtGdWpFGNbA39GPMDB-nH2-o2RJJow88d7AHB_KtXpqAZzPRYOed5mVdDFUpkcF6St31vQjYUvTulDQ",
+      y: "AWcRV4X9KS6rzQrJtAfcwilYkxKath5NRku80dsqOijgT9VgDrfBVEDenyFFwqqVVdEJC_q24EMW_A9Oqjx_Ehbx",
+    },
+    signatures: {
+      "SHA-1":
+        "AbEA7jn+iB5SQQSZ6/ugCP3hbYuQQLpRYjHwowfp1wcKSC3/oJ/p/RRGAXg/fExJkL86yd6ual0RwU7c4TyscoyiAc0Q5gwdCBIyvQ/e+i8OBDPybDnW7Tr0c+DFIDSGIYi6ZUgrJIQUby0iuNvOr5p2RNa1Vz2FBFloed44AI6wSASY",
+      "SHA-256":
+        "AOXDoJfZ52MhtpognmW/FNqotjCjqag2XO53EcHaS7aBvYnbZFLxCPsrL9Ro9RG3ceclqBKeIIIXFTAoFq6GrxZ/AHteZVQ2NDYOCAdOhVjeVMHHqCf6sNpPZWPFwv8EFK4DqxsfF1xktE+PAxZ6S8YE+Ifb2FOqPrU483oDIDvl/MMe",
+      "SHA-384":
+        "AGX8dVP+eOJf5YID0T3sKeQWVSmL9pw/nzOYCNsyZQE6/4A4mAP1s5pm1yXSA1KvVelXvmJ08AaxHsYPPwoDfrklAVTMOp2Ho2bzWCJgRMD1i50AnNFYwI83q9eWYUfSs81losKNnLrcORwnz8Y9lftN7cok32+Se3pGwpEAk4VV29pv",
+      "SHA-512":
+        "ADX9qT79Bk91zplGfoIuBC0EuVZupj8OJwTqsPZFch0nQoFkifqFjAcOUNIjFxnIP5LigP1YMKwQ4/0qA+3oXjRjALoJmUNEynJv6DbMQuBEinioN71Q4ZmoRlfJJ3hN3Dio+O4z+FIeJ9V4/0ChK5ZDXLhFEkAiOgFpdfuU3V8a9ZLz",
     },
   },
 };
@@ -1070,7 +1215,12 @@ async function testImportExportEcDsaJwk() {
   assert(subtle);
 
   for (const [_key, keyData] of Object.entries(jwtECKeys)) {
-    const { publicJWK, privateJWK, algo } = keyData;
+    const {
+      publicJWK,
+      privateJWK,
+      algo,
+      signatures: externalSignatures,
+    } = keyData;
 
     // 1. Test import EcDsa
     const privateKeyECDSA = await subtle.importKey(
@@ -1105,19 +1255,39 @@ async function testImportExportEcDsaJwk() {
 
     assert(equalJwk(publicJWK, expPublicKeyJWK as JWK));
 
-    const signatureECDSA = await subtle.sign(
-      { name: "ECDSA", hash: `SHA-${keyData.size}` },
-      privateKeyECDSA,
-      new Uint8Array([1, 2, 3, 4]),
-    );
+    const alg = { name: "ECDSA", hash: `SHA-${keyData.size}` };
+    const data = new Uint8Array([1, 2, 3, 4]);
+
+    const signatureECDSA = await subtle.sign(alg, privateKeyECDSA, data);
 
     const verifyECDSA = await subtle.verify(
-      { name: "ECDSA", hash: `SHA-${keyData.size}` },
+      alg,
       publicKeyECDSA,
       signatureECDSA,
-      new Uint8Array([1, 2, 3, 4]),
+      data,
     );
-    assert(verifyECDSA);
+    assert(verifyECDSA, "should verify generated signature");
+
+    new Uint8Array(signatureECDSA).set([0, 0, 0, 0, 0, 0, 0, 0], 0);
+    assert.isFalse(
+      await subtle.verify(alg, publicKeyECDSA, signatureECDSA, data),
+      "should not verify corrupted signature",
+    );
+
+    for (const [hash, externalSignature] of Object.entries(
+      externalSignatures,
+    )) {
+      const verifyExternalECDSA = await subtle.verify(
+        { name: "ECDSA", hash },
+        publicKeyECDSA,
+        Uint8Array.fromBase64(externalSignature),
+        data,
+      );
+      assert(
+        verifyExternalECDSA,
+        "should verify externally generated signature",
+      );
+    }
   }
 }
 
@@ -1319,21 +1489,29 @@ async function testImportEcSpkiPkcs8() {
         );
         assert(verifyECDSA);
       } else {
-        await expect(
-          subtle.sign(
+        const data = new Uint8Array([1, 2, 3, 4]);
+        const validSignature = await subtle.sign(
+          { name: "ECDSA", hash },
+          privateKeyECDSA,
+          data,
+        );
+        assert(
+          await subtle.verify(
             { name: "ECDSA", hash },
-            privateKeyECDSA,
-            new Uint8Array([1, 2, 3, 4]),
+            publicKeyECDSA,
+            validSignature,
+            data,
           ),
-        ).to.be.rejectedWith(DOMException, "Not implemented");
-        await expect(
-          subtle.verify(
+        );
+        assert.deepEqual(
+          await subtle.verify(
             { name: "ECDSA", hash },
             publicKeyECDSA,
             new Uint8Array(signatureLength),
-            new Uint8Array([1, 2, 3, 4]),
+            data,
           ),
-        ).to.be.rejectedWith(DOMException, "Not implemented");
+          false,
+        );
       }
     }
   }
@@ -1579,7 +1757,7 @@ async function testSecretJwkBase64Url() {
 
 // https://github.com/denoland/deno/issues/13534
 async function testAesGcmTagLength() {
-  const _key = await crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     "raw",
     new Uint8Array(32),
     "AES-GCM",
@@ -1587,23 +1765,28 @@ async function testAesGcmTagLength() {
     ["encrypt", "decrypt"],
   );
 
-  const _iv = crypto.getRandomValues(new Uint8Array(12));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
 
-  // encrypt won't fail, it will simply truncate the tag
-  // as expected.
-  // const encrypted = await crypto.subtle.encrypt(
-  //   { name: "AES-GCM", iv, tagLength: 96 },
-  //   key,
-  //   new Uint8Array(32),
-  // );
+  // We don't support tag lengths other than 128 bits
+  await expect(
+    crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, tagLength: 96 },
+      key,
+      new Uint8Array(32),
+    ),
+  )
+    .to.eventually.be.rejectedWith(DOMException, "tag length must be 128 bits")
+    .and.have.property("name", "NotSupportedError");
 
-  // await assertRejects(async () => {
-  //   await crypto.subtle.decrypt(
-  //     { name: "AES-GCM", iv, tagLength: 96 },
-  //     key,
-  //     encrypted,
-  //   );
-  // });
+  await expect(
+    crypto.subtle.decrypt(
+      { name: "AES-GCM", iv, tagLength: 96 },
+      key,
+      new Uint8Array(32),
+    ),
+  )
+    .to.eventually.be.rejectedWith(DOMException, "tag length must be 128 bits")
+    .and.have.property("name", "NotSupportedError");
 }
 
 async function ecPrivateKeyMaterialExportSpki() {
@@ -1656,9 +1839,9 @@ async function exportKeyNotExtractable() {
   assert.equal(key.extractable, false);
 
   // Should fail
-  await expect(crypto.subtle.exportKey("raw", key)).to.be.rejectedWith(
-    DOMException,
-  );
+  await expect(crypto.subtle.exportKey("raw", key))
+    .to.eventually.be.rejectedWith(DOMException)
+    .and.have.property("name", "InvalidAccessError");
 }
 
 // https://github.com/denoland/deno/issues/15126
@@ -1812,11 +1995,16 @@ async function testInvalidAlgorithm() {
       false,
       ["sign"],
     ),
-  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+  )
+    .to.eventually.be.rejectedWith(
+      DOMException,
+      /Unrecognized or invalid algorithm/,
+    )
+    .and.have.property("name", "NotSupportedError");
 
-  await expect(
-    subtle.sign({ name: "foo" }, {} as any, new Uint8Array()),
-  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+  await expect(subtle.sign({ name: "foo" }, {} as any, new Uint8Array()))
+    .to.eventually.be.rejectedWith(DOMException, /invalid algorithm for key/)
+    .and.have.property("name", "InvalidAccessError");
 
   await expect(
     subtle.verify(
@@ -1825,15 +2013,20 @@ async function testInvalidAlgorithm() {
       new Uint8Array(),
       new Uint8Array(),
     ),
-  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+  )
+    .to.eventually.be.rejectedWith(DOMException, /invalid algorithm for key/)
+    .and.have.property("name", "InvalidAccessError");
 
-  await expect(
-    subtle.deriveBits({ name: "foo" }, {} as any, 128),
-  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+  await expect(subtle.deriveBits({ name: "foo" }, {} as any, 128))
+    .to.eventually.be.rejectedWith(DOMException, /invalid algorithm for key/)
+    .and.have.property("name", "InvalidAccessError");
 
-  await expect(
-    subtle.generateKey({ name: "foo" }, false, ["sign"]),
-  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+  await expect(subtle.generateKey({ name: "foo" }, false, ["sign"]))
+    .to.eventually.be.rejectedWith(
+      DOMException,
+      /Unrecognized or invalid algorithm/,
+    )
+    .and.have.property("name", "NotSupportedError");
 }
 
 async function testDeriveBitsPBKDF2() {
@@ -1843,15 +2036,50 @@ async function testDeriveBitsPBKDF2() {
   ]);
 
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  await crypto.subtle.deriveBits(
+  const alg = {
+    name: "PBKDF2",
+    hash: "SHA-256",
+    salt,
+    iterations: 1000,
+  };
+  const bits = await crypto.subtle.deriveBits(alg, key, 16 * 8);
+  assert.instanceOf(bits, ArrayBuffer);
+  assert.strictEqual(bits.byteLength, 16);
+
+  // length=0 is allowed
+  const emptyBits = await crypto.subtle.deriveBits(alg, key, 0);
+  assert.strictEqual(emptyBits.byteLength, 0);
+
+  // iterations=0
+  await expect(crypto.subtle.deriveBits({ ...alg, iterations: 0 }, key, 8))
+    .to.eventually.be.rejectedWith(DOMException)
+    .and.have.property("name", "OperationError");
+  // length=null
+  await expect(crypto.subtle.deriveBits(alg, key, null as any))
+    .to.eventually.be.rejectedWith(DOMException)
+    .and.have.property("name", "OperationError");
+
+  // check interop with a fixed answer from another JS engine
+  const knownKey = await crypto.subtle.importKey(
+    "raw",
+    new Uint8Array([1, 2, 3, 4]),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const knownBits = await crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
       hash: "SHA-256",
-      salt,
+      salt: new Uint8Array([5, 6, 7, 8]),
       iterations: 1000,
     },
-    key,
+    knownKey,
     16 * 8,
+  );
+  assert.deepEqual(
+    knownBits,
+    Uint8Array.fromBase64("H9zMJROqDKzbGvnmhZv13g==").buffer,
   );
 }
 
@@ -1860,7 +2088,6 @@ async function testDeriveKeyPBKDF2() {
   const rawKey = crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", rawKey, "PBKDF2", false, [
     "deriveKey",
-    "deriveBits",
   ]);
 
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -1946,6 +2173,60 @@ async function testEd25519Sign() {
   );
 }
 
+async function testAesCtrEncrypt() {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new ArrayBuffer(16),
+    { name: "AES-CTR", length: 128 },
+    false,
+    ["encrypt"],
+  );
+  const counter = new Uint8Array(16);
+  counter.fill(0xff);
+  expect(
+    crypto.subtle.encrypt(
+      { name: "AES-CTR", counter, length: 0 },
+      key,
+      new ArrayBuffer(1),
+    ),
+  )
+    .to.eventually.be.rejectedWith(DOMException, "invalid counter length")
+    .and.have.property("name", "OperationError");
+  expect(
+    crypto.subtle.encrypt(
+      { name: "AES-CTR", counter, length: 1 },
+      key,
+      new ArrayBuffer(33),
+    ),
+  )
+    .to.eventually.be.rejectedWith(DOMException, "too much data")
+    .and.have.property("name", "OperationError");
+
+  // At different lengths, different suffixes of the counter overflow
+  const expected = {
+    "1": "P1uMyeqFWgr6c0fSPo1mTlwAXnLBQYxE9Wny6jO6VPM=",
+    "2": "P1uMyeqFWgr6c0fSPo1mTjm95n1cjtioscN+uPqfWsA=",
+    "3": "P1uMyeqFWgr6c0fSPo1mToreiVkTaFxnxSafiq5CmD4=",
+    "4": "P1uMyeqFWgr6c0fSPo1mTvmw/aDEqJj1ueb2YcTOTQc=",
+    "32": "P1uMyeqFWgr6c0fSPo1mThI8H0rzE62MLOZIsucftuE=",
+    "64": "P1uMyeqFWgr6c0fSPo1mTvgHw+eYX+D1pQ4s2yXFEJ4=",
+    "127": "P1uMyeqFWgr6c0fSPo1mTjrXjnJsHsArfr/pKyPZ7DQ=",
+    "128": "P1uMyeqFWgr6c0fSPo1mTmbpS9Tviiw7iEz6Wco0Ky4=",
+  };
+  for (const [length, expectedBase64] of Object.entries(expected)) {
+    assert.deepEqual(
+      new Uint8Array(
+        await crypto.subtle.encrypt(
+          { name: "AES-CTR", counter, length: parseInt(length) },
+          key,
+          new ArrayBuffer(32),
+        ),
+      ),
+      Uint8Array.fromBase64(expectedBase64),
+    );
+  }
+}
+
 async function testEd25519GenerateKey() {
   const { privateKey, publicKey } = (await crypto.subtle.generateKey(
     "Ed25519",
@@ -2005,6 +2286,23 @@ async function testEd25519GenerateKey() {
   );
 }
 
+async function testCryptoKey() {
+  assert.strictEqual(
+    (CryptoKey.prototype as any)[Symbol.toStringTag],
+    "CryptoKey",
+  );
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new ArrayBuffer(32),
+    "Ed25519",
+    true,
+    ["verify"],
+  );
+  assert.strictEqual(Object.prototype.toString.call(key), "[object CryptoKey]");
+  // N.B.: we do not implement CryptoKey's properties as getters, so CryptoKey.prototype does not have them.
+  // TODO: add a test for what a CryptoKey looks like when `console.log`ged.
+}
+
 export const methodNotImplemented = query({
   args: {},
   handler: async () => {
@@ -2014,13 +2312,6 @@ export const methodNotImplemented = query({
       null as any,
       "RSA-OAEP",
     );
-  },
-});
-
-export const generateX25519NotImplemented = query({
-  args: {},
-  handler: async () => {
-    await crypto.subtle.generateKey("X25519", false, ["deriveBits"]);
   },
 });
 
@@ -2067,6 +2358,9 @@ export const test = query({
       testDeriveKeyPBKDF2,
       testDigest,
       testEd25519Sign,
+      testAesCtrEncrypt,
+
+      testCryptoKey,
     });
   },
 });
@@ -2077,7 +2371,7 @@ export const testAction = action({
     return await wrapInTests({
       // Deno tests (that require randomness)
       testSignVerify,
-      // testEncryptDecrypt,
+      testOaepEncryptDecrypt,
       testImportExportEcDsaJwk,
       testImportEcSpkiPkcs8,
       testGenerateRSAKey,
@@ -2091,6 +2385,19 @@ export const testAction = action({
       // end of Deno tests
 
       testEd25519GenerateKey,
+      testX25519GenerateKey,
     });
+  },
+});
+
+export const consumeInteropData = query({
+  handler: async (_ctx, { json }: { json: string }) => {
+    await consumeData(json);
+  },
+});
+
+export const generateInteropData = action({
+  handler: async () => {
+    return await generateData();
   },
 });

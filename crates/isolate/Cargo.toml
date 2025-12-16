@@ -59,7 +59,6 @@ database = { workspace = true }
 deno_core = { workspace = true }
 deno_core_icudata = { workspace = true }
 derive_more = { workspace = true }
-elliptic-curve = { workspace = true }
 encoding_rs = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
@@ -67,8 +66,8 @@ file_storage = { workspace = true }
 futures = { workspace = true }
 headers = { workspace = true }
 http = { workspace = true }
-http-body-util = { workspace = true }
 humansize = { workspace = true }
+indexmap = { workspace = true }
 itertools = { workspace = true }
 keybroker = { workspace = true }
 maplit = { workspace = true, optional = true }
@@ -78,13 +77,10 @@ model = { workspace = true }
 multer = { workspace = true }
 must-let = { workspace = true, optional = true }
 openssl = { workspace = true }
-p256 = { workspace = true }
-p384 = { workspace = true }
 parking_lot = { workspace = true }
 pb = { workspace = true }
 phf = { workspace = true }
-pkcs1 = "0.7.5"
-pkcs8 = "0.10.2"
+pkcs8 = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
@@ -99,11 +95,11 @@ sentry = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
-sha1 = { workspace = true }
-sha2 = { workspace = true }
+slab = { workspace = true }
 sourcemap = { workspace = true }
 spki = { workspace = true }
 storage = { workspace = true }
+strum = { workspace = true }
 sync_types = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
@@ -133,6 +129,7 @@ common = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 divan = { workspace = true }
 errors = { workspace = true, features = ["testing"] }
+http-body-util = { workspace = true }
 hyper = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }
 maplit = { workspace = true }

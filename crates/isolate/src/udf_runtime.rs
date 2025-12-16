@@ -12,6 +12,7 @@ use deno_core::{
     v8::{
         self,
         scope,
+        MapFnTo,
     },
     ModuleSpecifier,
 };
@@ -53,8 +54,28 @@ pub(crate) fn create_isolate_with_udf_runtime(create_params: v8::CreateParams) -
                 INITIAL_HEAP_SIZE,
                 *ISOLATE_MAX_USER_HEAP_SIZE + *ISOLATE_MAX_HEAP_EXTRA_SIZE,
             )
-            .snapshot_blob(Cow::Borrowed(&snapshot[..]).into()),
+            .snapshot_blob(Cow::Borrowed(&snapshot[..]).into())
+            .external_references(external_references().into()),
     )
+}
+
+fn illegal_constructor<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
+    _args: v8::FunctionCallbackArguments<'s>,
+    mut rv: v8::ReturnValue<v8::Value>,
+) {
+    if let Some(msg) = v8::String::new(scope, "Illegal constructor") {
+        let exception = v8::Exception::type_error(scope, msg);
+        rv.set(scope.throw_exception(exception));
+    }
+}
+
+fn external_references() -> Vec<v8::ExternalReference> {
+    // TODO: make sure that everything is included in the list of external
+    // references
+    vec![v8::ExternalReference {
+        function: illegal_constructor.map_fn_to(),
+    }]
 }
 
 fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
@@ -62,28 +83,65 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
     // 1. do not reuse snapshot blobs across processes,
     // 2. only use 'static external references
     // so this is OK.
-    let mut isolate = v8::Isolate::snapshot_creator(None, None);
+    let mut isolate = v8::Isolate::snapshot_creator(Some(Cow::Owned(external_references())), None);
 
     {
         scope!(let scope, &mut isolate);
         let context = v8::Context::new(scope, v8::ContextOptions::default());
 
+        let crypto_key = v8::FunctionTemplate::new(scope, illegal_constructor);
+        crypto_key.set_class_name(strings::CryptoKey.create(scope)?);
+        assert!(crypto_key
+            .instance_template(scope)
+            .set_internal_field_count(1));
+        let crypto_key_prototype = crypto_key.prototype_template(scope);
+        let symbol_tostringtag = v8::Symbol::get_to_string_tag(scope);
+        crypto_key_prototype.set_with_attr(
+            symbol_tostringtag.into(),
+            strings::CryptoKey.create(scope)?.into(),
+            v8::PropertyAttribute::DONT_ENUM,
+        );
+
+        let crypto_key_private = v8::ObjectTemplate::new(scope);
+        assert!(crypto_key_private.set_internal_field_count(1));
+
+        let context_scope = &mut v8::ContextScope::new(scope, context);
+
+        // Create `global.Convex`, so that `setup.js` can populate `Convex.jsSyscall`
+        let convex_value = v8::Object::new(context_scope);
+        let convex_key = strings::Convex.create(context_scope)?;
+        let global = context.global(context_scope);
+        global.set(context_scope, convex_key.into(), convex_value.into());
+
         {
-            let context_scope = &mut v8::ContextScope::new(scope, context);
-
-            // Create `global.Convex`, so that `setup.js` can populate `Convex.jsSyscall`
-            let convex_value = v8::Object::new(context_scope);
-            let convex_key = strings::Convex.create(context_scope)?;
-            let global = context.global(context_scope);
-            global.set(context_scope, convex_key.into(), convex_value.into());
-
-            run_setup_module(context_scope)?;
+            let crypto_key_instance = crypto_key
+                .get_function(context_scope)
+                .context("instantiate CryptoKey")?;
+            let crypto_key_key = strings::CryptoKey.create(context_scope)?;
+            global.set(
+                context_scope,
+                crypto_key_key.into(),
+                crypto_key_instance.into(),
+            );
+            // Stash the reference to CryptoKey in case `global.CryptoKey` is overwritten
+            let private_crypto_key_key = v8::Private::for_api(context_scope, Some(crypto_key_key));
+            let crypto_key_private_instance = crypto_key_private
+                .new_instance(context_scope)
+                .context("instantiate CryptoKeyPrivate")?;
+            assert!(crypto_key_private_instance.set_internal_field(0, crypto_key.into()));
+            global.set_private(
+                context_scope,
+                private_crypto_key_key,
+                crypto_key_private_instance.into(),
+            );
         }
+
+        run_setup_module(context_scope)?;
 
         // Mark the context we created as the "default context", so that every
         // new context created from the snapshot will include this
         // runtime.
-        scope.set_default_context(context);
+        context_scope.set_default_context(context);
     }
 
     let data = isolate

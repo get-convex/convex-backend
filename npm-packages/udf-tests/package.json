@@ -12,12 +12,15 @@
     "udf-syscall-ffi": "workspace:*"
   },
   "devDependencies": {
+    "tsx": "^4.19.4",
     "typescript": "~5.0.3",
     "@types/node": "^18.17.0",
     "@types/chai": "~4.3.5"
   },
   "scripts": {
     "build": "",
-    "test": "tsc -p convex"
+    "test": "tsc -p convex",
+    "generate_crypto_interop_data": "tsx src/generate_crypto_interop_data.ts",
+    "consume_crypto_interop_data": "tsx src/consume_crypto_interop_data.ts"
   }
 }

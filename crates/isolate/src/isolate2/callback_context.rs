@@ -26,6 +26,10 @@ use super::{
     context_state::ContextState,
 };
 use crate::{
+    convert_v8::{
+        JsException,
+        ToV8 as _,
+    },
     environment::helpers::resolve_promise,
     helpers::{
         self,
@@ -346,6 +350,16 @@ impl<'callback, 'scope: 'callback, 'i> CallbackContext<'callback, 'scope, 'i> {
             let exception = v8::Exception::error(self.scope, message_v8);
             self.scope.throw_exception(exception);
         } else {
+            let err = match err.downcast::<JsException>() {
+                Ok(js_exception) => match js_exception.to_v8(self.scope) {
+                    Ok(e) => {
+                        self.scope.throw_exception(e);
+                        return;
+                    },
+                    Err(e) => e,
+                },
+                Err(e) => e,
+            };
             // These errors should abort the isolate immediately.
             let state = self.context_state().expect("Missing ContextState");
             state.fail(err);

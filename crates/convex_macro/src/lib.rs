@@ -245,11 +245,9 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 {
                     let __raw_arg = __args.get(#idx);
-                    let __arg: #ty = ::deno_core::serde_v8::from_v8(
-                        __scope,
-                        __raw_arg,
-                    ).context(#arg_info)?;
-                    __arg
+                    use ::anyhow::Context as _;
+                    <#ty as crate::convert_v8::FromV8>::from_v8(__scope, __raw_arg)
+                        .context(#arg_info)?
                 }
             }
         })
@@ -294,7 +292,7 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             {
                 let mut __scope = OpProvider::scope(#provider_ident);
                 ::deno_core::v8::scope!(let __scope, &mut __scope);
-                let __value_v8 = deno_core::serde_v8::to_v8(__scope, __result_v)?;
+                let __value_v8 = crate::convert_v8::ToV8::to_v8(__result_v, __scope)?;
                 __rv.set(__value_v8);
             }
             Ok(())
