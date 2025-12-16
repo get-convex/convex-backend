@@ -24,8 +24,8 @@ advantage of Convex Components.
 
 ## Deploying to production
 
-Chef does have a built in ability to deploy your the dev version of your app for
-you to immediately share with your friends to try.
+Chef does have a built in ability to deploy the dev version of your app for you
+to immediately share with your friends to try.
 
 For apps intended to be built and maintained over the long term, we recommend
 downloading the code and importing it into your preferred IDE. When you download
