@@ -438,7 +438,7 @@ impl SubscriptionManager {
                         // Always take the earliest matching write_ts
                         to_notify.entry(subscriber_id).or_insert(write_ts);
                     };
-                    for (resolved_id, document_change) in writes {
+                    for (resolved_id, document_change, _) in writes {
                         tablet_ids.insert(resolved_id.tablet_id);
                         // We're applying a mutation to the document so if it already exists
                         // we need to remove it before writing the new version.

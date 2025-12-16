@@ -250,7 +250,7 @@ impl IndexRegistry {
 
     pub fn document_index_keys<F>(
         &self,
-        document: PackedDocument,
+        document: &PackedDocument,
         search_tokenizer: F,
     ) -> DocumentIndexKeys
     where
@@ -899,11 +899,12 @@ mod tests {
             ),
         )?;
 
-        let index_keys = index_registry.document_index_keys(PackedDocument::pack(&doc), |string| {
-            let tokens: HashSet<String> =
-                string.split_whitespace().map(|s| s.to_string()).collect();
-            SearchValueTokens::from_iter_for_test(tokens)
-        });
+        let index_keys =
+            index_registry.document_index_keys(&PackedDocument::pack(&doc), |string| {
+                let tokens: HashSet<String> =
+                    string.split_whitespace().map(|s| s.to_string()).collect();
+                SearchValueTokens::from_iter_for_test(tokens)
+            });
 
         let expected = DocumentIndexKeys::from(btreemap! {
             by_name => DocumentIndexKeyValue::Standard(
@@ -963,11 +964,12 @@ mod tests {
             ),
         )?;
 
-        let index_keys = index_registry.document_index_keys(PackedDocument::pack(&doc), |string| {
-            let tokens: HashSet<String> =
-                string.split_whitespace().map(|s| s.to_string()).collect();
-            SearchValueTokens::from_iter_for_test(tokens)
-        });
+        let index_keys =
+            index_registry.document_index_keys(&PackedDocument::pack(&doc), |string| {
+                let tokens: HashSet<String> =
+                    string.split_whitespace().map(|s| s.to_string()).collect();
+                SearchValueTokens::from_iter_for_test(tokens)
+            });
 
         let by_id = GenericIndexName::by_id(index_table_id.tablet_id);
         let expected = DocumentIndexKeys::from(btreemap! {

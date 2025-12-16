@@ -108,6 +108,7 @@ fn create_write_log_with_standard_index_writes(num_writes: usize) -> Result<(Log
                 old_document_keys: None,
                 new_document_keys: Some(document_keys),
             },
+            None,
         )];
 
         log_writer.append(
@@ -245,6 +246,7 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
                 old_document_keys: None,
                 new_document_keys: Some(document_keys),
             },
+            None,
         )];
 
         log_writer.append(

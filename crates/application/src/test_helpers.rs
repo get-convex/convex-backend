@@ -96,6 +96,7 @@ use model::{
     },
     udf_config::types::UdfConfig,
     virtual_system_mapping,
+    REFRESHABLE_APP_TABLES,
 };
 use node_executor::{
     noop::NoopNodeExecutor,
@@ -214,6 +215,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             searcher.clone(),
             ShutdownSignal::panic(),
             virtual_system_mapping().clone(),
+            REFRESHABLE_APP_TABLES.clone(),
             args.event_logger.unwrap_or(Arc::new(NoOpUsageEventLogger)),
             // Essentially unlimited rate limit for testing
             Arc::new(new_unlimited_rate_limiter(rt.clone())),

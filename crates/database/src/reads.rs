@@ -57,6 +57,7 @@ use crate::{
     write_log::{
         DocumentIndexKeysUpdate,
         PackedDocumentUpdate,
+        RefreshableTabletUpdate,
         WriteSource,
     },
 };
@@ -318,13 +319,19 @@ impl ReadSet {
         updates: impl Iterator<
             Item = (
                 &'a Timestamp,
-                impl Iterator<Item = &'a (ResolvedDocumentId, DocumentIndexKeysUpdate)>,
+                impl Iterator<
+                    Item = &'a (
+                        ResolvedDocumentId,
+                        DocumentIndexKeysUpdate,
+                        Option<RefreshableTabletUpdate>,
+                    ),
+                >,
                 &'a WriteSource,
             ),
         >,
     ) -> Option<ConflictingReadWithWriteSource> {
         for (update_ts, updates, write_source) in updates {
-            for (id, update) in updates {
+            for (id, update, _doc) in updates {
                 if let Some(ref document) = update.new_document_keys
                     && let Some(conflicting_read) = self.overlaps_index_keys(*id, document)
                 {

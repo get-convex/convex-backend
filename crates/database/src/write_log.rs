@@ -2,16 +2,20 @@ use std::{
     borrow::Cow,
     collections::{
         BTreeMap,
+        BTreeSet,
         VecDeque,
     },
     sync::Arc,
 };
 
 use common::{
+    bootstrap_model::tables::TableMetadata,
     document::{
         DocumentUpdate,
         DocumentUpdateRef,
         PackedDocument,
+        ParseDocument,
+        ParsedDocument,
     },
     document_index_keys::DocumentIndexKeys,
     knobs::{
@@ -36,9 +40,13 @@ use indexing::index_registry::IndexRegistry;
 use parking_lot::Mutex;
 use search::query::tokenize;
 use tokio::sync::oneshot;
-use value::heap_size::{
-    HeapSize,
-    WithHeapSize,
+use value::{
+    heap_size::{
+        HeapSize,
+        WithHeapSize,
+    },
+    TableName,
+    TabletId,
 };
 
 use crate::{
@@ -82,7 +90,14 @@ impl PackedDocumentUpdate {
     }
 }
 
-pub type IterWrites<'a> = std::slice::Iter<'a, (ResolvedDocumentId, DocumentIndexKeysUpdate)>;
+pub type IterWrites<'a> = std::slice::Iter<
+    'a,
+    (
+        ResolvedDocumentId,
+        DocumentIndexKeysUpdate,
+        Option<RefreshableTabletUpdate>,
+    ),
+>;
 
 #[derive(Clone)]
 pub struct DocumentIndexKeysUpdate {
@@ -93,16 +108,18 @@ pub struct DocumentIndexKeysUpdate {
 
 impl DocumentIndexKeysUpdate {
     pub fn from_document_update(
-        full: PackedDocumentUpdate,
+        full: &PackedDocumentUpdate,
         index_registry: &IndexRegistry,
     ) -> Self {
         Self {
             id: full.id,
             old_document_keys: full
                 .old_document
+                .as_ref()
                 .map(|old_doc| index_registry.document_index_keys(old_doc, tokenize)),
             new_document_keys: full
                 .new_document
+                .as_ref()
                 .map(|new_doc| index_registry.document_index_keys(new_doc, tokenize)),
         }
     }
@@ -114,25 +131,65 @@ impl HeapSize for DocumentIndexKeysUpdate {
     }
 }
 
-type OrderedIndexKeyWrites = WithHeapSize<Vec<(ResolvedDocumentId, DocumentIndexKeysUpdate)>>;
+/// Optionally contains [`RefreshableTabletUpdate`] if the document is in system
+/// table whose query caches should be refreshable.
+type OrderedIndexKeyWrites = WithHeapSize<
+    Vec<(
+        ResolvedDocumentId,
+        DocumentIndexKeysUpdate,
+        Option<RefreshableTabletUpdate>,
+    )>,
+>;
+
+/// None if the update was a delete.
+pub struct RefreshableTabletUpdate(Option<PackedDocument>);
+
+impl HeapSize for RefreshableTabletUpdate {
+    fn heap_size(&self) -> usize {
+        self.0.heap_size()
+    }
+}
 
 /// Converts [OrderedDocumentWrites] (the log used in `PendingWrites` that
 /// contains full documents) to [OrderedIndexKeyWrites] (the log used
 /// in `WriteLog` that contains only index keys).
+///
+/// Also updates `refreshable_tablets` if we see changes to table documents that
+/// match `refreshable_tables`.
 pub fn index_keys_from_full_documents(
     ordered_writes: OrderedDocumentWrites,
     index_registry: &IndexRegistry,
+    tables_tablet_id: TabletId,
+    refreshable_tables: &BTreeSet<TableName>,
+    refreshable_tablets: &mut BTreeSet<TabletId>,
 ) -> OrderedIndexKeyWrites {
-    let elements: Vec<_> = ordered_writes
-        .into_iter()
-        .map(|(id, update)| {
-            (
-                id,
-                DocumentIndexKeysUpdate::from_document_update(update, index_registry),
-            )
-        })
-        .collect();
-    WithHeapSize::from(elements)
+    let mut writes = vec![];
+    for (id, update) in ordered_writes {
+        if id.tablet_id == tables_tablet_id
+            && let Some(new_doc) = update.new_document.as_ref()
+        {
+            let maybe_table_metadata: anyhow::Result<ParsedDocument<TableMetadata>> =
+                new_doc.parse();
+            if let Ok(table_doc) = maybe_table_metadata {
+                if refreshable_tables.contains(&table_doc.name) {
+                    refreshable_tablets.insert(TabletId(id.internal_id()));
+                }
+            } else {
+                tracing::error!(
+                    "Failed to parse table metadata from doc {id} with tables_tablet \
+                     {tables_tablet_id}, may not be able to refresh system table index caches"
+                );
+            }
+        }
+        writes.push((
+            id,
+            DocumentIndexKeysUpdate::from_document_update(&update, index_registry),
+            refreshable_tablets
+                .contains(&id.tablet_id)
+                .then_some(RefreshableTabletUpdate(update.new_document)),
+        ));
+    }
+    WithHeapSize::from(writes)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -721,6 +778,7 @@ mod tests {
                         index_key.clone(),
                     )),
                 },
+                None,
             )]
             .into(),
             WriteSource::unknown(),
@@ -837,6 +895,7 @@ mod tests {
                     )),
                     new_document_keys: None,
                 },
+                None,
             )]
             .into(),
             WriteSource::unknown(),

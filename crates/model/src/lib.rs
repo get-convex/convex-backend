@@ -586,6 +586,15 @@ static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::n
     }
 });
 
+/// System tables that we allow the `DatabaseSnapshotIndexCache` to be refreshed
+/// for. We will store documents in the write log for only these tables so we
+/// can walk the write log to refresh the cache to do efficient queries.
+pub static REFRESHABLE_APP_TABLES: LazyLock<BTreeSet<TableName>> = LazyLock::new(|| {
+    btreeset! {
+        SCHEDULED_JOBS_TABLE.clone()
+    }
+});
+
 pub fn virtual_system_mapping() -> &'static VirtualSystemMapping {
     static MAPPING: LazyLock<VirtualSystemMapping> = LazyLock::new(|| {
         let mut mapping = VirtualSystemMapping::default();

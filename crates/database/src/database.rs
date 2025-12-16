@@ -995,6 +995,7 @@ impl<RT: Runtime> Database<RT> {
         searcher: Arc<dyn Searcher>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
+        refreshable_tables: BTreeSet<TableName>,
         usage_events: Arc<dyn UsageEventLogger>,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
         deleted_tablet_sender: mpsc::Sender<TabletId>,
@@ -1039,6 +1040,15 @@ impl<RT: Runtime> Database<RT> {
             retention_validator: _,
         } = db_snapshot;
 
+        let table_mapping = snapshot.table_mapping();
+        let mut refreshable_tablets = BTreeSet::new();
+        for table_name in &refreshable_tables {
+            for namespace in table_mapping.namespaces_for_name(table_name) {
+                let tablet_id =
+                    table_mapping.namespace(namespace).name_to_tablet()(table_name.clone())?;
+                refreshable_tablets.insert(tablet_id);
+            }
+        }
         let snapshot_manager = SnapshotManager::new(*ts, snapshot);
         let (snapshot_reader, snapshot_writer) = new_split_rw_lock(snapshot_manager);
 
@@ -1064,6 +1074,9 @@ impl<RT: Runtime> Database<RT> {
             retention_manager.clone(),
             shutdown,
             virtual_system_mapping.clone(),
+            refreshable_tables,
+            refreshable_tablets,
+            bootstrap_metadata.tables_tablet_id,
         );
         let table_mapping_snapshot_cache =
             AsyncLru::new(runtime.clone(), 20, 2, "table_mapping_snapshot");

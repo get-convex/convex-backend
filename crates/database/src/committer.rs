@@ -112,6 +112,7 @@ use value::{
     InternalDocumentId,
     TableMapping,
     TableName,
+    TabletId,
 };
 use vector::VectorIndexWriteSize;
 
@@ -195,6 +196,9 @@ pub struct Committer<RT: Runtime> {
 
     retention_validator: Arc<dyn RetentionValidator>,
     virtual_system_mapping: VirtualSystemMapping,
+    refreshable_tables: BTreeSet<TableName>,
+    refreshable_tablets: BTreeSet<TabletId>,
+    tables_table_id: TabletId,
 }
 
 impl<RT: Runtime> Committer<RT> {
@@ -206,6 +210,9 @@ impl<RT: Runtime> Committer<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
+        refreshable_tables: BTreeSet<TableName>,
+        refreshable_tablets: BTreeSet<TabletId>,
+        tables_table_id: TabletId,
     ) -> CommitterClient {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new(persistence_reader.version());
@@ -221,6 +228,9 @@ impl<RT: Runtime> Committer<RT> {
             persistence_writes: FuturesOrdered::new(),
             retention_validator: retention_validator.clone(),
             virtual_system_mapping,
+            refreshable_tables,
+            refreshable_tablets,
+            tables_table_id,
         };
         let handle = runtime.spawn("committer", async move {
             if let Err(err) = committer.go(rx).await {
@@ -844,7 +854,13 @@ impl<RT: Runtime> Committer<RT> {
         let timer = metrics::pending_writes_to_write_log_timer();
         // See the comment in `overlaps_index_keys` for why it’s safe
         // to use indexes from the current snapshot.
-        let writes = index_keys_from_full_documents(ordered_updates, &new_snapshot.index_registry);
+        let writes = index_keys_from_full_documents(
+            ordered_updates,
+            &new_snapshot.index_registry,
+            self.tables_table_id,
+            &self.refreshable_tables,
+            &mut self.refreshable_tablets,
+        );
         let size = writes.heap_size();
         drop(timer);
         metrics::write_log_commit_bytes(size);
