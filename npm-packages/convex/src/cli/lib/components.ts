@@ -32,7 +32,7 @@ import {
   doFinalComponentCodegen,
   doInitialComponentCodegen,
   CodegenOptions,
-  doInitCodegen,
+  doInitConvexFolder,
   doCodegen,
 } from "./codegen.js";
 import {
@@ -42,7 +42,7 @@ import {
 import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import { withTmpDir } from "../../bundler/fs.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { StartPushRequest, StartPushResponse } from "./deployApi/startPush.js";
 import {
   deploymentSelectionWithinProjectFromOptions,
@@ -87,7 +87,7 @@ export async function runCodegen(
   const functionsDirectoryPath = functionsDir(configPath, projectConfig);
 
   if (options.init) {
-    await doInitCodegen(ctx, functionsDirectoryPath, false, {
+    await doInitConvexFolder(ctx, functionsDirectoryPath, {
       dryRun: options.dryRun,
       debug: options.debug,
     });
@@ -131,7 +131,7 @@ export async function runCodegen(
     );
   } else {
     if (options.typecheck !== "disable") {
-      logMessage(chalk.gray("Running TypeScript typecheck…"));
+      logMessage(chalkStderr.gray("Running TypeScript typecheck…"));
     }
 
     await doCodegen(ctx, functionsDirectoryPath, options.typecheck, {

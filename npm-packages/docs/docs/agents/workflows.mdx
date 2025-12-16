@@ -211,12 +211,6 @@ import { ComponentCardList } from "@site/src/components/ComponentCard";
 <ComponentCardList
   items={[
     {
-      title: "Action Retrier",
-      description:
-        "Add reliability to unreliable external service calls. Retry idempotent calls with exponential backoff until success.",
-      href: "https://www.convex.dev/components/retrier",
-    },
-    {
       title: "Workpool",
       description:
         "Builds on the Action Retrier to provide parallelism limits and retries to manage large numbers of external requests efficiently.",

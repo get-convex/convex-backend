@@ -70,6 +70,9 @@ pub struct ScheduledJobMetadata {
     /// component that scheduled it. But it can run jobs in a different
     /// component.
     pub path: CanonicalizedComponentFunctionPath,
+    /// We no longer write this field in favor of storing arguments in the
+    /// `_scheduled_job_args` table, but it is not safe to remove it because we
+    /// are not migrating existing scheduled job documents.
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(strategy = "prop_oneof![Just(None),\
@@ -107,7 +110,6 @@ pub fn args_to_bytes(args: ConvexArray) -> anyhow::Result<ByteBuf> {
 impl ScheduledJobMetadata {
     pub fn new(
         path: CanonicalizedComponentFunctionPath,
-        udf_args: ConvexArray,
         args_id: DeveloperDocumentId,
         state: ScheduledJobState,
         next_ts: Option<Timestamp>,
@@ -117,7 +119,7 @@ impl ScheduledJobMetadata {
     ) -> anyhow::Result<Self> {
         Ok(Self {
             path,
-            udf_args_bytes: Some(args_to_bytes(udf_args)?),
+            udf_args_bytes: None,
             args_id: Some(args_id),
             state,
             next_ts,

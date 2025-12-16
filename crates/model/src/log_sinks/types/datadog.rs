@@ -11,9 +11,10 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 
 /// The Datadog deployment locations, used to construct URLs
-#[derive(Deserialize, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy, ToSchema)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum DatadogSiteLocation {
     US1,
@@ -112,15 +113,19 @@ impl TryFrom<SerializedDatadogConfig> for DatadogConfig {
     type Error = anyhow::Error;
 
     fn try_from(value: SerializedDatadogConfig) -> Result<Self, Self::Error> {
+        let version = value
+            .version
+            .map(|v| LogEventFormatVersion::from_str(v.as_str()))
+            .transpose()?
+            .unwrap_or(LogEventFormatVersion::V1);
+        if version == LogEventFormatVersion::V1 {
+            tracing::info!("Instance is on log event format version 1 (datadog)")
+        }
         Ok(DatadogConfig {
             site_location: DatadogSiteLocation::from_str(&value.site_location)?,
             dd_api_key: PII(value.dd_api_key),
             dd_tags: value.dd_tags,
-            version: value
-                .version
-                .map(|v| LogEventFormatVersion::from_str(v.as_str()))
-                .transpose()?
-                .unwrap_or(LogEventFormatVersion::V1),
+            version,
             service: value.service,
         })
     }

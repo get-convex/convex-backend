@@ -5,163 +5,230 @@ sidebar_position: 40
 description: "Creating new components"
 ---
 
-Building a component lets you package up Convex functions, schemas, and
+Building a Convex Component lets you package up Convex functions, schemas, and
 persistent state into a reusable module that you or other developers can drop
 into their projects.
 
-Here are some common reasons to build a component:
+They differ from regular libraries in that they have their own database tables,
+sub-transactions, and can define functions that run in an isolated environment.
 
-- Modularizing your code into separate pieces that each own their own data
-- You want to re-use functionality across multiple projects without duplication
-- You solved a problem involving persistent state that you think would be useful
-  to other Convex developers (sharded counter, cache, etc.)
+Trying to decide between writing a library or a component? Building it as a
+component allows you to:
 
-Components are the right thing to build when you not only want to add
-functionality to an application, like a library, but create a "living"
-distributed system that contains workflows and persistent state. They should be
-composable and provide abstractions for developers to add complex functionality
-without needing to understand the underlying implementation.
+- Persist data to tables where you control the schema.
+- Isolate access to data behind an API boundary.
+- Define queries, mutations, and actions that can run asynchronously to manage
+  complex workflows.
+- Share functionality between apps in a predictable way.
 
-## Types of Components
+## Anatomy of a component
 
-There are three types of components, each suited for different use cases:
-
-**Sibling**
-
-- Stored alongside your Convex code in the same repository
-- Best for modularizing your codebase or reusing functionality across multiple
-  projects
-- Quick to set up and iterate on
-
-**NPM Package**
-
-- Distributed as standalone NPM packages
-- Best for sharing solutions to common problems with the broader developer
-  community
-- Examples: [WorkOS](https://github.com/get-convex/workos) and
-  [Polar](https://github.com/get-convex/polar) components
-
-**Hybrid**
-
-- Combine shared NPM package code with local customization
-- Best when you want to provide a solution that developers can adapt to their
-  specific needs
-- Example:
-  [Better Auth](https://convex-better-auth.netlify.app/features/local-install)
-  component
-
-Below, we'll walk through the structure of each type and how to get started
-building one.
-
-### Sibling
-
-These are components that are stored right next to the rest of your Convex code.
-The directory structure might look something like:
+Practically speaking, a component is defined in a folder containing a
+`convex.config.ts`. The component's folder has the same structure as a normal
+`convex/` folder:
 
 ```
-├── convex/
-│   ├── _generated/
-│   ├── schema.ts
-│   ├── convex.config.ts
-│   └── functions.ts
-└── fooComponent/
-    ├── _generated/
-    ├── schema.ts
-    ├── convex.config.ts
-    └── functions.ts
+ component/
+ ├── _generated/        # Generated code for the component's API and data model.
+ ├── convex.config.ts   # Defines the component and its child components.
+ ├── schema.ts          # Defines a schema only accessible by the component
+ └-- …folders/files.ts  # Queries, mutations, and actions for the component.
 ```
 
-To get started follow these steps:
+The component's `convex.config.ts` file configures the component's default name
+and child components.
 
-**1. Create a new directory at the same level as your `convex/` folder.**
-
-**2. Add a `convex.config.ts` file inside of the new folder. This new file
-should look something like:**
-
-```ts
+```ts title="component/convex.config.ts"
 import { defineComponent } from "convex/server";
-
-const component = defineComponent("fooComponent");
-
+// import workpool from "@convex-dev/workpool/convex.config.js";
+// import localComponent from "../localComponent/convex.config.js";
+const component = defineComponent("myComponent");
+// component.use(workpool);
+// component.use(localComponent, { name: "customName" });
 export default component;
 ```
 
-**3. Add the component to your root directory like this:**
+Instances of the component are configured when used by the main app or other
+components in their `convex.config.ts` files, forming a tree of components, with
+the main app at the root.
 
-```ts
+## Getting started
+
+The source code for components can be a local folder or bundled into an NPM
+package.
+
+### Local components
+
+The easiest way to get started is by creating a new folder for your component
+and adding a `convex.config.ts` file to it (like the one above). Then import it
+in your app's `convex/convex.config.ts` file:
+
+```ts title="convex/convex.config.ts"
 import { defineApp } from "convex/server";
-import fooComponent from "../fooComponent/convex.config.js";
+import myComponent from "./components/myComponent/convex.config.js";
 
 const app = defineApp();
-
-app.use(fooComponent);
-
+app.use(myComponent);
 export default app;
 ```
 
-**4. Run `convex dev`. This will generate code for your component.**
+Once installed, `npx convex dev` will generate code in
+`./components/myComponent/_generated/` and re-generate it whenever you make
+changes to the component's code.
 
-**5. Start writing code in your component!**
+Tip: The recommended pattern for local components is to organize them in a
+`convex/components` folder, but they can be stored anywhere in your project.
 
-### NPM Package
+### Packaged components
 
-Components can be installed from NPM packages. These components expose all the
-relevant entry points to be used in your project:
+Components can be distributed and installed as NPM packages, enabling you to
+share solutions to common problems with the broader developer community via the
+[Convex Components directory](https://convex.dev/components).
 
-- `@your/package` for types, classes, and constants used to interact with the
-  component.
-- `@your/package/convex.config.js` for adding the component to the app's
-  `convex/convex.config.ts`
-- `@your/package/_generated/component.js` to expose the `ComponentApi` type,
-  which describes the component's types from the point of view of app it's used
-  in.
-- `@your/package/test` for utilities to use the component with `convex-test`.
-
-To get started follow these steps:
-
-**1. Create a new project from `npm` using the following command:**
+Get started with a new project using the
+[component template](https://github.com/get-convex/templates/tree/main/template-component):
 
 ```bash
 npm create convex@latest -- --component
 ```
 
-**2. Follow the instructions in your terminal and start writing code!**
+Follow the CLI's instructions to get started and keep the component's generated
+code up-to-date.
+[See below for more information on building and publishing NPM package components.](#building-and-publishing-npm-package-components)
 
-### Hybrid
+### Hybrid components
 
-Hybrid components are similar to sibling components, but they use some shared
-code from an NPM package. They are used when users want something more custom
-and want to implement some of their own functionality.
+Hybrid components define a local component, but use shared library code for some
+of the functionality. This allows you to provide a extra flexibility when users
+need to override or extend the schema or functions.
 
-## Functions
+An example of a hybrid component is the
+[Better Auth Component](https://convex-better-auth.netlify.app/features/local-install).
 
-### Function Access
+Note: in general, components should be composed or designed to be extended
+explicitly, as hybrid components introduce a lot of complexity for maintaining
+and updating the component in backwards-compatible ways.
 
-Understanding how functions can call each other is crucial when working with
-components.
+## Hello world
 
-There's a hierarchy of access, where each level can only call its own (public
-and internal) functions as well as public functions exported by its immediate
-children.
+To try adding a new function, create a file `helloWorld.ts` in your component's
+folder (e.g. `src/component/helloWorld.ts` in the template):
 
-In particular, the public internet / React client / etc. cannot call any
-functions on components, even public ones. Similar to internal functions, there
-is an exception for `npx convex run` and running functions in the Convex
-dashboard, which can call any function.
+```ts title="./path/to/component/hello.ts"
+import { v } from "convex/values";
+import { query } from "./_generated/server.js";
 
-What if you want to call a component's functions from the public internet, or
-from React? The app needs to wrap the component's function in its own function.
-This allows the app to choose to add auth, rate limiting, etc.
-
-```ts
-// in the app's convex/<file>.ts
-export const add = query({
-  args: { value: v.number() },
-  handler: async (ctx, args) => {
-    await counter.add(ctx, args.value);
+export const world = query({
+  args: {},
+  returns: v.string(),
+  handler: async () => {
+    return "hello world";
   },
 });
 ```
+
+After it deploys, you can run
+`npx convex run --component myComponent hello:world`.
+
+You can now also run it from a function in your app:
+
+```ts title="convex/sayHi.ts"
+import { components } from "./_generated/api";
+import { query } from "./_generated/server";
+
+export default query({
+  handler: async (ctx) => {
+    return await ctx.runQuery(components.myComponent.hello.world);
+  },
+});
+```
+
+Try it out: `npx convex run sayHi`.
+
+## Key differences from regular Convex development
+
+Developing a component is similar to developing the rest of your Convex backend.
+This section is a guide to the key concepts and differences.
+
+### The Component API
+
+When you access a component reference like `components.foo`, you're working with
+the `ComponentApi` type which has some key differences from the regular `api`
+object:
+
+- **Only public functions are accessible**: Internal functions are not exposed
+  to the parent app.
+- **Functions become internal references**: The component's "public" queries,
+  mutations, and actions are turned into references with "internal" visibility.
+  They can be called with `ctx.runQuery`, `ctx.runMutation`, etc. but **not**
+  directly accessible from clients via HTTP or WebSockets. See below for
+  patterns to re-export functions from the component.
+- **IDs become strings**: Any `Id<"tableName">` arguments or return values
+  become plain strings in the `ComponentApi`. See next section for details.
+
+Similar to regular Convex functions, you can call both public and internal
+functions via `npx convex run` and the Convex dashboard.
+
+### `Id` types and validation
+
+All `Id<"table_name">` types within a component become simple string types
+outside of the component (in the `ComponentApi` type).
+
+In addition, you cannot currently have a `v.id("table_name")` validator that
+represents a table in another component / app.
+
+Why?
+
+In Convex, a `v.id("table_name")` validator will check that an ID in an
+argument, return value, or database document matches the named table's format.
+Under the hood, this is currently encoded as a number assigned to each table in
+your schema.
+
+Within a component’s implementation, the same applies to the component's tables.
+However, a `v.id("users")` within the component is not the same as
+`v.id("users")` in another component or in the main app, as each "users" table
+can have a different table number representation.
+
+For this reason, all `Id` types in the `ComponentApi` become simple strings.
+
+### Generated code
+
+Each component has its own `_generated` directory in addition to the
+`convex/_generated` directory. They are similar, but its contents are specific
+to the component and its schema. In general, code outside of the component
+should not import from this directory with the exception of
+`_generated/component`.
+
+- `component.ts` is only generated for components, and contains the component's
+  `ComponentApi` type.
+- `server.ts` contains function builders like `query` and `mutation` to define
+  your component's API. It's important that you import these when defining your
+  component's functions, and not from `convex/_generated/server`. See below for
+  more information on function visibility.
+- `api.ts` contains the component's `api` and `internal` objects to reference
+  the component's functions. It also includes the `components` object with
+  references to its child components, if any. In general, no code outside of the
+  component should import from this file. Instead, they should use their own
+  `components` object which includes this component keyed by whatever name they
+  chose to install it with.
+- `dataModel.ts` contains the types for the component's data model. Note that
+  the `Id` and `Doc` types here are not useful outside of the component, since
+  the API turns all ID types into strings at the boundary.
+
+### Environment variables
+
+The component's functions are isolated from the app's environment variables, so
+they cannot access `process.env`. Instead, you can pass environment variables as
+arguments to the component's functions.
+
+```ts
+return await ctx.runAction(components.sampleComponent.lib.translate, {
+  baseUrl: process.env.BASE_URL,
+  ...otherArgs,
+});
+```
+
+See below for other strategies for static configuration.
 
 ### HTTP Actions
 
@@ -171,6 +238,30 @@ actions), a component can define HTTP action handlers which the app can choose
 to mount. There’s an example in the
 [Twilio component](https://github.com/get-convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71).
 All HTTP actions need to be mounted in the main app’s `convex/http.ts` file.
+
+### Authentication via ctx.auth
+
+Within a component, `ctx.auth` is not available. You typically will do
+authentication in the app, then pass around identifiers like `userId` or other
+identifying information to the component.
+
+This explicit passing makes it clear what data flows between the app and
+component, making your component easier to understand and test.
+
+```ts title="convex/myFunctions.ts"
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+export const someMutation = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    await ctx.runMutation(components.myComponent.foo.bar, {
+      userId,
+      ...otherArgs,
+    });
+  },
+});
+```
 
 ### Function Handles
 
@@ -194,7 +285,7 @@ it into something that can be called from anywhere:
 const handle = await createFunctionHandle(api.foo.bar);
 ```
 
-​This handle is a string.
+This handle is a string.
 
 Since it’s a string, you can pass it between functions and even store it in a
 table. You would use `v.string()` in args/schema validators.
@@ -211,71 +302,117 @@ const result = await ctx.runMutation(handle, args);
 await ctx.scheduler.runAfter(0, handle, args);
 ```
 
+[Here](https://github.com/get-convex/workpool/blob/aebe2db49fc3ec50ded6892ed27f464450b3d31e/src/component/worker.ts#L26-L28)
+is an example of using function handles in the
+[Workpool](https://www.convex.dev/components/workpool) component.
+
 ### Pagination
 
 The built-in `.paginate()` doesn't work in components, because of how Convex
 keeps track of reactive pagination. Therefore we recommend you use `paginator`
-from convex-helpers if you need pagination within your component. As a
-particular case, you cannot use the `migrations` component within your own
-component because it uses pagination. We’re working on more helpers to make this
-easier.
+from [`convex-helpers`](https://npmjs.com/package/convex-helpers) if you need
+pagination within your component.
 
 If you expose a pagination API that wants to be used with `usePaginatedQuery`,
 in a React context, use the `usePaginatedQuery` from `convex-helpers` instead of
-the default one. It will have a fixed first page size until you hit “load more,”
-at which point the first page will grow if anything before the second page is
-added.
+the default one from `convex/react`. It will have a fixed first page size until
+you hit “load more,” at which point the first page will grow if anything before
+the second page is added.
 
-## Building Client APIs
+[Here](https://github.com/get-convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
+is an example of pagination in the [RAG](https://www.convex.dev/components/rag)
+component.
 
-When building a component, you'll want to provide a clean API for app developers
-to interact with your component. Instead of requiring users to directly write
-`ctx.runMutation(components.foo.bar, ...)`, you can wrap these calls in a more
-ergonomic client API.
+## Tips and best practices
 
-Client APIs also bridge the gap between your app and component code by allowing
-you to access things like `ctx.auth` and `process.env` before calling into the
-isolated component environment.
+### Validation
 
-This section covers three approaches to building client APIs, which are
-conventions that help provide a consistent experience for users. These aren't
-hard and fast rules—choose the pattern that best fits your component's needs.
+All public component functions should have argument and return validators.
+Otherwise, the argument and return values will be typed as `any`. Below is an
+example of using validators.
 
-### Understanding `ComponentApi`
+```ts
+import schema from "./schema";
 
-Before diving into the patterns, it's important to understand how a component's
-API differs from a regular app's `api` object.
+const messageDoc = schema.tables.messages.validator.extend({
+  _id: v.id("messages),
+  _creationTime: v.number(),
+});
 
-When you pass a component reference like `components.foo` to your client code,
-you're working with a `ComponentApi` type. This is exposed by all components via
-`_generated/component.js` and has some key differences from the regular `api`
-object:
+export const getLatestMessage = query({
+  args: {},
+  returns: v.nullable(messageDoc),
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").order("desc).first();
+  },
+});
+```
 
-- **Only public functions are accessible**: Internal functions are not exposed
-  to the parent app
-- **Functions become internal references**: Your public API functions are turned
-  into references that can be called with `ctx.runQuery`, `ctx.runMutation`,
-  etc. but **not** directly accessible from clients via HTTP or WebSockets.
-- **IDs become strings**: Any `Id<"tableName">` arguments or return values
-  become plain strings in the `ComponentApi`
+Find out more information about function validation
+[here](/functions/validation.mdx).
+
+### Static configuration
+
+A common pattern to track configuration in a component is to have a "globals"
+table with a single document that contains the configuration. You can then
+define functions to update this document from the CLI or from the app. To read
+the values, you can query them with `ctx.db.query("globals").first();`.
+
+## Wrapping the component with client code
+
+When building a component, sometimes you want to provide a simpler API than
+directly calling `ctx.runMutation(components.foo.bar, ...)`, add more type
+safety, or provide functionality that spans the component's boundary.
+
+You can hide calls to the component's functions behind a more ergonomic client
+API that runs within the app's environment and calls into the component.
+
+This section covers conventions and approaches to writing client code. These
+aren't hard and fast rules; choose the pattern that best fits your component's
+needs.
+
+Note: An important aspect of this pattern is that the code running in the app
+has access to `ctx.auth`, `process.env`, and other app-level resources. For many
+use-cases, this is important, such as running code to define migrations in the
+app, which are then run from the Migrations Component. On the other hand, apps
+that want really tight control over what code runs in their app may prefer to
+call the component's functions directly.
 
 ### Simple Function Wrappers
 
-The simplest approach is to define standalone functions that wrap calls to your
+The simplest approach is to define standalone functions that wrap calls to the
 component. This works well for straightforward operations and utilities.
 
 ```tsx
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+} from "convex/server";
 import type { ComponentApi } from "../component/_generated/component.js";
 
-export async function addToCounter(
-  ctx: Pick<GenericMutationCtx<GenericDataModel>, "runMutation">,
+export async function callMyFunction(
+  ctx: MutationCtx | ActionCtx,
   component: ComponentApi,
-  value: number,
+  args: ...
 ) {
   // You can create function handles, add shared utilities,
-  // or do any processing that needs to run in the app's environment
-  await ctx.runMutation(component.public.add, { value });
+  // or do any processing that needs to run in the app's environment.
+  const functionHandle = await createFunctionHandle(args.someFn);
+  const someArg = process.env.SOME_ARG;
+  await ctx.runMutation(component.call.fn, {
+    ...args,
+    someArg,
+    functionHandle,
+  });
 }
+
+// Useful types for functions that only need certain capabilities.
+type MutationCtx = Pick<GenericMutationCtx<GenericDataModel>, "runMutation">;
+type ActionCtx = Pick<
+  GenericActionCtx<GenericDataModel>,
+  "runQuery" | "runMutation" | "runAction"
+>;
 ```
 
 Note: we only use `ctx.runMutation`, so we can use `Pick` to select a type that
@@ -283,6 +420,96 @@ only includes that function. This allows users to call it even if their `ctx` is
 not exactly the standard MutationCtx. It also means it can be called from an
 Action, as ActionCtx also includes `ctx.runMutation`. If your function also
 needs auth or storage, you can adjust what you `Pick`.
+
+### Re-exporting component functions
+
+Sometimes you want to provide ready-made functions that apps can directly
+re-export to their public API. This is useful when you want to give apps the
+ability to expose your component's functionality to React clients or the public
+internet.
+
+The most straightforward way to do this is have the user define their own
+functions that call into the component.
+
+This allows the app to choose to add auth, rate limiting, etc.
+
+```ts title="convex/counter.ts"
+export const add = mutation({
+  args: { value: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // The app can authenticate the user here if needed
+    await ctx.runMutation(components.counter.add, args);
+  },
+});
+```
+
+This is the recommended pattern, as it makes it clear to the user how the
+request is being authenticated. However, if you need to re-export a lot of
+functions, you can use the next pattern.
+
+#### Re-mounting an API
+
+Code in your `src/client/index.ts` can export these functions:
+
+```tsx
+import type { Auth } from "convex/server";
+
+// In your component's src/client/index.ts
+export function makeCounterAPI(
+  component: ComponentApi,
+  options: {
+    // Important: provide a way for the user to authenticate these requests
+    auth: (ctx: { auth: Auth }, operation: "read" | "write") => Promise<string>;
+  },
+) {
+  return {
+    add: mutation({
+      args: { value: v.number() },
+      handler: async (ctx, args) => {
+        await options.auth(ctx, "write");
+        return await ctx.runMutation(component.public.add, args);
+      },
+    }),
+
+    get: query({
+      args: {},
+      handler: async (ctx) => {
+        await options.auth(ctx, "read");
+        return await ctx.runQuery(component.public.get, {});
+      },
+    }),
+  };
+}
+```
+
+Then apps can mount these in their own API:
+
+```tsx
+// In the app's convex/counter.ts
+import { makeCounterAPI } from "@convex-dev/counter";
+import { components } from "./_generated/server.js";
+
+export const { add, get } = makeCounterAPI(components.counter, {
+  auth: async (ctx, operation) => {
+    const userId = await getAuthUserId(ctx);
+    // Check if the user has permission to perform the operation
+    if (operation === "write" && !userId) {
+      throw new Error("User not authenticated");
+    }
+    return userId;
+  },
+});
+```
+
+This pattern is also useful for components that need to provide functions with
+specific signatures for integration purposes.
+
+Here's a real-world
+[example](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
+from the
+[ProseMirror component](https://www.convex.dev/components/prosemirror-sync) that
+exports ready-made functions.
 
 ### Class-Based Clients
 
@@ -295,7 +522,9 @@ that can hold configuration and provide multiple methods.
 import Foo from "@convex-dev/foo";
 import { components } from "./_generated/server.js";
 
-const foo = new Foo(components.foo);
+const foo = new Foo(components.foo, {
+  maxShards: 10,
+});
 ```
 
 **With configuration options:**
@@ -304,13 +533,14 @@ Classes typically accept the component reference as their first argument, with
 optional configuration as the second:
 
 ```tsx
-export class FooClient {
+export class Foo {
   private apiKey: string;
 
   constructor(
     public component: ComponentApi,
     options?: {
       maxShards?: number;
+      // Named after the environment variable it overrides, for clarity.
       FOO_AUTH_KEY?: string;
     },
   ) {
@@ -334,96 +564,30 @@ export const myQuery = query({
     const foo = new Foo(components.foo, {
       apiKey: args.customApiKey,
     });
-    await foo.bar();
+    await foo.count(ctx);
   },
 });
 ```
 
-This is especially useful when working with custom function wrappers:
+## Building and publishing NPM package components
 
-```tsx
-const myCustomQuery = customQuery(
-  query,
-  customCtx((ctx) => {
-    const foo = new Foo(ctx, components.foo, { optionA: true });
-    return { foo };
-  }),
-);
+### Build process
 
-export const myQuery = myCustomQuery({
-  handler: async (ctx, args) => {
-    await ctx.foo.bar();
-  },
-});
-```
+While developing a component that will be bundled, the example app that installs
+and exercises it will import the bundled version of the component. This helps
+ensure that the code you are testing matches the code that will be published.
 
-### Re-Mountable API Functions
+However, that means `npx convex dev` cannot detect where the original source
+code is located for the component, and will not automatically generate the code
+for the component. When developing a component that will be bundled, you need to
+run a separate build process to generate the component's `_generated` directory.
 
-Sometimes you want to provide ready-made functions that apps can directly
-re-export to their public API. This is useful when you want to give apps the
-ability to expose your component's functionality to React clients or the public
-internet.
+The component authoring template will automatically generate the code for the
+component when running `npm run dev`. You can see the setup in the
+[template's `package.json` scripts](https://github.com/get-convex/templates/blob/main/template-component/package.json).
 
-Code in your `src/client/index.ts` can export these functions:
-
-```tsx
-// In your component's src/client/index.ts
-export function makeCounterAPI(component: ComponentApi) {
-  return {
-    add: query({
-      args: { value: v.number() },
-      handler: async (ctx, args) => {
-        return await ctx.runQuery(component.public.add, args);
-      },
-    }),
-
-    get: query({
-      args: {},
-      handler: async (ctx) => {
-        return await ctx.runQuery(component.public.get, {});
-      },
-    }),
-  };
-}
-```
-
-Then apps can mount these in their own API:
-
-```tsx
-// In the app's convex/counter.ts
-import { makeCounterAPI } from "@convex-dev/counter";
-import { components } from "./_generated/server.js";
-
-export const { add, get } = makeCounterAPI(components.counter);
-```
-
-This pattern is also useful for components that need to provide functions with
-specific signatures for integration purposes.
-
-Here's a real-world
-[example](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
-from the ProseMirror component that exports ready-made functions.
-
-## Codegen
-
-### Sibling Components
-
-In order to get up-to-date codegen, all you need to do is run
-`npx convex dev --typecheck-components` from your root component. This
-automatically grabs the types from your component and puts them in your
-top-level app.
-
-Note that the component needs to be installed in your app's
-`convex/convex.config.ts`, and the installation must point at the component's
-source (TypeScript files), not compiled `.js` files.
-
-### NPM Components
-
-When using the component authoring
-[template](https://github.com/get-convex/templates/tree/main/template-component)
-for NPM packages, you need to run `npm run dev` to generate code. The template
-automatically handles this, but if you're setting up your own build process,
-you'll need to run the following commands with their own file watchers:
+If you're setting up your own build process, you'll need to run the following
+commands with their own file watchers:
 
 1. **Component codegen**: Generate code for the component itself
 
@@ -437,118 +601,137 @@ you'll need to run the following commands with their own file watchers:
    npm run build # Your build command (e.g., tsc, esbuild, etc.)
    ```
 
-3. **Example app codegen & deploy**: Generate code for and deploy the example
-   app
+3. **Example app codegen & deploy**: Generate code for the example app and
+   deploy it app
    ```bash
-   npx convex dev --typecheck-components
+   npx convex dev --typecheck-components # optionally type-check the components
    ```
 
-**Note on ordering:** The typical workflow is: component codegen → build the
-package → example app codegen & deploy. This is a recommended convention
-followed by the template, but the key requirement is that the component must be
-built and available before the example app tries to import it.
+**Note on ordering:** The ideal ordering is: component codegen → build the
+package → example app `convex dev` runs. This is a recommended convention
+followed by the template to avoid builds racing with each other, but the key
+requirement is that the component must be built and available before the example
+app tries to import it.
 
-## Environment Variables and Authentication
+### Entry points
 
-Components run in isolated JavaScript contexts, which means they don't have
-access to certain app-level resources. Understanding these limitations is
-important when building components.
+When publishing a component on NPM, you will need to expose all the relevant
+entry points to be used in your project:
 
-### The Isolation Model
+- `@your/package` exports types, classes, and constants used to interact with
+  the component from within their app's code. This is optional, but common.
+- `@your/package/convex.config.js` exposes the component's config.
+- `@your/package/_generated/component.js` exports the `ComponentApi` type, which
+  describes the component's types from the point of view of app it's used in.
+- `@your/package/test` for utilities to use the component with `convex-test`.
 
-Each component's function execution gets a separate JavaScript context. This
-means:
+[The template’s package.json](https://github.com/get-convex/templates/blob/main/template-component/package.json)
+does this for you, but if you're setting up your own build process, you'll need
+to set this up in your package.json.
 
-- **No environment variables**: Components cannot access `process.env`
-- **No authentication context**: Components cannot access `ctx.auth`
-- **Separate global variables**: Even globals are scoped per component
+### Local package resolution for development
 
-This isolation is by design: it ensures components are truly modular and don't
-have hidden dependencies on the parent app's environment.
+When developing a component, you generally want to be importing the component's
+code in the same way that apps will import it, e.g.
+`import {} from "@your/package"`. To achieve this without having to install the
+package from NPM in the example app, follow the template's project structure:
 
-### Bridging the Gap with Client Code
+1. In the root of the project, have the `package.json` with the package name
+   matching the `@your/package` name. This causes imports for that name to
+   resolve to the `package.json`’s `exports`.
+2. In the `exports` section of the `package.json`, map the aforementioned entry
+   points to the bundled files, generally in the `dist` directory. This means
+   imports from the package name will resolve to the bundled files.
+3. Have a single package.json file and node_modules directory in the root of the
+   project, so the example app will resolve to the package name by default. This
+   will also avoid having multiple versions of `convex` referenced by the
+   library vs. the example app. To add dependencies used only by the example
+   app, add them as `devDependencies` in the `package.json`.
 
-The solution is to pass app-level data through function arguments. Your client
-code in `src/client/` acts as the bridge:
+### Publishing to NPM
 
-- `src/client/` runs in the **app's environment** and has access to
-  `process.env`, `ctx.auth`, etc.
-- `src/component/` runs in the **component's isolated environment** and only
-  receives what you explicitly pass to it
+To publish a component on NPM, check out
+[PUBLISHING.md](https://github.com/get-convex/templates/blob/main/template-component/PUBLISHING.md).
 
-Your client code can handle passing these implicitly, so component users don't
-have to think about it.
+## Testing
 
-### Example: Environment Variables
+### Testing implementations
 
-Here's a pattern for handling API keys or other environment variables. The
-client stores the value and passes it with each call:
+To test components, you can use the
+[`convex-test` library](/testing/convex-test.mdx). The main difference is that
+you must provide the schema and modules to the test instance.
 
-```ts
-class Counter {
-  private apiKey: string;
+```ts title="component/some.test.ts"
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./schema.ts";
+const modules = import.meta.glob("./**/*.ts");
 
-  constructor(
-    private component: ComponentApi,
-    options?: {
-      API_KEY?: string;
-    },
-  ) {
-    // Client runs in app environment, so it can access process.env
-    this.apiKey = options?.API_KEY ?? process.env.API_KEY!;
-  }
-
-  async count(ctx: RunQueryCtx) {
-    // Pass the API key as an argument to the component
-    return await ctx.runQuery(this.component.public.count, {
-      API_KEY: this.apiKey,
-    });
-  }
+export function initConvexTest() {
+  const t = convexTest(schema, modules);
+  return t;
 }
-```
 
-This keeps the common case simple (just set the env var) while allowing
-overrides when needed.
-
-### Example: Authentication
-
-Similarly, for authentication, your client can extract the user identity from
-`ctx.auth` and pass it to the component:
-
-```ts
-class Counter {
-  constructor(private component: ComponentApi) {}
-
-  async count(ctx: QueryCtx) {
-    // Client has access to ctx.auth, component does not
-    const identity = await ctx.auth.getUserIdentity();
-
-    return await ctx.runQuery(this.component.public.count, {
-      userId: identity?.subject,
-      // Or pass the full identity if the component needs it
-      auth: identity,
-    });
-  }
-}
-```
-
-Your component's functions should then accept these as explicit arguments:
-
-```ts
-// In your component's src/component/functions.ts
-export const count = query({
-  args: {
-    userId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    // Now the component can use the userId
-    if (!args.userId) {
-      throw new Error("Not authenticated");
-    }
-    // ... rest of logic
-  },
+test("Test something with a local component", async () => {
+  const t = initConvexTest();
+  // Test like you would normally.
+  await t.run(async (ctx) => {
+    await ctx.db.insert("myComponentTable", { name: "test" });
+  });
 });
 ```
 
-This explicit passing makes it clear what data flows between the app and
-component, making your component easier to understand and test.
+If your component has child components, see the
+[Testing components](/components/using.mdx#testing-components) section in the
+Using Components documentation.
+
+### Testing the API and client code
+
+To test the functions that are exported from the component to run in the app's
+environment, you can follow the same approach as in
+[Using Components](/components/using.mdx#testing-components) and test it from an
+app that uses the component.
+
+The template component includes an example app in part for this purpose: to
+exercise the component's bundled code as it will be used by apps installing it.
+
+### Exporting test helpers
+
+Most components export testing helpers to make it easy to register the component
+with the test instance. Here is an example from the
+[template component’s `/test` entrypoint](https://github.com/get-convex/templates/blob/main/template-component/src/test.ts):
+
+```ts
+/// <reference types="vite/client" />
+import type { TestConvex } from "convex-test";
+import type { GenericSchema, SchemaDefinition } from "convex/server";
+import schema from "./component/schema.js";
+const modules = import.meta.glob("./component/**/*.ts");
+
+/**
+ * Register the component with the test convex instance.
+ * @param t - The test convex instance, e.g. from calling `convexTest`.
+ * @param name - The name of the component, as registered in convex.config.ts.
+ */
+export function register(
+  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
+  name: string = "sampleComponent",
+) {
+  t.registerComponent(name, schema, modules);
+}
+export default { register, schema, modules };
+```
+
+For NPM packages, this is exposed as `@your/package/test` in the package's
+`package.json`:
+
+```json
+{
+  ...
+  "exports": {
+    ...
+    "./test": "./src/test.ts",
+    ...
+  }
+}
+```

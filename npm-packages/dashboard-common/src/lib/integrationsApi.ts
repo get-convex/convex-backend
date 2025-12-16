@@ -70,6 +70,7 @@ export function useCreateAxiomIntegration(): (
   apiKey: string,
   attributes: { key: string; value: string }[],
   version: "1" | "2",
+  ingestUrl: string,
 ) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
@@ -80,8 +81,15 @@ export function useCreateAxiomIntegration(): (
     apiKey: string,
     attributes: { key: string; value: string }[],
     version: "1" | "2",
+    ingestUrl: string,
   ) => {
-    const body = JSON.stringify({ datasetName, apiKey, attributes, version });
+    const body = JSON.stringify({
+      datasetName,
+      apiKey,
+      attributes,
+      version,
+      ingestUrl,
+    });
     await createIntegration(
       "axiom",
       body,

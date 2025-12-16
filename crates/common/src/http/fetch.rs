@@ -45,6 +45,13 @@ pub struct ProxiedFetchClient {
         LazyLock<reqwest::Client, Box<dyn FnOnce() -> reqwest::Client + Send + Sync + 'static>>,
 }
 
+// Share the underlying TlsConnector between ProxiedFetchClients
+static TLS_CONNECTOR: LazyLock<native_tls::TlsConnector> = LazyLock::new(|| {
+    let mut tls = native_tls::TlsConnector::builder();
+    tls.request_alpns(&["h2", "http/1.1"]);
+    tls.build().expect("failed to build TLS connector")
+});
+
 impl ProxiedFetchClient {
     pub fn new(proxy_url: Option<Url>, client_id: String) -> Self {
         Self {
@@ -62,7 +69,9 @@ impl ProxiedFetchClient {
                         );
                     builder = builder.proxy(proxy);
                 }
-                builder = builder.user_agent("Convex/1.0");
+                builder = builder
+                    .user_agent("Convex/1.0")
+                    .use_preconfigured_tls(TLS_CONNECTOR.clone());
                 builder.build().expect("Failed to build reqwest client")
             })),
         }

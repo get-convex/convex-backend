@@ -1,105 +1,126 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
 
 describe("DateTimePicker", () => {
   const mockOnChange = jest.fn();
+  const mockOnSave = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should update when a valid datetime is entered", async () => {
-    const dateTimeString = "10/7/2024, 2:35:32 PM";
+  it("should render with the initial date value", () => {
+    const date = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker date={date} onChange={mockOnChange} />,
+    );
 
-    // Render the component.
-    const initialDate = new Date();
-    render(<DateTimePicker date={initialDate} onChange={mockOnChange} />);
-
-    // Clear the input and enter a new datetime.
-    const dateTimeInput = screen.getByLabelText("Date and time");
-    const user = userEvent.setup();
-    await user.clear(dateTimeInput);
-    await user.type(dateTimeInput, dateTimeString);
-    await user.tab(); // Trigger blur event
-
-    // Check that the datetime was updated correctly.
-    expect(dateTimeInput).toHaveValue(dateTimeString);
-    expect(mockOnChange).toHaveBeenCalledWith(new Date(dateTimeString));
+    const input = container.querySelector('input[type="datetime-local"]');
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveAttribute("type", "datetime-local");
   });
 
-  it("should reject an invalid datetime", async () => {
-    // Render the component.
-    const initialDate = new Date();
-    render(<DateTimePicker date={initialDate} onChange={mockOnChange} />);
+  it("should call onChange when a valid datetime is entered", async () => {
+    const initialDate = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker date={initialDate} onChange={mockOnChange} />,
+    );
 
-    // Store the initial date.
-    const dateTimeInput = screen.getByLabelText("Date and time");
-    const initialDateString = (dateTimeInput as HTMLInputElement).value;
-
-    // Clear the input and enter an invalid datetime.
+    const input = container.querySelector(
+      'input[type="datetime-local"]',
+    ) as HTMLInputElement;
     const user = userEvent.setup();
-    await user.clear(dateTimeInput);
-    await user.type(dateTimeInput, "invalid datetime");
-    await user.tab(); // Trigger blur event
 
-    // Check that the datetime was not changed..
-    expect(dateTimeInput).toHaveValue(initialDateString);
-    expect(mockOnChange).toBeCalledTimes(0);
+    // Change to a new datetime
+    await user.clear(input);
+    await user.type(input, "2024-11-15T16:45:00");
+
+    expect(mockOnChange).toHaveBeenCalledWith(new Date("2024-11-15T16:45:00"));
   });
 
-  it("should open popup when focused and close when clicking outside", async () => {
-    // Render the component in popup mode (default).
-    const initialDate = new Date();
-    render(<DateTimePicker date={initialDate} onChange={mockOnChange} />);
+  it("should not call onChange when input value is empty", async () => {
+    const initialDate = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker date={initialDate} onChange={mockOnChange} />,
+    );
 
-    const dateTimeInput = screen.getByLabelText("Date and time");
+    const input = container.querySelector(
+      'input[type="datetime-local"]',
+    ) as HTMLInputElement;
     const user = userEvent.setup();
 
-    // Initially, the popup should be hidden.
-    const popup = screen.queryByRole("dialog");
-    expect(popup).toHaveClass("hidden");
+    await user.clear(input);
 
-    // Focus the input to open the popup.
-    await user.click(dateTimeInput);
-
-    // The popup should now be visible (no hidden class).
-    expect(screen.getByRole("dialog")).not.toHaveClass("hidden");
-
-    // Click outside the component to close the popup.
-    await user.click(document.body);
-
-    // The popup should be hidden again.
-    expect(screen.queryByRole("dialog")).toHaveClass("hidden");
+    expect(mockOnChange).not.toHaveBeenCalled();
   });
 
-  it("should allow selecting a date by clicking on the calendar", async () => {
-    // Use a specific initial date to make the test predictable
-    const initialDate = new Date("2024-01-15T10:30:00");
-    render(<DateTimePicker date={initialDate} onChange={mockOnChange} />);
+  it("should call onSave when Enter key is pressed", async () => {
+    const initialDate = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker
+        date={initialDate}
+        onChange={mockOnChange}
+        onSave={mockOnSave}
+      />,
+    );
 
-    const dateTimeInput = screen.getByLabelText("Date and time");
+    const input = container.querySelector(
+      'input[type="datetime-local"]',
+    ) as HTMLInputElement;
     const user = userEvent.setup();
 
-    // Focus the input to open the popup.
-    await user.click(dateTimeInput);
+    await user.click(input);
+    await user.keyboard("{Enter}");
 
-    // The popup should now be visible.
-    expect(screen.getByRole("dialog")).not.toHaveClass("hidden");
+    expect(mockOnSave).toHaveBeenCalledTimes(1);
+  });
 
-    // Find a different date button in the calendar (e.g., day 20)
-    const dayButton = screen.getByRole("button", {
-      name: "Saturday, January 20th, 2024",
-    });
+  it("should not call onSave when Enter is pressed if onSave is not provided", async () => {
+    const initialDate = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker date={initialDate} onChange={mockOnChange} />,
+    );
 
-    // Click on the date button
-    await user.click(dayButton);
+    const input = container.querySelector(
+      'input[type="datetime-local"]',
+    ) as HTMLInputElement;
+    const user = userEvent.setup();
 
-    // Verify that onChange was called with a date that has day 20
-    // The time portion should remain the same (10:30:00)
-    expect(mockOnChange).toHaveBeenCalledWith(new Date("2024-01-20T10:30:00"));
+    // Should not throw an error
+    await user.click(input);
+    await user.keyboard("{Enter}");
 
-    // The popup should still be open (only closes on outside click or escape)
-    expect(screen.getByRole("dialog")).not.toHaveClass("hidden");
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it("should render as disabled when disabled prop is true", () => {
+    const date = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker date={date} onChange={mockOnChange} disabled />,
+    );
+
+    const input = container.querySelector('input[type="datetime-local"]');
+    expect(input).toBeDisabled();
+  });
+
+  it("should autofocus when autoFocus prop is true", () => {
+    const date = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker date={date} onChange={mockOnChange} autoFocus />,
+    );
+
+    const input = container.querySelector('input[type="datetime-local"]');
+    expect(input).toHaveFocus();
+  });
+
+  it("should have step=1 to allow seconds precision", () => {
+    const date = new Date("2024-10-07T14:35:32");
+    const { container } = render(
+      <DateTimePicker date={date} onChange={mockOnChange} />,
+    );
+
+    const input = container.querySelector('input[type="datetime-local"]');
+    expect(input).toHaveAttribute("step", "1");
   });
 });

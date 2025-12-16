@@ -340,6 +340,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/projects/{project_slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_project_by_slug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/usage/team_usage_state": {
         parameters: {
             query?: never;
@@ -1562,6 +1578,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workos/disconnect_workos_team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Disconnect a WorkOS team from a Convex team. This is a destructive action that will prevent new WorkOS environments from being provisioned, though existing environments will continue to work. */
+        post: operations["disconnect_workos_team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workos/available_workos_team_emails": {
         parameters: {
             query?: never;
@@ -1620,6 +1653,40 @@ export interface paths {
             cookie?: never;
         };
         get: operations["get_team_workos_integration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{deployment_name}/workos_environment_health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Check if the WorkOS environment associated with this deployment is still accessible */
+        get: operations["get_workos_environment_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/workos_team_health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Check if the WorkOS team associated with this Convex team is still accessible */
+        get: operations["get_workos_team_health"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1756,7 +1823,7 @@ export interface components {
             referralCode: components["schemas"]["ReferralCode"];
         };
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "enableSSO" | "disableSSO" | "updateSSO";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "disconnectWorkosTeam" | "enableSSO" | "disableSSO" | "updateSSO";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -1959,6 +2026,14 @@ export interface components {
             workosTeam?: null | components["schemas"]["WorkOSAssociatedTeam"];
         };
         DeviceName: string;
+        DisconnectWorkOSTeamRequest: {
+            /** @description Convex team ID to disconnect from WorkOS */
+            teamId: components["schemas"]["TeamId"];
+        };
+        DisconnectWorkOSTeamResponse: {
+            workosTeamId: string;
+            workosTeamName: string;
+        };
         DiscordAccount: {
             details?: null | components["schemas"]["DiscordAccountDetails"];
             id: string;
@@ -2144,6 +2219,14 @@ export interface components {
             plan: components["schemas"]["PlanResponse"];
             status: string;
         };
+        PaginatedProjectsResponse: {
+            items: components["schemas"]["ProjectDetails"][];
+            pagination: components["schemas"]["PaginationMetadata"];
+        };
+        PaginationMetadata: {
+            hasMore: boolean;
+            nextCursor?: string | null;
+        };
         PaymentMethodResponse: {
             display: string;
             kind: string;
@@ -2209,6 +2292,7 @@ export interface components {
             role?: null | components["schemas"]["ProjectRole"];
         };
         ProjectSlug: string;
+        ProjectsResponse: components["schemas"]["PaginatedProjectsResponse"] | components["schemas"]["ProjectDetails"][];
         ProposedTeamName: string;
         ProvisionDeploymentDashboardArgs: {
             deploymentType: components["schemas"]["DeploymentType"];
@@ -2310,6 +2394,8 @@ export interface components {
             creationTime: number;
             creator?: null | components["schemas"]["MemberId"];
             /** Format: int64 */
+            expirationTime?: number | null;
+            /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
             permissions?: string[] | null;
@@ -2338,8 +2424,6 @@ export interface components {
             periodicBackupsEnabled: boolean;
             /** Format: int64 */
             previewDeploymentRetentionDays: number;
-            /** Format: int64 */
-            projectMaxPreviewDeployments: number;
             ssoEnabled: boolean;
             streamingExportEnabled: boolean;
             /** Format: int64 */
@@ -2461,6 +2545,11 @@ export interface components {
             workosTeamId: string;
             workosTeamName: string;
         };
+        WorkOSEnvironmentHealthResponse: {
+            clientId: string;
+            id: string;
+            name: string;
+        };
         WorkOSEnvironmentInfo: {
             deploymentName: string;
             workosClientId: string;
@@ -2474,11 +2563,18 @@ export interface components {
             workosTeamId: string;
             workosTeamName: string;
         };
+        WorkOSTeamHealthResponse: {
+            id: string;
+            name: string;
+            teamStatus: components["schemas"]["WorkOSTeamStatus"];
+        };
         WorkOSTeamIntegrationResponse: {
             /** @description List of WorkOS environments for deployments */
             environments: components["schemas"]["WorkOSEnvironmentInfo"][];
             teamAssociation?: null | components["schemas"]["WorkOSTeamAssociation"];
         };
+        /** @enum {string} */
+        WorkOSTeamStatus: "active" | "inactive";
     };
     responses: never;
     parameters: never;
@@ -2525,6 +2621,8 @@ export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeploymentWorkOsEnvironmentInfo = components['schemas']['DeploymentWorkOSEnvironmentInfo'];
 export type DeploymentWorkOsEnvironmentResponse = components['schemas']['DeploymentWorkOSEnvironmentResponse'];
 export type DeviceName = components['schemas']['DeviceName'];
+export type DisconnectWorkOsTeamRequest = components['schemas']['DisconnectWorkOSTeamRequest'];
+export type DisconnectWorkOsTeamResponse = components['schemas']['DisconnectWorkOSTeamResponse'];
 export type DiscordAccount = components['schemas']['DiscordAccount'];
 export type DiscordAccountDetails = components['schemas']['DiscordAccountDetails'];
 export type DiscordAccountsResponse = components['schemas']['DiscordAccountsResponse'];
@@ -2560,6 +2658,8 @@ export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
 export type OrbSubscriptionResponse = components['schemas']['OrbSubscriptionResponse'];
+export type PaginatedProjectsResponse = components['schemas']['PaginatedProjectsResponse'];
+export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PaymentMethodResponse = components['schemas']['PaymentMethodResponse'];
 export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig'];
 export type PlanResponse = components['schemas']['PlanResponse'];
@@ -2574,6 +2674,7 @@ export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectRole = components['schemas']['ProjectRole'];
 export type ProjectRoleUpdateArg = components['schemas']['ProjectRoleUpdateArg'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
+export type ProjectsResponse = components['schemas']['ProjectsResponse'];
 export type ProposedTeamName = components['schemas']['ProposedTeamName'];
 export type ProvisionDeploymentDashboardArgs = components['schemas']['ProvisionDeploymentDashboardArgs'];
 export type ProvisionDeploymentDashboardResponse = components['schemas']['ProvisionDeploymentDashboardResponse'];
@@ -2626,9 +2727,12 @@ export type ValidateReferralCodeResult = components['schemas']['ValidateReferral
 export type Value = components['schemas']['Value'];
 export type VanityDomainResponse = components['schemas']['VanityDomainResponse'];
 export type WorkOsAssociatedTeam = components['schemas']['WorkOSAssociatedTeam'];
+export type WorkOsEnvironmentHealthResponse = components['schemas']['WorkOSEnvironmentHealthResponse'];
 export type WorkOsEnvironmentInfo = components['schemas']['WorkOSEnvironmentInfo'];
 export type WorkOsTeamAssociation = components['schemas']['WorkOSTeamAssociation'];
+export type WorkOsTeamHealthResponse = components['schemas']['WorkOSTeamHealthResponse'];
 export type WorkOsTeamIntegrationResponse = components['schemas']['WorkOSTeamIntegrationResponse'];
+export type WorkOsTeamStatus = components['schemas']['WorkOSTeamStatus'];
 export type $defs = Record<string, never>;
 export interface operations {
     list_profile_emails: {
@@ -3085,9 +3189,17 @@ export interface operations {
     };
     get_projects_for_team: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Maximum number of projects to return (defaults to 100) */
+                limit?: number;
+                /** @description Search query to filter projects by name or slug (case-insensitive) */
+                q?: string;
+            };
             header?: never;
             path: {
+                /** @description Team ID */
                 team_id: string;
             };
             cookie?: never;
@@ -3099,7 +3211,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectDetails"][];
+                    "application/json": components["schemas"]["ProjectsResponse"];
+                };
+            };
+        };
+    };
+    get_project_by_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+                /** @description Project slug */
+                project_slug: components["schemas"]["ProjectSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectDetails"];
                 };
             };
         };
@@ -4809,6 +4945,29 @@ export interface operations {
             };
         };
     };
+    disconnect_workos_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisconnectWorkOSTeamRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisconnectWorkOSTeamResponse"];
+                };
+            };
+        };
+    };
     get_available_workos_team_emails: {
         parameters: {
             query?: never;
@@ -4888,6 +5047,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkOSTeamIntegrationResponse"];
+                };
+            };
+        };
+    };
+    get_workos_environment_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOSEnvironmentHealthResponse"];
+                };
+            };
+        };
+    };
+    get_workos_team_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Convex team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOSTeamHealthResponse"];
                 };
             };
         };

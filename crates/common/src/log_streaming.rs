@@ -16,6 +16,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use tonic::async_trait;
+use utoipa::ToSchema;
 use value::heap_size::HeapSize;
 
 use crate::{
@@ -66,6 +67,8 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
+    pub text_index_read_bytes: u64,
+    pub text_index_write_bytes: u64,
     pub memory_used_mb: u64,
     pub return_bytes: Option<u64>,
 }
@@ -176,7 +179,7 @@ pub enum StructuredLogEvent {
     // },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum LogEventFormatVersion {
     V1,
@@ -973,6 +976,8 @@ mod tests {
                         storage_write_bytes: 0,
                         vector_index_read_bytes: 0,
                         vector_index_write_bytes: 0,
+                        text_index_read_bytes: 0,
+                        text_index_write_bytes: 0,
                         memory_used_mb: 0,
                         return_bytes: Some(64),
                     },

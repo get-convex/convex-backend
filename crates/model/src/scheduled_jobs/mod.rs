@@ -81,6 +81,8 @@ use crate::{
 };
 
 pub mod args;
+#[cfg(test)]
+mod tests;
 pub mod types;
 pub mod virtual_table;
 
@@ -281,7 +283,6 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         };
         let scheduled_job = ScheduledJobMetadata::new(
             path.clone(),
-            args.clone(),
             args_id.developer_id,
             ScheduledJobState::Pending,
             // Don't set next_ts in the past to avoid scheduler incorrectly logging
@@ -324,7 +325,6 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                         let scheduled_ts = self.tx.begin_timestamp();
                         ScheduledJobMetadata::new(
                             path,
-                            args,
                             args_id.developer_id,
                             ScheduledJobState::Canceled,
                             None,

@@ -65,6 +65,7 @@ export class ConvexHttpClient {
   private encodedTsPromise?: Promise<string>;
   private debug: boolean;
   private fetchOptions?: FetchOptions;
+  private fetch?: typeof globalThis.fetch | undefined;
   private logger: Logger;
   private mutationQueue: Array<{
     mutation: FunctionReference<"mutation">;
@@ -91,6 +92,7 @@ export class ConvexHttpClient {
    * - `auth` - A JWT containing identity claims accessible in Convex functions.
    * This identity may expire so it may be necessary to call `setAuth()` later,
    * but for short-lived clients it's convenient to specify this value here.
+   * - `fetch` - A custom fetch implementation to use for all HTTP requests made by this client.
    */
   constructor(
     address: string,
@@ -98,6 +100,7 @@ export class ConvexHttpClient {
       skipConvexDeploymentUrlCheck?: boolean;
       logger?: Logger | boolean;
       auth?: string;
+      fetch?: typeof globalThis.fetch;
     },
   ) {
     if (typeof options === "boolean") {
@@ -119,6 +122,7 @@ export class ConvexHttpClient {
     this.debug = true;
     this.auth = undefined;
     this.adminAuth = undefined;
+    this.fetch = options?.fetch;
     if (options?.auth) {
       this.setAuth(options.auth);
     }
@@ -237,7 +241,7 @@ export class ConvexHttpClient {
   }
 
   private async getTimestampInner() {
-    const localFetch = specifiedFetch || fetch;
+    const localFetch = this.fetch || specifiedFetch || fetch;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -287,7 +291,7 @@ export class ConvexHttpClient {
     } else if (this.auth) {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
-    const localFetch = specifiedFetch || fetch;
+    const localFetch = this.fetch || specifiedFetch || fetch;
 
     const timestamp = options.timestampPromise
       ? await options.timestampPromise
@@ -354,7 +358,7 @@ export class ConvexHttpClient {
     } else if (this.auth) {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
-    const localFetch = specifiedFetch || fetch;
+    const localFetch = this.fetch || specifiedFetch || fetch;
     const response = await localFetch(`${this.address}/api/mutation`, {
       ...this.fetchOptions,
       body,
@@ -466,7 +470,7 @@ export class ConvexHttpClient {
     } else if (this.auth) {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
-    const localFetch = specifiedFetch || fetch;
+    const localFetch = this.fetch || specifiedFetch || fetch;
     const response = await localFetch(`${this.address}/api/action`, {
       ...this.fetchOptions,
       body,
@@ -535,7 +539,7 @@ export class ConvexHttpClient {
     } else if (this.auth) {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
-    const localFetch = specifiedFetch || fetch;
+    const localFetch = this.fetch || specifiedFetch || fetch;
     const response = await localFetch(`${this.address}/api/function`, {
       ...this.fetchOptions,
       body,

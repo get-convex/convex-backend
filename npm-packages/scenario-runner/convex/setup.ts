@@ -5,10 +5,11 @@ import { v } from "convex/values";
 import { rand } from "./common";
 
 export const setupMessages = mutation({
-  handler: async (
-    { db },
-    { rows, channel }: { rows: number; channel: string },
-  ): Promise<void> => {
+  args: {
+    rows: v.number(),
+    channel: v.string(),
+  },
+  handler: async ({ db }, { rows, channel }): Promise<void> => {
     console.log(`Fill the messages table with ${rows} rows`);
     for (let i = 0; i < rows; i++) {
       // The first record always has rand=0. This is used in update_first

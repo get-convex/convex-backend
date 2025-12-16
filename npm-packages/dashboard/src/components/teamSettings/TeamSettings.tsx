@@ -4,7 +4,7 @@ import {
   useDeleteTeam,
   useUpdateTeam,
 } from "api/teams";
-import { useProjects } from "api/projects";
+import { usePaginatedProjects } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
 import { TeamResponse } from "generatedApi";
@@ -21,7 +21,10 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
   const { teams } = useTeams();
   const teamMembers = useTeamMembers(team.id);
-  const projects = useProjects(team.id);
+  const firstPageOfProjects = usePaginatedProjects(team.id, {});
+  const hasProjects =
+    firstPageOfProjects && firstPageOfProjects.items.length > 0;
+
   const [showDeleteTeamModal, setShowDeleteTeamModal] = useState(false);
   const { subscription } = useTeamOrbSubscription(team.id);
 
@@ -79,8 +82,8 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
               teams.length === 1 ||
               !teamMembers ||
               teamMembers.length > 1 ||
-              !projects ||
-              projects.length > 0
+              !firstPageOfProjects ||
+              hasProjects
             }
             tip={
               !hasAdminPermissions
@@ -89,7 +92,7 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
                   ? "You cannot delete your last team."
                   : teamMembers && teamMembers.length > 1
                     ? "You must remove all other team members before deleting the team."
-                    : projects && projects.length > 0
+                    : hasProjects
                       ? "You must delete all projects before deleting the team."
                       : undefined
             }

@@ -151,14 +151,17 @@ impl ConvexApi {
                 .await
                 .context("Failed to deserialize query result")?),
             Ok(resp) => {
+                let status = resp.status().as_str().to_string();
                 if let Ok(text) = resp.text().await {
                     anyhow::bail!(
-                        "Call to {endpoint} on {} returned an unsuccessful response: {text}",
+                        "Call to {endpoint} on {} returned an unsuccessful response ({status}): \
+                         {text}",
                         self.config.deploy_url
                     )
                 } else {
                     anyhow::bail!(
-                        "Call to {endpoint} on {} returned no response",
+                        "Call to {endpoint} on {} returned an unsuccessful response with no \
+                         content ({status})",
                         self.config.deploy_url
                     )
                 }
@@ -346,50 +349,7 @@ impl SnapshotValue for DocumentDeltasValue {
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
-    use schemars::schema::Schema;
-    use serde_json::json;
-
     use super::*;
-
-    #[derive(Deserialize)]
-    pub struct DatabaseSchema(pub BTreeMap<TableName, Schema>);
-
-    #[test]
-    fn can_deserialize_schema() {
-        let json = json!({
-            "emptyTable": false,
-            "table": json!({
-                "type": "object",
-                "properties": json!({
-                    "_creationTime": json!({ "type": "number" }),
-                    "_id": json!({
-                        "$description": "Id(messages)",
-                        "type": "string"
-                    }),
-                    "author": json!({ "type": "string" }),
-                    "body": json!({ "type": "string" }),
-                    "_table": json!({ "type": "string" }),
-                    "_ts": json!({ "type": "integer" }),
-                    "_deleted": json!({ "type": "boolean" }),
-                }),
-                "additionalProperties": false,
-                "required": vec!["_creationTime", "_id", "author", "body"],
-                "$schema": "http://json-schema.org/draft-07/schema#",
-            }),
-        });
-
-        let schema: DatabaseSchema = serde_json::from_value(json).unwrap();
-
-        let Schema::Bool(_) = schema.0.get(&"emptyTable".into()).unwrap() else {
-            panic!();
-        };
-        let Schema::Object(schema_object) = schema.0.get(&"table".into()).unwrap() else {
-            panic!();
-        };
-        assert!(schema_object.object.is_some());
-    }
 
     #[test]
     fn test_table_path_for_state_root_component() {
@@ -421,7 +381,7 @@ mod tests {
             fields: BTreeMap::new(),
             ts: 0,
         };
-        assert_eq!(snapshot_value.fivetran_schema_name(), "convex");
+        assert_eq!(snapshot_value.fivetran_schema_name(), "app");
     }
 
     #[test]

@@ -91,10 +91,234 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/list_log_streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List log streams
+         * @description List configs for all existing log streams in a deployment.
+         */
+        get: operations["list_log_streams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/get_log_stream/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get log stream
+         * @description Get the config for a specific log stream by id.
+         */
+        get: operations["get_log_stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/delete_log_stream/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete log stream
+         * @description Delete the deployment's log stream with the given id.
+         */
+        post: operations["delete_log_stream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/create_log_stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create log stream
+         * @description Create a new log stream for the deployment. Errors if a log stream of the
+         *     given type already exists.
+         */
+        post: operations["create_log_stream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update_log_stream/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update log stream
+         * @description Update an existing log stream for the deployment. Omit a field to keep the
+         *     existing value, and use `null` to unset a field.
+         */
+        post: operations["update_log_stream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rotate_webhook_secret/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate webhook log stream secret
+         * @description Rotate the secret for the webhook log stream.
+         */
+        post: operations["rotate_webhook_secret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AxiomAttribute: {
+            key: string;
+            value: string;
+        };
+        /** AxiomConfig */
+        AxiomLogStreamConfig: {
+            /** @description Optional list of attributes. These are extra fields and values sent to
+             *     Axiom in each log event. */
+            attributes: components["schemas"]["AxiomAttribute"][];
+            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
+            datasetName: string;
+            id: string;
+            /** @description Optional ingest endpoint for Axiom */
+            ingestUrl?: string | null;
+        };
+        CreateAxiomLogStreamArgs: {
+            /** @description Axiom API key for authentication. */
+            apiKey: string;
+            /** @description Optional list of attributes. These are extra fields and values sent to
+             *     Axiom in each log event. */
+            attributes: components["schemas"]["AxiomAttribute"][];
+            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
+            datasetName: string;
+            /** @description Optional ingest endpoint for Axiom */
+            ingestUrl?: string | null;
+        };
+        CreateDatadogLogStreamArgs: {
+            /** @description Datadog API key for authentication. */
+            ddApiKey: string;
+            /** @description Optional comma-separated list of tags. These are sent to Datadog in each
+             *     log event via the `ddtags` field. */
+            ddTags: string[];
+            /** @description Service name used as a special tag in Datadog. */
+            service?: string | null;
+            /** @description Location of your Datadog deployment. */
+            siteLocation: components["schemas"]["DatadogSiteLocation"];
+        };
+        CreateLogStreamArgs: (components["schemas"]["CreateDatadogLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "datadog";
+        }) | (components["schemas"]["CreateWebhookLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "webhook";
+        }) | (components["schemas"]["CreateAxiomLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "axiom";
+        }) | (components["schemas"]["CreateSentryLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "sentry";
+        });
+        CreateLogStreamResponse: (components["schemas"]["CreateWebhookLogStreamResponse"] & {
+            /** @enum {string} */
+            logStreamType: "webhook";
+        }) | {
+            id: string;
+            /** @enum {string} */
+            logStreamType: "datadog";
+        } | {
+            id: string;
+            /** @enum {string} */
+            logStreamType: "axiom";
+        } | {
+            id: string;
+            /** @enum {string} */
+            logStreamType: "sentry";
+        };
+        CreateSentryLogStreamArgs: {
+            /** @description Sentry Data Source Name (DSN) to route exceptions to. */
+            dsn: string;
+            /** @description Tags to add to all events routed to Sentry. */
+            tags?: {
+                [key: string]: string;
+            } | null;
+        };
+        CreateWebhookLogStreamArgs: {
+            /** @description Format for the webhook payload. JSONL sends one object per line of
+             *     request, JSON sends one array per request. */
+            format: components["schemas"]["WebhookFormat"];
+            /** @description URL to send logs to. */
+            url: string;
+        };
+        CreateWebhookLogStreamResponse: {
+            /** @description Use this secret to verify webhook signatures. */
+            hmacSecret: string;
+            id: string;
+        };
+        /** DatadogConfig */
+        DatadogLogStreamConfig: {
+            /** @description Optional comma-separated list of tags. These are sent to Datadog in each
+             *     log event via the `ddtags` field. */
+            ddTags: string[];
+            id: string;
+            /** @description Service name used as a special tag in Datadog. */
+            service?: string | null;
+            /** @description Location of your Datadog deployment. */
+            siteLocation: components["schemas"]["DatadogSiteLocation"];
+        };
+        /**
+         * @description The Datadog deployment locations, used to construct URLs
+         * @enum {string}
+         */
+        DatadogSiteLocation: "US1" | "US3" | "US5" | "EU" | "US1_FED" | "AP1";
         GetCanonicalUrlsResponse: {
             convexCloudUrl: string;
             convexSiteUrl: string;
@@ -104,14 +328,61 @@ export interface components {
                 [key: string]: string;
             };
         };
+        LogStreamConfig: (components["schemas"]["DatadogLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "datadog";
+        }) | (components["schemas"]["WebhookLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "webhook";
+        }) | (components["schemas"]["AxiomLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "axiom";
+        }) | (components["schemas"]["SentryLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "sentry";
+        });
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
+        RotateLogStreamSecretResponse: {
+            hmacSecret: string;
+            /** @enum {string} */
+            logStreamType: "webhook";
+        };
+        /** SentryConfig */
+        SentryLogStreamConfig: {
+            id: string;
+            /** @description Tags to add to all events routed to Sentry. */
+            tags?: {
+                [key: string]: string;
+            } | null;
+        };
+        UpdateAxiomSinkArgs: {
+            /** @description Axiom API key for authentication. */
+            apiKey?: string | null;
+            /** @description Optional list of attributes. These are extra fields and values sent to
+             *     Axiom in each log event. */
+            attributes?: components["schemas"]["AxiomAttribute"][] | null;
+            /** @description Name of the dataset in Axiom. This is where the logs will be sent. */
+            datasetName?: string | null;
+            /** @description Optional ingest endpoint for Axiom */
+            ingestUrl?: string | null;
+        };
         UpdateCanonicalUrlRequest: {
             /** @description Whether to update the canonical URL for convex.cloud or convex.site */
             requestDestination: components["schemas"]["RequestDestination"];
             /** @description The new canonical URL. Omit this to reset the canonical URl to the
              *     default value. */
             url?: string | null;
+        };
+        UpdateDatadogSinkArgs: {
+            /** @description Datadog API key for authentication. */
+            ddApiKey?: string | null;
+            /** @description Optional comma-separated list of tags. These are sent to Datadog in each
+             *     log event via the `ddtags` field. */
+            ddTags?: string[] | null;
+            /** @description Service name used as a special tag in Datadog. */
+            service?: string | null;
+            siteLocation?: null | components["schemas"]["DatadogSiteLocation"];
         };
         UpdateEnvVarRequest: {
             name: string;
@@ -120,6 +391,45 @@ export interface components {
         UpdateEnvVarsRequest: {
             changes: components["schemas"]["UpdateEnvVarRequest"][];
         };
+        UpdateLogStreamArgs: (components["schemas"]["UpdateDatadogSinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "datadog";
+        }) | (components["schemas"]["UpdateWebhookSinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "webhook";
+        }) | (components["schemas"]["UpdateAxiomSinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "axiom";
+        }) | (components["schemas"]["UpdateSentrySinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "sentry";
+        });
+        UpdateSentrySinkArgs: {
+            /** @description Sentry Data Source Name (DSN) to route exceptions to. */
+            dsn?: string | null;
+            /** @description Tags to add to all events routed to Sentry. */
+            tags?: {
+                [key: string]: string;
+            } | null;
+        };
+        UpdateWebhookSinkArgs: {
+            format?: null | components["schemas"]["WebhookFormat"];
+            /** @description URL to send logs to. */
+            url?: string | null;
+        };
+        /** @enum {string} */
+        WebhookFormat: "json" | "jsonl";
+        /** WebhookConfig */
+        WebhookLogStreamConfig: {
+            /** @description Format for the webhook payload. JSONL sends one object per line of
+             *     request, JSON sends one array per request. */
+            format: components["schemas"]["WebhookFormat"];
+            /** @description Use this secret to verify webhook signatures. */
+            hmacSecret: string;
+            id: string;
+            /** @description URL to send logs to. */
+            url: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -127,12 +437,33 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type AxiomAttribute = components['schemas']['AxiomAttribute'];
+export type AxiomLogStreamConfig = components['schemas']['AxiomLogStreamConfig'];
+export type CreateAxiomLogStreamArgs = components['schemas']['CreateAxiomLogStreamArgs'];
+export type CreateDatadogLogStreamArgs = components['schemas']['CreateDatadogLogStreamArgs'];
+export type CreateLogStreamArgs = components['schemas']['CreateLogStreamArgs'];
+export type CreateLogStreamResponse = components['schemas']['CreateLogStreamResponse'];
+export type CreateSentryLogStreamArgs = components['schemas']['CreateSentryLogStreamArgs'];
+export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLogStreamArgs'];
+export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
+export type DatadogLogStreamConfig = components['schemas']['DatadogLogStreamConfig'];
+export type DatadogSiteLocation = components['schemas']['DatadogSiteLocation'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
+export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type RequestDestination = components['schemas']['RequestDestination'];
+export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStreamSecretResponse'];
+export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
+export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
 export type UpdateCanonicalUrlRequest = components['schemas']['UpdateCanonicalUrlRequest'];
+export type UpdateDatadogSinkArgs = components['schemas']['UpdateDatadogSinkArgs'];
 export type UpdateEnvVarRequest = components['schemas']['UpdateEnvVarRequest'];
 export type UpdateEnvVarsRequest = components['schemas']['UpdateEnvVarsRequest'];
+export type UpdateLogStreamArgs = components['schemas']['UpdateLogStreamArgs'];
+export type UpdateSentrySinkArgs = components['schemas']['UpdateSentrySinkArgs'];
+export type UpdateWebhookSinkArgs = components['schemas']['UpdateWebhookSinkArgs'];
+export type WebhookFormat = components['schemas']['WebhookFormat'];
+export type WebhookLogStreamConfig = components['schemas']['WebhookLogStreamConfig'];
 export type $defs = Record<string, never>;
 export interface operations {
     update_environment_variables: {
@@ -211,6 +542,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetCanonicalUrlsResponse"];
+                };
+            };
+        };
+    };
+    list_log_streams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogStreamConfig"][];
+                };
+            };
+        };
+    };
+    get_log_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description id of the log stream to retrieve */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogStreamConfig"];
+                };
+            };
+        };
+    };
+    delete_log_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description id of the log stream to delete */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_log_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLogStreamArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateLogStreamResponse"];
+                };
+            };
+        };
+    };
+    update_log_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description id of the log stream to update */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLogStreamArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rotate_webhook_secret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description id of the webhook log stream for which to rotate the secret */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotateLogStreamSecretResponse"];
                 };
             };
         };

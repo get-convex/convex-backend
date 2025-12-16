@@ -34,7 +34,7 @@ export const listMessages = query({
 export const getJob = query({
   args: { id: v.id("_scheduled_functions") },
   handler: async ({ db }, { id }) => {
-    return await db.system.get(id);
+    return await db.system.get("_scheduled_functions", id);
   },
 });
 
@@ -42,7 +42,7 @@ export const getJob = query({
 export const getFile = query({
   args: { id: v.id("_storage") },
   handler: async ({ db }, { id }) => {
-    return await db.system.get(id);
+    return await db.system.get("_storage", id);
   },
 });
 
@@ -50,7 +50,7 @@ export const getFile = query({
 export const getMessage = query({
   args: { id: v.id("messages") },
   handler: async ({ db }, { id }) => {
-    return await db.get(id);
+    return await db.get("messages", id);
   },
 });
 
@@ -84,7 +84,10 @@ export const runtimeError2 = query({
 export const runtimeError3 = query({
   args: { id: v.id("messages") },
   handler: async ({ db }, { id }) => {
-    return await db.system.get(id as unknown as Id<"_scheduled_functions">);
+    return await db.system.get(
+      "_scheduled_functions",
+      id as unknown as Id<"_scheduled_functions">,
+    );
   },
 });
 
@@ -92,7 +95,7 @@ export const runtimeError3 = query({
 export const runtimeError4 = query({
   args: { id: v.id("_scheduled_functions") },
   handler: async ({ db }, { id }) => {
-    return await db.get(id as unknown as Id<"messages">);
+    return await db.get("messages", id as unknown as Id<"messages">);
   },
 });
 
@@ -114,7 +117,11 @@ export const runtimeError6 = mutation({
   },
   handler: async ({ db }, { id }) => {
     const fakeDoc = { name: "anjan" };
-    return await db.patch(id as unknown as Id<"messages">, fakeDoc as any);
+    return await db.patch(
+      "messages",
+      id as unknown as Id<"messages">,
+      fakeDoc as any,
+    );
   },
 });
 
@@ -125,7 +132,11 @@ export const runtimeError7 = mutation({
   },
   handler: async ({ db }, { id }) => {
     const fakeDoc = { name: "anjan" };
-    return await db.replace(id as unknown as Id<"messages">, fakeDoc as any);
+    return await db.replace(
+      "messages",
+      id as unknown as Id<"messages">,
+      fakeDoc as any,
+    );
   },
 });
 
@@ -135,6 +146,6 @@ export const runtimeError8 = mutation({
     id: v.id("_scheduled_functions"),
   },
   handler: async ({ db }, { id }) => {
-    return await db.delete(id as unknown as Id<"messages">);
+    return await db.delete("messages", id as unknown as Id<"messages">);
   },
 });

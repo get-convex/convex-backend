@@ -12,17 +12,16 @@ export function PostHogProvider({
   const profile = useProfile();
 
   useEffect(() => {
-    // Only initialize PostHog in production.
-    if (process.env.NODE_ENV !== "production") {
-      return;
-    }
-
-    // Note that this is the 'Project API Key' from PostHog, which is write-only
-    // and PostHog says is safe to use in public apps.
+    const isProduction = process.env.NODE_ENV === "production";
+    const isDebugMode = process.env.NEXT_PUBLIC_POSTHOG_DEBUG === "true";
+    // Public 'Project API Key' for PostHog, safe to expose.
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const api_host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
-    if (!key || !api_host) {
+    const shouldInitialize =
+      (isProduction || isDebugMode) && key && api_host && !posthog.__loaded;
+
+    if (!shouldInitialize) {
       return;
     }
 
@@ -30,8 +29,8 @@ export function PostHogProvider({
     posthog.init(key, {
       api_host,
       ui_host: "https://us.posthog.com/",
-      // Set to true to log PostHog events to the console.
-      debug: false,
+      // Logs event details to the console.
+      debug: isDebugMode,
       // Since we're using the pages router, this captures the initial pageview.
       capture_pageview: true,
       session_recording: {

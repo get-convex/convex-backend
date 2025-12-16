@@ -82,7 +82,7 @@ used in Convex function arguments or return values, or in stored documents.
      if (args.a === null) {
        args.a = undefined;
      }
-     await ctx.db.patch(id, args);
+     await ctx.db.patch(tableName, id, args);
      ```
 6. Functions that return a plain `undefined`/`void` are treated as if they
    returned `null`.

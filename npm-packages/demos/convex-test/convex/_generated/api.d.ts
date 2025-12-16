@@ -8,7 +8,11 @@
  * @module
  */
 
+import type * as http from "../http.js";
+import type * as messages from "../messages.js";
 import type * as posts from "../posts.js";
+import type * as scheduler from "../scheduler.js";
+import type * as tasks from "../tasks.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +21,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  http: typeof http;
+  messages: typeof messages;
   posts: typeof posts;
+  scheduler: typeof scheduler;
+  tasks: typeof tasks;
 }>;
 
 /**

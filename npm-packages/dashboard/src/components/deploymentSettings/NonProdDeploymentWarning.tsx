@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { useRouter } from "next/router";
 import { useDeployments } from "api/deployments";
-import { useProjects } from "api/projects";
+import { useCurrentProject } from "api/projects";
 import { useCurrentTeam } from "api/teams";
 import Link from "next/link";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
@@ -18,10 +18,7 @@ export function NonProdDeploymentWarning({
   const router = useRouter();
   const projectSlug = router?.query.project as string;
   const team = useCurrentTeam();
-  const projects = useProjects(team?.id);
-
-  const selectedProject =
-    projects && projects.find((project) => project.slug === projectSlug);
+  const selectedProject = useCurrentProject();
   const { deployments } = useDeployments(selectedProject?.id) || [];
   const prod = deployments?.find((d) => d.deploymentType === "prod");
   const projectsURI = `/t/${team?.slug}/${projectSlug}`;

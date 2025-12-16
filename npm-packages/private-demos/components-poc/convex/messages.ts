@@ -104,7 +104,11 @@ export const storeHandle = mutation({
 });
 
 export const send = mutation({
-  handler: async (ctx, { body, author }: { body: string; author: string }) => {
+  args: {
+    body: v.string(),
+    author: v.string(),
+  },
+  handler: async (ctx, { body, author }) => {
     const result = await ctx.runMutation(
       components.ratelimiter.index.rateLimit,
       {

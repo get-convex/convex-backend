@@ -1,21 +1,24 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  TeamResponse,
-  ProjectDetails,
-  MemberResponse,
-  TeamMemberResponse,
-} from "generatedApi";
+import { TeamResponse, MemberResponse, TeamMemberResponse } from "generatedApi";
 import { TeamMemberListItem } from "./TeamMemberListItem";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 jest.mock("api/profile", () => {});
 jest.mock("api/backups", () => {});
 jest.mock("api/teams", () => {});
-jest.mock("api/projects", () => {});
+jest.mock("api/projects", () => ({
+  usePaginatedProjects: jest.fn().mockReturnValue({
+    items: [],
+    pagination: { hasMore: false, nextCursor: undefined },
+  }),
+}));
 jest.mock("api/deployments", () => {});
 jest.mock("api/roles", () => ({
   useHasProjectAdminPermissions: jest.fn(),
+}));
+jest.mock("@common/lib/useGlobalLocalStorage", () => ({
+  useGlobalLocalStorage: jest.fn().mockReturnValue([25, jest.fn()]),
 }));
 
 describe("TeamMemberListItem", () => {
@@ -27,24 +30,6 @@ describe("TeamMemberListItem", () => {
     suspended: false,
     referralCode: "CODE123",
   };
-  const projects: ProjectDetails[] = [
-    {
-      id: 1,
-      name: "Project 1",
-      slug: "project-1",
-      teamId: 1,
-      isDemo: false,
-      createTime: 0,
-    },
-    {
-      id: 2,
-      name: "Project 2",
-      slug: "project-2",
-      teamId: 1,
-      isDemo: false,
-      createTime: 0,
-    },
-  ];
   const myProfile: MemberResponse = {
     id: 1,
     name: "John Doe",
@@ -76,7 +61,6 @@ describe("TeamMemberListItem", () => {
       <TeamMemberListItem
         team={team}
         myProfile={myProfile}
-        projects={projects}
         projectRoles={[]}
         onUpdateProjectRoles={jest.fn()}
         member={member}
@@ -96,7 +80,6 @@ describe("TeamMemberListItem", () => {
       <TeamMemberListItem
         team={team}
         myProfile={myProfile}
-        projects={projects}
         projectRoles={[]}
         onUpdateProjectRoles={jest.fn()}
         member={member}
@@ -119,7 +102,6 @@ describe("TeamMemberListItem", () => {
       <TeamMemberListItem
         team={team}
         myProfile={myProfile}
-        projects={projects}
         projectRoles={[]}
         onUpdateProjectRoles={jest.fn()}
         member={member}
@@ -142,7 +124,6 @@ describe("TeamMemberListItem", () => {
       <TeamMemberListItem
         team={team}
         myProfile={myProfile}
-        projects={projects}
         projectRoles={[]}
         onUpdateProjectRoles={jest.fn()}
         member={member}
@@ -173,7 +154,6 @@ describe("TeamMemberListItem", () => {
       <TeamMemberListItem
         team={team}
         myProfile={myProfile}
-        projects={projects}
         projectRoles={[]}
         onUpdateProjectRoles={jest.fn()}
         member={member}
@@ -193,7 +173,6 @@ describe("TeamMemberListItem", () => {
       <TeamMemberListItem
         team={team}
         myProfile={myProfile}
-        projects={projects}
         projectRoles={[]}
         onUpdateProjectRoles={jest.fn()}
         member={member}
@@ -221,7 +200,6 @@ describe("TeamMemberListItem", () => {
       <TeamMemberListItem
         team={team}
         myProfile={member}
-        projects={projects}
         projectRoles={[]}
         onUpdateProjectRoles={jest.fn()}
         member={member}

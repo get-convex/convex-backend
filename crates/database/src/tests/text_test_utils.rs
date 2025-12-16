@@ -35,6 +35,7 @@ use common::{
     },
     version::MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
 };
+use events::testing::TestUsageEventLogger;
 use futures::try_join;
 use maplit::btreeset;
 use must_let::must_let;
@@ -92,6 +93,7 @@ pub struct TextFixtures {
     pub storage: Arc<dyn Storage>,
     pub db: Database<TestRuntime>,
     pub reader: Arc<dyn PersistenceReader>,
+    pub test_usage_logger: TestUsageEventLogger,
     searcher: Arc<dyn Searcher>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     writer: TextIndexMetadataWriter<TestRuntime>,
@@ -114,6 +116,7 @@ impl TextFixtures {
             db,
             search_storage,
             searcher,
+            test_usage_logger,
             ..
         } = DbFixtures::new_with_args(
             &rt,
@@ -144,6 +147,7 @@ impl TextFixtures {
             namespace: TableNamespace::test_user(),
             searcher,
             config,
+            test_usage_logger,
         })
     }
 
@@ -193,7 +197,7 @@ impl TextFixtures {
         )
     }
 
-    pub async fn enabled_text_index(&self) -> anyhow::Result<IndexData> {
+    pub async fn enabled_text_index(&self) -> anyhow::Result<TextIndexData> {
         let index_data = self.backfilled_text_index().await?;
         let mut tx = self.db.begin_system().await?;
         IndexModel::new(&mut tx)
@@ -203,7 +207,7 @@ impl TextFixtures {
         Ok(index_data)
     }
 
-    pub async fn backfilled_text_index(&self) -> anyhow::Result<IndexData> {
+    pub async fn backfilled_text_index(&self) -> anyhow::Result<TextIndexData> {
         let index_data = self.insert_backfilling_text_index().await?;
         self.backfill().await?;
 
@@ -249,7 +253,7 @@ impl TextFixtures {
         Ok(ts)
     }
 
-    pub async fn insert_backfilling_text_index(&self) -> anyhow::Result<IndexData> {
+    pub async fn insert_backfilling_text_index(&self) -> anyhow::Result<TextIndexData> {
         let mut tx = self.db.begin_system().await?;
         let index_metadata = backfilling_text_index()?;
         let index_name = &index_metadata.name;
@@ -264,7 +268,7 @@ impl TextFixtures {
         self.db.commit(tx).await?;
 
         let resolved_index_name = TabletIndexName::new(table_id, index_name.descriptor().clone())?;
-        Ok(IndexData {
+        Ok(TextIndexData {
             index_id,
             resolved_index_name,
             index_name: index_name.clone(),
@@ -272,7 +276,9 @@ impl TextFixtures {
         })
     }
 
-    pub async fn insert_backfilling_text_index_with_document(&self) -> anyhow::Result<IndexData> {
+    pub async fn insert_backfilling_text_index_with_document(
+        &self,
+    ) -> anyhow::Result<TextIndexData> {
         let index_data = self.insert_backfilling_text_index().await?;
         let mut tx = self.db.begin_system().await?;
         add_document(&mut tx, index_data.index_name.table(), "A long text field").await?;
@@ -404,7 +410,7 @@ impl TextFixtures {
 const TABLE_NAME: &str = "table";
 const SEARCH_FIELD: &str = "text";
 
-pub struct IndexData {
+pub struct TextIndexData {
     pub index_id: ResolvedDocumentId,
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,

@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { query } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
+import { v } from "convex/values";
 
 export const list = query({
   args: {},
@@ -10,10 +11,11 @@ export const list = query({
 });
 
 export const send = mutation({
-  handler: async (
-    { db },
-    { body, author }: { body: string; author: string },
-  ) => {
+  args: {
+    body: v.string(),
+    author: v.string(),
+  },
+  handler: async ({ db }, { body, author }) => {
     const message = { body, author };
     await db.insert("messages", message);
   },

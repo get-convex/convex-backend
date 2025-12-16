@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import {
   MemberResponse,
   TeamResponse,
-  ProjectDetails,
   AuditLogEventResponse,
 } from "generatedApi";
 import { AuditLogContent } from "./AuditLogContent";
@@ -28,24 +27,6 @@ describe("AuditLogContent", () => {
     suspended: false,
     referralCode: "CODE123",
   };
-  const projects: ProjectDetails[] = [
-    {
-      id: 1,
-      name: "Project 1",
-      slug: "project-1",
-      teamId: 1,
-      isDemo: false,
-      createTime: 0,
-    },
-    {
-      id: 2,
-      name: "Project 2",
-      slug: "project-2",
-      teamId: 1,
-      isDemo: false,
-      createTime: 0,
-    },
-  ];
   const members: MemberResponse[] = [
     { id: 1, name: "Member 1", email: "" },
     { id: 2, name: "Member 2", email: "" },
@@ -75,27 +56,13 @@ describe("AuditLogContent", () => {
   ];
 
   it("renders the audit log content correctly", () => {
-    render(
-      <AuditLogContent
-        team={team}
-        projects={projects}
-        members={members}
-        entries={entries}
-      />,
-    );
+    render(<AuditLogContent team={team} members={members} entries={entries} />);
 
     expect(screen.getAllByTestId("audit-log-item")).toHaveLength(2);
   });
 
   it("renders 'NoEntries' component when there are no audit log entries", () => {
-    render(
-      <AuditLogContent
-        team={team}
-        projects={projects}
-        members={members}
-        entries={[]}
-      />,
-    );
+    render(<AuditLogContent team={team} members={members} entries={[]} />);
 
     expect(screen.getByTestId("no-entries")).toBeInTheDocument();
   });

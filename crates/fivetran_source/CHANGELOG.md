@@ -1,3 +1,7 @@
+# 2.0.1
+
+- Improve error messages for failed API calls.
+
 # 2.0.0
 
 - Add support for Convex components.

@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import open from "open";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logMessage, logOutput, logWarning } from "../bundler/log.js";
@@ -41,8 +41,8 @@ export const dashboard = new Command("dashboard")
     );
 
     if (deployment.deploymentFields === null) {
-      const msg = `Self-hosted deployment configured.\n\`${chalk.bold("npx convex dashboard")}\` is not supported for self-hosted deployments.\nSee self-hosting instructions for how to self-host the dashboard.`;
-      logMessage(chalk.yellow(msg));
+      const msg = `Self-hosted deployment configured.\n\`${chalkStderr.bold("npx convex dashboard")}\` is not supported for self-hosted deployments.\nSee self-hosting instructions for how to self-host the dashboard.`;
+      logMessage(chalkStderr.yellow(msg));
       return;
     }
     const dashboardUrl = getDashboardUrl(ctx, deployment.deploymentFields);
@@ -66,7 +66,7 @@ export const dashboard = new Command("dashboard")
 
 async function logOrOpenUrl(ctx: Context, url: string, shouldOpen: boolean) {
   if (shouldOpen) {
-    logMessage(chalk.gray(`Opening ${url} in the default browser...`));
+    logMessage(chalkStderr.gray(`Opening ${url} in the default browser...`));
     try {
       // This can fail e.g. on a headless dev machine.
       await open(url);

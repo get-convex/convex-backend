@@ -14,15 +14,20 @@ export default withAuthenticatedPage(function RedirectToDeploymentPage() {
 
   const [lastViewedDeploymentName] = useLastViewedDeployment();
   const lastCreatedDeployment = useLastCreatedDeployment();
-  const deployment = lastViewedDeploymentName ?? lastCreatedDeployment?.name;
 
   useEffect(() => {
+    if (!lastViewedDeploymentName && lastCreatedDeployment === undefined) {
+      return;
+    }
+
+    const deployment = lastViewedDeploymentName ?? lastCreatedDeployment?.name;
+
     void router.replace(
       deployment === undefined
         ? "/"
         : { pathname: `/d/${deployment}/${path}`, query },
     );
-  });
+  }, [lastViewedDeploymentName, lastCreatedDeployment, router, path, query]);
 
   return null;
 });

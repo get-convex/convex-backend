@@ -96,6 +96,8 @@ export function LogList({
   setManuallyPaused,
   setFilter,
 }: LogListProps) {
+  const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const interleavedLogs = interleaveLogs(
     filteredLogs ?? [],
     deploymentAuditLogs ?? [],
@@ -131,9 +133,15 @@ export function LogList({
         if (index !== -1) {
           listRef.current.scrollToItem(index, "smart");
 
+          // Clear any existing focus timeout
+          if (focusTimeoutRef.current) {
+            clearTimeout(focusTimeoutRef.current);
+            focusTimeoutRef.current = null;
+          }
+
           // Focus the button element after scroll completes
           // Use a short timeout to allow the scroll to complete
-          setTimeout(() => {
+          focusTimeoutRef.current = setTimeout(() => {
             const logKey = getLogKey(log);
             const button = document.querySelector(
               `[data-log-key="${logKey}"]`,

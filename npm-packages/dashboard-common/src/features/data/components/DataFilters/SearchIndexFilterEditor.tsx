@@ -140,7 +140,7 @@ export function SearchIndexFilterEditor({
               date={getTimestampValue(filter.value)}
               onChange={handleDateChange}
               disabled={!filter.enabled}
-              className="rounded-r"
+              className="rounded-r border p-1 text-xs"
             />
           ) : (
             <ObjectEditorWithPlaceholder

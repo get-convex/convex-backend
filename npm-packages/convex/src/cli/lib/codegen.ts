@@ -24,17 +24,13 @@ import {
 } from "../../bundler/log.js";
 import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import {
-  configFilepath,
   readProjectConfig,
   usesTypeScriptCodegen,
   usesComponentApiImports,
 } from "./config.js";
 import { recursivelyDelete } from "./fsUtils.js";
 import { componentServerTS } from "../codegen_templates/component_server.js";
-import {
-  ComponentDirectory,
-  isComponentDirectory,
-} from "./components/definition/directoryStructure.js";
+import { ComponentDirectory } from "./components/definition/directoryStructure.js";
 import { StartPushResponse } from "./deployApi/startPush.js";
 import {
   componentApiDTS,
@@ -63,46 +59,26 @@ export type CodegenOptions = {
   codegenOnlyThisComponent?: string | undefined;
 };
 
-export async function doInitialCodegen(
+export async function doInitConvexFolder(
   ctx: Context,
-  options: { init: boolean },
+  functionsFolder?: string,
+  opts?: {
+    dryRun?: boolean;
+    debug?: boolean;
+  },
 ) {
-  const { projectConfig: existingProjectConfig } = await readProjectConfig(ctx);
-  const configPath = await configFilepath(ctx);
-  const functionsPath = functionsDir(configPath, existingProjectConfig);
-  if (options.init) {
-    await doInitCodegen(ctx, functionsPath, true);
-  }
-
-  const componentDir = isComponentDirectory(ctx, functionsPath, true);
-  if (componentDir.kind === "err") {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem data",
-      printedMessage: `Invalid component directory: ${componentDir.why}`,
-    });
-  }
-
-  if (componentDir.component.isRootWithoutConfig) {
-    // Disable typechecking since there isn't any code yet.
-    await doCodegen(ctx, functionsPath, "disable");
+  const skipIfExists = false; // Not currently configured
+  let folder: string;
+  if (functionsFolder) {
+    folder = functionsFolder;
   } else {
-    await withTmpDir(async (tmpDir) => {
-      await doInitialComponentCodegen(ctx, tmpDir, componentDir.component);
-    });
+    const { projectConfig, configPath } = await readProjectConfig(ctx);
+    folder = functionsDir(configPath, projectConfig);
   }
-}
-
-export async function doInitCodegen(
-  ctx: Context,
-  functionsDir: string,
-  skipIfExists: boolean,
-  opts?: { dryRun?: boolean; debug?: boolean },
-): Promise<void> {
-  await prepareForCodegen(ctx, functionsDir, opts);
+  await prepareForCodegen(ctx, folder, opts);
   await withTmpDir(async (tmpDir) => {
-    await doReadmeCodegen(ctx, tmpDir, functionsDir, skipIfExists, opts);
-    await doTsconfigCodegen(ctx, tmpDir, functionsDir, skipIfExists, opts);
+    await doReadmeCodegen(ctx, tmpDir, folder, skipIfExists, opts);
+    await doTsconfigCodegen(ctx, tmpDir, folder, skipIfExists, opts);
   });
 }
 

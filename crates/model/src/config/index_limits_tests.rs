@@ -26,7 +26,7 @@ use database::{
     Database,
     UserFacingModel,
 };
-use errors::ErrorMetadata;
+use errors::ErrorMetadataAnyhowExt;
 use keybroker::Identity;
 use runtime::testing::TestRuntime;
 use sync_types::Timestamp;
@@ -40,7 +40,9 @@ use crate::{
     test_helpers::DbFixturesWithModel,
 };
 
-const TABLE: &str = "table";
+const VECTOR_TABLE: &str = "vector_table";
+const VECTOR_TABLE_WITH_STAGED: &str = "vector_table_with_staged";
+const EMPTY_TABLE: &str = "empty_table";
 const VECTOR_FIELD: &str = "field";
 
 async fn commit_schema(
@@ -52,13 +54,20 @@ async fn commit_schema(
         VECTOR_FIELD =>
             FieldValidator::required_field_type(
                 Validator::Array(Box::new(Validator::Float64))
-            )
+            ),
     )]);
     let db_schema = db_schema_with_indexes!(
-        TABLE => {
+        VECTOR_TABLE => {
             vector_indexes: ("myVectorIndex", VECTOR_FIELD),
+            document_schema: document_schema.clone()
+        },
+        VECTOR_TABLE_WITH_STAGED => {
+            staged_vector_indexes: ("myVectorIndex", VECTOR_FIELD),
             document_schema: document_schema
-        }
+        },
+        EMPTY_TABLE => {
+            document_schema: DocumentSchema::Union(vec![object_validator!()]),
+        },
     );
     deploy_schema(rt, tp, db, db_schema).await
 }
@@ -72,7 +81,7 @@ async fn insert_vector_doc_under_vector_limit_succeeds(rt: TestRuntime) -> anyho
 
     let mut tx = db.begin(Identity::system()).await?;
     UserFacingModel::new_root_for_test(&mut tx)
-        .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector))
+        .insert(VECTOR_TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector))
         .await?;
     db.commit(tx).await?;
     Ok(())
@@ -88,20 +97,50 @@ async fn insert_vector_doc_over_vector_limit_fails(rt: TestRuntime) -> anyhow::R
     let mut tx = db.begin(Identity::system()).await?;
     tx.set_index_size_hard_limit(0);
     UserFacingModel::new_root_for_test(&mut tx)
-        .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector))
+        .insert(VECTOR_TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector))
         .await?;
     assert_vector_index_too_large_error(db.commit(tx).await)
 }
 
+#[convex_macro::test_runtime]
+async fn insert_vector_doc_over_vector_limit_staged_index_fails(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
+    commit_schema(&rt, tp, &db).await?;
+
+    let vector = random_vector_value(&mut rt.rng());
+
+    let mut tx = db.begin(Identity::system()).await?;
+    tx.set_index_size_hard_limit(0);
+    UserFacingModel::new_root_for_test(&mut tx)
+        .insert(
+            VECTOR_TABLE_WITH_STAGED.parse()?,
+            assert_obj!(VECTOR_FIELD => vector),
+        )
+        .await?;
+    assert_vector_index_too_large_error(db.commit(tx).await)
+}
+
+/// Ensure that writing to unrelated tables succeeds - when over the vector
+/// index limit. This is important because the search index backfill workers
+/// need to be able to do this to catch up.
+#[convex_macro::test_runtime]
+async fn insert_empty_doc_while_vector_over_limit_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
+    commit_schema(&rt, tp, &db).await?;
+
+    let mut tx = db.begin(Identity::system()).await?;
+    tx.set_index_size_hard_limit(0);
+    UserFacingModel::new_root_for_test(&mut tx)
+        .insert(EMPTY_TABLE.parse()?, assert_obj!())
+        .await?;
+    db.commit(tx).await?;
+    Ok(())
+}
+
 fn assert_vector_index_too_large_error(result: anyhow::Result<Timestamp>) -> anyhow::Result<()> {
-    assert_eq!(
-        result
-            .unwrap_err()
-            .downcast::<ErrorMetadata>()
-            .unwrap()
-            .short_msg,
-        "VectorIndexTooLarge"
-    );
+    assert_eq!(result.unwrap_err().short_msg(), "VectorIndexTooLarge");
     Ok(())
 }
 
@@ -159,14 +198,20 @@ async fn insert_and_delete_vector_doc_over_hard_limit_fails(rt: TestRuntime) -> 
     let vector = random_1536_vector_value(&rt);
     let mut tx = db.begin(Identity::system()).await?;
     UserFacingModel::new_root_for_test(&mut tx)
-        .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector.clone()))
+        .insert(
+            VECTOR_TABLE.parse()?,
+            assert_obj!(VECTOR_FIELD => vector.clone()),
+        )
         .await?;
     db.commit(tx).await?;
 
     let mut tx = db.begin(Identity::system()).await?;
     tx.set_index_size_hard_limit(0);
     let id = UserFacingModel::new_root_for_test(&mut tx)
-        .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector.clone()))
+        .insert(
+            VECTOR_TABLE.parse()?,
+            assert_obj!(VECTOR_FIELD => vector.clone()),
+        )
         .await?;
     UserFacingModel::new_root_for_test(&mut tx)
         .delete(id)

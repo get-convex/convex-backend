@@ -7,6 +7,8 @@ import Link from "@docusaurus/Link";
 import { translate } from "@docusaurus/Translate";
 import HomeBreadcrumbItem from "@theme/DocBreadcrumbs/Items/Home";
 import styles from "./styles.module.css";
+import { CopyAsMarkdown } from "./CopyAsMarkdown";
+
 // TODO move to design system folder
 function BreadcrumbsItemLink({ children, href, isLast }) {
   const className = "breadcrumbs__link";
@@ -48,17 +50,11 @@ function BreadcrumbsItem({ children, active, index, addMicrodata }) {
     </li>
   );
 }
-export default function DocBreadcrumbs() {
+
+export function DocBreadcrumbsInner() {
   const breadcrumbs = useSidebarBreadcrumbs();
   const homePageRoute = useHomePageRoute();
-  if (!breadcrumbs) {
-    return null;
-  }
-  // This is the change that forced us to swizzle the breadcrumbs:
-  // we don't want to show them when we're at the top of the sidebar
-  if (breadcrumbs.length < 2) {
-    return null;
-  }
+
   return (
     <nav
       className={clsx(
@@ -94,5 +90,26 @@ export default function DocBreadcrumbs() {
         })}
       </ul>
     </nav>
+  );
+}
+
+export default function DocBreadcrumbs() {
+  const breadcrumbs = useSidebarBreadcrumbs();
+
+  const showBreadcrumbs =
+    breadcrumbs &&
+    // This is the change that forced us to swizzle the breadcrumbs:
+    // we don't want to show them when we're at the top of the sidebar
+    breadcrumbs.length >= 2;
+
+  return showBreadcrumbs ? (
+    <div className="flex items-center gap-x-4 justify-between flex-wrap mb-3">
+      <DocBreadcrumbsInner />
+      <CopyAsMarkdown />
+    </div>
+  ) : (
+    <div className="flex justify-end sm:block sm:float-right">
+      <CopyAsMarkdown />
+    </div>
   );
 }

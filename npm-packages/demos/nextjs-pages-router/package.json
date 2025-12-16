@@ -12,7 +12,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "next": "^15.5.6",
+    "next": "^15.5.9",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "convex": "workspace:*",
@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
-    "@eslint/js": "~9.34.0",
+    "@eslint/js": "~9.39.0",
     "@eslint/eslintrc": "^3",
     "@types/babel__core": "^7.20.0",
     "@types/node": "^18.17.0",
@@ -30,7 +30,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "eslint": "^9.37.0",
     "eslint-config-next": "~13.4.16",
-    "npm-run-all2": "^7.0.0",
+    "npm-run-all2": "^8.0.0",
     "typescript": "~5.0.3",
     "vite": "^6.4.1"
   }

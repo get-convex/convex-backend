@@ -61,8 +61,8 @@ impl PlanId {
         }
     }
 
-    pub fn has_a_credit_card(&self) -> bool {
-        self.is_in_orb()
+    pub fn is_free(&self) -> bool {
+        !self.is_in_orb()
     }
 
     pub fn supports_referrals(&self) -> bool {

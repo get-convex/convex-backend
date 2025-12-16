@@ -20,6 +20,7 @@ import { DeploymentTimes } from "@common/features/health/components/DeploymentTi
 import { Button } from "@ui/Button";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { LoadingTransition } from "@ui/Loading";
+import { Spinner } from "@ui/Spinner";
 
 export function ChartForFunctionRate({
   chartData,
@@ -49,8 +50,14 @@ export function ChartForFunctionRate({
       <LoadingTransition
         loadingProps={{
           fullHeight: false,
-          className: "h-[9rem] w-full",
+          className: "h-full w-full",
+          shimmer: false,
         }}
+        loadingState={
+          <div className="flex h-full w-full items-center justify-center">
+            <Spinner className="m-auto size-12" />
+          </div>
+        }
       >
         {chartData === null ? (
           <div className="flex h-[11.25rem] w-full items-center justify-center px-12 text-center text-sm text-content-secondary">

@@ -1,16 +1,16 @@
 import { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 export const reportContentiously = mutation({
-  handler: async (
-    { db },
-    {
-      x,
-      y,
-      ts,
-      session,
-    }: { x: number; y: number; ts: number; session: string },
-  ): Promise<Id> => {
+  args: {
+    x: v.number(),
+    y: v.number(),
+    ts: v.number(),
+    session: v.string(),
+    id: v.optional(v.any()),
+  },
+  handler: async ({ db }, { x, y, ts, session }): Promise<Id<"positions">> => {
     let pos = await db
       .query("positions")
       .filter((q) => q.eq(q.field("session"), session))
@@ -26,22 +26,17 @@ export const reportContentiously = mutation({
 });
 
 export const report = mutation({
+  args: {
+    x: v.number(),
+    y: v.number(),
+    ts: v.number(),
+    session: v.string(),
+    id: v.union(v.id("positions"), v.null()),
+  },
   handler: async (
     { db },
-    {
-      x,
-      y,
-      ts,
-      session,
-      id,
-    }: {
-      x: number;
-      y: number;
-      ts: number;
-      session: string;
-      id: Id | null;
-    },
-  ): Promise<Id> => {
+    { x, y, ts, session, id },
+  ): Promise<Id<"positions">> => {
     let pos = null;
     if (id !== null) {
       pos = await db.get(id);

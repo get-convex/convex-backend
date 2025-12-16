@@ -22,14 +22,20 @@
     "typescript": "^5.9.2",
     "openapi-typescript": "~7.8.0",
     "openapi-typescript-helpers": "~0.0.15",
-    "dashboard": "workspace:*",
     "tsx": "^4.19.4",
-    "zshy": "0.4.1"
+    "zshy": "0.6.0"
   },
   "dependencies": {
-    "openapi-fetch": "~0.14.0"
+    "openapi-fetch": "~0.15.0"
   },
-  "zshy": "./src/index.ts",
+  "zshy": {
+    "exports": {
+      ".": "./src/index.ts",
+      "./deploymentApi": "./src/generatedDeploymentApi.ts",
+      "./logStreamApi": "./src/generatedLogStreamApi.ts",
+      "./managementApi": "./src/generatedManagementApi.ts"
+    }
+  },
   "files": [
     "dist"
   ],
@@ -41,6 +47,21 @@
       "types": "./dist/index.d.cts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./deploymentApi": {
+      "types": "./dist/generatedDeploymentApi.d.cts",
+      "import": "./dist/generatedDeploymentApi.js",
+      "require": "./dist/generatedDeploymentApi.cjs"
+    },
+    "./logStreamApi": {
+      "types": "./dist/generatedLogStreamApi.d.cts",
+      "import": "./dist/generatedLogStreamApi.js",
+      "require": "./dist/generatedLogStreamApi.cjs"
+    },
+    "./managementApi": {
+      "types": "./dist/generatedManagementApi.d.cts",
+      "import": "./dist/generatedManagementApi.js",
+      "require": "./dist/generatedManagementApi.cjs"
     }
   }
 }

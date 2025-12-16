@@ -1,7 +1,9 @@
-use std::str::FromStr;
+use std::{
+    hint::black_box,
+    str::FromStr,
+};
 
 use criterion::{
-    black_box,
     criterion_group,
     criterion_main,
     Criterion,

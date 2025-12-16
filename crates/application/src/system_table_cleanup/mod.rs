@@ -5,6 +5,7 @@ use std::{
 };
 
 use common::{
+    backoff::Backoff,
     bootstrap_model::tables::{
         TableMetadata,
         TableState,
@@ -79,6 +80,10 @@ use model::{
 };
 use rand::Rng;
 use storage::Storage;
+use tokio::sync::mpsc::{
+    self,
+    Receiver,
+};
 use tokio_stream::wrappers::ReceiverStream;
 use value::{
     ConvexValue,
@@ -87,9 +92,13 @@ use value::{
     TabletId,
 };
 
+use crate::system_table_cleanup::metrics::log_tablet_hard_deleted;
+
 mod metrics;
 
 static MAX_ORPHANED_TABLE_NAMESPACE_AGE: Duration = Duration::from_days(2);
+const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
+const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
 pub struct SystemTableCleanupWorker<RT: Runtime> {
     database: Database<RT>,
@@ -103,10 +112,11 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         runtime: RT,
         database: Database<RT>,
         exports_storage: Arc<dyn Storage>,
+        deleted_tablet_receiver: mpsc::Receiver<TabletId>,
     ) -> impl Future<Output = ()> + Send {
         let mut worker = SystemTableCleanupWorker {
-            database,
-            runtime,
+            database: database.clone(),
+            runtime: runtime.clone(),
             exports_storage,
         };
         async move {
@@ -116,6 +126,10 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                 );
                 return;
             }
+            let _handle = runtime.clone().spawn(
+                "cleanup_deleted_tablets",
+                Self::cleanup_deleted_tablets(runtime, database, deleted_tablet_receiver),
+            );
             loop {
                 if let Err(e) = worker.run().await {
                     report_error(&mut e.context("SystemTableCleanupWorker died")).await;
@@ -163,6 +177,44 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                     session_requests_delete_cursor,
                 )
                 .await?;
+        }
+    }
+
+    async fn cleanup_deleted_tablets(
+        rt: RT,
+        database: Database<RT>,
+        mut deleted_tablet_receiver: Receiver<TabletId>,
+    ) {
+        let mut error_backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
+        loop {
+            let r: anyhow::Result<()> = async {
+                while let Some(tablet_id) = deleted_tablet_receiver.recv().await {
+                    let mut tx = database.begin_system().await?;
+                    TableModel::new(&mut tx)
+                        .hard_delete_tablet_document(tablet_id)
+                        .await?;
+                    database
+                        .commit_with_write_source(tx, "cleanup_deleted_tablets")
+                        .await?;
+                    log_tablet_hard_deleted();
+                    error_backoff.reset();
+                }
+                Ok(())
+            }
+            .await;
+            match r {
+                Ok(_) => {
+                    tracing::info!(
+                        "Deleted tablet channel closed, exiting cleanup_deleted_tablets"
+                    );
+                    return;
+                },
+                Err(e) => {
+                    report_error(&mut e.context("cleanup_deleted_tablets failed")).await;
+                    let delay = error_backoff.fail(&mut rt.rng());
+                    rt.wait(delay).await;
+                },
+            }
         }
     }
 

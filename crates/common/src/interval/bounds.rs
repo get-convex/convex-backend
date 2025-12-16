@@ -1,6 +1,9 @@
 //! Subset of `std::ops::Bound` specialized for our restricted forms of
 //! intervals.
-use std::borrow::Borrow;
+use std::{
+    borrow::Borrow,
+    iter,
+};
 
 use value::heap_size::HeapSize;
 
@@ -43,6 +46,13 @@ impl End {
             None => Self::Unbounded,
             Some(key) => Self::Excluded(key),
         }
+    }
+
+    pub fn included(key: &BinaryKey) -> Self {
+        // `key + [0]`
+        Self::Excluded(BinaryKey::from(
+            key.iter().copied().chain(iter::once(0)).collect::<Vec<_>>(),
+        ))
     }
 
     /// Is the interval `(-inf, end)` disjoint with `[start, +inf)`?

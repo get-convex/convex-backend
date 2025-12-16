@@ -84,8 +84,8 @@ pub mod tests {
         },
         tests::{
             text_test_utils::{
-                IndexData,
                 TextFixtures,
+                TextIndexData,
             },
             vector_test_utils::add_document_vec_array,
         },
@@ -113,7 +113,7 @@ pub mod tests {
         let fixtures = TextFixtures::new(rt.clone()).await?;
         let database = &fixtures.db;
 
-        let IndexData {
+        let TextIndexData {
             index_id,
             index_name,
             resolved_index_name,

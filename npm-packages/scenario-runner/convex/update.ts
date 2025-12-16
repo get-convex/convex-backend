@@ -18,7 +18,7 @@ export default mutation({
     }
     const timestamp = Date.now();
     if (row.timestamp < timestamp) {
-      await db.patch(row._id, { timestamp: timestamp });
+      await db.patch("messages", row._id, { timestamp: timestamp });
     }
   },
 });

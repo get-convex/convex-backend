@@ -4,11 +4,10 @@ import { CalendarIcon, CheckIcon } from "@radix-ui/react-icons";
 import { endOfToday, parse, startOfDay, format } from "date-fns";
 import { NextRouter } from "next/router";
 import * as React from "react";
-import { DateRange } from "react-day-picker";
+import { DateRange, Matcher } from "react-day-picker";
 import { Popover } from "@ui/Popover";
 import { Button } from "@ui/Button";
 import { Calendar } from "@common/elements/Calendar";
-import { disabledFromRange } from "@common/features/data/components/FilterEditor/DateTimePicker";
 
 export type DateRangeShortcut = {
   value: string;
@@ -229,4 +228,23 @@ export function useDateFilters(router: NextRouter) {
       date.to && (await checkAndSetEndDate(date.to));
     },
   };
+}
+
+function disabledFromRange({
+  minDate,
+  maxDate,
+}: {
+  minDate: Date | undefined;
+  maxDate: Date | undefined;
+}): Matcher | undefined {
+  if (minDate && maxDate) {
+    return { before: minDate, after: maxDate };
+  }
+  if (minDate) {
+    return { before: minDate };
+  }
+  if (maxDate) {
+    return { after: maxDate };
+  }
+  return undefined;
 }

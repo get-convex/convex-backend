@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Context } from "../bundler/context.js";
 import {
   logFailure,
@@ -41,7 +41,7 @@ import {
 import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
 import path from "path";
 import { projectDashboardUrl } from "./lib/dashboard.js";
-import { doInitialCodegen } from "./lib/codegen.js";
+import { doInitConvexFolder } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
 import {
   promptOptions,
@@ -260,7 +260,7 @@ export async function _deploymentCredentialsOrConfigure(
       const forceAnonymous = process.env.CONVEX_AGENT_MODE === "anonymous";
       if (forceAnonymous) {
         logWarning(
-          chalk.yellow.bold(
+          chalkStderr.yellow.bold(
             "CONVEX_AGENT_MODE=anonymous mode is in beta, functionality may change in the future.",
           ),
         );
@@ -461,7 +461,7 @@ export async function handleManuallySetUrlAndAdminKey(
   const didErase = await eraseDeploymentEnvVar(ctx);
   if (didErase) {
     logMessage(
-      chalk.yellowBright(
+      chalkStderr.yellowBright(
         `Removed the CONVEX_DEPLOYMENT environment variable from .env.local`,
       ),
     );
@@ -469,7 +469,7 @@ export async function handleManuallySetUrlAndAdminKey(
   const envVarWrite = await writeConvexUrlToEnvFile(ctx, url);
   if (envVarWrite !== null) {
     logMessage(
-      chalk.green(
+      chalkStderr.green(
         `Saved the given --url as ${envVarWrite.envVar} to ${envVarWrite.envFile}`,
       ),
     );
@@ -567,19 +567,19 @@ async function selectNewProject(
     return await logAndHandleFetchError(ctx, err);
   }
   const teamMessage = didChooseBetweenTeams
-    ? " in team " + chalk.bold(teamSlug)
+    ? " in team " + chalkStderr.bold(teamSlug)
     : "";
   logFinishedStep(
-    `Created project ${chalk.bold(
+    `Created project ${chalkStderr.bold(
       projectSlug,
-    )}${teamMessage}, manage it at ${chalk.bold(
+    )}${teamMessage}, manage it at ${chalkStderr.bold(
       projectDashboardUrl(teamSlug, projectSlug),
     )}`,
   );
 
   if (projectsRemaining <= 2) {
     logWarning(
-      chalk.yellow.bold(
+      chalkStderr.yellow.bold(
         `Your account now has ${projectsRemaining} project${
           projectsRemaining === 1 ? "" : "s"
         } remaining.`,
@@ -587,7 +587,7 @@ async function selectNewProject(
     );
   }
 
-  await doInitialCodegen(ctx, { init: true });
+  await doInitConvexFolder(ctx);
   return { teamSlug, projectSlug, devDeployment };
 }
 
@@ -640,10 +640,7 @@ async function selectExistingProject(
         : undefined,
   });
 
-  showSpinner(`Reinitializing project ${projectSlug}...\n`);
-  // TODO: Do we need to do codegen for existing projects? (-Ian)
-  await doInitialCodegen(ctx, { init: false });
-  logFinishedStep(`Reinitialized project ${chalk.bold(projectSlug)}`);
+  logFinishedStep(`Reinitialized project ${chalkStderr.bold(projectSlug)}`);
   return { teamSlug, projectSlug, devDeployment };
 }
 

@@ -42,10 +42,17 @@ use vector::VectorSearch;
 
 use crate::{
     test_helpers::DbFixtures,
-    tests::vector_test_utils::{
-        add_document_vec_array,
-        IndexData,
-        VectorFixtures,
+    tests::{
+        text_test_utils::{
+            add_document,
+            TextFixtures,
+            TextIndexData,
+        },
+        vector_test_utils::{
+            add_document_vec_array,
+            VectorFixtures,
+            VectorIndexData,
+        },
     },
     IndexModel,
     ResolvedQuery,
@@ -100,7 +107,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
 #[convex_macro::test_runtime]
 async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
-    let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+    let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -127,9 +134,6 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
         )
         .await;
 
-    fixtures
-        .add_document_vec_array(index_name.table(), [3f64, 4f64])
-        .await?;
     let stats = fixtures.test_usage_logger.collect();
     let value = stats
         .recent_vector_ingress_size
@@ -143,7 +147,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
 #[convex_macro::test_runtime]
 async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
-    let IndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
+    let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -180,9 +184,128 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
 }
 
 #[convex_macro::test_runtime]
+async fn vector_insert_with_no_index_does_not_count_usage_v2(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+
+    let table_name: TableName = "my_table".parse()?;
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document_vec_array(&mut tx, &table_name, [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Action {
+                env: ModuleEnvironment::Isolate,
+                duration: Duration::from_secs(10),
+                memory_in_mb: 10,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    assert!(stats.recent_vector_ingress_size_v2.is_empty());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn vector_insert_counts_usage_v2_for_backfilling_indexes(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+    let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Mutation {
+                occ_info: None,
+                duration: Duration::ZERO,
+                memory_in_mb: 0,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    let value = stats
+        .recent_vector_ingress_size_v2
+        .get(&(*index_name.table()).to_string())
+        .cloned();
+
+    assert!(value.unwrap() > 0);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn vector_insert_counts_usage_v2_for_enabled_indexes(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+    let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Action {
+                env: ModuleEnvironment::Isolate,
+                duration: Duration::from_secs(10),
+                memory_in_mb: 10,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    let value = stats
+        .recent_vector_ingress_size_v2
+        .get(&(*index_name.table()).to_string())
+        .cloned();
+
+    assert_eq!(value, Some(58_u64));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
-    let IndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
+    let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -225,7 +348,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
 #[convex_macro::test_runtime]
 async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
-    let IndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
+    let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -279,6 +402,163 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
             .unwrap()
             > 0
     );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_fields_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+    let TextIndexData { index_name, .. } = fixtures.enabled_text_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document(&mut tx, index_name.table(), "test").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Mutation {
+                occ_info: None,
+                duration: Duration::ZERO,
+                memory_in_mb: 0,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    fixtures.new_live_text_flusher().step().await?;
+
+    let storage = fixtures
+        .db
+        .latest_database_snapshot()?
+        .get_text_index_storage(&Identity::system())?;
+
+    let key = (ComponentPath::root(), index_name.table().clone());
+    let value = storage.get(&key).cloned();
+    assert_eq!(value, Some(2658_u64));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+
+    let table_name: TableName = "my_table".parse()?;
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document(&mut tx, &table_name, "hello").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Action {
+                env: ModuleEnvironment::Isolate,
+                duration: Duration::from_secs(10),
+                memory_in_mb: 10,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    assert!(stats.recent_text_ingress_size.is_empty());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+    let TextIndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document(&mut tx, index_name.table(), "hello").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Mutation {
+                occ_info: None,
+                duration: Duration::ZERO,
+                memory_in_mb: 0,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    let value = stats
+        .recent_text_ingress_size
+        .get(&(*index_name.table()).to_string())
+        .cloned();
+
+    assert!(value.unwrap() > 0);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+    let TextIndexData { index_name, .. } = fixtures.enabled_text_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document(&mut tx, index_name.table(), "hello").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Mutation {
+                occ_info: None,
+                duration: Duration::ZERO,
+                memory_in_mb: 0,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    let value = stats
+        .recent_text_ingress_size
+        .get(&(*index_name.table()).to_string())
+        .cloned();
+    assert!(value.unwrap() > 0);
     Ok(())
 }
 

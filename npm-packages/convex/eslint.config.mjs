@@ -155,6 +155,14 @@ export default [
                 "Use a `Filesystem` implementation like `nodeFs` instead of Node's 'fs/promises' package directly. Additionally, use synchronous filesystem IO within our CLI.",
             },
           ],
+          paths: [
+            {
+              name: "chalk",
+              importNames: ["default"],
+              message:
+                "Import { chalkStderr } from 'chalk' instead of the default chalk import. Use chalkStderr for stderr output (most cases). Only use default chalk with an eslint-disable comment if formatting text for stdout (e.g., logOutput() or console.log).",
+            },
+          ],
         },
       ],
       "no-restricted-syntax": [

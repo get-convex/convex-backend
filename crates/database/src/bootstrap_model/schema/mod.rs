@@ -13,19 +13,12 @@ use std::{
 use anyhow::Context;
 use async_recursion::async_recursion;
 use common::{
+    self,
     bootstrap_model::schema::{
         SchemaMetadata,
         SchemaState,
     },
-    document::{
-        ParseDocument,
-        ParsedDocument,
-        ResolvedDocument,
-    },
-    query::{
-        Order,
-        Query,
-    },
+    document::ResolvedDocument,
     runtime::Runtime,
     schemas::{
         DatabaseSchema,
@@ -48,7 +41,6 @@ use crate::{
         SystemIndex,
         SystemTable,
     },
-    ResolvedQuery,
     SchemaValidationProgressModel,
     SystemMetadataModel,
     TableModel,
@@ -445,11 +437,16 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     /// Deletes failed and overwritten schemas older than an hour, returning the
     /// number of documents deleted. Keeps schemas table small.
     async fn delete_old_failed_and_overwritten_schemas(&mut self) -> anyhow::Result<usize> {
-        let query = Query::full_table_scan(SCHEMAS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, query)?;
         let mut num_deleted = 0;
-        while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let schema_doc: ParsedDocument<SchemaMetadata> = doc.parse()?;
+        for schema_doc in self
+            .tx
+            .query_system(
+                self.namespace,
+                &SystemIndex::<SchemasTable>::by_creation_time(),
+            )?
+            .all()
+            .await?
+        {
             // Only delete failed and overwritten schemas
             match schema_doc.state {
                 SchemaState::Failed { .. } | SchemaState::Overwritten => {},

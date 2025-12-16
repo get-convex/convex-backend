@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import {
   waitUntilCalled,
   deploymentFetch,
@@ -86,7 +86,7 @@ export async function exportFromDeployment(
     }
   }
 
-  showSpinner(`Downloading snapshot export to ${chalk.bold(inputPath)}`);
+  showSpinner(`Downloading snapshot export to ${chalkStderr.bold(inputPath)}`);
   const { filePath } = await downloadSnapshotExport(ctx, {
     snapshotExportTs: snapshotExportState.start_ts,
     inputPath,
@@ -94,7 +94,9 @@ export async function exportFromDeployment(
     deploymentUrl,
   });
   stopSpinner();
-  logFinishedStep(`Downloaded snapshot export to ${chalk.bold(filePath)}`);
+  logFinishedStep(
+    `Downloaded snapshot export to ${chalkStderr.bold(filePath)}`,
+  );
 }
 
 type SnapshotExportState =
@@ -220,13 +222,13 @@ export async function downloadSnapshotExport(
       return await ctx.crash({
         exitCode: 1,
         errorType: "invalid filesystem data",
-        printedMessage: `Error: Path ${chalk.bold(inputPath)} already exists.`,
+        printedMessage: `Error: Path ${chalkStderr.bold(inputPath)} already exists.`,
       });
     }
   } else {
     filePath = inputPath;
   }
-  changeSpinner(`Downloading snapshot export to ${chalk.bold(filePath)}`);
+  changeSpinner(`Downloading snapshot export to ${chalkStderr.bold(filePath)}`);
 
   try {
     await nodeFs.writeFileStream(
@@ -235,11 +237,11 @@ export async function downloadSnapshotExport(
     );
   } catch (e) {
     logFailure(`Exporting data failed`);
-    logError(chalk.red(e));
+    logError(chalkStderr.red(e));
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `Exporting data failed: ${chalk.red(e)}`,
+      printedMessage: `Exporting data failed: ${chalkStderr.red(e)}`,
     });
   }
   return { filePath };

@@ -77,10 +77,10 @@ pub const fn init_sql(multitenant: bool) -> &'static str {
             r#"
         CREATE TABLE IF NOT EXISTS @db_name.documents (
             {instance_col_def}
-            id VARBINARY(32) NOT NULL,
+            id BINARY(16) NOT NULL,
             ts BIGINT NOT NULL,
 
-            table_id VARBINARY(32) NOT NULL,
+            table_id BINARY(16) NOT NULL,
 
             json_value LONGBLOB NOT NULL,
             deleted BOOLEAN DEFAULT false,
@@ -94,7 +94,7 @@ pub const fn init_sql(multitenant: bool) -> &'static str {
         CREATE TABLE IF NOT EXISTS @db_name.indexes (
             {instance_col_def}
             /* ids should be serialized as bytes but we keep it compatible with documents */
-            index_id VARBINARY(32) NOT NULL,
+            index_id BINARY(16) NOT NULL,
             ts BIGINT NOT NULL,
 
             /*
@@ -113,8 +113,8 @@ pub const fn init_sql(multitenant: bool) -> &'static str {
 
             deleted BOOLEAN,
             /* table_id and document_id should be populated iff deleted is false. */
-            table_id VARBINARY(32) NULL,
-            document_id VARBINARY(32) NULL,
+            table_id BINARY(16) NULL,
+            document_id BINARY(16) NULL,
 
             PRIMARY KEY ({instance_col} index_id, key_prefix, key_sha256, ts)
         ) ROW_FORMAT=DYNAMIC;
@@ -806,7 +806,7 @@ SELECT I2.index_id, I2.key_prefix, I2.key_sha256, I2.key_suffix, I2.ts, I2.delet
 ) I2
 LEFT JOIN @db_name.documents D FORCE INDEX FOR JOIN (PRIMARY)
 ON
-{doc_join_instance_cond}D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id
+{doc_join_instance_cond}D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id AND NOT I2.deleted
 -- Ensure deterministic final ordering across pages after the join
 ORDER BY I2.key_prefix {order_str}, I2.key_sha256 {order_str}
 "#
@@ -825,6 +825,41 @@ ORDER BY I2.key_prefix {order_str}, I2.key_sha256 {order_str}
 
 pub fn index_queries(multitenant: bool) -> &'static HashMap<(BoundType, BoundType, Order), String> {
     &INDEX_QUERIES[multitenant as usize]
+}
+
+pub fn index_point_query(multitenant: bool) -> &'static str {
+    tableify!(
+        multitenant,
+        formatcp!(
+            r#"
+SELECT I.ts, I.table_id, D.json_value, D.prev_ts FROM
+(
+    SELECT {instance_col}ts, deleted, table_id, document_id
+    FROM @db_name.indexes
+    FORCE INDEX (PRIMARY)
+    WHERE index_id = ? AND key_prefix = ? AND key_sha256 = ? AND ts <= ?
+    {instance_cond}
+    ORDER BY ts DESC
+    LIMIT 1
+) I
+LEFT JOIN @db_name.documents D FORCE INDEX FOR JOIN (PRIMARY)
+ON
+{instance_join}D.ts = I.ts AND D.table_id = I.table_id AND D.id = I.document_id
+WHERE I.deleted = false
+"#,
+            instance_col = if multitenant { "instance_name, " } else { "" },
+            instance_cond = if multitenant {
+                "AND instance_name = ?"
+            } else {
+                ""
+            },
+            instance_join = if multitenant {
+                "D.instance_name = I.instance_name AND "
+            } else {
+                ""
+            }
+        )
+    )
 }
 
 // Multitenant variants of the index queries. Filters by instance_name and

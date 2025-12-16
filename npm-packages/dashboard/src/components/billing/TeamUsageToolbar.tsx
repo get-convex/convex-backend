@@ -1,31 +1,63 @@
 import { Period, UsagePeriodSelector } from "elements/UsagePeriodSelector";
-import { Combobox } from "@ui/Combobox";
+import { Combobox, MAX_DISPLAYED_OPTIONS } from "@ui/Combobox";
 import { Tooltip } from "@ui/Tooltip";
 import { TextInput } from "@ui/TextInput";
 import { useRouter } from "next/router";
-import { ProjectDetails } from "generatedApi";
 import { PuzzlePieceIcon } from "@common/elements/icons";
+import { usePaginatedProjects } from "api/projects";
+import { useState, useMemo } from "react";
+import { useDebounce } from "react-use";
 
 export function TeamUsageToolbar({
   shownBillingPeriod,
   setSelectedBillingPeriod,
   currentBillingPeriod,
-  projects,
+  teamId,
   projectId,
 }: {
   shownBillingPeriod: Period;
-  projects: ProjectDetails[];
+  teamId: number;
   projectId: number | null;
   setSelectedBillingPeriod: (period: Period) => void;
   currentBillingPeriod: { start: string; end: string };
 }) {
   const { query, replace } = useRouter();
 
-  // Detect duplicate project names
-  const nameCountMap = new Map<string, number>();
-  projects.forEach((p) => {
-    nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
+  const [filter, setFilter] = useState("");
+  const [debouncedFilter, setDebouncedFilter] = useState("");
+
+  // Debounce search query (300ms delay)
+  useDebounce(
+    () => {
+      setDebouncedFilter(filter);
+    },
+    300,
+    [filter],
+  );
+
+  const paginatedProjects = usePaginatedProjects(teamId, {
+    q: debouncedFilter,
+    limitOverride: MAX_DISPLAYED_OPTIONS,
   });
+
+  const projects = paginatedProjects ? paginatedProjects.items : undefined;
+
+  // Detect duplicate project names and prepare options
+  const projectOptions = useMemo(() => {
+    const nameCountMap = new Map<string, number>();
+    projects?.forEach((p) => {
+      nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
+    });
+
+    return [
+      { label: "All Projects", value: null },
+      ...(projects?.map((p) => {
+        const isDuplicate = (nameCountMap.get(p.name) || 0) > 1;
+        const label = isDuplicate && p.slug ? `${p.name} (${p.slug})` : p.name;
+        return { label, value: p.id };
+      }) ?? []),
+    ];
+  }, [projects]);
 
   return (
     <div className="sticky top-0 z-20 mb-6 flex h-(--team-usage-toolbar-height) flex-wrap content-center items-center gap-2 border-b bg-background-primary">
@@ -36,17 +68,13 @@ export function TeamUsageToolbar({
       />
       <Combobox
         label="Projects"
-        options={[
-          { label: "All Projects", value: null },
-          ...projects.map((p) => {
-            const isDuplicate = (nameCountMap.get(p.name) || 0) > 1;
-            const label =
-              isDuplicate && p.slug ? `${p.name} (${p.slug})` : p.name;
-            return { label, value: p.id };
-          }),
-        ]}
+        options={projectOptions}
         allowCustomValue
         selectedOption={projectId}
+        onFilterChange={setFilter}
+        isLoadingOptions={
+          !!paginatedProjects?.isLoading && debouncedFilter === filter
+        }
         innerButtonClasses={
           projectId
             ? "bg-yellow-100/50 dark:bg-yellow-600/20 hover:bg-yellow-100 dark:hover:bg-yellow-600/50"

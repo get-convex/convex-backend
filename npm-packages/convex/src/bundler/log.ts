@@ -1,5 +1,5 @@
 import { format } from "util";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import ProgressBar, {
   ProgressBarInstance,
   ProgressBarOptions,
@@ -98,7 +98,7 @@ export function logFailure(message: string) {
     spinner.fail(message);
     spinner = null;
   } else {
-    logToStderr(`${chalk.red(`✖`)} ${message}`);
+    logToStderr(`${chalkStderr.red(`✖`)} ${message}`);
   }
 }
 
@@ -108,7 +108,7 @@ export function logFinishedStep(message: string) {
     spinner.succeed(message);
     spinner = null;
   } else {
-    logToStderr(`${chalk.green(`✔`)} ${message}`);
+    logToStderr(`${chalkStderr.green(`✔`)} ${message}`);
   }
 }
 

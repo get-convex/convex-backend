@@ -5,7 +5,7 @@ import {
 } from "./lib/api.js";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { showSpinner, logMessage } from "../bundler/log.js";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { actionDescription } from "./lib/command.js";
 import { runNetworkTestOnUrl, withTimeout } from "./lib/networkTest.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
@@ -66,6 +66,6 @@ async function runNetworkTest(
     url = credentials.url;
     adminKey = credentials.adminKey;
   }
-  logMessage(`${chalk.green(`✔`)} Deployment URL: ${url}`);
+  logMessage(`${chalkStderr.green(`✔`)} Deployment URL: ${url}`);
   await runNetworkTestOnUrl(ctx, { url, adminKey }, options);
 }

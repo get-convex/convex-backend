@@ -9,7 +9,7 @@ export const fetchResults = internalQuery({
   handler: async (ctx, args) => {
     const results = [];
     for (const id of args.ids) {
-      const doc = await ctx.db.get(id);
+      const doc = await ctx.db.get("foods", id);
       if (doc === null) {
         continue;
       }

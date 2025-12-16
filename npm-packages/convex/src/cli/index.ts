@@ -12,7 +12,7 @@ import { update } from "./update.js";
 import { typecheck } from "./typecheck.js";
 import { login } from "./login.js";
 import { logout } from "./logout.js";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import * as Sentry from "@sentry/node";
 import { initSentry } from "./lib/utils/sentry.js";
 import { dev } from "./dev.js";
@@ -73,27 +73,27 @@ async function main() {
       minorVersion < MINIMUM_MINOR_VERSION)
   ) {
     logToStderr(
-      chalk.red(
+      chalkStderr.red(
         `Your Node version ${nodeVersion} is too old. Convex requires at least Node v${MINIMUM_MAJOR_VERSION}.${MINIMUM_MINOR_VERSION}`,
       ),
     );
     logToStderr(
-      chalk.gray(
-        `You can use ${chalk.bold(
+      chalkStderr.gray(
+        `You can use ${chalkStderr.bold(
           "nvm",
         )} (https://github.com/nvm-sh/nvm#installing-and-updating) to manage different versions of Node.`,
       ),
     );
     logToStderr(
-      chalk.gray(
+      chalkStderr.gray(
         "After installing `nvm`, install the latest version of Node with " +
-          chalk.bold("`nvm install node`."),
+          chalkStderr.bold("`nvm install node`."),
       ),
     );
     logToStderr(
-      chalk.gray(
+      chalkStderr.gray(
         "Then, activate the installed version in your terminal with " +
-          chalk.bold("`nvm use`."),
+          chalkStderr.bold("`nvm use`."),
       ),
     );
     process.exit(1);
@@ -143,7 +143,7 @@ async function main() {
     process.exitCode = 1;
     // This is too early to use `logError`, so just log directly.
     // eslint-disable-next-line no-console
-    console.error(chalk.red("Unexpected Error: " + e));
+    console.error(chalkStderr.red("Unexpected Error: " + e));
   } finally {
     await Sentry.close();
   }

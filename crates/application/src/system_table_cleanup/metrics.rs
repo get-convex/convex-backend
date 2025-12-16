@@ -55,3 +55,11 @@ pub fn log_system_table_cursor_lag(table_name: &TableName, cursor: CreationTime)
         vec![StaticMetricLabel::new("table", table_name.to_string())],
     )
 }
+
+register_convex_counter!(
+    TABLETS_HARD_DELETED_TOTAL,
+    "Number of tablet documents deleted from `_tables`"
+);
+pub fn log_tablet_hard_deleted() {
+    log_counter(&TABLETS_HARD_DELETED_TOTAL, 1)
+}

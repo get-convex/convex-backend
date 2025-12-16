@@ -110,7 +110,21 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       }
     },
     "/get_canonical_urls": {
@@ -129,12 +143,665 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/list_log_streams": {
+      "get": {
+        "summary": "List log streams",
+        "description": "List configs for all existing log streams in a deployment.",
+        "operationId": "list_log_streams",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LogStreamConfig"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/get_log_stream/{id}": {
+      "get": {
+        "summary": "Get log stream",
+        "description": "Get the config for a specific log stream by id.",
+        "operationId": "get_log_stream",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of the log stream to retrieve",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogStreamConfig"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/delete_log_stream/{id}": {
+      "post": {
+        "summary": "Delete log stream",
+        "description": "Delete the deployment's log stream with the given id.",
+        "operationId": "delete_log_stream",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of the log stream to delete",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/create_log_stream": {
+      "post": {
+        "summary": "Create log stream",
+        "description": "Create a new log stream for the deployment. Errors if a log stream of the\ngiven type already exists.",
+        "operationId": "create_log_stream",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLogStreamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateLogStreamResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/update_log_stream/{id}": {
+      "post": {
+        "summary": "Update log stream",
+        "description": "Update an existing log stream for the deployment. Omit a field to keep the\nexisting value, and use `null` to unset a field.",
+        "operationId": "update_log_stream",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of the log stream to update",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLogStreamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/rotate_webhook_secret/{id}": {
+      "post": {
+        "summary": "Rotate webhook log stream secret",
+        "description": "Rotate the secret for the webhook log stream.",
+        "operationId": "rotate_webhook_secret",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of the webhook log stream for which to rotate the secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotateLogStreamSecretResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       }
     }
   },
   "components": {
     "schemas": {
+      "AxiomAttribute": {
+        "type": "object",
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "AxiomLogStreamConfig": {
+        "type": "object",
+        "title": "AxiomConfig",
+        "required": [
+          "id",
+          "datasetName",
+          "attributes"
+        ],
+        "properties": {
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AxiomAttribute"
+            },
+            "description": "Optional list of attributes. These are extra fields and values sent to\nAxiom in each log event."
+          },
+          "datasetName": {
+            "type": "string",
+            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
+          },
+          "id": {
+            "type": "string"
+          },
+          "ingestUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional ingest endpoint for Axiom"
+          }
+        }
+      },
+      "CreateAxiomLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "apiKey",
+          "datasetName",
+          "attributes"
+        ],
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "Axiom API key for authentication."
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AxiomAttribute"
+            },
+            "description": "Optional list of attributes. These are extra fields and values sent to\nAxiom in each log event."
+          },
+          "datasetName": {
+            "type": "string",
+            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
+          },
+          "ingestUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional ingest endpoint for Axiom"
+          }
+        }
+      },
+      "CreateDatadogLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "siteLocation",
+          "ddApiKey",
+          "ddTags"
+        ],
+        "properties": {
+          "ddApiKey": {
+            "type": "string",
+            "description": "Datadog API key for authentication."
+          },
+          "ddTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional comma-separated list of tags. These are sent to Datadog in each\nlog event via the `ddtags` field."
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Service name used as a special tag in Datadog."
+          },
+          "siteLocation": {
+            "$ref": "#/components/schemas/DatadogSiteLocation",
+            "description": "Location of your Datadog deployment."
+          }
+        }
+      },
+      "CreateLogStreamArgs": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateDatadogLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "datadog"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Datadog"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateWebhookLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "webhook"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Webhook"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateAxiomLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "axiom"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Axiom"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateSentryLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "sentry"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Sentry"
+          }
+        ]
+      },
+      "CreateLogStreamResponse": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateWebhookLogStreamResponse"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "webhook"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Webhook"
+          },
+          {
+            "type": "object",
+            "title": "Datadog",
+            "required": [
+              "id",
+              "logStreamType"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "datadog"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "Axiom",
+            "required": [
+              "id",
+              "logStreamType"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "axiom"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "Sentry",
+            "required": [
+              "id",
+              "logStreamType"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "sentry"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "CreateSentryLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "dsn"
+        ],
+        "properties": {
+          "dsn": {
+            "type": "string",
+            "description": "Sentry Data Source Name (DSN) to route exceptions to."
+          },
+          "tags": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Tags to add to all events routed to Sentry.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateWebhookLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "url",
+          "format"
+        ],
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/WebhookFormat",
+            "description": "Format for the webhook payload. JSONL sends one object per line of\nrequest, JSON sends one array per request."
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to send logs to."
+          }
+        }
+      },
+      "CreateWebhookLogStreamResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "hmacSecret"
+        ],
+        "properties": {
+          "hmacSecret": {
+            "type": "string",
+            "description": "Use this secret to verify webhook signatures."
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "DatadogLogStreamConfig": {
+        "type": "object",
+        "title": "DatadogConfig",
+        "required": [
+          "id",
+          "siteLocation",
+          "ddTags"
+        ],
+        "properties": {
+          "ddTags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional comma-separated list of tags. These are sent to Datadog in each\nlog event via the `ddtags` field."
+          },
+          "id": {
+            "type": "string"
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Service name used as a special tag in Datadog."
+          },
+          "siteLocation": {
+            "$ref": "#/components/schemas/DatadogSiteLocation",
+            "description": "Location of your Datadog deployment."
+          }
+        }
+      },
+      "DatadogSiteLocation": {
+        "type": "string",
+        "description": "The Datadog deployment locations, used to construct URLs",
+        "enum": [
+          "US1",
+          "US3",
+          "US5",
+          "EU",
+          "US1_FED",
+          "AP1"
+        ]
+      },
       "GetCanonicalUrlsResponse": {
         "type": "object",
         "required": [
@@ -167,12 +834,188 @@
           }
         }
       },
+      "LogStreamConfig": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatadogLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "datadog"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Datadog"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WebhookLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "webhook"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Webhook"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AxiomLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "axiom"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Axiom"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SentryLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "sentry"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Sentry"
+          }
+        ]
+      },
       "RequestDestination": {
         "type": "string",
         "enum": [
           "convexCloud",
           "convexSite"
         ]
+      },
+      "RotateLogStreamSecretResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "title": "Webhook",
+            "required": [
+              "hmacSecret",
+              "logStreamType"
+            ],
+            "properties": {
+              "hmacSecret": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "webhook"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "SentryLogStreamConfig": {
+        "type": "object",
+        "title": "SentryConfig",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tags": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Tags to add to all events routed to Sentry.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateAxiomSinkArgs": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Axiom API key for authentication."
+          },
+          "attributes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AxiomAttribute"
+            },
+            "description": "Optional list of attributes. These are extra fields and values sent to\nAxiom in each log event."
+          },
+          "datasetName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of the dataset in Axiom. This is where the logs will be sent."
+          },
+          "ingestUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional ingest endpoint for Axiom"
+          }
+        }
       },
       "UpdateCanonicalUrlRequest": {
         "type": "object",
@@ -190,6 +1033,46 @@
               "null"
             ],
             "description": "The new canonical URL. Omit this to reset the canonical URl to the\ndefault value."
+          }
+        }
+      },
+      "UpdateDatadogSinkArgs": {
+        "type": "object",
+        "properties": {
+          "ddApiKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Datadog API key for authentication."
+          },
+          "ddTags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional comma-separated list of tags. These are sent to Datadog in each\nlog event via the `ddtags` field."
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Service name used as a special tag in Datadog."
+          },
+          "siteLocation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatadogSiteLocation",
+                "description": "Location of your Datadog deployment."
+              }
+            ]
           }
         }
       },
@@ -221,6 +1104,180 @@
             "items": {
               "$ref": "#/components/schemas/UpdateEnvVarRequest"
             }
+          }
+        }
+      },
+      "UpdateLogStreamArgs": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateDatadogSinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "datadog"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Datadog"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateWebhookSinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "webhook"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Webhook"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateAxiomSinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "axiom"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Axiom"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateSentrySinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "sentry"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Sentry"
+          }
+        ]
+      },
+      "UpdateSentrySinkArgs": {
+        "type": "object",
+        "properties": {
+          "dsn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Sentry Data Source Name (DSN) to route exceptions to."
+          },
+          "tags": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Tags to add to all events routed to Sentry.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateWebhookSinkArgs": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WebhookFormat",
+                "description": "Format for the webhook payload. JSONL sends one object per line of\nrequest, JSON sends one array per request."
+              }
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL to send logs to."
+          }
+        }
+      },
+      "WebhookFormat": {
+        "type": "string",
+        "enum": [
+          "json",
+          "jsonl"
+        ]
+      },
+      "WebhookLogStreamConfig": {
+        "type": "object",
+        "title": "WebhookConfig",
+        "required": [
+          "id",
+          "url",
+          "format",
+          "hmacSecret"
+        ],
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/WebhookFormat",
+            "description": "Format for the webhook payload. JSONL sends one object per line of\nrequest, JSON sends one array per request."
+          },
+          "hmacSecret": {
+            "type": "string",
+            "description": "Use this secret to verify webhook signatures."
+          },
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to send logs to."
           }
         }
       }

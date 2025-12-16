@@ -73,6 +73,7 @@ use common::{
         Timestamp,
         WriteTimestamp,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
 use fastrace::prelude::*;
@@ -92,6 +93,7 @@ use itertools::Itertools;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use rand::Rng;
+use search::TextIndexWriteSize;
 use tokio::sync::{
     mpsc::{
         self,
@@ -111,7 +113,7 @@ use value::{
     TableMapping,
     TableName,
 };
-use vector::DocInVectorIndex;
+use vector::VectorIndexWriteSize;
 
 use crate::{
     bootstrap_model::defaults::BootstrapTableIds,
@@ -192,6 +194,7 @@ pub struct Committer<RT: Runtime> {
     persistence_writes: FuturesOrdered<BoxFuture<'static, anyhow::Result<PersistenceWrite>>>,
 
     retention_validator: Arc<dyn RetentionValidator>,
+    virtual_system_mapping: VirtualSystemMapping,
 }
 
 impl<RT: Runtime> Committer<RT> {
@@ -202,6 +205,7 @@ impl<RT: Runtime> Committer<RT> {
         runtime: RT,
         retention_validator: Arc<dyn RetentionValidator>,
         shutdown: ShutdownSignal,
+        virtual_system_mapping: VirtualSystemMapping,
     ) -> CommitterClient {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new(persistence_reader.version());
@@ -216,6 +220,7 @@ impl<RT: Runtime> Committer<RT> {
             last_assigned_ts: Timestamp::MIN,
             persistence_writes: FuturesOrdered::new(),
             retention_validator: retention_validator.clone(),
+            virtual_system_mapping,
         };
         let handle = runtime.spawn("committer", async move {
             if let Err(err) = committer.go(rx).await {
@@ -753,14 +758,15 @@ impl<RT: Runtime> Committer<RT> {
             .latest_snapshot()
             .unwrap_or_else(|| self.snapshot_manager.read().latest_snapshot());
         for &document_update in ordered_updates.iter() {
-            let (updates, doc_in_vector_index) =
+            let (updates, vector_index_write_size, text_index_write_size) =
                 latest_pending_snapshot.update(document_update, commit_ts)?;
             index_writes.extend(updates);
             document_writes.push(ValidatedDocumentWrite {
                 commit_ts,
                 id: document_update.id.into(),
                 write: document_update.new_document.clone(),
-                doc_in_vector_index,
+                vector_index_write_size,
+                text_index_write_size,
                 prev_ts: document_update.old_document.as_ref().map(|&(_, ts)| ts),
             });
         }
@@ -798,6 +804,7 @@ impl<RT: Runtime> Committer<RT> {
         persistence: Arc<dyn Persistence>,
         index_writes: Arc<Vec<PersistenceIndexEntry>>,
         document_writes: Arc<Vec<DocumentLogEntry>>,
+        write_source: WriteSource,
     ) -> anyhow::Result<()> {
         let timer = metrics::commit_persistence_write_timer();
         persistence
@@ -807,7 +814,7 @@ impl<RT: Runtime> Committer<RT> {
                 ConflictStrategy::Error,
             )
             .await
-            .context("Commit failed to write to persistence")?;
+            .with_context(|| format!("Commit ({write_source:?}) failed to write to persistence"))?;
 
         timer.finish();
         Ok(())
@@ -894,7 +901,7 @@ impl<RT: Runtime> Committer<RT> {
             index_writes,
             document_writes,
             pending_write,
-        } = match block_in_place(|| self.validate_commit(transaction, write_source)) {
+        } = match block_in_place(|| self.validate_commit(transaction, write_source.clone())) {
             Ok(v) => v,
             Err(e) => {
                 let _ = result.send(Err(e));
@@ -910,6 +917,7 @@ impl<RT: Runtime> Committer<RT> {
         let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
         let pause_client = self.runtime.pause_client();
         let rt = self.runtime.clone();
+        let virtual_system_mapping = self.virtual_system_mapping.clone();
         Some(
             async move {
                 Self::track_commit(
@@ -918,6 +926,7 @@ impl<RT: Runtime> Committer<RT> {
                     &document_writes,
                     &table_mapping,
                     &component_registry,
+                    &virtual_system_mapping,
                 );
 
                 let mut backoff = Backoff::new(
@@ -950,6 +959,7 @@ impl<RT: Runtime> Committer<RT> {
                             persistence.clone(),
                             index_writes.clone(),
                             document_writes.clone(),
+                            write_source.clone(),
                         )
                         .in_span(Span::enter_with_local_parent(name)),
                     ));
@@ -989,6 +999,7 @@ impl<RT: Runtime> Committer<RT> {
         document_writes: &Vec<ValidatedDocumentWrite>,
         table_mapping: &TableMapping,
         component_registry: &ComponentRegistry,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) {
         for (_, index_write) in index_writes {
             if let DatabaseIndexValue::NonClustered(doc) = index_write.value {
@@ -1005,12 +1016,25 @@ impl<RT: Runtime> Committer<RT> {
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
                     usage_tracker.track_database_ingress_size(
-                        component_path,
+                        component_path.clone(),
                         table_name.to_string(),
                         index_write.key.size() as u64,
                         // Exclude indexes on system tables or reserved system indexes on user
                         // tables
                         table_name.is_system() || index_write.is_system_index,
+                    );
+                    usage_tracker.track_database_ingress_size_v2(
+                        component_path,
+                        virtual_system_mapping
+                            .system_to_virtual_table(&table_name)
+                            .unwrap_or(&table_name)
+                            .to_string(),
+                        index_write.key.size() as u64,
+                        // Exclude indexes on system tables that are not virtual tables or reserved
+                        // system indexes on user tables
+                        (table_name.is_system()
+                            && !virtual_system_mapping.has_virtual_table(&table_name))
+                            || index_write.is_system_index,
                     );
                 }
             }
@@ -1018,7 +1042,8 @@ impl<RT: Runtime> Committer<RT> {
         for validated_write in document_writes {
             let ValidatedDocumentWrite {
                 write: document,
-                doc_in_vector_index,
+                vector_index_write_size,
+                text_index_write_size,
                 ..
             } = validated_write;
             if let Some(document) = document {
@@ -1034,18 +1059,44 @@ impl<RT: Runtime> Committer<RT> {
                     .unwrap_or(ComponentPath::root());
                 if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Database bandwidth for document writes
-                    if *doc_in_vector_index == DocInVectorIndex::Absent {
-                        usage_tracker.track_database_ingress_size(
-                            component_path,
+                    usage_tracker.track_database_ingress_size(
+                        component_path.clone().clone(),
+                        table_name.to_string(),
+                        document_write_size as u64,
+                        table_name.is_system(),
+                    );
+                    usage_tracker.track_database_ingress_size_v2(
+                        component_path.clone(),
+                        virtual_system_mapping
+                            .system_to_virtual_table(&table_name)
+                            .unwrap_or(&table_name)
+                            .to_string(),
+                        document_write_size as u64,
+                        table_name.is_system()
+                            && !virtual_system_mapping.has_virtual_table(&table_name),
+                    );
+                    if vector_index_write_size.0 > 0 {
+                        usage_tracker.track_vector_ingress_size(
+                            component_path.clone(),
                             table_name.to_string(),
                             document_write_size as u64,
+                            vector_index_write_size.0,
                             table_name.is_system(),
                         );
-                    } else {
-                        usage_tracker.track_vector_ingress_size(
+                    }
+                    if text_index_write_size.0 > 0 {
+                        usage_tracker.track_text_ingress_size(
+                            component_path.clone(),
+                            table_name.to_string(),
+                            text_index_write_size.0,
+                            table_name.is_system(),
+                        );
+                    }
+                    if text_index_write_size.0 > 0 {
+                        usage_tracker.track_text_ingress_size(
                             component_path,
                             table_name.to_string(),
-                            document_write_size as u64,
+                            text_index_write_size.0,
                             table_name.is_system(),
                         );
                     }
@@ -1087,7 +1138,8 @@ struct ValidatedDocumentWrite {
     commit_ts: Timestamp,
     id: InternalDocumentId,
     write: Option<ResolvedDocument>,
-    doc_in_vector_index: DocInVectorIndex,
+    vector_index_write_size: VectorIndexWriteSize,
+    text_index_write_size: TextIndexWriteSize,
     prev_ts: Option<Timestamp>,
 }
 

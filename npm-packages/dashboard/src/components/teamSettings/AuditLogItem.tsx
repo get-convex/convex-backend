@@ -16,7 +16,6 @@ import { stringifyValue } from "@common/lib/stringifyValue";
 import {
   TeamResponse,
   MemberResponse,
-  ProjectDetails,
   AuditLogAction,
   DeploymentResponse,
   AuditLogEventResponse,
@@ -29,6 +28,7 @@ import { BackupIdentifier } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { Tooltip } from "@ui/Tooltip";
 import { formatUsd } from "@common/lib/utils";
+import { useProjectById } from "api/projects";
 
 // TODO: Figure out how to get typing on metadata in
 // big brain
@@ -43,13 +43,11 @@ export function AuditLogItem({
   team,
   memberId,
   members,
-  projects,
 }: {
   entry: AuditLogEventResponse;
   team: TeamResponse;
   memberId: number | null;
   members: MemberResponse[];
-  projects: ProjectDetails[];
 }) {
   return (
     <Disclosure>
@@ -70,7 +68,6 @@ export function AuditLogItem({
                 metadata={entry.metadata as AuditLogEntryMetadata}
                 team={team}
                 members={members}
-                projects={projects}
               />
             </span>
             <span className="ml-auto flex gap-1">
@@ -111,25 +108,18 @@ function EntryAction({
   metadata,
   team,
   members,
-  projects,
 }: {
   action: AuditLogAction;
   metadata: AuditLogEntryMetadata;
   team: TeamResponse;
   members: MemberResponse[];
-  projects: ProjectDetails[];
 }) {
   switch (action) {
     case "createProject":
     case "updateProject":
     case "deleteProject":
       return (
-        <ProjectEntryAction
-          projects={projects}
-          team={team}
-          action={action}
-          metadata={metadata}
-        />
+        <ProjectEntryAction team={team} action={action} metadata={metadata} />
       );
     case "receiveProject":
       return (
@@ -138,7 +128,6 @@ function EntryAction({
           <ProjectLink
             projectId={metadata.current?.id}
             metadata={metadata}
-            projects={projects}
             team={team}
           />{" "}
           to this team.
@@ -151,7 +140,6 @@ function EntryAction({
           <ProjectLink
             projectId={metadata.previous?.id}
             metadata={metadata}
-            projects={projects}
             team={team}
           />{" "}
           to another team.
@@ -233,7 +221,6 @@ function EntryAction({
             members={members}
             memberId={metadata.current.member_id}
             projectId={metadata.current.project_id}
-            projects={projects}
             team={team}
           />
         );
@@ -251,7 +238,6 @@ function EntryAction({
             members={members}
             memberId={metadata.previous.member_id}
             projectId={metadata.previous.project_id}
-            projects={projects}
             team={team}
             removed
           />
@@ -283,7 +269,6 @@ function EntryAction({
           <ProjectLink
             projectId={metadata.current.projectId}
             metadata={metadata}
-            projects={projects}
             team={team}
           />
         </span>
@@ -301,7 +286,6 @@ function EntryAction({
           <ProjectLink
             projectId={metadata.previous.projectId}
             metadata={metadata}
-            projects={projects}
             team={team}
           />
         </span>
@@ -313,7 +297,6 @@ function EntryAction({
         <EnvironmentVariableEntryAction
           action={action}
           metadata={metadata}
-          projects={projects}
           team={team}
         />
       );
@@ -358,7 +341,6 @@ function EntryAction({
               <ProjectLink
                 projectId={metadata.current?.projectId}
                 metadata={metadata}
-                projects={projects}
                 team={team}
               />
             </span>
@@ -378,7 +360,6 @@ function EntryAction({
               <ProjectLink
                 projectId={metadata.previous?.projectId}
                 metadata={metadata}
-                projects={projects}
                 team={team}
               />
             </span>
@@ -391,7 +372,6 @@ function EntryAction({
           {metadata.current && (
             <AccessTokenSettingsLink
               team={team}
-              projects={projects}
               metadataEntity={metadata.current}
               verb="created"
             />
@@ -406,7 +386,6 @@ function EntryAction({
           {metadata.current && (
             <AccessTokenSettingsLink
               team={team}
-              projects={projects}
               metadataEntity={metadata.current}
               verb="viewed"
             />
@@ -419,7 +398,6 @@ function EntryAction({
           {metadata.current && (
             <AccessTokenSettingsLink
               team={team}
-              projects={projects}
               metadataEntity={metadata.current}
               verb="updated"
             />
@@ -432,7 +410,6 @@ function EntryAction({
           {metadata.previous && (
             <AccessTokenSettingsLink
               team={team}
-              projects={projects}
               metadataEntity={metadata.previous}
               verb="deleted"
             />
@@ -458,7 +435,6 @@ function EntryAction({
         <span>
           {verb} a backup of{" "}
           <DeploymentSettingsLink
-            projects={projects}
             team={team}
             deploymentId={deploymentId}
             urlSuffix="/backups"
@@ -480,7 +456,6 @@ function EntryAction({
         <span>
           restored into{" "}
           <DeploymentSettingsLink
-            projects={projects}
             team={team}
             deploymentId={metadata.current?.targetDeploymentId}
             urlSuffix="/backups"
@@ -507,7 +482,6 @@ function EntryAction({
         <span>
           {verb} a periodic backup schedule for{" "}
           <DeploymentSettingsLink
-            projects={projects}
             team={team}
             deploymentId={
               metadata.current?.sourceDeploymentId ||
@@ -589,6 +563,9 @@ function EntryAction({
     case "retrieveWorkosEnvironmentCredentials": {
       return <span>retrieve WorkOS Environment credentials</span>;
     }
+    case "disconnectWorkosTeam": {
+      return <span>disconnected a WorkOS team</span>;
+    }
     case "enableSSO": {
       return <span>enabled SSO</span>;
     }
@@ -607,16 +584,14 @@ function EntryAction({
 
 export function ProjectLink({
   metadata,
-  projects,
   team,
   projectId,
 }: {
   projectId: number;
   metadata: AuditLogEntryMetadata;
-  projects: ProjectDetails[];
   team: TeamResponse;
 }) {
-  const project = projects.find((p) => p.id === projectId);
+  const project = useProjectById(projectId);
 
   const projectName =
     project?.name ||
@@ -638,12 +613,10 @@ export function ProjectLink({
 }
 
 function EnvironmentVariableEntryAction({
-  projects,
   team,
   action,
   metadata,
 }: {
-  projects: ProjectDetails[];
   team: TeamResponse;
   action: string;
   metadata: AuditLogEntryMetadata;
@@ -676,7 +649,6 @@ function EnvironmentVariableEntryAction({
       <ProjectLink
         projectId={metadata.current?.projectId || metadata.previous?.projectId}
         metadata={metadata}
-        projects={projects}
         team={team}
       />
     </span>
@@ -684,12 +656,10 @@ function EnvironmentVariableEntryAction({
 }
 
 function ProjectEntryAction({
-  projects,
   team,
   action,
   metadata,
 }: {
-  projects: ProjectDetails[];
   team: TeamResponse;
   action: string;
   metadata: AuditLogEntryMetadata;
@@ -712,7 +682,6 @@ function ProjectEntryAction({
       <ProjectLink
         projectId={metadata.current?.id || metadata.previous?.id}
         metadata={metadata}
-        projects={projects}
         team={team}
       />
     </span>
@@ -733,7 +702,6 @@ function ProjectRoleUpdateEntry({
   members,
   memberId,
   projectId,
-  projects,
   team,
   removed = false,
 }: {
@@ -741,7 +709,6 @@ function ProjectRoleUpdateEntry({
   role?: "admin";
   memberId: number;
   projectId: number;
-  projects: ProjectDetails[];
   team: TeamResponse;
   removed?: boolean;
 }) {
@@ -761,7 +728,6 @@ function ProjectRoleUpdateEntry({
         projectId={projectId}
         // Don't need metadata for this project link
         metadata={{}}
-        projects={projects}
         team={team}
       />
     </span>
@@ -814,22 +780,21 @@ function deploymentDisplayName(deployment: DeploymentResponse) {
   }
 }
 function DeploymentSettingsLink({
-  projects,
   team,
   deploymentId,
   urlSuffix = "",
 }: {
-  projects: ProjectDetails[];
   team: TeamResponse;
   deploymentId: number;
   urlSuffix?: string;
 }) {
   const deployment = useDeploymentById(team.id, deploymentId);
+  const project = useProjectById(deployment?.projectId);
+
   if (!deployment) {
     return <span>a deployment</span>;
   }
 
-  const project = projects.find((p) => p.id === deployment.projectId);
   if (!project) {
     captureMessage(
       `Malformed deploy key audit log entry:
@@ -855,15 +820,13 @@ function DeploymentSettingsLink({
 }
 
 function ProjectSettingsLink({
-  projects,
   team,
   projectId,
 }: {
-  projects: ProjectDetails[];
   team: TeamResponse;
   projectId: number;
 }) {
-  const project = projects.find((p) => p.id === projectId);
+  const project = useProjectById(projectId);
   if (!project) {
     return <span>Project {projectId}</span>;
   }
@@ -881,12 +844,10 @@ function ProjectSettingsLink({
 
 function AccessTokenSettingsLink({
   team,
-  projects,
   metadataEntity,
   verb,
 }: {
   team: TeamResponse;
-  projects: ProjectDetails[];
   metadataEntity: Record<string, any>;
   verb: string;
 }) {
@@ -899,7 +860,6 @@ function AccessTokenSettingsLink({
           {" "}
           in{" "}
           <DeploymentSettingsLink
-            projects={projects}
             team={team}
             deploymentId={metadataEntity?.deploymentId}
           />
@@ -910,7 +870,6 @@ function AccessTokenSettingsLink({
           {" "}
           in{" "}
           <ProjectSettingsLink
-            projects={projects}
             team={team}
             projectId={metadataEntity?.projectId}
           />

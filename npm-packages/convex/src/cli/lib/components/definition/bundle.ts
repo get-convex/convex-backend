@@ -14,7 +14,7 @@ import {
   showSpinner,
 } from "../../../../bundler/log.js";
 import esbuild, { BuildOptions, Metafile, OutputFile, Plugin } from "esbuild";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import {
   AppDefinitionSpecWithoutImpls,
   ComponentDefinitionSpecWithoutImpls,
@@ -339,7 +339,7 @@ export async function componentGraph(
     });
   }
   for (const warning of result.warnings) {
-    logWarning(chalk.yellow(`esbuild warning: ${warning.text}`));
+    logWarning(chalkStderr.yellow(`esbuild warning: ${warning.text}`));
   }
 
   if (rootComponentDirectory.syntheticComponentImport) {
@@ -531,7 +531,7 @@ export async function bundleDefinitions(
     });
   }
   for (const warning of result.warnings) {
-    logWarning(chalk.yellow(`esbuild warning: ${warning.text}`));
+    logWarning(chalkStderr.yellow(`esbuild warning: ${warning.text}`));
   }
 
   const outputs: {

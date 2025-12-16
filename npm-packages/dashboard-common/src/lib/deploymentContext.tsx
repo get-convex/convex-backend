@@ -15,7 +15,16 @@ import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 import { Button } from "@ui/Button";
-import { ExternalLinkIcon } from "@radix-ui/react-icons";
+import {
+  CheckCircledIcon,
+  CrossCircledIcon,
+  ExternalLinkIcon,
+  InfoCircledIcon,
+  LinkBreak2Icon,
+} from "@radix-ui/react-icons";
+import { Sheet } from "@ui/Sheet";
+import { Spinner } from "@ui/Spinner";
+import { Tooltip } from "@ui/Tooltip";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 
@@ -122,6 +131,10 @@ export type DeploymentInfo = (
     children: ReactNode;
     fallback?: FallbackRender;
   }): JSX.Element;
+  DisconnectOverlay(props: {
+    deployment: ConnectedDeployment;
+    deploymentName: string;
+  }): JSX.Element;
   teamsURI: string;
   projectsURI: string;
   deploymentsURI: string;
@@ -133,7 +146,7 @@ export const DeploymentInfoContext = createContext<DeploymentInfo>(
   undefined as unknown as DeploymentInfo,
 );
 
-type ConnectedDeployment = {
+export type ConnectedDeployment = {
   client: ConvexReactClient;
   httpClient: ConvexHttpClient;
   deploymentUrl: string;
@@ -393,7 +406,7 @@ function DeploymentWithConnectionState({
   deployment: ConnectedDeployment;
   children: ReactNode;
 }) {
-  const { isSelfHosted, captureMessage, addBreadcrumb } = useContext(
+  const { captureMessage, addBreadcrumb, DisconnectOverlay } = useContext(
     DeploymentInfoContext,
   );
   const { client, deploymentUrl, deploymentName } = deployment;
@@ -547,12 +560,12 @@ function DeploymentWithConnectionState({
   );
   return (
     <>
-      {isDisconnected &&
-        (deploymentName.startsWith("local-") ? (
-          <LocalDeploymentDisconnectOverlay />
-        ) : isSelfHosted ? (
-          <SelfHostedDisconnectOverlay deploymentUrl={deploymentUrl} />
-        ) : null)}
+      {isDisconnected && (
+        <DisconnectOverlay
+          deployment={deployment}
+          deploymentName={deploymentName}
+        />
+      )}
       <ConnectedDeploymentContext.Provider value={value}>
         {children}
       </ConnectedDeploymentContext.Provider>
@@ -579,99 +592,233 @@ function useIsBrave(): boolean {
   return isBrave;
 }
 
-function LocalDeploymentDisconnectOverlay() {
-  const isSafari = useIsSafari();
-  const isBrave = useIsBrave();
-
+function DisconnectedOverlay({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="absolute z-50 mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center"
-      style={{
-        backdropFilter: "blur(0.5rem)",
-      }}
-    >
-      <div className="max-w-prose">
-        <h3 className="mb-4">Can’t connect to your local deployment</h3>
-
-        {isSafari ? (
-          <>
-            <p className="mb-2">
-              Safari blocks connections to localhost. We recommend using another
-              browser when using local deployments.
-            </p>
-            <Button
-              href="https://docs.convex.dev/cli/local-deployments#safari"
-              variant="neutral"
-              icon={<ExternalLinkIcon />}
-              target="_blank"
-            >
-              Learn more
-            </Button>
-          </>
-        ) : isBrave ? (
-          <>
-            <p className="mb-2">
-              Brave blocks connections to localhost by default. We recommend
-              using another browser or{" "}
-              <a
-                href="https://docs.convex.dev/cli/local-deployments#brave"
-                target="_blank"
-                rel="noreferrer"
-                className="text-content-link hover:underline"
-              >
-                setting up Brave to allow localhost connections
-              </a>
-              .
-            </p>
-            <Button
-              href="https://docs.convex.dev/cli/local-deployments#brave"
-              variant="neutral"
-              icon={<ExternalLinkIcon />}
-              target="_blank"
-            >
-              Learn more
-            </Button>
-          </>
-        ) : (
-          <>
-            <p className="mb-2">
-              Check that <code className="text-sm">npx convex dev</code> is
-              running successfully.
-            </p>
-            <p>
-              If you have multiple devices you use with this Convex project, the
-              local deployment may be running on a different device, and can
-              only be accessed on that machine.
-            </p>
-          </>
-        )}
-      </div>
+    <div className="absolute z-50 mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center backdrop-blur-[4px]">
+      <Sheet className="scrollbar flex max-h-[80vh] max-w-[28rem] animate-fadeInFromLoading flex-col items-start gap-2 overflow-y-auto rounded-xl bg-background-secondary/90 backdrop-blur-[8px]">
+        <h3 className="mb-4 flex items-center gap-3">
+          <div className="flex aspect-square h-[2.625rem] shrink-0 items-center justify-center rounded-lg border bg-gradient-to-tr from-yellow-200 to-util-brand-yellow text-yellow-900 shadow-md">
+            <LinkBreak2Icon className="size-6" />
+          </div>
+          Connection Issue
+        </h3>
+        {children}
+      </Sheet>
     </div>
   );
 }
 
-function SelfHostedDisconnectOverlay({
-  deploymentUrl,
-}: {
-  deploymentUrl: string;
-}) {
+export function LocalDeploymentDisconnectOverlay() {
+  const isSafari = useIsSafari();
+  const isBrave = useIsBrave();
+
   return (
-    <div
-      className="absolute z-50 mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center"
-      style={{
-        backdropFilter: "blur(0.5rem)",
-      }}
-    >
-      <div className="max-w-prose">
-        <h3 className="mb-4">This deployment is not online.</h3>
-        <p className="mb-2">
-          Check that your Convex server is running and accessible at{" "}
-          <code className="text-sm">{deploymentUrl}</code>.
-        </p>
-        <p>
-          If you continue to have issues, try restarting your Convex server.
-        </p>
+    <DisconnectedOverlay>
+      {isSafari ? (
+        <>
+          <p className="mb-1">Safari blocks connections to localhost.</p>
+          <p className="mb-4">
+            We recommend using another browser when using local deployments.
+          </p>
+          <Button
+            href="https://docs.convex.dev/cli/local-deployments#safari"
+            variant="neutral"
+            icon={<ExternalLinkIcon />}
+            target="_blank"
+          >
+            Learn more
+          </Button>
+        </>
+      ) : isBrave ? (
+        <>
+          <p className="mb-2">
+            Brave blocks connections to localhost by default. We recommend using
+            another browser or{" "}
+            <a
+              href="https://docs.convex.dev/cli/local-deployments#brave"
+              target="_blank"
+              rel="noreferrer"
+              className="text-content-link hover:underline"
+            >
+              setting up Brave to allow localhost connections
+            </a>
+            .
+          </p>
+          <Button
+            href="https://docs.convex.dev/cli/local-deployments#brave"
+            variant="neutral"
+            icon={<ExternalLinkIcon />}
+            target="_blank"
+          >
+            Learn more
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="mb-2">
+            Check that <code className="text-sm">npx convex dev</code> is
+            running successfully.
+          </p>
+          <p>
+            If you have multiple devices you use with this Convex project, the
+            local deployment may be running on a different device, and can only
+            be accessed on that machine.
+          </p>
+        </>
+      )}
+    </DisconnectedOverlay>
+  );
+}
+
+export function SelfHostedDisconnectOverlay() {
+  const deploymentInfo = useContext(DeploymentInfoContext);
+  const deploymentUrl = deploymentInfo.ok ? deploymentInfo.deploymentUrl : "";
+  return (
+    <DisconnectedOverlay>
+      <p className="mb-2">
+        Check that your Convex server is running and accessible at{" "}
+        <code className="text-sm">{deploymentUrl}</code>.
+      </p>
+      <p>If you continue to have issues, try restarting your Convex server.</p>
+    </DisconnectedOverlay>
+  );
+}
+
+function useCanReachDeploymentOverHTTP(deploymentUrl: string): boolean | null {
+  const [isReachable, setIsReachable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let canceled = false;
+
+    const checkReachability = async () => {
+      try {
+        await fetch(deploymentUrl, {
+          method: "HEAD",
+          mode: "no-cors",
+        });
+        if (!canceled) {
+          setIsReachable(true);
+        }
+      } catch (error) {
+        if (!canceled) {
+          setIsReachable(false);
+        }
+      }
+    };
+
+    void checkReachability();
+
+    return () => {
+      canceled = true;
+    };
+  }, [deploymentUrl]);
+
+  return isReachable;
+}
+
+export function CloudDisconnectOverlay({
+  deployment,
+  deploymentName,
+  openSupportForm,
+  statusWidget,
+}: {
+  deployment: ConnectedDeployment;
+  deploymentName: string;
+  openSupportForm?: (defaultSubject: string, defaultMessage: string) => void;
+  statusWidget?: React.ReactNode;
+}) {
+  const isReachable = useCanReachDeploymentOverHTTP(deployment.deploymentUrl);
+
+  const handleContactSupport = useCallback(() => {
+    const defaultMessage = `I'm unable to connect to my deployment "${deploymentName}".
+
+Deployment URL: ${deployment.deploymentUrl}
+HTTP reachable: ${isReachable === null ? "checking..." : isReachable ? "yes" : "no"}
+
+Please help me troubleshoot this connection issue.`;
+
+    const defaultSubject = `Unable to connect to ${deploymentName}`;
+
+    if (openSupportForm) {
+      openSupportForm(defaultSubject, defaultMessage);
+    }
+  }, [deploymentName, deployment.deploymentUrl, isReachable, openSupportForm]);
+
+  return (
+    <DisconnectedOverlay>
+      <div className="space-y-4">
+        <div>
+          <h4 className="mb-2">Connection Status</h4>
+          <div className="flex flex-col gap-2">
+            <p className="flex items-center gap-1 text-sm">
+              <div className="w-fit rounded-full bg-background-error p-1">
+                <CrossCircledIcon className="text-content-error" />
+              </div>
+              WebSocket
+            </p>
+            {isReachable === null ? (
+              <p className="flex items-center gap-1 text-sm text-content-secondary">
+                <div className="p-1">
+                  <Spinner />
+                </div>
+                Checking HTTP connection...
+              </p>
+            ) : isReachable ? (
+              <p className="flex items-center gap-1 text-sm">
+                <div className="w-fit rounded-full bg-background-success p-1">
+                  <CheckCircledIcon className="text-content-success" />
+                </div>
+                HTTP
+              </p>
+            ) : (
+              <p className="flex items-center gap-1 text-sm">
+                <div className="w-fit rounded-full bg-background-error p-1">
+                  <CrossCircledIcon className="text-content-error" />
+                </div>
+                HTTP
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <h4 className="mb-2">Troubleshooting</h4>
+          <p className="mb-2 text-sm">
+            There may be a client-side network issue. Try:
+          </p>
+          <ul className="ml-2 list-inside list-disc space-y-1 text-sm">
+            <li>
+              <span className="inline-flex items-center gap-1">
+                Reloading the browser page
+                <Tooltip tip="The Convex dashboard will automatically attempt to reconnect to your deployment, but refreshing the page may help in some cases.">
+                  <InfoCircledIcon className="shrink-0" />
+                </Tooltip>
+              </span>
+            </li>
+            <li>Disabling your VPN</li>
+            <li>Disabling browser extensions</li>
+            <li>Switching to a different WiFi network</li>
+          </ul>
+        </div>
+
+        {statusWidget && (
+          <div>
+            <h4 className="mb-2">Convex Status</h4>
+            {statusWidget}
+          </div>
+        )}
+
+        {openSupportForm && (
+          <div className="border-t pt-2">
+            <p className="text-sm text-content-secondary">
+              Still having trouble connecting?{" "}
+              <Button inline onClick={handleContactSupport}>
+                Contact support
+              </Button>
+            </p>
+          </div>
+        )}
       </div>
-    </div>
+    </DisconnectedOverlay>
   );
 }

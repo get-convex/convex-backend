@@ -1,7 +1,8 @@
 import { Context } from "../../bundler/context.js";
 import { logMessage, logOutput, logWarning } from "../../bundler/log.js";
 import { nextBackoff } from "./dev.js";
-import chalk from "chalk";
+// eslint-disable-next-line no-restricted-imports -- chalk used for writing to stdout
+import chalk, { chalkStderr } from "chalk";
 import { stripVTControlCharacters } from "node:util";
 import { format } from "node:util";
 import { deploymentFetch } from "./utils/utils.js";
@@ -50,7 +51,7 @@ export async function logsForDeployment(
     deploymentNotice: string;
   },
 ) {
-  logMessage(chalk.yellow(`Watching logs${options.deploymentNotice}...`));
+  logMessage(chalkStderr.yellow(`Watching logs${options.deploymentNotice}...`));
   await watchLogs(ctx, credentials.url, credentials.adminKey, "stdout", {
     history: options.history,
     success: options.success,
@@ -73,6 +74,10 @@ export async function watchLogs(
   let numFailures = 0;
   let isFirst = true;
   let cursorMs = 0;
+
+  // Select the appropriate chalk instance and write function based on destination
+  const chalkInstance = dest === "stdout" ? chalk : chalkStderr;
+  const write = (s: string) => logToDestination(dest, s);
 
   for (;;) {
     try {
@@ -102,16 +107,18 @@ export async function watchLogs(
               : entries.slice(entries.length - options?.history);
           processLogs(
             entriesSlice,
-            (s: string) => logToDestination(dest, s),
+            write,
             options?.success,
+            chalkInstance,
             options?.jsonl,
           );
         }
       } else {
         processLogs(
           entries,
-          (s: string) => logToDestination(dest, s),
+          write,
           options?.success === true,
+          chalkInstance,
           options?.jsonl,
         );
       }
@@ -169,6 +176,7 @@ function processLogs(
   rawLogs: FunctionExecution[],
   write: (message: string) => void,
   shouldShowSuccessLogs: boolean,
+  chalkInstance: typeof chalk,
   jsonl?: boolean,
 ) {
   if (jsonl) {
@@ -195,6 +203,7 @@ function processLogs(
           udfType,
           id,
           log.logLines[j],
+          chalkInstance,
         );
         write(formatted);
       }
@@ -206,10 +215,11 @@ function processLogs(
           udfType,
           id,
           log.error!,
+          chalkInstance,
         );
         write(formatted);
       } else if (log.kind === "Completion" && shouldShowSuccessLogs) {
-        const formatted = chalk.green(
+        const formatted = chalkInstance.green(
           formatFunctionExecutionMessage(
             timestampMs,
             udfType,
@@ -238,28 +248,29 @@ export function formatLogLineMessage(
   udfType: UdfType,
   udfPath: string,
   message: LogLine,
+  chalkInstance: typeof chalk = chalk,
 ): string {
   const prefix = prefixForSource(udfType);
   if (typeof message === "string") {
     if (type === "info") {
       const match = message.match(/^\[.*?\] /);
       if (match === null) {
-        return chalk.red(
+        return chalkInstance.red(
           `[CONVEX ${prefix}(${udfPath})] Could not parse console.log`,
         );
       }
       const level = message.slice(1, match[0].length - 2);
       const args = message.slice(match[0].length);
-      return `${chalk.cyan(`${prefixLog(timestampMs, udfType, udfPath)} [${level}]`)} ${format(args)}`;
+      return `${chalkInstance.cyan(`${prefixLog(timestampMs, udfType, udfPath)} [${level}]`)} ${format(args)}`;
     } else {
-      return chalk.red(
+      return chalkInstance.red(
         `${prefixLog(timestampMs, udfType, udfPath)} ${message}`,
       );
     }
   } else {
     const level = message.level;
     const formattedMessage = `${message.messages.join(" ")}${message.isTruncated ? " (truncated due to length)" : ""}`;
-    return `${chalk.cyan(
+    return `${chalkInstance.cyan(
       `${prefixLog(message.timestamp, udfType, udfPath)} [${level}]`,
     )} ${formattedMessage}`;
   }
@@ -290,6 +301,6 @@ export function formatLogsAsText(
   const lines: string[] = [];
   const write = (message: string) =>
     lines.push(stripVTControlCharacters(message));
-  processLogs(rawLogs, write, shouldShowSuccessLogs);
+  processLogs(rawLogs, write, shouldShowSuccessLogs, chalk);
   return lines.join("\n");
 }

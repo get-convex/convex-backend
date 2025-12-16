@@ -26,8 +26,6 @@ import { copyTextToClipboard, toast } from "@common/lib/utils";
 import { TextInput } from "@ui/TextInput";
 import { cn } from "@ui/cn";
 
-const MAX_NUMBER_OF_ENV_VARS = 100;
-
 export const ENVIRONMENT_VARIABLES_ROW_CLASSES =
   "grid grid-cols-[minmax(0,1fr)_6.5rem] gap-x-4 gap-y-2 py-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem]";
 export const ENVIRONMENT_VARIABLE_NAME_COLUMN = "col-span-2 md:col-span-1";
@@ -43,7 +41,6 @@ type FormState<T extends BaseEnvironmentVariable> = {
   }[];
   newVars: BaseEnvironmentVariable[];
   deletedVars: T[];
-  tooManyEnvVars: boolean;
 };
 
 // This is used for showing both deployment environment variables and project level environment variables
@@ -52,6 +49,7 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
   updateEnvironmentVariables,
   initialFormValues,
   hasAdminPermissions,
+  onEnvironmentVariablesAdded,
 }: {
   environmentVariables: Array<T> | undefined;
   initialFormValues?: Array<BaseEnvironmentVariable>;
@@ -61,6 +59,7 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
     deletions: T[],
   ) => Promise<void>;
   hasAdminPermissions: boolean;
+  onEnvironmentVariablesAdded?: (count: number) => void;
 }) {
   return (
     <Formik
@@ -70,7 +69,6 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
           editedVars: [],
           newVars: initialFormValues ?? [],
           deletedVars: [],
-          tooManyEnvVars: false,
         } as FormState<T>
       }
       onSubmit={async (values, helpers) => {
@@ -79,7 +77,10 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
           values.editedVars,
           values.deletedVars,
         );
-
+        const createdCount = values.newVars.length;
+        if (createdCount > 0) {
+          onEnvironmentVariablesAdded?.(createdCount);
+        }
         helpers.resetForm({});
       }}
       validate={(values) => {
@@ -234,16 +235,6 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
             existingEnvVars={environmentVariables}
             hasAdminPermissions={hasAdminPermissions}
           />
-
-          {environmentVariables.length >= MAX_NUMBER_OF_ENV_VARS && (
-            <div>
-              <Callout variant="error">
-                You've reached the environment variable limit (
-                {MAX_NUMBER_OF_ENV_VARS}). Contact support@convex.dev if you
-                need more.
-              </Callout>
-            </div>
-          )}
         </>
       )}
     </Form>
@@ -603,19 +594,7 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
       ({ name, value }) => name !== "" || value !== "",
     );
 
-    let totalEnvVars = existingEnvVars.length;
-    let tooManyEnvVars = false;
-    envVars.forEach((envVar) => {
-      if (totalEnvVars < MAX_NUMBER_OF_ENV_VARS) {
-        newVars.push(envVar);
-        totalEnvVars += 1;
-      } else {
-        tooManyEnvVars = true;
-      }
-    });
-
-    void formState.setFieldValue("newVars", newVars, true);
-    void formState.setFieldValue("tooManyEnvVars", tooManyEnvVars);
+    void formState.setFieldValue("newVars", envVars, true);
 
     // https://github.com/jaredpalmer/formik/issues/2059#issuecomment-612733378
     setTimeout(() =>
@@ -640,7 +619,6 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
                     ...formState.values.newVars.slice(index + 1),
                   ];
                   void formState.setFieldValue("newVars", newVars);
-                  void formState.setFieldValue("tooManyEnvVars", false);
 
                   // https://github.com/jaredpalmer/formik/issues/2059#issuecomment-612733378
                   setTimeout(() => {
@@ -663,31 +641,28 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
 
       <div className="my-2 flex place-content-between">
         <div className="flex gap-2">
-          {existingEnvVars.length + formState.values.newVars.length <
-            MAX_NUMBER_OF_ENV_VARS && (
-            <Button
-              type="button"
-              variant="neutral"
-              onClick={() => {
-                void formState.setFieldValue("newVars", [
-                  ...formState.values.newVars,
-                  {
-                    name: "",
-                    value: "",
-                  },
-                ]);
-              }}
-              icon={<PlusCircledIcon />}
-              disabled={!hasAdminPermissions}
-              tip={
-                !hasAdminPermissions
-                  ? "You do not have permission to add new environment variables."
-                  : undefined
-              }
-            >
-              Add
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="neutral"
+            onClick={() => {
+              void formState.setFieldValue("newVars", [
+                ...formState.values.newVars,
+                {
+                  name: "",
+                  value: "",
+                },
+              ]);
+            }}
+            icon={<PlusCircledIcon />}
+            disabled={!hasAdminPermissions}
+            tip={
+              !hasAdminPermissions
+                ? "You do not have permission to add new environment variables."
+                : undefined
+            }
+          >
+            Add
+          </Button>
 
           {existingEnvVars.length > 0 && (
             <Button
@@ -728,14 +703,6 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
           </Button>
         )}
       </div>
-
-      {formState.values.tooManyEnvVars && (
-        <Callout variant="error">
-          You've reached the environment variable limit (
-          {MAX_NUMBER_OF_ENV_VARS}). Some pasted environment variables have been
-          omitted.
-        </Callout>
-      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { DeveloperIndexConfig } from "./deployApi/finishPush.js";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { formatIndex } from "./indexes.js";
 
 describe("formatIndex", () => {
@@ -13,7 +13,7 @@ describe("formatIndex", () => {
 
     const result = formatIndex(databaseIndex);
 
-    const expected = `messages.${chalk.bold("by_user_and_timestamp")}   ${chalk.gray(`${chalk.underline("userId")}, ${chalk.underline("timestamp")}`)}`;
+    const expected = `messages.${chalkStderr.bold("by_user_and_timestamp")}   ${chalkStderr.gray(`${chalkStderr.underline("userId")}, ${chalkStderr.underline("timestamp")}`)}`;
     expect(result).toEqual(expected);
   });
 
@@ -27,7 +27,7 @@ describe("formatIndex", () => {
 
     const result = formatIndex(searchIndex);
 
-    const expected = `articles.${chalk.bold("search_by_content")} ${chalk.gray(`${chalk.cyan("(text)")}   ${chalk.underline("content")}`)}`;
+    const expected = `articles.${chalkStderr.bold("search_by_content")} ${chalkStderr.gray(`${chalkStderr.cyan("(text)")}   ${chalkStderr.underline("content")}`)}`;
     expect(result).toEqual(expected);
   });
 
@@ -41,7 +41,7 @@ describe("formatIndex", () => {
 
     const result = formatIndex(searchIndex);
 
-    const expected = `articles.${chalk.bold("search_by_content")} ${chalk.gray(`${chalk.cyan("(text)")}   ${chalk.underline("content")}, filters on ${chalk.underline("category")}, ${chalk.underline("status")}`)}`;
+    const expected = `articles.${chalkStderr.bold("search_by_content")} ${chalkStderr.gray(`${chalkStderr.cyan("(text)")}   ${chalkStderr.underline("content")}, filters on ${chalkStderr.underline("category")}, ${chalkStderr.underline("status")}`)}`;
     expect(result).toEqual(expected);
   });
 
@@ -56,7 +56,7 @@ describe("formatIndex", () => {
 
     const result = formatIndex(vectorIndex);
 
-    const expected = `documents.${chalk.bold("embedding_index")} ${chalk.gray(`${chalk.cyan("(vector)")}   ${chalk.underline("embedding")} (1536 dimensions), filter on ${chalk.underline("userId")}`)}`;
+    const expected = `documents.${chalkStderr.bold("embedding_index")} ${chalkStderr.gray(`${chalkStderr.cyan("(vector)")}   ${chalkStderr.underline("embedding")} (1536 dimensions), filter on ${chalkStderr.underline("userId")}`)}`;
     expect(result).toEqual(expected);
   });
 
@@ -71,7 +71,7 @@ describe("formatIndex", () => {
 
     const result = formatIndex(vectorIndex);
 
-    const expected = `documents.${chalk.bold("embedding_index")} ${chalk.gray(`${chalk.cyan("(vector)")}   ${chalk.underline("embedding")} (768 dimensions), filters on ${chalk.underline("userId")}, ${chalk.underline("type")}, ${chalk.underline("category")}`)}`;
+    const expected = `documents.${chalkStderr.bold("embedding_index")} ${chalkStderr.gray(`${chalkStderr.cyan("(vector)")}   ${chalkStderr.underline("embedding")} (768 dimensions), filters on ${chalkStderr.underline("userId")}, ${chalkStderr.underline("type")}, ${chalkStderr.underline("category")}`)}`;
     expect(result).toEqual(expected);
   });
 });

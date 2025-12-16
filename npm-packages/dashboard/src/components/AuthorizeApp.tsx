@@ -1,11 +1,12 @@
-import { useTeamEntitlements, useTeams } from "api/teams";
-import { useProjects } from "api/projects";
+import { useTeams } from "api/teams";
+import { usePaginatedProjects } from "api/projects";
 import Head from "next/head";
 import { Button } from "@ui/Button";
-import { Combobox } from "@ui/Combobox";
+import { Combobox, MAX_DISPLAYED_OPTIONS } from "@ui/Combobox";
 import { Loading } from "@ui/Loading";
 import { useState, useEffect, useMemo } from "react";
 import { useFormik } from "formik";
+import { useDebounce } from "react-use";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useAuthorizeApp } from "api/accessTokens";
@@ -14,7 +15,6 @@ import { LoginLayout } from "layouts/LoginLayout";
 import { Sheet } from "@ui/Sheet";
 import { PlusIcon, ResetIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import { CreateProjectForm } from "hooks/useCreateProjectModal";
-import Link from "next/link";
 import { Callout } from "@ui/Callout";
 import { Tooltip } from "@ui/Tooltip";
 import { captureException } from "@sentry/nextjs";
@@ -88,9 +88,34 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
     projects,
     selectedProjectId,
     setSelectedProjectId,
-    canCreateMoreProjects,
+    projectQuery,
+    setProjectQuery,
+    isLoading: projectsLoading,
   } = useProjectSelection(team);
   const [didCreateProject, setDidCreateProject] = useState(false);
+
+  // Detect duplicate project names and prepare options
+  const projectOptions = useMemo(() => {
+    const nameCountMap = new Map<string, number>();
+    projects?.forEach((p) => {
+      nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
+    });
+
+    return (
+      projects?.map((p) => {
+        const isDuplicate = (nameCountMap.get(p.name) || 0) > 1;
+        const label = isDuplicate && p.slug ? `${p.name} (${p.slug})` : p.name;
+        return { label, value: p.id };
+      }) ?? []
+    );
+  }, [projects]);
+
+  // Auto-show create project form if team has no projects
+  useEffect(() => {
+    if (!projectsLoading && projects?.length === 0 && projectQuery === "") {
+      setShowProjectForm(true);
+    }
+  }, [projectsLoading, projects?.length, projectQuery]);
 
   const [accessToken] = useAccessToken();
   const authorizeApp = useAuthorizeApp();
@@ -260,7 +285,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
           )
         }
         selectedOption={selectedTeamSlug}
-        setSelectedOption={(slug) => {
+        setSelectedOption={(slug: string | null) => {
           if (slug !== null) {
             const searchParams = new URLSearchParams(window.location.search);
             searchParams.set("team", slug);
@@ -302,26 +327,33 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
 
     return (
       <div className="flex flex-wrap items-end gap-2">
-        {projects && projects.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <Combobox
-              options={
-                projects.map((project) => ({
-                  label: project.name,
-                  value: project.id,
-                })) ?? []
-              }
-              label="Select a project"
-              labelHidden={false}
-              selectedOption={selectedProjectId}
-              setSelectedOption={setSelectedProjectId}
-              disabled={projects === null}
-            />
-          </div>
-        )}
+        <div className="flex flex-col gap-1">
+          <Combobox
+            label={
+              <div className="flex items-center gap-1">
+                <span>Select a project</span>
+                <Tooltip
+                  tip={`${oauthAppData?.appName} will only be able to operate within the selected project.`}
+                >
+                  <InfoCircledIcon />
+                </Tooltip>
+              </div>
+            }
+            labelHidden={false}
+            options={projectOptions}
+            allowCustomValue={false}
+            selectedOption={selectedProjectId}
+            onFilterChange={setProjectQuery}
+            isLoadingOptions={projectsLoading && projectQuery !== ""}
+            setSelectedOption={(id) => {
+              setSelectedProjectId(id as number | null);
+            }}
+            unknownLabel={() => "projects"}
+          />
+        </div>
         {!didCreateProject && (
           <div className="flex items-center gap-2">
-            {projects && projects.length > 0 && "or"}
+            <span className="text-sm text-content-secondary">or</span>
             <Button
               variant="neutral"
               onClick={() => {
@@ -329,23 +361,6 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
                 setSelectedProjectId(null);
               }}
               icon={<PlusIcon className="h-4 w-4" />}
-              disabled={!canCreateMoreProjects}
-              tip={
-                !canCreateMoreProjects ? (
-                  <>
-                    You have reached the maximum number of projects for your
-                    team. You may delete a project on the{" "}
-                    <Link
-                      href={`/t/${team?.slug}`}
-                      target="_blank"
-                      className="text-content-link hover:underline"
-                    >
-                      projects page
-                    </Link>
-                    .
-                  </>
-                ) : undefined
-              }
             >
               Create a new project
             </Button>
@@ -581,18 +596,36 @@ export function buildOAuthRedirectUrl(
 }
 
 function useProjectSelection(team?: { id: number }) {
-  const projects = useProjects(team?.id, 30000);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     null,
   );
-  const entitlements = useTeamEntitlements(team?.id);
-  const canCreateMoreProjects =
-    projects && entitlements && projects.length < entitlements.maxProjects;
+  const [projectQuery, setProjectQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Debounce search query (300ms delay)
+  useDebounce(
+    () => {
+      setDebouncedQuery(projectQuery);
+    },
+    300,
+    [projectQuery],
+  );
+
+  // Fetch paginated projects with debounced query
+  const paginatedData = usePaginatedProjects(team?.id, {
+    q: debouncedQuery,
+    limitOverride: MAX_DISPLAYED_OPTIONS,
+  });
+
+  const projects = paginatedData ? paginatedData.items : undefined;
+  const isLoading = paginatedData === undefined;
 
   return {
     projects,
     selectedProjectId,
     setSelectedProjectId,
-    canCreateMoreProjects,
+    projectQuery,
+    setProjectQuery,
+    isLoading,
   };
 }

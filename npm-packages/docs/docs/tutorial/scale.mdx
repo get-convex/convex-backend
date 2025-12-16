@@ -54,7 +54,7 @@ There are a [few ways to deal with this](/error#remediation), including building
 something called a sharded counter...
 
 But before you go learn advanced scaling techniques on your own, there is a
-better way with Convex components.
+better way with [Convex Components](/components.mdx).
 
 ## Scaling best practices with Convex Components
 
@@ -62,16 +62,16 @@ In the case of the counter above, the Convex team has already built a
 [scalable counter](https://www.convex.dev/components/sharded-counter) Convex
 component for you to use.
 
-Convex components are installed in your Convex backend as an npm library. They
-are sandboxed, so they can't read your app's tables or call your app's functions
-unless explicitly provided.
+Convex Components are deployed along with your Convex backend but have their own
+tables and functions.
 
-As you build more complicated features like AI agent
+As you build more complicated features like [AI agents](/agents.mdx),
 [workflows](https://www.convex.dev/components/workflow),
 [leaderboards](https://www.convex.dev/components/aggregate),
 [feature flags](https://www.convex.dev/components/launchdarkly) or
 [rate limiters](https://www.convex.dev/components/rate-limiter), you may find
-that there is already a Convex component that solves this problem.
+that there is already a Convex Component that solves this problem.
+[Learn more about Convex Components here](/components.mdx).
 
 <CardLink
   className="convex-hero-card"
@@ -89,8 +89,8 @@ We've covered a lot of ground in this tutorial. We started by
 database that form the fundamental building blocks of the Convex sync engine. We
 then called an [external API](/tutorial/actions.mdx) from our backend, using the
 scheduler to coordinate the work. Finally, we learned that
-[Convex components](https://www.convex.dev/components) give you scaling best
-practices in neat packages.
+[Convex Components](/components.mdx) give you scaling best practices in neat
+packages.
 
 If you are looking for more tips, read our
 [best practices](/understanding/best-practices/best-practices.mdx) and join the

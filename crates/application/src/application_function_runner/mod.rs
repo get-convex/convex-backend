@@ -1815,22 +1815,44 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 });
             },
         };
+
+        let start = self.runtime.monotonic_now();
+        let context = ExecutionContext::new(request_id.clone(), &caller);
         let usage_tracker = FunctionUsageTracker::new();
         let result = self
             .cache_manager
             .get(
                 request_id,
-                path,
-                args,
-                identity,
+                path.clone(),
+                args.clone(),
+                identity.clone(),
                 ts,
                 journal,
-                caller,
+                caller.clone(),
                 usage_tracker.clone(),
             )
-            .await?;
+            .await;
 
-        Ok(result)
+        match result {
+            Ok(query_return) => Ok(query_return),
+            Err(e) => {
+                // Log system errors to the function log, similar to how mutations are logged.
+                // This ensures errors like rate-limiting (TooManyConcurrentRequests) appear
+                // in the dashboard and log streams.
+                self.function_log
+                    .log_query_system_error(
+                        &e,
+                        path.debug_into_component_path(),
+                        args,
+                        identity.into(),
+                        start,
+                        caller,
+                        context,
+                    )
+                    .await?;
+                Err(e)
+            },
+        }
     }
 
     #[fastrace::trace]

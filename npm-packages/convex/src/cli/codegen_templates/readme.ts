@@ -64,7 +64,7 @@ export const myMutationFunction = mutation({
     const id = await ctx.db.insert("messages", message);
 
     // Optionally, return a value from your mutation.
-    return await ctx.db.get(id);
+    return await ctx.db.get("messages", id);
   },
 });
 \`\`\`

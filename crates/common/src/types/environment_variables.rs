@@ -10,6 +10,8 @@ use serde::{
     Serialize,
 };
 
+use crate::knobs::ENV_VAR_LIMIT;
+
 #[rustfmt::skip]
 #[derive(
     Clone, Debug, Eq, PartialEq, PartialOrd, Ord,
@@ -60,9 +62,6 @@ static NAME_REGEX: LazyLock<Regex> =
 // NOTE: Make sure to update the doc if you change any of these limits. Also
 // don't reduce them since that might break existing projects.
 
-/// Maximum number of environment variables that can be stored.
-/// Also update client-side limit GenericEnvironmentVariables.tsx.
-pub const ENV_VAR_LIMIT: usize = 100;
 /// Maximum length of the name of an environment variable
 pub const MAX_NAME_LENGTH: usize = 40;
 /// Maximum length of an environment variable value. 8KiB corresponds to the
@@ -138,7 +137,10 @@ impl EnvironmentVariable {
 pub fn env_var_limit_met() -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "EnvVarLimitMet",
-        format!("The environment variable limit ({ENV_VAR_LIMIT}) has been met."),
+        format!(
+            "The environment variable limit ({}) has been met.",
+            *ENV_VAR_LIMIT
+        ),
     )
 }
 

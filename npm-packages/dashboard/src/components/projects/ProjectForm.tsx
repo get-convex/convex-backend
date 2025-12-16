@@ -90,6 +90,7 @@ export function ProjectForm({
                 label="Project Slug"
                 outerClassname="max-w-[20rem]"
                 placeholder="Enter a slug for your project"
+                description="Changing the project slug will require you to update any deploy keys currently in use."
                 onChange={formState.handleChange}
                 value={formState.values.slug}
                 Icon={CopyIcon}

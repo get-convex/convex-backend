@@ -1,8 +1,8 @@
 import { MutationCtx, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { TableNames } from "./_generated/dataModel";
 import { faker } from "@faker-js/faker";
 import { didConvexYield } from "./yield";
+import { v } from "convex/values";
 
 export const generateUsers = internalMutation({
   args: {},
@@ -46,16 +46,15 @@ export const generateMessages = internalMutation({
   },
 });
 
-type CleanTableArgs = {
-  cursor: string | null;
-  timestamp: number | null;
-  table: TableNames;
-};
-
 export const cleanTable = internalMutation({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    timestamp: v.union(v.number(), v.null()),
+    table: v.union(v.literal("messages"), v.literal("users")),
+  },
   handler: async (
     { db, scheduler }: MutationCtx,
-    { cursor, timestamp, table }: CleanTableArgs,
+    { cursor, timestamp, table },
   ) => {
     if (await didConvexYield(db)) {
       return;

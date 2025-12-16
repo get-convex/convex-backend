@@ -14,10 +14,7 @@ use std::{
         LazyLock,
         OnceLock,
     },
-    time::{
-        Duration,
-        Instant,
-    },
+    time::Duration,
 };
 
 use anyhow::{
@@ -58,7 +55,9 @@ use common::{
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         LIST_SNAPSHOT_MAX_AGE_SECS,
+        SNAPSHOT_LIST_TIME_LIMIT,
     },
+    pause::Fault,
     persistence::{
         new_idle_repeatable_ts,
         ConflictStrategy,
@@ -111,6 +110,7 @@ use errors::{
 };
 use events::usage::UsageEventLogger;
 use futures::{
+    future::Either,
     pin_mut,
     stream::BoxStream,
     FutureExt,
@@ -138,7 +138,11 @@ use search::{
 use short_future::ShortBoxFuture;
 use storage::Storage;
 use sync_types::backoff::Backoff;
-use tokio::task;
+use tokio::{
+    sync::mpsc,
+    task,
+    time::Instant,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -220,6 +224,7 @@ use crate::{
     BootstrapComponentsModel,
     ComponentRegistry,
     ComponentsTable,
+    MultiTableIterator,
     SchemasTable,
     TableIterator,
     Transaction,
@@ -292,7 +297,7 @@ pub struct Database<RT: Runtime> {
         Mutex<
             Option<(
                 ListSnapshotTableIteratorCacheEntry,
-                BoxStream<'static, anyhow::Result<LatestDocument>>,
+                BoxStream<'static, anyhow::Result<Either<LatestDocument, MultiTableIterator<RT>>>>,
             )>,
         >,
     >,
@@ -301,7 +306,7 @@ pub struct Database<RT: Runtime> {
 #[derive(PartialEq, Eq)]
 struct ListSnapshotTableIteratorCacheEntry {
     snapshot: Timestamp,
-    tablet_id: TabletId,
+    tablet_ids: Vec<TabletId>,
     by_id: IndexId,
     cursor: Option<ResolvedDocumentId>,
 }
@@ -597,6 +602,46 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         Ok(vector_index_storage)
     }
 
+    #[fastrace::trace]
+    pub fn get_text_index_storage(
+        &self,
+        identity: &Identity,
+    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), u64>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("get_text_index_storage"));
+        }
+        let table_mapping = &self.snapshot.table_registry.table_mapping();
+        let index_registry = &self.snapshot.index_registry;
+        let mut text_index_storage = BTreeMap::new();
+        for index in index_registry.all_text_indexes().into_iter() {
+            let (_, value) = index.into_id_and_value();
+            let tablet_id = *value.name.table();
+            let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
+            let component_id = ComponentId::from(table_namespace);
+            let table_name = table_mapping.tablet_name(tablet_id)?;
+            let size = value.config.estimate_pricing_size_bytes()?;
+            if let Some(component_path) = self
+                .snapshot
+                .component_registry
+                .get_component_path(component_id, &mut TransactionReadSet::new())
+            {
+                text_index_storage
+                    .entry((component_path, table_name))
+                    .and_modify(|sum| *sum += size)
+                    .or_insert(size);
+            } else {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push
+                anyhow::ensure!(
+                    size == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has non-zero text index size {size}",
+                );
+            }
+        }
+        Ok(text_index_storage)
+    }
+
     /// Counts the number of documents in each table, including system tables.
     #[fastrace::trace]
     pub fn get_document_counts(
@@ -809,7 +854,12 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     /// But for tools like `db-info` or `db-verifier`, we want the table
     /// summaries to be loaded (and can't rely on TableSummaryWorker +
     /// committer in these services).
+    #[fastrace::trace]
     pub async fn load_table_summaries(&mut self) -> anyhow::Result<()> {
+        if self.snapshot.table_summaries.is_some() {
+            return Ok(());
+        }
+
         tracing::info!("Bootstrapping table summaries...");
         let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap(
             self.runtime.clone(),
@@ -947,6 +997,7 @@ impl<RT: Runtime> Database<RT> {
         virtual_system_mapping: VirtualSystemMapping,
         usage_events: Arc<dyn UsageEventLogger>,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
+        deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<Self> {
         let _load_database_timer = metrics::load_database_timer();
 
@@ -997,6 +1048,7 @@ impl<RT: Runtime> Database<RT> {
                 snapshot_reader.clone(),
                 shutdown.clone(),
                 retention_rate_limiter,
+                deleted_tablet_sender,
             )
             .await?;
 
@@ -1011,13 +1063,14 @@ impl<RT: Runtime> Database<RT> {
             runtime.clone(),
             retention_manager.clone(),
             shutdown,
+            virtual_system_mapping.clone(),
         );
         let table_mapping_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 10, 2, "table_mapping_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, "table_mapping_snapshot");
         let by_id_indexes_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 10, 2, "by_id_indexes_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, "by_id_indexes_snapshot");
         let component_paths_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 10, 2, "component_paths_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, "component_paths_snapshot");
         let list_snapshot_table_iterator_cache = Arc::new(Mutex::new(None));
         let database = Self {
             committer,
@@ -1988,10 +2041,12 @@ impl<RT: Runtime> Database<RT> {
             },
             None => self.now_ts_for_reads(),
         };
-        let table_mapping = self.snapshot_table_mapping(snapshot).await?;
-        let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
-        let component_paths = self.snapshot_component_paths(snapshot).await?;
-        let tablet_ids: BTreeSet<_> = table_mapping
+        let (table_mapping, by_id_indexes, component_paths) = tokio::try_join!(
+            self.snapshot_table_mapping(snapshot),
+            self.snapshot_by_id_indexes(snapshot),
+            self.snapshot_component_paths(snapshot)
+        )?;
+        let mut tablet_ids: Vec<_> = table_mapping
             .iter()
             .map(|(tablet_id, ..)| tablet_id)
             .filter_map(|tablet_id| {
@@ -2015,9 +2070,9 @@ impl<RT: Runtime> Database<RT> {
                 }
             })
             .try_collect()?;
-        let mut tablet_ids = tablet_ids.into_iter();
-        let tablet_id = match tablet_ids.next() {
-            Some(first_table) => first_table,
+        tablet_ids.sort_unstable();
+        let tablet_id = match tablet_ids.first() {
+            Some(first_table) => *first_table,
             None => {
                 return Ok(SnapshotPage {
                     documents: vec![],
@@ -2031,34 +2086,68 @@ impl<RT: Runtime> Database<RT> {
             .get(&tablet_id)
             .ok_or_else(|| anyhow::anyhow!("by_id index for {tablet_id:?} missing"))?;
         let mut document_stream = {
-            let mut cached = self.list_snapshot_table_iterator_cache.lock();
             let expected_cache_key = ListSnapshotTableIteratorCacheEntry {
                 snapshot: *snapshot,
-                tablet_id,
+                tablet_ids: tablet_ids.clone(),
                 by_id,
                 cursor,
             };
-            if let Some((cache_key, _ds)) = &*cached
-                && *cache_key == expected_cache_key
+            if let Some((_key, ds)) = self
+                .list_snapshot_table_iterator_cache
+                .lock()
+                .take_if(|(cache_key, _)| *cache_key == expected_cache_key)
             {
-                let (_, ds) = cached.take().unwrap();
                 ds
             } else {
-                let table_iterator = self.table_iterator(snapshot, 100);
+                if let Fault::Error(e) = self
+                    .runtime
+                    .pause_client()
+                    .wait("list_snapshot_new_iterator")
+                    .await
+                {
+                    return Err(e);
+                }
+                let table_iterator = self.table_iterator(snapshot, 100).multi(tablet_ids.clone());
                 table_iterator
-                    .stream_documents_in_table(tablet_id, by_id, cursor)
+                    .into_stream_documents_in_table(tablet_id, by_id, cursor)
                     .boxed()
             }
         };
 
-        // new_cursor is set once, when we know the final internal_id.
-        let mut new_cursor = None;
+        enum PageResult<RT: Runtime> {
+            /// Continue iterating the same table. `document_stream` can return
+            /// more values.
+            ContinueTable {
+                new_cursor: ResolvedDocumentId,
+                document_stream: BoxStream<
+                    'static,
+                    anyhow::Result<Either<LatestDocument, MultiTableIterator<RT>>>,
+                >,
+            },
+            /// `tablet_id` is done, and `document_stream` has returned the
+            /// MultiTableIterator. There may or may not be more
+            /// tables.
+            TableDone(MultiTableIterator<RT>),
+        }
         // documents accumulated in (ts, id) order to return.
         let mut documents = vec![];
         let mut rows_read = 0;
-        while let Some(LatestDocument { ts, value: doc, .. }) = document_stream.try_next().await? {
+        let start_time = Instant::now();
+        let page_result = loop {
+            let LatestDocument { ts, value: doc, .. } =
+                match document_stream.try_next().await?.context(
+                    "into_stream_documents_in_table stream ended without returning the iterator",
+                )? {
+                    Either::Left(rev) => rev,
+                    Either::Right(mut iterator) => {
+                        drop(document_stream);
+                        iterator.unregister_table(tablet_id)?;
+                        break PageResult::TableDone(iterator);
+                    },
+                };
             rows_read += 1;
             let id = doc.id();
+            anyhow::ensure!(id.tablet_id == tablet_id);
             let table_name = table_mapping.tablet_name(id.tablet_id)?;
             let namespace = table_mapping.tablet_namespace(id.tablet_id)?;
             let component_id = ComponentId::from(namespace);
@@ -2076,35 +2165,69 @@ impl<RT: Runtime> Database<RT> {
                 table_name,
                 column_filter.filter_document(doc.to_developer())?,
             ));
-            if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
-                new_cursor = Some(id);
-                break;
+            if rows_read >= rows_read_limit
+                || documents.len() >= rows_returned_limit
+                || start_time.elapsed() > *SNAPSHOT_LIST_TIME_LIMIT
+            {
+                break PageResult::ContinueTable {
+                    new_cursor: id,
+                    document_stream,
+                };
             }
-        }
-        let new_cursor = match new_cursor {
-            Some(new_cursor) => Some(new_cursor),
-            None => match tablet_ids.next() {
-                Some(next_tablet_id) => {
+        };
+        let (new_cursor, next_cache_kv) = match page_result {
+            PageResult::ContinueTable {
+                new_cursor,
+                document_stream,
+            } => (
+                Some(new_cursor),
+                Some((
+                    ListSnapshotTableIteratorCacheEntry {
+                        snapshot: *snapshot,
+                        tablet_ids,
+                        by_id,
+                        cursor: Some(new_cursor),
+                    },
+                    document_stream,
+                )),
+            ),
+            PageResult::TableDone(table_iterator) => match tablet_ids.get(1) {
+                Some(&next_tablet_id) => {
                     // TODO(lee) just use DeveloperDocumentId::min() once we no longer
                     // need to be rollback-safe.
                     let next_table_number = table_mapping.tablet_number(next_tablet_id)?;
-                    Some(ResolvedDocumentId::new(
+                    let next_by_id = *by_id_indexes.get(&next_tablet_id).ok_or_else(|| {
+                        anyhow::anyhow!("by_id index for {next_tablet_id:?} missing")
+                    })?;
+                    let next_cursor = ResolvedDocumentId::new(
                         next_tablet_id,
                         DeveloperDocumentId::new(next_table_number, InternalId::MIN),
-                    ))
+                    );
+                    let next_document_stream = table_iterator
+                        .into_stream_documents_in_table(
+                            next_tablet_id,
+                            next_by_id,
+                            Some(next_cursor),
+                        )
+                        .boxed();
+                    (
+                        Some(next_cursor),
+                        Some((
+                            ListSnapshotTableIteratorCacheEntry {
+                                snapshot: *snapshot,
+                                tablet_ids: tablet_ids[1..].to_vec(),
+                                by_id: next_by_id,
+                                cursor: Some(next_cursor),
+                            },
+                            next_document_stream,
+                        )),
+                    )
                 },
-                None => None,
+                None => (None, None),
             },
         };
-        if let Some(new_cursor) = new_cursor {
-            let new_cache_key = ListSnapshotTableIteratorCacheEntry {
-                snapshot: *snapshot,
-                tablet_id,
-                by_id,
-                cursor: Some(new_cursor),
-            };
-            *self.list_snapshot_table_iterator_cache.lock() =
-                Some((new_cache_key, document_stream));
+        if let Some(kv) = next_cache_kv {
+            *self.list_snapshot_table_iterator_cache.lock() = Some(kv);
         }
         let has_more = new_cursor.is_some();
         metrics::log_list_snapshot_page_documents(documents.len());

@@ -20,6 +20,7 @@ export function DailyChart({
   quantityType,
   colorMap,
   yAxisWidth = 60,
+  customTooltip,
 }: React.PropsWithChildren<{
   data: { dateNumeric: number }[];
   categoryInTooltip?: boolean;
@@ -27,6 +28,11 @@ export function DailyChart({
   quantityType: QuantityType;
   colorMap?: Map<string, string>;
   yAxisWidth?: number;
+  customTooltip?: (props: {
+    active?: boolean;
+    payload?: any[];
+    label?: any;
+  }) => React.ReactElement | null;
 }>) {
   const { daysWithValues, minDate, daysCount } = useMemo(() => {
     const values = new Set(data.map(({ dateNumeric }) => dateNumeric));
@@ -106,43 +112,46 @@ export function DailyChart({
             cursor={{
               fill: undefined, // Set in globals.css
             }}
-            content={({ active, payload, label }) => (
-              <ChartTooltip
-                active={active}
-                payload={payload
-                  ?.filter((dataPoint) => {
-                    const value = dataPoint.value as number;
-                    return value > 0;
-                  })
-                  .map((dataPoint) => {
-                    const prefix = showCategoryInTooltip
-                      ? `${dataPoint.name}: `
-                      : "";
-                    const value = dataPoint.value as number;
-                    const suffix =
-                      !showCategoryInTooltip && quantityType === "unit"
-                        ? ` ${dataPoint.name}`
+            content={
+              customTooltip ||
+              (({ active, payload, label }) => (
+                <ChartTooltip
+                  active={active}
+                  payload={payload
+                    ?.filter((dataPoint) => {
+                      const value = dataPoint.value as number;
+                      return value > 0;
+                    })
+                    .map((dataPoint) => {
+                      const prefix = showCategoryInTooltip
+                        ? `${dataPoint.name}: `
                         : "";
-                    const className = colorMap?.get(
-                      dataPoint.dataKey as string,
-                    );
-                    return {
-                      ...dataPoint,
-                      ...(className && { className }),
-                      formattedValue:
-                        prefix + formatQuantity(value, quantityType) + suffix,
-                    };
-                  })
-                  .reverse()}
-                label={new Date(label).toLocaleDateString("en-us", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  timeZone: "UTC",
-                })}
-                showLegend={showCategoryInTooltip}
-              />
-            )}
+                      const value = dataPoint.value as number;
+                      const suffix =
+                        !showCategoryInTooltip && quantityType === "unit"
+                          ? ` ${dataPoint.name}`
+                          : "";
+                      const className = colorMap?.get(
+                        dataPoint.dataKey as string,
+                      );
+                      return {
+                        ...dataPoint,
+                        ...(className && { className }),
+                        formattedValue:
+                          prefix + formatQuantity(value, quantityType) + suffix,
+                      };
+                    })
+                    .reverse()}
+                  label={new Date(label).toLocaleDateString("en-us", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    timeZone: "UTC",
+                  })}
+                  showLegend={showCategoryInTooltip}
+                />
+              ))
+            }
             labelClassName="font-semibold"
           />
           {children}

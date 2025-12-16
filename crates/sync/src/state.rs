@@ -453,6 +453,8 @@ impl SyncState {
 
     /// Resubscribe queries that don't have an active invalidation future.
     pub fn fill_invalidation_futures(&mut self) -> anyhow::Result<()> {
+        let mut created = 0;
+
         for (&query_id, sq) in &mut self.queries {
             if sq.invalidation_future.is_some() {
                 continue;
@@ -466,7 +468,11 @@ impl SyncState {
             let (future, handle) = future::abortable(future);
             sq.invalidation_future = Some(handle);
             self.invalidation_futures.push(future.boxed());
+            created += 1;
         }
+
+        metrics::log_create_invalidation_futures(self.partition_id, created);
+
         self.refill_needed = false;
         Ok(())
     }

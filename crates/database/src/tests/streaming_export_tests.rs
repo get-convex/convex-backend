@@ -2,8 +2,17 @@ use common::{
     assert_obj,
     components::ComponentPath,
     document::ResolvedDocument,
+    pause::PauseController,
     pii::PII,
+    runtime::Runtime,
     types::TableName,
+};
+use futures::{
+    future::{
+        self,
+        Either,
+    },
+    FutureExt as _,
 };
 use keybroker::Identity;
 use maplit::btreemap;
@@ -292,7 +301,10 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
 }
 
 #[convex_macro::test_runtime]
-async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_snapshot_list(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let mut tx = db.begin(Identity::system()).await?;
     let doc1 = TestFacingModel::new(&mut tx)
@@ -328,54 +340,67 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     ];
     docs2sorted.sort_by_key(|(_, _, _, d)| d.id());
 
-    let db_ = db.clone();
     let snapshot_list_all =
-        move |mut snapshot: Option<Timestamp>,
-              table_filter: Option<TableName>,
-              mut cursor: Option<ResolvedDocumentId>| {
-            let db = db_.clone();
-            async move {
-                let mut has_more = true;
-                let mut documents = Vec::new();
-                let mut pages = 0;
-                while has_more && pages < 10 {
-                    let page = db
-                        .clone()
-                        .list_snapshot(
-                            Identity::system(),
-                            snapshot,
-                            cursor,
-                            StreamingExportFilter {
-                                selection: table_filter
-                                    .clone()
-                                    .map(|table| {
-                                        StreamingExportSelection::single_table(
-                                            ComponentPath::root(),
-                                            table,
-                                        )
-                                    })
-                                    .unwrap_or_default(),
-                                ..Default::default()
-                            },
-                            100,
-                            5,
-                        )
-                        .await?;
-                    has_more = page.has_more;
-                    cursor = page.cursor;
-                    if let Some(s) = snapshot {
-                        assert_eq!(page.snapshot, s);
+        async |mut snapshot: Option<Timestamp>,
+               table_filter: Option<TableName>,
+               mut cursor: Option<ResolvedDocumentId>| {
+            let mut has_more = true;
+            let mut documents = Vec::new();
+            let mut pages = 0;
+            while has_more && pages < 10 {
+                // Assert that we only create a MultiTableIterator on the first page
+                let hold = pause_controller.hold("list_snapshot_new_iterator");
+                let unhold = async move {
+                    let mut pause_guard = hold.wait_for_blocked().await.unwrap();
+                    if pages > 0 {
+                        pause_guard.inject_error(anyhow::anyhow!(
+                            "should not create more than 1 iterator"
+                        ));
                     }
-                    snapshot = Some(page.snapshot);
-                    documents.extend(page.documents.into_iter());
-                    pages += 1;
+                    pause_guard.unpause();
+                    future::pending::<!>().await
+                };
+                let Either::Right((page, _)) = future::select(
+                    unhold.boxed(),
+                    db.list_snapshot(
+                        Identity::system(),
+                        snapshot,
+                        cursor,
+                        StreamingExportFilter {
+                            selection: table_filter
+                                .clone()
+                                .map(|table| {
+                                    StreamingExportSelection::single_table(
+                                        ComponentPath::root(),
+                                        table,
+                                    )
+                                })
+                                .unwrap_or_default(),
+                            ..Default::default()
+                        },
+                        100,
+                        5,
+                    )
+                    .boxed(),
+                )
+                .await;
+                // Consume the hold if it wasn't already, this is janky
+                _ = rt.pause_client().wait("list_snapshot_new_iterator").await;
+                let page = page?;
+                has_more = page.has_more;
+                cursor = page.cursor;
+                if let Some(s) = snapshot {
+                    assert_eq!(page.snapshot, s);
                 }
-                assert!(
-                    !has_more,
-                    "infinite looping with cursor {cursor:?} after {documents:?}"
-                );
-                anyhow::Ok((documents, snapshot.unwrap()))
+                snapshot = Some(page.snapshot);
+                documents.extend(page.documents.into_iter());
+                pages += 1;
             }
+            assert!(
+                !has_more,
+                "infinite looping with cursor {cursor:?} after {documents:?}"
+            );
+            anyhow::Ok((documents, snapshot.unwrap()))
         };
 
     let to_snapshot_docs =

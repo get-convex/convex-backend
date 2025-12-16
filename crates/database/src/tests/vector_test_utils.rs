@@ -162,7 +162,7 @@ impl VectorFixtures {
         backfill_vector_indexes(self.rt.clone(), self.db.clone(), self.storage.clone()).await
     }
 
-    pub async fn enabled_vector_index(&self) -> anyhow::Result<IndexData> {
+    pub async fn enabled_vector_index(&self) -> anyhow::Result<VectorIndexData> {
         let index_data =
             backfilled_vector_index(self.rt.clone(), self.db.clone(), self.storage.clone()).await?;
         let mut tx = self.db.begin_system().await?;
@@ -173,20 +173,20 @@ impl VectorFixtures {
         Ok(index_data)
     }
 
-    pub async fn backfilled_vector_index(&self) -> anyhow::Result<IndexData> {
+    pub async fn backfilled_vector_index(&self) -> anyhow::Result<VectorIndexData> {
         backfilled_vector_index(self.rt.clone(), self.db.clone(), self.storage.clone()).await
     }
 
-    pub async fn backfilled_vector_index_with_doc(&self) -> anyhow::Result<IndexData> {
+    pub async fn backfilled_vector_index_with_doc(&self) -> anyhow::Result<VectorIndexData> {
         backfilled_vector_index_with_doc(self.rt.clone(), self.db.clone(), self.storage.clone())
             .await
     }
 
-    pub async fn backfilling_vector_index_with_doc(&self) -> anyhow::Result<IndexData> {
+    pub async fn backfilling_vector_index_with_doc(&self) -> anyhow::Result<VectorIndexData> {
         backfilling_vector_index_with_doc(&self.db).await
     }
 
-    pub async fn backfilling_vector_index(&self) -> anyhow::Result<IndexData> {
+    pub async fn backfilling_vector_index(&self) -> anyhow::Result<VectorIndexData> {
         backfilling_vector_index(&self.db).await
     }
 
@@ -416,7 +416,7 @@ pub async fn add_document_with_value(
     TestFacingModel::new(tx).insert(table_name, document).await
 }
 
-pub struct IndexData {
+pub struct VectorIndexData {
     pub index_id: ResolvedDocumentId,
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,
@@ -448,14 +448,16 @@ pub async fn backfilled_vector_index(
     rt: TestRuntime,
     db: Database<TestRuntime>,
     storage: Arc<dyn Storage>,
-) -> anyhow::Result<IndexData> {
+) -> anyhow::Result<VectorIndexData> {
     let index_data = backfilling_vector_index(&db).await?;
     backfill_vector_indexes(rt, db.clone(), storage).await?;
 
     Ok(index_data)
 }
 
-pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Result<IndexData> {
+pub async fn backfilling_vector_index(
+    db: &Database<TestRuntime>,
+) -> anyhow::Result<VectorIndexData> {
     let index_metadata = new_backfilling_vector_index()?;
     let index_name = &index_metadata.name;
     let mut tx = db.begin_system().await?;
@@ -470,7 +472,7 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
         .tablet_id;
     db.commit(tx).await?;
     let resolved_index_name = TabletIndexName::new(table_id, index_name.descriptor().clone())?;
-    Ok(IndexData {
+    Ok(VectorIndexData {
         index_id,
         resolved_index_name,
         index_name: index_name.clone(),
@@ -481,7 +483,7 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
 
 pub async fn backfilling_vector_index_with_doc(
     db: &Database<TestRuntime>,
-) -> anyhow::Result<IndexData> {
+) -> anyhow::Result<VectorIndexData> {
     let index_data = backfilling_vector_index(db).await?;
     let mut tx = db.begin_system().await?;
     add_document_vec_array(&mut tx, index_data.index_name.table(), [1f64, 2f64]).await?;
@@ -494,7 +496,7 @@ pub async fn backfilled_vector_index_with_doc(
     rt: TestRuntime,
     db: Database<TestRuntime>,
     storage: Arc<dyn Storage>,
-) -> anyhow::Result<IndexData> {
+) -> anyhow::Result<VectorIndexData> {
     let result = backfilled_vector_index(rt, db.clone(), storage).await?;
     let mut tx = db.begin_system().await?;
     add_document_vec_array(&mut tx, result.index_name.table(), [1f64, 2f64]).await?;

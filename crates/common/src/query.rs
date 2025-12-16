@@ -259,44 +259,62 @@ impl IndexRange {
         // Now that we know the index expression is compatible with the index, turn it
         // into an interval.
         let prefix: Vec<_> = equalities.into_iter().map(|(_, v, _)| v.0).collect();
-        let result = if let Some(inequality) = inequality {
-            let start = match inequality.start {
-                Bound::Unbounded => BinaryKey::from(values_to_bytes(&prefix)),
-                Bound::Included(value) => {
-                    let mut bound = prefix.clone();
-                    bound.push(value.0);
-                    BinaryKey::from(values_to_bytes(&bound))
-                },
-                Bound::Excluded(value) => {
-                    let mut bound = prefix.clone();
-                    bound.push(value.0);
-                    BinaryKey::from(values_to_bytes(&bound))
-                        .increment()
-                        .ok_or_else(|| anyhow::anyhow!("{bound:?} should have an increment"))?
-                },
-            };
-            let end = match inequality.end {
-                Bound::Unbounded => End::after_prefix(&BinaryKey::from(values_to_bytes(&prefix))),
-                Bound::Included(value) => {
-                    let mut bound = prefix;
-                    bound.push(value.0);
-                    End::after_prefix(&BinaryKey::from(values_to_bytes(&bound)))
-                },
-                Bound::Excluded(value) => {
-                    let mut bound = prefix;
-                    bound.push(value.0);
-                    End::Excluded(BinaryKey::from(values_to_bytes(&bound)))
-                },
-            };
-            Interval {
-                start: StartIncluded(start),
+
+        let (start, end) = match inequality {
+            Some(IndexInequality {
+                field_path: _,
+                start,
                 end,
-            }
-        } else {
-            let prefix_key = BinaryKey::from(values_to_bytes(&prefix));
-            Interval::prefix(prefix_key)
+            }) => (start, end),
+            None => (Bound::Unbounded, Bound::Unbounded),
         };
-        Ok(result)
+
+        let start = match start {
+            Bound::Unbounded => BinaryKey::from(values_to_bytes(&prefix)),
+            Bound::Included(value) => {
+                let mut bound = prefix.clone();
+                bound.push(value.0);
+                BinaryKey::from(values_to_bytes(&bound))
+            },
+            Bound::Excluded(value) => {
+                let mut bound = prefix.clone();
+                bound.push(value.0);
+                BinaryKey::from(values_to_bytes(&bound))
+                    .increment()
+                    .ok_or_else(|| anyhow::anyhow!("{bound:?} should have an increment"))?
+            },
+        };
+        let end = match end {
+            Bound::Unbounded => {
+                let key = BinaryKey::from(values_to_bytes(&prefix));
+                if prefix.len() == indexed_fields.iter_with_id().count() {
+                    // Special case: if all fields including the implicit _id field are specified,
+                    // we can use a tighter bound
+                    End::included(&key)
+                } else {
+                    End::after_prefix(&key)
+                }
+            },
+            Bound::Included(value) => {
+                let mut bound = prefix;
+                bound.push(value.0);
+                let key = BinaryKey::from(values_to_bytes(&bound));
+                if bound.len() == indexed_fields.iter_with_id().count() {
+                    End::included(&key)
+                } else {
+                    End::after_prefix(&key)
+                }
+            },
+            Bound::Excluded(value) => {
+                let mut bound = prefix;
+                bound.push(value.0);
+                End::Excluded(BinaryKey::from(values_to_bytes(&bound)))
+            },
+        };
+        Ok(Interval {
+            start: StartIncluded(start),
+            end,
+        })
     }
 
     fn split(self) -> anyhow::Result<SplitIndexRange> {
@@ -1158,13 +1176,20 @@ mod tests {
     use crate::{
         assert_obj,
         bootstrap_model::index::database_index::IndexedFields,
+        interval::{
+            End,
+            Interval,
+            StartIncluded,
+        },
         maybe_val,
         query::{
             Cursor,
             IndexRange,
             IndexRangeExpression,
             MaybeValue,
+            UNDEFINED_TAG,
         },
+        testing::assert_contains,
     };
     #[test]
     fn test_expr_eval() -> anyhow::Result<()> {
@@ -1394,5 +1419,136 @@ mod tests {
         fn proptest_cursor_serialization(v in any::<Cursor>()) {
             assert_roundtrips::<Cursor, pb::convex_cursor::Cursor>(v);
         }
+    }
+
+    fn compile(
+        range: Vec<IndexRangeExpression>,
+        indexed_fields: IndexedFields,
+    ) -> anyhow::Result<Interval> {
+        IndexRange {
+            order: Order::Asc,
+            index_name: "table.index".parse()?,
+            range,
+        }
+        .compile(indexed_fields)
+    }
+    #[test]
+    fn test_compile_index_range() -> anyhow::Result<()> {
+        assert_eq!(compile(vec![], IndexedFields::by_id())?, Interval::all());
+        assert_eq!(
+            compile(
+                vec![IndexRangeExpression::Eq("_id".parse()?, maybe_val!("foo"))],
+                IndexedFields::by_id()
+            )?,
+            Interval::singleton(b"\x10foo\x00".to_vec().into())
+        );
+        assert_eq!(
+            compile(
+                vec![
+                    IndexRangeExpression::Gte("_id".parse()?, maybe_val!("foo")),
+                    IndexRangeExpression::Lte("_id".parse()?, maybe_val!("foo")),
+                ],
+                IndexedFields::by_id(),
+            )?,
+            Interval::singleton(b"\x10foo\x00".to_vec().into()),
+        );
+        assert_eq!(
+            compile(
+                vec![IndexRangeExpression::Eq(
+                    "a".parse()?,
+                    maybe_val!(undefined)
+                )],
+                IndexedFields::try_from(vec!["a".parse()?])?
+            )?,
+            Interval::prefix(vec![UNDEFINED_TAG].into())
+        );
+        // We're allowed to use the implicit _id field, even if that doesn't make sense
+        assert_eq!(
+            compile(
+                vec![
+                    IndexRangeExpression::Eq("a".parse()?, maybe_val!(undefined)),
+                    IndexRangeExpression::Gt("_id".parse()?, maybe_val!(undefined))
+                ],
+                IndexedFields::try_from(vec!["a".parse()?])?
+            )?,
+            Interval {
+                start: StartIncluded(b"\x01\x02".to_vec().into()),
+                end: End::Excluded(b"\x02".to_vec().into()),
+            },
+        );
+        assert_eq!(
+            compile(
+                vec![IndexRangeExpression::Lte("_id".parse()?, maybe_val!("foo"))],
+                IndexedFields::by_id()
+            )?,
+            Interval {
+                start: StartIncluded(b"".to_vec().into()),
+                end: End::Excluded(b"\x10foo\x00\x00".to_vec().into()),
+            },
+        );
+        // Input order doesn't matter
+        assert_eq!(
+            compile(
+                vec![
+                    IndexRangeExpression::Lt("b".parse()?, maybe_val!("foob")),
+                    IndexRangeExpression::Eq("a".parse()?, maybe_val!(undefined)),
+                    IndexRangeExpression::Gt("b".parse()?, maybe_val!("foo")),
+                ],
+                IndexedFields::try_from(vec!["a".parse()?, "b".parse()?])?
+            )?,
+            Interval {
+                start: StartIncluded(b"\x01\x10foo\x01".to_vec().into()),
+                end: End::Excluded(b"\x01\x10foob\x00".to_vec().into()),
+            },
+        );
+        Ok(())
+    }
+    #[test]
+    fn test_compile_index_range_errors() -> anyhow::Result<()> {
+        assert_contains(
+            &compile(
+                vec![IndexRangeExpression::Lt(
+                    "c".parse()?,
+                    maybe_val!(undefined),
+                )],
+                IndexedFields::try_from(vec!["a".parse()?, "b".parse()?])?,
+            )
+            .unwrap_err(),
+            r#"The index range included a comparison with "c", but table.index with fields ["a", "b"] doesn't index this field"#,
+        );
+        assert_contains(
+            &compile(
+                vec![IndexRangeExpression::Eq(
+                    "b".parse()?,
+                    maybe_val!(undefined),
+                )],
+                IndexedFields::try_from(vec!["a".parse()?, "b".parse()?])?,
+            )
+            .unwrap_err(),
+            "the query didn't use the index fields in order",
+        );
+        assert_contains(
+            &compile(
+                vec![
+                    IndexRangeExpression::Eq("a".parse()?, maybe_val!(undefined)),
+                    IndexRangeExpression::Eq("a".parse()?, maybe_val!(1)),
+                ],
+                IndexedFields::try_from(vec!["a".parse()?])?,
+            )
+            .unwrap_err(),
+            "Already defined equality bound in index range",
+        );
+        assert_contains(
+            &compile(
+                vec![
+                    IndexRangeExpression::Gt("a".parse()?, maybe_val!(undefined)),
+                    IndexRangeExpression::Gt("b".parse()?, maybe_val!(undefined)),
+                ],
+                IndexedFields::try_from(vec!["a".parse()?, "b".parse()?])?,
+            )
+            .unwrap_err(),
+            "Already defined lower bound in index range",
+        );
+        Ok(())
     }
 }

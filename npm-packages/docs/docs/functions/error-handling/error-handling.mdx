@@ -12,8 +12,8 @@ and [mutations](/functions/mutation-functions.mdx) may hit errors:
 1. [Application Errors](#application-errors-expected-failures): The function
    code hits a logical condition that should stop further processing, and your
    code throws a `ConvexError`
-1. Developer Errors: There is a bug in the function (like calling `db.get(null)`
-   instead of `db.get(id)`).
+1. Developer Errors: There is a bug in the function (like calling
+   `db.get("documents", null)` instead of `db.get("documents", id)`).
 1. [Read/Write Limit Errors](#readwrite-limit-errors): The function is
    retrieving or writing too much data.
 1. Internal Convex Errors: There is a problem within Convex (like a network

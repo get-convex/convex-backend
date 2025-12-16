@@ -1,13 +1,34 @@
 # Changelog
 
-## Unreleased
+## 1.31.0
+
+- `db.get`, `db.patch`, `db.replace`, and `db.delete` now accept a table name as
+  the first argument (e.g. `db.get("messages", messageId)` instead of
+  `db.get(messageId)`). This new syntax is more ergonomic, safer, and will allow
+  developers to customize IDs in the future. We recommend that all developers
+  migrate to the new syntax, using the ESLint rule
+  [`@convex-dev/explicit-table-ids`](https://docs.convex.dev/eslint#explicit-table-ids)
+  or our standalone codemod tool
+  (`npx @convex-dev/codemod@latest explicit-ids`).
+  [**Learn more on news.convex.dev**](https://news.convex.dev/db-table-name/)
+
+## 1.30.0
+
 - The `--preview-create` parameter for `npx convex deploy` will now error if
   used with a deploy key that is not a preview deploy key. Previously, the flag
-  would be ignored in this situation, and `npx convex deploy` would deploy
-  to the production deployment. If you were depending on this behavior, make
-  sure to remove the `--preview-create` flag when deploying to production.
+  would be ignored in this situation, and `npx convex deploy` would deploy to
+  the production deployment. If you were depending on this behavior, make sure
+  to remove the `--preview-create` flag when deploying to production.
 
-## 1.29.2
+## 1.29.3
+
+- Revert ApiFromModules type changes introduced in 1.29.0 which sometimes caused
+  type mismatches due to `FunctionReference` sometimes missing properties.
+
+- Don't warn when `"$schema"` is present in convex.json.
+
+- Replace ProxyAgent with EnvHttpProxyAgent in the CLI so the `NO_PROXY`
+  environment variable is respected.
 
 ## 1.29.2
 
@@ -15,6 +36,11 @@
   confirmation before deleting large indexes. This change is helpful for
   avoiding situations where an index is accidentally deleted and backfilling it
   takes a long time.
+
+## 1.29.1
+
+- Support for special error and no-op values of `CONVEX_DEPLOY_KEY` environment
+  variable used by the Convex Vercel integration.
 
 ## 1.29.0
 

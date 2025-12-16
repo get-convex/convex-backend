@@ -23,10 +23,12 @@ export function DataSidebar({
   tableData,
   onSelectTable,
   showSchema,
+  onTableCreated,
 }: {
   tableData: TableMetadata;
   onSelectTable?: () => void;
   showSchema: { hasSaved: boolean; showSchema: () => void } | undefined;
+  onTableCreated?: () => void;
 }) {
   const { name: selectedTable, tables } = tableData;
 
@@ -83,7 +85,7 @@ export function DataSidebar({
               />
             ))}
         </div>
-        <CreateNewTable tableData={tableData} />
+        <CreateNewTable tableData={tableData} onTableCreated={onTableCreated} />
       </div>
       <div className="flex justify-around border-t pt-4">
         {showSchema === undefined ? (
@@ -103,7 +105,13 @@ export function DataSidebar({
   );
 }
 
-export function CreateNewTable({ tableData }: { tableData: TableMetadata }) {
+export function CreateNewTable({
+  tableData,
+  onTableCreated,
+}: {
+  tableData: TableMetadata;
+  onTableCreated?: () => void;
+}) {
   const { tables, selectTable } = tableData;
   const invalidateShapes = useInvalidateShapes();
 
@@ -145,6 +153,7 @@ export function CreateNewTable({ tableData }: { tableData: TableMetadata }) {
           });
           await invalidateShapes();
           selectTable(newTableName);
+          onTableCreated?.();
         } finally {
           setNewTableName(undefined);
         }

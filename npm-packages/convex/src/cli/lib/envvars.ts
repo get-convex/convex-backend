@@ -1,7 +1,7 @@
 /**
  * Help the developer store the CONVEX_URL environment variable.
  */
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import * as dotenv from "dotenv";
 
 import { Context } from "../../bundler/context.js";
@@ -206,7 +206,7 @@ async function envVarWriteConfig(
   const matching = Object.keys(config).filter((key) => EXPECTED_NAMES.has(key));
   if (matching.length > 1) {
     logWarning(
-      chalk.yellow(
+      chalkStderr.yellow(
         `Found multiple CONVEX_URL environment variables in ${envFile} so cannot update automatically.`,
       ),
     );
@@ -222,7 +222,9 @@ async function envVarWriteConfig(
       Object.values(config).filter((v) => v === oldValue).length !== 1
     ) {
       logWarning(
-        chalk.yellow(`Can't safely modify ${envFile}, please edit manually.`),
+        chalkStderr.yellow(
+          `Can't safely modify ${envFile}, please edit manually.`,
+        ),
       );
       return null;
     }

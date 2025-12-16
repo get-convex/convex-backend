@@ -6,6 +6,7 @@ use common::{
     errors::MainError,
     http::ConvexHttpService,
     runtime::Runtime,
+    sentry::set_sentry_tags,
     shutdown::ShutdownSignal,
     version::SERVER_VERSION_STR,
 };
@@ -60,14 +61,15 @@ fn main() -> Result<(), MainError> {
                 .map(|dsn| dsn.project_id().to_string())
                 .unwrap_or("unknown".to_string())
         );
-        if let Some(sentry_identifier) = config.sentry_identifier.clone() {
-            sentry::configure_scope(|scope| {
+        sentry::configure_scope(|scope| {
+            if let Some(sentry_identifier) = config.sentry_identifier.clone() {
                 scope.set_user(Some(sentry::User {
                     id: Some(sentry_identifier),
                     ..Default::default()
                 }));
-            });
-        }
+            }
+            set_sentry_tags(scope);
+        });
     } else {
         tracing::info!("Sentry is not enabled.")
     }

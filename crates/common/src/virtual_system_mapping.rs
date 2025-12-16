@@ -129,6 +129,11 @@ impl VirtualSystemMapping {
         self.virtual_to_system.contains_key(table_name)
     }
 
+    pub fn has_virtual_table(&self, table_name: &TableName) -> bool {
+        self.virtual_to_system.contains_key(table_name)
+            || self.system_to_virtual.contains_key(table_name)
+    }
+
     pub fn is_virtual_index(&self, index_name: &IndexName) -> bool {
         self.virtual_to_system_indexes.contains_key(index_name)
     }

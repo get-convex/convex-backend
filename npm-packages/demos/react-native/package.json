@@ -12,7 +12,7 @@
     "convex": "^1.27.4",
     "expo": "~53.0.20",
     "expo-status-bar": "~2.2.3",
-    "react": "18.2.0",
+    "react": "18.3.1",
     "react-dom": "^18.2.0",
     "react-native": "0.80.2",
     "react-native-dotenv": "^3.4.11",

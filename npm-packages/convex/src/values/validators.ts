@@ -6,6 +6,21 @@ import { JSONValue, convexToJson } from "./value.js";
 type TableNameFromType<T> =
   T extends GenericId<infer TableName> ? TableName : string;
 
+const UNDEFINED_VALIDATOR_ERROR_URL =
+  "https://docs.convex.dev/error#undefined-validator";
+
+function throwUndefinedValidatorError(
+  context: string,
+  fieldName?: string,
+): never {
+  const fieldInfo = fieldName !== undefined ? ` for field "${fieldName}"` : "";
+  throw new Error(
+    `A validator is undefined${fieldInfo} in ${context}. ` +
+      `This is often caused by circular imports. ` +
+      `See ${UNDEFINED_VALIDATOR_ERROR_URL} for details.`,
+  );
+}
+
 /**
  * Avoid using `instanceof BaseValidator`; this is inheritence for code reuse
  * not type heirarchy.
@@ -294,8 +309,11 @@ export class VObject<
     fields: Fields;
   }) {
     super({ isOptional });
-    globalThis.Object.values(fields).forEach((v) => {
-      if (!v.isConvexValidator) {
+    globalThis.Object.entries(fields).forEach(([fieldName, validator]) => {
+      if (validator === undefined) {
+        throwUndefinedValidatorError("v.object()", fieldName);
+      }
+      if (!validator.isConvexValidator) {
         throw new Error("v.object() entries must be validators");
       }
     });
@@ -477,6 +495,9 @@ export class VArray<
     element: Element;
   }) {
     super({ isOptional });
+    if (element === undefined) {
+      throwUndefinedValidatorError("v.array()");
+    }
     this.element = element;
   }
   /** @internal */
@@ -533,6 +554,12 @@ export class VRecord<
     value: Value;
   }) {
     super({ isOptional });
+    if (key === undefined) {
+      throwUndefinedValidatorError("v.record()", "key");
+    }
+    if (value === undefined) {
+      throwUndefinedValidatorError("v.record()", "value");
+    }
     if ((key.isOptional as OptionalProperty) === "optional") {
       throw new Error("Record validator cannot have optional keys");
     }
@@ -591,7 +618,10 @@ export class VUnion<
    */
   constructor({ isOptional, members }: { isOptional: IsOptional; members: T }) {
     super({ isOptional });
-    members.forEach((member) => {
+    members.forEach((member, index) => {
+      if (member === undefined) {
+        throwUndefinedValidatorError("v.union()", `member at index ${index}`);
+      }
       if (!member.isConvexValidator) {
         throw new Error("All members of v.union() must be validators");
       }

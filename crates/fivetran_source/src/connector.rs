@@ -76,7 +76,7 @@ impl ConvexConnector {
             response: Some(schema_response::Response::WithSchema(
                 generate_fivetran_schema(tables_by_component),
             )),
-            selection_not_supported: Some(true),
+            selection_not_supported: Some(false),
         })
     }
 }
@@ -91,8 +91,8 @@ impl SourceConnector for ConvexConnector {
     ) -> ConnectorResult<ConfigurationFormResponse> {
         log("configuration form request");
         Ok(Response::new(ConfigurationFormResponse {
-            schema_selection_supported: false,
-            table_selection_supported: false,
+            schema_selection_supported: true,
+            table_selection_supported: true,
             fields: Config::fivetran_fields(),
             tests: vec![ConfigurationTest {
                 name: "connection".to_string(),
@@ -190,10 +190,22 @@ fn deserialize_state_json(state_json: &str) -> anyhow::Result<Option<State>> {
         anyhow::ensure!(
             deserialized.version >= 2,
             "This Fivetran connection was created with an old version of the Convex connector. To \
-             continue syncing, a full historical resync is required. To perform a historical \
-             re-sync: In Fivetran, go to your connection page. Select the Setup tab. Click \
-             'Re-sync all historical data'. In the confirmation pop-up window, click 'Re-sync \
-             Connection'."
+             continue syncing, a full historical resync is required.
+
+To perform a historical re-sync:
+- In Fivetran, go to your connection page.
+- Select the Setup tab.
+- Click 'Resync all historical data'.
+- In the confirmation pop-up window, click 'Re-sync Connection'.
+
+Please note that this update to the Convex connector changes the way Convex components are \
+             handled. Previously, tables from all components would be synced to the same \
+             namespace. Starting from this update:
+- Tables from your app will be synced as `{{destination prefix}}_app_{{table name}}` (instead of \
+             `{{destination prefix}}_{{table name}}`)
+- Tables from components installed in your app will be synced as `{{destination \
+             prefix}}_{{component path}}_{{table name}}`
+"
         );
 
         Some(deserialized)

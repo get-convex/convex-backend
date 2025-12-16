@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import os from "os";
 import path from "path";
 
@@ -164,7 +164,7 @@ export class ThrowingFetchError extends Error {
       exitCode: 1,
       errorType: error_type,
       errForSentry: this,
-      printedMessage: chalk.red(msg.trim()),
+      printedMessage: chalkStderr.red(msg.trim()),
     });
   }
 }
@@ -222,7 +222,7 @@ export async function logAndHandleFetchError(
       exitCode: 1,
       errorType: "transient",
       errForSentry: err,
-      printedMessage: chalk.red(err),
+      printedMessage: chalkStderr.red(err),
     });
   }
 }
@@ -232,7 +232,7 @@ function logDeprecationWarning(ctx: Context, deprecationMessage: string) {
     return;
   }
   ctx.deprecationMessagePrinted = true;
-  logWarning(chalk.yellow(deprecationMessage));
+  logWarning(chalkStderr.yellow(deprecationMessage));
 }
 
 async function checkFetchErrorForDeprecation(ctx: Context, resp: Response) {
@@ -252,7 +252,7 @@ async function checkFetchErrorForDeprecation(ctx: Context, resp: Response) {
         return await ctx.crash({
           exitCode: 1,
           errorType: "fatal",
-          printedMessage: chalk.red(deprecationMessage),
+          printedMessage: chalkStderr.red(deprecationMessage),
         });
       default:
         // The error included a deprecation warning. Print, but handle the
@@ -314,7 +314,7 @@ export async function validateOrSelectTeam(
       exitCode: 1,
       errorType: "fatal",
       errForSentry: "No teams found",
-      printedMessage: chalk.red("Error: No teams found"),
+      printedMessage: chalkStderr.red("Error: No teams found"),
     });
   }
   if (!teamSlug) {
@@ -1127,7 +1127,9 @@ export function bareDeploymentFetch(
     onError?.(err);
     if (attempt >= RETRY_LOG_THRESHOLD) {
       logMessage(
-        chalk.gray(`Retrying request (attempt ${attempt}/${MAX_RETRIES})...`),
+        chalkStderr.gray(
+          `Retrying request (attempt ${attempt}/${MAX_RETRIES})...`,
+        ),
       );
     }
   };
@@ -1166,7 +1168,9 @@ export function deploymentFetch(
     onError?.(err);
     if (attempt >= RETRY_LOG_THRESHOLD) {
       logMessage(
-        chalk.gray(`Retrying request (attempt ${attempt}/${MAX_RETRIES})...`),
+        chalkStderr.gray(
+          `Retrying request (attempt ${attempt}/${MAX_RETRIES})...`,
+        ),
       );
     }
   };

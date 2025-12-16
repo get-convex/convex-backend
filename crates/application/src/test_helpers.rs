@@ -103,6 +103,7 @@ use node_executor::{
     NodeExecutor,
 };
 use storage::Storage;
+use tokio::sync::mpsc;
 use value::{
     ResolvedDocumentId,
     TableName,
@@ -206,6 +207,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let searcher = Arc::new(search::searcher::SearcherStub {});
         let segment_term_metadata_fetcher = Arc::new(search::searcher::SearcherStub {});
         let persistence = args.tp.unwrap_or_else(TestPersistence::new);
+        let (deleted_tablet_sender, deleted_tablet_receiver) = mpsc::channel(10);
         let database = Database::load(
             Arc::new(persistence.clone()),
             rt.clone(),
@@ -215,6 +217,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             args.event_logger.unwrap_or(Arc::new(NoOpUsageEventLogger)),
             // Essentially unlimited rate limit for testing
             Arc::new(new_unlimited_rate_limiter(rt.clone())),
+            deleted_tablet_sender,
         )
         .await?;
         initialize_application_system_tables(&database).await?;
@@ -287,6 +290,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             None, // local_log_sink
             ShutdownSignal::panic(),
             Arc::new(InProcessExportProvider),
+            deleted_tablet_receiver,
         )
         .await?;
 

@@ -26,6 +26,7 @@ const axiomValidationSchema = Yup.object().shape({
       value: Yup.string().required("Value is required"),
     }),
   ),
+  ingestUrl: Yup.string(),
 });
 
 type Unpacked<T> = T extends (infer U)[] ? U : never;
@@ -33,9 +34,11 @@ type Unpacked<T> = T extends (infer U)[] ? U : never;
 export function AxiomConfigurationForm({
   onClose,
   existingConfig,
+  onAddedIntegration,
 }: {
   onClose: () => void;
   existingConfig: Infer<typeof axiomConfig> | null;
+  onAddedIntegration?: () => void;
 }) {
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
   const createAxiomIntegration = useCreateAxiomIntegration();
@@ -45,12 +48,14 @@ export function AxiomConfigurationForm({
     apiKey: string;
     attributes: Unpacked<AxiomConfig["attributes"]>[];
     version: "1" | "2";
+    ingestUrl: string;
   }>({
     initialValues: {
       datasetName: existingConfig?.datasetName ?? "",
       apiKey: existingConfig?.apiKey ?? "",
       attributes: existingConfig?.attributes ?? [],
       version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
+      ingestUrl: existingConfig?.ingestUrl ?? "https://api.axiom.co",
     },
     onSubmit: async (values) => {
       await createAxiomIntegration(
@@ -58,13 +63,24 @@ export function AxiomConfigurationForm({
         values.apiKey,
         values.attributes,
         values.version,
+        values.ingestUrl,
       );
+      onAddedIntegration?.();
       onClose();
     },
     validationSchema: axiomValidationSchema,
   });
 
   const [showApiKey, setShowApiKey] = useState(false);
+
+  const regionOptions = [
+    { value: "https://api.axiom.co", label: "Default" },
+    { value: "https://us-east-1.aws.edge.axiom.co", label: "US East 1 (AWS)" },
+    {
+      value: "https://eu-central-1.aws.edge.axiom.co",
+      label: "EU Central 1 (AWS)",
+    },
+  ];
 
   return (
     <form onSubmit={formState.handleSubmit} className="flex flex-col gap-3">
@@ -98,13 +114,31 @@ export function AxiomConfigurationForm({
           />
         </>
       )}
+      <div className="flex flex-col gap-1">
+        <Combobox
+          label="Region"
+          labelHidden={false}
+          disableSearch
+          options={regionOptions}
+          selectedOption={formState.values.ingestUrl}
+          setSelectedOption={async (v) => {
+            await formState.setFieldValue("ingestUrl", v, false);
+          }}
+          allowCustomValue={false}
+        />
+        <p className="max-w-prose animate-fadeInFromLoading text-xs text-content-secondary">
+          Select the region where your Axiom organization is located. This will
+          determine the URL used to send events to Axiom.
+        </p>
+      </div>
+
       <TextInput
         value={formState.values.datasetName}
         onChange={formState.handleChange}
         label="Dataset Name"
         id="datasetName"
         error={formState.errors.datasetName}
-        description="Name of the dataset in Axiom. This is where the logs will be sent."
+        description="Name of the dataset in your Axiom organization. This needs to be an existing dataset, or the configuration will fail."
       />
       <TextInput
         label="API Key"

@@ -30,7 +30,6 @@ const meta = {
     team,
     memberId: 1,
     members: [member],
-    projects: [],
   },
 } satisfies Meta<typeof AuditLogItem>;
 

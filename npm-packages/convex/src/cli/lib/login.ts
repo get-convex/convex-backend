@@ -6,7 +6,7 @@ import {
   isWebContainer,
 } from "./utils/utils.js";
 import open from "open";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { provisionHost } from "./config.js";
 import { version } from "../version.js";
 import { Context } from "../../bundler/context.js";
@@ -164,7 +164,7 @@ async function performDeviceAuthorization(
       });
       changeSpinner("Waiting for the confirmation...");
     } catch {
-      logError(chalk.red(`Unable to open browser.`));
+      logError(chalkStderr.red(`Unable to open browser.`));
       changeSpinner(`Manually open ${urlToOpen} in your browser to log in.`);
     }
   } else {
@@ -257,7 +257,7 @@ async function performPasswordAuthentication(
   } catch (err: any) {
     logFailure(`Password flow failed: ${err}`);
     if (err.response) {
-      logError(chalk.red(`${JSON.stringify(err.response.data)}`));
+      logError(chalkStderr.red(`${JSON.stringify(err.response.data)}`));
     }
     return await ctx.crash({
       exitCode: 1,
@@ -319,7 +319,9 @@ export async function performLogin(
   }
   if (!deviceNameOverride) {
     logMessage(
-      chalk.bold(`Welcome to developing with Convex, let's get you logged in.`),
+      chalkStderr.bold(
+        `Welcome to developing with Convex, let's get you logged in.`,
+      ),
     );
     deviceName = await promptString(ctx, {
       message: "Device name:",

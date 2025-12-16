@@ -342,6 +342,17 @@ pub fn query_index_sql_execute_timer(cluster_name: &str) -> StatusTimer {
 }
 
 register_convex_histogram!(
+    MYSQL_QUERY_INDEX_POINT_SQL_EXECUTE_SECONDS,
+    "Time to execute index point query SQL",
+    &[STATUS_LABEL[0], "cluster_name"]
+);
+pub fn query_index_point_sql_execute_timer(cluster_name: &str) -> StatusTimer {
+    let mut timer = StatusTimer::new(&MYSQL_QUERY_INDEX_POINT_SQL_EXECUTE_SECONDS);
+    timer.add_label(cluster_name_label(cluster_name));
+    timer
+}
+
+register_convex_histogram!(
     MYSQL_RETENTION_VALIDATE_SECONDS,
     "Time to validate retention",
     &[STATUS_LABEL[0], "cluster_name"]

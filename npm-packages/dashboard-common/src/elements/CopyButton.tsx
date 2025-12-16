@@ -10,6 +10,7 @@ export function CopyButton({
   tip,
   tipSide,
   disabled,
+  onCopied,
 }: {
   text: string;
   className?: string;
@@ -17,6 +18,7 @@ export function CopyButton({
   tip?: string;
   tipSide?: "top" | "bottom" | "left" | "right";
   disabled?: boolean;
+  onCopied?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -27,6 +29,7 @@ export function CopyButton({
         await copyTextToClipboard(text);
         if (canceled) return;
         setCopied(true);
+        onCopied?.();
 
         setTimeout(() => {
           if (canceled) return;

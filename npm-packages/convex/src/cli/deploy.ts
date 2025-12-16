@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Command, Option } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logFinishedStep, logMessage, showSpinner } from "../bundler/log.js";
@@ -151,15 +151,15 @@ Same format as .env.local or .env files, and overrides them.`,
         const source =
           deploymentSelection.kind === "deploymentWithinProject" &&
           deploymentSelection.targetProject.kind === "deploymentName"
-            ? `at ${chalk.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.targetProject.deploymentName}/settings#preview-deploy-keys`)}`
+            ? `at ${chalkStderr.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.targetProject.deploymentName}/settings#preview-deploy-keys`)}`
             : deploymentSelection.kind === "existingDeployment" &&
                 deploymentSelection.deploymentToActOn.deploymentFields !== null
-              ? `at ${chalk.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.deploymentToActOn.deploymentFields.deploymentName}/settings#preview-deploy-keys`)}`
+              ? `at ${chalkStderr.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.deploymentToActOn.deploymentFields.deploymentName}/settings#preview-deploy-keys`)}`
               : "on the dashboard";
         await ctx.crash({
           exitCode: 1,
           errorType: "fatal",
-          printedMessage: `Preview deployments can only be created with preview deploy keys. Generate a preview deploy key ${source} and set the ${chalk.bold(`CONVEX_DEPLOY_KEY`)} environment variable with it.`,
+          printedMessage: `Preview deployments can only be created with preview deploy keys. Generate a preview deploy key ${source} and set the ${chalkStderr.bold(`CONVEX_DEPLOY_KEY`)} environment variable with it.`,
         });
       }
 
@@ -370,17 +370,17 @@ async function askToConfirmPush(
 ) {
   logMessage(
     `\
-You're currently developing against your ${chalk.bold(
+You're currently developing against your ${chalkStderr.bold(
       deployment.configuredType ?? "dev",
     )} deployment
 
   ${deployment.configuredName} (set in CONVEX_DEPLOYMENT)
 
-Your ${chalk.bold(deployment.requestedType)} deployment ${chalk.bold(
+Your ${chalkStderr.bold(deployment.requestedType)} deployment ${chalkStderr.bold(
       deployment.requestedName,
     )} serves traffic at:
 
-  ${(await suggestedEnvVarName(ctx)).envVar}=${chalk.bold(prodUrl)}
+  ${(await suggestedEnvVarName(ctx)).envVar}=${chalkStderr.bold(prodUrl)}
 
 Make sure that your published client is configured with this URL (for instructions see https://docs.convex.dev/hosting)\n`,
   );

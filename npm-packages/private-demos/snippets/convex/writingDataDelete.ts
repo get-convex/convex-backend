@@ -4,6 +4,6 @@ import { v } from "convex/values";
 export const deleteTask = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
-    await ctx.db.delete(args.id);
+    await ctx.db.delete("tasks", args.id);
   },
 });

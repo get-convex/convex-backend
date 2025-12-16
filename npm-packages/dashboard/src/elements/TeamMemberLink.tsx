@@ -10,7 +10,7 @@ export function TeamMemberLink({
 }) {
   const team = useCurrentTeam();
   return !memberId ? (
-    <div className="font-semibold">Convex</div>
+    <span className="font-semibold">Convex</span>
   ) : (
     <Link
       target="_blank"

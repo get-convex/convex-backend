@@ -22,7 +22,7 @@ import {
   AppDefinitionConfig,
   ComponentDefinitionConfig,
 } from "./deployApi/definitionConfig.js";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { finishPushDiff, FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import { promisify } from "node:util";
@@ -240,7 +240,7 @@ export async function waitForSchema(
         }
         msg += ".";
         logFailure(msg);
-        logError(chalk.red(`${currentStatus.error}`));
+        logError(chalkStderr.red(`${currentStatus.error}`));
         return await ctx.crash({
           exitCode: 1,
           errorType: {

@@ -304,10 +304,28 @@ impl<RT: Runtime> Transaction<RT> {
     where
         T::Metadata: ConvexSerializable,
     {
-        self.query_system(namespace, &SystemIndex::<T>::by_id())?
-            .eq(&[id.encode_into(&mut Default::default())])?
-            .unique()
-            .await
+        let index = SystemIndex::<T>::by_id();
+        let q = self
+            .query_system(namespace, &index)?
+            .eq(&[id.encode_into(&mut Default::default())])?;
+        let SystemQueryBuilder {
+            tx,
+            namespace,
+            index,
+            tablet_id,
+            index_range,
+            order,
+        } = q;
+        SystemQueryBuilder {
+            tx,
+            namespace,
+            index,
+            tablet_id,
+            index_range: Interval::singleton(index_range.prefix.into()),
+            order,
+        }
+        .unique()
+        .await
     }
 }
 
@@ -797,7 +815,10 @@ mod tests {
         let missing_key = k([DeveloperDocumentId::MIN.encode()]);
         assert_eq!(
             index_reads(&tx, &SystemIndex::<TestTable>::by_id(), namespace),
-            intervals([Interval::prefix(missing_key), Interval::prefix(doc_key),])
+            intervals([
+                Interval::singleton(missing_key),
+                Interval::singleton(doc_key),
+            ])
         );
 
         Ok(())

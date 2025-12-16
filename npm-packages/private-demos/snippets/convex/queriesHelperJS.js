@@ -4,7 +4,7 @@ import { query } from "./_generated/server";
 export const getTaskAndAuthor = query({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.id);
+    const task = await ctx.db.get("tasks", args.id);
     if (task === null) {
       return null;
     }
@@ -16,5 +16,5 @@ async function getUserName(ctx, userId) {
   if (userId === null) {
     return null;
   }
-  return (await ctx.db.get(userId))?.name;
+  return (await ctx.db.get("users", userId))?.name;
 }

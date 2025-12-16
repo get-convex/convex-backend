@@ -99,7 +99,7 @@ mod tests {
             SchemaList {
                 schemas: vec![
                     Schema {
-                        name: "convex".to_string(),
+                        name: "app".to_string(),
                         tables: vec![Table {
                             name: "users".to_string(),
                             columns: vec![
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_fivetran_schema_name() {
-        assert_eq!(fivetran_schema_name(ComponentPath::root()), "convex");
+        assert_eq!(fivetran_schema_name(ComponentPath::root()), "app");
         assert_eq!(
             fivetran_schema_name(ComponentPath("myComponent".to_string())),
             "myComponent"

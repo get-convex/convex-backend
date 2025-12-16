@@ -8,7 +8,6 @@ import {
 } from "./_generated/server";
 import { embedTexts } from "./ingest/embed";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
 
 export const answer = internalAction({
   args: {
@@ -83,7 +82,10 @@ export const answer = internalAction({
 });
 
 export const getMessages = internalQuery({
-  handler: async (ctx, { sessionId }: { sessionId: string }) => {
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, { sessionId }) => {
     return await ctx.db
       .query("messages")
       .withIndex("bySessionId", (q) => q.eq("sessionId", sessionId))
@@ -92,7 +94,10 @@ export const getMessages = internalQuery({
 });
 
 export const getChunk = internalQuery({
-  handler: async (ctx, { embeddingId }: { embeddingId: Id<"embeddings"> }) => {
+  args: {
+    embeddingId: v.id("embeddings"),
+  },
+  handler: async (ctx, { embeddingId }) => {
     return (await ctx.db
       .query("chunks")
       .withIndex("byEmbeddingId", (q) => q.eq("embeddingId", embeddingId))
@@ -101,7 +106,10 @@ export const getChunk = internalQuery({
 });
 
 export const addBotMessage = internalMutation({
-  handler: async (ctx, { sessionId }: { sessionId: string }) => {
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, { sessionId }) => {
     return await ctx.db.insert("messages", {
       isViewer: false,
       text: "",
@@ -111,10 +119,11 @@ export const addBotMessage = internalMutation({
 });
 
 export const updateBotMessage = internalMutation({
-  handler: async (
-    ctx,
-    { messageId, text }: { messageId: Id<"messages">; text: string },
-  ) => {
+  args: {
+    messageId: v.id("messages"),
+    text: v.string(),
+  },
+  handler: async (ctx, { messageId, text }) => {
     await ctx.db.patch(messageId, { text });
   },
 });

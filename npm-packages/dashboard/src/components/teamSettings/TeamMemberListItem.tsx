@@ -1,6 +1,5 @@
 import type {
   MemberResponse,
-  ProjectDetails,
   ProjectMemberRoleResponse,
   UpdateProjectRolesArgs,
   TeamResponse,
@@ -39,7 +38,6 @@ type TeamMemberListItemProps = {
   onUpdateProjectRoles: (body: UpdateProjectRolesArgs) => Promise<undefined>;
   hasAdminPermissions: boolean;
   projectRoles: ProjectMemberRoleResponse[];
-  projects: ProjectDetails[];
 };
 export function TeamMemberListItem({
   team,
@@ -52,7 +50,6 @@ export function TeamMemberListItem({
   onRemoveMember,
   hasAdminPermissions,
   projectRoles,
-  projects,
 }: TeamMemberListItemProps) {
   const router = useRouter();
   const isMemberTheLastAdmin =
@@ -224,7 +221,6 @@ export function TeamMemberListItem({
           <MemberProjectRolesModal
             member={member}
             team={team}
-            projects={projects}
             projectRoles={projectRoles}
             onClose={() => setShowProjectRolesModal(false)}
             onUpdateProjectRoles={onUpdateProjectRoles}

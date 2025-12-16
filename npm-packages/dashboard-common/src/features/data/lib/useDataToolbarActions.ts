@@ -19,11 +19,13 @@ export function useDataToolbarActions({
   clearSelectedRows,
   loadMore,
   tableName,
+  onDocumentsAdded,
 }: {
   handleAddDocuments(): void;
   clearSelectedRows(): void;
   loadMore(): void;
   tableName: string;
+  onDocumentsAdded?: (count: number) => void;
 }): {
   addDocuments: (
     tableName: string,
@@ -60,6 +62,7 @@ export function useDataToolbarActions({
     }
     handleAddDocuments();
     await invalidateShapes();
+    onDocumentsAdded?.(documents.length);
   };
 
   const deleteDocuments = useMutation(udfs.deleteDocuments.default);

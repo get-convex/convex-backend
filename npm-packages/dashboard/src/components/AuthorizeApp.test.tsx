@@ -2,7 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen, act } from "@testing-library/react";
 import mockRouter from "next-router-mock";
 import { useTeams } from "api/teams";
-import { useProjects } from "api/projects";
+import { usePaginatedProjects } from "api/projects";
 import { useAuthorizeApp } from "api/accessTokens";
 import userEvent from "@testing-library/user-event";
 import { AuthorizeApp } from "./AuthorizeApp";
@@ -44,12 +44,20 @@ jest.mock("api/accessTokens", () => ({
 
 // Mock the projects API
 jest.mock("api/projects", () => ({
-  useProjects: jest.fn(),
+  usePaginatedProjects: jest.fn(),
 }));
 
 // Mock Sentry
 jest.mock("@sentry/nextjs", () => ({
   captureException: jest.fn(),
+}));
+
+// Mock useGlobalLocalStorage
+jest.mock("@common/lib/useGlobalLocalStorage", () => ({
+  useGlobalLocalStorage: jest.fn((key, defaultValue) => [
+    defaultValue,
+    jest.fn(),
+  ]),
 }));
 
 describe("AuthorizeApp", () => {
@@ -60,9 +68,16 @@ describe("AuthorizeApp", () => {
       selectedTeamSlug: "test-team",
       teams: [{ id: 1, name: "Test Team", slug: "test-team" }],
     });
-    (useProjects as jest.Mock).mockReturnValue([
-      { id: 1, name: "Test Project", slug: "test-project", isDemo: false },
-    ]);
+    (usePaginatedProjects as jest.Mock).mockReturnValue({
+      items: [
+        { id: 1, name: "Test Project", slug: "test-project", isDemo: false },
+      ],
+      pagination: {
+        hasMore: false,
+        nextCursor: undefined,
+      },
+      isLoading: false,
+    });
 
     // Mock successful OAuth app check
     checkOauthAppMock.mockResolvedValue({
@@ -151,7 +166,7 @@ describe("AuthorizeApp", () => {
       expect(screen.getByText("Select a project")).toBeInTheDocument();
     });
 
-    test("shows project creation button when under project limit", async () => {
+    test("shows project creation button", async () => {
       mockRouter.setCurrentUrl(
         "/oauth/authorize/project?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=code",
       );
@@ -160,29 +175,7 @@ describe("AuthorizeApp", () => {
 
       // Wait for the OAuth app check to complete
       await screen.findByText("Create a new project");
-      expect(screen.getByText("Create a new project")).toBeEnabled();
-    });
-
-    test("disables project creation button when at project limit", async () => {
-      mockRouter.setCurrentUrl(
-        "/oauth/authorize/project?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=code",
-      );
-
-      // Mock reaching project limit
-      (useProjects as jest.Mock).mockReturnValue(
-        Array(10).fill({
-          id: 1,
-          name: "Test Project",
-          slug: "test-project",
-          isDemo: false,
-        }),
-      );
-
-      render(<AuthorizeApp authorizationScope="project" />);
-
-      // Wait for the OAuth app check to complete
-      await screen.findByText("Create a new project");
-      expect(screen.getByText("Create a new project")).toBeDisabled();
+      expect(screen.getByText("Create a new project")).toBeInTheDocument();
     });
 
     test("authorizes project with valid parameters", async () => {

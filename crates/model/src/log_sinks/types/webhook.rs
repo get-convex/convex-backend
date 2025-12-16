@@ -5,6 +5,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq)]
@@ -19,7 +20,7 @@ pub struct WebhookConfig {
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum WebhookFormat {
     Json,

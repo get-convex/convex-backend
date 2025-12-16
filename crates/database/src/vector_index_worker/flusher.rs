@@ -179,8 +179,8 @@ mod tests {
             add_document_vec,
             add_document_with_value,
             backfilling_vector_index_with_doc,
-            IndexData,
             VectorFixtures,
+            VectorIndexData,
             VECTOR_INDEX_NAME,
         },
         Database,
@@ -219,7 +219,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
 
-        let IndexData { index_name, .. } = backfilling_vector_index_with_doc(&db).await?;
+        let VectorIndexData { index_name, .. } = backfilling_vector_index_with_doc(&db).await?;
 
         let mut tx = db.begin_system().await?;
         let vec = [1f64].into_iter().map(ConvexValue::Float64).collect();
@@ -238,7 +238,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -268,7 +268,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -288,7 +288,7 @@ mod tests {
     async fn worker_at_or_over_scan_threshold_uses_hnsw(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+        let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
@@ -312,7 +312,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             index_id,
             ..
@@ -366,7 +366,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             index_id,
             namespace,
@@ -431,7 +431,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+        let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
@@ -455,7 +455,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -503,7 +503,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -642,7 +642,7 @@ mod tests {
             let index_data = fixtures.backfilling_vector_index().await?;
             fixtures.backfill().await?;
 
-            let IndexData { index_name, .. } = index_data;
+            let VectorIndexData { index_name, .. } = index_data;
 
             // Create enough segments to trigger compaction.
             let mut deleted_doc_ids = vec![];
@@ -736,7 +736,7 @@ mod tests {
                 Self::fixtures_with_compaction(rt.clone()).await?;
 
             // Add 4 vectors and set part threshold to build 4 segments
-            let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+            let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
             for i in 0..(min_compaction_segments + 1) {
                 fixtures
                     .add_document_vec_array(index_name.table(), [i as f64, (i + 1) as f64])
@@ -809,7 +809,7 @@ mod tests {
                 Self::fixtures_with_compaction(rt.clone()).await?;
             let index_data = fixtures.enabled_vector_index().await?;
 
-            let IndexData { index_name, .. } = index_data;
+            let VectorIndexData { index_name, .. } = index_data;
 
             // Create enough segments to trigger compaction.
             let mut deleted_doc_ids = vec![];
@@ -900,7 +900,7 @@ mod tests {
                 Self::fixtures_with_compaction(rt.clone()).await?;
             let index_data = fixtures.enabled_vector_index().await?;
 
-            let IndexData { index_name, .. } = index_data;
+            let VectorIndexData { index_name, .. } = index_data;
 
             // Create enough segments to trigger compaction.
             let mut deleted_doc_ids = vec![];
@@ -998,7 +998,7 @@ mod tests {
         fixtures.enabled_vector_index().await?;
 
         let backfilling_data = fixtures.backfilling_vector_index().await?;
-        let IndexData {
+        let VectorIndexData {
             index_id: backfilling_index_id,
             ..
         } = backfilling_data;
@@ -1064,7 +1064,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -1101,7 +1101,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -1153,7 +1153,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -1193,7 +1193,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -1233,7 +1233,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -1277,7 +1277,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             resolved_index_name,
             ..
@@ -1322,7 +1322,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             index_id,
             resolved_index_name,
@@ -1354,7 +1354,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData {
+        let VectorIndexData {
             index_name,
             index_id,
             resolved_index_name,

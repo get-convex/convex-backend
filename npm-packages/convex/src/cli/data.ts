@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { oneoffContext } from "../bundler/context.js";
 import {
   deploymentSelectionWithinProjectFromOptions,
@@ -34,7 +34,7 @@ export const data = new Command("data")
     );
 
     const deploymentNotice = deployment.deploymentFields?.deploymentName
-      ? `${chalk.bold(deployment.deploymentFields.deploymentName)} deployment's `
+      ? `${chalkStderr.bold(deployment.deploymentFields.deploymentName)} deployment's `
       : "";
 
     await dataInDeployment(ctx, {

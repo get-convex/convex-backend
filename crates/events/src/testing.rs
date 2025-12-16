@@ -39,6 +39,9 @@ impl TestUsageEventLogger {
             recent_database_egress_size: std::mem::take(&mut state.recent_database_egress_size),
             recent_vector_ingress_size: std::mem::take(&mut state.recent_vector_ingress_size),
             recent_vector_egress_size: std::mem::take(&mut state.recent_vector_egress_size),
+            recent_text_ingress_size: std::mem::take(&mut state.recent_text_ingress_size),
+            recent_text_egress_size: std::mem::take(&mut state.recent_text_egress_size),
+            recent_vector_ingress_size_v2: std::mem::take(&mut state.recent_vector_ingress_size_v2),
         }
     }
 }
@@ -81,6 +84,9 @@ pub struct UsageCounterState {
     pub recent_database_egress_size: BTreeMap<TableName, u64>,
     pub recent_vector_ingress_size: BTreeMap<TableName, u64>,
     pub recent_vector_egress_size: BTreeMap<TableName, u64>,
+    pub recent_text_ingress_size: BTreeMap<TableName, u64>,
+    pub recent_text_egress_size: BTreeMap<TableName, u64>,
+    pub recent_vector_ingress_size_v2: BTreeMap<TableName, u64>,
 }
 
 impl UsageCounterState {
@@ -150,6 +156,7 @@ impl UsageCounterState {
                 table_name,
                 ingress,
                 egress,
+                ingress_v2,
                 ..
             } => {
                 *self
@@ -158,10 +165,27 @@ impl UsageCounterState {
                     .or_default() += ingress;
                 *self
                     .recent_vector_egress_size
-                    .entry(table_name)
+                    .entry(table_name.clone())
                     .or_default() += egress;
+                *self
+                    .recent_vector_ingress_size_v2
+                    .entry(table_name)
+                    .or_default() += ingress_v2;
+            },
+            UsageEvent::TextBandwidth {
+                table_name,
+                ingress,
+                egress,
+                ..
+            } => {
+                *self
+                    .recent_text_ingress_size
+                    .entry(table_name.clone())
+                    .or_default() += ingress;
+                *self.recent_text_egress_size.entry(table_name).or_default() += egress;
             },
             UsageEvent::CurrentVectorStorage { tables: _ } => todo!(),
+            UsageEvent::CurrentTextStorage { tables: _ } => todo!(),
             UsageEvent::CurrentDatabaseStorage {
                 tables: _,
                 system_tables: _,

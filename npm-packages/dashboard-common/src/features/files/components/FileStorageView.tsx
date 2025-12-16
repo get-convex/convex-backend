@@ -14,7 +14,11 @@ import { FileStorageHeader } from "./FileStorageHeader";
 import { FilesList } from "./FilesList";
 import { usePaginatedFileMetadata } from "../lib/usePaginatedFileMetadata";
 
-export function FileStorageView() {
+export function FileStorageView({
+  onFilesUploaded,
+}: {
+  onFilesUploaded?: (count: number) => void;
+}) {
   const [selectedFiles, setSelectedFiles] = useState<
     Record<Id<"_storage">, boolean>
   >({});
@@ -23,7 +27,7 @@ export function FileStorageView() {
   ) as Id<"_storage">[];
 
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const useUploadFilesResult = useUploadFiles();
+  const useUploadFilesResult = useUploadFiles({ onFilesUploaded });
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Get filters and other file metadata

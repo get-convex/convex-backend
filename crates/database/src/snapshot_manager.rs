@@ -31,7 +31,10 @@ use indexing::{
     backend_in_memory_indexes::BackendInMemoryIndexes,
     index_registry::IndexRegistry,
 };
-use search::TextIndexManager;
+use search::{
+    TextIndexManager,
+    TextIndexWriteSize,
+};
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -40,8 +43,8 @@ use value::{
     TabletId,
 };
 use vector::{
-    DocInVectorIndex,
     VectorIndexManager,
+    VectorIndexWriteSize,
 };
 
 use crate::{
@@ -163,12 +166,11 @@ impl TableSummaries {
             namespace: _,
             table_id_and_number,
             table_name: _,
-            state: _,
             mode,
         }) = table_update
         {
             match mode {
-                TableUpdateMode::Create => {
+                TableUpdateMode::Create(_) => {
                     assert!(self
                         .tables
                         .insert(table_id_and_number.tablet_id, TableSummary::empty())
@@ -177,6 +179,13 @@ impl TableSummaries {
                 TableUpdateMode::Activate => {},
                 TableUpdateMode::Drop => {
                     self.tables.remove(&table_id_and_number.tablet_id);
+                },
+                TableUpdateMode::HardDelete => {
+                    assert!(
+                        self.tables.remove(&table_id_and_number.tablet_id).is_none(),
+                        "Hard-deleted tablet found in table summaries, but it should have already \
+                         been removed when it was marked Deleting"
+                    );
                 },
             }
         }
@@ -214,7 +223,11 @@ impl Snapshot {
         &mut self,
         document_update: &impl DocumentUpdateRef,
         commit_ts: Timestamp,
-    ) -> anyhow::Result<(Vec<DatabaseIndexUpdate>, DocInVectorIndex)> {
+    ) -> anyhow::Result<(
+        Vec<DatabaseIndexUpdate>,
+        VectorIndexWriteSize,
+        TextIndexWriteSize,
+    )> {
         block_in_place(|| {
             let removal = document_update.old_document();
             let insertion = document_update.new_document();
@@ -262,7 +275,8 @@ impl Snapshot {
                 insertion.cloned(),
             );
 
-            self.text_indexes
+            let text_index_write_size = self
+                .text_indexes
                 .update(
                     &self.index_registry,
                     removal,
@@ -271,7 +285,7 @@ impl Snapshot {
                 )
                 .context("Search index update failed")?;
 
-            let doc_in_vector_index = self
+            let vector_index_write_size = self
                 .vector_indexes
                 .update(
                     &self.index_registry,
@@ -280,7 +294,11 @@ impl Snapshot {
                     WriteTimestamp::Committed(commit_ts),
                 )
                 .context("Vector index update failed")?;
-            Ok((in_memory_index_updates, doc_in_vector_index))
+            Ok((
+                in_memory_index_updates,
+                vector_index_write_size,
+                text_index_write_size,
+            ))
         })
     }
 

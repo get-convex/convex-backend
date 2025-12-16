@@ -13,7 +13,7 @@ export const deleteMessageWithSearch = mutation({
     if (!toDelete) {
       return;
     }
-    await ctx.db.delete(toDelete._id);
+    await ctx.db.delete("messages_with_search", toDelete._id);
   },
 });
 
@@ -26,7 +26,7 @@ export const replaceMessageWithSearch = mutation({
     if (!toReplace) {
       return;
     }
-    await ctx.db.replace(toReplace._id, {
+    await ctx.db.replace("messages_with_search", toReplace._id, {
       channel: "global",
       timestamp: toReplace.timestamp,
       rand: rand(),

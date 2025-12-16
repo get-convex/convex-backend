@@ -31,13 +31,13 @@
     "react-popper": "^2.3.0",
     "react-use": "~17.6.0",
     "tailwind-merge": "^3.3.1",
-    "tailwind-variants": "^1.0.0",
+    "tailwind-variants": "^3.0.0",
     "lodash-es": "~4.17.21"
   },
   "devDependencies": {
     "@jest/types": "^29.6.0",
     "@testing-library/dom": "~10.4.0",
-    "@testing-library/jest-dom": "~6.8.0",
+    "@testing-library/jest-dom": "~6.9.0",
     "@testing-library/react": "~16.3.0",
     "@testing-library/user-event": "~14.6.0",
     "@types/jest": "^27.0.0",

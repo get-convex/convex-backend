@@ -23,7 +23,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
 import { useDeploymentById } from "api/deployments";
 import { useTeamMembers } from "api/teams";
-import { useProjects } from "api/projects";
+import { useProjectById } from "api/projects";
 import { useProfile } from "api/profile";
 import {
   CommandLineIcon,
@@ -42,6 +42,7 @@ import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import { BackupIdentifier } from "elements/BackupIdentifier";
 import { cn } from "@ui/cn";
 import { getDeploymentLabel } from "elements/DeploymentDisplay";
+import { usePostHog } from "hooks/usePostHog";
 
 export function BackupListItem({
   backup,
@@ -329,7 +330,6 @@ function SuggestBackup({
       <DeploymentSummary
         deployment={targetDeployment}
         latestBackup={latestBackupInTargetDeployment}
-        team={team}
       />
 
       <div className="flex justify-end gap-2">
@@ -504,7 +504,7 @@ function BackupSummary({
   );
   const sourceDeployment = backupDeployment ? (
     <Tooltip tip={<code>{backupDeployment.name}</code>}>
-      <FullDeploymentName deployment={backupDeployment} team={team} />
+      <FullDeploymentName deployment={backupDeployment} />
     </Tooltip>
   ) : (
     <div className="h-16 min-w-52">
@@ -561,13 +561,11 @@ type DeploymentSummaryProps = {
   deployment: DeploymentResponse;
   // null = show no backup warning, undefined = show nothing
   latestBackup: BackupResponse | null | undefined;
-  team: TeamResponse;
 };
 
 function DeploymentSummary({
   deployment,
   latestBackup,
-  team,
 }: DeploymentSummaryProps) {
   return (
     <div className="my-4 flex flex-col items-center gap-2">
@@ -575,7 +573,7 @@ function DeploymentSummary({
         <ServerIcon className="size-6" /> Deployment
       </p>
       <Tooltip tip={<code>{deployment.name}</code>}>
-        <FullDeploymentName deployment={deployment} team={team} />
+        <FullDeploymentName deployment={deployment} />
       </Tooltip>
       {latestBackup !== undefined && <LatestBackup backup={latestBackup} />}
     </div>
@@ -612,7 +610,6 @@ export function TransferSummary({
 
       <DeploymentSummary
         deployment={targetDeployment}
-        team={team}
         latestBackup={latestBackupInTargetDeployment}
       />
     </div>
@@ -621,17 +618,14 @@ export function TransferSummary({
 
 export function FullDeploymentName({
   deployment,
-  team,
   showProjectName = true,
 }: {
   deployment: DeploymentResponse;
-  team: TeamResponse;
   showProjectName?: boolean;
 }) {
-  const projects = useProjects(team.id);
+  const project = useProjectById(deployment.projectId);
 
-  const project = projects?.find((p) => p.id === deployment.projectId);
-  if (projects !== undefined && !project) {
+  if (project === null) {
     throw new Error("Unknown project");
   }
 
@@ -717,11 +711,13 @@ export function BackupNowButton({
   const [showModal, setShowModal] = useState(false);
   const [includeStorage, setIncludeStorage] = useState(false);
   const includeStorageCheckboxId = useId();
+  const { capture } = usePostHog();
 
   const doBackup = async () => {
     setIsOngoing(true);
     try {
       await requestBackup({ includeStorage });
+      capture("created_backup", { includedStorage: includeStorage });
     } finally {
       setIsOngoing(false);
     }

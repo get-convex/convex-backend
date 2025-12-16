@@ -101,7 +101,7 @@ export function usePositions(latencyBuffer: LatencyBuffer, sessionId: string) {
   const reportPositionRef = useRef(reportPosition);
   reportPositionRef.current = reportPosition;
 
-  const dbId = useRef<Id | null>(null);
+  const dbId = useRef<Id<"positions"> | null>(null);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     async function report() {

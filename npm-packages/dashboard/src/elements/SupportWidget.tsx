@@ -32,7 +32,9 @@ export function SupportWidget() {
   const [openState, setOpenState] = useSupportFormOpen();
 
   const canSubmitTicket =
-    subscription && subscription.plan.planType === "CONVEX_PROFESSIONAL";
+    subscription &&
+    (subscription.plan.planType === "CONVEX_PROFESSIONAL" ||
+      subscription.plan.planType === "CONVEX_BUSINESS");
   if (openState === false || !user) {
     return null;
   }
@@ -237,8 +239,7 @@ function SupportForm() {
       </Button>
       {subscription && profile?.email && (
         <p className="text-xs text-content-secondary">
-          The Convex support team will respond by email to {profile.email}{" "}
-          within 24 business hours.
+          The Convex support team will respond by email to {profile.email}.
         </p>
       )}
     </form>

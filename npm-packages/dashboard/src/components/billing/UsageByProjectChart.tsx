@@ -5,18 +5,15 @@ import {
 import { useMemo } from "react";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
-import { ProjectDetails, TeamResponse } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { toNumericUTC } from "@common/lib/format";
 import { Bar, Legend, Rectangle } from "recharts";
-import { useDeployments } from "api/deployments";
 import { useProfile } from "api/profile";
+import { useProjectById } from "api/projects";
 import { UsageNoDataError } from "./TeamUsageError";
-import { QuantityType } from "./lib/formatQuantity";
+import { QuantityType, formatQuantity } from "./lib/formatQuantity";
 import { DailyChart } from "./DailyChart";
-import {
-  DailyChartDetailView,
-  DailyChartDetailItem,
-} from "./DailyChartDetailView";
+import { DailyChartDetailView } from "./DailyChartDetailView";
 
 // When there is only a data point, we have to set the bar width manually to make it appear (https://github.com/recharts/recharts/issues/3640).
 // This value has been measured manually on a desktop screen size, but it should also look good in other contexts where there is only one bar.
@@ -36,75 +33,194 @@ const PROJECT_COLORS = [
   "fill-chart-line-8",
 ];
 
-function getProjectName(
-  projectId: number | string,
-  projects: ProjectDetails[] | undefined,
-): string {
+// Component to render a single project name (can call hooks)
+function ProjectName({ projectId }: { projectId: number | string }) {
+  const project = useProjectById(
+    projectId === "_rest" ? undefined : (projectId as number),
+  );
+
   if (projectId === "_rest") {
-    return "All other projects";
+    return <>All other projects</>;
   }
-  const project = projects?.find((p) => p.id === projectId);
-  return project?.name || `Deleted Project (${projectId})`;
+
+  if (project === undefined) {
+    // Project is loading
+    return (
+      <span className="inline-block h-4 w-32 animate-pulse rounded bg-content-tertiary" />
+    );
+  }
+
+  return <>{project?.name || `Deleted Project (${projectId})`}</>;
 }
 
-// Hook to get deployment hrefs for each project
-function useProjectDeploymentHrefs(
-  projectIds: (number | string)[],
-  projects: ProjectDetails[] | undefined,
-  team: TeamResponse | undefined,
-  memberId: number | undefined,
-): Map<number | string, { href?: string; loading: boolean }> {
-  // Fetch deployments for all projects
-  const deploymentsData = projectIds.map((projectId) => {
-    const project =
-      projectId !== "_rest" ? projects?.find((p) => p.id === projectId) : null;
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { deployments } = useDeployments(project?.id);
-    return { projectId, deployments, project };
+// Custom tooltip component that renders project names
+function ProjectTooltipItem({
+  projectId,
+  value,
+  color,
+  quantityType,
+}: {
+  projectId: number | string;
+  value: number;
+  color: string;
+  quantityType: QuantityType;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <svg className="size-3 flex-shrink-0" viewBox="0 0 50 50" aria-hidden>
+        <circle cx="25" cy="25" r="25" className={color} />
+      </svg>
+      <span className="tabular-nums">
+        <ProjectName projectId={projectId} />:{" "}
+        {formatQuantity(value, quantityType)}
+      </span>
+    </div>
+  );
+}
+
+// Custom tooltip that can render project names with hooks
+function ProjectChartTooltip({
+  active,
+  payload,
+  label,
+  quantityType,
+  colorMap,
+}: {
+  active?: boolean;
+  payload?: any[];
+  label?: any;
+  quantityType: QuantityType;
+  colorMap: Map<string, string>;
+}) {
+  if (!active || !payload || payload.length === 0) {
+    return null;
+  }
+
+  // Filter to items with value > 0 and extract project IDs
+  const items = payload
+    .filter((entry) => {
+      const value = entry.value as number;
+      return value > 0;
+    })
+    .reverse(); // Reverse to show highest value first
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  const formattedDate = new Date(label).toLocaleDateString("en-us", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
   });
 
-  return useMemo(() => {
-    const map = new Map<number | string, { href?: string; loading: boolean }>();
+  return (
+    <div className="rounded-lg border bg-background-primary p-3 shadow-lg">
+      <div className="mb-2 font-semibold">{formattedDate}</div>
+      <div className="space-y-1">
+        {items.map((entry, index) => {
+          // Extract project ID from dataKey (format: "project_123")
+          const projectIdStr = (entry.dataKey as string).replace(
+            "project_",
+            "",
+          );
+          const projectId =
+            projectIdStr === "_rest" ? "_rest" : Number(projectIdStr);
+          const color = colorMap.get(entry.dataKey as string) || "";
 
-    for (const { projectId, deployments, project } of deploymentsData) {
-      if (projectId === "_rest" || !project || !team) {
-        map.set(projectId, { loading: false });
-        continue;
-      }
+          return (
+            <ProjectTooltipItem
+              key={index}
+              projectId={projectId}
+              value={entry.value as number}
+              color={color}
+              quantityType={quantityType}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-      if (!deployments) {
-        map.set(projectId, { loading: true });
-        continue;
-      }
+// Component for rendering a single project legend item
+function ProjectLegendItem({
+  projectId,
+  color,
+  total,
+}: {
+  projectId: number | string;
+  color: string;
+  total: number;
+}) {
+  if (total <= 0) return null;
 
-      const prodDeployment = deployments.find(
-        (d) => d.deploymentType === "prod",
-      );
-      const devDeployment = deployments.find(
-        (d) => d.deploymentType === "dev" && d.creator === memberId,
-      );
-      const anyDeployment = deployments[0];
-      const shownDeployment = devDeployment ?? prodDeployment ?? anyDeployment;
+  return (
+    <span className="flex items-center gap-2">
+      <svg className="w-4 flex-shrink-0" viewBox="0 0 50 50" aria-hidden>
+        <circle cx="25" cy="25" r="25" className={color} />
+      </svg>
+      <span className="max-w-80 truncate">
+        <ProjectName projectId={projectId} />
+      </span>
+    </span>
+  );
+}
 
-      if (shownDeployment) {
-        map.set(projectId, {
-          href: `/t/${team.slug}/${project.slug}/${shownDeployment.name}`,
-          loading: false,
-        });
-      } else {
-        map.set(projectId, { loading: false });
-      }
-    }
+// Detail item that includes project ID for lazy loading
+interface ProjectDetailItem {
+  projectId: number | string;
+  value: number;
+  color: string;
+}
 
-    return map;
-  }, [deploymentsData, team, memberId]);
+// Component wrapper to convert project detail items to regular detail items
+function ProjectChartDetailView({
+  date,
+  items,
+  quantityType,
+  onBack,
+  team,
+  memberId,
+}: {
+  date: number;
+  items: ProjectDetailItem[];
+  quantityType: QuantityType;
+  onBack: () => void;
+  team?: TeamResponse;
+  memberId?: number;
+}) {
+  // Convert ProjectDetailItem[] to DailyChartDetailItem[] by fetching projects
+  const detailItems = items.map((item) => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const project = useProjectById(
+      item.projectId === "_rest" ? undefined : (item.projectId as number),
+    );
+
+    return {
+      project: item.projectId === "_rest" ? null : (project ?? null),
+      value: item.value,
+      color: item.color,
+    };
+  });
+
+  return (
+    <DailyChartDetailView
+      date={date}
+      items={detailItems}
+      quantityType={quantityType}
+      onBack={onBack}
+      team={team}
+      memberId={memberId}
+    />
+  );
 }
 
 export function UsageByProjectChart({
   rows,
   entity,
   quantityType = "unit",
-  projects,
   team,
   selectedDate,
   setSelectedDate,
@@ -112,101 +228,88 @@ export function UsageByProjectChart({
   rows: DailyPerTagMetricsByProject[] | DailyMetricByProject[];
   entity: string;
   quantityType?: QuantityType;
-  projects: ProjectDetails[] | undefined;
   team?: TeamResponse;
   selectedDate: number | null;
   setSelectedDate: (date: number | null) => void;
 }) {
   const member = useProfile();
 
-  const { chartData, projectIds, legendProjectIds, totalByProject } =
-    useMemo(() => {
-      // Helper to get the total value from a row (handles both data types)
-      const getRowTotal = (
-        row: DailyPerTagMetricsByProject | DailyMetricByProject,
-      ) => {
-        if ("metrics" in row) {
-          return sumBy(row.metrics, (m) => m.value);
-        }
-        return row.value;
+  const { chartData, projectIds, totalByProject } = useMemo(() => {
+    // Helper to get the total value from a row (handles both data types)
+    const getRowTotal = (
+      row: DailyPerTagMetricsByProject | DailyMetricByProject,
+    ) => {
+      if ("metrics" in row) {
+        return sumBy(row.metrics, (m) => m.value);
+      }
+      return row.value;
+    };
+
+    // Get all unique project IDs and sort by total usage
+    const byProject = groupBy(rows, (row) =>
+      String(
+        (row as DailyPerTagMetricsByProject | DailyMetricByProject).projectId,
+      ),
+    );
+    const projectTotals = Object.entries(byProject).map(
+      ([projectId, projectRows]) => {
+        const parsedId = projectId === "_rest" ? "_rest" : Number(projectId);
+        return {
+          projectId: parsedId,
+          total: sumBy(
+            projectRows as Array<
+              DailyPerTagMetricsByProject | DailyMetricByProject
+            >,
+            getRowTotal,
+          ),
+        };
+      },
+    );
+
+    // Create quantity-sorted list for stacking (largest at bottom)
+    // Also used for legend display (sorted by quantity, not alphabetically)
+    const stackProjectIds = [...projectTotals]
+      .sort((a, b) => {
+        if (a.projectId === "_rest") return 1;
+        if (b.projectId === "_rest") return -1;
+        return b.total - a.total;
+      })
+      .map((p) => p.projectId);
+
+    const filledData = [];
+    const dateSet = new Set(rows.map(({ ds }) => toNumericUTC(ds)));
+
+    // Find the range of dates
+    const minDate = Math.min(...Array.from(dateSet));
+    const maxDate = Math.max(...Array.from(dateSet));
+
+    // Fill in the missing dates
+    for (let date = minDate; date <= maxDate; date += MS_IN_DAY) {
+      const dayRows = rows.filter(({ ds }) => toNumericUTC(ds) === date);
+      const dataPoint: any = {
+        dateNumeric: date,
       };
 
-      // Get all unique project IDs and sort by total usage
-      const byProject = groupBy(rows, (row) =>
-        String(
-          (row as DailyPerTagMetricsByProject | DailyMetricByProject).projectId,
-        ),
-      );
-      const projectTotals = Object.entries(byProject).map(
-        ([projectId, projectRows]) => {
-          const parsedId = projectId === "_rest" ? "_rest" : Number(projectId);
-          return {
-            projectId: parsedId,
-            total: sumBy(
-              projectRows as Array<
-                DailyPerTagMetricsByProject | DailyMetricByProject
-              >,
-              getRowTotal,
-            ),
-          };
-        },
-      );
-
-      // Create quantity-sorted list for stacking (largest at bottom)
-      const stackProjectIds = [...projectTotals]
-        .sort((a, b) => {
-          if (a.projectId === "_rest") return 1;
-          if (b.projectId === "_rest") return -1;
-          return b.total - a.total;
-        })
-        .map((p) => p.projectId);
-
-      // Create alphabetically sorted list for legend display
-      const alphabeticalProjectIds = [...projectTotals]
-        .sort((a, b) => {
-          if (a.projectId === "_rest") return 1;
-          if (b.projectId === "_rest") return -1;
-          const nameA = getProjectName(a.projectId, projects);
-          const nameB = getProjectName(b.projectId, projects);
-          return nameA.localeCompare(nameB);
-        })
-        .map((p) => p.projectId);
-
-      const filledData = [];
-      const dateSet = new Set(rows.map(({ ds }) => toNumericUTC(ds)));
-
-      // Find the range of dates
-      const minDate = Math.min(...Array.from(dateSet));
-      const maxDate = Math.max(...Array.from(dateSet));
-
-      // Fill in the missing dates
-      for (let date = minDate; date <= maxDate; date += MS_IN_DAY) {
-        const dayRows = rows.filter(({ ds }) => toNumericUTC(ds) === date);
-        const dataPoint: any = {
-          dateNumeric: date,
-        };
-
-        // For each project, sum up all values for that day
-        for (const projectId of stackProjectIds) {
-          const projectRows = dayRows.filter((r) => r.projectId === projectId);
-          const total = sumBy(projectRows, getRowTotal);
-          dataPoint[`project_${projectId}`] = total;
-        }
-
-        filledData.push(dataPoint);
+      // For each project, sum up all values for that day
+      for (const projectId of stackProjectIds) {
+        const projectRows = dayRows.filter((r) => r.projectId === projectId);
+        const total = sumBy(projectRows, getRowTotal);
+        dataPoint[`project_${projectId}`] = total;
       }
 
-      const totals = Object.fromEntries(
-        projectTotals.map((p) => [p.projectId, p.total]),
-      );
+      filledData.push(dataPoint);
+    }
 
-      return {
-        chartData: filledData,
-        projectIds: stackProjectIds,
-        legendProjectIds: alphabeticalProjectIds,
-        totalByProject: totals,
-      };
-    }, [rows, projects]);
+    const totals = Object.fromEntries(
+      projectTotals.map((p) => [p.projectId, p.total]),
+    );
+
+    return {
+      chartData: filledData,
+      projectIds: stackProjectIds,
+      totalByProject: totals,
+    };
+  }, [rows]);
 
   const colorMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -217,52 +320,8 @@ export function UsageByProjectChart({
     return map;
   }, [projectIds]);
 
-  // Compute display names with slugs for duplicates
-  const displayNames = useMemo(() => {
-    const nameCountMap = new Map<string, number>();
-    projectIds.forEach((projectId) => {
-      const name = getProjectName(projectId, projects);
-      nameCountMap.set(name, (nameCountMap.get(name) || 0) + 1);
-    });
-
-    const names = new Map<
-      number | string,
-      { fullName: string; name: string; slug?: string }
-    >();
-    projectIds.forEach((projectId) => {
-      const projectName = getProjectName(projectId, projects);
-      const isDuplicate = (nameCountMap.get(projectName) || 0) > 1;
-
-      let displayInfo = {
-        fullName: projectName,
-        name: projectName,
-        slug: undefined as string | undefined,
-      };
-      if (isDuplicate && projectId !== "_rest") {
-        const project = projects?.find((p) => p.id === projectId);
-        if (project?.slug) {
-          displayInfo = {
-            fullName: `${projectName} (${project.slug})`,
-            name: projectName,
-            slug: project.slug,
-          };
-        }
-      }
-      names.set(projectId, displayInfo);
-    });
-    return names;
-  }, [projectIds, projects]);
-
-  // Get deployment hrefs for projects
-  const _projectHrefs = useProjectDeploymentHrefs(
-    projectIds,
-    projects,
-    team,
-    member?.id,
-  );
-
   // Get detail items for selected date
-  const detailItems = useMemo((): DailyChartDetailItem[] => {
+  const detailItems = useMemo((): ProjectDetailItem[] => {
     if (selectedDate === null) return [];
 
     const dataPoint = chartData.find((d) => d.dateNumeric === selectedDate);
@@ -270,17 +329,13 @@ export function UsageByProjectChart({
 
     return projectIds.map((projectId, index) => {
       const color = PROJECT_COLORS[index % PROJECT_COLORS.length];
-      const project =
-        projectId === "_rest"
-          ? null
-          : (projects?.find((p) => p.id === projectId) ?? null);
       return {
-        project,
+        projectId,
         value: (dataPoint[`project_${projectId}`] as number) || 0,
         color,
       };
     });
-  }, [selectedDate, chartData, projectIds, projects]);
+  }, [selectedDate, chartData, projectIds]);
 
   if (
     !rows.some((row) => {
@@ -313,9 +368,15 @@ export function UsageByProjectChart({
           showCategoryInTooltip
           colorMap={colorMap}
           yAxisWidth={quantityType === "actionCompute" ? 80 : 60}
+          customTooltip={(props) => (
+            <ProjectChartTooltip
+              {...props}
+              quantityType={quantityType}
+              colorMap={colorMap}
+            />
+          )}
         >
           {projectIds.map((projectId, index) => {
-            const displayInfo = displayNames.get(projectId);
             const color = PROJECT_COLORS[index % PROJECT_COLORS.length];
 
             return (
@@ -323,7 +384,7 @@ export function UsageByProjectChart({
                 key={projectId}
                 dataKey={`project_${projectId}`}
                 className={color}
-                name={` ${displayInfo?.fullName || ""}`}
+                name={` `} // Space for consistent tooltip formatting
                 barSize={chartData.length === 1 ? SINGLE_BAR_WIDTH : undefined}
                 isAnimationActive={false}
                 stackId="stack"
@@ -354,33 +415,18 @@ export function UsageByProjectChart({
                     paddingLeft: `${quantityType === "actionCompute" ? 92 : 72}px`,
                   }}
                 >
-                  {legendProjectIds.map((projectId) => {
-                    const displayInfo = displayNames.get(projectId);
-                    const stackIndex = projectIds.indexOf(projectId);
-                    const color =
-                      PROJECT_COLORS[stackIndex % PROJECT_COLORS.length];
+                  {projectIds.map((projectId, index) => {
+                    const color = PROJECT_COLORS[index % PROJECT_COLORS.length];
                     const total = totalByProject[projectId] || 0;
 
-                    return total > 0 ? (
-                      <span key={projectId} className="flex items-center gap-2">
-                        <svg
-                          className="w-4 flex-shrink-0"
-                          viewBox="0 0 50 50"
-                          aria-hidden
-                        >
-                          <circle cx="25" cy="25" r="25" className={color} />
-                        </svg>
-                        <span className="max-w-80 truncate">
-                          {displayInfo?.name}
-                          {displayInfo?.slug && (
-                            <span className="text-content-secondary">
-                              {" "}
-                              ({displayInfo.slug})
-                            </span>
-                          )}
-                        </span>
-                      </span>
-                    ) : null;
+                    return (
+                      <ProjectLegendItem
+                        key={projectId}
+                        projectId={projectId}
+                        color={color}
+                        total={total}
+                      />
+                    );
                   })}
                 </div>
               )}
@@ -398,7 +444,7 @@ export function UsageByProjectChart({
         }}
       >
         {selectedDate !== null && (
-          <DailyChartDetailView
+          <ProjectChartDetailView
             date={selectedDate}
             items={detailItems}
             quantityType={quantityType}

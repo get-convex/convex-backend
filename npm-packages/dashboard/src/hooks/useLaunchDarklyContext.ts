@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useProfile } from "api/profile";
 import { useCurrentTeam } from "api/teams";
-import { useProjects } from "api/projects";
+import { useCurrentProject } from "api/projects";
 import { useCurrentDeployment } from "api/deployments";
 
 export const useGlobalLDContext = createGlobalState<
@@ -18,10 +18,8 @@ export const useLDContext = () => {
   const team = useCurrentTeam();
   const profile = useProfile();
 
-  const projects = useProjects(team?.id);
+  const project = useCurrentProject();
 
-  const project =
-    projects && projects.find((p) => p.slug === router.query.project);
   return useMemo(() => {
     if (
       !router.isReady ||

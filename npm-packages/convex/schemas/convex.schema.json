@@ -76,6 +76,11 @@
           "default": false
         }
       }
+    },
+    "typescriptCompiler": {
+      "type": "string",
+      "enum": ["tsc", "tsgo"],
+      "description": "TypeScript compiler to use for typechecking (`@typescript/native-preview` must be installed to use `tsgo`)"
     }
   },
   "additionalProperties": false

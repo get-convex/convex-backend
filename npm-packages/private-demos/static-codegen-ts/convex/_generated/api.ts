@@ -31,7 +31,12 @@ export const api: {
       {},
       any
     >;
-    send: FunctionReference<"mutation", "public", any, any>;
+    send: FunctionReference<
+      "mutation",
+      "public",
+      { author: string; body: string },
+      any
+    >;
     testPartialRollback: FunctionReference<"mutation", "public", {}, any>;
   };
   staticFunctions: {

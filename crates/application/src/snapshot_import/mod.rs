@@ -835,16 +835,18 @@ async fn import_objects<RT: Runtime>(
             .is_none());
     }
 
-    let table_mapping_for_schema = if let ImportMode::ReplaceAll = mode {
-        table_mapping_in_import.clone()
-    } else {
-        let mut mapping = original_table_mapping.clone();
-        for &(component_id, ref table_name) in table_name_to_number.keys() {
-            if let Some(table_id) = mapping
-                .namespace(component_id.into())
-                .id_and_number_if_exists(table_name)
-            {
-                mapping.remove(table_id.tablet_id);
+    let table_mapping_for_schema = {
+        let mut mapping = TableMapping::new();
+        for (tablet_id, namespace, table_number, table_name) in original_table_mapping.iter() {
+            let component_id = ComponentId::from(namespace);
+            // In ReplaceAll mode, we delete all non-system tables,
+            // and in all cases tables in `table_mapping_in_import` overwrite
+            // the original mapping.
+            let will_delete = (matches!(mode, ImportMode::ReplaceAll) && !table_name.is_system())
+                || table_name_to_number
+                    .contains_key(&(&component_id, table_name) as &dyn TupleKey<_, _>);
+            if !will_delete {
+                mapping.insert(tablet_id, namespace, table_number, table_name.clone());
             }
         }
         for (table_id, namespace, table_number, table_name) in table_mapping_in_import.iter() {

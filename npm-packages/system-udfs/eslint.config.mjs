@@ -27,7 +27,18 @@ const compat = new FlatCompat({
 export default defineConfig([
   eslint.configs.recommended,
   tseslint.configs.recommended,
-  ...convexPlugin.configs.recommended,
+  {
+    files: ["**/convex/**/*.ts"],
+    plugins: {
+      "@convex-dev": convexPlugin,
+    },
+    rules: {
+      ...convexPlugin.configs.recommended[0].rules,
+
+      // TODO(nicolas): Migrate system UDFs to use explicit table IDs
+      "@convex-dev/explicit-table-ids": "off",
+    },
+  },
   {
     languageOptions: {
       parser: tsParser,

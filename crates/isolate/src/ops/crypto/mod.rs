@@ -519,10 +519,7 @@ impl CryptoOps {
     pub fn random_uuid(mut rng: impl Rng) -> anyhow::Result<Uuid> {
         let mut bytes = [0u8; 16];
         rng.fill(&mut bytes);
-        let uuid = uuid::Builder::from_bytes(bytes)
-            .with_version(uuid::Version::Random)
-            .into_uuid();
-        Ok(uuid)
+        Ok(uuid::Builder::from_random_bytes(bytes).into_uuid())
     }
 
     pub fn get_random_values(mut rng: impl Rng, byte_length: u32) -> anyhow::Result<Vec<u8>> {
@@ -842,5 +839,18 @@ impl CryptoOps {
                 Ok(Some(data))
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CryptoOps;
+
+    #[test]
+    fn test_random_uuid() -> anyhow::Result<()> {
+        let uuid = CryptoOps::random_uuid(rand::rng())?;
+        assert_eq!(uuid.get_version(), Some(uuid::Version::Random));
+        assert_eq!(uuid.get_variant(), uuid::Variant::RFC4122);
+        Ok(())
     }
 }

@@ -1011,7 +1011,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
             let namespaces = tx
                 .table_mapping()
                 .namespaces_for_name(&SCHEDULED_JOBS_TABLE);
-            let mut deleted_jobs = false;
+            let mut deleted_jobs = 0;
             let mut next_job_wait = None;
             for namespace in namespaces {
                 let now = self.rt.generate_timestamp()?;
@@ -1055,6 +1055,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                     jobs_to_delete.push(job.id());
                 }
                 if !jobs_to_delete.is_empty() {
+                    deleted_jobs += jobs_to_delete.len();
                     tracing::debug!(
                         "Garbage collecting {} finished scheduled jobs",
                         jobs_to_delete.len()
@@ -1063,10 +1064,12 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                     for job_id in jobs_to_delete {
                         model.delete(job_id).await?;
                     }
-                    deleted_jobs = true;
+                }
+                if deleted_jobs >= *SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE {
+                    break;
                 }
             }
-            if deleted_jobs {
+            if deleted_jobs > 0 {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_gc")
                     .await?;

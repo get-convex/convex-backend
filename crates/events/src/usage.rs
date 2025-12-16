@@ -121,6 +121,8 @@ pub enum UsageEvent {
         udf_id: String,
         table_name: String,
         ingress: u64,
+        // Includes ingress for tables that have virtual tables
+        ingress_v2: u64,
         egress: u64,
         egress_rows: u64,
     },
@@ -139,6 +141,15 @@ pub enum UsageEvent {
         table_name: String,
         ingress: u64,
         egress: u64,
+        ingress_v2: u64,
+    },
+    TextBandwidth {
+        id: String,
+        component_path: Option<String>,
+        udf_id: String,
+        table_name: String,
+        ingress: u64,
+        egress: u64,
     },
 
     // Current* events record the current storage state as of a time, they're not incremental
@@ -146,6 +157,9 @@ pub enum UsageEvent {
     // empty, that means no tables have any usage of the type in question.
     CurrentVectorStorage {
         tables: Vec<TableVectorStorage>,
+    },
+    CurrentTextStorage {
+        tables: Vec<TableTextStorage>,
     },
     CurrentDatabaseStorage {
         tables: Vec<TableDatabaseStorage>,
@@ -186,6 +200,14 @@ pub struct TableDatabaseStorage {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TableVectorStorage {
+    pub component_path: Option<String>,
+    pub table_name: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct TableTextStorage {
     pub component_path: Option<String>,
     pub table_name: String,
     pub size: u64,

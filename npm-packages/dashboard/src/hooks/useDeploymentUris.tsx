@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useCurrentTeam } from "api/teams";
 import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
-import { useProjects } from "api/projects";
+import { useProjectById } from "api/projects";
 
 export function useDeploymentUris(
   projectId: number,
@@ -14,8 +14,7 @@ export function useDeploymentUris(
   const team = useCurrentTeam();
   const selectedTeamSlug = team?.slug;
 
-  // Instead of calling useProjectById, call useProjects because the data for that project is pre-fetched in SSR.
-  const project = useProjects(team?.id)?.find((p) => p.id === projectId);
+  const project = useProjectById(projectId);
   const prodDeploymentName = project?.prodDeploymentName;
   const devDeploymentName = project?.devDeploymentName;
 

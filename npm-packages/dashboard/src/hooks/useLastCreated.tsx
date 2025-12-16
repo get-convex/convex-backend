@@ -1,5 +1,5 @@
 import { useTeams } from "api/teams";
-import { useProjects } from "api/projects";
+import { usePaginatedProjects } from "api/projects";
 import { useDeployments } from "api/deployments";
 
 export function useLastCreatedTeam() {
@@ -9,12 +9,23 @@ export function useLastCreatedTeam() {
 
 export function useLastCreatedProject() {
   const team = useLastCreatedTeam();
-  const projects = useProjects(team?.id);
-  return projects?.at(-1);
+  const paginatedProjects = usePaginatedProjects(team?.id, {
+    cursor: undefined,
+    q: undefined,
+  });
+
+  if (!paginatedProjects) return undefined;
+
+  const projects = paginatedProjects ? paginatedProjects.items : [];
+  return projects.at(-1) || null;
 }
 
 export function useLastCreatedDeployment() {
   const project = useLastCreatedProject();
   const { deployments } = useDeployments(project?.id);
-  return deployments?.at(-1);
+  if (project === null) {
+    return null;
+  }
+  if (project === undefined || deployments === undefined) return undefined;
+  return deployments?.at(-1) || null;
 }

@@ -1,6 +1,7 @@
 import { noImportUseNode } from "./lib/no-import-use-node.js";
 import { noOldRegisteredFunctionSyntax } from "./lib/no-old-registered-function-syntax.js";
 import { requireArgsValidator } from "./lib/require-args-validator.js";
+import { explicitTableIds } from "./lib/explicitTableIds.js";
 import { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 import { version } from "./version.js";
 
@@ -8,6 +9,7 @@ const rules = {
   "no-old-registered-function-syntax": noOldRegisteredFunctionSyntax,
   "require-args-validator": requireArgsValidator,
   "import-wrong-runtime": noImportUseNode,
+  "explicit-table-ids": explicitTableIds,
 } satisfies Record<string, RuleModule<string, unknown[]>>;
 
 const recommendedRules = {
@@ -17,6 +19,7 @@ const recommendedRules = {
   "@convex-dev/import-wrong-runtime": "off",
   "@convex-dev/no-old-registered-function-syntax": "error",
   "@convex-dev/require-args-validator": "error",
+  "@convex-dev/explicit-table-ids": "error",
 } satisfies {
   [key: `@convex-dev/${string}`]: "error" | "warn" | "off";
 };

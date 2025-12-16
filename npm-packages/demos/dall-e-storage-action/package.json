@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "convex": "workspace:*",
-    "openai": "^4.6.0",
+    "openai": "^6.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "prettier": "3.6.2"
@@ -23,6 +23,6 @@
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "~5.0.3",
     "vite": "^6.4.1",
-    "npm-run-all2": "^7.0.0"
+    "npm-run-all2": "^8.0.0"
   }
 }

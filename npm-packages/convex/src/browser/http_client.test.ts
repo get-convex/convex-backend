@@ -172,3 +172,31 @@ test("failed mutations don't block the queue", async () => {
   await expect(firstPromise).rejects.toThrow("First mutation failed");
   await expect(secondPromise).resolves.toBe("second result");
 });
+
+test("instance-level fetch overrides module-level and global fetch", async () => {
+  const instanceFetchMock = vi.fn();
+  const moduleFetchMock = vi.fn();
+
+  instanceFetchMock.mockResolvedValue({
+    ok: true,
+    json: () =>
+      Promise.resolve({ status: "success", value: "instance fetch result" }),
+  });
+
+  moduleFetchMock.mockResolvedValue({
+    ok: true,
+    json: () =>
+      Promise.resolve({ status: "success", value: "module fetch result" }),
+  });
+
+  setFetch(moduleFetchMock);
+  const client = new ConvexHttpClient("http://test", {
+    fetch: instanceFetchMock,
+  });
+  const result = await client.mutation(apiMutationFunc, { value: "test" });
+
+  // Verify instance fetch was used, not module fetch
+  expect(instanceFetchMock).toHaveBeenCalledTimes(1);
+  expect(moduleFetchMock).not.toHaveBeenCalled();
+  expect(result).toBe("instance fetch result");
+});

@@ -452,7 +452,7 @@ export function DatabaseIndexFilterEditor({
       date={getTimestampValue(value)}
       onChange={onChangeHandler}
       disabled={!filter.enabled}
-      className={className}
+      className={cn("align-top", className)}
     />
   );
 
@@ -463,7 +463,11 @@ export function DatabaseIndexFilterEditor({
       return (
         <div className="ml-[-1px] min-w-0 flex-1">
           {isCreationTimeField ? (
-            renderDateTimePicker(filter.value, handleDateChange, "rounded-r")
+            renderDateTimePicker(
+              filter.value,
+              handleDateChange,
+              "text-xs border p-1 rounded-r",
+            )
           ) : (
             <ObjectEditorWithPlaceholder
               value={filter.value}
@@ -504,7 +508,11 @@ export function DatabaseIndexFilterEditor({
       return (
         <div className="ml-[-1px] flex-1">
           {isCreationTimeField ? (
-            renderDateTimePicker(value, handleDateChange, "rounded-r")
+            renderDateTimePicker(
+              value,
+              handleDateChange,
+              "text-xs border p-1 rounded-r",
+            )
           ) : (
             <ObjectEditorWithPlaceholder
               value={value}
@@ -533,7 +541,7 @@ export function DatabaseIndexFilterEditor({
               renderDateTimePicker(
                 filter.lowerValue,
                 handleLowerDateChange,
-                "rounded-tr",
+                "text-xs border p-1 rounded-tr",
               )
             ) : (
               <ObjectEditorWithPlaceholder
@@ -557,7 +565,7 @@ export function DatabaseIndexFilterEditor({
               renderDateTimePicker(
                 filter.upperValue,
                 handleUpperDateChange,
-                "mt-[-1px] rounded-br",
+                "rounded-br text-xs border border-t-0 p-1",
               )
             ) : (
               <ObjectEditorWithPlaceholder

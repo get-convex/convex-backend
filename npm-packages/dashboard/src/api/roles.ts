@@ -96,6 +96,9 @@ export function useUpdateTeamMemberRole(teamId: number) {
       team_id: teamId.toString(),
     },
     mutateKey: `/teams/{team_id}/members`,
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
     successToast: "Member role updated.",
   });
 }

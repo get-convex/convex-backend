@@ -8,6 +8,7 @@ import { TeamAccessTokenResponse } from "generatedApi";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useEffect, useState } from "react";
 import { TeamMemberLink } from "elements/TeamMemberLink";
+import { usePostHog } from "hooks/usePostHog";
 
 export function AccessTokenListItem({
   token,
@@ -32,6 +33,7 @@ export function AccessTokenListItem({
     shouldShow && setShowToken(shouldShow);
   }, [shouldShow]);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const { capture } = usePostHog();
 
   const member = showMemberName
     ? members?.find((m) => m.id === token.creator)
@@ -114,6 +116,10 @@ export function AccessTokenListItem({
           }}
           onConfirm={async () => {
             await deleteAccessToken({ accessToken: token.accessToken });
+            if (tokenPrefix) {
+              const type = tokenPrefix.split(":")[0] ?? tokenPrefix;
+              capture("deleted_deploy_key", { type });
+            }
           }}
           confirmText="Delete"
           dialogTitle="Delete Access Token"

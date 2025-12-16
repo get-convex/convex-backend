@@ -2,46 +2,42 @@
 title: "Using Components"
 slug: "using"
 sidebar_position: 20
+hide_table_of_contents: true
 description: "Using existing components"
 ---
 
-Convex components add new features to your backend in their own sandbox with
+Convex Components add new features to your backend in their own sandbox with
 their own functions, schema and data, scheduled functions and all other
 fundamental Convex features.
 
 You can see the full list of components in the
-[directory](https://convex.dev/components). Each component README provides full
-instructions on how to install and use them.
+[directory](https://convex.dev/components).
 
-This doc will go through common patterns on how to install and use Components.
+## Installation
 
-## Installing Components
-
-We'll use the
-[Sharded Counter](https://www.npmjs.com/package/@convex-dev/sharded-counter)
-component as an example.
+We'll use the [Agent](https://www.npmjs.com/package/@convex-dev/agent) component
+as an example.
 
 <StepByStep>
   <Step title="Install from `npm`">
-  Install the relevant package from npm
 
 ```bash
-npm i @convex-dev/sharded-counter
+npm i @convex-dev/agent
 ```
 
   </Step>
   <Step title="Add the component to your app">
-  Create or update the `convex.config.ts` file in your app's `convex/` folder and install the component by calling `use`:
+  Create or update the `convex.config.ts` file in your app's `convex/` folder and install the component by calling `use`. Multiple instances of the same component can be installed by calling `use` multiple times with different names. Each will have their own tables and functions.
 
-```ts
-// convex/convex.config.ts
+```ts title="convex/convex.config.ts"
 import { defineApp } from "convex/server";
-import shardedCounter from "@convex-dev/sharded-counter/convex.config";
+import agent from "@convex-dev/agent/convex.config.js";
 
 const app = defineApp();
 
 // highlight-next-line
-app.use(shardedCounter);
+app.use(agent);
+app.use(agent, { name: "agent2" });
 //... Add other components here
 
 export default app;
@@ -49,20 +45,30 @@ export default app;
 
   </Step>
   <Step title="Run convex dev">
-  Make sure the convex dev cli is running to ensure the component is registered with your backend and the necessary code is generated.
+  The `convex dev` CLI command will generate code necessary for using the component.
 
 ```bash
 npx convex dev
 ```
 
   </Step>
-  <Step title="Use the provided component API">
-    Each component has its own API. Check out each component's README file for more details on its usage.
+  <Step title="Access the component through its API">
+
+Each instance of a component has its API listed under the `components` object by
+its name. Some components wrap this API with classes or functions. Check out
+each component's documentation for more details on its usage.
+
+```ts
+import { components } from "./_generated/api.js";
+
+const agent = new Agent(components.agent, { ... });
+```
+
   </Step>
 
 </StepByStep>
 
-## Component functions
+## Using the component's API directly
 
 Though components may expose higher level TypeScript APIs, under the hood they
 are called via normal Convex functions over the component sandbox boundary.
@@ -76,21 +82,25 @@ Component functions can be called from your application using the following
 syntax:
 
 ```ts
-import { mutation, query } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import { components } from "./_generated/api";
 
-export const abc = query({
-  args: {},
-  handler: async (ctx) => {
-    await ctx.runMutation(components.foo.bar, args);
+export const myAction = internalAction({
+  args: { threadId: v.string() },
+  handler: async (ctx, args) => {
+    // Call the component's API to get the thread status.
+    const { status } = await ctx.runQuery(components.agent.threads.getThread, {
+      threadId: args.threadId,
+    });
+    //...
   },
 });
 ```
 
-This is often abstracted away with functions and methods exposed by the
-component's client library. For instance `ShardedCounter` from
-`@convex-dev/sharded-counter` is initialized with `components.foo`, and its
-methods take in `ctx`.
+Some components abstract away the component's API. For instance, the `Agent`
+class from `@convex-dev/agent` is initialized with `components.agent`, and its
+methods take in `ctx` so they can call the component's API internally.
+[Learn more about the Agent Component here](/agents.mdx).
 
 ## Transactions
 
@@ -142,6 +152,69 @@ from certain components.
     width={414}
   />
 </p>
+
+## Testing components
+
+When writing tests with [`convex-test`](/testing/convex-test.mdx), that use
+components, you must register the component with the test instance. This tells
+it what schema to validate and where to find the component source code. Most
+components export convenient helper functions on `/test` to make this easy:
+
+```ts title="convex/some.test.ts"
+import agentTest from "@convex-dev/agent/test";
+import { expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { components } from "./_generated/api";
+import { createThread } from "@convex-dev/agent";
+
+// Define this once, often in a shared test helper file.
+export function initConvexTest() {
+  const t = convexTest();
+  // highlight-next-line
+  agentTest.register(t);
+  return t;
+}
+
+test("Agent createThread", async () => {
+  const t = initConvexTest();
+
+  const threadId = await t.run(async (ctx) => {
+    // Calling functions that use ctx and components.agent
+    return await createThread(ctx, components.agent, {
+      title: "Hello, world!",
+    });
+  });
+  // Calling functions directly on the component's API
+  const thread = await t.query(components.agent.threads.getThread, {
+    threadId,
+  });
+  expect(thread).toMatchObject({
+    title: "Hello, world!",
+  });
+});
+```
+
+If you need to register the component yourself, you can do so by passing the
+component's schema and modules to the test instance.
+
+```ts title="convex/manual.test.ts"
+/// <reference types="vite/client" />
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./path/to/component/schema.ts";
+const modules = import.meta.glob("./path/to/component/**/*.ts");
+
+test("Test something with a local component", async () => {
+  const t = convexTest();
+  t.registerComponent("componentName", schema, modules);
+
+  await t.run(async (ctx) => {
+    await ctx.runQuery(components.componentName.someQuery, {
+      arg: "value",
+    });
+  });
+});
+```
 
 ## Log Streams
 

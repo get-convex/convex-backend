@@ -2,6 +2,8 @@ import { logEvent } from "convex-analytics";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import Analytics from "../components/Analytics/Analytics";
 
+import { Toaster } from "sonner";
+
 import "@fontsource/inter/300.css";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
@@ -39,6 +41,7 @@ function Root({ children }) {
     <DialectContext.Provider value={{ lang, setLang }}>
       {children}
       <Analytics />
+      <Toaster />
     </DialectContext.Provider>
   );
 }

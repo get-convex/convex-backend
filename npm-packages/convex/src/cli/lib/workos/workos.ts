@@ -13,6 +13,7 @@ import {
   changeSpinner,
   logFinishedStep,
   logMessage,
+  logOutput,
   logWarning,
   showSpinner,
   stopSpinner,
@@ -49,6 +50,7 @@ export async function ensureWorkosEnvironmentProvisioned(
     offerToAssociateWorkOSTeam: boolean;
     autoProvisionIfWorkOSTeamAssociated: boolean;
     autoConfigureAuthkitConfig: boolean;
+    environmentName?: string;
   },
 ): Promise<"ready" | "choseNotToAssociatedTeam"> {
   if (!options.autoConfigureAuthkitConfig) {
@@ -62,8 +64,8 @@ export async function ensureWorkosEnvironmentProvisioned(
     existingEnvVars.environmentId &&
     existingEnvVars.apiKey
   ) {
-    logFinishedStep(
-      "Deployment has a WorkOS environment configured for AuthKit.",
+    logOutput(
+      "Deployment already has environment variables for a WorkOS environment configured for AuthKit.",
     );
     await updateEnvLocal(
       ctx,
@@ -72,15 +74,20 @@ export async function ensureWorkosEnvironmentProvisioned(
       existingEnvVars.environmentId,
     );
     await updateWorkosEnvironment(ctx, existingEnvVars.apiKey);
+    logFinishedStep("WorkOS AutKit environment ready");
     return "ready";
   }
 
   // We need to provision an environment. Let's figure out if we can:
-  const { hasAssociatedWorkosTeam, teamId, disabled } =
-    await getDeploymentCanProvisionWorkOSEnvironments(ctx, deploymentName);
+  const response = await getDeploymentCanProvisionWorkOSEnvironments(
+    ctx,
+    deploymentName,
+  );
+  const { hasAssociatedWorkosTeam, teamId } = response;
 
   // In case this this becomes a legacy flow that no longer works.
-  if (disabled) {
+  // @ts-expect-error - disabled is a legacy field that may not be present
+  if (response.disabled) {
     return "choseNotToAssociatedTeam";
   }
   if (!hasAssociatedWorkosTeam) {
@@ -101,6 +108,7 @@ export async function ensureWorkosEnvironmentProvisioned(
   const environmentResult = await createEnvironmentAndAPIKey(
     ctx,
     deploymentName,
+    options.environmentName,
   );
 
   if (!environmentResult.success) {
@@ -122,7 +130,9 @@ export async function ensureWorkosEnvironmentProvisioned(
   if (data.newlyProvisioned) {
     logMessage("New AuthKit environment provisioned");
   } else {
-    changeSpinner("Using existing AuthKit environment");
+    logMessage(
+      "Using credentials from existing AuthKit environment already created for this deployment",
+    );
   }
 
   changeSpinner("Setting WORKOS_* deployment environment variables...");
@@ -137,15 +147,27 @@ export async function ensureWorkosEnvironmentProvisioned(
   await updateEnvLocal(ctx, data.clientId, data.apiKey, data.environmentId);
 
   await updateWorkosEnvironment(ctx, data.apiKey);
+  logFinishedStep("WorkOS AutKit environment ready");
 
   return "ready";
 }
 
-export async function tryToCreateAssociatedWorkosTeam(
+/**
+ * Interactive flow to provision a WorkOS team for a Convex team.
+ * Handles ToS agreement, email selection, and retry logic.
+ */
+export async function provisionWorkosTeamInteractive(
   ctx: Context,
   deploymentName: string,
   teamId: number,
-): Promise<"ready" | "choseNotToAssociatedTeam"> {
+  options: {
+    promptPrefix?: string;
+    promptMessage?: string;
+  } = {},
+): Promise<
+  | { success: true; workosTeamId: string; workosTeamName: string }
+  | { success: false; reason: "cancelled" }
+> {
   const teamInfo = await getTeamAndProjectSlugForDeployment(ctx, {
     deploymentName,
   });
@@ -158,18 +180,22 @@ export async function tryToCreateAssociatedWorkosTeam(
   }
   stopSpinner();
 
-  const agree = await promptYesNo(ctx, {
-    prefix: `A WorkOS team needs to be created for your Convex team "${teamInfo.teamSlug}" in order to use AuthKit.
+  const defaultPrefix = `A WorkOS team needs to be created for your Convex team "${teamInfo.teamSlug}" in order to use AuthKit.
 
 You and other members of this team will be able to create WorkOS environments for each Convex dev deployment for projects in this team.
 
 By creating this account you agree to the WorkOS Terms of Service (https://workos.com/legal/terms-of-service) and Privacy Policy (https://workos.com/legal/privacy).
 Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environment.
-\n`,
-    message: `Create a WorkOS team and enable automatic AuthKit environment provisioning for team "${teamInfo.teamSlug}"?`,
+\n`;
+
+  const defaultMessage = `Create a WorkOS team and enable automatic AuthKit environment provisioning for team "${teamInfo.teamSlug}"?`;
+
+  const agree = await promptYesNo(ctx, {
+    prefix: options.promptPrefix ?? defaultPrefix,
+    message: options.promptMessage ?? defaultMessage,
   });
   if (!agree) {
-    return "choseNotToAssociatedTeam";
+    return { success: false, reason: "cancelled" };
   }
 
   const alreadyTried = new Map<string, string>();
@@ -192,7 +218,7 @@ Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environme
               ? "\nCreate a new WorkOS team with this email address?"
               : "\nTo use another email address visit https://dashboard.convex.dev/profile to add and verify, then choose 'refresh'",
         choices: [
-          ...availableEmails.map((email) => ({
+          ...availableEmails.map((email: string) => ({
             name: `${email}${alreadyTried.has(email) ? ` (can't create, a WorkOS team already exists with this email)` : ""}`,
             value: email,
           })),
@@ -208,7 +234,7 @@ Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environme
       });
     }
     if (choice === "cancel") {
-      return "choseNotToAssociatedTeam";
+      return { success: false, reason: "cancelled" };
     }
     email = choice;
 
@@ -219,8 +245,30 @@ Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environme
       alreadyTried.set(email, teamResult.message);
       continue;
     }
-    break;
+    // Success!
+    return {
+      success: true,
+      workosTeamId: teamResult.workosTeamId,
+      workosTeamName: teamResult.workosTeamName,
+    };
   }
+}
+
+export async function tryToCreateAssociatedWorkosTeam(
+  ctx: Context,
+  deploymentName: string,
+  teamId: number,
+): Promise<"ready" | "choseNotToAssociatedTeam"> {
+  const result = await provisionWorkosTeamInteractive(
+    ctx,
+    deploymentName,
+    teamId,
+  );
+
+  if (!result.success) {
+    return "choseNotToAssociatedTeam";
+  }
+
   logFinishedStep("WorkOS team created successfully");
   return "ready";
 }

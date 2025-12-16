@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- chalk used for formatting stdout via logOutput()
 import chalk from "chalk";
 import { logOutput } from "../../bundler/log.js";
 import { runSystemQuery } from "./run.js";

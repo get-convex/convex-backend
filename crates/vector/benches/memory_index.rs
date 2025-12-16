@@ -1,11 +1,13 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    hint::black_box,
+};
 
 use common::types::{
     Timestamp,
     WriteTimestamp,
 };
 use criterion::{
-    black_box,
     criterion_group,
     criterion_main,
     Criterion,

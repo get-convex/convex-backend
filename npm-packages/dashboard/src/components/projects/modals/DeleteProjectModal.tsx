@@ -13,6 +13,7 @@ import udfs from "@common/udfs";
 import { useState } from "react";
 import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
 import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider";
+import { usePostHog } from "hooks/usePostHog";
 
 export function DeleteProjectModal({
   onClose,
@@ -25,6 +26,7 @@ export function DeleteProjectModal({
   team: TeamResponse;
   project: ProjectDetails;
 }) {
+  const { capture } = usePostHog();
   const deleteProject = useDeleteProject(
     team.id,
     project.id,
@@ -34,6 +36,7 @@ export function DeleteProjectModal({
   const handleDelete = async () => {
     onDelete && onDelete();
     await deleteProject();
+    capture("deleted_projects");
     onClose();
   };
   const { deployments } = useDeployments(project.id);
@@ -56,7 +59,11 @@ export function DeleteProjectModal({
     <DeleteProjectDialog
       onClose={onClose}
       onConfirm={handleDelete}
-      validationText={project.isDemo ? undefined : project.name}
+      validationText={
+        project.isDemo
+          ? undefined
+          : `Delete ${project.name} and data in all deployments, including Production`
+      }
     >
       <DeleteProjectModalContent team={team} />
     </DeleteProjectDialog>
@@ -93,7 +100,11 @@ function DeleteProjectModalContentWithProd({
     <DeleteProjectDialog
       onClose={onClose}
       onConfirm={handleDelete}
-      validationText={shouldDisable ? undefined : project.name}
+      validationText={
+        shouldDisable
+          ? undefined
+          : `Delete ${project.name} and data in all deployments, including Production`
+      }
       disableConfirm={shouldDisable}
     >
       <LoadingTransition

@@ -21,11 +21,13 @@ use common::{
         },
     },
     components::{
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
     db_schema,
     document::ResolvedDocument,
+    execution_context::ExecutionContext,
     ext::PeekableExt,
     object_validator,
     pause::PauseController,
@@ -72,9 +74,16 @@ use keybroker::{
     Identity,
 };
 use maplit::btreemap;
-use model::snapshot_imports::types::{
-    ImportRequestor,
-    ImportState,
+use model::{
+    file_storage::FILE_STORAGE_VIRTUAL_TABLE,
+    scheduled_jobs::{
+        VirtualSchedulerModel,
+        SCHEDULED_JOBS_VIRTUAL_TABLE,
+    },
+    snapshot_imports::types::{
+        ImportRequestor,
+        ImportState,
+    },
 };
 use must_let::must_let;
 use runtime::testing::TestRuntime;
@@ -94,6 +103,7 @@ use value::{
     assert_val,
     id_v6::DeveloperDocumentId,
     val,
+    ConvexArray,
     ConvexObject,
     FieldName,
     InternalId,
@@ -635,6 +645,71 @@ a
         ),
     )
     .await?;
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_referencing_virtual_table(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let table_name = "table1";
+    let identity = new_admin_id();
+
+    let scheduled_functions = SCHEDULED_JOBS_VIRTUAL_TABLE.clone();
+    let file_storage = FILE_STORAGE_VIRTUAL_TABLE.clone();
+
+    let storage_id: DeveloperDocumentId = "kg21pzwemsm55e1fnt2kcsvgjh6h6gtf".parse()?;
+    {
+        let mut tx = app.begin(identity.clone()).await?;
+        let job_id = VirtualSchedulerModel::new(&mut tx, TableNamespace::Global)
+            .schedule(
+                CanonicalizedComponentFunctionPath {
+                    component: ComponentPath::root(),
+                    udf_path: "foo:bar".parse()?,
+                },
+                ConvexArray::empty(),
+                rt.unix_timestamp(),
+                ExecutionContext::new_for_test(),
+            )
+            .await?;
+        UserFacingModel::new_root_for_test(&mut tx)
+            .insert(
+                table_name.parse()?,
+                assert_obj!(
+                    "job_id" => job_id,
+                    "storage_id" => storage_id,
+                ),
+            )
+            .await?;
+        app.commit_test(tx).await?;
+    }
+
+    let initial_schema = db_schema!(
+        table_name => DocumentSchema::Union(
+            vec![
+                object_validator!(
+                    "job_id" => FieldValidator::optional_field_type(Validator::Id(scheduled_functions)),
+                    "storage_id" => FieldValidator::optional_field_type(Validator::Id(file_storage)),
+                )
+            ]
+        )
+    );
+
+    activate_schema(&app, initial_schema).await?;
+    let export_object_key = app.export_and_wait().await?;
+
+    for mode in [ImportMode::Replace, ImportMode::ReplaceAll] {
+        let rows_written = do_import_from_object_key(
+            &app,
+            identity.clone(),
+            ImportFormat::Zip,
+            mode,
+            ComponentPath::root(),
+            export_object_key.clone(),
+        )
+        .await?;
+        tracing::info!("Imported in test for {mode}");
+        assert_eq!(rows_written, 1);
+    }
     Ok(())
 }
 

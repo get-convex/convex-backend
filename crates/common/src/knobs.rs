@@ -129,6 +129,10 @@ pub static DOCUMENT_DELTAS_LIMIT: LazyLock<usize> =
 pub static SNAPSHOT_LIST_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SNAPSHOT_LIST_LIMIT", 1024));
 
+/// Max duration we will spend calculating a single page.
+pub static SNAPSHOT_LIST_TIME_LIMIT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SNAPSHOT_LIST_TIME_LIMIT_SECONDS", 60)));
+
 /// The size of the log manager's event receive buffer.
 pub static LOG_MANAGER_EVENT_RECV_BUFFER_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("LOG_MANAGER_EVENT_RECV_BUFFER_SIZE", 4096));
@@ -525,7 +529,7 @@ pub static DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS: LazyLock<usize> =
 
 /// Chunk size for SQL queries deleting documents from Deleting tables.
 pub static DELETE_TABLET_CHUNK_SIZE: LazyLock<u16> =
-    LazyLock::new(|| env_config("DELETE_TABLET_CHUNK_SIZE", 128));
+    LazyLock::new(|| env_config("DELETE_TABLET_CHUNK_SIZE", 256));
 
 /// Size at which a search index will be queued for snapshotting.
 pub static SEARCH_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =
@@ -1333,7 +1337,7 @@ pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new
         "REQUEST_TRACE_SAMPLE_CONFIG",
         prod_override(
             SamplingConfig::default(),
-            r#"{"defaultFraction":0.00001,"routeOverrides":[{"routeRegexp":"/api/push_config","fraction":0.1}, {"routeRegexp":"conductor/load-instance","fraction":0.01}]}"#
+            r#"{"defaultFraction":0.00001,"routeOverrides":[{"routeRegexp":"/api/push_config","fraction":0.1}, {"routeRegexp":"conductor/load-instance","fraction":0.01}, {"routeRegexp":"usage_tracking_worker/send_usage","fraction":0.01}]}"#
                 .parse()
                 .unwrap(),
         ),
@@ -1385,11 +1389,6 @@ pub static MAX_IMPORT_AGE: LazyLock<Duration> =
 /// duration has not passed since the last refresh, a stale value will be used.
 pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("PARTITION_LOADER_MAX_STALE_SECS", 1)));
-
-/// Seconds to wait before timing out when trying to acquire the lock for
-/// claiming an instance in big-brain.
-pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("CLAIM_INSTANCE_TIMEOUT_SECS", 10)));
 
 /// The maximum number of bytes to buffer in an multipart upload.
 /// There may be stricter limits imposed by the storage provider, but this is
@@ -1468,6 +1467,12 @@ pub static LIST_SNAPSHOT_MAX_AGE_SECS: LazyLock<Duration> = LazyLock::new(|| {
 pub static SUBSCRIPTIONS_WORKER_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("SUBSCRIPTIONS_WORKER_QUEUE_SIZE", 10000));
 
+/// The number of SubscriptionManager instances to run per SubscriptionsWorker.
+/// Incoming subscription requests are randomly sharded across these managers
+/// to distribute load and avoid overloading a single manager.
+pub static NUM_SUBSCRIPTION_MANAGERS: LazyLock<usize> =
+    LazyLock::new(|| env_config("NUM_SUBSCRIPTION_MANAGERS", 1));
+
 /// Time to wait before scheduling update queries in the sync worker after a
 /// search query fails because indexes are bootstrapping.
 pub static SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY: LazyLock<Duration> =
@@ -1479,10 +1484,14 @@ pub static SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD: LazyLock<usize> =
     LazyLock::new(|| env_config("SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD", 200));
 
 /// How much to splay subscription invalidations. More precisely, this is the
-/// number used to multiply by the number of subscriptions that need to be
-/// invalidated to determine the delay before invalidating them.
-pub static SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER: LazyLock<u64> =
-    LazyLock::new(|| env_config("SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER", 5));
+/// average number of milliseconds to wait between notifying subscriptions
+/// invalidated by the same commit.
+pub static SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER: LazyLock<u64> = LazyLock::new(|| {
+    env_config(
+        "SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER",
+        5, /* ms */
+    )
+});
 
 /// When processing a single write log entry takes longer than that time, log
 /// extra detail.
@@ -1502,3 +1511,6 @@ pub static INDEX_BACKFILL_CONCURRENCY: LazyLock<usize> =
 /// getting auth metadata right now.
 pub static HTTP_CACHE_SIZE: LazyLock<u64> =
     LazyLock::new(|| env_config("HTTP_CACHE_SIZE", 16 * 1024 * 1024));
+
+/// Maximum number of environment variables that can be stored.
+pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR_LIMIT", 1000));

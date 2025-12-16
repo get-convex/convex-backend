@@ -3,6 +3,7 @@ import classNames from "classnames";
 import React, { forwardRef, useRef, useState, useLayoutEffect } from "react";
 import { Button } from "@ui/Button";
 import { cn } from "@ui/cn";
+import { Spinner } from "@ui/Spinner";
 
 type InputProps = {
   label?: string;
@@ -10,6 +11,8 @@ type InputProps = {
   outerClassname?: string;
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
   SearchIcon?: React.FC<{ className: string | undefined }>;
+  /** If true, replaces the search icon with a loading spinner */
+  isSearchLoading?: boolean;
   /** A non-interactive element appearing to the left of the input. */
   leftAddon?: React.ReactNode;
   /** A non-interactive element appearing to the right of the input. */
@@ -38,6 +41,7 @@ export const TextInput = forwardRef<
       Icon,
       iconTooltip,
       SearchIcon,
+      isSearchLoading = false,
       leftAddon,
       rightAddon,
       action = () => {},
@@ -86,10 +90,14 @@ export const TextInput = forwardRef<
         >
           {type === "search" && (
             <div className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center gap-1">
-              {SearchIcon ? (
-                <SearchIcon className="text-content-secondary" />
+              {isSearchLoading ? (
+                <div className="animate-fadeInFromLoading">
+                  <Spinner className="size-3" />
+                </div>
+              ) : SearchIcon ? (
+                <SearchIcon className="animate-fadeInFromLoading text-content-secondary" />
               ) : (
-                <MagnifyingGlassIcon className="text-content-secondary" />
+                <MagnifyingGlassIcon className="animate-fadeInFromLoading text-content-secondary" />
               )}
             </div>
           )}

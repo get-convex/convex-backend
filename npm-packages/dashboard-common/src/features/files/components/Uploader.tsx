@@ -36,7 +36,10 @@ const checkFileForHtmlContent = (file: File): Promise<boolean> =>
     reader.readAsText(chunk);
   });
 
-export function useUploadFiles() {
+export function useUploadFiles(options?: {
+  onFilesUploaded?: (count: number) => void;
+}) {
+  const onFilesUploaded = options?.onFilesUploaded;
   const {
     useCurrentDeployment,
     useHasProjectAdminPermissions,
@@ -117,6 +120,7 @@ export function useUploadFiles() {
             : `${successes.length} files`
         } uploaded.`,
       );
+      onFilesUploaded?.(successes.length);
     }
 
     const failures = results.filter((x) => x.status === "failure");

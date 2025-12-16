@@ -1,6 +1,7 @@
 import { DatabaseReader, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { CACHE_BREAKER_ARGS, MessagesTable } from "./common";
+import { v } from "convex/values";
 
 export const queryMessages = query({
   args: CACHE_BREAKER_ARGS,
@@ -33,20 +34,13 @@ export const queryMessagesWithSearch = query({
 });
 
 export const queryMessagesWithArgs = query({
-  handler: async (
-    { db },
-    {
-      channel,
-      rand,
-      limit,
-      table,
-    }: {
-      channel: string;
-      rand: number;
-      limit: number;
-      table: MessagesTable;
-    },
-  ) => {
+  args: {
+    channel: v.string(),
+    rand: v.number(),
+    limit: v.number(),
+    table: v.union(v.literal("messages"), v.literal("messages_with_search")),
+  },
+  handler: async ({ db }, { channel, rand, limit, table }) => {
     return await queryMessagesHelper(db, channel, rand, limit, table);
   },
 });
@@ -67,7 +61,12 @@ function queryMessagesHelper(
 }
 
 export const queryMessagesById = query({
-  handler: async ({ db }, { id }: { id: Id<MessagesTable> }) => {
-    return await db.get(id);
+  args: {
+    id: v.union(v.id("messages"), v.id("messages_with_search")),
+  },
+  handler: async ({ db }, { id }) => {
+    // TODO(nicolas)
+    // eslint-disable-next-line @convex-dev/explicit-table-ids
+    return await db.get(id satisfies Id<MessagesTable>);
   },
 });

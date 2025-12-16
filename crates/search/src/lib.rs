@@ -225,6 +225,9 @@ impl TryFrom<&Token> for FieldPosition {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TextIndexWriteSize(pub u64);
+
 #[derive(Clone)]
 pub struct TantivySearchIndexSchema {
     analyzer: TextAnalyzer,

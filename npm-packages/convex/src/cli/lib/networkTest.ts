@@ -6,7 +6,7 @@ import {
   logVerbose,
   logWarning,
 } from "../../bundler/log.js";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import * as net from "net";
 import * as dns from "dns";
 import * as crypto from "crypto";
@@ -70,7 +70,7 @@ async function checkDns(ctx: Context, url: string) {
       });
     });
     logMessage(
-      `${chalk.green(`✔`)} OK: DNS lookup => ${result.address}:${
+      `${chalkStderr.green(`✔`)} OK: DNS lookup => ${result.address}:${
         ipFamilyNames[result.family as keyof typeof ipFamilyNames]
       } (${formatDuration(result.duration)})`,
     );
@@ -125,7 +125,7 @@ async function checkTcpHostPort(
       socket.on("error", (e) => reject(e));
     });
     logMessage(
-      `${chalk.green(`✔`)} OK: ${tcpString} connect (${formatDuration(
+      `${chalkStderr.green(`✔`)} OK: ${tcpString} connect (${formatDuration(
         duration,
       )})`,
     );
@@ -195,7 +195,7 @@ async function checkHttpOnce(
   }
   const duration = performance.now() - start;
   logMessage(
-    `${chalk.green(`✔`)} OK: ${name} check (${formatDuration(duration)})`,
+    `${chalkStderr.green(`✔`)} OK: ${name} check (${formatDuration(duration)})`,
   );
 }
 
@@ -263,7 +263,9 @@ async function checkWs(
       printedMessage: "FAIL: Failed to connect to deployment over WebSocket.",
     });
   } else {
-    logMessage(`${chalk.green(`✔`)} OK: WebSocket connection established.`);
+    logMessage(
+      `${chalkStderr.green(`✔`)} OK: WebSocket connection established.`,
+    );
   }
 }
 
@@ -274,7 +276,9 @@ async function checkEcho(ctx: Context, url: string, size: number) {
       deploymentUrl: url,
       onError: (err) => {
         logFailure(
-          chalk.red(`FAIL: echo ${formatSize(size)} (${err}), retrying...`),
+          chalkStderr.red(
+            `FAIL: echo ${formatSize(size)} (${err}), retrying...`,
+          ),
         );
       },
     });
@@ -296,7 +300,7 @@ async function checkEcho(ctx: Context, url: string, size: number) {
     const duration = performance.now() - start;
     const bytesPerSecond = size / (duration / 1000);
     logMessage(
-      `${chalk.green(`✔`)} OK: echo ${formatSize(size)} (${formatDuration(
+      `${chalkStderr.green(`✔`)} OK: echo ${formatSize(size)} (${formatDuration(
         duration,
       )}, ${formatSize(bytesPerSecond)}/s)`,
     );

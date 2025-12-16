@@ -72,6 +72,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
 usage_tracking = { workspace = true }
+utoipa = { workspace = true }
 value = { workspace = true }
 
 [dev-dependencies]

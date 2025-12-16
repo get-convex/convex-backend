@@ -67,6 +67,7 @@ json_trait = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 mime = { workspace = true }
+native-tls = { workspace = true }
 openidconnect = { workspace = true }
 packed_value = { workspace = true }
 parking_lot = { workspace = true }

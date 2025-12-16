@@ -10,7 +10,7 @@ import {
   Type,
 } from "ts-morph";
 
-export const CONVEX_VERSION_RANGE = ">=1.99.0";
+export const CONVEX_VERSION_RANGE = ">=1.31.0";
 
 export async function explicitIds(
   ctx: Context,
@@ -80,6 +80,12 @@ function findDbCalls(
 
       const dbType = propertyAccess.getExpression().getType();
 
+      // Don't assume that `any` is a DatabaseReader/DatabaseWriter.
+      // This avoids false positives for methods like `str.replace` where `str` is `any`.
+      if (dbType.isAny()) {
+        return false;
+      }
+
       const isDbCall =
         (dbType.isAssignableTo(anyDatabaseReader) && methodName === "get") ||
         dbType.isAssignableTo(anyDatabaseWriter);
@@ -115,8 +121,22 @@ function updateDbCall(
     return;
   }
 
+  // Try to extract table name from Id<T> type arguments
   const typeArguments = idType.getAliasTypeArguments();
-  if (typeArguments.length !== 1) {
+  let tableName: Type | undefined;
+  if (typeArguments.length === 1) {
+    tableName = typeArguments[0];
+  } else {
+    // Try to extract from __tableName property (for ID-like types like string & { __tableName: "documents" })
+    // Use getApparentType() to handle intersection types properly
+    const apparentType = idType.getApparentType();
+    const tableNameProperty = apparentType.getProperty("__tableName");
+    if (tableNameProperty) {
+      tableName = tableNameProperty.getTypeAtLocation(idArg);
+    }
+  }
+
+  if (!tableName) {
     ctx.addWarning({
       title: "Can’t update call site",
       message: `Sorry, we can’t infer the table type of \`${idArg.getText()}\` (which is a \`${idType.getText()}\`).`,
@@ -125,7 +145,6 @@ function updateDbCall(
     return;
   }
 
-  const tableName = typeArguments[0];
   if (!tableName.isStringLiteral()) {
     ctx.addWarning({
       title: "Can’t update call site",

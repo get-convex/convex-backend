@@ -61,8 +61,12 @@ export default async function handler(
       const key = typeof path === "string" ? "vercelPath" : "projectId";
       const value = typeof path === "string" ? path : resource_id;
       returnTo = addQueryParam(returnTo, key, value as string);
+    } else if (
       // @ts-expect-error VercelOAuth is a real authentication method
-    } else if (authenticationMethod === "VercelOAuth") {
+      authenticationMethod === "VercelOAuth" ||
+      // @ts-expect-error VercelMarketplaceOAuth is a real authentication method
+      authenticationMethod === "VercelMarketplaceOAuth"
+    ) {
       returnTo = addQueryParam(returnTo, "vercelLogin", "true");
     }
 

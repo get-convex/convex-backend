@@ -2,7 +2,7 @@ import { Context } from "../../../bundler/context.js";
 import { logMessage } from "../../../bundler/log.js";
 import { detect } from "detect-port";
 import crypto from "crypto";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 
 export async function choosePorts(
   ctx: Context,
@@ -46,15 +46,15 @@ export async function isOffline(): Promise<boolean> {
 
 export function printLocalDeploymentWelcomeMessage() {
   logMessage(
-    chalk.cyan("You're trying out the beta local deployment feature!"),
+    chalkStderr.cyan("You're trying out the beta local deployment feature!"),
   );
   logMessage(
-    chalk.cyan(
+    chalkStderr.cyan(
       "To learn more, read the docs: https://docs.convex.dev/cli/local-deployments",
     ),
   );
   logMessage(
-    chalk.cyan(
+    chalkStderr.cyan(
       "To opt out at any time, run `npx convex disable-local-deployments`",
     ),
   );

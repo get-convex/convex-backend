@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Context } from "../../bundler/context.js";
 import { logFinishedStep, logMessage } from "../../bundler/log.js";
 import { DeploymentType } from "./api.js";
@@ -29,7 +29,7 @@ export async function finalizeConfiguration(
     );
   }
   if (options.wroteToGitIgnore) {
-    logMessage(chalk.gray(`  Added ".env.local" to .gitignore`));
+    logMessage(chalkStderr.gray(`  Added ".env.local" to .gitignore`));
   }
   if (options.deploymentType === "anonymous") {
     logMessage(
@@ -47,7 +47,7 @@ export async function finalizeConfiguration(
       deploymentType: options.deploymentType,
     });
     logMessage(
-      `\nWrite your Convex functions in ${chalk.bold(options.functionsPath)}\n` +
+      `\nWrite your Convex functions in ${chalkStderr.bold(options.functionsPath)}\n` +
         "Give us feedback at https://convex.dev/community or support@convex.dev\n" +
         `View the Convex dashboard at ${dashboardUrl}\n`,
     );

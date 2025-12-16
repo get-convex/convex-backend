@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import util from "util";
 import ws from "ws";
 import { ConvexHttpClient } from "../../browser/http_client.js";
@@ -97,7 +97,7 @@ export async function runFunctionAndLog(
               ? identifier
               : identifier.substring(separatorPos + 1);
 
-          return `• ${chalk.gray(`${path}:`)}${name}`;
+          return `• ${chalkStderr.gray(`${path}:`)}${name}`;
         });
 
       const availableFunctionsMessage =
@@ -108,14 +108,14 @@ export async function runFunctionAndLog(
       return await ctx.crash({
         exitCode: 1,
         errorType: "invalid filesystem data",
-        printedMessage: `Failed to run function "${args.functionName}":\n${chalk.red(errorMessage)}\n\n${availableFunctionsMessage}`,
+        printedMessage: `Failed to run function "${args.functionName}":\n${chalkStderr.red(errorMessage)}\n\n${availableFunctionsMessage}`,
       });
     }
 
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem or env vars",
-      printedMessage: `Failed to run function "${args.functionName}":\n${chalk.red(errorMessage)}`,
+      printedMessage: `Failed to run function "${args.functionName}":\n${chalkStderr.red(errorMessage)}`,
     });
   }
 
@@ -135,7 +135,7 @@ async function getFakeIdentity(ctx: Context, identityString: string) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `Failed to parse identity as JSON: "${identityString}"\n${chalk.red((err as Error).toString().trim())}`,
+      printedMessage: `Failed to parse identity as JSON: "${identityString}"\n${chalkStderr.red((err as Error).toString().trim())}`,
     });
   }
   const subject = identity.subject ?? "" + simpleHash(JSON.stringify(identity));
@@ -158,7 +158,7 @@ export async function parseArgs(ctx: Context, argsString: string) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem or env vars",
-      printedMessage: `Failed to parse arguments as JSON: "${argsString}"\n${chalk.red((err as Error).toString().trim())}`,
+      printedMessage: `Failed to parse arguments as JSON: "${argsString}"\n${chalkStderr.red((err as Error).toString().trim())}`,
     });
   }
 }

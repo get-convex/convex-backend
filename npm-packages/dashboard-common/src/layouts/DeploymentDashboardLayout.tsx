@@ -32,12 +32,16 @@ type LayoutProps = {
   children: JSX.Element;
   auditLogsEnabled?: boolean;
   visiblePages?: string[];
+  onRanCustomQuery?: () => void;
+  onCopiedQueryResult?: () => void;
 };
 
 export function DeploymentDashboardLayout({
   children,
   auditLogsEnabled = true,
   visiblePages,
+  onRanCustomQuery,
+  onCopiedQueryResult,
 }: LayoutProps) {
   const [collapsed, setCollapsed] = useCollapseSidebarState();
   const [isGlobalRunnerVertical, setIsGlobalRunnerVertical] =
@@ -177,6 +181,8 @@ export function DeploymentDashboardLayout({
               isVertical={!!isGlobalRunnerVertical}
               isExpanded={isRunnerExpanded}
               setIsExpanded={setIsRunnerExpanded}
+              onRanCustomQuery={onRanCustomQuery}
+              onCopiedQueryResult={onCopiedQueryResult}
             />
           </div>
         </div>

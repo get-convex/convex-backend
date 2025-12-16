@@ -137,10 +137,7 @@ export function BackupDeploymentSelector({
                 {selectedDeployment.id === targetDeployment.id ? (
                   "Current Deployment"
                 ) : (
-                  <FullDeploymentName
-                    deployment={selectedDeployment}
-                    team={team}
-                  />
+                  <FullDeploymentName deployment={selectedDeployment} />
                 )}
                 <span className="pointer-events-none flex items-center">
                   <CaretSortIcon
@@ -302,7 +299,6 @@ export function BackupDeploymentSelector({
                                           <span className="w-full truncate">
                                             <FullDeploymentName
                                               deployment={deployment}
-                                              team={team}
                                               showProjectName={false}
                                             />
                                           </span>

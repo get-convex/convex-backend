@@ -10,6 +10,7 @@ use std::{
     sync::{
         atomic::{
             AtomicI64,
+            AtomicUsize,
             Ordering,
         },
         Arc,
@@ -18,6 +19,7 @@ use std::{
 };
 
 use ::metrics::Timer;
+use anyhow::Context;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     document_index_keys::{
@@ -26,6 +28,7 @@ use common::{
     },
     errors::report_error,
     knobs::{
+        NUM_SUBSCRIPTION_MANAGERS,
         SUBSCRIPTIONS_WORKER_QUEUE_SIZE,
         SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD,
         SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
@@ -88,9 +91,10 @@ struct SubscriptionKey {
 
 #[derive(Clone)]
 pub struct SubscriptionsClient {
-    handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    handles: Arc<Mutex<Vec<Box<dyn SpawnHandle>>>>,
     log: LogReader,
-    sender: mpsc::Sender<SubscriptionRequest>,
+    senders: Vec<mpsc::Sender<SubscriptionRequest>>,
+    next_manager: Arc<AtomicUsize>,
 }
 
 impl SubscriptionsClient {
@@ -103,7 +107,10 @@ impl SubscriptionsClient {
         let request = SubscriptionRequest::Subscribe { token, sender };
         // Increment the counter first to avoid underflow
         metrics::log_subscription_queue_length_delta(1);
-        if let Err(e) = self.sender.try_send(request) {
+
+        // Round-robin selection of manager to handle this subscription
+        let manager_idx = self.next_manager.fetch_add(1, Ordering::Relaxed) % self.senders.len();
+        if let Err(e) = self.senders[manager_idx].try_send(request) {
             metrics::log_subscription_queue_length_delta(-1);
             return Err(match e {
                 TrySendError::Full(..) => metrics::subscriptions_worker_full_error().into(),
@@ -114,7 +121,9 @@ impl SubscriptionsClient {
     }
 
     pub fn shutdown(&self) {
-        self.handle.lock().shutdown();
+        for handle in self.handles.lock().iter_mut() {
+            handle.shutdown();
+        }
     }
 }
 
@@ -160,22 +169,77 @@ enum SubscriptionRequest {
     },
 }
 
+/// Tracks the minimum processed_ts across all SubscriptionManagers to
+/// ensure the write log is only trimmed up to the point where all managers have
+/// finished processing.
+#[derive(Clone)]
+struct RetentionCoordinator {
+    /// Stores the processed_ts for each manager, indexed by manager id.
+    processed_timestamps: Arc<Mutex<Vec<Timestamp>>>,
+    log: Arc<Mutex<LogOwner>>,
+}
+
+impl RetentionCoordinator {
+    fn new(num_managers: usize, initial_ts: Timestamp, log: LogOwner) -> Self {
+        Self {
+            processed_timestamps: Arc::new(Mutex::new(vec![initial_ts; num_managers])),
+            log: Arc::new(Mutex::new(log)),
+        }
+    }
+
+    fn update_and_enforce_retention(
+        &self,
+        manager_id: usize,
+        processed_ts: Timestamp,
+    ) -> anyhow::Result<()> {
+        let min_ts = {
+            let mut timestamps = self.processed_timestamps.lock();
+            timestamps[manager_id] = processed_ts;
+            *timestamps.iter().min().context("at least one manager")?
+        };
+
+        // We only need to enforce retention when the passed in processed_ts is the
+        // minimum across all managers
+        if min_ts == processed_ts {
+            self.log.lock().enforce_retention_policy(min_ts);
+        }
+        Ok(())
+    }
+}
+
 pub enum SubscriptionsWorker {}
 
 impl SubscriptionsWorker {
     pub(crate) fn start<RT: Runtime>(log: LogOwner, runtime: RT) -> SubscriptionsClient {
-        let (tx, rx) = mpsc::channel(*SUBSCRIPTIONS_WORKER_QUEUE_SIZE);
-        let rx = CountingReceiver(rx);
-
+        let num_managers = *NUM_SUBSCRIPTION_MANAGERS;
         let log_reader = log.reader();
-        let mut manager = SubscriptionManager::new(log);
-        let handle = runtime.spawn("subscription_worker", async move {
-            manager.run_worker(rx).await
-        });
+        let initial_ts = log_reader.max_ts();
+
+        let retention_coordinator = RetentionCoordinator::new(num_managers, initial_ts, log);
+
+        let mut handles = Vec::with_capacity(num_managers);
+        let mut senders = Vec::with_capacity(num_managers);
+
+        for manager_id in 0..num_managers {
+            let (tx, rx) = mpsc::channel(*SUBSCRIPTIONS_WORKER_QUEUE_SIZE);
+            let rx = CountingReceiver(rx);
+
+            let manager_log = log_reader.clone();
+            let coordinator = retention_coordinator.clone();
+            let mut manager =
+                SubscriptionManager::new(manager_id, manager_log, coordinator, initial_ts);
+            let handle = runtime.spawn("subscription_worker", async move {
+                manager.run_worker(rx).await
+            });
+            handles.push(handle);
+            senders.push(tx);
+        }
+
         SubscriptionsClient {
-            handle: Arc::new(Mutex::new(handle)),
+            handles: Arc::new(Mutex::new(handles)),
             log: log_reader,
-            sender: tx,
+            senders,
+            next_manager: Arc::new(AtomicUsize::new(0)),
         }
     }
 }
@@ -233,13 +297,18 @@ impl SubscriptionManager {
 /// Tracks all subscribers to queries and the read-set they're watching for
 /// updates on.
 pub struct SubscriptionManager {
+    /// Unique identifier for this manager (used for retention coordination)
+    manager_id: usize,
+
     subscribers: Slab<Subscriber>,
     subscriptions: SubscriptionMap,
     next_seq: Sequence,
 
     closed_subscriptions: FuturesUnordered<BoxFuture<'static, SubscriptionKey>>,
 
-    log: LogOwner,
+    log: LogReader,
+
+    retention_coordinator: RetentionCoordinator,
 
     // The timestamp until which the worker has processed the log, which may be lagging behind
     // `conflict_checker.max_ts()`.
@@ -261,19 +330,27 @@ impl SubscriptionManager {
     pub fn new_for_testing() -> Self {
         use crate::write_log::new_write_log;
 
-        let (log_owner, ..) = new_write_log(Timestamp::MIN);
-        Self::new(log_owner)
+        let (log_owner, log_reader, _) = new_write_log(Timestamp::MIN);
+        let initial_ts = log_reader.max_ts();
+        let retention_coordinator = RetentionCoordinator::new(1, initial_ts, log_owner);
+        Self::new(0, log_reader, retention_coordinator, initial_ts)
     }
 
-    fn new(log: LogOwner) -> Self {
-        let processed_ts = log.max_ts();
+    fn new(
+        manager_id: usize,
+        log: LogReader,
+        retention_coordinator: RetentionCoordinator,
+        initial_ts: Timestamp,
+    ) -> Self {
         Self {
+            manager_id,
             subscribers: Slab::new(),
             subscriptions: SubscriptionMap::new(),
             next_seq: 0,
             closed_subscriptions: FuturesUnordered::new(),
             log,
-            processed_ts,
+            retention_coordinator,
+            processed_ts: initial_ts,
         }
     }
 
@@ -428,21 +505,24 @@ impl SubscriptionManager {
                 let num_subscriptions_invalidated = to_notify.len();
                 let should_splay_invalidations =
                     num_subscriptions_invalidated > *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD;
+                // N.B.: additionally multiply the delay by the number of
+                // subscription workers, because the same widely-invalidating
+                // commit most likely affects all of the workers equally.
+                let splay_amt_millis = num_subscriptions_invalidated as u64
+                    * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER
+                    * *NUM_SUBSCRIPTION_MANAGERS as u64;
                 if should_splay_invalidations {
                     tracing::info!(
                         "Splaying subscription invalidations since there are {} subscriptions to \
-                         invalidate. The threshold is {}",
+                         invalidate. The threshold is {}. Splaying up to {} ms",
                         num_subscriptions_invalidated,
-                        *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD
+                        *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD,
+                        splay_amt_millis,
                     );
                 }
                 for (subscriber_id, invalid_ts) in to_notify {
-                    let delay = should_splay_invalidations.then(|| {
-                        Duration::from_millis(rand::random_range(
-                            0..=num_subscriptions_invalidated as u64
-                                * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
-                        ))
-                    });
+                    let delay = should_splay_invalidations
+                        .then(|| Duration::from_millis(rand::random_range(0..=splay_amt_millis)));
                     self._remove(subscriber_id, delay, Some(invalid_ts));
                 }
                 log_subscriptions_invalidated(num_subscriptions_invalidated);
@@ -452,9 +532,12 @@ impl SubscriptionManager {
             }
 
             // Enforce retention after we have processed the subscriptions.
+            // Use the coordinator to ensure we only trim up to the minimum
+            // processed_ts across all managers.
             {
                 let _timer = metrics::subscriptions_log_enforce_retention_timer();
-                self.log.enforce_retention_policy(next_ts);
+                self.retention_coordinator
+                    .update_and_enforce_retention(self.manager_id, next_ts)?;
             }
 
             Ok(())
@@ -741,8 +824,10 @@ mod tests {
     use crate::{
         subscription::{
             CountingReceiver,
+            RetentionCoordinator,
             SubscriptionManager,
         },
+        write_log::new_write_log,
         ReadSet,
         Token,
     };
@@ -1183,5 +1268,85 @@ mod tests {
         subscription_manager.run_worker(disconnected_rx()).await;
         assert!(subscription_manager.subscribers.get(id).is_none());
         assert!(subscription_manager.subscribers.is_empty());
+    }
+
+    #[test]
+    fn test_retention_coordinator_tracks_minimum_timestamp() {
+        let (log_owner, ..) = new_write_log(Timestamp::MIN);
+        let initial_ts = Timestamp::must(100);
+        let coordinator = RetentionCoordinator::new(3, initial_ts, log_owner);
+
+        // Initially all managers are at the same timestamp
+        {
+            let timestamps = coordinator.processed_timestamps.lock();
+            assert_eq!(timestamps.len(), 3);
+            assert!(timestamps.iter().all(|&ts| ts == initial_ts));
+        }
+
+        // Manager 0 advances to 200
+        coordinator
+            .update_and_enforce_retention(0, Timestamp::must(200))
+            .unwrap();
+        {
+            let timestamps = coordinator.processed_timestamps.lock();
+            assert_eq!(timestamps[0], Timestamp::must(200));
+            assert_eq!(timestamps[1], initial_ts);
+            assert_eq!(timestamps[2], initial_ts);
+        }
+
+        // Manager 2 advances to 300 - min should still be 100 (manager 1)
+        coordinator
+            .update_and_enforce_retention(2, Timestamp::must(300))
+            .unwrap();
+        {
+            let timestamps = coordinator.processed_timestamps.lock();
+            assert_eq!(timestamps[0], Timestamp::must(200));
+            assert_eq!(timestamps[1], initial_ts);
+            assert_eq!(timestamps[2], Timestamp::must(300));
+            // Min is still 100
+            assert_eq!(*timestamps.iter().min().unwrap(), initial_ts);
+        }
+
+        // Manager 1 catches up to 250 - now min should be 200
+        coordinator
+            .update_and_enforce_retention(1, Timestamp::must(250))
+            .unwrap();
+        {
+            let timestamps = coordinator.processed_timestamps.lock();
+            assert_eq!(*timestamps.iter().min().unwrap(), Timestamp::must(200));
+        }
+    }
+
+    #[test]
+    fn test_multiple_managers_share_retention_coordinator() {
+        let (log_owner, log_reader, _) = new_write_log(Timestamp::MIN);
+        let initial_ts = log_reader.max_ts();
+        let num_managers = 3;
+
+        let coordinator = RetentionCoordinator::new(num_managers, initial_ts, log_owner);
+
+        let mut managers: Vec<_> = (0..num_managers)
+            .map(|id| {
+                SubscriptionManager::new(id, log_reader.clone(), coordinator.clone(), initial_ts)
+            })
+            .collect();
+
+        // Verify all managers start at the same processed_ts
+        for manager in &managers {
+            assert_eq!(manager.processed_ts, initial_ts);
+        }
+
+        // Verify the coordinator tracks all managers
+        {
+            let timestamps = coordinator.processed_timestamps.lock();
+            assert_eq!(timestamps.len(), num_managers);
+        }
+
+        // Each manager can subscribe independently
+        for manager in &mut managers {
+            let (_subscription, _id) = manager
+                .subscribe_for_testing(Token::empty(initial_ts))
+                .unwrap();
+        }
     }
 }

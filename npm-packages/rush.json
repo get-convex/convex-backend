@@ -347,6 +347,10 @@
       "projectFolder": "private-demos/typescript-modern"
     },
     {
+      "packageName": "tsgo-test",
+      "projectFolder": "private-demos/tsgo-test"
+    },
+    {
       "packageName": "middleware",
       "projectFolder": "private-demos/middleware"
     },
@@ -389,6 +393,10 @@
     {
       "packageName": "components-ts-alias",
       "projectFolder": "private-demos/components-ts-alias"
+    },
+    {
+      "packageName": "uses-ents",
+      "projectFolder": "private-demos/uses-ents"
     },
     {
       "packageName": "@convex-dev/ratelimiter",

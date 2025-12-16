@@ -1,9 +1,11 @@
 #![feature(try_blocks)]
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    hint::black_box,
+};
 
 use criterion::{
-    black_box,
     criterion_group,
     criterion_main,
     AxisScale,

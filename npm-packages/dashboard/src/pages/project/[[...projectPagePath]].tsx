@@ -14,15 +14,18 @@ export default withAuthenticatedPage(function RedirectToProjectPage() {
 
   const [lastViewedProjectSlug] = useLastViewedProject();
   const lastCreatedProject = useLastCreatedProject();
-  const project = lastViewedProjectSlug ?? lastCreatedProject?.slug;
 
   useEffect(() => {
+    if (!lastViewedProjectSlug && lastCreatedProject === undefined) {
+      return;
+    }
+    const project = lastViewedProjectSlug ?? lastCreatedProject?.slug;
     void router.replace(
       project === undefined
         ? "/"
         : { pathname: `/p/${project}/${path}`, query },
     );
-  });
+  }, [lastCreatedProject, lastViewedProjectSlug, path, query, router]);
 
   return null;
 });

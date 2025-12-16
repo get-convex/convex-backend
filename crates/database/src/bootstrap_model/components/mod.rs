@@ -32,10 +32,6 @@ use common::{
         ParseDocument,
         ParsedDocument,
     },
-    query::{
-        Order,
-        Query,
-    },
     runtime::Runtime,
 };
 use errors::ErrorMetadata;
@@ -56,7 +52,6 @@ use crate::{
         SystemTable,
     },
     ComponentDefinitionsTable,
-    ResolvedQuery,
     Transaction,
     COMPONENT_DEFINITIONS_TABLE,
 };
@@ -135,17 +130,14 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
     #[fastrace::trace]
     pub async fn load_all_components(
         &mut self,
-    ) -> anyhow::Result<Vec<ParsedDocument<ComponentMetadata>>> {
-        let mut query = ResolvedQuery::new(
-            self.tx,
-            TableNamespace::Global,
-            Query::full_table_scan(COMPONENTS_TABLE.clone(), Order::Asc),
-        )?;
-        let mut components = Vec::new();
-        while let Some(doc) = query.next(self.tx, None).await? {
-            components.push(doc.parse()?);
-        }
-        Ok(components)
+    ) -> anyhow::Result<Vec<Arc<ParsedDocument<ComponentMetadata>>>> {
+        self.tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<ComponentsTable>::by_creation_time(),
+            )?
+            .all()
+            .await
     }
 
     pub fn resolve_component_id(
@@ -332,19 +324,21 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
     pub async fn load_all_definitions(
         &mut self,
     ) -> anyhow::Result<
-        BTreeMap<ComponentDefinitionPath, ParsedDocument<ComponentDefinitionMetadata>>,
+        BTreeMap<ComponentDefinitionPath, Arc<ParsedDocument<ComponentDefinitionMetadata>>>,
     > {
-        let mut query = ResolvedQuery::new(
-            self.tx,
-            TableNamespace::Global,
-            Query::full_table_scan(COMPONENT_DEFINITIONS_TABLE.clone(), Order::Asc),
-        )?;
         let mut definitions = BTreeMap::new();
-        while let Some(doc) = query.next(self.tx, None).await? {
-            let mut definition: ParsedDocument<ComponentDefinitionMetadata> = doc.parse()?;
+        for mut definition in self
+            .tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<ComponentDefinitionsTable>::by_creation_time(),
+            )?
+            .all()
+            .await?
+        {
             if !definition.exports.is_empty() {
                 metrics::log_nonempty_component_exports();
-                definition.exports = BTreeMap::new();
+                Arc::make_mut(&mut definition).exports = BTreeMap::new();
             }
             anyhow::ensure!(definitions
                 .insert(definition.path.clone(), definition)

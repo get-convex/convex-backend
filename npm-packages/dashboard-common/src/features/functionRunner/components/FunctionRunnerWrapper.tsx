@@ -22,11 +22,15 @@ export function FunctionRunnerWrapper({
   setIsVertical,
   isExpanded,
   setIsExpanded,
+  onRanCustomQuery,
+  onCopiedQueryResult,
 }: {
   isVertical: boolean;
   setIsVertical: (isVertical: boolean) => void;
   isExpanded: boolean;
   setIsExpanded: (isExpanded: boolean) => void;
+  onRanCustomQuery?: () => void;
+  onCopiedQueryResult?: () => void;
 }) {
   const deploymentState = useQuery(udfs.deploymentState.deploymentState);
   const router = useRouter();
@@ -99,6 +103,8 @@ export function FunctionRunnerWrapper({
         setIsVertical={setIsGlobalRunnerVerticalAndLog}
         isExpanded={isExpanded}
         setIsExpanded={setIsExpanded}
+        onRanCustomQuery={onRanCustomQuery}
+        onCopiedQueryResult={onCopiedQueryResult}
       />
       {!isGlobalRunnerShown && deploymentState?.state !== "paused" && (
         <Button
