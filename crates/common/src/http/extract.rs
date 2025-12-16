@@ -181,6 +181,7 @@ impl<T> IntoResponse for Json<T>
 where
     T: Serialize,
 {
+    #[fastrace::trace]
     fn into_response(self) -> Response {
         axum::Json(self.0).into_response()
     }
