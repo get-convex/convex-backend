@@ -224,7 +224,7 @@ Since Convex automatically includes `_creationTime` as the last column in all
 indexes, `_creationTime` will always be the final tie breaker if all other
 columns in the index are equal.
 
-For example, `by_channel_user` includes `channel`, `user`, and `\_creationTime`.
+For example, `by_channel_user` includes `channel`, `user`, and `_creationTime`.
 So queries on `messages` that use `.withIndex("by_channel_user")` will be sorted
 first by channel, then by user within each channel, and finally by the creation
 time.
