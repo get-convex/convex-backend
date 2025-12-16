@@ -137,3 +137,16 @@ but it does have some tradeoffs:
 
 This feature is currently in beta, and we'd love to improve these limitations.
 Let us know if you run into any issues or have any feedback!
+
+### Configuring the TypeScript compiler
+
+By default, Convex will use the `tsc` binary installed in your project for
+typechecking. If you would like to use the TypeScript 7 native preview instead,
+you can set the `typescriptCompiler` option to `tsgo`:
+
+```json title="convex.json"
+{
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "typescriptCompiler": "tsgo"
+}
+```
