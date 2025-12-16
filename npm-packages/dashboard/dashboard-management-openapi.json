@@ -3843,8 +3843,7 @@
           "teamId",
           "deploymentName",
           "prodUrl",
-          "projectsRemaining",
-          "deploymentsRemaining"
+          "projectsRemaining"
         ],
         "properties": {
           "adminKey": {
@@ -3861,7 +3860,10 @@
             "type": "string"
           },
           "deploymentsRemaining": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
             "minimum": 0
           },

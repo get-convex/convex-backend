@@ -1947,7 +1947,7 @@ export interface components {
             adminKey?: null | components["schemas"]["AdminKey"];
             deploymentName: string;
             /** Format: int64 */
-            deploymentsRemaining: number;
+            deploymentsRemaining?: number | null;
             prodUrl: string;
             projectId: components["schemas"]["ProjectId"];
             projectSlug: components["schemas"]["ProjectSlug"];
