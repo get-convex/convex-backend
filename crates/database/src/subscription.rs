@@ -505,8 +505,12 @@ impl SubscriptionManager {
                 let num_subscriptions_invalidated = to_notify.len();
                 let should_splay_invalidations =
                     num_subscriptions_invalidated > *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD;
+                // N.B.: additionally multiply the delay by the number of
+                // subscription workers, because the same widely-invalidating
+                // commit most likely affects all of the workers equally.
                 let splay_amt_millis = num_subscriptions_invalidated as u64
-                    * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER;
+                    * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER
+                    * *NUM_SUBSCRIPTION_MANAGERS as u64;
                 if should_splay_invalidations {
                     tracing::info!(
                         "Splaying subscription invalidations since there are {} subscriptions to \

@@ -1484,10 +1484,14 @@ pub static SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD: LazyLock<usize> =
     LazyLock::new(|| env_config("SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD", 200));
 
 /// How much to splay subscription invalidations. More precisely, this is the
-/// number used to multiply by the number of subscriptions that need to be
-/// invalidated to determine the delay before invalidating them.
-pub static SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER: LazyLock<u64> =
-    LazyLock::new(|| env_config("SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER", 5));
+/// average number of milliseconds to wait between notifying subscriptions
+/// invalidated by the same commit.
+pub static SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER: LazyLock<u64> = LazyLock::new(|| {
+    env_config(
+        "SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER",
+        5, /* ms */
+    )
+});
 
 /// When processing a single write log entry takes longer than that time, log
 /// extra detail.
