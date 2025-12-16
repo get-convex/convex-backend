@@ -21,7 +21,6 @@ const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
 export function UsageStackedBarChart({
   rows,
-  entity,
   categories,
   categoryRenames = {},
   quantityType = "unit",
@@ -30,7 +29,6 @@ export function UsageStackedBarChart({
   setSelectedDate,
 }: {
   rows: DailyPerTagMetrics[];
-  entity: string;
   categories: {
     [tag: string]: {
       name: string;
@@ -114,7 +112,7 @@ export function UsageStackedBarChart({
   }, [selectedDate, chartData, categories]);
 
   if (!rows.some(({ metrics }) => metrics.some(({ value }) => value > 0))) {
-    return <UsageNoDataError entity={entity} />;
+    return <UsageNoDataError />;
   }
 
   return (
@@ -250,7 +248,7 @@ export function UsageBarChart({
   }, [rows]);
 
   if (!rows.some(({ value }) => value > 0)) {
-    return <UsageNoDataError entity={entity} />;
+    return <UsageNoDataError />;
   }
 
   return (

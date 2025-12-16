@@ -24,13 +24,13 @@ export function useCurrentProject() {
 }
 
 export function useProjectById(projectId: number | undefined) {
-  const { data } = useBBQuery({
+  const { data, isLoading, error } = useBBQuery({
     path: "/projects/{project_id}",
     pathParams: {
       project_id: projectId?.toString() || "",
     },
   });
-  return data;
+  return { project: data, isLoading, error };
 }
 
 export function useProjectBySlug(

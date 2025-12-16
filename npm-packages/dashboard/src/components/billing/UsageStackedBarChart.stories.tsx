@@ -23,7 +23,6 @@ function UsageStackedBarChartWrapper(
 const meta = {
   component: UsageStackedBarChartWrapper,
   args: {
-    entity: "animals",
     categories: {
       cats: {
         name: "Cats",

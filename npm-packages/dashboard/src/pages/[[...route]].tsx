@@ -71,7 +71,7 @@ function Main() {
 }
 
 function RedirectToProjectById({ id }: { id: string }) {
-  const project = useProjectById(parseInt(id));
+  const { project } = useProjectById(parseInt(id));
   const { teams } = useTeams();
   const projectTeam = teams?.find((team) => team.id === project?.teamId);
   const router = useRouter();

@@ -17,6 +17,7 @@ import { Donut } from "@ui/Donut";
 export function PlanSummary({
   chefTokenUsage,
   teamSummary,
+  deploymentCount,
   entitlements,
   hasSubscription,
   showEntitlements,
@@ -25,6 +26,7 @@ export function PlanSummary({
 }: {
   chefTokenUsage?: GetTokenInfoResponse;
   teamSummary?: UsageSummary;
+  deploymentCount?: number;
   entitlements?: TeamEntitlementsResponse;
   hasSubscription: boolean;
   showEntitlements: boolean;
@@ -35,6 +37,7 @@ export function PlanSummary({
     <PlanSummaryForTeam
       chefTokenUsage={chefTokenUsage}
       teamSummary={teamSummary}
+      deploymentCount={deploymentCount}
       entitlements={entitlements}
       hasSubscription={hasSubscription}
       showEntitlements={showEntitlements}
@@ -54,7 +57,8 @@ const sections: {
     | "fileBandwidth"
     | "vectorStorage"
     | "vectorBandwidth"
-    | "chefTokens";
+    | "chefTokens"
+    | "deploymentCount";
   entitlement:
     | "teamMaxDatabaseStorage"
     | "teamMaxDatabaseBandwidth"
@@ -64,11 +68,13 @@ const sections: {
     | "teamMaxFileBandwidth"
     | "teamMaxVectorStorage"
     | "teamMaxVectorBandwidth"
-    | "maxChefTokens";
+    | "maxChefTokens"
+    | "maxDeployments";
   format: (value: number) => string;
   detail: string;
   title: string;
   suffix?: string;
+  noOnDemand?: boolean;
 }[] = [
   {
     metric: "functionCalls",
@@ -130,6 +136,14 @@ const sections: {
     title: "Vector Bandwidth",
   },
   {
+    metric: "deploymentCount",
+    entitlement: "maxDeployments",
+    format: formatNumberCompact,
+    detail: "The current number of deployments across all projects",
+    title: "Deployments",
+    noOnDemand: true,
+  },
+  {
     metric: "chefTokens",
     entitlement: "maxChefTokens",
     format: (n: number) => `${formatNumberCompact(n)} Tokens`,
@@ -141,6 +155,7 @@ const sections: {
 export type PlanSummaryForTeamProps = {
   chefTokenUsage?: GetTokenInfoResponse;
   teamSummary?: UsageSummary;
+  deploymentCount?: number;
   entitlements?: TeamEntitlementsResponse;
   showEntitlements: boolean;
   hasSubscription: boolean;
@@ -151,6 +166,7 @@ export type PlanSummaryForTeamProps = {
 export function PlanSummaryForTeam({
   chefTokenUsage,
   teamSummary,
+  deploymentCount,
   entitlements,
   hasSubscription,
   showEntitlements,
@@ -214,9 +230,11 @@ export function PlanSummaryForTeam({
                   ? chefTokenUsage
                     ? chefTokenUsage.centitokensUsed / 100
                     : undefined
-                  : teamSummary
-                    ? teamSummary[section.metric]
-                    : undefined
+                  : section.metric === "deploymentCount"
+                    ? deploymentCount
+                    : teamSummary
+                      ? teamSummary[section.metric]
+                      : undefined
               }
               entitlement={
                 section.metric === "chefTokens"
@@ -237,6 +255,7 @@ export function PlanSummaryForTeam({
               title={section.title}
               suffix={section.suffix}
               showEntitlements={showEntitlements}
+              noOnDemand={section.noOnDemand}
             />
           ))
         )}
@@ -293,6 +312,7 @@ function UsageAmount({
   title,
   suffix = "",
   showEntitlements,
+  noOnDemand = false,
 }: {
   metric?: number;
   entitlement?: number;
@@ -302,6 +322,7 @@ function UsageAmount({
   title?: string;
   suffix?: string;
   showEntitlements: boolean;
+  noOnDemand?: boolean;
 }) {
   return (
     <>
@@ -324,12 +345,16 @@ function UsageAmount({
       ) : (
         <Value
           limit={
-            showEntitlements
+            showEntitlements && !(noOnDemand && metric > entitlement)
               ? format(entitlement) + (suffix ? ` ${suffix}` : "")
               : null
           }
         >
-          {format(hasSubscription ? Math.min(metric, entitlement) : metric)}
+          {format(
+            hasSubscription && !noOnDemand
+              ? Math.min(metric, entitlement)
+              : metric,
+          )}
           {!showEntitlements && suffix ? ` ${suffix}` : ""}
         </Value>
       )}
@@ -338,7 +363,8 @@ function UsageAmount({
           <Loading />
         ) : (
           <Value>
-            {metric > entitlement &&
+            {!noOnDemand &&
+              metric > entitlement &&
               `+${format(metric - entitlement)}${suffix ? ` ${suffix}` : ""}`}
           </Value>
         ))}
@@ -356,6 +382,7 @@ function UsageSection({
   suffix = "",
   showEntitlements,
   isNotSubjectToFilter,
+  noOnDemand = false,
 }: {
   metric?: number;
   metricName: string;
@@ -367,6 +394,7 @@ function UsageSection({
   suffix?: string;
   showEntitlements: boolean;
   isNotSubjectToFilter: boolean;
+  noOnDemand?: boolean;
 }) {
   const className = cn(
     "group grid min-h-10 items-center gap-2 rounded-sm px-4 py-2 transition-colors",
@@ -389,6 +417,7 @@ function UsageSection({
             title,
             suffix,
             showEntitlements,
+            noOnDemand,
           }}
         />
       </div>
@@ -419,6 +448,7 @@ function UsageSection({
           title,
           suffix,
           showEntitlements,
+          noOnDemand,
         }}
       />
     </Link>

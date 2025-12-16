@@ -623,23 +623,23 @@ export function FullDeploymentName({
   deployment: DeploymentResponse;
   showProjectName?: boolean;
 }) {
-  const project = useProjectById(deployment.projectId);
+  const { project, isLoading } = useProjectById(deployment.projectId);
 
-  if (project === null) {
+  if (!isLoading && project === null) {
     throw new Error("Unknown project");
   }
 
-  const whoseName = useMemberName(project, deployment);
+  const whoseName = useMemberName(project ?? undefined, deployment);
   return (
     <div className="flex flex-wrap items-center gap-2">
       {showProjectName && (
         <>
-          {project === undefined ? (
+          {isLoading ? (
             <span className="inline-block h-6 w-32">
               <Loading />
             </span>
           ) : (
-            <span>{project.name}</span>
+            <span>{project?.name}</span>
           )}
           <span className="text-content-secondary">/</span>
         </>

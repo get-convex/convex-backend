@@ -10,9 +10,11 @@ import {
 const DATABRICKS_QUERY_IDS: {
   teamFunctionBreakdown: DatabricksQueryId;
   teamSummary: DatabricksQueryId;
+  teamDeploymentCountByType: DatabricksQueryId;
 } = {
   teamFunctionBreakdown: "8e6592dd-12a0-4ddf-bc79-7498e07352d4",
   teamSummary: "15fbb132-6641-4f17-9156-b05e9ee966d9",
+  teamDeploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
 };
 
 const DATABRICKS_BY_PROJECT_QUERY_IDS: {
@@ -26,6 +28,7 @@ const DATABRICKS_BY_PROJECT_QUERY_IDS: {
   teamStorageCallsByProject: DatabricksQueryId;
   teamVectorBandwidthByProject: DatabricksQueryId;
   teamVectorStorageByProject: DatabricksQueryId;
+  teamDeploymentCountByProject: DatabricksQueryId;
 } = {
   teamActionComputeByProject: "56e7167c-ae79-417a-8876-100a6e5db902",
   teamDatabaseBandwidthByProject: "27330248-82cd-42dd-bc23-a7edc667e1ba",
@@ -37,6 +40,7 @@ const DATABRICKS_BY_PROJECT_QUERY_IDS: {
   teamStorageCallsByProject: "11d0124f-32c9-446f-b65c-cde3971d2017",
   teamVectorBandwidthByProject: "256e0060-8d24-4d30-968c-d6f531168328",
   teamVectorStorageByProject: "6f3c9a52-f3c2-46c2-89b2-6cb95fc7cdf5",
+  teamDeploymentCountByProject: "0b6c9ab3-c17c-4ad5-bfca-8f0300e494f6",
 };
 
 export function useTokenUsage(teamSlug: string, period: DateRange | null) {
@@ -584,6 +588,74 @@ export function useUsageTeamStorageThroughputDailyByProject(
         ],
       }),
     ),
+    error: undefined,
+  };
+}
+
+export function useUsageTeamDeploymentCountPerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByProject[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamDeploymentCountByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(([_teamId, projectId, ds, count]) => ({
+      ds,
+      projectId: parseProjectId(projectId),
+      value: Number(count),
+    })),
+    error: undefined,
+  };
+}
+
+export function useUsageTeamDeploymentCountByType(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyPerTagMetrics[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: DATABRICKS_QUERY_IDS.teamDeploymentCountByType,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  // Group by date since each row is [teamId, deploymentType, ds, count]
+  const groupedByDate = new Map<string, Map<string, number>>();
+
+  data?.forEach(([_teamId, deploymentType, ds, count]) => {
+    if (!groupedByDate.has(ds)) {
+      groupedByDate.set(ds, new Map());
+    }
+    const tag = deploymentType || "deleted";
+    groupedByDate.get(ds)!.set(tag, Number(count));
+  });
+
+  return {
+    data: Array.from(groupedByDate.entries()).map(([ds, metricsMap]) => ({
+      ds,
+      metrics: Array.from(metricsMap.entries()).map(([tag, value]) => ({
+        tag,
+        value,
+      })),
+    })),
     error: undefined,
   };
 }

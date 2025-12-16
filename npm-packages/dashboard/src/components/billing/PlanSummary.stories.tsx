@@ -22,6 +22,7 @@ export const Primary: Story = {
       vectorBandwidth: 0,
       vectorStorage: 0,
     },
+    deploymentCount: 12,
     entitlements: {
       teamMaxDatabaseBandwidth: 1024 * 1024 * 1024,
       teamMaxDatabaseStorage: 512 * 1024 * 1024, // 512 MB in bytes

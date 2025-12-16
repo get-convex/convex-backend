@@ -108,7 +108,7 @@ jest.mock("api/projects", () => {
   return {
     useCurrentProject: jest.fn().mockReturnValue(project),
     useProjects: jest.fn().mockReturnValue([project]),
-    useProjectById: jest.fn().mockReturnValue(project),
+    useProjectById: jest.fn().mockReturnValue({ project }),
   };
 });
 

@@ -14,7 +14,7 @@ export function useDeploymentUris(
   const team = useCurrentTeam();
   const selectedTeamSlug = team?.slug;
 
-  const project = useProjectById(projectId);
+  const { project, isLoading } = useProjectById(projectId);
   const prodDeploymentName = project?.prodDeploymentName;
   const devDeploymentName = project?.devDeploymentName;
 
@@ -30,7 +30,7 @@ export function useDeploymentUris(
   const isProdDefault = !devDeploymentName;
 
   return {
-    isLoading: !project,
+    isLoading,
     isProdDefault,
     prodHref,
     devHref,

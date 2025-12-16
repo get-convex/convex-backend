@@ -18,6 +18,8 @@ import {
   useUsageTeamVectorStoragePerDayByProject,
   useUsageTeamSummary,
   useTokenUsage,
+  useUsageTeamDeploymentCountPerDayByProject,
+  useUsageTeamDeploymentCountByType,
   DailyMetric,
   DailyMetricByProject,
   DailyPerTagMetrics,
@@ -123,6 +125,31 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
     componentPrefix,
   );
 
+  const { data: deploymentCountData } =
+    useUsageTeamDeploymentCountPerDayByProject(
+      team?.id,
+      dateRange,
+      componentPrefix,
+    );
+
+  // Get the latest deployment count (highest date)
+  const latestDeploymentCount = useMemo(() => {
+    if (deploymentCountData === undefined) {
+      return undefined;
+    }
+    if (deploymentCountData.length === 0) {
+      return 0;
+    }
+    // Sort by date descending and get the first item's value, then sum across all projects
+    const latestDate = deploymentCountData.reduce(
+      (max, item) => (item.ds > max ? item.ds : max),
+      deploymentCountData[0].ds,
+    );
+    return deploymentCountData
+      .filter((item) => item.ds === latestDate)
+      .reduce((sum, item) => sum + item.value, 0);
+  }, [deploymentCountData]);
+
   const { data: chefTokenUsage } = useTokenUsage(
     team?.slug,
     shownBillingPeriod,
@@ -186,6 +213,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               hasFilter={projectId !== null || !!componentPrefix}
               chefTokenUsage={chefTokenUsage}
               teamSummary={teamSummary}
+              deploymentCount={latestDeploymentCount}
               entitlements={entitlements}
               hasSubscription={hasSubscription}
               showEntitlements={showEntitlements}
@@ -245,6 +273,16 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               storageEntitlement={entitlements?.teamMaxVectorStorage}
               bandwidth={teamSummary?.vectorBandwidth}
               bandwidthEntitlement={entitlements?.teamMaxVectorBandwidth}
+              showEntitlements={showEntitlements}
+            />
+
+            <DeploymentCountUsage
+              team={team}
+              dateRange={dateRange}
+              projectId={projectId}
+              componentPrefix={componentPrefix}
+              deploymentCount={latestDeploymentCount}
+              deploymentCountEntitlement={entitlements?.maxDeployments}
               showEntitlements={showEntitlements}
             />
 
@@ -418,11 +456,11 @@ function FunctionUsageBreakdown({
   );
 
   if (usageByProject.length === 0) {
-    return <UsageNoDataError entity={metric.name} />;
+    return <UsageNoDataError />;
   }
 
   if (maxValue === 0) {
-    return <UsageNoDataError entity={metric.name} />;
+    return <UsageNoDataError />;
   }
 
   return (
@@ -472,7 +510,7 @@ function FunctionUsageBreakdownByProject({
   maxValue: number;
   projectTotal: number;
 }) {
-  const project = useProjectById(projectId);
+  const { project, isLoading: isLoadingProject } = useProjectById(projectId);
   const { deployments } = useDeployments(projectId);
   const member = useProfile();
   const isLoadingDeployments = !deployments;
@@ -484,6 +522,7 @@ function FunctionUsageBreakdownByProject({
           project={project ?? null}
           team={team}
           memberId={member?.id}
+          isLoading={isLoadingProject}
         />
         <span className="flex-1 px-4 py-2 text-right tabular-nums">
           {formatQuantity(projectTotal, metric.quantityType)}
@@ -662,7 +701,6 @@ function DatabaseUsage({
                     <UsageStackedBarChart
                       rows={databaseStorage}
                       categories={DATABASE_STORAGE_CATEGORIES}
-                      entity="documents"
                       quantityType="storage"
                       showCategoryTotals={false}
                       selectedDate={selectedDate}
@@ -674,7 +712,6 @@ function DatabaseUsage({
                 ) : (
                   <UsageByProjectChart
                     rows={databaseStorageByProject}
-                    entity="documents"
                     quantityType="storage"
                     team={team}
                     selectedDate={selectedDate}
@@ -706,7 +743,6 @@ function DatabaseUsage({
                     <UsageStackedBarChart
                       rows={databaseBandwidth}
                       categories={BANDWIDTH_CATEGORIES}
-                      entity="documents"
                       quantityType="storage"
                       selectedDate={selectedDate}
                       setSelectedDate={setSelectedDate}
@@ -717,7 +753,6 @@ function DatabaseUsage({
                 ) : (
                   <UsageByProjectChart
                     rows={databaseBandwidthByProject}
-                    entity="documents"
                     quantityType="storage"
                     team={team}
                     selectedDate={selectedDate}
@@ -743,7 +778,6 @@ function DatabaseUsage({
             ) : (
               <UsageByProjectChart
                 rows={documentsCountByProject}
-                entity="documents"
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -845,7 +879,6 @@ function FunctionCallsUsage({
               ) : (
                 <UsageStackedBarChart
                   rows={callsByTag}
-                  entity="calls"
                   categories={TAG_CATEGORIES}
                   categoryRenames={CATEGORY_RENAMES}
                   selectedDate={selectedDate}
@@ -857,7 +890,6 @@ function FunctionCallsUsage({
             ) : (
               <UsageByProjectChart
                 rows={callsByTagByProject}
-                entity="calls"
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -975,7 +1007,6 @@ function ActionComputeUsage({
             ) : (
               <UsageByProjectChart
                 rows={actionComputeDailyByProject}
-                entity="action calls"
                 quantityType="actionCompute"
                 team={team}
                 selectedDate={selectedDate}
@@ -1115,7 +1146,6 @@ function FilesUsage({
                     <UsageStackedBarChart
                       rows={fileStorage}
                       categories={FILE_STORAGE_CATEGORIES}
-                      entity="files"
                       quantityType="storage"
                       showCategoryTotals={false}
                       selectedDate={selectedDate}
@@ -1127,7 +1157,6 @@ function FilesUsage({
                 ) : (
                   <UsageByProjectChart
                     rows={fileStorageByProject}
-                    entity="files"
                     quantityType="storage"
                     team={team}
                     selectedDate={selectedDate}
@@ -1159,7 +1188,6 @@ function FilesUsage({
                     <UsageStackedBarChart
                       rows={filesBandwidth}
                       categories={FILE_BANDWIDTH_CATEGORIES}
-                      entity="files"
                       quantityType="storage"
                       selectedDate={selectedDate}
                       setSelectedDate={setSelectedDate}
@@ -1170,7 +1198,6 @@ function FilesUsage({
                 ) : (
                   <UsageByProjectChart
                     rows={filesBandwidthByProject}
-                    entity="files"
                     quantityType="storage"
                     team={team}
                     selectedDate={selectedDate}
@@ -1185,6 +1212,144 @@ function FilesUsage({
     </TabGroup>
   );
 }
+function DeploymentCountUsage({
+  team,
+  dateRange,
+  projectId,
+  componentPrefix,
+  deploymentCount,
+  deploymentCountEntitlement,
+  showEntitlements,
+}: {
+  team: TeamResponse;
+  dateRange: DateRange | null;
+  projectId: number | null;
+  componentPrefix: string | null;
+  deploymentCount?: number;
+  deploymentCountEntitlement?: number | null;
+  showEntitlements: boolean;
+}) {
+  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
+    "usageViewMode_deploymentCount",
+    "byType",
+  );
+  const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+
+  const {
+    data: deploymentCountDailyByProject,
+    error: deploymentCountDailyByProjectError,
+  } = useUsageTeamDeploymentCountPerDayByProject(
+    team.id,
+    dateRange,
+    componentPrefix,
+  );
+
+  const { data: deploymentCountByType, error: deploymentCountByTypeError } =
+    useUsageTeamDeploymentCountByType(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
+
+  const router = useRouter();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onHashChangeStart = (url: string) => {
+      const hash = url.split("#")[1];
+      if (hash === "deploymentCount") {
+        ref.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    };
+
+    router.events.on("hashChangeStart", onHashChangeStart);
+
+    return () => {
+      router.events.off("hashChangeStart", onHashChangeStart);
+    };
+  }, [router.events]);
+
+  const deploymentTypeCategories = {
+    prod: {
+      name: "Production",
+      color: "fill-chart-line-1",
+    },
+    dev: {
+      name: "Development",
+      color: "fill-chart-line-2",
+    },
+    preview: {
+      name: "Preview",
+      color: "fill-chart-line-3",
+    },
+    deleted: {
+      name: "Deleted Deployment",
+      color: "fill-chart-line-4",
+    },
+  };
+
+  return (
+    <TeamUsageSection
+      ref={ref}
+      header={
+        <>
+          <h3 className="py-2">Deployments</h3>
+          <GroupBySelector
+            value={viewMode}
+            onChange={setViewMode}
+            disabled={projectId !== null}
+          />
+        </>
+      }
+    >
+      <div className="px-4">
+        {showEntitlements && selectedDate === null && (
+          <UsageOverview
+            metric={deploymentCount}
+            entitlement={deploymentCountEntitlement ?? 0}
+            format={formatNumberCompact}
+            showEntitlements={showEntitlements}
+          />
+        )}
+        {viewMode === "byType" ? (
+          // Show deployment type breakdown (prod/dev/preview/deleted)
+          deploymentCountByTypeError ? (
+            <UsageDataError entity="Deployments" />
+          ) : deploymentCountByType === undefined ? (
+            <ChartLoading />
+          ) : (
+            <UsageStackedBarChart
+              rows={deploymentCountByType}
+              categories={deploymentTypeCategories}
+              showCategoryTotals={false}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+            />
+          )
+        ) : // Show deployment count by project
+        deploymentCountDailyByProjectError ? (
+          <UsageDataError entity="Deployments" />
+        ) : deploymentCountDailyByProject === undefined ? (
+          <ChartLoading />
+        ) : (
+          <UsageByProjectChart
+            rows={deploymentCountDailyByProject}
+            team={team}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+          />
+        )}
+      </div>
+    </TeamUsageSection>
+  );
+}
+
 function VectorUsage({
   team,
   dateRange,
@@ -1325,7 +1490,6 @@ function VectorUsage({
                 ) : (
                   <UsageByProjectChart
                     rows={vectorStorageByProject}
-                    entity="vectors"
                     quantityType="storage"
                     team={team}
                     selectedDate={selectedDate}
@@ -1357,7 +1521,6 @@ function VectorUsage({
                     <UsageStackedBarChart
                       rows={vectorBandwidth}
                       categories={BANDWIDTH_CATEGORIES}
-                      entity="vectors"
                       quantityType="storage"
                       selectedDate={selectedDate}
                       setSelectedDate={setSelectedDate}
@@ -1368,7 +1531,6 @@ function VectorUsage({
                 ) : (
                   <UsageByProjectChart
                     rows={vectorBandwidthByProject}
-                    entity="vectors"
                     quantityType="storage"
                     team={team}
                     selectedDate={selectedDate}

@@ -591,7 +591,7 @@ export function ProjectLink({
   metadata: AuditLogEntryMetadata;
   team: TeamResponse;
 }) {
-  const project = useProjectById(projectId);
+  const { project } = useProjectById(projectId);
 
   const projectName =
     project?.name ||
@@ -789,9 +789,15 @@ function DeploymentSettingsLink({
   urlSuffix?: string;
 }) {
   const deployment = useDeploymentById(team.id, deploymentId);
-  const project = useProjectById(deployment?.projectId);
+  const { project, isLoading: isLoadingProject } = useProjectById(
+    deployment?.projectId,
+  );
 
   if (!deployment) {
+    return <span>a deployment</span>;
+  }
+
+  if (isLoadingProject) {
     return <span>a deployment</span>;
   }
 
@@ -826,8 +832,8 @@ function ProjectSettingsLink({
   team: TeamResponse;
   projectId: number;
 }) {
-  const project = useProjectById(projectId);
-  if (!project) {
+  const { project, isLoading } = useProjectById(projectId);
+  if (isLoading || !project) {
     return <span>Project {projectId}</span>;
   }
 

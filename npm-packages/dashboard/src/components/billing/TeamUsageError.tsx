@@ -3,11 +3,11 @@ import {
   CrossCircledIcon,
 } from "@radix-ui/react-icons";
 
-export function UsageNoDataError({ entity }: { entity: string }) {
+export function UsageNoDataError() {
   return (
     <TeamUsageError
-      title={`No ${entity}`}
-      description={`No ${entity} could be found for the period shown.`}
+      title="No usage"
+      description="No usage for this metric could be found for the period shown."
     />
   );
 }

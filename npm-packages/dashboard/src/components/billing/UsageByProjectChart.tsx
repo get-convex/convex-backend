@@ -35,7 +35,7 @@ const PROJECT_COLORS = [
 
 // Component to render a single project name (can call hooks)
 function ProjectName({ projectId }: { projectId: number | string }) {
-  const project = useProjectById(
+  const { project, isLoading } = useProjectById(
     projectId === "_rest" ? undefined : (projectId as number),
   );
 
@@ -43,14 +43,20 @@ function ProjectName({ projectId }: { projectId: number | string }) {
     return <>All other projects</>;
   }
 
-  if (project === undefined) {
+  if (isLoading) {
     // Project is loading
     return (
       <span className="inline-block h-4 w-32 animate-pulse rounded bg-content-tertiary" />
     );
   }
 
-  return <>{project?.name || `Deleted Project (${projectId})`}</>;
+  return project?.name ? (
+    project.name
+  ) : (
+    <span className="text-content-secondary">
+      Deleted Project ({projectId})
+    </span>
+  );
 }
 
 // Custom tooltip component that renders project names
@@ -194,7 +200,7 @@ function ProjectChartDetailView({
   // Convert ProjectDetailItem[] to DailyChartDetailItem[] by fetching projects
   const detailItems = items.map((item) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    const project = useProjectById(
+    const { project } = useProjectById(
       item.projectId === "_rest" ? undefined : (item.projectId as number),
     );
 
@@ -219,14 +225,12 @@ function ProjectChartDetailView({
 
 export function UsageByProjectChart({
   rows,
-  entity,
   quantityType = "unit",
   team,
   selectedDate,
   setSelectedDate,
 }: {
   rows: DailyPerTagMetricsByProject[] | DailyMetricByProject[];
-  entity: string;
   quantityType?: QuantityType;
   team?: TeamResponse;
   selectedDate: number | null;
@@ -345,7 +349,7 @@ export function UsageByProjectChart({
       return row.value > 0;
     })
   ) {
-    return <UsageNoDataError entity={entity} />;
+    return <UsageNoDataError />;
   }
 
   return (

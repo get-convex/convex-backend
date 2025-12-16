@@ -8,15 +8,21 @@ export function ProjectLink({
   project,
   team,
   memberId,
+  isLoading,
 }: {
   project: ProjectDetails | null;
   team?: TeamResponse;
   memberId?: number;
+  isLoading?: boolean;
 }) {
   const { deployments } = useDeployments(project?.id);
 
+  if (isLoading) {
+    return <span className="text-content-secondary">Loading...</span>;
+  }
+
   if (!project) {
-    return <span>Deleted Project</span>;
+    return <span className="text-content-secondary">Deleted Project</span>;
   }
 
   const projectName = project.name;
