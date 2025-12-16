@@ -203,14 +203,14 @@ do:
 ```ts
 const messages = await ctx.db
   .query("messages")
-  .withIndex("by_channel", q => q.eq("channel", channel))
-  .filter(q => q.neq(q.field("user"), myUserId)
+  .withIndex("by_channel", (q) => q.eq("channel", channel))
+  .filter((q) => q.neq(q.field("user"), myUserId))
   .collect();
 ```
 
 In this case the performance of this query will be based on how many messages
 are in the channel. Convex will consider each message in the channel and only
-return the messages where the `user` field matches `myUserId`.
+return the messages where the `user` field doesn't match `myUserId`.
 
 ## Sorting with indexes
 
