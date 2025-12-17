@@ -120,6 +120,38 @@ ruleTester.run("explicit-table-ids", explicitTableIds, {
       `,
       filename: "convex/messages.ts",
     },
+    // db.system.get with _scheduled_functions ID
+    {
+      code: `
+        import { query } from "./_generated/server";
+        import { Id } from "./_generated/dataModel";
+
+        export const getScheduledFunction = query({
+          args: {},
+          handler: async (ctx, args) => {
+            const scheduledFunctionId: Id<"_scheduled_functions"> = "123" as any;
+            return await ctx.db.system.get(scheduledFunctionId);
+          },
+        });
+      `,
+      filename: "convex/scheduled.ts",
+    },
+    // db.system.get with _storage ID
+    {
+      code: `
+        import { query } from "./_generated/server";
+        import { Id } from "./_generated/dataModel";
+
+        export const getStorage = query({
+          args: {},
+          handler: async (ctx, args) => {
+            const storageId: Id<"_storage"> = "123" as any;
+            return await ctx.db.system.get(storageId);
+          },
+        });
+      `,
+      filename: "convex/storage.ts",
+    },
   ],
   invalid: [
     // Unmigrated get call
