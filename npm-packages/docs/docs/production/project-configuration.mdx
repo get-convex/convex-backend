@@ -145,6 +145,13 @@ typechecking. If you would like to use the TypeScript 7 native preview instead,
 you can set the `typescriptCompiler` option to `tsgo`. Note that
 `@typescript/native-preview` must be installed in your project to use `tsgo`.
 
+<Admonition type="info" title="Convex version required">
+
+To use the TypeScript 7 native preview, you must use the `convex` NPM package
+version 1.31.1 or later.
+
+</Admonition>
+
 ```json title="convex.json"
 {
   "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
