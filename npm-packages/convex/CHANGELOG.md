@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.31.2 (upcoming)
+## 1.31.2
 
 - Bug fix: the TypeScript types of the new `ctx.db` APIs introduced in 1.31.0
   incorrectly allowed passing IDs with types broader than the table name
