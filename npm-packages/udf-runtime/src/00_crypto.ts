@@ -56,10 +56,15 @@ class Crypto {
   }
 }
 
-Object.defineProperty(Crypto.prototype, Symbol.toStringTag, {
-  value: "Crypto",
-  writable: false,
-  enumerable: false,
+Object.defineProperties(Crypto.prototype, {
+  [Symbol.toStringTag]: {
+    value: "Crypto",
+    writable: false,
+    enumerable: false,
+  },
+  subtle: { enumerable: true },
+  getRandomValues: { enumerable: true, configurable: true, writable: true },
+  randomUUID: { enumerable: true, configurable: true, writable: true },
 });
 
 class SubtleCrypto {
@@ -237,24 +242,49 @@ class SubtleCrypto {
   }
 }
 
-Object.defineProperty(SubtleCrypto.prototype, Symbol.toStringTag, {
-  value: "SubtleCrypto",
-  writable: false,
-  enumerable: false,
+Object.defineProperties(SubtleCrypto.prototype, {
+  [Symbol.toStringTag]: {
+    value: "SubtleCrypto",
+    writable: false,
+    enumerable: false,
+  },
+  encrypt: { enumerable: true, configurable: true, writable: true },
+  decrypt: { enumerable: true, configurable: true, writable: true },
+  sign: { enumerable: true, configurable: true, writable: true },
+  verify: { enumerable: true, configurable: true, writable: true },
+  digest: { enumerable: true, configurable: true, writable: true },
+  generateKey: { enumerable: true, configurable: true, writable: true },
+  deriveKey: { enumerable: true, configurable: true, writable: true },
+  deriveBits: { enumerable: true, configurable: true, writable: true },
+  importKey: { enumerable: true, configurable: true, writable: true },
+  exportKey: { enumerable: true, configurable: true, writable: true },
+  wrapKey: { enumerable: true, configurable: true, writable: true },
+  unwrapKey: { enumerable: true, configurable: true, writable: true },
 });
 
-const subtleImpl: SubtleCrypto = Object.create(SubtleCrypto.prototype);
+const subtleImpl: SubtleCrypto = Reflect.construct(
+  function () {},
+  [],
+  SubtleCrypto,
+);
 
 export const setupCrypto = (global: any) => {
-  Object.defineProperty(global, "Crypto", { value: Crypto, enumerable: false });
+  Object.defineProperty(global, "Crypto", {
+    value: Crypto,
+    enumerable: false,
+    configurable: true,
+  });
   Object.defineProperty(global, "SubtleCrypto", {
     value: SubtleCrypto,
     enumerable: false,
+    configurable: true,
   });
-  const cryptoImpl = Object.create(Crypto.prototype);
+  const cryptoImpl = Reflect.construct(function () {}, [], Crypto);
   Object.defineProperty(global, "crypto", {
     get() {
       return cryptoImpl;
     },
+    enumerable: true,
+    configurable: true,
   });
 };
