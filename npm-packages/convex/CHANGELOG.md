@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.31.2 (upcoming)
+
+- Bug fix: the TypeScript types of the new `ctx.db` APIs introduced in 1.31.0
+  incorrectly allowed passing IDs with types broader than the table name
+  argument (e.g. `db.get("table1", id)` where `id` is
+  `Id<"table1"> | Id<"table2">`). This issue is fixed in 1.31.2.
+
 ## 1.31.0
 
 - `db.get`, `db.patch`, `db.replace`, and `db.delete` now accept a table name as

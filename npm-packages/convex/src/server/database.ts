@@ -21,8 +21,8 @@ interface BaseDatabaseReader<DataModel extends GenericDataModel> {
    * @returns - The {@link GenericDocument} of the document at the given {@link values.GenericId}, or `null` if it no longer exists.
    */
   get<TableName extends TableNamesInDataModel<DataModel>>(
-    table: NonUnion<TableName>,
-    id: GenericId<TableName>,
+    table: TableName,
+    id: GenericId<NonUnion<TableName>>,
   ): Promise<DocumentByName<DataModel, TableName> | null>;
 
   /**
@@ -185,8 +185,8 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * specifies system fields like `_id`, they must match the document's existing field values.
    */
   patch<TableName extends TableNamesInDataModel<DataModel>>(
-    table: NonUnion<TableName>,
-    id: GenericId<TableName>,
+    table: TableName,
+    id: GenericId<NonUnion<TableName>>,
     value: PatchValue<DocumentByName<DataModel, TableName>>,
   ): Promise<void>;
 
@@ -215,8 +215,8 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * and the database will fill them in.
    */
   replace<TableName extends TableNamesInDataModel<DataModel>>(
-    table: NonUnion<TableName>,
-    id: GenericId<TableName>,
+    table: TableName,
+    id: GenericId<NonUnion<TableName>>,
     value: WithOptionalSystemFields<DocumentByName<DataModel, TableName>>,
   ): Promise<void>;
 
@@ -239,8 +239,8 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * @param id - The {@link values.GenericId} of the document to remove.
    */
   delete<TableName extends TableNamesInDataModel<DataModel>>(
-    table: NonUnion<TableName>,
-    id: GenericId<TableName>,
+    table: TableName,
+    id: GenericId<NonUnion<TableName>>,
   ): Promise<void>;
 
   /**

@@ -224,6 +224,39 @@ describe("new DB APIs work with explicit table names", () => {
   });
 });
 
+test("new DB APIs can be used with multiple tables at once", () => {
+  type AllowedTableNames = "table1" | "table2";
+
+  const _schema = defineSchema({
+    table1: defineTable({
+      name: v.string(),
+    }),
+    table2: defineTable({
+      name: v.string(),
+    }),
+  });
+  type DataModel = DataModelFromSchemaDefinition<typeof _schema>;
+
+  async function _shouldTypecheck(
+    tableName: AllowedTableNames,
+    id: GenericId<AllowedTableNames>,
+  ) {
+    const db: GenericDatabaseWriter<DataModel> = setupWriter();
+    await db.get(tableName, id);
+    await db.patch(tableName, id, {
+      name: "test",
+    });
+    await db.insert(tableName, {
+      name: "test",
+    });
+    await db.insert(tableName, {
+      // @ts-expect-error -- field doesn’t exist on table1 or table2
+      incorrect: "field",
+    });
+    await db.delete(tableName, id);
+  }
+});
+
 describe("new DB APIs don’t type check if used with the wrong table", () => {
   test("get", async () => {
     const db = setupWriter();
@@ -269,17 +302,16 @@ describe("new DB APIs don’t type check if used with the wrong table", () => {
     await db.replace(tableName, id, {});
   });
 
-  test("can use Id<string> + a specific table name", async () => {
-    // Maybe we should disallow this??
-
+  test("can’t use Id<string> + a specific table name", async () => {
     const id = "my_id" as GenericId<string>;
 
     const db = setupWriter();
+    // @ts-expect-error
     await db.replace("testTable", id, {});
   });
 
   test("can use some union types", async () => {
-    const tableName: "a" | "b" = "a";
+    const tableName = "a" as "a" | "b";
     const id = "my_id" as GenericId<"a" | "b">;
 
     const db = setupWriter();
@@ -292,9 +324,56 @@ describe("new DB APIs don’t type check if used with the wrong table", () => {
 
     const tableName: string = "some table";
 
+    // Unfortunately, the types accept `string` as a table name
+    // when using a GenericDataModel, so let’s define a specific
+    // data model for this type test
+    const _schema = defineSchema({
+      someTable: defineTable({
+        name: v.string(),
+      }),
+      someTable2: defineTable({
+        name: v.string(),
+      }),
+    });
+    type DataModel = DataModelFromSchemaDefinition<typeof _schema>;
+
+    const db = setupWriter() as GenericDatabaseWriter<DataModel>;
+    await db.replace(
+      // @ts-expect-error -- `string` shouldn’t be a valid table name type!
+      tableName,
+      testId,
+      {},
+    );
+  });
+
+  test("can’t use a table name + (Id<'a' | 'b'>)", async () => {
+    const id = "my_id" as GenericId<"a" | "b">;
+
     const db = setupWriter();
+
     // @ts-expect-error
-    await db.replace(tableName, testId, {});
+    await db.get("a", id);
+    // @ts-expect-error
+    await db.patch("a", id, {});
+    // @ts-expect-error
+    await db.replace("a", id, {});
+    // @ts-expect-error
+    await db.delete("a", id);
+  });
+
+  test("can’t use a table name + (Id<'a'> | Id<'b'>)", async () => {
+    const id = "my_id" as GenericId<"a"> | GenericId<"b">;
+
+    const db = setupWriter();
+
+    // @ts-expect-error
+    await db.get("a", id);
+    // @ts-expect-error
+    await db.patch("a", id, {});
+    // @ts-expect-error
+    await db.replace("a", id, {});
+    // @ts-expect-error
+    await db.delete("a", id);
   });
 });
 
