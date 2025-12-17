@@ -173,7 +173,7 @@ fn main() -> anyhow::Result<()> {
         ))?;
     }
 
-    // This is a little janky because we aren't inlcuding the node_modules directory
+    // This is a little janky because we aren't including the node_modules directory
     // which has real sources in it! I'm not including it because it appears to
     // change every build and hopefully package.json catches the real semantic
     // changes.
