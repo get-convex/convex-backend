@@ -7,6 +7,14 @@
   argument (e.g. `db.get("table1", id)` where `id` is
   `Id<"table1"> | Id<"table2">`). This issue is fixed in 1.31.2.
 
+## 1.31.1
+
+- You can now increase the speed of type checking when using `npx convex dev`
+  by enabling the [TypeScript native preview](https://devblogs.microsoft.com/typescript/announcing-typescript-native-previews/)
+  ([TypeScript 7](https://devblogs.microsoft.com/typescript/typescript-native-port/)).
+  To do so, add `@typescript/native-preview` as a dev dependency and
+  [set `typescriptCompiler: "tsGo"` in `convex.json`](https://docs.convex.dev/production/project-configuration#configuring-the-typescript-compiler).
+
 ## 1.31.0
 
 - `db.get`, `db.patch`, `db.replace`, and `db.delete` now accept a table name as
