@@ -72,19 +72,23 @@ export function DailyChartDetailView({
           {sortedItems.map((item, index) => {
             const percentage = total > 0 ? (item.value / total) * 100 : 0;
             const displayName =
-              item.project !== undefined
-                ? (item.project?.name ?? "Deleted Project")
+              item.project !== undefined && item.project !== null
+                ? (item.project.name ?? "Deleted Project")
                 : (item.name ?? "Unknown");
 
             return (
               <div key={`${item.project?.id ?? item.name ?? index}`}>
                 <div className="mb-2 flex items-center justify-between gap-4">
-                  {item.project !== undefined ? (
+                  {item.project !== undefined && item.project !== null ? (
                     <ProjectLink
                       project={item.project}
                       team={team}
                       memberId={memberId}
                     />
+                  ) : item.project === null ? (
+                    <span className="text-sm font-medium text-content-primary">
+                      All other projects
+                    </span>
                   ) : (
                     <span className="text-sm font-medium text-content-primary">
                       {item.name}
