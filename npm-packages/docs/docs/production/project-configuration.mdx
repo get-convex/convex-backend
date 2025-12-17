@@ -142,7 +142,8 @@ Let us know if you run into any issues or have any feedback!
 
 By default, Convex will use the `tsc` binary installed in your project for
 typechecking. If you would like to use the TypeScript 7 native preview instead,
-you can set the `typescriptCompiler` option to `tsgo`:
+you can set the `typescriptCompiler` option to `tsgo`. Note that
+`@typescript/native-preview` must be installed in your project to use `tsgo`.
 
 ```json title="convex.json"
 {
