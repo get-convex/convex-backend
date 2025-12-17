@@ -47,9 +47,13 @@ use value::{
 
 use crate::metrics::log_errors_reported_total;
 
-// Regex to match emails from https://emailregex.com/
+// Regex to match emails from https://colinhacks.com/essays/reasonable-email-regex
+// This regex doesn’t match all valid email addresses (e.g. it skips emails
+// in IP addresses) in order to avoid false positives for pnpm module paths.
+// The negative lookaheads were removed because the `regex` crate doesn’t
+// support them, which makes the regex less strict about the position of `.`s.
 pub static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])"#).unwrap()
+    Regex::new(r#"([a-z0-9_'+\-\.]*)[a-z0-9_+-]@([a-z0-9][a-z0-9\-]*\.)+[a-z]{2,}"#).unwrap()
 });
 
 /// Replacers for PII in errors before reporting to thirdparty services
@@ -908,7 +912,7 @@ mod tests {
 
     #[test]
     fn test_strip_pii_weird_email() -> anyhow::Result<()> {
-        let test = "receipts+memo+====@site.com";
+        let test = "my.test's-receipts+memo_test-1@site.com";
         let mut e = anyhow::anyhow!(ErrorMetadata::bad_request(
             "DIY",
             format!("Need DIY advice? Email {test}"),
@@ -920,7 +924,7 @@ mod tests {
 
     #[test]
     fn test_strip_pii_without_error_metadata() -> anyhow::Result<()> {
-        let test = "receipts+memo+====@site.com";
+        let test = "my.test's-receipts+memo_test-1@site.com";
         let mut e = anyhow::anyhow!("Need DIY advice? Email {test}");
         strip_pii(&mut e);
         assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
@@ -932,6 +936,29 @@ mod tests {
         let mut e = anyhow::anyhow!("Need DIY advice?").context("You're on your own");
         strip_pii(&mut e);
         assert_eq!(format!("{e:#}"), "You're on your own: Need DIY advice?");
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_pii_pnpm_path_convex() -> anyhow::Result<()> {
+        let pnpm_path = "node_modules/.pnpm/convex@1.31.0/node_modules/convex/";
+        let msg = format!("Error in path: {pnpm_path}");
+        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request("PathError", msg.clone()));
+        strip_pii(&mut e);
+        assert_eq!(e.to_string(), msg);
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_pii_pnpm_path_typescript_eslint() -> anyhow::Result<()> {
+        let pnpm_path = "node_modules/.pnpm/@typescript-eslint+eslint-plugin@8.50.0_@\
+                         typescript-eslint+parser@8.50.0_eslint@9.39.\
+                         2__d116695751af81bc5e2aa22500f360b6/node_modules/@typescript-eslint/\
+                         types/dist/index.js";
+        let msg = format!("Error in path: {pnpm_path}");
+        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request("PathError", msg.clone()));
+        strip_pii(&mut e);
+        assert_eq!(e.to_string(), msg);
         Ok(())
     }
 
