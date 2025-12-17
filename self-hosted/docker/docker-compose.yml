@@ -25,6 +25,7 @@ services:
       - DISABLE_BEACON
       - DOCUMENT_RETENTION_DELAY=${DOCUMENT_RETENTION_DELAY:-172800} # Lower default document retention to 2 days
       - DO_NOT_REQUIRE_SSL
+      - HTTP_SERVER_TIMEOUT_SECONDS
       - INSTANCE_NAME
       - INSTANCE_SECRET
       - MYSQL_URL
