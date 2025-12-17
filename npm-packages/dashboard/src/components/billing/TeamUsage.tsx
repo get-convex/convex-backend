@@ -1315,6 +1315,7 @@ function DeploymentCountUsage({
             entitlement={deploymentCountEntitlement ?? 0}
             format={formatNumberCompact}
             showEntitlements={showEntitlements}
+            noOnDemand
           />
         )}
         {viewMode === "byType" ? (

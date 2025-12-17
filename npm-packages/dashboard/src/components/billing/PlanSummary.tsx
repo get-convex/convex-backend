@@ -296,6 +296,7 @@ export function UsageOverview(props: {
   title?: string;
   suffix?: string;
   showEntitlements: boolean;
+  noOnDemand?: boolean;
 }) {
   return (
     <div className="mb-4 flex items-center gap-2">
