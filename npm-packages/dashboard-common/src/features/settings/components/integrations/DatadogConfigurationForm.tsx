@@ -2,15 +2,20 @@ import Link from "next/link";
 import * as Yup from "yup";
 import { useFormik } from "formik";
 import { DatadogSiteLocation } from "system-udfs/convex/_system/frontend/common";
-import { Infer } from "convex/values";
-import { datadogConfig } from "system-udfs/convex/schema";
 import { EyeNoneIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { useContext, useState } from "react";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 import { Combobox, Option } from "@ui/Combobox";
-import { integrationUsingLegacyFormat } from "@common/lib/integrationHelpers";
-import { useCreateDatadogIntegration } from "@common/lib/integrationsApi";
+import {
+  integrationUsingLegacyFormat,
+  LogIntegration,
+} from "@common/lib/integrationHelpers";
+import {
+  useCreateLogStream,
+  useUpdateLogStream,
+  useDeleteLogStream,
+} from "@common/lib/integrationsApi";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 const siteLocationOptions: Option<DatadogSiteLocation>[] = [
@@ -29,19 +34,25 @@ const datadogValidationSchema = Yup.object().shape({
 });
 
 export function DatadogConfigurationForm({
-  existingConfig,
+  integration,
   onClose,
   onAddedIntegration,
 }: {
   onClose: () => void;
-  existingConfig: Infer<typeof datadogConfig> | null;
+  integration: Extract<LogIntegration, { kind: "datadog" }>;
   onAddedIntegration?: () => void;
 }) {
+  const createLogStream = useCreateLogStream();
+  const updateLogStream = useUpdateLogStream();
+  const deleteLogStream = useDeleteLogStream();
+  const existingConfig = integration.existing?.config ?? null;
+  const logStreamId = integration.existing?._id;
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
 
-  const createDatadogIntegration = useCreateDatadogIntegration();
   const { useCurrentProject } = useContext(DeploymentInfoContext);
   const project = useCurrentProject();
+
+  const isNewIntegration = existingConfig === null || !logStreamId;
 
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -61,15 +72,35 @@ export function DatadogConfigurationForm({
       version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
     },
     onSubmit: async (values) => {
-      await createDatadogIntegration(
-        values.siteLocation,
-        values.ddApiKey,
-        values.ddTags.split(",").filter((v) => v !== ""),
-        values.service,
-        values.version,
-      );
-      onAddedIntegration?.();
-      onClose();
+      const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
+      const ddTags = values.ddTags.split(",").filter((v) => v !== "");
+
+      if (isNewIntegration || isUpgradingToV2) {
+        // If upgrading from v1 to v2, delete the old log stream first
+        if (isUpgradingToV2 && logStreamId) {
+          await deleteLogStream(logStreamId);
+        }
+        // Create new integration (either truly new, or upgrading v1 to v2)
+        await createLogStream({
+          logStreamType: "datadog",
+          siteLocation: values.siteLocation,
+          ddApiKey: values.ddApiKey,
+          ddTags,
+          service: values.service,
+        });
+        onAddedIntegration?.();
+        onClose();
+      } else {
+        // Update existing integration without changing version
+        await updateLogStream(logStreamId, {
+          logStreamType: "datadog",
+          siteLocation: values.siteLocation,
+          ddApiKey: values.ddApiKey,
+          ddTags,
+          service: values.service,
+        });
+        onClose();
+      }
     },
     validationSchema: datadogValidationSchema,
   });

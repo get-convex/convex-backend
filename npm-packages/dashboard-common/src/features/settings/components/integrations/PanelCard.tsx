@@ -184,7 +184,7 @@ function renderModal(
           description="Configure your Convex deployment to route logs to Datadog to persist your logs and enable custom log queries and dashboards."
         >
           <DatadogConfigurationForm
-            existingConfig={integration.existing?.config ?? null}
+            integration={integration}
             onClose={closeModal}
             {...addedIntegrationProp}
           />
@@ -199,7 +199,7 @@ function renderModal(
           description="Configure your Convex deployment to route logs to Axiom to persist your logs and enable custom log queries and dashboards."
         >
           <AxiomConfigurationForm
-            existingConfig={integration.existing?.config ?? null}
+            integration={integration}
             onClose={closeModal}
             {...addedIntegrationProp}
           />
@@ -214,7 +214,7 @@ function renderModal(
         >
           <WebhookConfigurationForm
             onClose={closeModal}
-            existingIntegration={integration.existing?.config ?? null}
+            integration={integration}
             {...addedIntegrationProp}
           />
         </LogIntegrationModal>
@@ -229,7 +229,7 @@ function renderModal(
               exceptions to Sentry for visibility.
             </div>
             <SentryConfigurationForm
-              existingConfig={integration.existing?.config ?? null}
+              integration={integration}
               onClose={closeModal}
               {...addedIntegrationProp}
             />

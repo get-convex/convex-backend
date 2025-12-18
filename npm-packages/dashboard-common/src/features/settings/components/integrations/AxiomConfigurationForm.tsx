@@ -8,14 +8,19 @@ import {
   TrashIcon,
 } from "@radix-ui/react-icons";
 import { AxiomConfig } from "system-udfs/convex/_system/frontend/common";
-import { axiomConfig } from "system-udfs/convex/schema";
-import { Infer } from "convex/values";
 import { Combobox } from "@ui/Combobox";
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
-import { integrationUsingLegacyFormat } from "@common/lib/integrationHelpers";
+import {
+  integrationUsingLegacyFormat,
+  LogIntegration,
+} from "@common/lib/integrationHelpers";
 import { useState } from "react";
-import { useCreateAxiomIntegration } from "@common/lib/integrationsApi";
+import {
+  useCreateLogStream,
+  useUpdateLogStream,
+  useDeleteLogStream,
+} from "@common/lib/integrationsApi";
 
 const axiomValidationSchema = Yup.object().shape({
   datasetName: Yup.string().required("Dataset name is required"),
@@ -33,15 +38,21 @@ type Unpacked<T> = T extends (infer U)[] ? U : never;
 
 export function AxiomConfigurationForm({
   onClose,
-  existingConfig,
+  integration,
   onAddedIntegration,
 }: {
   onClose: () => void;
-  existingConfig: Infer<typeof axiomConfig> | null;
+  integration: Extract<LogIntegration, { kind: "axiom" }>;
   onAddedIntegration?: () => void;
 }) {
+  const createLogStream = useCreateLogStream();
+  const updateLogStream = useUpdateLogStream();
+  const deleteLogStream = useDeleteLogStream();
+  const existingConfig = integration.existing?.config ?? null;
+  const logStreamId = integration.existing?._id;
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
-  const createAxiomIntegration = useCreateAxiomIntegration();
+
+  const isNewIntegration = existingConfig === null || !logStreamId;
 
   const formState = useFormik<{
     datasetName: string;
@@ -58,14 +69,32 @@ export function AxiomConfigurationForm({
       ingestUrl: existingConfig?.ingestUrl ?? "https://api.axiom.co",
     },
     onSubmit: async (values) => {
-      await createAxiomIntegration(
-        values.datasetName,
-        values.apiKey,
-        values.attributes,
-        values.version,
-        values.ingestUrl,
-      );
-      onAddedIntegration?.();
+      const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
+
+      if (isNewIntegration || isUpgradingToV2) {
+        // If upgrading from v1 to v2, delete the old log stream first
+        if (isUpgradingToV2 && logStreamId) {
+          await deleteLogStream(logStreamId);
+        }
+        // Create new integration (either truly new, or upgrading v1 to v2)
+        await createLogStream({
+          logStreamType: "axiom",
+          datasetName: values.datasetName,
+          apiKey: values.apiKey,
+          attributes: values.attributes,
+          ingestUrl: values.ingestUrl,
+        });
+        onAddedIntegration?.();
+      } else {
+        // Update existing integration without changing version
+        await updateLogStream(logStreamId, {
+          logStreamType: "axiom",
+          datasetName: values.datasetName,
+          apiKey: values.apiKey,
+          attributes: values.attributes,
+          ingestUrl: values.ingestUrl,
+        });
+      }
       onClose();
     },
     validationSchema: axiomValidationSchema,

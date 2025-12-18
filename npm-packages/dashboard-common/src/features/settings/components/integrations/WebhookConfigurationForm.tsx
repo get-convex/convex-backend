@@ -1,12 +1,11 @@
 import * as Yup from "yup";
 import { useFormik } from "formik";
-import { Infer } from "convex/values";
-import { webhookConfig } from "system-udfs/convex/schema";
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
 import {
-  useCreateWebhookIntegration,
-  useRegenerateWebhookSecret,
+  useCreateLogStream,
+  useRotateWebhookSecret,
+  useUpdateLogStream,
 } from "@common/lib/integrationsApi";
 import { Combobox } from "@ui/Combobox";
 import {
@@ -17,6 +16,7 @@ import {
 import { useState } from "react";
 import { copyTextToClipboard, toast } from "@common/lib/utils";
 import { Snippet } from "@common/elements/Snippet";
+import { LogIntegration } from "@common/lib/integrationHelpers";
 
 const webhookValidationSchema = Yup.object().shape({
   url: Yup.string().url().required("URL required"),
@@ -83,20 +83,23 @@ function HmacSecretDisplay({
 
 export function WebhookConfigurationForm({
   onClose,
-  existingIntegration,
+  integration,
   onAddedIntegration,
 }: {
   onClose: () => void;
-  existingIntegration: Infer<typeof webhookConfig> | null;
+  integration: Extract<LogIntegration, { kind: "webhook" }>;
   onAddedIntegration?: () => void;
 }) {
-  const createWebhookIntegration = useCreateWebhookIntegration();
-  const regenerateWebhookSecret = useRegenerateWebhookSecret();
+  const createLogStream = useCreateLogStream();
+  const rotateWebhookSecret = useRotateWebhookSecret();
+  const updateLogStream = useUpdateLogStream();
   const [showSecretRevealScreen, setShowSecretRevealScreen] = useState(false);
+  const existingIntegration = integration.existing?.config;
+  const logStreamId = integration.existing?._id;
   const isHmacSecretLoading =
     showSecretRevealScreen && !existingIntegration?.hmacSecret;
 
-  const isNewIntegration = existingIntegration === null;
+  const isNewIntegration = existingIntegration === null || !logStreamId;
 
   const formState = useFormik({
     initialValues: {
@@ -104,13 +107,19 @@ export function WebhookConfigurationForm({
       format: existingIntegration?.format ?? "jsonl",
     },
     onSubmit: async (values) => {
-      await createWebhookIntegration(values.url, values.format);
-      onAddedIntegration?.();
-
-      // If this is a new integration, wait for the secret to be generated
       if (isNewIntegration) {
+        await createLogStream({
+          logStreamType: "webhook",
+          url: values.url,
+          format: values.format,
+        });
+        onAddedIntegration?.();
         setShowSecretRevealScreen(true);
       } else {
+        await updateLogStream(logStreamId, {
+          logStreamType: "webhook",
+          ...values,
+        });
         onClose();
       }
     },
@@ -157,14 +166,14 @@ export function WebhookConfigurationForm({
         disableSearch
         buttonClasses="w-full bg-inherit"
       />
-      {existingIntegration?.hmacSecret && (
+      {existingIntegration?.hmacSecret && logStreamId && (
         <>
           <HmacSecretDisplay hmacSecret={existingIntegration?.hmacSecret} />
           <div>
             <Button
               type="button"
               onClick={async () => {
-                await regenerateWebhookSecret();
+                await rotateWebhookSecret(logStreamId);
                 toast("success", "Regenerated webhook secret.");
               }}
               variant="neutral"

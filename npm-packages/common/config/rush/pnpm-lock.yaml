@@ -1242,6 +1242,9 @@ importers:
       '@convex-dev/design-system':
         specifier: workspace:*
         version: link:../@convex-dev/design-system
+      '@convex-dev/platform':
+        specifier: workspace:*
+        version: link:../@convex-dev/platform
       '@dnd-kit/core':
         specifier: ~6.3.1
         version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

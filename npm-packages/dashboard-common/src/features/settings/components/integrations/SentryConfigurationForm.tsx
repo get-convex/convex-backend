@@ -1,12 +1,17 @@
-import { integrationUsingLegacyFormat } from "@common/lib/integrationHelpers";
+import {
+  ExceptionReportingIntegration,
+  integrationUsingLegacyFormat,
+} from "@common/lib/integrationHelpers";
 import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
 import { TextInput } from "@ui/TextInput";
-import { Infer } from "convex/values";
 import { useFormik } from "formik";
-import { useCreateSentryIntegration } from "@common/lib/integrationsApi";
+import {
+  useCreateLogStream,
+  useUpdateLogStream,
+  useDeleteLogStream,
+} from "@common/lib/integrationsApi";
 import Link from "next/link";
-import { sentryConfig } from "system-udfs/convex/schema";
 import * as Yup from "yup";
 
 const sentryValidationSchema = Yup.object().shape({
@@ -32,15 +37,21 @@ const sentryValidationSchema = Yup.object().shape({
 
 export function SentryConfigurationForm({
   onClose,
-  existingConfig,
+  integration,
   onAddedIntegration,
 }: {
   onClose: () => void;
-  existingConfig: Infer<typeof sentryConfig> | null;
+  integration: Extract<ExceptionReportingIntegration, { kind: "sentry" }>;
   onAddedIntegration?: () => void;
 }) {
-  const createSentryIntegration = useCreateSentryIntegration();
+  const createLogStream = useCreateLogStream();
+  const updateLogStream = useUpdateLogStream();
+  const deleteLogStream = useDeleteLogStream();
+  const existingConfig = integration.existing?.config ?? null;
+  const logStreamId = integration.existing?._id;
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
+
+  const isNewIntegration = existingConfig === null || !logStreamId;
 
   const formState = useFormik<{
     dsn: string;
@@ -52,15 +63,31 @@ export function SentryConfigurationForm({
       tags: existingConfig?.tags
         ? JSON.stringify(existingConfig.tags)
         : undefined,
-      version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
+      version: existingConfig?.version ?? "2",
     },
     onSubmit: async (values) => {
-      await createSentryIntegration(
-        values.dsn,
-        values.tags ? JSON.parse(values.tags) : undefined,
-        values.version,
-      );
-      onAddedIntegration?.();
+      const isUpgradingToV2 = isUsingLegacyFormat && values.version === "2";
+
+      if (isNewIntegration || isUpgradingToV2) {
+        // If upgrading from v1 to v2, delete the old log stream first
+        if (isUpgradingToV2 && logStreamId) {
+          await deleteLogStream(logStreamId);
+        }
+        // Create new integration (either truly new, or upgrading v1 to v2)
+        await createLogStream({
+          logStreamType: "sentry",
+          dsn: values.dsn,
+          tags: values.tags ? JSON.parse(values.tags) : undefined,
+        });
+        onAddedIntegration?.();
+      } else {
+        // Update existing integration without changing version
+        await updateLogStream(logStreamId, {
+          logStreamType: "sentry",
+          dsn: values.dsn,
+          tags: values.tags ? JSON.parse(values.tags) : undefined,
+        });
+      }
       onClose();
     },
     validationSchema: sentryValidationSchema,
