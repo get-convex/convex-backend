@@ -1,20 +1,20 @@
-import type { ComponentApi } from "../examples/static-component/_generated/component.js";
+import type { ComponentApi } from "./nested-component/_generated/component.js";
 import { ActionCtx } from "./_generated/server.js";
 
 export async function callComponentFunctions(
   ctx: ActionCtx,
   component: ComponentApi,
 ) {
-  const branded = await ctx.runQuery(component.staticFunctions.q, {
+  const branded = await ctx.runQuery(component.functions.q, {
     branded: "1",
   });
-  const result = await ctx.runMutation(component.staticFunctions.m, {
+  const result = await ctx.runMutation(component.functions.m, {
     branded,
   });
   if (!result) {
     throw new Error("Failed to insert document");
   }
-  await ctx.runAction(component.staticFunctions.a, {
+  await ctx.runAction(component.functions.a, {
     branded,
     id: result._id,
   });

@@ -8,8 +8,7 @@
  * @module
  */
 
-import type * as messages from "../messages.js";
-import type * as nestedClient from "../nestedClient.js";
+import type * as functions from "../functions.js";
 
 import type {
   ApiFromModules,
@@ -19,8 +18,7 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
-  messages: typeof messages;
-  nestedClient: typeof nestedClient;
+  functions: typeof functions;
 }> = anyApi as any;
 
 /**
@@ -49,8 +47,4 @@ export const internal: FilterApi<
   FunctionReference<any, "internal">
 > = anyApi as any;
 
-export const components = componentsGeneric() as unknown as {
-  waitlist: import("../../examples/waitlist@name-with-dashes/_generated/component.js").ComponentApi<"waitlist">;
-  waitlist2: import("../../examples/waitlist@name-with-dashes/_generated/component.js").ComponentApi<"waitlist2">;
-  nestedComponent: import("../nested-component/_generated/component.js").ComponentApi<"nestedComponent">;
-};
+export const components = componentsGeneric() as unknown as {};

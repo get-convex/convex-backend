@@ -9,6 +9,7 @@
  */
 
 import type * as messages from "../messages.js";
+import type * as nestedClient from "../nestedClient.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +19,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   messages: typeof messages;
+  nestedClient: typeof nestedClient;
 }>;
 
 /**
@@ -159,6 +161,23 @@ export declare const components: {
         { text: string },
         any
       >;
+    };
+  };
+  nestedComponent: {
+    functions: {
+      a: FunctionReference<
+        "action",
+        "internal",
+        { branded: string; id: string },
+        string
+      >;
+      m: FunctionReference<
+        "mutation",
+        "internal",
+        { branded: string },
+        { _creationTime: number; _id: string } | null
+      >;
+      q: FunctionReference<"query", "internal", { branded: string }, string>;
     };
   };
 };

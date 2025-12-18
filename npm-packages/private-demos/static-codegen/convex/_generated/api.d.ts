@@ -207,7 +207,7 @@ export declare const components: {
       >;
     };
   };
-  staticComponent: {
+  nestedComponent: {
     staticFunctions: {
       a: FunctionReference<
         "action",

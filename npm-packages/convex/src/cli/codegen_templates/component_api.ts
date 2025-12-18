@@ -112,15 +112,30 @@ export async function componentApiDTS(
 
   lines.push(`
   export declare const components: {`);
+  lines.push(
+    ...(await componentApiLines(
+      ctx,
+      startPush,
+      analysis,
+      rootComponent,
+      componentsMap,
+      opts,
+    )),
+  );
+  lines.push("};");
+  return lines.join("\n");
+}
+
+async function componentApiLines(
+  ctx: Context,
+  startPush: StartPushResponse,
+  analysis: EvaluatedComponentDefinition,
+  rootComponent: ComponentDirectory,
+  componentsMap: Map<string, ComponentDirectory>,
+  opts: { useComponentApiImports: boolean },
+): Promise<string[]> {
+  const lines: string[] = [];
   for (const childComponent of analysis.definition.childComponents) {
-    const childComponentAnalysis = startPush.analysis[childComponent.path];
-    if (!childComponentAnalysis) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `No analysis found for child component ${childComponent.path}`,
-      });
-    }
     if (opts.useComponentApiImports) {
       const absolutePath = toAbsolutePath(
         rootComponent,
@@ -136,14 +151,16 @@ export async function componentApiDTS(
         });
       }
 
-      let importPath;
-
       // If the user uses a different import specifier than the absolute path of the child component, use the import specifier.
+      const importSpecifier = childComponentWithRelativePath.importSpecifier;
+      let importPath;
+      // Don't trust relative specifiers
       if (
-        childComponentWithRelativePath.importSpecifier &&
-        childComponentWithRelativePath.importSpecifier !== childComponent.path
+        importSpecifier &&
+        !importSpecifier.startsWith(".") &&
+        importSpecifier !== childComponent.path
       ) {
-        importPath = childComponentWithRelativePath.importSpecifier;
+        importPath = importSpecifier;
       } else {
         importPath = `../${childComponent.path}`;
       }
@@ -151,6 +168,14 @@ export async function componentApiDTS(
         `  "${childComponent.name}": import("${importPath}/_generated/component.js").ComponentApi<"${childComponent.name}">,`,
       );
     } else {
+      const childComponentAnalysis = startPush.analysis[childComponent.path];
+      if (!childComponentAnalysis) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `No analysis found for child component ${childComponent.path}`,
+        });
+      }
       for await (const line of codegenExports(
         ctx,
         childComponent.name,
@@ -160,10 +185,7 @@ export async function componentApiDTS(
       }
     }
   }
-
-  lines.push("};");
-
-  return lines.join("\n");
+  return lines;
 }
 
 export async function componentTS(
@@ -253,54 +275,16 @@ export async function componentApiTSWithTypes(
   // Generate components section
   lines.push(`
   export const components = componentsGeneric() as unknown as {`);
-  for (const childComponent of analysis.definition.childComponents) {
-    const childComponentAnalysis = startPush.analysis[childComponent.path];
-    if (!childComponentAnalysis) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `No analysis found for child component ${childComponent.path}`,
-      });
-    }
-    if (opts.useComponentApiImports) {
-      const absolutePath = toAbsolutePath(
-        rootComponent,
-        childComponent.path as ComponentDefinitionPath,
-      );
-
-      let childComponentWithRelativePath = componentsMap?.get(absolutePath);
-      if (!childComponentWithRelativePath) {
-        return await ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          printedMessage: `Invalid child component directory: ${childComponent.path}`,
-        });
-      }
-
-      let importPath;
-
-      // If the user uses a different import specifier than the absolute path of the child component, use the import specifier.
-      if (
-        childComponentWithRelativePath.importSpecifier &&
-        childComponentWithRelativePath.importSpecifier !== childComponent.path
-      ) {
-        importPath = childComponentWithRelativePath.importSpecifier;
-      } else {
-        importPath = `../${childComponent.path}`;
-      }
-      lines.push(
-        `  "${childComponent.name}": import("${importPath}/_generated/component.js").ComponentApi<"${childComponent.name}">,`,
-      );
-    } else {
-      for await (const line of codegenExports(
-        ctx,
-        childComponent.name,
-        childComponentAnalysis,
-      )) {
-        lines.push(line);
-      }
-    }
-  }
+  lines.push(
+    ...(await componentApiLines(
+      ctx,
+      startPush,
+      analysis,
+      rootComponent,
+      componentsMap,
+      opts,
+    )),
+  );
   lines.push("};");
 
   return lines.join("\n");

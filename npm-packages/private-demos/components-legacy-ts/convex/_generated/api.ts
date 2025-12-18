@@ -9,6 +9,7 @@
  */
 
 import type * as messages from "../messages.js";
+import type * as nestedClient from "../nestedClient.js";
 
 import type {
   ApiFromModules,
@@ -19,6 +20,7 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   messages: typeof messages;
+  nestedClient: typeof nestedClient;
 }> = anyApi as any;
 
 /**
@@ -160,6 +162,23 @@ export const components = componentsGeneric() as unknown as {
         { text: string },
         any
       >;
+    };
+  };
+  nestedComponent: {
+    functions: {
+      a: FunctionReference<
+        "action",
+        "internal",
+        { branded: string; id: string },
+        string
+      >;
+      m: FunctionReference<
+        "mutation",
+        "internal",
+        { branded: string },
+        { _creationTime: number; _id: string } | null
+      >;
+      q: FunctionReference<"query", "internal", { branded: string }, string>;
     };
   };
 };

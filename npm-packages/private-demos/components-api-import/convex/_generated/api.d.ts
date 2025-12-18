@@ -9,6 +9,7 @@
  */
 
 import type * as messages from "../messages.js";
+import type * as nestedClient from "../nestedClient.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +19,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   messages: typeof messages;
+  nestedClient: typeof nestedClient;
 }>;
 
 /**
@@ -49,4 +51,5 @@ export declare const internal: FilterApi<
 export declare const components: {
   waitlist: import("../../examples/waitlist@name-with-dashes/_generated/component.js").ComponentApi<"waitlist">;
   waitlist2: import("../../examples/waitlist@name-with-dashes/_generated/component.js").ComponentApi<"waitlist2">;
+  nestedComponent: import("../nested-component/_generated/component.js").ComponentApi<"nestedComponent">;
 };
