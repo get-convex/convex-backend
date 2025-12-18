@@ -18,6 +18,7 @@ import type * as util_github from "../util/github.js";
 import type * as util_hash from "../util/hash.js";
 import type * as util_isStale from "../util/isStale.js";
 import type * as util_message from "../util/message.js";
+import type * as util_npm from "../util/npm.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   "util/hash": typeof util_hash;
   "util/isStale": typeof util_isStale;
   "util/message": typeof util_message;
+  "util/npm": typeof util_npm;
 }>;
 
 /**

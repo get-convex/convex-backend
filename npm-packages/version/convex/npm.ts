@@ -5,29 +5,17 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { type } from "arktype";
 import { Doc } from "./_generated/dataModel";
+import { fetchLatestNpmVersion } from "./util/npm";
 
 export const refresh = internalAction({
   args: {},
   handler: async (ctx): Promise<Doc<"npmVersion"> | null> => {
     try {
-      const response = await fetch("https://registry.npmjs.org/convex/latest");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch NPM data: ${response.status}`);
-      }
-
-      const NpmResponse = type({
-        version: "string",
-      });
-
-      const out = NpmResponse(await response.json());
-      if (out instanceof type.errors) {
-        throw new Error("Invalid NPM response: " + out.summary);
-      }
+      const version = await fetchLatestNpmVersion();
 
       return await ctx.runMutation(internal.npm.save, {
-        version: out.version,
+        version,
       });
     } catch (error) {
       console.error("Failed to refresh NPM version:", error);
