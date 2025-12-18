@@ -400,7 +400,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 }
 
 impl<RT: Runtime> ScheduledJobContext<RT> {
-    #[try_stream(boxed, ok = (ResolvedDocumentId, ScheduledJob), error = anyhow::Error)]
+    #[try_stream(boxed, ok = (ResolvedDocumentId, ScheduledJobMetadata), error = anyhow::Error)]
     async fn stream_jobs_to_run<'a>(&'a self, tx: &'a mut Transaction<RT>) {
         let namespaces: Vec<_> = tx
             .table_mapping()
@@ -432,9 +432,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         job_metadata.id()
                     )
                 })?;
-                let mut model = SchedulerModel::new(tx, namespace);
-                let job = model.scheduled_job_from_metadata(job_metadata).await?;
-                queries.insert((next_ts, namespace), ((job_metadata_id, job), query));
+                queries.insert(
+                    (next_ts, namespace),
+                    ((job_metadata_id, job_metadata.into_value()), query),
+                );
             }
         }
         while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
@@ -445,16 +446,17 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 let next_ts = job_metadata.next_ts.with_context(|| {
                     format!("Could not get next_ts to run scheduled job {job_metadata_id}",)
                 })?;
-                let mut model = SchedulerModel::new(tx, namespace);
-                let job = model.scheduled_job_from_metadata(job_metadata).await?;
-                queries.insert((next_ts, namespace), ((job_metadata_id, job), query));
+                queries.insert(
+                    (next_ts, namespace),
+                    ((job_metadata_id, job_metadata.into_value()), query),
+                );
             }
         }
     }
 
     // This handles re-running the scheduled function on transient errors. It
     // guarantees that the job was successfully run or the job state changed.
-    pub async fn execute_job(&self, job: ScheduledJob, job_id: ResolvedDocumentId) {
+    pub async fn execute_job(&self, job: ScheduledJobMetadata, job_id: ResolvedDocumentId) {
         match self
             .run_function(job.clone(), job_id, job.attempts.count_failures() as usize)
             .await
@@ -479,12 +481,12 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn schedule_retry(
         &self,
-        job: ScheduledJob,
+        job: ScheduledJobMetadata,
         job_id: ResolvedDocumentId,
         mut system_error: anyhow::Error,
     ) -> anyhow::Result<()> {
         let (success, mut tx, mut job) = self
-            .new_transaction_for_job_state(job_id, &job, FunctionUsageTracker::new())
+            .new_transaction_for_job_metadata(job_id, &job, FunctionUsageTracker::new())
             .await?;
         if !success {
             // Continue without scheduling retry since the job state has changed
@@ -524,13 +526,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn run_function(
         &self,
-        job: ScheduledJob,
+        job: ScheduledJobMetadata,
         job_id: ResolvedDocumentId,
         mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
         let usage_tracker = FunctionUsageTracker::new();
         let (success, mut tx, _metadata) = self
-            .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
+            .new_transaction_for_job_metadata(job_id, &job, usage_tracker.clone())
             .await?;
         if !success {
             // Continue without running function since the job state has changed
@@ -552,6 +554,9 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             job_id: job_id.into(),
             component_id,
         };
+        let job = SchedulerModel::new(&mut tx, namespace)
+            .scheduled_job_from_metadata(job_id, job)
+            .await?;
         let path = job.path.clone();
         let udf_type = match ModuleModel::new(&mut tx)
             .get_analyzed_function(&path)

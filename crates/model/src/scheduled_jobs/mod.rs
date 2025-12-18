@@ -214,7 +214,8 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
     /// arguments for the job.
     pub async fn scheduled_job_from_metadata(
         &mut self,
-        metadata: ParsedDocument<ScheduledJobMetadata>,
+        job_id: ResolvedDocumentId,
+        metadata: ScheduledJobMetadata,
     ) -> anyhow::Result<ScheduledJob> {
         let scheduled_job = if let Some(args_id) = metadata.args_id {
             let doc = self
@@ -223,7 +224,6 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 .await?
                 .with_context(|| format!("Missing scheduled job args document for id {args_id}"))?;
             let args = Arc::unwrap_or_clone(doc);
-            let metadata = metadata.into_value();
             ScheduledJob {
                 path: metadata.path,
                 udf_args_bytes: args.into_value().args,
@@ -234,13 +234,8 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 attempts: metadata.attempts,
             }
         } else {
-            let scheduled_metadata_id = metadata.developer_id();
-            let metadata = metadata.into_value();
             let args = metadata.udf_args_bytes.with_context(|| {
-                format!(
-                    "Missing udf_args_bytes in scheduled job metadata with id \
-                     {scheduled_metadata_id}",
-                )
+                format!("Missing udf_args_bytes in scheduled job metadata with id {job_id}",)
             })?;
             ScheduledJob {
                 path: metadata.path,

@@ -90,10 +90,7 @@ use model::{
         ExportsModel,
     },
     initialize_application_system_tables,
-    scheduled_jobs::{
-        types::ScheduledJobMetadata,
-        SchedulerModel,
-    },
+    scheduled_jobs::types::ScheduledJobMetadata,
     udf_config::types::UdfConfig,
     virtual_system_mapping,
     REFRESHABLE_APP_TABLES,
@@ -317,14 +314,10 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             self.runner.clone(),
             self.function_log.clone(),
         );
-        let mut tx = self.begin(Identity::system()).await?;
-        let namespace = tx
-            .table_mapping()
-            .tablet_namespace(metadata.id().tablet_id)?;
         let metadata_id = metadata.id();
-        let mut model = SchedulerModel::new(&mut tx, namespace);
-        let job = model.scheduled_job_from_metadata(metadata).await?;
-        test_executor.execute_job(job, metadata_id).await;
+        test_executor
+            .execute_job(metadata.into_value(), metadata_id)
+            .await;
         Ok(())
     }
 
