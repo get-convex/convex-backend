@@ -5615,8 +5615,7 @@
         "properties": {
           "auditLogRetentionDays": {
             "type": "integer",
-            "format": "int64",
-            "minimum": 0
+            "format": "int64"
           },
           "customDomainsEnabled": {
             "type": "boolean"
@@ -5639,8 +5638,7 @@
           },
           "maxDeployments": {
             "type": "integer",
-            "format": "int64",
-            "minimum": 0
+            "format": "int64"
           },
           "maxProjects": {
             "type": "integer",

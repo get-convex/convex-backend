@@ -27,7 +27,7 @@ pub struct BackendInfoPersisted {
     pub streaming_export_enabled: bool,
     pub provision_concurrency: i32,
     pub log_streaming_enabled: bool,
-    pub audit_log_retention_days: u64,
+    pub audit_log_retention_days: i64,
 }
 
 impl From<BackendInfoPersisted> for BackendInfo {
@@ -109,7 +109,7 @@ impl From<BackendInfoPersisted> for SerializedBackendInfo {
             log_streaming_enabled: b.log_streaming_enabled,
             project_name: b.project_name,
             project_slug: b.project_slug,
-            audit_log_retention_days: (b.audit_log_retention_days as i64),
+            audit_log_retention_days: b.audit_log_retention_days,
         }
     }
 }
@@ -129,7 +129,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
         let log_streaming_enabled = o.log_streaming_enabled;
         let project_name = o.project_name;
         let project_slug = o.project_slug;
-        let audit_log_retention_days = o.audit_log_retention_days as u64;
+        let audit_log_retention_days = o.audit_log_retention_days;
 
         Ok(Self {
             team,

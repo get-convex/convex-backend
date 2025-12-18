@@ -27,7 +27,7 @@ pub struct BackendInfo {
     pub streaming_export_enabled: Option<bool>,
     pub provision_concurrency: Option<i32>,
     pub log_streaming_enabled: Option<bool>,
-    pub audit_log_retention_days: Option<u64>,
+    pub audit_log_retention_days: Option<i64>,
 }
 
 #[cfg(any(test, feature = "testing"))]
