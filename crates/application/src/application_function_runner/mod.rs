@@ -95,7 +95,7 @@ use function_runner::{
     FunctionWrites,
 };
 use futures::{
-    select_biased,
+    future,
     FutureExt,
 };
 use isolate::ActionCallbacks;
@@ -160,7 +160,10 @@ use sync_types::{
     types::SerializedArgs,
     CanonicalizedModulePath,
 };
-use tokio::sync::mpsc;
+use tokio::{
+    select,
+    sync::mpsc,
+};
 use udf::{
     environment::system_env_vars,
     helpers::parse_udf_args,
@@ -200,7 +203,6 @@ use self::metrics::{
     log_outstanding_functions,
     log_udf_executor_result,
     mutation_timer,
-    OutstandingFunctionState,
     UdfExecutorResult,
 };
 use crate::{
@@ -217,6 +219,7 @@ use crate::{
     function_log::{
         ActionCompletion,
         FunctionExecutionLog,
+        OutstandingFunctionState,
     },
     ActionError,
     ActionReturn,
@@ -235,10 +238,10 @@ static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_
 #[derive(Clone)]
 pub struct FunctionRouter<RT: Runtime> {
     pub(crate) function_runner: Arc<dyn FunctionRunner<RT>>,
-    query_limiter: Arc<Limiter>,
-    mutation_limiter: Arc<Limiter>,
-    action_limiter: Arc<Limiter>,
-    http_action_limiter: Arc<Limiter>,
+    query_limiter: Arc<Limiter<RT>>,
+    mutation_limiter: Arc<Limiter<RT>>,
+    action_limiter: Arc<Limiter<RT>>,
+    http_action_limiter: Arc<Limiter<RT>>,
 
     rt: RT,
     database: Database<RT>,
@@ -251,32 +254,42 @@ impl<RT: Runtime> FunctionRouter<RT> {
         rt: RT,
         database: Database<RT>,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        function_log: FunctionExecutionLog<RT>,
     ) -> Self {
+        let query_limiter = Arc::new(Limiter::new(
+            ModuleEnvironment::Isolate,
+            UdfType::Query,
+            *APPLICATION_MAX_CONCURRENT_QUERIES,
+            function_log.clone(),
+        ));
+        let mutation_limiter = Arc::new(Limiter::new(
+            ModuleEnvironment::Isolate,
+            UdfType::Mutation,
+            *APPLICATION_MAX_CONCURRENT_MUTATIONS,
+            function_log.clone(),
+        ));
+        let action_limiter = Arc::new(Limiter::new(
+            ModuleEnvironment::Isolate,
+            UdfType::Action,
+            *APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
+            function_log.clone(),
+        ));
+        let http_action_limiter = Arc::new(Limiter::new(
+            ModuleEnvironment::Isolate,
+            UdfType::HttpAction,
+            *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
+            function_log,
+        ));
+
         Self {
             function_runner,
             rt,
             database,
             default_system_env_vars,
-            query_limiter: Arc::new(Limiter::new(
-                ModuleEnvironment::Isolate,
-                UdfType::Query,
-                *APPLICATION_MAX_CONCURRENT_QUERIES,
-            )),
-            mutation_limiter: Arc::new(Limiter::new(
-                ModuleEnvironment::Isolate,
-                UdfType::Mutation,
-                *APPLICATION_MAX_CONCURRENT_MUTATIONS,
-            )),
-            action_limiter: Arc::new(Limiter::new(
-                ModuleEnvironment::Isolate,
-                UdfType::Action,
-                *APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
-            )),
-            http_action_limiter: Arc::new(Limiter::new(
-                ModuleEnvironment::Isolate,
-                UdfType::HttpAction,
-                *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
-            )),
+            query_limiter,
+            mutation_limiter,
+            action_limiter,
+            http_action_limiter,
         }
     }
 }
@@ -448,7 +461,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
 
 // Used to limit upstream concurrency for a given function type. It also tracks
 // and log gauges for the number of waiting and currently running functions.
-struct Limiter {
+struct Limiter<RT: Runtime> {
     udf_type: UdfType,
     env: ModuleEnvironment,
 
@@ -458,16 +471,25 @@ struct Limiter {
 
     // Total function requests, including ones still waiting on the semaphore.
     total_outstanding: AtomicUsize,
+
+    // Function execution log for recording outstanding function gauges.
+    function_log: FunctionExecutionLog<RT>,
 }
 
-impl Limiter {
-    fn new(env: ModuleEnvironment, udf_type: UdfType, total_permits: usize) -> Self {
+impl<RT: Runtime> Limiter<RT> {
+    fn new(
+        env: ModuleEnvironment,
+        udf_type: UdfType,
+        total_permits: usize,
+        function_log: FunctionExecutionLog<RT>,
+    ) -> Self {
         let limiter = Self {
             udf_type,
             env,
             semaphore: Semaphore::new(total_permits),
             total_permits,
             total_outstanding: AtomicUsize::new(0),
+            function_log,
         };
         // Update the gauges on startup.
         limiter.update_gauges();
@@ -475,13 +497,21 @@ impl Limiter {
     }
 
     #[fastrace::trace]
-    async fn acquire_permit_with_timeout<'a, RT: Runtime>(
+    async fn acquire_permit_with_timeout<'a>(
         &'a self,
         rt: &'a RT,
-    ) -> anyhow::Result<RequestGuard<'a>> {
+    ) -> anyhow::Result<RequestGuard<'a, RT>> {
         let mut request_guard = self.start();
-        select_biased! {
-            _ = request_guard.acquire_permit().fuse() => {},
+        select! {
+            biased;
+            _ = request_guard.acquire_permit() => {},
+            x = async {
+                // Only update gauges if `acquire_permit` blocked. This avoids
+                // recording a waiting function if there are still available
+                // permits.
+                self.update_gauges();
+                future::pending::<!>().await
+            } => match x {},
             _ = rt.wait(*APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT) => {
                 log_function_wait_timeout(self.env, self.udf_type);
                 anyhow::bail!(ErrorMetadata::rate_limited(
@@ -502,10 +532,8 @@ impl Limiter {
         Ok(request_guard)
     }
 
-    fn start(&self) -> RequestGuard<'_> {
+    fn start(&self) -> RequestGuard<'_, RT> {
         self.total_outstanding.fetch_add(1, Ordering::SeqCst);
-        // Update the gauge to account for the newly waiting request.
-        self.update_gauges();
         RequestGuard {
             limiter: self,
             permit: None,
@@ -514,34 +542,51 @@ impl Limiter {
 
     // Updates the current waiting and running function gauges.
     fn update_gauges(&self) {
-        let running = self.total_permits - self.semaphore.available_permits();
-        let waiting = self
+        let num_running_functions = self.total_permits - self.semaphore.available_permits();
+        let num_queued_functions = self
             .total_outstanding
             .load(Ordering::SeqCst)
-            .saturating_sub(running);
+            .saturating_sub(num_running_functions);
+
+        // Log to prometheus
         log_outstanding_functions(
-            running,
+            num_running_functions,
             self.env,
             self.udf_type,
             OutstandingFunctionState::Running,
         );
         log_outstanding_functions(
-            waiting,
+            num_queued_functions,
             self.env,
             self.udf_type,
-            OutstandingFunctionState::Waiting,
+            OutstandingFunctionState::Queued,
+        );
+
+        // Log to udf_metrics as gauges
+        self.function_log.log_outstanding_functions(
+            num_running_functions,
+            self.env,
+            self.udf_type,
+            OutstandingFunctionState::Running,
+        );
+
+        self.function_log.log_outstanding_functions(
+            num_queued_functions,
+            self.env,
+            self.udf_type,
+            OutstandingFunctionState::Queued,
         );
     }
 }
 
 // Wraps a request to guarantee we correctly update the waiting and running
 // gauges even if dropped.
-struct RequestGuard<'a> {
-    limiter: &'a Limiter,
+struct RequestGuard<'a, RT: Runtime> {
+    limiter: &'a Limiter<RT>,
     permit: Option<SemaphorePermit<'a>>,
 }
 
-impl RequestGuard<'_> {
+impl<RT: Runtime> RequestGuard<'_, RT> {
     async fn acquire_permit(&mut self) -> anyhow::Result<()> {
         let timer = function_waiter_timer(self.limiter.udf_type);
         assert!(
@@ -556,7 +601,7 @@ impl RequestGuard<'_> {
     }
 }
 
-impl Drop for RequestGuard<'_> {
+impl<RT: Runtime> Drop for RequestGuard<'_, RT> {
     fn drop(&mut self) {
         // Drop the semaphore permit before updating gauges.
         drop(self.permit.take());
@@ -592,7 +637,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
     cache_manager: CacheManager<RT>,
     default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
-    node_action_limiter: Limiter,
+    node_action_limiter: Limiter<RT>,
 }
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
@@ -614,6 +659,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             runtime.clone(),
             database.clone(),
             default_system_env_vars.clone(),
+            function_log.clone(),
         );
         let cache_manager = CacheManager::new(
             runtime.clone(),
@@ -621,6 +667,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             isolate_functions.clone(),
             function_log.clone(),
             cache,
+        );
+
+        let node_action_limiter = Limiter::new(
+            ModuleEnvironment::Node,
+            UdfType::Action,
+            *APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
+            function_log.clone(),
         );
 
         Self {
@@ -635,11 +688,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             function_log,
             cache_manager,
             default_system_env_vars,
-            node_action_limiter: Limiter::new(
-                ModuleEnvironment::Node,
-                UdfType::Action,
-                *APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
-            ),
+            node_action_limiter,
         }
     }
 

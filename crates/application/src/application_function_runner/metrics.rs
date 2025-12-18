@@ -13,6 +13,8 @@ use metrics::{
     STATUS_LABEL,
 };
 
+use crate::function_log::OutstandingFunctionState;
+
 pub enum UdfExecutorResult {
     Success,
     UserError,
@@ -62,11 +64,6 @@ pub fn mutation_timer() -> StatusTimer {
     StatusTimer::new(&APPLICATION_MUTATION_SECONDS)
 }
 
-pub enum OutstandingFunctionState {
-    Running,
-    Waiting,
-}
-
 register_convex_histogram!(
     APPLICATION_FUNCTION_RUNNER_OUTSTANDING_TOTAL,
     "The number of currently outstanding functions of a given type. Includes both running and \
@@ -83,7 +80,7 @@ pub fn log_outstanding_functions(
         "state",
         match state {
             OutstandingFunctionState::Running => "running",
-            OutstandingFunctionState::Waiting => "waiting",
+            OutstandingFunctionState::Queued => "queued",
         },
     );
     log_distribution_with_labels(

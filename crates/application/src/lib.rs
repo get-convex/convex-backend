@@ -5,6 +5,7 @@
 #![feature(duration_constructors)]
 #![feature(duration_constructors_lite)]
 #![feature(assert_matches)]
+#![feature(never_type)]
 
 use std::{
     collections::{
@@ -2954,6 +2955,17 @@ impl<RT: Runtime> Application<RT> {
             anyhow::bail!(unauthorized_error("scheduled_job_lag"));
         }
         self.function_log.scheduled_job_lag(window)
+    }
+
+    pub async fn function_concurrency(
+        &self,
+        identity: Identity,
+        window: MetricsWindow,
+    ) -> anyhow::Result<BTreeMap<String, Timeseries>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("function_concurrency"));
+        }
+        self.function_log.function_concurrency(window)
     }
 
     pub async fn delete_scheduled_jobs_table(

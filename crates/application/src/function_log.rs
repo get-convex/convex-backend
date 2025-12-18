@@ -103,6 +103,11 @@ use value::{
     ConvexArray,
 };
 
+pub enum OutstandingFunctionState {
+    Running,
+    Queued,
+}
+
 /// A function's execution is summarized by this structure and stored in the
 /// UdfExecutionLog
 #[derive(Debug, Clone)]
@@ -1494,6 +1499,52 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
         Ok(timeseries)
     }
+
+    /// Log the current number of outstanding functions as a gauge that tracks
+    /// the maximum.
+    pub fn log_outstanding_functions(
+        &self,
+        total: usize,
+        env: ModuleEnvironment,
+        udf_type: UdfType,
+        state: OutstandingFunctionState,
+    ) {
+        let now = self.rt.system_time();
+        let name = outstanding_functions_metric(&env, &udf_type, &state);
+        // Use gauge with max operation to track maximum value within each bucket.
+        let _ = self
+            .inner
+            .lock()
+            .metrics
+            .add_gauge_max(&name, now, total as f32);
+    }
+
+    pub fn function_concurrency(
+        &self,
+        window: MetricsWindow,
+    ) -> anyhow::Result<BTreeMap<String, Timeseries>> {
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+
+        let mut result = BTreeMap::new();
+
+        // Query all outstanding_functions metrics
+        let metric_names = metrics.metric_names_for_type(MetricType::Gauge);
+        for metric_name in metric_names {
+            if metric_name.starts_with("outstanding_functions:") {
+                let buckets = metrics
+                    .query_gauge(&metric_name, window.start..window.end)?
+                    .into_iter()
+                    .collect();
+                let timeseries = window.resample_gauges(&metrics, buckets)?;
+                result.insert(metric_name.to_string(), timeseries);
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 fn sum_timeseries<'a>(
@@ -1851,6 +1902,23 @@ fn table_rows_written_metric(table_name: &TableName) -> MetricName {
 
 fn scheduled_job_next_ts_metric() -> &'static str {
     "scheduled_jobs:next_ts"
+}
+
+fn outstanding_functions_metric(
+    env: &ModuleEnvironment,
+    udf_type: &UdfType,
+    state: &OutstandingFunctionState,
+) -> MetricName {
+    let env_str = match env {
+        ModuleEnvironment::Isolate => "isolate",
+        ModuleEnvironment::Node => "node",
+        ModuleEnvironment::Invalid => "invalid",
+    };
+    let state_str = match state {
+        OutstandingFunctionState::Running => "running",
+        OutstandingFunctionState::Queued => "queued",
+    };
+    format!("outstanding_functions:{env_str}:{udf_type}:{state_str}")
 }
 
 fn udf_metric_name(identifier: &UdfIdentifier) -> String {

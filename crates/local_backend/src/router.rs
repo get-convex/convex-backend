@@ -64,6 +64,7 @@ use crate::{
         cache_hit_percentage,
         cache_hit_percentage_top_k,
         failure_percentage_top_k,
+        function_concurrency,
         latency_percentiles,
         scheduled_job_lag,
         table_rate,
@@ -495,6 +496,7 @@ where
         .route("/table_rate", get(table_rate))
         .route("/latency_percentiles", get(latency_percentiles))
         .route("/scheduled_job_lag", get(scheduled_job_lag))
+        .route("/function_concurrency", get(function_concurrency))
 }
 
 // Routes with the same handlers for the local backend + closed source backend

@@ -232,3 +232,22 @@ pub(crate) async fn scheduled_job_lag(
     let timeseries = st.application.scheduled_job_lag(identity, window).await?;
     Ok(Json(timeseries))
 }
+
+#[derive(Deserialize)]
+pub(crate) struct FunctionConcurrencyArgs {
+    window: String,
+}
+pub(crate) async fn function_concurrency(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Query(query_args): Query<FunctionConcurrencyArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let window_json: serde_json::Value =
+        serde_json::from_str(&query_args.window).map_err(anyhow::Error::new)?;
+    let window = window_json.try_into()?;
+    let metrics = st
+        .application
+        .function_concurrency(identity, window)
+        .await?;
+    Ok(Json(metrics))
+}
