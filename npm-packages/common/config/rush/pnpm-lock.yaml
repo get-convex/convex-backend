@@ -5744,7 +5744,7 @@ importers:
         version: 18.19.130
       tsx:
         specifier: ^4.19.4
-        version: 4.19.4
+        version: 4.20.6
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5770,9 +5770,15 @@ importers:
       '@types/semver':
         specifier: ^7.3.13
         version: 7.7.1
+      convex-test:
+        specifier: ^0.0.38
+        version: 0.0.38(convex@..+convex)
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+      vite:
+        specifier: ^6.4.1
+        version: 6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.1.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)

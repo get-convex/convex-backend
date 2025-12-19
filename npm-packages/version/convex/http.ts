@@ -6,6 +6,12 @@ import {
 import { ActionCtx, httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { generateMessage } from "./util/message";
+import { extractVersionFromHeader } from "./util/convexClientHeader";
+import {
+  OLD_CURSOR_RULES,
+  shouldUseOldCursorRules,
+} from "./util/oldCursorRules";
+import { hashSha256 } from "./util/hash";
 
 const http = httpRouter();
 
@@ -26,12 +32,14 @@ http.route({
   path: "/v1/version",
   method: "GET",
   handler: httpAction(async (ctx, req) => {
+    const convexClientHeader = req.headers.get("Convex-Client");
+    const clientVersion = extractVersionFromHeader(convexClientHeader);
+
     const [npmVersionData, cursorRulesData] = await Promise.all([
       getCachedAndScheduleRefresh(ctx, internal.npm),
-      getCachedAndScheduleRefresh(ctx, internal.cursorRules),
+      getCursorRulesForVersion(ctx, clientVersion),
     ]);
 
-    const convexClientHeader = req.headers.get("Convex-Client");
     const message = npmVersionData
       ? generateMessage(npmVersionData, convexClientHeader)
       : null;
@@ -55,11 +63,11 @@ http.route({
 http.route({
   path: "/v1/cursor_rules",
   method: "GET",
-  handler: httpAction(async (ctx) => {
-    const cursorRulesData = await getCachedAndScheduleRefresh(
-      ctx,
-      internal.cursorRules,
-    );
+  handler: httpAction(async (ctx, req) => {
+    const convexClientHeader = req.headers.get("Convex-Client");
+    const clientVersion = extractVersionFromHeader(convexClientHeader);
+
+    const cursorRulesData = await getCursorRulesForVersion(ctx, clientVersion);
 
     if (!cursorRulesData) {
       return new Response("Can’t get the Cursor rules", {
@@ -131,6 +139,23 @@ export async function getCachedAndScheduleRefresh<
   }
 
   return cached;
+}
+
+async function getCursorRulesForVersion(
+  ctx: ActionCtx,
+  clientVersion: string | null,
+): Promise<{
+  hash: string;
+  content: string;
+} | null> {
+  if (shouldUseOldCursorRules(clientVersion)) {
+    return {
+      content: OLD_CURSOR_RULES,
+      hash: await hashSha256(OLD_CURSOR_RULES),
+    };
+  }
+
+  return await getCachedAndScheduleRefresh(ctx, internal.cursorRules);
 }
 
 export default http;

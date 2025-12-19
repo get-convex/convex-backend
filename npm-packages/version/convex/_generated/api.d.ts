@@ -19,6 +19,7 @@ import type * as util_hash from "../util/hash.js";
 import type * as util_isStale from "../util/isStale.js";
 import type * as util_message from "../util/message.js";
 import type * as util_npm from "../util/npm.js";
+import type * as util_oldCursorRules from "../util/oldCursorRules.js";
 
 import type {
   ApiFromModules,
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   "util/isStale": typeof util_isStale;
   "util/message": typeof util_message;
   "util/npm": typeof util_npm;
+  "util/oldCursorRules": typeof util_oldCursorRules;
 }>;
 
 /**
