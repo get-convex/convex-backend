@@ -10,7 +10,7 @@ https://github.com/get-convex/templates/tree/main/template-component for the
 template that powers
 
 ```
-npm create convex@latest -- --component
+npx create-convex@latest  --component
 ```
 
 # Structure of a Convex Component
