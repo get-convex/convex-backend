@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "tshy",
-    "test": "vitest run && node src/scripts/check-version.mjs",
+    "test": "vitest run && node src/scripts/version-check.mjs",
     "test:types": "tsc --noEmit",
     "test:watch": "vitest",
     "prepare": "tshy",
     "lint": "eslint .",
-    "prepublishOnly": "node src/scripts/check-version.mjs",
+    "prepublishOnly": "node src/scripts/version-check.mjs",
     "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },
   "dependencies": {
