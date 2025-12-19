@@ -25,6 +25,7 @@
     "@types/node": "^18.17.0",
     "@typescript-eslint/rule-tester": "~8.38.0",
     "@typescript-eslint/types": "~8.38.0",
+    "convex": "workspace:*",
     "eslint": "^9.37.0",
     "eslint-doc-generator": "^1.7.1",
     "eslint-plugin-eslint-plugin": "~7.2.0",
