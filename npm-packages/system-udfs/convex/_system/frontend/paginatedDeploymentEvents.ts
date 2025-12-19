@@ -41,7 +41,7 @@ export default queryPrivateSystem({
             ),
           );
         }
-        if (filters.actions != undefined) {
+        if (filters.actions !== undefined) {
           queryFilters.push(
             q.or(
               ...filters.actions.map((action) =>
