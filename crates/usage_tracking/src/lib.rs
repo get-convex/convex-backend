@@ -37,10 +37,7 @@ use pb::usage::{
     CounterWithTag as CounterWithTagProto,
     FunctionUsageStats as FunctionUsageStatsProto,
 };
-use value::{
-    heap_size::WithHeapSize,
-    sha256::Sha256Digest,
-};
+use value::sha256::Sha256Digest;
 
 mod metrics;
 
@@ -651,9 +648,10 @@ impl FunctionUsageTracker {
         }
 
         let mut state = self.state.lock();
-        state
+        *state
             .database_ingress_size
-            .mutate_entry_or_default((component_path, table_name), |count| *count += ingress_size);
+            .entry((component_path, table_name))
+            .or_default() += ingress_size;
     }
 
     pub fn track_database_ingress_size_v2(
@@ -668,9 +666,10 @@ impl FunctionUsageTracker {
         }
 
         let mut state = self.state.lock();
-        state
+        *state
             .database_ingress_size_v2
-            .mutate_entry_or_default((component_path, table_name), |count| *count += ingress_size);
+            .entry((component_path, table_name))
+            .or_default() += ingress_size;
     }
 
     pub fn track_database_egress_size(
@@ -685,9 +684,10 @@ impl FunctionUsageTracker {
         }
 
         let mut state = self.state.lock();
-        state
+        *state
             .database_egress_size
-            .mutate_entry_or_default((component_path, table_name), |count| *count += egress_size);
+            .entry((component_path, table_name))
+            .or_default() += egress_size;
     }
 
     pub fn track_database_egress_rows(
@@ -702,9 +702,10 @@ impl FunctionUsageTracker {
         }
 
         let mut state = self.state.lock();
-        state
+        *state
             .database_egress_rows
-            .mutate_entry_or_default((component_path, table_name), |count| *count += egress_rows);
+            .entry((component_path, table_name))
+            .or_default() += egress_rows;
     }
 
     // Tracks the vector ingress surcharge for documents
@@ -729,16 +730,8 @@ impl FunctionUsageTracker {
 
         let mut state = self.state.lock();
         let key = (component_path, table_name);
-        state
-            .vector_ingress_size
-            .mutate_entry_or_default(key.clone(), |count| {
-                *count += ingress_size;
-            });
-        state
-            .vector_ingress_size_v2
-            .mutate_entry_or_default(key, |count| {
-                *count += ingress_size_v2;
-            });
+        *state.vector_ingress_size.entry(key.clone()).or_default() += ingress_size;
+        *state.vector_ingress_size_v2.entry(key).or_default() += ingress_size_v2;
     }
 
     // Tracks bandwidth usage from vector searches
@@ -769,12 +762,8 @@ impl FunctionUsageTracker {
         // per the comment above.
         let mut state = self.state.lock();
         let key = (component_path, table_name);
-        state
-            .database_egress_size
-            .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
-        state
-            .vector_egress_size
-            .mutate_entry_or_default(key, |count| *count += egress_size);
+        *state.database_egress_size.entry(key.clone()).or_default() += egress_size;
+        *state.vector_egress_size.entry(key).or_default() += egress_size;
     }
 
     pub fn track_text_ingress_size(
@@ -789,9 +778,10 @@ impl FunctionUsageTracker {
         }
 
         let mut state = self.state.lock();
-        state
+        *state
             .text_ingress_size
-            .mutate_entry_or_default((component_path, table_name), |count| *count += ingress_size);
+            .entry((component_path, table_name))
+            .or_default() += ingress_size;
     }
 
     pub fn track_text_egress_size(
@@ -807,9 +797,10 @@ impl FunctionUsageTracker {
 
         // TODO(jordan): decide if we also need to track database egress
         let mut state = self.state.lock();
-        state
+        *state
             .text_egress_size
-            .mutate_entry_or_default((component_path, table_name), |count| *count += egress_size);
+            .entry((component_path, table_name))
+            .or_default() += egress_size;
     }
 }
 
@@ -830,9 +821,10 @@ impl StorageCallTracker for FunctionUsageTracker {
     ) {
         let mut state = self.state.lock();
         metrics::storage::log_storage_ingress_size(ingress_size);
-        state
+        *state
             .storage_ingress_size
-            .mutate_entry_or_default(component_path, |count| *count += ingress_size);
+            .entry(component_path)
+            .or_default() += ingress_size;
     }
 
     async fn track_storage_egress_size(
@@ -843,9 +835,7 @@ impl StorageCallTracker for FunctionUsageTracker {
     ) {
         let mut state = self.state.lock();
         metrics::storage::log_storage_egress_size(egress_size);
-        state
-            .storage_egress_size
-            .mutate_entry_or_default(component_path, |count| *count += egress_size);
+        *state.storage_egress_size.entry(component_path).or_default() += egress_size;
     }
 }
 
@@ -861,11 +851,10 @@ impl StorageUsageTracker for FunctionUsageTracker {
     ) -> Box<dyn StorageCallTracker> {
         let mut state = self.state.lock();
         metrics::storage::log_storage_call();
-        state
+        *state
             .storage_calls
-            .mutate_entry_or_default((component_path, storage_api.to_string()), |count| {
-                *count += 1
-            });
+            .entry((component_path, storage_api.to_string()))
+            .or_default() += 1;
         Box::new(self.clone())
     }
 }
@@ -875,20 +864,93 @@ type StorageAPI = String;
 
 /// User-facing UDF stats, built
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionUsageStats {
-    pub storage_calls: WithHeapSize<BTreeMap<(ComponentPath, StorageAPI), u64>>,
-    pub storage_ingress_size: WithHeapSize<BTreeMap<ComponentPath, u64>>,
-    pub storage_egress_size: WithHeapSize<BTreeMap<ComponentPath, u64>>,
-    pub database_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, StorageAPI)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub storage_calls: BTreeMap<(ComponentPath, StorageAPI), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<ComponentPath>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub storage_ingress_size: BTreeMap<ComponentPath, u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<ComponentPath>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub storage_egress_size: BTreeMap<ComponentPath, u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub database_ingress_size: BTreeMap<(ComponentPath, TableName), u64>,
     /// Includes ingress for tables that have virtual tables
-    pub database_ingress_size_v2: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
-    pub database_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
-    pub database_egress_rows: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
-    pub vector_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
-    pub vector_ingress_size_v2: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
-    pub vector_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
-    pub text_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
-    pub text_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub database_ingress_size_v2: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub database_egress_size: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub database_egress_rows: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub vector_ingress_size: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub vector_ingress_size_v2: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub vector_egress_size: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub text_ingress_size: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub text_egress_size: BTreeMap<(ComponentPath, TableName), u64>,
 }
 
 impl FunctionUsageStats {
@@ -910,164 +972,36 @@ impl FunctionUsageStats {
     fn merge(&mut self, other: Self) {
         // Merge the storage stats.
         for (key, function_count) in other.storage_calls {
-            self.storage_calls
-                .mutate_entry_or_default(key, |count| *count += function_count);
+            *self.storage_calls.entry(key).or_default() += function_count;
         }
         for (key, ingress_size) in other.storage_ingress_size {
-            self.storage_ingress_size
-                .mutate_entry_or_default(key, |count| *count += ingress_size);
+            *self.storage_ingress_size.entry(key).or_default() += ingress_size;
         }
         for (key, egress_size) in other.storage_egress_size {
-            self.storage_egress_size
-                .mutate_entry_or_default(key, |count| *count += egress_size);
+            *self.storage_egress_size.entry(key).or_default() += egress_size;
         }
 
         // Merge "by table" bandwidth other.
         for (key, ingress_size) in other.database_ingress_size {
-            self.database_ingress_size
-                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
+            *self.database_ingress_size.entry(key).or_default() += ingress_size;
         }
         for (key, ingress_size) in other.database_ingress_size_v2 {
-            self.database_ingress_size_v2
-                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
+            *self.database_ingress_size_v2.entry(key).or_default() += ingress_size;
         }
         for (key, egress_size) in other.database_egress_size {
-            self.database_egress_size
-                .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
+            *self.database_egress_size.entry(key).or_default() += egress_size;
         }
         for (key, egress_rows) in other.database_egress_rows {
-            self.database_egress_rows
-                .mutate_entry_or_default(key.clone(), |count| *count += egress_rows);
+            *self.database_egress_rows.entry(key.clone()).or_default() += egress_rows;
         }
         for (key, ingress_size) in other.vector_ingress_size {
-            self.vector_ingress_size
-                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
+            *self.vector_ingress_size.entry(key.clone()).or_default() += ingress_size;
         }
         for (key, egress_size) in other.vector_egress_size {
-            self.vector_egress_size
-                .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
+            *self.vector_egress_size.entry(key.clone()).or_default() += egress_size;
         }
         for (key, ingress_size) in other.vector_ingress_size_v2 {
-            self.vector_ingress_size_v2
-                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
-        }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-mod usage_arbitrary {
-    use proptest::prelude::*;
-
-    use crate::{
-        ComponentPath,
-        FunctionUsageStats,
-        StorageAPI,
-        TableName,
-        WithHeapSize,
-    };
-
-    impl Arbitrary for FunctionUsageStats {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-            let strategies = (
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, StorageAPI)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(any::<ComponentPath>(), 0..=1024u64, 0..=4)
-                    .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(any::<ComponentPath>(), 0..=1024u64, 0..=4)
-                    .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-                proptest::collection::btree_map(
-                    any::<(ComponentPath, TableName)>(),
-                    0..=1024u64,
-                    0..=4,
-                )
-                .prop_map(WithHeapSize::from),
-            );
-            strategies
-                .prop_map(
-                    |(
-                        storage_calls,
-                        storage_ingress_size,
-                        storage_egress_size,
-                        database_ingress_size,
-                        database_ingress_size_v2,
-                        database_egress_size,
-                        database_egress_rows,
-                        vector_ingress_size,
-                        vector_egress_size,
-                        text_ingress_size,
-                        text_egress_size,
-                        vector_ingress_size_v2,
-                    )| FunctionUsageStats {
-                        storage_calls,
-                        storage_ingress_size,
-                        storage_egress_size,
-                        database_ingress_size,
-                        database_ingress_size_v2,
-                        database_egress_size,
-                        database_egress_rows,
-                        vector_ingress_size,
-                        vector_egress_size,
-                        text_ingress_size,
-                        text_egress_size,
-                        vector_ingress_size_v2,
-                    },
-                )
-                .boxed()
+            *self.vector_ingress_size_v2.entry(key.clone()).or_default() += ingress_size;
         }
     }
 }
