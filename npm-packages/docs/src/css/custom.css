@@ -7,6 +7,10 @@
 
 @source "../**/*.{js,jsx,ts,tsx}";
 
+/* Customize the search button in nav and modal */
+@import url("./search.css");
+@import url("./language-selector.css");
+
 @theme {
   --color-neutral-white: #ffffff;
   --color-neutral-n1: #f6f6f6;
@@ -250,9 +254,6 @@ for when the whole page is scrolled down */
 .navbar {
   border-bottom: 1px solid var(--ifm-toc-border-color);
 }
-
-/* Customize the search button in nav and modal */
-@import url("./search.css");
 
 /* START: Icon links in top nav */
 @media (min-width: 997px) {
@@ -1356,8 +1357,6 @@ html:not([class*="docs-doc-id-quickstart/"]):not(
   display: flex;
   justify-content: space-between;
 }
-
-@import url("./language-selector.css");
 
 /* FROM HERE ON: Dark mode styles */
 
