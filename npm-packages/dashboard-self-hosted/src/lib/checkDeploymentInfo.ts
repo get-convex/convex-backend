@@ -28,7 +28,7 @@ export async function checkDeploymentInfo(
       if (resp.status === 404) {
         return null;
       }
-    } catch (e) {
+    } catch {
       // Do nothing
     }
     await sleep(MAX_RETRIES_DELAY_MS);

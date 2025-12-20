@@ -266,7 +266,7 @@ async function redirectToProjectPage(
           owningTeam = team;
           break;
         }
-      } catch (error) {
+      } catch {
         // Continue to next team
         continue;
       }
@@ -283,7 +283,7 @@ async function redirectToProjectPage(
         destination: `/t/${owningTeam.slug}/${project.slug}${remainingPath}`,
       },
     };
-  } catch (error) {
+  } catch {
     return pageNotFound(res);
   }
 }

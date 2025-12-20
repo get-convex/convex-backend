@@ -39,7 +39,7 @@ function useLatestConvexVersion(currentVersion: string | undefined) {
           const hasNewVersion = isHigherMajor || isHigherMinor;
           setHasUpdate(hasNewVersion);
         }
-      } catch (e) {
+      } catch {
         // Swallow any errors and don't show update notice
       }
     }

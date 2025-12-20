@@ -90,7 +90,7 @@ export function useUploadFiles(options?: {
         );
       }
       return { status: "success", name: file.name };
-    } catch (err) {
+    } catch {
       return { status: "failure", name: file.name };
     }
   }

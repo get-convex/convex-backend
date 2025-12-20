@@ -29,7 +29,7 @@ function Discord() {
           await router.push(
             "https://discord.com/channels/1019350475847499849/1019350478817079338",
           );
-        } catch (e) {
+        } catch {
           await router.push("/");
         }
       } else {

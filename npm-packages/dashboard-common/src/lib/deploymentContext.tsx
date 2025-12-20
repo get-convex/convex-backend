@@ -459,7 +459,7 @@ function DeploymentWithConnectionState({
             instanceNameResp = await fetch(
               new URL("/instance_name", deploymentUrl),
             );
-          } catch (e) {
+          } catch {
             // do nothing, we'll check the WS connection status below
           }
           if (instanceNameResp !== null && instanceNameResp.ok) {
@@ -699,7 +699,7 @@ function useCanReachDeploymentOverHTTP(deploymentUrl: string): boolean | null {
         if (!canceled) {
           setIsReachable(true);
         }
-      } catch (error) {
+      } catch {
         if (!canceled) {
           setIsReachable(false);
         }

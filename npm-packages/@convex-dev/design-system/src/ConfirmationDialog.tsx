@@ -34,7 +34,7 @@ export function ConfirmationDialog({
     try {
       await onConfirm();
       onClose();
-    } catch (e) {
+    } catch {
       // Do nothing on error. HTTP errors get handled by the useMutation hook.
     } finally {
       setIsConfirming(false);

@@ -35,7 +35,7 @@ export function usePasteListener(
           allowTopLevelUndefined,
         });
         edit(errors.length > 0 ? clipboardValue : parsedValue);
-      } catch (err) {
+      } catch {
         // The error is likely a SyntaxError, which is thrown when the clipboard value is not valid JavaScript,
         // So paste the string value instead.
         edit(clipboardValue);

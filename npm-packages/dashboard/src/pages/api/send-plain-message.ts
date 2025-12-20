@@ -286,7 +286,7 @@ async function upsertPlainTenant(
       const { planType } = subscription.plan;
       tier = planType;
     }
-  } catch (error) {
+  } catch {
     // Do nothing
   }
 

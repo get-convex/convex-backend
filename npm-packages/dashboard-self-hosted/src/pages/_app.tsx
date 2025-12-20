@@ -125,7 +125,7 @@ function normalizeUrl(url: string) {
     const parsedUrl = new URL(url);
     // remove trailing slash
     return parsedUrl.href.replace(/\/$/, "");
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -493,7 +493,7 @@ function useEmbeddedDashboardCredentials(
 
       try {
         credentialsSchema.parse(event.data);
-      } catch (err) {
+      } catch {
         return;
       }
 

@@ -72,7 +72,7 @@ const useInitializeFilters = (
     try {
       f = JSON.parse(decodedFilters);
       FilterExpressionSchema.parse(f);
-    } catch (e) {
+    } catch {
       // The filters decoded from b64, but failed to parse.
       deleteQueryFilters();
       return;

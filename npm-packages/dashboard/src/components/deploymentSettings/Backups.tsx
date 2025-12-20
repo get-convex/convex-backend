@@ -293,7 +293,7 @@ export function BackupIncludeStorageSelector({
         ...periodicBackup,
         includeStorage: newValue,
       });
-    } catch (error) {
+    } catch {
       // Revert on error
       setIncludeStorage(!newValue);
     } finally {

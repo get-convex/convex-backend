@@ -40,7 +40,7 @@ export function displayNameToIdentifier(path: string) {
       try {
         const url = new URL(route);
         route = url.pathname + url.search + url.hash;
-      } catch (e) {
+      } catch {
         // Not a valid URL, keep route as is
       }
       return `${method} ${route}`;

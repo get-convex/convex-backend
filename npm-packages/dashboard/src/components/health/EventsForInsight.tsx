@@ -505,7 +505,7 @@ function EventTimestamp({ event }: { event: { timestamp: string } }) {
             ? event.timestamp
             : `${event.timestamp}Z`;
           return new Date(timestamp).toLocaleString();
-        } catch (e) {
+        } catch {
           // Fallback to more forgiving date parsing
           return new Date(event.timestamp).toLocaleString();
         }
