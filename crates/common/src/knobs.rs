@@ -1291,7 +1291,7 @@ pub static TABLE_SUMMARY_AGE_JITTER_SECONDS: LazyLock<f32> =
 ///
 /// See https://docs.rs/tower-http/0.5.0/tower_http/timeout/struct.TimeoutLayer.html
 pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("HTTP_SERVER_TIMEOUT_SECONDS", 125)));
+    LazyLock::new(|| Duration::from_secs(env_config("HTTP_SERVER_TIMEOUT_SECONDS", 300)));
 
 /// The limit on the request size to /push_config.
 // Schema and code bundle pushes must be less than this.
