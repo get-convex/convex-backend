@@ -32,7 +32,7 @@ errors.
 
 We recommend the
 [no-floating-promises](https://typescript-eslint.io/rules/no-floating-promises/)
-eslint rule with TypeScript.
+rule of typescript-eslint.
 
 ## Avoid `.filter` on database queries
 
@@ -183,7 +183,7 @@ validators) help ensure you're getting the traffic you expect.
 ### Example
 
 <TSAndJSSnippet
-  title="convex/messages.ts"
+  title="convex/movies.ts"
   sourceTS={BestPracticesTS}
   sourceJS={BestPracticesTS}
   snippet="validation"
@@ -194,8 +194,15 @@ validators) help ensure you're getting the traffic you expect.
 
 Search for `query`, `mutation`, and `action` in your Convex codebase, and ensure
 that all of them have argument validators (and optionally return value
-validators). If you have `httpAction`s, you may want to use something like `zod`
-to validate that the HTTP request is the shape you expect.
+validators).
+
+You can also check automatically that your functions have argument validators
+with the
+[`@convex-dev/require-argument-validators` ESLint rule](/eslint#require-argument-validators).
+
+If you use HTTP actions, you may want to use an argument validation library like
+[Zod](https://zod.dev) to validate that the HTTP request is the shape you
+expect.
 
 ## Use some form of access control for all public functions
 
@@ -531,3 +538,35 @@ TypeScript function.
   sourceJS={BestPracticesTS}
   snippet="partialRollback"
 />
+
+## Always include the table name when calling `ctx.db` functions
+
+### Why?
+
+Since version 1.31.0 of the `convex` NPM package, the `ctx.db` functions accept
+a table name as the first argument. While this first argument is currently
+optional, passing the table name adds an additional safeguard which will be
+required for custom ID generation in the future.
+
+### Example
+
+<TSAndJSSnippet
+  title="convex/movies.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="explicitTableIds"
+/>
+
+### How?
+
+Search for calls of `db.get`, `db.patch`, `db.replace` and `db.delete` in your
+Convex codebase, and ensure that all of them pass a table name as the first
+argument.
+
+You can also check automatically that a table name argument is passed with the
+[`@convex-dev/explicit-table-ids` ESLint rule](/eslint#explicit-table-ids).
+
+You can migrate existing code automatically by using the autofix in the ESLint
+rule, or with the `@convex-dev/codemod` standalone tool.
+
+[Learn more on news.convex.dev →](https://news.convex.dev/db-table-name/)

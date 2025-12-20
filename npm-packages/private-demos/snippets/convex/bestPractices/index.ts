@@ -6,12 +6,15 @@ import {
   DataModelFromSchemaDefinition,
   defineSchema,
   defineTable,
+  DocumentByName,
   GenericActionCtx,
   GenericMutationCtx,
   GenericQueryCtx,
   MutationBuilder,
   PaginationOptions,
   QueryBuilder,
+  SystemTableNames,
+  TableNamesInDataModel,
 } from "convex/server";
 
 /**
@@ -46,6 +49,9 @@ const schema = defineSchema({
     body: v.string(),
   }).index("by_author", ["author"]),
   movies: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    votes: v.number(),
     director: v.string(),
   }).index("by_director", ["director"]),
   watchedMovies: defineTable({
@@ -77,7 +83,7 @@ type QueryCtx = GenericQueryCtx<DataModel>;
 type MutationCtx = GenericMutationCtx<DataModel>;
 type ActionCtx = GenericActionCtx<DataModel>;
 
-declare const ctx: QueryCtx;
+declare const ctx: MutationCtx;
 
 declare const internalMutation: MutationBuilder<DataModel, "internal">;
 declare const internalQuery: QueryBuilder<DataModel, "internal">;
@@ -88,6 +94,14 @@ declare const crons: Crons;
 
 const internal = anyApi;
 const api = anyApi;
+
+export type TableNames = TableNamesInDataModel<DataModel>;
+export type Doc<TableName extends TableNames> = DocumentByName<
+  DataModel,
+  TableName
+>;
+export type Id<TableName extends TableNames | SystemTableNames> =
+  GenericId<TableName>;
 
 declare const OMIT_ME: any;
 
@@ -244,34 +258,42 @@ declare const teamId: GenericId<"teams">;
 // @snippet end redundantIndexes
 
 // @snippet start validation
-// ❌ -- could be used to update any document (not just `messages`)
+// ❌ -- `id` and `update` are not validated, so a client could pass
+//       any Convex value (the type at runtime could mismatch the
+//       TypeScript type). In particular, `update` could contain
+//       fields other than `title` and `director`.
 // @skipNextLine
 // eslint-disable-next-line @convex-dev/require-args-validator
-export const updateMessage_OMIT_1 = mutation({
-  handler: async (ctx, { id, update }) => {
-    // @skipNextLine
-    // @ts-expect-error -- id has type `unknown` here
-    await ctx.db.patch(id, update);
+export const updateMovie_OMIT_1 = mutation({
+  handler: async (
+    ctx,
+    {
+      id,
+      update,
+    }: {
+      id: Id<"movies">;
+      update: Pick<Doc<"movies">, "title" | "director">;
+    },
+  ) => {
+    await ctx.db.patch("movies", id, update);
   },
 });
 
-// ✅ -- can only be called with an ID from the messages table, and can only update
-// the `body` and `author` fields
-export const updateMessage_OMIT_2 = mutation({
+// ✅ -- This can only be called with an ID from the movies table,
+//       and an `update` object with only the `title`/`director` fields
+export const updateMovie_OMIT_2 = mutation({
   args: {
-    id: v.id("messages"),
+    id: v.id("movies"),
     update: v.object({
-      body: v.optional(v.string()),
-      author: v.optional(v.string()),
+      title: v.string(),
+      director: v.string(),
     }),
   },
   handler: async (ctx, { id, update }) => {
-    await ctx.db.patch(id, update);
+    await ctx.db.patch("movies", id, update);
   },
 });
 // @snippet end validation
-
-// TODO(nicolas) Update the example above to make sense with the explicit table API
 
 type TeamMember = {
   email: string;
@@ -605,3 +627,31 @@ export const trySendMessage = mutation({
   },
 });
 // @snippet end partialRollback
+
+// @snippet start explicitTableIds
+// @skipNextLine
+declare const movieId: GenericId<"movies">;
+// @skipNextLine
+{
+  // ❌
+  await ctx.db.get(movieId);
+  await ctx.db.patch(movieId, { title: "Whiplash" });
+  await ctx.db.replace(movieId, {
+    title: "Whiplash",
+    director: "Damien Chazelle",
+    votes: 0,
+  });
+  await ctx.db.delete(movieId);
+
+  // ✅            vvvvvvvv
+  await ctx.db.get("movies", movieId);
+  await ctx.db.patch("movies", movieId, { title: "Whiplash" });
+  await ctx.db.replace("movies", movieId, {
+    title: "Whiplash",
+    director: "Damien Chazelle",
+    votes: 0,
+  });
+  await ctx.db.delete("movies", movieId);
+  // @skipNextLine
+}
+// @snippet end explicitTableIds
