@@ -19,6 +19,7 @@ use common::{
         TabletIndexMetadata,
     },
     errors::report_error,
+    fastrace_helpers::get_sampled_span,
     knobs::{
         INDEX_BACKFILL_CONCURRENCY,
         INDEX_WORKERS_INITIAL_BACKOFF,
@@ -38,7 +39,8 @@ use common::{
         TabletIndexName,
     },
 };
-use futures::FutureExt;
+use fastrace::future::FutureExt as _;
+use futures::FutureExt as _;
 use hashlink::LinkedHashSet;
 use keybroker::Identity;
 use tokio::{
@@ -105,6 +107,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
         database: Database<RT>,
+        instance_name: String,
     ) -> impl Future<Output = ()> + Send {
         let reader = persistence.reader();
         let (progress_tx, progress_rx) = mpsc::channel(100);
@@ -133,7 +136,13 @@ impl<RT: Runtime> IndexWorker<RT> {
         tracing::info!("Starting IndexWorker");
         async move {
             loop {
-                if let Err(e) = worker.run().await {
+                let root = get_sampled_span(
+                    &instance_name,
+                    "database_index_worker/run",
+                    &mut worker.runtime.rng(),
+                );
+
+                if let Err(e) = worker.run().in_span(root).await {
                     report_error(&mut e.context("IndexWorkerLoop died")).await;
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     tracing::error!(
@@ -208,6 +217,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     /// Runs the index worker one loop, either backfilling an index or writing
     /// index backfill progress and returning how many rows were indexed if
     /// backfilling.
+    #[fastrace::trace]
     async fn run(&mut self) -> anyhow::Result<u64> {
         // This is a counter for tests
         let mut docs_indexed = 0;
@@ -264,6 +274,9 @@ impl<RT: Runtime> IndexWorker<RT> {
         while self.in_progress.len() < self.max_concurrency
             && let Some((index_id, tablet_id, backfill_cursor)) = self.pending.pop_front()
         {
+            tracing::info!(
+                "Queuing index backfill for index ID {index_id} and tablet ID {tablet_id}"
+            );
             self.queue_index_backfill(index_id, tablet_id, backfill_cursor);
         }
         select! {
@@ -297,6 +310,11 @@ impl<RT: Runtime> IndexWorker<RT> {
                     tablet_id,
                     DeveloperDocumentId::new(table_number, cursor.internal_id())
                 );
+                tracing::info!(
+                    "IndexWorker got progress update for {} indexes in tablet {tablet_id} at cursor {}",
+                    index_ids.len(),
+                    cursor.developer_id,
+                );
                 for index_id in index_ids {
                     model
                         .update_database_index_backfill_progress(
@@ -309,9 +327,10 @@ impl<RT: Runtime> IndexWorker<RT> {
                 }
                 self.database.commit_with_write_source(tx, "index_worker_backfill_progress")
                     .await?;
-                }
+            }
             // Alternatively, wait for invalidation
-            _ = subscription.wait_for_invalidation().fuse() => {
+            ts = subscription.wait_for_invalidation().fuse() => {
+                tracing::info!("Index backfill worker got invalidation at {ts:?}");
                 self.backoff.reset();
             }
         }
@@ -320,6 +339,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     }
 
     /// Spawns a task to process the next index backfill.
+    #[fastrace::trace]
     fn queue_index_backfill(
         &mut self,
         index_id: IndexId,

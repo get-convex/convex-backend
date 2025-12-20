@@ -1874,7 +1874,14 @@ async fn test_db_index_backfill_progress(
     let rt_clone = rt.clone();
     let db_clone = db.clone();
     let _index_backfill_handle = rt.spawn("index_worker", async move {
-        IndexWorker::new(rt_clone, tp, retention_validator, db_clone).await
+        IndexWorker::new(
+            rt_clone,
+            tp,
+            retention_validator,
+            db_clone,
+            "carnitas".into(),
+        )
+        .await
     });
     // Wait for IndexWriter to send progress and pause
     let _pause_guard = hold_guard.wait_for_blocked().await.unwrap();

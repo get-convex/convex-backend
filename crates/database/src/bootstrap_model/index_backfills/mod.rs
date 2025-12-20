@@ -81,6 +81,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         DeveloperDocumentId::new(index_table_id.table_number, index_id)
     }
 
+    #[fastrace::trace]
     pub(crate) async fn existing_backfill_metadata(
         &mut self,
         index_id: DeveloperDocumentId,
@@ -161,6 +162,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
             .await
     }
 
+    #[fastrace::trace]
     pub async fn update_database_index_backfill_progress(
         &mut self,
         index_id: IndexId,

@@ -714,6 +714,7 @@ impl<RT: Runtime> Application<RT> {
                 persistence.clone(),
                 database.retention_validator(),
                 database.clone(),
+                instance_name.clone(),
             );
             index_worker = Arc::new(Mutex::new(Some(
                 runtime.spawn("index_worker", index_worker_fut),

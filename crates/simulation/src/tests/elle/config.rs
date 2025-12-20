@@ -17,7 +17,7 @@ pub struct ElleConfig {
 impl Default for ElleConfig {
     fn default() -> Self {
         Self {
-            seed: 0,
+            seed: 1,
             num_clients: 4,
             num_tx: 32,
             max_concurrent_tx: 4,
