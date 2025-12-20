@@ -60,7 +60,7 @@ export function Popover({
   useEffect(() => {
     const isOpen = !!popperElement;
     const fn = isOpen ? onOpen : onClose;
-    fn && fn();
+    fn?.();
   }, [popperElement, onOpen, onClose]);
 
   return (

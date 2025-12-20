@@ -141,8 +141,10 @@ function HistoryList({ filters }: { filters: DeploymentAuditLogFilters }) {
         }
       }
     }
-    parentElement && onScroll();
-    parentElement && parentElement.addEventListener("scroll", onScroll);
+    if (parentElement) {
+      onScroll();
+      parentElement.addEventListener("scroll", onScroll);
+    }
 
     return function cleanup() {
       parentElement?.removeEventListener("scroll", onScroll);

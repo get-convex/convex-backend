@@ -142,11 +142,12 @@ function DataCellImpl({
     editDocCb: editDocument,
     goToDocCb: goToDoc,
     openContextMenu: () => {
-      cellRef.current &&
+      if (cellRef.current) {
         contextMenuCallback({
           x: cellRef.current!.getBoundingClientRect().right,
           y: cellRef.current!.getBoundingClientRect().top,
         });
+      }
     },
   });
 
@@ -368,8 +369,9 @@ function DataCellImpl({
               defaultValue={pastedValue}
               value={value}
               onSave={async (v) => {
-                v !== undefined &&
-                  (await patchDocument(tableName, rowId, columnName, v));
+                if (v !== undefined) {
+                  await patchDocument(tableName, rowId, columnName, v);
+                }
               }}
             />
           </div>
@@ -382,7 +384,7 @@ function DataCellImpl({
             setShowEnableProdEditsModal(false);
           }}
           onConfirm={async () => {
-            onAuthorizeEdits && onAuthorizeEdits();
+            onAuthorizeEdits?.();
             setShowEnableProdEditsModal(false);
             setShowEditor(true);
           }}

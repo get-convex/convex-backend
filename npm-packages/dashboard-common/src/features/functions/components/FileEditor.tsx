@@ -21,7 +21,9 @@ export function FileEditor({
 
   // Scroll into view on first mount if the fragment is "code"
   useMount(() => {
-    window.location.hash === "#code" && ref.current?.scrollIntoView();
+    if (window.location.hash === "#code") {
+      ref.current?.scrollIntoView();
+    }
   });
 
   // Scroll into view every time the hash changes and is set to code.

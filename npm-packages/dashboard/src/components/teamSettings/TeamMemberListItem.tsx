@@ -64,7 +64,9 @@ export function TeamMemberListItem({
 
   const ref = useRef<HTMLDivElement | null>(null);
   useMount(() => {
-    isHighlighted && ref.current?.scrollIntoView();
+    if (isHighlighted) {
+      ref.current?.scrollIntoView();
+    }
   });
 
   let removeMemberMessage = "";

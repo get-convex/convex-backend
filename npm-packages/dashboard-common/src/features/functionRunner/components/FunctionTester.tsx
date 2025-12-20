@@ -601,8 +601,9 @@ export function useFunctionTester({
               functionIdentifier={moduleFunction?.identifier || ""}
               componentId={moduleFunction?.componentId ?? null}
               selectItem={(item) => {
-                (!item.type || item.type === "arguments") &&
+                if (!item.type || item.type === "arguments") {
                   onChange(item.arguments);
+                }
                 setRunHistoryItem(item);
               }}
             />
@@ -642,7 +643,7 @@ export function useFunctionTester({
               className="hover:cursor-pointer"
               onChange={() => {
                 setIsImpersonating(!isImpersonating);
-                setRunHistoryItem && setRunHistoryItem(undefined);
+                setRunHistoryItem?.(undefined);
                 log("toggle act as user", {
                   actAsUser: isImpersonating,
                   function: moduleFunction && {

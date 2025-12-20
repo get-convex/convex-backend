@@ -182,7 +182,9 @@ export function usePausedLiveData<TResult, TArgs>({
   ]);
 
   useMount(() => {
-    isPaused && void loadFirstPage();
+    if (isPaused) {
+      void loadFirstPage();
+    }
   });
 
   // Check if args have changed, and if isPaused, reload the data

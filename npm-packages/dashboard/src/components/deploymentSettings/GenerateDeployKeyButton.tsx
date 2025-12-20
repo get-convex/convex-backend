@@ -59,7 +59,7 @@ export function GenerateDeployKeyWithNameButton({
                     toast("error", "Error generating deploy key");
                     return;
                   }
-                  onCreateAccessToken && onCreateAccessToken(result.adminKey);
+                  onCreateAccessToken?.(result.adminKey);
                   setName(null);
                   capture("generated_deploy_key", {
                     type: deploymentType,

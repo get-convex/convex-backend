@@ -78,9 +78,11 @@ export function FunctionRunnerWrapper({
       );
       return;
     }
-    isGlobalRunnerShown
-      ? hideGlobalRunner("keyboard")
-      : showGlobalRunner(null, "keyboard");
+    if (isGlobalRunnerShown) {
+      hideGlobalRunner("keyboard");
+    } else {
+      showGlobalRunner(null, "keyboard");
+    }
   });
 
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);

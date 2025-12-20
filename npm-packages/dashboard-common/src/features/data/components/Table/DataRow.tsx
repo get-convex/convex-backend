@@ -57,7 +57,7 @@ function DataRowImpl(props: DataRowProps) {
   const { data, index, style } = props;
 
   const firstRow = data.rows.length ? data.rows[0] : undefined;
-  firstRow && data.prepareRow(firstRow);
+  if (firstRow) data.prepareRow(firstRow);
   const { densityValues } = useTableDensity();
   return index >= data.rows.length ? (
     <div
@@ -164,7 +164,9 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
   const document = useMemo(() => omit(row.original, "*select"), [row.original]);
 
   const editDocument = useCallback(() => {
-    canManageTable && onEditDocument(document);
+    if (canManageTable) {
+      onEditDocument(document);
+    }
   }, [canManageTable, onEditDocument, document]);
 
   return (

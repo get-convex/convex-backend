@@ -318,7 +318,7 @@ export function useFunctionEditor(
             functionIdentifier="_testQuery"
             componentId={componentId}
             selectItem={(item) => {
-              item.type === "custom" && setCode(item.code);
+              if (item.type === "custom") setCode(item.code);
               setRunHistoryItem(item);
             }}
           />
@@ -381,8 +381,9 @@ export function useFunctionEditor(
                 CONVEX_SERVER_FILES,
               )) {
                 const uri = monaco_.Uri.parse(fileName);
-                !monaco_.editor.getModel(uri) &&
+                if (!monaco_.editor.getModel(uri)) {
                   monaco_.editor.createModel(content, "typescript", uri);
+                }
               }
             }}
             onMount={(editor, m) => {
@@ -394,12 +395,16 @@ export function useFunctionEditor(
                 label: "Save value",
                 keybindings,
                 run() {
-                  !isInFlight && void saveActionRef.current();
+                  if (!isInFlight) {
+                    void saveActionRef.current();
+                  }
                 },
               });
             }}
             onChange={(value) => {
-              value && setCode(value);
+              if (value) {
+                setCode(value);
+              }
             }}
           />
         </div>

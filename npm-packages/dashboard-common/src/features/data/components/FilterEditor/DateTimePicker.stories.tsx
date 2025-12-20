@@ -29,9 +29,7 @@ export const WithAutoFocus: Story = {
 
 export const WithOnSave: Story = {
   args: {
-    onSave: fn(() => {
-      console.log("Save triggered!");
-    }),
+    onSave: fn(),
   },
   parameters: {
     docs: {

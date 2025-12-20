@@ -30,7 +30,9 @@ export function AccessTokenListItem({
   const deleteAccessToken = useDeleteAccessToken(identifier, kind);
   const [showToken, setShowToken] = useState(shouldShow);
   useEffect(() => {
-    shouldShow && setShowToken(shouldShow);
+    if (shouldShow) {
+      setShowToken(shouldShow);
+    }
   }, [shouldShow]);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const { capture } = usePostHog();

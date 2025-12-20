@@ -19,9 +19,11 @@ function RedirectToTeam() {
       void router.replace("/404");
       return;
     }
-    router.query.route?.length
-      ? void router.replace(`/t/${router.asPath}`)
-      : selectedTeamSlug && void router.replace(`/t/${selectedTeamSlug}`);
+    if (router.query.route?.length) {
+      void router.replace(`/t/${router.asPath}`);
+    } else if (selectedTeamSlug) {
+      void router.replace(`/t/${selectedTeamSlug}`);
+    }
   }, [selectedTeamSlug, router]);
 
   return <Loading />;

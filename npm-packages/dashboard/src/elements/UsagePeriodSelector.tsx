@@ -97,8 +97,7 @@ export function UsagePeriodSelector({
         to,
       }}
       setDate={(date, shortcut) => {
-        date.from &&
-          date.to &&
+        if (date.from && date.to) {
           onChange(
             shortcut?.value === "current"
               ? {
@@ -118,6 +117,7 @@ export function UsagePeriodSelector({
                     to: isoDateString(date.to),
                   },
           );
+        }
       }}
     />
   );

@@ -83,7 +83,9 @@ export function useFunctionResult({
       setStartCursor(0);
       if (runHistoryItem.type === "arguments") {
         setIsImpersonating(!!runHistoryItem.user);
-        runHistoryItem.user && setImpersonatedUser(runHistoryItem.user);
+        if (runHistoryItem.user) {
+          setImpersonatedUser(runHistoryItem.user);
+        }
       }
     }
   }, [runHistoryItem, setImpersonatedUser, setIsImpersonating]);

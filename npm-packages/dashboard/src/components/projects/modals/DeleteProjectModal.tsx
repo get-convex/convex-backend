@@ -34,7 +34,7 @@ export function DeleteProjectModal({
   );
 
   const handleDelete = async () => {
-    onDelete && onDelete();
+    onDelete?.();
     await deleteProject();
     capture("deleted_projects");
     onClose();

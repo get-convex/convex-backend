@@ -38,7 +38,9 @@ export function SidebarDetailLayout({
 
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
-    window.innerWidth < 768 && panelRef.current?.collapse();
+    if (window.innerWidth < 768) {
+      panelRef.current?.collapse();
+    }
   }, []);
   const panelRef = useRef<ImperativePanelHandle>(null);
 

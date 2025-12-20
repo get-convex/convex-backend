@@ -146,8 +146,8 @@ export function Combobox<T>({
   // Update popper position when dropdown opens
   useEffect(() => {
     if (isOpen) {
-      update && void update();
-      onFilterChange && void onFilterChange("");
+      void update?.();
+      void onFilterChange?.("");
     }
   }, [isOpen, update, onFilterChange]);
 
@@ -269,7 +269,7 @@ export function Combobox<T>({
                         "mt-1 scrollbar max-h-[14.75rem] overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm",
                       )}
                       ref={(el) => {
-                        el && "scrollTo" in el && el.scrollTo(0, 0);
+                        el?.scrollTo?.(0, 0);
                       }}
                     >
                       {optionsHeader && (

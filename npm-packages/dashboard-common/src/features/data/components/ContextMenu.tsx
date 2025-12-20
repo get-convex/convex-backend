@@ -255,15 +255,20 @@ function ContextMenuItem({
       }
       {...menu.getItemProps({
         onClick: () => {
-          typeof action === "function" && action();
+          if (typeof action === "function") {
+            action();
+          }
           setTimeout(() => {
             tree?.events.emit("click");
           }, 0);
         },
         onKeyDown: (e) => {
           if (e.key === "Enter" || e.key === " ") {
-            typeof action === "function" && action();
-            typeof action !== "function" && e.currentTarget.click();
+            if (typeof action === "function") {
+              action();
+            } else {
+              e.currentTarget.click();
+            }
             setTimeout(() => {
               tree?.events.emit("click");
             }, 0);

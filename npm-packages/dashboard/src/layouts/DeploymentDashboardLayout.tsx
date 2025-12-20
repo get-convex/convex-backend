@@ -84,7 +84,9 @@ function LaunchDarklyWithDeployment({
   const [, setContext] = useGlobalLDContext();
   const localContext = useLDContextWithDeployment();
   useEffect(() => {
-    localContext && setContext(localContext);
+    if (localContext) {
+      setContext(localContext);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(localContext), setContext]);
 

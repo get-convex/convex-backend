@@ -96,7 +96,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
 
   // Initialize all markers on mount.
   useEffect(() => {
-    monaco &&
+    if (monaco) {
       handleCodeChange(
         defaultValueString,
         mode,
@@ -110,6 +110,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
         onChange,
         getDocumentRefs,
       );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monaco]);
 
@@ -163,7 +164,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
   const handleChange = useCallback(
     (code?: string) => {
       // Hook to inform the parent component of the inner text of the editor.
-      onChangeInnerText && onChangeInnerText(code ?? "");
+      onChangeInnerText?.(code ?? "");
 
       setNumLines(code ? numLinesFromCode(code) : 1);
       handleCodeChange(
@@ -398,7 +399,9 @@ function handleCodeChange(
       shouldSurfaceValidatorErrors,
     );
     const hasSurfacedErrors = handleError(astErrors);
-    !hasSurfacedErrors && onChange(result);
+    if (!hasSurfacedErrors) {
+      onChange(result);
+    }
     getDocumentRefs(newIds);
   } catch (e: any) {
     if (e instanceof SyntaxError) {

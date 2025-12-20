@@ -75,7 +75,7 @@ export function ViewDocument({
             setShowEnableProdEditsModal(undefined);
           }}
           onConfirm={async () => {
-            onAuthorizeEdits && onAuthorizeEdits();
+            onAuthorizeEdits?.();
             setEditingColumn(showEnableProdEditsModalForColumn);
             setShowEnableProdEditsModal(undefined);
           }}
@@ -157,8 +157,9 @@ export function ViewDocument({
                       variant="unstyled"
                       onClick={() => {
                         if (!areEditsAuthorized) {
-                          onAuthorizeEdits &&
+                          if (onAuthorizeEdits) {
                             setShowEnableProdEditsModal(column);
+                          }
                           return;
                         }
                         setEditingColumn(column);

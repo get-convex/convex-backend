@@ -18,19 +18,18 @@ export function MockMonaco({
   path: string;
 }) {
   useEffectOnce(() => {
-    beforeMount &&
-      beforeMount({
-        MarkerSeverity: { Error: 8, Hint: 1 },
-        editor: {
-          getModels: () => [{ uri: { path: `/${path}` } }],
-          setModelMarkers: jest.fn(),
+    beforeMount?.({
+      MarkerSeverity: { Error: 8, Hint: 1 },
+      editor: {
+        getModels: () => [{ uri: { path: `/${path}` } }],
+        setModelMarkers: jest.fn(),
+      },
+      languages: {
+        typescript: {
+          javascriptDefaults: { setDiagnosticsOptions: () => {} },
         },
-        languages: {
-          typescript: {
-            javascriptDefaults: { setDiagnosticsOptions: () => {} },
-          },
-        },
-      });
+      },
+    });
   });
   return (
     <input

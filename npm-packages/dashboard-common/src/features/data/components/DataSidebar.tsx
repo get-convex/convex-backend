@@ -164,7 +164,9 @@ export function CreateNewTable({
         className="mt-1"
         labelHidden
         onKeyDown={(e) => {
-          e.key === "Escape" && setNewTableName(undefined);
+          if (e.key === "Escape") {
+            setNewTableName(undefined);
+          }
         }}
         autoFocus
         placeholder="Untitled table"

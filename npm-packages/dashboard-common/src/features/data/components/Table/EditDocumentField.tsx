@@ -79,7 +79,7 @@ export function EditDocumentField({
         onChange={setEditedValue}
         onChangeInnerText={setInnerText}
         onError={(errors) => {
-          errors.length > 0 ? setEditError(errors[0]) : setEditError(undefined);
+          setEditError(errors.length > 0 ? errors[0] : undefined);
         }}
         disableFolding
         className="border-border-selected bg-background-secondary px-2"

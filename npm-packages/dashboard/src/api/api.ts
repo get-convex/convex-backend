@@ -79,13 +79,13 @@ export function useBBQuery<QueryPath extends Path<"get">>({
   const mutate = useMutate();
 
   useEffect(() => {
-    previousPaused &&
-      !paused &&
+    if (previousPaused && !paused) {
       void mutate(
         // @ts-expect-error TODO: Figure out how to type this.
         [path, { params: { path: pathParams, query: queryParams } }],
         undefined,
       );
+    }
   }, [paused, mutate, path, pathParams, queryParams, previousPaused]);
 
   const res = useQuery(path, requestOptions, {
@@ -218,12 +218,16 @@ export function useBBMutation<
           path,
           error as unknown as { message: string; code: string },
         );
-        // @ts-expect-error Errors are not yet defined in the OpenAPI spec.
-        toastOnError && toast("error", error.message, error.message);
+        if (toastOnError) {
+          // @ts-expect-error Errors are not yet defined in the OpenAPI spec.
+          toast("error", error.message, error.message);
+        }
         // eslint-disable-next-line @typescript-eslint/no-throw-literal
         throw error;
       }
-      redirectTo && (await router.push(redirectTo));
+      if (redirectTo) {
+        await router.push(redirectTo);
+      }
       if ("mutateKey" in rest) {
         const { mutateKey, mutatePathParams } = rest;
         await mutate(
@@ -235,8 +239,8 @@ export function useBBMutation<
           undefined,
         );
       }
-      successToast && toast("success", successToast);
-      googleAnalyticsEvent && fireGoogleAnalyticsEvent(googleAnalyticsEvent);
+      if (successToast) toast("success", successToast);
+      if (googleAnalyticsEvent) fireGoogleAnalyticsEvent(googleAnalyticsEvent);
       return data;
     },
     [

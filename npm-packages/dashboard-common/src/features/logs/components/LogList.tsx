@@ -163,8 +163,8 @@ export function LogList({
     ({ scrollOffset }: ListOnScrollProps) => {
       if (scrollOffset === 0 && !shownLog) {
         setPaused(false);
-      } else {
-        !paused && setPaused(true);
+      } else if (!paused) {
+        setPaused(true);
       }
     },
     [paused, setPaused, shownLog],

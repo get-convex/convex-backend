@@ -95,7 +95,9 @@ export function FilterEditor({
 
   function filterStateReducer(s: FilterState, action: Partial<FilterState>) {
     const newState = { ...s, ...action } as FilterState;
-    !isEqual(s, newState) && onChange(newState);
+    if (!isEqual(s, newState)) {
+      onChange(newState);
+    }
     return newState;
   }
 

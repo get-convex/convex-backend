@@ -83,7 +83,9 @@ export function useCellActions({
         return;
       }
       if (areEditsAuthorized) {
-        v !== undefined && setPastedValue(v);
+        if (v !== undefined) {
+          setPastedValue(v);
+        }
         setShowEditor(true);
       } else if (onAuthorizeEdits) {
         setShowEnableProdEditsModal(true);

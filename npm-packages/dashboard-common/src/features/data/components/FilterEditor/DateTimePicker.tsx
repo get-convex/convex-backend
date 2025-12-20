@@ -39,7 +39,9 @@ export function DateTimePicker({
       step={1}
       defaultValue={toDateTimeLocalValue(date)}
       onChange={(d) => {
-        d.target.value && onChange(new Date(d.target.value));
+        if (d.target.value) {
+          onChange(new Date(d.target.value));
+        }
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {

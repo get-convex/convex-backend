@@ -10,7 +10,9 @@ function RedirectToBilling() {
   const team = useCurrentTeam();
   const router = useRouter();
   useEffect(() => {
-    team?.slug && void router.push(`/t/${team?.slug}/settings/billing`);
+    if (team?.slug) {
+      void router.push(`/t/${team?.slug}/settings/billing`);
+    }
   }, [team?.slug, router]);
 
   return <Loading />;

@@ -224,8 +224,12 @@ export function useDateFilters(router: NextRouter) {
     startDate,
     endDate,
     setDate: async (date: DateRange) => {
-      date.from && (await checkAndSetStartDate(date.from));
-      date.to && (await checkAndSetEndDate(date.to));
+      if (date.from) {
+        await checkAndSetStartDate(date.from);
+      }
+      if (date.to) {
+        await checkAndSetEndDate(date.to);
+      }
     },
   };
 }

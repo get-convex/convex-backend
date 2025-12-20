@@ -66,7 +66,9 @@ function ComponentListItem({ nent }: { nent: Nent }) {
         <ConfirmationDialog
           onConfirm={async () => {
             // You can only delete non-root components
-            nent.id && (await deleteComponent(nent.id));
+            if (nent.id) {
+              await deleteComponent(nent.id);
+            }
             setShowConfirmation(false);
           }}
           onClose={() => setShowConfirmation(false)}

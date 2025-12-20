@@ -424,7 +424,9 @@ function BillingAddressForm({
   const [showForm, setShowForm] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useMount(() => {
-    window.location.hash === "#billingAddress" && ref.current?.scrollIntoView();
+    if (window.location.hash === "#billingAddress") {
+      ref.current?.scrollIntoView();
+    }
   });
 
   const updateBillingAddress = useUpdateBillingAddress(team.id);
@@ -596,7 +598,9 @@ function PaymentMethodForm({
 
   const ref = useRef<HTMLDivElement>(null);
   useMount(() => {
-    window.location.hash === "#paymentMethod" && ref.current?.scrollIntoView();
+    if (window.location.hash === "#paymentMethod") {
+      ref.current?.scrollIntoView();
+    }
   });
 
   return (

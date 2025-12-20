@@ -30,7 +30,9 @@ export const swrConfig = (): SWRConfiguration => ({
       () =>
         checkMutex
           ?.then((isOnline) => {
-            isOnline && void revalidate({ retryCount });
+            if (isOnline) {
+              void revalidate({ retryCount });
+            }
           })
           .catch(() => {
             // Ignore but handle just in case

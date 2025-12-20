@@ -58,7 +58,9 @@ export function SelectorItem({
       href={href}
       className={fullClassName}
       onClick={() => {
-        eventName && logEvent(eventName);
+        if (eventName) {
+          logEvent(eventName);
+        }
         close();
       }}
       target={target}

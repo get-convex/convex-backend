@@ -86,10 +86,14 @@ function withSWRFallback(Page: NextPage) {
     const [globalAccessToken, setAccessToken] = useAccessToken();
     const [globalInitialData, setInitialData] = useInitialData();
     useEffect(() => {
-      accessToken && setAccessToken(accessToken);
+      if (accessToken) {
+        setAccessToken(accessToken);
+      }
     }, [accessToken, setAccessToken]);
     useEffect(() => {
-      !globalInitialData && setInitialData(initialData);
+      if (!globalInitialData) {
+        setInitialData(initialData);
+      }
     }, [initialData, setInitialData, globalInitialData]);
     const { pathname } = useRouter();
 

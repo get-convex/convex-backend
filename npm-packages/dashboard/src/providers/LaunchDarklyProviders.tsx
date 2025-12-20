@@ -45,7 +45,9 @@ export function LaunchDarklyProvider({
   const [, setContext] = useGlobalLDContext();
   const localContext = useLDContext();
   useEffect(() => {
-    !router.query.deploymentName && localContext && setContext(localContext);
+    if (!router.query.deploymentName && localContext) {
+      setContext(localContext);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(localContext), router.query.deploymentName]);
 
@@ -107,7 +109,9 @@ export const LaunchDarklyConsumer = withLDConsumer({ clientOnly: true })(
       if (process.env.NEXT_PUBLIC_TEST_MODE) {
         return;
       }
-      context && void ldClient?.identify(context);
+      if (context) {
+        void ldClient?.identify(context);
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [JSON.stringify(context)]);
     return children;
