@@ -1,7 +1,4 @@
-use std::{
-    net::SocketAddr,
-    time::Duration,
-};
+use std::net::SocketAddr;
 
 use axum::{
     extract::{
@@ -12,10 +9,13 @@ use axum::{
     routing::get,
     Router,
 };
-use common::http::{
-    ConvexHttpService,
-    HttpResponseError,
-    NoopRouteMapper,
+use common::{
+    http::{
+        ConvexHttpService,
+        HttpResponseError,
+        NoopRouteMapper,
+    },
+    knobs::HTTP_SERVER_TIMEOUT_DURATION,
 };
 use hyper_util::rt::TokioExecutor;
 
@@ -60,7 +60,7 @@ pub async fn dev_site_proxy(
         "backend_http_proxy",
         "unknown".to_string(),
         4,
-        Duration::from_secs(125),
+        *HTTP_SERVER_TIMEOUT_DURATION,
         NoopRouteMapper,
     );
     let proxy_server = service.serve(addr.into(), async move {

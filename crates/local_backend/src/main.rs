@@ -5,6 +5,7 @@ use cmd_util::env::config_service;
 use common::{
     errors::MainError,
     http::ConvexHttpService,
+    knobs::HTTP_SERVER_TIMEOUT_DURATION,
     runtime::Runtime,
     sentry::set_sentry_tags,
     shutdown::ShutdownSignal,
@@ -134,7 +135,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         "backend",
         SERVER_VERSION_STR.to_string(),
         MAX_CONCURRENT_REQUESTS,
-        Duration::from_secs(125),
+        *HTTP_SERVER_TIMEOUT_DURATION,
         HttpActionRouteMapper,
     );
     let serve_http_future = http_service.serve(config.http_bind_address().into(), async move {
