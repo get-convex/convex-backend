@@ -2,10 +2,10 @@ syntax = "proto3";
 
 package outcome;
 
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
 import "common.proto";
 import "convex_query_journal.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 message FunctionOutcome {
   oneof outcome {
@@ -43,7 +43,6 @@ message ActionOutcome {
   common.FunctionResult result = 7;
   SyscallTrace syscall_trace = 8;
 }
-
 
 message HttpActionOutcome {
   google.protobuf.Timestamp unix_timestamp = 1;

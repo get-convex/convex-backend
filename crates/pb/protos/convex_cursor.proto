@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
-
 package convex_cursor;
+
+import "google/protobuf/empty.proto";
 
 message IndexKey {
   reserved 1, 2, 3;

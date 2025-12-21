@@ -1,9 +1,9 @@
 syntax = "proto3";
 
+package searchlight;
+
 import "common.proto";
 import "google/protobuf/empty.proto";
-
-package searchlight;
 
 service Searchlight {
   rpc ExecuteVectorQuery(VectorQueryRequest) returns (VectorQueryResponse);
@@ -49,8 +49,8 @@ message TextQuery {
 
 message TextQueryTerm {
   oneof term_type {
-     ExactTextTerm exact = 1;
-     FuzzyTextTerm fuzzy = 2;
+    ExactTextTerm exact = 1;
+    FuzzyTextTerm fuzzy = 2;
   }
 }
 
@@ -119,10 +119,9 @@ message CandidateRevision {
   bytes internal_id = 6;
 }
 
-
 message TextCompactionRequest {
-   repeated FragmentedTextSegmentPaths segments = 1;
-   StorageType storage_type = 2;
+  repeated FragmentedTextSegmentPaths segments = 1;
+  StorageType storage_type = 2;
   reserved 3;
 }
 
@@ -138,7 +137,7 @@ message FragmentedTextSegment {
 }
 
 message TextCompactionResponse {
-    FragmentedTextSegment segment = 1;
+  FragmentedTextSegment segment = 1;
 }
 
 // Next field id: 6
@@ -246,25 +245,25 @@ message StorageType {
 }
 
 message FetchTermOrdinalsRequest {
-    StorageType storage_type = 1;
-    StorageKey segment = 2;
-    repeated FieldAndTermValues field_and_term_values = 3;
-    reserved 4;
+  StorageType storage_type = 1;
+  StorageKey segment = 2;
+  repeated FieldAndTermValues field_and_term_values = 3;
+  reserved 4;
 }
 
 message FetchTermOrdinalsResponse {
-    repeated FieldAndTermOrdinals field_and_term_ordinals = 1;
+  repeated FieldAndTermOrdinals field_and_term_ordinals = 1;
 }
 
 message FieldAndTermValues {
-    optional uint32 field = 1;
-    repeated bytes term_values = 2;
+  optional uint32 field = 1;
+  repeated bytes term_values = 2;
 }
 
 message FieldAndTermOrdinals {
-    optional uint32 field = 1;
-    // This must exactly match the count and order of the input from FieldAndTermValues
-    repeated uint64 term_ordinals = 2;
+  optional uint32 field = 1;
+  // This must exactly match the count and order of the input from FieldAndTermValues
+  repeated uint64 term_ordinals = 2;
 }
 
 message FieldTermMetadata {

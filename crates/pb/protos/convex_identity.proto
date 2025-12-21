@@ -1,12 +1,13 @@
 syntax = "proto3";
 
 package convex_identity;
+
+import "errors.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "errors.proto";
 
 message AuthenticationToken {
-  oneof identity  {
+  oneof identity {
     AdminAuthenticationToken admin = 1;
     string user = 2;
     google.protobuf.Empty none = 3;
@@ -23,7 +24,7 @@ message UncheckedIdentity {
   oneof identity {
     AdminIdentity admin_identity = 1;
     google.protobuf.Empty system = 2;
-    UserIdentity user_identity = 3;   
+    UserIdentity user_identity = 3;
     ActingUser acting_user = 4;
     UnknownIdentity unknown = 5;
   }
@@ -69,7 +70,7 @@ message UserIdentityAttributes {
   optional string picture_url = 10;
   optional string website_url = 11;
   optional string email = 12;
-  optional bool email_verified = 13; 
+  optional bool email_verified = 13;
   optional string gender = 14;
   optional string birthday = 15;
   optional string timezone = 16;

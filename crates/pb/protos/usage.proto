@@ -3,29 +3,29 @@ syntax = "proto3";
 package usage;
 
 message FunctionUsageStats {
-    repeated CounterWithTag storage_calls = 1;
-    reserved 2;
-    repeated CounterWithComponent storage_ingress_size_by_component = 8;
-    reserved 3;
-    repeated CounterWithComponent storage_egress_size_by_component = 9;
-    repeated CounterWithTag database_ingress_size = 4;
-    repeated CounterWithTag database_ingress_size_v2 = 11;
-    repeated CounterWithTag database_egress_size = 5;
-    repeated CounterWithTag vector_ingress_size = 6;
-    repeated CounterWithTag vector_ingress_size_v2 = 14;
-    repeated CounterWithTag vector_egress_size = 7;
-    repeated CounterWithTag database_egress_rows = 10;
-    repeated CounterWithTag text_ingress_size = 12;
-    repeated CounterWithTag text_egress_size = 13;
+  repeated CounterWithTag storage_calls = 1;
+  reserved 2;
+  repeated CounterWithComponent storage_ingress_size_by_component = 8;
+  reserved 3;
+  repeated CounterWithComponent storage_egress_size_by_component = 9;
+  repeated CounterWithTag database_ingress_size = 4;
+  repeated CounterWithTag database_ingress_size_v2 = 11;
+  repeated CounterWithTag database_egress_size = 5;
+  repeated CounterWithTag vector_ingress_size = 6;
+  repeated CounterWithTag vector_ingress_size_v2 = 14;
+  repeated CounterWithTag vector_egress_size = 7;
+  repeated CounterWithTag database_egress_rows = 10;
+  repeated CounterWithTag text_ingress_size = 12;
+  repeated CounterWithTag text_egress_size = 13;
 }
 
 message CounterWithTag {
-    optional string component_path = 3;
-    optional string table_name = 1;
-    optional uint64 count = 2;
+  optional string component_path = 3;
+  optional string table_name = 1;
+  optional uint64 count = 2;
 }
 
 message CounterWithComponent {
-    optional string component_path = 1;
-    optional uint64 count = 2;
+  optional string component_path = 1;
+  optional uint64 count = 2;
 }

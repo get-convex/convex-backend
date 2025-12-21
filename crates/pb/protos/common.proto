@@ -24,38 +24,38 @@ message ComponentPath {
 }
 
 message ResolvedDocument {
-    ResolvedDocumentId id = 1;
-    optional double creation_time = 2;
-    optional bytes value = 3;
+  ResolvedDocumentId id = 1;
+  optional double creation_time = 2;
+  optional bytes value = 3;
 }
 
 message ResolvedDocumentId {
-    TabletIdAndTableNumber table = 1;
-    optional bytes internal_id = 2;
+  TabletIdAndTableNumber table = 1;
+  optional bytes internal_id = 2;
 }
 
 message DeveloperDocumentId {
-    optional uint32 table_number = 1;
-    optional bytes internal_id = 2;
+  optional uint32 table_number = 1;
+  optional bytes internal_id = 2;
 }
 
 message DocumentUpdate {
-    ResolvedDocumentId id = 3;
-    ResolvedDocument old_document = 1;
-    ResolvedDocument new_document = 2;
+  ResolvedDocumentId id = 3;
+  ResolvedDocument old_document = 1;
+  ResolvedDocument new_document = 2;
 }
 
 message DocumentUpdateWithPrevTs {
-    ResolvedDocumentId id = 3;
-    ResolvedDocument old_document = 1;
-    // `old_ts` should be present iff `old_document` is present
-    optional uint64 old_ts = 4;
-    ResolvedDocument new_document = 2;
+  ResolvedDocumentId id = 3;
+  ResolvedDocument old_document = 1;
+  // `old_ts` should be present iff `old_document` is present
+  optional uint64 old_ts = 4;
+  ResolvedDocument new_document = 2;
 }
 
 message TabletIdAndTableNumber {
-    optional bytes table_id = 1;
-    optional uint32 table_number = 2;
+  optional bytes table_id = 1;
+  optional uint32 table_number = 2;
 }
 
 message FunctionResult {
@@ -72,7 +72,7 @@ message JsError {
 }
 
 message JsFrames {
-    repeated FrameData frames = 1;
+  repeated FrameData frames = 1;
 }
 
 message FrameData {
@@ -93,11 +93,11 @@ message FrameData {
 }
 
 message ExecutionContext {
-    optional string parent_scheduled_job = 1;
-    optional string parent_scheduled_job_component_id = 5;
-    optional string request_id = 2;
-    optional string execution_id = 3;
-    optional bool is_root = 4;
+  optional string parent_scheduled_job = 1;
+  optional string parent_scheduled_job_component_id = 5;
+  optional string request_id = 2;
+  optional string execution_id = 3;
+  optional bool is_root = 4;
 }
 
 enum UdfType {
@@ -153,9 +153,9 @@ message ActionFunctionCaller {
 }
 
 message RedactedJsError {
-    common.JsError error = 1;
-    optional bool block_logging = 2;
-    optional string request_id = 3;
+  common.JsError error = 1;
+  optional bool block_logging = 2;
+  optional string request_id = 3;
 }
 
 message RedactedLogLines {
