@@ -3538,6 +3538,7 @@ impl<RT: Runtime> Application<RT> {
         if let Some(migration_worker) = migration_worker {
             shutdown_and_join(migration_worker).await?;
         }
+        self.function_log().shutdown();
         tracing::info!("Application shut down");
         Ok(())
     }

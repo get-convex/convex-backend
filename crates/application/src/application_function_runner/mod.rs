@@ -491,8 +491,8 @@ impl<RT: Runtime> Limiter<RT> {
             total_outstanding: AtomicUsize::new(0),
             function_log,
         };
-        // Update the gauges on startup.
-        limiter.update_gauges();
+        // Report metrics on startup.
+        limiter.report_metrics();
         limiter
     }
 
@@ -506,10 +506,10 @@ impl<RT: Runtime> Limiter<RT> {
             biased;
             _ = request_guard.acquire_permit() => {},
             x = async {
-                // Only update gauges if `acquire_permit` blocked. This avoids
+                // Only report metrics if `acquire_permit` blocked. This avoids
                 // recording a waiting function if there are still available
                 // permits.
-                self.update_gauges();
+                self.report_metrics();
                 future::pending::<!>().await
             } => match x {},
             _ = rt.wait(*APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT) => {
@@ -540,8 +540,8 @@ impl<RT: Runtime> Limiter<RT> {
         }
     }
 
-    // Updates the current waiting and running function gauges.
-    fn update_gauges(&self) {
+    // Reports metrics for the current waiting and running function gauges.
+    fn report_metrics(&self) {
         let num_running_functions = self.total_permits - self.semaphore.available_permits();
         let num_queued_functions = self
             .total_outstanding
@@ -595,22 +595,22 @@ impl<RT: Runtime> RequestGuard<'_, RT> {
         );
         self.permit = Some(self.limiter.semaphore.acquire().await?);
         timer.finish();
-        // Update the gauge to account for the newly running function.
-        self.limiter.update_gauges();
+        // Report metrics to account for the newly running function.
+        self.limiter.report_metrics();
         Ok(())
     }
 }
 
 impl<RT: Runtime> Drop for RequestGuard<'_, RT> {
     fn drop(&mut self) {
-        // Drop the semaphore permit before updating gauges.
+        // Drop the semaphore permit before reporting metrics.
         drop(self.permit.take());
         // Remove the request from the running ones.
         self.limiter
             .total_outstanding
             .fetch_sub(1, Ordering::SeqCst);
-        // Update the gauges to account fo the newly finished request.
-        self.limiter.update_gauges();
+        // Report metrics to account for the newly finished request.
+        self.limiter.report_metrics();
     }
 }
 

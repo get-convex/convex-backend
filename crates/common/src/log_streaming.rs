@@ -112,6 +112,12 @@ pub struct SchedulerInfo {
     pub job_id: String,
 }
 
+#[derive(Serialize, Debug, Clone)]
+pub struct FunctionConcurrencyStats {
+    pub num_running: u64,
+    pub num_queued: u64,
+}
+
 // When adding a new event type:
 // - add a Schema type in the tests at the bottom of this file
 // - consider adding formatting of it in the CLI
@@ -170,6 +176,15 @@ pub enum StructuredLogEvent {
         total_vector_storage_bytes: u64,
         total_file_storage_bytes: u64,
         total_backup_storage_bytes: u64,
+    },
+    /// Topic for function concurrency metrics. These are periodic snapshots of
+    /// running and queued functions for each function type.
+    ConcurrencyStats {
+        query: FunctionConcurrencyStats,
+        mutation: FunctionConcurrencyStats,
+        action: FunctionConcurrencyStats,
+        node_action: FunctionConcurrencyStats,
+        http_action: FunctionConcurrencyStats,
     },
     // User-specified topics -- not yet implemented.
     // See here for more details: https://www.notion.so/Log-Streaming-in-Convex-19a1dfadd6924c33b29b2796b0f5b2e2
@@ -388,6 +403,21 @@ impl LogEvent {
                     "total_file_storage_bytes": total_file_storage_bytes,
                     "total_backup_storage_bytes": total_backup_storage_bytes,
                 }),
+                StructuredLogEvent::ConcurrencyStats {
+                    query,
+                    mutation,
+                    action,
+                    node_action,
+                    http_action,
+                } => serialize_map!({
+                    "_timestamp": ms,
+                    "_topic": "_concurrency_stats",
+                    "query": query,
+                    "mutation": mutation,
+                    "action": action,
+                    "node_action": node_action,
+                    "http_action": http_action,
+                }),
             },
             LogEventFormatVersion::V2 => match &self.event {
                 StructuredLogEvent::Verification => {
@@ -540,6 +570,23 @@ impl LogEvent {
                         "total_vector_storage_bytes": total_vector_storage_bytes,
                         "total_file_storage_bytes": total_file_storage_bytes,
                         "total_backup_storage_bytes": total_backup_storage_bytes,
+                    })
+                },
+                StructuredLogEvent::ConcurrencyStats {
+                    query,
+                    mutation,
+                    action,
+                    node_action,
+                    http_action,
+                } => {
+                    serialize_map!({
+                        "timestamp": ms,
+                        "topic": "concurrency_stats",
+                        "query": query,
+                        "mutation": mutation,
+                        "action": action,
+                        "node_action": node_action,
+                        "http_action": http_action,
                     })
                 },
             },

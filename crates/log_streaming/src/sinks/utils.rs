@@ -26,7 +26,8 @@ pub fn default_log_filter(event: &LogEvent) -> bool {
         | StructuredLogEvent::DeploymentAuditLog { .. }
         | StructuredLogEvent::SchedulerStats { .. }
         | StructuredLogEvent::ScheduledJobLag { .. }
-        | StructuredLogEvent::CurrentStorageUsage { .. } => true,
+        | StructuredLogEvent::CurrentStorageUsage { .. }
+        | StructuredLogEvent::ConcurrencyStats { .. } => true,
         StructuredLogEvent::Exception { .. } => false,
     }
 }

@@ -25,13 +25,16 @@ use common::{
     },
     execution_context::ExecutionContext,
     identity::InertIdentity,
-    knobs,
+    knobs::{
+        self,
+    },
     log_lines::{
         LogLine,
         LogLines,
     },
     log_streaming::{
         self,
+        FunctionConcurrencyStats,
         FunctionEventSource,
         LogEvent,
         LogSender,
@@ -40,6 +43,7 @@ use common::{
     },
     runtime::{
         Runtime,
+        SpawnHandle,
         UnixTimestamp,
     },
     types::{
@@ -537,12 +541,13 @@ pub struct FunctionExecutionLog<RT: Runtime> {
     inner: Arc<Mutex<Inner<RT>>>,
     usage_tracking: UsageCounter,
     rt: RT,
+    concurrency_stats_logger: Arc<Mutex<Box<dyn SpawnHandle>>>,
 }
 
 impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn new(rt: RT, usage_tracking: UsageCounter, log_manager: Arc<dyn LogSender>) -> Self {
         let base_ts = rt.system_time();
-        let inner = Inner {
+        let inner = Arc::new(Mutex::new(Inner {
             rt: rt.clone(),
             num_execution_completions: 0,
             log: WithHeapSize::default(),
@@ -558,12 +563,94 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     histogram_significant_figures: *knobs::UDF_METRICS_SIGNIFICANT_FIGURES,
                 },
             ),
-        };
+        }));
+
+        let inner_for_task = inner.clone();
+
+        // Spawn a background task to periodically send concurrency stats
+        let concurrency_stats_logger = Arc::new(Mutex::new(rt.spawn(
+            "concurrency_stats_logger",
+            async move {
+                let runtime = inner_for_task.lock().rt.clone();
+                loop {
+                    let bucket_width = *knobs::UDF_METRICS_BUCKET_WIDTH;
+                    runtime.wait(bucket_width).await;
+
+                    let now = runtime.system_time();
+
+                    // Query all outstanding_functions gauges to get current concurrency stats
+                    let inner = inner_for_task.lock();
+                    let metrics = inner.metrics.clone();
+                    drop(inner);
+
+                    let start_time = now - bucket_width;
+
+                    // Query gauges for all function types
+                    let query = Self::get_concurrency_stats(
+                        &metrics,
+                        ModuleEnvironment::Isolate,
+                        UdfType::Query,
+                        start_time,
+                        now,
+                    );
+                    let mutation = Self::get_concurrency_stats(
+                        &metrics,
+                        ModuleEnvironment::Isolate,
+                        UdfType::Mutation,
+                        start_time,
+                        now,
+                    );
+                    let action = Self::get_concurrency_stats(
+                        &metrics,
+                        ModuleEnvironment::Isolate,
+                        UdfType::Action,
+                        start_time,
+                        now,
+                    );
+                    let node_action = Self::get_concurrency_stats(
+                        &metrics,
+                        ModuleEnvironment::Node,
+                        UdfType::Action,
+                        start_time,
+                        now,
+                    );
+                    let http_action = Self::get_concurrency_stats(
+                        &metrics,
+                        ModuleEnvironment::Isolate,
+                        UdfType::HttpAction,
+                        start_time,
+                        now,
+                    );
+
+                    // Send event with timestamp matching the start of the bucket we queried
+                    let event = LogEvent {
+                        timestamp: UnixTimestamp::from_system_time(start_time)
+                            .unwrap_or_else(|| UnixTimestamp::from_system_time(now).unwrap()),
+                        event: StructuredLogEvent::ConcurrencyStats {
+                            query,
+                            mutation,
+                            action,
+                            node_action,
+                            http_action,
+                        },
+                    };
+
+                    let inner = inner_for_task.lock();
+                    inner.log_manager.send_logs(vec![event]);
+                }
+            },
+        )));
+
         Self {
-            inner: Arc::new(Mutex::new(inner)),
+            inner,
             rt,
             usage_tracking,
+            concurrency_stats_logger,
         }
+    }
+
+    pub fn shutdown(&self) {
+        self.concurrency_stats_logger.lock().shutdown();
     }
 
     pub async fn log_query(
@@ -1467,6 +1554,51 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             *new_cursor
         } else {
             0.0
+        }
+    }
+
+    /// Get the gauge value from the first complete bucket in the time range
+    fn get_gauge_value(
+        metrics: &MetricStore,
+        env: &ModuleEnvironment,
+        udf_type: &UdfType,
+        state: &OutstandingFunctionState,
+        start_time: SystemTime,
+        now: SystemTime,
+    ) -> u64 {
+        let metric_name = outstanding_functions_metric(env, udf_type, state);
+        metrics
+            .query_gauge(&metric_name, start_time..now)
+            .ok()
+            .and_then(|buckets| buckets.first().map(|b| b.value.max(0.0) as u64))
+            .unwrap_or(0)
+    }
+
+    /// Get both running and queued stats for a function type
+    fn get_concurrency_stats(
+        metrics: &MetricStore,
+        env: ModuleEnvironment,
+        udf_type: UdfType,
+        start_time: SystemTime,
+        now: SystemTime,
+    ) -> FunctionConcurrencyStats {
+        FunctionConcurrencyStats {
+            num_running: Self::get_gauge_value(
+                metrics,
+                &env,
+                &udf_type,
+                &OutstandingFunctionState::Running,
+                start_time,
+                now,
+            ),
+            num_queued: Self::get_gauge_value(
+                metrics,
+                &env,
+                &udf_type,
+                &OutstandingFunctionState::Queued,
+                start_time,
+                now,
+            ),
         }
     }
 
