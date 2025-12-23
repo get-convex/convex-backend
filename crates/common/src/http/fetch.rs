@@ -86,10 +86,14 @@ impl FetchClient for ProxiedFetchClient {
             .http_client
             .request(request.method, request.url.as_str());
         let request_size = Arc::new(AtomicU64::new(0));
-        let request_size2 = request_size.clone();
-        let body = Body::wrap_stream(request.body.inspect(move |b| {
-            if let Ok(b) = b {
-                request_size2.fetch_add(b.len() as u64, Ordering::Relaxed);
+        let body = Body::wrap_stream(request.body.inspect({
+            let request_size = request_size.clone();
+            move |b| {
+                if let Ok(b) = b {
+                    request_size
+                        .clone()
+                        .fetch_add(b.len() as u64, Ordering::Relaxed);
+                }
             }
         }));
         request_builder = request_builder.body(body);
