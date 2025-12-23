@@ -17,6 +17,7 @@ message FunctionUsageStats {
   repeated CounterWithTag database_egress_rows = 10;
   repeated CounterWithTag text_ingress_size = 12;
   repeated CounterWithTag text_egress_size = 13;
+  repeated CounterWithUrl fetch_egress_size = 15;
 }
 
 message CounterWithTag {
@@ -27,5 +28,10 @@ message CounterWithTag {
 
 message CounterWithComponent {
   optional string component_path = 1;
+  optional uint64 count = 2;
+}
+
+message CounterWithUrl {
+  optional string url = 1;
   optional uint64 count = 2;
 }

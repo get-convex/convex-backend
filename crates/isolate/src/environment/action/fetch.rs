@@ -54,7 +54,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                             ErrorMetadata::bad_request("FetchFailed", format!("{e:#}")).into()
                         ),
                     });
-                Self::log_fetch_request(t, origin, Err(()), initial_response_time, 0);
+                self.log_fetch_request(t, origin, Err(()), initial_response_time, 0);
                 return;
             },
         };
@@ -64,7 +64,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         });
         // After sending status and headers, send the body one chunk at a time.
         let stream_result = self.send_stream(stream_id, body).await;
-        Self::log_fetch_request(
+        self.log_fetch_request(
             t,
             origin,
             stream_result,
@@ -82,6 +82,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     }
 
     fn log_fetch_request(
+        &self,
         t: StatusTimer,
         origin: String,
         success: Result<usize, ()>,
@@ -98,5 +99,6 @@ impl<RT: Runtime> TaskExecutor<RT> {
             success.ok(),
         );
         metrics::finish_udf_fetch_timer(t, success);
+        self.usage_tracker.track_fetch_egress(origin, request_size);
     }
 }

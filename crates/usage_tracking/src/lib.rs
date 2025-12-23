@@ -35,6 +35,7 @@ use parking_lot::Mutex;
 use pb::usage::{
     CounterWithComponent as CounterWithComponentProto,
     CounterWithTag as CounterWithTagProto,
+    CounterWithUrl as CounterWithUrlProto,
     FunctionUsageStats as FunctionUsageStatsProto,
 };
 use value::sha256::Sha256Digest;
@@ -802,6 +803,12 @@ impl FunctionUsageTracker {
             .entry((component_path, table_name))
             .or_default() += egress_size;
     }
+
+    /// Only track egress - because AWS only charges egress
+    pub fn track_fetch_egress(&self, url: String, egress_bytes: u64) {
+        let mut state = self.state.lock();
+        *state.fetch_egress_size.entry(url).or_default() += egress_bytes;
+    }
 }
 
 // For UDFs, we track storage at the per UDF level, no finer. So we can just
@@ -951,6 +958,13 @@ pub struct FunctionUsageStats {
             )")
     )]
     pub text_egress_size: BTreeMap<(ComponentPath, TableName), u64>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<String>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub fetch_egress_size: BTreeMap<String, u64>,
 }
 
 impl FunctionUsageStats {
@@ -969,39 +983,62 @@ impl FunctionUsageStats {
         }
     }
 
-    fn merge(&mut self, other: Self) {
-        // Merge the storage stats.
-        for (key, function_count) in other.storage_calls {
+    fn merge(
+        &mut self,
+        Self {
+            storage_calls,
+            storage_ingress_size,
+            storage_egress_size,
+            database_ingress_size,
+            database_ingress_size_v2,
+            database_egress_size,
+            database_egress_rows,
+            vector_ingress_size,
+            vector_ingress_size_v2,
+            vector_egress_size,
+            text_ingress_size,
+            text_egress_size,
+            fetch_egress_size,
+        }: Self,
+    ) {
+        for (key, function_count) in storage_calls {
             *self.storage_calls.entry(key).or_default() += function_count;
         }
-        for (key, ingress_size) in other.storage_ingress_size {
+        for (key, ingress_size) in storage_ingress_size {
             *self.storage_ingress_size.entry(key).or_default() += ingress_size;
         }
-        for (key, egress_size) in other.storage_egress_size {
+        for (key, egress_size) in storage_egress_size {
             *self.storage_egress_size.entry(key).or_default() += egress_size;
         }
-
-        // Merge "by table" bandwidth other.
-        for (key, ingress_size) in other.database_ingress_size {
+        for (key, ingress_size) in database_ingress_size {
             *self.database_ingress_size.entry(key).or_default() += ingress_size;
         }
-        for (key, ingress_size) in other.database_ingress_size_v2 {
+        for (key, ingress_size) in database_ingress_size_v2 {
             *self.database_ingress_size_v2.entry(key).or_default() += ingress_size;
         }
-        for (key, egress_size) in other.database_egress_size {
+        for (key, egress_size) in database_egress_size {
             *self.database_egress_size.entry(key).or_default() += egress_size;
         }
-        for (key, egress_rows) in other.database_egress_rows {
+        for (key, egress_rows) in database_egress_rows {
             *self.database_egress_rows.entry(key.clone()).or_default() += egress_rows;
         }
-        for (key, ingress_size) in other.vector_ingress_size {
+        for (key, ingress_size) in vector_ingress_size {
             *self.vector_ingress_size.entry(key.clone()).or_default() += ingress_size;
         }
-        for (key, egress_size) in other.vector_egress_size {
+        for (key, egress_size) in vector_egress_size {
             *self.vector_egress_size.entry(key.clone()).or_default() += egress_size;
         }
-        for (key, ingress_size) in other.vector_ingress_size_v2 {
+        for (key, ingress_size) in vector_ingress_size_v2 {
             *self.vector_ingress_size_v2.entry(key.clone()).or_default() += ingress_size;
+        }
+        for (key, ingress_size) in text_ingress_size {
+            *self.text_ingress_size.entry(key.clone()).or_default() += ingress_size;
+        }
+        for (key, egress_size) in text_egress_size {
+            *self.text_egress_size.entry(key.clone()).or_default() += egress_size;
+        }
+        for (key, egress_size) in fetch_egress_size {
+            *self.fetch_egress_size.entry(key.clone()).or_default() += egress_size;
         }
     }
 }
@@ -1031,6 +1068,15 @@ fn to_by_component_count(
         .collect()
 }
 
+fn to_by_url_count(counts: impl Iterator<Item = (String, u64)>) -> Vec<CounterWithUrlProto> {
+    counts
+        .map(|(url, count)| CounterWithUrlProto {
+            url: Some(url),
+            count: Some(count),
+        })
+        .collect()
+}
+
 fn from_by_tag_count(
     counts: Vec<CounterWithTagProto>,
 ) -> anyhow::Result<impl Iterator<Item = ((ComponentPath, String), u64)>> {
@@ -1038,9 +1084,23 @@ fn from_by_tag_count(
         .into_iter()
         .map(|c| -> anyhow::Result<_> {
             let component_path = ComponentPath::deserialize(c.component_path.as_deref())?;
-            let name = c.table_name.context("Missing `tag` field")?;
+            let name = c.table_name.context("Missing `table_name` field")?;
             let count = c.count.context("Missing `count` field")?;
             Ok(((component_path, name), count))
+        })
+        .try_collect()?;
+    Ok(counts.into_iter())
+}
+
+fn from_by_url_count(
+    counts: Vec<CounterWithUrlProto>,
+) -> anyhow::Result<impl Iterator<Item = (String, u64)>> {
+    let counts: Vec<_> = counts
+        .into_iter()
+        .map(|c| -> anyhow::Result<_> {
+            let name = c.url.context("Missing `url` field")?;
+            let count = c.count.context("Missing `count` field")?;
+            Ok((name, count))
         })
         .try_collect()?;
     Ok(counts.into_iter())
@@ -1079,6 +1139,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             text_ingress_size: to_by_tag_count(stats.text_ingress_size.into_iter()),
             text_egress_size: to_by_tag_count(stats.text_egress_size.into_iter()),
             vector_ingress_size_v2: to_by_tag_count(stats.vector_ingress_size_v2.into_iter()),
+            fetch_egress_size: to_by_url_count(stats.fetch_egress_size.into_iter()),
         }
     }
 }
@@ -1101,6 +1162,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let text_ingress_size = from_by_tag_count(stats.text_ingress_size)?.collect();
         let text_egress_size = from_by_tag_count(stats.text_egress_size)?.collect();
         let vector_ingress_size_v2 = from_by_tag_count(stats.vector_ingress_size_v2)?.collect();
+        let fetch_egress_size = from_by_url_count(stats.fetch_egress_size)?.collect();
 
         Ok(FunctionUsageStats {
             storage_calls,
@@ -1115,6 +1177,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             text_ingress_size,
             text_egress_size,
             vector_ingress_size_v2,
+            fetch_egress_size,
         })
     }
 }
