@@ -46,7 +46,7 @@ export class ErrorBoundary extends React.Component<
               icon={<ExitIcon />}
               size="xs"
               onClick={() => {
-                window.sessionStorage.setItem("adminKey", "");
+                window.localStorage.setItem("adminKey", "");
                 window.location.reload();
               }}
               variant="neutral"

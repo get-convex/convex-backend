@@ -6,7 +6,7 @@ import { AppProps } from "next/app";
 import Head from "next/head";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
-import { useSessionStorage } from "react-use";
+import { useLocalStorage } from "react-use";
 import { ExitIcon, GearIcon } from "@radix-ui/react-icons";
 import { ConvexLogo } from "@common/elements/ConvexLogo";
 import { ToastContainer } from "@common/elements/ToastContainer";
@@ -218,13 +218,13 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     teamId: 0,
   }),
   useCurrentDeployment: () => {
-    const [storedDeploymentName] = useSessionStorage(
+    const [storedDeploymentName] = useLocalStorage(
       SESSION_STORAGE_DEPLOYMENT_NAME_KEY,
       "",
     );
     return {
       id: 0,
-      name: storedDeploymentName,
+      name: storedDeploymentName || "",
       deploymentType: "dev",
       projectId: 0,
       kind: "local",
@@ -282,12 +282,12 @@ function DeploymentInfoProvider({
   const [isValidDeploymentInfo, setIsValidDeploymentInfo] = useState<
     boolean | null
   >(null);
-  const [storedAdminKey, setStoredAdminKey] = useSessionStorage("adminKey", "");
-  const [storedDeploymentUrl, setStoredDeploymentUrl] = useSessionStorage(
+  const [storedAdminKey, setStoredAdminKey] = useLocalStorage("adminKey", "");
+  const [storedDeploymentUrl, setStoredDeploymentUrl] = useLocalStorage(
     "deploymentUrl",
     "",
   );
-  const [_storedDeploymentName, setStoredDeploymentName] = useSessionStorage(
+  const [_storedDeploymentName, setStoredDeploymentName] = useLocalStorage(
     SESSION_STORAGE_DEPLOYMENT_NAME_KEY,
     "",
   );
@@ -347,6 +347,14 @@ function DeploymentInfoProvider({
   );
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  
+  // Auto-validate if credentials exist in localStorage on mount
+  useEffect(() => {
+    if (storedAdminKey && storedDeploymentUrl) {
+      setIsValidDeploymentInfo(true);
+    }
+  }, []);
+  
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
