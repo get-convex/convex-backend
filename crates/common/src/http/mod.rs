@@ -11,6 +11,10 @@ use std::{
         FromStr,
     },
     sync::{
+        atomic::{
+            AtomicU64,
+            Ordering,
+        },
         Arc,
         LazyLock,
     },
@@ -306,6 +310,7 @@ pub struct HttpResponse {
     pub status: StatusCode,
     pub headers: HeaderMap,
     pub url: Option<Url>,
+    pub request_size: u64,
 }
 
 impl HttpResponse {
@@ -314,12 +319,14 @@ impl HttpResponse {
         headers: HeaderMap,
         body: Option<Vec<u8>>,
         url: Option<Url>,
+        request_size: u64,
     ) -> Self {
         Self {
             body,
             status,
             headers,
             url,
+            request_size,
         }
     }
 }
@@ -333,6 +340,7 @@ impl From<HttpResponse> for HttpResponseStream {
             status: value.status,
             headers: value.headers,
             url: value.url,
+            request_size: Arc::new(AtomicU64::new(value.request_size)),
         }
     }
 }
@@ -355,6 +363,7 @@ impl Arbitrary for HttpResponse {
                 ArbitraryHeaderMap(headers) in any::<ArbitraryHeaderMap>(),
                 ArbitraryStatusCode(status) in any::<ArbitraryStatusCode>(),
                 ArbitraryUri(uri) in any::<ArbitraryUri>(),
+                request_size in any::<u64>(),
                 body in any::<Option<Vec<u8>>>()) -> anyhow::Result<HttpResponse> {
                     let origin: String = "http://example-deployment.convex.site/".to_string();
                     let path_and_query: String =  uri.path_and_query().ok_or_else(|| anyhow::anyhow!("No path and query"))?.to_string();
@@ -364,6 +373,7 @@ impl Arbitrary for HttpResponse {
                     headers,
                     body,
                     url: Some(url),
+                    request_size,
                 })
             }
         };
@@ -376,6 +386,7 @@ pub struct HttpResponseStream {
     pub status: StatusCode,
     pub headers: HeaderMap,
     pub url: Option<Url>,
+    pub request_size: Arc<AtomicU64>,
 }
 
 impl HttpResponseStream {
@@ -395,6 +406,7 @@ impl HttpResponseStream {
             status: self.status,
             headers: self.headers,
             url: self.url,
+            request_size: self.request_size.load(Ordering::Relaxed),
         })
     }
 }

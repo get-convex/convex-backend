@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    sync::atomic::Ordering,
+    time::Duration,
+};
 
 use ::metrics::StatusTimer;
 use common::{
@@ -34,9 +37,12 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let origin = request.url.origin().unicode_serialization();
         let result = self.run_fetch_inner(request).await;
         let initial_response_time = t.elapsed();
-        let (body, response) = match result
-            .and_then(|response| HttpResponseV8::from_response_stream(response, stream_id))
-        {
+        let (request_size, (body, response)) = match result.and_then(|response| {
+            Ok((
+                response.request_size.clone(),
+                HttpResponseV8::from_response_stream(response, stream_id)?,
+            ))
+        }) {
             Ok(parts) => parts,
             Err(e) => {
                 // All fetch errors are treated as developer errors since we have little
@@ -48,7 +54,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                             ErrorMetadata::bad_request("FetchFailed", format!("{e:#}")).into()
                         ),
                     });
-                Self::log_fetch_request(t, origin, Err(()), initial_response_time);
+                Self::log_fetch_request(t, origin, Err(()), initial_response_time, 0);
                 return;
             },
         };
@@ -58,7 +64,13 @@ impl<RT: Runtime> TaskExecutor<RT> {
         });
         // After sending status and headers, send the body one chunk at a time.
         let stream_result = self.send_stream(stream_id, body).await;
-        Self::log_fetch_request(t, origin, stream_result, initial_response_time);
+        Self::log_fetch_request(
+            t,
+            origin,
+            stream_result,
+            initial_response_time,
+            request_size.load(Ordering::Relaxed),
+        );
     }
 
     #[convex_macro::instrument_future]
@@ -74,13 +86,15 @@ impl<RT: Runtime> TaskExecutor<RT> {
         origin: String,
         success: Result<usize, ()>,
         initial_response_time: Duration,
+        request_size: u64,
     ) {
         // Would love to log the error here or in sentry, but they might contain PII.
         tracing::info!(
             "Fetch to origin: {origin}, success: {}, initial_response_time: \
-             {initial_response_time:?}, total_time: {:?}, size: {:?}",
+             {initial_response_time:?}, total_time: {:?}, request_size: {:?}, response_size: {:?}",
             success.is_ok(),
             t.elapsed(),
+            request_size,
             success.ok(),
         );
         metrics::finish_udf_fetch_timer(t, success);

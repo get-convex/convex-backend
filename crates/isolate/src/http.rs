@@ -130,6 +130,7 @@ impl HttpResponseV8 {
                 body: None,
                 headers: header_map,
                 url: self.url.map(|u| Url::parse(u.as_str())).transpose()?,
+                request_size: 0,
             },
             self.stream_id,
         ))

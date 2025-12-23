@@ -8,6 +8,7 @@ use std::{
             AtomicU64,
             Ordering,
         },
+        Arc,
         LazyLock,
     },
 };
@@ -84,7 +85,13 @@ impl FetchClient for ProxiedFetchClient {
         let mut request_builder = self
             .http_client
             .request(request.method, request.url.as_str());
-        let body = Body::wrap_stream(request.body);
+        let request_size = Arc::new(AtomicU64::new(0));
+        let request_size2 = request_size.clone();
+        let body = Body::wrap_stream(request.body.inspect(move |b| {
+            if let Ok(b) = b {
+                request_size2.fetch_add(b.len() as u64, Ordering::Relaxed);
+            }
+        }));
         request_builder = request_builder.body(body);
         for (name, value) in &request.headers {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
@@ -115,6 +122,7 @@ impl FetchClient for ProxiedFetchClient {
                 raw_response.bytes_stream(),
                 request.signal,
             )),
+            request_size,
         };
         Ok(response)
     }
@@ -265,6 +273,7 @@ mod tests {
                         HeaderMap::new(),
                         Some("success".to_string().into_bytes()),
                         None,
+                        0,
                     )
                 } else {
                     HttpResponse::new(
@@ -272,6 +281,7 @@ mod tests {
                         HeaderMap::new(),
                         Some("failed".to_string().into_bytes()),
                         None,
+                        0,
                     )
                 };
                 Ok(HttpResponseStream::from(response))

@@ -377,6 +377,7 @@ mod tests {
                         headers: HeaderMap::new(),
                         body: Some("success".to_string().into_bytes()),
                         url: None,
+                        request_size: "success".len() as u64,
                     }
                     .into())
                 }
@@ -450,6 +451,7 @@ mod tests {
                     headers: HeaderMap::new(),
                     body: Some("success!".to_string().into_bytes()),
                     url: None,
+                    request_size: "success!".len() as u64,
                 }
                 .into())
             }
