@@ -144,6 +144,140 @@ pub struct ClientDrivenUploadPartToken(pub String);
 pub const DOWNLOAD_CHUNK_SIZE: u64 = 8 * (1 << 20);
 pub const MAX_CONCURRENT_CHUNK_DOWNLOADS: usize = 16;
 
+#[cfg(any(test, feature = "testing"))]
+pub mod test_utils {
+    use std::{
+        collections::HashMap,
+        sync::Arc,
+    };
+
+    use anyhow::anyhow;
+    use async_trait::async_trait;
+    use bytes::Bytes;
+    use futures::{
+        future,
+        FutureExt,
+    };
+
+    use crate::{
+        BoxFuture,
+        ClientDrivenUploadPartToken,
+        ClientDrivenUploadToken,
+        FullyQualifiedObjectKey,
+        ObjectAttributes,
+        ObjectKey,
+        Storage,
+        StorageCacheKey,
+        StorageGetStream,
+    };
+
+    /// Minimal in-memory Storage useful for tests that only need to return
+    /// object sizes. All mutating operations are unimplemented.
+    #[derive(Clone, Default, Debug)]
+    pub struct FakeStorage {
+        sizes: Arc<HashMap<String, u64>>,
+    }
+
+    impl FakeStorage {
+        pub fn new(sizes: HashMap<String, u64>) -> Self {
+            Self {
+                sizes: Arc::new(sizes),
+            }
+        }
+
+        fn lookup(&self, key: &FullyQualifiedObjectKey) -> Option<ObjectAttributes> {
+            self.sizes
+                .get(key.as_str())
+                .copied()
+                .map(|size| ObjectAttributes { size })
+        }
+    }
+
+    #[async_trait]
+    impl Storage for FakeStorage {
+        async fn start_upload(&self) -> anyhow::Result<Box<crate::BufferedUpload>> {
+            anyhow::bail!("start_upload not implemented for FakeStorage")
+        }
+
+        async fn start_client_driven_upload(&self) -> anyhow::Result<ClientDrivenUploadToken> {
+            anyhow::bail!("start_client_driven_upload not implemented for FakeStorage")
+        }
+
+        async fn upload_part(
+            &self,
+            _token: ClientDrivenUploadToken,
+            _part_number: u16,
+            _part: Bytes,
+        ) -> anyhow::Result<ClientDrivenUploadPartToken> {
+            anyhow::bail!("upload_part not implemented for FakeStorage")
+        }
+
+        async fn finish_client_driven_upload(
+            &self,
+            _token: ClientDrivenUploadToken,
+            _part_tokens: Vec<ClientDrivenUploadPartToken>,
+        ) -> anyhow::Result<ObjectKey> {
+            anyhow::bail!("finish_client_driven_upload not implemented for FakeStorage")
+        }
+
+        async fn signed_url(
+            &self,
+            _key: ObjectKey,
+            _expires_in: std::time::Duration,
+        ) -> anyhow::Result<String> {
+            anyhow::bail!("signed_url not implemented for FakeStorage")
+        }
+
+        async fn presigned_upload_url(
+            &self,
+            _expires_in: std::time::Duration,
+        ) -> anyhow::Result<(ObjectKey, String)> {
+            anyhow::bail!("presigned_upload_url not implemented for FakeStorage")
+        }
+
+        async fn get_fq_object_attributes(
+            &self,
+            key: &FullyQualifiedObjectKey,
+        ) -> anyhow::Result<Option<ObjectAttributes>> {
+            Ok(self.lookup(key))
+        }
+
+        fn get_small_range(
+            &self,
+            _key: &FullyQualifiedObjectKey,
+            _bytes_range: std::ops::Range<u64>,
+        ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>> {
+            future::ready(Err(anyhow!(
+                "get_small_range not implemented for FakeStorage"
+            )))
+            .boxed()
+        }
+
+        fn storage_type_proto(&self) -> pb::searchlight::StorageType {
+            pb::searchlight::StorageType::default()
+        }
+
+        fn cache_key(&self, key: &ObjectKey) -> StorageCacheKey {
+            StorageCacheKey::new(key.to_string())
+        }
+
+        fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey {
+            key.to_string().into()
+        }
+
+        fn test_only_decompose_fully_qualified_key(
+            &self,
+            key: FullyQualifiedObjectKey,
+        ) -> anyhow::Result<ObjectKey> {
+            key.as_str().try_into()
+        }
+
+        async fn delete_object(&self, _key: &ObjectKey) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+}
+
 #[async_trait]
 pub trait Storage: Send + Sync + Debug {
     /// Start a new upload for generated data where no authoritative hash is
