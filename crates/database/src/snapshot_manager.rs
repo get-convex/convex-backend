@@ -219,7 +219,7 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub(crate) fn update(
+    pub fn update(
         &mut self,
         document_update: &impl DocumentUpdateRef,
         commit_ts: Timestamp,

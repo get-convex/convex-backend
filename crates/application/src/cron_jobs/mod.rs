@@ -463,12 +463,10 @@ impl<RT: Runtime> CronJobContext<RT> {
         let execution_time_f64 = execution_time.as_secs_f64();
         let truncated_log_lines = self.truncate_log_lines(outcome.log_lines.clone());
 
-        let mut model = CronModel::new(&mut tx, component);
-
         if let Ok(ref result) = outcome.result {
             let truncated_result = self.truncate_result(result.clone())?;
             let status = CronJobStatus::Success(truncated_result);
-            model
+            CronModel::new(&mut tx, component)
                 .insert_cron_job_log(
                     &job,
                     status,
