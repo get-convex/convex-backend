@@ -594,6 +594,7 @@ impl proptest::arbitrary::Arbitrary for TableDefinition {
                     staged_vector_indexes,
                     document_type,
                 )| {
+                    // Can't have two indexes with same name
                     let index_descriptors: BTreeSet<_> = indexes
                         .iter()
                         .map(|i| &i.index_descriptor)
@@ -610,38 +611,62 @@ impl proptest::arbitrary::Arbitrary for TableDefinition {
                         + vector_indexes.len()
                         + staged_vector_indexes.len();
                     assert!(index_descriptors.len() <= expected);
-                    if index_descriptors.len() == expected {
-                        Some(Self {
-                            table_name: table_name.clone(),
-                            indexes: indexes
-                                .into_iter()
-                                .map(|i| (i.index_descriptor.clone(), i))
-                                .collect(),
-                            staged_db_indexes: staged_db_indexes
-                                .into_iter()
-                                .map(|i| (i.index_descriptor.clone(), i))
-                                .collect(),
-                            text_indexes: search_indexes
-                                .into_iter()
-                                .map(|i| (i.index_descriptor.clone(), i))
-                                .collect(),
-                            staged_text_indexes: staged_search_indexes
-                                .into_iter()
-                                .map(|i| (i.index_descriptor.clone(), i))
-                                .collect(),
-                            vector_indexes: vector_indexes
-                                .into_iter()
-                                .map(|i| (i.index_descriptor.clone(), i))
-                                .collect(),
-                            staged_vector_indexes: staged_vector_indexes
-                                .into_iter()
-                                .map(|i| (i.index_descriptor.clone(), i))
-                                .collect(),
-                            document_type,
-                        })
-                    } else {
-                        None
+                    if index_descriptors.len() != expected {
+                        return None;
                     }
+
+                    // Can't have two search fields with same name
+                    let search_fields: BTreeSet<_> = search_indexes
+                        .iter()
+                        .map(|i| &i.search_field)
+                        .chain(staged_search_indexes.iter().map(|i| &i.search_field))
+                        .collect();
+                    let expected = search_indexes.len() + staged_search_indexes.len();
+                    assert!(search_fields.len() <= expected);
+                    if search_fields.len() != expected {
+                        return None;
+                    }
+
+                    // Can't have two vector fields with same name
+                    let vector_fields: BTreeSet<_> = vector_indexes
+                        .iter()
+                        .map(|i| &i.vector_field)
+                        .chain(staged_vector_indexes.iter().map(|i| &i.vector_field))
+                        .collect();
+                    let expected = vector_indexes.len() + staged_vector_indexes.len();
+                    assert!(vector_fields.len() <= expected);
+                    if vector_fields.len() != expected {
+                        return None;
+                    }
+
+                    Some(Self {
+                        table_name: table_name.clone(),
+                        indexes: indexes
+                            .into_iter()
+                            .map(|i| (i.index_descriptor.clone(), i))
+                            .collect(),
+                        staged_db_indexes: staged_db_indexes
+                            .into_iter()
+                            .map(|i| (i.index_descriptor.clone(), i))
+                            .collect(),
+                        text_indexes: search_indexes
+                            .into_iter()
+                            .map(|i| (i.index_descriptor.clone(), i))
+                            .collect(),
+                        staged_text_indexes: staged_search_indexes
+                            .into_iter()
+                            .map(|i| (i.index_descriptor.clone(), i))
+                            .collect(),
+                        vector_indexes: vector_indexes
+                            .into_iter()
+                            .map(|i| (i.index_descriptor.clone(), i))
+                            .collect(),
+                        staged_vector_indexes: staged_vector_indexes
+                            .into_iter()
+                            .map(|i| (i.index_descriptor.clone(), i))
+                            .collect(),
+                        document_type,
+                    })
                 },
             )
     }
