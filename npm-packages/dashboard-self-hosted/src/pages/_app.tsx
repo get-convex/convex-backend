@@ -354,7 +354,7 @@ function DeploymentInfoProvider({
     () =>
       ({
         ...deploymentInfo,
-        ok: true,
+        ok: activeSession ? true : false,
         adminKey: activeSession?.adminKey || "",
         deploymentUrl: activeSession?.deploymentUrl || "",
       }) as DeploymentInfo,
@@ -367,8 +367,11 @@ function DeploymentInfoProvider({
   useEffect(() => {
     if (activeSession) {
       setIsValidDeploymentInfo(true);
+    } else if (sessions.length === 0) {
+      // No sessions left, show login form
+      setIsValidDeploymentInfo(false);
     }
-  }, [activeSession]);
+  }, [activeSession, sessions.length]);
   
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -397,6 +400,31 @@ function DeploymentInfoProvider({
     }
   }, [defaultListDeploymentsApiUrl]);
   if (!mounted) return null;
+
+  // If no active session and no sessions exist, force login
+  if (!activeSession && sessions.length === 0) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-8">
+        <ConvexLogo />
+        {listDeploymentsApiUrl !== null ? (
+          <DeploymentList
+            listDeploymentsApiUrl={listDeploymentsApiUrl}
+            onError={() => {
+              setListDeploymentsApiUrl(null);
+            }}
+            onSelect={onSubmit}
+            selectedDeploymentName={selectedDeploymentName}
+          />
+        ) : (
+          <DeploymentCredentialsForm
+            onSubmit={onSubmit}
+            initialAdminKey={adminKey}
+            initialDeploymentUrl={deploymentUrl}
+          />
+        )}
+      </div>
+    );
+  }
 
   if (!isValidDeploymentInfo || showAddSessionForm) {
     return (
@@ -427,8 +455,7 @@ function DeploymentInfoProvider({
         {showAddSessionForm && sessions.length > 0 && (
           <button
             onClick={() => {
-              setShowAddSessionForm(false);
-              setIsValidDeploymentInfo(true);
+              window.location.reload();
             }}
             className="text-sm text-content-secondary underline hover:text-content-primary"
           >

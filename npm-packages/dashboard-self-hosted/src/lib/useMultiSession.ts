@@ -22,6 +22,10 @@ function generateSessionId(): string {
 }
 
 function getSessionsFromStorage(): SessionsData {
+  if (typeof window === 'undefined') {
+    return { sessions: [], activeSessionId: null };
+  }
+  
   try {
     const stored = localStorage.getItem(SESSIONS_STORAGE_KEY);
     if (stored) {
@@ -34,6 +38,10 @@ function getSessionsFromStorage(): SessionsData {
 }
 
 function saveSessionsToStorage(data: SessionsData): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  
   try {
     localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(data));
   } catch (e) {
@@ -42,12 +50,22 @@ function saveSessionsToStorage(data: SessionsData): void {
 }
 
 export function useMultiSession() {
-  const [sessionsData, setSessionsData] = useState<SessionsData>(
-    getSessionsFromStorage()
-  );
+  const [sessionsData, setSessionsData] = useState<SessionsData>({
+    sessions: [],
+    activeSessionId: null,
+  });
+  const [mounted, setMounted] = useState(false);
+
+  // Only load from localStorage after mounting (client-side only)
+  useEffect(() => {
+    setMounted(true);
+    setSessionsData(getSessionsFromStorage());
+  }, []);
 
   // Sync with localStorage on mount and when other tabs make changes
   useEffect(() => {
+    if (!mounted) return;
+    
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === SESSIONS_STORAGE_KEY && e.newValue) {
         try {
@@ -60,7 +78,7 @@ export function useMultiSession() {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [mounted]);
 
   const activeSession = sessionsData.sessions.find(
     (s) => s.id === sessionsData.activeSessionId
