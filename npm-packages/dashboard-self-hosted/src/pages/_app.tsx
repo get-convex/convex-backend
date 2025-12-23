@@ -23,6 +23,9 @@ import React, {
   useState,
   createContext,
 } from "react";
+import { useMultiSession } from "lib/useMultiSession";
+import { migrateToMultiSession } from "lib/migrateToMultiSession";
+import { SessionSwitcher } from "components/SessionSwitcher";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { DeploymentDashboardLayout } from "@common/layouts/DeploymentDashboardLayout";
 import {
@@ -218,13 +221,12 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     teamId: 0,
   }),
   useCurrentDeployment: () => {
-    const [storedDeploymentName] = useLocalStorage(
-      SESSION_STORAGE_DEPLOYMENT_NAME_KEY,
-      "",
-    );
+    const {
+      activeSession,
+    } = useMultiSession();
     return {
       id: 0,
-      name: storedDeploymentName || "",
+      name: activeSession?.deploymentName || "",
       deploymentType: "dev",
       projectId: 0,
       kind: "local",
@@ -273,6 +275,21 @@ function DeploymentInfoProvider({
   adminKey: string | null;
   defaultListDeploymentsApiUrl: string | null;
 }) {
+  // Run migration on mount
+  useEffect(() => {
+    migrateToMultiSession();
+  }, []);
+
+  const {
+    sessions,
+    activeSession,
+    addSession,
+    switchSession,
+    removeSession,
+    updateSessionName,
+    clearAllSessions,
+  } = useMultiSession();
+
   const [listDeploymentsApiUrl, setListDeploymentsApiUrl] = useState<
     string | null
   >(null);
@@ -282,15 +299,7 @@ function DeploymentInfoProvider({
   const [isValidDeploymentInfo, setIsValidDeploymentInfo] = useState<
     boolean | null
   >(null);
-  const [storedAdminKey, setStoredAdminKey] = useLocalStorage("adminKey", "");
-  const [storedDeploymentUrl, setStoredDeploymentUrl] = useLocalStorage(
-    "deploymentUrl",
-    "",
-  );
-  const [_storedDeploymentName, setStoredDeploymentName] = useLocalStorage(
-    SESSION_STORAGE_DEPLOYMENT_NAME_KEY,
-    "",
-  );
+  const [showAddSessionForm, setShowAddSessionForm] = useState(false);
   const [visiblePages, setVisiblePages] = useState<string[] | undefined>(
     undefined,
   );
@@ -325,12 +334,18 @@ function DeploymentInfoProvider({
       // we set isValidDeploymentInfo to true so we can move on. The dashboard
       // will just hit a less graceful error later if the credentials are invalid.
       setIsValidDeploymentInfo(true);
-      setStoredAdminKey(submittedAdminKey);
-      setStoredDeploymentUrl(submittedDeploymentUrl);
-      setStoredDeploymentName(submittedDeploymentName);
+      
+      // Add to multi-session storage
+      addSession(
+        submittedDeploymentUrl,
+        submittedAdminKey,
+        submittedDeploymentName
+      );
+      
       setVisiblePages(submittedVisiblePages);
+      setShowAddSessionForm(false);
     },
-    [setStoredAdminKey, setStoredDeploymentUrl, setStoredDeploymentName],
+    [addSession],
   );
 
   useEmbeddedDashboardCredentials(onSubmit);
@@ -340,20 +355,20 @@ function DeploymentInfoProvider({
       ({
         ...deploymentInfo,
         ok: true,
-        adminKey: storedAdminKey,
-        deploymentUrl: storedDeploymentUrl,
+        adminKey: activeSession?.adminKey || "",
+        deploymentUrl: activeSession?.deploymentUrl || "",
       }) as DeploymentInfo,
-    [storedAdminKey, storedDeploymentUrl],
+    [activeSession],
   );
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   
-  // Auto-validate if credentials exist in localStorage on mount
+  // Auto-validate if active session exists
   useEffect(() => {
-    if (storedAdminKey && storedDeploymentUrl) {
+    if (activeSession) {
       setIsValidDeploymentInfo(true);
     }
-  }, []);
+  }, [activeSession]);
   
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -383,7 +398,7 @@ function DeploymentInfoProvider({
   }, [defaultListDeploymentsApiUrl]);
   if (!mounted) return null;
 
-  if (!isValidDeploymentInfo) {
+  if (!isValidDeploymentInfo || showAddSessionForm) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center gap-8">
         <ConvexLogo />
@@ -409,16 +424,40 @@ function DeploymentInfoProvider({
             have entered the correct values.
           </div>
         )}
+        {showAddSessionForm && sessions.length > 0 && (
+          <button
+            onClick={() => {
+              setShowAddSessionForm(false);
+              setIsValidDeploymentInfo(true);
+            }}
+            className="text-sm text-content-secondary underline hover:text-content-primary"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     );
   }
   return (
     <>
       <Header
+        sessions={sessions}
+        activeSessionId={activeSession?.id || null}
+        onSwitchSession={(sessionId) => {
+          const session = switchSession(sessionId);
+          if (session) {
+            setIsValidDeploymentInfo(true);
+          }
+        }}
+        onRemoveSession={removeSession}
+        onUpdateSessionName={updateSessionName}
+        onAddNewSession={() => {
+          setShowAddSessionForm(true);
+          setIsValidDeploymentInfo(false);
+        }}
         onLogout={() => {
-          setStoredAdminKey("");
-          setStoredDeploymentUrl("");
-          setStoredDeploymentName("");
+          clearAllSessions();
+          setIsValidDeploymentInfo(false);
         }}
       />
       <DeploymentInfoContext.Provider value={finalValue}>
@@ -430,7 +469,23 @@ function DeploymentInfoProvider({
   );
 }
 
-function Header({ onLogout }: { onLogout: () => void }) {
+function Header({
+  sessions,
+  activeSessionId,
+  onSwitchSession,
+  onRemoveSession,
+  onUpdateSessionName,
+  onAddNewSession,
+  onLogout,
+}: {
+  sessions: any[];
+  activeSessionId: string | null;
+  onSwitchSession: (sessionId: string) => void;
+  onRemoveSession: (sessionId: string) => void;
+  onUpdateSessionName: (sessionId: string, newName: string) => void;
+  onAddNewSession: () => void;
+  onLogout: () => void;
+}) {
   if (process.env.NEXT_PUBLIC_HIDE_HEADER) {
     return null;
   }
@@ -438,24 +493,36 @@ function Header({ onLogout }: { onLogout: () => void }) {
   return (
     <header className="-ml-1 scrollbar-none flex min-h-[56px] items-center justify-between gap-1 overflow-x-auto border-b bg-background-secondary pr-4 sm:gap-6">
       <ConvexLogo height={64} width={192} />
-      <Menu
-        buttonProps={{
-          icon: (
-            <GearIcon className="h-7 w-7 rounded-sm p-1 text-content-primary hover:bg-background-tertiary" />
-          ),
-          variant: "unstyled",
-          "aria-label": "Dashboard Settings",
-        }}
-        placement="bottom-end"
-      >
-        <ToggleTheme />
-        <MenuItem action={onLogout}>
-          <div className="flex w-full items-center justify-between">
-            Log Out
-            <ExitIcon className="text-content-secondary" />
-          </div>
-        </MenuItem>
-      </Menu>
+      <div className="flex items-center gap-2">
+        {sessions.length > 0 && (
+          <SessionSwitcher
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            onSwitch={onSwitchSession}
+            onRemove={onRemoveSession}
+            onUpdateName={onUpdateSessionName}
+            onAddNew={onAddNewSession}
+          />
+        )}
+        <Menu
+          buttonProps={{
+            icon: (
+              <GearIcon className="h-7 w-7 rounded-sm p-1 text-content-primary hover:bg-background-tertiary" />
+            ),
+            variant: "unstyled",
+            "aria-label": "Dashboard Settings",
+          }}
+          placement="bottom-end"
+        >
+          <ToggleTheme />
+          <MenuItem action={onLogout}>
+            <div className="flex w-full items-center justify-between">
+              Log Out All Sessions
+              <ExitIcon className="text-content-secondary" />
+            </div>
+          </MenuItem>
+        </Menu>
+      </div>
     </header>
   );
 }

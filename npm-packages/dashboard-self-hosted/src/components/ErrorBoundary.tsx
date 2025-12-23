@@ -46,7 +46,8 @@ export class ErrorBoundary extends React.Component<
               icon={<ExitIcon />}
               size="xs"
               onClick={() => {
-                window.localStorage.setItem("adminKey", "");
+                // Clear the multi-session storage
+                window.localStorage.removeItem("convex-dashboard-sessions");
                 window.location.reload();
               }}
               variant="neutral"
