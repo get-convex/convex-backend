@@ -224,7 +224,6 @@ export type ExecuteResponseInner =
   | {
       type: "success";
       udfReturn: string;
-      logLines: string[];
       udfTimeMs: number;
       importTimeMs: number;
     }
@@ -234,7 +233,6 @@ export type ExecuteResponseInner =
       name: string;
       data?: string;
       frames?: FrameData[];
-      logLines: string[];
       udfTimeMs?: number;
       importTimeMs?: number;
       exitingProcess: boolean;
@@ -305,8 +303,6 @@ export async function execute(
       type: "error",
       message: extractErrorMessage(e),
       name: e.name,
-      // Log lines should be streamed, but send an empty array for backwards compatibility
-      logLines: [],
       exitingProcess: false,
     };
   }
@@ -396,8 +392,6 @@ export async function executeInner(
       name: e?.name ?? "",
       data: getConvexErrorData(e),
       frames: e?.__frameData ? JSON.parse(e.__frameData) : [],
-      // Log lines should be streamed, but send an empty array for backwards compatibility
-      logLines: [],
       udfTimeMs,
       importTimeMs,
       exitingProcess: false,
@@ -422,8 +416,6 @@ export async function executeInner(
   return {
     type: "success",
     udfReturn,
-    // Log lines should be streamed, but send an empty array for backwards compatibility
-    logLines: [],
     udfTimeMs,
     importTimeMs,
   };
