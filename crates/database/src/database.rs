@@ -745,6 +745,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
+        virtual_system_mapping: VirtualSystemMapping,
     ) -> anyhow::Result<Self> {
         let repeatable_persistence: RepeatablePersistence =
             RepeatablePersistence::new(persistence.clone(), snapshot, retention_validator.clone());
@@ -836,6 +837,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 table_summaries: None,
                 index_registry,
                 in_memory_indexes,
+                virtual_system_mapping,
                 text_indexes: search,
                 vector_indexes: vector,
             },
@@ -872,7 +874,8 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         let table_summaries = TableSummaries::new(
             table_summary_snapshot,
             self.table_registry().table_mapping(),
-        );
+            &self.snapshot.virtual_system_mapping,
+        )?;
         self.snapshot.table_summaries = Some(table_summaries);
         tracing::info!("Bootstrapped table summaries (read {summaries_num_rows} rows)");
         Ok(())
@@ -1023,6 +1026,7 @@ impl<RT: Runtime> Database<RT> {
             reader.clone(),
             snapshot_ts,
             retention_manager.clone(),
+            virtual_system_mapping.clone(),
         )
         .await?;
         let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;

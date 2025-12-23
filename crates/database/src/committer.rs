@@ -549,10 +549,12 @@ impl<RT: Runtime> Committer<RT> {
         if latest_ts != snapshot_manager.latest_ts() {
             panic!("Snapshots were changed concurrently during commit?");
         }
-        snapshot_manager.overwrite_last_snapshot_table_summary(
-            table_summary_snapshot,
-            &mut self.pending_writes,
-        );
+        if let Err(e) = snapshot_manager
+            .overwrite_last_snapshot_table_summary(table_summary_snapshot, &mut self.pending_writes)
+        {
+            let _ = result.send(Err(e));
+            return;
+        }
         tracing::info!("Bootstrapped table summaries at ts {}", latest_ts);
         let _ = result.send(Ok(()));
     }
@@ -871,7 +873,8 @@ impl<RT: Runtime> Committer<RT> {
 
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
             metrics::log_num_keys(table_summaries.num_user_documents);
-            metrics::log_document_store_size(table_summaries.user_size);
+            metrics::log_user_table_documents_size(table_summaries.user_tables_size);
+            metrics::log_user_documents_size(table_summaries.user_docs_size);
         }
 
         // Publish the new version of our database metadata and the index.
