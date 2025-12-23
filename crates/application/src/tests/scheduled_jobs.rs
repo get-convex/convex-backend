@@ -59,6 +59,9 @@ use crate::{
     scheduled_jobs::{
         SCHEDULED_JOB_COMMITTING,
         SCHEDULED_JOB_EXECUTED,
+        SCHEDULED_JOB_QUERIED,
+        SCHEDULED_JOB_SUCCEEDED,
+        SCHEDULER_STARTED,
     },
     test_helpers::{
         ApplicationTestExt,
@@ -508,6 +511,47 @@ async fn test_delete_scheduled_jobs_table(rt: TestRuntime) -> anyhow::Result<()>
     let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let scheduled_jobs = model.list().await?;
     assert!(scheduled_jobs.is_empty());
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_scheduler_continues_while_scheduled_jobs_table_deleted(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let hold_guard = pause_controller.hold(SCHEDULER_STARTED);
+    let application = Application::new_for_tests(&rt).await?;
+    // Pause the scheduler before it has queried jobs.
+    let pause_guard = hold_guard.wait_for_blocked().await.unwrap();
+    let mut tx = application.begin(Identity::system()).await?;
+    create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
+    application.commit_test(tx).await?;
+
+    let app_clone = application.clone();
+    let pause_controller_clone = pause_controller.clone();
+    // Delete the scheduled jobs table after the scheduler has queried jobs to run.
+    let delete_fut = async move {
+        let query_hold_guard = pause_controller_clone.hold(SCHEDULED_JOB_QUERIED);
+        let query_pause_guard = query_hold_guard.wait_for_blocked().await.unwrap();
+        app_clone
+            .delete_scheduled_jobs_table(Identity::system(), ComponentId::Root)
+            .await?;
+        // Only unpause the scheduler after we are holding onto the next breakpoint,
+        // SCHEDULED_JOB_SUCCEEDED
+        let success_hold_guard = pause_controller_clone.hold(SCHEDULED_JOB_SUCCEEDED);
+        let success_handle = tokio::spawn(success_hold_guard.wait_for_blocked());
+        query_pause_guard.unpause();
+        success_handle.await?;
+        anyhow::Ok(())
+    };
+    let delete_handle = tokio::spawn(delete_fut);
+    // Finally let the scheduler query jobs, now that we have spawned another future
+    // that will pause at SCHEDULED_JOB_QUERIED.
+    pause_guard.unpause();
+    // This test will hang here if the scheduler got blocked by errors from deleting
+    // the scheduled jobs table.
+    delete_handle.await??;
 
     Ok(())
 }

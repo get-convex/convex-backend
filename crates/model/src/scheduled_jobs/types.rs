@@ -51,8 +51,14 @@ impl ScheduledJob {
         let args = args_json.try_into()?;
         Ok(args)
     }
+}
 
-    pub fn matches_metadata(&self, metadata: &ScheduledJobMetadata) -> bool {
+pub trait MatchesScheduledJobMetadata {
+    fn matches_metadata(&self, metadata: &ScheduledJobMetadata) -> bool;
+}
+
+impl MatchesScheduledJobMetadata for ScheduledJob {
+    fn matches_metadata(&self, metadata: &ScheduledJobMetadata) -> bool {
         self.path == metadata.path
             && self.state == metadata.state
             && self.next_ts == metadata.next_ts
@@ -100,6 +106,12 @@ pub struct ScheduledJobMetadata {
     pub original_scheduled_ts: Timestamp,
 
     pub attempts: ScheduledJobAttempts,
+}
+
+impl MatchesScheduledJobMetadata for ScheduledJobMetadata {
+    fn matches_metadata(&self, metadata: &ScheduledJobMetadata) -> bool {
+        metadata == self
+    }
 }
 
 pub fn args_to_bytes(args: ConvexArray) -> anyhow::Result<ByteBuf> {

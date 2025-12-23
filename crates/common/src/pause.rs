@@ -57,6 +57,7 @@ mod test_pause {
         }
     }
 
+    #[derive(Clone)]
     pub struct PauseController {
         client: PauseClient,
     }

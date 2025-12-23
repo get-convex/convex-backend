@@ -83,6 +83,7 @@ use model::{
     modules::ModuleModel,
     scheduled_jobs::{
         types::{
+            MatchesScheduledJobMetadata,
             ScheduledJob,
             ScheduledJobMetadata,
             ScheduledJobState,
@@ -111,6 +112,9 @@ mod metrics;
 
 pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
 pub(crate) const SCHEDULED_JOB_COMMITTING: &str = "scheduled_job_committing";
+pub(crate) const SCHEDULED_JOB_SUCCEEDED: &str = "scheduled_job_succeeded";
+pub(crate) const SCHEDULED_JOB_QUERIED: &str = "scheduled_job_queried";
+pub(crate) const SCHEDULER_STARTED: &str = "scheduler_started";
 
 #[derive(Clone)]
 pub struct ScheduledJobRunner {
@@ -233,6 +237,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
     async fn run_once(&mut self) -> anyhow::Result<()> {
         let pause_client = self.context.rt.pause_client();
+        pause_client.wait(SCHEDULER_STARTED).await;
         let _timer = metrics::run_scheduled_jobs_loop();
 
         let mut tx = self.context.database.begin(Identity::Unknown(None)).await?;
@@ -348,6 +353,11 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         let now = self.context.rt.generate_timestamp()?;
         let mut job_stream = self.context.stream_jobs_to_run(tx);
         while let Some((job_id, job)) = job_stream.try_next().await? {
+            self.context
+                .rt
+                .pause_client()
+                .wait(SCHEDULED_JOB_QUERIED)
+                .await;
             if self.running_job_ids.contains(&job_id) {
                 continue;
             }
@@ -462,6 +472,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             .await
         {
             Ok(()) => {
+                self.rt.pause_client().wait(SCHEDULED_JOB_SUCCEEDED).await;
                 metrics::log_scheduled_job_success(job.attempts.count_failures());
             },
             Err(e) => {
@@ -485,17 +496,17 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         job_id: ResolvedDocumentId,
         mut system_error: anyhow::Error,
     ) -> anyhow::Result<()> {
-        let (success, mut tx, mut job) = self
-            .new_transaction_for_job_metadata(job_id, &job, FunctionUsageTracker::new())
-            .await?;
-        if !success {
+        let Some((mut tx, mut job)) = self
+            .new_transaction_for_job_state(job_id, &job, FunctionUsageTracker::new())
+            .await?
+        else {
             // Continue without scheduling retry since the job state has changed
             // This can happen for actions that encounter a system error during
             // their execution.
             // TODO: we should not even get to this function in that case.
             report_error(&mut system_error).await;
             return Ok(());
-        }
+        };
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
 
         let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
@@ -531,13 +542,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
         let usage_tracker = FunctionUsageTracker::new();
-        let (success, mut tx, _metadata) = self
-            .new_transaction_for_job_metadata(job_id, &job, usage_tracker.clone())
-            .await?;
-        if !success {
+        let Some((mut tx, job)) = self
+            .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
+            .await?
+        else {
             // Continue without running function since the job state has changed
             return Ok(());
-        }
+        };
 
         tracing::debug!(
             "Executing '{}'{}!",
@@ -754,13 +765,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             // UDF failed due to developer error. It is not safe to commit the
             // transaction it executed in. We should remove the job in a new
             // transaction.
-            let (success, mut tx, _metadata) = self
+            let Some((mut tx, _metadata)) = self
                 .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
-                .await?;
-            if !success {
+                .await?
+            else {
                 // Continue without updating since the job state has changed
                 return Ok(());
-            }
+            };
             SchedulerModel::new(&mut tx, namespace)
                 .complete(
                     job_id,
@@ -797,9 +808,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
         let identity = tx.identity().clone();
-        let (_success, mut tx, metadata) = self
+        let Some((mut tx, metadata)) = self
             .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
-            .await?;
+            .await?
+        else {
+            // Continue without updating since the job state has changed
+            return Ok(());
+        };
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         match job.state {
             ScheduledJobState::Pending => {
@@ -907,53 +922,31 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
     }
 
     // Creates a new transaction and verifies the job state matches the given one.
-    async fn new_transaction_for_job_state(
+    async fn new_transaction_for_job_state<T: MatchesScheduledJobMetadata>(
         &self,
         job_id: ResolvedDocumentId,
-        expected_state: &ScheduledJob,
+        expected_state: &T,
         usage_tracker: FunctionUsageTracker,
-    ) -> anyhow::Result<(bool, Transaction<RT>, ScheduledJobMetadata)> {
+    ) -> anyhow::Result<Option<(Transaction<RT>, ScheduledJobMetadata)>> {
         let mut tx = self
             .database
             .begin_with_usage(Identity::Unknown(None), usage_tracker)
             .await?;
+        let Some(doc) = tx.get(job_id).await? else {
+            if tx.table_mapping().tablet_name(job_id.tablet_id).is_err() {
+                // The scheduled jobs table could have been deleted since we queried this
+                // scheduled job.
+                return Ok(None);
+            }
+            // If the scheduled jobs table still exists, we're missing a scheduled jobs
+            // document and we don't know why.
+            anyhow::bail!("Missing scheduled jobs metadata document with id {job_id}");
+        };
+        let metadata = ParseDocument::<ScheduledJobMetadata>::parse(doc)?.into_value();
         // Verify that the scheduled job has not changed.
-        let metadata = tx
-            .get(job_id)
-            .await?
-            .map(ParseDocument::<ScheduledJobMetadata>::parse)
-            .transpose()?
-            .map(|j| j.into_value())
-            .with_context(|| {
-                format!("Missing scheduled jobs metadata document with id {job_id}")
-            })?;
-        Ok((expected_state.matches_metadata(&metadata), tx, metadata))
-    }
-
-    // FIXME: Combine with new_transaction_for_job_state or remove one. They do
-    // basically the same thing, just one takes `ScheduledJobMetadata` and the
-    // other takes `ScheduledJob`.
-    async fn new_transaction_for_job_metadata(
-        &self,
-        job_id: ResolvedDocumentId,
-        expected_state: &ScheduledJobMetadata,
-        usage_tracker: FunctionUsageTracker,
-    ) -> anyhow::Result<(bool, Transaction<RT>, ScheduledJobMetadata)> {
-        let mut tx = self
-            .database
-            .begin_with_usage(Identity::Unknown(None), usage_tracker)
-            .await?;
-        // Verify that the scheduled job has not changed.
-        let metadata = tx
-            .get(job_id)
-            .await?
-            .map(ParseDocument::<ScheduledJobMetadata>::parse)
-            .transpose()?
-            .map(|j| j.into_value())
-            .with_context(|| {
-                format!("Missing scheduled jobs metadata document with id {job_id}")
-            })?;
-        Ok((expected_state == &metadata, tx, metadata))
+        Ok(expected_state
+            .matches_metadata(&metadata)
+            .then_some((tx, metadata)))
     }
 
     // Completes an action in separate transaction. Returns false if the action
@@ -965,13 +958,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         usage_tracking: FunctionUsageTracker,
         job_state: ScheduledJobState,
     ) -> anyhow::Result<()> {
-        let (success, mut tx, _metadata) = self
-            .new_transaction_for_job_metadata(job_id, expected_state, usage_tracking)
-            .await?;
-        if !success {
+        let Some((mut tx, _metadata)) = self
+            .new_transaction_for_job_state(job_id, expected_state, usage_tracking)
+            .await?
+        else {
             // Continue without updating since the job state has changed
             return Ok(());
-        }
+        };
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
 
         // Remove from the scheduled jobs table
