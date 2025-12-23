@@ -15,6 +15,7 @@ mod array_buffer_allocator;
 pub mod bundled_js;
 pub mod client;
 mod concurrency_limiter;
+mod context_local_state;
 mod convert_v8;
 pub mod environment;
 pub mod error;

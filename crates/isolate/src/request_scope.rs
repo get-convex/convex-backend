@@ -36,6 +36,7 @@ use value::heap_size::{
 };
 
 use crate::{
+    context_local_state::GetContextSlot,
     convert_v8::{
         JsException,
         ToV8 as _,
@@ -264,12 +265,10 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         let context = scope.get_current_context();
         let global = context.global(scope);
 
-        // TODO: this uses isolate-global slots, ideally it should use context-keyed
-        // slots
-        assert!(scope.set_slot(state));
-        assert!(scope.set_slot(ModuleMap::new()));
-        assert!(scope.set_slot(PendingUnhandledPromiseRejections::new()));
-        assert!(scope.set_slot(PendingDynamicImports::new(allow_dynamic_imports)));
+        assert!(context.set_context_slot(scope, state));
+        assert!(context.set_context_slot(scope, ModuleMap::new()));
+        assert!(context.set_context_slot(scope, PendingUnhandledPromiseRejections::new()));
+        assert!(context.set_context_slot(scope, PendingDynamicImports::new(allow_dynamic_imports)));
 
         let syscall_template = v8::FunctionTemplate::new(scope, Self::syscall);
         let syscall_value = syscall_template
@@ -435,21 +434,25 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
     }
 
     pub(crate) fn take_state(&mut self) -> Option<RequestState<RT, E>> {
-        self.scope.remove_slot()
+        let context = self.scope.get_current_context();
+        context.remove_context_slot(self.scope)
     }
 
     pub(crate) fn take_module_map(&mut self) -> Option<ModuleMap> {
-        self.scope.remove_slot()
+        let context = self.scope.get_current_context();
+        context.remove_context_slot(self.scope)
     }
 
     pub(crate) fn take_pending_unhandled_promise_rejections(
         &mut self,
     ) -> Option<PendingUnhandledPromiseRejections> {
-        self.scope.remove_slot()
+        let context = self.scope.get_current_context();
+        context.remove_context_slot(self.scope)
     }
 
     pub fn take_pending_dynamic_imports(&mut self) -> Option<PendingDynamicImports> {
-        self.scope.remove_slot()
+        let context = self.scope.get_current_context();
+        context.remove_context_slot(self.scope)
     }
 
     pub fn take_environment(mut self) -> E {
