@@ -89,7 +89,6 @@ use value::{
 
 use super::ModuleCodeCacheResult;
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
         helpers::{
             module_loader::{
@@ -187,7 +186,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-        _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         let p = ModulePath::from_str(path)?.canonicalize();
         let result = self.modules.get(&p).cloned();
@@ -292,12 +290,12 @@ impl AnalyzeEnvironment {
             collected_logs: VecDeque::new(),
         };
         let client_id = Arc::new(client_id);
-        let (handle, state) = isolate.start_request(client_id, environment).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
         scope_with_context!(let context_scope, isolate.isolate(), v8_context);
         let mut isolate_context =
             RequestScope::new(context_scope, handle.clone(), state, false).await?;
         let handle = isolate_context.handle();
-        let result = Self::run_analyze(&mut isolate_context, to_analyze).await;
+        let result = Self::run_analyze(&mut isolate_context, &mut timeout, to_analyze).await;
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -318,6 +316,7 @@ impl AnalyzeEnvironment {
         // If the microtask queue is somehow nonempty after this point but before
         // the next request starts, the isolate may panic.
         drop(isolate_context);
+        drop(timeout);
 
         // Suppress the original error if the isolate was forcibly terminated.
         if let Err(e) = handle.take_termination_error(None, "analyze")? {
@@ -359,6 +358,7 @@ impl AnalyzeEnvironment {
 
     async fn run_analyze<RT: Runtime>(
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
+        timeout: &mut Timeout<RT>,
         to_analyze: Vec<CanonicalizedModulePath>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         scope!(let v8_scope, isolate.scope());
@@ -375,34 +375,35 @@ impl AnalyzeEnvironment {
             // evaluate the module. After this, we can inspect the module's
             // in-memory objects to find functions which we can analyze as UDFs.
             // For more info on registration/instantiation see here: https://choubey.gitbook.io/internals-of-deno/import-and-ops/registration-and-instantiation
-            let module: v8::Local<v8::Module> = match scope.eval_module(&module_specifier).await {
-                Ok(m) => m,
-                Err(e) => {
-                    if let Some(e) = e.downcast_ref::<ModuleNotFoundError>() {
-                        return Ok(Err(JsError::from_message(format!("{e}"))));
-                    }
-                    if let Some(e) = e.downcast_ref::<ModuleResolutionError>() {
-                        return Ok(Err(JsError::from_message(format!("{e}"))));
-                    }
-                    if let Some(e) = e.downcast_ref::<SystemModuleNotFoundError>() {
-                        return Ok(Err(JsError::from_message(format!("{e}"))));
-                    }
-                    match e.downcast::<JsError>() {
-                        Ok(e) => {
-                            return Ok(Err(JsError {
-                                message: format!(
-                                    "Failed to analyze {}: {}",
-                                    path.as_str(),
-                                    e.message
-                                ),
-                                custom_data: None,
-                                frames: e.frames,
-                            }))
-                        },
-                        Err(e) => return Err(e),
-                    }
-                },
-            };
+            let module: v8::Local<v8::Module> =
+                match scope.eval_module(&module_specifier, timeout).await {
+                    Ok(m) => m,
+                    Err(e) => {
+                        if let Some(e) = e.downcast_ref::<ModuleNotFoundError>() {
+                            return Ok(Err(JsError::from_message(format!("{e}"))));
+                        }
+                        if let Some(e) = e.downcast_ref::<ModuleResolutionError>() {
+                            return Ok(Err(JsError::from_message(format!("{e}"))));
+                        }
+                        if let Some(e) = e.downcast_ref::<SystemModuleNotFoundError>() {
+                            return Ok(Err(JsError::from_message(format!("{e}"))));
+                        }
+                        match e.downcast::<JsError>() {
+                            Ok(e) => {
+                                return Ok(Err(JsError {
+                                    message: format!(
+                                        "Failed to analyze {}: {}",
+                                        path.as_str(),
+                                        e.message
+                                    ),
+                                    custom_data: None,
+                                    frames: e.frames,
+                                }))
+                            },
+                            Err(e) => return Err(e),
+                        }
+                    },
+                };
 
             // Gather UDFs, HTTP action routes, and crons
             let functions = match udf_analyze(&mut scope, &module, &path)? {

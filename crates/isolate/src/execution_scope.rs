@@ -71,6 +71,7 @@ use crate::{
     request_scope::RequestState,
     termination::IsolateHandle,
     IsolateHeapStats,
+    Timeout,
 };
 
 /// V8 will invoke our promise_reject_callback when it determines that a
@@ -284,9 +285,10 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         udf_type: UdfType,
         is_dynamic: bool,
         name: &ModuleSpecifier,
+        timeout: &mut Timeout<RT>,
     ) -> anyhow::Result<Result<v8::Local<'a, v8::Module>, JsError>> {
         let timer = metrics::eval_user_module_timer(udf_type, is_dynamic);
-        let module = match self.eval_module(name).await {
+        let module = match self.eval_module(name, timeout).await {
             Ok(id) => id,
             Err(e) => {
                 // TODO: It's a bit awkward that we're calling these "JsError"s, since they
@@ -314,13 +316,14 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
     pub async fn eval_module(
         &mut self,
         name: &ModuleSpecifier,
+        timeout: &mut Timeout<RT>,
     ) -> anyhow::Result<v8::Local<'a, v8::Module>> {
         let _s = static_span!();
 
         // These first two steps of registering and then instantiating the module
         // correspond to `JsRuntime::load_module`. This function is idempotent,
         // so it's safe to rerun.
-        let id = self.register_module(name).await?;
+        let id = self.register_module(name, timeout).await?;
 
         // NB: This part is separate from `self.register_module()` since module
         // registration is recursive, compiling and registering dependencies,
@@ -336,7 +339,11 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
     }
 
     #[async_recursion(?Send)]
-    async fn register_module(&mut self, name: &ModuleSpecifier) -> anyhow::Result<ModuleId> {
+    async fn register_module(
+        &mut self,
+        name: &ModuleSpecifier,
+        timeout: &mut Timeout<RT>,
+    ) -> anyhow::Result<ModuleId> {
         let _s = static_span!();
         {
             let module_map = self.module_map();
@@ -345,7 +352,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
             }
         }
         let (id, import_specifiers) = {
-            let (module_source, code_cache) = self.lookup_source(name).await?;
+            let (module_source, code_cache) = self.lookup_source(name, timeout).await?;
 
             // Step 1: Compile the module and discover its imports.
             let timer = metrics::compile_module_timer(matches!(
@@ -437,10 +444,12 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         // Step 3: Recursively load the dependencies. Since we've already registered
         // ourselves, this won't create an infinite loop on import cycles.
         for (import_specifier, location) in import_specifiers {
-            self.register_module(&import_specifier).await.map_err(|e| {
-                let Err(e) = self.nicely_show_line_number_on_error(name, location, e);
-                e
-            })?;
+            self.register_module(&import_specifier, timeout)
+                .await
+                .map_err(|e| {
+                    let Err(e) = self.nicely_show_line_number_on_error(name, location, e);
+                    e
+                })?;
         }
 
         Ok(id)
@@ -449,6 +458,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
     async fn lookup_source(
         &mut self,
         module_specifier: &ModuleSpecifier,
+        timeout: &mut Timeout<RT>,
     ) -> anyhow::Result<(Arc<FullModuleSource>, ModuleCodeCacheResult)> {
         let _s = static_span!();
         if module_specifier.scheme() != CONVEX_SCHEME {
@@ -502,7 +512,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         let state = self.state_mut()?;
         let result = state
             .environment
-            .lookup_source(module_path, &mut state.timeout, &mut state.permit)
+            .lookup_source(module_path, timeout)
             .await?
             .ok_or_else(|| ModuleNotFoundError::new(module_path))?;
 

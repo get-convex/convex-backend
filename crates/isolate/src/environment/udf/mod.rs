@@ -119,7 +119,6 @@ use self::{
     syscall::syscall_impl,
 };
 use super::{
-    helpers::permit::with_release_permit,
     warnings::{
         approaching_duration_limit_warning,
         approaching_limit_warning,
@@ -134,7 +133,6 @@ use crate::{
         UdfCallback,
         UdfRequest,
     },
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
         helpers::{
             module_loader::module_specifier_from_path,
@@ -256,13 +254,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         &mut self,
         path: &str,
         timeout: &mut Timeout<RT>,
-        permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         let user_module_path = path.parse()?;
-        let result = self
-            .phase
-            .get_module(&user_module_path, timeout, permit)
-            .await?;
+        let result = self.phase.get_module(&user_module_path, timeout).await?;
         Ok(result)
     }
 
@@ -394,7 +388,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         let client_id = Arc::new(client_id);
         let path = self.path.clone();
-        let (handle, state) = isolate.start_request(client_id, self).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id, self).await?;
         if let Some(tx) = function_started {
             // At this point we have acquired a permit and aren't going to
             // reject the function for capacity reasons.
@@ -404,8 +398,14 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         let mut isolate_context =
             RequestScope::new(context_scope, handle.clone(), state, false).await?;
-        let mut result =
-            Self::run_inner(&mut isolate_context, cancellation, rng_seed, unix_timestamp).await;
+        let mut result = Self::run_inner(
+            &mut isolate_context,
+            &mut timeout,
+            cancellation,
+            rng_seed,
+            unix_timestamp,
+        )
+        .await;
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -431,8 +431,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // environment.
         let result = result?;
 
-        let execution_time;
-        (self, execution_time) = isolate_context.take_environment();
+        self = isolate_context.take_environment();
+        let execution_time = timeout.get_function_execution_time();
+        drop(timeout);
         let success_result_value = result.as_ref().ok();
         Self::add_warnings_to_log_lines(
             &self.path.clone().for_logging(),
@@ -505,6 +506,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     #[fastrace::trace]
     async fn run_inner(
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
+        timeout: &mut Timeout<RT>,
         cancellation: BoxFuture<'_, ()>,
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
@@ -518,11 +520,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // JS.
         {
             let state = scope.state_mut()?;
-            state
-                .environment
-                .phase
-                .initialize(&mut state.timeout, &mut state.permit)
-                .await?;
+            state.environment.phase.initialize(timeout).await?;
         }
 
         let (udf_type, path, udf_args) = {
@@ -553,7 +551,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         };
 
         let module = match scope
-            .eval_user_module(udf_type, false, &module_specifier)
+            .eval_user_module(udf_type, false, &module_specifier, timeout)
             .await?
         {
             Ok(id) => id,
@@ -737,9 +735,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                         log_isolate_request_cancelled();
                         anyhow::bail!("Cancelled");
                     },
-                    results = with_release_permit(
-                        &mut state.timeout,
-                        &mut state.permit,
+                    results = timeout.with_release_permit(
                         DatabaseSyscallsV1::run_async_syscall_batch(
                             &mut state.environment, batch,
                         ).map(Ok),

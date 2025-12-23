@@ -32,7 +32,6 @@ use isolate::{
         IsolateEnvironment,
         ModuleCodeCacheResult,
     },
-    ConcurrencyPermit,
     Timeout,
 };
 use model::modules::module_versions::FullModuleSource;
@@ -80,7 +79,6 @@ impl IsolateEnvironment<TestRuntime> for TestEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<TestRuntime>,
-        _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path != "test.js" {
             return Ok(None);

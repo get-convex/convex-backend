@@ -61,13 +61,9 @@ use value::{
 };
 
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
         action::task::TaskRequestEnum,
-        helpers::{
-            permit::with_release_permit,
-            Phase,
-        },
+        helpers::Phase,
         ModuleCodeCacheResult,
     },
     module_cache::ModuleCache,
@@ -132,11 +128,7 @@ impl<RT: Runtime> ActionPhase<RT> {
     }
 
     #[fastrace::trace]
-    pub async fn initialize(
-        &mut self,
-        timeout: &mut Timeout<RT>,
-        permit_slot: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<()> {
+    pub async fn initialize(&mut self, timeout: &mut Timeout<RT>) -> anyhow::Result<()> {
         anyhow::ensure!(self.phase == Phase::Importing);
 
         let preloaded = mem::replace(&mut self.preloaded, ActionPreloaded::Preloading);
@@ -153,61 +145,57 @@ impl<RT: Runtime> ActionPhase<RT> {
 
         let component_id = self.component;
 
-        let udf_config = with_release_permit(
-            timeout,
-            permit_slot,
-            UdfConfigModel::new(&mut tx, component_id.into()).get(),
-        )
-        .await?;
+        let udf_config = timeout
+            .with_release_permit(UdfConfigModel::new(&mut tx, component_id.into()).get())
+            .await?;
 
         let rng = udf_config
             .as_ref()
             .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
         let import_time_unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-        let (module_metadata, source_package) = with_release_permit(timeout, permit_slot, async {
-            let module_metadata = ModuleModel::new(&mut tx)
-                .get_all_metadata(component_id)
-                .await?;
-            let source_package = SourcePackageModel::new(&mut tx, component_id.into())
-                .get_latest()
-                .await?;
-            let loaded_resources = ComponentsModel::new(&mut tx)
-                .preload_resources(component_id)
-                .await?;
-            {
-                let mut resources = resources.lock();
-                *resources = loaded_resources;
-            }
-            Ok((module_metadata, source_package))
-        })
-        .await?;
-
-        let modules = with_release_permit(timeout, permit_slot, async {
-            let mut modules = BTreeMap::new();
-            for metadata in module_metadata {
-                if metadata.path.is_system() {
-                    continue;
-                }
-                let path = metadata.path.clone();
-                let module = module_loader
-                    .get_module_with_metadata(
-                        metadata.clone(),
-                        source_package.clone().context("source package not found")?,
-                    )
+        let (module_metadata, source_package) = timeout
+            .with_release_permit(async {
+                let module_metadata = ModuleModel::new(&mut tx)
+                    .get_all_metadata(component_id)
                     .await?;
-                modules.insert(path, (metadata.into_value(), module));
-            }
-            Ok(modules)
-        })
-        .await?;
+                let source_package = SourcePackageModel::new(&mut tx, component_id.into())
+                    .get_latest()
+                    .await?;
+                let loaded_resources = ComponentsModel::new(&mut tx)
+                    .preload_resources(component_id)
+                    .await?;
+                {
+                    let mut resources = resources.lock();
+                    *resources = loaded_resources;
+                }
+                Ok((module_metadata, source_package))
+            })
+            .await?;
 
-        let canonical_urls = with_release_permit(
-            timeout,
-            permit_slot,
-            CanonicalUrlsModel::new(&mut tx).get_canonical_urls(),
-        )
-        .await?;
+        let modules = timeout
+            .with_release_permit(async {
+                let mut modules = BTreeMap::new();
+                for metadata in module_metadata {
+                    if metadata.path.is_system() {
+                        continue;
+                    }
+                    let path = metadata.path.clone();
+                    let module = module_loader
+                        .get_module_with_metadata(
+                            metadata.clone(),
+                            source_package.clone().context("source package not found")?,
+                        )
+                        .await?;
+                    modules.insert(path, (metadata.into_value(), module));
+                }
+                Ok(modules)
+            })
+            .await?;
+
+        let canonical_urls = timeout
+            .with_release_permit(CanonicalUrlsModel::new(&mut tx).get_canonical_urls())
+            .await?;
         if let Some(cloud_url) = canonical_urls.get(&RequestDestination::ConvexCloud) {
             *convex_origin_override.lock() = Some(ConvexOrigin::from(&cloud_url.url));
         }
@@ -215,12 +203,9 @@ impl<RT: Runtime> ActionPhase<RT> {
         let env_vars = if self.component.is_root() {
             let mut env_vars = default_system_env_vars;
             env_vars.extend(parse_system_env_var_overrides(canonical_urls)?);
-            let user_env_vars = with_release_permit(
-                timeout,
-                permit_slot,
-                EnvironmentVariablesModel::new(&mut tx).get_all(),
-            )
-            .await?;
+            let user_env_vars = timeout
+                .with_release_permit(EnvironmentVariablesModel::new(&mut tx).get_all())
+                .await?;
             env_vars.extend(user_env_vars);
             env_vars
         } else {
@@ -231,12 +216,11 @@ impl<RT: Runtime> ActionPhase<RT> {
             None
         } else {
             Some(
-                with_release_permit(
-                    timeout,
-                    permit_slot,
-                    BootstrapComponentsModel::new(&mut tx).load_component_args(component_id),
-                )
-                .await?,
+                timeout
+                    .with_release_permit(
+                        BootstrapComponentsModel::new(&mut tx).load_component_args(component_id),
+                    )
+                    .await?,
             )
         };
 
@@ -260,7 +244,6 @@ impl<RT: Runtime> ActionPhase<RT> {
         &mut self,
         module_path: &ModulePath,
         _timeout: &mut Timeout<RT>,
-        _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         let ActionPreloaded::Ready {
             ref module_loader,

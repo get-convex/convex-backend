@@ -38,7 +38,6 @@ use value::NamespacedTableMapping;
 
 pub use self::async_op::AsyncOpRequest;
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     isolate::IsolateHeapStats,
     timeout::Timeout,
 };
@@ -66,7 +65,6 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         &mut self,
         path: &str,
         timeout: &mut Timeout<RT>,
-        permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>>;
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue>;

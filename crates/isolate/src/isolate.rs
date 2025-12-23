@@ -289,7 +289,7 @@ impl<RT: Runtime> Isolate<RT> {
         &mut self,
         client_id: Arc<String>,
         environment: E,
-    ) -> anyhow::Result<(IsolateHandle, RequestState<RT, E>)> {
+    ) -> anyhow::Result<(IsolateHandle, RequestState<RT, E>, Timeout<RT>)> {
         // Double check that the isolate is clean.
         // It's unexpected to encounter this error, since we are supposed to
         // have already checked after the last request finished, but in practice
@@ -324,12 +324,11 @@ impl<RT: Runtime> Isolate<RT> {
             context_handle,
             Some(user_timeout),
             Some(environment.system_timeout()),
+            permit,
         );
         let state = RequestState {
             rt: self.rt.clone(),
             environment,
-            timeout,
-            permit: Some(permit),
             blob_parts: WithHeapSize::default(),
             streams: WithHeapSize::default(),
             stream_listeners: WithHeapSize::default(),
@@ -337,7 +336,7 @@ impl<RT: Runtime> Isolate<RT> {
             console_timers: WithHeapSize::default(),
             text_decoders: BTreeMap::new(),
         };
-        Ok((self.handle.clone(), state))
+        Ok((self.handle.clone(), state, timeout))
     }
 
     pub fn isolate(&mut self) -> &mut v8::Isolate {

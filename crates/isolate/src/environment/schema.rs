@@ -48,7 +48,6 @@ use value::NamespacedTableMapping;
 
 use super::ModuleCodeCacheResult;
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
         helpers::syscall_error::{
             syscall_description_for_error,
@@ -119,7 +118,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-        _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path != "schema.js" {
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -199,12 +197,12 @@ impl SchemaEnvironment {
             unix_timestamp,
         };
         let client_id = Arc::new(client_id);
-        let (handle, state) = isolate.start_request(client_id, environment).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
         scope_with_context!(let context_scope, isolate.isolate(), v8_context);
         let mut isolate_context =
             RequestScope::new(context_scope, handle.clone(), state, false).await?;
         let handle = isolate_context.handle();
-        let result = Self::run_evaluate_schema(&mut isolate_context).await;
+        let result = Self::run_evaluate_schema(&mut isolate_context, &mut timeout).await;
 
         // Drain the microtask queue, to clean up the isolate.
         isolate_context.checkpoint();
@@ -215,6 +213,7 @@ impl SchemaEnvironment {
         // If the microtask queue is somehow nonempty after this point but before
         // the next request starts, the isolate may panic.
         drop(isolate_context);
+        drop(timeout);
 
         handle.take_termination_error(None, "schema")??;
         result
@@ -222,12 +221,13 @@ impl SchemaEnvironment {
 
     async fn run_evaluate_schema<RT: Runtime>(
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
+        timeout: &mut Timeout<RT>,
     ) -> anyhow::Result<DatabaseSchema> {
         scope!(let v8_scope, isolate.scope());
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         let schema_url = ModuleSpecifier::parse(&format!("{CONVEX_SCHEME}:/schema.js"))?;
-        let module = scope.eval_module(&schema_url).await?;
+        let module = scope.eval_module(&schema_url, timeout).await?;
         let namespace = module
             .get_module_namespace()
             .to_object(&scope)

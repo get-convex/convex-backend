@@ -3,11 +3,16 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context as _;
 use async_broadcast::broadcast;
-use common::runtime::{
-    Runtime,
-    SpawnHandle,
+use common::{
+    errors::TIMEOUT_ERROR_MESSAGE,
+    runtime::{
+        Runtime,
+        SpawnHandle,
+    },
 };
+use errors::ErrorMetadata;
 use futures::{
     future,
     future::Either,
@@ -23,6 +28,7 @@ use crate::{
         ContextHandle,
         TerminationReason,
     },
+    ConcurrencyPermit,
 };
 
 /// A `Timeout` is an asynchronous background job that terminates an
@@ -36,6 +42,7 @@ pub struct Timeout<RT: Runtime> {
     handle: Box<dyn SpawnHandle>,
     inner: Arc<Mutex<TimeoutInner<RT>>>,
     done_rx: async_broadcast::Receiver<()>,
+    pub permit: Option<ConcurrencyPermit>,
 }
 
 struct TimeoutInner<RT: Runtime> {
@@ -119,6 +126,7 @@ impl<RT: Runtime> Timeout<RT> {
         handle: ContextHandle,
         timeout: Option<Duration>,
         max_time_paused: Option<Duration>,
+        permit: ConcurrencyPermit,
     ) -> Self {
         let start = rt.monotonic_now();
         let inner = TimeoutInner {
@@ -136,6 +144,7 @@ impl<RT: Runtime> Timeout<RT> {
             handle,
             inner,
             done_rx,
+            permit: Some(permit),
         }
     }
 
@@ -199,6 +208,26 @@ impl<RT: Runtime> Timeout<RT> {
             inner.state = TimeoutState::Finished;
         }
         self.handle.shutdown();
+    }
+
+    // Similar to releasing the GIL in Python, it's advisable to drop the
+    // ConcurrencyPermit when entering async code on the V8 thread. This helper also
+    // integrates with our user time tracking to not count async code against the
+    // user timeout.
+    pub async fn with_release_permit<T>(
+        &mut self,
+        f: impl Future<Output = anyhow::Result<T>>,
+    ) -> anyhow::Result<T> {
+        let permit = self.permit.take().context("lost the permit")?;
+        let f = self.with_timeout(permit.with_suspend(f));
+        let pause_guard = self.pause();
+        let (result, permit) = f.await.context(ErrorMetadata::overloaded(
+            "SystemTimeoutError",
+            TIMEOUT_ERROR_MESSAGE,
+        ))?;
+        pause_guard.resume();
+        self.permit = Some(permit);
+        result
     }
 
     async fn go(

@@ -48,12 +48,8 @@ use value::{
 };
 
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
-        helpers::{
-            permit::with_release_permit,
-            Phase,
-        },
+        helpers::Phase,
         ModuleCodeCacheResult,
     },
     module_cache::ModuleCache,
@@ -122,11 +118,7 @@ impl<RT: Runtime> UdfPhase<RT> {
     }
 
     #[fastrace::trace]
-    pub async fn initialize(
-        &mut self,
-        timeout: &mut Timeout<RT>,
-        permit_slot: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<()> {
+    pub async fn initialize(&mut self, timeout: &mut Timeout<RT>) -> anyhow::Result<()> {
         anyhow::ensure!(self.phase == Phase::Importing);
         let UdfPreloaded::Created {
             default_system_env_vars,
@@ -140,24 +132,21 @@ impl<RT: Runtime> UdfPhase<RT> {
 
         let component_args = if !component.is_root() {
             Some(
-                with_release_permit(
-                    timeout,
-                    permit_slot,
-                    BootstrapComponentsModel::new(self.tx_mut()?).load_component_args(component),
-                )
-                .await?,
+                timeout
+                    .with_release_permit(
+                        BootstrapComponentsModel::new(self.tx_mut()?)
+                            .load_component_args(component),
+                    )
+                    .await?,
             )
         } else {
             None
         };
 
         // UdfConfig might not be defined for super old modules or system modules.
-        let udf_config = with_release_permit(
-            timeout,
-            permit_slot,
-            UdfConfigModel::new(self.tx_mut()?, component.into()).get(),
-        )
-        .await?;
+        let udf_config = timeout
+            .with_release_permit(UdfConfigModel::new(self.tx_mut()?, component.into()).get())
+            .await?;
         let rng = udf_config
             .as_ref()
             .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
@@ -165,23 +154,20 @@ impl<RT: Runtime> UdfPhase<RT> {
 
         let env_vars = if component.is_root() {
             Some(
-                with_release_permit(
-                    timeout,
-                    permit_slot,
-                    EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
-                )
-                .await?,
+                timeout
+                    .with_release_permit(EnvironmentVariablesModel::new(self.tx_mut()?).preload())
+                    .await?,
             )
         } else {
             None
         };
 
-        let system_env_vars = with_release_permit(
-            timeout,
-            permit_slot,
-            system_env_vars(self.tx_mut()?, default_system_env_vars.clone()),
-        )
-        .await?;
+        let system_env_vars = timeout
+            .with_release_permit(system_env_vars(
+                self.tx_mut()?,
+                default_system_env_vars.clone(),
+            ))
+            .await?;
 
         self.preloaded = UdfPreloaded::Ready {
             rng,
@@ -232,7 +218,6 @@ impl<RT: Runtime> UdfPhase<RT> {
         &mut self,
         module_path: &ModulePath,
         timeout: &mut Timeout<RT>,
-        permit_slot: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if self.phase != Phase::Importing {
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -248,8 +233,8 @@ impl<RT: Runtime> UdfPhase<RT> {
             component,
             module_path: module_path.clone().canonicalize(),
         };
-        let Some((module_metadata, source_package)) =
-            with_release_permit(timeout, permit_slot, async {
+        let Some((module_metadata, source_package)) = timeout
+            .with_release_permit(async {
                 match ModuleModel::new(self.tx_mut()?)
                     .get_metadata(path.clone())
                     .await?
@@ -277,12 +262,11 @@ impl<RT: Runtime> UdfPhase<RT> {
         );
 
         let module_loader = self.module_loader.clone();
-        let module_source = with_release_permit(
-            timeout,
-            permit_slot,
-            module_loader.get_module_with_metadata(module_metadata.clone(), source_package),
-        )
-        .await?;
+        let module_source = timeout
+            .with_release_permit(
+                module_loader.get_module_with_metadata(module_metadata.clone(), source_package),
+            )
+            .await?;
         let code_cache_result = module_loader.code_cache_result(module_metadata.into_value());
         Ok(Some((module_source, code_cache_result)))
     }

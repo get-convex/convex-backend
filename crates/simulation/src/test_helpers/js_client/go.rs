@@ -39,7 +39,7 @@ impl JsClientThread {
         let mut isolate = Isolate::new(rt.clone(), None, ConcurrencyLimiter::unlimited());
         let client_id = Arc::new(String::new());
         let environment = TestEnvironment::new(rt);
-        let (handle, state) = isolate.start_request(client_id, environment).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
@@ -50,7 +50,7 @@ impl JsClientThread {
             scope!(let v8_scope, isolate_context.scope());
             let mut scope = RequestScope::<TestRuntime, TestEnvironment>::enter(v8_scope);
             let specifier = ModuleSpecifier::parse(TEST_SPECIFIER)?;
-            let module = scope.eval_module(&specifier).await?;
+            let module = scope.eval_module(&specifier, &mut timeout).await?;
 
             let mut state = JsThreadState::new(&mut scope, server, module)?;
 

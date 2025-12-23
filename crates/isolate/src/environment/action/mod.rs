@@ -144,7 +144,6 @@ use crate::{
         EnvironmentData,
         SharedIsolateHeapStats,
     },
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
         helpers::{
             module_loader::module_specifier_from_path,
@@ -335,7 +334,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let udf_path = &component_function_path.udf_path;
 
         let heap_stats = self.heap_stats.clone();
-        let (handle, state) = isolate.start_request(client_id.into(), self).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), self).await?;
         if let Some(tx) = function_started {
             _ = tx.send(());
         }
@@ -346,8 +345,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let request_head = request.head.clone();
 
-        let mut result =
-            Self::run_http_action_inner(&mut isolate_context, udf_path, routed_path, request).await;
+        let mut result = Self::run_http_action_inner(
+            &mut isolate_context,
+            &mut timeout,
+            udf_path,
+            routed_path,
+            request,
+        )
+        .await;
         // Override the returned result if we hit a termination error.
         let termination_error = handle
             .take_termination_error(Some(heap_stats.get()), &format!("http action: {udf_path}"));
@@ -358,8 +363,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate_context.checkpoint();
         *isolate_clean = true;
 
-        let execution_time;
-        (self, execution_time) = isolate_context.take_environment();
+        self = isolate_context.take_environment();
+        let execution_time = timeout.get_function_execution_time();
+        drop(timeout);
         let http_response_streamer = self
             .http_response_streamer
             .as_ref()
@@ -397,6 +403,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[convex_macro::instrument_future]
     async fn run_http_action_inner(
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
+        timeout: &mut Timeout<RT>,
         http_module_path: &CanonicalizedUdfPath,
         routed_path: RoutedHttpPath,
         http_request: HttpActionRequest,
@@ -407,11 +414,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         {
             let state = scope.state_mut()?;
-            state
-                .environment
-                .phase
-                .initialize(&mut state.timeout, &mut state.permit)
-                .await?;
+            state.environment.phase.initialize(timeout).await?;
         }
 
         /*
@@ -431,7 +434,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
          * but this interface must be backward compatible.
          */
         let router: Result<_, JsError> =
-            Self::get_router(&mut scope, http_module_path.clone()).await?;
+            Self::get_router(&mut scope, timeout, http_module_path.clone()).await?;
 
         if let Err(e) = router {
             return Ok((
@@ -510,6 +513,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let result = Self::run_inner(
             &mut scope,
+            timeout,
             handle,
             UdfType::HttpAction,
             v8_function,
@@ -661,7 +665,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let start_unix_timestamp = self.rt.unix_timestamp();
         let heap_stats = self.heap_stats.clone();
 
-        let (handle, state) = isolate.start_request(client_id.into(), self).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), self).await?;
         if let Some(tx) = function_started {
             _ = tx.send(());
         }
@@ -669,9 +673,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let mut isolate_context =
             RequestScope::new(context_scope, handle.clone(), state, true).await?;
-        let mut result =
-            Self::run_action_inner(&mut isolate_context, request_params.clone(), cancellation)
-                .await;
+        let mut result = Self::run_action_inner(
+            &mut isolate_context,
+            &mut timeout,
+            request_params.clone(),
+            cancellation,
+        )
+        .await;
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -694,8 +702,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 result = Err(e);
             },
         }
-        let execution_time;
-        (self, execution_time) = isolate_context.take_environment();
+        self = isolate_context.take_environment();
+        let execution_time = timeout.get_function_execution_time();
+        drop(timeout);
         let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
         self.add_warnings_to_log_lines_action(
             execution_time,
@@ -720,6 +729,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[fastrace::trace]
     async fn run_action_inner(
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
+        timeout: &mut Timeout<RT>,
         request_params: ActionRequestParams,
         cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<Result<ConvexValue, JsError>> {
@@ -728,11 +738,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
         {
             let state = scope.state_mut()?;
-            state
-                .environment
-                .phase
-                .initialize(&mut state.timeout, &mut state.permit)
-                .await?;
+            state.environment.phase.initialize(timeout).await?;
         }
         let (path, arguments, _) = request_params.path_and_args.consume();
 
@@ -756,7 +762,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         };
 
         let module = match scope
-            .eval_user_module(UdfType::Action, false, &module_specifier)
+            .eval_user_module(UdfType::Action, false, &module_specifier, timeout)
             .await?
         {
             Ok(id) => id,
@@ -802,6 +808,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let run_inner_result = Self::run_inner(
             &mut scope,
+            timeout,
             handle,
             UdfType::Action,
             v8_function,
@@ -884,6 +891,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     async fn get_router<'s>(
         scope: &mut ExecutionScope<'_, 's, '_, RT, Self>,
+        timeout: &mut Timeout<RT>,
         http_module_path: CanonicalizedUdfPath,
     ) -> anyhow::Result<Result<v8::Local<'s, v8::Object>, JsError>> {
         // Except in tests, `http.js` will always be the udf_path.
@@ -901,7 +909,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         };
 
         let module = match scope
-            .eval_user_module(UdfType::HttpAction, false, &module_specifier)
+            .eval_user_module(UdfType::HttpAction, false, &module_specifier, timeout)
             .await?
         {
             Ok(id) => id,
@@ -961,6 +969,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[fastrace::trace]
     async fn run_inner<'a, 's, 'i, T, S>(
         scope: &mut ExecutionScope<'a, 's, 'i, RT, Self>,
+        timeout: &mut Timeout<RT>,
         handle: IsolateHandle,
         udf_type: UdfType,
         v8_function: v8::Local<'_, v8::Function>,
@@ -1041,7 +1050,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             };
             if !dynamic_imports.is_empty() {
                 for (specifier, resolver) in dynamic_imports {
-                    match scope.eval_user_module(udf_type, true, &specifier).await? {
+                    match scope
+                        .eval_user_module(udf_type, true, &specifier, timeout)
+                        .await?
+                    {
                         Ok(module) => {
                             let namespace = module.get_module_namespace();
                             resolve_promise(scope, resolver, Ok(namespace))?;
@@ -1095,15 +1107,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             // 2. Collecting_result, so we try to advance that.
             // 3. In case collecting_result or syscalls are taking too long or deadlocked,
             //    we should timeout.
-            let (timeout, permit) = scope.with_state_mut(|state| {
-                let timeout = state.timeout.wait_until_completed();
-                // Release the permit while we wait on task executor.
-                let permit = state
-                    .permit
-                    .take()
-                    .ok_or_else(|| anyhow::anyhow!("Running function without permit"))?;
-                anyhow::Ok((timeout, permit))
-            })??;
+
+            let timeout_future = timeout.wait_until_completed();
+            // Release the permit while we wait on task executor.
+            let permit = timeout
+                .permit
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("Running function without permit"))?;
             let regain_permit = permit.suspend();
 
             let environment = &mut scope.state_mut()?.environment;
@@ -1157,7 +1167,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 },
                 // If we the isolate is terminated due to timeout, we start the
                 // isolate loop over to run js to handle the timeout.
-                _ = timeout.fuse() => {
+                _ = timeout_future.fuse() => {
                     continue;
                 },
                 _ = cancellation => {
@@ -1165,10 +1175,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     anyhow::bail!("Cancelled");
                 },
             }
-            let permit_acquire = scope
-                .with_state_mut(|state| state.timeout.with_timeout(regain_permit.acquire()))?;
-            let permit = permit_acquire.await?;
-            scope.with_state_mut(|state| state.permit = Some(permit))?;
+            let permit = timeout.with_timeout(regain_permit.acquire()).await?;
+            timeout.permit = Some(permit);
             handle.check_terminated()?;
         };
         // Drain all remaining async syscalls that are not sleeps in case the
@@ -1375,10 +1383,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         &mut self,
         path: &str,
         timeout: &mut Timeout<RT>,
-        permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         let user_module_path: ModulePath = path.parse()?;
-        let result = self.phase.get_module(&user_module_path, timeout, permit)?;
+        let result = self.phase.get_module(&user_module_path, timeout)?;
         Ok(result)
     }
 

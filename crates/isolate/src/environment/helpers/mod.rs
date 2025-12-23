@@ -1,5 +1,4 @@
 pub mod module_loader;
-pub mod permit;
 mod promise;
 pub mod syscall_error;
 mod version;

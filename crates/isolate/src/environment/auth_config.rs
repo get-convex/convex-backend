@@ -47,7 +47,6 @@ use value::NamespacedTableMapping;
 
 use super::ModuleCodeCacheResult;
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
         helpers::syscall_error::{
             syscall_description_for_error,
@@ -133,7 +132,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-        _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path != AUTH_CONFIG_FILE_NAME {
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -210,12 +208,12 @@ impl AuthConfigEnvironment {
             environment_variables,
         };
         let client_id = Arc::new(client_id);
-        let (handle, state) = isolate.start_request(client_id, environment).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
         scope_with_context!(let context_scope, isolate.isolate(), v8_context);
         let mut isolate_context =
             RequestScope::new(context_scope, handle.clone(), state, false).await?;
         let handle = isolate_context.handle();
-        let result = Self::run_evaluate_auth_config(&mut isolate_context).await;
+        let result = Self::run_evaluate_auth_config(&mut isolate_context, &mut timeout).await;
 
         // Drain the microtask queue, to clean up the isolate.
         isolate_context.checkpoint();
@@ -226,6 +224,7 @@ impl AuthConfigEnvironment {
         // If the microtask queue is somehow nonempty after this point but before
         // the next request starts, the isolate may panic.
         drop(isolate_context);
+        drop(timeout);
 
         handle.take_termination_error(None, "auth")??;
         result
@@ -233,12 +232,13 @@ impl AuthConfigEnvironment {
 
     async fn run_evaluate_auth_config<RT: Runtime>(
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
+        timeout: &mut Timeout<RT>,
     ) -> anyhow::Result<AuthConfig> {
         scope!(let v8_scope, isolate.scope());
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         let auth_config_url = ModuleSpecifier::parse(&format!("{CONVEX_SCHEME}:/auth.config.js"))?;
-        let module = scope.eval_module(&auth_config_url).await?;
+        let module = scope.eval_module(&auth_config_url, timeout).await?;
         let namespace = module
             .get_module_namespace()
             .to_object(&scope)

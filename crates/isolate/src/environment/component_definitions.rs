@@ -66,7 +66,6 @@ use super::{
     IsolateEnvironment,
 };
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     environment::{
         helpers::syscall_error::{
             syscall_description_for_error,
@@ -206,7 +205,7 @@ impl AppDefinitionEvaluator {
             environment_variables,
         };
 
-        let (handle, state) = isolate.start_request(client_id.into(), env).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), env).await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
@@ -218,7 +217,7 @@ impl AppDefinitionEvaluator {
             scope!(let v8_scope, isolate_context.scope());
             let mut scope = RequestScope::<RT, DefinitionEnvironment>::enter(v8_scope);
             let url = ModuleSpecifier::parse(&format!("{CONVEX_SCHEME}:/{filename}"))?;
-            let module = scope.eval_module(&url).await?;
+            let module = scope.eval_module(&url, &mut timeout).await?;
             let namespace = module
                 .get_module_namespace()
                 .to_object(&scope)
@@ -366,7 +365,7 @@ impl ComponentInitializerEvaluator {
             evaluated_definitions: self.evaluated_definitions,
             environment_variables: None,
         };
-        let (handle, state) = isolate.start_request(client_id.into(), env).await?;
+        let (handle, state, mut timeout) = isolate.start_request(client_id.into(), env).await?;
         scope!(let handle_scope, isolate.isolate());
         let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
         let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
@@ -378,7 +377,7 @@ impl ComponentInitializerEvaluator {
             scope!(let v8_scope, isolate_context.scope());
             let mut scope = RequestScope::<RT, DefinitionEnvironment>::enter(v8_scope);
             let url = ModuleSpecifier::parse(&format!("{CONVEX_SCHEME}:/{filename}"))?;
-            let module = scope.eval_module(&url).await?;
+            let module = scope.eval_module(&url, &mut timeout).await?;
             let namespace = module
                 .get_module_namespace()
                 .to_object(&scope)
@@ -535,7 +534,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         &mut self,
         path: &str,
         _timeout: &mut Timeout<RT>,
-        _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path == &self.expected_filename {
             return Ok(Some((self.source.clone(), ModuleCodeCacheResult::noop())));

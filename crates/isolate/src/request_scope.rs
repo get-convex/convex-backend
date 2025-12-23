@@ -36,7 +36,6 @@ use value::heap_size::{
 };
 
 use crate::{
-    concurrency_limiter::ConcurrencyPermit,
     convert_v8::{
         JsException,
         ToV8 as _,
@@ -71,10 +70,6 @@ use crate::{
         IsolateHandle,
         TerminationReason,
     },
-    timeout::{
-        FunctionExecutionTime,
-        Timeout,
-    },
 };
 
 /// This structure maintains a `v8::Context` (inside a `v8::HandleScope`)
@@ -95,8 +90,6 @@ pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<R
 /// they can be fetched without needing the environment type E.
 pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     pub rt: RT,
-    pub timeout: Timeout<RT>,
-    pub permit: Option<ConcurrencyPermit>,
     pub environment: E,
 
     pub blob_parts: WithHeapSize<BTreeMap<uuid::Uuid, bytes::Bytes>>,
@@ -459,12 +452,9 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         self.scope.remove_slot()
     }
 
-    pub fn take_environment(mut self) -> (E, FunctionExecutionTime) {
+    pub fn take_environment(mut self) -> E {
         let state = self.take_state().expect("Lost ContextState?");
-        (
-            state.environment,
-            state.timeout.get_function_execution_time(),
-        )
+        state.environment
     }
 
     #[allow(unused)]
