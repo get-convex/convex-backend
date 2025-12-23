@@ -76,35 +76,33 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await?;
     assert_eq!(
-        deltas,
-        DocumentDeltas {
-            deltas: vec![
-                (
-                    ts1,
-                    doc1sort.developer_id(),
-                    ComponentPath::root(),
-                    table_mapping.tablet_name(doc1sort.id().tablet_id)?,
-                    Some(StreamingExportDocument::with_all_fields(doc1sort.clone()))
-                ),
-                (
-                    ts1,
-                    doc2sort.developer_id(),
-                    ComponentPath::root(),
-                    table_mapping.tablet_name(doc2sort.id().tablet_id)?,
-                    Some(StreamingExportDocument::with_all_fields(doc2sort.clone()))
-                ),
-                (
-                    ts2,
-                    doc3.developer_id(),
-                    ComponentPath::root(),
-                    table_mapping.tablet_name(doc3.id().tablet_id)?,
-                    Some(StreamingExportDocument::with_all_fields(doc3.clone()))
-                ),
-            ],
-            cursor: ts2,
-            has_more: false,
-        },
+        deltas.deltas,
+        vec![
+            (
+                ts1,
+                doc1sort.developer_id(),
+                ComponentPath::root(),
+                table_mapping.tablet_name(doc1sort.id().tablet_id)?,
+                Some(StreamingExportDocument::with_all_fields(doc1sort.clone()))
+            ),
+            (
+                ts1,
+                doc2sort.developer_id(),
+                ComponentPath::root(),
+                table_mapping.tablet_name(doc2sort.id().tablet_id)?,
+                Some(StreamingExportDocument::with_all_fields(doc2sort.clone()))
+            ),
+            (
+                ts2,
+                doc3.developer_id(),
+                ComponentPath::root(),
+                table_mapping.tablet_name(doc3.id().tablet_id)?,
+                Some(StreamingExportDocument::with_all_fields(doc3.clone()))
+            ),
+        ],
     );
+    assert_eq!(deltas.cursor, ts2);
+    assert_eq!(deltas.has_more, false);
 
     let deltas_cursor = db
         .document_deltas(
@@ -116,19 +114,17 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await?;
     assert_eq!(
-        deltas_cursor,
-        DocumentDeltas {
-            deltas: vec![(
-                ts2,
-                doc3.developer_id(),
-                ComponentPath::root(),
-                table_mapping.tablet_name(doc3.id().tablet_id)?,
-                Some(StreamingExportDocument::with_all_fields(doc3.clone()))
-            )],
-            cursor: ts2,
-            has_more: false,
-        },
+        deltas_cursor.deltas,
+        vec![(
+            ts2,
+            doc3.developer_id(),
+            ComponentPath::root(),
+            table_mapping.tablet_name(doc3.id().tablet_id)?,
+            Some(StreamingExportDocument::with_all_fields(doc3.clone()))
+        )],
     );
+    assert_eq!(deltas_cursor.cursor, ts2);
+    assert_eq!(deltas_cursor.has_more, false);
 
     let deltas_table_filter = db
         .document_deltas(
@@ -146,19 +142,17 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await?;
     assert_eq!(
-        deltas_table_filter,
-        DocumentDeltas {
-            deltas: vec![(
-                ts1,
-                doc1.developer_id(),
-                ComponentPath::root(),
-                table_mapping.tablet_name(doc1.id().tablet_id)?,
-                Some(StreamingExportDocument::with_all_fields(doc1.clone()))
-            )],
-            cursor: ts2,
-            has_more: false
-        },
+        deltas_table_filter.deltas,
+        vec![(
+            ts1,
+            doc1.developer_id(),
+            ComponentPath::root(),
+            table_mapping.tablet_name(doc1.id().tablet_id)?,
+            Some(StreamingExportDocument::with_all_fields(doc1.clone()))
+        )],
     );
+    assert_eq!(deltas_table_filter.cursor, ts2);
+    assert_eq!(deltas_table_filter.has_more, false);
 
     // Note we're requesting 1 result, but in order to return the full transaction
     // we receive 2 deltas.
@@ -172,28 +166,26 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await?;
     assert_eq!(
-        deltas_limit,
-        DocumentDeltas {
-            deltas: vec![
-                (
-                    ts1,
-                    doc1sort.developer_id(),
-                    ComponentPath::root(),
-                    table_mapping.tablet_name(doc1sort.id().tablet_id)?,
-                    Some(StreamingExportDocument::with_all_fields(doc1sort.clone()))
-                ),
-                (
-                    ts1,
-                    doc2sort.developer_id(),
-                    ComponentPath::root(),
-                    table_mapping.tablet_name(doc2sort.id().tablet_id)?,
-                    Some(StreamingExportDocument::with_all_fields(doc2sort.clone()))
-                ),
-            ],
-            cursor: ts1,
-            has_more: true,
-        },
+        deltas_limit.deltas,
+        vec![
+            (
+                ts1,
+                doc1sort.developer_id(),
+                ComponentPath::root(),
+                table_mapping.tablet_name(doc1sort.id().tablet_id)?,
+                Some(StreamingExportDocument::with_all_fields(doc1sort.clone()))
+            ),
+            (
+                ts1,
+                doc2sort.developer_id(),
+                ComponentPath::root(),
+                table_mapping.tablet_name(doc2sort.id().tablet_id)?,
+                Some(StreamingExportDocument::with_all_fields(doc2sort.clone()))
+            ),
+        ],
     );
+    assert_eq!(deltas_limit.cursor, ts1);
+    assert_eq!(deltas_limit.has_more, true);
 
     let deltas_auth = db
         .document_deltas(
@@ -281,21 +273,19 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
         )
         .await?;
     assert_eq!(
-        deltas,
-        DocumentDeltas {
-            deltas: vec![(
-                ts_insert,
-                remaining_doc.developer_id(),
-                ComponentPath::root(),
-                table_mapping.tablet_name(remaining_doc.id().tablet_id)?,
-                Some(StreamingExportDocument::with_all_fields(
-                    remaining_doc.clone()
-                ))
-            ),],
-            cursor: ts_latest,
-            has_more: false,
-        },
+        deltas.deltas,
+        vec![(
+            ts_insert,
+            remaining_doc.developer_id(),
+            ComponentPath::root(),
+            table_mapping.tablet_name(remaining_doc.id().tablet_id)?,
+            Some(StreamingExportDocument::with_all_fields(
+                remaining_doc.clone()
+            ))
+        ),],
     );
+    assert_eq!(deltas.cursor, ts_latest);
+    assert_eq!(deltas.has_more, false);
 
     Ok(())
 }
@@ -450,13 +440,24 @@ async fn test_snapshot_list(
         )
         .await?;
     assert_eq!(
-        snapshot_has_more,
-        SnapshotPage {
-            documents: to_snapshot_docs(vec![docs1sorted[0].clone()]),
-            snapshot: ts1,
-            cursor: Some(docs1sorted[0].3.id()),
-            has_more: true,
-        },
+        snapshot_has_more.documents,
+        to_snapshot_docs(vec![docs1sorted[0].clone()])
+    );
+    assert_eq!(snapshot_has_more.snapshot, ts1);
+    assert_eq!(snapshot_has_more.cursor, Some(docs1sorted[0].3.id()));
+    assert_eq!(snapshot_has_more.has_more, true);
+    // Verify usage is being tracked (should have some data)
+    assert!(
+        snapshot_has_more.usage.database_egress_size.is_empty(),
+        "Usage tracking should not record egress size in v1 metric"
+    );
+    assert!(
+        !snapshot_has_more.usage.database_egress_size_v2.is_empty(),
+        "Usage tracking should record egress size"
+    );
+    assert!(
+        !snapshot_has_more.usage.database_egress_rows.is_empty(),
+        "Usage tracking should record egress rows"
     );
 
     let snapshot_cursor = snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].3.id())).await?;
@@ -600,6 +601,227 @@ async fn test_document_deltas_with_filters(rt: TestRuntime) -> anyhow::Result<()
             "users".parse()?,
             Some(partial_delta)
         )]
+    );
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_document_deltas_usage_tracking(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+
+    // Insert documents with known sizes
+    let mut tx = db.begin(Identity::system()).await?;
+    let doc1_resolved = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "table1".parse()?,
+            assert_obj!(
+                "field1" => "value1",
+                "field2" => "value2",
+            ),
+        )
+        .await?;
+    let doc1_size = doc1_resolved.size();
+
+    let doc2_resolved = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "table1".parse()?,
+            assert_obj!(
+                "field1" => "longer_value_here",
+                "field2" => "another_value",
+                "field3" => "extra_field",
+            ),
+        )
+        .await?;
+    let doc2_size = doc2_resolved.size();
+
+    let doc3_resolved = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "table2".parse()?,
+            assert_obj!(
+                "name" => "test",
+            ),
+        )
+        .await?;
+    let doc3_size = doc3_resolved.size();
+
+    let table_mapping = tx.table_mapping().clone();
+    db.commit(tx).await?;
+
+    // Fetch all deltas and verify usage tracking
+    let DocumentDeltas { deltas, usage, .. } = db
+        .document_deltas(
+            Identity::system(),
+            None,
+            StreamingExportFilter::default(),
+            200,
+            200,
+        )
+        .await?;
+
+    // Verify we got all 3 documents
+    assert_eq!(deltas.len(), 3);
+
+    // Verify usage stats
+    let table1_name = table_mapping.tablet_name(doc1_resolved.id().tablet_id)?;
+    let table2_name = table_mapping.tablet_name(doc3_resolved.id().tablet_id)?;
+
+    // Check table1 usage (2 documents)
+    let table1_egress = usage
+        .database_egress_size_v2
+        .get(&(ComponentPath::root(), table1_name.to_string()))
+        .copied()
+        .unwrap_or(0);
+    let table1_rows = usage
+        .database_egress_rows
+        .get(&(ComponentPath::root(), table1_name.to_string()))
+        .copied()
+        .unwrap_or(0);
+
+    assert_eq!(
+        table1_egress,
+        (doc1_size + doc2_size) as u64,
+        "Table1 egress size should match sum of document sizes"
+    );
+    assert_eq!(table1_rows, 2, "Table1 should have 2 rows");
+
+    // Check table2 usage (1 document)
+    let table2_egress = usage
+        .database_egress_size_v2
+        .get(&(ComponentPath::root(), table2_name.to_string()))
+        .copied()
+        .unwrap_or(0);
+    let table2_rows = usage
+        .database_egress_rows
+        .get(&(ComponentPath::root(), table2_name.to_string()))
+        .copied()
+        .unwrap_or(0);
+
+    assert_eq!(
+        table2_egress, doc3_size as u64,
+        "Table2 egress size should match document size"
+    );
+    assert_eq!(table2_rows, 1, "Table2 should have 1 row");
+
+    // Verify total bandwidth
+    let total_egress: u64 = usage.database_egress_size_v2.values().sum();
+    let total_rows: u64 = usage.database_egress_rows.values().sum();
+
+    assert_eq!(
+        total_egress,
+        (doc1_size + doc2_size + doc3_size) as u64,
+        "Total egress should match sum of all document sizes"
+    );
+    assert_eq!(total_rows, 3, "Total rows should be 3");
+
+    // Verify that database_egress_size (v1) is not used
+    let total_egress_v1: u64 = usage.database_egress_size.values().sum();
+    assert_eq!(
+        total_egress_v1, 0,
+        "database_egress_size (v1) should not be used for streaming export"
+    );
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_list_snapshot_usage_tracking(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+    let mut tx = db.begin(Identity::system()).await?;
+
+    // Insert documents with varying sizes in the same table
+    let doc1_resolved = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "table1".parse()?,
+            assert_obj!(
+                "field1" => "value1",
+                "field2" => "value2",
+            ),
+        )
+        .await?;
+    let doc1_size = doc1_resolved.size();
+
+    let doc2_resolved = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "table1".parse()?,
+            assert_obj!(
+                "field1" => "longer_value_here",
+                "field2" => "another_value",
+                "field3" => "extra_field",
+            ),
+        )
+        .await?;
+    let doc2_size = doc2_resolved.size();
+
+    let doc3_resolved = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "table1".parse()?,
+            assert_obj!(
+                "name" => "test",
+                "other_field" => "more data",
+            ),
+        )
+        .await?;
+    let doc3_size = doc3_resolved.size();
+
+    let table_mapping = tx.table_mapping().clone();
+    let ts = db.commit(tx).await?;
+
+    // Fetch snapshot and verify usage tracking
+    let SnapshotPage {
+        documents, usage, ..
+    } = db
+        .list_snapshot(
+            Identity::system(),
+            Some(ts),
+            None,
+            StreamingExportFilter::default(),
+            200,
+            200,
+        )
+        .await?;
+
+    // Verify we got all 3 documents
+    assert_eq!(documents.len(), 3);
+
+    // Verify usage stats
+    let table1_name = table_mapping.tablet_name(doc1_resolved.id().tablet_id)?;
+
+    // Check table1 usage (3 documents)
+    let table1_egress = usage
+        .database_egress_size_v2
+        .get(&(ComponentPath::root(), table1_name.to_string()))
+        .copied()
+        .unwrap_or(0);
+    let table1_rows = usage
+        .database_egress_rows
+        .get(&(ComponentPath::root(), table1_name.to_string()))
+        .copied()
+        .unwrap_or(0);
+
+    assert_eq!(
+        table1_egress,
+        (doc1_size + doc2_size + doc3_size) as u64,
+        "Table1 egress size should match sum of all document sizes"
+    );
+    assert_eq!(table1_rows, 3, "Table1 should have 3 rows");
+
+    // Verify total bandwidth
+    let total_egress: u64 = usage.database_egress_size_v2.values().sum();
+    let total_rows: u64 = usage.database_egress_rows.values().sum();
+
+    assert_eq!(
+        total_egress,
+        (doc1_size + doc2_size + doc3_size) as u64,
+        "Total egress should match sum of all document sizes"
+    );
+    assert_eq!(total_rows, 3, "Total rows should be 3");
+
+    // Verify that database_egress_size (v1) is not used
+    let total_egress_v1: u64 = usage.database_egress_size.values().sum();
+    assert_eq!(
+        total_egress_v1, 0,
+        "database_egress_size (v1) should not be used for streaming export"
     );
 
     Ok(())

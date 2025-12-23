@@ -15,6 +15,7 @@ use common::{
         CREATION_TIME_FIELD,
         ID_FIELD,
     },
+    execution_context::ExecutionId,
     http::{
         extract::{
             Json,
@@ -33,11 +34,15 @@ use common::{
         DocumentSchema,
     },
     shapes::reduced::ReducedShape,
-    types::Timestamp,
+    types::{
+        Timestamp,
+        UdfIdentifier,
+    },
     virtual_system_mapping::{
         all_tables_number_to_name,
         VirtualSystemMapping,
     },
+    RequestId,
 };
 use convex_fivetran_source::api_types::{
     selection::Selection,
@@ -69,6 +74,11 @@ use serde::{
 use serde_json::{
     json,
     Value as JsonValue,
+};
+// Import for usage tracking
+use usage_tracking::{
+    self,
+    CallType,
 };
 use value::{
     export::ValueFormat,
@@ -126,6 +136,7 @@ pub async fn _document_deltas(
         deltas,
         cursor: new_cursor,
         has_more,
+        usage,
     } = st
         .application
         .document_deltas(identity, cursor, selection)
@@ -163,6 +174,19 @@ pub async fn _document_deltas(
         cursor: new_cursor.into(),
         has_more,
     };
+
+    st.application
+        .usage_counter()
+        .track_call(
+            UdfIdentifier::SystemJob("streaming_export".to_string()),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Export,
+            true,
+            usage,
+        )
+        .await;
+
     Ok((StatusCode::OK, Json(response)))
 }
 
@@ -223,9 +247,10 @@ async fn _list_snapshot(
         snapshot,
         cursor: new_cursor,
         has_more,
+        usage,
     } = st
         .application
-        .list_snapshot(identity, snapshot, cursor, selection)
+        .list_snapshot(identity.clone(), snapshot, cursor, selection)
         .await?;
     let value_format = args
         .format
@@ -264,6 +289,19 @@ async fn _list_snapshot(
             .transpose()?,
         has_more,
     };
+
+    st.application
+        .usage_counter()
+        .track_call(
+            UdfIdentifier::SystemJob("streaming_export".to_string()),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Export,
+            true,
+            usage,
+        )
+        .await;
+
     Ok((StatusCode::OK, Json(response)))
 }
 

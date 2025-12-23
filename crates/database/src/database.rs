@@ -344,6 +344,7 @@ pub struct DocumentDeltas {
     pub cursor: Timestamp,
     /// Continue calling document_deltas while has_more is true.
     pub has_more: bool,
+    pub usage: FunctionUsageStats,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -352,6 +353,7 @@ pub struct SnapshotPage {
     pub snapshot: Timestamp,
     pub cursor: Option<ResolvedDocumentId>,
     pub has_more: bool,
+    pub usage: FunctionUsageStats,
 }
 
 #[cfg_attr(
@@ -1906,6 +1908,8 @@ impl<RT: Runtime> Database<RT> {
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<DocumentDeltas> {
+        let usage = FunctionUsageTracker::new();
+
         anyhow::ensure!(
             identity.is_system() || identity.is_admin(),
             unauthorized_error("document_deltas")
@@ -1998,15 +2002,28 @@ impl<RT: Runtime> Database<RT> {
                 let column_filter = filter
                     .selection
                     .column_filter(&component_path, &table_name)?;
-                deltas.push((
-                    ts,
-                    id,
-                    component_path,
-                    table_name,
-                    maybe_doc
-                        .map(|doc| column_filter.filter_document(doc.to_developer()))
-                        .transpose()?,
-                ));
+                let filtered_doc = maybe_doc
+                    .map(|doc| column_filter.filter_document(doc.to_developer()))
+                    .transpose()?;
+
+                // Track database egress for the document
+                if let Some(ref doc) = filtered_doc {
+                    let doc_size = doc.size();
+                    usage.track_database_egress_size_v2(
+                        component_path.clone(),
+                        table_name.to_string(),
+                        doc_size as u64,
+                        false,
+                    );
+                    usage.track_database_egress_rows(
+                        component_path.clone(),
+                        table_name.to_string(),
+                        1,
+                        false,
+                    );
+                }
+
+                deltas.push((ts, id, component_path, table_name, filtered_doc));
                 if new_cursor.is_none() && deltas.len() >= rows_returned_limit {
                     // We want to finish, but we have to process all documents at this timestamp.
                     new_cursor = Some(ts);
@@ -2020,6 +2037,7 @@ impl<RT: Runtime> Database<RT> {
             // If new_cursor is still None, we exhausted the stream.
             cursor: new_cursor.unwrap_or(*upper_bound),
             has_more,
+            usage: usage.gather_user_stats(),
         })
     }
 
@@ -2033,6 +2051,8 @@ impl<RT: Runtime> Database<RT> {
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<SnapshotPage> {
+        let usage = FunctionUsageTracker::new();
+
         anyhow::ensure!(
             identity.is_system() || identity.is_admin(),
             unauthorized_error("list_snapshot")
@@ -2096,6 +2116,7 @@ impl<RT: Runtime> Database<RT> {
                     snapshot: *snapshot,
                     cursor: None,
                     has_more: false,
+                    usage: usage.gather_user_stats(),
                 });
             },
         };
@@ -2176,12 +2197,24 @@ impl<RT: Runtime> Database<RT> {
                 .selection
                 .column_filter(&component_path, &table_name)?;
 
-            documents.push((
-                ts,
-                component_path,
-                table_name,
-                column_filter.filter_document(doc.to_developer())?,
-            ));
+            let filtered_doc = column_filter.filter_document(doc.to_developer())?;
+
+            // Track database egress for the document
+            let doc_size = filtered_doc.size();
+            usage.track_database_egress_size_v2(
+                component_path.clone(),
+                table_name.to_string(),
+                doc_size as u64,
+                false,
+            );
+            usage.track_database_egress_rows(
+                component_path.clone(),
+                table_name.to_string(),
+                1,
+                false,
+            );
+
+            documents.push((ts, component_path, table_name, filtered_doc));
             if rows_read >= rows_read_limit
                 || documents.len() >= rows_returned_limit
                 || start_time.elapsed() > *SNAPSHOT_LIST_TIME_LIMIT
@@ -2253,6 +2286,7 @@ impl<RT: Runtime> Database<RT> {
             snapshot: *snapshot,
             cursor: new_cursor,
             has_more,
+            usage: usage.gather_user_stats(),
         })
     }
 

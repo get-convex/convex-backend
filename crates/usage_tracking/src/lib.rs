@@ -350,6 +350,7 @@ impl UsageCounter {
                 ingress_v2: 0,
                 egress: 0,
                 egress_rows: 0,
+                egress_v2: 0,
             });
         }
         for ((component_path, table_name), ingress_size) in stats.database_ingress_size_v2 {
@@ -363,6 +364,7 @@ impl UsageCounter {
                 ingress_v2: ingress_size,
                 egress: 0,
                 egress_rows: 0,
+                egress_v2: 0,
             });
         }
         for ((component_path, table_name), egress_size) in stats.database_egress_size.clone() {
@@ -380,6 +382,25 @@ impl UsageCounter {
                 ingress_v2: 0,
                 egress: egress_size,
                 egress_rows: *rows,
+                egress_v2: 0,
+            });
+        }
+        for ((component_path, table_name), egress_size) in stats.database_egress_size_v2.clone() {
+            let rows = stats
+                .database_egress_rows
+                .get(&(component_path.clone(), table_name.clone()))
+                .unwrap_or(&0);
+            usage_metrics.push(UsageEvent::DatabaseBandwidth {
+                id: execution_id.to_string(),
+                request_id: request_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                ingress: 0,
+                ingress_v2: 0,
+                egress: 0,
+                egress_rows: *rows,
+                egress_v2: egress_size,
             });
         }
 
@@ -691,6 +712,24 @@ impl FunctionUsageTracker {
             .or_default() += egress_size;
     }
 
+    pub fn track_database_egress_size_v2(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        egress_size: u64,
+        skip_logging: bool,
+    ) {
+        if skip_logging {
+            return;
+        }
+
+        let mut state = self.state.lock();
+        *state
+            .database_egress_size_v2
+            .entry((component_path, table_name))
+            .or_default() += egress_size;
+    }
+
     pub fn track_database_egress_rows(
         &self,
         component_path: ComponentPath,
@@ -916,6 +955,14 @@ pub struct FunctionUsageStats {
             )")
     )]
     pub database_egress_size: BTreeMap<(ComponentPath, TableName), u64>,
+    /// Includes egress for tables that have virtual tables
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub database_egress_size_v2: BTreeMap<(ComponentPath, TableName), u64>,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(strategy = "proptest::collection::btree_map(
@@ -992,6 +1039,7 @@ impl FunctionUsageStats {
             database_ingress_size,
             database_ingress_size_v2,
             database_egress_size,
+            database_egress_size_v2,
             database_egress_rows,
             vector_ingress_size,
             vector_ingress_size_v2,
@@ -1018,6 +1066,9 @@ impl FunctionUsageStats {
         }
         for (key, egress_size) in database_egress_size {
             *self.database_egress_size.entry(key).or_default() += egress_size;
+        }
+        for (key, egress_size) in database_egress_size_v2 {
+            *self.database_egress_size_v2.entry(key).or_default() += egress_size;
         }
         for (key, egress_rows) in database_egress_rows {
             *self.database_egress_rows.entry(key.clone()).or_default() += egress_rows;
@@ -1133,6 +1184,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             database_ingress_size: to_by_tag_count(stats.database_ingress_size.into_iter()),
             database_ingress_size_v2: to_by_tag_count(stats.database_ingress_size_v2.into_iter()),
             database_egress_size: to_by_tag_count(stats.database_egress_size.into_iter()),
+            database_egress_size_v2: to_by_tag_count(stats.database_egress_size_v2.into_iter()),
             database_egress_rows: to_by_tag_count(stats.database_egress_rows.into_iter()),
             vector_ingress_size: to_by_tag_count(stats.vector_ingress_size.into_iter()),
             vector_egress_size: to_by_tag_count(stats.vector_egress_size.into_iter()),
@@ -1156,6 +1208,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let database_ingress_size = from_by_tag_count(stats.database_ingress_size)?.collect();
         let database_ingress_size_v2 = from_by_tag_count(stats.database_ingress_size_v2)?.collect();
         let database_egress_size = from_by_tag_count(stats.database_egress_size)?.collect();
+        let database_egress_size_v2 = from_by_tag_count(stats.database_egress_size_v2)?.collect();
         let database_egress_rows = from_by_tag_count(stats.database_egress_rows)?.collect();
         let vector_ingress_size = from_by_tag_count(stats.vector_ingress_size)?.collect();
         let vector_egress_size = from_by_tag_count(stats.vector_egress_size)?.collect();
@@ -1172,6 +1225,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             database_ingress_size_v2,
             database_egress_rows,
             database_egress_size,
+            database_egress_size_v2,
             vector_ingress_size,
             vector_egress_size,
             text_ingress_size,
