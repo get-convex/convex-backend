@@ -483,7 +483,7 @@ impl UsageCounter {
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
-                ingress: ingress_size,
+                ingress: 0,
                 egress: 0,
                 ingress_v2: ingress_size,
             });

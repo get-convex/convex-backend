@@ -1111,14 +1111,6 @@ impl<RT: Runtime> Committer<RT> {
                             table_name.is_system(),
                         );
                     }
-                    if text_index_write_size.0 > 0 {
-                        usage_tracker.track_text_ingress_size(
-                            component_path,
-                            table_name.to_string(),
-                            text_index_write_size.0,
-                            table_name.is_system(),
-                        );
-                    }
                 }
             }
         }

@@ -422,6 +422,7 @@ pub struct VectorIndexData {
     pub resolved_index_name: TabletIndexName,
     pub namespace: TableNamespace,
     pub metadata: IndexMetadata<TableName>,
+    pub qdrant_schema: QdrantSchema,
 }
 
 pub(crate) static VECTOR_INDEX_NAME: LazyLock<IndexName> = LazyLock::new(|| {
@@ -472,12 +473,19 @@ pub async fn backfilling_vector_index(
         .tablet_id;
     db.commit(tx).await?;
     let resolved_index_name = TabletIndexName::new(table_id, index_name.descriptor().clone())?;
+
+    let IndexConfig::Vector { ref spec, .. } = index_metadata.config else {
+        anyhow::bail!("Not a vector index?");
+    };
+    let qdrant_schema = QdrantSchema::new(spec);
+
     Ok(VectorIndexData {
         index_id,
         resolved_index_name,
         index_name: index_name.clone(),
         namespace,
         metadata: index_metadata,
+        qdrant_schema,
     })
 }
 

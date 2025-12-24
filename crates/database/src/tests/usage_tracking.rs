@@ -2,12 +2,16 @@ use std::time::Duration;
 
 use common::{
     assert_obj,
-    bootstrap_model::index::IndexMetadata,
+    bootstrap_model::index::{
+        database_index::IndexedFields,
+        IndexMetadata,
+    },
     components::{
         ComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
+    document::PackedDocument,
     execution_context::ExecutionId,
     maybe_val,
     query::{
@@ -20,11 +24,13 @@ use common::{
         IndexDescriptor,
         IndexName,
         ModuleEnvironment,
+        PersistenceVersion,
         TableName,
         UdfIdentifier,
     },
     RequestId,
 };
+use indexing::index_registry::IndexedDocument;
 use keybroker::Identity;
 use maplit::btreeset;
 use pretty_assertions::assert_eq;
@@ -36,6 +42,7 @@ use usage_tracking::{
 };
 use value::{
     sha256::Sha256Digest,
+    Size,
     TableNamespace,
 };
 use vector::VectorSearch;
@@ -56,6 +63,7 @@ use crate::{
     },
     IndexModel,
     ResolvedQuery,
+    TestFacingModel,
     UserFacingModel,
 };
 
@@ -101,13 +109,18 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
 
     let stats = fixtures.test_usage_logger.collect();
     assert!(stats.recent_vector_ingress_size.is_empty());
+    assert!(stats.recent_vector_ingress_size_v2.is_empty());
     Ok(())
 }
 
 #[convex_macro::test_runtime]
 async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
-    let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+    let VectorIndexData {
+        index_name,
+        qdrant_schema,
+        ..
+    } = fixtures.backfilling_vector_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -115,7 +128,8 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
         .db
         .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
-    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    let doc_id = add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    let document = tx.get(doc_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
         .db
@@ -139,15 +153,27 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
         .recent_vector_ingress_size
         .get(&(*index_name.table()).to_string())
         .cloned();
+    let value_v2 = stats
+        .recent_vector_ingress_size_v2
+        .get(&(*index_name.table()).to_string())
+        .cloned();
 
-    assert!(value.unwrap() > 0);
+    assert_eq!(value, Some((document.size()) as u64));
+    assert_eq!(
+        value_v2,
+        Some((qdrant_schema.estimate_vector_size() + doc_id.size()) as u64)
+    );
     Ok(())
 }
 
 #[convex_macro::test_runtime]
 async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
-    let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
+    let VectorIndexData {
+        index_name,
+        qdrant_schema,
+        ..
+    } = fixtures.enabled_vector_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -155,7 +181,8 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
         .db
         .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
-    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    let doc_id = add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    let document = tx.get(doc_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
         .db
@@ -174,131 +201,18 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
         )
         .await;
 
-    let stats = fixtures.test_usage_logger.collect();
+    let mut stats = fixtures.test_usage_logger.collect();
     let value = stats
         .recent_vector_ingress_size
-        .get(&(*index_name.table()).to_string())
-        .cloned();
-    assert!(value.unwrap() > 0);
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn vector_insert_with_no_index_does_not_count_usage_v2(
-    rt: TestRuntime,
-) -> anyhow::Result<()> {
-    let fixtures = VectorFixtures::new(rt).await?;
-
-    let table_name: TableName = "my_table".parse()?;
-    // Use a user transaction, not a system transaction
-    let tx_usage = FunctionUsageTracker::new();
-    let mut tx = fixtures
-        .db
-        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
-        .await?;
-    add_document_vec_array(&mut tx, &table_name, [3f64, 4f64]).await?;
-    fixtures.db.commit(tx).await?;
-    fixtures
-        .db
-        .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                memory_in_mb: 10,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
-        .await;
-
-    let stats = fixtures.test_usage_logger.collect();
-    assert!(stats.recent_vector_ingress_size_v2.is_empty());
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn vector_insert_counts_usage_v2_for_backfilling_indexes(
-    rt: TestRuntime,
-) -> anyhow::Result<()> {
-    let fixtures = VectorFixtures::new(rt).await?;
-    let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
-
-    // Use a user transaction, not a system transaction
-    let tx_usage = FunctionUsageTracker::new();
-    let mut tx = fixtures
-        .db
-        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
-        .await?;
-    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
-    fixtures.db.commit(tx).await?;
-    fixtures
-        .db
-        .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
-        .await;
-
-    let stats = fixtures.test_usage_logger.collect();
-    let value = stats
+        .remove(&(*index_name.table()).to_string());
+    let value_v2 = stats
         .recent_vector_ingress_size_v2
-        .get(&(*index_name.table()).to_string())
-        .cloned();
-
-    assert!(value.unwrap() > 0);
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn vector_insert_counts_usage_v2_for_enabled_indexes(rt: TestRuntime) -> anyhow::Result<()> {
-    let fixtures = VectorFixtures::new(rt).await?;
-    let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
-
-    // Use a user transaction, not a system transaction
-    let tx_usage = FunctionUsageTracker::new();
-    let mut tx = fixtures
-        .db
-        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
-        .await?;
-    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
-    fixtures.db.commit(tx).await?;
-    fixtures
-        .db
-        .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                memory_in_mb: 10,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
-        .await;
-
-    let stats = fixtures.test_usage_logger.collect();
-    let value = stats
-        .recent_vector_ingress_size_v2
-        .get(&(*index_name.table()).to_string())
-        .cloned();
-
-    assert_eq!(value, Some(58_u64));
+        .remove(&(*index_name.table()).to_string());
+    assert_eq!(value, Some((document.size()) as u64));
+    assert_eq!(
+        value_v2,
+        Some((qdrant_schema.estimate_vector_size() + doc_id.size()) as u64)
+    );
     Ok(())
 }
 
@@ -360,7 +274,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     fixtures.db.commit(tx).await?;
     fixtures.new_backfill_index_flusher()?.step().await?;
 
-    let (_, usage_stats) = fixtures
+    let (results, usage_stats) = fixtures
         .db
         .vector_search(
             Identity::Unknown(None),
@@ -392,15 +306,19 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await;
 
-    let stats = fixtures.test_usage_logger.collect();
-    let vector_egress = stats.recent_vector_egress_size;
-    let bandwidth_egress = stats.recent_database_egress_size;
-    assert!(*vector_egress.get(&index_name.table().to_string()).unwrap() > 0);
-    assert!(
-        *bandwidth_egress
-            .get(&index_name.table().to_string())
-            .unwrap()
-            > 0
+    let total_size = results.into_iter().map(|row| row.size() as u64).sum();
+    let mut stats = fixtures.test_usage_logger.collect();
+    assert_eq!(
+        stats
+            .recent_vector_egress_size
+            .remove(&index_name.table().to_string()),
+        Some(total_size)
+    );
+    assert_eq!(
+        stats
+            .recent_database_egress_size
+            .remove(&index_name.table().to_string()),
+        Some(total_size)
     );
     Ok(())
 }
@@ -486,7 +404,11 @@ async fn text_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> anyh
 #[convex_macro::test_runtime]
 async fn text_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = TextFixtures::new(rt).await?;
-    let TextIndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+    let TextIndexData {
+        index_name,
+        tantivy_schema,
+        ..
+    } = fixtures.insert_backfilling_text_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -494,7 +416,8 @@ async fn text_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> an
         .db
         .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
-    add_document(&mut tx, index_name.table(), "hello").await?;
+    let document_id = add_document(&mut tx, index_name.table(), "hello").await?;
+    let document = tx.get(document_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
         .db
@@ -519,14 +442,19 @@ async fn text_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> an
         .get(&(*index_name.table()).to_string())
         .cloned();
 
-    assert!(value.unwrap() > 0);
+    let expected_size = tantivy_schema.estimate_size(&document);
+    assert_eq!(value, Some(expected_size));
     Ok(())
 }
 
 #[convex_macro::test_runtime]
 async fn text_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = TextFixtures::new(rt).await?;
-    let TextIndexData { index_name, .. } = fixtures.enabled_text_index().await?;
+    let TextIndexData {
+        index_name,
+        tantivy_schema,
+        ..
+    } = fixtures.enabled_text_index().await?;
 
     // Use a user transaction, not a system transaction
     let tx_usage = FunctionUsageTracker::new();
@@ -534,7 +462,8 @@ async fn text_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow
         .db
         .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
-    add_document(&mut tx, index_name.table(), "hello").await?;
+    let document_id = add_document(&mut tx, index_name.table(), "hello").await?;
+    let document = tx.get(document_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
         .db
@@ -558,7 +487,9 @@ async fn text_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow
         .recent_text_ingress_size
         .get(&(*index_name.table()).to_string())
         .cloned();
-    assert!(value.unwrap() > 0);
+
+    let expected_size = tantivy_schema.estimate_size(&document);
+    assert_eq!(value, Some(expected_size));
     Ok(())
 }
 
@@ -576,8 +507,8 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .await?;
     let obj = assert_obj!("key" => vec![0; 100]);
     let table_name: TableName = "my_table".parse()?;
-    let doc_id = UserFacingModel::new_root_for_test(&mut tx)
-        .insert(table_name.clone(), obj.clone())
+    let doc_id = TestFacingModel::new(&mut tx)
+        .insert(&table_name, obj.clone())
         .await?;
     db.commit(tx).await?;
     db.usage_counter()
@@ -597,10 +528,14 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
 
     let stats = test_usage_logger.collect();
     // Database ingress counted for write to user table, rounded up
-    let database_ingress = stats.recent_database_ingress_size;
+    let mut database_ingress = stats.recent_database_ingress_size;
     assert_eq!(database_ingress.len(), 1);
     assert!(database_ingress.contains_key("my_table"));
-    assert!(*database_ingress.get("my_table").unwrap() > 0);
+    let document = db.begin_system().await?.get(doc_id).await?.unwrap();
+    assert_eq!(
+        database_ingress.remove("my_table"),
+        Some(document.size() as u64)
+    );
     let database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.values().sum::<u64>(), 0);
 
@@ -610,7 +545,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     UserFacingModel::new_root_for_test(&mut tx)
-        .get_with_ts(doc_id, None)
+        .get_with_ts(doc_id.developer_id, None)
         .await?;
     db.commit(tx).await?;
     db.usage_counter()
@@ -631,10 +566,13 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     let stats = test_usage_logger.collect();
     let database_ingress = stats.recent_database_ingress_size;
     assert_eq!(database_ingress.values().sum::<u64>(), 0);
-    let database_egress = stats.recent_database_egress_size;
+    let mut database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.len(), 1);
     assert!(database_egress.contains_key("my_table"));
-    assert!(*database_egress.get("my_table").unwrap() > 0);
+    assert_eq!(
+        database_egress.remove("my_table"),
+        Some(document.size() as u64)
+    );
 
     Ok(())
 }
@@ -655,10 +593,11 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .begin_with_usage(Identity::system(), tx_usage.clone())
         .await?;
     let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("by_key")?)?;
+    let fields: IndexedFields = vec!["key".parse()?].try_into()?;
     IndexModel::new(&mut tx)
         .add_application_index(
             namespace,
-            IndexMetadata::new_enabled(index_name.clone(), vec!["key".parse()?].try_into()?),
+            IndexMetadata::new_enabled(index_name.clone(), fields.clone()),
         )
         .await
         .unwrap_or_else(|e| panic!("Failed to add index for {} {:?}", "by_key", e));
@@ -685,14 +624,14 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let obj = assert_obj!("key" => 1);
     let obj2 = assert_obj!("key" => 3);
     let obj3 = assert_obj!("key" => 1);
-    UserFacingModel::new_root_for_test(&mut tx)
-        .insert(table_name.clone(), obj.clone())
+    let doc_id1 = TestFacingModel::new(&mut tx)
+        .insert(&table_name, obj.clone())
         .await?;
-    UserFacingModel::new_root_for_test(&mut tx)
-        .insert(table_name.clone(), obj2.clone())
+    let doc_id2 = TestFacingModel::new(&mut tx)
+        .insert(&table_name, obj2.clone())
         .await?;
-    UserFacingModel::new_root_for_test(&mut tx)
-        .insert(table_name.clone(), obj3.clone())
+    let doc_id3 = TestFacingModel::new(&mut tx)
+        .insert(&table_name, obj3.clone())
         .await?;
     db.commit(tx).await?;
     db.usage_counter()
@@ -710,11 +649,20 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         )
         .await;
 
+    let mut tx = db.begin_system().await?;
+    let doc1 = tx.get(doc_id1).await?.unwrap();
+    let doc2 = tx.get(doc_id2).await?.unwrap();
+    let doc3 = tx.get(doc_id3).await?.unwrap();
+
     let stats = test_usage_logger.collect();
-    let database_ingress = stats.recent_database_ingress_size;
+    let mut database_ingress = stats.recent_database_ingress_size;
     assert_eq!(database_ingress.len(), 1);
     assert!(database_ingress.contains_key("my_table"));
-    assert!(*database_ingress.get("my_table").unwrap() > 0);
+    assert_eq!(
+        database_ingress.remove("my_table"),
+        // double it for the index
+        Some((doc1.size() + doc2.size() + doc3.size()) as u64 * 2)
+    );
     let database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.values().sum::<u64>(), 0);
 
@@ -748,10 +696,22 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let stats = test_usage_logger.collect();
     let database_ingress = stats.recent_database_ingress_size;
     assert_eq!(database_ingress.values().sum::<u64>(), 0);
-    let database_egress = stats.recent_database_egress_size;
+    let mut database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.len(), 1);
     assert!(database_egress.contains_key("my_table"));
-    assert!(*database_egress.get("my_table").unwrap() > 0);
+    assert_eq!(
+        database_egress.remove("my_table"),
+        Some(
+            (doc1.size()
+                + doc3.size()
+                + PackedDocument::pack(&doc1)
+                    .index_key_bytes(&fields, PersistenceVersion::V5)
+                    .len()
+                + PackedDocument::pack(&doc3)
+                    .index_key_bytes(&fields, PersistenceVersion::V5)
+                    .len()) as u64
+        )
+    );
 
     Ok(())
 }
