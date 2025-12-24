@@ -275,6 +275,31 @@ impl UsageCounter {
         self.usage_logger.record_async(usage_metrics).await;
     }
 
+    #[cfg(any(test, feature = "testing"))]
+    pub async fn track_call_test(&self, stats: FunctionUsageStats) {
+        use common::components::ComponentFunctionPath;
+
+        let component = ComponentPath::root();
+        let path = ComponentFunctionPath {
+            component,
+            udf_path: "test.js:default".parse().unwrap(),
+        };
+        let udf = UdfIdentifier::Function(path.canonicalize());
+        self.track_call(
+            udf,
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Action {
+                env: ModuleEnvironment::Isolate,
+                duration: Duration::from_secs(10),
+                memory_in_mb: 10,
+            },
+            true,
+            stats,
+        )
+        .await;
+    }
+
     // TODO: The existence of this function is a hack due to shortcuts we have
     // done in Node.js usage tracking. It should only be used by Node.js action
     // callbacks. We should only be using track_call() and never calling this

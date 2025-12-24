@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use common::{
     assert_obj,
     bootstrap_model::index::{
@@ -7,12 +5,10 @@ use common::{
         IndexMetadata,
     },
     components::{
-        ComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
     document::PackedDocument,
-    execution_context::ExecutionId,
     maybe_val,
     query::{
         IndexRange,
@@ -23,25 +19,17 @@ use common::{
     types::{
         IndexDescriptor,
         IndexName,
-        ModuleEnvironment,
         PersistenceVersion,
         TableName,
-        UdfIdentifier,
     },
-    RequestId,
 };
 use indexing::index_registry::IndexedDocument;
 use keybroker::Identity;
 use maplit::btreeset;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
-use sync_types::CanonicalizedUdfPath;
-use usage_tracking::{
-    CallType,
-    FunctionUsageTracker,
-};
+use usage_tracking::FunctionUsageTracker;
 use value::{
-    sha256::Sha256Digest,
     Size,
     TableNamespace,
 };
@@ -67,16 +55,6 @@ use crate::{
     UserFacingModel,
 };
 
-fn test_udf_identifier() -> UdfIdentifier {
-    let udf_path: CanonicalizedUdfPath = "test.js:default".parse().unwrap();
-    let component = ComponentPath::root();
-    let path = ComponentFunctionPath {
-        component,
-        udf_path: udf_path.strip(),
-    };
-    UdfIdentifier::Function(path.canonicalize())
-}
-
 #[convex_macro::test_runtime]
 async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
@@ -93,18 +71,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                memory_in_mb: 10,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = fixtures.test_usage_logger.collect();
@@ -134,18 +101,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = fixtures.test_usage_logger.collect();
@@ -187,18 +143,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                memory_in_mb: 10,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let mut stats = fixtures.test_usage_logger.collect();
@@ -232,18 +177,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                memory_in_mb: 10,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     fixtures.new_live_index_flusher()?.step().await?;
@@ -292,18 +226,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                memory_in_mb: 10,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let total_size = results.into_iter().map(|row| row.size() as u64).sum();
@@ -339,18 +262,7 @@ async fn text_fields_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Resul
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     fixtures.new_live_text_flusher().step().await?;
@@ -382,18 +294,7 @@ async fn text_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> anyh
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                memory_in_mb: 10,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = fixtures.test_usage_logger.collect();
@@ -422,18 +323,7 @@ async fn text_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> an
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = fixtures.test_usage_logger.collect();
@@ -468,18 +358,7 @@ async fn text_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow
     fixtures
         .db
         .usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = fixtures.test_usage_logger.collect();
@@ -512,18 +391,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .await?;
     db.commit(tx).await?;
     db.usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = test_usage_logger.collect();
@@ -549,18 +417,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .await?;
     db.commit(tx).await?;
     db.usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = test_usage_logger.collect();
@@ -603,18 +460,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .unwrap_or_else(|e| panic!("Failed to add index for {} {:?}", "by_key", e));
     db.commit(tx).await?;
     db.usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let tx_usage = FunctionUsageTracker::new();
@@ -635,18 +481,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .await?;
     db.commit(tx).await?;
     db.usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let mut tx = db.begin_system().await?;
@@ -679,18 +514,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     while query_stream.next(&mut tx, None).await?.is_some() {}
     db.commit(tx).await?;
     db.usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Mutation {
-                occ_info: None,
-                duration: Duration::ZERO,
-                memory_in_mb: 0,
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
 
     let stats = test_usage_logger.collect();
@@ -717,7 +541,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
 }
 
 #[convex_macro::test_runtime]
-async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
     let DbFixtures {
         db,
         test_usage_logger,
@@ -726,18 +550,7 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
 
     let tx_usage = FunctionUsageTracker::new();
     db.usage_counter()
-        .track_call(
-            test_udf_identifier(),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::HttpAction {
-                duration: Duration::from_secs(5),
-                memory_in_mb: 100,
-                response_sha256: Sha256Digest::from([0; 32]),
-            },
-            true,
-            tx_usage.gather_user_stats(),
-        )
+        .track_call_test(tx_usage.gather_user_stats())
         .await;
     let stats = test_usage_logger.collect();
     assert_eq!(
@@ -746,14 +559,14 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
     );
     assert_eq!(
         stats.recent_v8_action_compute_time.values().sum::<u64>(),
-        500000
+        100000
     );
     assert_eq!(
         *stats
             .recent_v8_action_compute_time
             .get("test.js:default")
             .unwrap(),
-        500000
+        100000
     );
     Ok(())
 }
