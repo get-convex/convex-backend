@@ -29,6 +29,7 @@ import { buildDeps, BuildDepsRequest } from "./build_deps";
 import { ConvexError, JSONValue } from "convex/values";
 import { log, logDebug, logDurationMs } from "./log";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { countEgressBytes } from "./bytesCounter";
 
 // Small hack to detect if we're running in the dynamic or static lambda.
 const AWS_LAMBDA_EXECUTOR_TYPE = (
@@ -105,13 +106,18 @@ function unhandledRejectionHandler(
 ) {
   // Respond with a user error.
   log(`handling ${event}`);
+  const egressBytes = countEgressBytes();
   const response = {
     type: "error",
-    message: `${event}: ${extractErrorMessage(e)}`,
+    message: extractErrorMessage(e),
+    name: event,
     frames: [],
-    syscallTrace: (globalSyscalls.getStore() as SyscallsImpl | null)
-      ?.syscallTrace,
+    syscallTrace:
+      (globalSyscalls.getStore() as SyscallsImpl | null)?.syscallTrace ?? {},
     memoryAllocatedMb: AWS_LAMBDA_FUNCTION_MEMORY_SIZE,
+    egressBytes,
+    numInvocations,
+    totalExecutorTimeMs: 0,
     exitingProcess: true,
   };
   if (e instanceof Error) {
@@ -259,6 +265,8 @@ export type ExecuteResponse = ExecuteResponseInner & {
 
   // The amount of memory allocated to the executor environment. This is constant for the lifetime of the environment.
   memoryAllocatedMb: number;
+  // The number of bytes of egress during this request.
+  egressBytes: number;
 };
 
 export async function execute(
@@ -280,6 +288,8 @@ export async function execute(
     request.executionContext,
     request.encodedParentTrace,
   );
+
+  countEgressBytes(); // reset egressBytes counter
 
   let innerResult: ExecuteResponseInner;
   try {
@@ -308,6 +318,7 @@ export async function execute(
   }
 
   const totalExecutorTimeMs = logDurationMs("totalExecutorTime", start);
+  const egressBytes = countEgressBytes();
 
   return {
     ...innerResult,
@@ -316,6 +327,7 @@ export async function execute(
     totalExecutorTimeMs,
     syscallTrace: syscalls.syscallTrace,
     memoryAllocatedMb: AWS_LAMBDA_BILLED_MEMORY_SIZE,
+    egressBytes,
   };
 }
 
