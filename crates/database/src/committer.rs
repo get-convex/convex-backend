@@ -1034,7 +1034,7 @@ impl<RT: Runtime> Committer<RT> {
                 if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
-                    usage_tracker.track_database_ingress_size(
+                    usage_tracker.track_database_ingress(
                         component_path.clone(),
                         table_name.to_string(),
                         index_write.key.size() as u64,
@@ -1042,7 +1042,7 @@ impl<RT: Runtime> Committer<RT> {
                         // tables
                         table_name.is_system() || index_write.is_system_index,
                     );
-                    usage_tracker.track_database_ingress_size_v2(
+                    usage_tracker.track_database_ingress_v2(
                         component_path,
                         virtual_system_mapping
                             .system_to_virtual_table(&table_name)
@@ -1078,13 +1078,13 @@ impl<RT: Runtime> Committer<RT> {
                     .unwrap_or(ComponentPath::root());
                 if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Database bandwidth for document writes
-                    usage_tracker.track_database_ingress_size(
+                    usage_tracker.track_database_ingress(
                         component_path.clone().clone(),
                         table_name.to_string(),
                         document_write_size as u64,
                         table_name.is_system(),
                     );
-                    usage_tracker.track_database_ingress_size_v2(
+                    usage_tracker.track_database_ingress_v2(
                         component_path.clone(),
                         virtual_system_mapping
                             .system_to_virtual_table(&table_name)
@@ -1095,7 +1095,7 @@ impl<RT: Runtime> Committer<RT> {
                             && !virtual_system_mapping.has_virtual_table(&table_name),
                     );
                     if vector_index_write_size.0 > 0 {
-                        usage_tracker.track_vector_ingress_size(
+                        usage_tracker.track_vector_ingress(
                             component_path.clone(),
                             table_name.to_string(),
                             document_write_size as u64,
@@ -1104,7 +1104,7 @@ impl<RT: Runtime> Committer<RT> {
                         );
                     }
                     if text_index_write_size.0 > 0 {
-                        usage_tracker.track_text_ingress_size(
+                        usage_tracker.track_text_ingress(
                             component_path.clone(),
                             table_name.to_string(),
                             text_index_write_size.0,

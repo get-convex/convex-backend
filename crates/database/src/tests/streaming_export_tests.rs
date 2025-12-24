@@ -448,11 +448,11 @@ async fn test_snapshot_list(
     assert_eq!(snapshot_has_more.has_more, true);
     // Verify usage is being tracked (should have some data)
     assert!(
-        snapshot_has_more.usage.database_egress_size.is_empty(),
+        snapshot_has_more.usage.database_egress.is_empty(),
         "Usage tracking should not record egress size in v1 metric"
     );
     assert!(
-        !snapshot_has_more.usage.database_egress_size_v2.is_empty(),
+        !snapshot_has_more.usage.database_egress_v2.is_empty(),
         "Usage tracking should record egress size"
     );
     assert!(
@@ -668,7 +668,7 @@ async fn test_document_deltas_usage_tracking(rt: TestRuntime) -> anyhow::Result<
 
     // Check table1 usage (2 documents)
     let table1_egress = usage
-        .database_egress_size_v2
+        .database_egress_v2
         .get(&(ComponentPath::root(), table1_name.to_string()))
         .copied()
         .unwrap_or(0);
@@ -687,7 +687,7 @@ async fn test_document_deltas_usage_tracking(rt: TestRuntime) -> anyhow::Result<
 
     // Check table2 usage (1 document)
     let table2_egress = usage
-        .database_egress_size_v2
+        .database_egress_v2
         .get(&(ComponentPath::root(), table2_name.to_string()))
         .copied()
         .unwrap_or(0);
@@ -704,7 +704,7 @@ async fn test_document_deltas_usage_tracking(rt: TestRuntime) -> anyhow::Result<
     assert_eq!(table2_rows, 1, "Table2 should have 1 row");
 
     // Verify total bandwidth
-    let total_egress: u64 = usage.database_egress_size_v2.values().sum();
+    let total_egress: u64 = usage.database_egress_v2.values().sum();
     let total_rows: u64 = usage.database_egress_rows.values().sum();
 
     assert_eq!(
@@ -714,8 +714,8 @@ async fn test_document_deltas_usage_tracking(rt: TestRuntime) -> anyhow::Result<
     );
     assert_eq!(total_rows, 3, "Total rows should be 3");
 
-    // Verify that database_egress_size (v1) is not used
-    let total_egress_v1: u64 = usage.database_egress_size.values().sum();
+    // Verify that database_egress (v1) is not used
+    let total_egress_v1: u64 = usage.database_egress.values().sum();
     assert_eq!(
         total_egress_v1, 0,
         "database_egress_size (v1) should not be used for streaming export"
@@ -789,7 +789,7 @@ async fn test_list_snapshot_usage_tracking(rt: TestRuntime) -> anyhow::Result<()
 
     // Check table1 usage (3 documents)
     let table1_egress = usage
-        .database_egress_size_v2
+        .database_egress_v2
         .get(&(ComponentPath::root(), table1_name.to_string()))
         .copied()
         .unwrap_or(0);
@@ -807,7 +807,7 @@ async fn test_list_snapshot_usage_tracking(rt: TestRuntime) -> anyhow::Result<()
     assert_eq!(table1_rows, 3, "Table1 should have 3 rows");
 
     // Verify total bandwidth
-    let total_egress: u64 = usage.database_egress_size_v2.values().sum();
+    let total_egress: u64 = usage.database_egress_v2.values().sum();
     let total_rows: u64 = usage.database_egress_rows.values().sum();
 
     assert_eq!(
@@ -817,8 +817,8 @@ async fn test_list_snapshot_usage_tracking(rt: TestRuntime) -> anyhow::Result<()
     );
     assert_eq!(total_rows, 3, "Total rows should be 3");
 
-    // Verify that database_egress_size (v1) is not used
-    let total_egress_v1: u64 = usage.database_egress_size.values().sum();
+    // Verify that database_egress (v1) is not used
+    let total_egress_v1: u64 = usage.database_egress.values().sum();
     assert_eq!(
         total_egress_v1, 0,
         "database_egress_size (v1) should not be used for streaming export"

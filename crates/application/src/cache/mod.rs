@@ -474,7 +474,7 @@ impl<RT: Runtime> CacheManager<RT> {
             // Step 5: Log some stuff and return.
             log_success(num_attempts);
             let usage_stats = usage_tracker.clone().gather_user_stats();
-            let database_bandwidth_bytes = usage_stats.database_egress_size.values().sum();
+            let database_bandwidth_bytes = usage_stats.database_egress.values().sum();
             log_query_bandwidth_bytes(
                 cache_result.outcome.journal.end_cursor.is_some(),
                 database_bandwidth_bytes,

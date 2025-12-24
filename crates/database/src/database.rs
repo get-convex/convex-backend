@@ -2009,7 +2009,7 @@ impl<RT: Runtime> Database<RT> {
                 // Track database egress for the document
                 if let Some(ref doc) = filtered_doc {
                     let doc_size = doc.size();
-                    usage.track_database_egress_size_v2(
+                    usage.track_database_egress_v2(
                         component_path.clone(),
                         table_name.to_string(),
                         doc_size as u64,
@@ -2201,7 +2201,7 @@ impl<RT: Runtime> Database<RT> {
 
             // Track database egress for the document
             let doc_size = filtered_doc.size();
-            usage.track_database_egress_size_v2(
+            usage.track_database_egress_v2(
                 component_path.clone(),
                 table_name.to_string(),
                 doc_size as u64,
@@ -2429,7 +2429,7 @@ impl<RT: Runtime> Database<RT> {
         let component_path = snapshot
             .component_registry
             .must_component_path(component_id, &mut TransactionReadSet::new())?;
-        usage.track_vector_egress_size(
+        usage.track_vector_egress(
             component_path,
             table_mapping.tablet_name(*index_name.table())?.to_string(),
             size,

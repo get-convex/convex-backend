@@ -394,7 +394,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
 
         // Charge file bandwidth for the download of the snapshot from imports storage
         usage
-            .track_storage_egress_size(
+            .track_storage_egress(
                 ComponentPath::root(),
                 snapshot_import.requestor.usage_tag().to_string(),
                 object_attributes.size,

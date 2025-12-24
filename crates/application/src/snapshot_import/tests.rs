@@ -1391,7 +1391,7 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
 
     let stats = usage.gather_user_stats();
-    assert!(stats.database_ingress_size[&(component_path.clone(), table_name.to_string())] > 0);
+    assert!(stats.database_ingress[&(component_path.clone(), table_name.to_string())] > 0);
 
     Ok(())
 }

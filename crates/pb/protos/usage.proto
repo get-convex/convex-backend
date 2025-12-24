@@ -5,20 +5,20 @@ package usage;
 message FunctionUsageStats {
   repeated CounterWithTag storage_calls = 1;
   reserved 2;
-  repeated CounterWithComponent storage_ingress_size_by_component = 8;
+  repeated CounterWithComponent storage_ingress_by_component = 8;
   reserved 3;
-  repeated CounterWithComponent storage_egress_size_by_component = 9;
-  repeated CounterWithTag database_ingress_size = 4;
-  repeated CounterWithTag database_ingress_size_v2 = 11;
-  repeated CounterWithTag database_egress_size = 5;
-  repeated CounterWithTag database_egress_size_v2 = 16;
-  repeated CounterWithTag vector_ingress_size = 6;
-  repeated CounterWithTag vector_ingress_size_v2 = 14;
-  repeated CounterWithTag vector_egress_size = 7;
+  repeated CounterWithComponent storage_egress_by_component = 9;
+  repeated CounterWithTag database_ingress = 4;
+  repeated CounterWithTag database_ingress_v2 = 11;
+  repeated CounterWithTag database_egress = 5;
+  repeated CounterWithTag database_egress_v2 = 16;
+  repeated CounterWithTag vector_ingress = 6;
+  repeated CounterWithTag vector_ingress_v2 = 14;
+  repeated CounterWithTag vector_egress = 7;
   repeated CounterWithTag database_egress_rows = 10;
-  repeated CounterWithTag text_ingress_size = 12;
-  repeated CounterWithTag text_egress_size = 13;
-  repeated CounterWithUrl fetch_egress_size = 15;
+  repeated CounterWithTag text_ingress = 12;
+  repeated CounterWithTag text_egress = 13;
+  repeated CounterWithUrl fetch_egress = 15;
 }
 
 message CounterWithTag {

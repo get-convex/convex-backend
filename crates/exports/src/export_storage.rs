@@ -150,7 +150,7 @@ pub(crate) async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
                 )
                 .await;
             usage
-                .track_storage_egress_size(
+                .track_storage_egress(
                     component_path.clone(),
                     requestor.usage_tag().to_string(),
                     file_stream.content_length as u64,

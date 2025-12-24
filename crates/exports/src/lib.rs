@@ -256,7 +256,7 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
         if is_ambiguous {
             generated_schema.insert(doc.value(), doc.developer_id());
         }
-        usage.track_database_egress_size(
+        usage.track_database_egress(
             component_path.clone(),
             table_name.to_string(),
             doc.size() as u64,
