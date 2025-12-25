@@ -1552,6 +1552,9 @@ importers:
       '@convex-dev/design-system':
         specifier: workspace:*
         version: link:../@convex-dev/design-system
+      '@monaco-editor/react':
+        specifier: 4.7.0
+        version: 4.7.0(monaco-editor@0.40.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-icons':
         specifier: ~1.3.0
         version: 1.3.2(react@18.3.1)
@@ -1561,6 +1564,12 @@ importers:
       dashboard-common:
         specifier: workspace:*
         version: link:../dashboard-common
+      monaco-editor:
+        specifier: 0.40.0
+        version: 0.40.0
+      monaco-editor-webpack-plugin:
+        specifier: ~7.1.1
+        version: 7.1.1(monaco-editor@0.40.0)(webpack@5.102.1)
       next:
         specifier: ^15.5.9
         version: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
@@ -18618,6 +18627,12 @@ packages:
 
   moment@2.30.1:
     resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
+
+  monaco-editor-webpack-plugin@7.1.1:
+    resolution: {integrity: sha512-WxdbFHS3Wtz4V9hzhe/Xog5hQRSMxmDLkEEYZwqMDHgJlkZo00HVFZR0j5d0nKypjTUkkygH3dDSXERLG4757A==}
+    peerDependencies:
+      monaco-editor: '>= 0.31.0'
+      webpack: ^4.5.0 || 5.x
 
   monaco-editor@0.40.0:
     resolution: {integrity: sha512-1wymccLEuFSMBvCk/jT1YDW/GuxMLYwnFwF9CDyYCxoTw2Pt379J3FUhwy9c43j51JdcxVPjwk0jm0EVDsBS2g==}
@@ -44136,6 +44151,12 @@ snapshots:
       moment: 2.30.1
 
   moment@2.30.1: {}
+
+  monaco-editor-webpack-plugin@7.1.1(monaco-editor@0.40.0)(webpack@5.102.1):
+    dependencies:
+      loader-utils: 2.0.4
+      monaco-editor: 0.40.0
+      webpack: 5.102.1
 
   monaco-editor@0.40.0: {}
 

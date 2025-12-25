@@ -395,6 +395,13 @@ npx convex import --replace-all <path-to-export-file>
   random identifier plus the version of the backend in use. You may opt out of
   the beacon by setting the environment variable `DISABLE_BEACON` to `true`.
 
+## Dashboard optional configuration
+
+- The dashboard uses the **monaco-editor** npm package for all the editor-like
+  elements. By default, monaco loads it's core from a CDN. You could configure
+  it to load internally by setting the `NEXT_PUBLIC_LOAD_MONACO_INTERNALLY`
+  environment variable to `true`
+
 ## Running the dashboard locally
 
 From the `npm-packages/dashboard-self-hosted` directory, run:
