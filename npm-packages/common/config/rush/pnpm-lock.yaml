@@ -230,8 +230,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@8.57.1)
       eslint-plugin-better-tailwindcss:
-        specifier: ^3.4.4
-        version: 3.7.10(eslint@8.57.1)(tailwindcss@4.1.17)
+        specifier: ^3.8.0
+        version: 3.8.0(eslint@8.57.1)(tailwindcss@4.1.17)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.32.0(eslint@8.57.1)
@@ -280,9 +280,6 @@ importers:
       '@typescript-eslint/utils':
         specifier: ~8.49.0
         version: 8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
-      convex:
-        specifier: ^1.31.0
-        version: 1.31.0(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
     devDependencies:
       '@eslint/js':
         specifier: ~9.39.0
@@ -296,6 +293,9 @@ importers:
       '@typescript-eslint/rule-tester':
         specifier: ~8.38.0
         version: 8.38.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
       eslint:
         specifier: ^9.37.0
         version: 9.39.1(jiti@2.6.1)
@@ -1150,8 +1150,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@8.57.1)
       eslint-plugin-better-tailwindcss:
-        specifier: ^3.4.4
-        version: 3.7.10(eslint@8.57.1)(tailwindcss@4.1.17)
+        specifier: ^3.8.0
+        version: 3.8.0(eslint@8.57.1)(tailwindcss@4.1.17)
       eslint-plugin-boundaries:
         specifier: ~5.0.1
         version: 5.0.2(eslint@8.57.1)
@@ -1478,8 +1478,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@8.57.1(supports-color@10.2.2))
       eslint-plugin-better-tailwindcss:
-        specifier: ^3.4.4
-        version: 3.7.10(eslint@8.57.1(supports-color@10.2.2))(tailwindcss@4.1.17)
+        specifier: ^3.8.0
+        version: 3.8.0(eslint@8.57.1(supports-color@10.2.2))(tailwindcss@4.1.17)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.32.0(eslint@8.57.1(supports-color@10.2.2))
@@ -1614,8 +1614,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@8.57.1)
       eslint-plugin-better-tailwindcss:
-        specifier: ^3.4.4
-        version: 3.7.10(eslint@8.57.1)(tailwindcss@4.1.17)
+        specifier: ^3.8.0
+        version: 3.8.0(eslint@8.57.1)(tailwindcss@4.1.17)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.32.0(eslint@8.57.1)
@@ -1705,8 +1705,8 @@ importers:
         specifier: ~8.2.2
         version: 8.2.2
       eslint-plugin-better-tailwindcss:
-        specifier: ^3.4.4
-        version: 3.7.10(eslint@9.39.1(jiti@2.6.1))(tailwindcss@4.1.17)
+        specifier: ^3.8.0
+        version: 3.8.0(eslint@9.39.1(jiti@2.6.1))(tailwindcss@4.1.17)
       http-server:
         specifier: ^14.1.1
         version: 14.1.1
@@ -8260,8 +8260,8 @@ packages:
     resolution: {integrity: sha512-yL/sLrpmtDaFEiUj1osRP4TI2MDz1AddJL+jZ7KSqvBuliN4xqYY54IfdN8qD8Toa6g1iloph1fxQNkjOxrrpQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@eslint/css-tree@3.6.6':
-    resolution: {integrity: sha512-C3YiJMY9OZyZ/3vEMFWJIesdGaRY6DmIYvmtyxMT934CbrOKqRs+Iw7NWSRlJQEaK4dPYy2lZ2y1zkaj8z0p5A==}
+  '@eslint/css-tree@3.6.8':
+    resolution: {integrity: sha512-s0f40zY7dlMp8i0Jf0u6l/aSswS0WRAgkhgETgiCJRcxIWb4S/Sp9uScKHWbkM3BnoFLbJbmOYk5AZUDFVxaLA==}
     engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
 
   '@eslint/eslintrc@2.1.4':
@@ -13769,22 +13769,6 @@ packages:
       react-dom:
         optional: true
 
-  convex@1.31.0:
-    resolution: {integrity: sha512-ht3dtpWQmxX62T8PT3p/5PDlRzSW5p2IDTP4exKjQ5dqmvhtn1wLFakJAX4CCeu1s0Ch0dKY5g2dk/wETTRAOw==}
-    engines: {node: '>=18.0.0', npm: '>=7.0.0'}
-    hasBin: true
-    peerDependencies:
-      '@auth0/auth0-react': ^2.0.1
-      '@clerk/clerk-react': ^4.12.8 || ^5.0.0
-      react: ^18.0.0 || ^19.0.0-0 || ^19.0.0
-    peerDependenciesMeta:
-      '@auth0/auth0-react':
-        optional: true
-      '@clerk/clerk-react':
-        optional: true
-      react:
-        optional: true
-
   convex@file:../../convex:
     resolution: {directory: ../../convex, type: directory}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
@@ -15029,8 +15013,8 @@ packages:
       eslint:
         optional: true
 
-  eslint-plugin-better-tailwindcss@3.7.10:
-    resolution: {integrity: sha512-a6Hif4A9lPJZwpoMir2WVs1ZL4IK6fzwbZvVhQQchoqqg3BycL+ZGLHGIuqKBqwnZgOC6olwmu0sDzM3uSkEFw==}
+  eslint-plugin-better-tailwindcss@3.8.0:
+    resolution: {integrity: sha512-bRJVOb47d3ONK4Qb6Zt58ra37E8rMCexWy7RuNgLQZS/Ch92oLRFBupa/s+FB1O9XRdph9ZMCXBiEFKc4gAGTQ==}
     engines: {node: ^20.11.0 || >=21.2.0}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
@@ -27952,7 +27936,7 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
 
-  '@eslint/css-tree@3.6.6':
+  '@eslint/css-tree@3.6.8':
     dependencies:
       mdn-data: 2.23.0
       source-map-js: 1.2.1
@@ -36376,15 +36360,6 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  convex@1.31.0(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3):
-    dependencies:
-      esbuild: 0.25.4
-      prettier: 3.6.2
-    optionalDependencies:
-      '@auth0/auth0-react': 2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@clerk/clerk-react': 5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react: 19.2.3
-
   convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3):
     dependencies:
       esbuild: 0.25.4
@@ -38171,9 +38146,9 @@ snapshots:
     optionalDependencies:
       eslint: 9.39.1(jiti@2.6.1)
 
-  eslint-plugin-better-tailwindcss@3.7.10(eslint@8.57.1(supports-color@10.2.2))(tailwindcss@4.1.17):
+  eslint-plugin-better-tailwindcss@3.8.0(eslint@8.57.1(supports-color@10.2.2))(tailwindcss@4.1.17):
     dependencies:
-      '@eslint/css-tree': 3.6.6
+      '@eslint/css-tree': 3.6.8
       enhanced-resolve: 5.18.3
       eslint: 8.57.1(supports-color@10.2.2)
       jiti: 2.6.1
@@ -38184,9 +38159,9 @@ snapshots:
       tailwindcss: 4.1.17
       tsconfig-paths-webpack-plugin: 4.2.0
 
-  eslint-plugin-better-tailwindcss@3.7.10(eslint@8.57.1)(tailwindcss@4.1.17):
+  eslint-plugin-better-tailwindcss@3.8.0(eslint@8.57.1)(tailwindcss@4.1.17):
     dependencies:
-      '@eslint/css-tree': 3.6.6
+      '@eslint/css-tree': 3.6.8
       enhanced-resolve: 5.18.3
       eslint: 8.57.1
       jiti: 2.6.1
@@ -38197,9 +38172,9 @@ snapshots:
       tailwindcss: 4.1.17
       tsconfig-paths-webpack-plugin: 4.2.0
 
-  eslint-plugin-better-tailwindcss@3.7.10(eslint@9.39.1(jiti@2.6.1))(tailwindcss@4.1.17):
+  eslint-plugin-better-tailwindcss@3.8.0(eslint@9.39.1(jiti@2.6.1))(tailwindcss@4.1.17):
     dependencies:
-      '@eslint/css-tree': 3.6.6
+      '@eslint/css-tree': 3.6.8
       enhanced-resolve: 5.18.3
       eslint: 9.39.1(jiti@2.6.1)
       jiti: 2.6.1
