@@ -112,7 +112,7 @@ pub struct SchedulerInfo {
     pub job_id: String,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 pub struct FunctionConcurrencyStats {
     pub num_running: u64,
     pub num_queued: u64,

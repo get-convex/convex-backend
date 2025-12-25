@@ -24,6 +24,7 @@ use common::{
         Timestamp,
         WriteTimestamp,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
 use imbl::OrdMap;
@@ -85,7 +86,10 @@ pub struct SnapshotManager {
 pub struct TableSummaries {
     pub tables: OrdMap<TabletId, TableSummary>,
     pub num_user_documents: u64,
-    pub user_size: u64,
+    /// Size of user documents in user tables
+    pub user_tables_size: u64,
+    /// Size of user documents in user tables and virtual tables
+    pub user_docs_size: u64,
 }
 
 #[async_trait]
@@ -109,14 +113,15 @@ impl TableSummaries {
     pub fn new(
         TableSummarySnapshot { tables, ts: _ }: TableSummarySnapshot,
         table_mapping: &TableMapping,
-    ) -> Self {
+        virtual_table_mapping: &VirtualSystemMapping,
+    ) -> anyhow::Result<Self> {
         // Filter out non-existent tables before counting. Otherwise is_system_table
         // will return false and count non-existent tables toward user document counts.
         let tables: OrdMap<TabletId, TableSummary> = tables
             .into_iter()
             .filter(|(table_id, _table_summary)| table_mapping.tablet_id_exists(*table_id))
             .collect::<OrdMap<_, _>>();
-        let (num_user_documents, user_size) = tables
+        let (num_user_documents, user_tables_size) = tables
             .iter()
             .filter(|(table_id, _summary)| !table_mapping.is_system_tablet(**table_id))
             .fold((0, 0), |(acc_docs, acc_size), (_, summary)| {
@@ -125,11 +130,22 @@ impl TableSummaries {
                     acc_size + summary.total_size(),
                 )
             });
-        Self {
+        let user_docs_size = tables.iter().try_fold(0, |acc_size, (table_id, summary)| {
+            let is_system_table = table_mapping.is_system_tablet(*table_id);
+            let has_virtual_table =
+                virtual_table_mapping.has_virtual_table(&table_mapping.tablet_name(*table_id)?);
+            anyhow::Ok(if has_virtual_table || !is_system_table {
+                acc_size + summary.total_size()
+            } else {
+                acc_size
+            })
+        })?;
+        Ok(Self {
             tables,
             num_user_documents,
-            user_size,
-        }
+            user_tables_size,
+            user_docs_size,
+        })
     }
 
     pub fn tablet_summary(&self, table: &TabletId) -> TableSummary {
@@ -146,6 +162,7 @@ impl TableSummaries {
         new: Option<&ResolvedDocument>,
         table_update: Option<&TableUpdate>,
         table_mapping: &TableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> anyhow::Result<()> {
         let mut table_summary = self
             .tables
@@ -193,11 +210,19 @@ impl TableSummaries {
         let new_info_total_size = table_summary.total_size();
         match self.tables.insert(document_id.tablet_id, table_summary) {
             Some(old_summary) => {
-                if !table_mapping.is_system_tablet(document_id.tablet_id) {
+                let is_system_table = table_mapping.is_system_tablet(document_id.tablet_id);
+                if !is_system_table {
                     self.num_user_documents =
                         self.num_user_documents + new_info_num_values - old_summary.num_values();
-                    self.user_size =
-                        self.user_size + new_info_total_size - old_summary.total_size();
+                    self.user_tables_size =
+                        self.user_tables_size + new_info_total_size - old_summary.total_size();
+                }
+                if virtual_system_mapping
+                    .has_virtual_table(&table_mapping.tablet_name(document_id.tablet_id)?)
+                    || !is_system_table
+                {
+                    self.user_docs_size =
+                        self.user_docs_size + new_info_total_size - old_summary.total_size();
                 }
             },
             None => panic!("Applying update for non-existent table!"),
@@ -214,6 +239,7 @@ pub struct Snapshot {
     pub table_summaries: Option<TableSummaries>,
     pub index_registry: IndexRegistry,
     pub in_memory_indexes: BackendInMemoryIndexes,
+    pub virtual_system_mapping: VirtualSystemMapping,
     pub text_indexes: TextIndexManager,
     pub vector_indexes: VectorIndexManager,
 }
@@ -261,6 +287,7 @@ impl Snapshot {
                         insertion,
                         table_update.as_ref(),
                         self.table_registry.table_mapping(),
+                        &self.virtual_system_mapping,
                     )
                     .context("Table summaries update failed")?;
             };
@@ -549,12 +576,17 @@ impl SnapshotManager {
         &mut self,
         table_summary: TableSummarySnapshot,
         pending_writes: &mut PendingWrites,
-    ) {
+    ) -> anyhow::Result<()> {
         let (_ts, snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         let table_mapping = snapshot.table_mapping();
-        let table_summaries = TableSummaries::new(table_summary, table_mapping);
+        let table_summaries = TableSummaries::new(
+            table_summary,
+            table_mapping,
+            &snapshot.virtual_system_mapping,
+        )?;
         snapshot.table_summaries = Some(table_summaries);
         pending_writes.recompute_pending_snapshots(snapshot.clone());
+        Ok(())
     }
 
     /// Overwrites the in-memory indexes for the latest snapshot.

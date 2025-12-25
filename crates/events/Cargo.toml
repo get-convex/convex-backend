@@ -25,6 +25,7 @@ parking_lot = { workspace = true, optional = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 serde = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }

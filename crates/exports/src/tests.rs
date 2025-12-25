@@ -201,9 +201,9 @@ async fn test_export_zip(rt: TestRuntime) -> anyhow::Result<()> {
 
     let usage = usage.gather_user_stats();
     let component_path = ComponentPath::test_user();
-    assert!(usage.database_egress_size[&(component_path.clone(), "table_0".to_string())] > 0);
-    assert!(usage.database_egress_size[&(component_path.clone(), "table_1".to_string())] > 0);
-    assert!(usage.database_egress_size[&(component_path, "table_2".to_string())] > 0);
+    assert!(usage.database_egress[&(component_path.clone(), "table_0".to_string())] > 0);
+    assert!(usage.database_egress[&(component_path.clone(), "table_1".to_string())] > 0);
+    assert!(usage.database_egress[&(component_path, "table_2".to_string())] > 0);
 
     Ok(())
 }
@@ -295,7 +295,7 @@ async fn test_export_storage(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(zip_entries, expected_export_entries);
 
     let usage = usage.gather_user_stats();
-    assert!(usage.database_egress_size.is_empty());
+    assert!(usage.database_egress.is_empty());
 
     Ok(())
 }

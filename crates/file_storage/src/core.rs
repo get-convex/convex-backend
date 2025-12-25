@@ -350,7 +350,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
                 let bytes_size = bytes.len() as u64;
                 log_get_file_chunk_size(bytes_size, get_file_type);
                 storage_call_tracker
-                    .track_storage_egress_size(
+                    .track_storage_egress(
                         component_path.clone(),
                         "get_range".to_string(),
                         bytes_size,
@@ -500,7 +500,7 @@ impl<RT: Runtime> FileStorage<RT> {
                 sha256,
             )
             .await
-            .track_storage_ingress_size(component_path, "store".to_string(), size as u64)
+            .track_storage_ingress(component_path, "store".to_string(), size as u64)
             .await;
         Ok(virtual_id)
     }

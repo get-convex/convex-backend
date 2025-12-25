@@ -585,58 +585,31 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
                     let start_time = now - bucket_width;
 
-                    // Query gauges for all function types
-                    let query = Self::get_concurrency_stats(
-                        &metrics,
-                        ModuleEnvironment::Isolate,
-                        UdfType::Query,
-                        start_time,
-                        now,
-                    );
-                    let mutation = Self::get_concurrency_stats(
-                        &metrics,
-                        ModuleEnvironment::Isolate,
-                        UdfType::Mutation,
-                        start_time,
-                        now,
-                    );
-                    let action = Self::get_concurrency_stats(
-                        &metrics,
-                        ModuleEnvironment::Isolate,
-                        UdfType::Action,
-                        start_time,
-                        now,
-                    );
-                    let node_action = Self::get_concurrency_stats(
-                        &metrics,
-                        ModuleEnvironment::Node,
-                        UdfType::Action,
-                        start_time,
-                        now,
-                    );
-                    let http_action = Self::get_concurrency_stats(
-                        &metrics,
-                        ModuleEnvironment::Isolate,
-                        UdfType::HttpAction,
-                        start_time,
-                        now,
-                    );
+                    // Get stats for current and previous buckets
+                    let current_stats =
+                        Self::query_all_concurrency_stats(&metrics, start_time, now);
+                    let prev_start_time = start_time - bucket_width;
+                    let previous_stats =
+                        Self::query_all_concurrency_stats(&metrics, prev_start_time, start_time);
 
-                    // Send event with timestamp matching the start of the bucket we queried
-                    let event = LogEvent {
-                        timestamp: UnixTimestamp::from_system_time(start_time)
-                            .unwrap_or_else(|| UnixTimestamp::from_system_time(now).unwrap()),
-                        event: StructuredLogEvent::ConcurrencyStats {
-                            query,
-                            mutation,
-                            action,
-                            node_action,
-                            http_action,
-                        },
-                    };
+                    // Only send event if stats have changed
+                    if current_stats != previous_stats {
+                        let (query, mutation, action, node_action, http_action) = current_stats;
+                        let event = LogEvent {
+                            timestamp: UnixTimestamp::from_system_time(start_time)
+                                .unwrap_or_else(|| UnixTimestamp::from_system_time(now).unwrap()),
+                            event: StructuredLogEvent::ConcurrencyStats {
+                                query,
+                                mutation,
+                                action,
+                                node_action,
+                                http_action,
+                            },
+                        };
 
-                    let inner = inner_for_task.lock();
-                    inner.log_manager.send_logs(vec![event]);
+                        let inner = inner_for_task.lock();
+                        inner.log_manager.send_logs(vec![event]);
+                    }
                 }
             },
         )));
@@ -1600,6 +1573,59 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 now,
             ),
         }
+    }
+
+    /// Query concurrency stats for all function types within a time window.
+    /// Returns a tuple of (query, mutation, action, node_action, http_action)
+    /// stats.
+    fn query_all_concurrency_stats(
+        metrics: &MetricStore,
+        start_time: SystemTime,
+        end_time: SystemTime,
+    ) -> (
+        FunctionConcurrencyStats,
+        FunctionConcurrencyStats,
+        FunctionConcurrencyStats,
+        FunctionConcurrencyStats,
+        FunctionConcurrencyStats,
+    ) {
+        (
+            Self::get_concurrency_stats(
+                metrics,
+                ModuleEnvironment::Isolate,
+                UdfType::Query,
+                start_time,
+                end_time,
+            ),
+            Self::get_concurrency_stats(
+                metrics,
+                ModuleEnvironment::Isolate,
+                UdfType::Mutation,
+                start_time,
+                end_time,
+            ),
+            Self::get_concurrency_stats(
+                metrics,
+                ModuleEnvironment::Isolate,
+                UdfType::Action,
+                start_time,
+                end_time,
+            ),
+            Self::get_concurrency_stats(
+                metrics,
+                ModuleEnvironment::Node,
+                UdfType::Action,
+                start_time,
+                end_time,
+            ),
+            Self::get_concurrency_stats(
+                metrics,
+                ModuleEnvironment::Isolate,
+                UdfType::HttpAction,
+                start_time,
+                end_time,
+            ),
+        )
     }
 
     pub fn scheduled_job_lag(&self, window: MetricsWindow) -> anyhow::Result<Timeseries> {

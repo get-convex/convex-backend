@@ -146,7 +146,7 @@ async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(zip_entries, expected_export_entries);
 
     let usage = usage.gather_user_stats();
-    assert!(usage.database_egress_size[&(component_path, "messages".to_string())] > 0);
+    assert!(usage.database_egress[&(component_path, "messages".to_string())] > 0);
     Ok(())
 }
 
@@ -201,6 +201,6 @@ async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()>
     assert_eq!(zip_entries, expected_export_entries);
 
     let usage = usage.gather_user_stats();
-    assert!(usage.database_egress_size[&("component".parse()?, "messages".to_string())] > 0);
+    assert!(usage.database_egress[&("component".parse()?, "messages".to_string())] > 0);
     Ok(())
 }

@@ -44,6 +44,10 @@ import { z } from "zod";
 import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
 
+if (process.env.NEXT_PUBLIC_LOAD_MONACO_INTERNALLY === "true") {
+  import("../lib/monacoInternalLoader").then((a) => a).catch(console.error);
+}
+
 // Context for self-hosted dashboard sidebar settings
 const SelfHostedSettingsContext = createContext<{
   visiblePages?: string[];

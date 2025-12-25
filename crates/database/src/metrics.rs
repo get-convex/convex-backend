@@ -14,6 +14,7 @@ use metrics::{
     log_counter_with_labels,
     log_distribution,
     log_distribution_with_labels,
+    log_gauge,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
@@ -36,10 +37,18 @@ use crate::{
 
 register_convex_histogram!(
     DOCUMENTS_SIZE_BYTES,
-    "Total size of document store in bytes"
+    "Total size of documents in user tables in bytes"
 );
-pub fn log_document_store_size(total_size: u64) {
+pub fn log_user_table_documents_size(total_size: u64) {
     log_distribution(&DOCUMENTS_SIZE_BYTES, total_size as f64);
+}
+
+register_convex_gauge!(
+    USER_DOCUMENTS_SIZE_BYTES,
+    "Total size of user documents including virtual tables in bytes"
+);
+pub fn log_user_documents_size(total_size: u64) {
+    log_gauge(&USER_DOCUMENTS_SIZE_BYTES, total_size as f64);
 }
 
 register_convex_histogram!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");

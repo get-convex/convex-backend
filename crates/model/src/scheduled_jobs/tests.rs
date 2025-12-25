@@ -42,8 +42,8 @@ async fn scheduled_job_writes_counted_in_db_bandwidth(rt: TestRuntime) -> anyhow
     let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
     // Check that database ingress size is non-zero
     let stats = write_to_table_and_get_stats(&db, &SCHEDULED_JOBS_TABLE).await?;
-    assert_eq!(stats.database_ingress_size.values().sum::<u64>(), 0);
-    assert_ne!(stats.database_ingress_size_v2.values().sum::<u64>(), 0);
+    assert_eq!(stats.database_ingress.values().sum::<u64>(), 0);
+    assert_ne!(stats.database_ingress_v2.values().sum::<u64>(), 0);
     Ok(())
 }
 
@@ -52,8 +52,8 @@ async fn file_storage_writes_counted_in_db_bandwidth(rt: TestRuntime) -> anyhow:
     let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
     // Check that database ingress size is non-zero
     let stats = write_to_table_and_get_stats(&db, &FILE_STORAGE_TABLE).await?;
-    assert_eq!(stats.database_ingress_size.values().sum::<u64>(), 0);
-    assert_ne!(stats.database_ingress_size_v2.values().sum::<u64>(), 0);
+    assert_eq!(stats.database_ingress.values().sum::<u64>(), 0);
+    assert_ne!(stats.database_ingress_v2.values().sum::<u64>(), 0);
     Ok(())
 }
 
@@ -62,7 +62,7 @@ async fn system_table_writes_do_not_count_in_db_bandwidth(rt: TestRuntime) -> an
     let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
     let stats = write_to_table_and_get_stats(&db, &SESSION_REQUESTS_TABLE).await?;
     // Check that database ingress size is zero
-    assert_eq!(stats.database_ingress_size.values().sum::<u64>(), 0);
-    assert_eq!(stats.database_ingress_size_v2.values().sum::<u64>(), 0);
+    assert_eq!(stats.database_ingress.values().sum::<u64>(), 0);
+    assert_eq!(stats.database_ingress_v2.values().sum::<u64>(), 0);
     Ok(())
 }

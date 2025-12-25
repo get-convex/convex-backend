@@ -505,7 +505,7 @@ impl TransactionReadSet {
     ) -> anyhow::Result<()> {
         // Database bandwidth for document reads
         let is_system_table = table_name.is_system() && !is_virtual_table;
-        usage_tracker.track_database_egress_size(
+        usage_tracker.track_database_egress(
             component_path.clone(),
             table_name.to_string(),
             document_size as u64,

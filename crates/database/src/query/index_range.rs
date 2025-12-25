@@ -215,7 +215,7 @@ impl IndexRange {
 
             // Database bandwidth for index reads
             let component_path = tx.must_component_path(ComponentId::from(self.namespace))?;
-            tx.usage_tracker.track_database_egress_size(
+            tx.usage_tracker.track_database_egress(
                 component_path,
                 self.printable_index_name.table().to_string(),
                 index_bytes as u64,

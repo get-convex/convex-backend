@@ -120,5 +120,5 @@ fn incorrect_vector_filter_field_error(
     )
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct VectorIndexWriteSize(pub u64);

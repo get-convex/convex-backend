@@ -549,10 +549,12 @@ impl<RT: Runtime> Committer<RT> {
         if latest_ts != snapshot_manager.latest_ts() {
             panic!("Snapshots were changed concurrently during commit?");
         }
-        snapshot_manager.overwrite_last_snapshot_table_summary(
-            table_summary_snapshot,
-            &mut self.pending_writes,
-        );
+        if let Err(e) = snapshot_manager
+            .overwrite_last_snapshot_table_summary(table_summary_snapshot, &mut self.pending_writes)
+        {
+            let _ = result.send(Err(e));
+            return;
+        }
         tracing::info!("Bootstrapped table summaries at ts {}", latest_ts);
         let _ = result.send(Ok(()));
     }
@@ -871,7 +873,8 @@ impl<RT: Runtime> Committer<RT> {
 
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
             metrics::log_num_keys(table_summaries.num_user_documents);
-            metrics::log_document_store_size(table_summaries.user_size);
+            metrics::log_user_table_documents_size(table_summaries.user_tables_size);
+            metrics::log_user_documents_size(table_summaries.user_docs_size);
         }
 
         // Publish the new version of our database metadata and the index.
@@ -1031,7 +1034,7 @@ impl<RT: Runtime> Committer<RT> {
                 if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
-                    usage_tracker.track_database_ingress_size(
+                    usage_tracker.track_database_ingress(
                         component_path.clone(),
                         table_name.to_string(),
                         index_write.key.size() as u64,
@@ -1039,7 +1042,7 @@ impl<RT: Runtime> Committer<RT> {
                         // tables
                         table_name.is_system() || index_write.is_system_index,
                     );
-                    usage_tracker.track_database_ingress_size_v2(
+                    usage_tracker.track_database_ingress_v2(
                         component_path,
                         virtual_system_mapping
                             .system_to_virtual_table(&table_name)
@@ -1075,13 +1078,13 @@ impl<RT: Runtime> Committer<RT> {
                     .unwrap_or(ComponentPath::root());
                 if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Database bandwidth for document writes
-                    usage_tracker.track_database_ingress_size(
+                    usage_tracker.track_database_ingress(
                         component_path.clone().clone(),
                         table_name.to_string(),
                         document_write_size as u64,
                         table_name.is_system(),
                     );
-                    usage_tracker.track_database_ingress_size_v2(
+                    usage_tracker.track_database_ingress_v2(
                         component_path.clone(),
                         virtual_system_mapping
                             .system_to_virtual_table(&table_name)
@@ -1092,7 +1095,7 @@ impl<RT: Runtime> Committer<RT> {
                             && !virtual_system_mapping.has_virtual_table(&table_name),
                     );
                     if vector_index_write_size.0 > 0 {
-                        usage_tracker.track_vector_ingress_size(
+                        usage_tracker.track_vector_ingress(
                             component_path.clone(),
                             table_name.to_string(),
                             document_write_size as u64,
@@ -1101,16 +1104,8 @@ impl<RT: Runtime> Committer<RT> {
                         );
                     }
                     if text_index_write_size.0 > 0 {
-                        usage_tracker.track_text_ingress_size(
+                        usage_tracker.track_text_ingress(
                             component_path.clone(),
-                            table_name.to_string(),
-                            text_index_write_size.0,
-                            table_name.is_system(),
-                        );
-                    }
-                    if text_index_write_size.0 > 0 {
-                        usage_tracker.track_text_ingress_size(
-                            component_path,
                             table_name.to_string(),
                             text_index_write_size.0,
                             table_name.is_system(),

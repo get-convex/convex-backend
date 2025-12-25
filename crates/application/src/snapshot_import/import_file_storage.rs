@@ -199,7 +199,7 @@ pub async fn import_storage_table<RT: Runtime>(
             )
             .await;
         usage
-            .track_storage_ingress_size(
+            .track_storage_ingress(
                 component_path.clone(),
                 requestor.usage_tag().to_string(),
                 file_size,

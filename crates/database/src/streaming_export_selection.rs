@@ -102,6 +102,7 @@ use value::{
     ConvexObject,
     DeveloperDocumentId,
     FieldName,
+    Size,
     TableName,
 };
 
@@ -341,6 +342,10 @@ impl StreamingExportDocument {
         );
 
         Ok(Self { id, value })
+    }
+
+    pub fn size(&self) -> usize {
+        self.value.0.size()
     }
 
     pub fn export_fields(

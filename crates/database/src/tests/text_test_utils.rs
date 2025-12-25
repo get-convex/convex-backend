@@ -43,6 +43,7 @@ use search::{
     searcher::InProcessSearcher,
     Searcher,
     SegmentTermMetadataFetcher,
+    TantivySearchIndexSchema,
     MAX_CANDIDATE_REVISIONS,
 };
 use storage::Storage;
@@ -268,11 +269,16 @@ impl TextFixtures {
         self.db.commit(tx).await?;
 
         let resolved_index_name = TabletIndexName::new(table_id, index_name.descriptor().clone())?;
+        let IndexConfig::Text { ref spec, .. } = index_metadata.config else {
+            anyhow::bail!("Not a text index?")
+        };
+        let tantivy_schema = TantivySearchIndexSchema::new(spec);
         Ok(TextIndexData {
             index_id,
             resolved_index_name,
             index_name: index_name.clone(),
             namespace: self.namespace,
+            tantivy_schema,
         })
     }
 
@@ -415,6 +421,7 @@ pub struct TextIndexData {
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,
     pub namespace: TableNamespace,
+    pub tantivy_schema: TantivySearchIndexSchema,
 }
 
 pub fn backfilling_text_index() -> anyhow::Result<IndexMetadata<TableName>> {

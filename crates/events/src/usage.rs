@@ -125,6 +125,8 @@ pub enum UsageEvent {
         ingress_v2: u64,
         egress: u64,
         egress_rows: u64,
+        // Includes egress for tables that have virtual tables
+        egress_v2: u64,
     },
     InsightReadLimit {
         id: String,
@@ -355,6 +357,39 @@ mod tests {
             "udf_id": "udf_id",
             "call": "call",
             "count": 10,
+        }})
+        .to_string();
+
+        assert_eq!(output, expected_output);
+    }
+
+    #[test]
+    fn test_database_bandwidth_serialization() {
+        let event = UsageEvent::DatabaseBandwidth {
+            id: "789".to_string(),
+            request_id: "req_123".to_string(),
+            component_path: Some("component/path".to_string()),
+            udf_id: "udf_id".to_string(),
+            table_name: "users".to_string(),
+            ingress: 100,
+            ingress_v2: 150,
+            egress: 200,
+            egress_rows: 5,
+            egress_v2: 250,
+        };
+
+        let output = serde_json::to_string(&event).unwrap();
+        let expected_output = json!({"DatabaseBandwidth": {
+            "id": "789",
+            "request_id": "req_123",
+            "component_path": "component/path",
+            "udf_id": "udf_id",
+            "table_name": "users",
+            "ingress": 100,
+            "ingress_v2": 150,
+            "egress": 200,
+            "egress_rows": 5,
+            "egress_v2": 250,
         }})
         .to_string();
 

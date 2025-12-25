@@ -3413,6 +3413,7 @@ dependencies = [
  "proptest-derive",
  "serde",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]

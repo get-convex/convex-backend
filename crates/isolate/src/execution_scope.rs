@@ -51,6 +51,7 @@ use value::heap_size::HeapSize;
 use crate::{
     array_buffer_allocator::ArrayBufferMemoryLimit,
     bundled_js::system_udf_file,
+    context_local_state::GetContextSlot,
     environment::{
         IsolateEnvironment,
         ModuleCodeCacheResult,
@@ -155,7 +156,7 @@ impl PendingDynamicImports {
 /// struct that represents executing code within a [`RequestScope`].
 pub struct ExecutionScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
     v8_scope: &'a mut v8::PinScope<'s, 'i>,
-    _v8_context: v8::Local<'s, v8::Context>,
+    v8_context: v8::Local<'s, v8::Context>,
     _pd: PhantomData<(RT, E)>,
 }
 
@@ -182,7 +183,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
         let v8_context = v8_scope.get_current_context();
         Self {
             v8_scope,
-            _v8_context: v8_context,
+            v8_context,
             _pd: PhantomData,
         }
     }
@@ -194,16 +195,16 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
     }
 
     pub fn state(&mut self) -> anyhow::Result<&RequestState<RT, E>> {
-        self.v8_scope
-            .get_slot()
+        self.v8_context
+            .get_context_slot(self.v8_scope)
             .ok_or_else(|| anyhow!("ContextState disappeared?"))
     }
 
     // TODO: Delete this method and use with_state_mut everywhere instead in
     // order to make it impossible to hold state across await points.
     pub fn state_mut(&mut self) -> anyhow::Result<&mut RequestState<RT, E>> {
-        self.v8_scope
-            .get_slot_mut()
+        self.v8_context
+            .get_context_slot_mut(self.v8_scope)
             .ok_or_else(|| anyhow!("ContextState disappeared?"))
     }
 
@@ -234,33 +235,35 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
     }
 
     pub fn module_map(&mut self) -> &ModuleMap {
-        self.v8_scope.get_slot().expect("ModuleMap disappeared?")
+        self.v8_context
+            .get_context_slot(self.v8_scope)
+            .expect("ModuleMap disappeared?")
     }
 
     pub fn module_map_mut(&mut self) -> &mut ModuleMap {
-        self.v8_scope
-            .get_slot_mut()
+        self.v8_context
+            .get_context_slot_mut(self.v8_scope)
             .expect("ModuleMap disappeared?")
     }
 
     #[allow(unused)]
     pub fn pending_unhandled_promise_rejections(&mut self) -> &PendingUnhandledPromiseRejections {
-        self.v8_scope
-            .get_slot_mut()
+        self.v8_context
+            .get_context_slot_mut(self.v8_scope)
             .expect("No PendingUnhandledPromiseRejections found")
     }
 
     pub fn pending_unhandled_promise_rejections_mut(
         &mut self,
     ) -> &mut PendingUnhandledPromiseRejections {
-        self.v8_scope
-            .get_slot_mut()
+        self.v8_context
+            .get_context_slot_mut(self.v8_scope)
             .expect("No PendingUnhandledPromiseRejections found")
     }
 
     pub fn pending_dynamic_imports_mut(&mut self) -> &mut PendingDynamicImports {
-        self.v8_scope
-            .get_slot_mut()
+        self.v8_context
+            .get_context_slot_mut(self.v8_scope)
             .expect("No PendingDynamicImports found")
     }
 
