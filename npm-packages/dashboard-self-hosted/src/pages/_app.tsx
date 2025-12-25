@@ -24,7 +24,6 @@ import React, {
   createContext,
 } from "react";
 import { useMultiSession } from "lib/useMultiSession";
-import { migrateToMultiSession } from "lib/migrateToMultiSession";
 import { SessionSwitcher } from "components/SessionSwitcher";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { DeploymentDashboardLayout } from "@common/layouts/DeploymentDashboardLayout";
@@ -279,10 +278,6 @@ function DeploymentInfoProvider({
   adminKey: string | null;
   defaultListDeploymentsApiUrl: string | null;
 }) {
-  // Run migration on mount
-  useEffect(() => {
-    migrateToMultiSession();
-  }, []);
 
   const {
     sessions,
