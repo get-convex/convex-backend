@@ -1,4 +1,3 @@
-/* eslint-disable */
 import fs from "fs/promises";
 import path from "path";
 
@@ -7,7 +6,7 @@ async function findPackageJson(directory) {
   try {
     await fs.access(packagePath);
     return packagePath;
-  } catch (error) {
+  } catch {
     const parentDir = path.dirname(directory);
     if (parentDir === directory) {
       throw new Error("package.json not found");

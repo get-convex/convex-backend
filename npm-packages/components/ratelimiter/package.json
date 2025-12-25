@@ -5,7 +5,6 @@
   "scripts": {
     "build": "tsc --project ./tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
     "dev": "convex dev --typecheck-components",
     "codegen": "convex codegen --component-dir ./src/component",
     "prepare": "npm run build",
@@ -45,13 +44,10 @@
     }
   },
   "devDependencies": {
-    "@convex-dev/eslint-plugin": "workspace:*",
-    "@eslint/js": "~9.39.0",
     "@types/node": "^18.17.0",
     "convex-test": "^0.0.38",
     "prettier": "3.6.2",
     "typescript": "~5.0.3",
-    "typescript-eslint": "~8.38.0",
     "vite": "^6.4.1"
   },
   "types": "./dist/client/index.d.ts",

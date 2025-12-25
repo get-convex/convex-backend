@@ -32,7 +32,7 @@ export const rateLimit = mutation({
       const { ts, value } = status;
       const existing = await getExisting(ctx.db, args.name, args.key);
       if (existing) {
-        await ctx.db.patch(existing._id, { ts, value });
+        await ctx.db.patch("rateLimits", existing._id, { ts, value });
       } else {
         const { name, key } = args;
         await ctx.db.insert("rateLimits", {
@@ -68,7 +68,7 @@ export const resetRateLimit = mutation({
   handler: async (ctx, args) => {
     const existing = await getExisting(ctx.db, args.name, args.key);
     if (existing) {
-      await ctx.db.delete(existing._id);
+      await ctx.db.delete("rateLimits", existing._id);
     }
   },
 });

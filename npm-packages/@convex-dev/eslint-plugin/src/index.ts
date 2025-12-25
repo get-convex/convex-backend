@@ -34,7 +34,6 @@ const isESM = typeof require === "undefined" || isBun;
 const plugin = {
   // loose types so this can work with ESlint 8 and 9
   configs: {} as {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recommended: any;
   },
   meta: {
