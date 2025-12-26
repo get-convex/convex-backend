@@ -43,6 +43,7 @@ Steps:
 
    ℹ️ (Optional): If you would like to separete api and http domains follow
    steps below:
+
    - Select `convex-backend` service
    - Select Settings tab and scroll to `Public Networking` section
    - Hover on the domain and click on edit or delete buttons
@@ -56,6 +57,7 @@ Steps:
 
    Follow [these](https://blog.railway.com/p/ssh#how-to-ssh-on-railway)
    instructions to setup railway SSH on your machine
+
    - Link your convex deployment project
    - Run `railway ssh` and select `convex-backend` when prompted
    - Run `ls` and then `./generate_admin_key.sh`
