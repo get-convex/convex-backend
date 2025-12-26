@@ -113,17 +113,17 @@ e.g., instead of setting `CONVEX_DEPLOY_KEY`, you'll need to set
 
 ## Advanced Configuration
 
-[Running the binary directly](./advanced/running_binary_directly.md)
-[Hosting on fly.io](./advanced/fly/README.md)
-[Hosting on Railway.com](./advanced/railway/README.md)
-[Hosting on your own servers](./advanced/hosting_on_own_infra.md)
-[Running the database on Postgres or MySQL](./advanced/postgres_or_mysql.md)
-[Storing files in S3 instead of local filesystem](./advanced/s3_storage.md)
-[Running the dashboard locally](./advanced/dashboard.md)
-[Disabling logging features](./advanced/disabling_logging.md)
-[Upgrading Convex self-hosted version](./advanced/upgrading.md)
-[Benchmarking](./advanced/benchmarking.md)
-[Advanced tuning with knobs](./advanced/knobs.md)
+- [Running the binary directly](./advanced/running_binary_directly.md)
+- [Hosting on fly.io](./advanced/fly/README.md)
+- [Hosting on Railway.com](./advanced/railway/README.md)
+- [Hosting on your own servers](./advanced/hosting_on_own_infra.md)
+- [Running the database on Postgres or MySQL](./advanced/postgres_or_mysql.md)
+- [Storing files in S3 instead of local filesystem](./advanced/s3_storage.md)
+- [Running the dashboard locally](./advanced/dashboard.md)
+- [Disabling logging features](./advanced/disabling_logging.md)
+- [Upgrading Convex self-hosted version](./advanced/upgrading.md)
+- [Benchmarking](./advanced/benchmarking.md)
+- [Advanced tuning with knobs](./advanced/knobs.md)
 
 # Limitations
 
