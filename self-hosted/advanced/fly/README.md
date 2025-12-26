@@ -1,5 +1,8 @@
 # Self-hosting Convex with [Fly.io](https://fly.io/)
 
+We include `fly.toml` files to make it easy to deploy your backend to
+[Fly.io](https://fly.io/).
+
 ## Setup
 
 Copy the
