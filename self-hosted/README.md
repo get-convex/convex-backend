@@ -24,8 +24,8 @@ application without worrying about infrastructure.
 Self-hosting Convex requires deploying three services:
 
 1. The Convex backend
-1. The Convex dashboard
-1. Your frontend app, which you can either host yourself or on a managed service
+2. The Convex dashboard
+3. Your frontend app, which you can either host yourself or on a managed service
    like Netlify or Vercel.
 
 # Self-hosting Convex
