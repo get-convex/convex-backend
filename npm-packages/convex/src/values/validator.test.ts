@@ -159,6 +159,38 @@ describe("invalid validators fail when constructed obviously wrongly", () => {
         v.literal({} as any);
       }).toThrow();
     });
+
+    test("v.literal includes correct literalType", () => {
+      const intLiteral = v.literal(1);
+      expect(intLiteral.json).toMatchObject({
+        type: "literal",
+        literalType: "Int64",
+      });
+
+      const floatLiteral = v.literal(1.5);
+      expect(floatLiteral.json).toMatchObject({
+        type: "literal",
+        literalType: "Float64",
+      });
+
+      const stringLiteral = v.literal("hello");
+      expect(stringLiteral.json).toMatchObject({
+        type: "literal",
+        literalType: "String",
+      });
+
+      const boolLiteral = v.literal(true);
+      expect(boolLiteral.json).toMatchObject({
+        type: "literal",
+        literalType: "Boolean",
+      });
+
+      const bigintLiteral = v.literal(BigInt(42));
+      expect(bigintLiteral.json).toMatchObject({
+        type: "literal",
+        literalType: "Int64",
+      });
+    });
   });
 
   test("v.object", () => {
