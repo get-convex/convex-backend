@@ -1495,6 +1495,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     };
                     let outcome =
                         ValidatedActionOutcome::new(outcome, returns_validator, &table_mapping);
+
+                    // Track all node actions egress under a single "url". If users want better
+                    // breakdowns, they have to use v8 actions.
+                    tx.usage_tracker
+                        .track_fetch_egress("node_actions".to_string(), node_outcome.egress_bytes);
+
                     ActionCompletion {
                         outcome,
                         execution_time: start.elapsed(),

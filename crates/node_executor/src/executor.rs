@@ -310,6 +310,7 @@ impl<RT: Runtime> Actions<RT> {
             syscall_trace,
             // This shouldn't ever be None, but we'll use the default 512MB as a fallback.
             memory_used_in_mb: execute_result.memory_allocated_mb.unwrap_or(512),
+            egress_bytes: execute_result.egress_bytes.unwrap_or(0),
         })
     }
 
@@ -738,6 +739,7 @@ pub struct NodeActionOutcome {
     pub result: Result<ConvexValue, JsError>,
     pub syscall_trace: SyscallTrace,
     pub memory_used_in_mb: u64,
+    pub egress_bytes: u64,
 }
 
 fn duration_from_millis_float(t: f64) -> Duration {
