@@ -773,6 +773,22 @@ impl TryFrom<JsonValue> for LiteralValidator {
     type Error = anyhow::Error;
 
     fn try_from(v: JsonValue) -> anyhow::Result<Self> {
+        // Handle the special case where Int64 literals are serialized as an object
+        // with __convexBigIntLiteral marker to avoid conflicts with $integer in jsonToConvex
+        if let JsonValue::Object(ref obj) = v {
+            if obj.len() == 1 && obj.contains_key("__convexBigIntLiteral") {
+                if let Some(JsonValue::String(s)) = obj.get("__convexBigIntLiteral") {
+                    let i = s.parse::<i64>().context(ErrorMetadata::bad_request(
+                        "InvalidBigIntLiteral",
+                        format!("Failed to parse bigint literal: {}", s),
+                    ))?;
+                    return Ok(LiteralValidator::Int64(i));
+                }
+            }
+        }
+        
+        // Fallback to standard ConvexValue deserialization for backward compatibility
+        // and other literal types
         let value: ConvexValue = v.try_into()?;
         value.try_into()
     }
@@ -791,7 +807,14 @@ impl TryFrom<LiteralValidator> for JsonValue {
                 ))?;
                 JsonValue::Number(n)
             },
-            LiteralValidator::Int64(i) => JsonValue::from(ConvexValue::Int64(i)),
+            LiteralValidator::Int64(i) => {
+                // Use a special marker object instead of ConvexValue::Int64 serialization
+                // to avoid conflicts with $integer field validation in jsonToConvex.
+                // The $integer format is reserved for Convex values, not validator metadata.
+                let mut obj = serde_json::Map::new();
+                obj.insert("__convexBigIntLiteral".to_string(), JsonValue::String(i.to_string()));
+                JsonValue::Object(obj)
+            },
             LiteralValidator::Boolean(b) => JsonValue::Bool(b),
             LiteralValidator::String(s) => JsonValue::String(s.to_string()),
         };
@@ -878,4 +901,38 @@ mod tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn test_bigint_literal_serialization() -> anyhow::Result<()> {
+        // Test that BigInt literals serialize with __convexBigIntLiteral marker
+        // instead of $integer to avoid conflicts with jsonToConvex validation
+        let validator = LiteralValidator::Int64(42);
+        let json_value = JsonValue::try_from(validator.clone())?;
+        
+        // Should serialize as an object with __convexBigIntLiteral
+        assert_eq!(
+            json_value,
+            json!({"__convexBigIntLiteral": "42"})
+        );
+        
+        // Should deserialize back to the same value
+        let deserialized = LiteralValidator::try_from(json_value)?;
+        assert_eq!(deserialized, validator);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_bigint_literal_backward_compatibility() -> anyhow::Result<()> {
+        // Test that old format with $integer still deserializes correctly
+        // for backward compatibility
+        let old_format = json!({"$integer": "AQAAAAAAAAA="});
+        let validator = LiteralValidator::try_from(old_format)?;
+        
+        // Should deserialize to BigInt(1)
+        assert_eq!(validator, LiteralValidator::Int64(1));
+        
+        Ok(())
+    }
 }
+
