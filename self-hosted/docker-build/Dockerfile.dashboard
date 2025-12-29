@@ -1,5 +1,22 @@
 # syntax=docker/dockerfile:1-labs
-FROM node:18 AS build
+FROM ubuntu:noble AS build
+
+# Install deps
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates build-essential
+
+# Install Node.js from NodeSource repository
+# We extract the version from .nvmrc
+COPY .nvmrc /nvmrc
+RUN <<EOF
+# Extract major version (e.g., "18" from "18.x.x")
+NODE_MAJOR=$(cat /nvmrc | cut -d. -f1 | tr -d 'v\n')
+# Add NodeSource repository and its signing key
+curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash -
+# Install the specific version listed in the nvmrc file
+NODE_VERSION=$(cat /nvmrc | tr -d 'v\n')
+apt-get install -y --no-install-recommends nodejs=${NODE_VERSION}-1nodesource1
+EOF
+
 RUN --mount=type=cache,target=/root/.npm npm install -g @microsoft/rush@5
 WORKDIR /app
 COPY ./npm-packages ./npm-packages
@@ -10,9 +27,24 @@ ENV NODE_ENV=production
 RUN rush build -t dashboard-self-hosted
 RUN rush-pnpm deploy --legacy --filter=dashboard-self-hosted --prod /tmp/deploy
 
-FROM node:18-alpine
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+FROM ubuntu:noble
+
+# Install Node.js from NodeSource repository
+# We extract the version from .nvmrc
+COPY .nvmrc /nvmrc
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+RUN <<EOF
+# Extract major version (e.g., "18" from "18.x.x")
+NODE_MAJOR=$(cat /nvmrc | cut -d. -f1 | tr -d 'v\n')
+# Add NodeSource repository and its signing key
+curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash -
+# Install the specific version listed in the nvmrc file
+NODE_VERSION=$(cat /nvmrc | tr -d 'v\n')
+apt-get install -y --no-install-recommends nodejs=${NODE_VERSION}-1nodesource1
+EOF
+
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 --gid nodejs nextjs
 COPY --from=build --chown=nextjs:nodejs /tmp/deploy/ /app/
 WORKDIR /app
 RUN cp /app/.next/standalone/server.js .
