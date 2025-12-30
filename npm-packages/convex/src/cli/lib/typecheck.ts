@@ -47,11 +47,15 @@ export async function typeCheckFunctionsInMode(
   ctx: Context,
   typeCheckMode: TypeCheckMode,
   functionsDir: string,
+  typescriptCompilerOverride?: TypescriptCompiler,
 ): Promise<void> {
   if (typeCheckMode === "disable") {
     return;
   }
-  const typescriptCompiler = await resolveTypescriptCompiler(ctx);
+  const typescriptCompiler = await resolveTypescriptCompiler(
+    ctx,
+    typescriptCompilerOverride,
+  );
   await typeCheckFunctions(
     ctx,
     typescriptCompiler,

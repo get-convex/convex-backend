@@ -1,6 +1,7 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { OneoffCtx } from "../../bundler/context.js";
 import { LogMode } from "./logs.js";
+import { TypescriptCompiler } from "./typecheck.js";
 import {
   CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
@@ -49,6 +50,7 @@ declare module "@commander-js/extra-typings" {
         yes?: boolean;
         typecheck: "enable" | "try" | "disable";
         typecheckComponents: boolean;
+        typescriptCompiler?: TypescriptCompiler;
         codegen: "enable" | "disable";
         cmd?: string;
         cmdUrlEnvVarName?: string;
@@ -82,6 +84,7 @@ declare module "@commander-js/extra-typings" {
         identity?: string;
         typecheck: "enable" | "try" | "disable";
         typecheckComponents: boolean;
+        typescriptCompiler?: TypescriptCompiler;
         codegen: "enable" | "disable";
         component?: string;
         liveComponentSources?: boolean;
@@ -203,6 +206,7 @@ export async function normalizeDevOptions(
     verbose?: boolean;
     typecheck: "enable" | "try" | "disable";
     typecheckComponents?: boolean;
+    typescriptCompiler?: TypescriptCompiler;
     codegen: "enable" | "disable";
     once?: boolean;
     untilSuccess: boolean;
@@ -220,6 +224,7 @@ export async function normalizeDevOptions(
   verbose: boolean;
   typecheck: "enable" | "try" | "disable";
   typecheckComponents: boolean;
+  typescriptCompiler?: TypescriptCompiler | undefined;
   codegen: boolean;
   once: boolean;
   untilSuccess: boolean;
@@ -260,6 +265,7 @@ export async function normalizeDevOptions(
     verbose: !!cmdOptions.verbose,
     typecheck: cmdOptions.typecheck,
     typecheckComponents: !!cmdOptions.typecheckComponents,
+    typescriptCompiler: cmdOptions.typescriptCompiler,
     codegen: cmdOptions.codegen === "enable",
     once: !!cmdOptions.once,
     untilSuccess: cmdOptions.untilSuccess,
@@ -306,6 +312,12 @@ Command.prototype.addDeployOptions = function () {
       "--typecheck-components",
       "Check TypeScript files within component implementations with `tsc --noEmit`.",
       false,
+    )
+    .addOption(
+      new Option(
+        "--typescript-compiler <compiler>",
+        "TypeScript compiler to use for typechecking. Requires `@typescript/native-preview` to be installed for `tsgo`.",
+      ).choices(["tsc", "tsgo"] as const),
     )
     .addOption(
       new Option(
@@ -384,6 +396,12 @@ Command.prototype.addRunOptions = function () {
         "--typecheck-components",
         "Check TypeScript files within component implementations with `tsc --noEmit`.",
         false,
+      )
+      .addOption(
+        new Option(
+          "--typescript-compiler <compiler>",
+          "TypeScript compiler to use for typechecking. Requires `@typescript/native-preview` to be installed for `tsgo`.",
+        ).choices(["tsc", "tsgo"] as const),
       )
       .addOption(
         new Option(

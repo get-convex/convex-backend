@@ -39,7 +39,11 @@ import {
   AppDefinitionConfig,
   ComponentDefinitionConfig,
 } from "./deployApi/definitionConfig.js";
-import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
+import {
+  typeCheckFunctionsInMode,
+  TypeCheckMode,
+  TypescriptCompiler,
+} from "./typecheck.js";
 import { withTmpDir } from "../../bundler/fs.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import { chalkStderr } from "chalk";
@@ -63,6 +67,7 @@ export type PushOptions = {
   dryRun: boolean;
   typecheck: "enable" | "try" | "disable";
   typecheckComponents: boolean;
+  typescriptCompiler?: TypescriptCompiler | undefined;
   debug: boolean;
   debugBundlePath?: string | undefined;
   debugNodeApis: boolean;
@@ -439,6 +444,7 @@ async function startComponentsPushAndCodegen(
         ctx,
         options.typecheck,
         rootComponent.path,
+        options.typescriptCompiler,
       );
     }
     if (options.typecheckComponents) {
@@ -448,6 +454,7 @@ async function startComponentsPushAndCodegen(
             ctx,
             options.typecheck,
             directory.path,
+            options.typescriptCompiler,
           );
         }
       }
@@ -460,7 +467,12 @@ async function startComponentsPushAndCodegen(
         ) {
           continue;
         }
-        await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
+        await typeCheckFunctionsInMode(
+          ctx,
+          options.typecheck,
+          directory.path,
+          options.typescriptCompiler,
+        );
       }
     }
   });

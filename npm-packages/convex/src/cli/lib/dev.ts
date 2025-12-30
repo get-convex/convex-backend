@@ -14,6 +14,7 @@ import { performance } from "perf_hooks";
 import path from "path";
 import { LogManager, LogMode, watchLogs } from "./logs.js";
 import { PushOptions } from "./components.js";
+import { TypescriptCompiler } from "./typecheck.js";
 import {
   formatDuration,
   getCurrentTimeString,
@@ -36,6 +37,7 @@ export async function devAgainstDeployment(
     verbose: boolean;
     typecheck: "enable" | "try" | "disable";
     typecheckComponents: boolean;
+    typescriptCompiler?: TypescriptCompiler | undefined;
     codegen: boolean;
     once: boolean;
     untilSuccess: boolean;
@@ -71,13 +73,14 @@ export async function devAgainstDeployment(
         dryRun: false,
         typecheck: devOptions.typecheck,
         typecheckComponents: devOptions.typecheckComponents,
+        typescriptCompiler: devOptions.typescriptCompiler,
         debug: false,
         debugBundlePath: devOptions.debugBundlePath,
         debugNodeApis: devOptions.debugNodeApis,
         codegen: devOptions.codegen,
         liveComponentSources: devOptions.liveComponentSources,
         logManager, // Pass logManager to control logs during deploy
-        largeIndexDeletionCheck: "no verification", // `convex dev` can’t push to prod
+        largeIndexDeletionCheck: "no verification", // `convex dev` can't push to prod
       },
       devOptions,
     ),

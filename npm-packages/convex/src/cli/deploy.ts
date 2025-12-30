@@ -190,6 +190,7 @@ async function deployToNewPreviewDeployment(
     verbose?: boolean | undefined;
     typecheck: "enable" | "try" | "disable";
     typecheckComponents: boolean;
+    typescriptCompiler?: "tsc" | "tsgo" | undefined;
     codegen: "enable" | "disable";
 
     debug?: boolean | undefined;
@@ -251,6 +252,7 @@ async function deployToNewPreviewDeployment(
     dryRun: false,
     typecheck: options.typecheck,
     typecheckComponents: options.typecheckComponents,
+    typescriptCompiler: options.typescriptCompiler,
     debug: !!options.debug,
     debugBundlePath: options.debugBundlePath,
     debugNodeApis: false,

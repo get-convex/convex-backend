@@ -39,6 +39,12 @@ export const dev = new Command("dev")
     false,
   )
   .addOption(
+    new Option(
+      "--typescript-compiler <compiler>",
+      "TypeScript compiler to use for typechecking. Requires `@typescript/native-preview` to be installed for `tsgo`.",
+    ).choices(["tsc", "tsgo"] as const),
+  )
+  .addOption(
     new Option("--codegen <mode>", "Regenerate code in `convex/_generated/`")
       .choices(["enable", "disable"] as const)
       .default("enable" as const),
