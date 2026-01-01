@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "convex": "workspace:*",
-    "@convex-dev/resend": "^0.1.12"
+    "@convex-dev/resend": "^0.2.0"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
