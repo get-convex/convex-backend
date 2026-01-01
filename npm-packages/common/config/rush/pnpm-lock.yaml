@@ -1153,8 +1153,8 @@ importers:
         specifier: ^3.8.0
         version: 3.8.0(eslint@8.57.1)(tailwindcss@4.1.17)
       eslint-plugin-boundaries:
-        specifier: ~5.0.1
-        version: 5.0.2(eslint@8.57.1)
+        specifier: ~5.3.0
+        version: 5.3.1(eslint@8.57.1)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.32.0(eslint@8.57.1)
@@ -6870,6 +6870,10 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@boundaries/elements@1.1.2':
+    resolution: {integrity: sha512-DnGHL+v36YVMoWhWZqyJYVZ9dapNm7h4N3/P0lDPirJj0CHVPkjChMCCotj74cg6LW7iPJZFGrdEfh0X0g2bmQ==}
+    engines: {node: '>=18.18'}
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
@@ -15191,8 +15195,8 @@ packages:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
       tailwindcss: ^3.3.0 || ^4.1.6
 
-  eslint-plugin-boundaries@5.0.2:
-    resolution: {integrity: sha512-fF1TuWffQw3KnTvhFCKB5om00BgzUxQ2HISitTCB1tcMJuoWfHYndO/QmaXK5Nm8elT4CTTg4ZSTwSNJmvbpXw==}
+  eslint-plugin-boundaries@5.3.1:
+    resolution: {integrity: sha512-91StsOYtDyrna1fyRJ+1Ps5CnrfyFLbdCouPZ3E/o2cllLxJke3OoScdqjpBSl7pNEYbojhpNlurQAr30sf9Bg==}
     engines: {node: '>=18.18'}
     peerDependencies:
       eslint: '>=6.0.0'
@@ -26279,6 +26283,16 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@bcoe/v8-coverage@0.2.3': {}
+
+  '@boundaries/elements@1.1.2(eslint@8.57.1)':
+    dependencies:
+      eslint-import-resolver-node: 0.3.9
+      eslint-module-utils: 2.12.1(eslint@8.57.1)
+      handlebars: 4.7.8
+      is-core-module: 2.16.1
+      micromatch: 4.0.8
+    transitivePeerDependencies:
+      - eslint
 
   '@cfworker/json-schema@4.1.1': {}
 
@@ -38484,8 +38498,9 @@ snapshots:
       tailwindcss: 4.1.17
       tsconfig-paths-webpack-plugin: 4.2.0
 
-  eslint-plugin-boundaries@5.0.2(eslint@8.57.1):
+  eslint-plugin-boundaries@5.3.1(eslint@8.57.1):
     dependencies:
+      '@boundaries/elements': 1.1.2(eslint@8.57.1)
       chalk: 4.1.2
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
