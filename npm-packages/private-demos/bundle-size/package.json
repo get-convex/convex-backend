@@ -22,7 +22,7 @@
     "typescript": "~5.0.3",
     "ts-loader": "9.3.1",
     "vite": "^6.4.1",
-    "esbuild": "0.25.4",
+    "esbuild": "0.27.0",
     "webpack-cli": "4.10.0",
     "webpack": "^5.99.9"
   }

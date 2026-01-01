@@ -239,7 +239,7 @@
     "Most CLI tool dependencies go in devDependencies instead because the CLI is distributed bundled."
   ],
   "dependencies": {
-    "esbuild": "0.25.4",
+    "esbuild": "0.27.0",
     "prettier": "^3.0.0"
   },
   "peerDependencies": {
@@ -296,7 +296,7 @@
     "depcheck": "~1.4.7",
     "detect-port": "^2.1.0",
     "dotenv": "^16.4.7",
-    "esbuild": "0.25.4",
+    "esbuild": "0.27.0",
     "esbuild-plugin-external-global": "~1.0.1",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.0.0",
