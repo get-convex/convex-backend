@@ -27,7 +27,7 @@
     "@types/object-inspect": "^1.8.1",
     "@types/lodash": "~4.17.0",
     "@types/node": "^18.17.0",
-    "convex-test": "^0.0.38",
+    "convex-test": "^0.0.41",
     "typescript": "~5.0.3",
     "typescript-eslint": "^8.45.0",
     "vitest": "^3.2.4"

@@ -565,8 +565,8 @@ importers:
         specifier: ^18.17.0
         version: 18.19.130
       convex-test:
-        specifier: ^0.0.38
-        version: 0.0.38(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3))
+        specifier: ^0.0.41
+        version: 0.0.41(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3))
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -1819,8 +1819,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       convex-test:
-        specifier: ^0.0.38
-        version: 0.0.38(convex@..+convex)
+        specifier: ^0.0.41
+        version: 0.0.41(convex@..+convex)
       globals:
         specifier: ~16.5.0
         version: 16.5.0
@@ -5633,8 +5633,8 @@ importers:
         specifier: ^1.8.1
         version: 1.13.0
       convex-test:
-        specifier: ^0.0.38
-        version: 0.0.38(convex@..+convex)
+        specifier: ^0.0.41
+        version: 0.0.41(convex@..+convex)
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5738,8 +5738,8 @@ importers:
         specifier: ^7.3.13
         version: 7.7.1
       convex-test:
-        specifier: ^0.0.38
-        version: 0.0.38(convex@..+convex)
+        specifier: ^0.0.41
+        version: 0.0.41(convex@..+convex)
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
@@ -13729,9 +13729,9 @@ packages:
       zod:
         optional: true
 
-  convex-test@0.0.38:
-    resolution: {integrity: sha512-1o/3GvUR9gMLjiqq7SxchI/0OYQaWwbQC4INmB1SNt1WLBjUgEM8+brgpqrZwJ+Vb1DdGZokCVeihwT5IPk49w==}
-    version: 0.0.38
+  convex-test@0.0.41:
+    resolution: {integrity: sha512-GPHeYFOi70n7UtW0eCEQFVhzl/+m8PvbWkDCbKpHLybI1MrScf4sVpGeM0cC2qmtxiduxa2nLPbehPalhh9oyQ==}
+    version: 0.0.41
     peerDependencies:
       convex: ^1.16.4
 
@@ -36337,11 +36337,11 @@ snapshots:
       typescript: 5.9.3
       zod: 4.1.12
 
-  convex-test@0.0.38(convex@..+convex):
+  convex-test@0.0.41(convex@..+convex):
     dependencies:
       convex: link:../../convex
 
-  convex-test@0.0.38(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)):
+  convex-test@0.0.41(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)):
     dependencies:
       convex: file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/clerk-react@5.55.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
 
