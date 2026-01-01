@@ -44,7 +44,7 @@
   "devDependencies": {
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/eslint-plugin": "workspace:*",
-    "@eslint/compat": "~1.4.0",
+    "@eslint/compat": "~2.0.0",
     "@eslint/eslintrc": "^3",
     "@eslint/js": "~9.39.0",
     "@tanstack/eslint-plugin-query": "^5.74.7",

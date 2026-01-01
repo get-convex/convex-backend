@@ -349,8 +349,8 @@ importers:
         specifier: workspace:*
         version: link:../eslint-plugin
       '@eslint/compat':
-        specifier: ~1.4.0
-        version: 1.4.1(eslint@9.39.1(jiti@2.6.1))
+        specifier: ~2.0.0
+        version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.1
@@ -618,8 +618,8 @@ importers:
         specifier: ^11.1.0
         version: 11.1.0(commander@11.1.0)
       '@eslint/compat':
-        specifier: ~1.4.0
-        version: 1.4.1(eslint@9.39.1(jiti@2.6.1))
+        specifier: ~2.0.0
+        version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
       '@eslint/eslintrc':
         specifier: ~3.3.0
         version: 3.3.1
@@ -1181,7 +1181,7 @@ importers:
         version: 1.16.0
       next-router-mock:
         specifier: ~1.0.0
-        version: 1.0.4(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react@18.3.1)
+        version: 1.0.4(next@15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react@18.3.1)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1301,7 +1301,7 @@ importers:
         version: 0.40.0
       next:
         specifier: ^15.5.9
-        version: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+        version: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1398,7 +1398,7 @@ importers:
         version: 29.6.3
       '@storybook/nextjs':
         specifier: ^10.0.8
-        version: 10.0.8(@swc/core@1.15.1)(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(type-fest@4.41.0)(typescript@5.9.3)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.102.1(@swc/core@1.15.1)))(webpack-hot-middleware@2.26.1)(webpack@5.102.1(@swc/core@1.15.1))
+        version: 10.0.8(@swc/core@1.15.1)(next@15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(type-fest@4.41.0)(typescript@5.9.3)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.102.1(@swc/core@1.15.1)))(webpack-hot-middleware@2.26.1)(webpack@5.102.1(@swc/core@1.15.1))
       '@tailwindcss/forms':
         specifier: ^0.5.10
         version: 0.5.10(tailwindcss@4.1.17)
@@ -1425,7 +1425,7 @@ importers:
         version: 4.17.20
       '@types/next':
         specifier: ~9.0.0
-        version: 9.0.0(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+        version: 9.0.0(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.130
@@ -1506,7 +1506,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.2.2)
       next-router-mock:
         specifier: ~1.0.0
-        version: 1.0.4(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react@18.3.1)
+        version: 1.0.4(next@15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react@18.3.1)
       postcss:
         specifier: ^8.4.19
         version: 8.5.6
@@ -1554,7 +1554,7 @@ importers:
         version: 7.1.1(monaco-editor@0.40.0)(webpack@5.102.1)
       next:
         specifier: ^15.5.9
-        version: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+        version: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2137,7 +2137,7 @@ importers:
         version: link:../../convex
       next:
         specifier: ^15.5.9
-        version: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+        version: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -2210,7 +2210,7 @@ importers:
         version: link:../../convex
       next:
         specifier: ^15.5.9
-        version: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+        version: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -3396,8 +3396,8 @@ importers:
         specifier: workspace:*
         version: link:../@convex-dev/eslint-plugin
       '@eslint/compat':
-        specifier: ~1.4.0
-        version: 1.4.1(eslint@9.39.1(jiti@2.6.1))
+        specifier: ~2.0.0
+        version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.1
@@ -4301,7 +4301,7 @@ importers:
         version: link:../../convex
       next:
         specifier: ^15.5.9
-        version: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+        version: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -4612,8 +4612,8 @@ importers:
         specifier: workspace:*
         version: link:../../@convex-dev/eslint-plugin
       '@eslint/compat':
-        specifier: ~1.4.0
-        version: 1.4.1(eslint@9.39.1(jiti@2.6.1))
+        specifier: ~2.0.0
+        version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.1
@@ -4685,8 +4685,8 @@ importers:
         specifier: ^5.20.0
         version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@eslint/compat':
-        specifier: ~1.4.0
-        version: 1.4.1(eslint@9.39.1(jiti@2.6.1))
+        specifier: ~2.0.0
+        version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.1
@@ -4761,8 +4761,8 @@ importers:
         specifier: ^5.20.0
         version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@eslint/compat':
-        specifier: ~1.4.0
-        version: 1.4.1(eslint@9.39.1(jiti@2.6.1))
+        specifier: ~2.0.0
+        version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.1
@@ -8239,9 +8239,9 @@ packages:
     resolution: {integrity: sha512-EriSTlt5OC9/7SXkRSCAhfSxxoSUgBm33OH+IkwbdpgoqsSsUg7y3uh+IICI/Qg4BBWr3U2i39RpmycbxMq4ew==}
     engines: {node: ^12.0.0 || ^14.0.0 || >=16.0.0}
 
-  '@eslint/compat@1.4.1':
-    resolution: {integrity: sha512-cfO82V9zxxGBxcQDr1lfaYB7wykTa0b00mGa36FrJl7iTFd0Z2cHfEYuxcBRP/iNijCsWsEkA+jzT8hGYmv33w==}
-    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+  '@eslint/compat@2.0.0':
+    resolution: {integrity: sha512-T9AfE1G1uv4wwq94ozgTGio5EUQBqAVe1X9qsQtSNVEYW6j3hvtZVm8Smr4qL1qDPFg+lOB2cL5RxTRMzq4CTA==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
     peerDependencies:
       eslint: ^8.40 || 9
     peerDependenciesMeta:
@@ -8259,6 +8259,10 @@ packages:
   '@eslint/core@0.17.0':
     resolution: {integrity: sha512-yL/sLrpmtDaFEiUj1osRP4TI2MDz1AddJL+jZ7KSqvBuliN4xqYY54IfdN8qD8Toa6g1iloph1fxQNkjOxrrpQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@eslint/core@1.0.0':
+    resolution: {integrity: sha512-PRfWP+8FOldvbApr6xL7mNCw4cJcSTq4GA7tYbgq15mRb0kWKO/wEB2jr+uwjFH3sZvEZneZyCUGTxsv4Sahyw==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
   '@eslint/css-tree@3.6.8':
     resolution: {integrity: sha512-s0f40zY7dlMp8i0Jf0u6l/aSswS0WRAgkhgETgiCJRcxIWb4S/Sp9uScKHWbkM3BnoFLbJbmOYk5AZUDFVxaLA==}
@@ -27914,9 +27918,9 @@ snapshots:
 
   '@eslint-community/regexpp@4.12.2': {}
 
-  '@eslint/compat@1.4.1(eslint@9.39.1(jiti@2.6.1))':
+  '@eslint/compat@2.0.0(eslint@9.39.1(jiti@2.6.1))':
     dependencies:
-      '@eslint/core': 0.17.0
+      '@eslint/core': 1.0.0
     optionalDependencies:
       eslint: 9.39.1(jiti@2.6.1)
 
@@ -27933,6 +27937,10 @@ snapshots:
       '@eslint/core': 0.17.0
 
   '@eslint/core@0.17.0':
+    dependencies:
+      '@types/json-schema': 7.0.15
+
+  '@eslint/core@1.0.0':
     dependencies:
       '@types/json-schema': 7.0.15
 
@@ -30869,6 +30877,66 @@ snapshots:
       - webpack-hot-middleware
       - webpack-plugin-serve
 
+  '@storybook/nextjs@10.0.8(@swc/core@1.15.1)(next@15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(type-fest@4.41.0)(typescript@5.9.3)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.102.1(@swc/core@1.15.1)))(webpack-hot-middleware@2.26.1)(webpack@5.102.1(@swc/core@1.15.1))':
+    dependencies:
+      '@babel/core': 7.28.5(supports-color@10.2.2)
+      '@babel/plugin-syntax-bigint': 7.8.3(@babel/core@7.28.5(supports-color@10.2.2))
+      '@babel/plugin-syntax-dynamic-import': 7.8.3(@babel/core@7.28.5(supports-color@10.2.2))
+      '@babel/plugin-syntax-import-assertions': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))
+      '@babel/plugin-transform-class-properties': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
+      '@babel/plugin-transform-export-namespace-from': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))
+      '@babel/plugin-transform-numeric-separator': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))
+      '@babel/plugin-transform-object-rest-spread': 7.28.4(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
+      '@babel/plugin-transform-runtime': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
+      '@babel/preset-env': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
+      '@babel/preset-react': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
+      '@babel/preset-typescript': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
+      '@babel/runtime': 7.28.4
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.102.1(@swc/core@1.15.1)))(webpack-hot-middleware@2.26.1)(webpack@5.102.1(@swc/core@1.15.1))
+      '@storybook/builder-webpack5': 10.0.8(@swc/core@1.15.1)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
+      '@storybook/preset-react-webpack': 10.0.8(@swc/core@1.15.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(typescript@5.9.3)
+      '@storybook/react': 10.0.8(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
+      '@types/semver': 7.7.1
+      babel-loader: 9.2.1(@babel/core@7.28.5(supports-color@10.2.2))(webpack@5.102.1(@swc/core@1.15.1))
+      css-loader: 6.11.0(webpack@5.102.1(@swc/core@1.15.1))
+      image-size: 2.0.2
+      loader-utils: 3.3.1
+      next: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+      node-polyfill-webpack-plugin: 2.0.1(webpack@5.102.1(@swc/core@1.15.1))
+      postcss: 8.5.6
+      postcss-loader: 8.2.0(postcss@8.5.6)(typescript@5.9.3)(webpack@5.102.1(@swc/core@1.15.1))
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      react-refresh: 0.14.2
+      resolve-url-loader: 5.0.0
+      sass-loader: 16.0.6(sass@1.94.0)(webpack@5.102.1(@swc/core@1.15.1))
+      semver: 7.7.3
+      storybook: 10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      style-loader: 3.3.4(webpack@5.102.1(@swc/core@1.15.1))
+      styled-jsx: 5.1.7(@babel/core@7.28.5(supports-color@10.2.2))(react@18.3.1)
+      tsconfig-paths: 4.2.0
+      tsconfig-paths-webpack-plugin: 4.2.0
+    optionalDependencies:
+      typescript: 5.9.3
+      webpack: 5.102.1(@swc/core@1.15.1)
+    transitivePeerDependencies:
+      - '@rspack/core'
+      - '@swc/core'
+      - '@types/webpack'
+      - babel-plugin-macros
+      - esbuild
+      - node-sass
+      - sass
+      - sass-embedded
+      - sockjs-client
+      - supports-color
+      - type-fest
+      - uglify-js
+      - webpack-cli
+      - webpack-dev-server
+      - webpack-hot-middleware
+      - webpack-plugin-serve
+
   '@storybook/nextjs@10.0.8(@swc/core@1.15.1)(next@15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(type-fest@4.41.0)(typescript@5.9.3)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.102.1(@swc/core@1.15.1)))(webpack-hot-middleware@2.26.1)(webpack@5.102.1(@swc/core@1.15.1))':
     dependencies:
       '@babel/core': 7.28.5
@@ -30906,66 +30974,6 @@ snapshots:
       storybook: 10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       style-loader: 3.3.4(webpack@5.102.1(@swc/core@1.15.1))
       styled-jsx: 5.1.7(@babel/core@7.28.5)(react@18.3.1)
-      tsconfig-paths: 4.2.0
-      tsconfig-paths-webpack-plugin: 4.2.0
-    optionalDependencies:
-      typescript: 5.9.3
-      webpack: 5.102.1(@swc/core@1.15.1)
-    transitivePeerDependencies:
-      - '@rspack/core'
-      - '@swc/core'
-      - '@types/webpack'
-      - babel-plugin-macros
-      - esbuild
-      - node-sass
-      - sass
-      - sass-embedded
-      - sockjs-client
-      - supports-color
-      - type-fest
-      - uglify-js
-      - webpack-cli
-      - webpack-dev-server
-      - webpack-hot-middleware
-      - webpack-plugin-serve
-
-  '@storybook/nextjs@10.0.8(@swc/core@1.15.1)(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(type-fest@4.41.0)(typescript@5.9.3)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.102.1(@swc/core@1.15.1)))(webpack-hot-middleware@2.26.1)(webpack@5.102.1(@swc/core@1.15.1))':
-    dependencies:
-      '@babel/core': 7.28.5(supports-color@10.2.2)
-      '@babel/plugin-syntax-bigint': 7.8.3(@babel/core@7.28.5(supports-color@10.2.2))
-      '@babel/plugin-syntax-dynamic-import': 7.8.3(@babel/core@7.28.5(supports-color@10.2.2))
-      '@babel/plugin-syntax-import-assertions': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))
-      '@babel/plugin-transform-class-properties': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
-      '@babel/plugin-transform-export-namespace-from': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))
-      '@babel/plugin-transform-numeric-separator': 7.27.1(@babel/core@7.28.5(supports-color@10.2.2))
-      '@babel/plugin-transform-object-rest-spread': 7.28.4(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
-      '@babel/plugin-transform-runtime': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
-      '@babel/preset-env': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
-      '@babel/preset-react': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
-      '@babel/preset-typescript': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
-      '@babel/runtime': 7.28.4
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.102.1(@swc/core@1.15.1)))(webpack-hot-middleware@2.26.1)(webpack@5.102.1(@swc/core@1.15.1))
-      '@storybook/builder-webpack5': 10.0.8(@swc/core@1.15.1)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
-      '@storybook/preset-react-webpack': 10.0.8(@swc/core@1.15.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(typescript@5.9.3)
-      '@storybook/react': 10.0.8(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
-      '@types/semver': 7.7.1
-      babel-loader: 9.2.1(@babel/core@7.28.5(supports-color@10.2.2))(webpack@5.102.1(@swc/core@1.15.1))
-      css-loader: 6.11.0(webpack@5.102.1(@swc/core@1.15.1))
-      image-size: 2.0.2
-      loader-utils: 3.3.1
-      next: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
-      node-polyfill-webpack-plugin: 2.0.1(webpack@5.102.1(@swc/core@1.15.1))
-      postcss: 8.5.6
-      postcss-loader: 8.2.0(postcss@8.5.6)(typescript@5.9.3)(webpack@5.102.1(@swc/core@1.15.1))
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      react-refresh: 0.14.2
-      resolve-url-loader: 5.0.0
-      sass-loader: 16.0.6(sass@1.94.0)(webpack@5.102.1(@swc/core@1.15.1))
-      semver: 7.7.3
-      storybook: 10.0.8(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.6.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      style-loader: 3.3.4(webpack@5.102.1(@swc/core@1.15.1))
-      styled-jsx: 5.1.7(@babel/core@7.28.5(supports-color@10.2.2))(react@18.3.1)
       tsconfig-paths: 4.2.0
       tsconfig-paths-webpack-plugin: 4.2.0
     optionalDependencies:
@@ -32884,9 +32892,9 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/next@9.0.0(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)':
+  '@types/next@9.0.0(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)':
     dependencies:
-      next: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+      next: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
     transitivePeerDependencies:
       - '@babel/core'
       - '@opentelemetry/api'
@@ -44044,7 +44052,12 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  next-router-mock@1.0.4(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react@18.3.1):
+  next-router-mock@1.0.4(next@15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react@18.3.1):
+    dependencies:
+      next: 15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+      react: 18.3.1
+
+  next-router-mock@1.0.4(next@15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react@18.3.1):
     dependencies:
       next: 15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
       react: 18.3.1
@@ -44053,6 +44066,31 @@ snapshots:
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
+
+  next@15.5.9(@babel/core@7.28.5(supports-color@10.2.2))(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0):
+    dependencies:
+      '@next/env': 15.5.9
+      '@swc/helpers': 0.5.15
+      caniuse-lite: 1.0.30001754
+      postcss: 8.4.31
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      styled-jsx: 5.1.6(@babel/core@7.28.5(supports-color@10.2.2))(react@18.3.1)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 15.5.7
+      '@next/swc-darwin-x64': 15.5.7
+      '@next/swc-linux-arm64-gnu': 15.5.7
+      '@next/swc-linux-arm64-musl': 15.5.7
+      '@next/swc-linux-x64-gnu': 15.5.7
+      '@next/swc-linux-x64-musl': 15.5.7
+      '@next/swc-win32-arm64-msvc': 15.5.7
+      '@next/swc-win32-x64-msvc': 15.5.7
+      '@opentelemetry/api': 1.9.0
+      sass: 1.94.0
+      sharp: 0.34.5
+    transitivePeerDependencies:
+      - '@babel/core'
+      - babel-plugin-macros
 
   next@15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0):
     dependencies:
@@ -47960,6 +47998,13 @@ snapshots:
   style-to-object@1.0.12:
     dependencies:
       inline-style-parser: 0.2.6
+
+  styled-jsx@5.1.6(@babel/core@7.28.5(supports-color@10.2.2))(react@18.3.1):
+    dependencies:
+      client-only: 0.0.1
+      react: 18.3.1
+    optionalDependencies:
+      '@babel/core': 7.28.5(supports-color@10.2.2)
 
   styled-jsx@5.1.6(@babel/core@7.28.5)(react@18.3.1):
     dependencies:
