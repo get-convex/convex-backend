@@ -3423,8 +3423,8 @@ importers:
         specifier: ~7.2.0
         version: 7.2.0(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-jest:
-        specifier: ~29.0.0
-        version: 29.0.1(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@22.19.1)(typescript@5.9.3)))(typescript@5.9.3)
+        specifier: ~29.2.0
+        version: 29.2.3(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@22.19.1)(typescript@5.9.3)))(typescript@5.9.3)
       eslint-plugin-react:
         specifier: ^7.37.5
         version: 7.37.5(eslint@9.39.1(jiti@2.6.1))
@@ -4645,8 +4645,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-jest:
-        specifier: ~29.0.0
-        version: 29.0.1(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4)
+        specifier: ~29.2.0
+        version: 29.2.3(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4)
       eslint-plugin-react:
         specifier: ^7.37.5
         version: 7.37.5(eslint@9.39.1(jiti@2.6.1))
@@ -4718,8 +4718,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-jest:
-        specifier: ~29.0.0
-        version: 29.0.1(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4)
+        specifier: ~29.2.0
+        version: 29.2.3(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4)
       eslint-plugin-react:
         specifier: ^7.37.5
         version: 7.37.5(eslint@9.39.1(jiti@2.6.1))
@@ -4794,8 +4794,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-jest:
-        specifier: ~29.0.0
-        version: 29.0.1(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4)
+        specifier: ~29.2.0
+        version: 29.2.3(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4)
       eslint-plugin-react:
         specifier: ^7.37.5
         version: 7.37.5(eslint@9.39.1(jiti@2.6.1))
@@ -15061,8 +15061,8 @@ packages:
     peerDependencies:
       eslint: ^2 || ^3 || ^4 || ^5 || ^6 || ^7.2.0 || ^8 || ^9
 
-  eslint-plugin-jest@29.0.1:
-    resolution: {integrity: sha512-EE44T0OSMCeXhDrrdsbKAhprobKkPtJTbQz5yEktysNpHeDZTAL1SfDTNKmcFfJkY6yrQLtTKZALrD3j/Gpmiw==}
+  eslint-plugin-jest@29.2.3:
+    resolution: {integrity: sha512-YAoX9tJk8VSmBQEKQQCgbqpMj+uWQHgxLlRH+9COGldfmhtmen/f1FkrSsj51t4WPDbgAE1LIcjYPrOO7A6Bjw==}
     engines: {node: ^20.12.0 || ^22.0.0 || >=24.0.0}
     peerDependencies:
       '@typescript-eslint/eslint-plugin': ^8.0.0
@@ -38358,7 +38358,7 @@ snapshots:
       string.prototype.trimend: 1.0.9
       tsconfig-paths: 3.15.0
 
-  eslint-plugin-jest@29.0.1(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4):
+  eslint-plugin-jest@29.2.3(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@18.19.130)(typescript@5.0.4)))(typescript@5.0.4):
     dependencies:
       '@typescript-eslint/utils': 8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
       eslint: 9.39.1(jiti@2.6.1)
@@ -38369,7 +38369,7 @@ snapshots:
       - supports-color
       - typescript
 
-  eslint-plugin-jest@29.0.1(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@22.19.1)(typescript@5.9.3)))(typescript@5.9.3):
+  eslint-plugin-jest@29.2.3(@typescript-eslint/eslint-plugin@8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(jest@30.2.0(@types/node@22.19.1)(esbuild-register@3.6.0(esbuild@0.25.12))(ts-node@10.9.1(@swc/core@1.15.1)(@types/node@22.19.1)(typescript@5.9.3)))(typescript@5.9.3):
     dependencies:
       '@typescript-eslint/utils': 8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
       eslint: 9.39.1(jiti@2.6.1)
