@@ -60,6 +60,7 @@ describe("selectNentOption", () => {
       expectedSelectedNents,
       expectedSelectedFunctions,
     }) => {
+      // eslint-disable-next-line jest/valid-title -- `name` is actually a string
       test(name, () => {
         const updateSelectedNents = selectNentOption({
           selectedNents,
@@ -122,6 +123,7 @@ describe("functionsForSelectedNents", () => {
   ];
 
   testCases.forEach(({ name, nents, expectedFunctions }) => {
+    // eslint-disable-next-line jest/valid-title -- `name` is actually a string
     test(name, () => {
       const result = functionsForSelectedNents(nents, functions);
 

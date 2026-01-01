@@ -1,11 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[` 1`] = `
-[
-  [ConvexValidationError: Unsupported field name: field is top-level and cannot start with an underscore.],
-]
-`;
-
 exports[`walkAst error cases -nan 1`] = `
 [
   [ConvexValidationError: "-" must be followed by a number or bigint.],
@@ -125,5 +119,11 @@ exports[`walkAst error cases top level undefined in object 2`] = `
 exports[`walkAst error cases unsupported constructor 1`] = `
 [
   [ConvexValidationError: Unsupported constructor: "User".],
+]
+`;
+
+exports[`walkAst top level system field disallowed 1`] = `
+[
+  [ConvexValidationError: Unsupported field name: field is top-level and cannot start with an underscore.],
 ]
 `;

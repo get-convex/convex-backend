@@ -115,7 +115,7 @@ describe("DataCell", () => {
       const button = getByTestId("cell-editor-button");
       await user.click(button);
       await user.keyboard("{enter}");
-      getByTestId("cell-editor-popper");
+      expect(getByTestId("cell-editor-popper")).toBeInTheDocument();
     });
 
     it("should show confirmation modal when editing a production document", async () => {
@@ -203,7 +203,7 @@ describe("DataCell", () => {
       const { getByTestId } = renderWithProvider();
       const button = getByTestId("cell-editor-button");
       await user.dblClick(button);
-      getByTestId("cell-editor-popper");
+      expect(getByTestId("cell-editor-popper")).toBeInTheDocument();
     });
 
     it("is disabled in unmounted component", async () => {
@@ -235,7 +235,7 @@ describe("DataCell", () => {
       const button = getByTestId("cell-editor-button");
       await user.click(button);
       await user.keyboard("{ }");
-      getByTestId("cell-detail");
+      expect(getByTestId("cell-detail")).toBeInTheDocument();
     });
 
     it("does not open for a reference link", async () => {
@@ -255,7 +255,7 @@ describe("DataCell", () => {
       const button = getByTestId("cell-editor-button");
       await user.click(button);
       await user.keyboard("{Shift>}{ }");
-      getByTestId("cell-detail-document");
+      expect(getByTestId("cell-detail-document")).toBeInTheDocument();
     });
   });
 
@@ -668,119 +668,121 @@ describe("DataCell", () => {
 
   // TODO: Move to table tests
   // These tests are disabled for now because they are slow in ci
-  //   describe("arrow key navigation", () => {
-  //     const renderRows = () =>
-  //       render(
-  //         <div>
-  //           <span>
-  //             <span>
-  //               <ConvexProvider client={mockClient}>
-  //                 <DataCell {...defaultProps} />
-  //               </ConvexProvider>
-  //             </span>
-  //             <span>
-  //               <ConvexProvider client={mockClient}>
-  //                 <DataCell {...defaultProps} />
-  //               </ConvexProvider>
-  //             </span>
-  //             <span>
-  //               <ConvexProvider client={mockClient}>
-  //                 <DataCell {...defaultProps} />
-  //               </ConvexProvider>
-  //             </span>
-  //           </span>
-  //           <span>
-  //             <span>
-  //               <ConvexProvider client={mockClient}>
-  //                 <DataCell {...defaultProps} />
-  //               </ConvexProvider>
-  //             </span>
-  //             <span>
-  //               <ConvexProvider client={mockClient}>
-  //                 <DataCell {...defaultProps} />
-  //               </ConvexProvider>
-  //             </span>
-  //             <span>
-  //               <ConvexProvider client={mockClient}>
-  //                 <DataCell {...defaultProps} />
-  //               </ConvexProvider>
-  //             </span>
-  //           </span>
-  //         </div>,
-  //       );
+  // eslint-disable-next-line jest/no-disabled-tests
+  describe.skip("arrow key navigation", () => {
+    const renderRows = () =>
+      render(
+        <div>
+          <span>
+            <span>
+              <ConvexProvider client={mockClient}>
+                <DataCell {...defaultProps} />
+              </ConvexProvider>
+            </span>
+            <span>
+              <ConvexProvider client={mockClient}>
+                <DataCell {...defaultProps} />
+              </ConvexProvider>
+            </span>
+            <span>
+              <ConvexProvider client={mockClient}>
+                <DataCell {...defaultProps} />
+              </ConvexProvider>
+            </span>
+          </span>
+          <span>
+            <span>
+              <ConvexProvider client={mockClient}>
+                <DataCell {...defaultProps} />
+              </ConvexProvider>
+            </span>
+            <span>
+              <ConvexProvider client={mockClient}>
+                <DataCell {...defaultProps} />
+              </ConvexProvider>
+            </span>
+            <span>
+              <ConvexProvider client={mockClient}>
+                <DataCell {...defaultProps} />
+              </ConvexProvider>
+            </span>
+          </span>
+        </div>,
+      );
 
-  //     it("should navigate to the left cell when pressing ArrowLeft", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[1]);
-  //       await user.keyboard("{ArrowLeft}");
-  //       expect(buttons[0]).toHaveFocus();
-  //     });
+    it("should navigate to the left cell when pressing ArrowLeft", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[1]);
+      await user.keyboard("{ArrowLeft}");
+      expect(buttons[0]).toHaveFocus();
+    });
 
-  //     it("should not navigate to the left cell when pressing ArrowLeft on the first cell", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[0]);
-  //       await user.keyboard("{ArrowLeft}");
-  //       expect(buttons[0]).toHaveFocus();
-  //     });
+    it("should not navigate to the left cell when pressing ArrowLeft on the first cell", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[0]);
+      await user.keyboard("{ArrowLeft}");
+      expect(buttons[0]).toHaveFocus();
+    });
 
-  //     it("should navigate to the right cell when pressing ArrowRight", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[0]);
-  //       await user.keyboard("{ArrowRight}");
-  //       expect(buttons[1]).toHaveFocus();
-  //     });
+    it("should navigate to the right cell when pressing ArrowRight", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[0]);
+      await user.keyboard("{ArrowRight}");
+      expect(buttons[1]).toHaveFocus();
+    });
 
-  //     it("should not navigate to the right cell when pressing ArrowRight on the last cell", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[buttons.length - 1]);
-  //       await user.keyboard("{ArrowRight}");
-  //       expect(buttons[buttons.length - 1]).toHaveFocus();
-  //     });
+    it("should not navigate to the right cell when pressing ArrowRight on the last cell", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[buttons.length - 1]);
+      await user.keyboard("{ArrowRight}");
+      expect(buttons[buttons.length - 1]).toHaveFocus();
+    });
 
-  //     it("should navigate to the cell above when pressing ArrowUp", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[3]);
-  //       await user.keyboard("{ArrowUp}");
-  //       expect(buttons[0]).toHaveFocus();
-  //     });
+    it("should navigate to the cell above when pressing ArrowUp", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[3]);
+      await user.keyboard("{ArrowUp}");
+      expect(buttons[0]).toHaveFocus();
+    });
 
-  //     it("should not navigate to the cell above when pressing ArrowUp on the first row", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[0]);
-  //       await user.keyboard("{ArrowUp}");
-  //       expect(buttons[0]).toHaveFocus();
-  //     });
+    it("should not navigate to the cell above when pressing ArrowUp on the first row", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[0]);
+      await user.keyboard("{ArrowUp}");
+      expect(buttons[0]).toHaveFocus();
+    });
 
-  //     it("should navigate to the cell below when pressing ArrowDown", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[0]);
-  //       await user.keyboard("{ArrowDown}");
-  //       expect(buttons[3]).toHaveFocus();
-  //     });
+    it("should navigate to the cell below when pressing ArrowDown", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[0]);
+      await user.keyboard("{ArrowDown}");
+      expect(buttons[3]).toHaveFocus();
+    });
 
-  //     it("should not navigate to the cell below when pressing ArrowDown on the last row", async () => {
-  //       const { getAllByTestId } = renderRows();
-  //       const buttons = getAllByTestId("cell-editor-button");
-  //       await user.click(buttons[buttons.length - 1]);
-  //       await user.keyboard("{ArrowDown}");
-  //       expect(buttons[buttons.length - 1]).toHaveFocus();
-  //     });
-  //   });
+    it("should not navigate to the cell below when pressing ArrowDown on the last row", async () => {
+      const { getAllByTestId } = renderRows();
+      const buttons = getAllByTestId("cell-editor-button");
+      await user.click(buttons[buttons.length - 1]);
+      await user.keyboard("{ArrowDown}");
+      expect(buttons[buttons.length - 1]).toHaveFocus();
+    });
+  });
 
-  //   it("should render DataCell within acceptable time", () => {
-  //     const start = performance.now();
-  //     renderWithProvider();
-  //     const end = performance.now();
-  //     const renderTime = end - start;
+  // eslint-disable-next-line jest/no-disabled-tests, jest/expect-expect
+  it.skip("should render DataCell within acceptable time", () => {
+    const start = performance.now();
+    renderWithProvider();
+    const end = performance.now();
+    const renderTime = end - start;
 
-  //     // eslint-disable-next-line no-console
-  //     console.log(`DataCell render time: ${renderTime}ms`);
-  //   });
+    // eslint-disable-next-line no-console
+    console.log(`DataCell render time: ${renderTime}ms`);
+  });
 });

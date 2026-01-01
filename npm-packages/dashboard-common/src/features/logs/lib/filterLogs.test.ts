@@ -322,7 +322,7 @@ describe("filterLogs", () => {
     ).toEqual(logs);
   });
 
-  it("should not include rows from unknown functions if 'others' is not selected ", () => {
+  it("should not include rows from unknown functions if 'others' is not selected", () => {
     expect(
       filterLogs(
         {
@@ -337,7 +337,7 @@ describe("filterLogs", () => {
     ).toEqual([logs[2], logs[4], logs[5], logs[6]]);
   });
 
-  it("should include rows from unknown functions if 'others' is selected ", () => {
+  it("should include rows from unknown functions if 'others' is selected", () => {
     expect(
       filterLogs(
         {
@@ -426,6 +426,7 @@ describe("filterLogs", () => {
 });
 
 describe("filterLogs benchmark", () => {
+  // eslint-disable-next-line jest/expect-expect
   test("filterLogs with a large number of logs", () => {
     const largeLogs: UdfLog[] = [];
     for (let i = 0; i < 10000; i++) {

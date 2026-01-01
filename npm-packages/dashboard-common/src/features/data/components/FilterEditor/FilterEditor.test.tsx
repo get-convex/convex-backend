@@ -109,7 +109,7 @@ describe("FilterEditor", () => {
     });
   });
 
-  it("should change filter value when changing from builtin filter to type filter ", async () => {
+  it("should change filter value when changing from builtin filter to type filter", async () => {
     setup({
       defaultValue: { field: "myColumn", op: "eq", value: "123" },
     });
@@ -146,7 +146,7 @@ describe("FilterEditor", () => {
     expect(typeSelector).toHaveTextContent("number");
   });
 
-  it("should change filter value when changing from type filter to default filter ", async () => {
+  it("should change filter value when changing from type filter to default filter", async () => {
     setup({
       defaultValue: { field: "myColumn", op: "type", value: "string" },
     });
@@ -181,7 +181,7 @@ describe("FilterEditor", () => {
     expect(valueInput).toHaveDisplayValue("0");
   });
 
-  it("should change filter value when changing from type filter to default filter ", async () => {
+  it("should change filter value when changing from type filter to is not type filter", async () => {
     setup({
       defaultValue: { field: "myColumn", op: "type", value: "string" },
     });
@@ -266,7 +266,7 @@ describe("FilterEditor", () => {
     });
   });
 
-  it("should change type value when changing from builtin filter to type filter ", async () => {
+  it("should change type value when changing from builtin filter to type filter", async () => {
     setup({
       defaultValue: { field: "myColumn", op: "type", value: "number" },
     });

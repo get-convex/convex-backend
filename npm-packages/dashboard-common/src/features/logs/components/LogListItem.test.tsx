@@ -5,6 +5,7 @@ import { UdfLog } from "@common/lib/useLogs";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 
 describe("LogListItem render benchmark", () => {
+  // eslint-disable-next-line jest/expect-expect
   it("should render LogListItem within acceptable time", () => {
     const start = performance.now();
     const log: UdfLog = {

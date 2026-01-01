@@ -86,30 +86,6 @@ describe("BackupScheduleSelectorInner", () => {
     const date = new Date();
     date.setUTCHours(9, 41);
 
-    jest.spyOn(date, "getHours").mockReturnValue(
-      +date.toLocaleTimeString("en-GB", {
-        hour: "numeric",
-        timeZone: "America/New_York",
-      }),
-    );
-
-    const { getByDisplayValue } = render(
-      <BackupScheduleSelectorInner
-        defaultValue={date}
-        defaultPeriodicity="daily"
-        defaultDayOfWeek={0}
-        onClose={() => {}}
-        deployment={deployment}
-      />,
-    );
-
-    expect(getByDisplayValue("04:41")).toBeInTheDocument();
-  });
-
-  it("displays time correctly in the time selector form for a negative UTC offset timezone", () => {
-    const date = new Date();
-    date.setUTCHours(9, 41);
-
     // New York time
     jest.spyOn(date, "getHours").mockReturnValue(4);
     jest.spyOn(date, "getMinutes").mockReturnValue(41);
@@ -181,7 +157,7 @@ describe("BackupScheduleSelectorInner", () => {
         timeZone: "UTC",
       })
       .split(":");
-    expect(useConfigurePeriodicBackup()).toBeCalledWith({
+    expect(useConfigurePeriodicBackup()).toHaveBeenCalledWith({
       cronspec: `${+utcMinute} ${+utcHour} * * *`,
     });
   });
@@ -213,7 +189,7 @@ describe("BackupScheduleSelectorInner", () => {
         timeZone: "UTC",
       })
       .split(":");
-    expect(useConfigurePeriodicBackup()).toBeCalledWith({
+    expect(useConfigurePeriodicBackup()).toHaveBeenCalledWith({
       cronspec: `${+utcMinute} ${+utcHour} * * ${selectedDow}`,
       expirationDeltaSecs: 14 * 24 * 60 * 60, // 14 days
     });

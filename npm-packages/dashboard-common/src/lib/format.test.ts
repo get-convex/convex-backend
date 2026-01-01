@@ -528,7 +528,7 @@ describe("prettier", () => {
     const fn = () => {
       prettier("const a = ;");
     };
-    expect(fn).toThrowError("Unexpected token (1:11)");
+    expect(fn).toThrow("Unexpected token (1:11)");
   });
 });
 

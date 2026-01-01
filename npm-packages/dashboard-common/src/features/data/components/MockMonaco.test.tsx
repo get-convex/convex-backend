@@ -1,9 +1,11 @@
 import { useEffectOnce } from "react-use";
 
 describe("MockMonaco", () => {
+  // eslint-disable-next-line jest/expect-expect
   test("make jest happy", () => {});
 });
 
+// eslint-disable-next-line jest/no-export
 export function MockMonaco({
   onChange,
   defaultValue,

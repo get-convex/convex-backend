@@ -127,6 +127,7 @@ describe("DataRow", () => {
   const _ = false;
 
   describe("selection", () => {
+    // eslint-disable-next-line jest/expect-expect
     it("should select multiple rows at once", async () => {
       //          0  1  2  3  4  5  6  7  8  9
       createRows([_, _, _, X, _, _, _, _, _, _]);
@@ -134,6 +135,7 @@ describe("DataRow", () => {
       expectRows([_, _, _, X, X, X, X, X, _, _]);
     });
 
+    // eslint-disable-next-line jest/expect-expect
     it("should unselect multiple rows", async () => {
       //          0  1  2  3  4  5  6  7  8  9
       createRows([_, _, _, X, X, X, X, X, _, _]);
@@ -141,6 +143,7 @@ describe("DataRow", () => {
       expectRows([_, _, _, X, _, _, _, _, _, _]);
     });
 
+    // eslint-disable-next-line jest/expect-expect
     it("should select from the start when nothing is selected", async () => {
       //          0  1  2  3  4  5  6  7  8  9
       createRows([_, _, _, _, _, _, _, _, _, _]);
@@ -148,6 +151,7 @@ describe("DataRow", () => {
       expectRows([X, X, X, X, X, _, _, _, _, _]);
     });
 
+    // eslint-disable-next-line jest/expect-expect
     it("should select from the group above when it exists", async () => {
       //          0  1  2  3  4  5  6  7  8  9
       createRows([X, X, _, _, _, _, X, X, X, _]);
@@ -155,6 +159,7 @@ describe("DataRow", () => {
       expectRows([X, X, X, X, X, _, X, X, X, _]);
     });
 
+    // eslint-disable-next-line jest/expect-expect
     it("should select from the group below when no group exists above", async () => {
       //          0  1  2  3  4  5  6  7  8  9
       createRows([_, _, _, _, _, _, X, X, X, _]);
@@ -162,6 +167,7 @@ describe("DataRow", () => {
       expectRows([_, _, _, _, X, X, X, X, X, _]);
     });
 
+    // eslint-disable-next-line jest/expect-expect
     it("should batch deselect correctly when multiple groups exist", async () => {
       //          0  1  2  3  4  5  6  7  8  9
       createRows([X, X, _, X, X, X, _, X, X, _]);

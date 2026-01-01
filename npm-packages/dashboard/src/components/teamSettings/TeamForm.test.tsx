@@ -136,14 +136,6 @@ describe("<TeamForm />", () => {
     expect(screen.getByText("Save")).toBeDisabled();
   });
 
-  test("name should display required validation", async () => {
-    setup();
-    const user = userEvent.setup();
-    await user.clear(nameTextBox);
-    expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText("Save")).toBeDisabled();
-  });
-
   test("slug should display minlength validation", async () => {
     setup();
     const user = userEvent.setup();

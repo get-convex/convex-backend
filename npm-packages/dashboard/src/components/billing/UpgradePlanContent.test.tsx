@@ -93,13 +93,13 @@ describe("UpgradePlanContent", () => {
 
   it("renders the promo code spinner while loading", () => {
     renderUI({ isLoadingPromo: true });
-    screen.getByTestId("loading-spinner");
+    expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
   });
 
   it("renders the promo code error", () => {
     const promoCodeError = "Invalid promo code";
     renderUI({ promoCodeError });
-    screen.getByText(promoCodeError);
+    expect(screen.getByText(promoCodeError)).toBeInTheDocument();
   });
 
   it("calls onCreateSubscription when upgrade plan button is clicked", async () => {

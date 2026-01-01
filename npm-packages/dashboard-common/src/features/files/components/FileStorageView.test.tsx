@@ -94,8 +94,8 @@ describe("FileStorageView", () => {
 
     it("should have a row", async () => {
       const { getByText } = await setup();
-      getByText("someId");
-      getByText("55 B");
+      expect(getByText("someId")).toBeInTheDocument();
+      expect(getByText("55 B")).toBeInTheDocument();
     });
 
     it("should have a download button with good url", async () => {

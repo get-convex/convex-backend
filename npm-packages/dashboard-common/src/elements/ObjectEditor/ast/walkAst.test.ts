@@ -505,6 +505,7 @@ describe("walkAst", () => {
       },
     ];
 
+    // eslint-disable-next-line jest/expect-expect
     test.each(testCases)(
       "$name",
       ({
@@ -577,7 +578,7 @@ describe("walkAst", () => {
     });
   });
 
-  describe("top level system field disallowed", () => {
+  test("top level system field disallowed", () => {
     const { errors } = walkAst('[{"_a": 1}]', { mode: "addDocuments" });
     expect(errors.length).toBeGreaterThan(0);
     expect(errors).toMatchSnapshot();
@@ -866,6 +867,7 @@ describe("walkAst", () => {
           }),
         ]);
         if (expectedValue !== undefined) {
+          // eslint-disable-next-line jest/no-conditional-expect
           expect(value).toEqual(expectedValue);
         }
       },

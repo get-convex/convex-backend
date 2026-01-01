@@ -238,35 +238,36 @@ describe("useTableFilters", () => {
 
   // Unfortunately, next-router-mock does not support `isReady` yet.
   // TODO: Find a new way to make this test work, or wait for next-router-mock to support `isReady`.
-  // it("should update filters when router becomes ready", async () => {
-  //   const tableName = "table1";
-  //   const queryFilters: FilterExpression = {
-  //     clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
-  //   };
+  // eslint-disable-next-line jest/no-disabled-tests
+  it.skip("should update filters when router becomes ready", async () => {
+    const tableName = "table1";
+    const queryFilters: FilterExpression = {
+      clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
+    };
 
-  //   // Set up the initial state with the query filters.
-  //   mockRouter.query.filters = encodeURI(JSON.stringify(queryFilters));
+    // Set up the initial state with the query filters.
+    mockRouter.query.filters = encodeURI(JSON.stringify(queryFilters));
 
-  //   // Initially, the router is not ready.
-  //   mockRouter.isReady = false;
+    // Initially, the router is not ready.
+    mockRouter.isReady = false;
 
-  //   // Render the hook with the table name.
-  //   const { result, rerender } = renderWithDeploymentInfo(() =>
-  //     useTableFilters(tableName),
-  //   );
+    // Render the hook with the table name.
+    const { result, rerender } = renderWithDeploymentInfo(() =>
+      useTableFilters(tableName, null),
+    );
 
-  //   // The filters should be undefined because the router is not ready.
-  //   expect(result.current.filters).toBeUndefined();
+    // The filters should be undefined because the router is not ready.
+    expect(result.current.filters).toBeUndefined();
 
-  //   // Now, the router becomes ready.
-  //   mockRouter.isReady = true;
+    // Now, the router becomes ready.
+    mockRouter.isReady = true;
 
-  //   // Rerender the hook.
-  //   rerender();
+    // Rerender the hook.
+    rerender();
 
-  //   // The filters should be updated with the query filters.
-  //   expect(result.current.filters).toEqual(queryFilters);
-  // });
+    // The filters should be updated with the query filters.
+    expect(result.current.filters).toEqual(queryFilters);
+  });
 });
 
 describe("useFilterMap", () => {

@@ -119,7 +119,7 @@ describe("TableSchema", () => {
       `);
   });
 
-  it("it converts a single line schema to multiline", async () => {
+  it("converts a single line schema to multiline", async () => {
     tables = singleLineTable;
     renderSchema();
     expect(await editorText()).toMatchInlineSnapshot(`

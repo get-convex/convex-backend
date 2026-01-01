@@ -12,6 +12,7 @@ module.exports = {
     "prettier",
     "plugin:better-tailwindcss/recommended-warn",
     "plugin:better-tailwindcss/recommended-error",
+    "plugin:jest/recommended",
     "plugin:storybook/recommended",
   ],
   plugins: ["prettier"],

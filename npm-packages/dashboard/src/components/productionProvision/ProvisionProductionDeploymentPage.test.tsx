@@ -27,6 +27,7 @@ describe("ProvisionProductionDeploymentPage", () => {
   });
 
   it("renders successfully", async () => {
-    render(<ProvisionProductionDeploymentPage />);
+    const { container } = render(<ProvisionProductionDeploymentPage />);
+    expect(container.querySelector("h1")).toBeInTheDocument();
   });
 });

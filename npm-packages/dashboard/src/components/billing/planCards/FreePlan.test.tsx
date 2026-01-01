@@ -104,7 +104,7 @@ describe("FreePlan", () => {
   test("Should say Current Plan if the plan is already Free", () => {
     render(<FreePlan hasAdminPermissions team={team} />);
 
-    screen.getByText("Current Plan");
+    expect(screen.getByText("Current Plan")).toBeInTheDocument();
   });
 
   test("Should not be able to downgrade plan as non-admin", () => {

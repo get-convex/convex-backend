@@ -144,7 +144,7 @@ describe("DataToolbar", () => {
 
   it("should render content in default state", async () => {
     setup();
-    expect(await screen.findByText("messages"));
+    expect(await screen.findByText("messages")).toBeInTheDocument();
     expect(screen.queryByText("documents")).toBeNull();
     expect(
       await screen.findByLabelText("Loading more documents..."),
