@@ -24,7 +24,7 @@
     "@storybook/cli": "^10.0.8",
     "@storybook/nextjs": "^10.0.8",
     "@storybook/nextjs-vite": "^10.0.8",
-    "@storybook/test-runner": "0.24.1",
+    "@storybook/test-runner": "0.24.2",
     "@tailwindcss/forms": "^0.5.10",
     "eslint-plugin-better-tailwindcss": "^3.8.0",
     "playwright": "^1.56.1",
