@@ -3563,8 +3563,8 @@ importers:
         specifier: 0.25.4
         version: 0.25.4
       googleapis:
-        specifier: ^154.0.0
-        version: 154.1.0
+        specifier: ^166.0.0
+        version: 166.0.0
       stripe:
         specifier: ^19.0.0
         version: 19.3.1(@types/node@18.19.130)
@@ -15991,8 +15991,8 @@ packages:
     resolution: {integrity: sha512-eCzNACUXPb1PW5l0ULTzMHaL/ltPRADoPgjBlT8jWsTbxkCp6siv+qKJ/1ldaybCthGwsYFYallF7u9AkU4L+A==}
     engines: {node: '>=18.0.0'}
 
-  googleapis@154.1.0:
-    resolution: {integrity: sha512-lsgKftflkjR+PNdKDjy5e4zZUQO3BMaNLO0Q91uvr9YCy3aOqtEwkDtfhcBguFtFLsqj+XjdfDu2on6rtHNvYg==}
+  googleapis@166.0.0:
+    resolution: {integrity: sha512-Xz7yG+ihVvYMwSULKIMeTp6vDX95rrSbsaR3xUmgYjwQdAkchMQ5ndFeG5QZwcBOIyvJFvG7ZLIZE7mKW2X/hw==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -39745,7 +39745,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  googleapis@154.1.0:
+  googleapis@166.0.0:
     dependencies:
       google-auth-library: 10.5.0
       googleapis-common: 8.0.1
