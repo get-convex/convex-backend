@@ -14,7 +14,7 @@
     "@eslint/js": "~9.39.0",
     "@eslint/eslintrc": "^3",
     "@types/node": "20.1.0",
-    "@types/react": "18.3.26",
+    "@types/react": "18.3.27",
     "@types/react-dom": "18.3.7",
     "autoprefixer": "10.4.22",
     "convex": "file:../../../convex",
