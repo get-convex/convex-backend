@@ -36,6 +36,6 @@
 	"type": "module",
 	"dependencies": {
 		"convex": "^1.27.3",
-		"convex-svelte": "^0.0.11"
+		"convex-svelte": "^0.0.12"
 	}
 }
