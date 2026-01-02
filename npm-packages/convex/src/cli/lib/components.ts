@@ -295,7 +295,9 @@ async function startComponentsPushAndCodegen(
         ctx,
         rootComponent,
         // When running codegen for a specific component, don't bundle the root.
-        [...components.values()].filter((dir) => !dir.syntheticComponentImport),
+        [...components.values()].filter(
+          (dir) => !dir.isRoot && !dir.syntheticComponentImport,
+        ),
         projectConfig.node.externalPackages,
         options.liveComponentSources ? ["@convex-dev/component-source"] : [],
         options.verbose,
