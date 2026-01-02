@@ -5,15 +5,6 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { SchemaJson } from "@common/lib/format";
 
-// Workaround to go around an issue in Storybook where BigInts as argument
-// fail to be serialized.
-// TODO(ENG-8621) Remove this once Storybook is updated to 8.0, which fixes the issue
-// @ts-expect-error
-// eslint-disable-next-line no-extend-native, func-names
-BigInt.prototype.toJSON = function () {
-  return this.toString();
-};
-
 /** Helper to make sure the serialized values in the story are correct */
 function schemaJsonAsString(value: SchemaJson): string {
   return JSON.stringify(value);
