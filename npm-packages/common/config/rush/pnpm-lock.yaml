@@ -5707,8 +5707,8 @@ importers:
         version: link:../udf-syscall-ffi
     devDependencies:
       '@types/chai':
-        specifier: ~4.3.5
-        version: 4.3.20
+        specifier: ~5.2.0
+        version: 5.2.3
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.130
@@ -11414,9 +11414,6 @@ packages:
 
   '@types/chai-as-promised@8.0.2':
     resolution: {integrity: sha512-meQ1wDr1K5KRCSvG2lX7n7/5wf70BeptTKst0axGvnN6zqaVpRqegoIbugiAPSqOW9K9aL8gDVrm7a2LXOtn2Q==}
-
-  '@types/chai@4.3.20':
-    resolution: {integrity: sha512-/pC9HAB5I/xMlc5FP77qjCnI16ChlJfW0tGa0IUcFn38VJrTV6DeZ60NU5KZBtaOZqjdpwTWohz5HU1RrhiYxQ==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -32944,9 +32941,7 @@ snapshots:
 
   '@types/chai-as-promised@8.0.2':
     dependencies:
-      '@types/chai': 4.3.20
-
-  '@types/chai@4.3.20': {}
+      '@types/chai': 5.2.3
 
   '@types/chai@5.2.3':
     dependencies:
