@@ -8,7 +8,9 @@ description: Documentation and setup guide for the Convex connector for Fivetran
 
 [Convex](https://convex.dev) is a full-stack TypeScript development platform. Replace your database, server functions, and glue code.
 
-> NOTE: This connector is [partner-built](/docs/partner-built-program). For any questions related to Convex connector and its documentation, refer to Convex's support team. For details on SLA, see [Convex's Status and Guarantees documentation](https://docs.convex.dev/production/state).
+{% note %}
+This connector is [partner-built](/docs/partner-built-program). For any questions related to the Convex connector and its documentation, refer to Convex's support team. For details on SLA, see [Convex's Status and Guarantees documentation](https://docs.convex.dev/production/state).
+{% /note %}
 
 ----
 
@@ -16,7 +18,11 @@ description: Documentation and setup guide for the Convex connector for Fivetran
 
 {% featureTable connector="convex" /%}
 
----
+-----
+
+{% partial file="saas-supported-deployment-models.template.md" /%}
+
+-----
 
 ## Setup guide
 
@@ -58,9 +64,13 @@ The following table illustrates how the connection transforms your Convex data t
 | Array       | JSON          | True               |
 | Object      | JSON          | True               |
 
-> NOTE: The `_creationTime` system field  in each document is special-cased to convert into a UTC_DATETIME, despite being stored as a Float64 inside of Convex.
+{% note %}
+The `_creationTime` system field  in each document is special-cased to convert into a UTC_DATETIME, despite being stored as a Float64 inside of Convex.
+{% /note %}
 
-> NOTE: Nested types inside Object and Array are serialized as JSON using the [JSON format for export](https://docs.convex.dev/database/types).
+{% note %}
+Nested types inside Object and Array are serialized as JSON using the [JSON format for export](https://docs.convex.dev/database/types).
+{% /note %}
 
 ### Nested data
 
@@ -98,6 +108,10 @@ Fivetran adds these columns to give you insight into the state of your data and 
 
 ### Excluding source data
 
-If you don’t want to sync all the data from your Convex database, you can exclude Convex components, tables, and fields from your syncs on your Fivetran dashboard. To do so, go to your connection details page and uncheck the objects you would like to omit from syncing. For more information, see our [Data Blocking](/docs/using-fivetran/features/data-blocking-column-hashing) documentation.
+If you don’t want to sync all the data from your Convex database, you can exclude Convex components, tables, and fields from your syncs on your Fivetran dashboard. To do so, go to your Convex connection details page and uncheck the objects you would like to omit from syncing. 
 
-> IMPORTANT: If you modify your source data inclusion settings after data has already been synced, the existing data will not be modified retroactively. If you need to apply the new settings to the existing data, [trigger a historical re-sync](/docs/connectors/troubleshooting/trigger-historical-re-syncs).
+For more information, see our [Data Blocking documentation](/docs/using-fivetran/features/data-blocking-column-hashing).
+
+{% important %}
+If you modify your source data inclusion settings after data has already been synced, the existing data will not be modified retroactively. If you need to apply the new settings to the existing data, [trigger a historical re-sync](/docs/connectors/troubleshooting/trigger-historical-re-syncs).
+{% /important %}
