@@ -114,7 +114,7 @@
     "postcss": "^8.4.19",
     "prettier": "3.7.3",
     "storybook": "^10.0.8",
-    "prettier-plugin-tailwindcss": "~0.6.11",
+    "prettier-plugin-tailwindcss": "~0.7.0",
     "tailwindcss": "^4.1.11",
     "tailwind-scrollbar": "^4.0.2",
     "typescript": "^5.9.2"
