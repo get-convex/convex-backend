@@ -270,7 +270,7 @@ describe("TableContextMenu", () => {
       const { getByTestId } = renderWithProvider({});
 
       expect(
-        // @ts-ignore
+        // @ts-expect-error We assume that `callbackName` is a valid key of the `callbacks` object
         defaultProps.state?.selectedCell?.callbacks?.[callbackName],
       ).toHaveBeenCalledTimes(0);
 
@@ -302,14 +302,14 @@ describe("TableContextMenu", () => {
       renderWithProvider({});
 
       expect(
-        // @ts-ignore
+        // @ts-expect-error We assume that `callbackName` is a valid key of the `callbacks` object
         defaultProps.state?.selectedCell?.callbacks?.[callbackName],
       ).toHaveBeenCalledTimes(0);
 
       await user.keyboard(hotkey);
 
       expect(
-        // @ts-ignore
+        // @ts-expect-error We assume that `callbackName` is a valid key of the `callbacks` object
         defaultProps.state?.selectedCell?.callbacks?.[callbackName],
       ).toHaveBeenCalledTimes(1);
     },

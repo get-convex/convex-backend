@@ -5,13 +5,14 @@ import udfs from "@common/udfs";
 import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import {
+  ConnectedDeployment,
   ConnectedDeploymentContext,
   DeploymentInfoContext,
 } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { fn } from "storybook/test";
 
-// @ts-expect-error
+// @ts-expect-error -- simplified mock for Storybook
 const deployment: ConnectedDeployment = {};
 
 const mockClient = mockConvexReactClient()

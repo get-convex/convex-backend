@@ -41,7 +41,7 @@ const mockRouter = jest
   .mockImplementation(() => ({ route: "/", query: {} }));
 (nextRouter as any).useRouter = mockRouter;
 
-// @ts-expect-error
+// @ts-expect-error -- simplified mock for testing
 global.fetch = jest.fn(() =>
   Promise.resolve({
     ok: true,

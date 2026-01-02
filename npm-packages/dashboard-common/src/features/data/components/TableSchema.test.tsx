@@ -77,7 +77,7 @@ describe("TableSchema", () => {
     screen.getByTestId("mockMonaco").attributes.getNamedItem("value")?.value;
 
   const renderSchema = (query: Record<string, string> = {}) => {
-    // @ts-expect-error
+    // @ts-expect-error -- assuming useRouter is mocked
     useRouter.mockReturnValue({ query, replace: jest.fn() });
     return render(<TableSchemaContainer tableName="test" />);
   };

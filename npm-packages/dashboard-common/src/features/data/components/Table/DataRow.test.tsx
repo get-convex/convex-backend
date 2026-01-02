@@ -1,4 +1,4 @@
-import { ConvexProvider } from "convex/react";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSet } from "react-use";
@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import { useDataColumns } from "@common/features/data/components/Table/utils/useDataColumns";
 import { DataRow } from "@common/features/data/components/Table/DataRow";
 import {
+  ConnectedDeployment,
   ConnectedDeploymentContext,
   DeploymentInfoContext,
 } from "@common/lib/deploymentContext";
@@ -21,12 +22,11 @@ const mockRouter = jest
   .mockImplementation(() => ({ route: "/", query: {} }));
 (nextRouter as any).useRouter = mockRouter;
 
-// @ts-expect-error
 const mockClient: ConvexReactClient = mockConvexReactClient()
   .registerQueryFake(udfs.getTableMapping.default, () => ({}))
   .registerQueryFake(udfs.components.list, () => []);
 
-// @ts-expect-error
+// @ts-expect-error -- mock `deployment` value
 const deployment: ConnectedDeployment = {};
 
 function TestContainer({ initialState }: { initialState: boolean[] }) {

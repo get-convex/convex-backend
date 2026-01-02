@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { CloudDisconnectOverlay } from "./deploymentContext";
+import { fn } from "storybook/test";
 
 const meta: Meta<typeof CloudDisconnectOverlay> = {
   component: CloudDisconnectOverlay,
@@ -168,12 +169,7 @@ export const WithSupportForm: Story = {
         <span>Major Service Outage</span>
       </a>
     ),
-    openSupportForm: (subject: string, message: string) => {
-      console.log("Support form opened:", { subject, message });
-      alert(
-        `Support form opened:\n\nSubject: ${subject}\n\nMessage: ${message}`,
-      );
-    },
+    openSupportForm: fn(),
   },
 };
 

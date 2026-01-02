@@ -103,24 +103,6 @@ const mockLogs = [
   },
 ];
 
-const mockRunningLogs = [
-  {
-    id: "4",
-    udfType: "Query" as const,
-    timestamp: Date.now(),
-    call: functionIdentifierValue("api/users:search"),
-    executionId: "exec_4",
-    localizedTimestamp: new Date().toISOString(),
-    requestId: "req_4",
-    kind: "log" as const,
-    output: {
-      isTruncated: false,
-      messages: ["Starting search..."],
-      level: "INFO" as const,
-    },
-  },
-];
-
 export const WithSuccessfulFunctions: Story = {
   args: {
     currentLog: {

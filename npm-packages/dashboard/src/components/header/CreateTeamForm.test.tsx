@@ -2,7 +2,7 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as nextRouter from "next/router";
-// @ts-ignore `createTeam` is exported in the mock, but not in the real module.
+// @ts-expect-error `createTeam` is exported in the mock, but not in the real module.
 import { useCreateTeam, createTeam } from "api/teams";
 import { CreateTeamForm } from "./CreateTeamForm";
 

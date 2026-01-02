@@ -81,7 +81,7 @@ export function entryOutcome(entry: FunctionExecutionCompletion): LogOutcome {
       };
     }
     const httpStatusCode = entry.success?.status
-      ? parseInt(entry.success!!.status)
+      ? parseInt(entry.success!.status)
       : null;
     const isSuccess =
       httpStatusCode !== null && httpStatusCode >= 200 && httpStatusCode <= 299;

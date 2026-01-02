@@ -16,7 +16,7 @@ const id: Shape = {
 };
 
 const shape = (type: ShapeTypes, more = {}): Shape =>
-  // @ts-ignore
+  // @ts-expect-error -- FIXME: make `more` more specific
   ({ type, ...more });
 
 const field = (name: string, fieldShape: Shape, optional: boolean = false) => ({

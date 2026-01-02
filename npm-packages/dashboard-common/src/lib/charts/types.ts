@@ -1,5 +1,5 @@
 export type ChartData = {
-  data: Array<Object>;
+  data: Array<object>;
   xAxisKey: string;
   lineKeys: Array<{ key: string; name: string; color: string }>;
 };

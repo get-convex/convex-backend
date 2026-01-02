@@ -27,9 +27,7 @@ MyError.getInitialProps = async (context: any) => {
 
   const { res, err, asPath } = context;
 
-  // Workaround for https://github.com/vercel/next.js/issues/8592, mark when
-  // getInitialProps has run
-  // @ts-ignore
+  // @ts-expect-error -- Workaround for https://github.com/vercel/next.js/issues/8592, mark when getInitialProps has run
   errorInitialProps.hasGetInitialPropsRun = true;
 
   // Returning early because we don't want to log 404 errors to Sentry.

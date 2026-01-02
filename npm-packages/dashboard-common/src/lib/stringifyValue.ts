@@ -1,6 +1,6 @@
 import { Value } from "convex/values";
 import * as Base64 from "base64-js";
-// @ts-expect-error
+// @ts-expect-error -- there are no TypeScript definition files
 import isValidIdentifier from "is-valid-identifier";
 import { prettier } from "@common/lib/format";
 

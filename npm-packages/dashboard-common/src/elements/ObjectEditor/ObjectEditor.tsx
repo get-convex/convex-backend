@@ -522,7 +522,7 @@ function moveFocus(forward = true) {
     document.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     ),
-    // @ts-expect-error
+    // @ts-expect-error -- we assume `.disabled` and `.offsetParent` to be present on all elements
   ).filter((el) => !el.disabled && el.offsetParent !== null);
 
   const currentIndex = document.activeElement

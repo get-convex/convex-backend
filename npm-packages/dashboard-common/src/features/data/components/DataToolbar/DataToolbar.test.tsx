@@ -73,7 +73,7 @@ describe("DataToolbar", () => {
     componentProps: Partial<DataToolbarProps> = {},
     query: Record<string, string> = {},
   ) => {
-    // @ts-expect-error
+    // @ts-expect-error -- assuming useRouter is mocked
     useRouter.mockReturnValue({ query, replace: jest.fn() });
     return render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
