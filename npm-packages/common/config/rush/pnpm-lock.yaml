@@ -960,8 +960,8 @@ importers:
         specifier: ~3.5.0
         version: 3.5.0
       '@team-plain/typescript-sdk':
-        specifier: ~4.10.0
-        version: 4.10.1
+        specifier: ~5.11.0
+        version: 5.11.0
       '@workos-inc/authkit-nextjs':
         specifier: ~2.11.1
         version: 2.11.1(express@5.1.0)(next@15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -11303,8 +11303,8 @@ packages:
     resolution: {integrity: sha512-IKwZENsK7owmW1Lm5FhuHegY/SyQ8KqtL/7mTSnzoKJgfzhrrf9qwKB1rmkKkt+svUuy/Zw3uVEpZtUzQruWtA==}
     engines: {node: '>=12'}
 
-  '@team-plain/typescript-sdk@4.10.1':
-    resolution: {integrity: sha512-5C6z5IFQy48d8StrKMssjHC5gMe3b5azqsUs2Q+xQuTk7FV3bWD5qlfmIsXRzv2P13HWxjmmHBsofFqhzm+G7g==}
+  '@team-plain/typescript-sdk@5.11.0':
+    resolution: {integrity: sha512-EEyfQjD1d1tFMLFtqV7StWtiwAesFD1B5zdTYvcjpoJLlftr4NMS0BVllSKnr7n7jjWivTsVuuG7yZcZD6ZonA==}
 
   '@techteamer/ocsp@1.0.1':
     resolution: {integrity: sha512-q4pW5wAC6Pc3JI8UePwE37CkLQ5gDGZMgjSX4MEEm4D4Di59auDQ8UNIDzC4gRnPNmmcwjpPxozq8p5pjiOmOw==}
@@ -17983,6 +17983,10 @@ packages:
 
   lodash.flattendeep@4.4.0:
     resolution: {integrity: sha512-uHaJFihxmJcEX3kT4I23ABqKKalJ/zDrDg0lsFtc1h+3uw49SIJ5beyhx5ExVRti3AvKoOJngIj7xz3oylPdWQ==}
+
+  lodash.get@4.4.2:
+    resolution: {integrity: sha512-z+Uw/vLuy6gQe8cfaFWD7p0wVv8fJl3mbzXh33RS+0oW2wvUqiRXiQ69gLWSLpgB5/6sU+r6BlQR0MBILadqTQ==}
+    deprecated: This package is deprecated. Use the optional chaining (?.) operator instead.
 
   lodash.includes@4.3.0:
     resolution: {integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==}
@@ -32803,12 +32807,13 @@ snapshots:
 
   '@tanstack/virtual-file-routes@1.133.19': {}
 
-  '@team-plain/typescript-sdk@4.10.1':
+  '@team-plain/typescript-sdk@5.11.0':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.12.0)
       ajv: 8.17.1
       ajv-formats: 2.1.1(ajv@8.17.1)
       graphql: 16.12.0
+      lodash.get: 4.4.2
       zod: 3.22.4
 
   '@techteamer/ocsp@1.0.1':
@@ -43156,6 +43161,8 @@ snapshots:
   lodash.defaults@4.2.0: {}
 
   lodash.flattendeep@4.4.0: {}
+
+  lodash.get@4.4.2: {}
 
   lodash.includes@4.3.0: {}
 

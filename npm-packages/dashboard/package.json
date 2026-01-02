@@ -32,7 +32,7 @@
     "@sentry/nextjs": "7.120.4",
     "@stripe/react-stripe-js": "~2.9.0",
     "@stripe/stripe-js": "~3.5.0",
-    "@team-plain/typescript-sdk": "~4.10.0",
+    "@team-plain/typescript-sdk": "~5.11.0",
     "classnames": "^2.3.2",
     "convex": "workspace:*",
     "convex-analytics": "workspace:*",
