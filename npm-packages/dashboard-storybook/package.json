@@ -32,7 +32,7 @@
     "tailwindcss": "^4.1.11",
     "storybook": "^10.0.8",
     "concurrently": "~8.2.2",
-    "wait-on": "^8.0.2",
+    "wait-on": "^9.0.0",
     "http-server": "^14.1.1"
   }
 }

@@ -1726,8 +1726,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.17
       wait-on:
-        specifier: ^8.0.2
-        version: 8.0.5
+        specifier: ^9.0.0
+        version: 9.0.3
 
   ../../demos/args-validation:
     dependencies:
@@ -23254,9 +23254,9 @@ packages:
     engines: {node: '>=12.0.0'}
     hasBin: true
 
-  wait-on@8.0.5:
-    resolution: {integrity: sha512-J3WlS0txVHkhLRb2FsmRg3dkMTCV1+M6Xra3Ho7HzZDHpE7DCOnoSoCJsZotrmW3uRMhvIJGSKUKrh/MeF4iag==}
-    engines: {node: '>=12.0.0'}
+  wait-on@9.0.3:
+    resolution: {integrity: sha512-13zBnyYvFDW1rBvWiJ6Av3ymAaq8EDQuvxZnPIw3g04UqGi4TyoIJABmfJ6zrvKo9yeFQExNkOk7idQbDJcuKA==}
+    engines: {node: '>=20.0.0'}
     hasBin: true
 
   wait-port@0.2.14:
@@ -50134,7 +50134,7 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  wait-on@8.0.5:
+  wait-on@9.0.3:
     dependencies:
       axios: 1.13.2
       joi: 18.0.1
