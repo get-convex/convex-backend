@@ -35,3 +35,26 @@ export const recordArg = query({
     return arg;
   },
 });
+
+// Test for issue #212: BigInt literals in validators should work with function-spec
+export const bigintLiteralArgs = query({
+  args: {
+    i: v.literal(BigInt(1)),
+  },
+  returns: v.literal(BigInt(1)),
+  handler: (ctx, args) => {
+    return args.i;
+  },
+});
+
+// Additional test with multiple BigInt literals
+export const multipleBigintLiterals = query({
+  args: {
+    small: v.literal(BigInt(1)),
+    large: v.literal(BigInt(9223372036854775807)), // max i64
+    negative: v.literal(BigInt(-42)),
+  },
+  handler: (_, args) => {
+    return { ...args };
+  },
+});
