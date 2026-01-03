@@ -525,29 +525,29 @@ export async function runComponentsPush(
     waitForSchema(ctx, span, startPushResponse, options),
   );
 
-  const remoteConfigWithModuleHashes = await pullConfig(
-    ctx,
-    undefined,
-    undefined,
-    options.url,
-    options.adminKey,
-  );
-
-  const { config: localConfig } = await configFromProjectConfig(
-    ctx,
-    projectConfig,
-    configPath,
-    options.verbose,
-  );
-
-  changeSpinner("Diffing local code and deployment state...");
-  const { diffString } = diffConfig(
-    remoteConfigWithModuleHashes,
-    localConfig,
-    false,
-  );
-
   if (verbose) {
+    const remoteConfigWithModuleHashes = await pullConfig(
+      ctx,
+      undefined,
+      undefined,
+      options.url,
+      options.adminKey,
+    );
+
+    const { config: localConfig } = await configFromProjectConfig(
+      ctx,
+      projectConfig,
+      configPath,
+      options.verbose,
+    );
+
+    changeSpinner("Diffing local code and deployment state...");
+    const { diffString } = diffConfig(
+      remoteConfigWithModuleHashes,
+      localConfig,
+      false,
+    );
+
     logFinishedStep(
       `Remote config ${
         options.dryRun ? "would" : "will"
