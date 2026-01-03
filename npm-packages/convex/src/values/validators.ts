@@ -452,9 +452,24 @@ export class VLiteral<
   }
   /** @internal */
   get json(): ValidatorJSON {
+    const value = this.value as string | boolean | number | bigint;
+    let literalType: "Float64" | "Int64" | "Boolean" | "String";
+    
+    if (typeof value === "string") {
+      literalType = "String";
+    } else if (typeof value === "boolean") {
+      literalType = "Boolean";
+    } else if (typeof value === "bigint") {
+      literalType = "Int64";
+    } else {
+      // number type - check if it's an integer
+      literalType = Number.isInteger(value) ? "Int64" : "Float64";
+    }
+    
     return {
       type: this.kind,
-      value: convexToJson(this.value as string | boolean | number | bigint),
+      value: convexToJson(value),
+      literalType,
     };
   }
   /** @internal */
@@ -754,7 +769,7 @@ export type ValidatorJSON =
   | { type: "string" }
   | { type: "bytes" }
   | { type: "any" }
-  | { type: "literal"; value: JSONValue }
+  | { type: "literal"; value: JSONValue; literalType?: "Float64" | "Int64" | "Boolean" | "String" }
   | { type: "id"; tableName: string }
   | { type: "array"; value: ValidatorJSON }
   | {
