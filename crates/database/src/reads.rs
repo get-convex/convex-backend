@@ -27,7 +27,6 @@ use common::{
     },
     static_span,
     types::{
-        PersistenceVersion,
         TabletIndexName,
         Timestamp,
     },
@@ -150,7 +149,6 @@ impl ReadSet {
     pub fn overlaps_document(
         &self,
         document: &PackedDocument,
-        persistence_version: PersistenceVersion,
         reusable_buffer: &mut IndexKeyBuffer,
     ) -> Option<ConflictingRead> {
         for (
@@ -162,7 +160,7 @@ impl ReadSet {
             },
         ) in iter_indexes_for_table(&self.indexed, document.id().tablet_id)
         {
-            let index_key = document.index_key(fields, persistence_version, reusable_buffer);
+            let index_key = document.index_key(fields, reusable_buffer);
             if intervals.contains(index_key) {
                 let stack_traces = stack_traces.as_ref().map(|st| {
                     st.iter()
@@ -196,12 +194,8 @@ impl ReadSet {
     }
 
     #[cfg(test)]
-    pub fn overlaps_document_for_test(
-        &self,
-        document: &PackedDocument,
-        persistence_version: PersistenceVersion,
-    ) -> Option<ConflictingRead> {
-        self.overlaps_document(document, persistence_version, &mut IndexKeyBuffer::new())
+    pub fn overlaps_document_for_test(&self, document: &PackedDocument) -> Option<ConflictingRead> {
+        self.overlaps_document(document, &mut IndexKeyBuffer::new())
     }
 
     /// Determine whether a mutation to a document overlaps with the read set.
@@ -281,14 +275,12 @@ impl ReadSet {
                 &'a WriteSource,
             ),
         >,
-        persistence_version: PersistenceVersion,
     ) -> Option<ConflictingReadWithWriteSource> {
         let mut buffer = IndexKeyBuffer::new();
         for (update_ts, updates, write_source) in updates {
             for (_, update) in updates {
                 if let Some(ref document) = update.new_document
-                    && let Some(conflicting_read) =
-                        self.overlaps_document(document, persistence_version, &mut buffer)
+                    && let Some(conflicting_read) = self.overlaps_document(document, &mut buffer)
                 {
                     return Some(ConflictingReadWithWriteSource {
                         read: conflicting_read,
@@ -297,8 +289,7 @@ impl ReadSet {
                     });
                 }
                 if let Some(ref prev_value) = update.old_document
-                    && let Some(conflicting_read) =
-                        self.overlaps_document(prev_value, persistence_version, &mut buffer)
+                    && let Some(conflicting_read) = self.overlaps_document(prev_value, &mut buffer)
                 {
                     return Some(ConflictingReadWithWriteSource {
                         read: conflicting_read,
@@ -693,7 +684,6 @@ mod tests {
         testing::TestIdGenerator,
         types::{
             IndexDescriptor,
-            PersistenceVersion,
             TabletIndexName,
         },
         value::{
@@ -1030,10 +1020,7 @@ mod tests {
     ) -> anyhow::Result<bool> {
         let doc_without_word = create_document_with_one_field(id, field_name, val!(document_text))?;
         Ok(read_set
-            .overlaps_document_for_test(
-                &PackedDocument::pack(&doc_without_word),
-                PersistenceVersion::default(),
-            )
+            .overlaps_document_for_test(&PackedDocument::pack(&doc_without_word))
             .is_some())
     }
 
@@ -1067,10 +1054,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set
-                .overlaps_document_for_test(
-                    &PackedDocument::pack(&doc_with_word),
-                    PersistenceVersion::default()
-                )
+                .overlaps_document_for_test(&PackedDocument::pack(&doc_with_word),)
                 .unwrap()
                 .index,
             index_name
@@ -1083,10 +1067,7 @@ mod tests {
             val!("This text doesn't have the keyword."),
         )?;
         assert_eq!(
-            read_set.overlaps_document_for_test(
-                &PackedDocument::pack(&doc_without_word),
-                PersistenceVersion::default()
-            ),
+            read_set.overlaps_document_for_test(&PackedDocument::pack(&doc_without_word),),
             None
         );
 
@@ -1123,10 +1104,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set
-                .overlaps_document_for_test(
-                    &PackedDocument::pack(&doc_with_explicit_null),
-                    PersistenceVersion::default()
-                )
+                .overlaps_document_for_test(&PackedDocument::pack(&doc_with_explicit_null),)
                 .unwrap()
                 .index,
             index_name
@@ -1139,10 +1117,7 @@ mod tests {
             ConvexValue::Null,
         )?;
         assert_eq!(
-            read_set.overlaps_document_for_test(
-                &PackedDocument::pack(&doc_with_missing_field),
-                PersistenceVersion::default()
-            ),
+            read_set.overlaps_document_for_test(&PackedDocument::pack(&doc_with_missing_field),),
             None
         );
 
@@ -1153,10 +1128,7 @@ mod tests {
             ConvexValue::Int64(123),
         )?;
         assert_eq!(
-            read_set.overlaps_document_for_test(
-                &PackedDocument::pack(&doc_with_implicit_null),
-                PersistenceVersion::default()
-            ),
+            read_set.overlaps_document_for_test(&PackedDocument::pack(&doc_with_implicit_null),),
             None
         );
 
@@ -1200,10 +1172,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set
-                .overlaps_document_for_test(
-                    &PackedDocument::pack(&doc_with_explicit_null),
-                    PersistenceVersion::default()
-                )
+                .overlaps_document_for_test(&PackedDocument::pack(&doc_with_explicit_null),)
                 .unwrap()
                 .index,
             index_name
@@ -1216,10 +1185,7 @@ mod tests {
             ConvexValue::Null,
         )?;
         assert_eq!(
-            read_set.overlaps_document_for_test(
-                &PackedDocument::pack(&doc_with_missing_field),
-                PersistenceVersion::default()
-            ),
+            read_set.overlaps_document_for_test(&PackedDocument::pack(&doc_with_missing_field),),
             None
         );
 
@@ -1230,10 +1196,7 @@ mod tests {
             ConvexValue::Int64(123),
         )?;
         assert_eq!(
-            read_set.overlaps_document_for_test(
-                &PackedDocument::pack(&doc_with_implicit_null),
-                PersistenceVersion::default()
-            ),
+            read_set.overlaps_document_for_test(&PackedDocument::pack(&doc_with_implicit_null),),
             None
         );
 

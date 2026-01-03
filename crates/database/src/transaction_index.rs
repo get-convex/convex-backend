@@ -1027,7 +1027,6 @@ mod tests {
 
         // Create a transactions with table missing before the transaction started.
         let persistence = Arc::new(TestPersistence::new());
-        let persistence_version = persistence.reader().version();
         let retention_manager =
             Arc::new(FollowerRetentionManager::new(rt.clone(), persistence.clone()).await?);
         let rp = RepeatablePersistence::new(
@@ -1138,8 +1137,7 @@ mod tests {
         assert_eq!(
             result,
             vec![(
-                doc.index_key(&IndexedFields::by_id()[..], persistence_version)
-                    .to_bytes(),
+                doc.index_key(&IndexedFields::by_id()[..]).to_bytes(),
                 doc,
                 WriteTimestamp::Pending
             )],
@@ -1156,7 +1154,6 @@ mod tests {
         let by_name_fields = vec!["name".parse()?];
         let now0 = rt.generate_timestamp()?;
         let ps = Arc::new(TestPersistence::new());
-        let persistence_version = ps.reader().version();
         let retention_manager =
             Arc::new(FollowerRetentionManager::new(rt.clone(), ps.clone()).await?);
         let rp = RepeatablePersistence::new(
@@ -1285,22 +1282,17 @@ mod tests {
             results,
             vec![
                 (
-                    alice
-                        .index_key(&by_id_fields[..], persistence_version)
-                        .to_bytes(),
+                    alice.index_key(&by_id_fields[..]).to_bytes(),
                     alice.clone(),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
-                    zack.index_key(&by_id_fields[..], persistence_version)
-                        .to_bytes(),
+                    zack.index_key(&by_id_fields[..]).to_bytes(),
                     zack.clone(),
                     WriteTimestamp::Committed(now3)
                 ),
                 (
-                    david
-                        .index_key(&by_id_fields[..], persistence_version)
-                        .to_bytes(),
+                    david.index_key(&by_id_fields[..]).to_bytes(),
                     david.clone(),
                     WriteTimestamp::Pending
                 ),
@@ -1324,22 +1316,17 @@ mod tests {
             results,
             vec![
                 (
-                    alice
-                        .index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    alice.index_key(&by_name_fields[..]).to_bytes(),
                     alice.clone(),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
-                    david
-                        .index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    david.index_key(&by_name_fields[..]).to_bytes(),
                     david.clone(),
                     WriteTimestamp::Pending
                 ),
                 (
-                    zack.index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    zack.index_key(&by_name_fields[..]).to_bytes(),
                     zack.clone(),
                     WriteTimestamp::Committed(now3)
                 ),
@@ -1361,26 +1348,18 @@ mod tests {
             .await?;
         assert_eq!(
             cursor,
-            CursorPosition::After(
-                david
-                    .index_key(&by_name_fields[..], persistence_version)
-                    .to_bytes()
-            )
+            CursorPosition::After(david.index_key(&by_name_fields[..]).to_bytes())
         );
         assert_eq!(
             results,
             vec![
                 (
-                    alice
-                        .index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    alice.index_key(&by_name_fields[..]).to_bytes(),
                     alice.clone(),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
-                    david
-                        .index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    david.index_key(&by_name_fields[..]).to_bytes(),
                     david.clone(),
                     WriteTimestamp::Pending
                 ),
@@ -1405,22 +1384,17 @@ mod tests {
             result,
             vec![
                 (
-                    zack.index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    zack.index_key(&by_name_fields[..]).to_bytes(),
                     zack,
                     WriteTimestamp::Committed(now3)
                 ),
                 (
-                    david
-                        .index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    david.index_key(&by_name_fields[..]).to_bytes(),
                     david,
                     WriteTimestamp::Pending
                 ),
                 (
-                    alice
-                        .index_key(&by_name_fields[..], persistence_version)
-                        .to_bytes(),
+                    alice.index_key(&by_name_fields[..]).to_bytes(),
                     alice,
                     WriteTimestamp::Committed(now1)
                 ),

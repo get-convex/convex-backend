@@ -24,10 +24,7 @@ use common::{
         WRITE_LOG_SOFT_MAX_SIZE_BYTES,
     },
     runtime::block_in_place,
-    types::{
-        PersistenceVersion,
-        Timestamp,
-    },
+    types::Timestamp,
     value::ResolvedDocumentId,
 };
 use errors::{
@@ -541,14 +538,12 @@ impl LogWriter {
 /// may be written to persistence, in any order.
 pub struct PendingWrites {
     by_ts: BTreeMap<Timestamp, (OrderedDocumentWrites, WriteSource, Snapshot)>,
-    persistence_version: PersistenceVersion,
 }
 
 impl PendingWrites {
-    pub fn new(persistence_version: PersistenceVersion) -> Self {
+    pub fn new() -> Self {
         Self {
             by_ts: BTreeMap::new(),
-            persistence_version,
         }
     }
 
@@ -609,7 +604,7 @@ impl PendingWrites {
         reads_ts: Timestamp,
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        Ok(reads.writes_overlap_docs(self.iter(reads_ts.succ()?, ts), self.persistence_version))
+        Ok(reads.writes_overlap_docs(self.iter(reads_ts.succ()?, ts)))
     }
 
     pub fn pop_first(

@@ -203,10 +203,7 @@ impl IndexRegistry {
                         on_disk_state: _,
                     } = &index.metadata.config
                     {
-                        yield (
-                            index,
-                            document.index_key_bytes(&fields[..], self.persistence_version()),
-                        );
+                        yield (index, document.index_key_bytes(&fields[..]));
                     }
                 }
             },
@@ -264,7 +261,7 @@ impl IndexRegistry {
                         spec: DatabaseIndexSpec { fields },
                         ..
                     } => Some(DocumentIndexKeyValue::Standard(
-                        document.index_key_bytes(&fields[..], self.persistence_version()),
+                        document.index_key_bytes(&fields[..]),
                     )),
                     IndexConfig::Text {
                         spec:
@@ -312,10 +309,9 @@ impl IndexRegistry {
             )
             .expect("invalid built-in index name");
 
-            let index_key_value = DocumentIndexKeyValue::Standard(document.index_key_bytes(
-                slice::from_ref(&*TABLE_ID_FIELD_PATH),
-                self.persistence_version(),
-            ));
+            let index_key_value = DocumentIndexKeyValue::Standard(
+                document.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)),
+            );
 
             map.insert(index_name, index_key_value);
         }
@@ -739,11 +735,7 @@ impl IndexRegistry {
 pub trait IndexedDocument {
     type IndexKey;
     fn id(&self) -> ResolvedDocumentId;
-    fn index_key_bytes(
-        &self,
-        fields: &[FieldPath],
-        persistence_version: PersistenceVersion,
-    ) -> Self::IndexKey;
+    fn index_key_bytes(&self, fields: &[FieldPath]) -> Self::IndexKey;
 }
 
 impl IndexedDocument for ResolvedDocument {
@@ -753,12 +745,8 @@ impl IndexedDocument for ResolvedDocument {
         self.id()
     }
 
-    fn index_key_bytes(
-        &self,
-        fields: &[FieldPath],
-        persistence_version: PersistenceVersion,
-    ) -> IndexKey {
-        self.index_key(fields, persistence_version)
+    fn index_key_bytes(&self, fields: &[FieldPath]) -> IndexKey {
+        self.index_key(fields)
     }
 }
 impl IndexedDocument for PackedDocument {
@@ -768,12 +756,8 @@ impl IndexedDocument for PackedDocument {
         self.id()
     }
 
-    fn index_key_bytes(
-        &self,
-        fields: &[FieldPath],
-        persistence_version: PersistenceVersion,
-    ) -> IndexKeyBytes {
-        self.index_key_owned(fields, persistence_version)
+    fn index_key_bytes(&self, fields: &[FieldPath]) -> IndexKeyBytes {
+        self.index_key_owned(fields)
     }
 }
 
@@ -908,7 +892,7 @@ mod tests {
 
         let expected = DocumentIndexKeys::from(btreemap! {
             by_name => DocumentIndexKeyValue::Standard(
-                doc.index_key_bytes(&[FieldPath::from_str("name")?], PersistenceVersion::default()).to_bytes()
+                doc.index_key_bytes(&[FieldPath::from_str("name")?]).to_bytes()
             ),
             by_content => DocumentIndexKeyValue::Search(SearchIndexKeyValue {
                 filter_values: btreemap! {
@@ -922,7 +906,7 @@ mod tests {
                 ),
             }),
             by_id => DocumentIndexKeyValue::Standard(
-                doc.index_key_bytes(&[], PersistenceVersion::default()).to_bytes()
+                doc.index_key_bytes(&[]).to_bytes()
             ),
         });
 
@@ -974,18 +958,18 @@ mod tests {
         let by_id = GenericIndexName::by_id(index_table_id.tablet_id);
         let expected = DocumentIndexKeys::from(btreemap! {
             by_id => DocumentIndexKeyValue::Standard(
-                doc.index_key_bytes(&[], PersistenceVersion::default()).to_bytes()
+                doc.index_key_bytes(&[]).to_bytes()
             ),
 
             by_descriptor => DocumentIndexKeyValue::Standard(
-                doc.index_key_bytes(&[FieldPath::from_str("descriptor")?], PersistenceVersion::default()).to_bytes()
+                doc.index_key_bytes(&[FieldPath::from_str("descriptor")?]).to_bytes()
             ),
 
             TabletIndexName::new(
                 index_table_id.tablet_id,
                 INDEX_BY_TABLE_ID_VIRTUAL_INDEX_DESCRIPTOR.clone(),
             )? => DocumentIndexKeyValue::Standard(
-                doc.index_key_bytes(&[FieldPath::from_str("table_id")?], PersistenceVersion::default()).to_bytes()
+                doc.index_key_bytes(&[FieldPath::from_str("table_id")?]).to_bytes()
             ),
         });
 

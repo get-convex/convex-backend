@@ -777,7 +777,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 bootstrap_metadata.tables_tablet_id,
                 table_documents,
                 *snapshot,
-                persistence.version(),
             );
             // Then fetch the remaining in-memory tables.
             index

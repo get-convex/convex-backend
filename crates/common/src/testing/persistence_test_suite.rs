@@ -673,7 +673,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         assert_obj!("value" => value.clone()),
     )?;
     let fields: IndexedFields = vec!["value".parse()?].try_into()?;
-    let key = doc.index_key(&fields, p.reader().version());
+    let key = doc.index_key(&fields);
     let index_update = PersistenceIndexEntry {
         ts,
         index_id: index_id.internal_id(),
@@ -921,17 +921,13 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
             PersistenceIndexEntry {
                 ts,
                 index_id: index1_id,
-                key: doc1
-                    .index_key(&index_fields, p.reader().version())
-                    .to_bytes(),
+                key: doc1.index_key(&index_fields).to_bytes(),
                 value: Some(doc1.id_with_table_id()),
             },
             PersistenceIndexEntry {
                 ts,
                 index_id: index2_id,
-                key: doc1
-                    .index_key(&index_fields, p.reader().version())
-                    .to_bytes(),
+                key: doc1.index_key(&index_fields).to_bytes(),
                 value: Some(doc2.id_with_table_id()),
             },
         ],
@@ -1006,7 +1002,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             CreationTime::ONE,
             assert_obj!("value" => value.clone()),
         )?;
-        let key = doc.index_key(&fields, p.reader().version());
+        let key = doc.index_key(&fields);
         let mut index_updates = vec![PersistenceIndexEntry {
             ts: *ts,
             index_id,
@@ -1062,7 +1058,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             CreationTime::ONE,
             assert_obj!("value" => expected_value),
         )?;
-        let key = doc.index_key(&fields, p.reader().version()).to_bytes();
+        let key = doc.index_key(&fields).to_bytes();
         assert_eq!(
             results,
             vec![(
@@ -1109,7 +1105,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
             value: Some(doc.clone()),
             prev_ts: None,
         });
-        let key = doc.index_key(&fields, p.reader().version());
+        let key = doc.index_key(&fields);
         keys.push(key.clone());
         keys_to_doc.insert(key.clone(), doc.clone());
         indexes.push(PersistenceIndexEntry {
@@ -1211,7 +1207,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
                     format!("value_{}", i) => j
                 ),
             )?;
-            let key = doc.index_key(&fields, p.reader().version());
+            let key = doc.index_key(&fields);
             documents.push(DocumentLogEntry {
                 ts,
                 id: doc.id_with_table_id(),
@@ -1277,9 +1273,7 @@ pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Resu
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let doc_id = id_generator.user_generate(&table);
     let document = ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => 20))?;
-    let index_key = document
-        .index_key(&index_fields, p.reader().version())
-        .to_bytes();
+    let index_key = document.index_key(&index_fields).to_bytes();
     let index_update = PersistenceIndexEntry {
         ts,
         index_id,
@@ -1340,9 +1334,7 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let doc_id = id_generator.user_generate(&table);
     let document = ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => 20))?;
-    let index_key = document
-        .index_key(&index_fields, p.reader().version())
-        .to_bytes();
+    let index_key = document.index_key(&index_fields).to_bytes();
     let index_update = PersistenceIndexEntry {
         ts,
         index_id,
@@ -1426,9 +1418,7 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
         let index_update = PersistenceIndexEntry {
             ts,
             index_id,
-            key: document
-                .index_key(&index_fields, p.reader().version())
-                .to_bytes(),
+            key: document.index_key(&index_fields).to_bytes(),
             value: Some(document.id_with_table_id()),
         };
         p.write(

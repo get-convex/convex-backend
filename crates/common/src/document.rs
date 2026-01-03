@@ -75,10 +75,7 @@ use crate::{
         IndexKeyBytes,
     },
     pii::PII,
-    types::{
-        PersistenceVersion,
-        Timestamp,
-    },
+    types::Timestamp,
     value::Size,
 };
 
@@ -512,11 +509,7 @@ impl ResolvedDocument {
 
     /// Returns the set of values that this document should be indexed by for
     /// the given fields if they exist in the document
-    pub fn index_key(
-        &self,
-        fields: &[FieldPath],
-        _persistence_version: PersistenceVersion,
-    ) -> IndexKey {
+    pub fn index_key(&self, fields: &[FieldPath]) -> IndexKey {
         let mut values = vec![];
         for field in fields.iter() {
             if let Some(v) = self.value.get_path(field) {
@@ -845,7 +838,6 @@ impl PackedDocument {
     pub fn index_key<'a>(
         &self,
         fields: &[FieldPath],
-        _persistence_version: PersistenceVersion,
         buffer: &'a mut IndexKeyBuffer,
     ) -> &'a IndexKeyBytes {
         let out = &mut buffer.0 .0;
@@ -861,13 +853,9 @@ impl PackedDocument {
         &buffer.0
     }
 
-    pub fn index_key_owned(
-        &self,
-        fields: &[FieldPath],
-        persistence_version: PersistenceVersion,
-    ) -> IndexKeyBytes {
+    pub fn index_key_owned(&self, fields: &[FieldPath]) -> IndexKeyBytes {
         let mut buffer = IndexKeyBuffer::new();
-        self.index_key(fields, persistence_version, &mut buffer);
+        self.index_key(fields, &mut buffer);
         buffer.0
     }
 }
@@ -1145,7 +1133,6 @@ mod tests {
             ID_FIELD,
         },
         paths::FieldPath,
-        types::PersistenceVersion,
     };
     #[test]
     fn test_map_table() -> anyhow::Result<()> {
@@ -1242,12 +1229,11 @@ mod tests {
                     .collect();
                 FieldPath::new(ids).ok()
             }).collect();
-            let ver = PersistenceVersion::V5;
-            let index_key_bytes = doc.index_key(&field_paths, ver).to_bytes();
+            let index_key_bytes = doc.index_key(&field_paths).to_bytes();
             assert_eq!(
                 index_key_bytes,
                 *PackedDocument::pack(&doc).index_key(
-                    &field_paths, ver, &mut IndexKeyBuffer::new()
+                    &field_paths, &mut IndexKeyBuffer::new()
                 ),
             );
         }
@@ -1280,14 +1266,12 @@ mod tests {
         ];
         // When document has all fields for the index, index_key extracts those fields.
         assert_eq!(
-            doc1.index_key(&fields[..], PersistenceVersion::default())
-                .indexed_values(),
+            doc1.index_key(&fields[..]).indexed_values(),
             &vec![Some(ConvexValue::from(5)), Some(ConvexValue::from(false))][..]
         );
         // When document is missing a field, assume Null.
         assert_eq!(
-            doc2.index_key(&fields[..], PersistenceVersion::default())
-                .indexed_values(),
+            doc2.index_key(&fields[..]).indexed_values(),
             &vec![Some(ConvexValue::from(5)), None][..]
         );
         Ok(())

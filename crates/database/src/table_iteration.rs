@@ -351,12 +351,8 @@ impl<RT: Runtime> MultiTableIterator<RT> {
                     },
                 )))
                 .boxed(); // `boxed()` instead of `pin_mut!` works around https://github.com/rust-lang/rust/issues/96865
-            let persistence_version = self.inner.persistence.version();
             while let Some(rev) = revisions_at_snapshot.try_next().await? {
-                let index_key = rev
-                    .value
-                    .index_key(&indexed_fields, persistence_version)
-                    .to_bytes();
+                let index_key = rev.value.index_key(&indexed_fields).to_bytes();
                 skipped_keys.insert(index_key, rev.ts, rev.value, rev.prev_ts);
             }
         } else {
@@ -497,8 +493,6 @@ impl<RT: Runtime> TableIteratorInner<RT> {
         observed_ids: &mut BTreeSet<InternalId>,
         buffered_documents: &mut BufferedDocumentMetadata,
     ) -> anyhow::Result<()> {
-        let reader = self.persistence.clone();
-        let persistence_version = reader.version();
         let skipped_revs = self.walk_document_log(
             tablet_id,
             start_ts,
@@ -510,10 +504,7 @@ impl<RT: Runtime> TableIteratorInner<RT> {
         let revisions_at_snapshot = self.load_revisions_at_snapshot_ts(skipped_revs);
         pin_mut!(revisions_at_snapshot);
         while let Some(rev) = revisions_at_snapshot.try_next().await? {
-            let index_key = rev
-                .value
-                .index_key(indexed_fields, persistence_version)
-                .to_bytes();
+            let index_key = rev.value.index_key(indexed_fields).to_bytes();
             if !cursor_has_walked(lower_bound, &index_key) {
                 output.insert(index_key, rev.ts, rev.value, rev.prev_ts);
             }

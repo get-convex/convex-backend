@@ -19,7 +19,6 @@ use common::{
     types::{
         IndexDescriptor,
         IndexName,
-        PersistenceVersion,
         TableName,
     },
 };
@@ -528,12 +527,8 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         Some(
             (doc1.size()
                 + doc3.size()
-                + PackedDocument::pack(&doc1)
-                    .index_key_bytes(&fields, PersistenceVersion::V5)
-                    .len()
-                + PackedDocument::pack(&doc3)
-                    .index_key_bytes(&fields, PersistenceVersion::V5)
-                    .len()) as u64
+                + PackedDocument::pack(&doc1).index_key_bytes(&fields).len()
+                + PackedDocument::pack(&doc3).index_key_bytes(&fields).len()) as u64
         )
     );
 

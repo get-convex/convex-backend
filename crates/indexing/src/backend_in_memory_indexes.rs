@@ -62,7 +62,6 @@ use common::{
         DatabaseIndexValue,
         IndexId,
         IndexName,
-        PersistenceVersion,
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
@@ -279,7 +278,7 @@ impl BackendInMemoryIndexes {
                 let IndexConfig::Database { spec, .. } = &index.config else {
                     unreachable!()
                 };
-                let key = doc.index_key_owned(&spec.fields, snapshot.persistence().version());
+                let key = doc.index_key_owned(&spec.fields);
                 index_map.insert(key, rev.ts, doc);
             }
         }
@@ -300,7 +299,6 @@ impl BackendInMemoryIndexes {
         tablet_id: TabletId,
         documents: Vec<(Timestamp, PackedDocument)>,
         snapshot_timestamp: Timestamp,
-        persistence_version: PersistenceVersion,
     ) {
         for index_doc in index_registry.enabled_indexes_for_table(tablet_id) {
             let IndexConfig::Database {
@@ -314,7 +312,7 @@ impl BackendInMemoryIndexes {
             assert_eq!(*on_disk_state, DatabaseIndexState::Enabled); // ensured by IndexRegistry
             let mut index_map = DatabaseIndexMap::new_at(snapshot_timestamp);
             for (ts, doc) in &documents {
-                let key = doc.index_key_owned(&spec.fields, persistence_version);
+                let key = doc.index_key_owned(&spec.fields);
                 index_map.insert(key, *ts, doc.clone());
             }
             self.in_memory_indexes
@@ -1014,10 +1012,7 @@ mod cache_tests {
         },
         query::Order,
         testing::TestIdGenerator,
-        types::{
-            PersistenceVersion,
-            Timestamp,
-        },
+        types::Timestamp,
     };
     use value::{
         assert_obj,
@@ -1035,9 +1030,7 @@ mod cache_tests {
         let index_id = id_generator.generate_internal();
         let id = id_generator.user_generate(&"users".parse()?);
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!())?;
-        let index_key_bytes = doc
-            .index_key(&IndexedFields::by_id(), PersistenceVersion::default())
-            .to_bytes();
+        let index_key_bytes = doc.index_key(&IndexedFields::by_id()).to_bytes();
         let ts = Timestamp::must(100);
         let doc = PackedDocument::pack(&doc);
         cache.populate([(index_id, index_key_bytes.clone())], ts, doc.clone());
@@ -1066,18 +1059,14 @@ mod cache_tests {
         let id1 = id_generator.user_generate(&"users".parse()?);
         let doc1 = ResolvedDocument::new(id1, CreationTime::ONE, assert_obj!("age" => 30.0))?;
         let fields = vec!["age".parse()?];
-        let index_key_bytes1 = doc1
-            .index_key(&fields, PersistenceVersion::default())
-            .to_bytes();
+        let index_key_bytes1 = doc1.index_key(&fields).to_bytes();
         let ts1 = Timestamp::must(100);
         let doc1 = PackedDocument::pack(&doc1);
         cache.populate([(index_id, index_key_bytes1.clone())], ts1, doc1.clone());
 
         let id2 = id_generator.user_generate(&"users".parse()?);
         let doc2 = ResolvedDocument::new(id2, CreationTime::ONE, assert_obj!("age" => 40.0))?;
-        let index_key_bytes2 = doc2
-            .index_key(&fields, PersistenceVersion::default())
-            .to_bytes();
+        let index_key_bytes2 = doc2.index_key(&fields).to_bytes();
         let ts2 = Timestamp::must(150);
         let doc2 = PackedDocument::pack(&doc2);
         cache.populate([(index_id, index_key_bytes2.clone())], ts2, doc2.clone());
@@ -1201,9 +1190,7 @@ mod cache_tests {
             let doc =
                 ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("age" => age)).unwrap();
             let fields = vec!["age".parse().unwrap()];
-            let index_key_bytes = doc
-                .index_key(&fields, PersistenceVersion::default())
-                .to_bytes();
+            let index_key_bytes = doc.index_key(&fields).to_bytes();
             let doc = PackedDocument::pack(&doc);
             cache.populate([(index_id, index_key_bytes.clone())], ts, doc.clone());
             (index_key_bytes, doc)

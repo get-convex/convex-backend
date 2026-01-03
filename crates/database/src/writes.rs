@@ -486,7 +486,6 @@ mod tests {
         testing::TestIdGenerator,
         types::{
             IndexDescriptor,
-            PersistenceVersion,
             TabletIndexName,
             WriteTimestamp,
         },
@@ -532,10 +531,7 @@ mod tests {
         )?);
         assert!(user_table1_write
             .read_set()
-            .overlaps_document_for_test(
-                &user_table1_table_metadata_change,
-                PersistenceVersion::default()
-            )
+            .overlaps_document_for_test(&user_table1_table_metadata_change,)
             .is_some());
 
         let user_table1_index_change = PackedDocument::pack(&ResolvedDocument::new(
@@ -550,7 +546,7 @@ mod tests {
         )?);
         assert!(user_table1_write
             .read_set()
-            .overlaps_document_for_test(&user_table1_index_change, PersistenceVersion::default())
+            .overlaps_document_for_test(&user_table1_index_change)
             .is_some());
 
         // Writes to a table should *not* OCC with modification of the table metadata
@@ -567,10 +563,7 @@ mod tests {
         )?);
         assert!(user_table1_write
             .read_set()
-            .overlaps_document_for_test(
-                &user_table2_table_metadata_change,
-                PersistenceVersion::default()
-            )
+            .overlaps_document_for_test(&user_table2_table_metadata_change,)
             .is_none());
 
         let user_table2_index_change = PackedDocument::pack(&ResolvedDocument::new(
@@ -585,7 +578,7 @@ mod tests {
         )?);
         assert!(user_table1_write
             .read_set()
-            .overlaps_document_for_test(&user_table2_index_change, PersistenceVersion::default())
+            .overlaps_document_for_test(&user_table2_index_change)
             .is_none());
 
         // Changes to any index metadata should conflict with changes to any
@@ -600,28 +593,22 @@ mod tests {
 
         assert!(metadata_write
             .read_set()
-            .overlaps_document_for_test(
-                &user_table1_table_metadata_change,
-                PersistenceVersion::default()
-            )
+            .overlaps_document_for_test(&user_table1_table_metadata_change,)
             .is_some());
 
         assert!(metadata_write
             .read_set()
-            .overlaps_document_for_test(&user_table1_index_change, PersistenceVersion::default())
+            .overlaps_document_for_test(&user_table1_index_change)
             .is_some());
 
         assert!(metadata_write
             .read_set()
-            .overlaps_document_for_test(
-                &user_table2_table_metadata_change,
-                PersistenceVersion::default()
-            )
+            .overlaps_document_for_test(&user_table2_table_metadata_change,)
             .is_some());
 
         assert!(metadata_write
             .read_set()
-            .overlaps_document_for_test(&user_table2_index_change, PersistenceVersion::default())
+            .overlaps_document_for_test(&user_table2_index_change)
             .is_some());
 
         Ok(())

@@ -215,7 +215,7 @@ impl<RT: Runtime> Committer<RT> {
         tables_table_id: TabletId,
     ) -> CommitterClient {
         let persistence_reader = persistence.reader();
-        let conflict_checker = PendingWrites::new(persistence_reader.version());
+        let conflict_checker = PendingWrites::new();
         let (tx, rx) = mpsc::channel(*COMMITTER_QUEUE_SIZE);
         let snapshot_reader = snapshot_manager.reader();
         let committer = Self {

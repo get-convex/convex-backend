@@ -106,7 +106,6 @@ use common::{
     types::{
         GenericIndexName,
         IndexId,
-        PersistenceVersion,
         RepeatableReason,
         RepeatableTimestamp,
         Timestamp,
@@ -665,7 +664,6 @@ impl LeaderRetentionWorkers {
         cursor: RepeatableTimestamp,
         min_snapshot_ts: RepeatableTimestamp,
         all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
-        persistence_version: PersistenceVersion,
     ) {
         tracing::trace!(
             "expired_index_entries: reading expired index entries from {cursor:?} to {:?}",
@@ -717,9 +715,7 @@ impl LeaderRetentionWorkers {
                 .iter()
                 .filter(|(_, (index, _))| *index.table() == id.table())
             {
-                let index_key = prev_rev
-                    .index_key(index_fields, persistence_version)
-                    .to_bytes();
+                let index_key = prev_rev.index_key(index_fields).to_bytes();
                 let key_sha256 = Sha256::hash(&index_key);
                 let key = SplitKey::new(index_key.clone().0);
                 log_retention_expired_index_entry(false, false);
@@ -736,8 +732,7 @@ impl LeaderRetentionWorkers {
                 );
                 match maybe_doc.as_ref() {
                     Some(doc) => {
-                        let next_index_key =
-                            doc.index_key(index_fields, persistence_version).to_bytes();
+                        let next_index_key = doc.index_key(index_fields).to_bytes();
                         if index_key == next_index_key {
                             continue;
                         }
@@ -785,19 +780,13 @@ impl LeaderRetentionWorkers {
         let mut new_cursor = cursor;
 
         let reader = persistence.reader();
-        let persistence_version = reader.version();
         let snapshot_ts = min_snapshot_ts;
         let reader = RepeatablePersistence::new(reader, snapshot_ts, retention_validator.clone());
 
         tracing::trace!("delete: about to grab chunks");
-        let expired_chunks = Self::expired_index_entries(
-            reader,
-            cursor,
-            min_snapshot_ts,
-            all_indexes,
-            persistence_version,
-        )
-        .try_chunks2(*INDEX_RETENTION_DELETE_CHUNK);
+        let expired_chunks =
+            Self::expired_index_entries(reader, cursor, min_snapshot_ts, all_indexes)
+                .try_chunks2(*INDEX_RETENTION_DELETE_CHUNK);
         pin_mut!(expired_chunks);
         while let Some(delete_chunk) = expired_chunks.try_next().await? {
             tracing::trace!(
@@ -2071,7 +2060,6 @@ mod tests {
         let repeatable_ts = min_snapshot_ts;
 
         let reader = p.reader();
-        let persistence_version = reader.version();
         let retention_validator = Arc::new(NoopRetentionValidator);
         let reader = RepeatablePersistence::new(reader, repeatable_ts, retention_validator.clone());
 
@@ -2084,7 +2072,6 @@ mod tests {
             RepeatableTimestamp::MIN,
             min_snapshot_ts,
             &all_indexes,
-            persistence_version,
         );
         let expired: Vec<_> = expired_stream.try_collect().await?;
 
