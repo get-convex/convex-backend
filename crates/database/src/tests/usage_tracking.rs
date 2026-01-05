@@ -406,6 +406,16 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     let database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.values().sum::<u64>(), 0);
 
+    let mut database_ingress_v2 = stats.recent_database_ingress_size_v2;
+    assert_eq!(database_ingress_v2.len(), 1);
+    assert!(database_ingress_v2.contains_key("my_table"));
+    assert_eq!(
+        database_ingress_v2.remove("my_table"),
+        Some(document.size() as u64)
+    );
+    let database_egress_v2 = stats.recent_database_egress_size_v2;
+    assert_eq!(database_egress_v2.values().sum::<u64>(), 0);
+
     // Database egress counted for read to user table, rounded up
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
@@ -427,6 +437,16 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     assert!(database_egress.contains_key("my_table"));
     assert_eq!(
         database_egress.remove("my_table"),
+        Some(document.size() as u64)
+    );
+
+    let database_ingress_v2 = stats.recent_database_ingress_size_v2;
+    assert_eq!(database_ingress_v2.len(), 1);
+    let mut database_egress_v2 = stats.recent_database_egress_size_v2;
+    assert_eq!(database_egress_v2.len(), 1);
+    assert!(database_egress_v2.contains_key("my_table"));
+    assert_eq!(
+        database_egress_v2.remove("my_table"),
         Some(document.size() as u64)
     );
 
@@ -500,6 +520,16 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.values().sum::<u64>(), 0);
 
+    let mut database_ingress_v2 = stats.recent_database_ingress_size_v2;
+    assert_eq!(database_ingress_v2.len(), 1);
+    assert!(database_ingress_v2.contains_key("my_table"));
+    assert_eq!(
+        database_ingress_v2.remove("my_table"),
+        Some((doc1.size() + doc2.size() + doc3.size()) as u64 * 2)
+    );
+    let database_egress_v2 = stats.recent_database_egress_size_v2;
+    assert_eq!(database_egress_v2.values().sum::<u64>(), 0);
+
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
         .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
@@ -524,6 +554,21 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     assert!(database_egress.contains_key("my_table"));
     assert_eq!(
         database_egress.remove("my_table"),
+        Some(
+            (doc1.size()
+                + doc3.size()
+                + PackedDocument::pack(&doc1).index_key_bytes(&fields).len()
+                + PackedDocument::pack(&doc3).index_key_bytes(&fields).len()) as u64
+        )
+    );
+
+    let database_ingress_v2 = stats.recent_database_ingress_size_v2;
+    assert_eq!(database_ingress_v2.values().sum::<u64>(), 0);
+    let mut database_egress_v2 = stats.recent_database_egress_size_v2;
+    assert_eq!(database_egress_v2.len(), 1);
+    assert!(database_egress_v2.contains_key("my_table"));
+    assert_eq!(
+        database_egress_v2.remove("my_table"),
         Some(
             (doc1.size()
                 + doc3.size()

@@ -262,6 +262,12 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
             doc.size() as u64,
             false,
         );
+        usage.track_database_egress_v2(
+            component_path.clone(),
+            table_name.to_string(),
+            doc.size() as u64,
+            false,
+        );
         table_upload.write(doc).await?;
     }
 

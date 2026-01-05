@@ -37,6 +37,12 @@ impl TestUsageEventLogger {
             ),
             recent_database_ingress_size: std::mem::take(&mut state.recent_database_ingress_size),
             recent_database_egress_size: std::mem::take(&mut state.recent_database_egress_size),
+            recent_database_ingress_size_v2: std::mem::take(
+                &mut state.recent_database_ingress_size_v2,
+            ),
+            recent_database_egress_size_v2: std::mem::take(
+                &mut state.recent_database_egress_size_v2,
+            ),
             recent_vector_ingress_size: std::mem::take(&mut state.recent_vector_ingress_size),
             recent_vector_egress_size: std::mem::take(&mut state.recent_vector_egress_size),
             recent_text_ingress_size: std::mem::take(&mut state.recent_text_ingress_size),
@@ -82,6 +88,8 @@ pub struct UsageCounterState {
     // Bandwidth by table
     pub recent_database_ingress_size: BTreeMap<TableName, u64>,
     pub recent_database_egress_size: BTreeMap<TableName, u64>,
+    pub recent_database_ingress_size_v2: BTreeMap<TableName, u64>,
+    pub recent_database_egress_size_v2: BTreeMap<TableName, u64>,
     pub recent_vector_ingress_size: BTreeMap<TableName, u64>,
     pub recent_vector_egress_size: BTreeMap<TableName, u64>,
     pub recent_text_ingress_size: BTreeMap<TableName, u64>,
@@ -141,6 +149,8 @@ impl UsageCounterState {
                 table_name,
                 ingress,
                 egress,
+                ingress_v2,
+                egress_v2,
                 ..
             } => {
                 *self
@@ -149,8 +159,16 @@ impl UsageCounterState {
                     .or_default() += ingress;
                 *self
                     .recent_database_egress_size
-                    .entry(table_name)
+                    .entry(table_name.clone())
                     .or_default() += egress;
+                *self
+                    .recent_database_ingress_size_v2
+                    .entry(table_name.clone())
+                    .or_default() += ingress_v2;
+                *self
+                    .recent_database_egress_size_v2
+                    .entry(table_name)
+                    .or_default() += egress_v2;
             },
             UsageEvent::VectorBandwidth {
                 table_name,

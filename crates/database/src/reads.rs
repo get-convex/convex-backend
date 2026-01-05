@@ -502,6 +502,12 @@ impl TransactionReadSet {
             document_size as u64,
             is_system_table,
         );
+        usage_tracker.track_database_egress_v2(
+            component_path.clone(),
+            table_name.to_string(),
+            document_size as u64,
+            is_system_table,
+        );
         usage_tracker.track_database_egress_rows(
             component_path,
             table_name.to_string(),
