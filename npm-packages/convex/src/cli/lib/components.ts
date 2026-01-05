@@ -545,7 +545,6 @@ export async function runComponentsPush(
     const { diffString } = diffConfig(
       remoteConfigWithModuleHashes,
       localConfig,
-      false,
     );
 
     logFinishedStep(
