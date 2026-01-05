@@ -96,7 +96,7 @@ use crate::system_table_cleanup::metrics::log_tablet_hard_deleted;
 
 mod metrics;
 
-static MAX_ORPHANED_TABLE_NAMESPACE_AGE: Duration = Duration::from_days(2);
+const MAX_ORPHANED_TABLE_NAMESPACE_AGE: Duration = Duration::from_days(2);
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
@@ -317,21 +317,24 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                         "Deleting orphaned table {table_name:?} in non-existent component \
                          {component_id:?}"
                     );
+                    // Bypass schema enforcement to avoid inserting writes to
+                    // _schemas, which can create a corrupt transaction if we
+                    // end up deleting _schemas later.
                     table_model
-                        .delete_active_table(*namespace, table_name.clone())
+                        .delete_table_by_id_bypassing_schema_enforcement(*tablet_id)
                         .await?;
                     deleted_tables += 1;
-
-                    if deleted_tables >= MAX_TABLES_PER_RUN {
-                        // Don't create an overly large transaction; we'll get
-                        // to the remaining tables on the next run.
-                        tracing::warn!(
-                            "Hit the limit of {} tables, stopping early",
-                            MAX_TABLES_PER_RUN
-                        );
-                        break 'cleanup;
-                    }
                 }
+            }
+
+            if deleted_tables >= MAX_TABLES_PER_RUN {
+                // Don't create an overly large transaction; we'll get
+                // to the remaining tables on the next run.
+                tracing::warn!(
+                    "Hit the limit of {} tables, stopping early",
+                    MAX_TABLES_PER_RUN
+                );
+                break 'cleanup;
             }
         }
         self.database
@@ -554,17 +557,23 @@ mod tests {
     };
 
     use common::{
+        db_schema,
         document::CreationTime,
         identity::InertIdentity,
         runtime::{
             new_rate_limiter,
             Runtime,
         },
+        schemas::DocumentSchema,
     };
-    use database::test_helpers::DbFixtures;
+    use database::{
+        test_helpers::DbFixtures,
+        SchemaModel,
+    };
     use governor::Quota;
     use keybroker::Identity;
     use model::{
+        components::config::ComponentConfigModel,
         session_requests::{
             types::{
                 SessionRequestOutcome,
@@ -587,6 +596,7 @@ mod tests {
     use crate::system_table_cleanup::{
         CreationTimeInterval,
         SystemTableCleanupWorker,
+        MAX_ORPHANED_TABLE_NAMESPACE_AGE,
     };
 
     async fn test_system_table_cleanup_helper(
@@ -661,5 +671,44 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn test_system_table_cleanup_8(rt: TestRuntime) -> anyhow::Result<()> {
         test_system_table_cleanup_helper(rt, 8).await
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_cleanup_orphaned_table_namespaces_with_schema(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let exports_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let worker = SystemTableCleanupWorker {
+            database: db.clone(),
+            runtime: rt.clone(),
+            exports_storage: exports_storage.clone(),
+        };
+        let mut tx = db.begin_system().await?;
+        // Create an orphaned table with a schema.
+        // In particular, test the case of a table starting with an uppercase
+        // letter, because uppercase letters sort after the underscore character
+        // in ASCII, and therefore the table name sorts after system tables.
+        let component = ComponentConfigModel::new(&mut tx)
+            .initialize_component_namespace(false /* is_root */)
+            .await?;
+        SchemaModel::new(&mut tx, TableNamespace::ByComponent(component))
+            .submit_pending(
+                db_schema!("UserTable" => DocumentSchema::Any, "user_table" => DocumentSchema::Any),
+            )
+            .await?;
+        db.commit(tx).await?;
+        rt.advance_time(MAX_ORPHANED_TABLE_NAMESPACE_AGE * 2).await;
+        db.bump_max_repeatable_ts().await?;
+        worker.cleanup_orphaned_table_namespaces().await?;
+        assert_eq!(
+            db.latest_snapshot()?
+                .table_mapping()
+                .namespace(TableNamespace::ByComponent(component))
+                .iter()
+                .count(),
+            0
+        );
+        Ok(())
     }
 }
