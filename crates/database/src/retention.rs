@@ -2340,7 +2340,9 @@ mod tests {
             .await?;
         db.commit(tx).await?;
         let mut tx = db.begin_system().await?;
-        TableModel::new(&mut tx).delete_table(id.tablet_id).await?;
+        TableModel::new(&mut tx)
+            .delete_table_by_id_bypassing_schema_enforcement(id.tablet_id)
+            .await?;
         db.commit(tx).await?;
 
         let tables_by_id = db.bootstrap_metadata.tables_by_id;

@@ -744,7 +744,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             // then delete all tables, including system tables and hidden tables
             let namespaced_table_mapping = self.tx.table_mapping().namespace(namespace);
             for (tablet_id, ..) in namespaced_table_mapping.iter() {
-                TableModel::new(self.tx).delete_table(tablet_id).await?;
+                TableModel::new(self.tx)
+                    .delete_table_by_id_bypassing_schema_enforcement(tablet_id)
+                    .await?;
             }
         }
 

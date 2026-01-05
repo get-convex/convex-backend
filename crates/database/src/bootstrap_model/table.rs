@@ -230,12 +230,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn delete_table(&mut self, tablet_id: TabletId) -> anyhow::Result<TableNumber> {
-        self.delete_table_by_id_bypassing_schema_enforcement(tablet_id)
-            .await
-    }
-
-    async fn delete_table_by_id_bypassing_schema_enforcement(
+    pub async fn delete_table_by_id_bypassing_schema_enforcement(
         &mut self,
         tablet_id: TabletId,
     ) -> anyhow::Result<TableNumber> {
@@ -483,7 +478,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .namespace(namespace)
             .name_to_tablet()(S::table_name().clone())?;
 
-        let table_number = self.delete_table(tablet_id).await?;
+        let table_number = self
+            .delete_table_by_id_bypassing_schema_enforcement(tablet_id)
+            .await?;
         self._insert_table_metadata(
             namespace,
             S::table_name(),
