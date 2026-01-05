@@ -1578,6 +1578,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workos/delete_environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Delete a WorkOS environment. This removes the environment from both WorkOS and the Convex database. */
+        post: operations["delete_workos_environment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workos/disconnect_workos_team": {
         parameters: {
             query?: never;
@@ -1645,6 +1662,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workos/get_or_provision_workos_environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Get or provision a WorkOS environment for a deployment */
+        post: operations["get_or_provision_workos_environment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/workos_integration": {
         parameters: {
             query?: never;
@@ -1678,6 +1712,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/workos_invitation_eligible_emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get emails eligible for WorkOS team invitation (all verified emails except those that are admin of a different WorkOS team) */
+        get: operations["get_workos_invitation_eligible_emails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/workos_team_health": {
         parameters: {
             query?: never;
@@ -1689,6 +1740,23 @@ export interface paths {
         get: operations["get_workos_team_health"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workos/invite_team_member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Invite a member to the WorkOS team associated with a Convex team */
+        post: operations["invite_workos_team_member"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1823,7 +1891,7 @@ export interface components {
             referralCode: components["schemas"]["ReferralCode"];
         };
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "disconnectWorkosTeam" | "enableSSO" | "disableSSO" | "updateSSO";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "deleteWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "disconnectWorkosTeam" | "inviteWorkosTeamMember" | "enableSSO" | "disableSSO" | "updateSSO";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -1979,6 +2047,15 @@ export interface components {
         DeleteProjectsArgs: {
             projectIds: components["schemas"]["ProjectId"][];
         };
+        DeleteWorkOSEnvironmentRequest: {
+            /** @description Deployment name for the environment to delete */
+            deploymentName: string;
+        };
+        DeleteWorkOSEnvironmentResponse: {
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
+            workosTeamId: string;
+        };
         /** Format: int64 */
         DeploymentId: number;
         DeploymentResponse: {
@@ -2016,9 +2093,11 @@ export interface components {
         DeploymentType: "dev" | "prod" | "preview";
         DeploymentWorkOSEnvironmentInfo: {
             deploymentName: string;
+            isProduction: boolean;
             workosClientId: string;
             workosEnvironmentId: string;
             workosEnvironmentName: string;
+            workosTeamId: string;
         };
         DeploymentWorkOSEnvironmentResponse: {
             environment?: null | components["schemas"]["DeploymentWorkOSEnvironmentInfo"];
@@ -2082,6 +2161,11 @@ export interface components {
         GetOptInsResponse: {
             optInsToAccept: components["schemas"]["OptInToAccept"][];
         };
+        GetOrProvisionEnvironmentRequest: {
+            deploymentName: string;
+            environmentName?: string | null;
+            isProduction?: boolean | null;
+        };
         GetSpendingLimitsResponse: {
             /** Format: int64 */
             disableThresholdCents?: number | null;
@@ -2138,10 +2222,27 @@ export interface components {
          *
          *     test-tall-sheep-123  # Prefix of test for internal testing */
         InstanceName: string;
+        InvitationEligibleEmailsResponse: {
+            /** @description The admin email used to create this team's WorkOS account (always
+             *     eligible for re-invitation) */
+            adminEmail?: string | null;
+            eligibleEmails: string[];
+        };
         InvitationResponse: {
             email: string;
             expired: boolean;
             role: components["schemas"]["Role"];
+        };
+        InviteWorkOSTeamMemberRequest: {
+            /** @description Email address to invite to the WorkOS team,
+             *     must be a verified email address associated with the user's account */
+            email: string;
+            /** @description Convex team ID that has an associated WorkOS team */
+            teamId: components["schemas"]["TeamId"];
+        };
+        InviteWorkOSTeamMemberResponse: {
+            email: string;
+            roleSlug: string;
         };
         InvoiceResponse: {
             amountDue: string;
@@ -2299,6 +2400,13 @@ export interface components {
         };
         ProvisionDeploymentDashboardResponse: {
             deploymentName: string;
+        };
+        ProvisionEnvironmentResponse: {
+            apiKey: string;
+            clientId: string;
+            environmentId: string;
+            environmentName: string;
+            newlyProvisioned: boolean;
         };
         ProvisionWorkOSTeamRequest: {
             /** @description Email address to use for the WorkOS team admin,
@@ -2615,6 +2723,8 @@ export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
 export type DeactivatePreviewDeploymentArgs = components['schemas']['DeactivatePreviewDeploymentArgs'];
 export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
 export type DeleteProjectsArgs = components['schemas']['DeleteProjectsArgs'];
+export type DeleteWorkOsEnvironmentRequest = components['schemas']['DeleteWorkOSEnvironmentRequest'];
+export type DeleteWorkOsEnvironmentResponse = components['schemas']['DeleteWorkOSEnvironmentResponse'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
@@ -2636,13 +2746,17 @@ export type GenerateSsoConfigurationLinkRequest = components['schemas']['Generat
 export type GenerateSsoConfigurationLinkResponse = components['schemas']['GenerateSSOConfigurationLinkResponse'];
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
+export type GetOrProvisionEnvironmentRequest = components['schemas']['GetOrProvisionEnvironmentRequest'];
 export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimitsResponse'];
 export type GetTokenInfoResponse = components['schemas']['GetTokenInfoResponse'];
 export type HasAssociatedWorkOsTeamResponse = components['schemas']['HasAssociatedWorkOSTeamResponse'];
 export type IdentityResponse = components['schemas']['IdentityResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InstanceName = components['schemas']['InstanceName'];
+export type InvitationEligibleEmailsResponse = components['schemas']['InvitationEligibleEmailsResponse'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
+export type InviteWorkOsTeamMemberRequest = components['schemas']['InviteWorkOSTeamMemberRequest'];
+export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOSTeamMemberResponse'];
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
@@ -2678,6 +2792,7 @@ export type ProjectsResponse = components['schemas']['ProjectsResponse'];
 export type ProposedTeamName = components['schemas']['ProposedTeamName'];
 export type ProvisionDeploymentDashboardArgs = components['schemas']['ProvisionDeploymentDashboardArgs'];
 export type ProvisionDeploymentDashboardResponse = components['schemas']['ProvisionDeploymentDashboardResponse'];
+export type ProvisionEnvironmentResponse = components['schemas']['ProvisionEnvironmentResponse'];
 export type ProvisionWorkOsTeamRequest = components['schemas']['ProvisionWorkOSTeamRequest'];
 export type ProvisionWorkOsTeamResponse = components['schemas']['ProvisionWorkOSTeamResponse'];
 export type RecordTokensArgs = components['schemas']['RecordTokensArgs'];
@@ -4945,6 +5060,29 @@ export interface operations {
             };
         };
     };
+    delete_workos_environment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteWorkOSEnvironmentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteWorkOSEnvironmentResponse"];
+                };
+            };
+        };
+    };
     disconnect_workos_team: {
         parameters: {
             query?: never;
@@ -5030,6 +5168,29 @@ export interface operations {
             };
         };
     };
+    get_or_provision_workos_environment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetOrProvisionEnvironmentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvisionEnvironmentResponse"];
+                };
+            };
+        };
+    };
     get_team_workos_integration: {
         parameters: {
             query?: never;
@@ -5073,6 +5234,25 @@ export interface operations {
             };
         };
     };
+    get_workos_invitation_eligible_emails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationEligibleEmailsResponse"];
+                };
+            };
+        };
+    };
     get_workos_team_health: {
         parameters: {
             query?: never;
@@ -5091,6 +5271,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkOSTeamHealthResponse"];
+                };
+            };
+        };
+    };
+    invite_workos_team_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteWorkOSTeamMemberRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteWorkOSTeamMemberResponse"];
                 };
             };
         };

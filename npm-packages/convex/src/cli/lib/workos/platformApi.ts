@@ -283,6 +283,21 @@ export async function inviteToWorkosTeam(
           "This email is already a member of another WorkOS workspace",
       };
     }
+    if (data?.code === "WorkosUserAlreadyInvited") {
+      return {
+        result: "alreadyInWorkspace", // Reuse same result type for UI consistency
+        message:
+          data?.message ||
+          "This email has already been invited to the WorkOS team",
+      };
+    }
+    if (data?.code === "WorkosUserAlreadyInThisTeam") {
+      return {
+        result: "alreadyInWorkspace",
+        message:
+          data?.message || "This email is already a member of this WorkOS team",
+      };
+    }
     return await logAndHandleFetchError(ctx, error);
   }
 }

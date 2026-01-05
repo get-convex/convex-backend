@@ -58,6 +58,34 @@
         }
       }
     },
+    "/workos/delete_environment": {
+      "post": {
+        "description": "Delete a WorkOS environment. This removes the environment from both WorkOS and the Convex database.",
+        "operationId": "delete_workos_environment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteWorkOSEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteWorkOSEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workos/disconnect_workos_team": {
       "post": {
         "description": "Disconnect a WorkOS team from a Convex team. This is a destructive action that will prevent new WorkOS environments from being provisioned, though existing environments will continue to work.",
@@ -342,6 +370,37 @@
           }
         }
       },
+      "DeleteWorkOSEnvironmentRequest": {
+        "type": "object",
+        "required": [
+          "deploymentName"
+        ],
+        "properties": {
+          "deploymentName": {
+            "type": "string",
+            "description": "Deployment name for the environment to delete"
+          }
+        }
+      },
+      "DeleteWorkOSEnvironmentResponse": {
+        "type": "object",
+        "required": [
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosTeamId"
+        ],
+        "properties": {
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          },
+          "workosTeamId": {
+            "type": "string"
+          }
+        }
+      },
       "DisconnectWorkOSTeamRequest": {
         "type": "object",
         "required": [
@@ -381,6 +440,12 @@
           "environmentName": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "isProduction": {
+            "type": [
+              "boolean",
               "null"
             ]
           }

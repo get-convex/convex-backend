@@ -304,59 +304,67 @@ const workosInvite = new Command("invite")
   .description(
     "Send an invitation to join the WorkOS team associated with your Convex team",
   )
+  .option("--email <email>", "Email address to invite (skips validation)")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .addDeploymentSelectionOptions(
     actionDescription("Invite yourself to WorkOS team for"),
   )
-  .action(async (_options, cmd) => {
-    const options = cmd.optsWithGlobals();
-    const { ctx, deployment } = await selectEnvDeployment(options);
+  .action(async (options, cmd) => {
+    const allOptions = cmd.optsWithGlobals();
+    const { ctx, deployment } = await selectEnvDeployment(allOptions);
 
     // Get team info first
     const info = await fetchTeamAndProject(ctx, deployment.deploymentName);
 
-    // Get emails eligible for invitation (all verified emails except those that are admin of a different team)
-    const { eligibleEmails, adminEmail } = await getInvitationEligibleEmails(
-      ctx,
-      info.teamId,
-    );
+    let emailToInvite: string;
 
-    // Combine eligible emails with admin email (admin email is always an option for re-invitation)
-    const allInvitableEmails = [...eligibleEmails];
-    if (adminEmail && !allInvitableEmails.includes(adminEmail)) {
-      allInvitableEmails.push(adminEmail);
-    }
-
-    if (allInvitableEmails.length === 0) {
-      logMessage(
-        "You don't have any verified emails available for invitation.",
+    // If email was provided as flag, use it directly (skip CLI validation)
+    if (options.email) {
+      emailToInvite = options.email;
+    } else {
+      // Get emails eligible for invitation (all verified emails except those that are admin of a different team)
+      const { eligibleEmails, adminEmail } = await getInvitationEligibleEmails(
+        ctx,
+        info.teamId,
       );
-      logMessage(
-        "This could be because all your verified emails are already admin of other WorkOS teams.",
-      );
-      return;
-    }
 
-    // Let user select which email to use
-    const emailToInvite = await promptOptions(ctx, {
-      message: "Which email would you like to invite to the WorkOS team?",
-      choices: allInvitableEmails.map((email) => ({
-        name: email + (email === adminEmail ? " (admin email)" : ""),
-        value: email,
-      })),
-      default: allInvitableEmails[0],
-    });
+      // Combine eligible emails with admin email (admin email is always an option for re-invitation)
+      const allInvitableEmails = [...eligibleEmails];
+      if (adminEmail && !allInvitableEmails.includes(adminEmail)) {
+        allInvitableEmails.push(adminEmail);
+      }
 
-    // Confirm before sending
-    const confirmed = await promptYesNo(ctx, {
-      message: `Send invitation to ${emailToInvite}?`,
-      default: true,
-    });
+      if (allInvitableEmails.length === 0) {
+        logMessage(
+          "You don't have any verified emails available for invitation.",
+        );
+        logMessage(
+          "This could be because all your verified emails are already admin of other WorkOS teams.",
+        );
+        return;
+      }
 
-    if (!confirmed) {
-      logMessage("Invitation cancelled.");
-      return;
+      // Let user select which email to use
+      emailToInvite = await promptOptions(ctx, {
+        message: "Which email would you like to invite to the WorkOS team?",
+        choices: allInvitableEmails.map((email) => ({
+          name: email + (email === adminEmail ? " (admin email)" : ""),
+          value: email,
+        })),
+        default: allInvitableEmails[0],
+      });
+
+      // Confirm before sending
+      const confirmed = await promptYesNo(ctx, {
+        message: `Send invitation to ${emailToInvite}?`,
+        default: true,
+      });
+
+      if (!confirmed) {
+        logMessage("Invitation cancelled.");
+        return;
+      }
     }
 
     logMessage(`Sending invitation to ${emailToInvite}...`);

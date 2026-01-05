@@ -2803,6 +2803,34 @@
         }
       }
     },
+    "/workos/delete_environment": {
+      "post": {
+        "description": "Delete a WorkOS environment. This removes the environment from both WorkOS and the Convex database.",
+        "operationId": "delete_workos_environment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteWorkOSEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteWorkOSEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workos/disconnect_workos_team": {
       "post": {
         "description": "Disconnect a WorkOS team from a Convex team. This is a destructive action that will prevent new WorkOS environments from being provisioned, though existing environments will continue to work.",
@@ -2906,6 +2934,34 @@
         }
       }
     },
+    "/workos/get_or_provision_workos_environment": {
+      "post": {
+        "description": "Get or provision a WorkOS environment for a deployment",
+        "operationId": "get_or_provision_workos_environment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOrProvisionEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/workos_integration": {
       "get": {
         "operationId": "get_team_workos_integration",
@@ -2960,6 +3016,24 @@
         }
       }
     },
+    "/teams/{team_id}/workos_invitation_eligible_emails": {
+      "get": {
+        "description": "Get emails eligible for WorkOS team invitation (all verified emails except those that are admin of a different WorkOS team)",
+        "operationId": "get_workos_invitation_eligible_emails",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationEligibleEmailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/workos_team_health": {
       "get": {
         "description": "Check if the WorkOS team associated with this Convex team is still accessible",
@@ -2979,6 +3053,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkOSTeamHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workos/invite_team_member": {
+      "post": {
+        "description": "Invite a member to the WorkOS team associated with a Convex team",
+        "operationId": "invite_workos_team_member",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteWorkOSTeamMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteWorkOSTeamMemberResponse"
                 }
               }
             }
@@ -3316,8 +3418,10 @@
           "generateOAuthClientSecret",
           "createWorkosTeam",
           "createWorkosEnvironment",
+          "deleteWorkosEnvironment",
           "retrieveWorkosEnvironmentCredentials",
           "disconnectWorkosTeam",
+          "inviteWorkosTeamMember",
           "enableSSO",
           "disableSSO",
           "updateSSO"
@@ -3989,6 +4093,37 @@
           }
         }
       },
+      "DeleteWorkOSEnvironmentRequest": {
+        "type": "object",
+        "required": [
+          "deploymentName"
+        ],
+        "properties": {
+          "deploymentName": {
+            "type": "string",
+            "description": "Deployment name for the environment to delete"
+          }
+        }
+      },
+      "DeleteWorkOSEnvironmentResponse": {
+        "type": "object",
+        "required": [
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosTeamId"
+        ],
+        "properties": {
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          },
+          "workosTeamId": {
+            "type": "string"
+          }
+        }
+      },
       "DeploymentId": {
         "type": "integer",
         "format": "int64",
@@ -4137,11 +4272,16 @@
           "deploymentName",
           "workosEnvironmentId",
           "workosEnvironmentName",
-          "workosClientId"
+          "workosClientId",
+          "workosTeamId",
+          "isProduction"
         ],
         "properties": {
           "deploymentName": {
             "type": "string"
+          },
+          "isProduction": {
+            "type": "boolean"
           },
           "workosClientId": {
             "type": "string"
@@ -4150,6 +4290,9 @@
             "type": "string"
           },
           "workosEnvironmentName": {
+            "type": "string"
+          },
+          "workosTeamId": {
             "type": "string"
           }
         }
@@ -4410,6 +4553,29 @@
           }
         }
       },
+      "GetOrProvisionEnvironmentRequest": {
+        "type": "object",
+        "required": [
+          "deploymentName"
+        ],
+        "properties": {
+          "deploymentName": {
+            "type": "string"
+          },
+          "environmentName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isProduction": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
       "GetSpendingLimitsResponse": {
         "type": "object",
         "properties": {
@@ -4596,6 +4762,27 @@
         "type": "string",
         "description": "Example instance names:\n\ntall-sheep-123\n\ntest-tall-sheep-123  # Prefix of test for internal testing"
       },
+      "InvitationEligibleEmailsResponse": {
+        "type": "object",
+        "required": [
+          "eligibleEmails"
+        ],
+        "properties": {
+          "adminEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The admin email used to create this team's WorkOS account (always\neligible for re-invitation)"
+          },
+          "eligibleEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "InvitationResponse": {
         "type": "object",
         "required": [
@@ -4612,6 +4799,38 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          }
+        }
+      },
+      "InviteWorkOSTeamMemberRequest": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address to invite to the WorkOS team,\nmust be a verified email address associated with the user's account"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId",
+            "description": "Convex team ID that has an associated WorkOS team"
+          }
+        }
+      },
+      "InviteWorkOSTeamMemberResponse": {
+        "type": "object",
+        "required": [
+          "email",
+          "roleSlug"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "roleSlug": {
+            "type": "string"
           }
         }
       },
@@ -5248,6 +5467,33 @@
         "properties": {
           "deploymentName": {
             "type": "string"
+          }
+        }
+      },
+      "ProvisionEnvironmentResponse": {
+        "type": "object",
+        "required": [
+          "environmentId",
+          "environmentName",
+          "clientId",
+          "apiKey",
+          "newlyProvisioned"
+        ],
+        "properties": {
+          "apiKey": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "environmentId": {
+            "type": "string"
+          },
+          "environmentName": {
+            "type": "string"
+          },
+          "newlyProvisioned": {
+            "type": "boolean"
           }
         }
       },

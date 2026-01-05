@@ -61,7 +61,8 @@ pub struct WorkOSUser {
 const APPLICATION_JSON: http::HeaderValue = http::HeaderValue::from_static("application/json");
 
 // Timeout for external WorkOS API calls
-const WORKOS_API_TIMEOUT: Duration = Duration::from_secs(5);
+// Most calls take less than 1 second, but deletion can take up to 18 seconds.
+const WORKOS_API_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn format_workos_error(operation: &str, status: http::StatusCode, response_body: &[u8]) -> String {
     let body_str = String::from_utf8_lossy(response_body);
@@ -133,8 +134,34 @@ pub struct WorkOSAPIKeyResponse {
 }
 
 #[derive(Debug, Deserialize)]
+/// WorkOS API error response JSON body structure.
+/// This is the JSON object returned in the HTTP response body when WorkOS APIs
+/// return error status codes (4xx, 5xx).
+///
+/// Example response body for a 400 Bad Request:
+/// ```json
+/// {
+///   "code": "user_already_exists",  // Sometimes present
+///   "error": "Bad Request",          // Sometimes present, mirrors HTTP status
+///   "message": "User email@example.com is already a member of this team."
+/// }
+/// ```
+///
+/// Example response body for a 500 Internal Server Error:
+/// ```json
+/// {
+///   "message": "Internal Server Error"  // Note: no "error" or "code" fields
+/// }
+/// ```
 pub struct WorkOSErrorResponse {
+    /// Error code when available (e.g., "user_already_exists",
+    /// "platform_not_authorized")
     pub code: Option<String>,
+    /// Generic error category (e.g., "Bad Request").
+    /// Not present in 500 Internal Server Error responses.
+    pub error: Option<String>,
+    /// Human-readable error message that we parse for specific scenarios when
+    /// code is absent
     pub message: String,
 }
 
@@ -262,6 +289,7 @@ pub trait WorkOSPlatformClient: Send + Sync {
         &self,
         workos_team_id: &str,
         environment_name: &str,
+        is_production: Option<bool>,
     ) -> anyhow::Result<WorkOSEnvironmentResponse>;
     async fn get_environment(
         &self,
@@ -280,6 +308,11 @@ pub trait WorkOSPlatformClient: Send + Sync {
         email: &str,
         role_slug: &str,
     ) -> anyhow::Result<WorkOSTeamInvitationResponse>;
+    async fn delete_environment(
+        &self,
+        workos_team_id: &str,
+        environment_id: &str,
+    ) -> anyhow::Result<()>;
 }
 
 pub struct RealWorkOSClient<F, E>
@@ -622,11 +655,13 @@ where
         &self,
         workos_team_id: &str,
         environment_name: &str,
+        is_production: Option<bool>,
     ) -> anyhow::Result<WorkOSEnvironmentResponse> {
         create_workos_environment(
             &self.platform_api_key,
             workos_team_id,
             environment_name,
+            is_production,
             &*self.http_client,
         )
         .await
@@ -673,6 +708,20 @@ where
             workos_team_id,
             email,
             role_slug,
+            &*self.http_client,
+        )
+        .await
+    }
+
+    async fn delete_environment(
+        &self,
+        workos_team_id: &str,
+        environment_id: &str,
+    ) -> anyhow::Result<()> {
+        delete_workos_environment(
+            &self.platform_api_key,
+            workos_team_id,
+            environment_id,
             &*self.http_client,
         )
         .await
@@ -725,6 +774,7 @@ impl WorkOSPlatformClient for MockWorkOSPlatformClient {
         &self,
         _workos_team_id: &str,
         environment_name: &str,
+        _is_production: Option<bool>,
     ) -> anyhow::Result<WorkOSEnvironmentResponse> {
         Ok(WorkOSEnvironmentResponse {
             object: "environment".to_string(),
@@ -775,6 +825,14 @@ impl WorkOSPlatformClient for MockWorkOSPlatformClient {
             email: email.to_string(),
             role_slug: role_slug.to_string(),
         })
+    }
+
+    async fn delete_environment(
+        &self,
+        _workos_team_id: &str,
+        _environment_id: &str,
+    ) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 
@@ -1091,6 +1149,13 @@ where
 
     let url = format!("https://api.workos.com/platform/teams/{workos_team_id}/invitations");
 
+    // WorkOS Platform API invitation responses as of Jan 2 2025:
+    // - Already invited (pending): 500 Internal Server Error with
+    //   {"message":"Internal Server Error"}
+    // - Already member of another team: 400 Bad Request with {"message":"User
+    //   'email' is already a member of another team.","error":"Bad Request"}
+    // - Already member of this team: 400 Bad Request with {"message":"User 'email'
+    //   is already a member of this team.","error":"Bad Request"}
     let request = http::Request::builder()
         .uri(&url)
         .method(http::Method::POST)
@@ -1109,25 +1174,32 @@ where
         })?
         .map_err(|e| anyhow::anyhow!("Could not invite team member: {}", e))?;
 
-    if response.status() == http::StatusCode::CONFLICT {
+    // Handle 400 Bad Request - WorkOS returns this for "already a member" scenarios
+    if response.status() == http::StatusCode::BAD_REQUEST {
+        let status = response.status();
         let response_body = response.into_body();
 
-        if let Ok(error_response) = serde_json::from_slice::<WorkOSErrorResponse>(&response_body)
-            && (error_response.code == Some("user_already_in_workspace".to_string())
-                || error_response.code == Some("user_already_invited".to_string()))
-        {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "WorkosUserAlreadyInWorkspace",
-                format!(
-                    "The email {email} is already a member of another WorkOS workspace or has \
-                     already been invited"
-                )
-            ));
+        if let Ok(error_response) = serde_json::from_slice::<WorkOSErrorResponse>(&response_body) {
+            let message = &error_response.message;
+
+            // Parse the message to determine the specific scenario
+            if message.contains("already a member of this team") {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "WorkosUserAlreadyInThisTeam",
+                    format!("The email {email} is already a member of this WorkOS team")
+                ));
+            }
+            if message.contains("already a member of another team") {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "WorkosUserAlreadyInWorkspace",
+                    format!("The email {email} is already a member of another WorkOS workspace")
+                ));
+            }
         }
 
-        let status = http::StatusCode::CONFLICT;
+        // Unknown 400 error - return generic error
         anyhow::bail!(format_workos_error(
-            "invite team member (conflict)",
+            "invite team member",
             status,
             &response_body
         ));
@@ -1136,6 +1208,19 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
+
+        // TODO: WorkOS returns 500 Internal Server Error with no details when
+        // a WorkOS users is already invited. We'll update once they fix this.
+        if status == http::StatusCode::INTERNAL_SERVER_ERROR {
+            let response_str = String::from_utf8_lossy(&response_body);
+            if response_str.contains("Internal Server Error") {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "WorkosUserAlreadyInvited",
+                    format!("The email {email} may have already been invited to this WorkOS team")
+                ));
+            }
+        }
+
         anyhow::bail!(format_workos_error(
             "invite team member",
             status,
@@ -1155,10 +1240,61 @@ where
     Ok(invitation)
 }
 
+pub async fn delete_workos_environment<F, E>(
+    api_key: &str,
+    workos_team_id: &str,
+    environment_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<()>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!(
+        "https://api.workos.com/platform/teams/{workos_team_id}/environments/{environment_id}"
+    );
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::DELETE)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not delete environment: {}", e))?;
+
+    // 204 No Content is the success response for delete
+    if response.status() == http::StatusCode::NO_CONTENT {
+        return Ok(());
+    }
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "delete environment",
+            status,
+            &response_body
+        ));
+    }
+
+    Ok(())
+}
+
 pub async fn create_workos_environment<F, E>(
     api_key: &str,
     workos_team_id: &str,
     environment_name: &str,
+    is_production: Option<bool>,
     http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
 ) -> anyhow::Result<WorkOSEnvironmentResponse>
 where
@@ -1168,10 +1304,13 @@ where
     #[derive(Serialize)]
     struct CreateEnvironmentRequest {
         name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        production: Option<bool>,
     }
 
     let request_body = CreateEnvironmentRequest {
         name: environment_name.to_string(),
+        production: is_production,
     };
 
     let url = format!("https://api.workos.com/platform/teams/{workos_team_id}/environments",);
@@ -1751,17 +1890,14 @@ where
         let response_body = response.into_body();
 
         // Handle 400 Bad Request specially to forward the error message
-        if status == http::StatusCode::BAD_REQUEST {
-            println!("Hello! Bad request");
-            if let Ok(error_response) =
+        if status == http::StatusCode::BAD_REQUEST
+            && let Ok(error_response) =
                 serde_json::from_slice::<WorkOSErrorResponse>(&response_body)
-            {
-                println!("Error message: {}", error_response.message);
-                return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-                    "WorkOSPortalLinkError",
-                    error_response.message
-                )));
-            }
+        {
+            return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                "WorkOSPortalLinkError",
+                error_response.message
+            )));
         }
 
         anyhow::bail!(format_workos_error(

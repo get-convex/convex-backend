@@ -566,6 +566,12 @@ function EntryAction({
     case "disconnectWorkosTeam": {
       return <span>disconnected a WorkOS team</span>;
     }
+    case "deleteWorkosEnvironment": {
+      return <span>deleted a WorkOS environment</span>;
+    }
+    case "inviteWorkosTeamMember": {
+      return <span>invited a member to WorkOS team</span>;
+    }
     case "enableSSO": {
       return <span>enabled SSO</span>;
     }

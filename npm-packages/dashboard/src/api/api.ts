@@ -10,7 +10,7 @@ import isMatch from "lodash/isMatch";
 import { fireGoogleAnalyticsEvent } from "elements/GoogleAnalytics";
 import { toast } from "@common/lib/utils";
 import type { paths as BigBrainPaths } from "generatedApi";
-import { SWRConfiguration } from "swr";
+import { SWRConfiguration, mutate as globalMutate } from "swr";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useCallback, useEffect } from "react";
@@ -98,6 +98,7 @@ export function useBBQuery<QueryPath extends Path<"get">>({
     },
     ...swrOptions,
   });
+
   if ("error" in res && !!res.error && typeof res.error === "object") {
     if (
       res.error instanceof TypeError &&
@@ -168,7 +169,6 @@ export function useBBMutation<
   const router = useRouter();
   const [accessToken] = useAccessToken();
   const authHeader = `Bearer ${accessToken}`;
-  const mutate = useMutate();
   const googleAnalyticsId = getGoogleAnalyticsClientId(document.cookie);
 
   type RequestBody = RequestBodyOption<BigBrainPaths[T][Method]>["body"];
@@ -199,6 +199,7 @@ export function useBBMutation<
       };
 
       const call = method === "put" ? client.PUT : client.POST;
+
       const {
         error,
         data,
@@ -229,14 +230,18 @@ export function useBBMutation<
         await router.push(redirectTo);
       }
       if ("mutateKey" in rest) {
-        const { mutateKey, mutatePathParams } = rest;
-        await mutate(
-          [
-            mutateKey,
-            // @ts-expect-error TODO: Figure out how to type this.
-            { params: { path: mutatePathParams } },
-          ],
+        const { mutateKey } = rest;
+
+        // Use filter-based invalidation to match cache keys regardless of headers
+        // This matches any cache entry with prefix "big-brain" and the specified path
+        await globalMutate(
+          (key) => {
+            if (!Array.isArray(key) || key.length < 3) return false;
+            const [prefix, keyPath] = key;
+            return prefix === "big-brain" && keyPath === mutateKey;
+          },
           undefined,
+          { revalidate: true },
         );
       }
       if (successToast) toast("success", successToast);
@@ -249,7 +254,6 @@ export function useBBMutation<
       googleAnalyticsId,
       includeCredentials,
       method,
-      mutate,
       path,
       pathParams,
       redirectTo,
