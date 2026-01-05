@@ -74,7 +74,7 @@ export async function ensureWorkosEnvironmentProvisioned(
       existingEnvVars.environmentId,
     );
     await updateWorkosEnvironment(ctx, existingEnvVars.apiKey);
-    logFinishedStep("WorkOS AutKit environment ready");
+    logFinishedStep("WorkOS AuthKit environment ready");
     return "ready";
   }
 
@@ -147,7 +147,7 @@ export async function ensureWorkosEnvironmentProvisioned(
   await updateEnvLocal(ctx, data.clientId, data.apiKey, data.environmentId);
 
   await updateWorkosEnvironment(ctx, data.apiKey);
-  logFinishedStep("WorkOS AutKit environment ready");
+  logFinishedStep("WorkOS AuthKit environment ready");
 
   return "ready";
 }
