@@ -114,12 +114,14 @@ export function WebhookConfigurationForm({
           format: values.format,
         });
         onAddedIntegration?.();
+        toast("success", "Created webhook integration");
         setShowSecretRevealScreen(true);
       } else {
         await updateLogStream(logStreamId, {
           logStreamType: "webhook",
           ...values,
         });
+        toast("success", "Updated webhook integration");
         onClose();
       }
     },

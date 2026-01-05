@@ -3,6 +3,7 @@ import { Button } from "@ui/Button";
 import { Menu, MenuItem } from "@ui/Menu";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { useDeleteLogStream } from "@common/lib/integrationsApi";
+import { toast } from "@common/lib/utils";
 import { useState } from "react";
 import {
   LogIntegration,
@@ -21,16 +22,23 @@ export function IntegrationOverflowMenu({
   const deleteLogStream = useDeleteLogStream();
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const logStreamId = integration.existing?._id;
+  const existingIntegration = integration.existing;
 
-  return integration.existing && logStreamId ? (
+  return existingIntegration && logStreamId ? (
     <>
       {showDeleteConfirmation && (
         <ConfirmationDialog
           onClose={() => {
             setShowDeleteConfirmation(false);
           }}
-          onConfirm={() => deleteLogStream(logStreamId)}
-          dialogTitle={`Delete ${integrationName(integration.existing.config.type)} Integration`}
+          onConfirm={async () => {
+            await deleteLogStream(logStreamId);
+            toast(
+              "success",
+              `Deleted ${integrationName(existingIntegration.config.type)} integration`,
+            );
+          }}
+          dialogTitle={`Delete ${integrationName(existingIntegration.config.type)} Integration`}
           dialogBody="Are you sure you want to delete this integration?"
           confirmText="Delete"
         />
@@ -46,8 +54,8 @@ export function IntegrationOverflowMenu({
         }}
       >
         <MenuItem action={onConfigure}>Configure</MenuItem>
-        <MenuItem href={configToUrl(integration.existing.config)}>
-          Go to {integrationName(integration.existing.config.type)}
+        <MenuItem href={configToUrl(existingIntegration.config)}>
+          Go to {integrationName(existingIntegration.config.type)}
         </MenuItem>
         <MenuItem
           action={() => {

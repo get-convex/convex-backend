@@ -21,6 +21,7 @@ import {
   useUpdateLogStream,
   useDeleteLogStream,
 } from "@common/lib/integrationsApi";
+import { toast } from "@common/lib/utils";
 
 const axiomValidationSchema = Yup.object().shape({
   datasetName: Yup.string().required("Dataset name is required"),
@@ -85,6 +86,12 @@ export function AxiomConfigurationForm({
           ingestUrl: values.ingestUrl,
         });
         onAddedIntegration?.();
+        toast(
+          "success",
+          isUpgradingToV2
+            ? "Updated Axiom integration"
+            : "Created Axiom integration",
+        );
       } else {
         // Update existing integration without changing version
         await updateLogStream(logStreamId, {
@@ -94,6 +101,7 @@ export function AxiomConfigurationForm({
           attributes: values.attributes,
           ingestUrl: values.ingestUrl,
         });
+        toast("success", "Updated Axiom integration");
       }
       onClose();
     },

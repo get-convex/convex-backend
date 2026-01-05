@@ -11,6 +11,7 @@ import {
   useUpdateLogStream,
   useDeleteLogStream,
 } from "@common/lib/integrationsApi";
+import { toast } from "@common/lib/utils";
 import Link from "next/link";
 import * as Yup from "yup";
 
@@ -80,6 +81,12 @@ export function SentryConfigurationForm({
           tags: values.tags ? JSON.parse(values.tags) : undefined,
         });
         onAddedIntegration?.();
+        toast(
+          "success",
+          isUpgradingToV2
+            ? "Updated Sentry integration"
+            : "Created Sentry integration",
+        );
       } else {
         // Update existing integration without changing version
         await updateLogStream(logStreamId, {
@@ -87,6 +94,7 @@ export function SentryConfigurationForm({
           dsn: values.dsn,
           tags: values.tags ? JSON.parse(values.tags) : undefined,
         });
+        toast("success", "Updated Sentry integration");
       }
       onClose();
     },

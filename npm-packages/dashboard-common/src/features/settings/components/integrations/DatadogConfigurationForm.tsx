@@ -16,6 +16,7 @@ import {
   useUpdateLogStream,
   useDeleteLogStream,
 } from "@common/lib/integrationsApi";
+import { toast } from "@common/lib/utils";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 const siteLocationOptions: Option<DatadogSiteLocation>[] = [
@@ -89,6 +90,12 @@ export function DatadogConfigurationForm({
           service: values.service,
         });
         onAddedIntegration?.();
+        toast(
+          "success",
+          isUpgradingToV2
+            ? "Updated Datadog integration"
+            : "Created Datadog integration",
+        );
         onClose();
       } else {
         // Update existing integration without changing version
@@ -99,6 +106,7 @@ export function DatadogConfigurationForm({
           ddTags,
           service: values.service,
         });
+        toast("success", "Updated Datadog integration");
         onClose();
       }
     },
