@@ -523,13 +523,13 @@ export async function configFromProjectConfig(
   if (verbose) {
     showSpinner("Bundling modules for Convex's runtime...");
   }
-  const convexResult = await bundle(
+  const convexResult = await bundle({
     ctx,
-    baseDir,
-    entryPoints.isolate,
-    true,
-    "browser",
-  );
+    dir: baseDir,
+    entryPoints: entryPoints.isolate,
+    generateSourceMaps: true,
+    platform: "browser",
+  });
   if (verbose) {
     logMessage(
       "Convex's runtime modules: ",
@@ -541,15 +541,15 @@ export async function configFromProjectConfig(
   if (verbose && entryPoints.node.length !== 0) {
     showSpinner("Bundling modules for Node.js runtime...");
   }
-  const nodeResult = await bundle(
+  const nodeResult = await bundle({
     ctx,
-    baseDir,
-    entryPoints.node,
-    true,
-    "node",
-    path.join("_deps", "node"),
-    projectConfig.node.externalPackages,
-  );
+    dir: baseDir,
+    entryPoints: entryPoints.node,
+    generateSourceMaps: true,
+    platform: "node",
+    chunksFolder: path.join("_deps", "node"),
+    externalPackagesAllowList: projectConfig.node.externalPackages,
+  });
   if (verbose && entryPoints.node.length !== 0) {
     logMessage(
       "Node.js runtime modules: ",

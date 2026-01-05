@@ -20,7 +20,13 @@ const ctx = await oneoffContext({
   envFile: undefined,
 });
 const setupBundles = (
-  await bundle(ctx, process.argv[2], [setupPath], true, "browser")
+  await bundle({
+    ctx,
+    dir: process.argv[2],
+    entryPoints: [setupPath],
+    generateSourceMaps: true,
+    platform: "browser",
+  })
 ).modules;
 if (setupBundles.length !== 1) {
   throw new Error("Got more than one setup bundle?");
@@ -33,7 +39,13 @@ for (const systemDir of systemDirs) {
   }
   const entryPoints = await entryPointsByEnvironment(ctx, systemDir, false);
   const bundles = (
-    await bundle(ctx, systemDir, entryPoints.isolate, false, "browser")
+    await bundle({
+      ctx,
+      dir: systemDir,
+      entryPoints: entryPoints.isolate,
+      generateSourceMaps: false,
+      platform: "browser",
+    })
   ).modules;
   out.push(...bundles);
 }

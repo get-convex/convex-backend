@@ -159,16 +159,25 @@ async function doEsbuild(
   }
 }
 
-export async function bundle(
-  ctx: Context,
-  dir: string,
-  entryPoints: string[],
-  generateSourceMaps: boolean,
-  platform: esbuild.Platform,
+export async function bundle({
+  ctx,
+  dir,
+  entryPoints,
+  generateSourceMaps,
+  platform,
   chunksFolder = "_deps",
-  externalPackagesAllowList: string[] = [],
-  extraConditions: string[] = [],
-): Promise<{
+  externalPackagesAllowList = [],
+  extraConditions = [],
+}: {
+  ctx: Context;
+  dir: string;
+  entryPoints: string[];
+  generateSourceMaps: boolean;
+  platform: esbuild.Platform;
+  chunksFolder?: string;
+  externalPackagesAllowList?: string[];
+  extraConditions?: string[];
+}): Promise<{
   modules: Bundle[];
   externalDependencies: Map<string, string>;
   bundledModuleNames: Set<string>;
@@ -278,15 +287,14 @@ export async function bundleSchema(
   if (!ctx.fs.exists(target)) {
     target = path.resolve(dir, "schema.js");
   }
-  const result = await bundle(
+  const result = await bundle({
     ctx,
     dir,
-    [target],
-    true,
-    "browser",
-    undefined,
+    entryPoints: [target],
+    generateSourceMaps: true,
+    platform: "browser",
     extraConditions,
-  );
+  });
   return result.modules;
 }
 
@@ -312,7 +320,13 @@ export async function bundleAuthConfig(ctx: Context, dir: string) {
     return [];
   }
   logVerbose(chalkStderr.yellow(`Bundling auth config found at ${chosenPath}`));
-  const result = await bundle(ctx, dir, [chosenPath], true, "browser");
+  const result = await bundle({
+    ctx,
+    dir,
+    entryPoints: [chosenPath],
+    generateSourceMaps: true,
+    platform: "browser",
+  });
   return result.modules;
 }
 

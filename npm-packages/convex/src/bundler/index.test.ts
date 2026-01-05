@@ -46,8 +46,15 @@ test("bundle finds JavaScript functions", async () => {
   const ctx = await getDefaultCtx();
   const entryPoints = await entryPointsByEnvironment(ctx, fixtureDir);
   const bundles = sorted(
-    (await bundle(ctx, fixtureDir, entryPoints.isolate, false, "browser"))
-      .modules,
+    (
+      await bundle({
+        ctx,
+        dir: fixtureDir,
+        entryPoints: entryPoints.isolate,
+        generateSourceMaps: false,
+        platform: "browser",
+      })
+    ).modules,
     (b) => b.path,
   ).filter((bundle) => !bundle.path.includes("_deps"));
   expect(bundles).toHaveLength(2);
