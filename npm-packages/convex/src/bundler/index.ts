@@ -77,6 +77,7 @@ async function doEsbuild(
   chunksFolder: string,
   externalPackages: Map<string, ExternalPackage>,
   extraConditions: string[],
+  includeSourcesContent: boolean,
 ): Promise<EsBuildResult> {
   const external = createExternalPlugin(ctx, externalPackages);
   try {
@@ -89,6 +90,7 @@ async function doEsbuild(
       dir,
       // The wasmPlugin should be last so it doesn't run on external modules.
       plugins: [external.plugin, wasmPlugin],
+      includeSourcesContent,
     });
 
     for (const [relPath, input] of Object.entries(result.metafile!.inputs)) {
@@ -168,6 +170,7 @@ export async function bundle({
   chunksFolder = "_deps",
   externalPackagesAllowList = [],
   extraConditions = [],
+  includeSourcesContent = true,
 }: {
   ctx: Context;
   dir: string;
@@ -177,6 +180,7 @@ export async function bundle({
   chunksFolder?: string;
   externalPackagesAllowList?: string[];
   extraConditions?: string[];
+  includeSourcesContent?: boolean;
 }): Promise<{
   modules: Bundle[];
   externalDependencies: Map<string, string>;
@@ -195,6 +199,7 @@ export async function bundle({
     chunksFolder,
     availableExternalPackages,
     extraConditions,
+    includeSourcesContent,
   );
   // Some ESBuild errors won't show up here, instead crashing in doEsbuild().
   if (result.errors.length) {

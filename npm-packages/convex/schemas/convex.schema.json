@@ -77,6 +77,17 @@
         }
       }
     },
+    "bundler": {
+      "type": "object",
+      "description": "Configuration for module bundling and source map generation.",
+      "properties": {
+        "includeSourcesContent": {
+          "type": "boolean",
+          "description": "Whether to include original source code in source maps. Set to false to reduce bundle size.",
+          "default": true
+        }
+      }
+    },
     "typescriptCompiler": {
       "type": "string",
       "enum": ["tsc", "tsgo"],

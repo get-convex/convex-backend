@@ -92,14 +92,19 @@ export interface ProjectConfig {
     fileType?: "ts" | "js/dts";
   };
 
+  bundler?: {
+    includeSourcesContent?: boolean;
+  };
+
   typescriptCompiler?: TypescriptCompiler;
 }
 
 /** Type written to convex.json (where we elide deleted default values)  */
 type DefaultsRemovedProjectConfig = Partial<
-  Omit<ProjectConfig, "node" | "codegen"> & {
+  Omit<ProjectConfig, "node" | "codegen" | "bundler"> & {
     node: Partial<ProjectConfig["node"]>;
     codegen: Partial<ProjectConfig["codegen"]>;
+    bundler: Partial<ProjectConfig["bundler"]>;
   }
 >;
 
@@ -182,6 +187,15 @@ const CodegenSchema = z.object({
   fileType: z.enum(["ts", "js/dts"]).optional(),
 });
 
+const BundlerSchema = z.object({
+  includeSourcesContent: z
+    .boolean()
+    .default(true)
+    .describe(
+      "Whether to include original source code in source maps. Set to false to reduce bundle size.",
+    ),
+});
+
 const refineToObject = <T extends z.ZodTypeAny>(schema: T) =>
   schema.refine((val) => val !== null && !Array.isArray(val), {
     message: "Expected `convex.json` to contain an object",
@@ -193,6 +207,9 @@ const createProjectConfigSchema = (strict: boolean) => {
   const codegenSchema = strict
     ? CodegenSchema.strict()
     : CodegenSchema.passthrough();
+  const bundlerSchema = strict
+    ? BundlerSchema.strict()
+    : BundlerSchema.passthrough();
 
   const baseObject = z.object({
     functions: z
@@ -204,6 +221,7 @@ const createProjectConfigSchema = (strict: boolean) => {
       staticApi: false,
       staticDataModel: false,
     }),
+    bundler: bundlerSchema.default({ includeSourcesContent: true }).optional(),
     generateCommonJSApi: z.boolean().default(false),
     typescriptCompiler: z
       .enum(["tsc", "tsgo"])
@@ -770,6 +788,14 @@ function stripDefaults(
   if (Object.keys(stripped.codegen!).length === 0) {
     delete stripped.codegen;
   }
+
+  if (stripped.bundler?.includeSourcesContent === true) {
+    delete stripped.bundler!.includeSourcesContent;
+  }
+  if (stripped.bundler && Object.keys(stripped.bundler).length === 0) {
+    delete stripped.bundler;
+  }
+
   return stripped;
 }
 

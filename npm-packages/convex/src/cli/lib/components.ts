@@ -291,17 +291,21 @@ async function startComponentsPushAndCodegen(
   changeSpinner("Bundling component schemas and implementations...");
   const { appImplementation, componentImplementations } =
     await parentSpan.enterAsync("bundleImplementations", () =>
-      bundleImplementations(
+      bundleImplementations({
         ctx,
-        rootComponent,
+        rootComponentDirectory: rootComponent,
         // When running codegen for a specific component, don't bundle the root.
-        [...components.values()].filter(
+        componentDirectories: [...components.values()].filter(
           (dir) => !dir.isRoot && !dir.syntheticComponentImport,
         ),
-        projectConfig.node.externalPackages,
-        options.liveComponentSources ? ["@convex-dev/component-source"] : [],
-        options.verbose,
-      ),
+        nodeExternalPackages: projectConfig.node.externalPackages,
+        extraConditions: options.liveComponentSources
+          ? ["@convex-dev/component-source"]
+          : [],
+        verbose: options.verbose,
+        includeSourcesContent:
+          projectConfig.bundler?.includeSourcesContent ?? true,
+      }),
     );
   if (options.debugBundlePath) {
     const { config: localConfig } = await configFromProjectConfig(

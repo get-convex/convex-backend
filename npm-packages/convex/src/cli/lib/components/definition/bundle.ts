@@ -618,14 +618,23 @@ export async function bundleDefinitions(
   };
 }
 
-export async function bundleImplementations(
-  ctx: Context,
-  rootComponentDirectory: ComponentDirectory,
-  componentDirectories: ComponentDirectory[],
-  nodeExternalPackages: string[],
-  extraConditions: string[],
-  verbose: boolean = false,
-): Promise<{
+export async function bundleImplementations({
+  ctx,
+  rootComponentDirectory,
+  componentDirectories,
+  nodeExternalPackages,
+  extraConditions,
+  verbose = false,
+  includeSourcesContent = true,
+}: {
+  ctx: Context;
+  rootComponentDirectory: ComponentDirectory;
+  componentDirectories: ComponentDirectory[];
+  nodeExternalPackages: string[];
+  extraConditions: string[];
+  verbose: boolean;
+  includeSourcesContent?: boolean;
+}): Promise<{
   appImplementation: {
     schema: Bundle | null;
     functions: Bundle[];
@@ -674,6 +683,7 @@ export async function bundleImplementations(
       generateSourceMaps: true,
       platform: "browser",
       extraConditions,
+      includeSourcesContent,
     });
 
     if (convexResult.externalDependencies.size !== 0) {
@@ -701,6 +711,7 @@ export async function bundleImplementations(
         chunksFolder: path.join("_deps", "node"),
         externalPackagesAllowList: nodeExternalPackages,
         extraConditions,
+        includeSourcesContent,
       });
 
       const externalNodeDependencies: NodeDependency[] = [];
@@ -735,6 +746,7 @@ export async function bundleImplementations(
           chunksFolder: path.join("_deps", "node"),
           externalPackagesAllowList: nodeExternalPackages,
           extraConditions,
+          includeSourcesContent,
         });
         if (nodeResult.modules.length > 0) {
           // TODO(ENG-7116) Remove error and bundle the component node actions when we are ready to support them.
