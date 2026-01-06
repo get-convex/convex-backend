@@ -76,6 +76,13 @@ impl PlanId {
             PlanId::ConvexProfessional | PlanId::ConvexBusiness => true,
         }
     }
+
+    pub fn gets_biz_resources(&self) -> bool {
+        match self {
+            PlanId::ConvexBusiness => true,
+            PlanId::ConvexBase | PlanId::ConvexStarterPlus | PlanId::ConvexProfessional => false,
+        }
+    }
 }
 
 #[cfg(test)]
