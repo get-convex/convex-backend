@@ -6458,6 +6458,13 @@
           }
         }
       },
+      "WorkOSProductionState": {
+        "type": "string",
+        "enum": [
+          "active",
+          "inactive"
+        ]
+      },
       "WorkOSTeamAssociation": {
         "type": "object",
         "required": [
@@ -6490,9 +6497,32 @@
       "WorkOSTeamHealthResponse": {
         "type": "object",
         "required": [
+          "teamProvisioned"
+        ],
+        "properties": {
+          "teamInfo": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkOSTeamInfo",
+                "description": "WorkOS team details, present only when team_provisioned is true"
+              }
+            ]
+          },
+          "teamProvisioned": {
+            "type": "boolean",
+            "description": "Whether a WorkOS team has been provisioned for this Convex team"
+          }
+        }
+      },
+      "WorkOSTeamInfo": {
+        "type": "object",
+        "required": [
           "id",
           "name",
-          "teamStatus"
+          "productionState"
         ],
         "properties": {
           "id": {
@@ -6501,8 +6531,8 @@
           "name": {
             "type": "string"
           },
-          "teamStatus": {
-            "$ref": "#/components/schemas/WorkOSTeamStatus"
+          "productionState": {
+            "$ref": "#/components/schemas/WorkOSProductionState"
           }
         }
       },
@@ -6531,13 +6561,6 @@
             ]
           }
         }
-      },
-      "WorkOSTeamStatus": {
-        "type": "string",
-        "enum": [
-          "active",
-          "inactive"
-        ]
       }
     }
   }

@@ -2664,6 +2664,8 @@ export interface components {
             workosEnvironmentId: string;
             workosEnvironmentName: string;
         };
+        /** @enum {string} */
+        WorkOSProductionState: "active" | "inactive";
         WorkOSTeamAssociation: {
             adminEmail: string;
             creatorEmail: string;
@@ -2672,17 +2674,20 @@ export interface components {
             workosTeamName: string;
         };
         WorkOSTeamHealthResponse: {
+            teamInfo?: null | components["schemas"]["WorkOSTeamInfo"];
+            /** @description Whether a WorkOS team has been provisioned for this Convex team */
+            teamProvisioned: boolean;
+        };
+        WorkOSTeamInfo: {
             id: string;
             name: string;
-            teamStatus: components["schemas"]["WorkOSTeamStatus"];
+            productionState: components["schemas"]["WorkOSProductionState"];
         };
         WorkOSTeamIntegrationResponse: {
             /** @description List of WorkOS environments for deployments */
             environments: components["schemas"]["WorkOSEnvironmentInfo"][];
             teamAssociation?: null | components["schemas"]["WorkOSTeamAssociation"];
         };
-        /** @enum {string} */
-        WorkOSTeamStatus: "active" | "inactive";
     };
     responses: never;
     parameters: never;
@@ -2844,10 +2849,11 @@ export type VanityDomainResponse = components['schemas']['VanityDomainResponse']
 export type WorkOsAssociatedTeam = components['schemas']['WorkOSAssociatedTeam'];
 export type WorkOsEnvironmentHealthResponse = components['schemas']['WorkOSEnvironmentHealthResponse'];
 export type WorkOsEnvironmentInfo = components['schemas']['WorkOSEnvironmentInfo'];
+export type WorkOsProductionState = components['schemas']['WorkOSProductionState'];
 export type WorkOsTeamAssociation = components['schemas']['WorkOSTeamAssociation'];
 export type WorkOsTeamHealthResponse = components['schemas']['WorkOSTeamHealthResponse'];
+export type WorkOsTeamInfo = components['schemas']['WorkOSTeamInfo'];
 export type WorkOsTeamIntegrationResponse = components['schemas']['WorkOSTeamIntegrationResponse'];
-export type WorkOsTeamStatus = components['schemas']['WorkOSTeamStatus'];
 export type $defs = Record<string, never>;
 export interface operations {
     list_profile_emails: {

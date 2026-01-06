@@ -148,24 +148,22 @@ export async function createAssociatedWorkosTeam(
 
 /**
  * Check if the WorkOS team associated with a Convex team is still accessible.
- * Returns null if the team is not provisioned or cannot be accessed.
+ * Returns the team info if provisioned, or null if not provisioned.
  */
 export async function getWorkosTeamHealth(
   ctx: Context,
   teamId: number,
-): Promise<components["schemas"]["WorkOSTeamHealthResponse"] | null> {
-  try {
-    return (await bigBrainAPIMaybeThrows({
-      ctx,
-      method: "GET",
-      url: `teams/${teamId}/workos_team_health`,
-    })) as components["schemas"]["WorkOSTeamHealthResponse"];
-  } catch (error: any) {
-    if (error?.serverErrorData?.code === "WorkOSTeamNotProvisioned") {
-      return null;
-    }
-    return await logAndHandleFetchError(ctx, error);
-  }
+): Promise<components["schemas"]["WorkOSTeamInfo"] | null> {
+  const response = await bigBrainAPI<
+    components["schemas"]["WorkOSTeamHealthResponse"]
+  >({
+    ctx,
+    method: "GET",
+    url: `teams/${teamId}/workos_team_health`,
+  });
+
+  // Return the team info if provisioned, otherwise null
+  return response.teamProvisioned ? (response.teamInfo ?? null) : null;
 }
 
 /**

@@ -89,7 +89,7 @@ const workosTeamStatus = new Command("status")
           `  Verified emails that can provision: ${availableEmails.join(", ")}`,
         );
       }
-    } else if (teamHealth.teamStatus === "inactive") {
+    } else if (teamHealth.productionState === "inactive") {
       logMessage(
         `WorkOS team: ${teamHealth.name} (no credit card added on workos.com, so production auth environments cannot be created)`,
       );

@@ -36,6 +36,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workos/delete_environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Delete a WorkOS environment. This removes the environment from both WorkOS and the Convex database. */
+        post: operations["delete_workos_environment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workos/disconnect_workos_team": {
         parameters: {
             query?: never;
@@ -214,6 +231,15 @@ export interface components {
             availableEmails: string[];
             usedEmails: string[];
         };
+        DeleteWorkOSEnvironmentRequest: {
+            /** @description Deployment name for the environment to delete */
+            deploymentName: string;
+        };
+        DeleteWorkOSEnvironmentResponse: {
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
+            workosTeamId: string;
+        };
         DisconnectWorkOSTeamRequest: {
             /** @description Convex team ID to disconnect from WorkOS */
             teamId: components["schemas"]["TeamId"];
@@ -225,6 +251,7 @@ export interface components {
         GetOrProvisionEnvironmentRequest: {
             deploymentName: string;
             environmentName?: string | null;
+            isProduction?: boolean | null;
         };
         HasAssociatedWorkOSTeamRequest: {
             deploymentName: string;
@@ -320,13 +347,18 @@ export interface components {
             id: string;
             name: string;
         };
+        /** @enum {string} */
+        WorkOSProductionState: "active" | "inactive";
         WorkOSTeamHealthResponse: {
+            teamInfo?: null | components["schemas"]["WorkOSTeamInfo"];
+            /** @description Whether a WorkOS team has been provisioned for this Convex team */
+            teamProvisioned: boolean;
+        };
+        WorkOSTeamInfo: {
             id: string;
             name: string;
-            teamStatus: components["schemas"]["WorkOSTeamStatus"];
+            productionState: components["schemas"]["WorkOSProductionState"];
         };
-        /** @enum {string} */
-        WorkOSTeamStatus: "active" | "inactive";
     };
     responses: never;
     parameters: never;
@@ -335,6 +367,8 @@ export interface components {
     pathItems: never;
 }
 export type AvailableWorkOsTeamEmailsResponse = components['schemas']['AvailableWorkOSTeamEmailsResponse'];
+export type DeleteWorkOsEnvironmentRequest = components['schemas']['DeleteWorkOSEnvironmentRequest'];
+export type DeleteWorkOsEnvironmentResponse = components['schemas']['DeleteWorkOSEnvironmentResponse'];
 export type DisconnectWorkOsTeamRequest = components['schemas']['DisconnectWorkOSTeamRequest'];
 export type DisconnectWorkOsTeamResponse = components['schemas']['DisconnectWorkOSTeamResponse'];
 export type GetOrProvisionEnvironmentRequest = components['schemas']['GetOrProvisionEnvironmentRequest'];
@@ -358,8 +392,9 @@ export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
 export type WorkOsEnvironmentHealthResponse = components['schemas']['WorkOSEnvironmentHealthResponse'];
+export type WorkOsProductionState = components['schemas']['WorkOSProductionState'];
 export type WorkOsTeamHealthResponse = components['schemas']['WorkOSTeamHealthResponse'];
-export type WorkOsTeamStatus = components['schemas']['WorkOSTeamStatus'];
+export type WorkOsTeamInfo = components['schemas']['WorkOSTeamInfo'];
 export type $defs = Record<string, never>;
 export interface operations {
     get_teams_for_member: {
@@ -399,6 +434,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectDetails"][];
+                };
+            };
+        };
+    };
+    delete_workos_environment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteWorkOSEnvironmentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteWorkOSEnvironmentResponse"];
                 };
             };
         };
