@@ -18,9 +18,11 @@ common = { workspace = true }
 errors = { workspace = true }
 http = { workspace = true }
 oauth2 = { workspace = true }
+parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }

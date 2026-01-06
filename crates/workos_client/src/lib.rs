@@ -1,6 +1,8 @@
 use std::{
     collections::HashMap,
+    fmt,
     future::Future,
+    sync::Arc,
     time::Duration,
 };
 
@@ -12,6 +14,7 @@ use oauth2::{
     HttpRequest,
     HttpResponse,
 };
+use parking_lot::RwLock;
 use serde::{
     Deserialize,
     Serialize,
@@ -64,21 +67,56 @@ const APPLICATION_JSON: http::HeaderValue = http::HeaderValue::from_static("appl
 // Most calls take less than 1 second, but deletion can take up to 18 seconds.
 const WORKOS_API_TIMEOUT: Duration = Duration::from_secs(30);
 
-fn format_workos_error(operation: &str, status: http::StatusCode, response_body: &[u8]) -> String {
-    let body_str = String::from_utf8_lossy(response_body);
-    let truncated_body = if body_str.len() > 1000 {
-        format!("{}...", &body_str[..1000])
-    } else {
-        body_str.to_string()
-    };
+/// Structured error type for WorkOS API failures
+#[derive(Debug, Clone)]
+pub struct WorkOSApiError {
+    pub operation: String,
+    pub status: http::StatusCode,
+    pub response_body: String,
+}
 
-    format!(
-        "WorkOS {} API returned HTTP {} {}: {}",
-        operation,
-        status.as_u16(),
-        status.canonical_reason().unwrap_or("Unknown"),
-        truncated_body
-    )
+impl WorkOSApiError {
+    fn new(operation: &str, status: http::StatusCode, response_body: &[u8]) -> Self {
+        let body_str = String::from_utf8_lossy(response_body);
+        let truncated_body = if body_str.len() > 1000 {
+            format!("{}...", &body_str[..1000])
+        } else {
+            body_str.to_string()
+        };
+
+        Self {
+            operation: operation.to_string(),
+            status,
+            response_body: truncated_body,
+        }
+    }
+
+    /// Check if this is an authentication error (401)
+    pub fn is_auth_error(&self) -> bool {
+        self.status == http::StatusCode::UNAUTHORIZED
+    }
+}
+
+impl fmt::Display for WorkOSApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "WorkOS {} API returned HTTP {} {}: {}",
+            self.operation,
+            self.status.as_u16(),
+            self.status.canonical_reason().unwrap_or("Unknown"),
+            self.response_body
+        )
+    }
+}
+
+impl std::error::Error for WorkOSApiError {}
+
+// Helper function to check if an error is an authentication error (401)
+fn is_auth_error(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<WorkOSApiError>()
+        .map(|e| e.is_auth_error())
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -607,7 +645,9 @@ where
     F: Future<Output = Result<HttpResponse, E>>,
     E: std::error::Error + 'static + Send + Sync,
 {
-    platform_api_key: String,
+    client_id: String,
+    client_secret: String,
+    access_token: Arc<RwLock<Option<String>>>,
     http_client: Box<dyn Fn(HttpRequest) -> F + Send + Sync + 'static>,
 }
 
@@ -617,13 +657,88 @@ where
     E: std::error::Error + 'static + Send + Sync,
 {
     pub fn new(
-        platform_api_key: String,
+        client_id: String,
+        client_secret: String,
         http_client: impl Fn(HttpRequest) -> F + Send + Sync + 'static,
     ) -> Self {
         Self {
-            platform_api_key,
+            client_id,
+            client_secret,
+            access_token: Arc::new(RwLock::new(None)),
             http_client: Box::new(http_client),
         }
+    }
+
+    async fn update_oauth_token(&self) -> anyhow::Result<String> {
+        #[derive(Serialize)]
+        struct TokenRequest {
+            client_id: String,
+            client_secret: String,
+            grant_type: String,
+        }
+
+        #[derive(Deserialize)]
+        struct TokenResponse {
+            access_token: String,
+            #[allow(unused)]
+            expires_in: u64,
+            #[allow(unused)]
+            token_type: String,
+        }
+
+        let request_body = TokenRequest {
+            client_id: self.client_id.clone(),
+            client_secret: self.client_secret.clone(),
+            grant_type: "client_credentials".to_string(),
+        };
+
+        let request = http::Request::builder()
+            .uri("https://signin.workos.com/oauth2/token")
+            .method(http::Method::POST)
+            .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+            .header(http::header::ACCEPT, APPLICATION_JSON)
+            .body(serde_json::to_vec(&request_body)?)?;
+
+        let response = timeout(WORKOS_API_TIMEOUT, (self.http_client)(request))
+            .await
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "WorkOS OAuth token request timed out after {}s",
+                    WORKOS_API_TIMEOUT.as_secs()
+                )
+            })?
+            .map_err(|e| anyhow::anyhow!("Could not get WorkOS OAuth token: {}", e))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let response_body = response.into_body();
+            anyhow::bail!(
+                "Failed to get WorkOS OAuth token: {} {}",
+                status,
+                String::from_utf8_lossy(&response_body)
+            );
+        }
+
+        let response_body = response.into_body();
+        let token_response: TokenResponse =
+            serde_json::from_slice(&response_body).with_context(|| {
+                format!(
+                    "Invalid WorkOS OAuth token response: {}",
+                    String::from_utf8_lossy(&response_body)
+                )
+            })?;
+
+        // Overwrite any existing token
+        *self.access_token.write() = Some(token_response.access_token.clone());
+
+        Ok(token_response.access_token)
+    }
+
+    async fn get_or_refresh_token(&self) -> anyhow::Result<String> {
+        if let Some(token) = self.access_token.read().clone() {
+            return Ok(token);
+        }
+        self.update_oauth_token().await
     }
 }
 
@@ -638,17 +753,31 @@ where
         admin_email: &str,
         team_name: &str,
     ) -> anyhow::Result<WorkOSTeamResponse> {
-        create_workos_team(
-            &self.platform_api_key,
-            admin_email,
-            team_name,
-            &*self.http_client,
-        )
-        .await
+        let token = self.get_or_refresh_token().await?;
+        let result = create_workos_team(&token, admin_email, team_name, &*self.http_client).await;
+
+        match result {
+            Err(e) if is_auth_error(&e) => {
+                // Token expired, refresh and try once more
+                let new_token = self.update_oauth_token().await?;
+                create_workos_team(&new_token, admin_email, team_name, &*self.http_client).await
+            },
+            _ => result,
+        }
     }
 
     async fn get_team(&self, workos_team_id: &str) -> anyhow::Result<WorkOSTeamResponse> {
-        get_workos_team(&self.platform_api_key, workos_team_id, &*self.http_client).await
+        let token = self.get_or_refresh_token().await?;
+        let result = get_workos_team(&token, workos_team_id, &*self.http_client).await;
+
+        match result {
+            Err(e) if is_auth_error(&e) => {
+                // Token expired, refresh and try once more
+                let new_token = self.update_oauth_token().await?;
+                get_workos_team(&new_token, workos_team_id, &*self.http_client).await
+            },
+            _ => result,
+        }
     }
 
     async fn create_environment(
@@ -657,14 +786,31 @@ where
         environment_name: &str,
         is_production: Option<bool>,
     ) -> anyhow::Result<WorkOSEnvironmentResponse> {
-        create_workos_environment(
-            &self.platform_api_key,
+        let token = self.get_or_refresh_token().await?;
+        let result = create_workos_environment(
+            &token,
             workos_team_id,
             environment_name,
             is_production,
             &*self.http_client,
         )
-        .await
+        .await;
+
+        match result {
+            Err(e) if is_auth_error(&e) => {
+                // Token expired, refresh and try once more
+                let new_token = self.update_oauth_token().await?;
+                create_workos_environment(
+                    &new_token,
+                    workos_team_id,
+                    environment_name,
+                    is_production,
+                    &*self.http_client,
+                )
+                .await
+            },
+            _ => result,
+        }
     }
 
     async fn get_environment(
@@ -672,13 +818,25 @@ where
         workos_team_id: &str,
         environment_id: &str,
     ) -> anyhow::Result<WorkOSEnvironmentResponse> {
-        get_workos_environment(
-            &self.platform_api_key,
-            workos_team_id,
-            environment_id,
-            &*self.http_client,
-        )
-        .await
+        let token = self.get_or_refresh_token().await?;
+        let result =
+            get_workos_environment(&token, workos_team_id, environment_id, &*self.http_client)
+                .await;
+
+        match result {
+            Err(e) if is_auth_error(&e) => {
+                // Token expired, refresh and try once more
+                let new_token = self.update_oauth_token().await?;
+                get_workos_environment(
+                    &new_token,
+                    workos_team_id,
+                    environment_id,
+                    &*self.http_client,
+                )
+                .await
+            },
+            _ => result,
+        }
     }
 
     async fn create_api_key(
@@ -687,14 +845,31 @@ where
         environment_id: &str,
         key_name: &str,
     ) -> anyhow::Result<WorkOSAPIKeyResponse> {
-        create_workos_api_key(
-            &self.platform_api_key,
+        let token = self.get_or_refresh_token().await?;
+        let result = create_workos_api_key(
+            &token,
             workos_team_id,
             environment_id,
             key_name,
             &*self.http_client,
         )
-        .await
+        .await;
+
+        match result {
+            Err(e) if is_auth_error(&e) => {
+                // Token expired, refresh and try once more
+                let new_token = self.update_oauth_token().await?;
+                create_workos_api_key(
+                    &new_token,
+                    workos_team_id,
+                    environment_id,
+                    key_name,
+                    &*self.http_client,
+                )
+                .await
+            },
+            _ => result,
+        }
     }
 
     async fn invite_team_member(
@@ -703,14 +878,26 @@ where
         email: &str,
         role_slug: &str,
     ) -> anyhow::Result<WorkOSTeamInvitationResponse> {
-        invite_workos_team_member(
-            &self.platform_api_key,
-            workos_team_id,
-            email,
-            role_slug,
-            &*self.http_client,
-        )
-        .await
+        let token = self.get_or_refresh_token().await?;
+        let result =
+            invite_workos_team_member(&token, workos_team_id, email, role_slug, &*self.http_client)
+                .await;
+
+        match result {
+            Err(e) if is_auth_error(&e) => {
+                // Token expired, refresh and try once more
+                let new_token = self.update_oauth_token().await?;
+                invite_workos_team_member(
+                    &new_token,
+                    workos_team_id,
+                    email,
+                    role_slug,
+                    &*self.http_client,
+                )
+                .await
+            },
+            _ => result,
+        }
     }
 
     async fn delete_environment(
@@ -718,13 +905,25 @@ where
         workos_team_id: &str,
         environment_id: &str,
     ) -> anyhow::Result<()> {
-        delete_workos_environment(
-            &self.platform_api_key,
-            workos_team_id,
-            environment_id,
-            &*self.http_client,
-        )
-        .await
+        let token = self.get_or_refresh_token().await?;
+        let result =
+            delete_workos_environment(&token, workos_team_id, environment_id, &*self.http_client)
+                .await;
+
+        match result {
+            Err(e) if is_auth_error(&e) => {
+                // Token expired, refresh and try once more
+                let new_token = self.update_oauth_token().await?;
+                delete_workos_environment(
+                    &new_token,
+                    workos_team_id,
+                    environment_id,
+                    &*self.http_client,
+                )
+                .await
+            },
+            _ => result,
+        }
     }
 }
 
@@ -862,7 +1061,7 @@ where
     if response.status() != http::StatusCode::OK {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "list identities",
             status,
             &response_body
@@ -907,7 +1106,7 @@ where
     if response.status() != http::StatusCode::OK {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error("get user", status, &response_body));
+        anyhow::bail!(WorkOSApiError::new("get user", status, &response_body));
     }
 
     let response_body = response.into_body();
@@ -949,7 +1148,7 @@ where
         }
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error("delete user", status, &response_body));
+        anyhow::bail!(WorkOSApiError::new("delete user", status, &response_body));
     }
 
     Ok(())
@@ -997,7 +1196,7 @@ where
     if response.status() != http::StatusCode::OK {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error("update user", status, &response_body));
+        anyhow::bail!(WorkOSApiError::new("update user", status, &response_body));
     }
 
     Ok(())
@@ -1056,7 +1255,7 @@ where
         }
 
         let status = http::StatusCode::CONFLICT;
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "create team (conflict)",
             status,
             &response_body
@@ -1066,7 +1265,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error("create team", status, &response_body));
+        anyhow::bail!(WorkOSApiError::new("create team", status, &response_body));
     }
 
     let response_body = response.into_body();
@@ -1111,7 +1310,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error("get team", status, &response_body));
+        anyhow::bail!(WorkOSApiError::new("get team", status, &response_body));
     }
 
     let response_body = response.into_body();
@@ -1198,7 +1397,7 @@ where
         }
 
         // Unknown 400 error - return generic error
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "invite team member",
             status,
             &response_body
@@ -1221,7 +1420,7 @@ where
             }
         }
 
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "invite team member",
             status,
             &response_body
@@ -1280,7 +1479,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "delete environment",
             status,
             &response_body
@@ -1348,14 +1547,14 @@ where
                 ));
             }
 
-            anyhow::bail!(format_workos_error(
+            anyhow::bail!(WorkOSApiError::new(
                 "create environment (forbidden) with unexpected error response code",
                 status,
                 &response_body
             ));
         }
 
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "create environment",
             status,
             &response_body
@@ -1408,7 +1607,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "get environment",
             status,
             &response_body
@@ -1474,7 +1673,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "create API key",
             status,
             &response_body
@@ -1547,7 +1746,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "create organization",
             status,
             &response_body
@@ -1595,7 +1794,7 @@ where
     if response.status() != http::StatusCode::OK {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "get organization by external_id",
             status,
             &response_body
@@ -1643,7 +1842,7 @@ where
     if response.status() != http::StatusCode::OK {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "get organization",
             status,
             &response_body
@@ -1720,7 +1919,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "update organization",
             status,
             &response_body
@@ -1768,7 +1967,7 @@ where
         }
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "delete organization",
             status,
             &response_body
@@ -1825,7 +2024,7 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "create membership",
             status,
             &response_body
@@ -1900,7 +2099,7 @@ where
             )));
         }
 
-        anyhow::bail!(format_workos_error(
+        anyhow::bail!(WorkOSApiError::new(
             "generate portal link",
             status,
             &response_body
