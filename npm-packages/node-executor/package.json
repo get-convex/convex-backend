@@ -32,7 +32,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^18.17.0",
     "@types/node-fetch": "^2.6.1",
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "auth0": "^4.3.1",
     "esbuild": "0.27.0",
     "googleapis": "^166.0.0",
