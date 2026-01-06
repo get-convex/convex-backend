@@ -25,6 +25,7 @@ mod functions;
 mod index;
 mod maybe_value;
 mod object_key;
+mod region;
 mod snapshot_export;
 mod table;
 mod timestamp;
@@ -88,6 +89,7 @@ pub use object_key::{
     FullyQualifiedObjectKey,
     ObjectKey,
 };
+pub use region::Region;
 pub use snapshot_export::SetExportExpirationRequest;
 pub use table::TableStats;
 #[cfg(any(test, feature = "testing"))]
