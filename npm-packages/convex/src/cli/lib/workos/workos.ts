@@ -20,6 +20,7 @@ import {
 } from "../../../bundler/log.js";
 import { getTeamAndProjectSlugForDeployment } from "../api.js";
 import { callUpdateEnvironmentVariables, envGetInDeployment } from "../env.js";
+import { deploymentDashboardUrlPage } from "../dashboard.js";
 import { changedEnvVarFile, suggestedEnvVarName } from "../envvars.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import { createCORSOrigin, createRedirectURI } from "./environmentApi.js";
@@ -92,6 +93,13 @@ export async function ensureWorkosEnvironmentProvisioned(
   }
   if (!hasAssociatedWorkosTeam) {
     if (!options.offerToAssociateWorkOSTeam) {
+      const dashboardUrl = deploymentDashboardUrlPage(
+        deploymentName,
+        `/settings/environment-variables?var=WORKOS_CLIENT_ID`,
+      );
+      logMessage(
+        `\nTo use WorkOS authentication, you'll need to set environment variables manually on the dashboard:\n  ${dashboardUrl}`,
+      );
       return "choseNotToAssociatedTeam";
     }
     const result = await tryToCreateAssociatedWorkosTeam(
@@ -180,21 +188,21 @@ export async function provisionWorkosTeamInteractive(
   }
   stopSpinner();
 
-  const defaultPrefix = `A WorkOS team needs to be created for your Convex team "${teamInfo.teamSlug}" in order to use AuthKit.
+  const defaultPrefix = `We can automatically create your WorkOS account and configure your project. This will allow all your team members and deployments to use WorkOS auth without further setup.
 
-You and other members of this team will be able to create WorkOS environments for each Convex dev deployment for projects in this team.
+Choose "no" if you'd like to use your own WorkOS credentials instead.
 
 By creating this account you agree to the WorkOS Terms of Service (https://workos.com/legal/terms-of-service) and Privacy Policy (https://workos.com/legal/privacy).
-Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environment.
 \n`;
 
-  const defaultMessage = `Create a WorkOS team and enable automatic AuthKit environment provisioning for team "${teamInfo.teamSlug}"?`;
+  const defaultMessage = `Create WorkOS team and set up this project?`;
 
   const agree = await promptYesNo(ctx, {
     prefix: options.promptPrefix ?? defaultPrefix,
     message: options.promptMessage ?? defaultMessage,
   });
   if (!agree) {
+    logMessage("\nGot it. We won't create your WorkOS account.");
     return { success: false, reason: "cancelled" };
   }
 
@@ -266,6 +274,13 @@ export async function tryToCreateAssociatedWorkosTeam(
   );
 
   if (!result.success) {
+    const dashboardUrl = deploymentDashboardUrlPage(
+      deploymentName,
+      `/settings/environment-variables?var=WORKOS_CLIENT_ID`,
+    );
+    logMessage(
+      `To provide your own WorkOS environment credentials instead, set environment variables manually on the dashboard:\n  ${dashboardUrl}`,
+    );
     return "choseNotToAssociatedTeam";
   }
 

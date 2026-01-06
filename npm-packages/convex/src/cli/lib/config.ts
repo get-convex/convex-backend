@@ -1071,6 +1071,8 @@ export async function handlePushConfigError(
           printedMessage: null,
         });
       }
+      // If user chose not to create a WorkOS team, continue to show the error
+      // message below about missing WORKOS_CLIENT_ID with manual setup instructions
     }
 
     const envVarMessage =

@@ -9,8 +9,9 @@
 
 ## 1.31.1
 
-- You can now increase the speed of type checking when using `npx convex dev`
-  by enabling the [TypeScript native preview](https://devblogs.microsoft.com/typescript/announcing-typescript-native-previews/)
+- You can now increase the speed of type checking when using `npx convex dev` by
+  enabling the
+  [TypeScript native preview](https://devblogs.microsoft.com/typescript/announcing-typescript-native-previews/)
   ([TypeScript 7](https://devblogs.microsoft.com/typescript/typescript-native-port/)).
   To do so, add `@typescript/native-preview` as a dev dependency and
   [set `typescriptCompiler: "tsGo"` in `convex.json`](https://docs.convex.dev/production/project-configuration#configuring-the-typescript-compiler).
