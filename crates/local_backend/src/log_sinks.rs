@@ -118,6 +118,7 @@ pub async fn add_datadog_sink(
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<DatadogSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("add_datadog_sink called (deprecated, use create_log_stream instead)");
     must_be_admin_with_write_access(&identity)?;
     st.application
         .ensure_log_streaming_allowed(identity)
@@ -134,6 +135,9 @@ pub async fn regenerate_webhook_secret(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!(
+        "regenerate_webhook_secret called (deprecated, use rotate_webhook_secret instead)"
+    );
     must_be_admin_with_write_access(&identity)?;
     st.application
         .ensure_log_streaming_allowed(identity)
@@ -175,6 +179,7 @@ pub async fn add_webhook_sink(
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<WebhookSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("add_webhook_sink called (deprecated, use create_log_stream instead)");
     must_be_admin_with_write_access(&identity)?;
     st.application
         .ensure_log_streaming_allowed(identity)
@@ -255,6 +260,7 @@ pub async fn add_axiom_sink(
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<AxiomSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("add_axiom_sink called (deprecated, use create_log_stream instead)");
     must_be_admin_with_write_access(&identity)?;
     st.application
         .ensure_log_streaming_allowed(identity)
@@ -288,6 +294,7 @@ pub async fn add_sentry_sink(
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<SerializedSentryConfig>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("add_sentry_sink called (deprecated, use create_log_stream instead)");
     must_be_admin_with_write_access(&identity)?;
     st.application
         .ensure_log_streaming_allowed(identity)
@@ -309,6 +316,7 @@ pub async fn delete_log_sink(
     ExtractIdentity(identity): ExtractIdentity,
     Json(LogSinkDeleteArgs { sink_type }): Json<LogSinkDeleteArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("delete_log_sink called (deprecated, use delete_log_stream instead)");
     must_be_admin_with_write_access(&identity)?;
     st.application
         .ensure_log_streaming_allowed(identity)
