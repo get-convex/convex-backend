@@ -158,3 +158,28 @@ version 1.31.1 or later.
   "typescriptCompiler": "tsgo"
 }
 ```
+
+### Configuring bundler options
+
+Convex includes sourcemaps when bundling your source code to provide stack
+traces and to display your code on the dashboard. If your code bundle is
+especially large, you can improve CLI upload times by excluding the source code
+content from the bundle. Set the `includeSourcesContent` property to `false` in
+the `bundler` options. Stack traces will continue to function as usual, but you
+will no longer be able to view your source code in the dashboard.
+
+<Admonition type="info" title="Convex version required">
+
+This configuration option is only available in version 1.31.3 or later of the
+`convex` NPM package.
+
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "bundler": {
+    "includeSourcesContent": false
+  }
+}
+```
