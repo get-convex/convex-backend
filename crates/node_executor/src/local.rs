@@ -756,7 +756,8 @@ mod tests {
         assert_eq!(
             &error.to_string(),
             "Node actions arguments size is too large. The maximum size is 5 MiB. Reduce the size \
-             of the arguments or consider using V8 actions instead, which have a 16 MiB limit."
+             of the arguments or consider using Convex runtime actions instead, which have a 16 \
+             MiB limit. See https://docs.convex.dev/functions/runtimes"
         );
         let metadata = error.downcast_ref::<ErrorMetadata>().unwrap();
         assert!(metadata.is_deterministic_user_error());
