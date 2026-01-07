@@ -9,6 +9,7 @@ use deno_core::{
     serde_v8,
     v8,
 };
+use errors::ErrorMetadata;
 use serde::{
     Deserialize,
     Serialize,
@@ -32,7 +33,8 @@ impl<T: for<'de> Deserialize<'de>> FromV8 for T {
         scope: &mut v8::PinScope<'s, '_>,
         input: v8::Local<'s, v8::Value>,
     ) -> anyhow::Result<Self> {
-        Ok(serde_v8::from_v8(scope, input)?)
+        serde_v8::from_v8(scope, input)
+            .map_err(|e| ErrorMetadata::bad_request("InvalidArgument", e.to_string()).into())
     }
 }
 

@@ -2027,6 +2027,26 @@ async function testInvalidAlgorithm() {
       /Unrecognized or invalid algorithm/,
     )
     .and.have.property("name", "NotSupportedError");
+
+  const pbkdfKey = await subtle.importKey("raw", key, "PBKDF2", false, [
+    "deriveBits",
+  ]);
+  await expect(
+    subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        iterations: 1,
+        salt: new Uint8Array(),
+        hash: "unknown",
+      },
+      pbkdfKey,
+      64,
+    ),
+  ).to.eventually.be.rejectedWith(
+    // TODO: ideally this should be a specific type.
+    Error,
+    /unknown variant/,
+  );
 }
 
 async function testDeriveBitsPBKDF2() {
