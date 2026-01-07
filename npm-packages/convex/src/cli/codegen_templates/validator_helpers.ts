@@ -1,9 +1,5 @@
-import { z } from "zod";
 import { jsonToConvex, Value } from "../../values/index.js";
-import {
-  ConvexValidator,
-  convexValidator,
-} from "../lib/deployApi/validator.js";
+import { ConvexValidator } from "../lib/deployApi/validator.js";
 
 export function parseValidator(
   validator: string | null,
@@ -11,7 +7,8 @@ export function parseValidator(
   if (!validator) {
     return null;
   }
-  return z.nullable(convexValidator).parse(JSON.parse(validator));
+  // This is code returned from the server, so we can skip validation
+  return JSON.parse(validator) as ConvexValidator;
 }
 
 export function validatorToType(
