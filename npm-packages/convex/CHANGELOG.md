@@ -1,8 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.31.3
 
-- `CONVEX_AGENT_MODE=anonymous` can now be used while logged in
+- `CONVEX_AGENT_MODE=anonymous` can now be used while logged in.
+
+- The client will try to reconnect immediately after being offline instead of
+  waiting for the scheduled backoff delay.
+
+- Optimize bundling during code push, and add `includeSourcesContent` option in
+  `convex.json` to configure whether to include source code content in bundled
+  sourcemaps.
 
 ## 1.31.2
 
