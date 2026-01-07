@@ -187,6 +187,18 @@ export class WebSocketManager {
     typeof setTimeout
   > | null;
 
+  /** Scheduled reconnect state: timeout handle and timing info */
+  private scheduledReconnect: {
+    timeout: ReturnType<typeof setTimeout>;
+    scheduledAt: number;
+    backoffMs: number;
+  } | null = null;
+
+  private networkOnlineHandler: (() => void) | null = null;
+
+  /** Pending event to send after reconnecting due to network recovery */
+  private pendingNetworkRecoveryInfo: { timeSavedMs: number } | null = null;
+
   private readonly uri: string;
   private readonly onOpen: (reconnectMetadata: ReconnectMetadata) => void;
   private readonly onResume: () => void;
@@ -234,6 +246,9 @@ export class WebSocketManager {
     this.onServerDisconnectError = callbacks.onServerDisconnectError;
     this.logger = logger;
 
+    // Set up network online event listener
+    this.setupNetworkListener();
+
     this.connect();
   }
 
@@ -245,6 +260,33 @@ export class WebSocketManager {
       }`,
     );
     this.markConnectionStateDirty();
+  }
+
+  private setupNetworkListener() {
+    // Only set up listener if we're in a browser environment
+    if (typeof window === "undefined") {
+      return;
+    }
+    // Avoid registering duplicate listeners
+    if (this.networkOnlineHandler !== null) {
+      return;
+    }
+
+    this.networkOnlineHandler = () => {
+      this._logVerbose("network online event detected");
+      this.tryReconnectImmediately();
+    };
+
+    window.addEventListener("online", this.networkOnlineHandler);
+    this._logVerbose("network online event listener registered");
+  }
+
+  private cleanupNetworkListener() {
+    if (this.networkOnlineHandler && typeof window !== "undefined") {
+      window.removeEventListener("online", this.networkOnlineHandler);
+      this.networkOnlineHandler = null;
+      this._logVerbose("network online event listener removed");
+    }
   }
 
   private assembleTransition(chunk: TransitionChunk): Transition | null {
@@ -358,6 +400,20 @@ export class WebSocketManager {
 
       this.connectionCount += 1;
       this.lastCloseReason = null;
+
+      // Send event for network recovery reconnect if applicable
+      if (this.pendingNetworkRecoveryInfo !== null) {
+        const { timeSavedMs } = this.pendingNetworkRecoveryInfo;
+        this.pendingNetworkRecoveryInfo = null;
+        this.sendMessage({
+          type: "Event",
+          eventType: "NetworkRecoveryReconnect",
+          event: { timeSavedMs },
+        });
+        this.logger.log(
+          `Network recovery reconnect saved ~${Math.round(timeSavedMs / 1000)}s of waiting`,
+        );
+      }
     };
     // NB: The WebSocket API calls `onclose` even if connection fails, so we can route all error paths through `onclose`.
     ws.onerror = (error) => {
@@ -505,11 +561,31 @@ export class WebSocketManager {
   }
 
   private scheduleReconnect(reason: "client" | ServerDisconnectError) {
+    // Cancel any existing scheduled reconnect to avoid multiple reconnects
+    if (this.scheduledReconnect) {
+      clearTimeout(this.scheduledReconnect.timeout);
+      this.scheduledReconnect = null;
+    }
+
     this.socket = { state: "disconnected" };
     const backoff = this.nextBackoff(reason);
     this.markConnectionStateDirty();
     this.logger.log(`Attempting reconnect in ${Math.round(backoff)}ms`);
-    setTimeout(() => this.connect(), backoff);
+
+    const scheduledAt = monotonicMillis();
+    const timeoutId = setTimeout(() => {
+      // Only proceed if this timeout hasn't been cleared
+      if (this.scheduledReconnect?.timeout === timeoutId) {
+        this.scheduledReconnect = null;
+        this.connect();
+      }
+    }, backoff);
+
+    this.scheduledReconnect = {
+      timeout: timeoutId,
+      scheduledAt,
+      backoffMs: backoff,
+    };
   }
 
   /**
@@ -603,6 +679,11 @@ export class WebSocketManager {
     if (this.reconnectDueToServerInactivityTimeout) {
       clearTimeout(this.reconnectDueToServerInactivityTimeout);
     }
+    if (this.scheduledReconnect) {
+      clearTimeout(this.scheduledReconnect.timeout);
+      this.scheduledReconnect = null;
+    }
+    this.cleanupNetworkListener();
     switch (this.socket.state) {
       case "terminated":
       case "stopped":
@@ -632,6 +713,7 @@ export class WebSocketManager {
       case "stopped":
       case "disconnected":
       case "ready": {
+        this.cleanupNetworkListener();
         const result = this.close();
         this.socket = { state: "stopped" };
         return result;
@@ -663,6 +745,7 @@ export class WebSocketManager {
         this.socket satisfies never;
       }
     }
+    this.setupNetworkListener();
     this.connect();
   }
 
@@ -684,6 +767,43 @@ export class WebSocketManager {
         return;
       }
     }
+  }
+
+  /**
+   * Try to reconnect immediately, canceling any scheduled reconnect.
+   * This is useful when detecting network recovery.
+   * Only takes action if we're in disconnected state (waiting to reconnect).
+   */
+  tryReconnectImmediately(): void {
+    this._logVerbose("tryReconnectImmediately called");
+
+    // Only reconnect if we're in disconnected state (waiting to reconnect)
+    if (this.socket.state !== "disconnected") {
+      this._logVerbose(
+        `tryReconnectImmediately called but socket state is ${this.socket.state}, no action taken`,
+      );
+      return;
+    }
+
+    // Track how much time we saved by reconnecting immediately
+    let timeSavedMs: number | null = null;
+    if (this.scheduledReconnect) {
+      const elapsed = monotonicMillis() - this.scheduledReconnect.scheduledAt;
+      timeSavedMs = Math.max(0, this.scheduledReconnect.backoffMs - elapsed);
+      this._logVerbose(
+        `would have waited ${Math.round(timeSavedMs)}ms more (backoff was ${Math.round(this.scheduledReconnect.backoffMs)}ms, elapsed ${Math.round(elapsed)}ms)`,
+      );
+      // Cancel the scheduled reconnect
+      clearTimeout(this.scheduledReconnect.timeout);
+      this.scheduledReconnect = null;
+      this._logVerbose("canceled scheduled reconnect");
+    }
+
+    this.logger.log("Network recovery detected, reconnecting immediately");
+    // Store the time saved to send as an event after we connect
+    this.pendingNetworkRecoveryInfo =
+      timeSavedMs !== null ? { timeSavedMs } : null;
+    this.connect();
   }
 
   /**

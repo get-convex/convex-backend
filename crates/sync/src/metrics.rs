@@ -440,6 +440,12 @@ pub enum TypedClientEvent {
         transition_transit_time: f64,
         message_length: f64,
     },
+    /// Client detected network recovery (browser "online" event) and
+    /// reconnected immediately instead of waiting for the backoff timer.
+    NetworkRecoveryReconnect {
+        /// How many milliseconds were saved by reconnecting immediately
+        time_saved_ms: f64,
+    },
 }
 
 impl TryFrom<ClientEvent> for TypedClientEvent {
@@ -468,6 +474,13 @@ impl TryFrom<ClientEvent> for TypedClientEvent {
                     message_length: event_data.message_length,
                 })
             },
+            "NetworkRecoveryReconnect" => {
+                let event_data: NetworkRecoveryReconnectEvent =
+                    serde_json::from_value(value.event)?;
+                Ok(TypedClientEvent::NetworkRecoveryReconnect {
+                    time_saved_ms: event_data.time_saved_ms,
+                })
+            },
             _ => Err(anyhow::anyhow!("Unknown ClientEvent type")),
         }
     }
@@ -493,6 +506,12 @@ struct ClientMarkJson {
 struct ClientReceivedTransitionEvent {
     transition_transit_time: f64,
     message_length: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NetworkRecoveryReconnectEvent {
+    time_saved_ms: f64,
 }
 
 register_convex_histogram!(
@@ -556,6 +575,35 @@ pub fn log_create_invalidation_futures(partition_id: u64, increment: u64) {
     log_counter_with_labels(
         &SYNC_INVALIDATION_FUTURES_CREATED_TOTAL,
         increment,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
+
+register_convex_counter!(
+    SYNC_NETWORK_RECOVERY_RECONNECT_TOTAL,
+    "Count of immediate reconnects triggered by browser network recovery",
+    &["partition_id"]
+);
+register_convex_histogram!(
+    SYNC_NETWORK_RECOVERY_TIME_SAVED_SECONDS,
+    "Time saved by reconnecting immediately on network recovery instead of waiting for backoff",
+    &["partition_id"]
+);
+pub fn log_network_recovery_reconnect(partition_id: u64, time_saved_ms: f64) {
+    log_counter_with_labels(
+        &SYNC_NETWORK_RECOVERY_RECONNECT_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+    log_distribution_with_labels(
+        &SYNC_NETWORK_RECOVERY_TIME_SAVED_SECONDS,
+        time_saved_ms / 1000.0,
         vec![StaticMetricLabel::new(
             "partition_id",
             partition_id.to_string(),

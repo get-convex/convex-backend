@@ -759,6 +759,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                             transition_transit_time,
                             message_length,
                         ),
+                        TypedClientEvent::NetworkRecoveryReconnect { time_saved_ms } => {
+                            tracing::info!(
+                                "Network recovery reconnect saved {:.1}s of waiting",
+                                time_saved_ms / 1000.0
+                            );
+                            metrics::log_network_recovery_reconnect(
+                                self.partition_id,
+                                time_saved_ms,
+                            )
+                        },
                     },
                     Err(_) => (),
                 }
