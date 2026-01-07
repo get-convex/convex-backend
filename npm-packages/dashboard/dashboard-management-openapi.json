@@ -4273,6 +4273,7 @@
           "workosEnvironmentId",
           "workosEnvironmentName",
           "workosClientId",
+          "workosApiKey",
           "workosTeamId",
           "isProduction"
         ],
@@ -4282,6 +4283,9 @@
           },
           "isProduction": {
             "type": "boolean"
+          },
+          "workosApiKey": {
+            "type": "string"
           },
           "workosClientId": {
             "type": "string"

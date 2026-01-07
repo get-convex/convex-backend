@@ -2094,6 +2094,7 @@ export interface components {
         DeploymentWorkOSEnvironmentInfo: {
             deploymentName: string;
             isProduction: boolean;
+            workosApiKey: string;
             workosClientId: string;
             workosEnvironmentId: string;
             workosEnvironmentName: string;
