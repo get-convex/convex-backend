@@ -10515,6 +10515,7 @@ dependencies = [
  "async-trait",
  "cmd_util",
  "common",
+ "derive_more",
  "events",
  "headers",
  "metrics",

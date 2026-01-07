@@ -3,6 +3,7 @@
 use std::{
     collections::BTreeMap,
     fmt::Debug,
+    ops::Add,
     sync::Arc,
     time::Duration,
 };
@@ -18,11 +19,16 @@ use common::{
         TRANSACTION_MAX_READ_SIZE_ROWS,
     },
     types::{
+        IndexName,
         ModuleEnvironment,
         StorageUuid,
         UdfIdentifier,
     },
     RequestId,
+};
+use derive_more::{
+    Add,
+    AddAssign,
 };
 use events::usage::{
     FunctionCallUsageFields,
@@ -514,14 +520,51 @@ impl UsageCounter {
             });
         }
         for ((component_path, table_name), ingress) in stats.text_ingress {
-            usage_metrics.push(UsageEvent::TextBandwidth {
+            usage_metrics.push(UsageEvent::TextWrites {
                 id: execution_id.to_string(),
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
-                ingress,
-                egress: 0,
+                size: ingress,
             });
+        }
+        for (
+            (component_path, table_name, index_name),
+            TextIndexQueryUsage {
+                num_searches,
+                bytes_searched,
+            },
+        ) in stats.text_query_usage
+        {
+            usage_metrics.push(UsageEvent::TextQuery {
+                id: execution_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                index_name: index_name.to_string(),
+                num_searches,
+                bytes_searched,
+            })
+        }
+        for (
+            (component_path, table_name, index_name),
+            VectorIndexQueryUsage {
+                num_searches,
+                bytes_searched,
+                dimensions,
+            },
+        ) in stats.vector_query_usage
+        {
+            usage_metrics.push(UsageEvent::VectorQuery {
+                id: execution_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                index_name: index_name.to_string(),
+                num_searches,
+                bytes_searched,
+                dimensions,
+            })
         }
     }
 }
@@ -797,23 +840,37 @@ impl FunctionUsageTracker {
     // because we should always know that the relevant operation is a vector
     // search. In contrast, for ingress any insert/update/delete could happen to
     // impact a vector index.
+    // TODO: This will be deprecated after the business plan change, but
+    // we still need to track database egress.
     pub fn track_vector_egress(
         &self,
         component_path: ComponentPath,
         table_name: String,
         egress: u64,
-        skip_logging: bool,
     ) {
-        if skip_logging {
-            return;
-        }
-
         // Note that vector search counts as both database and vector bandwidth
         // per the comment above.
         let mut state = self.state.lock();
         let key = (component_path, table_name);
         *state.database_egress.entry(key.clone()).or_default() += egress;
         *state.vector_egress.entry(key).or_default() += egress;
+    }
+
+    pub fn track_vector_query(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        index_name: IndexName,
+        index_size: u64,
+        dimensions: u64,
+    ) {
+        let mut state = self.state.lock();
+        let key = (component_path, table_name, index_name);
+        *state.vector_query_usage.entry(key).or_default() += VectorIndexQueryUsage {
+            num_searches: 1,
+            bytes_searched: index_size,
+            dimensions,
+        };
     }
 
     pub fn track_text_ingress(
@@ -834,23 +891,19 @@ impl FunctionUsageTracker {
             .or_default() += ingress;
     }
 
-    pub fn track_text_egress(
+    pub fn track_text_query(
         &self,
         component_path: ComponentPath,
-        table_name: String,
-        egress: u64,
-        skip_logging: bool,
+        table_name: TableName,
+        index_name: IndexName,
+        index_size: u64,
     ) {
-        if skip_logging {
-            return;
-        }
-
-        // TODO(jordan): decide if we also need to track database egress
         let mut state = self.state.lock();
-        *state
-            .text_egress
-            .entry((component_path, table_name))
-            .or_default() += egress;
+        let key = (component_path, table_name, index_name);
+        *state.text_query_usage.entry(key).or_default() += TextIndexQueryUsage {
+            num_searches: 1,
+            bytes_searched: index_size,
+        };
     }
 
     /// Only track egress - because AWS only charges egress
@@ -909,6 +962,42 @@ impl StorageUsageTracker for FunctionUsageTracker {
 
 type TableName = String;
 type StorageAPI = String;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Add, Default, AddAssign)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct TextIndexQueryUsage {
+    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
+    pub num_searches: u64,
+    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
+    pub bytes_searched: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, AddAssign)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct VectorIndexQueryUsage {
+    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
+    pub num_searches: u64,
+    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
+    pub bytes_searched: u64,
+    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
+    pub dimensions: u64,
+}
+
+impl Add for VectorIndexQueryUsage {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            num_searches: self.num_searches + other.num_searches,
+            // Take the max of the index_size
+            bytes_searched: self.bytes_searched + other.bytes_searched,
+            // Take the max of the num_dimensions. num_dimensions shouldn't usually change, but if
+            // there is some change to the index that commits in the middle of an action
+            // between two vector searches, just take the max dimensions.
+            dimensions: self.dimensions.max(other.dimensions),
+        }
+    }
+}
 
 /// User-facing UDF stats, built
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -1007,6 +1096,23 @@ pub struct FunctionUsageStats {
             )")
     )]
     pub text_egress: BTreeMap<(ComponentPath, TableName), u64>,
+
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName, IndexName)>(), \
+                             proptest::arbitrary::any::<TextIndexQueryUsage>(), 0..=4,
+            )")
+    )]
+    pub text_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), TextIndexQueryUsage>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName, IndexName)>(), \
+                             proptest::arbitrary::any::<VectorIndexQueryUsage>(), 0..=4,
+            )")
+    )]
+    pub vector_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), VectorIndexQueryUsage>,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(strategy = "proptest::collection::btree_map(
@@ -1048,6 +1154,8 @@ impl FunctionUsageStats {
             vector_egress,
             text_ingress,
             text_egress,
+            text_query_usage,
+            vector_query_usage,
             fetch_egress,
         }: Self,
     ) {
@@ -1089,6 +1197,12 @@ impl FunctionUsageStats {
         }
         for (key, egress) in text_egress {
             *self.text_egress.entry(key.clone()).or_default() += egress;
+        }
+        for (key, text_index_usage) in text_query_usage {
+            *self.text_query_usage.entry(key).or_default() += text_index_usage;
+        }
+        for (key, vector_index_usage) in vector_query_usage {
+            *self.vector_query_usage.entry(key).or_default() += vector_index_usage;
         }
         for (key, egress) in fetch_egress {
             *self.fetch_egress.entry(key.clone()).or_default() += egress;
@@ -1173,6 +1287,101 @@ fn from_by_component_tag_count(
     Ok(counts.into_iter())
 }
 
+fn to_text_query_usage(
+    usage: impl Iterator<Item = ((ComponentPath, TableName, IndexName), TextIndexQueryUsage)>,
+) -> Vec<pb::usage::TextQueryUsage> {
+    usage
+        .map(
+            |((component_path, table_name, index_name), usage)| pb::usage::TextQueryUsage {
+                component_path: component_path.serialize(),
+                table_name: Some(table_name),
+                index_name: Some(index_name.to_string()),
+                num_searches: Some(usage.num_searches),
+                bytes_searched: Some(usage.bytes_searched),
+            },
+        )
+        .collect()
+}
+
+fn to_vector_query_usage(
+    usage: impl Iterator<Item = ((ComponentPath, TableName, IndexName), VectorIndexQueryUsage)>,
+) -> Vec<pb::usage::VectorQueryUsage> {
+    usage
+        .map(
+            |((component_path, table_name, index_name), usage)| pb::usage::VectorQueryUsage {
+                component_path: component_path.serialize(),
+                table_name: Some(table_name),
+                index_name: Some(index_name.to_string()),
+                num_searches: Some(usage.num_searches),
+                bytes_searched: Some(usage.bytes_searched),
+                dimensions: Some(usage.dimensions),
+            },
+        )
+        .collect()
+}
+
+fn from_text_query_usage(
+    usage: Vec<pb::usage::TextQueryUsage>,
+) -> anyhow::Result<
+    impl Iterator<Item = ((ComponentPath, TableName, IndexName), TextIndexQueryUsage)>,
+> {
+    let usage: Vec<_> = usage
+        .into_iter()
+        .map(|u| -> anyhow::Result<_> {
+            let component_path = ComponentPath::deserialize(u.component_path.as_deref())?;
+            let table_name = u.table_name.context("Missing `table_name` field")?;
+            let index_name: IndexName = u
+                .index_name
+                .context("Missing `index_name` field")?
+                .parse()?;
+            let num_searches = u.num_searches.context("Missing `num_searches` field")?;
+            let bytes_searched = u
+                .bytes_searched
+                .context("Missing `num_segment_searches` field")?;
+            Ok((
+                (component_path, table_name, index_name),
+                TextIndexQueryUsage {
+                    num_searches,
+                    bytes_searched,
+                },
+            ))
+        })
+        .try_collect()?;
+    Ok(usage.into_iter())
+}
+
+fn from_vector_query_usage(
+    usage: Vec<pb::usage::VectorQueryUsage>,
+) -> anyhow::Result<
+    impl Iterator<Item = ((ComponentPath, TableName, IndexName), VectorIndexQueryUsage)>,
+> {
+    let usage: Vec<_> = usage
+        .into_iter()
+        .map(|u| -> anyhow::Result<_> {
+            let component_path = ComponentPath::deserialize(u.component_path.as_deref())?;
+            let table_name = u.table_name.context("Missing `table_name` field")?;
+            let index_name: IndexName = u
+                .index_name
+                .context("Missing `index_name` field")?
+                .parse()?;
+            let num_searches = u.num_searches.context("Missing `num_searches` field")?;
+            let bytes_searched = u
+                .bytes_searched
+                .context("Missing `num_segment_searches` field")?;
+            let dimensions = u.dimensions.context("Missing `num_dimensions` field")?;
+            Ok((
+                (component_path, table_name, index_name),
+                VectorIndexQueryUsage {
+                    num_searches,
+                    bytes_searched,
+                    dimensions,
+                },
+            ))
+        })
+        .try_collect()?;
+    Ok(usage.into_iter())
+}
+
 impl From<FunctionUsageStats> for FunctionUsageStatsProto {
     fn from(stats: FunctionUsageStats) -> Self {
         FunctionUsageStatsProto {
@@ -1188,6 +1397,8 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             vector_egress: to_by_tag_count(stats.vector_egress.into_iter()),
             text_ingress: to_by_tag_count(stats.text_ingress.into_iter()),
             text_egress: to_by_tag_count(stats.text_egress.into_iter()),
+            text_query_usage: to_text_query_usage(stats.text_query_usage.into_iter()),
+            vector_query_usage: to_vector_query_usage(stats.vector_query_usage.into_iter()),
             vector_ingress_v2: to_by_tag_count(stats.vector_ingress_v2.into_iter()),
             fetch_egress: to_by_url_count(stats.fetch_egress.into_iter()),
         }
@@ -1212,6 +1423,8 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let vector_egress = from_by_tag_count(stats.vector_egress)?.collect();
         let text_ingress = from_by_tag_count(stats.text_ingress)?.collect();
         let text_egress = from_by_tag_count(stats.text_egress)?.collect();
+        let text_query_usage = from_text_query_usage(stats.text_query_usage)?.collect();
+        let vector_query_usage = from_vector_query_usage(stats.vector_query_usage)?.collect();
         let vector_ingress_v2 = from_by_tag_count(stats.vector_ingress_v2)?.collect();
         let fetch_egress = from_by_url_count(stats.fetch_egress)?.collect();
 
@@ -1228,6 +1441,8 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             vector_egress,
             text_ingress,
             text_egress,
+            text_query_usage,
+            vector_query_usage,
             vector_ingress_v2,
             fetch_egress,
         })

@@ -94,7 +94,7 @@ impl SearchQuery {
     ) -> anyhow::Result<SearchResultIterator> {
         let search_version = self.get_cli_gated_search_version();
         let revisions = tx
-            .search(&self.stable_index_name, &self.query, search_version)
+            .search(&self.stable_index_name, self.query.clone(), search_version)
             .await?;
         let revisions_in_range = revisions
             .into_iter()

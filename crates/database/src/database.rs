@@ -2410,7 +2410,10 @@ impl<RT: Runtime> Database<RT> {
         let index = snapshot
             .index_registry
             .require_enabled(&index_name, &query.index_name)?;
+        let index_name = query.index_name.clone();
+        let index_size = index.metadata().config.estimate_pricing_size_bytes()?;
         let resolved: vector::InternalVectorSearch = query.resolve(&table_mapping)?;
+        let dimensions = resolved.vector.len() as u64;
         let search_storage = self.search_storage();
         let results: Vec<_> = snapshot
             .vector_indexes
@@ -2428,12 +2431,14 @@ impl<RT: Runtime> Database<RT> {
         let component_path = snapshot
             .component_registry
             .must_component_path(component_id, &mut TransactionReadSet::new())?;
-        usage.track_vector_egress(
+        let table_name = index_name.table();
+        usage.track_vector_egress(component_path.clone(), table_name.to_string(), size);
+        usage.track_vector_query(
             component_path,
-            table_mapping.tablet_name(*index_name.table())?.to_string(),
-            size,
-            // We don't have system owned vector indexes.
-            false,
+            table_name.to_string(),
+            index_name,
+            index_size,
+            dimensions,
         );
         timer.finish();
         Ok((results, usage.gather_user_stats()))
@@ -2451,7 +2456,7 @@ impl<RT: Runtime> Database<RT> {
         let index = snapshot
             .index_registry
             .enabled_index_by_index_id(&index_id)
-            .ok_or_else(|| anyhow::anyhow!("Missing index_id {:?}", index_id))?
+            .with_context(|| format!("Missing index_id {index_id:?}"))?
             .clone();
 
         let search_snapshot = TextIndexManagerSnapshot::new(

@@ -46,8 +46,9 @@ impl TestUsageEventLogger {
             recent_vector_ingress_size: std::mem::take(&mut state.recent_vector_ingress_size),
             recent_vector_egress_size: std::mem::take(&mut state.recent_vector_egress_size),
             recent_text_ingress_size: std::mem::take(&mut state.recent_text_ingress_size),
-            recent_text_egress_size: std::mem::take(&mut state.recent_text_egress_size),
             recent_vector_ingress_size_v2: std::mem::take(&mut state.recent_vector_ingress_size_v2),
+            recent_text_queries: std::mem::take(&mut state.recent_text_queries),
+            recent_vector_queries: std::mem::take(&mut state.recent_vector_queries),
         }
     }
 }
@@ -67,6 +68,7 @@ impl UsageEventLogger for TestUsageEventLogger {
 }
 
 type TableName = String;
+type IndexName = String;
 type FunctionName = String;
 type StorageAPI = String;
 type FunctionTag = String;
@@ -93,7 +95,10 @@ pub struct UsageCounterState {
     pub recent_vector_ingress_size: BTreeMap<TableName, u64>,
     pub recent_vector_egress_size: BTreeMap<TableName, u64>,
     pub recent_text_ingress_size: BTreeMap<TableName, u64>,
-    pub recent_text_egress_size: BTreeMap<TableName, u64>,
+    /// Index to num_searches, bytes_searched
+    pub recent_text_queries: BTreeMap<(TableName, IndexName), (u64, u64)>,
+    /// Index to num_searches, bytes_searched, dimensions
+    pub recent_vector_queries: BTreeMap<(TableName, IndexName), (u64, u64, u64)>,
     pub recent_vector_ingress_size_v2: BTreeMap<TableName, u64>,
 }
 
@@ -190,17 +195,43 @@ impl UsageCounterState {
                     .entry(table_name)
                     .or_default() += ingress_v2;
             },
-            UsageEvent::TextBandwidth {
-                table_name,
-                ingress,
-                egress,
-                ..
+            UsageEvent::TextWrites {
+                table_name, size, ..
             } => {
                 *self
                     .recent_text_ingress_size
                     .entry(table_name.clone())
-                    .or_default() += ingress;
-                *self.recent_text_egress_size.entry(table_name).or_default() += egress;
+                    .or_default() += size;
+            },
+            UsageEvent::TextQuery {
+                table_name,
+                index_name,
+                num_searches,
+                bytes_searched,
+                ..
+            } => {
+                let entry = self
+                    .recent_text_queries
+                    .entry((table_name, index_name))
+                    .or_default();
+                entry.0 += num_searches;
+                entry.1 += bytes_searched;
+            },
+            UsageEvent::VectorQuery {
+                table_name,
+                index_name,
+                num_searches,
+                bytes_searched,
+                dimensions,
+                ..
+            } => {
+                let entry = self
+                    .recent_vector_queries
+                    .entry((table_name, index_name))
+                    .or_default();
+                entry.0 += num_searches;
+                entry.1 += bytes_searched;
+                entry.2 = std::cmp::max(entry.2, dimensions);
             },
             UsageEvent::CurrentVectorStorage { tables: _ } => todo!(),
             UsageEvent::CurrentTextStorage { tables: _ } => todo!(),

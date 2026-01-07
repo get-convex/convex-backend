@@ -145,13 +145,31 @@ pub enum UsageEvent {
         egress: u64,
         ingress_v2: u64,
     },
-    TextBandwidth {
+    TextWrites {
         id: String,
         component_path: Option<String>,
         udf_id: String,
         table_name: String,
-        ingress: u64,
-        egress: u64,
+        size: u64,
+    },
+    TextQuery {
+        id: String,
+        component_path: Option<String>,
+        udf_id: String,
+        table_name: String,
+        index_name: String,
+        num_searches: u64,
+        bytes_searched: u64,
+    },
+    VectorQuery {
+        id: String,
+        component_path: Option<String>,
+        udf_id: String,
+        table_name: String,
+        index_name: String,
+        num_searches: u64,
+        bytes_searched: u64,
+        dimensions: u64,
     },
 
     // Current* events record the current storage state as of a time, they're not incremental

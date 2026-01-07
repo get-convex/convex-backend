@@ -18,6 +18,8 @@ message FunctionUsageStats {
   repeated CounterWithTag database_egress_rows = 10;
   repeated CounterWithTag text_ingress = 12;
   repeated CounterWithTag text_egress = 13;
+  repeated TextQueryUsage text_query_usage = 17;
+  repeated VectorQueryUsage vector_query_usage = 18;
   repeated CounterWithUrl fetch_egress = 15;
 }
 
@@ -35,4 +37,21 @@ message CounterWithComponent {
 message CounterWithUrl {
   optional string url = 1;
   optional uint64 count = 2;
+}
+
+message TextQueryUsage {
+    optional string component_path = 1;
+    optional string table_name = 2;
+    optional string index_name = 3;
+    optional uint64 num_searches = 4;
+    optional uint64 bytes_searched = 5;
+}
+
+message VectorQueryUsage {
+    optional string component_path = 1;
+    optional string table_name = 2;
+    optional string index_name = 3;
+    optional uint64 num_searches = 4;
+    optional uint64 bytes_searched = 5;
+    optional uint64 dimensions = 6;
 }

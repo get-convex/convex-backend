@@ -25,6 +25,7 @@ testing = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 common = { workspace = true }
+derive_more = { workspace = true }
 events = { workspace = true }
 headers = { workspace = true }
 metrics = { workspace = true }

@@ -362,6 +362,15 @@ impl TextFixtures {
         query_string: &str,
     ) -> anyhow::Result<Vec<ResolvedDocument>> {
         let mut tx = self.db.begin_system().await?;
+        self.search_with_tx(&mut tx, index_name, query_string).await
+    }
+
+    pub async fn search_with_tx(
+        &self,
+        tx: &mut Transaction<TestRuntime>,
+        index_name: GenericIndexName<TableName>,
+        query_string: &str,
+    ) -> anyhow::Result<Vec<ResolvedDocument>> {
         let filters = vec![SearchFilterExpression::Search(
             SEARCH_FIELD.parse()?,
             query_string.into(),
@@ -377,13 +386,13 @@ impl TextFixtures {
             operators: vec![QueryOperator::Limit(MAX_CANDIDATE_REVISIONS)],
         };
         let mut query_stream = ResolvedQuery::new_with_version(
-            &mut tx,
+            tx,
             TableNamespace::test_user(),
             query,
             Some(MIN_NPM_VERSION_FOR_FUZZY_SEARCH.clone()),
         )?;
         let mut values = vec![];
-        while let Some(value) = query_stream.next(&mut tx, None).await? {
+        while let Some(value) = query_stream.next(tx, None).await? {
             values.push(value);
         }
         Ok(values)

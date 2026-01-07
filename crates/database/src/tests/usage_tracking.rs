@@ -205,7 +205,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
-    fixtures.new_backfill_index_flusher()?.step().await?;
+    fixtures.new_live_index_flusher()?.step().await?;
 
     let (results, usage_stats) = fixtures
         .db
@@ -242,6 +242,14 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
             .remove(&index_name.table().to_string()),
         Some(total_size)
     );
+    let (num_searches, bytes_searched, dimensions) = stats
+        .recent_vector_queries
+        .remove(&(index_name.table().to_string(), index_name.to_string()))
+        .unwrap();
+    assert_eq!(num_searches, 1);
+    // 2 dimensional vector, and qdrant uses f32 so 4-byte floats
+    assert_eq!(bytes_searched, 8);
+    assert_eq!(dimensions, 2);
     Ok(())
 }
 
@@ -368,6 +376,44 @@ async fn text_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow
 
     let expected_size = tantivy_schema.estimate_size(&document);
     assert_eq!(value, Some(expected_size));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_query_counts_usage(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+    let TextIndexData { index_name, .. } = fixtures.enabled_text_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let mut tx = fixtures.db.begin_system().await?;
+    add_document(&mut tx, index_name.table(), "hello").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures.new_live_text_flusher().step().await?;
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    fixtures
+        .search_with_tx(&mut tx, index_name.clone(), "he")
+        .await?;
+    fixtures
+        .search_with_tx(&mut tx, index_name.clone(), "he")
+        .await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call_test(tx_usage.gather_user_stats())
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    let (num_searches, bytes_searched) = stats
+        .recent_text_queries
+        .get(&(index_name.table().to_string(), index_name.to_string()))
+        .unwrap();
+
+    assert_eq!(*num_searches, 2);
+    assert_eq!(*bytes_searched, 2 * 2659);
     Ok(())
 }
 
