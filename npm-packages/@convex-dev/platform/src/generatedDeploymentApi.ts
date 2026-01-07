@@ -213,6 +213,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pause_deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause deployment
+         * @description Disables a deployment without deleting any data. The deployment will not
+         *     operate until it is unpaused. While a deployment is paused, new functions
+         *     calls will return an error, scheduled jobs will queue and run when the
+         *     deployment is resumed, and cron jobs will be skipped. This means that no
+         *     function calls or bandwidth usage will be charged while the deployment is
+         *     paused, but storage costs will still apply.
+         */
+        post: operations["pause_deployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -673,6 +698,23 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RotateLogStreamSecretResponse"];
                 };
+            };
+        };
+    };
+    pause_deployment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
