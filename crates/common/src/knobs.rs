@@ -1113,6 +1113,28 @@ pub static AWS_LAMBDA_STATIC_DEBOUNCE_DELAY: LazyLock<Duration> = LazyLock::new(
 pub static AWS_LAMBDA_CLIENT_MAX_CONCURRENT_REQUESTS: LazyLock<usize> =
     LazyLock::new(|| env_config("AWS_LAMBDA_MAX_CONCURRENT_STREAMS_PER_CONNECTION", 100));
 
+/// Memory limit in MB for the static AWS Lambda (executes user actions with
+/// pre-deployed code). If you update this value, make sure to update the
+/// actions resource limits in the docs.
+pub static AWS_STATIC_LAMBDA_MEMORY_LIMIT_MB: LazyLock<i32> =
+    LazyLock::new(|| env_config("AWS_STATIC_LAMBDA_MEMORY_LIMIT_MB", 512));
+
+/// Disk size limit in MB for the static AWS Lambda.
+pub static AWS_STATIC_LAMBDA_DISK_SIZE_MB: LazyLock<i32> =
+    LazyLock::new(|| env_config("AWS_STATIC_LAMBDA_DISK_SIZE_MB", 512));
+
+/// Memory limit in MB for the dynamic AWS Lambda (handles BuildDeps, Analyze,
+/// and fallback Execute requests when the static lambda has not been deployed
+/// yet). The dynamic memory limit must be >= the static limit to be able to
+/// execute fallback requests.
+pub static AWS_DYNAMIC_LAMBDA_MEMORY_LIMIT_MB: LazyLock<i32> =
+    LazyLock::new(|| env_config("AWS_DYNAMIC_LAMBDA_MEMORY_LIMIT_MB", 4096));
+
+/// Disk size limit in MB for the dynamic AWS Lambda. The dynamic disk size must
+/// be >= the static limit to be able to execute fallback requests.
+pub static AWS_DYNAMIC_LAMBDA_DISK_SIZE_MB: LazyLock<i32> =
+    LazyLock::new(|| env_config("AWS_DYNAMIC_LAMBDA_DISK_SIZE_MB", 2048));
+
 /// The maximum number of times to retry analyze requests for node actions.
 pub static NODE_ANALYZE_MAX_RETRIES: LazyLock<usize> =
     LazyLock::new(|| env_config("NODE_ANALYZE_MAX_RETRIES", 3));
