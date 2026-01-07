@@ -52,7 +52,8 @@ export async function usageStateWarning(
   if (
     auth === null ||
     auth.kind === "projectKey" ||
-    auth.kind === "deploymentKey"
+    auth.kind === "deploymentKey" ||
+    process.env.CONVEX_AGENT_MODE === "anonymous"
   ) {
     return;
   }

@@ -114,7 +114,7 @@ export async function deploymentCredentialsOrConfigure(
   DeploymentCredentials & {
     deploymentFields: {
       deploymentName: DeploymentName;
-      deploymentType: string;
+      deploymentType: DeploymentType;
       projectSlug: string | null;
       teamSlug: string | null;
     } | null;
@@ -232,7 +232,12 @@ export async function _deploymentCredentialsOrConfigure(
     }
     case "anonymous": {
       const hasAuth = ctx.bigBrainAuth() !== null;
-      if (hasAuth && deploymentSelection.deploymentName !== null) {
+      const isAgentMode = process.env.CONVEX_AGENT_MODE === "anonymous";
+      if (
+        !isAgentMode &&
+        hasAuth &&
+        deploymentSelection.deploymentName !== null
+      ) {
         const shouldConfigure =
           chosenConfiguration !== null ||
           (await promptYesNo(ctx, {
@@ -257,8 +262,7 @@ export async function _deploymentCredentialsOrConfigure(
       const alreadyHasConfiguredAnonymousDeployment =
         deploymentSelection.deploymentName !== null &&
         chosenConfiguration === null;
-      const forceAnonymous = process.env.CONVEX_AGENT_MODE === "anonymous";
-      if (forceAnonymous) {
+      if (isAgentMode) {
         logWarning(
           chalkStderr.yellow.bold(
             "CONVEX_AGENT_MODE=anonymous mode is in beta, functionality may change in the future.",
@@ -266,7 +270,7 @@ export async function _deploymentCredentialsOrConfigure(
         );
       }
 
-      const shouldPromptForLogin = forceAnonymous
+      const shouldPromptForLogin = isAgentMode
         ? "no"
         : alreadyHasConfiguredAnonymousDeployment
           ? "no"
