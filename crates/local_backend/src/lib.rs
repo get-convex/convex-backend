@@ -84,6 +84,7 @@ pub mod custom_headers;
 pub mod dashboard;
 pub mod deploy_config;
 pub mod deploy_config2;
+pub mod deployment_state;
 pub mod environment_variables;
 pub mod http_actions;
 pub mod log_sinks;

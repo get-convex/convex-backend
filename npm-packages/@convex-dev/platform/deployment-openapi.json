@@ -410,6 +410,32 @@
           }
         ]
       }
+    },
+    "/pause_deployment": {
+      "post": {
+        "summary": "Pause deployment",
+        "description": "Disables a deployment without deleting any data. The deployment will not\noperate until it is unpaused. While a deployment is paused, new functions\ncalls will return an error, scheduled jobs will queue and run when the\ndeployment is resumed, and cron jobs will be skipped. This means that no\nfunction calls or bandwidth usage will be charged while the deployment is\npaused, but storage costs will still apply.",
+        "operationId": "pause_deployment",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
     }
   },
   "components": {

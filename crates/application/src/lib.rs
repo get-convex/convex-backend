@@ -403,6 +403,7 @@ pub mod application_function_runner;
 mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
+pub mod deployment_state;
 mod exports;
 pub mod function_log;
 pub mod log_streaming;

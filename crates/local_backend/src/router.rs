@@ -357,6 +357,7 @@ pub fn router(st: LocalAppState) -> Router {
             .merge(platform_router())
             .merge(crate::canonical_urls::platform_router())
             .merge(crate::log_sinks::platform_router())
+            .merge(crate::deployment_state::platform_router())
             .split_for_parts();
     let platform_openapi_spec = platform_openapi.to_pretty_json().unwrap();
     let platform_routes = Router::new().merge(platform_routes).route(
