@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `CONVEX_AGENT_MODE=anonymous` can now be used while logged in
+
 ## 1.31.2
 
 - Bug fix: the TypeScript types of the new `ctx.db` APIs introduced in 1.31.0
