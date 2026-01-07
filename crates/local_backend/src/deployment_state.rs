@@ -62,10 +62,51 @@ pub async fn pause_deployment(
     Ok(StatusCode::OK)
 }
 
+/// Unpause deployment
+///
+/// Reenables a deployment that was previously paused. The deployment will
+/// resume normal operation, including any scheduled jobs that were queued while
+/// paused.
+#[utoipa::path(
+    post,
+    path = "/unpause_deployment",
+    responses((status = 200)),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
+    ),
+)]
+pub async fn unpause_deployment(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
+
+    let mut tx = st.application.begin(identity.clone()).await?;
+    let current_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
+    if current_state != BackendState::Paused {
+        return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+            "UnpauseDeploymentFailed",
+            "Deployment is not currently paused."
+        ))
+        .into());
+    }
+
+    st.application
+        .change_deployment_state(identity, BackendState::Running)
+        .await?;
+
+    Ok(StatusCode::OK)
+}
+
 pub fn platform_router<S>() -> OpenApiRouter<S>
 where
     LocalAppState: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
-    OpenApiRouter::new().routes(utoipa_axum::routes!(pause_deployment))
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(pause_deployment))
+        .routes(utoipa_axum::routes!(unpause_deployment))
 }

@@ -436,6 +436,32 @@
           }
         ]
       }
+    },
+    "/unpause_deployment": {
+      "post": {
+        "summary": "Unpause deployment",
+        "description": "Reenables a deployment that was previously paused. The deployment will\nresume normal operation, including any scheduled jobs that were queued while\npaused.",
+        "operationId": "unpause_deployment",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
     }
   },
   "components": {
