@@ -707,6 +707,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         } else {
                             CallType::UncachedQuery {
                                 duration: execution_time,
+                                user_execution_time: outcome.user_execution_time,
                                 memory_in_mb: outcome.memory_in_mb,
                             }
                         },
@@ -865,6 +866,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         context.request_id.clone(),
                         CallType::Mutation {
                             duration: execution_time,
+                            user_execution_time: outcome.user_execution_time,
                             memory_in_mb: outcome.memory_in_mb,
                             occ_info: occ_info.clone(),
                         },
@@ -960,6 +962,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         CallType::Action {
                             env: completion.environment,
                             duration: completion.execution_time,
+                            user_execution_time: outcome.user_execution_time,
                             memory_in_mb: completion.memory_in_mb,
                         },
                         outcome.result.is_ok(),
@@ -1071,6 +1074,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             udf::HttpActionResult::Error(js_err.clone()),
             None,
             None,
+            Duration::ZERO,
         );
         self._log_http_action(
             outcome,
@@ -1107,6 +1111,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         context.request_id.clone(),
                         CallType::HttpAction {
                             duration: execution_time,
+                            user_execution_time: outcome.user_execution_time,
                             memory_in_mb: outcome.memory_in_mb(),
                             response_sha256,
                         },

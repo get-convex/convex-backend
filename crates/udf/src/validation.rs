@@ -1,4 +1,7 @@
-use std::sync::LazyLock;
+use std::{
+    sync::LazyLock,
+    time::Duration,
+};
 
 use anyhow::Context;
 use common::{
@@ -836,6 +839,8 @@ pub struct ValidatedUdfOutcome {
     pub udf_server_version: Option<semver::Version>,
     pub mutation_queue_length: Option<usize>,
     pub memory_in_mb: u64,
+    // TODO(ENG-10204) Make required
+    pub user_execution_time: Option<Duration>,
 }
 
 impl HeapSize for ValidatedUdfOutcome {
@@ -876,6 +881,7 @@ impl ValidatedUdfOutcome {
             udf_server_version,
             mutation_queue_length: None,
             memory_in_mb: 0,
+            user_execution_time: Some(Duration::ZERO),
         })
     }
 
@@ -900,6 +906,7 @@ impl ValidatedUdfOutcome {
             udf_server_version: outcome.udf_server_version,
             mutation_queue_length,
             memory_in_mb: outcome.memory_in_mb,
+            user_execution_time: outcome.user_execution_time,
         };
 
         // TODO(CX-6318) Don't pack json value until it's been validated.
@@ -937,6 +944,8 @@ pub struct ValidatedActionOutcome {
 
     pub udf_server_version: Option<semver::Version>,
     pub mutation_queue_length: Option<usize>,
+    // TODO(ENG-10204) Make required
+    pub user_execution_time: Option<Duration>,
 }
 
 impl ValidatedActionOutcome {
@@ -954,6 +963,7 @@ impl ValidatedActionOutcome {
             syscall_trace: outcome.syscall_trace,
             udf_server_version: outcome.udf_server_version,
             mutation_queue_length: None,
+            user_execution_time: outcome.user_execution_time,
         };
 
         if let Ok(json_packed_value) = &validated.result {
@@ -974,8 +984,6 @@ impl ValidatedActionOutcome {
         validated
     }
 
-    /// Used for synthesizing an outcome when we encounter an error before
-    /// reaching the isolate.
     pub fn from_error(
         js_error: JsError,
         path: CanonicalizedComponentFunctionPath,
@@ -993,6 +1001,8 @@ impl ValidatedActionOutcome {
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
             mutation_queue_length: None,
+            // FIXME: We should count user execution time even for failed functions
+            user_execution_time: None,
         }
     }
 
@@ -1012,6 +1022,7 @@ impl ValidatedActionOutcome {
             syscall_trace: SyscallTrace::new(),
             udf_server_version: None,
             mutation_queue_length: None,
+            user_execution_time: None,
         }
     }
 }

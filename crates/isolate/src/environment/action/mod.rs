@@ -385,6 +385,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 result = Err(e);
             },
         }
+        let user_execution_time = execution_time.elapsed;
         self.add_warnings_to_log_lines_http_action(execution_time, total_bytes_sent)?;
         let (route, result) = result?;
         let outcome = HttpActionOutcome::new(
@@ -395,6 +396,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             result,
             Some(self.syscall_trace.lock().clone()),
             http_module_path.npm_version().clone(),
+            user_execution_time,
         );
         Ok(outcome)
     }
@@ -704,6 +706,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
         self = isolate_context.take_environment();
         let execution_time = timeout.get_function_execution_time();
+        let user_execution_time = execution_time.elapsed;
         drop(timeout);
         let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
         self.add_warnings_to_log_lines_action(
@@ -722,6 +725,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             },
             syscall_trace: self.syscall_trace.lock().clone(),
             udf_server_version,
+            user_execution_time: Some(user_execution_time),
         };
         Ok(outcome)
     }

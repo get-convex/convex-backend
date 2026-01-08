@@ -32,6 +32,7 @@ message UdfOutcome {
 
   optional bool observed_identity = 10;
   uint64 memory_in_mb = 11;
+  optional google.protobuf.Duration user_execution_time = 12;
 }
 
 message ActionOutcome {
@@ -42,6 +43,7 @@ message ActionOutcome {
 
   common.FunctionResult result = 7;
   SyscallTrace syscall_trace = 8;
+  optional google.protobuf.Duration user_execution_time = 10;
 }
 
 message HttpActionOutcome {
@@ -54,6 +56,7 @@ message HttpActionOutcome {
 
   optional string path = 5;
   optional string method = 6;
+  optional google.protobuf.Duration user_execution_time = 7;
 }
 
 message SyscallTrace {

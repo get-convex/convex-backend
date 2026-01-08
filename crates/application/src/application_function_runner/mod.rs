@@ -1492,6 +1492,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         result: node_outcome.result.map(JsonPackedValue::pack),
                         syscall_trace: node_outcome.syscall_trace,
                         udf_server_version,
+                        user_execution_time: None,
                     };
                     let outcome =
                         ValidatedActionOutcome::new(outcome, returns_validator, &table_mapping);

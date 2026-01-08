@@ -555,6 +555,8 @@ async fn run_request<RT: Runtime>(
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
             memory_in_mb: 0,
+            // Bogus value because we are removing isolate2
+            user_execution_time: Some(Duration::ZERO),
         };
         return Ok(outcome);
     }
@@ -701,6 +703,8 @@ async fn run_request<RT: Runtime>(
         memory_in_mb: (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
             .try_into()
             .unwrap(),
+        // Bogus value because we are removing isolate2
+        user_execution_time: Some(Duration::ZERO),
     };
     Ok(outcome)
 }

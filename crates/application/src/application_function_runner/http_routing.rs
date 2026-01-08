@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::Context;
 use common::{
     components::{
@@ -201,6 +203,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             HttpActionResult::Streamed,
                             None,
                             None,
+                            Duration::ZERO,
                         );
                         let new_log_line = LogLine::new_system_log_line(
                             if is_client_disconnect {
@@ -247,6 +250,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             result.clone(),
                             None,
                             None,
+                            Duration::ZERO,
                         );
                         self.function_log
                             .log_http_action(

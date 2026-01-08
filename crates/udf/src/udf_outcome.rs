@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::Context;
 use common::{
     components::CanonicalizedComponentFunctionPath,
@@ -21,6 +23,8 @@ use pb::{
     },
     outcome::UdfOutcome as UdfOutcomeProto,
 };
+#[cfg(any(test, feature = "testing"))]
+use proptest::prelude::*;
 use rand::Rng;
 use value::{
     heap_size::HeapSize,
@@ -61,6 +65,15 @@ pub struct UdfOutcome {
     #[cfg_attr(any(test, feature = "testing"), proptest(value = "None"))]
     pub udf_server_version: Option<semver::Version>,
     pub memory_in_mb: u64,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "(0..=i64::MAX as u64, any::<u32>()).prop_map(|(secs, nanos)| \
+                        Some(Duration::new(secs, nanos)))"
+        )
+    )]
+    // TODO(ENG-10204): Make required
+    pub user_execution_time: Option<Duration>,
 }
 
 impl HeapSize for UdfOutcome {
@@ -94,6 +107,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             syscall_trace,
             udf_server_version: _,
             memory_in_mb,
+            user_execution_time,
         }: UdfOutcome,
     ) -> anyhow::Result<Self> {
         let result = match result {
@@ -113,6 +127,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             syscall_trace: Some(syscall_trace.try_into()?),
             observed_identity: Some(observed_identity),
             memory_in_mb,
+            user_execution_time: user_execution_time.map(|t| t.try_into()).transpose()?,
         })
     }
 }
@@ -143,6 +158,7 @@ impl UdfOutcome {
             udf_server_version,
             observed_identity: false,
             memory_in_mb: 0,
+            user_execution_time: Some(Duration::ZERO),
         })
     }
 
@@ -158,16 +174,17 @@ impl UdfOutcome {
             syscall_trace,
             observed_identity,
             memory_in_mb,
+            user_execution_time,
         }: UdfOutcomeProto,
         path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
     ) -> anyhow::Result<Self> {
-        let rng_seed = rng_seed.ok_or_else(|| anyhow::anyhow!("Missing rng_seed"))?;
+        let rng_seed = rng_seed.context("Missing rng_seed")?;
         let rng_seed = rng_seed
             .as_slice()
             .try_into()
             .context("Invalid rng_seed length")?;
-        let result = result.ok_or_else(|| anyhow::anyhow!("Missing result"))?;
+        let result = result.context("Missing result")?;
         let result = match result.result {
             Some(FunctionResultTypeProto::JsonPackedValue(value)) => {
                 Ok(JsonPackedValue::from_network(value)?)
@@ -184,21 +201,18 @@ impl UdfOutcome {
             rng_seed,
             observed_rng: observed_rng.unwrap_or_default(),
             unix_timestamp: unix_timestamp
-                .ok_or_else(|| anyhow::anyhow!("Missing unix_timestamp"))?
+                .context("Missing unix_timestamp")?
                 .try_into()?,
             observed_time: observed_time.unwrap_or_default(),
             log_lines,
-            journal: journal
-                .ok_or_else(|| anyhow::anyhow!("Missing journal"))?
-                .try_into()?,
+            journal: journal.context("Missing journal")?.try_into()?,
             result,
-            syscall_trace: syscall_trace
-                .ok_or_else(|| anyhow::anyhow!("Missing syscall_trace"))?
-                .try_into()?,
+            syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,
             udf_server_version,
             // TODO(lee): Remove the default once we've pushed all services.
             observed_identity: observed_identity.unwrap_or(true),
             memory_in_mb,
+            user_execution_time: user_execution_time.map(|d| d.try_into()).transpose()?,
         })
     }
 }

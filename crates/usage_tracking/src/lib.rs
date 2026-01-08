@@ -104,10 +104,12 @@ pub enum CallType {
     Action {
         env: ModuleEnvironment,
         duration: Duration,
+        user_execution_time: Option<Duration>,
         memory_in_mb: u64,
     },
     HttpAction {
         duration: Duration,
+        user_execution_time: Option<Duration>,
         memory_in_mb: u64,
 
         /// Sha256 of the response body
@@ -117,10 +119,12 @@ pub enum CallType {
     CachedQuery,
     UncachedQuery {
         duration: Duration,
+        user_execution_time: Option<Duration>,
         memory_in_mb: u64,
     },
     Mutation {
         duration: Duration,
+        user_execution_time: Option<Duration>,
         memory_in_mb: u64,
         occ_info: Option<OccInfo>,
     },
@@ -195,6 +199,8 @@ impl CallType {
         }
     }
 
+    /// Total wall-clock time from the start of executing a request to its
+    /// completion.
     fn duration_millis(&self) -> u64 {
         match self {
             CallType::UncachedQuery { duration, .. }
@@ -203,6 +209,34 @@ impl CallType {
             | CallType::HttpAction { duration, .. } => u64::try_from(duration.as_millis())
                 .expect("Function was running for over 584 billion years??"),
             _ => 0,
+        }
+    }
+
+    /// Time spent executing user code in the isolate. Does not include
+    /// syscalls, waiting for fetch, etc.
+    fn user_execution_millis(&self) -> Option<u64> {
+        match self {
+            CallType::UncachedQuery {
+                user_execution_time,
+                ..
+            }
+            | CallType::Mutation {
+                user_execution_time,
+                ..
+            }
+            | CallType::Action {
+                user_execution_time,
+                ..
+            }
+            | CallType::HttpAction {
+                user_execution_time,
+                ..
+            } => user_execution_time.map(|t| t.as_millis() as u64),
+            CallType::CachedQuery
+            | CallType::CloudBackup
+            | CallType::CloudRestore
+            | CallType::Export
+            | CallType::Import => None,
         }
     }
 
@@ -258,6 +292,7 @@ impl UsageCounter {
                 tag: call_type.tag().to_string(),
                 memory_megabytes: call_type.memory_megabytes(),
                 duration_millis: call_type.duration_millis(),
+                user_execution_millis: call_type.user_execution_millis(),
                 environment: call_type.environment(),
                 is_tracked: should_track_calls,
                 response_sha256: call_type.response_sha256(),
@@ -298,6 +333,7 @@ impl UsageCounter {
             CallType::Action {
                 env: ModuleEnvironment::Isolate,
                 duration: Duration::from_secs(10),
+                user_execution_time: Some(Duration::from_secs(5)),
                 memory_in_mb: 10,
             },
             true,

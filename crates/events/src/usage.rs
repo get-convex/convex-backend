@@ -36,6 +36,10 @@ pub struct FunctionCallUsageFields {
     /// The duration in milliseconds of the UDF, or 0 if we don't track
     /// execution time for this tag type.
     pub duration_millis: u64,
+    /// The duration in milliseconds of user execution time in the isolate.
+    /// Excludes syscalls.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_execution_millis: Option<u64>,
     /// Whether this was run in V8 or Node, or "unknown".
     pub environment: String,
     /// True if we think it's a call we should track in usage. Right now
@@ -273,6 +277,7 @@ mod tests {
                 tag: "tag".to_string(),
                 memory_megabytes: 100,
                 duration_millis: 200,
+                user_execution_millis: Some(100),
                 environment: "Node".to_string(),
                 is_tracked: true,
                 response_sha256: Some("sha256".to_string()),
@@ -295,6 +300,7 @@ mod tests {
             "tag": "tag",
             "memory_megabytes": 100,
             "duration_millis": 200,
+            "user_execution_millis": 100,
             "environment": "Node",
             "is_tracked": true,
             "response_sha256": "sha256",
@@ -322,6 +328,7 @@ mod tests {
                 tag: "tag".to_string(),
                 memory_megabytes: 100,
                 duration_millis: 200,
+                user_execution_millis: Some(100),
                 environment: "Node".to_string(),
                 is_tracked: true,
                 response_sha256: Some("sha256".to_string()),
@@ -344,6 +351,7 @@ mod tests {
             "tag": "tag",
             "memory_megabytes": 100,
             "duration_millis": 200,
+            "user_execution_millis": 100,
             "environment": "Node",
             "is_tracked": true,
             "response_sha256": "sha256",

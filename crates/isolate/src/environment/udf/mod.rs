@@ -433,6 +433,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         self = isolate_context.take_environment();
         let execution_time = timeout.get_function_execution_time();
+        let user_execution_time = execution_time.elapsed;
         drop(timeout);
         let success_result_value = result.as_ref().ok();
         Self::add_warnings_to_log_lines(
@@ -475,6 +476,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 syscall_trace: self.syscall_trace,
                 udf_server_version: self.udf_server_version,
                 memory_in_mb,
+                user_execution_time: Some(user_execution_time),
             }),
             // TODO: Add num_writes and write_bandwidth to UdfOutcome,
             // and use them in log_mutation.
@@ -496,6 +498,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 syscall_trace: self.syscall_trace,
                 udf_server_version: self.udf_server_version,
                 memory_in_mb,
+                user_execution_time: Some(user_execution_time),
             }),
             _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
         };
