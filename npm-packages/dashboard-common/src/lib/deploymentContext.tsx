@@ -843,6 +843,7 @@ export function CloudDisconnectOverlay({
 
 Deployment URL: ${deployment.deploymentUrl}
 HTTP reachable: ${isReachable === null ? "checking..." : isReachable ? "yes" : "no"}
+Browser Version: ${navigator.userAgent}
 
 Please help me troubleshoot this connection issue.`;
 
@@ -861,9 +862,12 @@ Please help me troubleshoot this connection issue.`;
           <div className="flex flex-col gap-2">
             <p className="flex items-center gap-1 text-sm">
               <div className="w-fit rounded-full bg-background-error p-1">
-                <CrossCircledIcon className="text-content-error" />
+                <CrossCircledIcon
+                  className="text-content-error"
+                  aria-hidden="true"
+                />
               </div>
-              WebSocket
+              WebSocket connection failed
             </p>
             {isReachable === null ? (
               <p className="flex items-center gap-1 text-sm text-content-secondary">
@@ -875,16 +879,22 @@ Please help me troubleshoot this connection issue.`;
             ) : isReachable ? (
               <p className="flex items-center gap-1 text-sm">
                 <div className="w-fit rounded-full bg-background-success p-1">
-                  <CheckCircledIcon className="text-content-success" />
+                  <CheckCircledIcon
+                    className="text-content-success"
+                    aria-hidden="true"
+                  />
                 </div>
-                HTTP
+                HTTP connection successful
               </p>
             ) : (
               <p className="flex items-center gap-1 text-sm">
                 <div className="w-fit rounded-full bg-background-error p-1">
-                  <CrossCircledIcon className="text-content-error" />
+                  <CrossCircledIcon
+                    className="text-content-error"
+                    aria-hidden="true"
+                  />
                 </div>
-                HTTP
+                HTTP connection failed
               </p>
             )}
           </div>
@@ -893,9 +903,24 @@ Please help me troubleshoot this connection issue.`;
         <div>
           <h4 className="mb-2">Troubleshooting</h4>
           <p className="mb-2 text-sm">
-            There may be a client-side network issue. Try:
+            {isReachable ? (
+              <>
+                <div>This deployment appears to be online.</div>
+                <div>
+                  Some networks may experience instability when connecting over
+                  WebSockets.
+                </div>
+                <div>Please try the following steps to troubleshoot:</div>
+              </>
+            ) : (
+              "There may be a client-side network issue. Try:"
+            )}
           </p>
           <ul className="ml-2 list-inside list-disc space-y-1 text-sm">
+            <li>
+              Switching to a different network. (i.e. WiFi, ethernet, or
+              cellular)
+            </li>
             <li>
               <span className="inline-flex items-center gap-1">
                 Reloading the browser page
@@ -906,7 +931,6 @@ Please help me troubleshoot this connection issue.`;
             </li>
             <li>Disabling your VPN</li>
             <li>Disabling browser extensions</li>
-            <li>Switching to a different WiFi network</li>
           </ul>
         </div>
 
@@ -920,9 +944,8 @@ Please help me troubleshoot this connection issue.`;
         {openSupportForm && (
           <div className="border-t pt-2">
             <p className="text-sm text-content-secondary">
-              Still having trouble connecting?{" "}
               <Button inline onClick={handleContactSupport}>
-                Contact support
+                Tried all of the troubleshooting steps? Contact support
               </Button>
             </p>
           </div>
