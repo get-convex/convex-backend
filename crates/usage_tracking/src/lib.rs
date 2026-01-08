@@ -54,44 +54,6 @@ pub struct UsageCounter {
     usage_logger: Arc<dyn UsageEventLogger>,
 }
 
-impl UsageCounter {
-    pub fn new(usage_logger: Arc<dyn UsageEventLogger>) -> Self {
-        Self { usage_logger }
-    }
-
-    // Used for tracking storage ingress outside of a user function (e.g. snapshot
-    // import/export).
-    pub async fn track_independent_storage_ingress(
-        &self,
-        component_path: ComponentPath,
-        tag: String,
-        ingress: u64,
-    ) {
-        let independent_tracker =
-            IndependentStorageCallTracker::new(ExecutionId::new(), self.usage_logger.clone());
-
-        independent_tracker
-            .track_storage_ingress(component_path, tag, ingress)
-            .await;
-    }
-
-    // Used for tracking storage egress outside of a user function (e.g. snapshot
-    // import/export).
-    pub async fn track_independent_storage_egress(
-        &self,
-        component_path: ComponentPath,
-        tag: String,
-        egress: u64,
-    ) {
-        let independent_tracker =
-            IndependentStorageCallTracker::new(ExecutionId::new(), self.usage_logger.clone());
-
-        independent_tracker
-            .track_storage_egress(component_path, tag, egress)
-            .await;
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct OccInfo {
     pub table_name: Option<String>,
@@ -261,6 +223,10 @@ impl CallType {
 }
 
 impl UsageCounter {
+    pub fn new(usage_logger: Arc<dyn UsageEventLogger>) -> Self {
+        Self { usage_logger }
+    }
+
     pub async fn track_call(
         &self,
         udf_path: UdfIdentifier,
