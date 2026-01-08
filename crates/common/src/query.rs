@@ -546,6 +546,23 @@ impl Search {
                 .collect::<anyhow::Result<Vec<InternalSearchFilterExpression>>>()?,
         })
     }
+
+    pub fn is_empty(&self) -> anyhow::Result<bool> {
+        for filter in &self.filters {
+            match filter {
+                SearchFilterExpression::Search(_field, s) => return Ok(s.is_empty()),
+                SearchFilterExpression::Eq(..) => {},
+            }
+        }
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "MissingSearchFilterError",
+            format!(
+                "Search query against {} does not contain any search filters. You must include a \
+                 search filter like `q.search(\"field\", searchText)`.",
+                self.index_name,
+            )
+        ))
+    }
 }
 
 /// While `Search` is constructed and used at the query layer using TableNames,

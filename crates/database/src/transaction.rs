@@ -1042,7 +1042,7 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(document_id)
     }
 
-    pub async fn search(
+    pub async fn text_search(
         &mut self,
         stable_index_name: &StableIndexName,
         search: Search,
@@ -1051,6 +1051,11 @@ impl<RT: Runtime> Transaction<RT> {
         let Some(tablet_index_name) = stable_index_name.tablet_index_name() else {
             return Ok(vec![]);
         };
+        // Short-circuit and return no results if the search query is just an empty
+        // string. Skip usage tracking.
+        if search.is_empty()? {
+            return Ok(vec![]);
+        }
         let tablet_id = tablet_index_name.table();
         let table_namespace = self.table_mapping().tablet_namespace(*tablet_id)?;
         let component_path = self.must_component_path(table_namespace.into())?;

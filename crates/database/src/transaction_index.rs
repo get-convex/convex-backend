@@ -285,9 +285,6 @@ impl TransactionIndex {
             .search(&index, query, version, pending_updates)
             .await?;
 
-        // TODO: figure out if we want to charge database bandwidth for reading search
-        // index metadata once search is no longer beta
-
         // Record the query results in the read set.
         reads.record_search(index_name.clone(), results.reads);
 

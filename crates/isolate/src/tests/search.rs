@@ -283,7 +283,7 @@ async fn test_missing_search_filter(rt: TestRuntime) -> anyhow::Result<()> {
         assert_contains(
             &e,
             "Uncaught Error: Search query against messages.by_body does not contain any search \
-             filters. You must include a search filter like `q.search(\"\"body\"\", searchText)`.",
+             filters. You must include a search filter like `q.search(\"field\", searchText)`.",
         );
         Ok(())
     })

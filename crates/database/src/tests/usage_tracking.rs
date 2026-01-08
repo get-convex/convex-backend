@@ -418,6 +418,37 @@ async fn text_query_counts_usage(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn empty_text_query_does_not_count_usage(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+    let TextIndexData { index_name, .. } = fixtures.enabled_text_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let mut tx = fixtures.db.begin_system().await?;
+    add_document(&mut tx, index_name.table(), "hello").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures.new_live_text_flusher().step().await?;
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    fixtures
+        .search_with_tx(&mut tx, index_name.clone(), "")
+        .await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call_test(tx_usage.gather_user_stats())
+        .await;
+
+    let stats = fixtures.test_usage_logger.collect();
+    assert!(!stats
+        .recent_text_queries
+        .contains_key(&(index_name.table().to_string(), index_name.to_string())));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Result<()> {
     let DbFixtures {
         db,
