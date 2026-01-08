@@ -1125,13 +1125,6 @@ pub struct FunctionUsageStats {
             )")
     )]
     pub text_ingress: BTreeMap<(ComponentPath, TableName), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
-    pub text_egress: BTreeMap<(ComponentPath, TableName), u64>,
 
     #[cfg_attr(
         any(test, feature = "testing"),
@@ -1168,7 +1161,6 @@ impl FunctionUsageStats {
             storage_write_bytes: self.storage_ingress.values().sum(),
             vector_index_read_bytes: self.vector_egress.values().sum(),
             vector_index_write_bytes: self.vector_ingress.values().sum(),
-            text_index_read_bytes: self.text_egress.values().sum(),
             text_index_write_bytes: self.text_ingress.values().sum(),
             vector_index_write_bytes_v2: self.vector_ingress_v2.values().sum(),
         }
@@ -1189,7 +1181,6 @@ impl FunctionUsageStats {
             vector_ingress_v2,
             vector_egress,
             text_ingress,
-            text_egress,
             text_query_usage,
             vector_query_usage,
             fetch_egress,
@@ -1230,9 +1221,6 @@ impl FunctionUsageStats {
         }
         for (key, ingress) in text_ingress {
             *self.text_ingress.entry(key.clone()).or_default() += ingress;
-        }
-        for (key, egress) in text_egress {
-            *self.text_egress.entry(key.clone()).or_default() += egress;
         }
         for (key, text_index_usage) in text_query_usage {
             *self.text_query_usage.entry(key).or_default() += text_index_usage;
@@ -1432,7 +1420,6 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             vector_ingress: to_by_tag_count(stats.vector_ingress.into_iter()),
             vector_egress: to_by_tag_count(stats.vector_egress.into_iter()),
             text_ingress: to_by_tag_count(stats.text_ingress.into_iter()),
-            text_egress: to_by_tag_count(stats.text_egress.into_iter()),
             text_query_usage: to_text_query_usage(stats.text_query_usage.into_iter()),
             vector_query_usage: to_vector_query_usage(stats.vector_query_usage.into_iter()),
             vector_ingress_v2: to_by_tag_count(stats.vector_ingress_v2.into_iter()),
@@ -1458,7 +1445,6 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let vector_ingress = from_by_tag_count(stats.vector_ingress)?.collect();
         let vector_egress = from_by_tag_count(stats.vector_egress)?.collect();
         let text_ingress = from_by_tag_count(stats.text_ingress)?.collect();
-        let text_egress = from_by_tag_count(stats.text_egress)?.collect();
         let text_query_usage = from_text_query_usage(stats.text_query_usage)?.collect();
         let vector_query_usage = from_vector_query_usage(stats.vector_query_usage)?.collect();
         let vector_ingress_v2 = from_by_tag_count(stats.vector_ingress_v2)?.collect();
@@ -1476,7 +1462,6 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             vector_ingress,
             vector_egress,
             text_ingress,
-            text_egress,
             text_query_usage,
             vector_query_usage,
             vector_ingress_v2,
@@ -1496,7 +1481,6 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
-    pub text_index_read_bytes: u64,
     pub text_index_write_bytes: u64,
     pub vector_index_write_bytes_v2: u64,
 }
