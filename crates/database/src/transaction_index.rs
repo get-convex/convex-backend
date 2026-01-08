@@ -718,7 +718,7 @@ impl TextIndexManagerSnapshot {
     }
 
     #[fastrace::trace]
-    pub async fn search_with_compiled_query(
+    pub async fn text_search(
         &self,
         index: &Index,
         printable_index_name: &IndexName,
@@ -728,7 +728,7 @@ impl TextIndexManagerSnapshot {
         let text_indexes_snapshot =
             runtime::block_in_place(|| self.snapshot_with_updates(pending_updates))?;
         text_indexes_snapshot
-            .search_with_compiled_query(
+            .text_search(
                 index,
                 printable_index_name,
                 query,

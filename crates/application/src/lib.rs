@@ -960,7 +960,7 @@ impl<RT: Runtime> Application<RT> {
         &self.app_auth
     }
 
-    pub async fn search_with_compiled_query(
+    pub async fn text_search_at_ts(
         &self,
         index_id: IndexId,
         printable_index_name: IndexName,
@@ -969,7 +969,7 @@ impl<RT: Runtime> Application<RT> {
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<RevisionWithKeys> {
         self.database
-            .search_with_compiled_query(index_id, printable_index_name, query, pending_updates, ts)
+            .text_search_at_ts(index_id, printable_index_name, query, pending_updates, ts)
             .await
     }
 

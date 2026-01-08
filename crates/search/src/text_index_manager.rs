@@ -201,7 +201,7 @@ impl TextIndexManager {
         Ok(results)
     }
 
-    pub async fn search_with_compiled_query(
+    pub async fn text_search(
         &self,
         index: &Index,
         printable_index_name: &IndexName,

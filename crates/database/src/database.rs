@@ -2444,7 +2444,7 @@ impl<RT: Runtime> Database<RT> {
         Ok((results, usage.gather_user_stats()))
     }
 
-    pub async fn search_with_compiled_query(
+    pub async fn text_search_at_ts(
         &self,
         index_id: IndexId,
         printable_index_name: IndexName,
@@ -2467,7 +2467,7 @@ impl<RT: Runtime> Database<RT> {
         );
 
         search_snapshot
-            .search_with_compiled_query(&index, &printable_index_name, query, &pending_updates)
+            .text_search(&index, &printable_index_name, query, &pending_updates)
             .await
     }
 
