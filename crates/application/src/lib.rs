@@ -312,10 +312,7 @@ use search::{
 use semver::Version;
 use serde_json::Value as JsonValue;
 use short_future::ShortBoxFuture;
-use snapshot_import::{
-    clear_tables,
-    start_stored_import,
-};
+use snapshot_import::start_stored_import;
 use storage::{
     BufferedUpload,
     ClientDrivenUploadPartToken,
@@ -394,7 +391,10 @@ use crate::{
         RedactedJsError,
         RedactedLogLines,
     },
-    snapshot_import::SnapshotImportWorker,
+    snapshot_import::{
+        clear_tables,
+        SnapshotImportWorker,
+    },
 };
 
 pub mod airbyte_import;
@@ -2314,14 +2314,15 @@ impl<RT: Runtime> Application<RT> {
     }
 
     // Clear all records for specified tables concurrently, potentially taking
-    // multiple transactions for each. Returns the total number of documents
-    // deleted.
+    // multiple transactions for each.
     pub async fn clear_tables(
         &self,
         identity: &Identity,
         table_names: Vec<(ComponentPath, TableName)>,
+        requestor: ImportRequestor,
+        usage: FunctionUsageTracker,
     ) -> anyhow::Result<u64> {
-        clear_tables(self, identity, table_names).await
+        clear_tables(self, identity, table_names, requestor, usage).await
     }
 
     pub async fn execute_standalone_module(
@@ -3354,16 +3355,20 @@ impl<RT: Runtime> Application<RT> {
         }
     }
 
-    /// Insert airbyte record messages into the table for the stream. Returns
-    /// the number of documents inserted.
+    /// Insert airbyte record messages into the table for the stream.
     pub async fn import_airbyte_records(
         &self,
         identity: &Identity,
         records: Vec<AirbyteRecord>,
         tables: BTreeMap<TableName, ValidatedAirbyteStream>,
+        usage: FunctionUsageTracker,
     ) -> anyhow::Result<u64> {
-        let mut count = 0;
-        let mut tx = self.begin(identity.clone()).await?;
+        let usage = usage.without_v1_database_ingress();
+        let mut tx = self
+            .database
+            .begin_with_usage(identity.clone(), usage.clone())
+            .await?;
+        let mut num_records_written = 0u64;
         for record in records {
             let table_name = record.table_name();
             let stream = tables.get(table_name).context(ErrorMetadata::bad_request(
@@ -3372,26 +3377,36 @@ impl<RT: Runtime> Application<RT> {
             ))?;
             let insert_fut = self.process_record(&mut tx, record.clone(), stream);
             match insert_fut.await {
-                Ok(()) => {},
+                Ok(()) => {
+                    num_records_written += 1;
+                },
                 Err(e) if e.is_pagination_limit() => {
                     self.commit(tx, "airbyte_write_page").await?;
-                    tx = self.begin(identity.clone()).await?;
+                    tx = self
+                        .database
+                        .begin_with_usage(identity.clone(), usage.clone())
+                        .await?;
                     self.process_record(&mut tx, record, stream).await?;
+                    num_records_written += 1;
                 },
                 Err(e) => anyhow::bail!(e),
             }
-            count += 1;
         }
         self.commit(tx, "app_private_import_airbyte").await?;
-        Ok(count)
+        Ok(num_records_written)
     }
 
     pub async fn apply_fivetran_operations(
         &self,
         identity: &Identity,
         rows: Vec<BatchWriteRow>,
+        usage: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
-        let mut tx = self.begin(identity.clone()).await?;
+        let usage = usage.without_v1_database_ingress();
+        let mut tx = self
+            .database
+            .begin_with_usage(identity.clone(), usage.clone())
+            .await?;
         let mut model = FivetranImportModel::new(&mut tx);
 
         for row in rows {
@@ -3400,7 +3415,10 @@ impl<RT: Runtime> Application<RT> {
                 Err(e) if e.is_pagination_limit() => {
                     self.commit(tx, "fivetran_write_page").await?;
 
-                    tx = self.begin(identity.clone()).await?;
+                    tx = self
+                        .database
+                        .begin_with_usage(identity.clone(), usage.clone())
+                        .await?;
                     model = FivetranImportModel::new(&mut tx);
 
                     model.apply_operation(row).await?;
@@ -3419,12 +3437,17 @@ impl<RT: Runtime> Application<RT> {
         table_name: TableName,
         delete_before: Option<DateTime<Utc>>,
         delete_type: DeleteType,
+        usage: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
+        let usage = usage.without_v1_database_ingress();
         let mut done = false;
         while !done {
-            let mut tx = self.begin(identity.clone()).await?;
+            let mut tx = self
+                .database
+                .begin_with_usage(identity.clone(), usage.clone())
+                .await?;
             if !TableModel::new(&mut tx).table_exists(TableNamespace::Global, &table_name) {
-                // Simply accept the truncate if the table exists
+                // Simply accept the truncate if the table doesn't exist
                 return Ok(());
             }
             let mut query: ResolvedQuery<_> = FivetranImportModel::new(&mut tx)

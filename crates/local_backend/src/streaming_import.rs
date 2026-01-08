@@ -19,6 +19,7 @@ use axum::response::IntoResponse;
 use common::{
     self,
     components::ComponentPath,
+    execution_context::ExecutionId,
     http::{
         extract::{
             Json,
@@ -27,6 +28,8 @@ use common::{
         HttpResponseError,
     },
     schemas::json::DatabaseSchemaJson,
+    types::UdfIdentifier,
+    RequestId,
 };
 use convex_fivetran_destination::api_types::{
     BatchWriteRow,
@@ -36,10 +39,12 @@ use convex_fivetran_destination::api_types::{
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
+use model::snapshot_imports::types::ImportRequestor;
 use serde::{
     Deserialize,
     Serialize,
 };
+use usage_tracking::CallType;
 use value::{
     identifier::IDENTIFIER_REQUIREMENTS,
     TableName,
@@ -68,6 +73,9 @@ pub async fn import_airbyte_records(
     Json(AirbyteImportArgs { tables, messages }): Json<AirbyteImportArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
+
+    let usage = usage_tracking::FunctionUsageTracker::new();
+
     let records = messages
         .into_iter()
         .map(|msg| msg.try_into())
@@ -76,9 +84,23 @@ pub async fn import_airbyte_records(
         .into_iter()
         .map(|(k, v)| Ok((k.parse::<ValidIdentifier<TableName>>()?.0, v.try_into()?)))
         .collect::<anyhow::Result<_>>()?;
+
     st.application
-        .import_airbyte_records(&identity, records, tables)
+        .import_airbyte_records(&identity, records, tables, usage.clone())
         .await?;
+
+    st.application
+        .usage_counter()
+        .track_call(
+            UdfIdentifier::SystemJob("streaming_import".to_string()),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Import,
+            true,
+            usage.gather_user_stats(),
+        )
+        .await;
+
     Ok(StatusCode::OK)
 }
 
@@ -89,9 +111,23 @@ pub async fn apply_fivetran_operations(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
 
+    let usage = usage_tracking::FunctionUsageTracker::new();
+
     st.application
-        .apply_fivetran_operations(&identity, rows)
+        .apply_fivetran_operations(&identity, rows, usage.clone())
         .await?;
+
+    st.application
+        .usage_counter()
+        .track_call(
+            UdfIdentifier::SystemJob("streaming_import".to_string()),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Import,
+            true,
+            usage.gather_user_stats(),
+        )
+        .await;
 
     Ok(StatusCode::OK)
 }
@@ -137,6 +173,9 @@ pub async fn clear_tables(
     Json(ClearTableArgs { table_names }): Json<ClearTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
+
+    let usage = usage_tracking::FunctionUsageTracker::new();
+
     let table_names = table_names
         .into_iter()
         .map(|t| {
@@ -146,7 +185,29 @@ pub async fn clear_tables(
             ))
         })
         .collect::<anyhow::Result<_>>()?;
-    st.application.clear_tables(&identity, table_names).await?;
+
+    let _num_deleted = st
+        .application
+        .clear_tables(
+            &identity,
+            table_names,
+            ImportRequestor::StreamingImport,
+            usage.clone(),
+        )
+        .await?;
+
+    st.application
+        .usage_counter()
+        .track_call(
+            UdfIdentifier::SystemJob("streaming_import".to_string()),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Import,
+            true,
+            usage.gather_user_stats(),
+        )
+        .await;
+
     Ok(StatusCode::OK)
 }
 
@@ -174,19 +235,57 @@ pub async fn fivetran_truncate_table(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
 
+    let usage = usage_tracking::FunctionUsageTracker::new();
+
     let table_name = table_name.parse::<ValidIdentifier<TableName>>()?;
 
     // Full table hard deletes can be done through the optimized implementation
     if delete_before.is_none() && delete_type == DeleteType::HardDelete {
         st.application
-            .clear_tables(&identity, vec![(ComponentPath::root(), table_name.0)])
+            .clear_tables(
+                &identity,
+                vec![(ComponentPath::root(), table_name.0)],
+                ImportRequestor::StreamingImport,
+                usage.clone(),
+            )
             .await?;
+
+        st.application
+            .usage_counter()
+            .track_call(
+                UdfIdentifier::SystemJob("streaming_import".to_string()),
+                ExecutionId::new(),
+                RequestId::new(),
+                CallType::Import,
+                true,
+                usage.gather_user_stats(),
+            )
+            .await;
+
         return Ok(StatusCode::OK);
     }
 
     st.application
-        .fivetran_truncate(&identity, table_name.0, delete_before, delete_type)
+        .fivetran_truncate(
+            &identity,
+            table_name.0,
+            delete_before,
+            delete_type,
+            usage.clone(),
+        )
         .await?;
+
+    st.application
+        .usage_counter()
+        .track_call(
+            UdfIdentifier::SystemJob("streaming_import".to_string()),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Import,
+            true,
+            usage.gather_user_stats(),
+        )
+        .await;
 
     Ok(StatusCode::OK)
 }

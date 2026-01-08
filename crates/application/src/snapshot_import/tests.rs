@@ -1354,6 +1354,10 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     let storage_id = "kg21pzwemsm55e1fnt2kcsvgjh6h6gtf";
     let storage_idv6 = DeveloperDocumentId::decode(storage_id)?;
 
+    // Calculate expected sizes
+    let storage_file_bytes = b"foobarbaz";
+    let expected_storage_ingress = storage_file_bytes.len() as u64;
+
     let import = ParsedImport {
         generated_schemas: vec![],
         documents: vec![
@@ -1371,7 +1375,7 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         storage_files: vec![(
             component_path.clone(),
             storage_idv6,
-            stream::iter(vec![Ok(Bytes::from_static(b"foobarbaz"))]).boxed(),
+            stream::iter(vec![Ok(Bytes::from_static(storage_file_bytes))]).boxed(),
         )],
     };
 
@@ -1391,7 +1395,41 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
 
     let stats = usage.gather_user_stats();
-    assert!(stats.database_ingress[&(component_path.clone(), table_name.to_string())] > 0);
+
+    // Check storage ingress (file upload) - should match exact file size
+    assert_eq!(
+        stats.storage_ingress[&component_path], expected_storage_ingress,
+        "storage_ingress should match file size"
+    );
+
+    // Check database ingress for table1 - documents have metadata added, so just
+    // check it's tracked
+    let table1_ingress = stats.database_ingress[&(component_path.clone(), table_name.to_string())];
+    assert_eq!(
+        table1_ingress, 144,
+        "database_ingress for table1 should be non-zero (got {table1_ingress})",
+    );
+
+    // Check database_ingress_v2 for table1 matches database_ingress
+    let table1_ingress_v2 =
+        stats.database_ingress_v2[&(component_path.clone(), table_name.to_string())];
+    assert_eq!(
+        table1_ingress_v2, table1_ingress,
+        "database_ingress_v2 for table1 should match database_ingress"
+    );
+
+    // Verify only table1 is tracked in database_ingress (storage table uses
+    // separate tracker)
+    assert_eq!(
+        stats.database_ingress.len(),
+        1,
+        "Only table1 should be tracked in database_ingress"
+    );
+    assert_eq!(
+        stats.database_ingress_v2.len(),
+        1,
+        "Only table1 should be tracked in database_ingress_v2"
+    );
 
     Ok(())
 }

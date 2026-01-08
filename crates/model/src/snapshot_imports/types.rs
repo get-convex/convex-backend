@@ -398,6 +398,7 @@ pub enum ImportMode {
 pub enum ImportRequestor {
     SnapshotImport,
     CloudRestore { source_cloud_backup_id: u64 },
+    StreamingImport,
 }
 
 impl ImportRequestor {
@@ -405,6 +406,7 @@ impl ImportRequestor {
         match self {
             ImportRequestor::SnapshotImport => "snapshot_import",
             ImportRequestor::CloudRestore { .. } => "cloud_restore",
+            ImportRequestor::StreamingImport => "streaming_import",
         }
     }
 }
@@ -416,6 +418,8 @@ pub enum SerializedImportRequestor {
     SnapshotImport,
     #[serde(rename_all = "camelCase")]
     CloudRestore { source_cloud_backup_id: i64 },
+    #[serde(rename_all = "camelCase")]
+    StreamingImport,
 }
 
 impl From<ImportRequestor> for SerializedImportRequestor {
@@ -427,6 +431,7 @@ impl From<ImportRequestor> for SerializedImportRequestor {
             } => SerializedImportRequestor::CloudRestore {
                 source_cloud_backup_id: source_cloud_backup_id as i64,
             },
+            ImportRequestor::StreamingImport => SerializedImportRequestor::StreamingImport,
         }
     }
 }
@@ -439,6 +444,7 @@ impl From<SerializedImportRequestor> for ImportRequestor {
             } => ImportRequestor::CloudRestore {
                 source_cloud_backup_id: source_cloud_backup_id as u64,
             },
+            SerializedImportRequestor::StreamingImport => ImportRequestor::StreamingImport,
         }
     }
 }

@@ -725,6 +725,10 @@ impl FunctionUsageTracker {
         }
 
         let mut state = self.state.lock();
+        // Skip v1 ingress tracking if configured (e.g., for streaming imports)
+        if state.skip_v1_database_ingress {
+            return;
+        }
         *state
             .database_ingress
             .entry((component_path, table_name))
@@ -912,6 +916,16 @@ impl FunctionUsageTracker {
     pub fn track_fetch_egress(&self, url: String, egress: u64) {
         let mut state = self.state.lock();
         *state.fetch_egress.entry(url).or_default() += egress;
+    }
+
+    /// Configure this tracker to skip v1 database ingress tracking.
+    /// Used for streaming imports which should only track v2 ingress.
+    pub fn without_v1_database_ingress(self) -> Self {
+        {
+            let mut state = self.state.lock();
+            state.skip_v1_database_ingress = true;
+        }
+        self
     }
 }
 
@@ -1115,6 +1129,11 @@ pub struct FunctionUsageStats {
             )")
     )]
     pub fetch_egress: BTreeMap<String, u64>,
+
+    /// If true, skip tracking v1 database ingress.
+    /// Used for streaming imports which should only track v2 ingress.
+    #[cfg_attr(any(test, feature = "testing"), proptest(value = "false"))]
+    pub skip_v1_database_ingress: bool,
 }
 
 impl FunctionUsageStats {
@@ -1150,6 +1169,7 @@ impl FunctionUsageStats {
             text_query_usage,
             vector_query_usage,
             fetch_egress,
+            skip_v1_database_ingress: _,
         }: Self,
     ) {
         for (key, function_count) in storage_calls {
@@ -1432,6 +1452,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             vector_query_usage,
             vector_ingress_v2,
             fetch_egress,
+            skip_v1_database_ingress: false,
         })
     }
 }
@@ -1454,12 +1475,14 @@ pub struct AggregatedFunctionUsageStats {
 #[cfg(test)]
 mod tests {
     use cmd_util::env::env_config;
+    use common::components::ComponentPath;
     use proptest::prelude::*;
     use value::testing::assert_roundtrips;
 
     use super::{
         FunctionUsageStats,
         FunctionUsageStatsProto,
+        FunctionUsageTracker,
     };
 
     proptest! {
@@ -1471,5 +1494,101 @@ mod tests {
         fn test_usage_stats_roundtrips(stats in any::<FunctionUsageStats>()) {
             assert_roundtrips::<FunctionUsageStats, FunctionUsageStatsProto>(stats);
         }
+    }
+
+    #[test]
+    fn test_without_v1_database_ingress() {
+        // Create a tracker with skip_v1_database_ingress enabled
+        let usage = FunctionUsageTracker::new().without_v1_database_ingress();
+
+        // Track both v1 and v2 ingress/egress
+        let component_path = ComponentPath::root();
+        let table_name = "test_table".to_string();
+        usage.track_database_ingress(component_path.clone(), table_name.clone(), 100, false);
+        usage.track_database_ingress_v2(component_path.clone(), table_name.clone(), 200, false);
+        usage.track_database_egress(component_path.clone(), table_name.clone(), 150, false);
+        usage.track_database_egress_v2(component_path.clone(), table_name.clone(), 250, false);
+
+        // Test vector ingress as well
+        usage.track_vector_ingress(
+            component_path.clone(),
+            "vector_table".to_string(),
+            50,
+            75,
+            false,
+        );
+
+        // Gather stats and verify
+        let stats = usage.gather_user_stats();
+
+        // ONLY v1 database_ingress should be skipped (NOT egress or vector)
+        let v1_ingress = stats
+            .database_ingress
+            .get(&(component_path.clone(), table_name.clone()))
+            .copied()
+            .unwrap_or(0);
+        assert_eq!(
+            v1_ingress, 0,
+            "Expected database_ingress (v1) to be 0 when skip_v1_database_ingress is set"
+        );
+
+        // v2 ingress should be tracked
+        let v2_ingress = stats
+            .database_ingress_v2
+            .get(&(component_path.clone(), table_name.clone()))
+            .copied()
+            .unwrap_or(0);
+        assert_eq!(
+            v2_ingress, 200,
+            "Expected database_ingress_v2 to be tracked normally"
+        );
+
+        let v1_egress = stats
+            .database_egress
+            .get(&(component_path.clone(), table_name.clone()))
+            .copied()
+            .unwrap_or(0);
+        assert_eq!(
+            v1_egress, 150,
+            "Expected database_egress (v1) to still be tracked (only ingress is skipped)"
+        );
+
+        // v2 egress should be tracked
+        let v2_egress = stats
+            .database_egress_v2
+            .get(&(component_path.clone(), table_name.clone()))
+            .copied()
+            .unwrap_or(0);
+        assert_eq!(
+            v2_egress, 250,
+            "Expected database_egress_v2 to be tracked normally"
+        );
+
+        let v1_vector_ingress = stats
+            .vector_ingress
+            .get(&(component_path.clone(), "vector_table".to_string()))
+            .copied()
+            .unwrap_or(0);
+        assert_eq!(
+            v1_vector_ingress, 50,
+            "Expected vector_ingress (v1) to still be tracked (only database_ingress is skipped)"
+        );
+
+        // v2 vector ingress should be tracked
+        let v2_vector_ingress = stats
+            .vector_ingress_v2
+            .get(&(component_path, "vector_table".to_string()))
+            .copied()
+            .unwrap_or(0);
+        assert_eq!(
+            v2_vector_ingress, 75,
+            "Expected vector_ingress_v2 to be tracked normally"
+        );
+
+        // Verify the flag is set
+        assert!(
+            stats.skip_v1_database_ingress,
+            "Expected skip_v1_database_ingress flag to be true"
+        );
     }
 }

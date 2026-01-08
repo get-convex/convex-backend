@@ -406,20 +406,36 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         let (id, snapshot_import) = snapshot_import.into_id_and_value();
         let (ts, _documents_deleted) = finalize_import(
             &self.database,
-            &self.usage_tracking,
             Identity::system(),
             snapshot_import.member_id,
             initial_schemas,
             snapshot_import.mode,
             imported_tables,
-            usage,
             AuditLogInfo::SnapshotImport {
                 import_format: snapshot_import.format,
             },
             Some(id),
             snapshot_import.requestor.clone(),
+            usage.clone(),
         )
         .await?;
+
+        // Track usage for snapshot imports
+        let tag = snapshot_import.requestor.usage_tag().to_string();
+        let call_type = match snapshot_import.requestor {
+            ImportRequestor::SnapshotImport | ImportRequestor::StreamingImport => CallType::Import,
+            ImportRequestor::CloudRestore { .. } => CallType::CloudRestore,
+        };
+        self.usage_tracking
+            .track_call(
+                UdfIdentifier::SystemJob(tag),
+                ExecutionId::new(),
+                RequestId::new(),
+                call_type,
+                true,
+                usage.gather_user_stats(),
+            )
+            .await;
 
         Ok((ts, total_documents_imported))
     }
@@ -678,7 +694,6 @@ pub async fn do_import_from_object_key<RT: Runtime>(
 }
 
 /// Clears tables atomically.
-/// Returns number of documents deleted.
 /// This is implemented as an import of empty tables in Replace mode.
 ///
 /// N.B.: This will create components and tables if they don't exist.
@@ -686,9 +701,9 @@ pub async fn clear_tables<RT: Runtime>(
     application: &Application<RT>,
     identity: &Identity,
     table_names: Vec<(ComponentPath, TableName)>,
+    requestor: ImportRequestor,
+    usage: FunctionUsageTracker,
 ) -> anyhow::Result<u64> {
-    let usage = FunctionUsageTracker::new();
-
     let (initial_schemas, original_table_mapping) = {
         let mut tx = application.begin(identity.clone()).await?;
         (
@@ -726,16 +741,15 @@ pub async fn clear_tables<RT: Runtime>(
 
     let (_ts, documents_deleted) = finalize_import(
         &application.database,
-        &application.usage_tracking,
         identity.clone(),
         None,
         initial_schemas,
         ImportMode::Replace,
         table_mapping,
-        usage,
         AuditLogInfo::ClearTables,
         None,
-        ImportRequestor::SnapshotImport,
+        requestor,
+        usage.clone(),
     )
     .await?;
     Ok(documents_deleted)
@@ -930,16 +944,15 @@ enum AuditLogInfo {
 
 async fn finalize_import<RT: Runtime>(
     database: &Database<RT>,
-    usage_tracking: &UsageCounter,
     identity: Identity,
     member_id_override: Option<MemberId>,
     initial_schemas: SchemasForImport,
     mode: ImportMode,
     imported_tables: TableMapping,
-    usage: FunctionUsageTracker,
     audit_log_info: AuditLogInfo,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
+    usage: FunctionUsageTracker,
 ) -> anyhow::Result<(Timestamp, u64)> {
     // Ensure that schemas will be valid after the tables are activated.
     // TODO: we should be checking that `initial_schemas` matches the schemas at
@@ -949,139 +962,114 @@ async fn finalize_import<RT: Runtime>(
     // If we inserted into an existing table, we're done because the table is
     // now populated and active.
     // If we inserted into an Hidden table, make it Active.
-    let (ts, documents_deleted, _) = database
-        .execute_with_overloaded_retries(
-            identity,
-            FunctionUsageTracker::new(),
-            "snapshot_import_finalize",
-            |tx| {
-                async {
-                    if let Some(import_id) = import_id {
-                        // Only finalize the import if it's in progress.
-                        let mut snapshot_import_model = SnapshotImportModel::new(tx);
-                        let snapshot_import_state =
-                            snapshot_import_model.must_get_state(import_id).await?;
-                        match snapshot_import_state {
-                            ImportState::InProgress { .. } => {},
-                            // This can happen if the import was canceled or somehow retried after
-                            // completion. These errors won't show up to
-                            // the user because they are already terminal states,
-                            // so we won't transition to a new state due to this error.
-                            ImportState::Failed(e) => anyhow::bail!("Import failed: {e}"),
-                            ImportState::Completed { .. } => {
-                                anyhow::bail!("Import already completed")
-                            },
-                            // Indicates a bug -- we shouldn't be finalizing an import that hasn't
-                            // started yet.
-                            ImportState::Uploaded | ImportState::WaitingForConfirmation { .. } => {
-                                anyhow::bail!("Import is not in progress")
-                            },
-                        }
+    let (ts, documents_deleted, _occ_stats) = database
+        .execute_with_overloaded_retries(identity, usage, "snapshot_import_finalize", |tx| {
+            async {
+                if let Some(import_id) = import_id {
+                    // Only finalize the import if it's in progress.
+                    let mut snapshot_import_model = SnapshotImportModel::new(tx);
+                    let snapshot_import_state =
+                        snapshot_import_model.must_get_state(import_id).await?;
+                    match snapshot_import_state {
+                        ImportState::InProgress { .. } => {},
+                        // This can happen if the import was canceled or somehow retried after
+                        // completion. These errors won't show up to
+                        // the user because they are already terminal states,
+                        // so we won't transition to a new state due to this error.
+                        ImportState::Failed(e) => anyhow::bail!("Import failed: {e}"),
+                        ImportState::Completed { .. } => {
+                            anyhow::bail!("Import already completed")
+                        },
+                        // Indicates a bug -- we shouldn't be finalizing an import that hasn't
+                        // started yet.
+                        ImportState::Uploaded | ImportState::WaitingForConfirmation { .. } => {
+                            anyhow::bail!("Import is not in progress")
+                        },
                     }
-
-                    let to_delete = match mode {
-                        ImportMode::Append | ImportMode::Replace | ImportMode::RequireEmpty => {
-                            BTreeMap::new()
-                        },
-                        ImportMode::ReplaceAll => {
-                            let existing_tables = tx.table_mapping().clone();
-                            existing_tables
-                                .iter_active_user_tables()
-                                .filter(|&(_tablet_id, namespace, _table_number, table_name)| {
-                                    // Avoid deleting componentless namespaces (created during
-                                    // start_push).
-                                    if tx.get_component_path(namespace.into()).is_none() {
-                                        return false;
-                                    }
-                                    // If it was written by the import, don't clear it or delete it.
-                                    !imported_tables.namespace(namespace).name_exists(table_name)
-                                })
-                                .map(|(tablet_id, namespace, table_number, table_name)| {
-                                    (tablet_id, (namespace, table_number, table_name.clone()))
-                                })
-                                .collect()
-                        },
-                    };
-                    let table_mapping_for_import = TableMappingForImport {
-                        table_mapping_in_import: imported_tables.clone(),
-                        to_delete,
-                    };
-
-                    let audit_log_event = match &audit_log_info {
-                        AuditLogInfo::ClearTables => DeploymentAuditLogEvent::ClearTables,
-                        AuditLogInfo::SnapshotImport { import_format } => {
-                            make_audit_log_event(
-                                tx,
-                                &table_mapping_for_import,
-                                mode,
-                                import_format.clone(),
-                                requestor.clone(),
-                            )
-                            .await?
-                        },
-                    };
-
-                    let mut documents_deleted = 0;
-                    for tablet_id in table_mapping_for_import.to_delete.keys() {
-                        let namespace = tx.table_mapping().tablet_namespace(*tablet_id)?;
-                        let table_name = tx.table_mapping().tablet_name(*tablet_id)?;
-                        let mut table_model = TableModel::new(tx);
-                        documents_deleted += table_model
-                            .count(namespace, &table_name)
-                            .await?
-                            .unwrap_or(0);
-                        tracing::info!(
-                            "finalize_import({import_id:?}) Deleting table {table_name} in \
-                             namespace {namespace:?}"
-                        );
-                        table_model
-                            .delete_active_table(namespace, table_name)
-                            .await?;
-                    }
-                    schema_constraints.validate(tx).await?;
-                    let mut table_model = TableModel::new(tx);
-                    documents_deleted += assert_send(table_model.activate_tables(
-                        table_mapping_for_import.table_mapping_in_import.iter().map(
-                            |(tablet_id, namespace, _table_number, table_name)| {
-                                tracing::info!(
-                                    "finalize_import({import_id:?}) Activating table {table_name} \
-                                     in namespace {namespace:?}"
-                                );
-                                tablet_id
-                            },
-                        ),
-                    ))
-                    .await?;
-                    DeploymentAuditLogModel::new(tx)
-                        .insert_with_member_override(
-                            vec![audit_log_event.clone()],
-                            member_id_override,
-                        )
-                        .await?;
-
-                    Ok(documents_deleted)
                 }
-                .into()
-            },
-        )
-        .await?;
 
-    let tag = requestor.usage_tag().to_string();
-    let call_type = match requestor {
-        ImportRequestor::SnapshotImport => CallType::Import,
-        ImportRequestor::CloudRestore { .. } => CallType::CloudRestore,
-    };
-    // Charge database bandwidth accumulated during the import
-    usage_tracking
-        .track_call(
-            UdfIdentifier::SystemJob(tag),
-            ExecutionId::new(),
-            RequestId::new(),
-            call_type,
-            true,
-            usage.gather_user_stats(),
-        )
-        .await;
+                let to_delete = match mode {
+                    ImportMode::Append | ImportMode::Replace | ImportMode::RequireEmpty => {
+                        BTreeMap::new()
+                    },
+                    ImportMode::ReplaceAll => {
+                        let existing_tables = tx.table_mapping().clone();
+                        existing_tables
+                            .iter_active_user_tables()
+                            .filter(|&(_tablet_id, namespace, _table_number, table_name)| {
+                                // Avoid deleting componentless namespaces (created during
+                                // start_push).
+                                if tx.get_component_path(namespace.into()).is_none() {
+                                    return false;
+                                }
+                                // If it was written by the import, don't clear it or delete it.
+                                !imported_tables.namespace(namespace).name_exists(table_name)
+                            })
+                            .map(|(tablet_id, namespace, table_number, table_name)| {
+                                (tablet_id, (namespace, table_number, table_name.clone()))
+                            })
+                            .collect()
+                    },
+                };
+                let table_mapping_for_import = TableMappingForImport {
+                    table_mapping_in_import: imported_tables.clone(),
+                    to_delete,
+                };
+
+                let audit_log_event = match &audit_log_info {
+                    AuditLogInfo::ClearTables => DeploymentAuditLogEvent::ClearTables,
+                    AuditLogInfo::SnapshotImport { import_format } => {
+                        make_audit_log_event(
+                            tx,
+                            &table_mapping_for_import,
+                            mode,
+                            import_format.clone(),
+                            requestor.clone(),
+                        )
+                        .await?
+                    },
+                };
+
+                let mut documents_deleted = 0;
+                for tablet_id in table_mapping_for_import.to_delete.keys() {
+                    let namespace = tx.table_mapping().tablet_namespace(*tablet_id)?;
+                    let table_name = tx.table_mapping().tablet_name(*tablet_id)?;
+                    let mut table_model = TableModel::new(tx);
+                    documents_deleted += table_model
+                        .count(namespace, &table_name)
+                        .await?
+                        .unwrap_or(0);
+                    tracing::info!(
+                        "finalize_import({import_id:?}) Deleting table {table_name} in namespace \
+                         {namespace:?}"
+                    );
+                    table_model
+                        .delete_active_table(namespace, table_name)
+                        .await?;
+                }
+                schema_constraints.validate(tx).await?;
+                let mut table_model = TableModel::new(tx);
+                documents_deleted += assert_send(table_model.activate_tables(
+                    table_mapping_for_import.table_mapping_in_import.iter().map(
+                        |(tablet_id, namespace, _table_number, table_name)| {
+                            tracing::info!(
+                                "finalize_import({import_id:?}) Activating table {table_name} in \
+                                 namespace {namespace:?}"
+                            );
+                            tablet_id
+                        },
+                    ),
+                ))
+                .await?;
+                DeploymentAuditLogModel::new(tx)
+                    .insert_with_member_override(vec![audit_log_event.clone()], member_id_override)
+                    .await?;
+
+                Ok(documents_deleted)
+            }
+            .into()
+        })
+        .await?;
 
     Ok((ts, documents_deleted))
 }
