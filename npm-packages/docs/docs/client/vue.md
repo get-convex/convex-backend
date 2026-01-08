@@ -9,7 +9,8 @@ framework for building web user interfaces."
 
 The community-maintained
 [`convex-vue`](https://www.npmjs.com/package/convex-vue) npm package is a Vue.js
-integration library for Convex. It also powers [convex-nuxt](./vue/nuxt.md).
+integration library for Convex. There are also [Nuxt modules](./vue/nuxt.md)
+available for deeper framework integration.
 
 See the [Vue Quickstart](/quickstart/vue.mdx) to get started or the
 [convex-vue GitHub page](https://github.com/chris-visser/convex-vue) for more
