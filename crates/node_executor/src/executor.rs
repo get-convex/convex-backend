@@ -308,9 +308,8 @@ impl<RT: Runtime> Actions<RT> {
         Ok(NodeActionOutcome {
             result,
             syscall_trace,
-            // This shouldn't ever be None, but we'll use the default 512MB as a fallback.
-            memory_used_in_mb: execute_result.memory_allocated_mb.unwrap_or(512),
-            egress_bytes: execute_result.egress_bytes.unwrap_or(0),
+            memory_used_in_mb: execute_result.memory_allocated_mb,
+            egress_bytes: execute_result.egress_bytes,
         })
     }
 
@@ -717,8 +716,8 @@ struct ExecuteResponse {
     udf_time: Option<Duration>,
     total_executor_time: Option<Duration>,
     syscall_trace: SyscallTrace,
-    memory_allocated_mb: Option<u64>,
-    egress_bytes: Option<u64>,
+    memory_allocated_mb: u64,
+    egress_bytes: u64,
 }
 
 #[derive(Debug, PartialEq)]
@@ -780,8 +779,8 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 udf_time_ms: Option<f64>,
                 total_executor_time_ms: Option<f64>,
                 syscall_trace: Option<BTreeMap<String, SyscallStatsJson>>,
-                memory_allocated_mb: Option<u64>,
-                egress_bytes: Option<u64>,
+                memory_allocated_mb: u64,
+                egress_bytes: u64,
             },
             #[serde(rename_all = "camelCase")]
             Error {
@@ -858,8 +857,8 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                     .map(|(k, v)| (k, v.into()))
                     .collect::<BTreeMap<_, SyscallStats>>()
                     .into(),
-                memory_allocated_mb,
-                egress_bytes,
+                memory_allocated_mb: memory_allocated_mb.unwrap_or(512),
+                egress_bytes: egress_bytes.unwrap_or(0),
             },
         };
         Ok(result)
