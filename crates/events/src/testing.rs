@@ -236,8 +236,9 @@ impl UsageCounterState {
             UsageEvent::CurrentVectorStorage { tables: _ } => todo!(),
             UsageEvent::CurrentTextStorage { tables: _ } => todo!(),
             UsageEvent::CurrentDatabaseStorage {
-                tables: _,
+                user_tables: _,
                 system_tables: _,
+                virtual_tables: _,
             } => todo!(),
             UsageEvent::CurrentFileStorage {
                 tag: _,

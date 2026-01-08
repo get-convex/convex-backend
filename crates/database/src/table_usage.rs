@@ -11,7 +11,7 @@ use value::{
 };
 
 /// Counts the amount of storage used by documents and indexes in a table.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TableUsage {
     /// Bytes used by documents in this table
     pub document_size: u64,
@@ -25,10 +25,11 @@ pub struct TableUsage {
 
 /// `TableUsage` for all tables in a database. `T` is the fully qualified name
 /// of a table.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TablesUsage {
     pub user_tables: BTreeMap<(TableNamespace, TableName), (TableUsage, ComponentPath)>,
     pub system_tables: BTreeMap<(TableNamespace, TableName), (TableUsage, ComponentPath)>,
+    pub virtual_tables: BTreeMap<(TableNamespace, TableName), (TableUsage, ComponentPath)>,
     pub orphaned_tables: BTreeMap<(TableNamespace, TableName), TableUsage>,
 }
 
@@ -38,6 +39,7 @@ impl From<TablesUsage> for UsageEvent {
             user_tables,
             system_tables,
             orphaned_tables: _, // orphaned tables don't count for usage
+            virtual_tables,
         }: TablesUsage,
     ) -> UsageEvent {
         let mapper = |((_namespace, name), (table_usage, component_path)): (
@@ -56,10 +58,12 @@ impl From<TablesUsage> for UsageEvent {
         };
         let user_tables = user_tables.into_iter().map(mapper).collect();
         let system_tables = system_tables.into_iter().map(mapper).collect();
+        let virtual_tables = virtual_tables.into_iter().map(mapper).collect();
 
         UsageEvent::CurrentDatabaseStorage {
-            tables: user_tables,
+            user_tables,
             system_tables,
+            virtual_tables,
         }
     }
 }

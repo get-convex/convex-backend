@@ -82,6 +82,7 @@ errors = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
 migrations_model = { workspace = true, features = ["testing"] }
+pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 proptest-http = { workspace = true }

@@ -677,25 +677,44 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
 });
 
 #[cfg(test)]
-mod test_default_table_numbers {
+mod tests {
     use std::{
         collections::BTreeSet,
         sync::Arc,
     };
 
-    use common::testing::TestPersistence;
+    use common::{
+        components::{
+            CanonicalizedComponentFunctionPath,
+            ComponentPath,
+        },
+        execution_context::ExecutionContext,
+        runtime::UnixTimestamp,
+        testing::TestPersistence,
+    };
     use database::{
         defaults::DEFAULT_BOOTSTRAP_TABLE_NUMBERS,
         test_helpers::{
             DbFixtures,
             DbFixturesArgs,
         },
+        TableUsage,
+        TablesUsage,
+        TestFacingModel,
     };
+    use maplit::btreemap;
     use migrations_model::DATABASE_VERSION;
+    use pretty_assertions::assert_eq;
     use runtime::testing::TestRuntime;
+    use value::{
+        assert_obj,
+        ConvexArray,
+        TableNamespace,
+    };
 
     use crate::{
         app_system_tables,
+        scheduled_jobs::SchedulerModel,
         test_helpers::DbFixturesWithModel,
         virtual_system_mapping,
         DEFAULT_TABLE_NUMBERS,
@@ -769,6 +788,75 @@ mod test_default_table_numbers {
         assert_eq!(tables, first_seen);
         let max_first_seen = *FIRST_SEEN_INDEX.values().max().unwrap();
         assert!(max_first_seen <= DATABASE_VERSION);
+        Ok(())
+    }
+
+    /// Easier to put this test in model - so it tests the actual virtual tables
+    #[convex_macro::test_runtime]
+    async fn test_get_document_and_index_storage(rt: TestRuntime) -> anyhow::Result<()> {
+        let args = DbFixturesArgs {
+            tp: Some(Arc::new(TestPersistence::new())),
+            virtual_system_mapping: virtual_system_mapping().clone(),
+            ..Default::default()
+        };
+        let DbFixtures { db, .. } = DbFixtures::new_with_model_and_args(&rt, args.clone()).await?;
+
+        let t1 = "usertable".parse()?;
+        let obj = assert_obj!("name" => "Nipunn" );
+        let mut tx = db.begin_system().await?;
+        let id = TestFacingModel::new(&mut tx)
+            .insert(&t1, obj.clone())
+            .await?;
+        let doc = tx.get(id).await?.unwrap();
+
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentPath::root(),
+            udf_path: "scheduler:test_get_document_and_index_storage".parse()?,
+        };
+        let id = SchedulerModel::new(&mut tx, TableNamespace::Global)
+            .schedule(
+                path,
+                ConvexArray::empty(),
+                UnixTimestamp::from_millis(15),
+                ExecutionContext::new_for_test(),
+            )
+            .await?;
+        let s_doc = tx.get(id).await?.unwrap();
+        db.commit(tx).await?;
+
+        let expected_user_usage = TableUsage {
+            document_size: doc.size() as u64,
+            index_size: 0,
+            system_index_size: 2 * doc.size() as u64,
+        };
+        let expected_scheduler_usage = TableUsage {
+            document_size: s_doc.size() as u64,
+            index_size: 0,
+            system_index_size: 5 * s_doc.size() as u64,
+        };
+
+        let snapshot = db.latest_snapshot()?;
+        let TablesUsage {
+            user_tables,
+            system_tables,
+            virtual_tables,
+            orphaned_tables,
+        } = snapshot.get_document_and_index_storage()?;
+        assert_eq!(
+            user_tables,
+            btreemap! {
+                (TableNamespace::Global, t1) => (expected_user_usage, ComponentPath::root())
+            }
+        );
+        assert_eq!(
+            system_tables[&(TableNamespace::Global, "_scheduled_jobs".parse()?)],
+            (expected_scheduler_usage.clone(), ComponentPath::root())
+        );
+        assert_eq!(
+            virtual_tables[&(TableNamespace::Global, "_scheduled_functions".parse()?)],
+            (expected_scheduler_usage, ComponentPath::root())
+        );
+        assert_eq!(orphaned_tables, btreemap! {});
         Ok(())
     }
 }

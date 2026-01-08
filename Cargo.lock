@@ -6008,6 +6008,7 @@ dependencies = [
  "migrations_model",
  "openidconnect",
  "pb",
+ "pretty_assertions",
  "proptest",
  "proptest-derive",
  "proptest-http",

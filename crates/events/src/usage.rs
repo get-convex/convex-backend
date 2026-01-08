@@ -186,8 +186,10 @@ pub enum UsageEvent {
         tables: Vec<TableTextStorage>,
     },
     CurrentDatabaseStorage {
-        tables: Vec<TableDatabaseStorage>,
+        #[serde(rename = "tables")]
+        user_tables: Vec<TableDatabaseStorage>,
         system_tables: Vec<TableDatabaseStorage>,
+        virtual_tables: Vec<TableDatabaseStorage>,
     },
     CurrentFileStorage {
         // TODO(Rebecca): tag and total_size can be cleaned up after we start using the other
