@@ -570,7 +570,7 @@ function EntryAction({
       return <span>deleted a WorkOS environment</span>;
     }
     case "inviteWorkosTeamMember": {
-      return <span>invited a member to WorkOS team</span>;
+      return <span>invited a WorkOS team member</span>;
     }
     case "enableSSO": {
       return <span>enabled SSO</span>;

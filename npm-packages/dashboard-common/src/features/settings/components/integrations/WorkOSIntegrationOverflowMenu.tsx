@@ -23,7 +23,7 @@ export function WorkOSIntegrationOverflowMenu({
         variant: "neutral",
       }}
     >
-      <MenuItem action={onConfigure}>View Configuration</MenuItem>
+      <MenuItem action={onConfigure}>Configure Integration</MenuItem>
       <MenuLink
         href={`https://dashboard.workos.com/${environmentId}/authentication`}
         target="_blank"

@@ -1,6 +1,12 @@
 import { cn } from "@ui/cn";
 
-type CalloutVariant = "instructions" | "error" | "hint" | "localDev" | "upsell";
+type CalloutVariant =
+  | "instructions"
+  | "error"
+  | "hint"
+  | "localDev"
+  | "upsell"
+  | "success";
 
 const classes: Record<CalloutVariant, string> = {
   error: "bg-background-error text-content-error",
@@ -9,6 +15,7 @@ const classes: Record<CalloutVariant, string> = {
   upsell: "bg-util-accent/10 dark:bg-util-accent/30",
   localDev:
     "bg-teal-100 border border-teal-500 dark:bg-teal-900 text-content-primary",
+  success: "bg-background-success text-content-primary",
 };
 
 export function Callout({

@@ -463,7 +463,7 @@ async function getExistingWorkosEnvVars(
   const [clientId, environmentId, apiKey] = await Promise.all([
     envGetInDeployment(ctx, deployment, "WORKOS_CLIENT_ID"),
     envGetInDeployment(ctx, deployment, "WORKOS_ENVIRONMENT_ID"),
-    envGetInDeployment(ctx, deployment, "WORKOS_ENVIRONMENT_API_KEY"),
+    envGetInDeployment(ctx, deployment, "WORKOS_API_KEY"),
   ]);
 
   return { clientId, environmentId, apiKey };
@@ -483,7 +483,7 @@ async function setConvexEnvVars(
   await callUpdateEnvironmentVariables(ctx, deployment, [
     { name: "WORKOS_CLIENT_ID", value: workosClientId },
     { name: "WORKOS_ENVIRONMENT_ID", value: workosEnvironmentId },
-    { name: "WORKOS_ENVIRONMENT_API_KEY", value: workosEnvironmentApiKey },
+    { name: "WORKOS_API_KEY", value: workosEnvironmentApiKey },
   ]);
 }
 

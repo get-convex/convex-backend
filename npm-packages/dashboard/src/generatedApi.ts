@@ -5245,7 +5245,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Convex team ID */
+                team_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

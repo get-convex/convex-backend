@@ -102,26 +102,135 @@ export type DeploymentInfo = (
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
   useIsDeploymentPaused(): boolean | undefined;
   useLogDeploymentEvent(): (msg: string, props?: object | null) => void;
-  useDeploymentWorkOSEnvironment(deploymentName?: string):
-    | {
-        environment?:
-          | {
-              workosEnvironmentId: string;
-              workosEnvironmentName: string;
-              workosClientId: string;
-            }
-          | undefined
-          | null;
-        workosTeam?:
-          | {
-              workosTeamId: string;
-              workosTeamName: string;
-              workosAdminEmail: string;
-            }
-          | undefined
-          | null;
-      }
-    | undefined;
+  workOSOperations: {
+    useDeploymentWorkOSEnvironment(deploymentName?: string):
+      | {
+          teamId: number;
+          environment?:
+            | {
+                deploymentName: string;
+                workosEnvironmentId: string;
+                workosEnvironmentName: string;
+                workosClientId: string;
+                workosTeamId: string;
+                isProduction: boolean;
+              }
+            | undefined
+            | null;
+          workosTeam?:
+            | {
+                convexTeamId: number;
+                workosTeamId: string;
+                workosTeamName: string;
+                workosAdminEmail: string;
+                creatorMemberId: number;
+              }
+            | undefined
+            | null;
+        }
+      | undefined;
+    useTeamWorkOSIntegration(teamId?: string):
+      | {
+          teamAssociation?:
+            | {
+                workosTeamId: string;
+                workosTeamName: string;
+                adminEmail: string;
+                creatorName?: string | null;
+                creatorEmail: string;
+              }
+            | undefined
+            | null;
+          environments: Array<{
+            deploymentName: string;
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
+            workosClientId: string;
+          }>;
+        }
+      | undefined;
+    useWorkOSTeamHealth(teamId?: string):
+      | {
+          data?:
+            | {
+                teamProvisioned: boolean;
+                teamInfo?:
+                  | {
+                      id: string;
+                      name: string;
+                      productionState: "active" | "inactive";
+                    }
+                  | null
+                  | undefined;
+              }
+            | undefined;
+          error?: any;
+        }
+      | undefined;
+    useWorkOSEnvironmentHealth(deploymentName?: string):
+      | {
+          data?:
+            | {
+                id: string;
+                name: string;
+                clientId: string;
+              }
+            | undefined;
+          error?: any;
+        }
+      | undefined;
+    useDisconnectWorkOSTeam(teamId?: string): (body: {
+      teamId: number;
+    }) => Promise<
+      | {
+          workosTeamId: string;
+          workosTeamName: string;
+        }
+      | undefined
+    >;
+    useInviteWorkOSTeamMember(): (body: {
+      teamId: number;
+      email: string;
+    }) => Promise<
+      | {
+          email: string;
+          roleSlug: string;
+        }
+      | undefined
+    >;
+    useWorkOSInvitationEligibleEmails(teamId?: string):
+      | {
+          eligibleEmails: string[];
+          adminEmail?: string | null;
+        }
+      | undefined;
+    useAvailableWorkOSTeamEmails():
+      | {
+          availableEmails: string[];
+          usedEmails: string[];
+        }
+      | undefined;
+    useProvisionWorkOSTeam(teamId?: string): (body: {
+      teamId: number;
+      email: string;
+    }) => Promise<
+      | {
+          workosTeamId: string;
+          workosTeamName: string;
+          adminEmail: string;
+        }
+      | undefined
+    >;
+    useProvisionWorkOSEnvironment(
+      deploymentName?: string,
+    ): (body: {
+      deploymentName: string;
+      isProduction: boolean;
+    }) => Promise<any>;
+    useDeleteWorkOSEnvironment(
+      deploymentName?: string,
+    ): (body: { deploymentName: string }) => Promise<any>;
+  };
   CloudImport(props: { sourceCloudBackupId: number }): JSX.Element;
   TeamMemberLink(props: {
     memberId?: number | null;

@@ -15,13 +15,15 @@ export function IntegrationsView({
     useCurrentTeam,
     useTeamEntitlements,
     useCurrentDeployment,
-    useDeploymentWorkOSEnvironment,
+    workOSOperations,
   } = useContext(DeploymentInfoContext);
   const team = useCurrentTeam();
   const deployment = useCurrentDeployment();
   const entitlements = useTeamEntitlements(team?.id);
   const integrations = useQuery(udfs.listConfiguredSinks.default);
-  const workosData = useDeploymentWorkOSEnvironment(deployment?.name);
+  const workosData = workOSOperations.useDeploymentWorkOSEnvironment(
+    deployment?.name,
+  );
 
   return (
     <DeploymentSettingsLayout page="integrations">

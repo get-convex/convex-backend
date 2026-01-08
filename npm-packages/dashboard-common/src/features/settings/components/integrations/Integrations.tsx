@@ -28,7 +28,9 @@ export function Integrations({
   team: ReturnType<DeploymentInfo["useCurrentTeam"]>;
   entitlements: ReturnType<DeploymentInfo["useTeamEntitlements"]>;
   integrations: Doc<"_log_sinks">[];
-  workosData: ReturnType<DeploymentInfo["useDeploymentWorkOSEnvironment"]>;
+  workosData: ReturnType<
+    DeploymentInfo["workOSOperations"]["useDeploymentWorkOSEnvironment"]
+  >;
   onAddedIntegration?: (kind: string) => void;
 }) {
   const {
@@ -84,6 +86,7 @@ export function Integrations({
   if (!logStreamingEntitlementGranted) {
     devCallouts.push(
       <LocalDevCallout
+        key="log-streaming"
         tipText="Tip: Run this to enable log streaming locally:"
         command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement log_streaming_enabled --team-id ${team?.id} --reason "local" true --for-real`}
       />,
@@ -92,6 +95,7 @@ export function Integrations({
   if (!streamingExportEntitlementGranted) {
     devCallouts.push(
       <LocalDevCallout
+        key="streaming-export"
         className="flex-col"
         tipText="Tip: Run this to enable streaming export locally:"
         command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement streaming_export_enabled --team-id ${team?.id} --reason "local" true --for-real`}
@@ -152,6 +156,7 @@ export function Integrations({
           ))}
           {EXPORT_INTEGRATIONS.map((i) => (
             <PanelCard
+              key={i}
               integration={{ kind: i }}
               unavailableReason={streamingExportIntegrationUnavailableReason}
               teamSlug={team?.slug}

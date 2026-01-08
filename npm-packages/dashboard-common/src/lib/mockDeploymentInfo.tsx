@@ -23,7 +23,21 @@ export const mockDeploymentInfo: DeploymentInfo = {
     teamId: 0,
   }),
   useLogDeploymentEvent: () => () => {},
-  useDeploymentWorkOSEnvironment: () => undefined,
+  workOSOperations: {
+    useDeploymentWorkOSEnvironment: () => undefined,
+    useTeamWorkOSIntegration: () => undefined,
+    useWorkOSTeamHealth: () => undefined,
+    useWorkOSEnvironmentHealth: () => undefined,
+    useDisconnectWorkOSTeam: (_teamId?: string) => async () => undefined,
+    useInviteWorkOSTeamMember: () => async () => undefined,
+    useWorkOSInvitationEligibleEmails: () => undefined,
+    useAvailableWorkOSTeamEmails: () => undefined,
+    useProvisionWorkOSTeam: (_teamId?: string) => async () => undefined,
+    useProvisionWorkOSEnvironment: (_deploymentName?: string) => async () =>
+      undefined,
+    useDeleteWorkOSEnvironment: (_deploymentName?: string) => async () =>
+      undefined,
+  },
   useCurrentDeployment: () => ({
     id: 0,
     name: "local",

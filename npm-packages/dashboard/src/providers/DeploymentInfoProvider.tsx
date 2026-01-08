@@ -29,7 +29,19 @@ import { useTeamUsageState } from "api/usage";
 import { useProjectEnvironmentVariables } from "api/environmentVariables";
 import { useCurrentProject } from "api/projects";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
-import { useDeploymentWorkOSEnvironment } from "api/workos";
+import {
+  useDeploymentWorkOSEnvironment,
+  useTeamWorkOSIntegration,
+  useWorkOSTeamHealth,
+  useWorkOSEnvironmentHealth,
+  useDisconnectWorkOSTeam,
+  useInviteWorkOSTeamMember,
+  useWorkOSInvitationEligibleEmails,
+  useAvailableWorkOSTeamEmails,
+  useProvisionWorkOSTeam,
+  useProvisionWorkOSEnvironment,
+  useDeleteWorkOSEnvironment,
+} from "api/workos";
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { useConvexStatus } from "hooks/useConvexStatus";
 import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
@@ -135,7 +147,19 @@ export function DeploymentInfoProvider({
         useProjectEnvironmentVariables,
         useIsDeploymentPaused,
         useLogDeploymentEvent,
-        useDeploymentWorkOSEnvironment,
+        workOSOperations: {
+          useDeploymentWorkOSEnvironment,
+          useTeamWorkOSIntegration,
+          useWorkOSTeamHealth,
+          useWorkOSEnvironmentHealth,
+          useDisconnectWorkOSTeam,
+          useInviteWorkOSTeamMember,
+          useWorkOSInvitationEligibleEmails,
+          useAvailableWorkOSTeamEmails,
+          useProvisionWorkOSTeam,
+          useProvisionWorkOSEnvironment,
+          useDeleteWorkOSEnvironment,
+        },
         TeamMemberLink,
         CloudImport,
         ErrorBoundary: DeploymentErrorBoundary,

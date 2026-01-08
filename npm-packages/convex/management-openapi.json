@@ -222,6 +222,14 @@
       "get": {
         "description": "Get emails eligible for WorkOS team invitation (all verified emails except those that are admin of a different WorkOS team)",
         "operationId": "get_workos_invitation_eligible_emails",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Convex team ID",
+            "required": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "",

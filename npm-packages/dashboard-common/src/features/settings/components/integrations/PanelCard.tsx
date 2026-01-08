@@ -238,7 +238,7 @@ function renderModal(
       );
     case "workos":
       return (
-        <Modal onClose={closeModal} title="WorkOS AuthKit Environment">
+        <Modal onClose={closeModal} title="Configure WorkOS AuthKit">
           <WorkOSConfigurationForm />
         </Modal>
       );

@@ -243,7 +243,21 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   useProjectEnvironmentVariables: () => ({ configs: [] }),
   // no-op. don't send analytics in the self-hosted dashboard.
   useLogDeploymentEvent: () => () => {},
-  useDeploymentWorkOSEnvironment: () => undefined,
+  workOSOperations: {
+    useDeploymentWorkOSEnvironment: () => undefined,
+    useTeamWorkOSIntegration: () => undefined,
+    useWorkOSTeamHealth: () => undefined,
+    useWorkOSEnvironmentHealth: () => undefined,
+    useDisconnectWorkOSTeam: (_teamId?: string) => async () => undefined,
+    useInviteWorkOSTeamMember: () => async () => undefined,
+    useWorkOSInvitationEligibleEmails: () => undefined,
+    useAvailableWorkOSTeamEmails: () => undefined,
+    useProvisionWorkOSTeam: (_teamId?: string) => async () => undefined,
+    useProvisionWorkOSEnvironment: (_deploymentName?: string) => async () =>
+      undefined,
+    useDeleteWorkOSEnvironment: (_deploymentName?: string) => async () =>
+      undefined,
+  },
   CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
     <div>{sourceCloudBackupId}</div>
   ),

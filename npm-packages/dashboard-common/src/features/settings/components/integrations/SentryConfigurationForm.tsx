@@ -137,18 +137,16 @@ export function SentryConfigurationForm({
         id="dsn"
         error={formState.errors.dsn}
         description={
-          <div className="flex flex-col gap-1">
-            <div className="text-xs text-content-secondary">
-              Sentry Data Source Name (DSN) to route exceptions to.{" "}
-              <Link
-                href="https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/"
-                className="text-content-link"
-                target="_blank"
-              >
-                Learn more
-              </Link>
-            </div>
-          </div>
+          <>
+            Sentry Data Source Name (DSN) to route exceptions to.{" "}
+            <Link
+              href="https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/"
+              className="text-content-link"
+              target="_blank"
+            >
+              Learn more
+            </Link>
+          </>
         }
       />
       <TextInput
