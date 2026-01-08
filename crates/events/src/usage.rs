@@ -219,6 +219,7 @@ pub struct TableDatabaseStorage {
     pub table_name: String,
     pub total_document_size: u64,
     pub total_index_size: u64,
+    pub total_system_index_size: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

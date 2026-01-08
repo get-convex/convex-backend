@@ -337,8 +337,16 @@ impl Snapshot {
 
     pub fn iter_table_summaries(
         &self,
-    ) -> anyhow::Result<impl Iterator<Item = ((TableNamespace, TableName), &'_ TableSummary)> + '_>
-    {
+    ) -> anyhow::Result<
+        impl Iterator<
+                Item = anyhow::Result<(
+                    TableNamespace,
+                    Option<ComponentPath>,
+                    TableName,
+                    &'_ TableSummary,
+                )>,
+            > + '_,
+    > {
         let result = self
             .must_table_summaries()?
             .tables
@@ -350,17 +358,41 @@ impl Snapshot {
                 )
             })
             .map(|(table_id, summary)| {
-                (
-                    (
-                        self.table_mapping()
-                            .tablet_namespace(*table_id)
-                            .expect("active table should have namespace"),
-                        self.table_mapping()
-                            .tablet_name(*table_id)
-                            .expect("active table should have name"),
-                    ),
-                    summary,
-                )
+                let namespace = self
+                    .table_mapping()
+                    .tablet_namespace(*table_id)
+                    .expect("active table should have namespace");
+                let table_name = self
+                    .table_mapping()
+                    .tablet_name(*table_id)
+                    .expect("active table should have name");
+                let component_path = self.component_registry.get_component_path(
+                    ComponentId::from(namespace),
+                    &mut TransactionReadSet::new(),
+                );
+
+                if component_path.is_none() && !table_name.is_system() {
+                    let count = summary.num_values();
+                    let table_size = summary.total_size();
+                    if count != 0 {
+                        // If there is no component path for this table namespace, this must be an
+                        // empty user table left over from incomplete
+                        // components push. System tables may be created
+                        // earlier (e.g. `_schemas`), so they may be
+                        // legitimately nonempty in that case.
+                        anyhow::bail!(
+                            "Table {table_name} is in an orphaned TableNamespace without a \
+                             component, but has document count {count}",
+                        );
+                    }
+                    if table_size != 0 {
+                        anyhow::bail!(
+                            "Table {table_name} is in an orphaned TableNamespace without a \
+                             component, but has document size {table_size}",
+                        );
+                    }
+                }
+                Ok((namespace, component_path, table_name, summary))
             });
         Ok(result)
     }
@@ -392,22 +424,30 @@ impl Snapshot {
     }
 
     /// Counts storage space used by all tables, including system tables
-    pub fn get_document_and_index_storage(
-        &self,
-    ) -> anyhow::Result<TablesUsage<(TableNamespace, TableName)>> {
+    pub fn get_document_and_index_storage(&self) -> anyhow::Result<TablesUsage> {
         let table_mapping: TableMapping = self.table_mapping().clone();
 
-        let mut document_storage_by_table = BTreeMap::new();
-        for (table_name, summary) in self.iter_table_summaries()? {
-            let table_size = summary.total_size();
-            document_storage_by_table.insert(
-                table_name,
-                TableUsage {
-                    document_size: table_size,
-                    index_size: 0,
-                    system_index_size: 0,
-                },
-            );
+        let mut user_document_storage_by_table = BTreeMap::new();
+        let mut system_document_storage_by_table = BTreeMap::new();
+        let mut orphaned_document_storage_by_table = BTreeMap::new();
+        for entry in self.iter_table_summaries()? {
+            let (namespace, component_path, table_name, summary) = entry?;
+            let usage = TableUsage {
+                document_size: summary.total_size(),
+                index_size: 0,
+                system_index_size: 0,
+            };
+            if let Some(component_path) = component_path {
+                if table_name.is_system() {
+                    system_document_storage_by_table
+                        .insert((namespace, table_name), (usage, component_path));
+                } else {
+                    user_document_storage_by_table
+                        .insert((namespace, table_name), (usage, component_path));
+                }
+            } else {
+                orphaned_document_storage_by_table.insert((namespace, table_name), usage);
+            }
         }
 
         // TODO: We are currently using document size * index count as a rough
@@ -427,14 +467,39 @@ impl Snapshot {
                 .clone()
                 .map_table(&table_mapping.tablet_to_name())
                 .unwrap();
-            let key = (table_namespace, index_name.table().clone());
-            let table_usage = document_storage_by_table.get_mut(&key).with_context(|| {
-                format!(
-                    "Index {index_name} on a nonexistent table {table_name} in namespace \
-                     {table_namespace:?}",
-                    table_name = key.1
-                )
-            })?;
+            let table_usage = if let Some(component_path) =
+                self.component_registry.get_component_path(
+                    ComponentId::from(table_namespace),
+                    &mut TransactionReadSet::new(),
+                ) {
+                let key = (table_namespace, index_name.table().clone());
+                let document_storage_by_table = if index_name.table().is_system() {
+                    &mut system_document_storage_by_table
+                } else {
+                    &mut user_document_storage_by_table
+                };
+                let table_usage = document_storage_by_table.get_mut(&key).with_context(|| {
+                    format!(
+                        "Index {index_name} on a nonexistent table {:?} in namespace \
+                         {table_namespace:?}",
+                        index_name.table(),
+                    )
+                })?;
+                anyhow::ensure!(table_usage.1 == component_path);
+                &mut table_usage.0
+            } else {
+                // This can happen if component push did not complete. Becomes orphaned.
+                let key = (table_namespace, index_name.table().clone());
+                orphaned_document_storage_by_table
+                    .get_mut(&key)
+                    .with_context(|| {
+                        format!(
+                            "Index {index_name} on a nonexistent table {table_name} in namespace \
+                             {table_namespace:?}",
+                            table_name = key.1
+                        )
+                    })?
+            };
             if index_name.is_system_owned() {
                 table_usage.system_index_size += table_usage.document_size;
             } else {
@@ -442,7 +507,11 @@ impl Snapshot {
             }
         }
 
-        Ok(TablesUsage(document_storage_by_table))
+        Ok(TablesUsage {
+            user_tables: user_document_storage_by_table,
+            system_tables: system_document_storage_by_table,
+            orphaned_tables: orphaned_document_storage_by_table,
+        })
     }
 
     pub fn component_ids_to_paths(&self) -> BTreeMap<ComponentId, ComponentPath> {

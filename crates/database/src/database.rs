@@ -533,35 +533,12 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     pub fn get_document_and_index_storage(
         &self,
         identity: &Identity,
-    ) -> anyhow::Result<TablesUsage<(ComponentPath, TableName)>> {
+    ) -> anyhow::Result<TablesUsage> {
         if !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("get_user_document_storage"));
         }
 
-        let documents_and_index_storage = self.snapshot.get_document_and_index_storage()?;
-        let mut remapped_documents_and_index_storage = BTreeMap::new();
-
-        for ((table_namespace, table_name), usage) in documents_and_index_storage.0 {
-            if let Some(component_path) = self.snapshot.component_registry.get_component_path(
-                ComponentId::from(table_namespace),
-                &mut TransactionReadSet::new(),
-            ) {
-                remapped_documents_and_index_storage.insert((component_path, table_name), usage);
-            } else if !table_name.is_system() {
-                // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push.
-                // System tables may be created earlier (e.g. `_schemas`), so they may be
-                // legitimately nonempty in that case.
-                anyhow::ensure!(
-                    usage.document_size == 0 && usage.index_size == 0,
-                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
-                     has document size {} and index size {}",
-                    usage.document_size,
-                    usage.index_size
-                );
-            }
-        }
-        Ok(TablesUsage(remapped_documents_and_index_storage))
+        self.snapshot.get_document_and_index_storage()
     }
 
     #[fastrace::trace]
@@ -654,23 +631,12 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             anyhow::bail!(unauthorized_error("get_document_counts"));
         }
         let mut document_counts = vec![];
-        for ((table_namespace, table_name), summary) in self.snapshot.iter_table_summaries()? {
+        for entry in self.snapshot.iter_table_summaries()? {
+            let (_namespace, component_path, table_name, summary) = entry?;
             let count = summary.num_values();
-            if let Some(component_path) = self.snapshot.component_registry.get_component_path(
-                ComponentId::from(table_namespace),
-                &mut TransactionReadSet::new(),
-            ) {
+            // exclude orphaned tables (in incomplete component namespaces)
+            if let Some(component_path) = component_path {
                 document_counts.push((component_path, table_name, count));
-            } else if !table_name.is_system() {
-                // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push.
-                // System tables may be created earlier (e.g. `_schemas`), so they may be
-                // legitimately nonempty in that case.
-                anyhow::ensure!(
-                    count == 0,
-                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
-                     has document count {count}",
-                );
             }
         }
         Ok(document_counts)
