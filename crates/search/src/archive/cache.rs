@@ -55,11 +55,32 @@ use crate::SearchFileType;
 struct IndexTempDir {
     dir: PathBuf,
     cleaner: CacheCleaner,
+    search_file_type: SearchFileType,
 }
 
-impl Drop for IndexTempDir {
+struct IndexTempDirWithSize {
+    dir: PathBuf,
+    cleaner: CacheCleaner,
+    search_file_type: SearchFileType,
+    size: u64,
+}
+
+impl Drop for IndexTempDirWithSize {
     fn drop(&mut self) {
-        let _ = self.cleaner.attempt_cleanup(self.dir.clone());
+        let _ = self
+            .cleaner
+            .attempt_cleanup(self.dir.clone(), self.search_file_type, self.size);
+    }
+}
+
+impl IndexTempDirWithSize {
+    pub fn new(index_temp_dir: IndexTempDir, size: u64) -> Self {
+        Self {
+            dir: index_temp_dir.dir,
+            cleaner: index_temp_dir.cleaner,
+            search_file_type: index_temp_dir.search_file_type,
+            size,
+        }
     }
 }
 
@@ -67,7 +88,7 @@ struct IndexMeta {
     size: u64,
     /// A path under `tempdir.dir`; may not be the directory itself
     path: PathBuf,
-    _tempdir: IndexTempDir,
+    _tempdir: IndexTempDirWithSize,
 }
 
 impl SizedValue for IndexMeta {
@@ -160,9 +181,10 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         if is_immutable(search_file_type) {
             set_readonly(&path, true).await?;
         }
+        metrics::add_bytes_by_file_type(search_file_type, bytes_used);
         metrics::finish_archive_fetch(timer, bytes_used, search_file_type);
         Ok(IndexMeta {
-            _tempdir: destination,
+            _tempdir: IndexTempDirWithSize::new(destination, bytes_used),
             size: bytes_used,
             path,
         })
@@ -231,6 +253,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         let tempdir = IndexTempDir {
             cleaner: self.cleaner.clone(),
             dir: destination.clone(),
+            search_file_type,
         };
         let new_self = self.clone();
         let new_key = key.clone();
@@ -411,7 +434,7 @@ async fn set_readonly(path: &PathBuf, readonly: bool) -> io::Result<()> {
 
 #[derive(Clone)]
 struct CacheCleaner {
-    cleanup_tx: mpsc::UnboundedSender<PathBuf>,
+    cleanup_tx: mpsc::UnboundedSender<(PathBuf, SearchFileType, u64)>,
     _cleanup_handle: Arc<Box<dyn SpawnHandle>>,
 }
 
@@ -426,8 +449,13 @@ impl CacheCleaner {
         }
     }
 
-    fn attempt_cleanup(&self, path: PathBuf) -> anyhow::Result<()> {
-        Ok(self.cleanup_tx.send(path)?)
+    fn attempt_cleanup(
+        &self,
+        path: PathBuf,
+        search_file_type: SearchFileType,
+        size: u64,
+    ) -> anyhow::Result<()> {
+        Ok(self.cleanup_tx.send((path, search_file_type, size))?)
     }
 }
 
@@ -437,8 +465,8 @@ impl CacheCleaner {
 /// recursive deletion doesn't need to be in the critical path and may block the
 /// for a meaningful amount of time as opposed to our other filesystem ops which
 /// should be quite fast.
-async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<PathBuf>) {
-    while let Some(path) = rx.recv().await {
+async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<(PathBuf, SearchFileType, u64)>) {
+    while let Some((path, search_file_type, size)) = rx.recv().await {
         // Yes, we'll panic and restart here. If we actually see panics in
         // production here, we should investigate further but for now, it's simpler
         // to disallow inconsistent filesystem state.
@@ -448,7 +476,9 @@ async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<PathBuf>) {
             fs::remove_dir_all(path).await?;
         };
         match result {
-            Ok(()) => (),
+            Ok(()) => {
+                metrics::subtract_bytes_by_file_type(search_file_type, size);
+            },
             // Can happen if the path to clean up was never created
             Err(e) if e.kind() == io::ErrorKind::NotFound => (),
             Err(e) => panic!("ArchiveCacheManager failed to clean up archive directory: {e:?}"),

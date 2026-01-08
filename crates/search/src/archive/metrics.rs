@@ -1,10 +1,12 @@
 use metrics::{
+    add_to_gauge_with_labels,
     log_counter,
     log_distribution_with_labels,
     log_gauge,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
+    subtract_from_gauge_with_labels,
     CancelableTimer,
     StatusTimer,
     STATUS_LABEL,
@@ -79,4 +81,24 @@ register_convex_gauge!(SEARCHLIGHT_MAX_BYTES, "Maxiumum size on disk permitted")
 pub fn log_bytes_used(used: u64, max: u64) {
     log_gauge(&SEARCHLIGHT_USED_BYTES, used as f64);
     log_gauge(&SEARCHLIGHT_MAX_BYTES, max as f64);
+}
+
+register_convex_gauge!(
+    SEARCHLIGHT_CACHE_USED_BY_TYPE_BYTES,
+    "Number of bytes used on disk by file type",
+    &[SEARCH_FILE_TYPE]
+);
+pub fn add_bytes_by_file_type(search_file_type: SearchFileType, size: u64) {
+    add_to_gauge_with_labels(
+        &SEARCHLIGHT_CACHE_USED_BY_TYPE_BYTES,
+        size as f64,
+        vec![search_file_type.metric_label()],
+    );
+}
+pub fn subtract_bytes_by_file_type(search_file_type: SearchFileType, size: u64) {
+    subtract_from_gauge_with_labels(
+        &SEARCHLIGHT_CACHE_USED_BY_TYPE_BYTES,
+        size as f64,
+        vec![search_file_type.metric_label()],
+    );
 }

@@ -25,6 +25,7 @@ pub use crate::{
     metrics::*,
     progress::ProgressCounter,
     reporting::{
+        add_to_gauge_with_labels,
         get_desc,
         log_counter,
         log_counter_with_labels,
@@ -32,6 +33,7 @@ pub use crate::{
         log_distribution_with_labels,
         log_gauge,
         log_gauge_with_labels,
+        subtract_from_gauge_with_labels,
     },
     timer::{
         CancelableTimer,

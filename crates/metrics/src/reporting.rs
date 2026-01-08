@@ -56,6 +56,38 @@ pub fn log_gauge_with_labels(prometheus_gauge: &GaugeVec, value: f64, labels: La
     }
 }
 
+pub fn add_to_gauge_with_labels(prometheus_gauge: &GaugeVec, delta: f64, labels: Labels<'_>) {
+    match prometheus_gauge.get_metric_with(
+        &labels
+            .iter()
+            .map(MetricLabel::split_key_value)
+            .collect::<HashMap<_, _, ahash::RandomState>>(),
+    ) {
+        Ok(metric) => metric.add(delta),
+        Err(e) => {
+            log_invalid_metric(get_desc(prometheus_gauge), e);
+        },
+    }
+}
+
+pub fn subtract_from_gauge_with_labels(
+    prometheus_gauge: &GaugeVec,
+    delta: f64,
+    labels: Labels<'_>,
+) {
+    match prometheus_gauge.get_metric_with(
+        &labels
+            .iter()
+            .map(MetricLabel::split_key_value)
+            .collect::<HashMap<_, _, ahash::RandomState>>(),
+    ) {
+        Ok(metric) => metric.sub(delta),
+        Err(e) => {
+            log_invalid_metric(get_desc(prometheus_gauge), e);
+        },
+    }
+}
+
 pub fn log_distribution(prometheus_histogram: &VMHistogram, value: f64) {
     prometheus_histogram.observe(value);
 }
