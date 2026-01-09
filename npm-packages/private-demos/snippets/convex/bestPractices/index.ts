@@ -76,6 +76,12 @@ const schema = defineSchema({
     author: v.string(),
     error: v.string(),
   }),
+  posts: defineTable({
+    releasedAt: v.number(),
+    isReleased: v.boolean(),
+  })
+    .index("by_released_at", ["releasedAt"])
+    .index("by_is_released", ["isReleased"]),
 });
 type DataModel = DataModelFromSchemaDefinition<typeof schema>;
 
@@ -655,3 +661,26 @@ declare const movieId: GenericId<"movies">;
   // @skipNextLine
 }
 // @snippet end explicitTableIds
+
+// @snippet start dateInQueries
+// @skipNextLine
+{
+  // ❌
+  const releasedPosts = await ctx.db
+    .query("posts")
+    .withIndex("by_released_at", (q) => q.lte("releasedAt", Date.now()))
+    .take(100);
+  // @skipNextLine
+}
+
+// @skipNextLine
+{
+  // ✅
+  const releasedPosts = await ctx.db
+    .query("posts")
+    // `isReleased` is set to `true` by a scheduled function after `releasedAt` is reached
+    .withIndex("by_is_released", (q) => q.eq("isReleased", true))
+    .take(100);
+  // @skipNextLine
+}
+// @snippet end dateInQueries

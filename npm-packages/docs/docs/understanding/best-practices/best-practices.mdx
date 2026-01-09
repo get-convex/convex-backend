@@ -570,3 +570,44 @@ You can migrate existing code automatically by using the autofix in the ESLint
 rule, or with the `@convex-dev/codemod` standalone tool.
 
 [Learn more on news.convex.dev →](https://news.convex.dev/db-table-name/)
+
+## Don’t use `Date.now()` in queries \{#date-in-queries}
+
+### Why?
+
+When you subscribe to a query, Convex
+[will automatically run it again](/realtime) if the data that it accesses in the
+database change. The query is not re-run when `Date.now()` changes, because it
+wouldn’t be desirable to re-run a query every millisecond. So, if your query
+depends on the current time, it might return stale results.
+
+Also, using `Date.now()` in a query can cause the Convex query cache to be
+invalidated more frequently than necessary. In general, Convex will
+automatically re-use Convex query results if the query is called with the same
+arguments. However, when using `Date.now()` in a query, the query cache will be
+invalidated frequently in order to avoid showing results that are too old. This
+will unnecessarily increase the work that the database has to do.
+
+### Example
+
+<TSAndJSSnippet
+  title="convex/posts.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="dateInQueries"
+/>
+
+### How?
+
+Search for usages of `Date.now()` in your Convex queries, or in functions that
+are called from a Convex query.
+
+If you want to compare the current time with a timestamp stored in a database
+document, consider adding a coarser field to the document that you update from a
+[scheduled function](/scheduling/scheduled-functions) (see the example above).
+This way, the query cache is only invalidated explicitly when data changes.
+
+Alternatively, you can pass in the target time in as an explicit argument from
+the client. For best caching results, the client should avoid changing this
+argument frequently, for instance by rounding the time down to the most recent
+minute, so all client requests within that minute use the same arguments.
