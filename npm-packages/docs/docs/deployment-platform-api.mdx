@@ -33,7 +33,7 @@ Whatever type of key, add the string `"Convex "` to the front.
 ```ts
 const token = "ey...0=";
 const response = await fetch(
-  "https://happy-otter-123.convex.cloud/api/v1/list_environment_variables
+  "https://happy-otter-123.convex.cloud/api/v1/list_environment_variables",
   {
     headers: {
       Authorization: `Convex ${token}`,
