@@ -685,7 +685,9 @@ function ExecutionInfoList({
       <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Environment</span>
         <span className="truncate text-content-primary">
-          <FunctionEnvironment environment={outcomeNode?.environment} />
+          <FunctionEnvironment
+            environment={outcomeNode ? outcomeNode.environment : "unknown"}
+          />
         </span>
       </li>
     </ul>
