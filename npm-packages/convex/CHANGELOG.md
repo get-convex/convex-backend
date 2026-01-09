@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Fixes #403 addEventListener not defined for react native.
+
 ## 1.31.3
 
 - `CONVEX_AGENT_MODE=anonymous` can now be used while logged in.

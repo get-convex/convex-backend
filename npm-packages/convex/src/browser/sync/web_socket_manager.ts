@@ -263,8 +263,12 @@ export class WebSocketManager {
   }
 
   private setupNetworkListener() {
-    // Only set up listener if we're in a browser environment
-    if (typeof window === "undefined") {
+    // Only set up listener if we're in a browser environment with addEventListener
+    // (React Native has window but not addEventListener)
+    if (
+      typeof window === "undefined" ||
+      typeof window.addEventListener !== "function"
+    ) {
       return;
     }
     // Avoid registering duplicate listeners
@@ -282,7 +286,11 @@ export class WebSocketManager {
   }
 
   private cleanupNetworkListener() {
-    if (this.networkOnlineHandler && typeof window !== "undefined") {
+    if (
+      this.networkOnlineHandler &&
+      typeof window !== "undefined" &&
+      typeof window.removeEventListener === "function"
+    ) {
       window.removeEventListener("online", this.networkOnlineHandler);
       this.networkOnlineHandler = null;
       this._logVerbose("network online event listener removed");
