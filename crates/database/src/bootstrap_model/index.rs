@@ -378,6 +378,20 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(())
     }
 
+    #[cfg(test)]
+    pub async fn disable_index_for_test(
+        &mut self,
+        index_id: ResolvedDocumentId,
+    ) -> anyhow::Result<()> {
+        use common::document::ParseDocument;
+
+        let doc: ParsedDocument<TabletIndexMetadata> =
+            self.tx.get(index_id).await?.context("Not found")?.parse()?;
+        let table_mapping = self.tx.table_mapping().clone();
+        self.disable_index(doc.map(|metadata| metadata.map_table(&table_mapping.tablet_to_name()))?)
+            .await
+    }
+
     async fn disable_index(
         &mut self,
         doc: ParsedDocument<DeveloperIndexMetadata>,

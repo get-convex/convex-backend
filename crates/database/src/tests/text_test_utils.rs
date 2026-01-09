@@ -208,6 +208,17 @@ impl TextFixtures {
         Ok(index_data)
     }
 
+    pub async fn staged_backfilled_text_index(&self) -> anyhow::Result<TextIndexData> {
+        // Start as enabled -> disable it.
+        let index_data = self.enabled_text_index().await?;
+        let mut tx = self.db.begin_system().await?;
+        IndexModel::new(&mut tx)
+            .disable_index_for_test(index_data.index_id)
+            .await?;
+        self.db.commit(tx).await?;
+        Ok(index_data)
+    }
+
     pub async fn backfilled_text_index(&self) -> anyhow::Result<TextIndexData> {
         let index_data = self.insert_backfilling_text_index().await?;
         self.backfill().await?;

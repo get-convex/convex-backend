@@ -193,6 +193,50 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
 }
 
 #[convex_macro::test_runtime]
+async fn vectors_backfilled_unstaged_does_not_count(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+    let VectorIndexData { index_name, .. } = fixtures.backfilled_vector_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let mut tx = fixtures.db.begin_system().await?;
+    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures.new_live_index_flusher()?.step().await?;
+
+    let storage = fixtures
+        .db
+        .latest_database_snapshot()?
+        .get_vector_index_storage(&Identity::system())?;
+
+    let key = (ComponentPath::root(), index_name.table().clone());
+    let value = storage.get(&key).cloned();
+    assert_eq!(value, Some(0_u64));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn vectors_backfilled_staged_counts(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = VectorFixtures::new(rt).await?;
+    let VectorIndexData { index_name, .. } = fixtures.staged_backfilled_vector_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let mut tx = fixtures.db.begin_system().await?;
+    add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
+    fixtures.db.commit(tx).await?;
+    fixtures.new_live_index_flusher()?.step().await?;
+
+    let storage = fixtures
+        .db
+        .latest_database_snapshot()?
+        .get_vector_index_storage(&Identity::system())?;
+
+    let key = (ComponentPath::root(), index_name.table().clone());
+    let value = storage.get(&key).cloned();
+    assert_eq!(value, Some(8_u64));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
     let VectorIndexData { index_name, .. } = fixtures.enabled_vector_index().await?;
@@ -280,8 +324,49 @@ async fn text_fields_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Resul
         .get_text_index_storage(&Identity::system())?;
 
     let key = (ComponentPath::root(), index_name.table().clone());
-    let value = storage.get(&key).cloned();
+    let value = storage.get(&key).copied();
     assert_eq!(value, Some(2658_u64));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_index_backfilled_unstaged_does_not_count_as_usage(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+    let TextIndexData { index_name, .. } = fixtures.backfilled_text_index().await?;
+    let mut tx = fixtures.db.begin_system().await?;
+    add_document(&mut tx, index_name.table(), "test").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures.new_live_text_flusher().step().await?;
+
+    let storage = fixtures
+        .db
+        .latest_database_snapshot()?
+        .get_text_index_storage(&Identity::system())?;
+    let key = (ComponentPath::root(), index_name.table().clone());
+    let value = storage.get(&key).copied();
+    assert_eq!(value, Some(0_u64));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_index_backfilled_staged_counts_as_usage(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+
+    let TextIndexData { index_name, .. } = fixtures.staged_backfilled_text_index().await?;
+    let mut tx = fixtures.db.begin_system().await?;
+    add_document(&mut tx, index_name.table(), "test").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures.new_live_text_flusher().step().await?;
+
+    let storage = fixtures
+        .db
+        .latest_database_snapshot()?
+        .get_text_index_storage(&Identity::system())?;
+    let key = (ComponentPath::root(), index_name.table().clone());
+    let value = storage.get(&key).copied();
+    assert_eq!(value, Some(2657_u64));
     Ok(())
 }
 

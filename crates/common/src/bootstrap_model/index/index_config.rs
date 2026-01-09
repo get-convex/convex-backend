@@ -156,37 +156,51 @@ impl IndexConfig {
     /// This is only implemented for vector indexes for now. Calling this method
     /// on other index types will panic.
     pub fn estimate_pricing_size_bytes(&self) -> anyhow::Result<u64> {
-        match self {
+        let size = match self {
             IndexConfig::Database { .. } => {
                 // TODO: We should support this for all index types in the future. Right
                 // now we estimate the size of database indexes. This could instead track usage
                 // in their metadata, similar to vector indexes.
                 anyhow::bail!("Not supported for database indexes!")
             },
-            IndexConfig::Text { on_disk_state, .. } => match on_disk_state {
-                TextIndexState::Backfilling(_) | TextIndexState::Backfilled { .. } => Ok(0),
-                TextIndexState::SnapshottedAt(snapshot) => match &snapshot.data {
-                    TextIndexSnapshotData::MultiSegment(segments) => Ok(segments
-                        .iter()
-                        .map(|segment| segment.size_bytes_total)
-                        .sum()),
-                    TextIndexSnapshotData::Unknown(_) => Ok(0),
-                },
+            IndexConfig::Text { on_disk_state, .. } => {
+                let snapshot = match on_disk_state {
+                    TextIndexState::SnapshottedAt(snapshot) => Some(snapshot),
+                    TextIndexState::Backfilled { snapshot, staged } if *staged => Some(snapshot),
+                    TextIndexState::Backfilling(_) | TextIndexState::Backfilled { .. } => None,
+                };
+                snapshot
+                    .map(|snapshot| match &snapshot.data {
+                        TextIndexSnapshotData::MultiSegment(segments) => segments
+                            .iter()
+                            .map(|segment| segment.size_bytes_total)
+                            .sum(),
+                        TextIndexSnapshotData::Unknown(_) => 0,
+                    })
+                    .unwrap_or(0)
             },
             IndexConfig::Vector {
                 on_disk_state,
                 spec,
-            } => match on_disk_state {
-                VectorIndexState::Backfilling(_) | VectorIndexState::Backfilled { .. } => Ok(0),
-                VectorIndexState::SnapshottedAt(snapshot) => match &snapshot.data {
-                    VectorIndexSnapshotData::MultiSegment(segments) => segments
-                        .iter()
-                        .map(|segment| segment.non_deleted_size_bytes(spec.dimensions))
-                        .sum::<anyhow::Result<_>>(),
-                    VectorIndexSnapshotData::Unknown(_) => Ok(0),
-                },
+            } => {
+                let snapshot = match on_disk_state {
+                    VectorIndexState::SnapshottedAt(snapshot) => Some(snapshot),
+                    VectorIndexState::Backfilled { snapshot, staged } if *staged => Some(snapshot),
+                    VectorIndexState::Backfilling(_) | VectorIndexState::Backfilled { .. } => None,
+                };
+                snapshot
+                    .map(|snapshot| match &snapshot.data {
+                        VectorIndexSnapshotData::MultiSegment(segments) => segments
+                            .iter()
+                            .map(|segment| segment.non_deleted_size_bytes(spec.dimensions))
+                            .sum::<anyhow::Result<_>>(),
+                        VectorIndexSnapshotData::Unknown(_) => Ok(0),
+                    })
+                    .transpose()?
+                    .unwrap_or(0)
             },
-        }
+        };
+        Ok(size)
     }
 }
 

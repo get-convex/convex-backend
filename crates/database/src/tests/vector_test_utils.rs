@@ -177,6 +177,17 @@ impl VectorFixtures {
         backfilled_vector_index(self.rt.clone(), self.db.clone(), self.storage.clone()).await
     }
 
+    pub async fn staged_backfilled_vector_index(&self) -> anyhow::Result<VectorIndexData> {
+        // Start as enabled -> disable it.
+        let index_data = self.enabled_vector_index().await?;
+        let mut tx = self.db.begin_system().await?;
+        IndexModel::new(&mut tx)
+            .disable_index_for_test(index_data.index_id)
+            .await?;
+        self.db.commit(tx).await?;
+        Ok(index_data)
+    }
+
     pub async fn backfilled_vector_index_with_doc(&self) -> anyhow::Result<VectorIndexData> {
         backfilled_vector_index_with_doc(self.rt.clone(), self.db.clone(), self.storage.clone())
             .await
