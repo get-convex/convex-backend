@@ -256,6 +256,12 @@ impl NodeExecutor for LocalNodeExecutor {
                         response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
                         aws_request_id: None,
                     });
+                } else if e.is_connect() {
+                    // Connection error likely means the Node server crashed (e.g., OOM).
+                    // Drop the dead server so it will be restarted on next invoke.
+                    tracing::warn!("Node server connection failed, dropping server: {e}");
+                    self.inner.lock().await.take();
+                    return Err(anyhow::anyhow!(e).context("Node server request failed"));
                 } else {
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
                 }
