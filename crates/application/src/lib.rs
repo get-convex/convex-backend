@@ -613,7 +613,7 @@ pub async fn create_storage<RT: Runtime>(
     storage_type: &model::database_globals::types::StorageType,
     use_case: StorageUseCase,
 ) -> anyhow::Result<Arc<dyn Storage>> {
-    Ok(match storage_type {
+    let storage: Arc<dyn Storage> = match storage_type {
         model::database_globals::types::StorageType::S3 { s3_prefix } => {
             Arc::new(S3Storage::for_use_case(use_case, s3_prefix.clone(), runtime).await?)
         },
@@ -622,7 +622,8 @@ pub async fn create_storage<RT: Runtime>(
             tracing::info!("{use_case} storage path: {:?}", storage.path());
             Arc::new(storage)
         },
-    })
+    };
+    Ok(storage)
 }
 
 impl<RT: Runtime> Application<RT> {
