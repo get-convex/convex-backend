@@ -774,7 +774,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        arguments: Vec<JsonValue>,
+        arguments: SerializedArgs,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
@@ -805,7 +805,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        arguments: Vec<JsonValue>,
+        arguments: SerializedArgs,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
@@ -814,7 +814,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
-        let arguments = match parse_udf_args(path.udf_path(), arguments) {
+        let arguments = match parse_udf_args(path.udf_path(), arguments.into_args()?) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(MutationError {
@@ -1146,14 +1146,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        arguments: Vec<JsonValue>,
+        arguments: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
-        let arguments = match parse_udf_args(path.udf_path(), arguments) {
+        let arguments = match parse_udf_args(path.udf_path(), arguments.into_args()?) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(ActionError {
@@ -1818,7 +1818,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
@@ -1851,7 +1851,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
@@ -1860,7 +1860,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
         }
-        let args = match parse_udf_args(path.udf_path(), args) {
+        let args = match parse_udf_args(path.udf_path(), args.into_args()?) {
             Ok(arguments) => arguments,
             Err(js_error) => {
                 return Ok(QueryReturn {
@@ -1996,7 +1996,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .run_query_at_ts(
                 context.request_id,
                 PublicFunctionPath::Component(path),
-                args.into_args()?,
+                args,
                 identity,
                 *ts,
                 None,
@@ -2022,7 +2022,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .retry_mutation(
                 context.request_id,
                 PublicFunctionPath::Component(path),
-                args.into_args()?,
+                args,
                 identity,
                 None,
                 FunctionCaller::Action {
@@ -2052,7 +2052,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .run_action(
                 context.request_id,
                 PublicFunctionPath::Component(path),
-                args.into_args()?,
+                args,
                 identity,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,

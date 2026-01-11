@@ -35,6 +35,7 @@ use model::log_sinks::{
 };
 use must_let::must_let;
 use serde_json::json;
+use sync_types::types::SerializedArgs;
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -80,7 +81,7 @@ async fn test_udf_logs(rt: TestRuntime) -> anyhow::Result<()> {
         .read_only_udf(
             RequestId::new(),
             PublicFunctionPath::Component(path),
-            vec![json!({})],
+            SerializedArgs::from_args(vec![json!({})])?,
             Identity::system(),
             FunctionCaller::SyncWorker(ClientVersion::unknown()),
         )

@@ -48,7 +48,10 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    types::SerializedArgs,
+    CanonicalizedUdfPath,
+};
 use udf::helpers::parse_udf_args;
 use value::{
     ResolvedDocumentId,
@@ -410,7 +413,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
                 component: ComponentPath::test_user(),
                 udf_path: CanonicalizedUdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
             }),
-            vec![json!({})],
+            SerializedArgs::from_args(vec![json!({})])?,
             Identity::system(),
             None,
             FunctionCaller::Action {
@@ -429,7 +432,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
                 component: ComponentPath::test_user(),
                 udf_path: CanonicalizedUdfPath::from_str("action:schedule")?,
             }),
-            vec![],
+            SerializedArgs::from_args(vec![])?,
             Identity::system(),
             FunctionCaller::Action {
                 parent_scheduled_job,

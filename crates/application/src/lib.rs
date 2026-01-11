@@ -325,6 +325,7 @@ use storage::{
     Upload,
 };
 use sync_types::{
+    types::SerializedArgs,
     AuthenticationToken,
     CanonicalizedModulePath,
     CanonicalizedUdfPath,
@@ -1042,7 +1043,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<RedactedQueryReturn> {
@@ -1056,7 +1057,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         ts: Timestamp,
         journal: Option<Option<String>>,
@@ -1128,7 +1129,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -1194,7 +1195,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         request_id: RequestId,
         name: PublicFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
@@ -1327,7 +1328,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         request_id: RequestId,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {

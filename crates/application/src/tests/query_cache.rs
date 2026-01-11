@@ -25,6 +25,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use sync_types::types::SerializedArgs;
 use value::{
     val,
     ConvexValue,
@@ -55,7 +56,7 @@ async fn run_query_with_journal(
         .read_only_udf_at_ts(
             RequestId::new(),
             udf_path(path),
-            vec![arg],
+            SerializedArgs::from_args(vec![arg])?,
             identity,
             *ts,
             journal,
@@ -93,7 +94,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
                 component: ComponentPath::test_user(),
                 udf_path: "basic:insertObject".parse()?,
             }),
-            vec![json!({})],
+            SerializedArgs::from_args(vec![json!({})])?,
             Identity::system(),
             None,
             FunctionCaller::Action {
@@ -618,7 +619,7 @@ async fn test_cache_paginated_query(rt: TestRuntime) -> anyhow::Result<()> {
             .mutation_udf(
                 RequestId::new(),
                 udf_path("query:insert"),
-                vec![json!({"number": i * 10})],
+                SerializedArgs::from_args(vec![json!({"number": i * 10})])?,
                 Identity::system(),
                 None,
                 FunctionCaller::Test,
@@ -691,7 +692,7 @@ async fn test_cache_paginated_query(rt: TestRuntime) -> anyhow::Result<()> {
         .mutation_udf(
             RequestId::new(),
             udf_path("query:insert"),
-            vec![json!({"number": 15})],
+            SerializedArgs::from_args(vec![json!({"number": 15})])?,
             Identity::system(),
             None,
             FunctionCaller::Test,

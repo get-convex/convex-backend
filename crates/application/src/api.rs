@@ -59,7 +59,6 @@ use udf::{
     HttpActionResponseStreamer,
 };
 use value::{
-    serialized_args_ext::SerializedArgsExt,
     sha256::Sha256Digest,
     DeveloperDocumentId,
 };
@@ -300,7 +299,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.read_only_udf_at_ts(
             request_id,
             PublicFunctionPath::RootExport(path),
-            args.into_args()?,
+            args,
             identity,
             ts,
             journal,
@@ -331,7 +330,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.read_only_udf_at_ts(
             request_id,
             PublicFunctionPath::Component(path),
-            args.into_args()?,
+            args,
             identity,
             ts,
             journal,
@@ -359,7 +358,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.mutation_udf(
             request_id,
             PublicFunctionPath::RootExport(path),
-            args.into_args()?,
+            args,
             identity,
             mutation_identifier,
             caller,
@@ -386,7 +385,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.mutation_udf(
             request_id,
             PublicFunctionPath::Component(path),
-            args.into_args()?,
+            args,
             identity,
             mutation_identifier,
             caller,
@@ -411,7 +410,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.action_udf(
             request_id,
             PublicFunctionPath::RootExport(path),
-            args.into_args()?,
+            args,
             identity,
             caller,
         )
@@ -434,7 +433,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.action_udf(
             request_id,
             PublicFunctionPath::Component(path),
-            args.into_args()?,
+            args,
             identity,
             caller,
         )
@@ -454,8 +453,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             path.component.is_root() || identity.is_admin() || identity.is_system(),
             "Only admin or system users can call functions on non-root components directly"
         );
-        self.any_udf(request_id, path, args.into_args()?, identity, caller)
-            .await
+        self.any_udf(request_id, path, args, identity, caller).await
     }
 
     async fn latest_timestamp(

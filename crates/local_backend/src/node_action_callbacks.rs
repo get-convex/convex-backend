@@ -64,7 +64,6 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     export::ValueFormat,
     id_v6::DeveloperDocumentId,
-    serialized_args_ext::SerializedArgsExt,
 };
 use vector::{
     VectorSearch,
@@ -121,7 +120,7 @@ pub async fn internal_query_post(
         .read_only_udf(
             context.request_id,
             PublicFunctionPath::Component(path),
-            req.args.into_serialized_args()?.into_args()?,
+            req.args.into_serialized_args()?,
             identity,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
@@ -175,7 +174,7 @@ pub async fn internal_mutation_post(
         .mutation_udf(
             context.request_id,
             PublicFunctionPath::Component(path),
-            req.args.into_serialized_args()?.into_args()?,
+            req.args.into_serialized_args()?,
             identity,
             None,
             FunctionCaller::Action {
@@ -234,7 +233,7 @@ pub async fn internal_action_post(
         .action_udf(
             context.request_id,
             PublicFunctionPath::Component(path),
-            req.args.into_serialized_args()?.into_args()?,
+            req.args.into_serialized_args()?,
             identity,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,

@@ -26,6 +26,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use sync_types::types::SerializedArgs;
 
 use crate::{
     test_helpers::{
@@ -44,7 +45,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
                 component: ComponentPath::test_user(),
                 udf_path: "basic:insertObject".parse()?,
             }),
-            vec![obj],
+            SerializedArgs::from_args(vec![obj])?,
             Identity::system(),
             None,
             FunctionCaller::Action {
@@ -66,7 +67,7 @@ async fn insert_and_count(application: &Application<TestRuntime>) -> anyhow::Res
                 component: ComponentPath::test_user(),
                 udf_path: "basic:insertAndCount".parse()?,
             }),
-            vec![obj],
+            SerializedArgs::from_args(vec![obj])?,
             Identity::system(),
             None,
             FunctionCaller::Action {

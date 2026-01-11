@@ -33,7 +33,10 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    types::SerializedArgs,
+    CanonicalizedUdfPath,
+};
 use value::{
     assert_obj,
     ConvexObject,
@@ -71,7 +74,7 @@ async fn run_component_function<RT: Runtime>(
                 component,
                 udf_path,
             },
-            vec![args],
+            SerializedArgs::from_args(vec![args])?,
             Identity::system(),
             FunctionCaller::Test,
         )

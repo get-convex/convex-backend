@@ -14,6 +14,7 @@ use keybroker::{
 };
 use runtime::testing::TestRuntime;
 use serde_json::json;
+use sync_types::types::SerializedArgs;
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -37,7 +38,7 @@ async fn run_zero_arg_mutation(
                 component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
             }),
-            vec![obj],
+            SerializedArgs::from_args(vec![obj])?,
             Identity::user(UserIdentity::test()),
             None,
             FunctionCaller::HttpEndpoint,
@@ -58,7 +59,7 @@ async fn run_zero_arg_query(
                 component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
             }),
-            vec![obj],
+            SerializedArgs::from_args(vec![obj])?,
             Identity::user(UserIdentity::test()),
             FunctionCaller::HttpEndpoint,
         )
@@ -77,7 +78,7 @@ async fn run_zero_arg_action(
                 component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
             }),
-            vec![obj],
+            SerializedArgs::from_args(vec![obj])?,
             Identity::user(UserIdentity::test()),
             FunctionCaller::HttpEndpoint,
         )
