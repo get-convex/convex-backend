@@ -4,7 +4,7 @@
   "devDependencies": {
     "@microsoft/rush": "^5.162.0",
     "@rushstack/lockfile-explorer": "^2.0.4",
-    "pnpm": "10.24.0"
+    "pnpm": "10.27.0"
   },
   "overrides": {
     "path-to-regexp@^0.1.10": "0.1.12"
