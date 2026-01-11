@@ -178,6 +178,7 @@ addition to your own tables.
 npx convex env list
 npx convex env get <name>
 npx convex env set <name> <value>
+npx convex env set <name> --from-file <path>
 npx convex env remove <name>
 ```
 

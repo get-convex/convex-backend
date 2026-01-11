@@ -1,4 +1,5 @@
 import { chalkStderr } from "chalk";
+import { readFile } from "fs/promises";
 import { Context } from "../../bundler/context.js";
 import {
   logFailure,
@@ -21,9 +22,16 @@ export async function envSetInDeployment(
   rawValue: string | undefined,
   options?: {
     secret?: boolean;
+    fromFile?: string;
   },
 ) {
-  const [name, value] = await allowEqualsSyntax(ctx, rawName, rawValue);
+  const [name, value] = await allowEqualsSyntax(
+    ctx,
+    rawName,
+    rawValue,
+    options?.fromFile,
+  );
+
   await callUpdateEnvironmentVariables(ctx, deployment, [{ name, value }]);
   const formatted = /\s/.test(value) ? `"${value}"` : value;
   if (options?.secret) {
@@ -39,7 +47,34 @@ async function allowEqualsSyntax(
   ctx: Context,
   name: string,
   value: string | undefined,
+  fromFile: string | undefined,
 ) {
+  if (fromFile !== undefined) {
+    if (value !== undefined) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "error: cannot use --from-file with an inline value",
+      });
+    }
+    if (/^[a-zA-Z][a-zA-Z0-9_]+=/.test(name)) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "error: cannot use --from-file with NAME=value syntax",
+      });
+    }
+    try {
+      const fileValue = await readFile(fromFile, "utf8");
+      return [name, fileValue];
+    } catch (error) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `error: failed to read from file: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+  }
   if (value === undefined) {
     if (/^[a-zA-Z][a-zA-Z0-9_]+=/.test(name)) {
       return name.split("=", 2);

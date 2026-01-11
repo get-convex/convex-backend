@@ -24,16 +24,26 @@ const envSet = new Command("set")
   .description(
     "Set a variable: `npx convex env set NAME value`\n" +
       "Read from stdin: `echo 'value' | npx convex env set NAME`\n" +
+      "Read from a file: `npx convex env set NAME --from-file path/to/file`\n" +
       "If the variable already exists, its value is updated.\n\n" +
       "A single `NAME=value` argument is also supported.",
   )
+  .option("--from-file <path>", "Read value from file")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (originalName, originalValue, _options, cmd) => {
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env set");
-    await envSetInDeployment(ctx, deployment, originalName, originalValue);
+    const fromFile = typeof options.fromFile === "string" ? options.fromFile : undefined;
+    const envOptions = fromFile ? { fromFile } : undefined;
+    await envSetInDeployment(
+      ctx,
+      deployment,
+      originalName,
+      originalValue,
+      envOptions,
+    );
   });
 
 async function selectEnvDeployment(
