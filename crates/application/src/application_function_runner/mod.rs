@@ -703,7 +703,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         request_id: RequestId,
         mut tx: Transaction<RT>,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         caller: FunctionCaller,
     ) -> anyhow::Result<(Result<JsonPackedValue, JsError>, LogLines)> {
         if !(tx.identity().is_admin() || tx.identity().is_system()) {
@@ -712,6 +712,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let identity = tx.inert_identity();
         let start = self.runtime.monotonic_now();
+        let arguments = parse_udf_args(&path.udf_path, arguments.into_args()?)?;
         let validate_result = ValidatedPathAndArgs::new(
             caller.allowed_visibility(),
             &mut tx,

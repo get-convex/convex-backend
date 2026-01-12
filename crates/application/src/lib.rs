@@ -310,7 +310,6 @@ use search::{
     },
 };
 use semver::Version;
-use serde_json::Value as JsonValue;
 use short_future::ShortBoxFuture;
 use snapshot_import::start_stored_import;
 use storage::{
@@ -348,7 +347,6 @@ use udf::{
         CONVEX_ORIGIN,
         CONVEX_SITE,
     },
-    helpers::parse_udf_args,
     HttpActionRequest,
     HttpActionResponseStreamer,
     HttpActionResult,
@@ -2331,7 +2329,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         request_id: RequestId,
         module: ModuleConfig,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         identity: Identity,
         caller: FunctionCaller,
         component: ComponentId,
@@ -2458,11 +2456,10 @@ impl<RT: Runtime> Application<RT> {
             component: component_path,
             udf_path: CanonicalizedUdfPath::new(module_path, function_name),
         };
-        let arguments = parse_udf_args(&path.udf_path, args)?;
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => {
                 self.runner
-                    .run_query_without_caching(request_id.clone(), tx, path, arguments, caller)
+                    .run_query_without_caching(request_id.clone(), tx, path, args, caller)
                     .await
             },
             UdfType::Mutation => {
