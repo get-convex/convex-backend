@@ -19,6 +19,7 @@ use metrics::{
     log_counter,
     log_counter_with_labels,
     log_distribution,
+    log_distribution_with_labels,
     log_gauge,
     log_gauge_with_labels,
     register_convex_counter,
@@ -738,4 +739,20 @@ register_convex_counter!(
 
 pub fn log_legacy_positional_args() {
     log_counter(&LEGACY_POSITIONAL_ARGS_TOTAL, 1);
+}
+
+register_convex_histogram!(
+    USER_FUNCTION_EXECUTION_SECONDS,
+    "Time running user code for a function in the isolate",
+    &["udf_type"]
+);
+pub fn log_user_function_execution_time(udf_type: UdfType, execution_time: Duration) {
+    log_distribution_with_labels(
+        &USER_FUNCTION_EXECUTION_SECONDS,
+        execution_time.as_millis() as f64,
+        vec![StaticMetricLabel::new(
+            "udf_type",
+            udf_type.to_lowercase_string(),
+        )],
+    );
 }

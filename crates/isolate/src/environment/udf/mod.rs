@@ -432,9 +432,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let result = result?;
 
         self = isolate_context.take_environment();
-        let execution_time = timeout.get_function_execution_time();
+        let execution_time = timeout.into_function_execution_time(self.udf_type);
         let user_execution_time = execution_time.elapsed;
-        drop(timeout);
+
         let success_result_value = result.as_ref().ok();
         Self::add_warnings_to_log_lines(
             &self.path.clone().for_logging(),

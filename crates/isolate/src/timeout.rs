@@ -11,6 +11,7 @@ use common::{
         Runtime,
         SpawnHandle,
     },
+    types::UdfType,
 };
 use errors::ErrorMetadata;
 use futures::{
@@ -252,10 +253,11 @@ impl<RT: Runtime> Timeout<RT> {
         let _ = done_tx.try_broadcast(());
     }
 
-    pub fn get_function_execution_time(&self) -> FunctionExecutionTime {
+    pub fn into_function_execution_time(self, udf_type: UdfType) -> FunctionExecutionTime {
         let inner = self.inner.lock();
         let elapsed = inner.rt.monotonic_now() - inner.start - inner.pause_elapsed;
         let limit = inner.timeout.unwrap_or(Duration::ZERO);
+        metrics::log_user_function_execution_time(udf_type, elapsed);
         FunctionExecutionTime { elapsed, limit }
     }
 }

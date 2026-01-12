@@ -364,8 +364,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         *isolate_clean = true;
 
         self = isolate_context.take_environment();
-        let execution_time = timeout.get_function_execution_time();
-        drop(timeout);
+        let execution_time = timeout.into_function_execution_time(UdfType::HttpAction);
         let http_response_streamer = self
             .http_response_streamer
             .as_ref()
@@ -705,9 +704,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             },
         }
         self = isolate_context.take_environment();
-        let execution_time = timeout.get_function_execution_time();
+        let execution_time = timeout.into_function_execution_time(UdfType::Action);
         let user_execution_time = execution_time.elapsed;
-        drop(timeout);
         let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
         self.add_warnings_to_log_lines_action(
             execution_time,
