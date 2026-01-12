@@ -190,6 +190,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_name}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete deployment
+         * @description Delete a deployment. This will delete all data and files in the deployment,
+         *     so we recommend creating and downloading a backup before calling this
+         *     endpoint. This does not delete the project itself.
+         */
+        post: operations["delete deployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -548,6 +570,26 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlatformListCustomDomainsResponse"];
                 };
+            };
+        };
+    };
+    "delete deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment Name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

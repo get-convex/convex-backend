@@ -238,6 +238,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/unpause_deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unpause deployment
+         * @description Reenables a deployment that was previously paused. The deployment will
+         *     resume normal operation, including any scheduled jobs that were queued while
+         *     paused.
+         */
+        post: operations["unpause_deployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -702,6 +724,23 @@ export interface operations {
         };
     };
     pause_deployment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unpause_deployment: {
         parameters: {
             query?: never;
             header?: never;
