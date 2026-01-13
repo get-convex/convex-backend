@@ -776,6 +776,7 @@ impl<RT: Runtime> Application<RT> {
             fetch_client.clone(),
             instance_name.clone(),
             log_streaming_allowed,
+            database.usage_counter(),
         )
         .await;
 

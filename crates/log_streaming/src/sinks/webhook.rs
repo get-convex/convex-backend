@@ -1,6 +1,9 @@
 use std::{
     ops::Deref,
-    sync::Arc,
+    sync::{
+        atomic::Ordering,
+        Arc,
+    },
 };
 
 use aws_lc_rs::hmac::{
@@ -11,6 +14,7 @@ use bytes::Bytes;
 use common::{
     backoff::Backoff,
     errors::report_error,
+    execution_context::ExecutionId,
     http::{
         categorize_http_response_stream,
         fetch::FetchClient,
@@ -22,6 +26,7 @@ use common::{
         LogEventFormatVersion,
     },
     runtime::Runtime,
+    RequestId,
 };
 use errors::{
     ErrorMetadata,
@@ -41,10 +46,13 @@ use reqwest::header::HeaderMap;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use tokio::sync::mpsc;
+use usage_tracking::UsageCounter;
 
 use crate::{
     consts,
+    metrics::webhook_sink_network_egress_bytes,
     sinks::utils::{
+        self,
         build_event_batches,
         default_log_filter,
     },
@@ -80,6 +88,7 @@ pub struct WebhookSink<RT: Runtime> {
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+    usage_counter: UsageCounter,
 }
 
 impl<RT: Runtime> WebhookSink<RT> {
@@ -88,6 +97,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         config: WebhookConfig,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        usage_counter: UsageCounter,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting WebhookSink");
@@ -103,6 +113,7 @@ impl<RT: Runtime> WebhookSink<RT> {
                 consts::WEBHOOK_SINK_MAX_BACKOFF,
             ),
             deployment_metadata,
+            usage_counter,
         };
 
         if should_verify {
@@ -122,7 +133,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         let verification_event = LogEvent::default_for_verification(&self.runtime)?;
         let deployment_metadata = self.deployment_metadata.lock().clone();
         let payload = WebhookLogEvent::new(verification_event, &deployment_metadata)?;
-        self.send_batch(vec![payload]).await?;
+        self.send_batch(vec![payload], true).await?;
 
         Ok(())
     }
@@ -159,7 +170,11 @@ impl<RT: Runtime> WebhookSink<RT> {
         }
     }
 
-    async fn send_batch(&mut self, batch: Vec<WebhookLogEvent<'_>>) -> anyhow::Result<()> {
+    async fn send_batch(
+        &mut self,
+        batch: Vec<WebhookLogEvent<'_>>,
+        is_verification: bool,
+    ) -> anyhow::Result<()> {
         let mut batch_json: Vec<JsonValue> = vec![];
         for ev in batch {
             batch_json.push(serde_json::to_value(ev)?);
@@ -185,6 +200,8 @@ impl<RT: Runtime> WebhookSink<RT> {
         );
 
         // Make request in a loop that retries on transient errors
+        let request_id = RequestId::new();
+        let execution_id = ExecutionId::new();
         for _ in 0..consts::WEBHOOK_SINK_MAX_REQUEST_ATTEMPTS {
             let response = self
                 .fetch_client
@@ -198,6 +215,19 @@ impl<RT: Runtime> WebhookSink<RT> {
                     .into(),
                 )
                 .await;
+
+            if !is_verification && let Ok(r) = &response {
+                let num_bytes_egress = r.request_size.load(Ordering::Relaxed);
+                utils::track_log_sink_bandwidth(
+                    num_bytes_egress,
+                    self.config.url.to_string(),
+                    execution_id,
+                    &request_id,
+                    &self.usage_counter,
+                    webhook_sink_network_egress_bytes,
+                )
+                .await;
+            }
 
             // Only retry on 5xx requests
             match response.and_then(categorize_http_response_stream) {
@@ -253,13 +283,133 @@ impl<RT: Runtime> WebhookSink<RT> {
         }
         let batch_size = values_to_send.len();
 
-        if let Err(e) = self.send_batch(values_to_send).await {
+        if let Err(e) = self.send_batch(values_to_send, false).await {
             // We don't report this error to Sentry to prevent misconfigured webhook sinks
             // from overflowing our Sentry logs.
             tracing::error!("could not send batch to WebhookSink: {e}");
         } else {
             crate::metrics::webhook_sink_logs_sent(batch_size);
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        sync::Arc,
+        time::Duration,
+    };
+
+    use common::{
+        http::{
+            fetch::StaticFetchClient,
+            HttpRequestStream,
+            HttpResponse,
+        },
+        log_streaming::LogEvent,
+        runtime::{
+            testing::TestRuntime,
+            Runtime,
+        },
+    };
+    use futures::FutureExt;
+    use http::{
+        HeaderMap,
+        StatusCode,
+    };
+    use model::log_sinks::types::webhook::{
+        WebhookConfig,
+        WebhookFormat,
+    };
+    use parking_lot::Mutex;
+    use usage_tracking::UsageCounter;
+
+    use crate::{
+        sinks::{
+            utils,
+            webhook::WebhookSink,
+        },
+        LoggingDeploymentMetadata,
+    };
+
+    #[convex_macro::test_runtime]
+    async fn test_webhook_tracks_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
+        // Test that verifies webhook sink correctly tracks network egress as billable
+        // usage. This ensures that bytes sent to webhook endpoints are
+        // properly reported via UsageEvent::NetworkBandwidth events.
+        let webhook_url: reqwest::Url = "https://webhook.example.com/endpoint".parse()?;
+
+        let webhook_config = WebhookConfig {
+            url: webhook_url.clone(),
+            format: WebhookFormat::Json,
+            hmac_secret: "test_secret".to_string(),
+        };
+
+        // Track the actual request size from the handler
+        let actual_request_size = Arc::new(Mutex::new(0u64));
+
+        // Register handler that returns success and tracks request size
+        let mut fetch_client = StaticFetchClient::new();
+        let size_tracker = actual_request_size.clone();
+        let handler = move |request: HttpRequestStream| {
+            let size_tracker = size_tracker.clone();
+            async move {
+                let request = request.into_http_request().await.unwrap();
+                let request_size = request.body.as_ref().map(|b| b.len()).unwrap_or(0) as u64;
+                *size_tracker.lock() = request_size;
+
+                Ok(HttpResponse {
+                    status: StatusCode::OK,
+                    headers: HeaderMap::new(),
+                    body: Some("success".to_string().into_bytes()),
+                    url: None,
+                    request_size,
+                }
+                .into())
+            }
+            .boxed()
+        };
+
+        fetch_client.register_http_route(
+            webhook_url.clone(),
+            reqwest::Method::POST,
+            Box::new(handler),
+        );
+
+        let meta = Arc::new(Mutex::new(LoggingDeploymentMetadata {
+            deployment_name: "".to_owned(),
+            deployment_type: None,
+            project_name: None,
+            project_slug: None,
+        }));
+
+        // Use BasicTestUsageEventLogger to capture usage events
+        let usage_logger = events::testing::BasicTestUsageEventLogger::new();
+        let usage_counter = UsageCounter::new(Arc::new(usage_logger.clone()));
+
+        let webhook_sink = WebhookSink::start(
+            rt.clone(),
+            webhook_config,
+            Arc::new(fetch_client),
+            meta.clone(),
+            usage_counter,
+            false, // Don't verify, so we only track one event
+        )
+        .await?;
+
+        // Send a log event
+        webhook_sink
+            .events_sender
+            .send(vec![Arc::new(LogEvent::default_for_verification(&rt)?)])
+            .await?;
+        rt.wait(Duration::from_secs(1)).await;
+
+        // Verify bandwidth tracking
+        let events = usage_logger.collect();
+        let actual_size = *actual_request_size.lock();
+        utils::assert_bandwidth_events(events, actual_size, webhook_url.as_str());
+
         Ok(())
     }
 }

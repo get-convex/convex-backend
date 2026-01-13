@@ -1,12 +1,16 @@
 use std::{
     collections::BTreeMap,
-    sync::Arc,
+    sync::{
+        atomic::Ordering,
+        Arc,
+    },
 };
 
 use bytes::Bytes;
 use common::{
     backoff::Backoff,
     errors::report_error,
+    execution_context::ExecutionId,
     http::{
         categorize_http_response_stream,
         fetch::FetchClient,
@@ -18,6 +22,7 @@ use common::{
         LogEventFormatVersion,
     },
     runtime::Runtime,
+    RequestId,
 };
 use errors::{
     ErrorMetadata,
@@ -38,10 +43,13 @@ use serde::{
     Serializer,
 };
 use tokio::sync::mpsc;
+use usage_tracking::UsageCounter;
 
 use crate::{
     consts,
+    metrics::axiom_sink_network_egress_bytes,
     sinks::utils::{
+        self,
         build_event_batches,
         default_log_filter,
     },
@@ -91,6 +99,7 @@ pub struct AxiomSink<RT: Runtime> {
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+    usage_counter: UsageCounter,
 }
 
 impl<RT: Runtime> AxiomSink<RT> {
@@ -99,6 +108,7 @@ impl<RT: Runtime> AxiomSink<RT> {
         config: AxiomConfig,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        usage_counter: UsageCounter,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting AxiomSink");
@@ -136,6 +146,7 @@ impl<RT: Runtime> AxiomSink<RT> {
                 consts::AXIOM_SINK_INITIAL_BACKOFF,
                 consts::AXIOM_SINK_MAX_BACKOFF,
             ),
+            usage_counter,
         };
 
         if should_verify {
@@ -160,7 +171,8 @@ impl<RT: Runtime> AxiomSink<RT> {
             self.log_event_format,
             &deployment_metadata,
         )?;
-        self.send_batch(serde_json::to_vec(&vec![payload])?).await?;
+        self.send_batch(serde_json::to_vec(&vec![payload])?, true)
+            .await?;
 
         Ok(())
     }
@@ -195,7 +207,11 @@ impl<RT: Runtime> AxiomSink<RT> {
         }
     }
 
-    async fn send_batch(&mut self, batch_json: Vec<u8>) -> anyhow::Result<()> {
+    async fn send_batch(
+        &mut self,
+        batch_json: Vec<u8>,
+        is_verification: bool,
+    ) -> anyhow::Result<()> {
         let header_map = HeaderMap::from_iter([
             (
                 AUTHORIZATION,
@@ -206,6 +222,8 @@ impl<RT: Runtime> AxiomSink<RT> {
         let batch_json = Bytes::from(batch_json);
 
         // Make request in a loop that retries on transient errors
+        let request_id = RequestId::new();
+        let execution_id = ExecutionId::new();
         for _ in 0..consts::AXIOM_SINK_MAX_REQUEST_ATTEMPTS {
             let batch_json = batch_json.clone();
             let response = self
@@ -218,6 +236,19 @@ impl<RT: Runtime> AxiomSink<RT> {
                     signal: Box::pin(futures::future::pending()),
                 })
                 .await;
+
+            if !is_verification && let Ok(r) = &response {
+                let num_bytes_egress = r.request_size.load(Ordering::Relaxed);
+                utils::track_log_sink_bandwidth(
+                    num_bytes_egress,
+                    "axiom".to_string(),
+                    execution_id,
+                    &request_id,
+                    &self.usage_counter,
+                    axiom_sink_network_egress_bytes,
+                )
+                .await;
+            }
 
             // Retry only on 5xx errors.
             match response.and_then(categorize_http_response_stream) {
@@ -277,7 +308,7 @@ impl<RT: Runtime> AxiomSink<RT> {
         }
         let batch_size = values_to_send.len();
 
-        self.send_batch(serde_json::to_vec(&values_to_send)?)
+        self.send_batch(serde_json::to_vec(&values_to_send)?, false)
             .await?;
         crate::metrics::axiom_sink_logs_sent(batch_size, log_event_format_version);
 
@@ -320,9 +351,13 @@ mod tests {
     use parking_lot::Mutex;
     use reqwest::header::HeaderMap;
     use serde_json::Value as JsonValue;
+    use usage_tracking::UsageCounter;
 
     use crate::{
-        sinks::axiom::AxiomSink,
+        sinks::{
+            axiom::AxiomSink,
+            utils,
+        },
         LoggingDeploymentMetadata,
     };
 
@@ -391,11 +426,13 @@ mod tests {
             project_slug: None,
         }));
         // Assert that verification response succeeded
+        let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
         let axiom_sink = AxiomSink::start(
             rt.clone(),
             axiom_config,
             Arc::new(fetch_client),
             meta.clone(),
+            usage_counter,
             true,
         )
         .await?;
@@ -467,11 +504,94 @@ mod tests {
             project_slug: None,
         }));
         // Assert that verification response failed
-        assert!(
-            AxiomSink::start(rt.clone(), axiom_config, Arc::new(fetch_client), meta, true,)
-                .await
-                .is_err()
-        );
+        let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
+        assert!(AxiomSink::start(
+            rt.clone(),
+            axiom_config,
+            Arc::new(fetch_client),
+            meta,
+            usage_counter,
+            true,
+        )
+        .await
+        .is_err());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_axiom_tracks_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
+        // Test that verifies log sinks correctly track network egress as billable
+        // usage. This ensures that bytes sent to external logging services are
+        // properly reported via UsageEvent::NetworkBandwidth events.
+        let axiom_config = AxiomConfig {
+            api_key: "test_api_key".to_string().into(),
+            dataset_name: "test_dataset".to_string(),
+            attributes: vec![],
+            version: LogEventFormatVersion::default(),
+            ingest_url: None,
+        };
+
+        // Track the actual request size from the handler
+        let actual_request_size = Arc::new(Mutex::new(0u64));
+
+        // Register handler that returns success and tracks request size
+        let mut fetch_client = StaticFetchClient::new();
+        let url: reqwest::Url = "https://api.axiom.co/v1/datasets/test_dataset/ingest".parse()?;
+        let size_tracker = actual_request_size.clone();
+        let handler = move |request: HttpRequestStream| {
+            let size_tracker = size_tracker.clone();
+            async move {
+                let request = request.into_http_request().await.unwrap();
+                let request_size = request.body.as_ref().map(|b| b.len()).unwrap_or(0) as u64;
+                *size_tracker.lock() = request_size;
+
+                Ok(HttpResponse {
+                    status: StatusCode::OK,
+                    headers: HeaderMap::new(),
+                    body: Some("success".to_string().into_bytes()),
+                    url: None,
+                    request_size,
+                }
+                .into())
+            }
+            .boxed()
+        };
+
+        fetch_client.register_http_route(url, reqwest::Method::POST, Box::new(handler));
+
+        let meta = Arc::new(Mutex::new(LoggingDeploymentMetadata {
+            deployment_name: "".to_owned(),
+            deployment_type: None,
+            project_name: None,
+            project_slug: None,
+        }));
+
+        // Use BasicTestUsageEventLogger to capture usage events
+        let usage_logger = events::testing::BasicTestUsageEventLogger::new();
+        let usage_counter = UsageCounter::new(Arc::new(usage_logger.clone()));
+
+        let axiom_sink = AxiomSink::start(
+            rt.clone(),
+            axiom_config,
+            Arc::new(fetch_client),
+            meta.clone(),
+            usage_counter,
+            true,
+        )
+        .await?;
+
+        // Send a log event
+        axiom_sink
+            .events_sender
+            .send(vec![Arc::new(LogEvent::default_for_verification(&rt)?)])
+            .await?;
+        rt.wait(Duration::from_secs(1)).await;
+
+        // Verify bandwidth tracking
+        let events = usage_logger.collect();
+        let actual_size = *actual_request_size.lock();
+        utils::assert_bandwidth_events(events, actual_size, "axiom");
 
         Ok(())
     }

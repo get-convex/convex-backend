@@ -80,6 +80,7 @@ use sinks::{
     sentry::SentrySink,
 };
 use tokio::sync::mpsc;
+use usage_tracking::UsageCounter;
 
 use crate::sinks::{
     axiom::AxiomSink,
@@ -225,6 +226,7 @@ pub struct LogManager<RT: Runtime> {
     instance_name: String,
     /// How many sinks are active right now?
     active_sinks_count: Arc<AtomicUsize>,
+    usage_counter: usage_tracking::UsageCounter,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -242,6 +244,7 @@ impl<RT: Runtime> LogManager<RT> {
         fetch_client: Arc<dyn FetchClient>,
         instance_name: String,
         entitlement_enabled: bool,
+        usage_counter: UsageCounter,
     ) -> LogManagerClient {
         let (req_tx, req_rx) = mpsc::channel(*knobs::LOG_MANAGER_EVENT_RECV_BUFFER_SIZE);
 
@@ -255,6 +258,7 @@ impl<RT: Runtime> LogManager<RT> {
             event_receiver: req_rx,
             instance_name,
             active_sinks_count: active_sinks_count.clone(),
+            usage_counter,
         };
 
         let handle = Arc::new(Mutex::new(Some(runtime.spawn("log_manager", worker.go()))));
@@ -292,6 +296,7 @@ impl<RT: Runtime> LogManager<RT> {
             &self.sinks,
             self.instance_name.clone(),
             self.active_sinks_count.clone(),
+            self.usage_counter.clone(),
         )
         .fuse();
         pin_mut!(sink_startup_worker_fut);
@@ -411,6 +416,7 @@ impl<RT: Runtime> LogManager<RT> {
         sinks: &Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
         instance_name: String,
         active_sinks_count: Arc<AtomicUsize>,
+        usage_counter: usage_tracking::UsageCounter,
     ) -> anyhow::Result<!> {
         // Deployment_type is populated within the loop based on a subscription
         // to BackendInfoModel. Since deployment_type can be updated dynamically
@@ -443,6 +449,7 @@ impl<RT: Runtime> LogManager<RT> {
                 sinks,
                 active_sinks_count.clone(),
                 metadata.clone(),
+                usage_counter.clone(),
             )
             .await?;
 
@@ -461,6 +468,7 @@ impl<RT: Runtime> LogManager<RT> {
         sinks: &Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
         active_sinks_count: Arc<AtomicUsize>,
         metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        usage_counter: usage_tracking::UsageCounter,
     ) -> anyhow::Result<()> {
         let (pending_sinks, inactive_sinks, tombstoned_sinks) = {
             let sinks = sinks.read();
@@ -524,6 +532,8 @@ impl<RT: Runtime> LogManager<RT> {
             let sink_id = row.id();
             let sink_config = row.config.clone();
             let sink_status = row.status.clone();
+            // Use the shared usage counter for tracking log sink network usage
+            let usage_counter = usage_counter.clone();
             let timed_startup_result = runtime
                 .with_timeout(
                     "sink startup timeout",
@@ -533,6 +543,7 @@ impl<RT: Runtime> LogManager<RT> {
                         fetch_client.clone(),
                         sink_config,
                         metadata.clone(),
+                        usage_counter,
                         sink_status,
                     ),
                 )
@@ -585,6 +596,7 @@ impl<RT: Runtime> LogManager<RT> {
         fetch_client: Arc<dyn FetchClient>,
         config: SinkConfig,
         metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        usage_counter: usage_tracking::UsageCounter,
         status: SinkState,
     ) -> anyhow::Result<LogSinkClient> {
         // Only verify credentials for sinks in Pending state
@@ -598,6 +610,7 @@ impl<RT: Runtime> LogManager<RT> {
                     fetch_client,
                     config,
                     metadata,
+                    usage_counter,
                     should_verify,
                 )
                 .await
@@ -608,6 +621,7 @@ impl<RT: Runtime> LogManager<RT> {
                     config,
                     fetch_client,
                     metadata,
+                    usage_counter,
                     should_verify,
                 )
                 .await
@@ -618,6 +632,7 @@ impl<RT: Runtime> LogManager<RT> {
                     config,
                     fetch_client,
                     metadata,
+                    usage_counter,
                     should_verify,
                 )
                 .await
@@ -666,6 +681,7 @@ mod tests {
         test_helpers::DbFixtures,
         Database,
     };
+    use events::usage::NoOpUsageEventLogger;
     use model::{
         log_sinks::{
             types::{
@@ -683,6 +699,7 @@ mod tests {
         RwLock,
     };
     use runtime::testing::TestRuntime;
+    use usage_tracking::UsageCounter;
 
     use crate::{
         LogManager,
@@ -718,6 +735,7 @@ mod tests {
             project_slug: Some("test".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
+        let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
 
         LogManager::sink_startup_worker_once(
             &rt,
@@ -727,6 +745,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata,
+            usage_counter,
         )
         .await?;
         assert_eq!(active_sinks_count.load(Ordering::Relaxed), 2);
@@ -750,6 +769,7 @@ mod tests {
             project_slug: Some("test".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
+        let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
 
         LogManager::sink_startup_worker_once(
             &rt,
@@ -759,6 +779,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata.clone(),
+            usage_counter.clone(),
         )
         .await?;
 
@@ -774,6 +795,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata,
+            usage_counter.clone(),
         )
         .await?;
 
@@ -806,6 +828,7 @@ mod tests {
             project_slug: Some("test".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
+        let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
 
         LogManager::sink_startup_worker_once(
             &rt,
@@ -815,6 +838,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata.clone(),
+            usage_counter.clone(),
         )
         .await?;
 
@@ -832,6 +856,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata,
+            usage_counter.clone(),
         )
         .await?;
 

@@ -120,3 +120,27 @@ register_convex_counter!(
 pub fn sentry_sink_logs_sent(count: usize) {
     log_counter(&SENTRY_SINK_LOGS_SENT_TOTAL, count as u64);
 }
+
+register_convex_counter!(
+    AXIOM_SINK_NETWORK_EGRESS_BYTES_TOTAL,
+    "Number of bytes sent by Axiom sink",
+);
+pub fn axiom_sink_network_egress_bytes(bytes: u64) {
+    log_counter(&AXIOM_SINK_NETWORK_EGRESS_BYTES_TOTAL, bytes);
+}
+
+register_convex_counter!(
+    DATADOG_SINK_NETWORK_EGRESS_BYTES_TOTAL,
+    "Number of bytes sent by Datadog sink",
+);
+pub fn datadog_sink_network_egress_bytes(bytes: u64) {
+    log_counter(&DATADOG_SINK_NETWORK_EGRESS_BYTES_TOTAL, bytes);
+}
+
+register_convex_counter!(
+    WEBHOOK_SINK_NETWORK_EGRESS_BYTES_TOTAL,
+    "Number of bytes sent by Webhook sink",
+);
+pub fn webhook_sink_network_egress_bytes(bytes: u64) {
+    log_counter(&WEBHOOK_SINK_NETWORK_EGRESS_BYTES_TOTAL, bytes);
+}

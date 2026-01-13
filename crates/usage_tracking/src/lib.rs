@@ -93,6 +93,7 @@ pub enum CallType {
     Import,
     CloudBackup,
     CloudRestore,
+    LogStreamPayload,
 }
 
 impl CallType {
@@ -107,6 +108,7 @@ impl CallType {
             Self::Import => "import",
             Self::CloudBackup => "cloud_backup",
             Self::CloudRestore => "cloud_restore",
+            Self::LogStreamPayload => "log_stream_payload",
         }
     }
 
@@ -198,7 +200,8 @@ impl CallType {
             | CallType::CloudBackup
             | CallType::CloudRestore
             | CallType::Export
-            | CallType::Import => None,
+            | CallType::Import
+            | CallType::LogStreamPayload => None,
         }
     }
 

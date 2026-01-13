@@ -1,12 +1,16 @@
 use std::{
     ops::Deref,
-    sync::Arc,
+    sync::{
+        atomic::Ordering,
+        Arc,
+    },
 };
 
 use bytes::Bytes;
 use common::{
     backoff::Backoff,
     errors::report_error,
+    execution_context::ExecutionId,
     http::{
         categorize_http_response_stream,
         fetch::FetchClient,
@@ -18,6 +22,7 @@ use common::{
         LogEventFormatVersion,
     },
     runtime::Runtime,
+    RequestId,
 };
 use errors::{
     ErrorMetadata,
@@ -34,10 +39,13 @@ use reqwest::header::{
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use tokio::sync::mpsc;
+use usage_tracking::UsageCounter;
 
 use crate::{
     consts,
+    metrics::datadog_sink_network_egress_bytes,
     sinks::utils::{
+        self,
         build_event_batches,
         default_log_filter,
     },
@@ -105,6 +113,7 @@ pub(crate) struct DatadogSink<RT: Runtime> {
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+    usage_counter: UsageCounter,
 }
 
 impl<RT: Runtime> DatadogSink<RT> {
@@ -113,6 +122,7 @@ impl<RT: Runtime> DatadogSink<RT> {
         fetch_client: Arc<dyn FetchClient>,
         config: DatadogConfig,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        usage_counter: UsageCounter,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting DatadogSink");
@@ -134,6 +144,7 @@ impl<RT: Runtime> DatadogSink<RT> {
             fetch_client,
             backoff: Backoff::new(consts::DD_SINK_INITIAL_BACKOFF, consts::DD_SINK_MAX_BACKOFF),
             deployment_metadata: deployment_metadata.clone(),
+            usage_counter,
         };
 
         if should_verify {
@@ -191,12 +202,16 @@ impl<RT: Runtime> DatadogSink<RT> {
             self.log_event_format,
             &deployment_metadata,
         )?;
-        self.send_batch(vec![payload]).await?;
+        self.send_batch(vec![payload], true).await?;
 
         Ok(())
     }
 
-    async fn send_batch(&mut self, batch: Vec<DatadogLogEvent<'_>>) -> anyhow::Result<()> {
+    async fn send_batch(
+        &mut self,
+        batch: Vec<DatadogLogEvent<'_>>,
+        is_verification: bool,
+    ) -> anyhow::Result<()> {
         let mut batch_json: Vec<JsonValue> = vec![];
         for ev in batch {
             batch_json.push(serde_json::to_value(ev)?);
@@ -212,6 +227,8 @@ impl<RT: Runtime> DatadogSink<RT> {
         let payload = Bytes::from(serde_json::to_vec(&payload)?);
 
         // Make request in a loop that retries on transient errors
+        let request_id = RequestId::new();
+        let execution_id = ExecutionId::new();
         for _ in 0..consts::DD_SINK_MAX_REQUEST_ATTEMPTS {
             let response = self
                 .fetch_client
@@ -225,6 +242,19 @@ impl<RT: Runtime> DatadogSink<RT> {
                     .into(),
                 )
                 .await;
+
+            if !is_verification && let Ok(r) = &response {
+                let num_bytes_egress = r.request_size.load(Ordering::Relaxed);
+                utils::track_log_sink_bandwidth(
+                    num_bytes_egress,
+                    "datadog".to_string(),
+                    execution_id,
+                    &request_id,
+                    &self.usage_counter,
+                    datadog_sink_network_egress_bytes,
+                )
+                .await;
+            }
 
             // Retry only on 5xx errors.
             match response.and_then(categorize_http_response_stream) {
@@ -285,7 +315,7 @@ impl<RT: Runtime> DatadogSink<RT> {
         }
         let batch_size = values_to_send.len();
 
-        self.send_batch(values_to_send).await?;
+        self.send_batch(values_to_send, false).await?;
         crate::metrics::datadog_sink_logs_sent(batch_size, log_event_format_version);
 
         Ok(())
@@ -325,11 +355,15 @@ mod tests {
     use parking_lot::Mutex;
     use reqwest::header::HeaderMap;
     use serde_json::Value as JsonValue;
+    use usage_tracking::UsageCounter;
 
     use crate::{
-        sinks::datadog::{
-            DatadogSink,
-            DD_API_KEY_HEADER,
+        sinks::{
+            datadog::{
+                DatadogSink,
+                DD_API_KEY_HEADER,
+            },
+            utils,
         },
         LoggingDeploymentMetadata,
     };
@@ -393,11 +427,13 @@ mod tests {
             project_slug: Some("test".to_string()),
         }));
         // Assert that verification response succeeded
+        let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
         let dd_sink = DatadogSink::start(
             rt.clone(),
             Arc::new(fetch_client),
             dd_config,
             meta.clone(),
+            usage_counter,
             true,
         )
         .await?;
@@ -466,11 +502,94 @@ mod tests {
             project_slug: Some("test".to_string()),
         }));
         // Assert that verification response failed
-        assert!(
-            DatadogSink::start(rt.clone(), Arc::new(fetch_client), dd_config, meta, true,)
-                .await
-                .is_err()
-        );
+        let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
+        assert!(DatadogSink::start(
+            rt.clone(),
+            Arc::new(fetch_client),
+            dd_config,
+            meta,
+            usage_counter,
+            true,
+        )
+        .await
+        .is_err());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_datadog_tracks_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
+        // Test that verifies log sinks correctly track network egress as billable
+        // usage. This ensures that bytes sent to external logging services are
+        // properly reported via UsageEvent::NetworkBandwidth events.
+        let dd_config = DatadogConfig {
+            site_location: DatadogSiteLocation::US1,
+            dd_api_key: "fake_api_key".to_string().into(),
+            dd_tags: vec![],
+            version: LogEventFormatVersion::default(),
+            service: Some("fake_service".to_owned()),
+        };
+
+        // Track the actual request size from the handler
+        let actual_request_size = Arc::new(Mutex::new(0u64));
+
+        // Register handler that returns success and tracks request size
+        let mut fetch_client = StaticFetchClient::new();
+        let url: reqwest::Url = "https://http-intake.logs.datadoghq.com/api/v2/logs".parse()?;
+        let size_tracker = actual_request_size.clone();
+        let handler = move |request: HttpRequestStream| {
+            let size_tracker = size_tracker.clone();
+            async move {
+                let request = request.into_http_request().await.unwrap();
+                let request_size = request.body.as_ref().map(|b| b.len()).unwrap_or(0) as u64;
+                *size_tracker.lock() = request_size;
+
+                Ok(HttpResponse {
+                    status: StatusCode::OK,
+                    headers: HeaderMap::new(),
+                    body: Some("success".to_string().into_bytes()),
+                    url: None,
+                    request_size,
+                }
+                .into())
+            }
+            .boxed()
+        };
+
+        fetch_client.register_http_route(url, reqwest::Method::POST, Box::new(handler));
+
+        let meta = Arc::new(Mutex::new(LoggingDeploymentMetadata {
+            deployment_name: "".to_owned(),
+            deployment_type: Some(DeploymentType::Dev),
+            project_name: Some("test".to_string()),
+            project_slug: Some("test".to_string()),
+        }));
+
+        // Use BasicTestUsageEventLogger to capture usage events
+        let usage_logger = events::testing::BasicTestUsageEventLogger::new();
+        let usage_counter = UsageCounter::new(Arc::new(usage_logger.clone()));
+
+        let dd_sink = DatadogSink::start(
+            rt.clone(),
+            Arc::new(fetch_client),
+            dd_config,
+            meta.clone(),
+            usage_counter,
+            true,
+        )
+        .await?;
+
+        // Send a log event
+        dd_sink
+            .events_sender
+            .send(vec![Arc::new(LogEvent::default_for_verification(&rt)?)])
+            .await?;
+        rt.wait(Duration::from_secs(1)).await;
+
+        // Verify bandwidth tracking
+        let events = usage_logger.collect();
+        let actual_size = *actual_request_size.lock();
+        utils::assert_bandwidth_events(events, actual_size, "datadog");
 
         Ok(())
     }
