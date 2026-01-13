@@ -259,6 +259,14 @@ impl UsageCounterState {
                 calls: _,
                 success: _,
             } => todo!(),
+            UsageEvent::NetworkBandwidth {
+                id: _,
+                request_id: _,
+                component_path: _,
+                udf_id: _,
+                url: _,
+                egress: _,
+            } => todo!(),
         }
     }
 }

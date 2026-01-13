@@ -132,6 +132,14 @@ pub enum UsageEvent {
         // Includes egress for tables that have virtual tables
         egress_v2: u64,
     },
+    NetworkBandwidth {
+        id: String,
+        request_id: String,
+        component_path: Option<String>,
+        udf_id: String,
+        url: String,
+        egress: u64,
+    },
     InsightReadLimit {
         id: String,
         request_id: String,
