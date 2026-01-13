@@ -6,12 +6,12 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
-use convex_fivetran_common::config::Config;
 use derive_more::{
     Display,
     From,
     Into,
 };
+use fivetran_common::config::Config;
 use headers::{
     HeaderName,
     HeaderValue,

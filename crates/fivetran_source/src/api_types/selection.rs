@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use convex_fivetran_common::fivetran_sdk::{
+use fivetran_common::fivetran_sdk::{
     selection::Selection as FivetranSelection,
     SchemaSelection as FivetranSchemaSelection,
     Selection as FivetranRootSelection,
@@ -435,7 +435,7 @@ impl From<Selection> for FivetranSelectionWithSchema {
 
 #[cfg(test)]
 mod tests_selection_fivetran_conversion {
-    use convex_fivetran_common::fivetran_sdk::TablesWithNoSchema as FivetranSelectionWithNoSchema;
+    use fivetran_common::fivetran_sdk::TablesWithNoSchema as FivetranSelectionWithNoSchema;
     use maplit::btreemap;
 
     use super::*;

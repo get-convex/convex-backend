@@ -1,5 +1,5 @@
 [package]
-name = "convex_fivetran_destination"
+name = "fivetran_destination"
 description = "Fivetran destination for Convex (convex.dev)"
 version = "0.0.1"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
@@ -19,7 +19,7 @@ ignored = [
 ]
 
 [lib]
-name = "convex_fivetran_destination"
+name = "fivetran_destination"
 path = "src/lib.rs"
 
 [dependencies]
@@ -32,9 +32,9 @@ cbc = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 common = { workspace = true }
-convex_fivetran_common = { workspace = true }
 csv-async = { workspace = true }
 derive_more = { workspace = true }
+fivetran_common = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 maplit = { workspace = true }
@@ -50,7 +50,7 @@ tonic = { workspace = true }
 [dev-dependencies]
 cmd_util = { workspace = true }
 common = { workspace = true, features = ["testing"] }
-convex_fivetran_common = { workspace = true, features = ["testing"] }
+fivetran_common = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }

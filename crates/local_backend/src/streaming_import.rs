@@ -31,13 +31,13 @@ use common::{
     types::UdfIdentifier,
     RequestId,
 };
-use convex_fivetran_destination::api_types::{
+use errors::ErrorMetadata;
+use fivetran_destination::api_types::{
     BatchWriteRow,
     CreateTableArgs,
     DeleteType,
     TruncateTableArgs,
 };
-use errors::ErrorMetadata;
 use http::StatusCode;
 use model::snapshot_imports::types::ImportRequestor;
 use serde::{

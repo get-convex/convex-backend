@@ -14,25 +14,25 @@ Make sure you have Git and Cargo installed. We recommend installing Cargo via
 ```
 git clone https://github.com/get-convex/convex-backend.git
 cd convex-backend
-cargo build --release -p convex_fivetran_destination
+cargo build --release -p fivetran_destination
 ```
 
 You can then find the executable file in
-`convex-backend/target/release/convex_fivetran_destination`.
+`convex-backend/target/release/fivetran_destination`.
 
 ## Usage
 
 You can start the connector by starting its binary:
 
 ```
-$ ./convex_fivetran_destination
+$ ./fivetran_destination
 {"level":"INFO","message":"Starting the destination on 0.0.0.0:50052","message-origin":"sdk_destination"}
 ```
 
 You can change the port used using the optional `--port` parameter:
 
 ```
-$ ./convex_fivetran_destination --port 1337
+$ ./fivetran_destination --port 1337
 {"level":"INFO","message":"Starting the destination on 0.0.0.0:1337","message-origin":"sdk_destination"}
 ```
 

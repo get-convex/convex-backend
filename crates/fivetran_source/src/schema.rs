@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use convex_fivetran_common::fivetran_sdk::{
+use fivetran_common::fivetran_sdk::{
     Column,
     DataType,
     Schema,

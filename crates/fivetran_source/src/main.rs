@@ -20,7 +20,7 @@ use std::net::{
 
 use clap::Parser;
 use connector::ConvexConnector;
-use convex_fivetran_common::fivetran_sdk::source_connector_server::SourceConnectorServer;
+use fivetran_common::fivetran_sdk::source_connector_server::SourceConnectorServer;
 use tonic::{
     codec::CompressionEncoding,
     transport::Server,

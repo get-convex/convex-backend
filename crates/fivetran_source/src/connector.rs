@@ -1,4 +1,4 @@
-use convex_fivetran_common::{
+use fivetran_common::{
     config::Config,
     fivetran_sdk::{
         schema_response,

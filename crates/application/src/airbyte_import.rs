@@ -4,11 +4,11 @@ use std::{
 };
 
 use common::bootstrap_model::index::database_index::IndexedFields;
-use convex_fivetran_destination::constants::{
+use errors::ErrorMetadata;
+use fivetran_destination::constants::{
     METADATA_CONVEX_FIELD_NAME,
     SOFT_DELETE_CONVEX_FIELD_NAME,
 };
-use errors::ErrorMetadata;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use value::{

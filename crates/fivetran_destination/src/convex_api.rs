@@ -18,8 +18,8 @@ use common::{
     },
     value::TableName,
 };
-use convex_fivetran_common::config::Config;
-use convex_fivetran_destination::api_types::{
+use fivetran_common::config::Config;
+use fivetran_destination::api_types::{
     BatchWriteRow,
     CreateTableArgs,
     DeleteType,

@@ -13,10 +13,10 @@ use common::value::{
     ConvexValue,
     FieldName,
 };
-use convex_fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
+use fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
 #[cfg(test)]
-use convex_fivetran_common::fivetran_sdk::DataType as FivetranDataType;
-use convex_fivetran_destination::constants::{
+use fivetran_common::fivetran_sdk::DataType as FivetranDataType;
+use fivetran_destination::constants::{
     ID_CONVEX_FIELD_NAME,
     ID_FIVETRAN_FIELD_NAME,
     METADATA_CONVEX_FIELD_NAME,
@@ -353,8 +353,8 @@ mod tests {
             ConvexValue,
         },
     };
-    use convex_fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
-    use convex_fivetran_destination::api_types::FivetranFieldName;
+    use fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
+    use fivetran_destination::api_types::FivetranFieldName;
     use maplit::btreemap;
     use proptest::prelude::*;
     use prost_types::Timestamp;

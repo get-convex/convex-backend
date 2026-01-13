@@ -26,7 +26,15 @@ use common::{
     },
     runtime::Runtime,
 };
-use convex_fivetran_destination::{
+use database::{
+    IndexModel,
+    PatchValue,
+    ResolvedQuery,
+    Transaction,
+    UserFacingModel,
+};
+use errors::ErrorMetadata;
+use fivetran_destination::{
     api_types::{
         BatchWriteOperation,
         BatchWriteRow,
@@ -43,14 +51,6 @@ use convex_fivetran_destination::{
         SYNCED_FIELD_PATH,
     },
 };
-use database::{
-    IndexModel,
-    PatchValue,
-    ResolvedQuery,
-    Transaction,
-    UserFacingModel,
-};
-use errors::ErrorMetadata;
 use value::{
     ConvexObject,
     ConvexValue,

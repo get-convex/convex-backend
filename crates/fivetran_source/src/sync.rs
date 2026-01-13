@@ -4,7 +4,7 @@ use std::collections::{
 };
 
 use anyhow::Context;
-use convex_fivetran_common::fivetran_sdk::{
+use fivetran_common::fivetran_sdk::{
     self,
     update_response,
     value_type,

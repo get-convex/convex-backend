@@ -1,5 +1,5 @@
 [package]
-name = "convex_fivetran_source"
+name = "fivetran_source"
 description = "Fivetran source connector for Convex (convex.dev)"
 version = "2.0.1"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
@@ -25,8 +25,8 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
 convex = { workspace = true }
-convex_fivetran_common = { workspace = true }
 derive_more = { workspace = true }
+fivetran_common = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 headers = { workspace = true }
@@ -50,7 +50,7 @@ tonic-build = { workspace = true }
 [dev-dependencies]
 cmd_util = { workspace = true }
 convex = { workspace = true, features = ["testing"] }
-convex_fivetran_common = { workspace = true, features = ["testing"] }
+fivetran_common = { workspace = true, features = ["testing"] }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }

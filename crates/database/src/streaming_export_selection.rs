@@ -91,7 +91,7 @@ use common::{
     },
     pii::PII,
 };
-use convex_fivetran_source::api_types::selection as serialized;
+use fivetran_source::api_types::selection as serialized;
 #[cfg(test)]
 use proptest::prelude::*;
 #[cfg(test)]

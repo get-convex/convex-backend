@@ -16,9 +16,6 @@ clusters = { path = "crates/clusters" }
 cmd_util = { path = "crates/cmd_util" }
 common = { path = "crates/common" }
 convex = { path = "crates/convex" }
-convex_fivetran_common = { path = "crates/fivetran_common" }
-convex_fivetran_destination = { path = "crates/fivetran_destination" }
-convex_fivetran_source = { path = "crates/fivetran_source" }
 convex_macro = { path = "crates/convex_macro" }
 convex_sync_types = { path = "crates/convex/sync_types" }
 database = { path = "crates/database" }
@@ -27,6 +24,9 @@ errors = { path = "crates/errors" }
 events = { path = "crates/events" }
 exports = { path = "crates/exports" }
 file_storage = { path = "crates/file_storage" }
+fivetran_common = { path = "crates/fivetran_common" }
+fivetran_destination = { path = "crates/fivetran_destination" }
+fivetran_source = { path = "crates/fivetran_source" }
 function_runner = { path = "crates/function_runner" }
 health_check = { path = "crates/health_check" }
 http_client = { path = "crates/http_client" }

@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use convex_fivetran_common::{
+use fivetran_common::{
     config::Config,
     fivetran_sdk::{
         alter_table_response,
@@ -31,7 +31,7 @@ use convex_fivetran_common::{
         WriteHistoryBatchRequest,
     },
 };
-use convex_fivetran_destination::api_types::DeleteType;
+use fivetran_destination::api_types::DeleteType;
 use prost_types::Timestamp;
 use tonic::{
     Request,

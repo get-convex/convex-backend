@@ -36,12 +36,12 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
-convex_fivetran_destination = { workspace = true }
 convex_macro = { workspace = true }
 database = { workspace = true }
 derive_more = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
+fivetran_destination = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 humansize = { workspace = true }

@@ -19,8 +19,8 @@ use common::{
         TableName,
     },
 };
-use convex_fivetran_common::fivetran_sdk;
-use convex_fivetran_destination::api_types::{
+use fivetran_common::fivetran_sdk;
+use fivetran_destination::api_types::{
     FivetranFieldName,
     FivetranTableName,
 };

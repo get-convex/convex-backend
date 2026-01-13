@@ -4,7 +4,7 @@ use anyhow::Context;
 #[cfg(test)]
 use convex::ExportContext;
 use convex::Value as ConvexValue;
-use convex_fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
+use fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
 use prost_types::Timestamp;
 use serde_json::Value as JsonValue;
 

@@ -10,11 +10,11 @@ use anyhow::{
     Ok,
 };
 use async_trait::async_trait;
-use convex_fivetran_common::fivetran_sdk::{
+use derive_more::From;
+use fivetran_common::fivetran_sdk::{
     value_type,
     RecordType,
 };
-use derive_more::From;
 use futures::{
     Stream,
     StreamExt,

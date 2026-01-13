@@ -40,12 +40,12 @@ async-trait = { workspace = true }
 async_lru = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
-convex_fivetran_source = { workspace = true }
 convex_macro = { workspace = true }
 derive_more = { workspace = true }
 errors = { workspace = true }
 events = { workspace = true }
 fastrace = { workspace = true }
+fivetran_source = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 governor = { workspace = true }

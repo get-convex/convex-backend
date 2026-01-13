@@ -1,8 +1,8 @@
-use convex_fivetran_common::fivetran_sdk::{
+use fivetran_common::fivetran_sdk::{
     self,
     DataType as FivetranDataType,
 };
-use convex_fivetran_destination::{
+use fivetran_destination::{
     api_types::FivetranFieldName,
     constants::{
         ID_FIVETRAN_FIELD_NAME,

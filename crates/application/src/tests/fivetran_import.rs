@@ -8,7 +8,14 @@ use common::{
     },
     types::IndexName,
 };
-use convex_fivetran_destination::{
+use database::{
+    IndexModel,
+    ResolvedQuery,
+    TableModel,
+    UserFacingModel,
+};
+use errors::ErrorMetadataAnyhowExt;
+use fivetran_destination::{
     api_types::{
         BatchWriteOperation,
         BatchWriteRow,
@@ -19,13 +26,6 @@ use convex_fivetran_destination::{
         FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
     },
 };
-use database::{
-    IndexModel,
-    ResolvedQuery,
-    TableModel,
-    UserFacingModel,
-};
-use errors::ErrorMetadataAnyhowExt;
 use itertools::Itertools;
 use keybroker::Identity;
 use must_let::must_let;

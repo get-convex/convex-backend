@@ -50,8 +50,6 @@ clap = { workspace = true }
 clusters = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
-convex_fivetran_destination = { workspace = true }
-convex_fivetran_source = { workspace = true }
 database = { workspace = true }
 db_connection = { workspace = true }
 either = { workspace = true }
@@ -60,6 +58,8 @@ events = { workspace = true }
 exports = { workspace = true }
 fastrace = { workspace = true }
 file_storage = { workspace = true }
+fivetran_destination = { workspace = true }
+fivetran_source = { workspace = true }
 function_runner = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }

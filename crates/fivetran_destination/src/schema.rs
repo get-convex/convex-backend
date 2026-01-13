@@ -27,12 +27,12 @@ use common::{
         TableName,
     },
 };
-use convex_fivetran_common::fivetran_sdk::{
+use fivetran_common::fivetran_sdk::{
     self,
     Column,
     DataType as FivetranDataType,
 };
-use convex_fivetran_destination::{
+use fivetran_destination::{
     api_types::{
         FivetranFieldName,
         FivetranTableName,
@@ -995,13 +995,13 @@ mod tests {
         types::IndexDescriptor,
         value::FieldPath,
     };
-    use convex_fivetran_common::fivetran_sdk::{
+    use fivetran_common::fivetran_sdk::{
         self,
         Column,
         DataType as FivetranDataType,
         Table,
     };
-    use convex_fivetran_destination::constants::{
+    use fivetran_destination::constants::{
         FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
         FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
     };

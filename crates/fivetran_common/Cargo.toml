@@ -1,5 +1,5 @@
 [package]
-name = "convex_fivetran_common"
+name = "fivetran_common"
 description = "Common files for the Fivetran source and destination connectors for Convex (convex.dev)"
 version = "0.0.1"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
@@ -19,7 +19,7 @@ ignored = [
 ]
 
 [lib]
-name = "convex_fivetran_common"
+name = "fivetran_common"
 path = "src/lib.rs"
 
 [features]

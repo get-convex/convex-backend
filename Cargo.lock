@@ -342,7 +342,6 @@ dependencies = [
  "chrono",
  "cmd_util",
  "common",
- "convex_fivetran_destination",
  "convex_macro",
  "convex_sync_types",
  "csv-async",
@@ -353,6 +352,7 @@ dependencies = [
  "exports",
  "fastrace",
  "file_storage",
+ "fivetran_destination",
  "float_next_after",
  "function_runner",
  "futures",
@@ -2263,90 +2263,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "convex_fivetran_common"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "cfg-if",
- "fxhash",
- "maplit",
- "pb_build",
- "proptest",
- "prost",
- "prost-types",
- "tonic",
- "tonic-build",
- "url",
-]
-
-[[package]]
-name = "convex_fivetran_destination"
-version = "0.0.1"
-dependencies = [
- "aes",
- "anyhow",
- "async-compression 0.4.11",
- "async-trait",
- "base64 0.13.1",
- "cbc",
- "chrono",
- "clap",
- "cmd_util",
- "common",
- "convex_fivetran_common",
- "csv-async",
- "derive_more",
- "futures",
- "futures-async-stream",
- "maplit",
- "must-let",
- "pretty_assertions",
- "proptest",
- "proptest-derive",
- "prost",
- "prost-types",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.17",
- "tokio",
- "tonic",
-]
-
-[[package]]
-name = "convex_fivetran_source"
-version = "2.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "cfg-if",
- "clap",
- "cmd_util",
- "convex",
- "convex_fivetran_common",
- "derive_more",
- "futures",
- "futures-async-stream",
- "futures-util",
- "headers",
- "maplit",
- "pretty_assertions",
- "proptest",
- "proptest-derive",
- "prost",
- "prost-types",
- "rand 0.9.0",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tonic",
- "tonic-build",
- "uuid",
-]
-
-[[package]]
 name = "convex_macro"
 version = "0.1.0"
 dependencies = [
@@ -2851,7 +2767,6 @@ dependencies = [
  "cmd_util",
  "common",
  "compact_str",
- "convex_fivetran_source",
  "convex_macro",
  "convex_sync_types",
  "criterion",
@@ -2859,6 +2774,7 @@ dependencies = [
  "errors",
  "events",
  "fastrace",
+ "fivetran_source",
  "futures",
  "futures-async-stream",
  "governor",
@@ -3625,6 +3541,90 @@ dependencies = [
  "lazy_static",
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "fivetran_common"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "fxhash",
+ "maplit",
+ "pb_build",
+ "proptest",
+ "prost",
+ "prost-types",
+ "tonic",
+ "tonic-build",
+ "url",
+]
+
+[[package]]
+name = "fivetran_destination"
+version = "0.0.1"
+dependencies = [
+ "aes",
+ "anyhow",
+ "async-compression 0.4.11",
+ "async-trait",
+ "base64 0.13.1",
+ "cbc",
+ "chrono",
+ "clap",
+ "cmd_util",
+ "common",
+ "csv-async",
+ "derive_more",
+ "fivetran_common",
+ "futures",
+ "futures-async-stream",
+ "maplit",
+ "must-let",
+ "pretty_assertions",
+ "proptest",
+ "proptest-derive",
+ "prost",
+ "prost-types",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tonic",
+]
+
+[[package]]
+name = "fivetran_source"
+version = "2.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "cfg-if",
+ "clap",
+ "cmd_util",
+ "convex",
+ "derive_more",
+ "fivetran_common",
+ "futures",
+ "futures-async-stream",
+ "futures-util",
+ "headers",
+ "maplit",
+ "pretty_assertions",
+ "proptest",
+ "proptest-derive",
+ "prost",
+ "prost-types",
+ "rand 0.9.0",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "uuid",
 ]
 
 [[package]]
@@ -5500,8 +5500,6 @@ dependencies = [
  "clusters",
  "cmd_util",
  "common",
- "convex_fivetran_destination",
- "convex_fivetran_source",
  "convex_macro",
  "convex_sync_types",
  "database",
@@ -5512,6 +5510,8 @@ dependencies = [
  "exports",
  "fastrace",
  "file_storage",
+ "fivetran_destination",
+ "fivetran_source",
  "function_runner",
  "futures",
  "futures-async-stream",
@@ -5993,13 +5993,13 @@ dependencies = [
  "chrono",
  "cmd_util",
  "common",
- "convex_fivetran_destination",
  "convex_macro",
  "convex_sync_types",
  "database",
  "derive_more",
  "errors",
  "fastrace",
+ "fivetran_destination",
  "futures",
  "futures-async-stream",
  "humansize",

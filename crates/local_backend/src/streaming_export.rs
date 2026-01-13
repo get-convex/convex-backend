@@ -44,7 +44,15 @@ use common::{
     },
     RequestId,
 };
-use convex_fivetran_source::api_types::{
+use database::{
+    streaming_export_selection::StreamingExportSelection,
+    BootstrapComponentsModel,
+    DocumentDeltas,
+    SchemaModel,
+    SnapshotPage,
+};
+use errors::ErrorMetadata;
+use fivetran_source::api_types::{
     selection::Selection,
     DocumentDeltasArgs,
     DocumentDeltasResponse,
@@ -55,14 +63,6 @@ use convex_fivetran_source::api_types::{
     ListSnapshotResponse,
     ListSnapshotValue,
 };
-use database::{
-    streaming_export_selection::StreamingExportSelection,
-    BootstrapComponentsModel,
-    DocumentDeltas,
-    SchemaModel,
-    SnapshotPage,
-};
-use errors::ErrorMetadata;
 use http::StatusCode;
 use keybroker::Identity;
 use maplit::btreemap;
@@ -728,8 +728,8 @@ mod test {
         },
         testing::TestIdGenerator,
     };
-    use convex_fivetran_source::api_types::ListSnapshotResponse;
     use database::UserFacingModel;
+    use fivetran_source::api_types::ListSnapshotResponse;
     use http::{
         Request,
         StatusCode,

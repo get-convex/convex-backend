@@ -11,7 +11,7 @@ use std::net::{
 
 use clap::Parser;
 use connector::ConvexFivetranDestination;
-use convex_fivetran_common::fivetran_sdk::destination_connector_server::DestinationConnectorServer;
+use fivetran_common::fivetran_sdk::destination_connector_server::DestinationConnectorServer;
 use serde::Serialize;
 use tonic::{
     codec::CompressionEncoding,

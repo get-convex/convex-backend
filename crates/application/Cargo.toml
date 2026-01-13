@@ -47,7 +47,6 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
-convex_fivetran_destination = { workspace = true }
 convex_macro = { workspace = true }
 csv-async = { workspace = true }
 database = { workspace = true }
@@ -57,6 +56,7 @@ events = { workspace = true }
 exports = { workspace = true }
 fastrace = { workspace = true }
 file_storage = { workspace = true }
+fivetran_destination = { workspace = true }
 float_next_after = { workspace = true }
 function_runner = { workspace = true }
 futures = { workspace = true }

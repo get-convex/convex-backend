@@ -137,13 +137,6 @@ use common::{
     },
     RequestId,
 };
-use convex_fivetran_destination::{
-    api_types::{
-        BatchWriteRow,
-        DeleteType,
-    },
-    constants::FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
-};
 use cron_jobs::CronJobExecutor;
 use database::{
     unauthorized_error,
@@ -179,6 +172,13 @@ use file_storage::{
     FileRangeStream,
     FileStorage,
     FileStream,
+};
+use fivetran_destination::{
+    api_types::{
+        BatchWriteRow,
+        DeleteType,
+    },
+    constants::FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
 };
 use function_log::{
     FunctionExecution,

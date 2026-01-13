@@ -16,13 +16,13 @@ use chrono::{
     Timelike,
 };
 use common::async_compat::TokioAsyncReadCompatExt;
-use convex_fivetran_common::fivetran_sdk::{
+use fivetran_common::fivetran_sdk::{
     value_type::Inner as FivetranValue,
     Compression as FivetranFileCompression,
     DataType as FivetranDataType,
     FileParams,
 };
-use convex_fivetran_destination::api_types::FivetranFieldName;
+use fivetran_destination::api_types::FivetranFieldName;
 use futures::{
     stream::BoxStream,
     StreamExt,
@@ -256,12 +256,12 @@ mod tests {
     };
 
     use cmd_util::env::env_config;
-    use convex_fivetran_common::fivetran_sdk::{
+    use fivetran_common::fivetran_sdk::{
         value_type::Inner as FivetranValue,
         Compression as FivetranFileCompression,
         DataType as FivetranDataType,
     };
-    use convex_fivetran_destination::api_types::{
+    use fivetran_destination::api_types::{
         FivetranFieldName,
         FivetranTableName,
     };
