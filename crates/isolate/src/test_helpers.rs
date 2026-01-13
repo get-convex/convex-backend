@@ -154,7 +154,6 @@ use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
     serialized_args_ext::SerializedArgsExt,
-    ConvexArray,
     ConvexObject,
     TableName,
     TableNamespace,
@@ -556,13 +555,13 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         };
         let canonicalized_path = path.canonicalize();
 
-        let args_array = ConvexArray::try_from(args)?;
+        let args = SerializedArgs::from_args(args.into_iter().map(|arg| arg.into()).collect())?;
 
         let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
             PublicFunctionPath::Component(canonicalized_path.clone()),
-            args_array.clone(),
+            args.clone(),
             UdfType::Mutation,
         )
         .await?;
@@ -572,7 +571,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 return UdfOutcome::from_error(
                     js_error,
                     canonicalized_path,
-                    args_array,
+                    args,
                     identity.into(),
                     self.rt.clone(),
                     None,
@@ -709,12 +708,12 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             udf_path: udf_path.parse()?,
         };
         let canonicalized_path = path.canonicalize();
-        let args_array = ConvexArray::try_from(args)?;
+        let args = SerializedArgs::from_args(args.into_iter().map(|arg| arg.into()).collect())?;
         let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
             PublicFunctionPath::Component(canonicalized_path.clone()),
-            args_array.clone(),
+            args.clone(),
             UdfType::Query,
         )
         .await?;
@@ -724,7 +723,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 let outcome = UdfOutcome::from_error(
                     js_error,
                     canonicalized_path,
-                    args_array,
+                    args,
                     identity.into(),
                     self.rt.clone(),
                     None,
@@ -795,13 +794,11 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             .context("Missing udf_config")?
             .server_version
             .clone();
+        let args = SerializedArgs::from_args(vec![args.into()])?;
 
         let path: UdfPath = udf_path.parse()?;
-        let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            path.canonicalize(),
-            ConvexArray::try_from(vec![ConvexValue::Object(args)])?,
-            Some(npm_version),
-        );
+        let path_and_args =
+            ValidatedPathAndArgs::new_for_tests(path.canonicalize(), args, Some(npm_version));
 
         if self.isolate_v2_enabled {
             let rng_seed = self.rt.rng().random();
@@ -1119,12 +1116,12 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             udf_path: udf_path.parse()?,
         };
         let canonicalized_path = path.canonicalize();
-        let args_array = ConvexArray::try_from(args)?;
+        let args = SerializedArgs::from_args(args.into_iter().map(|arg| arg.into()).collect())?;
         let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
             PublicFunctionPath::Component(canonicalized_path.clone()),
-            args_array.clone(),
+            args.clone(),
             UdfType::Action,
         )
         .await?;
@@ -1134,7 +1131,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     ActionOutcome::from_error(
                         js_error,
                         canonicalized_path,
-                        args_array,
+                        args,
                         identity.into(),
                         self.rt.clone(),
                         None,
@@ -1414,6 +1411,7 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
         )
         .await?;
 
+        let udf_args = parse_udf_args(&scheduled_path.udf_path, udf_args.into_args()?)?;
         let virtual_id = VirtualSchedulerModel::new(&mut tx, scheduling_component.into())
             .schedule(scheduled_path, udf_args, scheduled_ts, context)
             .await?;
@@ -1476,7 +1474,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
     let request = UdfRequest {
         path_and_args: ValidatedPathAndArgs::new_for_tests(
             "path.js:default".parse()?,
-            ConvexArray::empty(),
+            SerializedArgs::from_args(vec![])?,
             None,
         ),
         udf_type: UdfType::Query,

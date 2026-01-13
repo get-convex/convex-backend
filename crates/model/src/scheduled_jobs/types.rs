@@ -15,6 +15,7 @@ use serde::{
 };
 use serde_bytes::ByteBuf;
 use serde_json::Value as JsonValue;
+use sync_types::types::SerializedArgs;
 use value::{
     codegen_convex_serialization,
     ConvexArray,
@@ -46,10 +47,8 @@ pub struct ScheduledJob {
 }
 
 impl ScheduledJob {
-    pub fn udf_args(&self) -> anyhow::Result<ConvexArray> {
-        let args_json: JsonValue = serde_json::from_slice(&self.udf_args_bytes)?;
-        let args = args_json.try_into()?;
-        Ok(args)
+    pub fn udf_args(&self) -> anyhow::Result<SerializedArgs> {
+        Ok(SerializedArgs::from_slice(&self.udf_args_bytes)?)
     }
 }
 

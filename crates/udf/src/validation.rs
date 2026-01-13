@@ -61,11 +61,12 @@ use proptest::arbitrary::Arbitrary;
 use proptest::strategy::Strategy;
 use rand::Rng;
 use serde_json::Value as JsonValue;
+use sync_types::types::SerializedArgs;
 #[cfg(any(test, feature = "testing"))]
 use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
-    ConvexArray,
+    serialized_args_ext::SerializedArgsExt,
     ConvexValue,
     JsonPackedValue,
     NamespacedTableMapping,
@@ -145,7 +146,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
     scheduled_ts: UnixTimestamp,
     udf_ts: UnixTimestamp,
     tx: &mut Transaction<RT>,
-) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
+) -> anyhow::Result<(CanonicalizedComponentFunctionPath, SerializedArgs)> {
     // We validate the following mostly so the developer don't get the timestamp
     // wrong with more than order of magnitude.
     let delta = scheduled_ts.as_secs_f64() - udf_ts.as_secs_f64();
@@ -161,9 +162,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
             format!("{scheduled_ts:?} is more than 5 years in the past")
         ));
     }
-
-    // We do serialize the arguments, so this is likely our fault.
-    let udf_args = parse_udf_args(&path.udf_path, udf_args)?;
+    let udf_args = SerializedArgs::from_args(udf_args)?;
 
     // Even though we might use different version of modules when executing,
     // we do validate that the scheduled function exists at time of scheduling.
@@ -285,7 +284,7 @@ async fn udf_version<RT: Runtime>(
 #[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ValidatedPathAndArgs {
     path: ResolvedComponentFunctionPath,
-    args: ConvexArray,
+    args: SerializedArgs,
     // Not set for system modules.
     npm_version: Option<Version>,
 }
@@ -301,7 +300,7 @@ impl Arbitrary for ValidatedPathAndArgs {
 
         any::<(
             sync_types::CanonicalizedUdfPath,
-            ConvexArray,
+            SerializedArgs,
             ComponentId,
             ComponentPath,
         )>()
@@ -330,7 +329,7 @@ impl ValidatedPathAndArgs {
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
         path: PublicFunctionPath,
-        args: ConvexArray,
+        args: SerializedArgs,
         expected_udf_type: UdfType,
     ) -> anyhow::Result<Result<ValidatedPathAndArgs, JsError>> {
         Self::new_with_returns_validator(allowed_visibility, tx, path, args, expected_udf_type)
@@ -346,7 +345,7 @@ impl ValidatedPathAndArgs {
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
         public_path: PublicFunctionPath,
-        args: ConvexArray,
+        args: SerializedArgs,
         expected_udf_type: UdfType,
     ) -> anyhow::Result<Result<(ValidatedPathAndArgs, ReturnsValidator), JsError>> {
         if public_path.is_system() {
@@ -473,7 +472,7 @@ impl ValidatedPathAndArgs {
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
         path: ResolvedComponentFunctionPath,
-        args: ConvexArray,
+        args: SerializedArgs,
         expected_udf_type: UdfType,
         analyzed_function: AnalyzedFunction,
         version: Version,
@@ -511,7 +510,11 @@ impl ValidatedPathAndArgs {
             ))));
         }
 
-        match validate_udf_args_size(&path.udf_path, &args) {
+        let udf_args = match parse_udf_args(&path.udf_path, args.clone().into_args()?) {
+            Ok(udf_args) => udf_args,
+            Err(err) => return Ok(Err(err)),
+        };
+        match validate_udf_args_size(&path.udf_path, &udf_args) {
             Ok(()) => (),
             Err(err) => return Ok(Err(err)),
         }
@@ -519,10 +522,11 @@ impl ValidatedPathAndArgs {
         let table_mapping = &tx.table_mapping().namespace(path.component.into());
 
         // If the UDF has an args validator, check that these args match.
-        let args_validation_error =
-            analyzed_function
-                .args()?
-                .check_args(&args, table_mapping, virtual_system_mapping())?;
+        let args_validation_error = analyzed_function.args()?.check_args(
+            &udf_args,
+            table_mapping,
+            virtual_system_mapping(),
+        )?;
 
         if let Some(error) = args_validation_error {
             return Ok(Err(JsError::from_message(format!(
@@ -544,7 +548,7 @@ impl ValidatedPathAndArgs {
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_tests(
         udf_path: CanonicalizedUdfPath,
-        args: ConvexArray,
+        args: SerializedArgs,
         npm_version: Option<Version>,
     ) -> Self {
         Self::new_for_tests_in_component(
@@ -560,7 +564,7 @@ impl ValidatedPathAndArgs {
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_tests_in_component(
         path: CanonicalizedComponentFunctionPath,
-        args: ConvexArray,
+        args: SerializedArgs,
         npm_version: Option<Version>,
     ) -> Self {
         Self {
@@ -578,7 +582,13 @@ impl ValidatedPathAndArgs {
         &self.path
     }
 
-    pub fn consume(self) -> (ResolvedComponentFunctionPath, ConvexArray, Option<Version>) {
+    pub fn consume(
+        self,
+    ) -> (
+        ResolvedComponentFunctionPath,
+        SerializedArgs,
+        Option<Version>,
+    ) {
         (self.path, self.args, self.npm_version)
     }
 
@@ -595,10 +605,8 @@ impl ValidatedPathAndArgs {
             component_id,
         }: pb::common::ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
-        let args_json: JsonValue =
-            serde_json::from_slice(&args.ok_or_else(|| anyhow::anyhow!("Missing args"))?)?;
-        let args_value = ConvexValue::try_from(args_json)?;
-        let args = ConvexArray::try_from(args_value)?;
+        let args =
+            SerializedArgs::from_slice(&args.ok_or_else(|| anyhow::anyhow!("Missing args"))?)?;
         let component = ComponentId::deserialize_from_string(component_id.as_deref())?;
         let component_path = component_path
             .context("Missing component path")?
@@ -625,7 +633,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
             npm_version,
         }: ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
-        let args = args.json_serialize()?.into_bytes();
+        let args = args.0.get().as_bytes().to_vec();
         let component_path = path
             .component_path
             .map(|component_path| component_path.into());
@@ -818,7 +826,7 @@ mod test {
 #[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct ValidatedUdfOutcome {
     pub path: CanonicalizedComponentFunctionPath,
-    pub arguments: ConvexArray,
+    pub arguments: SerializedArgs,
     pub identity: InertIdentity,
 
     pub rng_seed: [u8; 32],
@@ -861,7 +869,7 @@ impl ValidatedUdfOutcome {
     pub fn from_error(
         js_error: JsError,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         rt: impl Runtime,
         udf_server_version: Option<semver::Version>,
@@ -934,7 +942,7 @@ impl ValidatedUdfOutcome {
 #[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct ValidatedActionOutcome {
     pub path: CanonicalizedComponentFunctionPath,
-    pub arguments: ConvexArray,
+    pub arguments: SerializedArgs,
     pub identity: InertIdentity,
 
     pub unix_timestamp: UnixTimestamp,
@@ -987,7 +995,7 @@ impl ValidatedActionOutcome {
     pub fn from_error(
         js_error: JsError,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         rt: impl Runtime,
         udf_server_version: Option<semver::Version>,
@@ -1008,7 +1016,7 @@ impl ValidatedActionOutcome {
 
     pub fn from_system_error(
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         unix_timestamp: UnixTimestamp,
         e: &anyhow::Error,

@@ -25,9 +25,10 @@ use model::{
         user_error::FunctionNotFoundError,
     },
 };
+use sync_types::types::SerializedArgs;
 use tokio::sync::oneshot;
 use udf::{
-    helpers::serialize_udf_args,
+    helpers::parse_udf_args,
     FunctionOutcome,
     SyscallTrace,
 };
@@ -103,6 +104,7 @@ use value::{
         HeapSize,
         WithHeapSize,
     },
+    serialized_args_ext::SerializedArgsExt,
     JsonPackedValue,
     NamespacedTableMapping,
     Size,
@@ -170,7 +172,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 
     udf_type: UdfType,
     path: ResolvedComponentFunctionPath,
-    arguments: ConvexArray,
+    arguments: SerializedArgs,
     identity: InertIdentity,
     udf_server_version: Option<semver::Version>,
     client_id: String,
@@ -436,9 +438,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let user_execution_time = execution_time.elapsed;
 
         let success_result_value = result.as_ref().ok();
+        let parsed_args = parse_udf_args(&self.path.udf_path, self.arguments.clone().into_args()?)?;
         Self::add_warnings_to_log_lines(
             &self.path.clone().for_logging(),
-            &self.arguments,
+            &parsed_args,
             execution_time,
             self.phase.execution_size()?,
             self.phase.biggest_document_writes()?,
@@ -635,9 +638,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             },
         };
 
-        let args_str = serialize_udf_args(udf_args)?;
-        metrics::log_argument_length(&args_str);
-        let args_v8_str = v8::String::new(&scope, &args_str)
+        let args_str = udf_args.0.get();
+        metrics::log_argument_length(args_str);
+        let args_v8_str = v8::String::new(&scope, args_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
 
         let invoke: v8::Local<v8::Function> = function

@@ -8,6 +8,7 @@ use std::{
 };
 
 use errors::ErrorMetadata;
+use sync_types::types::SerializedArgs;
 
 use super::size::Size;
 use crate::{
@@ -43,6 +44,11 @@ impl ConvexArray {
             nesting: 1,
             items: WithHeapSize::default(),
         }
+    }
+
+    pub fn into_serialized_args(&self) -> anyhow::Result<SerializedArgs> {
+        let serialized = self.json_serialize()?;
+        Ok(SerializedArgs::from_slice(serialized.as_bytes())?)
     }
 }
 

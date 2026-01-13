@@ -91,7 +91,7 @@ use tokio::sync::{
     oneshot,
 };
 use udf::{
-    helpers::serialize_udf_args,
+    helpers::parse_udf_args,
     validation::ValidatedHttpPath,
     ActionOutcome,
     HttpActionOutcome,
@@ -106,6 +106,7 @@ use udf::{
 };
 use value::{
     heap_size::HeapSize,
+    serialized_args_ext::SerializedArgsExt,
     ConvexArray,
     JsonPackedValue,
     NamespacedTableMapping,
@@ -707,9 +708,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let execution_time = timeout.into_function_execution_time(UdfType::Action);
         let user_execution_time = execution_time.elapsed;
         let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
+        let udf_args = parse_udf_args(&path.udf_path, arguments.clone().into_args()?)?;
         self.add_warnings_to_log_lines_action(
             execution_time,
-            &arguments,
+            &udf_args,
             result.as_ref().ok().and_then(|r| r.as_ref().ok()),
         )?;
         let outcome = ActionOutcome {
@@ -796,9 +798,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .get(&scope, run_str)
             .ok_or_else(|| anyhow!("Couldn't find invoke function in {:?}", path.udf_path))?
             .try_into()?;
-        let args_str = serialize_udf_args(arguments)?;
-        metrics::log_argument_length(&args_str);
-        let args_v8_str = v8::String::new(&scope, &args_str)
+        let args_str = arguments.0.get();
+        metrics::log_argument_length(args_str);
+        let args_v8_str = v8::String::new(&scope, args_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
         // TODO(rebecca): generate uuid4 here
         let request_id_str = "dummy_request_id";

@@ -1,6 +1,10 @@
 use std::{
     collections::BTreeMap,
     fmt::Display,
+    hash::{
+        Hash,
+        Hasher,
+    },
     ops::Deref,
 };
 
@@ -117,6 +121,11 @@ impl PartialEq for SerializedArgs {
 }
 
 impl Eq for SerializedArgs {}
+impl Hash for SerializedArgs {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.get().hash(state);
+    }
+}
 
 impl SerializedArgs {
     pub fn from_args(value: Vec<JsonValue>) -> Result<Self, serde_json::Error> {
@@ -126,6 +135,10 @@ impl SerializedArgs {
 
     pub fn from_slice(value: &[u8]) -> Result<Self, serde_json::Error> {
         Ok(Self(serde_json::from_slice(value)?))
+    }
+
+    pub fn heap_size(&self) -> usize {
+        self.0.get().len()
     }
 }
 

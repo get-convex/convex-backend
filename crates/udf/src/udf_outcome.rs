@@ -14,7 +14,6 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
-    value::ConvexArray,
 };
 use pb::{
     common::{
@@ -26,6 +25,7 @@ use pb::{
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use rand::Rng;
+use sync_types::types::SerializedArgs;
 use value::{
     heap_size::HeapSize,
     JsonPackedValue,
@@ -43,7 +43,7 @@ use crate::{
 )]
 pub struct UdfOutcome {
     pub path: CanonicalizedComponentFunctionPath,
-    pub arguments: ConvexArray,
+    pub arguments: SerializedArgs,
     pub identity: InertIdentity,
     pub observed_identity: bool,
 
@@ -138,7 +138,7 @@ impl UdfOutcome {
     pub fn from_error(
         js_error: JsError,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         rt: impl Runtime,
         udf_server_version: Option<semver::Version>,

@@ -11,7 +11,6 @@ use common::{
         UnixTimestamp,
     },
     types::HttpActionRoute,
-    value::ConvexArray,
 };
 use pb::{
     common::{
@@ -26,6 +25,7 @@ use pb::{
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use semver::Version;
+use sync_types::types::SerializedArgs;
 use value::JsonPackedValue;
 
 #[cfg(any(test, feature = "testing"))]
@@ -53,7 +53,7 @@ pub enum HttpActionResult {
 )]
 pub struct ActionOutcome {
     pub path: CanonicalizedComponentFunctionPath,
-    pub arguments: ConvexArray,
+    pub arguments: SerializedArgs,
     pub identity: InertIdentity,
 
     pub unix_timestamp: UnixTimestamp,
@@ -80,7 +80,7 @@ impl ActionOutcome {
     pub fn from_error(
         js_error: JsError,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         rt: impl Runtime,
         udf_server_version: Option<semver::Version>,

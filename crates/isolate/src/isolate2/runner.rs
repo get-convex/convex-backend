@@ -63,6 +63,7 @@ use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
+use sync_types::types::SerializedArgs;
 use tokio::sync::{
     mpsc::{
         self,
@@ -72,6 +73,7 @@ use tokio::sync::{
     Semaphore,
 };
 use udf::{
+    helpers::parse_udf_args,
     validation::{
         validate_schedule_args,
         ValidatedPathAndArgs,
@@ -80,7 +82,7 @@ use udf::{
     UdfOutcome,
 };
 use value::{
-    ConvexArray,
+    serialized_args_ext::SerializedArgsExt,
     ConvexObject,
     ConvexValue,
     JsonPackedValue,
@@ -573,12 +575,13 @@ async fn run_request<RT: Runtime>(
         key_broker,
         execution_context,
     );
+    let parsed_args = parse_udf_args(udf_path, arguments.clone().into_args()?)?;
     let r: anyhow::Result<_> = try {
         // Update our shared state with the updated table mappings before reentering
         // user code.
         provider.shared.update_table_mappings(provider.tx);
         let (function_id, mut result) = client
-            .start_function(udf_type, udf_path.clone(), arguments.clone())
+            .start_function(udf_type, udf_path.clone(), parsed_args.clone())
             .await?;
         loop {
             let pending = match result {
@@ -670,7 +673,7 @@ async fn run_request<RT: Runtime>(
     let mut log_lines = log_line_rx.await?;
     DatabaseUdfEnvironment::<RT>::add_warnings_to_log_lines(
         &path.clone().for_logging(),
-        &arguments,
+        &parsed_args,
         client.execution_time()?,
         provider.tx.execution_size(),
         provider.tx.biggest_document_writes(),
@@ -904,7 +907,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
         path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
+    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, SerializedArgs)> {
         validate_schedule_args(path, args, scheduled_ts, self.unix_timestamp, self.tx).await
     }
 

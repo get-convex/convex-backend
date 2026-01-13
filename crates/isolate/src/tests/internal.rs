@@ -29,12 +29,12 @@ use model::{
 };
 use must_let::must_let;
 use runtime::testing::TestRuntime;
-use sync_types::CanonicalizedUdfPath;
-use udf::validation::ValidatedPathAndArgs;
-use value::{
-    ConvexArray,
-    TableNamespace,
+use sync_types::{
+    types::SerializedArgs,
+    CanonicalizedUdfPath,
 };
+use udf::validation::ValidatedPathAndArgs;
+use value::TableNamespace;
 
 use crate::test_helpers::UdfTest;
 
@@ -103,7 +103,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(internal_function.clone()),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Mutation,
     )
     .await;
@@ -116,7 +116,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(public_function.clone()),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Mutation,
     )
     .await;
@@ -128,7 +128,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(non_existent_function.clone()),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Mutation,
     )
     .await;
@@ -142,7 +142,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(public_function.clone()),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Query,
     )
     .await;
@@ -165,7 +165,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(internal_function.clone()),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Mutation,
     )
     .await;
@@ -176,7 +176,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(non_existent_function.clone()),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Mutation,
     )
     .await;
@@ -190,7 +190,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(public_function.clone()),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Query,
     )
     .await;

@@ -68,6 +68,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use sync_types::types::SerializedArgs;
 use tokio::sync::oneshot;
 use udf::{
     validation::{
@@ -104,7 +105,6 @@ use value::{
         WithHeapSize,
     },
     sha256::Sha256Digest,
-    ConvexArray,
 };
 
 pub enum OutstandingFunctionState {
@@ -651,7 +651,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         &self,
         e: &anyhow::Error,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         start: tokio::time::Instant,
         caller: FunctionCaller,
@@ -782,7 +782,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         &self,
         e: &anyhow::Error,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         start: tokio::time::Instant,
         caller: FunctionCaller,
@@ -917,7 +917,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         &self,
         e: &anyhow::Error,
         path: CanonicalizedComponentFunctionPath,
-        arguments: ConvexArray,
+        arguments: SerializedArgs,
         identity: InertIdentity,
         start: tokio::time::Instant,
         caller: FunctionCaller,

@@ -24,10 +24,7 @@ use common::{
         AllowedVisibility,
         UdfType,
     },
-    value::{
-        ConvexArray,
-        ConvexValue,
-    },
+    value::ConvexValue,
     version::Version,
 };
 use database::SystemMetadataModel;
@@ -38,7 +35,10 @@ use runtime::{
     prod::ProdRuntime,
     testing::TestRuntime,
 };
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    types::SerializedArgs,
+    CanonicalizedUdfPath,
+};
 use udf::validation::ValidatedPathAndArgs;
 use value::{
     assert_val,
@@ -903,7 +903,7 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
         AllowedVisibility::PublicOnly,
         &mut tx,
         PublicFunctionPath::Component(path),
-        ConvexArray::empty(),
+        SerializedArgs::from_args(vec![])?,
         UdfType::Mutation,
     )
     .await?;

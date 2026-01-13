@@ -90,7 +90,6 @@ use sync_types::{
 };
 use tokio::sync::mpsc;
 use udf::{
-    helpers::serialize_udf_args,
     validation::ValidatedPathAndArgs,
     SyscallStats,
     SyscallTrace,
@@ -597,7 +596,7 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                         "function": &udf_path.function_name()[..],
                     },
                     // The executor expects the args to be a serialized string.
-                    "args": serialize_udf_args(args)?,
+                    "args": args.0.get(),
                     "sourcePackage": JsonValue::from(r.source_package),
                     "backendAddress": backend_address,
                     "timeoutSecs": timeout.as_secs_f64(),

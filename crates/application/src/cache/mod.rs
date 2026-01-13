@@ -40,7 +40,6 @@ use common::{
         Timestamp,
         UdfType,
     },
-    value::ConvexArray,
     RequestId,
 };
 use database::{
@@ -80,6 +79,7 @@ use smallvec::{
     smallvec,
     SmallVec,
 };
+use sync_types::types::SerializedArgs;
 use udf::{
     validation::ValidatedPathAndArgs,
     FunctionOutcome,
@@ -139,7 +139,7 @@ impl InstanceId {
 pub struct RequestedCacheKey {
     instance: InstanceId,
     path: PublicFunctionPath,
-    args: ConvexArray,
+    args: SerializedArgs,
     identity: IdentityCacheKey,
     journal: QueryJournal,
     allowed_visibility: AllowedVisibility,
@@ -237,7 +237,7 @@ impl RequestedCacheKey {
 pub struct StoredCacheKey {
     instance: InstanceId,
     path: PublicFunctionPath,
-    args: ConvexArray,
+    args: SerializedArgs,
     // None means that the query did not read `ctx.auth`.
     identity: Option<IdentityCacheKey>,
     journal: QueryJournal,
@@ -325,7 +325,7 @@ impl<RT: Runtime> CacheManager<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        args: ConvexArray,
+        args: SerializedArgs,
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
@@ -364,7 +364,7 @@ impl<RT: Runtime> CacheManager<RT> {
         &self,
         request_id: RequestId,
         path: PublicFunctionPath,
-        args: ConvexArray,
+        args: SerializedArgs,
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
@@ -1002,7 +1002,7 @@ enum CacheOp<'a> {
         waiting_entry_id: Option<u64>,
         sender: Sender<CacheResult>,
         path: &'a PublicFunctionPath,
-        args: &'a ConvexArray,
+        args: &'a SerializedArgs,
         identity: &'a Identity,
         ts: Timestamp,
         journal: &'a QueryJournal,
@@ -1084,6 +1084,8 @@ mod tests {
                 "function_name".parse().unwrap(),
             ))),
             args: ConvexArray::try_from(with_extra_capacity!(vec![ConvexValue::from(100.)]))
+                .unwrap()
+                .into_serialized_args()
                 .unwrap(),
             identity: Some(IdentityCacheKey::InstanceAdmin(with_extra_capacity!(
                 "admin".to_string()

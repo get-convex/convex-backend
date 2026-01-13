@@ -369,6 +369,7 @@ mod tests {
         Storage,
     };
     use sync_types::{
+        types::SerializedArgs,
         CanonicalizedModulePath,
         ModulePath,
     };
@@ -491,7 +492,7 @@ mod tests {
         let args = create_args(assert_obj!("numbers" => ConvexValue::Array(numbers)))?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:addNumbers".parse()?,
-            args,
+            args.into_serialized_args()?,
             VERSION.clone(),
         );
         let (response, _log_lines) = execute(
@@ -513,7 +514,7 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logHelloWorldAndReturn7".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, log_lines) = execute(
@@ -546,7 +547,7 @@ mod tests {
             ExecuteRequest {
                 path_and_args: ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:getUserIdentity".parse()?,
-                    array![],
+                    SerializedArgs::from_args(vec![])?,
                     VERSION.clone(),
                 ),
                 source_package,
@@ -589,7 +590,7 @@ mod tests {
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:runQuery".parse()?,
-                    args,
+                    args.into_serialized_args()?,
                     VERSION.clone(),
                 ),
                 source_package,
@@ -624,7 +625,7 @@ mod tests {
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:scheduleJob".parse()?,
-                    args,
+                    args.into_serialized_args()?,
                     VERSION.clone(),
                 ),
                 source_package,
@@ -659,7 +660,7 @@ mod tests {
         let source_maps_callback = async { Ok(source_maps) };
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logAndThrowError".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, log_lines) = execute(
@@ -705,7 +706,7 @@ mod tests {
         let source_maps_callback = async { Ok(source_maps) };
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logAndProcessExit".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, log_lines) = execute(
@@ -748,7 +749,7 @@ mod tests {
         ))?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:echoMessage".parse()?,
-            args,
+            args.into_serialized_args()?,
             VERSION.clone(),
         );
         let error = execute(
@@ -789,7 +790,7 @@ mod tests {
         let source_maps_callback = async { Ok(source_maps) };
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:forgotAwait".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, log_lines) = execute(
@@ -823,7 +824,7 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:hello".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, _log_lines) = execute(
@@ -854,7 +855,7 @@ mod tests {
             ExecuteRequest {
                 path_and_args: ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:getTestEnvVar".parse()?,
-                    array![],
+                    SerializedArgs::from_args(vec![])?,
                     VERSION.clone(),
                 ),
                 source_package,
@@ -881,7 +882,7 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:sleepAnHour".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, log_lines) = execute(
@@ -915,7 +916,7 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:partialEscapeSequence".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let err = execute(
@@ -936,7 +937,7 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:workHardForAnHour".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, _log_lines) = execute(
@@ -962,7 +963,7 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:deadlock".parse()?,
-            array![],
+            SerializedArgs::from_args(vec![])?,
             VERSION.clone(),
         );
         let (response, _log_lines) = execute(
@@ -1235,7 +1236,7 @@ export const test = {
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:runQuery".parse()?,
-                    args,
+                    args.into_serialized_args()?,
                     VERSION.clone(),
                 ),
                 source_package.clone(),
@@ -1258,7 +1259,7 @@ export const test = {
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:getUserIdentity".parse()?,
-                    array![],
+                    SerializedArgs::from_args(vec![])?,
                     VERSION.clone(),
                 ),
                 source_package,
