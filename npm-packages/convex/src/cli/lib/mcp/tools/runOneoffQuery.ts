@@ -104,10 +104,18 @@ export const RunOneoffQueryTool: ConvexTool<
         logLines: result.logLines,
       };
     } catch (err) {
+      let errorMessage: string;
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === "string") {
+        errorMessage = err;
+      } else {
+        errorMessage = JSON.stringify(err, null, 2);
+      }
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `Failed to run query: ${(err as Error).toString().trim()}`,
+        printedMessage: `Failed to run query: ${errorMessage}`,
       });
     }
   },
