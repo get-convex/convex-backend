@@ -7,9 +7,20 @@ This app is a messages app built using [Expo](https://expo.dev/) following the
 
 ## Running the App
 
-Run:
+Install dependencies:
 
 ```
 npm install
+```
+
+Set up a Convex dev deployment:
+
+```
+npx convex dev
+```
+
+Start the app:
+
+```
 npm start
 ```

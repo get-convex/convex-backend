@@ -9,12 +9,12 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "convex": "^1.27.4",
-    "expo": "~53.0.20",
-    "expo-status-bar": "~2.2.3",
-    "react": "18.3.1",
-    "react-dom": "^18.2.0",
-    "react-native": "0.80.2",
+    "convex": "^1.31.4",
+    "expo": "^54.0.31",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
     "react-native-dotenv": "^3.4.11",
     "react-native-get-random-values": "~1.11.0"
   },
