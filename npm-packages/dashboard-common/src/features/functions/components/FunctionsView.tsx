@@ -5,7 +5,6 @@ import {
   useModuleFunctions,
 } from "@common/lib/functions/FunctionsProvider";
 import { DirectorySidebar } from "@common/features/functions/components/DirectorySidebar";
-import { FileEditor } from "@common/features/functions/components/FileEditor";
 import { FunctionSummary } from "@common/features/functions/components/FunctionSummary";
 import { PerformanceGraphs } from "@common/features/functions/components/PerformanceGraphs";
 import { SingleGraph } from "@common/features/functions/components/SingleGraph";
@@ -71,7 +70,6 @@ function Functions() {
             </div>
             <div className="-ml-2 flex gap-2 border-b px-6">
               <Tab>Statistics</Tab>
-              <Tab>Code</Tab>
               <Tab>Logs</Tab>
             </div>
           </div>
@@ -79,10 +77,6 @@ function Functions() {
           <HeadlessTabPanels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow overflow-x-auto p-6">
             <HeadlessTabPanel className="grow">
               <PerformanceGraphs />
-            </HeadlessTabPanel>
-
-            <HeadlessTabPanel className="grow">
-              <FileEditor moduleFunction={currentOpenFunction} />
             </HeadlessTabPanel>
 
             <HeadlessTabPanel className="flex min-h-0 min-w-0 grow">

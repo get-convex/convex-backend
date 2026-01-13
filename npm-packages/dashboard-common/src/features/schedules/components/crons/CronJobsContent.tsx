@@ -11,15 +11,13 @@ import {
 } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   CronJobLog,
   CronJobWithRuns,
 } from "system-udfs/convex/_system/frontend/common";
-import { FileModal } from "@common/features/schedules/components/crons/FileModal";
 import { CronsTable } from "@common/features/schedules/components/crons/CronsTable";
 import { useCronJobs } from "@common/features/schedules/lib/CronsProvider";
-import { useSourceCode } from "@common/lib/functions/useSourceCode";
 import { Button } from "@ui/Button";
 import { PageContent } from "@common/elements/PageContent";
 import { LoadingTransition } from "@ui/Loading";
@@ -33,13 +31,10 @@ import { entryOutput } from "@common/lib/useLogs";
 import { EmptySection } from "@common/elements/EmptySection";
 
 export function CronJobsContent() {
-  const { loading, cronJobs, cronsModule, cronJobRuns } = useCronJobs();
-  const [showCronsFile, setShowCronsFile] = useState(false);
+  const { loading, cronJobs, cronJobRuns } = useCronJobs();
   const router = useRouter();
   const detailsCron =
     cronJobs && cronJobs.find((c) => c.name === router.query.id);
-
-  const contents = useSourceCode("crons.js");
 
   let content: React.ReactNode;
   if (!cronJobs || cronJobs.length === 0) {
@@ -54,13 +49,6 @@ export function CronJobsContent() {
   } else {
     content = (
       <div className="flex h-full w-full max-w-6xl flex-col gap-2">
-        {showCronsFile && cronsModule && contents && (
-          <FileModal
-            onClose={() => setShowCronsFile(false)}
-            contents={contents}
-            displayName="crons.js"
-          />
-        )}
         <div className="flex justify-between">
           <div className="flex flex-row items-center justify-between">
             <div className="flex flex-col gap-1">
@@ -70,9 +58,6 @@ export function CronJobsContent() {
               </div>
             </div>
           </div>
-          <Button onClick={() => setShowCronsFile(true)} size="sm">
-            Show crons.js
-          </Button>
         </div>
         <CronsTable cronJobs={cronJobs} />
       </div>
