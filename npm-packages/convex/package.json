@@ -332,7 +332,7 @@
     "typescript": "~5.0.3",
     "typescript-eslint": "~8.38.0",
     "vitest": "^3.2.4",
-    "undici": "7.16.0",
+    "undici": "7.18.2",
     "wait-for-expect": "~4.0.0",
     "ws": "8.18.0",
     "zod": "^3.24.0",
