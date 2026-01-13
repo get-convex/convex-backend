@@ -73,11 +73,13 @@ pub struct TracingGuard {
 }
 
 /// Call this from scripts at startup.
+#[must_use]
 pub fn config_tool() -> TracingGuard {
     config_tracing(io::stderr, Level::ERROR)
 }
 
 /// Call this from services at startup.
+#[must_use]
 pub fn config_service() -> TracingGuard {
     config_tracing(io::stdout, Level::INFO)
 }

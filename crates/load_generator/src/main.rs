@@ -433,7 +433,7 @@ async fn run_preview_deployment_workload(
 }
 
 fn main() -> Result<(), MainError> {
-    config_service();
+    let _guard = config_service();
     tracing::info!("starting up");
     let sentry = sentry::init(sentry::ClientOptions {
         release: Some(format!("load-generator@{}", *SERVER_VERSION_STR).into()),
