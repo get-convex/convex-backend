@@ -400,7 +400,7 @@ export async function executeInner(
     const udfTimeMs = logDurationMs("executeUdf", startExecute);
     return {
       type: "error",
-      message: e?.message ?? "",
+      message: extractErrorMessage(e),
       name: e?.name ?? "",
       data: getConvexErrorData(e),
       frames: e?.__frameData ? JSON.parse(e.__frameData) : [],

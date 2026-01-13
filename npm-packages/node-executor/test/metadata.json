@@ -17,6 +17,7 @@
     "shared.js",
     "third_party.js",
     "third_party.js.map",
+    "throwString.js",
     "transitive.js"
   ],
   "moduleEnvironments": [
@@ -36,6 +37,7 @@
     ["shared.js", "isolate"],
     ["someFolder/someFile.js", "node"],
     ["third_party.js", "isolate"],
+    ["throwString.js", "node"],
     ["transitive.js", "isolate"]
   ]
 }

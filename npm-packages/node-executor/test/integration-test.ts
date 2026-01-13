@@ -252,6 +252,23 @@ async function test_execute_failure() {
   assert.notDeepEqual(response.frames, []);
 }
 
+async function test_execute_failure_non_error() {
+  const { response } = await executeWrapper(
+    "throwString.js",
+    "throwString",
+    "",
+    [],
+  );
+
+  printResponse(response);
+  if (response.type !== "error") {
+    throw new Error(`Unexpected success`);
+  }
+  // Verify that when a non-Error value (like a string) is thrown,
+  // the error message is correctly extracted using extractErrorMessage
+  assert.deepEqual(response.message, "hello world");
+}
+
 async function test_execute_missing_module() {
   const error = await expectFailure(() =>
     executeWrapper("zzz.js", "fibonacci", "very-important-arg", []),
@@ -551,6 +568,7 @@ async function test_logging() {
   await test_execute_env_var();
   await test_execute_env_var_sanitanization();
   await test_execute_failure();
+  await test_execute_failure_non_error();
   await test_execute_missing_module();
   await test_execute_non_convex_action();
   await test_execute_action_returns_number();
