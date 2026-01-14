@@ -14,6 +14,7 @@ use model::{
         types::{
             LogSinksRow,
             SinkConfig,
+            SinkState,
             SinkType,
         },
         LogSinksModel,
@@ -30,7 +31,7 @@ use crate::Application;
 pub struct LogSinkWithId {
     pub id: ResolvedDocumentId,
     pub config: SinkConfig,
-    pub status: model::log_sinks::types::SinkState,
+    pub status: SinkState,
 }
 
 pub async fn add_local_log_sink_on_startup<RT: Runtime>(
@@ -131,7 +132,7 @@ impl<RT: Runtime> Application<RT> {
         let row: ParsedDocument<LogSinksRow> = doc.parse()?;
 
         // Check if the stream is tombstoned (deleted)
-        if row.status == model::log_sinks::types::SinkState::Tombstoned {
+        if row.status == SinkState::Tombstoned {
             return Ok(None);
         }
 
@@ -151,11 +152,11 @@ impl<RT: Runtime> Application<RT> {
             .into_iter()
             .map(|sink| {
                 let id = sink.id();
-                let row = sink.into_value();
+                let value = sink.into_value();
                 LogSinkWithId {
                     id,
-                    config: row.config,
-                    status: row.status,
+                    config: value.config,
+                    status: value.status,
                 }
             })
             .collect();

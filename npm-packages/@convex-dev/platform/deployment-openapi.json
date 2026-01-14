@@ -486,6 +486,7 @@
         "title": "AxiomConfig",
         "required": [
           "id",
+          "status",
           "datasetName",
           "attributes"
         ],
@@ -510,6 +511,10 @@
               "null"
             ],
             "description": "Optional ingest endpoint for Axiom"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
           }
         }
       },
@@ -815,6 +820,7 @@
         "title": "DatadogConfig",
         "required": [
           "id",
+          "status",
           "siteLocation",
           "ddTags"
         ],
@@ -839,6 +845,10 @@
           "siteLocation": {
             "$ref": "#/components/schemas/DatadogSiteLocation",
             "description": "Location of your Datadog deployment."
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
           }
         }
       },
@@ -978,6 +988,85 @@
           }
         ]
       },
+      "LogStreamStatus": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pending"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "restarting"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "reason",
+              "type"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "failed"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "active"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "deleting"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Status of a log stream"
+      },
       "RequestDestination": {
         "type": "string",
         "enum": [
@@ -1012,11 +1101,16 @@
         "type": "object",
         "title": "SentryConfig",
         "required": [
-          "id"
+          "id",
+          "status"
         ],
         "properties": {
           "id": {
             "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
           },
           "tags": {
             "type": [
@@ -1311,6 +1405,7 @@
         "title": "WebhookConfig",
         "required": [
           "id",
+          "status",
           "url",
           "format",
           "hmacSecret"
@@ -1326,6 +1421,10 @@
           },
           "id": {
             "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
           },
           "url": {
             "type": "string",

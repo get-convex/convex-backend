@@ -57,19 +57,30 @@ codegen_convex_serialization!(LogSinksRow, SerializedLogSinksRow);
 /// Status of a configured LogSink
 /// LogSink SinkState state machine:
 /// ```text
-/// +---------+          +--------+
-/// | Pending | -------> | Active |
-/// +---------+          +--------+
-///     |                     |
-///     v                     v
-/// +--------+         +------------+
-/// | Failed |         | Tombstoned | ---> Removed
-/// +--------+         +------------+
+/// +---------+
+/// | Pending |
+/// +---------+
+///      |     |
+///      |     v
+///      |  +--------+
+///      |  | Failed |
+///      |  +--------+
+///      v
+/// +--------+          +------------+
+/// | Active | -------> | Tombstoned | ---> Removed
+/// +--------+          +------------+
+///      |
+///      | (on restart)
+///      v
+/// +------------+
+/// | Restarting | -----> Active
+/// +------------+
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SinkState {
     Pending,
+    Restarting,
     Failed { reason: String },
     Active, // TODO: add health statistics under Active
     Tombstoned,
@@ -80,6 +91,7 @@ pub enum SinkState {
 #[serde(rename_all = "camelCase")]
 pub enum SerializedSinkState {
     Pending,
+    Restarting,
     #[serde(rename_all = "camelCase")]
     Failed {
         reason: String,
@@ -93,6 +105,7 @@ impl From<SinkState> for SerializedSinkState {
     fn from(value: SinkState) -> Self {
         match value {
             SinkState::Pending => SerializedSinkState::Pending,
+            SinkState::Restarting => SerializedSinkState::Restarting,
             SinkState::Failed { reason } => SerializedSinkState::Failed { reason },
             SinkState::Active => SerializedSinkState::Active,
             SinkState::Tombstoned => SerializedSinkState::Tombstoned,
@@ -104,6 +117,7 @@ impl From<SerializedSinkState> for SinkState {
     fn from(value: SerializedSinkState) -> Self {
         match value {
             SerializedSinkState::Pending => SinkState::Pending,
+            SerializedSinkState::Restarting => SinkState::Restarting,
             SerializedSinkState::Failed { reason } => SinkState::Failed { reason },
             SerializedSinkState::Active => SinkState::Active,
             SerializedSinkState::Tombstoned => SinkState::Tombstoned,

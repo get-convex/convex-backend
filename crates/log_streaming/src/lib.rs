@@ -474,7 +474,7 @@ impl<RT: Runtime> LogManager<RT> {
             let sinks = sinks.read();
             let pending_sinks: Vec<_> = sink_rows
                 .iter()
-                .filter(|row| matches!(row.status, SinkState::Pending))
+                .filter(|row| matches!(row.status, SinkState::Pending | SinkState::Restarting))
                 .cloned()
                 .collect();
             let inactive_sinks: Vec<_> = sink_rows
@@ -572,15 +572,15 @@ impl<RT: Runtime> LogManager<RT> {
             }
         }
 
-        // Set inactive rows to `Pending`
+        // Set inactive rows to `Restarting` (skips verification)
         tracing::info!("Found {:} inactive sink(s).", inactive_sinks.len());
         for row in inactive_sinks {
             tracing::info!(
-                "Found log sink with Active status that has not started. Updating to Pending \
+                "Found log sink with Active status that has not started. Updating to Restarting \
                  status and restarting: {}",
                 row.config
             );
-            model.patch_status(row.id(), SinkState::Pending {}).await?;
+            model.patch_status(row.id(), SinkState::Restarting).await?;
         }
 
         // Commit
@@ -599,7 +599,7 @@ impl<RT: Runtime> LogManager<RT> {
         usage_counter: usage_tracking::UsageCounter,
         status: SinkState,
     ) -> anyhow::Result<LogSinkClient> {
-        // Only verify credentials for sinks in Pending state
+        // Only verify credentials for sinks in Pending state (not Restarting)
         let should_verify = matches!(status, SinkState::Pending);
 
         match config {

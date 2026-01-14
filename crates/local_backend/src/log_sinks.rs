@@ -68,6 +68,35 @@ use crate::{
     LocalAppState,
 };
 
+/// Status of a log stream
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub enum LogStreamStatus {
+    Pending,
+    Restarting,
+    #[serde(rename_all = "camelCase")]
+    Failed {
+        reason: String,
+    },
+    Active,
+    #[serde(rename = "deleting")]
+    Tombstoned,
+}
+
+impl From<model::log_sinks::types::SerializedSinkState> for LogStreamStatus {
+    fn from(value: model::log_sinks::types::SerializedSinkState) -> Self {
+        use model::log_sinks::types::SerializedSinkState;
+        match value {
+            SerializedSinkState::Pending => LogStreamStatus::Pending,
+            SerializedSinkState::Restarting => LogStreamStatus::Restarting,
+            SerializedSinkState::Failed { reason } => LogStreamStatus::Failed { reason },
+            SerializedSinkState::Active => LogStreamStatus::Active,
+            SerializedSinkState::Tombstoned => LogStreamStatus::Tombstoned,
+        }
+    }
+}
+
 fn validate_axiom_ingest_url(ingest_url: Option<&String>) -> anyhow::Result<()> {
     if let Some(url) = ingest_url
         && !VALID_AXIOM_INGEST_URLS.contains(&url.as_str())
@@ -715,6 +744,8 @@ enum LogStreamConfig {
 #[schema(title = "DatadogConfig")]
 pub struct DatadogLogStreamConfig {
     pub id: String,
+    /// Status of the log stream
+    pub status: LogStreamStatus,
     /// Location of your Datadog deployment.
     pub site_location: DatadogSiteLocation,
     /// Optional comma-separated list of tags. These are sent to Datadog in each
@@ -730,6 +761,8 @@ pub struct DatadogLogStreamConfig {
 #[schema(title = "WebhookConfig")]
 pub struct WebhookLogStreamConfig {
     pub id: String,
+    /// Status of the log stream
+    pub status: LogStreamStatus,
     /// URL to send logs to.
     pub url: String,
     /// Format for the webhook payload. JSONL sends one object per line of
@@ -744,6 +777,8 @@ pub struct WebhookLogStreamConfig {
 #[schema(title = "AxiomConfig")]
 pub struct AxiomLogStreamConfig {
     pub id: String,
+    /// Status of the log stream
+    pub status: LogStreamStatus,
     /// Name of the dataset in Axiom. This is where the logs will be sent.
     pub dataset_name: String,
     /// Optional list of attributes. These are extra fields and values sent to
@@ -759,33 +794,41 @@ pub struct AxiomLogStreamConfig {
 #[schema(title = "SentryConfig")]
 pub struct SentryLogStreamConfig {
     pub id: String,
+    /// Status of the log stream
+    pub status: LogStreamStatus,
     /// Tags to add to all events routed to Sentry.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<BTreeMap<String, String>>,
 }
 
 fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig> {
+    let status: LogStreamStatus =
+        Into::<model::log_sinks::types::SerializedSinkState>::into(sink.status).into();
     match sink.config {
         SinkConfig::Datadog(config) => Some(LogStreamConfig::Datadog(DatadogLogStreamConfig {
             id: sink.id.to_string(),
+            status,
             site_location: config.site_location,
             dd_tags: config.dd_tags,
             service: config.service,
         })),
         SinkConfig::Webhook(config) => Some(LogStreamConfig::Webhook(WebhookLogStreamConfig {
             id: sink.id.to_string(),
+            status,
             url: config.url.to_string(),
             format: config.format,
             hmac_secret: config.hmac_secret,
         })),
         SinkConfig::Axiom(config) => Some(LogStreamConfig::Axiom(AxiomLogStreamConfig {
             id: sink.id.to_string(),
+            status,
             dataset_name: config.dataset_name,
             attributes: config.attributes,
             ingest_url: config.ingest_url,
         })),
         SinkConfig::Sentry(config) => Some(LogStreamConfig::Sentry(SentryLogStreamConfig {
             id: sink.id.to_string(),
+            status,
             tags: config
                 .tags
                 .map(|tags| tags.into_iter().map(|(k, v)| (k.into(), v)).collect()),
