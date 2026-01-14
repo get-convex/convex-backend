@@ -44,7 +44,7 @@ property:
 
 ```json title="convex.json"
 {
-  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json"
+  "$schema": "./node_modules/convex/schemas/convex.schema.json"
 }
 ```
 
@@ -59,7 +59,7 @@ have the following config:
 
 ```json title="convex.json"
 {
-  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "functions": "src/convex/"
 }
 ```
@@ -91,7 +91,7 @@ NPM package version 1.27.0 or later.
 
 ```json title="convex.json"
 {
-  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "node": {
     "nodeVersion": "22"
   }
@@ -115,7 +115,7 @@ Convex CLI to generate static versions of the `_generated/api.d.ts` and
 
 ```json title="convex.json"
 {
-  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "codegen": {
     "staticApi": true,
     "staticDataModel": true
@@ -154,7 +154,7 @@ version 1.31.1 or later.
 
 ```json title="convex.json"
 {
-  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "typescriptCompiler": "tsgo"
 }
 ```
