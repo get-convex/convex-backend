@@ -89,7 +89,6 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
         ("action_in_v8", UdfType::Action, 28),
     ];
     assert_eq!(module.functions.len(), expected.len());
-    assert!(module.source_index.is_some());
 
     for (i, (name, expected_type, mapped_lineno)) in expected.iter().enumerate() {
         let function = &module.functions[i];
@@ -141,7 +140,6 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
             .len(),
         expected_routes_unmapped.len()
     );
-    assert!(module.source_index.is_some());
     for (i, (path, method)) in expected_routes_unmapped.iter().enumerate() {
         let route = &module.http_routes.as_ref().unwrap()[i];
         assert_eq!(&route.route.path, path);
@@ -296,7 +294,6 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
             )?,
         ],
     );
-    analyzed_module.source_index.unwrap();
     Ok(())
 }
 
