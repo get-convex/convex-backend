@@ -1007,7 +1007,6 @@ pub async fn update_log_stream(
             st.application
                 .patch_log_sink_config(&id, SinkConfig::Datadog(config))
                 .await?;
-            Ok(StatusCode::OK)
         },
         SinkConfig::Webhook(existing_config) => {
             let UpdateLogStreamArgs::Webhook(update_args) = args else {
@@ -1039,7 +1038,6 @@ pub async fn update_log_stream(
             st.application
                 .patch_log_sink_config(&id, SinkConfig::Webhook(config))
                 .await?;
-            Ok(StatusCode::OK)
         },
         SinkConfig::Axiom(existing_config) => {
             let UpdateLogStreamArgs::Axiom(update_args) = args else {
@@ -1081,7 +1079,6 @@ pub async fn update_log_stream(
             st.application
                 .patch_log_sink_config(&id, SinkConfig::Axiom(config))
                 .await?;
-            Ok(StatusCode::OK)
         },
         SinkConfig::Sentry(existing_config) => {
             let UpdateLogStreamArgs::Sentry(update_args) = args else {
@@ -1114,14 +1111,20 @@ pub async fn update_log_stream(
             st.application
                 .patch_log_sink_config(&id, SinkConfig::Sentry(config))
                 .await?;
-            Ok(StatusCode::OK)
         },
-        _ => Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-            "UnsupportedLogStreamType",
-            "This log stream type does not support updates",
-        ))
-        .into()),
+        _ => {
+            return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                "UnsupportedLogStreamType",
+                "This log stream type does not support updates",
+            ))
+            .into())
+        },
     }
+
+    // Reset the log sink status to Pending so that it retries verification
+    st.application.reset_log_sink_to_pending(&id).await?;
+
+    Ok(StatusCode::OK)
 }
 
 pub fn platform_router<S>() -> OpenApiRouter<S>
