@@ -13,6 +13,7 @@ import type * as actions_auth from "../actions/auth.js";
 import type * as actions_externalNodeDeps from "../actions/externalNodeDeps.js";
 import type * as actions_simple from "../actions/simple.js";
 import type * as addUser from "../addUser.js";
+import type * as argsValidation from "../argsValidation.js";
 import type * as auth from "../auth.js";
 import type * as basic from "../basic.js";
 import type * as cachebust from "../cachebust.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "actions/externalNodeDeps": typeof actions_externalNodeDeps;
   "actions/simple": typeof actions_simple;
   addUser: typeof addUser;
+  argsValidation: typeof argsValidation;
   auth: typeof auth;
   basic: typeof basic;
   cachebust: typeof cachebust;
