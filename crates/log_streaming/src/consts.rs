@@ -45,6 +45,7 @@ pub const WEBHOOK_SINK_EVENTS_BUFFER_SIZE: usize = 8;
 pub const WEBHOOK_SINK_INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 pub const WEBHOOK_SINK_MAX_BACKOFF: Duration = Duration::from_secs(60);
 pub const WEBHOOK_SINK_MAX_REQUEST_ATTEMPTS: usize = 6;
+pub const WEBHOOK_SINK_VERIFICATION_MAX_ATTEMPTS: usize = 3;
 pub const WEBHOOK_SINK_MAX_LOGS_PER_BATCH: usize = 128;
 
 // Sentry

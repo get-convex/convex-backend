@@ -202,7 +202,13 @@ impl<RT: Runtime> WebhookSink<RT> {
         // Make request in a loop that retries on transient errors
         let request_id = RequestId::new();
         let execution_id = ExecutionId::new();
-        for _ in 0..consts::WEBHOOK_SINK_MAX_REQUEST_ATTEMPTS {
+        let mut last_error = None;
+        let max_attempts = if is_verification {
+            consts::WEBHOOK_SINK_VERIFICATION_MAX_ATTEMPTS
+        } else {
+            consts::WEBHOOK_SINK_MAX_REQUEST_ATTEMPTS
+        };
+        for _ in 0..max_attempts {
             let response = self
                 .fetch_client
                 .fetch(
@@ -250,17 +256,33 @@ impl<RT: Runtime> WebhookSink<RT> {
                             "Failed to send in Webhook sink: {e}. Waiting {delay:?} before \
                              retrying."
                         );
+                        // Wrap error with ErrorMetadata if it doesn't have it, so the actual
+                        // error message appears in the failure reason
+                        let e = if e.downcast_ref::<ErrorMetadata>().is_none() {
+                            let error_msg = format!("{e}");
+                            anyhow::anyhow!(ErrorMetadata::overloaded(
+                                "WebhookRequestFailed",
+                                error_msg
+                            ))
+                        } else {
+                            e
+                        };
+                        last_error = Some(e);
                         self.runtime.wait(delay).await;
                     }
                 },
             }
         }
 
-        // If we get here, we've exceed the max number of requests
+        // If we get here, we've exceeded the max number of requests
+        // Return the last error which now has ErrorMetadata
+        if let Some(e) = last_error {
+            return Err(e);
+        }
         anyhow::bail!(ErrorMetadata::overloaded(
             "WebhookMaxRetriesExceeded",
             format!(
-                "Exceeded max number of retry requests to webhook {}. Please try again later.",
+                "Exceeded max number of retry requests to webhook {}.",
                 self.config.url.as_str()
             )
         ))
