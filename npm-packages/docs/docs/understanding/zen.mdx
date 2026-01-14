@@ -120,6 +120,19 @@ export function ZenTip({ type, title, children }) {
   );
 }
 
+<div style={{ maxWidth: "560px" }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/dyEWQ9s2ji4?si=ce-M8pt6EWDZ8tfd"
+    title="YouTube video player"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>
+</div>
+
 <span className="convex-hero">
 Convex is an opinionated framework, with every element designed to pull developers into
 [the pit of success](https://blog.codinghorror.com/falling-into-the-pit-of-success/).
