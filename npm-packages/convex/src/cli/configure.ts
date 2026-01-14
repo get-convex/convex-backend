@@ -17,12 +17,7 @@ import {
   checkAccessToSelectedProject,
   validateDeploymentSelectionForExistingDeployment,
 } from "./lib/api.js";
-import {
-  configName,
-  readProjectConfig,
-  upgradeOldAuthInfoToAuthConfig,
-  writeProjectConfig,
-} from "./lib/config.js";
+import { readProjectConfig, writeProjectConfig } from "./lib/config.js";
 import {
   DeploymentDetails,
   eraseDeploymentEnvVar,
@@ -737,10 +732,7 @@ export async function updateEnvAndConfigForDeploymentSelection(
   },
   existingValue: string | null,
 ) {
-  const { configPath, projectConfig: existingProjectConfig } =
-    await readProjectConfig(ctx);
-
-  const functionsPath = functionsDir(configName(), existingProjectConfig);
+  const { configPath, projectConfig } = await readProjectConfig(ctx);
 
   const { wroteToGitIgnore, changedDeploymentEnvVar } =
     await writeDeploymentEnvVar(
@@ -753,14 +745,7 @@ export async function updateEnvAndConfigForDeploymentSelection(
       },
       existingValue,
     );
-  const projectConfig = await upgradeOldAuthInfoToAuthConfig(
-    ctx,
-    existingProjectConfig,
-    functionsPath,
-  );
-  await writeProjectConfig(ctx, projectConfig, {
-    deleteIfAllDefault: true,
-  });
+  await writeProjectConfig(ctx, projectConfig);
   await finalizeConfiguration(ctx, {
     deploymentType: options.deploymentType,
     deploymentName: options.deploymentName,
