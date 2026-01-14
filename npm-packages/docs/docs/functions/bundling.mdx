@@ -149,8 +149,9 @@ in the same directory as your `package.json` if it does not exist already. Set
 the `node.externalPackages` field to `["*"]` to mark all dependencies used
 within your Node actions as external:
 
-```json
+```json title="convex.json"
 {
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "node": {
     "externalPackages": ["*"]
   }
@@ -159,8 +160,9 @@ within your Node actions as external:
 
 Alternatively, you can explicitly specify which packages to mark as external:
 
-```json
+```json title="convex.json"
 {
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "node": {
     "externalPackages": ["aws-sdk", "sharp"]
   }
