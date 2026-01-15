@@ -66,9 +66,6 @@ export default defineConfig([
 
       eqeqeq: ["error", "always"],
 
-      // In uncompiled demos we need to demonstrate `require` syntax
-      "@typescript-eslint/no-var-requires": "off",
-
       // allow (_arg: number) => {}
       "@typescript-eslint/no-unused-vars": [
         "error",
