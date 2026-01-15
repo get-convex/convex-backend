@@ -1,8 +1,5 @@
 {
   "node": {
     "externalPackages": ["*"]
-  },
-  "bundler": {
-    "includeSourcesContent": false
   }
 }

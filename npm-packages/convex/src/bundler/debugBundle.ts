@@ -20,7 +20,7 @@ export async function innerEsbuild({
   plugins,
   chunksFolder,
   logLevel,
-  includeSourcesContent = true,
+  includeSourcesContent = false,
 }: {
   entryPoints: string[];
   platform: esbuild.Platform;

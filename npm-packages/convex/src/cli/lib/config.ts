@@ -138,7 +138,7 @@ const CodegenSchema = z.object({
 const BundlerSchema = z.object({
   includeSourcesContent: z
     .boolean()
-    .default(true)
+    .default(false)
     .describe(
       "Whether to include original source code in source maps. Set to false to reduce bundle size.",
     ),
@@ -169,7 +169,7 @@ const createProjectConfigSchema = (strict: boolean) => {
       staticApi: false,
       staticDataModel: false,
     }),
-    bundler: bundlerSchema.default({ includeSourcesContent: true }).optional(),
+    bundler: bundlerSchema.default({ includeSourcesContent: false }).optional(),
     generateCommonJSApi: z.boolean().default(false),
     typescriptCompiler: z
       .enum(["tsc", "tsgo"])

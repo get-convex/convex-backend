@@ -170,7 +170,7 @@ export async function bundle({
   chunksFolder = "_deps",
   externalPackagesAllowList = [],
   extraConditions = [],
-  includeSourcesContent = true,
+  includeSourcesContent = false,
 }: {
   ctx: Context;
   dir: string;

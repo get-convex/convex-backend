@@ -304,7 +304,7 @@ async function startComponentsPushAndCodegen(
           : [],
         verbose: options.verbose,
         includeSourcesContent:
-          projectConfig.bundler?.includeSourcesContent ?? true,
+          projectConfig.bundler?.includeSourcesContent ?? false,
       }),
     );
   if (options.debugBundlePath) {

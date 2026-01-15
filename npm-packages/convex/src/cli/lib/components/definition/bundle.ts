@@ -625,7 +625,7 @@ export async function bundleImplementations({
   nodeExternalPackages,
   extraConditions,
   verbose = false,
-  includeSourcesContent = true,
+  includeSourcesContent = false,
 }: {
   ctx: Context;
   rootComponentDirectory: ComponentDirectory;
