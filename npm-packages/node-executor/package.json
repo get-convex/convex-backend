@@ -12,7 +12,7 @@
   "dependencies": {
     "adm-zip": "^0.5.10",
     "archiver": "~7.0.0",
-    "commander": "^11.1.0",
+    "commander": "^14.0.2",
     "concat-stream": "^2.0.0",
     "convex": "workspace:*",
     "express": "^5.0.0",
@@ -42,6 +42,6 @@
     "undici": "7.18.2",
     "vitest": "^3.2.4",
     "zod": "^3.24.0",
-    "@commander-js/extra-typings": "^11.1.0"
+    "@commander-js/extra-typings": "^14.0.0"
   }
 }

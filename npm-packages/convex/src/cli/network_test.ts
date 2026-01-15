@@ -16,8 +16,8 @@ export const networkTest = new Command("network-test")
   .addNetworkTestOptions()
   .addDeploymentSelectionOptions(
     actionDescription("Perform the network test on"),
+    { showUrlHelp: true },
   )
-  .option("--url <url>") // unhide help
   .action(async (options) => {
     const ctx = await oneoffContext(options);
     const timeoutSeconds = options.timeout

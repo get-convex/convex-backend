@@ -21,7 +21,7 @@
     "@types/node": "^18.17.0",
     "@types/react": "^18.0.0",
     "@types/ws": "^8.5.13",
-    "commander": "^11.1.0",
+    "commander": "^14.0.2",
     "convex": "workspace:*",
     "esbuild": "0.27.0",
     "react": "^18.0.0",
@@ -30,6 +30,6 @@
     "ws": "8.18.0",
     "eslint": "^8.29.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@commander-js/extra-typings": "^11.1.0"
+    "@commander-js/extra-typings": "^14.0.0"
   }
 }

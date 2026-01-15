@@ -25,8 +25,15 @@ declare module "@commander-js/extra-typings" {
      * NOTE: This method only exists at runtime if this file is imported.
      * To help avoid this bug, this method takes in an `ActionDescription` which
      * can only be constructed via `actionDescription` from this file.
+     *
+     * @param action - The action description
+     * @param options - Optional settings
+     * @param options.showUrlHelp - If true, show the --url option in help output
      */
-    addDeploymentSelectionOptions(action: ActionDescription): Command<
+    addDeploymentSelectionOptions(
+      action: ActionDescription,
+      options?: { showUrlHelp?: boolean },
+    ): Command<
       Args,
       Opts & {
         envFile?: string;
@@ -156,12 +163,18 @@ declare module "@commander-js/extra-typings" {
 
 Command.prototype.addDeploymentSelectionOptions = function (
   action: ActionDescription,
+  options?: { showUrlHelp?: boolean },
 ) {
-  return this.addOption(
-    new Option("--url <url>")
-      .conflicts(["--prod", "--preview-name", "--deployment-name"])
-      .hideHelp(),
-  )
+  const urlOption = new Option(
+    "--url <url>",
+    options?.showUrlHelp
+      ? action + " the deployment at the given URL."
+      : undefined,
+  ).conflicts(["--prod", "--preview-name", "--deployment-name"]);
+  if (!options?.showUrlHelp) {
+    urlOption.hideHelp();
+  }
+  return this.addOption(urlOption)
     .addOption(new Option("--admin-key <adminKey>").hideHelp())
     .addOption(
       new Option(
