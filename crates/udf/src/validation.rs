@@ -633,7 +633,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
             npm_version,
         }: ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
-        let args = args.0.get().as_bytes().to_vec();
+        let args = args.get().as_bytes().to_vec();
         let component_path = path
             .component_path
             .map(|component_path| component_path.into());

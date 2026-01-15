@@ -206,10 +206,12 @@ impl UdfArgsJson {
         // RawValue from serde is guaranteed to have no leading whitespace.
         if self.0.get().starts_with("[") {
             log_legacy_positional_args();
-            return Ok(SerializedArgs(self.0));
+            return Ok(SerializedArgs::from_raw(self.0));
         }
         // For named args - stick it in an array
-        Ok(SerializedArgs(serde_json::value::to_raw_value(&[self.0])?))
+        Ok(SerializedArgs::from_raw(serde_json::value::to_raw_value(
+            &[self.0],
+        )?))
     }
 }
 

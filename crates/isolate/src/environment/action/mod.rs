@@ -798,7 +798,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .get(&scope, run_str)
             .ok_or_else(|| anyhow!("Couldn't find invoke function in {:?}", path.udf_path))?
             .try_into()?;
-        let args_str = arguments.0.get();
+        let args_str = arguments.get();
         metrics::log_argument_length(args_str);
         let args_v8_str = v8::String::new(&scope, args_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;

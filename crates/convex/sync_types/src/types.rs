@@ -111,7 +111,7 @@ pub struct SerializedArgs(
         any(test, feature = "testing"),
         proptest(strategy = "json_raw_args_strategy()")
     )]
-    pub Box<RawValue>,
+    pub(crate) Box<RawValue>,
 );
 
 impl PartialEq for SerializedArgs {
@@ -128,6 +128,10 @@ impl Hash for SerializedArgs {
 }
 
 impl SerializedArgs {
+    pub fn from_raw(value: Box<RawValue>) -> Self {
+        Self(value)
+    }
+
     pub fn from_args(value: Vec<JsonValue>) -> Result<Self, serde_json::Error> {
         let raw_value = serde_json::value::to_raw_value(&value)?;
         Ok(Self(raw_value))
@@ -139,6 +143,10 @@ impl SerializedArgs {
 
     pub fn heap_size(&self) -> usize {
         self.0.get().len()
+    }
+
+    pub fn get(&self) -> &str {
+        self.0.get()
     }
 }
 

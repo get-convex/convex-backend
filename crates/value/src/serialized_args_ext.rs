@@ -9,7 +9,7 @@ pub trait SerializedArgsExt {
 
 impl SerializedArgsExt for SerializedArgs {
     fn into_args(self) -> anyhow::Result<Vec<JsonValue>> {
-        serde_json::from_str(self.0.get()).context(ErrorMetadata::bad_request(
+        serde_json::from_str(self.get()).context(ErrorMetadata::bad_request(
             "InvalidArguments",
             "Invalid arguments provided",
         ))

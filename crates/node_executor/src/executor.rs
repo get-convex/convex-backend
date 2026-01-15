@@ -596,7 +596,7 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                         "function": &udf_path.function_name()[..],
                     },
                     // The executor expects the args to be a serialized string.
-                    "args": args.0.get(),
+                    "args": args.get(),
                     "sourcePackage": JsonValue::from(r.source_package),
                     "backendAddress": backend_address,
                     "timeoutSecs": timeout.as_secs_f64(),
