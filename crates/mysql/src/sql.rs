@@ -553,7 +553,10 @@ static DELETE_TABLET_CHUNK_QUERIES: LazyLock<HashMap<bool, String>> = LazyLock::
             };
             (
                 multitenant,
-                format!("DELETE FROM @db_name.documents WHERE {where_clause} LIMIT ?",),
+                format!(
+                    "DELETE /*+ INDEX(documents documents_by_table_and_id) */ FROM \
+                     @db_name.documents WHERE {where_clause} LIMIT ?",
+                ),
             )
         })
         .collect()
