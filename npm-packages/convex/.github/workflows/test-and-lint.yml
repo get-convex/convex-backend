@@ -23,8 +23,8 @@ jobs:
         with:
           node-version: "20.19.5"
 
-      - name: NPM v8
-        run: npm install -g npm@8 --registry=https://registry.npmjs.org
+      - name: NPM v10
+        run: npm install -g npm@10 --registry=https://registry.npmjs.org
 
       - run: npm i
 
