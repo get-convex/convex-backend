@@ -106,8 +106,8 @@
     "react-dom": ["^19.2.3", "^18.3.1"],
     //"typescript": ["^5"],
     "@types/node": ["^20", "^22.5.4"],
-    "@types/react": ["^18", "^18.3.17", "^18.2.65"],
-    "@types/react-dom": ["^18", "^18.3.1", "^18.2.21"],
+    "@types/react": ["^18", "^18.3.17", "^18.2.65", "^19.2.3"],
+    "@types/react-dom": ["^18", "^18.3.1", "^18.2.21", "^19.2.3"],
     "typescript-eslint": ["^8.45.0"],
     "@typescript-eslint/eslint-plugin": ["^6.7.4"], // TODO(nicolas) Update the dashboard ESLint config
     "@typescript-eslint/parser": ["^6.7.4"], // TODO(nicolas) Update the dashboard ESLint config

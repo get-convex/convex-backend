@@ -1,0 +1,6 @@
+{
+  "node": {
+    "externalPackages": ["sharp"]
+  },
+  "$schema": "./node_modules/convex/schemas/convex.schema.json"
+}

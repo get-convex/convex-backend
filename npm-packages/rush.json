@@ -443,6 +443,10 @@
       "projectFolder": "demos/tutorial"
     },
     {
+      "packageName": "test-project",
+      "projectFolder": "private-demos/test-project"
+    },
+    {
       "packageName": "convex-analytics",
       "projectFolder": "convex-analytics"
     },
