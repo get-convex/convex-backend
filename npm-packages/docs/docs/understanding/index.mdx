@@ -267,6 +267,19 @@ guarantees prevent common failure modes.
 
 ## Learn more
 
+<div style={{ maxWidth: "560px" }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/3d29eKJ2Vws"
+    title="YouTube video player"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerPolicy="strict-origin-when-cross-origin"
+    allowFullScreen
+  ></iframe>
+</div>
+
 If you are intrigued about the details of how Convex pulls this all off, you can
 read Convex co-founder Sujay's excellent
 [How Convex Works](https://stack.convex.dev/how-convex-works) blog post.
