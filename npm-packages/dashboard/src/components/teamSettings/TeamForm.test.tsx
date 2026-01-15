@@ -4,14 +4,18 @@ import { TeamResponse } from "generatedApi";
 import userEvent from "@testing-library/user-event";
 import { TeamForm, TeamFormProps } from "./TeamForm";
 
-const locationMock = jest.fn();
-
 // Mock out location to prevent
 // Error: Not implemented: navigation (except hash changes)
-delete (window as any).location;
-Object.defineProperty(window, "location", {
-  value: locationMock,
-  writable: true,
+// In Jest 30 with JSDOM v22, window.location is non-configurable,
+// so we define it on Window.prototype instead
+Object.defineProperty(Window.prototype, "location", {
+  get: () => ({
+    href: "",
+    assign: jest.fn(),
+    replace: jest.fn(),
+    reload: jest.fn(),
+  }),
+  configurable: true,
 });
 
 describe("<TeamForm />", () => {
@@ -58,8 +62,6 @@ describe("<TeamForm />", () => {
       referralCode: "CODE123",
     };
   });
-
-  afterEach(() => locationMock.mockClear());
 
   it("should load team into form", () => {
     setup();

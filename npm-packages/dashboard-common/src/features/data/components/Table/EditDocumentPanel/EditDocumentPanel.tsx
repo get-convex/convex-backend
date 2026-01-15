@@ -45,7 +45,11 @@ export function EditDocumentPanel({
 }: EditDocumentPanelProps) {
   const [drafts, setDrafts] = useDocumentDrafts();
   const defaultDocumentWithoutSystemFields = useMemo(
-    () => omitBy(defaultDocument, (v, key) => key.startsWith("_")),
+    () =>
+      omitBy(
+        defaultDocument,
+        (v, key) => typeof key === "string" && key.startsWith("_"),
+      ),
     [defaultDocument],
   );
 

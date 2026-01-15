@@ -7,7 +7,7 @@
     "build": ""
   },
   "dependencies": {
-    "jest": "^29.6.0",
+    "jest": "^30.0.0",
     "js-sha256": "~0.11.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
@@ -16,9 +16,9 @@
   },
   "devDependencies": {
     "@babel/preset-env": "^7.27.1",
-    "@jest/types": "^29.6.0",
+    "@jest/types": "^30.0.0",
     "@testing-library/react": "~16.3.0",
-    "@types/jest": "^27.0.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^18.17.0",
     "@types/node-fetch": "^2.6.1",
     "@types/react": "^18.0.0",
