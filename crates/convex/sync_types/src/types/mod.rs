@@ -32,6 +32,8 @@ use crate::{
     UdfPath,
 };
 
+mod json;
+
 #[derive(
     Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize, Hash,
 )]
@@ -111,7 +113,7 @@ pub struct SerializedArgs(
         any(test, feature = "testing"),
         proptest(strategy = "json_raw_args_strategy()")
     )]
-    pub(crate) Box<RawValue>,
+    Box<RawValue>,
 );
 
 impl PartialEq for SerializedArgs {

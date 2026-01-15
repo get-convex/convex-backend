@@ -1021,12 +1021,10 @@ mod tests {
     use super::{
         string_to_u64,
         u64_to_string,
+        ClientMessageJson,
+        ClientMessageJsonInner,
     };
     use crate::{
-        json::{
-            ClientMessageJson,
-            ClientMessageJsonInner,
-        },
         testing::assert_roundtrips,
         ClientMessage,
         QueryId,
