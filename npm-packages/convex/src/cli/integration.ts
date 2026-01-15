@@ -26,8 +26,16 @@ import {
   getWorkosEnvironmentHealth,
   getWorkosTeamHealth,
   inviteToWorkosTeam,
+  listProjectWorkOSEnvironments,
+  createProjectWorkOSEnvironment,
+  deleteProjectWorkOSEnvironment,
 } from "./lib/workos/platformApi.js";
-import { logFinishedStep, logMessage } from "../bundler/log.js";
+import {
+  logFinishedStep,
+  logMessage,
+  showSpinner,
+  stopSpinner,
+} from "../bundler/log.js";
 import { promptOptions, promptYesNo } from "./lib/utils/prompts.js";
 
 async function selectEnvDeployment(
@@ -389,6 +397,177 @@ const workosInvite = new Command("invite")
     }
   });
 
+// Project environment commands
+const workosProjectEnvList = new Command("list-project-environments")
+  .summary("List WorkOS environments for current project")
+  .description(
+    "List all WorkOS AuthKit environments created for the current project.\n" +
+      "These environments can be used across multiple deployments.",
+  )
+  .addDeploymentSelectionOptions(
+    actionDescription("List project environments for"),
+  )
+  .action(async (_options, cmd) => {
+    const options = cmd.optsWithGlobals();
+    const { ctx, deployment } = await selectEnvDeployment(options);
+
+    const info = await fetchTeamAndProject(ctx, deployment.deploymentName);
+
+    logMessage("Fetching project WorkOS environments...");
+
+    try {
+      const environments = await listProjectWorkOSEnvironments(
+        ctx,
+        info.projectId,
+      );
+
+      if (environments.length === 0) {
+        logMessage("No WorkOS environments found for this project.");
+        logMessage(
+          chalkStderr.gray(
+            "Create one with: npx convex integration workos create-project-environment --name <name>",
+          ),
+        );
+      } else {
+        logMessage(chalkStderr.bold("WorkOS Project Environments:"));
+        for (const env of environments) {
+          const prodLabel = env.isProduction
+            ? chalkStderr.yellow(" (production)")
+            : "";
+          logMessage(
+            `  ${chalkStderr.green(env.userEnvironmentName)}${prodLabel} - Client ID: ${env.workosClientId}`,
+          );
+        }
+      }
+    } catch (error) {
+      logMessage(
+        chalkStderr.red(`Failed to list environments: ${String(error)}`),
+      );
+    }
+  });
+
+const workosProjectEnvCreate = new Command("create-project-environment")
+  .summary("Create a new WorkOS environment for the project")
+  .description(
+    "Create a new WorkOS AuthKit environment for this project.\n" +
+      "The environment can be used across multiple deployments.",
+  )
+  .requiredOption("--name <name>", "Name for the new environment")
+  .option("--production", "Mark this environment as a production environment")
+  .addDeploymentSelectionOptions(
+    actionDescription("Create project environment for"),
+  )
+  .action(async (_options, cmd) => {
+    const options = cmd.optsWithGlobals();
+    const environmentName = options.name as string;
+    const isProduction = options.production as boolean | undefined;
+    const { ctx, deployment } = await selectEnvDeployment(options);
+
+    const info = await fetchTeamAndProject(ctx, deployment.deploymentName);
+
+    showSpinner(
+      `Creating project-level WorkOS environment '${environmentName}'...`,
+    );
+
+    try {
+      const response = await createProjectWorkOSEnvironment(
+        ctx,
+        info.projectId,
+        environmentName,
+        isProduction,
+      );
+
+      stopSpinner();
+      logFinishedStep(`Created WorkOS environment '${environmentName}'`);
+
+      logMessage("");
+      logMessage(chalkStderr.bold("Environment Details:"));
+      logMessage(`  Name: ${response.userEnvironmentName}`);
+      logMessage(`  Client ID: ${response.workosClientId}`);
+      logMessage(`  API Key: ${response.workosApiKey}`);
+    } catch (error: any) {
+      stopSpinner();
+      if (error?.message?.includes("NoWorkOSTeam")) {
+        logMessage(
+          chalkStderr.red(
+            "Your team doesn't have a WorkOS integration configured yet.",
+          ),
+        );
+        logMessage(
+          "Please run 'npx convex integration workos provision-team' first.",
+        );
+      } else if (error?.message?.includes("duplicate")) {
+        logMessage(
+          chalkStderr.red(
+            `An environment named '${environmentName}' already exists for this project.`,
+          ),
+        );
+      } else if (error?.message?.includes("TooManyEnvironments")) {
+        logMessage(
+          chalkStderr.red(
+            "You've reached the limit of 10 WorkOS environments per project. If you need more, please contact support.",
+          ),
+        );
+      } else {
+        logMessage(chalkStderr.red(`Failed to create environment: ${error}`));
+      }
+    }
+  });
+
+const workosProjectEnvDelete = new Command("delete-project-environment")
+  .summary("Delete a WorkOS environment from the project")
+  .description(
+    "Delete a WorkOS environment from this project.\n" +
+      "This will permanently remove the environment and its credentials.\n" +
+      "Use the client ID shown in list-project-environments output.",
+  )
+  .requiredOption(
+    "--client-id <clientId>",
+    "WorkOS client ID of the environment to delete (shown in list output)",
+  )
+  .addDeploymentSelectionOptions(
+    actionDescription("Delete project environment for"),
+  )
+  .action(async (_options, cmd) => {
+    const options = cmd.optsWithGlobals();
+    const clientId = options.clientId as string;
+    const { ctx, deployment } = await selectEnvDeployment(options);
+
+    const info = await fetchTeamAndProject(ctx, deployment.deploymentName);
+
+    // Confirm deletion
+    const confirmed = await promptYesNo(ctx, {
+      message: `Are you sure you want to delete environment with client ID '${clientId}'?`,
+      default: false,
+    });
+
+    if (!confirmed) {
+      logMessage("Deletion cancelled.");
+      return;
+    }
+
+    showSpinner(
+      `Deleting project WorkOS environment (this can take a while)...`,
+    );
+
+    try {
+      await deleteProjectWorkOSEnvironment(ctx, info.projectId, clientId);
+      stopSpinner();
+      logFinishedStep(`Deleted environment with client ID '${clientId}'`);
+    } catch (error: any) {
+      stopSpinner();
+      if (error?.message?.includes("not found")) {
+        logMessage(
+          chalkStderr.red(
+            `Environment with client ID '${clientId}' not found.`,
+          ),
+        );
+      } else {
+        logMessage(chalkStderr.red(`Failed to delete environment: ${error}`));
+      }
+    }
+  });
+
 const workos = new Command("workos")
   .summary("WorkOS integration commands")
   .description("Manage WorkOS team provisioning and environment setup")
@@ -396,7 +575,10 @@ const workos = new Command("workos")
   .addCommand(workosTeamStatus)
   .addCommand(workosProvisionTeam)
   .addCommand(workosDisconnectTeam)
-  .addCommand(workosInvite);
+  .addCommand(workosInvite)
+  .addCommand(workosProjectEnvList)
+  .addCommand(workosProjectEnvCreate)
+  .addCommand(workosProjectEnvDelete);
 
 export const integration = new Command("integration")
   .summary("Integration commands")

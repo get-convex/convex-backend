@@ -3124,6 +3124,168 @@
         }
       }
     },
+    "/projects/{project_id}/workos_environments": {
+      "get": {
+        "description": "List all WorkOS environments for a project",
+        "operationId": "get_project_workos_environments",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetProjectEnvironmentsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Create a new WorkOS environment for a project",
+        "operationId": "provision_project_workos_environment",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionProjectEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionProjectEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/workos_environments/{client_id}": {
+      "get": {
+        "description": "Get a specific WorkOS environment for a project including credentials. This action is audited.",
+        "operationId": "get_project_workos_environment",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetProjectEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workos/delete_project_environment": {
+      "post": {
+        "description": "Delete a WorkOS environment from a project",
+        "operationId": "delete_project_environment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteProjectEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteProjectEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workos/check_project_environment_health": {
+      "post": {
+        "description": "Check the health of a project WorkOS environment. Returns HTTP error on failure.",
+        "operationId": "check_project_environment_health",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckProjectEnvironmentHealthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOSEnvironmentHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/enable_sso": {
       "post": {
         "operationId": "enable_sso",
@@ -3430,6 +3592,9 @@
           "retrieveWorkosEnvironmentCredentials",
           "disconnectWorkosTeam",
           "inviteWorkosTeamMember",
+          "createProjectWorkosEnvironment",
+          "deleteProjectWorkosEnvironment",
+          "retrieveProjectWorkosEnvironmentCredentials",
           "enableSSO",
           "disableSSO",
           "updateSSO"
@@ -3832,6 +3997,25 @@
         },
         "additionalProperties": false
       },
+      "CheckProjectEnvironmentHealthRequest": {
+        "type": "object",
+        "required": [
+          "projectId",
+          "clientId"
+        ],
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "description": "WorkOS client ID"
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Project ID",
+            "minimum": 0
+          }
+        }
+      },
       "CloudBackupId": {
         "type": "integer",
         "format": "int64",
@@ -4086,6 +4270,45 @@
           }
         },
         "additionalProperties": false
+      },
+      "DeleteProjectEnvironmentRequest": {
+        "type": "object",
+        "required": [
+          "projectId",
+          "clientId"
+        ],
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "description": "WorkOS client ID of the environment to delete"
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Project ID for the environment to delete",
+            "minimum": 0
+          }
+        }
+      },
+      "DeleteProjectEnvironmentResponse": {
+        "type": "object",
+        "description": "Response for deleting a project environment - matches\nDeleteWorkOSEnvironmentResponse",
+        "required": [
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosTeamId"
+        ],
+        "properties": {
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          },
+          "workosTeamId": {
+            "type": "string"
+          }
+        }
       },
       "DeleteProjectsArgs": {
         "type": "object",
@@ -4585,6 +4808,53 @@
               "boolean",
               "null"
             ]
+          }
+        }
+      },
+      "GetProjectEnvironmentResponse": {
+        "type": "object",
+        "description": "Response for getting a project WorkOS environment with credentials - matches\nProvisionProjectEnvironmentResponse pattern with workos_ prefix",
+        "required": [
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosClientId",
+          "workosApiKey",
+          "userEnvironmentName",
+          "isProduction"
+        ],
+        "properties": {
+          "isProduction": {
+            "type": "boolean"
+          },
+          "userEnvironmentName": {
+            "type": "string",
+            "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
+          },
+          "workosApiKey": {
+            "type": "string"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          }
+        }
+      },
+      "GetProjectEnvironmentsResponse": {
+        "type": "object",
+        "required": [
+          "environments"
+        ],
+        "properties": {
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectEnvironmentSummary"
+            }
           }
         }
       },
@@ -5372,6 +5642,35 @@
           }
         }
       },
+      "ProjectEnvironmentSummary": {
+        "type": "object",
+        "description": "Summary of a project WorkOS environment for list responses - slimmer than\nfull environment details, uses workos_ prefix for consistency with\ndeployment",
+        "required": [
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosClientId",
+          "userEnvironmentName",
+          "isProduction"
+        ],
+        "properties": {
+          "isProduction": {
+            "type": "boolean"
+          },
+          "userEnvironmentName": {
+            "type": "string",
+            "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          }
+        }
+      },
       "ProjectId": {
         "type": "integer",
         "format": "int64",
@@ -5506,6 +5805,56 @@
           },
           "newlyProvisioned": {
             "type": "boolean"
+          }
+        }
+      },
+      "ProvisionProjectEnvironmentRequest": {
+        "type": "object",
+        "required": [
+          "environmentName"
+        ],
+        "properties": {
+          "environmentName": {
+            "type": "string"
+          },
+          "isProduction": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "ProvisionProjectEnvironmentResponse": {
+        "type": "object",
+        "description": "Response for provisioning a project WorkOS environment - matches\nProvisionEnvironmentResponse pattern with workos_ prefix for consistency",
+        "required": [
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosClientId",
+          "workosApiKey",
+          "newlyProvisioned",
+          "userEnvironmentName"
+        ],
+        "properties": {
+          "newlyProvisioned": {
+            "type": "boolean"
+          },
+          "userEnvironmentName": {
+            "type": "string",
+            "description": "The user-provided environment name (e.g., \"staging\", \"development\")"
+          },
+          "workosApiKey": {
+            "type": "string"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
           }
         }
       },

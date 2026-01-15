@@ -223,6 +223,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/workos_environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all WorkOS environments for a project */
+        get: operations["get_project_workos_environments"];
+        put?: never;
+        /** @description Create a new WorkOS environment for a project */
+        post: operations["provision_project_workos_environment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/workos_environments/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get a specific WorkOS environment for a project including credentials. This action is audited. */
+        get: operations["get_project_workos_environment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workos/delete_project_environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Delete a WorkOS environment from a project */
+        post: operations["delete_project_environment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workos/check_project_environment_health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Check the health of a project WorkOS environment. Returns HTTP error on failure. */
+        post: operations["check_project_environment_health"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -230,6 +299,31 @@ export interface components {
         AvailableWorkOSTeamEmailsResponse: {
             availableEmails: string[];
             usedEmails: string[];
+        };
+        CheckProjectEnvironmentHealthRequest: {
+            /** @description WorkOS client ID */
+            clientId: string;
+            /**
+             * Format: int64
+             * @description Project ID
+             */
+            projectId: number;
+        };
+        DeleteProjectEnvironmentRequest: {
+            /** @description WorkOS client ID of the environment to delete */
+            clientId: string;
+            /**
+             * Format: int64
+             * @description Project ID for the environment to delete
+             */
+            projectId: number;
+        };
+        /** @description Response for deleting a project environment - matches
+         *     DeleteWorkOSEnvironmentResponse */
+        DeleteProjectEnvironmentResponse: {
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
+            workosTeamId: string;
         };
         DeleteWorkOSEnvironmentRequest: {
             /** @description Deployment name for the environment to delete */
@@ -252,6 +346,20 @@ export interface components {
             deploymentName: string;
             environmentName?: string | null;
             isProduction?: boolean | null;
+        };
+        /** @description Response for getting a project WorkOS environment with credentials - matches
+         *     ProvisionProjectEnvironmentResponse pattern with workos_ prefix */
+        GetProjectEnvironmentResponse: {
+            isProduction: boolean;
+            /** @description The user-provided environment name (e.g., "staging", "development") */
+            userEnvironmentName: string;
+            workosApiKey: string;
+            workosClientId: string;
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
+        };
+        GetProjectEnvironmentsResponse: {
+            environments: components["schemas"]["ProjectEnvironmentSummary"][];
         };
         HasAssociatedWorkOSTeamRequest: {
             deploymentName: string;
@@ -302,6 +410,17 @@ export interface components {
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
         };
+        /** @description Summary of a project WorkOS environment for list responses - slimmer than
+         *     full environment details, uses workos_ prefix for consistency with
+         *     deployment */
+        ProjectEnvironmentSummary: {
+            isProduction: boolean;
+            /** @description The user-provided environment name (e.g., "staging", "development") */
+            userEnvironmentName: string;
+            workosClientId: string;
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
+        };
         /** Format: int64 */
         ProjectId: number;
         ProjectName: string;
@@ -312,6 +431,21 @@ export interface components {
             environmentId: string;
             environmentName: string;
             newlyProvisioned: boolean;
+        };
+        ProvisionProjectEnvironmentRequest: {
+            environmentName: string;
+            isProduction?: boolean | null;
+        };
+        /** @description Response for provisioning a project WorkOS environment - matches
+         *     ProvisionEnvironmentResponse pattern with workos_ prefix for consistency */
+        ProvisionProjectEnvironmentResponse: {
+            newlyProvisioned: boolean;
+            /** @description The user-provided environment name (e.g., "staging", "development") */
+            userEnvironmentName: string;
+            workosApiKey: string;
+            workosClientId: string;
+            workosEnvironmentId: string;
+            workosEnvironmentName: string;
         };
         ProvisionWorkOSTeamRequest: {
             /** @description Email address to use for the WorkOS team admin,
@@ -367,11 +501,16 @@ export interface components {
     pathItems: never;
 }
 export type AvailableWorkOsTeamEmailsResponse = components['schemas']['AvailableWorkOSTeamEmailsResponse'];
+export type CheckProjectEnvironmentHealthRequest = components['schemas']['CheckProjectEnvironmentHealthRequest'];
+export type DeleteProjectEnvironmentRequest = components['schemas']['DeleteProjectEnvironmentRequest'];
+export type DeleteProjectEnvironmentResponse = components['schemas']['DeleteProjectEnvironmentResponse'];
 export type DeleteWorkOsEnvironmentRequest = components['schemas']['DeleteWorkOSEnvironmentRequest'];
 export type DeleteWorkOsEnvironmentResponse = components['schemas']['DeleteWorkOSEnvironmentResponse'];
 export type DisconnectWorkOsTeamRequest = components['schemas']['DisconnectWorkOSTeamRequest'];
 export type DisconnectWorkOsTeamResponse = components['schemas']['DisconnectWorkOSTeamResponse'];
 export type GetOrProvisionEnvironmentRequest = components['schemas']['GetOrProvisionEnvironmentRequest'];
+export type GetProjectEnvironmentResponse = components['schemas']['GetProjectEnvironmentResponse'];
+export type GetProjectEnvironmentsResponse = components['schemas']['GetProjectEnvironmentsResponse'];
 export type HasAssociatedWorkOsTeamRequest = components['schemas']['HasAssociatedWorkOSTeamRequest'];
 export type HasAssociatedWorkOsTeamResponse = components['schemas']['HasAssociatedWorkOSTeamResponse'];
 export type InvitationEligibleEmailsResponse = components['schemas']['InvitationEligibleEmailsResponse'];
@@ -380,10 +519,13 @@ export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOS
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
+export type ProjectEnvironmentSummary = components['schemas']['ProjectEnvironmentSummary'];
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
 export type ProvisionEnvironmentResponse = components['schemas']['ProvisionEnvironmentResponse'];
+export type ProvisionProjectEnvironmentRequest = components['schemas']['ProvisionProjectEnvironmentRequest'];
+export type ProvisionProjectEnvironmentResponse = components['schemas']['ProvisionProjectEnvironmentResponse'];
 export type ProvisionWorkOsTeamRequest = components['schemas']['ProvisionWorkOSTeamRequest'];
 export type ProvisionWorkOsTeamResponse = components['schemas']['ProvisionWorkOSTeamResponse'];
 export type ReferralCode = components['schemas']['ReferralCode'];
@@ -574,7 +716,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Convex team ID */
+                team_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -676,6 +821,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProvisionWorkOSTeamResponse"];
+                };
+            };
+        };
+    };
+    get_project_workos_environments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetProjectEnvironmentsResponse"];
+                };
+            };
+        };
+    };
+    provision_project_workos_environment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionProjectEnvironmentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvisionProjectEnvironmentResponse"];
+                };
+            };
+        };
+    };
+    get_project_workos_environment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: number;
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetProjectEnvironmentResponse"];
+                };
+            };
+        };
+    };
+    delete_project_environment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteProjectEnvironmentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteProjectEnvironmentResponse"];
+                };
+            };
+        };
+    };
+    check_project_environment_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckProjectEnvironmentHealthRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOSEnvironmentHealthResponse"];
                 };
             };
         };

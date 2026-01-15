@@ -581,6 +581,15 @@ function EntryAction({
     case "updateSSO": {
       return <span>updated SSO settings</span>;
     }
+    case "createProjectWorkosEnvironment": {
+      return <span>created a project WorkOS environment</span>;
+    }
+    case "deleteProjectWorkosEnvironment": {
+      return <span>deleted a project WorkOS environment</span>;
+    }
+    case "retrieveProjectWorkosEnvironmentCredentials": {
+      return <span>retrieved project WorkOS environment credentials</span>;
+    }
     default:
       action satisfies never;
       captureMessage(`Unhandled audit log action: ${action}`, "error");

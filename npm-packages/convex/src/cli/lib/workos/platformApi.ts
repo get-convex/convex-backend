@@ -8,6 +8,16 @@ import {
 } from "../utils/utils.js";
 import { components } from "../../generatedApi.js";
 
+// Re-export generated types for convenience
+export type ProjectEnvironmentSummary =
+  components["schemas"]["ProjectEnvironmentSummary"];
+export type ProvisionProjectEnvironmentResponse =
+  components["schemas"]["ProvisionProjectEnvironmentResponse"];
+export type GetProjectEnvironmentResponse =
+  components["schemas"]["GetProjectEnvironmentResponse"];
+export type DeleteProjectEnvironmentResponse =
+  components["schemas"]["DeleteProjectEnvironmentResponse"];
+
 /**
  * Verified emails for a user that aren't known to be an admin email for
  * another WorkOS integration.
@@ -298,4 +308,58 @@ export async function inviteToWorkosTeam(
     }
     return await logAndHandleFetchError(ctx, error);
   }
+}
+
+// Project environment API functions
+export async function listProjectWorkOSEnvironments(
+  ctx: Context,
+  projectId: number,
+): Promise<ProjectEnvironmentSummary[]> {
+  const response = await bigBrainAPI<
+    components["schemas"]["GetProjectEnvironmentsResponse"]
+  >({
+    ctx,
+    method: "GET",
+    url: `projects/${projectId}/workos_environments`,
+  });
+  return response.environments;
+}
+
+export async function createProjectWorkOSEnvironment(
+  ctx: Context,
+  projectId: number,
+  environmentName: string,
+  isProduction?: boolean,
+): Promise<ProvisionProjectEnvironmentResponse> {
+  return bigBrainAPI<ProvisionProjectEnvironmentResponse>({
+    ctx,
+    method: "POST",
+    url: `projects/${projectId}/workos_environments`,
+    data: { environmentName, isProduction },
+  });
+}
+
+export async function getProjectWorkOSEnvironment(
+  ctx: Context,
+  projectId: number,
+  clientId: string,
+): Promise<GetProjectEnvironmentResponse> {
+  return bigBrainAPI<GetProjectEnvironmentResponse>({
+    ctx,
+    method: "GET",
+    url: `projects/${projectId}/workos_environments/${clientId}`,
+  });
+}
+
+export async function deleteProjectWorkOSEnvironment(
+  ctx: Context,
+  projectId: number,
+  clientId: string,
+): Promise<DeleteProjectEnvironmentResponse> {
+  return bigBrainAPI<DeleteProjectEnvironmentResponse>({
+    ctx,
+    method: "POST",
+    url: "workos/delete_project_environment",
+    data: { projectId, clientId },
+  });
 }
