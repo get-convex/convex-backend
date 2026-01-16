@@ -35,8 +35,9 @@ import { integration } from "./integration.js";
 import { setGlobalDispatcher, EnvHttpProxyAgent } from "undici";
 import { logVerbose } from "../bundler/log.js";
 
-const MINIMUM_MAJOR_VERSION = 16;
-const MINIMUM_MINOR_VERSION = 15;
+const HARD_MINIMUM_NODE_MAJOR_VERSION = 16;
+const HARD_MINIMUM_NODE_MINOR_VERSION = 15;
+const SOFT_MINIMUM_NODE_MAJOR_VERSION = 20;
 
 // console.error before it started being red by default in Node.js v20
 function logToStderr(...args: unknown[]) {
@@ -68,13 +69,13 @@ async function main() {
   inquirer.registerPrompt("search-list", inquirerSearchList);
 
   if (
-    majorVersion < MINIMUM_MAJOR_VERSION ||
-    (majorVersion === MINIMUM_MAJOR_VERSION &&
-      minorVersion < MINIMUM_MINOR_VERSION)
+    majorVersion < HARD_MINIMUM_NODE_MAJOR_VERSION ||
+    (majorVersion === HARD_MINIMUM_NODE_MAJOR_VERSION &&
+      minorVersion < HARD_MINIMUM_NODE_MINOR_VERSION)
   ) {
     logToStderr(
       chalkStderr.red(
-        `Your Node version ${nodeVersion} is too old. Convex requires at least Node v${MINIMUM_MAJOR_VERSION}.${MINIMUM_MINOR_VERSION}`,
+        `Your Node version ${nodeVersion} is too old. Convex requires at least Node v${HARD_MINIMUM_NODE_MAJOR_VERSION}.${HARD_MINIMUM_NODE_MINOR_VERSION}`,
       ),
     );
     logToStderr(
@@ -97,6 +98,38 @@ async function main() {
       ),
     );
     process.exit(1);
+  }
+
+  if (majorVersion < SOFT_MINIMUM_NODE_MAJOR_VERSION) {
+    logToStderr(
+      chalkStderr.yellow(
+        `Warning: Your Node version ${nodeVersion} is below the recommended minimum of Node v${SOFT_MINIMUM_NODE_MAJOR_VERSION}.x. Convex may work but could behave unexpectedly.`,
+      ),
+    );
+    logToStderr(
+      chalkStderr.gray(
+        `We recommend upgrading Node to v${SOFT_MINIMUM_NODE_MAJOR_VERSION} or newer.`,
+      ),
+    );
+    logToStderr(
+      chalkStderr.gray(
+        `You can use ${chalkStderr.bold(
+          "nvm",
+        )} (https://github.com/nvm-sh/nvm#installing-and-updating) to manage different versions of Node.`,
+      ),
+    );
+    logToStderr(
+      chalkStderr.gray(
+        "After installing `nvm`, install the latest version of Node with " +
+          chalkStderr.bold("`nvm install node`."),
+      ),
+    );
+    logToStderr(
+      chalkStderr.gray(
+        "Then, activate the installed version in your terminal with " +
+          chalkStderr.bold("`nvm use`."),
+      ),
+    );
   }
 
   const program = new Command();
