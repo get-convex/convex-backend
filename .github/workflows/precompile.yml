@@ -12,7 +12,7 @@ jobs:
     runs-on: [self-hosted, aws, x64, xlarge]
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Cache pnpm artifacts
         uses: runs-on/cache@v4
@@ -97,7 +97,7 @@ jobs:
     runs-on: ${{ fromJSON(matrix.os) }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
