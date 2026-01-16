@@ -167,18 +167,16 @@ export type DeploymentInfo = (
           error?: any;
         }
       | undefined;
-    useWorkOSEnvironmentHealth(deploymentName?: string):
-      | {
-          data?:
-            | {
-                id: string;
-                name: string;
-                clientId: string;
-              }
-            | undefined;
-          error?: any;
-        }
-      | undefined;
+    useWorkOSEnvironmentHealth(deploymentName?: string): {
+      data?:
+        | {
+            id: string;
+            name: string;
+            clientId: string;
+          }
+        | undefined;
+      error?: any;
+    };
     useDisconnectWorkOSTeam(teamId?: string): (body: {
       teamId: number;
     }) => Promise<
@@ -230,6 +228,49 @@ export type DeploymentInfo = (
     useDeleteWorkOSEnvironment(
       deploymentName?: string,
     ): (body: { deploymentName: string }) => Promise<any>;
+    useProjectWorkOSEnvironments(projectId?: number):
+      | Array<{
+          workosEnvironmentId: string;
+          workosEnvironmentName: string;
+          workosClientId: string;
+          userEnvironmentName: string;
+          isProduction: boolean;
+        }>
+      | undefined;
+    useGetProjectWorkOSEnvironment(
+      projectId?: number,
+      clientId?: string,
+    ):
+      | {
+          workosEnvironmentId: string;
+          workosEnvironmentName: string;
+          workosClientId: string;
+          workosApiKey: string;
+          userEnvironmentName: string;
+          isProduction: boolean;
+        }
+      | undefined;
+    useCheckProjectEnvironmentHealth(
+      projectId?: number,
+      clientId?: string,
+    ): () => Promise<{ id: string; name: string; clientId: string } | null>;
+    useProvisionProjectWorkOSEnvironment(projectId?: number): (body: {
+      environmentName: string;
+    }) => Promise<{
+      workosEnvironmentId: string;
+      workosEnvironmentName: string;
+      workosClientId: string;
+      workosApiKey: string;
+      newlyProvisioned: boolean;
+      userEnvironmentName: string;
+    }>;
+    useDeleteProjectWorkOSEnvironment(projectId?: number): (
+      clientId: string,
+    ) => Promise<{
+      workosEnvironmentId: string;
+      workosEnvironmentName: string;
+      workosTeamId: string;
+    }>;
   };
   CloudImport(props: { sourceCloudBackupId: number }): JSX.Element;
   TeamMemberLink(props: {

@@ -27,7 +27,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
     useDeploymentWorkOSEnvironment: () => undefined,
     useTeamWorkOSIntegration: () => undefined,
     useWorkOSTeamHealth: () => undefined,
-    useWorkOSEnvironmentHealth: () => undefined,
+    useWorkOSEnvironmentHealth: () => ({ data: undefined, error: undefined }),
     useDisconnectWorkOSTeam: (_teamId?: string) => async () => undefined,
     useInviteWorkOSTeamMember: () => async () => undefined,
     useWorkOSInvitationEligibleEmails: () => undefined,
@@ -37,6 +37,22 @@ export const mockDeploymentInfo: DeploymentInfo = {
       undefined,
     useDeleteWorkOSEnvironment: (_deploymentName?: string) => async () =>
       undefined,
+    useProjectWorkOSEnvironments: () => undefined,
+    useGetProjectWorkOSEnvironment: () => undefined,
+    useCheckProjectEnvironmentHealth: () => async () => null,
+    useProvisionProjectWorkOSEnvironment: () => async () => ({
+      workosEnvironmentId: "",
+      workosEnvironmentName: "",
+      workosClientId: "",
+      workosApiKey: "",
+      newlyProvisioned: true,
+      userEnvironmentName: "",
+    }),
+    useDeleteProjectWorkOSEnvironment: () => async () => ({
+      workosEnvironmentId: "",
+      workosEnvironmentName: "",
+      workosTeamId: "",
+    }),
   },
   useCurrentDeployment: () => ({
     id: 0,

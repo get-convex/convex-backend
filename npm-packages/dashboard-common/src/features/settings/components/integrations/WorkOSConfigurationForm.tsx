@@ -13,9 +13,6 @@ import {
   CheckIcon,
   ExclamationTriangleIcon,
   Cross2Icon,
-  EyeOpenIcon,
-  EyeNoneIcon,
-  ArrowRightIcon,
   ExternalLinkIcon,
 } from "@radix-ui/react-icons";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
@@ -25,7 +22,10 @@ import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
 import { toast } from "@common/lib/utils";
 import { useUpdateEnvVars } from "@common/features/settings/lib/api";
-import { ExpandableActionSection } from "./ExpandableActionSection";
+import { WorkOSProjectEnvironments } from "./WorkOSProjectEnvironments";
+import { WorkOSEnvironmentInfo } from "./WorkOSEnvironmentInfo";
+import { WorkOSCredentialsSection } from "./WorkOSCredentialsSection";
+import { EnvVarChange, EnvVarChangeRow } from "./WorkOSEnvVarChanges";
 
 type WorkOSEnvVars = {
   clientId: string | null;
@@ -42,10 +42,12 @@ type ProvisionedEnvironment = {
   isProduction: boolean;
 };
 
-type EnvVarChange = {
-  name: string;
-  currentValue: string | null;
-  newValue: string;
+type ProjectEnvironment = {
+  workosEnvironmentId: string;
+  workosEnvironmentName: string;
+  workosClientId: string;
+  userEnvironmentName: string;
+  isProduction: boolean;
 };
 
 // Helper to extract error info from unknown errors (typically API errors with code/message)
@@ -68,113 +70,6 @@ function getErrorInfo(error: unknown): { code: string; message: string } {
     };
   }
   return { code: "", message: String(error) };
-}
-
-function InfoTooltip({
-  items,
-}: {
-  items: Array<{ label: string; value: string; isSecret?: boolean }>;
-}) {
-  const [showApiKey, setShowApiKey] = useState(false);
-
-  return (
-    <Tooltip
-      maxWidthClassName="max-w-md"
-      tip={
-        <div className="flex flex-col gap-3 p-1 text-left">
-          {items.map((item) => (
-            <div key={item.label}>
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <span className="text-xs font-semibold">{item.label}</span>
-                {item.isSecret && (
-                  <Button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    variant="neutral"
-                    size="sm"
-                    inline
-                    icon={showApiKey ? <EyeNoneIcon /> : <EyeOpenIcon />}
-                    aria-label={showApiKey ? "Hide value" : "Show value"}
-                  />
-                )}
-              </div>
-              <div className="max-w-full overflow-hidden">
-                {item.isSecret && !showApiKey ? (
-                  <span className="font-mono text-xs text-content-secondary">
-                    •••••••••••••••
-                  </span>
-                ) : (
-                  <CopyTextButton
-                    text={item.value}
-                    className="w-full font-mono text-xs [&_span]:break-all [&_span]:whitespace-normal"
-                  />
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      }
-    >
-      <QuestionMarkCircledIcon className="inline text-content-tertiary" />
-    </Tooltip>
-  );
-}
-
-function EnvVarChangeRow({ change }: { change: EnvVarChange }) {
-  const [showValues, setShowValues] = useState(false);
-  const isNew = change.currentValue === null;
-  const isSecret = change.name === "WORKOS_API_KEY";
-  const shouldShowCurrentValue = !isSecret || showValues;
-  const shouldShowNewValue = !isSecret || showValues;
-
-  return (
-    <div className="flex flex-col gap-1.5 rounded border bg-background-secondary p-3 text-xs">
-      <div className="flex items-center gap-2">
-        <div className="font-mono font-semibold text-content-primary">
-          {change.name}
-        </div>
-        {isSecret && (
-          <Button
-            type="button"
-            onClick={() => setShowValues(!showValues)}
-            variant="neutral"
-            size="sm"
-            inline
-            icon={showValues ? <EyeNoneIcon /> : <EyeOpenIcon />}
-            tip={showValues ? "Hide value" : "Show value"}
-          />
-        )}
-      </div>
-
-      <div className="flex items-center gap-2 font-mono text-xs">
-        {isNew ? (
-          <>
-            <div className="flex-1 text-content-secondary">Not set</div>
-            <ArrowRightIcon className="h-3 w-3 flex-shrink-0 text-content-secondary" />
-            <div className="flex-1 overflow-x-auto text-content-success">
-              <div className="inline-block min-w-0 whitespace-nowrap">
-                {shouldShowNewValue ? change.newValue : "•••••••••"}
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex-1 overflow-x-auto text-content-secondary">
-              <div className="inline-block min-w-0 whitespace-nowrap line-through">
-                {shouldShowCurrentValue ? change.currentValue : "•••••••••"}
-              </div>
-            </div>
-            <ArrowRightIcon className="h-3 w-3 flex-shrink-0 text-content-secondary" />
-            <div className="flex-1 overflow-x-auto text-content-success">
-              <div className="inline-block min-w-0 whitespace-nowrap">
-                {shouldShowNewValue ? change.newValue : "•••••••••"}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function getWorkOSNotSupportedReason(
@@ -225,10 +120,17 @@ function useRelevantEnvVars() {
   return workosEnvVars;
 }
 
-function InviteTeamMemberSection({ teamId }: { teamId?: number }) {
+function InviteTeamMemberSection({
+  teamId,
+  isExpanded,
+  onToggle,
+}: {
+  teamId?: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
   const { workOSOperations } = useContext(DeploymentInfoContext);
 
-  const [showInviteForm, setShowInviteForm] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<string>("");
   const [isInviting, setIsInviting] = useState(false);
 
@@ -237,6 +139,16 @@ function InviteTeamMemberSection({ teamId }: { teamId?: number }) {
   );
   const inviteMutation = workOSOperations.useInviteWorkOSTeamMember();
 
+  const hasNoEligibleEmails =
+    !eligibleEmailsData || eligibleEmailsData.eligibleEmails.length === 0;
+
+  // If we're expanded but data becomes empty (e.g., refresh), collapse back
+  useEffect(() => {
+    if (isExpanded && hasNoEligibleEmails) {
+      onToggle();
+    }
+  }, [isExpanded, hasNoEligibleEmails, onToggle]);
+
   const handleInvite = async () => {
     if (!teamId || !selectedEmail) return;
 
@@ -244,7 +156,7 @@ function InviteTeamMemberSection({ teamId }: { teamId?: number }) {
     try {
       await inviteMutation({ teamId, email: selectedEmail });
       setSelectedEmail("");
-      setShowInviteForm(false);
+      onToggle(); // Close the form after successful invitation
     } catch (error) {
       console.error("Failed to send WorkOS invitation:", error);
       // Check if this is the "already a member of another workspace" error
@@ -270,29 +182,22 @@ function InviteTeamMemberSection({ teamId }: { teamId?: number }) {
     }
   };
 
-  if (!eligibleEmailsData || eligibleEmailsData.eligibleEmails.length === 0) {
+  if (hasNoEligibleEmails) {
     return null;
-  }
-
-  if (!showInviteForm) {
-    return (
-      <div className="flex flex-col gap-2">
-        <p className="text-sm text-content-secondary">
-          Invite a Convex email address to access this WorkOS workspace.
-        </p>
-        <div>
-          <Button size="sm" onClick={() => setShowInviteForm(true)}>
-            Invite to WorkOS
-          </Button>
-        </div>
-      </div>
-    );
   }
 
   const options = eligibleEmailsData.eligibleEmails.map((email) => ({
     value: email,
     label: email,
   }));
+
+  if (!isExpanded) {
+    return (
+      <Button size="sm" variant="neutral" onClick={onToggle}>
+        Invite to WorkOS
+      </Button>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 rounded-sm border p-3">
@@ -336,7 +241,7 @@ function InviteTeamMemberSection({ teamId }: { teamId?: number }) {
             size="sm"
             variant="neutral"
             onClick={() => {
-              setShowInviteForm(false);
+              onToggle();
               setSelectedEmail("");
             }}
           >
@@ -351,9 +256,12 @@ function InviteTeamMemberSection({ teamId }: { teamId?: number }) {
 function ProvisionWorkOSTeamSection({
   teamId,
   onTeamCreated,
+  hasClientIdConfigured,
 }: {
   teamId?: number;
   onTeamCreated?: () => void;
+  /** Whether WORKOS_CLIENT_ID environment variable is already set */
+  hasClientIdConfigured: boolean;
 }) {
   const { workOSOperations } = useContext(DeploymentInfoContext);
 
@@ -408,12 +316,33 @@ function ProvisionWorkOSTeamSection({
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm text-content-secondary">
-          No WorkOS workspace is linked to this team. Create a WorkOS workspace
-          to enable automatic AuthKit environment provisioning.
+          Create a WorkOS team for this team to let Convex to create new{" "}
+          <Link
+            href="https://workos.com/docs/authkit/authkit"
+            className="text-content-link hover:underline"
+            target="_blank"
+          >
+            AuthKit
+          </Link>{" "}
+          environments in that WorkOS workspace.
         </p>
+        {hasClientIdConfigured ? (
+          <p className="text-sm text-content-secondary">
+            You can also use AuthKit without creating a new WorkOS team by{" "}
+            <Link
+              href="https://workos.com/docs/authkit/authkit"
+              className="text-content-link hover:underline"
+              target="_blank"
+            >
+              configuring it manually
+            </Link>
+            .
+          </p>
+        ) : null}
         <div>
           <Button
             size="sm"
+            variant="primary"
             onClick={() => setShowEmailSelection(true)}
             disabled={!hasAvailableEmails}
             tip={
@@ -523,6 +452,7 @@ function WorkOSTeamSection({
   teamId,
   showCongratulations = false,
   onTeamCreated,
+  hasClientIdConfigured,
 }: {
   workosTeam:
     | {
@@ -541,10 +471,15 @@ function WorkOSTeamSection({
   teamId?: number;
   showCongratulations?: boolean;
   onTeamCreated?: () => void;
+  /** Whether WORKOS_CLIENT_ID environment variable is already set */
+  hasClientIdConfigured: boolean;
 }) {
   const { workOSOperations } = useContext(DeploymentInfoContext);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [expandedAction, setExpandedAction] = useState<
+    "invite" | "disconnect" | null
+  >(null);
 
   // Sync showCongratulations prop to local state (prop changes when team is created)
   useEffect(() => {
@@ -575,6 +510,7 @@ function WorkOSTeamSection({
       );
     } finally {
       setIsDisconnecting(false);
+      setExpandedAction(null);
     }
   };
 
@@ -583,6 +519,7 @@ function WorkOSTeamSection({
       <ProvisionWorkOSTeamSection
         teamId={teamId}
         onTeamCreated={onTeamCreated}
+        hasClientIdConfigured={hasClientIdConfigured}
       />
     );
   }
@@ -607,20 +544,25 @@ function WorkOSTeamSection({
               <p className="mb-2">Next steps:</p>
               <ol className="list-inside list-decimal space-y-1">
                 <li>
-                  Check your email ({workosTeam.workosAdminEmail}) for an
-                  invitation to the WorkOS dashboard
+                  (optional) Check your email {workosTeam.workosAdminEmail} for
+                  an invitation to the WorkOS dashboard
                 </li>
-                <li>Create AuthKit environments for your deployments above</li>
+                <li>Create an AuthKit environment for your deployment above</li>
                 <li>
-                  Configure your authentication settings in the{" "}
-                  <a
-                    href={`https://dashboard.workos.com/${workosTeam.workosTeamId}`}
+                  Add an <code>authKit</code> section to your project's
+                  <Link
+                    href="https://docs.convex.dev/auth/authkit/auto-provision"
+                    className="text-content-link hover:underline"
                     target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-content-link underline"
                   >
-                    WorkOS dashboard
-                  </a>
+                    convex.json
+                  </Link>{" "}
+                  to configure AuthKit environments automatically
+                </li>
+                <li>
+                  For preview and production deployments only, copy your AuthKit
+                  credentials to build environment variables in your hosting
+                  platform (e.g. Vercel)
                 </li>
               </ol>
             </div>
@@ -639,12 +581,27 @@ function WorkOSTeamSection({
         <p className="text-sm text-content-primary">
           <span className="inline-flex items-center gap-1">
             <span className="font-mono">{workosTeam.workosTeamName}</span>
-            <InfoTooltip
-              items={[
-                { label: "WorkOS Team ID", value: workosTeam.workosTeamId },
-                { label: "Admin Email", value: workosTeam.workosAdminEmail },
-              ]}
-            />
+            <Tooltip
+              tip={
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <div className="text-xs font-semibold">WorkOS Team ID</div>
+                    <CopyTextButton
+                      text={workosTeam.workosTeamId}
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold">Admin Email</div>
+                    <div className="font-mono text-xs">
+                      {workosTeam.workosAdminEmail}
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <QuestionMarkCircledIcon className="inline text-content-tertiary" />
+            </Tooltip>
           </span>{" "}
           <a
             href={`https://dashboard.workos.com/${workosTeam.workosTeamId}`}
@@ -710,29 +667,66 @@ function WorkOSTeamSection({
         </div>
       </div>
 
-      <InviteTeamMemberSection teamId={teamId} />
+      <p className="text-sm text-content-secondary">
+        Invite a Convex email address to access this WorkOS workspace.
+      </p>
 
-      <ExpandableActionSection
-        config={{
-          trigger: {
-            label: "Disconnect Workspace",
-          },
-          expanded: {
-            title: "Disconnect WorkOS Workspace",
-            description:
-              "You can disassociate a WorkOS workspace from your team to revoke permission to create AuthKit environments in it from Convex. Existing WorkOS environments will continue to work.",
-            variant: "danger",
-            actions: {
-              primary: {
-                label: "Disconnect",
-                onClick: handleDisconnect,
-                variant: "danger",
-              },
-            },
-          },
-        }}
-        isLoading={isDisconnecting}
-      />
+      {!expandedAction && (
+        <div className="flex gap-2">
+          <InviteTeamMemberSection
+            teamId={teamId}
+            isExpanded={false}
+            onToggle={() => setExpandedAction("invite")}
+          />
+          <Button
+            size="sm"
+            variant="neutral"
+            onClick={() => setExpandedAction("disconnect")}
+          >
+            Disconnect Workspace
+          </Button>
+        </div>
+      )}
+
+      {expandedAction === "invite" && (
+        <InviteTeamMemberSection
+          teamId={teamId}
+          isExpanded
+          onToggle={() => setExpandedAction(null)}
+        />
+      )}
+
+      {expandedAction === "disconnect" && (
+        <div className="flex flex-col gap-2 rounded-sm border border-content-error p-3">
+          <div className="flex flex-col gap-1">
+            <div className="text-sm font-semibold text-content-primary">
+              Disconnect WorkOS Workspace
+            </div>
+            <p className="text-xs text-content-secondary">
+              You can disassociate a WorkOS workspace from your team to revoke
+              permission to create AuthKit environments in it from Convex.
+              Existing WorkOS environments will continue to work.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={handleDisconnect}
+              loading={isDisconnecting}
+            >
+              Disconnect
+            </Button>
+            <Button
+              size="sm"
+              variant="neutral"
+              onClick={() => setExpandedAction(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -747,6 +741,7 @@ function ConsolidatedEnvironmentSection({
   deploymentName,
   deployment,
   canProvisionProduction,
+  projectEnvironments,
 }: {
   environment: ProvisionedEnvironment | null;
   workosTeam:
@@ -764,6 +759,7 @@ function ConsolidatedEnvironmentSection({
   deploymentName?: string;
   deployment: ReturnType<DeploymentInfo["useCurrentDeployment"]>;
   canProvisionProduction: boolean;
+  projectEnvironments?: ProjectEnvironment[];
 }) {
   const { workOSOperations } = useContext(DeploymentInfoContext);
   const updateEnvironmentVariables = useUpdateEnvVars();
@@ -778,11 +774,25 @@ function ConsolidatedEnvironmentSection({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isSettingEnvVars, setIsSettingEnvVars] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] =
+    useState<ProvisionedEnvironment | null>(null);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [showDeleteForm, setShowDeleteForm] = useState(false);
   // Create mutations with the current deploymentName
   const provisionMutation =
     workOSOperations.useProvisionWorkOSEnvironment(deploymentName);
   const deleteMutation =
     workOSOperations.useDeleteWorkOSEnvironment(deploymentName);
+
+  // Check if env vars match a project-level (shared) environment
+  const matchingProjectEnvironment = useMemo(() => {
+    if (!workosEnvVars.clientId || !projectEnvironments) return null;
+    return (
+      projectEnvironments.find(
+        (env) => env.workosClientId === workosEnvVars.clientId,
+      ) ?? null
+    );
+  }, [workosEnvVars.clientId, projectEnvironments]);
 
   const handleProvisionEnvironment = async (isProduction: boolean) => {
     if (!deploymentName) return;
@@ -804,10 +814,24 @@ function ConsolidatedEnvironmentSection({
 
         try {
           await updateEnvironmentVariables(changes);
-          toast(
-            "success",
-            "WorkOS environment provisioned and variables configured",
-          );
+          // Only show success message for production deployments (they get built in Vercel)
+          if (deployment?.deploymentType === "prod") {
+            const newEnvironment: ProvisionedEnvironment = {
+              workosEnvironmentId: result.environmentId,
+              workosEnvironmentName:
+                result.environmentName || "WorkOS Environment",
+              workosClientId: result.clientId,
+              workosApiKey: result.apiKey,
+              workosTeamId: result.workosTeamId || "",
+              isProduction,
+            };
+            setShowSuccessMessage(newEnvironment);
+          } else {
+            toast(
+              "success",
+              "WorkOS environment provisioned and variables configured",
+            );
+          }
         } catch (error) {
           console.error("Failed to set environment variables:", error);
           toast(
@@ -934,48 +958,62 @@ function ConsolidatedEnvironmentSection({
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Success message for newly created environment */}
+      {showSuccessMessage && (
+        <Callout variant="success">
+          <div className="flex flex-col gap-3">
+            <div>
+              <div className="text-sm font-semibold">
+                Environment Successfully Created!
+              </div>
+              <p className="mt-1 text-xs text-content-secondary">
+                Your{" "}
+                {showSuccessMessage.isProduction
+                  ? "production"
+                  : "non-production"}{" "}
+                WorkOS environment has been provisioned and environment
+                variables have been configured.
+              </p>
+            </div>
+            <div>
+              <p className="mb-2 text-xs text-content-secondary">
+                Copy these environment variables to your build environment:
+              </p>
+              <WorkOSCredentialsSection
+                clientId={showSuccessMessage.workosClientId}
+                apiKey={showSuccessMessage.workosApiKey}
+                isProduction={showSuccessMessage.isProduction}
+              />
+            </div>
+            <Button
+              size="xs"
+              variant="neutral"
+              onClick={() => setShowSuccessMessage(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </Callout>
+      )}
+
       {environment ? (
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-content-primary">
-            <span className="inline-flex items-center gap-1">
-              <span>{environment.workosEnvironmentName}</span>
-              <InfoTooltip
-                items={[
-                  {
-                    label: "WorkOS Environment ID",
-                    value: environment.workosEnvironmentId,
-                  },
-                  {
-                    label: "WorkOS Client ID",
-                    value: environment.workosClientId,
-                  },
-                  ...(environment.workosApiKey
-                    ? [
-                        {
-                          label: "WorkOS API Key",
-                          value: environment.workosApiKey,
-                          isSecret: true,
-                        },
-                      ]
-                    : []),
-                  {
-                    label: "Environment Type",
-                    value: environment.isProduction
-                      ? "Production"
-                      : "Non-Production",
-                  },
-                ]}
-              />
-            </span>{" "}
-            <a
-              href={`https://dashboard.workos.com/${environment.workosEnvironmentId}/authentication`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-content-link hover:underline"
-            >
-              View in WorkOS
-            </a>
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-content-primary">
+              <span className="inline-flex items-center gap-1">
+                <span>{environment.workosEnvironmentName}</span>
+                <WorkOSEnvironmentInfo environment={environment} />
+              </span>{" "}
+              <a
+                href={`https://dashboard.workos.com/${environment.workosEnvironmentId}/authentication`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-content-link hover:underline"
+              >
+                View in WorkOS
+              </a>
+            </p>
+          </div>
 
           <div className="flex flex-col gap-1 text-xs">
             {envHealthData && (
@@ -1095,8 +1133,8 @@ function ConsolidatedEnvironmentSection({
                           loading={isSettingEnvVars}
                         >
                           {changes.some((c) => c.currentValue !== null)
-                            ? "Update Environment Variables"
-                            : "Set Environment Variables"}
+                            ? "Update Deployment Environment Variables"
+                            : "Set Deployment Environment Variables"}
                         </Button>
                         {envVarsLink && (
                           <Button
@@ -1127,22 +1165,58 @@ function ConsolidatedEnvironmentSection({
               ].filter(Boolean) as string[];
 
               return (
-                <ExpandableActionSection
-                  config={{
-                    trigger: {
-                      label: "Delete Provisioned Environment",
-                    },
-                    expanded: {
-                      title: (
-                        <>
+                <>
+                  {/* Show both buttons or neither */}
+                  {!showCredentials && !showDeleteForm && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="neutral"
+                        onClick={() => setShowCredentials(true)}
+                      >
+                        Show Credentials
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="neutral"
+                        onClick={() => setShowDeleteForm(true)}
+                      >
+                        Delete Provisioned Environment
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Show credentials */}
+                  {showCredentials && (
+                    <div className="flex flex-col gap-2">
+                      <div>
+                        <Button
+                          size="sm"
+                          variant="neutral"
+                          onClick={() => setShowCredentials(false)}
+                        >
+                          Hide Credentials
+                        </Button>
+                      </div>
+                      <WorkOSCredentialsSection
+                        clientId={environment.workosClientId}
+                        apiKey={environment.workosApiKey}
+                        isProduction={environment.isProduction}
+                      />
+                    </div>
+                  )}
+
+                  {/* Show delete form */}
+                  {showDeleteForm && (
+                    <div className="flex flex-col gap-2 rounded-sm border border-content-error p-3">
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm font-semibold text-content-primary">
                           Delete WorkOS AuthKit environment{" "}
                           <span className="font-mono">
                             {environment.workosEnvironmentName}
                           </span>
-                        </>
-                      ),
-                      description: (
-                        <>
+                        </div>
+                        <p className="text-xs text-content-secondary">
                           This will permanently delete this environment from
                           WorkOS and remove it from Convex. This action cannot
                           be undone.
@@ -1157,28 +1231,86 @@ function ConsolidatedEnvironmentSection({
                               .
                             </>
                           )}
-                        </>
-                      ),
-                      variant: "danger",
-                      actions: {
-                        primary: {
-                          label: "Delete",
-                          onClick: handleDeleteEnvironment,
-                          variant: "danger",
-                        },
-                      },
-                    },
-                  }}
-                  isLoading={isDeleting}
-                />
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={async () => {
+                            await handleDeleteEnvironment();
+                            setShowDeleteForm(false);
+                          }}
+                          loading={isDeleting}
+                        >
+                          Delete
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="neutral"
+                          onClick={() => setShowDeleteForm(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               );
             })()}
         </div>
+      ) : matchingProjectEnvironment ? (
+        // Using a shared project-level environment
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-content-primary">
+            Using shared environment:{" "}
+            <span className="font-semibold">
+              {matchingProjectEnvironment.userEnvironmentName}
+            </span>
+          </p>
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="inline-flex items-center gap-1 text-content-secondary">
+              <CheckIcon className="h-4 w-4" />
+              <code>WORKOS_CLIENT_ID</code> is set to a shared AuthKit
+              environment for this project
+            </span>
+            {workosEnvVars.apiKey ? (
+              <span className="inline-flex items-center gap-1 text-content-secondary">
+                <CheckIcon className="h-4 w-4" />
+                <code>WORKOS_API_KEY</code> is set so <code>authKit</code>{" "}
+                properties in convex.json will be configured by the Convex CLI
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-content-warning">
+                <ExclamationTriangleIcon className="h-4 w-4" />
+                <code>WORKOS_API_KEY</code> is not set - automatic configuration
+                via convex.json will not work
+              </span>
+            )}
+          </div>
+        </div>
       ) : workosEnvVars.clientId ? (
-        <p className="text-sm text-content-secondary">
-          Manually configured (<code className="text-xs">WORKOS_CLIENT_ID</code>{" "}
-          is set)
-        </p>
+        <>
+          <p className="text-sm text-content-secondary">
+            <code className="text-xs font-semibold">WORKOS_CLIENT_ID</code> is
+            set to an environment not managed by Convex.
+          </p>
+          {workosEnvVars.apiKey ? (
+            <p className="text-sm text-content-secondary">
+              <code className="text-xs font-semibold">WORKOS_API_KEY</code> is
+              set so <code>authKit</code> properties like{" "}
+              <code>redirectUris</code> in{" "}
+              <Link
+                href="https://docs.convex.dev/auth/authkit/auto-provision"
+                className="text-content-link hover:underline"
+                target="_blank"
+              >
+                convex.json
+              </Link>{" "}
+              will be configured by the Convex CLI at code push.
+            </p>
+          ) : null}
+        </>
       ) : (
         <p className="text-sm text-content-secondary">
           No environment provisioned
@@ -1219,11 +1351,17 @@ function ConsolidatedEnvironmentSection({
         (!showCreateForm ? (
           <div>
             <Button
-              variant="neutral"
+              variant={
+                workosEnvVars.clientId
+                  ? "neutral" // Not primary when manually configured
+                  : deployment?.deploymentType === "preview"
+                    ? "neutral"
+                    : "primary"
+              }
               size="sm"
               onClick={() => setShowCreateForm(true)}
             >
-              Create Environment
+              Create AuthKit Environment
             </Button>
           </div>
         ) : (
@@ -1233,32 +1371,9 @@ function ConsolidatedEnvironmentSection({
                 Create a new WorkOS environment for this deployment
               </p>
               <p className="text-xs text-content-secondary">
-                {isProductionDeployment ? (
-                  <>
-                    WorkOS AuthKit environments are generally created by the
-                    Convex CLI at deployment creation time but you can manually
-                    create a{" "}
-                    <a
-                      href="https://workos.com/docs/authkit/modeling-your-app/single-tenant-and-multi-tenant-models/multi-tenant"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-content-link hover:underline"
-                    >
-                      production or staging environment
-                    </a>{" "}
-                    here. This will also configure the{" "}
-                    <code className="text-xs">WORKOS_*</code> environment
-                    variables for this deployment.
-                  </>
-                ) : (
-                  <>
-                    WorkOS AuthKit environments are generally created by the
-                    Convex CLI at deployment creation time but you can manually
-                    create one here. This will also configure the{" "}
-                    <code className="text-xs">WORKOS_*</code> environment
-                    variables for this deployment.
-                  </>
-                )}
+                This will also set or replace the{" "}
+                <code className="text-xs">WORKOS_*</code> environment variables
+                for this deployment.
               </p>
             </div>
             <div className="flex gap-2">
@@ -1347,6 +1462,10 @@ export function WorkOSConfigurationForm() {
   const teamHealthData = workOSOperations.useWorkOSTeamHealth(
     team?.id?.toString(),
   );
+  // Fetch project-level environments to check if env vars match one
+  const projectEnvironments = workOSOperations.useProjectWorkOSEnvironments(
+    deployment?.projectId,
+  ) as ProjectEnvironment[] | undefined;
   const notSupportedReason = getWorkOSNotSupportedReason(deployment);
 
   const workosEnvVars = useRelevantEnvVars();
@@ -1371,37 +1490,65 @@ export function WorkOSConfigurationForm() {
     : null;
   const canProvisionProduction = teamInfo?.productionState === "active";
 
-  // Hide the environment section when there's no team, no environment, and no
-  // manually configured WORKOS_CLIENT_ID - focus on creating a workspace first
-  const showEnvironmentSection =
+  // Hide everything if there's no team, no environment, and no config
+  const showAnySections =
     hasTeam || environment !== null || workosEnvVars.clientId !== null;
+
+  if (!showAnySections) {
+    // Only show workspace section
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <div className="text-sm font-semibold text-content-primary">
+            WorkOS Workspace for Team
+          </div>
+          <WorkOSTeamSection
+            workosTeam={workosTeam}
+            environment={environment ?? null}
+            teamId={team?.id}
+            showCongratulations={showTeamCreatedSuccess}
+            onTeamCreated={handleTeamCreated}
+            hasClientIdConfigured={!!workosEnvVars.clientId}
+          />
+        </div>
+        <ModalFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      {showEnvironmentSection && (
-        <>
-          <div className="flex flex-col gap-2">
-            <div className="text-sm font-semibold text-content-primary">
-              AuthKit Environment for this Deployment
-            </div>
+      {/* Top section: Configured AuthKit Environment */}
+      <div className="flex flex-col gap-2">
+        <div className="text-sm font-semibold text-content-primary">
+          Configured AuthKit Environment
+        </div>
 
-            <ConsolidatedEnvironmentSection
-              environment={environment ?? null}
-              workosTeam={workosTeam}
-              hasTeam={hasTeam}
-              notSupportedReason={notSupportedReason}
-              envVarsLink={envVarsLink}
-              workosEnvVars={workosEnvVars}
-              deploymentName={deployment?.name}
-              deployment={deployment}
-              canProvisionProduction={canProvisionProduction}
-            />
-          </div>
+        <ConsolidatedEnvironmentSection
+          environment={environment ?? null}
+          workosTeam={workosTeam}
+          hasTeam={hasTeam}
+          notSupportedReason={notSupportedReason}
+          envVarsLink={envVarsLink}
+          workosEnvVars={workosEnvVars}
+          deploymentName={deployment?.name}
+          deployment={deployment}
+          canProvisionProduction={canProvisionProduction}
+          projectEnvironments={projectEnvironments}
+        />
+      </div>
 
-          <div className="border-t" />
-        </>
+      {/* Shared environments at the bottom */}
+      {deployment?.projectId && (
+        <WorkOSProjectEnvironments
+          projectId={deployment.projectId}
+          deploymentType={deployment?.deploymentType}
+          workosClientId={workosEnvVars.clientId}
+          hasLinkedWorkspace={!!workosTeam}
+        />
       )}
 
+      {/* Team workspace at the bottom */}
       <div className="flex flex-col gap-2">
         <div className="text-sm font-semibold text-content-primary">
           WorkOS Workspace for Team
@@ -1413,6 +1560,7 @@ export function WorkOSConfigurationForm() {
           teamId={team?.id}
           showCongratulations={showTeamCreatedSuccess}
           onTeamCreated={handleTeamCreated}
+          hasClientIdConfigured={!!workosEnvVars.clientId}
         />
       </div>
 

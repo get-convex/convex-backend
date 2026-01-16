@@ -41,6 +41,11 @@ import {
   useProvisionWorkOSTeam,
   useProvisionWorkOSEnvironment,
   useDeleteWorkOSEnvironment,
+  useProjectWorkOSEnvironments,
+  useGetProjectWorkOSEnvironment,
+  useCheckProjectEnvironmentHealth,
+  useProvisionProjectWorkOSEnvironment,
+  useDeleteProjectWorkOSEnvironment,
 } from "api/workos";
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { useConvexStatus } from "hooks/useConvexStatus";
@@ -159,6 +164,11 @@ export function DeploymentInfoProvider({
           useProvisionWorkOSTeam,
           useProvisionWorkOSEnvironment,
           useDeleteWorkOSEnvironment,
+          useProjectWorkOSEnvironments,
+          useGetProjectWorkOSEnvironment,
+          useCheckProjectEnvironmentHealth,
+          useProvisionProjectWorkOSEnvironment,
+          useDeleteProjectWorkOSEnvironment,
         },
         TeamMemberLink,
         CloudImport,

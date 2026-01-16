@@ -247,7 +247,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     useDeploymentWorkOSEnvironment: () => undefined,
     useTeamWorkOSIntegration: () => undefined,
     useWorkOSTeamHealth: () => undefined,
-    useWorkOSEnvironmentHealth: () => undefined,
+    useWorkOSEnvironmentHealth: () => ({ data: undefined, error: undefined }),
     useDisconnectWorkOSTeam: (_teamId?: string) => async () => undefined,
     useInviteWorkOSTeamMember: () => async () => undefined,
     useWorkOSInvitationEligibleEmails: () => undefined,
@@ -257,6 +257,27 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
       undefined,
     useDeleteWorkOSEnvironment: (_deploymentName?: string) => async () =>
       undefined,
+    useProjectWorkOSEnvironments: (_projectId?: number) => undefined,
+    useGetProjectWorkOSEnvironment: (_projectId?: number, _clientId?: string) =>
+      undefined,
+    useCheckProjectEnvironmentHealth:
+      (_projectId?: number, _clientId?: string) => async () =>
+        null,
+    useProvisionProjectWorkOSEnvironment:
+      (_projectId?: number) => async (_body: { environmentName: string }) => ({
+        workosEnvironmentId: "",
+        workosEnvironmentName: "",
+        workosClientId: "",
+        workosApiKey: "",
+        newlyProvisioned: false,
+        userEnvironmentName: "",
+      }),
+    useDeleteProjectWorkOSEnvironment:
+      (_projectId?: number) => async (_clientId: string) => ({
+        workosEnvironmentId: "",
+        workosEnvironmentName: "",
+        workosTeamId: "",
+      }),
   },
   CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
     <div>{sourceCloudBackupId}</div>

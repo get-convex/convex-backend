@@ -154,7 +154,8 @@ export function useProvisionWorkOSEnvironment(deploymentName?: string) {
     path: "/workos/get_or_provision_workos_environment",
     pathParams: undefined,
     method: "post",
-    successToast: "WorkOS environment provisioned successfully",
+    // No successToast - the component handles success messaging with more context
+    // (knows whether env vars were set, whether it's a new vs existing environment, etc.)
     mutateKey: "/deployments/{deployment_name}/workos_environment",
     mutatePathParams: { deployment_name: deploymentName || "" },
   });
@@ -187,4 +188,103 @@ export function useDeleteWorkOSEnvironment(deploymentName?: string) {
     }
     return result;
   };
+}
+
+// Project environment hooks
+export function useProjectWorkOSEnvironments(projectId?: number) {
+  // Skip the query if no projectId
+  const shouldFetch = !!projectId;
+  const { data } = useBBQuery({
+    path: "/projects/{project_id}/workos_environments",
+    pathParams: { project_id: projectId || 0 },
+    swrOptions: {
+      // Disable fetching if no projectId
+      revalidateIfStale: shouldFetch,
+      revalidateOnFocus: shouldFetch,
+      revalidateOnReconnect: shouldFetch,
+    },
+  });
+
+  if (!projectId) {
+    return undefined;
+  }
+  return data?.environments;
+}
+
+export function useGetProjectWorkOSEnvironment(
+  projectId?: number,
+  clientId?: string,
+) {
+  // Only fetch if we have both projectId and clientId
+  const shouldFetch = !!projectId && !!clientId;
+
+  const { data, error: _error } = useBBQuery({
+    path: "/projects/{project_id}/workos_environments/{client_id}",
+    pathParams: {
+      project_id: projectId || 0,
+      client_id: clientId || "",
+    },
+    swrOptions: {
+      revalidateIfStale: shouldFetch,
+      revalidateOnFocus: shouldFetch,
+      revalidateOnReconnect: shouldFetch,
+    },
+  });
+
+  if (!shouldFetch) {
+    return undefined;
+  }
+
+  // Response is now flat (no wrapper)
+  return data;
+}
+
+export function useCheckProjectEnvironmentHealth(
+  projectId?: number,
+  clientId?: string,
+) {
+  const mutation = useBBMutation({
+    path: "/workos/check_project_environment_health",
+    pathParams: undefined,
+    method: "post",
+  });
+
+  return async () => {
+    if (!projectId || !clientId) return null;
+    try {
+      const result = await mutation({
+        projectId,
+        clientId,
+      });
+      return result;
+    } catch {
+      return null;
+    }
+  };
+}
+
+export function useProvisionProjectWorkOSEnvironment(projectId?: number) {
+  const mutation = useBBMutation({
+    path: "/projects/{project_id}/workos_environments",
+    pathParams: { project_id: projectId || 0 },
+    method: "post",
+    successToast: "Project WorkOS environment created successfully",
+    mutateKey: "/projects/{project_id}/workos_environments",
+    mutatePathParams: { project_id: projectId || 0 },
+  });
+
+  return mutation;
+}
+
+export function useDeleteProjectWorkOSEnvironment(projectId?: number) {
+  const mutation = useBBMutation({
+    path: "/workos/delete_project_environment",
+    pathParams: undefined,
+    method: "post",
+    successToast: "Project WorkOS environment deleted successfully",
+    mutateKey: "/projects/{project_id}/workos_environments",
+    mutatePathParams: { project_id: projectId || 0 },
+  });
+
+  return (clientId: string) => mutation({ projectId: projectId!, clientId });
 }
