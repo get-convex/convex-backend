@@ -28,7 +28,7 @@
     "dotenv": "^16.4.7",
     "globals": "~16.5.0",
     "npm-run-all2": "^8.0.0",
-    "prettier": "3.7.4",
+    "prettier": "^3.8.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.11"
   }

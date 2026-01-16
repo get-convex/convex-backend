@@ -41,7 +41,7 @@
     "convex": "workspace:*"
   },
   "devDependencies": {
-    "prettier": "3.7.4",
+    "prettier": "^3.8.0",
     "@types/node": "^18.17.0",
     "typescript": "~5.0.3"
   },

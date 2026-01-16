@@ -11,7 +11,7 @@
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "prettier": "3.7.4"
+    "prettier": "^3.8.0"
   },
   "devDependencies": {
     "@clerk/clerk-react": "^5.20.0",

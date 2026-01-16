@@ -38,7 +38,7 @@
     "postcss": "^8.4.19",
     "postcss-nesting": "^13.0.2",
     "tailwindcss": "^4.1.11",
-    "prettier": "3.7.4",
+    "prettier": "^3.8.0",
     "typescript": "^5.7.2",
     "vite": "^6.4.1",
     "vite-tsconfig-paths": "^5.1.3"

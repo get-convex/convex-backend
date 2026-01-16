@@ -49,7 +49,7 @@
     "dotenv": "^16.4.7",
     "eslint": "^9.37.0",
     "npm-run-all2": "^8.0.0",
-    "prettier": "3.7.4",
+    "prettier": "^3.8.0",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2",
     "vite-tsconfig-paths": "^5.1.3",

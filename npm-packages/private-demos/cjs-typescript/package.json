@@ -10,7 +10,7 @@
   "dependencies": {
     "convex": "workspace:*",
     "dotenv": "^16.4.7",
-    "prettier": "3.7.4"
+    "prettier": "^3.8.0"
   },
   "devDependencies": {
     "@types/node": "^18.17.0",
