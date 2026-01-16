@@ -14,13 +14,14 @@ use metrics::{
     log_counter_with_labels,
     log_distribution,
     log_distribution_with_labels,
-    log_gauge,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
+    register_convex_int_gauge,
     IntoLabel,
     StaticMetricLabel,
     StatusTimer,
+    Subgauge,
     Timer,
     STATUS_LABEL,
 };
@@ -43,12 +44,12 @@ pub fn log_user_table_documents_size(total_size: u64) {
     log_distribution(&DOCUMENTS_SIZE_BYTES, total_size as f64);
 }
 
-register_convex_gauge!(
+register_convex_int_gauge!(
     USER_DOCUMENTS_SIZE_BYTES,
     "Total size of user documents including virtual tables in bytes"
 );
-pub fn log_user_documents_size(total_size: u64) {
-    log_gauge(&USER_DOCUMENTS_SIZE_BYTES, total_size as f64);
+pub fn user_documents_size_subgauge() -> Subgauge {
+    Subgauge::new(USER_DOCUMENTS_SIZE_BYTES.clone())
 }
 
 register_convex_histogram!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");

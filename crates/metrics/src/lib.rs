@@ -34,6 +34,7 @@ pub use crate::{
         log_gauge,
         log_gauge_with_labels,
         subtract_from_gauge_with_labels,
+        Subgauge,
     },
     timer::{
         CancelableTimer,

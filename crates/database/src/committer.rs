@@ -8,6 +8,7 @@ use std::{
 
 use ::metrics::{
     StatusTimer,
+    Subgauge,
     Timer,
 };
 use anyhow::Context as _;
@@ -125,6 +126,7 @@ use crate::{
         finish_bootstrap_update,
         next_commit_ts_seconds,
         table_summary_finish_bootstrap_timer,
+        user_documents_size_subgauge,
     },
     reads::ReadSet,
     search_index_bootstrap::{
@@ -199,6 +201,8 @@ pub struct Committer<RT: Runtime> {
     refreshable_tables: BTreeSet<TableName>,
     refreshable_tablets: BTreeSet<TabletId>,
     tables_table_id: TabletId,
+
+    user_documents_size_gauge: Subgauge,
 }
 
 impl<RT: Runtime> Committer<RT> {
@@ -231,6 +235,7 @@ impl<RT: Runtime> Committer<RT> {
             refreshable_tables,
             refreshable_tablets,
             tables_table_id,
+            user_documents_size_gauge: user_documents_size_subgauge(),
         };
         let handle = runtime.spawn("committer", async move {
             if let Err(err) = committer.go(rx).await {
@@ -874,7 +879,8 @@ impl<RT: Runtime> Committer<RT> {
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
             metrics::log_num_keys(table_summaries.num_user_documents);
             metrics::log_user_table_documents_size(table_summaries.user_tables_size);
-            metrics::log_user_documents_size(table_summaries.user_docs_size);
+            self.user_documents_size_gauge
+                .set(table_summaries.user_docs_size as i64);
         }
 
         // Publish the new version of our database metadata and the index.
