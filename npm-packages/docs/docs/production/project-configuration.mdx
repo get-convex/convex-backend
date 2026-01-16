@@ -158,3 +158,76 @@ version 1.31.1 or later.
   "typescriptCompiler": "tsgo"
 }
 ```
+
+### Configuring bundler options
+
+Convex includes sourcemaps when bundling your source code to provide stack
+traces and to display your code on the dashboard. If your code bundle is
+especially large, you can improve CLI upload times by excluding the source code
+content from the bundle. Set the `includeSourcesContent` property to `false` in
+the `bundler` options. Stack traces will continue to function as usual, but you
+will no longer be able to view your source code in the dashboard.
+
+<Admonition type="info" title="Convex version required">
+
+This configuration option is only available in version 1.31.3 or later of the
+`convex` NPM package.
+
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "bundler": {
+    "includeSourcesContent": false
+  }
+}
+```
+
+### Configuring WorkOS AuthKit integration
+
+If you're using [WorkOS AuthKit](/auth/authkit/index.mdx) for authentication,
+you can configure automatic provisioning (development only) and configuration of
+WorkOS environments via the `authKit` field.
+
+```json title="convex.json"
+{
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "authKit": {
+    "dev": {
+      "configure": {
+        "redirectUris": ["http://localhost:3000/callback"],
+        "appHomepageUrl": "http://localhost:3000",
+        "corsOrigins": ["http://localhost:3000"]
+      },
+      "localEnvVars": {
+        "WORKOS_CLIENT_ID": "${authEnv.WORKOS_CLIENT_ID}",
+        "WORKOS_API_KEY": "${authEnv.WORKOS_API_KEY}",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI": "http://localhost:3000/callback"
+      }
+    },
+    "preview": {
+      "configure": {
+        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
+      }
+    },
+    "prod": {
+      "environmentType": "production",
+      "configure": {
+        "redirectUris": [
+          "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}/callback"
+        ],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}"]
+      }
+    }
+  }
+}
+```
+
+This configuration controls how WorkOS environments are provisioned and
+configured for each deployment type (dev, preview, prod). See the
+[Automatic AuthKit Configuration](/auth/authkit/auto-provision.mdx) guide for
+complete details.
