@@ -320,6 +320,7 @@ mod tests {
     use cmd_util::env::config_test;
     use common::{
         assert_obj,
+        errors::INTERNAL_SERVER_ERROR_MSG,
         execution_context::ExecutionContext,
         fastrace_helpers::EncodedSpan,
         json::JsonForm as _,
@@ -1219,6 +1220,91 @@ export const test = {
             .await
             .unwrap_err();
         assert_eq!(err.short_msg(), "InvalidNodeActionReturnsValidator");
+        Ok(())
+    }
+
+    const MODULE_ANALYZE_CRASH: &str = r#"
+// Crash the Node executor process at analyze time in a controlled way.
+process.kill(process.pid, "SIGKILL");
+
+export const test = {
+    isAction: true,
+    isPublic: true,
+    invokeAction: (requestId, argsStr) => {
+        throw new Error("unimplemented");
+    },
+    exportArgs: () => `{ "type": "any" }`,
+};
+    "#;
+
+    #[convex_macro::prod_rt_test]
+    async fn test_analyze_recover_after_crash(rt: ProdRuntime) -> anyhow::Result<()> {
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt).await;
+
+        // Crash Node during analyze by uploading a module that terminates the process.
+        {
+            let source_package = upload_modules(
+                storage.clone(),
+                vec![ModuleConfig {
+                    path: "actions/test.js".parse()?,
+                    source: MODULE_ANALYZE_CRASH.into(),
+                    source_map: None,
+                    environment: ModuleEnvironment::Node,
+                }],
+            )
+            .await?;
+            let source_maps = BTreeMap::new();
+            let result = actions
+                .analyze(
+                    AnalyzeRequest {
+                        source_package,
+                        environment_variables: BTreeMap::new(),
+                    },
+                    &source_maps,
+                )
+                .await;
+            match result {
+                // Node crashed hard enough that the request itself failed.
+                Err(e) => {
+                    // Ensure we're failing because the Node server crashed and the request failed,
+                    // not due to an unrelated timeout or structured JS failure.
+                    let top_context = e.chain().next().map(|c| c.to_string()).unwrap_or_default();
+                    assert_eq!(top_context, "Node server request failed");
+                },
+                // Node returned a structured error response (e.g. process died in a worker).
+                Ok(Err(e)) => {
+                    assert_eq!(e.message, INTERNAL_SERVER_ERROR_MSG);
+                },
+                Ok(Ok(_)) => anyhow::bail!("Expected analyze to fail after crashing Node"),
+            }
+        }
+
+        // After the OOM, we should be able to analyze correct modules
+        {
+            let source_package = upload_modules(
+                storage.clone(),
+                vec![ModuleConfig {
+                    path: "actions/test.js".parse()?,
+                    source: MODULE_ANALYZE.into(),
+                    source_map: None,
+                    environment: ModuleEnvironment::Node,
+                }],
+            )
+            .await?;
+            let source_maps = BTreeMap::new();
+            let modules = actions
+                .analyze(
+                    AnalyzeRequest {
+                        source_package,
+                        environment_variables: BTreeMap::new(),
+                    },
+                    &source_maps,
+                )
+                .await??;
+            assert_eq!(modules.len(), 1);
+        }
+
         Ok(())
     }
 
