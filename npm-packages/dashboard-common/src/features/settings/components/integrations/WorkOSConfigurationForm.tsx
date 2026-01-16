@@ -602,15 +602,7 @@ function WorkOSTeamSection({
             >
               <QuestionMarkCircledIcon className="inline text-content-tertiary" />
             </Tooltip>
-          </span>{" "}
-          <a
-            href={`https://dashboard.workos.com/${workosTeam.workosTeamId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-content-link hover:underline"
-          >
-            View in WorkOS
-          </a>
+          </span>
         </p>
 
         <div className="flex flex-col gap-1 text-xs">
