@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config "../../tailwind.config.cjs";
+@import "tailwindcss";
 
 @layer base {
   html,

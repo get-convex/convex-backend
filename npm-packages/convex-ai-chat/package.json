@@ -19,11 +19,11 @@
     "clean": "rm -rf css cjs esm",
     "build:esm": "esbuild lib/**/*.tsx --outdir=esm --outbase=lib --loader:.ts=ts --loader:.tsx=tsx --platform=node --bundle=false",
     "build:cjs": "esbuild lib/**/*.tsx --outdir=cjs --outbase=lib --loader:.ts=ts --loader:.tsx=tsx --platform=node --bundle=false --format=cjs && echo '{\"type\": \"commonjs\"}' > cjs/package.json",
-    "build-css": "tailwindcss -i ./lib/react/styles.css -o ./css/styles.css 2> /dev/null",
+    "build-css": "tailwindcss -c ./tailwind.config.ts -i ./lib/react/styles.css -o ./css/styles.css 2> /dev/null",
     "build-css-docs": "tailwindcss -c ./docs.tailwind.config.ts -i ./lib/react/styles.css -o ./css/styles-docs.css 2> /dev/null",
     "dev": "convex dev",
     "watch": "chokidar 'lib/**/*.tsx' 'lib/**/*.ts' -c 'npm run build:esm'",
-    "watch-css": "tailwindcss -i ./lib/react/styles.css -o ./css/styles.css --watch",
+    "watch-css": "tailwindcss -c ./tailwind.config.ts -i ./lib/react/styles.css -o ./css/styles.css --watch",
     "watch-css-docs": "tailwindcss -c ./docs.tailwind.config.ts -i ./lib/react/styles.css -o ./css/styles-docs.css --watch"
   },
   "keywords": [
@@ -65,6 +65,7 @@
     "convex": "workspace:*",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
+    "@tailwindcss/cli": "^4.1.11",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^8.29.0",
@@ -73,7 +74,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "tailwindcss": "^3.2.4",
+    "tailwindcss": "^4.1.11",
     "typescript": "~5.0.3",
     "chokidar-cli": "^3.0.0",
     "esbuild": "0.27.0"

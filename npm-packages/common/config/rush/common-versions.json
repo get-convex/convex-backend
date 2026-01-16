@@ -92,11 +92,6 @@
      * specifically https://github.com/TanStack/router/blob/main/examples/react/start-basic-react-query/package.json
      */
     "@vitejs/plugin-react": ["^4.3.1"],
-    // Allow old Tailwind versions in demos
-    "tailwindcss": ["^3.2.4", "^3.4.16"],
-    "tailwind-merge": ["^2.5.5", "^1.14.0"],
-    "autoprefixer": ["^10.4.20"],
-    "postcss": ["^8.4.49"],
     /**
      * These are for private-demos/nextjs-15-app to closely match
      * npx create-next-app@latest next-15-app

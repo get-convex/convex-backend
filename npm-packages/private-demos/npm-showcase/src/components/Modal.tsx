@@ -29,7 +29,7 @@ export default function Modal({
       <Dialog
         as="div"
         data-testid="modal"
-        className="fixed inset-0 z-40 overflow-y-auto"
+        className="fixed inset-0 z-[100] overflow-y-auto"
         onClose={onClose}
       >
         <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
@@ -41,7 +41,7 @@ export default function Modal({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-neutral-8/75 transition-opacity" />
+            <div className="fixed inset-0 bg-neutral-8/75 transition-opacity z-[100]" />
           </TransitionChild>
 
           {/* This element is to trick the browser into centering the modal contents. */}
@@ -64,7 +64,7 @@ export default function Modal({
                 "inline-block bg-light-background-secondary dark:bg-dark-background-secondary rounded",
                 "text-light-content-primary dark:text-dark-content-primary",
                 "text-left overflow-hidden shadow-4 dark:border transform",
-                "transition-all align-middle",
+                "transition-all align-middle relative z-[101]",
                 large ? "sm:max-w-6xl" : "sm:max-w-xl",
                 "w-full",
               )}
