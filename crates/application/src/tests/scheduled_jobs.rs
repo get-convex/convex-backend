@@ -10,7 +10,6 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
-    execution_context::ExecutionContext,
     pause::{
         HoldGuard,
         PauseController,
@@ -33,6 +32,10 @@ use model::{
         BackendStateModel,
     },
     scheduled_jobs::{
+        test_helpers::{
+            create_scheduled_job,
+            insert_object_path,
+        },
         types::{
             args_to_bytes,
             ScheduledJobAttempts,
@@ -73,13 +76,6 @@ use crate::{
     },
     Application,
 };
-
-fn insert_object_path() -> CanonicalizedComponentFunctionPath {
-    CanonicalizedComponentFunctionPath {
-        component: ComponentPath::test_user(),
-        udf_path: CanonicalizedUdfPath::from_str("basic:insertObject").unwrap(),
-    }
-}
 
 /// Create a scheduled job in the old format with arguments inline in the
 /// document instead of args_id pointing to arguments in the
@@ -123,32 +119,6 @@ async fn create_scheduled_job_with_inline_args<'a>(
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Pending);
     Ok(job_id)
-}
-
-async fn create_scheduled_job<'a>(
-    rt: &'a TestRuntime,
-    tx: &'a mut Transaction<TestRuntime>,
-    path: CanonicalizedComponentFunctionPath,
-) -> anyhow::Result<(ResolvedDocumentId, SchedulerModel<'a, TestRuntime>)> {
-    let mut map = serde_json::Map::new();
-    map.insert(
-        "key".to_string(),
-        serde_json::Value::String("value".to_string()),
-    );
-    let (_, component) =
-        BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;
-    let mut model = SchedulerModel::new(tx, component.into());
-    let job_id = model
-        .schedule(
-            path.clone(),
-            parse_udf_args(&path.udf_path, vec![JsonValue::Object(map)])?,
-            rt.unix_timestamp(),
-            ExecutionContext::new_for_test(),
-        )
-        .await?;
-    let state = model.check_status(job_id).await?.unwrap();
-    assert_eq!(state, ScheduledJobState::Pending);
-    Ok((job_id, model))
 }
 
 /// Waits for scheduled job to execute and unpauses the scheduled job executor.

@@ -48,7 +48,7 @@ use crate::scheduled_jobs::{
     },
 };
 
-static MIN_NPM_VERSION_SCHEDULED_JOBS_V1: LazyLock<Version> =
+pub(crate) static MIN_NPM_VERSION_SCHEDULED_JOBS_V1: LazyLock<Version> =
     LazyLock::new(|| Version::parse("1.6.1").unwrap());
 
 pub struct ScheduledJobsDocMapper;

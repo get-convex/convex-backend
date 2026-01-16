@@ -81,6 +81,8 @@ use crate::{
 };
 
 pub mod args;
+#[cfg(any(test, feature = "testing"))]
+pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 pub mod types;
@@ -527,6 +529,21 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             scheduled_jobs.push(job);
         }
         Ok(scheduled_jobs)
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub async fn read_virtual_table(&mut self) -> anyhow::Result<()> {
+        use crate::scheduled_jobs::virtual_table::MIN_NPM_VERSION_SCHEDULED_JOBS_V1;
+        let scheduled_query =
+            Query::full_table_scan(SCHEDULED_JOBS_VIRTUAL_TABLE.clone(), Order::Asc);
+        let mut query_stream = ResolvedQuery::new_with_version(
+            self.tx,
+            TableNamespace::Global,
+            scheduled_query,
+            Some(MIN_NPM_VERSION_SCHEDULED_JOBS_V1.clone()),
+        )?;
+        while let Some(_job) = query_stream.next(self.tx, None).await? {}
+        Ok(())
     }
 
     /// Checks the status of the scheduled job. If it has been garbage collected
