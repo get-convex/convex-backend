@@ -95,11 +95,13 @@ data to keep using it.
   cases.
 
 - **Node actions require specific Node.js versions** - Running Node.js actions
-  (actions defined in files with `"use node;"`) requires having Node.js 18
-  installed, since this is the version of Node.js used in production when
-  Node.js actions run in AWS Lambda functions. To resolve this you can install
-  and set up [nvm](https://github.com/nvm-sh/nvm) and then install Node.js
-  version 18. You don't need to use Node.js 18 for the rest of your project.
+  (actions defined in files with `"use node;"`) requires having the same version
+  of Node.js as your project is
+  [configured for](/production/project-configuration#configuring-the-nodejs-version).
+  By default this is Node.js 20 today, though this may change in the future. To
+  resolve this you can install and set up [nvm](https://github.com/nvm-sh/nvm)
+  and then install the required Node.js version. You don't need to use this
+  version for the rest of your project.
 
 - **Node.js actions run directly on your computer** - Like a normal Node.js
   server, code running in Node.js actions has unrestricted filesystem access.
