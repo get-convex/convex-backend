@@ -21,7 +21,7 @@
     "@tailwindcss/forms": "^0.5.10"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "5.0.3",
+    "@fontsource-variable/inter": "5.2.8",
     "@headlessui/react": "^2.2.9",
     "@radix-ui/react-tooltip": "~1.2.0",
     "classnames": "^2.3.2",
