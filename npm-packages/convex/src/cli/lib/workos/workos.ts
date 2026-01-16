@@ -1,19 +1,18 @@
 /**
- * Programatic provisioning of a WorkOS environments and configuration of these environemnts.
+ * Programatic provisioning of WorkOS environments and configuration of these environments.
  *
- * This WorkOS integation is subject to change while in development and may require upgrading the CLI
+ * This WorkOS integration is subject to change while in development and may require upgrading the CLI
  * to use in the future.
- *
- * This flow may be kicked off by discovering that WORKOS_CLIENT_ID
- * is required in a convex/auth.config.ts but not present on the deployment.
  */
 import crypto from "crypto";
+import * as dotenv from "dotenv";
 import { Context } from "../../../bundler/context.js";
 import {
   changeSpinner,
   logFinishedStep,
   logMessage,
   logOutput,
+  logVerbose,
   logWarning,
   showSpinner,
   stopSpinner,
@@ -23,13 +22,261 @@ import { callUpdateEnvironmentVariables, envGetInDeployment } from "../env.js";
 import { deploymentDashboardUrlPage } from "../dashboard.js";
 import { changedEnvVarFile, suggestedEnvVarName } from "../envvars.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
-import { createCORSOrigin, createRedirectURI } from "./environmentApi.js";
+import {
+  createCORSOrigin,
+  createRedirectURI,
+  updateAppHomepageUrl,
+} from "./environmentApi.js";
 import {
   createAssociatedWorkosTeam,
   createEnvironmentAndAPIKey,
   getCandidateEmailsForWorkIntegration,
   getDeploymentCanProvisionWorkOSEnvironments,
 } from "./platformApi.js";
+import type {
+  AuthKitConfig,
+  AuthKitEnvironmentConfig,
+  AuthKitConfigureSettings,
+  ProjectConfig,
+} from "../config.js";
+import { getAuthKitConfig, readProjectConfig } from "../config.js";
+
+// Helper function to query WorkOS environment variables from deployment
+async function getWorkOSEnvVarsFromDeployment(
+  ctx: Context,
+  deployment: { deploymentUrl: string; adminKey: string },
+): Promise<{
+  clientId: string | null;
+  apiKey: string | null;
+  environmentId: string | null;
+}> {
+  const [clientId, apiKey, environmentId] = await Promise.all([
+    envGetInDeployment(ctx, deployment, "WORKOS_CLIENT_ID"),
+    envGetInDeployment(ctx, deployment, "WORKOS_API_KEY"),
+    envGetInDeployment(ctx, deployment, "WORKOS_ENVIRONMENT_ID"),
+  ]);
+  return { clientId, apiKey, environmentId };
+}
+
+// Helper to resolve WorkOS credentials from all available sources
+async function resolveWorkOSCredentials(
+  ctx: Context,
+  deployment: { deploymentUrl: string; adminKey: string },
+  deploymentName: string,
+  authKitConfig: AuthKitConfig,
+  workosDeploymentType: "dev" | "preview" | "prod",
+): Promise<{
+  clientId: string | null;
+  apiKey: string | null;
+  environmentId: string | null;
+  deploymentEnvVars: {
+    clientId: string | null;
+    apiKey: string | null;
+    environmentId: string | null;
+  };
+}> {
+  // 1. Check build environment
+  let clientId = process.env.WORKOS_CLIENT_ID || null;
+  let apiKey = process.env.WORKOS_API_KEY || null;
+  let environmentId = process.env.WORKOS_ENVIRONMENT_ID || null;
+
+  // 2. Check deployment environment as fallback
+  const deploymentEnvVars = await getWorkOSEnvVarsFromDeployment(
+    ctx,
+    deployment,
+  );
+
+  clientId = clientId || deploymentEnvVars.clientId;
+  apiKey = apiKey || deploymentEnvVars.apiKey;
+  environmentId = environmentId || deploymentEnvVars.environmentId;
+
+  // 3. If still no credentials, try provisioning (if we have appropriate auth)
+  if (!clientId || !apiKey) {
+    const auth = ctx.bigBrainAuth();
+    const isUsingDeploymentKey = auth?.kind === "deploymentKey";
+
+    if (isUsingDeploymentKey) {
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: buildDeploymentKeyError(
+          deploymentName,
+          workosDeploymentType,
+        ),
+      });
+    }
+
+    // We have user auth or project key, try to provision
+    showSpinner("Provisioning AuthKit environment...");
+
+    try {
+      const result = await ensureWorkosEnvironmentProvisioned(
+        ctx,
+        deploymentName,
+        { ...deployment, deploymentNotice: "" },
+        authKitConfig,
+        workosDeploymentType,
+      );
+
+      if (result !== "ready") {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: "Failed to provision WorkOS environment",
+        });
+      }
+
+      // After provisioning, re-fetch the credentials
+      const provisionedEnvVars = await getWorkOSEnvVarsFromDeployment(
+        ctx,
+        deployment,
+      );
+      clientId = provisionedEnvVars.clientId;
+      apiKey = provisionedEnvVars.apiKey;
+      environmentId = provisionedEnvVars.environmentId;
+
+      if (!clientId || !apiKey) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "Failed to retrieve WorkOS credentials after provisioning",
+        });
+      }
+    } catch (error: any) {
+      if (
+        error.message?.includes("permission") ||
+        error.message?.includes("deploy key") ||
+        error.message?.includes("UnexpectedAuthHeaderFormat")
+      ) {
+        await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            `Cannot provision WorkOS environment with current authentication.\n` +
+            `You need to manually set WORKOS_CLIENT_ID and WORKOS_API_KEY\n` +
+            `environment variables in your build environment or deployment settings.`,
+        });
+      }
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Error provisioning WorkOS environment: ${error.message}`,
+      });
+    }
+  }
+
+  return { clientId, apiKey, environmentId, deploymentEnvVars };
+}
+
+// Helper function to build error message for deployment key restrictions
+function buildDeploymentKeyError(
+  deploymentName: string,
+  deploymentType: string,
+): string {
+  const integrationsUrl = deploymentDashboardUrlPage(
+    deploymentName,
+    "/settings/integrations",
+  );
+  return (
+    `AuthKit configuration in convex.json requires WorkOS credentials.\n\n` +
+    `Checked for credentials in:\n` +
+    `  1. Build environment variables (WORKOS_CLIENT_ID, WORKOS_API_KEY)\n` +
+    `  2. Deployment environment variables, see WorkOS integration at ${integrationsUrl}\n\n` +
+    `When using a deployment-specific key, you cannot automatically provision WorkOS environments.\n` +
+    `You must provide these credentials in your build platform (e.g., Vercel, Netlify)\n` +
+    `or set them in your deployment settings.\n\n` +
+    `Alternatively, remove the 'authKit.${deploymentType}' section from convex.json to skip\n` +
+    `AuthKit configuration.`
+  );
+}
+
+// Helper function to ensure deployment has the correct WorkOS credentials
+async function ensureDeploymentHasWorkOSCredentials(
+  ctx: Context,
+  deployment: { deploymentUrl: string; adminKey: string },
+  credentials: {
+    clientId: string;
+    apiKey: string;
+    environmentId: string | null;
+  },
+  deploymentEnvVars: {
+    clientId: string | null;
+    apiKey: string | null;
+    environmentId: string | null;
+  },
+): Promise<void> {
+  const mismatches: string[] = [];
+  if (
+    deploymentEnvVars.clientId &&
+    deploymentEnvVars.clientId !== credentials.clientId
+  ) {
+    mismatches.push(
+      `  WORKOS_CLIENT_ID: deployment has '${deploymentEnvVars.clientId}' but we need '${credentials.clientId}'`,
+    );
+  }
+  if (
+    deploymentEnvVars.apiKey &&
+    deploymentEnvVars.apiKey !== credentials.apiKey
+  ) {
+    mismatches.push(
+      `  WORKOS_API_KEY: deployment has different value than what we need`,
+    );
+  }
+  if (
+    deploymentEnvVars.environmentId &&
+    credentials.environmentId &&
+    deploymentEnvVars.environmentId !== credentials.environmentId
+  ) {
+    mismatches.push(
+      `  WORKOS_ENVIRONMENT_ID: deployment has '${deploymentEnvVars.environmentId}' but we need '${credentials.environmentId}'`,
+    );
+  }
+
+  if (mismatches.length > 0) {
+    await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        `WorkOS environment variable mismatch detected!\n\n` +
+        `The following environment variables in your Convex deployment don't match what's needed:\n` +
+        mismatches.join("\n") +
+        "\n\n" +
+        `This would cause your auth configuration to use different credentials at runtime than during build.\n\n` +
+        `To fix this, remove the conflicting environment variables from your deployment:\n` +
+        `  npx convex env remove WORKOS_CLIENT_ID\n` +
+        `  npx convex env remove WORKOS_API_KEY\n` +
+        `  npx convex env remove WORKOS_ENVIRONMENT_ID\n\n` +
+        `Or remove them from the Convex dashboard deployment settings.\n\n` +
+        `Then run your deployment command again.`,
+    });
+  }
+  const updates: Array<{ name: string; value: string }> = [];
+  if (!deploymentEnvVars.clientId && credentials.clientId) {
+    updates.push({ name: "WORKOS_CLIENT_ID", value: credentials.clientId });
+  }
+  if (!deploymentEnvVars.apiKey && credentials.apiKey) {
+    updates.push({ name: "WORKOS_API_KEY", value: credentials.apiKey });
+  }
+  if (!deploymentEnvVars.environmentId && credentials.environmentId) {
+    updates.push({
+      name: "WORKOS_ENVIRONMENT_ID",
+      value: credentials.environmentId,
+    });
+  }
+
+  if (updates.length > 0) {
+    changeSpinner("Setting WorkOS credentials in deployment...");
+    await callUpdateEnvironmentVariables(
+      ctx,
+      { ...deployment, deploymentNotice: "" },
+      updates,
+    );
+    logVerbose(
+      `WorkOS credentials propagated to deployment: ${updates.map((u) => u.name).join(", ")}`,
+    );
+  }
+}
 
 /**
  * Ensure the current deployment has the three expected WorkOS environment
@@ -47,14 +294,14 @@ export async function ensureWorkosEnvironmentProvisioned(
     adminKey: string;
     deploymentNotice: string;
   },
-  options: {
-    offerToAssociateWorkOSTeam: boolean;
-    autoProvisionIfWorkOSTeamAssociated: boolean;
-    autoConfigureAuthkitConfig: boolean;
-    environmentName?: string;
-  },
+  authKitConfig: AuthKitConfig | undefined,
+  deploymentType: "dev" | "preview" | "prod",
 ): Promise<"ready" | "choseNotToAssociatedTeam"> {
-  if (!options.autoConfigureAuthkitConfig) {
+  const envConfig: AuthKitEnvironmentConfig | undefined =
+    authKitConfig?.[deploymentType];
+
+  // If no config, nothing to do
+  if (!envConfig) {
     return "choseNotToAssociatedTeam";
   }
 
@@ -68,18 +315,48 @@ export async function ensureWorkosEnvironmentProvisioned(
     logOutput(
       "Deployment already has environment variables for a WorkOS environment configured for AuthKit.",
     );
-    await updateEnvLocal(
-      ctx,
-      existingEnvVars.clientId,
-      existingEnvVars.apiKey,
-      existingEnvVars.environmentId,
-    );
-    await updateWorkosEnvironment(ctx, existingEnvVars.apiKey);
+
+    if (
+      envConfig.localEnvVars !== undefined &&
+      envConfig.localEnvVars !== false
+    ) {
+      await updateEnvLocal(
+        ctx,
+        existingEnvVars.clientId,
+        existingEnvVars.apiKey,
+        existingEnvVars.environmentId,
+        envConfig.localEnvVars,
+      );
+    }
+
+    // Configure WorkOS environment if configured
+    if (envConfig.configure !== undefined && envConfig.configure !== false) {
+      if (!existingEnvVars.apiKey) {
+        // API key missing - warn and skip configuration
+        logWarning(
+          `Skipping WorkOS AuthKit environment configuration: WORKOS_API_KEY is not set.\n` +
+            `To configure redirect URIs and CORS origins, you need to set this environment variable.\n` +
+            `You can set it at: ${deployment.deploymentUrl.replace(/\/$/, "")}/settings/environment-variables`,
+        );
+      } else {
+        await updateWorkosEnvironment(
+          ctx,
+          existingEnvVars.apiKey,
+          envConfig.configure,
+          {
+            clientId: existingEnvVars.clientId,
+            apiKey: existingEnvVars.apiKey,
+            environmentId: existingEnvVars.environmentId,
+          },
+        );
+      }
+    }
+
     logFinishedStep("WorkOS AuthKit environment ready");
     return "ready";
   }
 
-  // We need to provision an environment. Let's figure out if we can:
+  // We need to provision an environment via Big Brain
   const response = await getDeploymentCanProvisionWorkOSEnvironments(
     ctx,
     deploymentName,
@@ -87,25 +364,18 @@ export async function ensureWorkosEnvironmentProvisioned(
   const { hasAssociatedWorkosTeam, teamId } = response;
 
   // In case this this becomes a legacy flow that no longer works.
-  // @ts-expect-error - disabled is a legacy field that may not be present
-  if (response.disabled) {
+  if ((response as any).disabled) {
     return "choseNotToAssociatedTeam";
   }
+
   if (!hasAssociatedWorkosTeam) {
-    if (!options.offerToAssociateWorkOSTeam) {
-      const dashboardUrl = deploymentDashboardUrlPage(
-        deploymentName,
-        `/settings/environment-variables?var=WORKOS_CLIENT_ID`,
-      );
-      logMessage(
-        `\nTo use WorkOS authentication, you'll need to set environment variables manually on the dashboard:\n  ${dashboardUrl}`,
-      );
-      return "choseNotToAssociatedTeam";
-    }
+    // A WorkOS workspace needs to be created for provisioning to work
+    // We'll offer to create it interactively, or fail in non-interactive mode
     const result = await tryToCreateAssociatedWorkosTeam(
       ctx,
       deploymentName,
       teamId,
+      deploymentType,
     );
     if (result === "choseNotToAssociatedTeam") {
       return "choseNotToAssociatedTeam";
@@ -113,24 +383,50 @@ export async function ensureWorkosEnvironmentProvisioned(
     result satisfies "ready";
   }
 
+  // Determine WorkOS environment type
+  // Map config's "development"/"staging"/"production" to API's "production"/"nonproduction"
+  // Default: dev/preview -> nonproduction, prod -> production
+  // Override: use environmentType from config (only allowed in prod)
+  let workosEnvironmentType: "production" | "nonproduction" | undefined;
+  if (envConfig.environmentType) {
+    // User explicitly set it (only allowed in prod)
+    // Map: "production" -> "production", everything else -> "nonproduction"
+    workosEnvironmentType =
+      envConfig.environmentType === "production"
+        ? "production"
+        : "nonproduction";
+  } else {
+    // Default based on Convex deployment type
+    workosEnvironmentType =
+      deploymentType === "prod" ? "production" : "nonproduction";
+  }
+
   const environmentResult = await createEnvironmentAndAPIKey(
     ctx,
     deploymentName,
-    options.environmentName,
+    workosEnvironmentType,
   );
 
   if (!environmentResult.success) {
-    if (environmentResult.error === "team_not_provisioned") {
+    if (
+      "error" in environmentResult &&
+      environmentResult.error === "team_not_provisioned"
+    ) {
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
         printedMessage: `Team unexpectedly has no provisioned WorkOS team: ${environmentResult.message}`,
       });
     }
+    // For other error cases
+    const errorMessage =
+      "message" in environmentResult
+        ? environmentResult.message
+        : "Failed to provision WorkOS environment";
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: environmentResult.message,
+      printedMessage: errorMessage,
     });
   }
 
@@ -151,10 +447,29 @@ export async function ensureWorkosEnvironmentProvisioned(
     data.environmentId,
     data.apiKey,
   );
-  showSpinner("Updating .env.local with WorkOS configuration");
-  await updateEnvLocal(ctx, data.clientId, data.apiKey, data.environmentId);
 
-  await updateWorkosEnvironment(ctx, data.apiKey);
+  if (
+    envConfig.localEnvVars !== undefined &&
+    envConfig.localEnvVars !== false
+  ) {
+    showSpinner("Updating .env.local with WorkOS configuration");
+    await updateEnvLocal(
+      ctx,
+      data.clientId,
+      data.apiKey,
+      data.environmentId,
+      envConfig.localEnvVars,
+    );
+  }
+
+  // Configure WorkOS environment if configured
+  if (envConfig.configure !== undefined && envConfig.configure !== false) {
+    await updateWorkosEnvironment(ctx, data.apiKey, envConfig.configure, {
+      clientId: data.clientId,
+      apiKey: data.apiKey,
+      environmentId: data.environmentId,
+    });
+  }
   logFinishedStep("WorkOS AuthKit environment ready");
 
   return "ready";
@@ -168,6 +483,7 @@ export async function provisionWorkosTeamInteractive(
   ctx: Context,
   deploymentName: string,
   teamId: number,
+  deploymentType: "dev" | "preview" | "prod",
   options: {
     promptPrefix?: string;
     promptMessage?: string;
@@ -188,18 +504,27 @@ export async function provisionWorkosTeamInteractive(
   }
   stopSpinner();
 
-  const defaultPrefix = `We can automatically create your WorkOS account and configure your project. This will allow all your team members and deployments to use WorkOS auth without further setup.
+  const defaultPrefix = `A WorkOS team needs to be created for your Convex team "${teamInfo.teamSlug}" in order to use AuthKit.
 
-Choose "no" if you'd like to use your own WorkOS credentials instead.
+You and other members of this team will be able to create WorkOS environments for each Convex dev deployment for projects in this team.
 
 By creating this account you agree to the WorkOS Terms of Service (https://workos.com/legal/terms-of-service) and Privacy Policy (https://workos.com/legal/privacy).
+Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environment.
 \n`;
 
-  const defaultMessage = `Create WorkOS team and set up this project?`;
+  const defaultMessage = `Create a WorkOS team and enable automatic AuthKit environment provisioning for team "${teamInfo.teamSlug}"?`;
 
   const agree = await promptYesNo(ctx, {
     prefix: options.promptPrefix ?? defaultPrefix,
     message: options.promptMessage ?? defaultMessage,
+    nonInteractiveError: `Cannot provision WorkOS AuthKit in non-interactive mode.
+
+A WorkOS workspace needs to be associated with your Convex team to enable automatic environment provisioning.
+
+To fix this, either:
+1. Run this command in an interactive terminal to set up WorkOS provisioning
+2. Remove the authKit.${deploymentType} section from convex.json and provide your own WorkOS credentials via the dashboard
+3. Set WORKOS_CLIENT_ID and WORKOS_API_KEY environment variables before deploying`,
   });
   if (!agree) {
     logMessage("\nGot it. We won't create your WorkOS account.");
@@ -266,11 +591,13 @@ export async function tryToCreateAssociatedWorkosTeam(
   ctx: Context,
   deploymentName: string,
   teamId: number,
+  deploymentType: "dev" | "preview" | "prod",
 ): Promise<"ready" | "choseNotToAssociatedTeam"> {
   const result = await provisionWorkosTeamInteractive(
     ctx,
     deploymentName,
     teamId,
+    deploymentType,
   );
 
   if (!result.success) {
@@ -288,82 +615,413 @@ export async function tryToCreateAssociatedWorkosTeam(
   return "ready";
 }
 
+/**
+ * Pre-flight check for AuthKit provisioning.
+ * Called before building the client bundle to ensure .env.local has correct values.
+ * This is the main provisioning path - the error path is kept for backwards compatibility.
+ */
+/**
+ * Ensures WorkOS AuthKit environment is ready before building.
+ *
+ * Flow:
+ * 1. Get authKit configuration for the deployment type
+ * 2. Resolve credentials (build env → deployment env → provision via Big Brain)
+ * 3. Ensure deployment has the correct credentials
+ * 4. Update local .env.local if configured (interactive only)
+ * 5. Configure WorkOS environment settings if needed
+ */
+export async function ensureAuthKitProvisionedBeforeBuild(
+  ctx: Context,
+  deploymentName: string,
+  deployment: {
+    deploymentUrl: string;
+    adminKey: string;
+  },
+  deploymentType?: "dev" | "preview" | "prod",
+): Promise<void> {
+  // 1. Get configuration
+  const { projectConfig } = await readProjectConfig(ctx);
+  const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+  if (!authKitConfig) {
+    return;
+  }
+
+  const workosDeploymentType = deploymentType || "dev";
+  const envConfig = authKitConfig[workosDeploymentType];
+  if (!envConfig) {
+    return;
+  }
+
+  // 2. Resolve credentials from all sources
+  const { clientId, apiKey, environmentId, deploymentEnvVars } =
+    await resolveWorkOSCredentials(
+      ctx,
+      deployment,
+      deploymentName,
+      authKitConfig,
+      workosDeploymentType,
+    );
+
+  // 3. Ensure deployment has the correct credentials
+  if (clientId && apiKey) {
+    await ensureDeploymentHasWorkOSCredentials(
+      ctx,
+      deployment,
+      { clientId, apiKey, environmentId },
+      deploymentEnvVars,
+    );
+  }
+
+  // 4. Update local environment variables if configured (interactive mode only)
+  if (envConfig.localEnvVars && process.stdin.isTTY && clientId && apiKey) {
+    await updateEnvLocal(
+      ctx,
+      clientId,
+      apiKey,
+      environmentId || "",
+      envConfig.localEnvVars,
+    );
+  }
+
+  // 5. Configure WorkOS environment if needed
+  if (envConfig.configure && apiKey) {
+    const configValues: {
+      clientId?: string;
+      apiKey?: string;
+      environmentId?: string;
+    } = {
+      apiKey,
+    };
+    if (clientId) {
+      configValues.clientId = clientId;
+    }
+    if (environmentId) {
+      configValues.environmentId = environmentId;
+    }
+    await updateWorkosEnvironment(
+      ctx,
+      apiKey,
+      envConfig.configure,
+      configValues,
+    );
+  }
+}
+/**
+ * Syncs WorkOS configuration and local env vars after a successful push.
+ * This is called on every push in dev mode to keep WorkOS settings in sync
+ * with changes to convex.json.
+ *
+ * @returns true if any updates were made, false if config unchanged
+ */
+export async function syncAuthKitConfigAfterPush(
+  ctx: Context,
+  projectConfig: ProjectConfig,
+  deployment: {
+    deploymentUrl: string;
+    adminKey: string;
+  },
+): Promise<boolean> {
+  // Get the authKit config (may include generated defaults for templates)
+  const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+  if (!authKitConfig) {
+    // No authKit config, nothing to sync
+    return false;
+  }
+
+  // We only sync the "dev" environment settings during dev mode
+  const devConfig = authKitConfig.dev;
+  if (!devConfig) {
+    return false;
+  }
+
+  // Get existing credentials from deployment
+  const [clientId, apiKey, environmentId] = await Promise.all([
+    envGetInDeployment(ctx, deployment, "WORKOS_CLIENT_ID"),
+    envGetInDeployment(ctx, deployment, "WORKOS_API_KEY"),
+    envGetInDeployment(ctx, deployment, "WORKOS_ENVIRONMENT_ID"),
+  ]);
+
+  // We need the API key to make WorkOS API calls
+  if (!apiKey) {
+    // Can't update WorkOS without an API key
+    return false;
+  }
+
+  // Update WorkOS environment configuration if specified
+  if (devConfig.configure !== undefined && devConfig.configure !== false) {
+    const provisionedValues: {
+      clientId?: string;
+      apiKey?: string;
+      environmentId?: string;
+    } = {
+      apiKey,
+    };
+    if (clientId) {
+      provisionedValues.clientId = clientId;
+    }
+    if (environmentId) {
+      provisionedValues.environmentId = environmentId;
+    }
+    await updateWorkosEnvironment(
+      ctx,
+      apiKey,
+      devConfig.configure,
+      provisionedValues,
+    );
+  }
+
+  // Note: We don't update .env.local during sync - that only happens during provisioning
+  // to ensure the client bundle build has the correct values
+
+  return true;
+}
+
 // Helpers
 
-// In the future this will be configurable.
-// Perhaps with an API like `authKit({ redirectUri: 'asdf' })
 async function updateWorkosEnvironment(
   ctx: Context,
   workosApiKey: string,
+  configureSettings: AuthKitConfigureSettings,
+  provisioned?: { clientId?: string; apiKey?: string; environmentId?: string },
 ): Promise<void> {
-  let { frontendDevUrl } = await suggestedEnvVarName(ctx);
-  frontendDevUrl = frontendDevUrl || "http://localhost:5173";
-  const redirectUri = `${frontendDevUrl}/callback`;
-  const corsOrigin = `${frontendDevUrl}`;
+  const isInteractive = process.stdin.isTTY;
+  const skippedConfigs: string[] = [];
 
-  await applyConfigToWorkosEnvironment(ctx, {
-    workosApiKey,
-    redirectUri,
-    corsOrigin,
+  // Log what we're about to configure
+  const configItems: string[] = [];
+  if (configureSettings.redirectUris?.length) {
+    configItems.push(
+      `${configureSettings.redirectUris.length} redirect URI(s)`,
+    );
+  }
+  if (configureSettings.appHomepageUrl) {
+    configItems.push(`app homepage URL`);
+  }
+  if (configureSettings.corsOrigins?.length) {
+    configItems.push(`${configureSettings.corsOrigins.length} CORS origin(s)`);
+  }
+
+  if (configItems.length > 0) {
+    logVerbose(
+      `Starting WorkOS AuthKit configuration: ${configItems.join(", ")}`,
+    );
+  } else {
+    logVerbose(`No WorkOS AuthKit configuration settings to apply`);
+    return;
+  }
+
+  // Apply each redirect URI
+  if (configureSettings.redirectUris) {
+    for (const redirectUri of configureSettings.redirectUris) {
+      try {
+        // Resolve template with both env vars and provisioned values
+        const resolvedRedirectUri = resolveTemplate(redirectUri, provisioned);
+        const { modified: redirectUriAdded } = await createRedirectURI(
+          ctx,
+          workosApiKey,
+          resolvedRedirectUri,
+        );
+        if (redirectUriAdded) {
+          changeSpinner("Configuring AuthKit redirect URI...");
+          logMessage(`AuthKit redirect URI added: ${resolvedRedirectUri}`);
+        } else {
+          logVerbose(
+            `AuthKit redirect URI already configured: ${resolvedRedirectUri}`,
+          );
+        }
+      } catch (error: any) {
+        if (
+          isInteractive &&
+          error.message?.includes("Cannot resolve template")
+        ) {
+          // In interactive mode, log warning and continue
+          skippedConfigs.push(
+            `Redirect URI: ${redirectUri} - ${error.message}`,
+          );
+        } else {
+          // In non-interactive mode or for other errors, crash
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `Error configuring redirect URI: ${error.message}`,
+          });
+        }
+      }
+    }
+  }
+
+  // Apply app homepage URL (where users are redirected after logout)
+  if (configureSettings.appHomepageUrl) {
+    try {
+      // Resolve template with both env vars and provisioned values
+      const resolvedAppHomepageUrl = resolveTemplate(
+        configureSettings.appHomepageUrl,
+        provisioned,
+      );
+
+      const { modified: appHomepageUrlUpdated } = await updateAppHomepageUrl(
+        ctx,
+        workosApiKey,
+        resolvedAppHomepageUrl,
+      );
+
+      if (appHomepageUrlUpdated) {
+        changeSpinner("Configuring AuthKit app homepage URL...");
+        logMessage(
+          `AuthKit app homepage URL updated: ${resolvedAppHomepageUrl}`,
+        );
+      } else {
+        logVerbose(
+          `AuthKit app homepage URL was not updated (may be invalid for WorkOS or already set)`,
+        );
+      }
+    } catch (error: any) {
+      if (isInteractive && error.message?.includes("Cannot resolve template")) {
+        // In interactive mode, log warning and continue
+        skippedConfigs.push(
+          `App homepage URL: ${configureSettings.appHomepageUrl} - ${error.message}`,
+        );
+      } else {
+        // In non-interactive mode or for other errors, crash
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Error configuring app homepage URL: ${error.message}`,
+        });
+      }
+    }
+  } else {
+    logVerbose(`No app homepage URL configured`);
+  }
+
+  // Apply each CORS origin
+  if (configureSettings.corsOrigins) {
+    for (const corsOrigin of configureSettings.corsOrigins) {
+      try {
+        // Resolve template with both env vars and provisioned values
+        const resolvedCorsOrigin = resolveTemplate(corsOrigin, provisioned);
+        const { modified: corsAdded } = await createCORSOrigin(
+          ctx,
+          workosApiKey,
+          resolvedCorsOrigin,
+        );
+        if (corsAdded) {
+          changeSpinner("Configuring AuthKit CORS origin...");
+          logMessage(`AuthKit CORS origin added: ${resolvedCorsOrigin}`);
+        } else {
+          logVerbose(
+            `AuthKit CORS origin already configured: ${resolvedCorsOrigin}`,
+          );
+        }
+      } catch (error: any) {
+        if (
+          isInteractive &&
+          error.message?.includes("Cannot resolve template")
+        ) {
+          // In interactive mode, log warning and continue
+          skippedConfigs.push(`CORS origin: ${corsOrigin} - ${error.message}`);
+        } else {
+          // In non-interactive mode or for other errors, crash
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `Error configuring CORS origin: ${error.message}`,
+          });
+        }
+      }
+    }
+  }
+
+  // Log completion summary
+  logVerbose(`WorkOS AuthKit configuration completed`);
+
+  // If we skipped any configurations in interactive mode, let the user know
+  if (skippedConfigs.length > 0) {
+    stopSpinner();
+    logWarning(
+      `Skipped some AuthKit configurations due to missing environment variables:\n` +
+        skippedConfigs.map((s) => `  - ${s}`).join("\n"),
+    );
+  }
+}
+
+// Helper to resolve template strings with unified syntax:
+// - ${buildEnv.ENV_VAR} for build-time environment variables
+// - ${authEnv.WORKOS_CLIENT_ID} for provisioned client ID
+// - ${authEnv.WORKOS_API_KEY} for provisioned API key
+// - ${authEnv.WORKOS_ENVIRONMENT_ID} for provisioned environment ID
+/* eslint-disable no-restricted-syntax */
+export function resolveTemplate(
+  str: string,
+  provisioned?: { clientId?: string; apiKey?: string; environmentId?: string },
+): string {
+  return str.replace(/\$\{([^}]+)\}/g, (match, expression) => {
+    // Handle auth environment values (provisioned WorkOS credentials)
+    if (expression === "authEnv.WORKOS_CLIENT_ID") {
+      if (!provisioned?.clientId) {
+        throw new Error(
+          `Cannot resolve template ${match}: WORKOS_CLIENT_ID not available. ` +
+            `Ensure WorkOS environment is provisioned.`,
+        );
+      }
+      return provisioned.clientId;
+    }
+    if (expression === "authEnv.WORKOS_API_KEY") {
+      if (!provisioned?.apiKey) {
+        throw new Error(
+          `Cannot resolve template ${match}: WORKOS_API_KEY not available. ` +
+            `Ensure WorkOS environment is provisioned.`,
+        );
+      }
+      return provisioned.apiKey;
+    }
+    if (expression === "authEnv.WORKOS_ENVIRONMENT_ID") {
+      if (!provisioned?.environmentId) {
+        throw new Error(
+          `Cannot resolve template ${match}: WORKOS_ENVIRONMENT_ID not available. ` +
+            `Ensure WorkOS environment is provisioned.`,
+        );
+      }
+      return provisioned.environmentId;
+    }
+
+    // Handle build environment variables
+    if (expression.startsWith("buildEnv.")) {
+      const varName = expression.substring("buildEnv.".length);
+      const value = process.env[varName];
+      if (!value) {
+        throw new Error(
+          `Cannot resolve template ${match}: Environment variable ${varName} is not set.`,
+        );
+      }
+      return value;
+    }
+
+    // Unknown template expression - fail loudly
+    throw new Error(
+      `Unknown template expression: ${match}. ` +
+        `Use \${buildEnv.VAR_NAME} for environment variables or ` +
+        `\${authEnv.WORKOS_CLIENT_ID/WORKOS_API_KEY} for provisioned values.`,
+    );
   });
 }
+/* eslint-enable no-restricted-syntax */
 
-async function applyConfigToWorkosEnvironment(
-  ctx: Context,
-  {
-    workosApiKey,
-    redirectUri,
-    corsOrigin,
-  }: {
-    workosApiKey: string;
-    redirectUri: string;
-    corsOrigin: string;
-  },
-): Promise<void> {
-  changeSpinner("Configuring AuthKit redirect URI...");
-  const { modified: redirectUriAdded } = await createRedirectURI(
-    ctx,
-    workosApiKey,
-    redirectUri,
-  );
-  if (redirectUriAdded) {
-    logMessage(`AuthKit redirect URI added: ${redirectUri}`);
-  }
-
-  changeSpinner("Configuring AuthKit CORS origin...");
-  const { modified: corsAdded } = await createCORSOrigin(
-    ctx,
-    workosApiKey,
-    corsOrigin,
-  );
-  if (corsAdded) {
-    logMessage(`AuthKit CORS origin added: ${corsOrigin}`);
-  }
-}
-
-// Given a WORKOS_CLIENT_ID try to configure the .env.local appropriately
-// for a framework. This flow supports only Vite and Next.js for now.
+// Update .env.local based on configured localEnvVars
 async function updateEnvLocal(
   ctx: Context,
   clientId: string,
   apiKey: string,
   environmentId: string,
+  localEnvVarsConfig: Record<string, string>,
 ) {
   const envPath = ".env.local";
 
-  const { frontendDevUrl, detectedFramework, publicPrefix } =
-    await suggestedEnvVarName(ctx);
+  let existingFileContent = ctx.fs.exists(envPath)
+    ? ctx.fs.readUtf8File(envPath)
+    : null;
 
-  // For now don't attempt for anything other than Vite or Next.js.
-  if (
-    !detectedFramework ||
-    !["Vite", "Next.js", "TanStackStart"].includes(detectedFramework)
-  ) {
-    logWarning(
-      "Can't configure .env.local, fill it out according to directions for the corresponding AuthKit SDK. Use `npx convex list` to see relevant environment variables.",
-    );
-  }
-
+  // Build the changes based on localEnvVarsConfig
   let suggestedChanges: Record<
     string,
     {
@@ -373,51 +1031,63 @@ async function updateEnvLocal(
     }
   > = {};
 
-  let existingFileContent = ctx.fs.exists(envPath)
-    ? ctx.fs.readUtf8File(envPath)
-    : null;
+  const { detectedFramework } = await suggestedEnvVarName(ctx);
 
-  if (publicPrefix) {
-    if (detectedFramework === "Vite") {
-      suggestedChanges[`${publicPrefix}WORKOS_CLIENT_ID`] = {
-        value: clientId,
-        commentOnPreviousLine: `# See this environment at ${workosUrl(environmentId, "/authentication")}`,
-      };
-    } else if (
-      detectedFramework === "Next.js" ||
-      detectedFramework === "TanStackStart"
-    ) {
-      // Next/TanStack Start don’t need the client id to be public
-      suggestedChanges[`WORKOS_CLIENT_ID`] = {
-        value: clientId,
-        commentOnPreviousLine: `# See this environment at ${workosUrl(environmentId, "/authentication")}`,
-      };
+  // Parse existing .env.local to check what's already there
+  const existingEnvVars = existingFileContent
+    ? dotenv.parse(existingFileContent)
+    : {};
+
+  for (const [envVarName, templateValue] of Object.entries(
+    localEnvVarsConfig,
+  )) {
+    // Check if already set in .env.local
+    if (existingEnvVars[envVarName]) {
+      logVerbose(`Skipping ${envVarName} update - already in .env.local`);
+      continue;
     }
 
-    if (frontendDevUrl) {
-      suggestedChanges[
-        detectedFramework === "TanStackStart"
-          ? "WORKOS_REDIRECT_URI"
-          : `${publicPrefix}WORKOS_REDIRECT_URI`
-      ] = {
-        value: `${frontendDevUrl}/callback`,
+    // Check if already set in environment (but not from .env.local)
+    if (process.env[envVarName]) {
+      logVerbose(
+        `Skipping ${envVarName} update in .env.local - already set in environment`,
+      );
+      continue;
+    }
+
+    // Use unified template resolution for both syntaxes
+    const resolvedValue = resolveTemplate(templateValue, {
+      clientId,
+      apiKey,
+      environmentId,
+    });
+
+    // Add comment for first WorkOS var if it's a provisioned value
+    if (
+      Object.keys(suggestedChanges).length === 0 &&
+      (templateValue.includes("authEnv.WORKOS_CLIENT_ID") ||
+        templateValue === "${authEnv.WORKOS_CLIENT_ID}")
+    ) {
+      suggestedChanges[envVarName] = {
+        value: resolvedValue,
+        commentOnPreviousLine: `# See this environment at ${workosUrl(environmentId, "/authentication")}`,
       };
+    } else {
+      suggestedChanges[envVarName] = { value: resolvedValue };
     }
   }
 
+  // Special handling for WORKOS_COOKIE_PASSWORD for Next.js/TanStackStart
   if (
-    detectedFramework === "Next.js" ||
-    detectedFramework === "TanStackStart"
+    (detectedFramework === "Next.js" ||
+      detectedFramework === "TanStackStart") &&
+    !process.env["WORKOS_COOKIE_PASSWORD"] && // Don't override environment
+    (!existingFileContent ||
+      !existingFileContent.includes("WORKOS_COOKIE_PASSWORD"))
   ) {
-    if (
-      !existingFileContent ||
-      !existingFileContent.includes("WORKOS_COOKIE_PASSWORD")
-    ) {
-      suggestedChanges["WORKOS_COOKIE_PASSWORD"] = {
-        value: crypto.randomBytes(32).toString("base64url"),
-      };
-    }
-    suggestedChanges["WORKOS_API_KEY"] = { value: apiKey };
+    suggestedChanges["WORKOS_COOKIE_PASSWORD"] = {
+      value: crypto.randomBytes(32).toString("base64url"),
+    };
   }
 
   for (const [
@@ -441,7 +1111,10 @@ async function updateEnvLocal(
       }) || existingFileContent;
   }
 
-  if (existingFileContent !== null) {
+  if (
+    existingFileContent !== null &&
+    Object.keys(suggestedChanges).length > 0
+  ) {
     ctx.fs.writeUtf8File(envPath, existingFileContent);
     logMessage(
       `Updated .env.local with ${Object.keys(suggestedChanges).join(", ")}`,

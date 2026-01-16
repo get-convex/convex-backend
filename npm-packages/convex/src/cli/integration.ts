@@ -5,6 +5,7 @@ import { Command } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { chalkStderr } from "chalk";
 import {
+  CloudDeploymentType,
   DeploymentSelectionOptions,
   deploymentSelectionWithinProjectFromOptions,
   fetchTeamAndProject,
@@ -33,9 +34,11 @@ import {
 import {
   logFinishedStep,
   logMessage,
+  logWarning,
   showSpinner,
   stopSpinner,
 } from "../bundler/log.js";
+import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
 import { promptOptions, promptYesNo } from "./lib/utils/prompts.js";
 
 async function selectEnvDeployment(
@@ -45,6 +48,7 @@ async function selectEnvDeployment(
   deployment: {
     deploymentUrl: string;
     deploymentName: string;
+    deploymentType: CloudDeploymentType;
     adminKey: string;
     deploymentNotice: string;
   };
@@ -62,14 +66,36 @@ async function selectEnvDeployment(
     deploymentSelection,
     selectionWithinProject,
   );
-  const deploymentNotice =
-    deploymentFields !== null
-      ? ` (on ${chalkStderr.bold(deploymentFields.deploymentType)} deployment ${chalkStderr.bold(deploymentFields.deploymentName)})`
-      : "";
+  // WorkOS integration only works with cloud deployments
+  if (!deploymentFields) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "WorkOS integration requires a configured deployment",
+    });
+  }
+
+  const deploymentNotice = ` (on ${chalkStderr.bold(deploymentFields.deploymentType)} deployment ${chalkStderr.bold(deploymentFields.deploymentName)})`;
+
+  const deploymentType = deploymentFields.deploymentType;
+  if (
+    deploymentType !== "dev" &&
+    deploymentType !== "preview" &&
+    deploymentType !== "prod"
+  ) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `WorkOS integration is only available for cloud deployments (dev, preview, prod), not ${deploymentType}`,
+    });
+  }
+
+  // Now TypeScript knows deploymentType is CloudDeploymentType
   return {
     ctx,
     deployment: {
-      deploymentName: deploymentFields!.deploymentName,
+      deploymentName: deploymentFields.deploymentName,
+      deploymentType,
       deploymentUrl,
       adminKey,
       deploymentNotice,
@@ -117,6 +143,63 @@ const workosTeamStatus = new Command("status")
       const workosUrl = `https://dashboard.workos.com/${envHealth.id}/authentication`;
       logMessage(`${workosUrl}`);
     }
+
+    try {
+      const { projectConfig } = await readProjectConfig(ctx);
+      const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+
+      if (!authKitConfig) {
+        logMessage(
+          `AuthKit config: ${chalkStderr.dim("Not configured in convex.json")}`,
+        );
+      } else {
+        logMessage(`AuthKit config:`);
+
+        // Show config for each deployment type
+        for (const deploymentType of ["dev", "preview", "prod"] as const) {
+          const envConfig = authKitConfig[deploymentType];
+          if (!envConfig) {
+            logMessage(
+              `  ${deploymentType}: ${chalkStderr.dim("not configured")}`,
+            );
+            continue;
+          }
+
+          // Build description based on what's configured
+          let description = "";
+
+          // Show environment type for prod deployments
+          if (deploymentType === "prod" && envConfig.environmentType) {
+            description = `environment type: ${envConfig.environmentType}`;
+          }
+
+          const configureStatus =
+            envConfig.configure === false
+              ? ", configure: disabled"
+              : envConfig.configure
+                ? ", will configure WorkOS"
+                : "";
+
+          const localEnvVarsStatus =
+            envConfig.localEnvVars === false
+              ? ""
+              : envConfig.localEnvVars
+                ? `, ${Object.keys(envConfig.localEnvVars).length} local env vars`
+                : "";
+
+          // Show deployment type with its configuration
+          const configInfo = [description, configureStatus, localEnvVarsStatus]
+            .filter((s) => s)
+            .join("");
+
+          logMessage(`  ${deploymentType}: ${configInfo || "configured"}`);
+        }
+      }
+    } catch (error) {
+      logMessage(
+        `AuthKit config: ${chalkStderr.yellow(`Error reading config: ${String(error)}`)}`,
+      );
+    }
   });
 
 const workosProvisionEnvironment = new Command("provision-environment")
@@ -141,19 +224,27 @@ const workosProvisionEnvironment = new Command("provision-environment")
       "integration workos provision-environment",
     );
 
-    const environmentName = options.name as string | undefined;
-
     try {
+      const { projectConfig } = await readProjectConfig(ctx);
+      const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+      const config = authKitConfig || { dev: {} };
+
+      if (!authKitConfig) {
+        logWarning(
+          "Consider using the 'authKit' config in convex.json for automatic provisioning.",
+        );
+        logMessage(
+          "Learn more at https://docs.convex.dev/auth/authkit/auto-provision",
+        );
+        logMessage("");
+      }
+
       await ensureWorkosEnvironmentProvisioned(
         ctx,
         deployment.deploymentName,
         deployment,
-        {
-          offerToAssociateWorkOSTeam: true,
-          autoProvisionIfWorkOSTeamAssociated: true,
-          autoConfigureAuthkitConfig: true,
-          ...(environmentName !== undefined && { environmentName }),
-        },
+        config,
+        deployment.deploymentType,
       );
     } catch (error) {
       await ctx.crash({
@@ -204,6 +295,7 @@ const workosProvisionTeam = new Command("provision-team")
       ctx,
       deployment.deploymentName,
       teamId,
+      deployment.deploymentType,
     );
 
     if (!result.success) {

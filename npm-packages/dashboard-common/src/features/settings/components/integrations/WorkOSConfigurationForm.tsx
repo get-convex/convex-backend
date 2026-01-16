@@ -211,10 +211,8 @@ function useRelevantEnvVars() {
     const environmentId = environmentVariables.find(
       (envVar) => envVar.name === "WORKOS_ENVIRONMENT_ID",
     )?.value;
-    // Check for both possible names - API_KEY is what we set, but API_SECRET might be legacy
     const apiKey = environmentVariables.find(
-      (envVar) =>
-        envVar.name === "WORKOS_API_KEY" || envVar.name === "WORKOS_API_SECRET",
+      (envVar) => envVar.name === "WORKOS_API_KEY",
     )?.value;
 
     return {

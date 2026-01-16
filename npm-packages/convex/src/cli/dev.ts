@@ -249,6 +249,12 @@ Same format as .env.local or .env files, and overrides them.`,
                 adminKey: credentials.adminKey,
                 deploymentName:
                   credentials.deploymentFields?.deploymentName ?? null,
+                ...(credentials.deploymentFields?.deploymentType !== undefined
+                  ? {
+                      deploymentType:
+                        credentials.deploymentFields.deploymentType,
+                    }
+                  : {}),
               },
               devOptions,
             ),

@@ -9,6 +9,7 @@ import {
   logFailure,
   logFinishedStep,
   logMessage,
+  logWarning,
   showSpinner,
 } from "../../bundler/log.js";
 import {
@@ -38,9 +39,27 @@ import {
   printLocalDeploymentOnError,
 } from "./localDeployment/errors.js";
 import { debugIsolateBundlesSerially } from "../../bundler/debugBundle.js";
-import { ensureWorkosEnvironmentProvisioned } from "./workos/workos.js";
+import { DeploymentType } from "./api.js";
 export { productionProvisionHost, provisionHost } from "./utils/utils.js";
 
+/** Type representing WorkOS AuthKit integration configuration. */
+export interface AuthKitConfigureSettings {
+  redirectUris?: string[];
+  appHomepageUrl?: string;
+  corsOrigins?: string[];
+}
+
+export interface AuthKitEnvironmentConfig {
+  environmentType?: "development" | "staging" | "production";
+  configure?: false | AuthKitConfigureSettings;
+  localEnvVars?: false | Record<string, string>;
+}
+
+export interface AuthKitConfig {
+  dev?: AuthKitEnvironmentConfig;
+  preview?: AuthKitEnvironmentConfig;
+  prod?: AuthKitEnvironmentConfig;
+}
 /**
  * convex.json file parsing notes
  *
@@ -74,6 +93,9 @@ export interface ProjectConfig {
   };
 
   typescriptCompiler?: TypescriptCompiler;
+
+  // WorkOS AuthKit integration configuration
+  authKit?: AuthKitConfig | undefined;
 }
 
 export interface Config {
@@ -105,9 +127,122 @@ export function usesComponentApiImports(projectConfig: ProjectConfig): boolean {
   return projectConfig.codegen.legacyComponentApi === false;
 }
 
+/**
+ * Get the authKit configuration from convex.json.
+ */
+export async function getAuthKitConfig(
+  ctx: Context,
+  projectConfig: ProjectConfig,
+): Promise<AuthKitConfig | undefined> {
+  // If there's an explicit authKit config, use it
+  if ("authKit" in projectConfig) {
+    return projectConfig.authKit;
+  }
+
+  // TODO remove this after a few versions
+  // Migration help: is this one of the hardcoded templates that has special
+  // behavior without a convex.json? Encourage them to upgrade the template.
+  const homepage = await currentPackageHomepage(ctx);
+  const isOldWorkOSTemplate = !!(
+    homepage &&
+    [
+      "https://github.com/workos/template-convex-nextjs-authkit/#readme",
+      "https://github.com/workos/template-convex-react-vite-authkit/#readme",
+      "https://github.com:workos/template-convex-react-vite-authkit/#readme",
+      "https://github.com/workos/template-convex-tanstack-start-authkit/#readme",
+    ].includes(homepage)
+  );
+
+  if (isOldWorkOSTemplate) {
+    logWarning(
+      "The template this project is based on has been updated to work with this version of Convex.",
+    );
+    logWarning(
+      "Please copy the convex.json from the latest template version or add an 'authKit' section.",
+    );
+    logMessage("Learn more at https://docs.convex.dev/auth/authkit");
+  }
+}
+
+export async function getAuthKitEnvironmentConfig(
+  ctx: Context,
+  projectConfig: ProjectConfig,
+  deploymentType: "dev" | "preview" | "prod",
+): Promise<AuthKitEnvironmentConfig | undefined> {
+  const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+  return authKitConfig?.[deploymentType];
+}
+
 /** Error parsing ProjectConfig representation. */
 class ParseError extends Error {}
 
+// WorkOS AuthKit configuration schemas
+const AuthKitConfigureSchema = z.union([
+  z.literal(false),
+  z.object({
+    redirectUris: z.array(z.string()).optional(),
+    appHomepageUrl: z.string().optional(),
+    corsOrigins: z.array(z.string()).optional(),
+  }),
+]);
+
+const AuthKitLocalEnvVarsSchema = z.union([
+  z.literal(false),
+  z.record(z.string()),
+]);
+
+const AuthKitEnvironmentConfigSchema = z.object({
+  environmentType: z.enum(["development", "staging", "production"]).optional(),
+  configure: AuthKitConfigureSchema.optional(),
+  localEnvVars: AuthKitLocalEnvVarsSchema.optional(),
+});
+
+const AuthKitConfigSchema = z
+  .object({
+    dev: AuthKitEnvironmentConfigSchema.optional(),
+    preview: AuthKitEnvironmentConfigSchema.optional(),
+    prod: AuthKitEnvironmentConfigSchema.optional(),
+  })
+  .refine(
+    (data) => {
+      // Validation: environmentType only allowed in prod
+      const devEnvType = data.dev?.environmentType;
+      const previewEnvType = data.preview?.environmentType;
+      if (devEnvType || previewEnvType) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "authKit.environmentType is only allowed in the prod section",
+      path: ["environmentType"],
+    },
+  )
+  .refine(
+    (data) => {
+      // Validation: localEnvVars only allowed for dev
+      // Check preview doesn't have localEnvVars
+      if (
+        data.preview?.localEnvVars !== undefined &&
+        data.preview?.localEnvVars !== false
+      ) {
+        return false;
+      }
+      // Check prod doesn't have localEnvVars
+      if (
+        data.prod?.localEnvVars !== undefined &&
+        data.prod?.localEnvVars !== false
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message:
+        "authKit.localEnvVars is only supported for dev deployments. Preview and prod deployments must configure environment variables directly in the deployment platform.",
+      path: ["localEnvVars"],
+    },
+  );
 // Separate Node and Codegen schemas so we can parse these loose or strict
 const NodeSchema = z.object({
   externalPackages: z
@@ -180,6 +315,14 @@ const createProjectConfigSchema = (strict: boolean) => {
 
     // Optional $schema field for JSON schema validation in editors
     $schema: z.string().optional(),
+    // WorkOS AuthKit integration configuration
+    authKit: AuthKitConfigSchema.optional(),
+
+    // Deprecated fields that have been deprecated for years, only here so we
+    // know it's safe to delete them.
+    project: z.string().optional(),
+    team: z.string().optional(),
+    prodUrl: z.string().optional(),
   });
 
   // Apply strict or passthrough BEFORE refine
@@ -755,11 +898,14 @@ export async function handlePushConfigError(
   error: unknown,
   defaultMessage: string,
   deploymentName: string | null,
-  deployment?: {
-    deploymentUrl: string;
-    adminKey: string;
-    deploymentNotice: string;
-  },
+  deployment:
+    | {
+        deploymentUrl: string;
+        adminKey: string;
+        deploymentNotice: string;
+      }
+    | undefined,
+  _deploymentType: DeploymentType | undefined,
 ): Promise<never> {
   const data: ErrorData | undefined =
     error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
@@ -768,51 +914,22 @@ export async function handlePushConfigError(
     const [, variableName] =
       errorMessage.match(/Environment variable (\S+)/i) ?? [];
 
-    // WORKOS_CLIENT_ID is a special environment variable because cloud Convex
-    // deployments may be able to supply it by provisioning a fresh WorkOS
-    // environment on demand.
+    // DEPRECATED: This error path provisioning is being phased out in favor of
+    // pre-flight provisioning that happens before the client bundle build.
+    // We keep minimal logic here for backwards compatibility with older templates
+    // that may still rely on this path.
     if (variableName === "WORKOS_CLIENT_ID" && deploymentName && deployment) {
-      // Initially only specific templates create WorkOS environments on demand
-      // because the local environemnt variables are hardcoded for Vite and Next.js.
-      const homepage = await currentPackageHomepage(ctx);
-      const autoProvisionIfWorkOSTeamAssociated = !!(
-        homepage &&
-        [
-          // FIXME: We don't want to rely on `homepage` from `package.json` for this
-          // because it's brittle, and because AuthKit templates are now in get-convex/templates
-          "https://github.com/workos/template-convex-nextjs-authkit/#readme",
-          "https://github.com/workos/template-convex-react-vite-authkit/#readme",
-          "https://github.com:workos/template-convex-react-vite-authkit/#readme",
-          "https://github.com/workos/template-convex-tanstack-start-authkit/#readme",
-        ].includes(homepage)
+      // For backwards compatibility with templates that haven't been updated,
+      // we'll still show a helpful error message directing users to configure WorkOS.
+      // But we no longer do automatic provisioning here since it happens too late
+      // (after the client bundle has already been built with missing env vars).
+      logWarning(
+        "WORKOS_CLIENT_ID is not set; you can set it manually on the deployment or for hosted Convex deployments, use auto-provisioning.",
       );
-      // Initially only specific templates offer team creation.
-      // Until this changes it can be done manually with a CLI command.
-      const offerToAssociateWorkOSTeam = autoProvisionIfWorkOSTeamAssociated;
-      // Initialy only specific template auto-configure WorkOS environments
-      // with AuthKit config because these values are currently heuristics.
-      // This will be some more explicit opt-in in the future.
-      const autoConfigureAuthkitConfig = autoProvisionIfWorkOSTeamAssociated;
-
-      const result = await ensureWorkosEnvironmentProvisioned(
-        ctx,
-        deploymentName,
-        deployment,
-        {
-          offerToAssociateWorkOSTeam,
-          autoProvisionIfWorkOSTeamAssociated,
-          autoConfigureAuthkitConfig,
-        },
+      logMessage(
+        "Learn more at https://docs.convex.dev/auth/authkit/auto-provision",
       );
-      if (result === "ready") {
-        return await ctx.crash({
-          exitCode: 1,
-          errorType: "already handled",
-          printedMessage: null,
-        });
-      }
-      // If user chose not to create a WorkOS team, continue to show the error
-      // message below about missing WORKOS_CLIENT_ID with manual setup instructions
+      logMessage("");
     }
 
     const envVarMessage =

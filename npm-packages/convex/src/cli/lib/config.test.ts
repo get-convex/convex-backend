@@ -429,3 +429,423 @@ test("parseProjectConfig - warns about unknown properties", async () => {
   expect(stripVTControlCharacters(stderr5)).not.toContain("Warning");
   expect(stripVTControlCharacters(stderr5)).not.toContain("Unknown");
 });
+
+// AuthKit configuration tests
+test("parseProjectConfig - authKit basic valid configs", async () => {
+  // Basic config with no settings
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {},
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {},
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+
+  // Absence of environment config means manual setup
+  // No authKit config at all is valid
+  await assertParses(
+    {
+      functions: "convex/",
+    },
+    {
+      functions: "convex/",
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+
+  // Config with configure settings
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        prod: {
+          configure: {
+            redirectUris: ["https://example.com/callback"],
+            corsOrigins: ["https://example.com"],
+          },
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        prod: {
+          configure: {
+            redirectUris: ["https://example.com/callback"],
+            corsOrigins: ["https://example.com"],
+          },
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+
+  // Full config with all deployment types
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          configure: {
+            redirectUris: ["http://localhost:5173/callback"],
+            corsOrigins: ["http://localhost:5173"],
+          },
+          localEnvVars: {
+            VITE_WORKOS_CLIENT_ID: "${authEnv.WORKOS_CLIENT_ID}",
+          },
+        },
+        preview: {
+          configure: {
+            redirectUris: ["${buildEnv.VERCEL_BRANCH_URL}/callback"],
+            corsOrigins: ["${buildEnv.VERCEL_BRANCH_URL}"],
+          },
+        },
+        prod: {
+          environmentType: "production",
+          configure: {
+            redirectUris: ["https://example.com/callback"],
+            corsOrigins: ["https://example.com"],
+          },
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          configure: {
+            redirectUris: ["http://localhost:5173/callback"],
+            corsOrigins: ["http://localhost:5173"],
+          },
+          localEnvVars: {
+            VITE_WORKOS_CLIENT_ID: "${authEnv.WORKOS_CLIENT_ID}",
+          },
+        },
+        preview: {
+          configure: {
+            redirectUris: ["${buildEnv.VERCEL_BRANCH_URL}/callback"],
+            corsOrigins: ["${buildEnv.VERCEL_BRANCH_URL}"],
+          },
+        },
+        prod: {
+          environmentType: "production",
+          configure: {
+            redirectUris: ["https://example.com/callback"],
+            corsOrigins: ["https://example.com"],
+          },
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+});
+
+test("parseProjectConfig - authKit validation errors", async () => {
+  // environmentType only allowed in prod
+  await assertParseError(
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          environmentType: "development",
+        },
+      },
+    },
+    "✖ `authKit.environmentType` in `convex.json`: authKit.environmentType is only allowed in the prod section\n",
+  );
+
+  // Invalid environmentType value
+  await assertParseError(
+    {
+      functions: "convex/",
+      authKit: {
+        prod: {
+          environmentType: "invalid" as any,
+        },
+      },
+    },
+    "✖ `authKit.prod.environmentType` in `convex.json`: Invalid enum value. Expected 'development' | 'staging' | 'production', received 'invalid'\n",
+  );
+
+  // authEnv references are allowed in localEnvVars
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${authEnv.WORKOS_CLIENT_ID}",
+          },
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${authEnv.WORKOS_CLIENT_ID}",
+          },
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+
+  // buildEnv references are also allowed in localEnvVars
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${buildEnv.MY_WORKOS_CLIENT_ID}",
+          },
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${buildEnv.MY_WORKOS_CLIENT_ID}",
+          },
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+
+  // authEnv references are allowed in configure
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          configure: {
+            redirectUris: ["${authEnv.WORKOS_CLIENT_ID}/callback"],
+          },
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          configure: {
+            redirectUris: ["${authEnv.WORKOS_CLIENT_ID}/callback"],
+          },
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+
+  // Mixed buildEnv and authEnv references are allowed
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${authEnv.WORKOS_CLIENT_ID}",
+            WORKOS_API_KEY: "${authEnv.WORKOS_API_KEY}",
+          },
+          configure: {
+            redirectUris: ["${buildEnv.VERCEL_URL}/callback"],
+          },
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        dev: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${authEnv.WORKOS_CLIENT_ID}",
+            WORKOS_API_KEY: "${authEnv.WORKOS_API_KEY}",
+          },
+          configure: {
+            redirectUris: ["${buildEnv.VERCEL_URL}/callback"],
+          },
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+});
+
+test("parseProjectConfig - authKit preview and prod restrictions", async () => {
+  // Preview with localEnvVars should fail
+  await assertParseError(
+    {
+      authKit: {
+        preview: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${buildEnv.WORKOS_CLIENT_ID}",
+          },
+        },
+      },
+    },
+    "✖ `authKit.localEnvVars` in `convex.json`: authKit.localEnvVars is only supported for dev deployments. Preview and prod deployments must configure environment variables directly in the deployment platform.\n",
+  );
+
+  // Prod with localEnvVars should fail
+  await assertParseError(
+    {
+      authKit: {
+        prod: {
+          localEnvVars: {
+            WORKOS_CLIENT_ID: "${buildEnv.WORKOS_CLIENT_ID}",
+          },
+        },
+      },
+    },
+    "✖ `authKit.localEnvVars` in `convex.json`: authKit.localEnvVars is only supported for dev deployments. Preview and prod deployments must configure environment variables directly in the deployment platform.\n",
+  );
+
+  // Dev with localEnvVars should still work
+  await assertParses({
+    functions: "convex/",
+    authKit: {
+      dev: {
+        localEnvVars: {
+          WORKOS_CLIENT_ID: "${authEnv.WORKOS_CLIENT_ID}",
+        },
+      },
+    },
+    codegen: {
+      staticApi: false,
+      staticDataModel: false,
+    },
+    generateCommonJSApi: false,
+    node: {
+      externalPackages: [],
+    },
+  });
+
+  // Preview with just configure should work (will use env vars)
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        preview: {
+          configure: {
+            redirectUris: ["https://preview.example.com/callback"],
+          },
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        preview: {
+          configure: {
+            redirectUris: ["https://preview.example.com/callback"],
+          },
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+
+  // Prod without localEnvVars should work
+  await assertParses(
+    {
+      functions: "convex/",
+      authKit: {
+        prod: {
+          environmentType: "production",
+        },
+      },
+    },
+    {
+      functions: "convex/",
+      authKit: {
+        prod: {
+          environmentType: "production",
+        },
+      },
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
+      generateCommonJSApi: false,
+      node: {
+        externalPackages: [],
+      },
+    },
+  );
+});

@@ -103,6 +103,7 @@ export const promptYesNo = async (
     message: string;
     default?: boolean;
     prefix?: string;
+    nonInteractiveError?: string;
   },
 ): Promise<boolean> => {
   if (process.stdin.isTTY) {
@@ -121,7 +122,9 @@ export const promptYesNo = async (
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `Cannot prompt for input in non-interactive terminals. (${options.message})`,
+      printedMessage:
+        options.nonInteractiveError ??
+        `Cannot prompt for input in non-interactive terminals. (${options.message})`,
     });
   }
 };

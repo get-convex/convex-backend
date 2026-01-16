@@ -52,6 +52,7 @@ import { FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import { DEFINITION_FILENAME_TS } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
+import { DeploymentType } from "./api.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { formatIndex, LargeIndexDeletionCheck } from "./indexes.js";
 import { checkForLargeIndexDeletion } from "./checkForLargeIndexDeletion.js";
@@ -69,6 +70,7 @@ export type PushOptions = {
   codegen: boolean;
   url: string;
   deploymentName: string | null;
+  deploymentType?: DeploymentType;
   writePushRequest?: string | undefined;
   liveComponentSources: boolean;
   logManager?: LogManager | undefined;
@@ -119,6 +121,9 @@ export async function runCodegen(
       {
         ...options,
         deploymentName: credentials.deploymentFields?.deploymentName ?? null,
+        ...(credentials.deploymentFields?.deploymentType !== undefined
+          ? { deploymentType: credentials.deploymentFields.deploymentType }
+          : {}),
         url: credentials.url,
         adminKey: credentials.adminKey,
         generateCommonJSApi: options.commonjs,
@@ -158,6 +163,7 @@ async function startComponentsPushAndCodegen(
     adminKey: string;
     url: string;
     deploymentName: string | null;
+    deploymentType?: DeploymentType;
     verbose: boolean;
     debugBundlePath?: string | undefined;
     dryRun: boolean;

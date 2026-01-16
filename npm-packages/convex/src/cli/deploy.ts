@@ -27,6 +27,8 @@ import { deployToDeployment, runCommand } from "./lib/deploy2.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { deploymentNameAndTypeFromSelection } from "./lib/deploymentSelection.js";
 import { checkVersion } from "./lib/updates.js";
+import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
+import { ensureAuthKitProvisionedBeforeBuild } from "./lib/workos/workos.js";
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
   .description(
@@ -238,6 +240,23 @@ async function deployToNewPreviewDeployment(
   const previewAdminKey = data.adminKey;
   const previewUrl = data.instanceUrl;
 
+  // Extract deployment name from URL for WorkOS provisioning
+  const deploymentNameForWorkOS =
+    previewUrl.match(/https:\/\/([^.]+)\.convex\.cloud/)?.[1] ?? null;
+
+  // Provision WorkOS before building the client bundle (if configured)
+  const { projectConfig } = await readProjectConfig(ctx);
+  const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+
+  if (authKitConfig && deploymentNameForWorkOS) {
+    await ensureAuthKitProvisionedBeforeBuild(
+      ctx,
+      deploymentNameForWorkOS,
+      { deploymentUrl: previewUrl, adminKey: previewAdminKey },
+      "preview",
+    );
+  }
+
   await runCommand(ctx, {
     ...options,
     url: previewUrl,
@@ -245,7 +264,7 @@ async function deployToNewPreviewDeployment(
   });
 
   const pushOptions: PushOptions = {
-    deploymentName: data.deploymentName,
+    deploymentName: null,
     adminKey: previewAdminKey,
     verbose: !!options.verbose,
     dryRun: false,
@@ -346,6 +365,9 @@ async function deployToExistingDeployment(
         url: deploymentToActOn.url,
         adminKey: deploymentToActOn.adminKey,
         deploymentName: deploymentFields?.deploymentName ?? null,
+        ...(deploymentFields?.deploymentType !== undefined
+          ? { deploymentType: deploymentFields.deploymentType }
+          : {}),
       },
       options,
     ),

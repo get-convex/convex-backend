@@ -50,6 +50,44 @@ export async function createRedirectURI(
       printedMessage: `Failed to create redirect URI: ${response.status} ${errorText}`,
     });
   }
+
+  return { modified: true };
+}
+
+export async function updateAppHomepageUrl(
+  ctx: Context,
+  apiKey: string,
+  url: string,
+): Promise<{ modified: boolean; previousUrl?: string }> {
+  const response = await fetch(
+    "https://api.workos.com/user_management/app_homepage_url",
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ url }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    if (response.status === 422) {
+      // Validation error - likely localhost URL or other invalid format
+      // Don't crash, just return that we couldn't modify it
+      return { modified: false };
+    }
+
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Failed to update app homepage URL: ${response.status} ${errorText}`,
+    });
+  }
+
+  // Always returns modified: true since PUT always updates (or sets the same value)
   return { modified: true };
 }
 

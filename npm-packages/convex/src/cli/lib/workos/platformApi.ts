@@ -66,7 +66,7 @@ export async function getDeploymentCanProvisionWorkOSEnvironments(
 export async function createEnvironmentAndAPIKey(
   ctx: Context,
   deploymentName: string,
-  environmentName?: string,
+  environmentType?: "production" | "nonproduction",
 ): Promise<
   | {
       success: true;
@@ -79,17 +79,16 @@ export async function createEnvironmentAndAPIKey(
     }
 > {
   try {
-    const request: components["schemas"]["GetOrProvisionEnvironmentRequest"] = {
-      deploymentName,
-      environmentName: environmentName ?? null,
-    };
     const data = await bigBrainAPI<
       components["schemas"]["ProvisionEnvironmentResponse"]
     >({
       ctx,
       method: "POST",
       url: "workos/get_or_provision_workos_environment",
-      data: request,
+      data: {
+        deploymentName,
+        environmentType,
+      },
     });
     return {
       success: true,
