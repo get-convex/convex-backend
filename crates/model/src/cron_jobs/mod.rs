@@ -314,8 +314,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         SystemMetadataModel::new(self.tx, self.component.into())
             .delete(next_run.id())
             .await?;
-        self.apply_job_log_retention(cron_job.name.clone(), 0)
-            .await?;
+        self.apply_job_log_retention(&cron_job.name, 0).await?;
         Ok(())
     }
 
@@ -326,6 +325,13 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             .context("No next run found")?;
         SystemMetadataModel::new(self.tx, self.component.into())
             .replace(existing_next_run.id(), next_run.try_into()?)
+            .await?;
+        Ok(())
+    }
+
+    /// Create space in the CronJobLogsTable for a new run of `job`
+    pub async fn prepare_insert_cron_job_log(&mut self, job: &CronJob) -> anyhow::Result<()> {
+        self.apply_job_log_retention(&job.name, MAX_LOGS_PER_CRON - 1)
             .await?;
         Ok(())
     }
@@ -349,7 +355,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         SystemMetadataModel::new(self.tx, self.component.into())
             .insert_metadata(&CRON_JOB_LOGS_TABLE, cron_job_log.try_into()?)
             .await?;
-        self.apply_job_log_retention(job.name.clone(), MAX_LOGS_PER_CRON)
+        self.apply_job_log_retention(&job.name, MAX_LOGS_PER_CRON)
             .await?;
         Ok(())
     }
@@ -406,7 +412,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     // Keep up to `limit` of the newest logs per cron
     async fn apply_job_log_retention(
         &mut self,
-        name: CronIdentifier,
+        name: &CronIdentifier,
         limit: usize,
     ) -> anyhow::Result<()> {
         let index_query = Query::index_range(IndexRange {

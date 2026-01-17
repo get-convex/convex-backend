@@ -428,6 +428,12 @@ impl<RT: Runtime> CronJobContext<RT> {
             component: component_path,
             udf_path: job.cron_spec.udf_path.clone(),
         };
+        // Hacks: Clean up old logs *before* running the mutation to avoid a
+        // system error if the user mutation leaves the transaction's read set
+        // at exactly the max size
+        CronModel::new(&mut tx, component)
+            .prepare_insert_cron_job_log(&job)
+            .await?;
         let mutation_result = self
             .runner
             .run_mutation_no_udf_log(
