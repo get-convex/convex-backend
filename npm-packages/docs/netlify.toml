@@ -2,3 +2,6 @@
   for = "/fonts/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, stale-while-revalidate=86400"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Access-Control-Allow-Headers = "*"
