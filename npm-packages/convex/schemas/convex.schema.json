@@ -2,6 +2,94 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "description": "Configuration schema for Convex project settings.\n\nDocumentation: https://docs.convex.dev/production/project-configuration#convexjson",
   "type": "object",
+  "definitions": {
+    "authKitConfigureSettings": {
+      "type": "object",
+      "description": "WorkOS AuthKit environment configuration settings.\n\nDocumentation: https://docs.convex.dev/auth/authkit/auto-provision",
+      "properties": {
+        "redirectUris": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Allowed redirect URIs configured in WorkOS."
+        },
+        "appHomepageUrl": {
+          "type": "string",
+          "description": "Application homepage URL configured in WorkOS."
+        },
+        "corsOrigins": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Allowed CORS origins configured in WorkOS."
+        }
+      },
+      "additionalProperties": false
+    },
+    "authKitConfigure": {
+      "description": "If false, disables automatic configuration of the WorkOS environment. Otherwise configures the WorkOS environment with these settings.",
+      "oneOf": [
+        { "const": false },
+        { "$ref": "#/definitions/authKitConfigureSettings" }
+      ]
+    },
+    "authKitLocalEnvVars": {
+      "description": "If false, disables automatically writing local environment variables. Otherwise writes the given mapping to the local .env file.",
+      "oneOf": [
+        { "const": false },
+        {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      ]
+    },
+    "authKitEnvironmentConfigDev": {
+      "type": "object",
+      "description": "AuthKit configuration for development deployments.",
+      "properties": {
+        "configure": { "$ref": "#/definitions/authKitConfigure" },
+        "localEnvVars": { "$ref": "#/definitions/authKitLocalEnvVars" }
+      },
+      "additionalProperties": false
+    },
+    "authKitEnvironmentConfigPreview": {
+      "type": "object",
+      "description": "AuthKit configuration for preview deployments.",
+      "properties": {
+        "configure": { "$ref": "#/definitions/authKitConfigure" },
+        "localEnvVars": {
+          "description": "Preview deployments must configure environment variables directly in the deployment platform; only `false` is allowed here.",
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "authKitEnvironmentConfigProd": {
+      "type": "object",
+      "description": "AuthKit configuration for production deployments.",
+      "properties": {
+        "environmentType": {
+          "type": "string",
+          "enum": ["development", "staging", "production"],
+          "description": "WorkOS environment type. Only supported in the `prod` section."
+        },
+        "configure": { "$ref": "#/definitions/authKitConfigure" },
+        "localEnvVars": {
+          "description": "Prod deployments must configure environment variables directly in the deployment platform; only `false` is allowed here.",
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "authKitConfig": {
+      "type": "object",
+      "description": "WorkOS AuthKit integration configuration.\n\nDocumentation: https://docs.convex.dev/auth/authkit/auto-provision",
+      "properties": {
+        "dev": { "$ref": "#/definitions/authKitEnvironmentConfigDev" },
+        "preview": { "$ref": "#/definitions/authKitEnvironmentConfigPreview" },
+        "prod": { "$ref": "#/definitions/authKitEnvironmentConfigProd" }
+      },
+      "additionalProperties": false
+    }
+  },
   "properties": {
     "$schema": {
       "type": "string"
@@ -93,6 +181,9 @@
       "type": "string",
       "enum": ["tsc", "tsgo"],
       "description": "TypeScript compiler to use for typechecking (`@typescript/native-preview` must be installed to use `tsgo`)"
+    },
+    "authKit": {
+      "$ref": "#/definitions/authKitConfig"
     }
   },
   "additionalProperties": false

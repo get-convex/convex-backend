@@ -1,8 +1,10 @@
 {
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
   "authKit": {
     "dev": {
       "configure": {
         "redirectUris": ["http://localhost:3000/callback"],
+        "appHomepageUrl": "http://localhost:3000",
         "corsOrigins": ["http://localhost:3000"]
       },
       "localEnvVars": {
@@ -13,14 +15,16 @@
     },
     "preview": {
       "configure": {
-        "redirectUris": ["${buildEnv.VERCEL_URL}/callback"],
-        "corsOrigins": ["${buildEnv.VERCEL_URL}"]
+        "redirectUris": ["https://${buildEnv.VERCEL_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_URL}"]
       }
     },
     "prod": {
       "configure": {
-        "redirectUris": ["${buildEnv.VERCEL_URL}/callback"],
-        "corsOrigins": ["${buildEnv.VERCEL_URL}"]
+        "redirectUris": ["https://${buildEnv.VERCEL_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_URL}"]
       }
     }
   }
