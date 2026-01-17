@@ -215,8 +215,8 @@ spki = "0.7.3"
 strum = { version = "0.27", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
-tantivy = { git = "https://github.com/get-convex/tantivy", rev = "c745b0977df94bc22fe4fc75db0200a8023f9a2c" }
-tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "c745b0977df94bc22fe4fc75db0200a8023f9a2c" }
+tantivy = { git = "https://github.com/get-convex/tantivy", rev = "5450362f6b12b0ae484f6b56fda6b13f0d9e38b4" }
+tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "5450362f6b12b0ae484f6b56fda6b13f0d9e38b4" }
 tempfile = "3"
 textplots = "0.8"
 thiserror = "2"
