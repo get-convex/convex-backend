@@ -93,7 +93,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       zshy:
         specifier: 0.6.0
         version: 0.6.0(typescript@5.9.3)
@@ -313,7 +313,7 @@ importers:
         version: 8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../@convex-dev/platform:
     dependencies:
@@ -413,7 +413,7 @@ importers:
         version: 6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../@convex-dev/workos:
     dependencies:
@@ -435,7 +435,7 @@ importers:
         version: link:../../convex
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@22.19.1)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@22.19.1)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       zshy:
         specifier: 0.6.0
         version: 0.6.0(typescript@5.9.3)
@@ -673,7 +673,7 @@ importers:
         version: 8.18.1
       '@vitest/eslint-plugin':
         specifier: ~1.5.0
-        version: 1.5.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)(vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
+        version: 1.5.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)(vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       adm-zip:
         specifier: ^0.5.10
         version: 0.5.16
@@ -738,8 +738,8 @@ importers:
         specifier: ~1.2.6
         version: 1.2.6
       jsdom:
-        specifier: ~27.2.0
-        version: 27.2.0(bufferutil@4.0.9)(postcss@8.5.6)
+        specifier: ~27.3.0
+        version: 27.3.0(bufferutil@4.0.9)(postcss@8.5.6)
       json5:
         specifier: ~2.2.3
         version: 2.2.3
@@ -805,7 +805,7 @@ importers:
         version: 7.18.2
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       wait-for-expect:
         specifier: ~4.0.0
         version: 4.0.0
@@ -1838,7 +1838,7 @@ importers:
         version: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@22.19.1)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@22.19.1)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../demos/cron-jobs:
     dependencies:
@@ -3333,7 +3333,7 @@ importers:
         version: 5.0.4
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../js-integration-tests:
     dependencies:
@@ -3491,7 +3491,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../node-executor:
     dependencies:
@@ -3585,7 +3585,7 @@ importers:
         version: 7.18.2
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -3612,7 +3612,7 @@ importers:
         version: 5.6.3
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../private-demos/actions:
     dependencies:
@@ -4166,7 +4166,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -4743,7 +4743,7 @@ importers:
         version: 5.0.4
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../private-demos/static-codegen-ts:
     dependencies:
@@ -4819,7 +4819,7 @@ importers:
         version: 5.0.4
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../private-demos/tanstack-start:
     dependencies:
@@ -5464,7 +5464,7 @@ importers:
         version: 10.4.1
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../retention-tester:
     dependencies:
@@ -5645,7 +5645,7 @@ importers:
         version: link:../local-store
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -5707,7 +5707,7 @@ importers:
         version: 8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
   ../../udf-runtime:
     dependencies:
@@ -5812,7 +5812,7 @@ importers:
         version: 6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       vitest:
         specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
 packages:
 
@@ -17395,8 +17395,8 @@ packages:
       canvas:
         optional: true
 
-  jsdom@27.2.0:
-    resolution: {integrity: sha512-454TI39PeRDW1LgpyLPyURtB4Zx1tklSr6+OFOipsxGUH1WMTvk6C65JQdrj455+DP2uJ1+veBEHTGFKWVLFoA==}
+  jsdom@27.3.0:
+    resolution: {integrity: sha512-GtldT42B8+jefDUC4yUKAvsaOrH7PDHmZxZXNgF2xMmymjUbRYJvpAybZAKEmXDGTM0mCsz8duOa4vTm5AY2Kg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
     peerDependencies:
       canvas: ^3.0.0
@@ -34289,14 +34289,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/eslint-plugin@1.5.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)(vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))':
+  '@vitest/eslint-plugin@1.5.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)(vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))':
     dependencies:
       '@typescript-eslint/scope-manager': 8.49.0
       '@typescript-eslint/utils': 8.49.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
       eslint: 9.39.1(jiti@2.6.1)
     optionalDependencies:
       typescript: 5.0.4
-      vitest: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+      vitest: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -41630,7 +41630,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6):
+  jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6):
     dependencies:
       '@acemir/cssom': 0.9.29
       '@asamuzakjp/dom-selector': 6.7.6
@@ -48731,7 +48731,7 @@ snapshots:
     optionalDependencies:
       vite: 7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
-  vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1):
+  vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
@@ -48761,7 +48761,7 @@ snapshots:
       '@types/debug': 4.1.12
       '@types/node': 18.19.130
       happy-dom: 20.0.10
-      jsdom: 27.2.0(bufferutil@4.0.9)(postcss@8.5.6)
+      jsdom: 27.3.0(bufferutil@4.0.9)(postcss@8.5.6)
     transitivePeerDependencies:
       - jiti
       - less
@@ -48776,7 +48776,7 @@ snapshots:
       - tsx
       - yaml
 
-  vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@22.19.1)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1):
+  vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@22.19.1)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@27.3.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
@@ -48806,7 +48806,7 @@ snapshots:
       '@types/debug': 4.1.12
       '@types/node': 22.19.1
       happy-dom: 20.0.10
-      jsdom: 27.2.0(bufferutil@4.0.9)(postcss@8.5.6)
+      jsdom: 27.3.0(bufferutil@4.0.9)(postcss@8.5.6)
     transitivePeerDependencies:
       - jiti
       - less
