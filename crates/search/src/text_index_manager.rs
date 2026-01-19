@@ -26,6 +26,7 @@ use common::{
         IndexId,
         IndexName,
         PersistenceVersion,
+        SearchIndexMetricLabels,
         Timestamp,
         WriteTimestamp,
     },
@@ -249,6 +250,7 @@ impl TextIndexManager {
             memory_index,
             ..
         } = self.get_snapshot_info(index, printable_index_name)?;
+        let metric_labels = SearchIndexMetricLabels::new(Some(index.id()), None::<&str>);
         tantivy_schema
             .search(
                 compiled_query,
@@ -262,6 +264,7 @@ impl TextIndexManager {
                     .collect(),
                 *disk_index_ts,
                 searcher,
+                metric_labels,
             )
             .await
     }

@@ -11,7 +11,10 @@ use common::{
         vector_index::FragmentedVectorSegment,
     },
     runtime::Runtime,
-    types::ObjectKey,
+    types::{
+        ObjectKey,
+        SearchIndexMetricLabels,
+    },
 };
 use pb::searchlight::FragmentedVectorSegmentPaths;
 use storage::Storage;
@@ -56,6 +59,7 @@ impl Searcher for SearcherStub {
         _storage_keys: FragmentedTextStorageKeys,
         _queries: Vec<TokenQuery>,
         _max_results: usize,
+        _labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<TokenMatch>> {
         Ok(vec![])
     }
@@ -65,6 +69,7 @@ impl Searcher for SearcherStub {
         _search_storage: Arc<dyn Storage>,
         _storage_keys: FragmentedTextStorageKeys,
         _terms: Vec<Term>,
+        _labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Bm25Stats> {
         Ok(Bm25Stats::empty())
     }
@@ -74,6 +79,7 @@ impl Searcher for SearcherStub {
         _search_storage: Arc<dyn Storage>,
         _storage_keys: FragmentedTextStorageKeys,
         _query: PostingListQuery,
+        _labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         Ok(vec![])
     }
@@ -82,6 +88,7 @@ impl Searcher for SearcherStub {
         &self,
         _search_storage: Arc<dyn Storage>,
         _segments: Vec<FragmentedTextStorageKeys>,
+        _labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedTextSegment> {
         anyhow::bail!("Not implemented");
     }
@@ -96,6 +103,7 @@ impl VectorSearcher for SearcherStub {
         _schema: QdrantSchema,
         _search: CompiledVectorSearch,
         _overfetch_delta: u32,
+        _labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         Ok(vec![])
     }
@@ -105,6 +113,7 @@ impl VectorSearcher for SearcherStub {
         _search_storage: Arc<dyn Storage>,
         _segments: Vec<FragmentedVectorSegmentPaths>,
         _dimension: usize,
+        _labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedVectorSegment> {
         anyhow::bail!("Not implemented!");
     }
@@ -117,6 +126,7 @@ impl SegmentTermMetadataFetcher for SearcherStub {
         _search_storage: Arc<dyn Storage>,
         _segment: ObjectKey,
         _field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+        _labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
         unimplemented!()
     }
@@ -151,9 +161,10 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for InProcessSearcher<RT> {
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
         field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
         self.searcher
-            .fetch_term_ordinals(search_storage, segment, field_to_term_values)
+            .fetch_term_ordinals(search_storage, segment, field_to_term_values, labels)
             .await
     }
 }
@@ -166,9 +177,10 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
         storage_keys: FragmentedTextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<TokenMatch>> {
         self.searcher
-            .query_tokens(search_storage, storage_keys, queries, max_results)
+            .query_tokens(search_storage, storage_keys, queries, max_results, labels)
             .await
     }
 
@@ -177,9 +189,10 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         terms: Vec<Term>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Bm25Stats> {
         self.searcher
-            .query_bm25_stats(search_storage, storage_keys, terms)
+            .query_bm25_stats(search_storage, storage_keys, terms, labels)
             .await
     }
 
@@ -188,9 +201,10 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         query: PostingListQuery,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher
-            .query_posting_lists(search_storage, storage_keys, query)
+            .query_posting_lists(search_storage, storage_keys, query, labels)
             .await
     }
 
@@ -198,9 +212,10 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedTextStorageKeys>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedTextSegment> {
         self.searcher
-            .execute_text_compaction(search_storage, segments)
+            .execute_text_compaction(search_storage, segments, labels)
             .await
     }
 }
@@ -214,6 +229,7 @@ impl<RT: Runtime> VectorSearcher for InProcessSearcher<RT> {
         schema: QdrantSchema,
         search: CompiledVectorSearch,
         overfetch_delta: u32,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         self.searcher
             .execute_multi_segment_vector_query(
@@ -222,6 +238,7 @@ impl<RT: Runtime> VectorSearcher for InProcessSearcher<RT> {
                 schema,
                 search,
                 overfetch_delta,
+                labels,
             )
             .await
     }
@@ -231,9 +248,10 @@ impl<RT: Runtime> VectorSearcher for InProcessSearcher<RT> {
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedVectorSegmentPaths>,
         dimension: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedVectorSegment> {
         self.searcher
-            .execute_vector_compaction(search_storage, segments, dimension)
+            .execute_vector_compaction(search_storage, segments, dimension, labels)
             .await
     }
 }

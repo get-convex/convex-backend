@@ -16,7 +16,10 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    types::ObjectKey,
+    types::{
+        ObjectKey,
+        SearchIndexMetricLabels,
+    },
 };
 use futures::{
     stream,
@@ -93,12 +96,18 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         &'a self,
         search_storage: Arc<dyn Storage>,
         fragments: Vec<T>,
+        metric_labels: SearchIndexMetricLabels<'a>,
     ) -> impl Stream<Item = anyhow::Result<UntarredVectorDiskSegmentPaths>> + 'a
     where
         anyhow::Error: From<T::Error>,
     {
         stream::iter(fragments.into_iter().map(move |fragment| {
-            self.fetch_fragmented_segment(search_storage.clone(), fragment).boxed()
+            let metric_labels = metric_labels.clone();
+            let search_storage = search_storage.clone();
+            async move {
+                self.fetch_fragmented_segment(search_storage, fragment, metric_labels).await
+            }
+            .boxed()
         }))
         // Limit the parallel downloads a bit, we don't want to start and finish all downloads at
         // the same time. We want to be downloading and working with segments concurrently.
@@ -110,6 +119,7 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         fragment: T,
+        metric_labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<UntarredVectorDiskSegmentPaths>
     where
         anyhow::Error: From<T::Error>,
@@ -121,17 +131,20 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
             search_storage.clone(),
             &segment_path,
             SearchFileType::FragmentedVectorSegment,
+            metric_labels.clone(),
         );
 
         let fetch_id_tracker = archive_cache.get_single_file(
             search_storage.clone(),
             &paths.id_tracker,
             SearchFileType::VectorIdTracker,
+            metric_labels.clone(),
         );
         let fetch_bitset = archive_cache.get_single_file(
             search_storage.clone(),
             &paths.deleted_bitset,
             SearchFileType::VectorDeletedBitset,
+            metric_labels,
         );
         let (segment, id_tracker, bitset) =
             futures::try_join!(fetch_segment, fetch_id_tracker, fetch_bitset)?;
@@ -165,6 +178,7 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
         segments: Vec<T>,
         dimension: usize,
         search_storage: Arc<dyn Storage>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedVectorSegment>
     where
         anyhow::Error: From<T::Error>,
@@ -181,7 +195,7 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
         let fetch_timer = vector_compact_fetch_segments_seconds_timer();
         let segments: Vec<_> = self
             .segment_fetcher
-            .stream_fetch_fragmented_segments(search_storage.clone(), segments)
+            .stream_fetch_fragmented_segments(search_storage.clone(), segments, labels)
             .and_then(|paths| async move {
                 let paths_clone = paths.clone();
                 let segment = self
@@ -351,6 +365,7 @@ impl MutableFragmentedSegmentMetadata {
 struct FragmentedSegmentPrefetchRequest {
     search_storage: Arc<dyn Storage>,
     fragments: Vec<FragmentedSegmentStorageKeys>,
+    metric_labels: SearchIndexMetricLabels<'static>,
 }
 
 pub(crate) struct FragmentedSegmentPrefetcher<RT: Runtime> {
@@ -379,13 +394,19 @@ impl<RT: Runtime> FragmentedSegmentPrefetcher<RT> {
                 |FragmentedSegmentPrefetchRequest {
                      search_storage,
                      fragments,
+                     metric_labels,
                  }| {
                     let fetcher = fetcher.clone();
+                    let metric_labels = metric_labels.clone();
                     async move {
                         for fragment in fragments {
                             let timer = vector_prefetch_timer();
                             fetcher
-                                .fetch_fragmented_segment(search_storage.clone(), fragment)
+                                .fetch_fragmented_segment(
+                                    search_storage.clone(),
+                                    fragment,
+                                    metric_labels.clone(),
+                                )
                                 .await?;
                             timer.finish();
                         }
@@ -418,10 +439,13 @@ impl<RT: Runtime> FragmentedSegmentPrefetcher<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         fragments: Vec<FragmentedSegmentStorageKeys>,
+        metric_labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<()> {
+        let metric_labels = metric_labels.to_owned();
         let result = self.tx.try_send(FragmentedSegmentPrefetchRequest {
             search_storage,
             fragments,
+            metric_labels,
         });
         if result.is_err() {
             log_vector_prefetch_rejection();

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use common::bootstrap_model::index::vector_index::FragmentedVectorSegment;
+use common::{
+    bootstrap_model::index::vector_index::FragmentedVectorSegment,
+    types::SearchIndexMetricLabels,
+};
 use storage::Storage;
 
 use crate::{
@@ -21,6 +24,7 @@ pub trait VectorSearcher: Send + Sync + 'static {
         schema: QdrantSchema,
         search: CompiledVectorSearch,
         overfetch_delta: u32,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>>;
 
     async fn execute_vector_compaction(
@@ -28,5 +32,6 @@ pub trait VectorSearcher: Send + Sync + 'static {
         search_storage: Arc<dyn Storage>,
         segments: Vec<pb::searchlight::FragmentedVectorSegmentPaths>,
         dimension: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedVectorSegment>;
 }

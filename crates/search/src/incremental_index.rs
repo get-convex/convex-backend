@@ -23,6 +23,7 @@ use common::{
     },
     types::{
         ObjectKey,
+        SearchIndexMetricLabels,
         Timestamp,
     },
 };
@@ -434,6 +435,7 @@ pub async fn build_new_segment(
         search_storage,
         segment_term_metadata_fetcher,
         segment_statistics_updates.term_deletes_by_segment,
+        SearchIndexMetricLabels::unknown(),
     )
     .await?;
     previous_segments.update_term_deletion_metadata(segments_term_metadata)?;
@@ -489,7 +491,9 @@ pub async fn fetch_term_ordinals_and_remap_deletes(
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
+    labels: SearchIndexMetricLabels<'_>,
 ) -> anyhow::Result<Vec<(ObjectKey, SegmentTermMetadata)>> {
+    let labels = labels.to_owned();
     let fetch_segment_metadata_futs = term_deletes_by_segment.into_iter().map(
         move |(segment_key, term_values_and_delete_counts)| {
             fetch_segment_term_ordinal_and_remap_deletes(
@@ -497,6 +501,7 @@ pub async fn fetch_term_ordinals_and_remap_deletes(
                 segment_key,
                 segment_term_metadata_fetcher.clone(),
                 term_values_and_delete_counts,
+                labels.clone(),
             )
         },
     );
@@ -511,6 +516,7 @@ async fn fetch_segment_term_ordinal_and_remap_deletes(
     segment_key: ObjectKey,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     deletions: TermDeletionsByField,
+    labels: SearchIndexMetricLabels<'static>,
 ) -> anyhow::Result<(ObjectKey, SegmentTermMetadata)> {
     let term_values_by_field: BTreeMap<Field, Vec<TermValue>> = deletions
         .0
@@ -531,6 +537,7 @@ async fn fetch_segment_term_ordinal_and_remap_deletes(
             storage.clone(),
             segment_key.clone(),
             term_values_by_field.clone(),
+            labels.clone(),
         )
         .await?;
     let mut term_metadata_by_field = BTreeMap::new();
@@ -581,24 +588,34 @@ pub async fn fetch_text_segment<RT: Runtime>(
     archive_cache: ArchiveCacheManager<RT>,
     storage: Arc<dyn Storage>,
     keys: impl Into<FragmentedTextStorageKeys>,
+    labels: SearchIndexMetricLabels<'_>,
 ) -> anyhow::Result<TextSegmentPaths> {
     let keys = keys.into();
+    let labels = labels.to_owned();
 
-    let fetch_index_path = archive_cache.get(storage.clone(), &keys.segment, SearchFileType::Text);
+    let fetch_index_path = archive_cache.get(
+        storage.clone(),
+        &keys.segment,
+        SearchFileType::Text,
+        labels.clone(),
+    );
     let fetch_id_tracker_path = archive_cache.get_single_file(
         storage.clone(),
         &keys.id_tracker,
         SearchFileType::TextIdTracker,
+        labels.clone(),
     );
     let fetch_alive_bitset_path = archive_cache.get_single_file(
         storage.clone(),
         &keys.alive_bitset,
         SearchFileType::TextAliveBitset,
+        labels.clone(),
     );
     let fetch_deleted_terms = archive_cache.get_single_file(
         storage.clone(),
         &keys.deleted_terms_table,
         SearchFileType::TextDeletedTerms,
+        labels,
     );
 
     let (index_path, id_tracker_path, alive_bit_set_path, deleted_terms_path) = futures::try_join!(
@@ -635,16 +652,19 @@ pub async fn fetch_compact_and_upload_text_segment<RT: Runtime>(
     cache: ArchiveCacheManager<RT>,
     blocking_thread_pool: BoundedThreadPool<RT>,
     segments: Vec<FragmentedTextStorageKeys>,
+    labels: SearchIndexMetricLabels<'_>,
 ) -> anyhow::Result<FragmentedTextSegment> {
     let _storage = storage.clone();
+    let labels = labels.to_owned();
     let opened_segments = try_join_buffer_unordered(
         "text_segment_merge",
         segments.into_iter().map(move |segment| {
             let pool = blocking_thread_pool.clone();
             let storage = storage.clone();
             let cache = cache.clone();
+            let labels = labels.clone();
             async move {
-                let paths = fetch_text_segment(cache, storage, segment).await?;
+                let paths = fetch_text_segment(cache, storage, segment, labels).await?;
                 pool.execute(|| open_text_segment_for_merge(paths)).await?
             }
         }),

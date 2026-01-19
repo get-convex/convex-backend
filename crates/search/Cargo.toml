@@ -43,6 +43,8 @@ itertools = { workspace = true }
 levenshtein_automata = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
 pb = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }

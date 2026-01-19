@@ -53,6 +53,7 @@ use common::{
     },
     types::{
         IndexName,
+        SearchIndexMetricLabels,
         Timestamp,
     },
 };
@@ -430,8 +431,10 @@ impl TantivySearchIndexSchema {
         segments: Vec<FragmentedTextStorageKeys>,
         disk_index_ts: Timestamp,
         searcher: Arc<dyn Searcher>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<RevisionWithKeys> {
         log_num_segments_searched_total(segments.len());
+        let labels = labels.to_owned();
 
         // Step 1: Map the old `CompiledQuery` struct onto `TokenQuery`s.
         let mut token_queries = vec![];
@@ -467,6 +470,7 @@ impl TantivySearchIndexSchema {
             let search_storage = search_storage.clone();
             let segment = segment.clone();
             let token_queries = token_queries.clone();
+            let labels = labels.clone();
             token_query_futures.spawn("query_tokens", async move {
                 searcher
                     .query_tokens(
@@ -474,6 +478,7 @@ impl TantivySearchIndexSchema {
                         segment,
                         token_queries,
                         MAX_UNIQUE_QUERY_TERMS,
+                        labels,
                     )
                     .await
             });
@@ -534,9 +539,10 @@ impl TantivySearchIndexSchema {
             let search_storage = search_storage.clone();
             let segment = segment.clone();
             let terms = terms.clone();
+            let labels = labels.clone();
             bm25_futures.spawn("query_bm25_stats", async move {
                 searcher
-                    .query_bm25_stats(search_storage, segment, terms)
+                    .query_bm25_stats(search_storage, segment, terms, labels)
                     .await
             });
         }
@@ -614,9 +620,10 @@ impl TantivySearchIndexSchema {
             let search_storage = search_storage.clone();
             let segment = segment.clone();
             let query = query.clone();
+            let labels = labels.clone();
             posting_list_futures.spawn("query_posting_lists", async move {
                 searcher
-                    .query_posting_lists(search_storage, segment, query)
+                    .query_posting_lists(search_storage, segment, query, labels)
                     .await
             });
         }

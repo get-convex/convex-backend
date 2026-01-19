@@ -33,7 +33,10 @@ use common::{
         try_join_buffer_unordered,
         Runtime,
     },
-    types::IndexId,
+    types::{
+        IndexId,
+        SearchIndexMetricLabels,
+    },
 };
 use futures::TryStreamExt;
 use search::{
@@ -268,6 +271,7 @@ impl SearchIndex for TextSearchIndex {
                     .into_iter()
                     .map(FragmentedTextStorageKeys::from)
                     .collect(),
+                SearchIndexMetricLabels::unknown(),
             )
             .await
     }
@@ -354,6 +358,7 @@ impl SearchIndex for TextSearchIndex {
             build_index_args.search_storage.clone(),
             build_index_args.segment_term_metadata_fetcher.clone(),
             segment_statistics_updates.term_deletes_by_segment,
+            SearchIndexMetricLabels::unknown(),
         )
         .await?;
         previous_segments.update_term_deletion_metadata(segments_term_metadata)?;

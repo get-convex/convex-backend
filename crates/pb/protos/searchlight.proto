@@ -123,6 +123,8 @@ message TextCompactionRequest {
   repeated FragmentedTextSegmentPaths segments = 1;
   StorageType storage_type = 2;
   reserved 3;
+  bytes index_id = 4;
+  string convex_deployment = 5;
 }
 
 message FragmentedTextSegment {
@@ -140,7 +142,6 @@ message TextCompactionResponse {
   FragmentedTextSegment segment = 1;
 }
 
-// Next field id: 6
 message VectorQueryRequest {
   reserved 1;
   VectorIndexConfig index_config = 2;
@@ -149,12 +150,16 @@ message VectorQueryRequest {
   FragmentedVectorSegmentPathsList segments = 5;
   StorageType storage_type = 6;
   reserved 7;
+  bytes index_id = 8;
+  string convex_deployment = 9;
 }
 
 message VectorPrefetchRequest {
   FragmentedVectorSegmentPathsList segments = 1;
   StorageType storage_type = 2;
   reserved 3;
+  bytes index_id = 4;
+  string convex_deployment = 5;
 }
 
 message VectorPrefetchResponse {}
@@ -164,6 +169,8 @@ message VectorCompactionRequest {
   uint32 dimension = 2;
   StorageType storage_type = 3;
   reserved 4;
+  bytes index_id = 5;
+  string convex_deployment = 6;
 }
 
 message VectorCompactionResponse {
@@ -249,6 +256,8 @@ message FetchTermOrdinalsRequest {
   StorageKey segment = 2;
   repeated FieldAndTermValues field_and_term_values = 3;
   reserved 4;
+  bytes index_id = 5;
+  string convex_deployment = 6;
 }
 
 message FetchTermOrdinalsResponse {
@@ -283,6 +292,8 @@ message QueryTokensRequest {
   repeated TokenQuery token_queries = 3;
   optional uint32 max_results = 4;
   reserved 5;
+  bytes index_id = 6;
+  string convex_deployment = 7;
 }
 
 message FragmentedTextSegmentPaths {
@@ -322,6 +333,8 @@ message QueryBm25StatsRequest {
   FragmentedTextSegmentPaths segment = 2;
   repeated bytes terms = 3;
   reserved 4;
+  bytes index_id = 5;
+  string convex_deployment = 6;
 }
 
 message QueryBm25StatsResponse {
@@ -345,6 +358,8 @@ message QueryPostingListsRequest {
   FragmentedTextSegmentPaths segment = 2;
   PostingListQuery query = 3;
   reserved 4;
+  bytes index_id = 5;
+  string convex_deployment = 6;
 }
 
 message PostingListQuery {

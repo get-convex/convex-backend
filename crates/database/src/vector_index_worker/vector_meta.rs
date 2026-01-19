@@ -26,7 +26,10 @@ use common::{
         try_join_buffer_unordered,
         Runtime,
     },
-    types::IndexId,
+    types::{
+        IndexId,
+        SearchIndexMetricLabels,
+    },
 };
 use futures::TryStreamExt;
 use search::{
@@ -270,7 +273,12 @@ impl SearchIndex for VectorSearchIndex {
             .map(|segment| segment.to_paths_proto())
             .collect::<anyhow::Result<Vec<_>>>()?;
         searcher
-            .execute_vector_compaction(search_storage, protos, config.dimensions.into())
+            .execute_vector_compaction(
+                search_storage,
+                protos,
+                config.dimensions.into(),
+                SearchIndexMetricLabels::unknown(),
+            )
             .await
     }
 

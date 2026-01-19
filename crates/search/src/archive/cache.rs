@@ -20,7 +20,10 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    types::ObjectKey,
+    types::{
+        ObjectKey,
+        SearchIndexMetricLabels,
+    },
 };
 use futures::{
     pin_mut,
@@ -62,6 +65,7 @@ struct IndexTempDirWithSize {
     dir: PathBuf,
     cleaner: CacheCleaner,
     search_file_type: SearchFileType,
+    metric_labels: SearchIndexMetricLabels<'static>,
     size: u64,
 }
 
@@ -70,15 +74,25 @@ impl Drop for IndexTempDirWithSize {
         let _ = self
             .cleaner
             .attempt_cleanup(self.dir.clone(), self.search_file_type, self.size);
+        metrics::adjust_archive_bytes_for_index(
+            -(self.size as i64),
+            self.search_file_type,
+            self.metric_labels.clone(),
+        );
     }
 }
 
 impl IndexTempDirWithSize {
-    pub fn new(index_temp_dir: IndexTempDir, size: u64) -> Self {
+    pub fn new(
+        index_temp_dir: IndexTempDir,
+        metric_labels: SearchIndexMetricLabels<'static>,
+        size: u64,
+    ) -> Self {
         Self {
             dir: index_temp_dir.dir,
             cleaner: index_temp_dir.cleaner,
             search_file_type: index_temp_dir.search_file_type,
+            metric_labels,
             size,
         }
     }
@@ -164,6 +178,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         key: ObjectKey,
         search_file_type: SearchFileType,
         destination: IndexTempDir,
+        metric_labels: SearchIndexMetricLabels<'static>,
     ) -> anyhow::Result<IndexMeta> {
         let timer = metrics::archive_fetch_timer();
         let archive = search_storage
@@ -183,8 +198,13 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         }
         metrics::add_bytes_by_file_type(search_file_type, bytes_used);
         metrics::finish_archive_fetch(timer, bytes_used, search_file_type);
+        metrics::adjust_archive_bytes_for_index(
+            bytes_used as i64,
+            search_file_type,
+            metric_labels.clone(),
+        );
         Ok(IndexMeta {
-            _tempdir: IndexTempDirWithSize::new(destination, bytes_used),
+            _tempdir: IndexTempDirWithSize::new(destination, metric_labels, bytes_used),
             size: bytes_used,
             path,
         })
@@ -244,6 +264,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         search_storage: Arc<dyn Storage>,
         key: ObjectKey,
         search_file_type: SearchFileType,
+        metric_labels: SearchIndexMetricLabels<'static>,
     ) -> anyhow::Result<IndexMeta> {
         let mut timeout_fut = self.rt.wait(*ARCHIVE_FETCH_TIMEOUT_SECONDS).fuse();
         let destination = self.cache_path.join(Uuid::new_v4().simple().to_string());
@@ -262,7 +283,13 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         let fetch_fut = self
             .blocking_thread_pool
             .execute_async(move || {
-                new_self.fetch(search_storage, new_key, search_file_type, tempdir)
+                new_self.fetch(
+                    search_storage,
+                    new_key,
+                    search_file_type,
+                    tempdir,
+                    metric_labels,
+                )
             })
             .fuse();
         pin_mut!(fetch_fut);
@@ -335,9 +362,12 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         search_storage: Arc<dyn Storage>,
         key: &ObjectKey,
         search_file_type: SearchFileType,
+        metric_labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<PathBuf> {
         let timer = metrics::archive_get_timer(search_file_type);
-        let result = self.get_logged(search_storage, key, search_file_type).await;
+        let result = self
+            .get_logged(search_storage, key, search_file_type, metric_labels)
+            .await;
         timer.finish(result.is_ok());
         result
     }
@@ -348,10 +378,13 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         search_storage: Arc<dyn Storage>,
         storage_path: &ObjectKey,
         file_type: SearchFileType,
+        metric_labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<PathBuf> {
         // The archive cache always dumps things into directories, but we want a
         // specific file path.
-        let parent_dir: PathBuf = self.get(search_storage, storage_path, file_type).await?;
+        let parent_dir: PathBuf = self
+            .get(search_storage, storage_path, file_type, metric_labels)
+            .await?;
         let mut read_dir = fs::read_dir(parent_dir).await?;
         let mut paths = Vec::with_capacity(1);
         while let Some(entry) = read_dir.next_entry().await? {
@@ -370,6 +403,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         search_storage: Arc<dyn Storage>,
         key: &ObjectKey,
         search_file_type: SearchFileType,
+        metric_labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<PathBuf> {
         let archive_fetcher = ArchiveFetcher {
             cache_path: self.path.clone(),
@@ -386,7 +420,12 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
             .get(
                 cache_key.clone(),
                 archive_fetcher
-                    .generate_value(search_storage.clone(), key.clone(), search_file_type)
+                    .generate_value(
+                        search_storage.clone(),
+                        key.clone(),
+                        search_file_type,
+                        metric_labels.to_owned(),
+                    )
                     .boxed(),
             )
             .await
@@ -494,7 +533,10 @@ mod tests {
         Compression,
         ZipEntryBuilder,
     };
-    use common::bounded_thread_pool::BoundedThreadPool;
+    use common::{
+        bounded_thread_pool::BoundedThreadPool,
+        types::SearchIndexMetricLabels,
+    };
     use rand::{
         distr,
         rng,
@@ -565,11 +607,21 @@ mod tests {
         )?;
         assert_eq!(manager.usage(), 0);
         let path = manager
-            .get(storage.clone(), &key, SearchFileType::Text)
+            .get(
+                storage.clone(),
+                &key,
+                SearchFileType::Text,
+                SearchIndexMetricLabels::unknown(),
+            )
             .await?;
         assert_eq!(
             manager
-                .get(storage.clone(), &key, SearchFileType::Text)
+                .get(
+                    storage.clone(),
+                    &key,
+                    SearchFileType::Text,
+                    SearchIndexMetricLabels::unknown(),
+                )
                 .await?,
             path
         );
@@ -579,7 +631,12 @@ mod tests {
         uploader.write(second_archive.clone().into()).await?;
         let second_key = uploader.complete().await?;
         let second_path = manager
-            .get(storage, &second_key, SearchFileType::Text)
+            .get(
+                storage,
+                &second_key,
+                SearchFileType::Text,
+                SearchIndexMetricLabels::unknown(),
+            )
             .await?;
         assert_ne!(path, second_path);
         assert_eq!(manager.usage(), second_size);

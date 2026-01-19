@@ -24,4 +24,5 @@ pub use searcher::{
     TokenMatch,
     TokenQuery,
 };
+pub(crate) use searchlight_knobs::ARCHIVE_METRIC_EMIT_THRESHOLD_FRACTION;
 pub use text_search::tracker::SegmentTermMetadata;

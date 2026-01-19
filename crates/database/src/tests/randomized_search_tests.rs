@@ -36,6 +36,7 @@ use common::{
     types::{
         IndexDescriptor,
         IndexName,
+        SearchIndexMetricLabels,
         Timestamp,
     },
     value::{
@@ -1100,6 +1101,7 @@ impl VectorSearcher for BrokenSearcher {
         _: QdrantSchema,
         _: CompiledVectorSearch,
         _: u32,
+        _: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         anyhow::bail!("我");
     }
@@ -1109,6 +1111,7 @@ impl VectorSearcher for BrokenSearcher {
         _: Arc<dyn Storage>,
         _: Vec<FragmentedVectorSegmentPaths>,
         _: usize,
+        _: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedVectorSegment> {
         anyhow::bail!("不");
     }
@@ -1122,6 +1125,7 @@ impl Searcher for BrokenSearcher {
         _: FragmentedTextStorageKeys,
         _: Vec<TokenQuery>,
         _: usize,
+        _: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<TokenMatch>> {
         anyhow::bail!("recherche")
     }
@@ -1131,6 +1135,7 @@ impl Searcher for BrokenSearcher {
         _: Arc<dyn Storage>,
         _: FragmentedTextStorageKeys,
         _: Vec<Term>,
+        _: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Bm25Stats> {
         anyhow::bail!("plein")
     }
@@ -1140,6 +1145,7 @@ impl Searcher for BrokenSearcher {
         _: Arc<dyn Storage>,
         _: FragmentedTextStorageKeys,
         _: PostingListQuery,
+        _: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         anyhow::bail!("texte");
     }
@@ -1148,6 +1154,7 @@ impl Searcher for BrokenSearcher {
         &self,
         _search_storage: Arc<dyn Storage>,
         _segments: Vec<FragmentedTextStorageKeys>,
+        _: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedTextSegment> {
         anyhow::bail!("真不要")
     }

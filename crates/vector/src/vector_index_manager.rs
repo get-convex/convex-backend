@@ -20,6 +20,7 @@ use common::{
     runtime::block_in_place,
     types::{
         IndexId,
+        SearchIndexMetricLabels,
         Timestamp,
         WriteTimestamp,
     },
@@ -458,6 +459,8 @@ impl VectorIndexManager {
             let VectorIndexState::SnapshottedAt(snapshot) = vector_index else {
                 anyhow::bail!(index_backfilling_error(&query.printable_index_name()?));
             };
+            let metric_labels =
+                SearchIndexMetricLabels::new(Some(index.id()), None::<&str>).to_owned();
             let (disk_revisions, vector_index_type) = match snapshot.data {
                 VectorIndexSnapshotData::Unknown(_) => {
                     anyhow::bail!(index_backfilling_error(&query.printable_index_name()?))
@@ -471,6 +474,7 @@ impl VectorIndexManager {
                         qdrant_schema,
                         memory_index,
                         snapshot.ts,
+                        metric_labels,
                     )
                     .await?,
                     VectorIndexType::MultiSegment,
@@ -501,19 +505,22 @@ impl VectorIndexManager {
         qdrant_schema: QdrantSchema,
         memory_index: &MemoryVectorIndex,
         ts: Timestamp,
+        metric_labels: SearchIndexMetricLabels<'static>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         self.compile_search_and_truncate(
             query,
             qdrant_schema,
             memory_index,
             ts,
-            |qdrant_schema, compiled_query, overfetch_delta| {
+            metric_labels,
+            |qdrant_schema, compiled_query, overfetch_delta, labels| {
                 async move {
                     let timer = metrics::searchlight_client_execute_timer(
                         VectorIndexType::MultiSegment,
                         &SEARCHLIGHT_CLUSTER_NAME,
                     );
                     let total_segments = segments.len();
+                    let metric_labels = labels;
                     let results = searcher
                         .execute_multi_segment_vector_query(
                             search_storage.clone(),
@@ -525,6 +532,7 @@ impl VectorIndexManager {
                             qdrant_schema,
                             compiled_query.clone(),
                             overfetch_delta as u32,
+                            metric_labels,
                         )
                         .await?;
                     metrics::log_num_segments_searched_total(total_segments);
@@ -543,10 +551,12 @@ impl VectorIndexManager {
         qdrant_schema: QdrantSchema,
         memory_index: &MemoryVectorIndex,
         ts: Timestamp,
+        metric_labels: SearchIndexMetricLabels<'static>,
         call_searchlight: impl FnOnce(
             QdrantSchema,
             CompiledVectorSearch,
             usize,
+            SearchIndexMetricLabels<'static>,
         )
             -> BoxFuture<'a, anyhow::Result<Vec<VectorSearchQueryResult>>>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
@@ -554,8 +564,13 @@ impl VectorIndexManager {
         let updated_matches = memory_index.updated_matches(ts, &compiled_query)?;
         let overfetch_delta = updated_matches.len();
         metrics::log_searchlight_overfetch_delta(overfetch_delta);
-        let mut disk_revisions =
-            call_searchlight(qdrant_schema, compiled_query.clone(), overfetch_delta).await?;
+        let mut disk_revisions = call_searchlight(
+            qdrant_schema,
+            compiled_query.clone(),
+            overfetch_delta,
+            metric_labels,
+        )
+        .await?;
 
         block_in_place(|| {
             // Filter out revisions that are no longer latest.

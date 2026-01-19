@@ -29,6 +29,7 @@ use common::{
         GenericIndexName,
         IndexDescriptor,
         IndexName,
+        SearchIndexMetricLabels,
         TabletIndexName,
     },
 };
@@ -566,9 +567,10 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
         storage_keys: FragmentedTextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<TokenMatch>> {
         self.searcher
-            .query_tokens(search_storage, storage_keys, queries, max_results)
+            .query_tokens(search_storage, storage_keys, queries, max_results, labels)
             .await
     }
 
@@ -577,9 +579,10 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         terms: Vec<Term>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Bm25Stats> {
         self.searcher
-            .query_bm25_stats(search_storage, storage_keys, terms)
+            .query_bm25_stats(search_storage, storage_keys, terms, labels)
             .await
     }
 
@@ -588,9 +591,10 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         query: PostingListQuery,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher
-            .query_posting_lists(search_storage, storage_keys, query)
+            .query_posting_lists(search_storage, storage_keys, query, labels)
             .await
     }
 
@@ -598,9 +602,10 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedTextStorageKeys>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedTextSegment> {
         self.searcher
-            .execute_text_compaction(search_storage, segments)
+            .execute_text_compaction(search_storage, segments, labels)
             .await
     }
 }
@@ -614,6 +619,7 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
         schema: QdrantSchema,
         search: CompiledVectorSearch,
         overfetch_delta: u32,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         self.searcher
             .execute_multi_segment_vector_query(
@@ -622,6 +628,7 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
                 schema,
                 search,
                 overfetch_delta,
+                labels,
             )
             .await
     }
@@ -631,6 +638,7 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
         search_storage: Arc<dyn Storage>,
         segments: Vec<pb::searchlight::FragmentedVectorSegmentPaths>,
         dimension: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedVectorSegment> {
         let mut tx: Transaction<RT> = self.db.begin_system().await?;
         UserFacingModel::new_root_for_test(&mut tx)
@@ -640,7 +648,7 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
         backfill_vector_indexes(self.rt.clone(), self.db.clone(), self.storage.clone()).await?;
 
         self.searcher
-            .execute_vector_compaction(search_storage, segments, dimension)
+            .execute_vector_compaction(search_storage, segments, dimension, labels)
             .await
     }
 }

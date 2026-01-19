@@ -67,6 +67,12 @@ pub static MAX_CONCURRENT_VECTOR_SEARCHES: LazyLock<usize> =
 pub static QUEUE_SIZE_MULTIPLIER: LazyLock<usize> =
     LazyLock::new(|| env_config("QUEUE_SIZE_MULTIPLIER", 20));
 
+/// Fraction (0.0 - 1.0) of the total archive cache a single index or
+/// deployment must exceed before we emit the archive usage gauges. Set lower to
+/// see more metrics and higher to suppress noisy low-volume entries.
+pub static ARCHIVE_METRIC_EMIT_THRESHOLD_FRACTION: LazyLock<f64> =
+    LazyLock::new(|| env_config("ARCHIVE_METRIC_EMIT_THRESHOLD_FRACTION", 0.05));
+
 /// The maximum number of qdrant Segments (each backed by a RocksDB
 /// instance) that we'll keep in memory in the LRU at once.
 /// See https://www.notion.so/convex-dev/Vector-Search-Scaling-Issues-0e7c2dde6ea241af828c89a77c593f64?pvs=4#2b1852e44b734362a1b05b6dec62b744

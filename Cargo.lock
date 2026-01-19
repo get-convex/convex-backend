@@ -8302,6 +8302,8 @@ dependencies = [
  "levenshtein_automata",
  "maplit",
  "metrics",
+ "once_cell",
+ "parking_lot",
  "pb",
  "prometheus",
  "proptest",

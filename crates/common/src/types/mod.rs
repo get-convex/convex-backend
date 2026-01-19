@@ -27,6 +27,7 @@ mod index;
 mod maybe_value;
 mod object_key;
 mod region;
+mod search_index_metric_labels;
 mod snapshot_export;
 mod table;
 mod timestamp;
@@ -92,6 +93,7 @@ pub use object_key::{
     ObjectKey,
 };
 pub use region::Region;
+pub use search_index_metric_labels::SearchIndexMetricLabels;
 pub use snapshot_export::SetExportExpirationRequest;
 pub use table::TableStats;
 #[cfg(any(test, feature = "testing"))]

@@ -27,6 +27,7 @@ use common::{
     runtime::Runtime,
     types::{
         ObjectKey,
+        SearchIndexMetricLabels,
         Timestamp,
         WriteTimestamp,
     },
@@ -144,6 +145,7 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         storage_keys: FragmentedTextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<TokenMatch>>;
 
     async fn query_bm25_stats(
@@ -151,6 +153,7 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         terms: Vec<Term>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Bm25Stats>;
 
     async fn query_posting_lists(
@@ -158,12 +161,14 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         query: PostingListQuery,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<PostingListMatch>>;
 
     async fn execute_text_compaction(
         &self,
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedTextStorageKeys>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedTextSegment>;
 }
 
@@ -210,6 +215,7 @@ pub trait SegmentTermMetadataFetcher: Send + Sync + 'static {
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
         field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>>;
 }
 
@@ -313,13 +319,14 @@ impl<RT: Runtime> SearcherImpl<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         paths: Vec<FragmentedVectorSegmentPaths>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<()> {
         let paths: Vec<FragmentedSegmentStorageKeys> = paths
             .into_iter()
             .map(|paths| paths.try_into())
             .try_collect()?;
         self.fragmented_segment_prefetcher
-            .queue_prefetch(search_storage, paths)
+            .queue_prefetch(search_storage, paths, labels)
     }
 
     /// A blocking prefetch for compaction where we explicitly want to stop the
@@ -332,6 +339,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         segment: common::bootstrap_model::index::vector_index::FragmentedVectorSegment,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<()> {
         let timer = vector_compaction_prefetch_timer();
         let paths = FragmentedSegmentStorageKeys {
@@ -340,7 +348,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
             deleted_bitset: segment.deleted_bitset_key,
         };
         self.fragmented_segment_fetcher
-            .stream_fetch_fragmented_segments(search_storage, vec![paths])
+            .stream_fetch_fragmented_segments(search_storage, vec![paths], labels)
             .try_collect::<Vec<_>>()
             .await?;
         timer.finish();
@@ -398,24 +406,32 @@ impl<RT: Runtime> SearcherImpl<RT> {
             deleted_terms_table,
             alive_bitset,
         }: FragmentedTextStorageKeys,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<TextDiskSegmentPaths> {
         let (index_path, alive_bitset_path, deleted_term_path, id_tracker_path) = try_join!(
-            self.archive_cache
-                .get(storage.clone(), &segment, SearchFileType::Text),
+            self.archive_cache.get(
+                storage.clone(),
+                &segment,
+                SearchFileType::Text,
+                labels.clone(),
+            ),
             self.archive_cache.get_single_file(
                 storage.clone(),
                 &alive_bitset,
-                SearchFileType::TextAliveBitset
+                SearchFileType::TextAliveBitset,
+                labels.clone(),
             ),
             self.archive_cache.get_single_file(
                 storage.clone(),
                 &deleted_terms_table,
-                SearchFileType::TextDeletedTerms
+                SearchFileType::TextDeletedTerms,
+                labels.clone(),
             ),
             self.archive_cache.get_single_file(
                 storage.clone(),
                 &id_tracker,
-                SearchFileType::TextIdTracker
+                SearchFileType::TextIdTracker,
+                labels,
             )
         )?;
         Ok(TextDiskSegmentPaths {
@@ -430,9 +446,10 @@ impl<RT: Runtime> SearcherImpl<RT> {
         &self,
         storage: Arc<dyn Storage>,
         text_storage_keys: FragmentedTextStorageKeys,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Arc<TextSegment>> {
         let paths = self
-            .load_text_segment_paths(storage, text_storage_keys)
+            .load_text_segment_paths(storage, text_storage_keys, labels)
             .await?;
         self.text_segment_cache.get(paths).await
     }
@@ -447,9 +464,12 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         storage_keys: FragmentedTextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<TokenMatch>> {
         let timer = text_query_tokens_searcher_latency_seconds();
-        let text_segment = self.load_text_segment(search_storage, storage_keys).await?;
+        let text_segment = self
+            .load_text_segment(search_storage, storage_keys, labels)
+            .await?;
         let query = move || Self::query_tokens_impl(text_segment, queries, max_results);
         let resp = self.text_search_pool.execute(query).await??;
         timer.finish();
@@ -462,9 +482,12 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         terms: Vec<Term>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Bm25Stats> {
         let timer = text_query_bm25_searcher_latency_seconds();
-        let text_segment = self.load_text_segment(search_storage, storage_keys).await?;
+        let text_segment = self
+            .load_text_segment(search_storage, storage_keys, labels)
+            .await?;
         let query = move || Self::query_bm25_stats_impl(text_segment, terms);
         let resp = self.text_search_pool.execute(query).await??;
         timer.finish();
@@ -477,9 +500,12 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         storage_keys: FragmentedTextStorageKeys,
         query: PostingListQuery,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         let timer = text_query_posting_lists_searcher_latency_seconds();
-        let text_segment = self.load_text_segment(search_storage, storage_keys).await?;
+        let text_segment = self
+            .load_text_segment(search_storage, storage_keys, labels)
+            .await?;
         let query = move || Self::query_posting_lists_impl(text_segment, query);
         let resp = self.text_search_pool.execute(query).await??;
         timer.finish();
@@ -491,6 +517,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedTextStorageKeys>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<FragmentedTextSegment> {
         let timer = text_compaction_searcher_latency_seconds();
         let result = fetch_compact_and_upload_text_segment(
@@ -499,6 +526,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
             self.archive_cache.clone(),
             self.text_search_pool.clone(),
             segments,
+            labels,
         )
         .await;
         timer.finish();
@@ -514,11 +542,12 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
         field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
         let timer = text_query_term_ordinals_searcher_timer();
         let segment_path = self
             .archive_cache
-            .get(search_storage, &segment, SearchFileType::Text)
+            .get(search_storage, &segment, SearchFileType::Text, labels)
             .await?;
         let reader = index_reader_for_directory(segment_path).await?;
         let searcher = reader.searcher();
@@ -555,6 +584,7 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
         schema: QdrantSchema,
         query: CompiledVectorSearch,
         overfetch_delta: u32,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         let timer = metrics::vector_query_timer(VectorIndexType::MultiSegment);
         let results: anyhow::Result<Vec<VectorSearchQueryResult>> = try {
@@ -565,7 +595,7 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
             // results from parallel segment fetches in-memory
             let results_pq = self
                 .fragmented_segment_fetcher
-                .stream_fetch_fragmented_segments(search_storage, fragments)
+                .stream_fetch_fragmented_segments(search_storage, fragments, labels)
                 .and_then(|paths| self.load_fragmented_segment(paths))
                 .and_then(|segment| {
                     self.vector_query_segment(
@@ -622,13 +652,15 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedVectorSegmentPaths>,
         dimension: usize,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<common::bootstrap_model::index::vector_index::FragmentedVectorSegment> {
+        let labels = labels.to_owned();
         let segment = self
             .fragmented_segment_compactor
-            .compact(segments, dimension, search_storage.clone())
+            .compact(segments, dimension, search_storage.clone(), labels.clone())
             .await?;
 
-        self.prefetch_segment(search_storage, segment.clone())
+        self.prefetch_segment(search_storage, segment.clone(), labels)
             .await?;
         Ok(segment)
     }
