@@ -128,7 +128,7 @@ a few benefits:
   the message will be shown optimistically on the client until the message is
   saved and present in your message query.
 - You can save the message in the same mutation (transaction) as other writes to
-  the database. This message can the be used and re-used in an action with
+  the database. This message can then be used and re-used in an action with
   retries, without duplicating the prompt message in the history. If the
   `promptMessageId` is used for multiple generations, any previous responses
   will automatically be included as context, so the LLM can continue where it
