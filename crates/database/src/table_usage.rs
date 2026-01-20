@@ -1,6 +1,10 @@
 use std::collections::BTreeMap;
 
 use common::components::ComponentPath;
+use derive_more::{
+    Add,
+    AddAssign,
+};
 use events::usage::{
     TableDatabaseStorage,
     UsageEvent,
@@ -11,7 +15,7 @@ use value::{
 };
 
 /// Counts the amount of storage used by documents and indexes in a table.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, AddAssign, Add)]
 pub struct TableUsage {
     /// Bytes used by documents in this table
     pub document_size: u64,

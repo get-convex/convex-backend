@@ -74,7 +74,7 @@ use common::{
     virtual_system_mapping::{
         all_tables_name_to_number,
         all_tables_number_to_name,
-        NoopDocMapper,
+        AssociatedVirtualTable,
         VirtualSystemMapping,
     },
 };
@@ -2070,10 +2070,8 @@ async fn create_system_table_with_non_system_table_fails(rt: TestRuntime) -> any
 async fn test_create_system_table_for_virtual_table(rt: TestRuntime) -> anyhow::Result<()> {
     let mut virtual_system_mapping = VirtualSystemMapping::default();
     virtual_system_mapping.add_table(
-        &"_storage".parse()?,
-        &"_file_storage".parse()?,
-        BTreeMap::new(),
-        Arc::new(NoopDocMapper),
+        "_file_storage".parse()?,
+        AssociatedVirtualTable::new_primary_for_test("_storage".parse()?),
     );
     let virtual_system = virtual_system_mapping.clone();
     let db = DbFixtures::new_with_args(

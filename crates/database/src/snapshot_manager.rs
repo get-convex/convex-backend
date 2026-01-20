@@ -507,18 +507,23 @@ impl Snapshot {
             }
         }
 
-        let virtual_tables = system_document_storage_by_table
-            .iter()
-            .filter_map(|((table_namespace, table_name), (usage, component_path))| {
-                let virtual_table_name = self
-                    .virtual_system_mapping
-                    .system_to_virtual_table(table_name)?;
-                Some((
-                    (*table_namespace, virtual_table_name.clone()),
-                    (usage.clone(), component_path.clone()),
-                ))
-            })
-            .collect();
+        let mut virtual_tables = BTreeMap::new();
+        for ((table_namespace, table_name), (usage, component_path)) in
+            &system_document_storage_by_table
+        {
+            if let Some(virtual_table_name) = self
+                .virtual_system_mapping
+                .associated_virtual_table_name(table_name)
+            {
+                let key = (*table_namespace, virtual_table_name.clone());
+                virtual_tables
+                    .entry(key)
+                    .and_modify(|(existing_usage, _): &mut (TableUsage, ComponentPath)| {
+                        *existing_usage += *usage
+                    })
+                    .or_insert_with(|| (*usage, component_path.clone()));
+            }
+        }
 
         Ok(TablesUsage {
             user_tables: user_document_storage_by_table,

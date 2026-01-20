@@ -120,7 +120,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         if let Some(table_name) = self
             .tx
             .virtual_system_mapping()
-            .system_to_virtual_table(&physical_table_name)
+            .primary_system_to_virtual_table(&physical_table_name)
             .cloned()
         {
             log_virtual_table_get();

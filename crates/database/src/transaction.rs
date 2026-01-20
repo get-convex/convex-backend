@@ -274,7 +274,9 @@ impl<RT: Runtime> Transaction<RT> {
         let virtual_system_mapping = self.virtual_system_mapping().clone();
         move |number| {
             let name = table_mapping.number_to_name()(number)?;
-            if let Some(virtual_name) = virtual_system_mapping.system_to_virtual_table(&name) {
+            if let Some(virtual_name) =
+                virtual_system_mapping.primary_system_to_virtual_table(&name)
+            {
                 Ok(virtual_name.clone())
             } else {
                 match table_filter {

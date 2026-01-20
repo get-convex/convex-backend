@@ -25,7 +25,7 @@ use common::{
         IndexName,
         StorageUuid,
     },
-    virtual_system_mapping::VirtualSystemDocMapper,
+    virtual_system_mapping::AssociatedVirtualTable,
 };
 use database::{
     query::{
@@ -43,6 +43,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use futures::TryStreamExt;
+use imbl::ordmap;
 use keybroker::Identity;
 use maplit::btreemap;
 use pb::storage::{
@@ -109,21 +110,17 @@ impl SystemTable for FileStorageTable {
         vec![FILE_STORAGE_ID_INDEX.clone()]
     }
 
-    fn virtual_table() -> Option<(
-        &'static TableName,
-        BTreeMap<IndexName, IndexName>,
-        Arc<dyn VirtualSystemDocMapper>,
-    )> {
-        Some((
-            &FILE_STORAGE_VIRTUAL_TABLE,
-            btreemap! {
+    fn virtual_table() -> Option<AssociatedVirtualTable> {
+        Some(AssociatedVirtualTable::Primary {
+            virtual_table_name: FILE_STORAGE_VIRTUAL_TABLE.clone(),
+            virtual_to_system_indexes: ordmap! {
                 FILE_STORAGE_VIRTUAL_INDEX_BY_CREATION_TIME.clone() =>
                     FILE_STORAGE_INDEX_BY_CREATION_TIME.clone(),
                 FILE_STORAGE_VIRTUAL_INDEX_BY_ID.clone() =>
-                    FILE_STORAGE_INDEX_BY_ID.clone(),
+                    FILE_STORAGE_INDEX_BY_ID.clone()
             },
-            Arc::new(FileStorageDocMapper),
-        ))
+            doc_mapper: Arc::new(FileStorageDocMapper),
+        })
     }
 }
 

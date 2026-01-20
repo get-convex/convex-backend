@@ -42,7 +42,7 @@ use crate::{
         Timestamp,
     },
     virtual_system_mapping::{
-        NoopDocMapper,
+        AssociatedVirtualTable,
         VirtualSystemMapping,
     },
 };
@@ -158,10 +158,8 @@ impl TestIdGenerator {
         let physical_table_name = format!("_physical_{table_name}").parse().unwrap();
         let table_number = self.system_table_id(&physical_table_name).table_number;
         self.virtual_system_mapping.add_table(
-            table_name,
-            &physical_table_name,
-            Default::default(),
-            Arc::new(NoopDocMapper),
+            physical_table_name,
+            AssociatedVirtualTable::new_primary_for_test(table_name.clone()),
         );
         table_number
     }

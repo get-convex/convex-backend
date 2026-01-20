@@ -1,9 +1,6 @@
-use std::{
-    collections::BTreeMap,
-    sync::{
-        Arc,
-        LazyLock,
-    },
+use std::sync::{
+    Arc,
+    LazyLock,
 };
 
 use anyhow::Context;
@@ -35,7 +32,7 @@ use common::{
         GenericIndexName,
         IndexName,
     },
-    virtual_system_mapping::VirtualSystemDocMapper,
+    virtual_system_mapping::AssociatedVirtualTable,
 };
 use database::{
     unauthorized_error,
@@ -44,7 +41,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use maplit::btreemap;
+use imbl::ordmap;
 use sync_types::Timestamp;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -151,21 +148,17 @@ impl SystemTable for ScheduledJobsTable {
         ]
     }
 
-    fn virtual_table() -> Option<(
-        &'static TableName,
-        BTreeMap<IndexName, IndexName>,
-        Arc<dyn VirtualSystemDocMapper>,
-    )> {
-        Some((
-            &SCHEDULED_JOBS_VIRTUAL_TABLE,
-            btreemap! {
+    fn virtual_table() -> Option<AssociatedVirtualTable> {
+        Some(AssociatedVirtualTable::Primary {
+            virtual_table_name: SCHEDULED_JOBS_VIRTUAL_TABLE.clone(),
+            virtual_to_system_indexes: ordmap! {
                 SCHEDULED_JOBS_VIRTUAL_INDEX_BY_CREATION_TIME.clone() =>
                     SCHEDULED_JOBS_INDEX_BY_CREATION_TIME.clone(),
                 SCHEDULED_JOBS_VIRTUAL_INDEX_BY_ID.clone() =>
-                    SCHEDULED_JOBS_INDEX_BY_ID.clone(),
+                    SCHEDULED_JOBS_INDEX_BY_ID.clone()
             },
-            Arc::new(ScheduledJobsDocMapper),
-        ))
+            doc_mapper: Arc::new(ScheduledJobsDocMapper),
+        })
     }
 }
 

@@ -26,6 +26,7 @@ use crate::{
         },
         SchedulerModel,
         SCHEDULED_JOBS_TABLE,
+        SCHEDULED_JOBS_VIRTUAL_TABLE,
     },
     session_requests::SESSION_REQUESTS_TABLE,
     test_helpers::DbFixturesWithModel,
@@ -62,9 +63,7 @@ async fn scheduled_job_arg_writes_counted_in_db_bandwidth(rt: TestRuntime) -> an
     // Check that database ingress v2 size is non-zero
     let stats = write_to_table_and_get_stats(&db, &SCHEDULED_JOBS_ARGS_TABLE).await?;
     assert_eq!(stats.database_ingress.values().sum::<u64>(), 0);
-    // TODO(ENG-10171) Track writes to _scheduled_job_args (and other system tables
-    // that contribute to virtual tables) toward db bandwidth assert_ne!(stats.
-    // database_ingress_v2.values().sum::<u64>(), 0);
+    assert_ne!(stats.database_ingress_v2.values().sum::<u64>(), 0);
     Ok(())
 }
 
@@ -128,5 +127,49 @@ async fn system_table_writes_do_not_count_in_db_bandwidth(rt: TestRuntime) -> an
     // Check that database ingress size is zero
     assert_eq!(stats.database_ingress.values().sum::<u64>(), 0);
     assert_eq!(stats.database_ingress_v2.values().sum::<u64>(), 0);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn virtual_table_storage_accumulates_across_system_tables(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+
+    // Write to both _scheduled_jobs and _scheduled_job_args that map to
+    // _scheduled_functions virtual table
+    let mut tx = db.begin(Identity::system()).await?;
+    let mut model = SystemMetadataModel::new(&mut tx, TableNamespace::Global);
+    model
+        .insert(&SCHEDULED_JOBS_TABLE, assert_obj!("hello" => "world"))
+        .await?;
+    model
+        .insert(&SCHEDULED_JOBS_ARGS_TABLE, assert_obj!("foo" => "bar"))
+        .await?;
+    db.commit(tx).await?;
+
+    let snapshot = db.latest_snapshot()?;
+    let tables_usage = snapshot.get_document_and_index_storage()?;
+    let jobs_usage = &tables_usage
+        .system_tables
+        .get(&(TableNamespace::Global, SCHEDULED_JOBS_TABLE.clone()))
+        .expect("_scheduled_jobs should exist");
+    let args_usage = &tables_usage
+        .system_tables
+        .get(&(TableNamespace::Global, SCHEDULED_JOBS_ARGS_TABLE.clone()))
+        .expect("_scheduled_job_args should exist");
+
+    // The virtual table _scheduled_functions should have the sum of both jobs_usage
+    // and args_usage
+    let virtual_usage = &tables_usage
+        .virtual_tables
+        .get(&(TableNamespace::Global, SCHEDULED_JOBS_VIRTUAL_TABLE.clone()))
+        .expect("_scheduled_functions virtual table should exist");
+    assert_eq!(
+        virtual_usage.0,
+        jobs_usage.0 + args_usage.0,
+        "Virtual table usage should be sum of both system tables"
+    );
+
     Ok(())
 }

@@ -45,6 +45,7 @@ fivetran_destination = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 humansize = { workspace = true }
+imbl = { workspace = true }
 keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }

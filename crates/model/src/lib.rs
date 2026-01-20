@@ -64,7 +64,10 @@ use common::{
         IndexName,
         TabletIndexName,
     },
-    virtual_system_mapping::VirtualSystemMapping,
+    virtual_system_mapping::{
+        AssociatedVirtualTable,
+        VirtualSystemMapping,
+    },
 };
 use components::handles::{
     FunctionHandlesTable,
@@ -331,9 +334,17 @@ pub static DEFAULT_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNumber>> =
                 system_table.table_name().clone(),
                 default_table_number.into(),
             );
-            if let Some((virtual_table_name, ..)) = system_table.virtual_table() {
-                default_table_numbers
-                    .insert(virtual_table_name.clone(), default_table_number.into());
+            if let Some(associated_virtual_table) = system_table.virtual_table() {
+                match associated_virtual_table {
+                    AssociatedVirtualTable::Primary {
+                        virtual_table_name, ..
+                    } => {
+                        default_table_numbers
+                            .insert(virtual_table_name, default_table_number.into());
+                    },
+                    // Secondary system tables don't share table numbers with virtual tables.
+                    AssociatedVirtualTable::Secondary(_) => {},
+                }
             }
         }
         default_table_numbers
@@ -599,13 +610,8 @@ pub fn virtual_system_mapping() -> &'static VirtualSystemMapping {
     static MAPPING: LazyLock<VirtualSystemMapping> = LazyLock::new(|| {
         let mut mapping = VirtualSystemMapping::default();
         for table in app_system_tables() {
-            if let Some((virtual_table_name, virtual_indexes, mapper)) = table.virtual_table() {
-                mapping.add_table(
-                    virtual_table_name,
-                    table.table_name(),
-                    virtual_indexes,
-                    mapper,
-                )
+            if let Some(associated_virtual_table) = table.virtual_table() {
+                mapping.add_table(table.table_name().clone(), associated_virtual_table)
             }
         }
         mapping
@@ -688,6 +694,10 @@ mod tests {
             CanonicalizedComponentFunctionPath,
             ComponentPath,
         },
+        document::{
+            ParseDocument,
+            ParsedDocument,
+        },
         execution_context::ExecutionContext,
         runtime::UnixTimestamp,
         testing::TestPersistence,
@@ -701,6 +711,7 @@ mod tests {
         TableUsage,
         TablesUsage,
         TestFacingModel,
+        UserFacingModel,
     };
     use maplit::btreemap;
     use migrations_model::DATABASE_VERSION;
@@ -714,7 +725,10 @@ mod tests {
 
     use crate::{
         app_system_tables,
-        scheduled_jobs::SchedulerModel,
+        scheduled_jobs::{
+            types::ScheduledJobMetadata,
+            SchedulerModel,
+        },
         test_helpers::DbFixturesWithModel,
         virtual_system_mapping,
         DEFAULT_TABLE_NUMBERS,
@@ -821,7 +835,14 @@ mod tests {
                 ExecutionContext::new_for_test(),
             )
             .await?;
-        let s_doc = tx.get(id).await?.unwrap();
+        let scheduled_job_doc = tx.get(id).await?.unwrap();
+        let scheduled_job_metadata_size = scheduled_job_doc.size();
+        let scheduled_job_metadata: ParsedDocument<ScheduledJobMetadata> =
+            scheduled_job_doc.parse()?;
+        let scheduled_job_args = UserFacingModel::new(&mut tx, TableNamespace::Global)
+            .get(scheduled_job_metadata.args_id.unwrap(), None)
+            .await?
+            .unwrap();
         db.commit(tx).await?;
 
         let expected_user_usage = TableUsage {
@@ -829,10 +850,23 @@ mod tests {
             index_size: 0,
             system_index_size: 2 * doc.size() as u64,
         };
-        let expected_scheduler_usage = TableUsage {
-            document_size: s_doc.size() as u64,
+        let expected_scheduled_jobs_usage = TableUsage {
+            document_size: scheduled_job_metadata_size as u64,
             index_size: 0,
-            system_index_size: 5 * s_doc.size() as u64,
+            system_index_size: 5 * scheduled_job_metadata_size as u64,
+        };
+        let expected_scheduled_job_args_usage = TableUsage {
+            document_size: scheduled_job_args.size() as u64,
+            index_size: 0,
+            system_index_size: 2 * scheduled_job_args.size() as u64,
+        };
+        let expected_scheduled_functions_usage = TableUsage {
+            document_size: scheduled_job_metadata_size as u64 + scheduled_job_args.size() as u64,
+            index_size: 0,
+            system_index_size: 5 * scheduled_job_metadata_size as u64
+                + 2 * scheduled_job_args.size() as u64, /* by_id and by_creation_time indexes
+                                                         * defined on both tables + 3 indexes on
+                                                         * _scheduled_jobs table */
         };
 
         let snapshot = db.latest_snapshot()?;
@@ -850,11 +884,15 @@ mod tests {
         );
         assert_eq!(
             system_tables[&(TableNamespace::Global, "_scheduled_jobs".parse()?)],
-            (expected_scheduler_usage.clone(), ComponentPath::root())
+            (expected_scheduled_jobs_usage, ComponentPath::root())
+        );
+        assert_eq!(
+            system_tables[&(TableNamespace::Global, "_scheduled_job_args".parse()?)],
+            (expected_scheduled_job_args_usage, ComponentPath::root())
         );
         assert_eq!(
             virtual_tables[&(TableNamespace::Global, "_scheduled_functions".parse()?)],
-            (expected_scheduler_usage, ComponentPath::root())
+            (expected_scheduled_functions_usage, ComponentPath::root())
         );
         assert_eq!(orphaned_tables, btreemap! {});
         Ok(())

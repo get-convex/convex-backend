@@ -1051,7 +1051,7 @@ impl<RT: Runtime> Committer<RT> {
                     usage_tracker.track_database_ingress_v2(
                         component_path,
                         virtual_system_mapping
-                            .system_to_virtual_table(&table_name)
+                            .associated_virtual_table_name(&table_name)
                             .unwrap_or(&table_name)
                             .to_string(),
                         index_write.key.size() as u64,
@@ -1093,7 +1093,7 @@ impl<RT: Runtime> Committer<RT> {
                     usage_tracker.track_database_ingress_v2(
                         component_path.clone(),
                         virtual_system_mapping
-                            .system_to_virtual_table(&table_name)
+                            .associated_virtual_table_name(&table_name)
                             .unwrap_or(&table_name)
                             .to_string(),
                         document_write_size as u64,

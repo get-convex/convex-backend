@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     document::{
@@ -85,12 +86,9 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         let virtual_system_mapping = self.tx.virtual_system_mapping().clone();
         let table_mapping = self.tx.table_mapping().clone();
         let system_table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
-        let Some(mapper) = virtual_system_mapping
-            .system_to_virtual_doc_mapper
-            .get(&system_table_name)
-        else {
-            anyhow::bail!("System document cannot be converted to a virtual document")
-        };
+        let mapper = virtual_system_mapping
+            .system_to_virtual_doc_mapper(&system_table_name)
+            .context("System document cannot be converted to a virtual document")?;
         mapper
             .system_to_virtual_doc(
                 self.tx,

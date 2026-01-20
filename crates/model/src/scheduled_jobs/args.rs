@@ -1,12 +1,16 @@
 use std::sync::LazyLock;
 
+use common::virtual_system_mapping::AssociatedVirtualTable;
 use database::system_tables::{
     SystemIndex,
     SystemTable,
 };
 use value::TableName;
 
-use crate::scheduled_jobs::types::ScheduledJobArgs;
+use crate::scheduled_jobs::{
+    types::ScheduledJobArgs,
+    SCHEDULED_JOBS_VIRTUAL_TABLE,
+};
 
 pub static SCHEDULED_JOBS_ARGS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_scheduled_job_args"
@@ -25,5 +29,11 @@ impl SystemTable for ScheduledJobArgsTable {
 
     fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
+    }
+
+    fn virtual_table() -> Option<AssociatedVirtualTable> {
+        Some(AssociatedVirtualTable::Secondary(
+            SCHEDULED_JOBS_VIRTUAL_TABLE.clone(),
+        ))
     }
 }

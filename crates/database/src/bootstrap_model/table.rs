@@ -381,7 +381,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     ) -> ErrorMetadata {
         let in_component = component_path.in_component_str();
         let msg = if virtual_system_mapping
-            .system_to_virtual_table(existing_table)
+            .associated_virtual_table_name(existing_table)
             .is_some()
         {
             format!(
