@@ -286,6 +286,7 @@ async fn deployment_credentials(
             client
                 .prod_deployment_credentials(DeploymentAuthProdArgs {
                     deployment_name: configured_deployment_name,
+                    deployment_class: None,
                 })
                 .await
         },
@@ -305,7 +306,10 @@ async fn preview_deploy_key(
         .get_project_and_team_for_deployment(deployment_name.clone())
         .await?;
     let prod_credentials = client
-        .prod_deployment_credentials(DeploymentAuthProdArgs { deployment_name })
+        .prod_deployment_credentials(DeploymentAuthProdArgs {
+            deployment_name,
+            deployment_class: None,
+        })
         .await?;
 
     let admin_key_parts = prod_credentials.admin_key.split_once('|');

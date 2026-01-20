@@ -5,6 +5,7 @@ use std::{
 };
 
 use common::types::{
+    DeploymentClass,
     DeploymentId,
     DeploymentType,
     ProjectId,
@@ -70,6 +71,7 @@ impl DeploymentAuthArgs {
 #[serde(deny_unknown_fields)]
 pub struct DeploymentAuthProdArgs {
     pub deployment_name: String,
+    pub deployment_class: Option<DeploymentClass>,
 }
 
 #[derive(Deserialize, Serialize)]

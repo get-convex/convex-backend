@@ -415,6 +415,14 @@
         "type": "string",
         "description": "Encrypted admin key"
       },
+      "DeploymentClass": {
+        "type": "string",
+        "enum": [
+          "s16",
+          "s256",
+          "d1024"
+        ]
+      },
       "DeploymentType": {
         "type": "string",
         "enum": [
@@ -458,6 +466,16 @@
           "deploymentType"
         ],
         "properties": {
+          "deploymentClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentClass"
+              }
+            ]
+          },
           "deploymentType": {
             "$ref": "#/components/schemas/PlatformProjectDeploymentType",
             "description": "Projects always include a deployment, so start this project off with a\n\"dev\" development deployment or a \"prod\" production deployment."

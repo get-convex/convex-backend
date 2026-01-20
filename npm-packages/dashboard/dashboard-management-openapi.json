@@ -4111,6 +4111,16 @@
           "projectName"
         ],
         "properties": {
+          "deploymentClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentClass"
+              }
+            ]
+          },
           "deploymentType": {
             "oneOf": [
               {
@@ -4354,6 +4364,14 @@
             "type": "string"
           }
         }
+      },
+      "DeploymentClass": {
+        "type": "string",
+        "enum": [
+          "s16",
+          "s256",
+          "d1024"
+        ]
       },
       "DeploymentId": {
         "type": "integer",
@@ -5764,6 +5782,16 @@
           "deploymentType"
         ],
         "properties": {
+          "deploymentClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentClass"
+              }
+            ]
+          },
           "deploymentType": {
             "$ref": "#/components/schemas/DeploymentType"
           }

@@ -2,6 +2,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 
 #[derive(
     Copy,
@@ -15,6 +16,7 @@ use serde::{
     strum::IntoStaticStr,
     Serialize,
     Deserialize,
+    ToSchema,
 )]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
