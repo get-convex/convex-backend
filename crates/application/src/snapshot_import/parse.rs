@@ -74,11 +74,15 @@ use value::{
 use crate::snapshot_import::import_error::ImportError;
 
 pub type ImportDocumentStream = BoxStream<'static, anyhow::Result<JsonValue>>;
-pub type ImportStorageFileStream = BoxStream<'static, anyhow::Result<Bytes>>;
+pub type ImportStorageFileStream =
+    Box<dyn FnOnce() -> BoxStream<'static, anyhow::Result<Bytes>> + Send>;
 pub struct ParsedImport {
     pub generated_schemas: Vec<(ComponentPath, TableName, GeneratedSchema<ProdConfig>)>,
     pub documents: Vec<(ComponentPath, TableName, ImportDocumentStream)>,
-    pub storage_files: Vec<(ComponentPath, DeveloperDocumentId, ImportStorageFileStream)>,
+    pub storage_files: BoxStream<
+        'static,
+        anyhow::Result<(ComponentPath, DeveloperDocumentId, ImportStorageFileStream)>,
+    >,
 }
 
 impl ParsedImport {
@@ -90,7 +94,7 @@ impl ParsedImport {
         Self {
             generated_schemas: vec![],
             documents: vec![(component_path, table_name, documents)],
-            storage_files: vec![],
+            storage_files: stream::empty().boxed(),
         }
     }
 }
@@ -214,11 +218,8 @@ pub async fn parse_import_file(
             let base_component_path = component_path;
             let zip_reader = StorageZipArchive::open_fq(storage, fq_object_key).await?;
 
-            let mut import = ParsedImport {
-                generated_schemas: vec![],
-                documents: vec![],
-                storage_files: vec![],
-            };
+            let mut generated_schemas = vec![];
+            let mut documents = vec![];
             for entry in zip_reader.entries() {
                 if let Some((component_path, table_name)) =
                     parse_documents_jsonl_table_name(&entry.name, &base_component_path)?
@@ -234,7 +235,7 @@ pub async fn parse_import_file(
                     tracing::info!(
                         "importing zip file containing table {component_path}:{table_name}"
                     );
-                    import.documents.push((
+                    documents.push((
                         component_path,
                         table_name,
                         parse_documents_jsonl(entry_reader).boxed(),
@@ -248,23 +249,32 @@ pub async fn parse_import_file(
                     tracing::info!("importing zip file containing generated_schema {table_name}");
                     let generated_schema =
                         parse_generated_schema(&entry.name, entry_reader).await?;
-                    import
-                        .generated_schemas
-                        .push((component_path, table_name, generated_schema));
-                } else if let Some((component_path, storage_id)) =
-                    parse_storage_filename(&entry.name, &base_component_path)?
-                {
-                    let entry_reader = zip_reader.read_entry(entry.clone());
-                    import.storage_files.push((
-                        component_path,
-                        storage_id,
-                        ReaderStream::new(entry_reader)
-                            .map_err(anyhow::Error::from)
-                            .boxed(),
-                    ));
+
+                    generated_schemas.push((component_path, table_name, generated_schema));
                 }
             }
-            Ok(import)
+            let storage_files = try_stream_block!({
+                let zip_reader = Arc::new(zip_reader);
+                for entry in zip_reader.entries() {
+                    if let Some((component_path, storage_id)) =
+                        parse_storage_filename(&entry.name, &base_component_path)?
+                    {
+                        let zip_reader = zip_reader.clone();
+                        let entry = entry.clone();
+                        let entry_reader_stream = Box::new(move || {
+                            ReaderStream::new(zip_reader.read_entry(entry))
+                                .map_err(anyhow::Error::from)
+                                .boxed()
+                        }) as Box<_>;
+                        yield (component_path, storage_id, entry_reader_stream);
+                    }
+                }
+            });
+            Ok(ParsedImport {
+                generated_schemas,
+                documents,
+                storage_files: storage_files.boxed(),
+            })
         },
     }
 }

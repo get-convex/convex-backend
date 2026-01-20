@@ -1,4 +1,5 @@
 #![feature(try_blocks)]
+#![feature(stmt_expr_attributes)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
 #![feature(round_char_boundary)]

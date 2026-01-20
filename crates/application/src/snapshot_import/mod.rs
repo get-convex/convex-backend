@@ -873,7 +873,8 @@ async fn import_objects<RT: Runtime>(
         ComponentPath,
         Vec<(DeveloperDocumentId, ImportStorageFileStream)>,
     > = BTreeMap::new();
-    for (component_path, id, stream) in import.storage_files {
+    let mut storage_files = import.storage_files;
+    while let Some((component_path, id, stream)) = storage_files.try_next().await? {
         storage_files_by_component
             .entry(component_path)
             .or_default()

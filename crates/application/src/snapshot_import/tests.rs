@@ -1372,11 +1372,14 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
                 stream::iter(vec![Ok(json!({"foo": "bar"})), Ok(json!({"foo": "baz"}))]).boxed(),
             ),
         ],
-        storage_files: vec![(
+        storage_files: stream::iter(vec![(
             component_path.clone(),
             storage_idv6,
-            stream::iter(vec![Ok(Bytes::from_static(storage_file_bytes))]).boxed(),
-        )],
+            Box::new(|| stream::iter(vec![Ok(Bytes::from_static(storage_file_bytes))]).boxed())
+                as Box<_>,
+        )])
+        .map(Ok)
+        .boxed(),
     };
 
     let usage = FunctionUsageTracker::new();
@@ -1445,11 +1448,13 @@ async fn test_import_file_storage_changing_table_number(rt: TestRuntime) -> anyh
             "_storage".parse()?,
             stream::iter(vec![Ok(json!({"_id": old_storage_id.to_string()}))]).boxed(),
         )],
-        storage_files: vec![(
+        storage_files: stream::iter(vec![(
             ComponentPath::root(),
             old_storage_id,
-            stream::iter(vec![Ok(Bytes::from_static(b"foobarbaz"))]).boxed(),
-        )],
+            Box::new(|| stream::iter(vec![Ok(Bytes::from_static(b"foobarbaz"))]).boxed()) as Box<_>,
+        )])
+        .map(Ok)
+        .boxed(),
     };
 
     // Regression test: used to fail with "cannot find table with id 35"

@@ -143,7 +143,7 @@ pub async fn import_storage_table<RT: Runtime>(
             storage_metadata.remove(&id).unwrap_or_default();
         let mut entry = file_storage
             .transactional_file_storage
-            .upload_file(content_length, content_type, file_chunks, expected_sha256)
+            .upload_file(content_length, content_type, file_chunks(), expected_sha256)
             .await?;
         if let Some(storage_id) = storage_id {
             entry.storage_id = storage_id;
