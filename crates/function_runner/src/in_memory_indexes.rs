@@ -162,13 +162,12 @@ pub(crate) struct InMemoryIndexCache<RT: Runtime> {
 
 #[fastrace::trace]
 async fn load_index(
-    instance_name: String,
     index_id: IndexId,
     persistence_snapshot: PersistenceSnapshot,
     tablet_id: TabletId,
     table_name: String,
 ) -> anyhow::Result<Arc<IndexCacheValue>> {
-    let _timer = load_index_timer(&table_name, &instance_name);
+    let _timer = load_index_timer(&table_name);
     let mut size = 0;
     let index_map: BTreeMap<Vec<u8>, _> = persistence_snapshot
         .index_scan(
@@ -197,7 +196,7 @@ async fn load_index(
         })
         .try_collect()
         .await?;
-    log_funrun_index_load_rows(index_map.len() as u64, &table_name, &instance_name);
+    log_funrun_index_load_rows(index_map.len() as u64, &table_name);
     Ok(Arc::new(IndexCacheValue {
         map: index_map,
         size,
@@ -206,13 +205,12 @@ async fn load_index(
 
 #[fastrace::trace]
 async fn load_unpacked_index(
-    instance_name: &str,
     index_id: IndexId,
     persistence_snapshot: &PersistenceSnapshot,
     tablet_id: TabletId,
     table_name: &str,
 ) -> anyhow::Result<(Vec<ResolvedDocument>, u64)> {
-    let _timer = load_index_timer(table_name, instance_name);
+    let _timer = load_index_timer(table_name);
     let documents: Vec<ResolvedDocument> = persistence_snapshot
         .index_scan(
             index_id,
@@ -224,7 +222,7 @@ async fn load_unpacked_index(
         .map_ok(|(_, rev)| rev.value)
         .try_collect()
         .await?;
-    log_funrun_index_load_rows(documents.len() as u64, table_name, instance_name);
+    log_funrun_index_load_rows(documents.len() as u64, table_name);
     let size = documents.iter().map(|d| d.size() as u64).sum();
     Ok((documents, size))
 }
@@ -278,7 +276,6 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .get(
                 key,
                 load_index(
-                    self.instance_name.clone(),
                     index_id,
                     self.persistence_snapshot.clone(),
                     tablet_id,
@@ -288,7 +285,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             )
             .await
             .map(Some);
-        log_funrun_index_cache_get(&table_name, &self.instance_name);
+        log_funrun_index_cache_get(&table_name);
         cache_value_result
     }
 
@@ -315,8 +312,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .get(&tables_by_id)
             .context("_tables not configured to be in-memory")?;
         const NAME: &str = "_table_registry";
-        log_funrun_index_cache_get(NAME, &self.instance_name);
-        let instance_name = self.instance_name.clone();
+        log_funrun_index_cache_get(NAME);
         let persistence_snapshot = self.persistence_snapshot.clone();
         let table_registry = self
             .cache
@@ -327,7 +323,6 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
                 },
                 async move {
                     let (documents, size) = load_unpacked_index(
-                        &instance_name,
                         tables_by_id,
                         &persistence_snapshot,
                         tables_tablet_id,
@@ -377,8 +372,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .get(&index_by_id)
             .context("_index not configured to be in-memory")?;
         const NAME: &str = "_index_registry";
-        log_funrun_index_cache_get(NAME, &self.instance_name);
-        let instance_name = self.instance_name.clone();
+        log_funrun_index_cache_get(NAME);
         let persistence_snapshot = self.persistence_snapshot.clone();
         let index_registry = self
             .cache
@@ -392,7 +386,6 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
                 },
                 async move {
                     let (documents, size) = load_unpacked_index(
-                        &instance_name,
                         index_by_id,
                         &persistence_snapshot,
                         index_tablet_id,
@@ -439,8 +432,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .get(&components_by_id)
             .context("_components not configured to be in-memory")?;
         const NAME: &str = "_component_registry";
-        log_funrun_index_cache_get(NAME, &self.instance_name);
-        let instance_name = self.instance_name.clone();
+        log_funrun_index_cache_get(NAME);
         let persistence_snapshot = self.persistence_snapshot.clone();
         let component_registry = self
             .cache
@@ -454,7 +446,6 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
                 },
                 async move {
                     let (documents, size) = load_unpacked_index(
-                        &instance_name,
                         components_by_id,
                         &persistence_snapshot,
                         component_tablet_id,
@@ -516,9 +507,8 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
                 .context("_schemas not configured to be in-memory")?;
             last_modified_ts = last_modified_ts.max(schemas_last_modified);
             schema_tables.push((namespace, schema_tablet, index_id));
-            log_funrun_index_cache_get(NAME, &self.instance_name);
+            log_funrun_index_cache_get(NAME);
         }
-        let instance_name = self.instance_name.clone();
         let persistence_snapshot = self.persistence_snapshot.clone();
         let schema_registry = self
             .cache
@@ -532,7 +522,6 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
                     let mut schema_docs = BTreeMap::new();
                     for (namespace, schema_tablet, index_id) in schema_tables {
                         let (component_documents, component_size) = load_unpacked_index(
-                            &instance_name,
                             index_id,
                             &persistence_snapshot,
                             schema_tablet,
