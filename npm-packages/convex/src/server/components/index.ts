@@ -215,11 +215,23 @@ function use<Definition extends ComponentDefinition<any>>(
     );
   }
   const name =
-    options?.name ||
+    options?.name ??
     // added recently
-    importedComponentDefinition.defaultName ||
+    importedComponentDefinition.defaultName ??
     // can be removed once backend is out
     importedComponentDefinition.componentDefinitionPath.split("/").pop()!;
+
+  if (typeof name !== "string") {
+    throw new Error(
+      `Component name must be a string. Received: ${typeof name}`,
+    );
+  }
+  if (name.length === 0) {
+    // "" is used internally as the name for the root component, so
+    // users shouldn’t try to define child components with an empty name.
+    throw new Error("Component name cannot be empty.");
+  }
+
   this._childComponents.push([name, importedComponentDefinition, {}]);
   return new InstalledComponent(definition, name);
 }
