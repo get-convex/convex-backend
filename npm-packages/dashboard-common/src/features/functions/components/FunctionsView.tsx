@@ -102,7 +102,7 @@ function Functions() {
   );
 }
 
-function EmptyFunctions() {
+export function EmptyFunctions() {
   return (
     <div className="relative h-full w-full animate-fadeIn overflow-hidden">
       {/* Background example */}
@@ -244,17 +244,17 @@ function EmptyFunctions() {
                   lineKeys: [
                     {
                       key: "p50",
-                      name: "p50",
+                      name: "ms p50",
                       color: "var(--chart-line-1)",
                     },
                     {
                       key: "p90",
-                      name: "p90",
+                      name: "ms p90",
                       color: "var(--chart-line-2)",
                     },
                     {
                       key: "p95",
-                      name: "p95",
+                      name: "ms p95",
                       color: "var(--chart-line-3)",
                     },
                   ],
