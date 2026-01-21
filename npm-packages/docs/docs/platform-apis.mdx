@@ -11,8 +11,8 @@ title: Platform APIs
 
 This guide is for products that want to orchestrate multiple Convex projects in
 their accounts or manage projects in their users' accounts. These APIs are most
-often used by AI app builders, such as [Bloom](https://bloom.diy/) or
-[A0](https://a0.dev/).
+often used by AI app builders, such as [Bloom](https://bloom.diy/),
+[A0](https://a0.dev/), or [Macaly](https://www.macaly.com/).
 
 These guides assume a good understanding of Convex cloud hierarchy (teams,
 projects, and deployments) as well as the
