@@ -219,6 +219,8 @@ export interface components {
         /** @description Encrypted admin key */
         AdminKey: string;
         /** @enum {string} */
+        DeploymentClass: "s16" | "s256" | "d1024";
+        /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview";
         DeviceName: string;
         PlatformCreateDeployKeyArgs: {
@@ -230,6 +232,7 @@ export interface components {
             deployKey: components["schemas"]["AdminKey"];
         };
         PlatformCreateProjectArgs: {
+            deploymentClass?: null | components["schemas"]["DeploymentClass"];
             /** @description Projects always include a deployment, so start this project off with a
              *     "dev" development deployment or a "prod" production deployment. */
             deploymentType: components["schemas"]["PlatformProjectDeploymentType"];
@@ -347,6 +350,7 @@ export interface components {
     pathItems: never;
 }
 export type AdminKey = components['schemas']['AdminKey'];
+export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
