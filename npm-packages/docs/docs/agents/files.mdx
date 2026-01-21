@@ -30,7 +30,7 @@ Example code:
 git clone https://github.com/get-convex/agent.git
 cd agent
 npm run setup
-npm run example
+npm run dev
 ```
 
 ## Sending an image by uploading first and generating asynchronously

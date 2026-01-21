@@ -33,7 +33,7 @@ The rate limiting example demonstrates two types of rate limiting:
 git clone https://github.com/get-convex/agent.git
 cd agent
 npm run setup
-npm run example
+npm run dev
 ```
 
 Try sending multiple questions quickly to see the rate limiting in action!

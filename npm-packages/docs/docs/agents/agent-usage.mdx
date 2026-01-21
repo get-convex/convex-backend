@@ -128,7 +128,7 @@ a few benefits:
   the message will be shown optimistically on the client until the message is
   saved and present in your message query.
 - You can save the message in the same mutation (transaction) as other writes to
-  the database. This message can the be used and re-used in an action with
+  the database. This message can then be used and re-used in an action with
   retries, without duplicating the prompt message in the history. If the
   `promptMessageId` is used for multiple generations, any previous responses
   will automatically be included as context, so the LLM can continue where it
@@ -175,15 +175,6 @@ export const generateResponseAsync = internalAction({
 Note that the action doesn't need to return anything. All messages are saved by
 default, so any client subscribed to the thread messages will receive the new
 message as it is generated asynchronously.
-
-The Step 2 code is common enough that there's a utility to save you some typing.
-It takes in some parameters to control streaming, etc. For more details, see
-[the code](https://github.com/get-convex/agent/blob/main/src/client/index.ts#L1475-L1557).
-
-```ts
-// Equivalent to Step 2 above.
-export const generateResponseAsync = agent.asTextAction();
-```
 
 ### Generating an object
 

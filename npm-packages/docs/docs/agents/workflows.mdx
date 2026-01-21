@@ -114,20 +114,81 @@ the workflow will pick up from where it left off and run the next step. If a
 step fails and isn't caught by the workflow, the workflow's onComplete handler
 will get the error result.
 
-### Exposing the agent as Convex actions
+### Using the Agent within a workflow
 
-You can expose the agent's capabilities as Convex functions to be used as steps
-in a workflow.
+You can use the [Workflow component](https://convex.dev/components/workflow) to
+run agent flows. It handles retries and guarantees of eventually completing,
+surviving server restarts, and more. Read more about durable workflows
+[in this Stack post](https://stack.convex.dev/durable-workflows-and-strong-guarantees).
 
-To create a thread as a standalone mutation, similar to `createThread`:
+Within a workflow, each "step" is a single idempotent operation. The arguments
+and return values are stored as part of the workflow's state, so it can resume
+wherever it left off by replaying the history. This allows workflows to run for
+a long time, survive server restarts, retry individual steps, pause, and more.
+
+Some Agent functions can be called directly from a workflow, passing `step`
+instead of `ctx`. Under the hood, these functions are calling `step.runMutation`
+instead of the `ctx.runMutation` that is otherwise done. The two calls are
+roughly the same, though there is more overhead associated with calling steps
+since the arguments and return values count towards the workflow's overall
+database bandwidth limit. As such, try to avoid passing large amounts of data in
+as arguments or returned from steps, and prefer to save that data and pass
+around IDs instead.
 
 ```ts
-export const createThread = supportAgent.createThreadMutation();
+const workflow = new WorkflowManager(components.workflow);
+
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string() },
+  handler: async (step, { prompt, userId }) => {
+    // Some functions can be called directly from a workflow, passing `step`
+    // instead of `ctx`. This doesn't work for anything action-related.
+    const { threadId } = await createThread(step, components.agent, {
+      userId,
+      title: prompt,
+    });
+    // Under the hood, these functions are calling step.runMutation,
+    // so saving the message is a workflow step. The equivalent would be to call
+    // step.runMutation with your own mutation that called saveMessage with ctx.
+    const { messageId } = await saveMessage(step, components.agent, {
+      threadId,
+      prompt,
+    });
+    // For functions that require `fetch` or otherwise need an action, run them
+    // as steps explicitly.
+    const { text } = await step.runAction(
+      internal.example.getSupport,
+      { threadId, userId, promptMessageId: messageId },
+      // Passing in a promptMessageId allows us to safely retry the step.
+      // If it fails partway, the retry will re-use the same prompt message and
+      // any existing responses.
+      { retry: true },
+    );
+    const { object } = await step.runAction(
+      internal.example.getStructuredSupport,
+      {
+        userId,
+        prompt: text,
+      },
+    );
+    // You can also run mutations as steps explicitly.
+    await step.runMutation(internal.example.sendUserMessage, {
+      userId,
+      message: object.instruction,
+    });
+  },
+});
 ```
 
-For an action that generates text in a thread, similar to `thread.generateText`:
+### Exposing Agent functions as Convex Actions
+
+You can expose the agent's capabilities as Convex functions to be used as steps
+in a workflow, as an alternative to writing an action for each step.
+
+For an action that generates or streams text in a thread:
 
 ```ts
+// Similar to thread.generateText / thread.streamText
 export const getSupport = supportAgent.asTextAction({
   stopWhen: stepCountIs(10),
 });
@@ -136,62 +197,16 @@ export const getSupport = supportAgent.asTextAction({
 You can also expose a standalone action that generates an object.
 
 ```ts
+// Similar to thread.generateObject / thread.streamObject
 export const getStructuredSupport = supportAgent.asObjectAction({
   schema: z.object({
     analysis: z.string().describe("A detailed analysis of the user's request."),
-    suggestion: z.string().describe("A suggested action to take."),
+    instruction: z.string().describe("A suggested action to take."),
   }),
 });
 ```
 
-To save messages explicitly as a mutation, similar to `agent.saveMessages`:
-
-```ts
-export const saveMessages = supportAgent.asSaveMessagesMutation();
-```
-
-This is useful for idempotency, as you can first create the user's message, then
-generate a response in an unreliable action with retries, passing in the
-existing messageId instead of a prompt.
-
-### Using the agent actions within a workflow
-
-You can use the [Workflow component](https://convex.dev/components/workflow) to
-run agent flows. It handles retries and guarantees of eventually completing,
-surviving server restarts, and more. Read more about durable workflows
-[in this Stack post](https://stack.convex.dev/durable-workflows-and-strong-guarantees).
-
-```ts
-const workflow = new WorkflowManager(components.workflow);
-
-export const supportAgentWorkflow = workflow.define({
-  args: { prompt: v.string(), userId: v.string() },
-  handler: async (step, { prompt, userId }) => {
-    const { threadId } = await step.runMutation(internal.example.createThread, {
-      userId,
-      title: "Support Request",
-    });
-    const suggestion = await step.runAction(internal.example.getSupport, {
-      threadId,
-      userId,
-      prompt,
-    });
-    const { object } = await step.runAction(
-      internal.example.getStructuredSupport,
-      {
-        userId,
-        message: suggestion,
-      },
-    );
-    await step.runMutation(internal.example.sendUserMessage, {
-      userId,
-      message: object.suggestion,
-    });
-  },
-});
-```
-
-See the code in
+See example code in
 [workflows/chaining.ts](https://github.com/get-convex/agent/blob/main/example/convex/workflows/chaining.ts).
 
 ## Complex workflow patterns
