@@ -96,6 +96,10 @@ export class RequestCrash {
   ) {
     this.printedMessage = printedMessage ?? "Unknown error";
   }
+
+  toString(): string {
+    return this.printedMessage;
+  }
 }
 
 // Unfortunately, MCP clients don't seem to handle nested JSON objects very
