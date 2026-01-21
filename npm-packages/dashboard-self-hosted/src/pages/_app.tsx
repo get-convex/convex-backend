@@ -299,6 +299,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   deploymentsURI: "",
   isSelfHosted: true,
   workosIntegrationEnabled: false,
+  connectionStateCheckIntervalMs: 2500,
 };
 
 function DeploymentInfoProvider({

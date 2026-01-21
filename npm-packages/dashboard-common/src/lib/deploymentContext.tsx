@@ -290,6 +290,7 @@ export type DeploymentInfo = (
   deploymentsURI: string;
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
+  connectionStateCheckIntervalMs: number;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(
@@ -547,8 +548,6 @@ export function WaitForDeploymentApi({
   );
 }
 
-const CONNECTION_STATE_CHECK_INTERVAL_MS = 2500;
-
 function DeploymentWithConnectionState({
   deployment,
   children,
@@ -556,9 +555,12 @@ function DeploymentWithConnectionState({
   deployment: ConnectedDeployment;
   children: ReactNode;
 }) {
-  const { captureMessage, addBreadcrumb, DisconnectOverlay } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    captureMessage,
+    addBreadcrumb,
+    DisconnectOverlay,
+    connectionStateCheckIntervalMs,
+  } = useContext(DeploymentInfoContext);
   const { client, deploymentUrl, deploymentName } = deployment;
   const [lastObservedConnectionState, setLastObservedConnectionState] =
     useState<
@@ -586,7 +588,7 @@ function DeploymentWithConnectionState({
       }
       if (
         previousState.time.getTime() <
-        Date.now() - CONNECTION_STATE_CHECK_INTERVAL_MS * 2
+        Date.now() - connectionStateCheckIntervalMs * 2
       ) {
         // If the previous state was observed a while ago, consider it stale (maybe the tab
         // got backgrounded).
@@ -623,11 +625,11 @@ function DeploymentWithConnectionState({
       }
       return "Unknown";
     },
-    [deploymentName, deploymentUrl],
+    [deploymentName, deploymentUrl, connectionStateCheckIntervalMs],
   );
 
   useEffect(() => {
-    // Poll `.connectionState()` every 5 seconds. If we're disconnected twice in a row,
+    // Poll `.connectionState()`. If we're disconnected twice in a row,
     // consider the deployment to be disconnected.
     const checkConnection = setInterval(async () => {
       if (lastObservedConnectionState === "LocalDeploymentMismatch") {
@@ -689,7 +691,7 @@ function DeploymentWithConnectionState({
           throw new Error(`Unknown connection state: ${result}`);
         }
       }
-    }, CONNECTION_STATE_CHECK_INTERVAL_MS);
+    }, connectionStateCheckIntervalMs);
     return () => clearInterval(checkConnection);
   }, [
     lastObservedConnectionState,
@@ -700,6 +702,7 @@ function DeploymentWithConnectionState({
     captureMessage,
     handleConnectionStateChange,
     isDisconnected,
+    connectionStateCheckIntervalMs,
   ]);
   const value = useMemo(
     () => ({
