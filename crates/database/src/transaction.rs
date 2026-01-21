@@ -566,9 +566,7 @@ impl<RT: Runtime> Transaction<RT> {
                 ))?;
 
         let new_document = {
-            let patched_value = value
-                .clone()
-                .apply(old_document.value().clone().into_value())?;
+            let patched_value = value.apply(old_document.value().clone().into_value())?;
             old_document.replace_value(patched_value)?
         };
         SchemaModel::new(self, namespace)
