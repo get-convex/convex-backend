@@ -77,6 +77,12 @@ export function setEnvironmentVariables(envs: EnvironmentVariable[]) {
   // handler name, session, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, etc. We
   // don't want to expose any of that. Only expose variables that are common
   // between local Node.js and AWS Lambda.
+  //
+  // Note: This sanitization is for consistency between environments, not for security.
+  // While user code can still access underlying environment variables through
+  // other means, sensitive variables (such as AWS credentials) are protected
+  // through restrictive IAM policies that limit what the Lambda function can do
+  // with those credentials.
   const allowedEnvs = ["PATH", "PWD", "LANG", "NODE_PATH", "TZ", "UTC"];
   const sanitized: { [name: string]: string } = {};
   for (const name of allowedEnvs) {
