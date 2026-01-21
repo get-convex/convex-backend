@@ -86,7 +86,7 @@ function hash(
   )}`;
 }
 
-export interface ConvexQueryClientOptions extends ConvexReactClientOptions {
+export interface ConvexQueryClientOnlyOptions {
   /** queryClient can also be set later by calling .connect(ReactqueryClient) */
   queryClient?: QueryClient;
   /** A custom fetch implementation to use for all HTTP requests made on the server.
@@ -126,11 +126,17 @@ export interface ConvexQueryClientOptions extends ConvexReactClientOptions {
   dangerouslyUseInconsistentQueriesDuringSSR?: boolean;
 }
 
+export interface ConvexQueryClientOptions
+  extends ConvexQueryClientOnlyOptions,
+    ConvexReactClientOptions {}
+
 /**
  * Subscribes to events from a TanStack Query QueryClient and populates query
  * results in it for all Convex query function subscriptions.
  */
-export class ConvexQueryClient {
+export class ConvexQueryClient<
+  ConvexClientArg extends ConvexReactClient | string,
+> {
   convexClient: ConvexReactClient;
   subscriptions: Record<
     string, // queryKey hash
@@ -160,12 +166,17 @@ export class ConvexQueryClient {
   }
   constructor(
     /** A ConvexReactClient instance or a URL to use to instantiate one. */
-    client: ConvexReactClient | string,
+    client: ConvexClientArg,
     /** Options mostly for the ConvexReactClient to be constructed. */
-    options: ConvexQueryClientOptions = {},
+    options: ConvexClientArg extends ConvexReactClient
+      ? ConvexQueryClientOnlyOptions
+      : ConvexQueryClientOptions = {},
   ) {
     if (typeof client === "string") {
-      this.convexClient = new ConvexReactClient(client, options);
+      this.convexClient = new ConvexReactClient(
+        client,
+        options as ConvexQueryClientOptions,
+      );
     } else {
       this.convexClient = client satisfies ConvexReactClient;
     }

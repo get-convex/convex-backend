@@ -1,8 +1,15 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { test, describe, expectTypeOf, assertType } from "vitest";
-import { convexAction, convexQuery } from "./index.js";
+import {
+  convexAction,
+  convexQuery,
+  ConvexQueryClient,
+  ConvexQueryClientOnlyOptions,
+  ConvexQueryClientOptions,
+} from "./index.js";
 import { FunctionArgs, FunctionReference } from "convex/server";
 import * as convexReact from "convex/react";
+import { ConvexReactClient } from "convex/react";
 
 // Mock Convex function references for testing
 // These replace the need to import from "../convex/_generated/api.js"
@@ -517,5 +524,126 @@ describe("query options factory types", () => {
 
     // Both functions should have the same type structure for consistency
     // The fix ensures convexAction uses `as any` like convexQuery does
+  });
+
+  describe("ConvexQueryClient constructor types", () => {
+    test("when client is a string, options should accept ConvexReactClientOptions", () => {
+      const url = "https://example.convex.cloud";
+
+      // Should accept ConvexQueryClientOnlyOptions
+      {
+        const _client = new ConvexQueryClient(url, {
+          queryClient: undefined,
+          serverFetch: undefined,
+          dangerouslyUseInconsistentQueriesDuringSSR: true,
+        });
+      }
+
+      // Should accept ConvexReactClientOptions (like verbose, unsavedChangesWarning)
+      {
+        const _client = new ConvexQueryClient(url, {
+          verbose: true,
+          unsavedChangesWarning: false,
+          queryClient: undefined,
+        });
+      }
+
+      // Should accept both ConvexQueryClientOnlyOptions and ConvexReactClientOptions
+      {
+        const _client = new ConvexQueryClient(url, {
+          verbose: true,
+          unsavedChangesWarning: false,
+          queryClient: undefined,
+          dangerouslyUseInconsistentQueriesDuringSSR: true,
+        });
+      }
+
+      // Verify the type is ConvexQueryClientOptions
+      {
+        const options: ConvexQueryClientOptions = {
+          verbose: true,
+          queryClient: undefined,
+        };
+        const _client = new ConvexQueryClient(url, options);
+      }
+    });
+
+    test("when client is a ConvexReactClient instance, options should NOT accept ConvexReactClientOptions", () => {
+      const existingClient = new ConvexReactClient(
+        "https://example.convex.cloud",
+      );
+
+      // Should accept ConvexQueryClientOnlyOptions
+      {
+        const _client = new ConvexQueryClient(existingClient, {
+          queryClient: undefined,
+          serverFetch: undefined,
+          dangerouslyUseInconsistentQueriesDuringSSR: true,
+        });
+      }
+
+      // Verify the type is ConvexQueryClientOnlyOptions (not ConvexQueryClientOptions)
+      {
+        const options: ConvexQueryClientOnlyOptions = {
+          queryClient: undefined,
+        };
+        const _client = new ConvexQueryClient(existingClient, options);
+      }
+
+      // Verify that ConvexReactClientOptions properties are rejected when passing an instance
+      {
+        // verbose should be rejected
+        const _client1 = new ConvexQueryClient(existingClient, {
+          // @ts-expect-error verbose is not in ConvexQueryClientOnlyOptions
+          verbose: true,
+          queryClient: undefined,
+        });
+
+        // unsavedChangesWarning should be rejected
+        const _client2 = new ConvexQueryClient(existingClient, {
+          // @ts-expect-error unsavedChangesWarning is not in ConvexQueryClientOnlyOptions
+          unsavedChangesWarning: false,
+          queryClient: undefined,
+        });
+
+        // logger should be rejected
+        const _client3 = new ConvexQueryClient(existingClient, {
+          // @ts-expect-error logger is not in ConvexQueryClientOnlyOptions
+          logger: true,
+          queryClient: undefined,
+        });
+
+        // webSocketConstructor should be rejected
+        const _client4 = new ConvexQueryClient(existingClient, {
+          // @ts-expect-error webSocketConstructor is not in ConvexQueryClientOnlyOptions
+          webSocketConstructor: undefined as typeof WebSocket,
+          queryClient: undefined,
+        });
+      }
+    });
+
+    test("type inference for ConvexQueryClient generic parameter", () => {
+      const url = "https://example.convex.cloud";
+      const existingClient = new ConvexReactClient(url);
+
+      // When passing a string, ConvexClientArg should be inferred as string
+      {
+        const client = new ConvexQueryClient(url, {
+          queryClient: undefined,
+        });
+        // The type should allow ConvexReactClientOptions
+        expectTypeOf(client).toEqualTypeOf<ConvexQueryClient<string>>();
+      }
+
+      // When passing a ConvexReactClient, ConvexClientArg should be inferred as ConvexReactClient
+      {
+        const client = new ConvexQueryClient(existingClient, {
+          queryClient: undefined,
+        });
+        expectTypeOf(client).toEqualTypeOf<
+          ConvexQueryClient<ConvexReactClient>
+        >();
+      }
+    });
   });
 });
