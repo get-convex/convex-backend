@@ -1292,6 +1292,55 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         Self::top_k_for_rate(&window, hits, misses, k, cache_hit_percentage, true)
     }
 
+    pub fn get_all_function_calls(
+        &self,
+        window: &MetricsWindow,
+    ) -> anyhow::Result<HashMap<String, Timeseries>> {
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+        Self::get_udf_metric_counter(window, &metrics, "invocations")
+    }
+
+    pub fn function_call_count_top_k(
+        &self,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+
+        let mut invocations = Self::get_udf_metric_counter(&window, &metrics, "invocations")?;
+
+        let mut overall: HashMap<&str, f64> = HashMap::new();
+        for (udf_id, series) in invocations.iter() {
+            let sum = series.iter().filter_map(|&(_, value)| value).sum1();
+            if let Some(total) = sum {
+                overall.insert(udf_id, total);
+            }
+        }
+
+        let top_k = Self::top_k(&overall, k, false);
+
+        let mut ret = vec![];
+        for udf_id in top_k {
+            let series = invocations
+                .remove(&udf_id)
+                .expect("everything in topk came from invocations");
+            ret.push((udf_id.to_string(), series));
+        }
+
+        if !invocations.is_empty() {
+            let rest = sum_timeseries(&window, invocations.values())?;
+            ret.push(("_rest".to_string(), rest));
+        }
+
+        Ok(ret)
+    }
+
     fn get_udf_metric_counter(
         window: &MetricsWindow,
         metrics: &MetricStore,

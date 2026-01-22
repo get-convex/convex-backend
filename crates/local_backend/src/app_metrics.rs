@@ -17,6 +17,7 @@ use common::{
         UdfType,
     },
 };
+use errors::ErrorMetadata;
 use serde::Deserialize;
 use sync_types::UdfPath;
 
@@ -75,9 +76,11 @@ pub(crate) async fn failure_percentage_top_k(
         serde_json::from_str(&window).map_err(anyhow::Error::new)?;
     let window = window_json.try_into()?;
 
+    let k = validate_k(k)?;
+
     let timeseries = st
         .application
-        .failure_percentage_top_k(identity, window, k.unwrap_or(5))
+        .failure_percentage_top_k(identity, window, k)
         .await?;
     Ok(Json(timeseries))
 }
@@ -91,9 +94,29 @@ pub(crate) async fn cache_hit_percentage_top_k(
         serde_json::from_str(&window).map_err(anyhow::Error::new)?;
     let window = window_json.try_into()?;
 
+    let k = validate_k(k)?;
+
     let timeseries = st
         .application
-        .cache_hit_percentage_top_k(identity, window, k.unwrap_or(5))
+        .cache_hit_percentage_top_k(identity, window, k)
+        .await?;
+    Ok(Json(timeseries))
+}
+
+pub(crate) async fn function_call_count_top_k(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Query(TopKQueryArgs { window, k }): Query<TopKQueryArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let window_json: serde_json::Value =
+        serde_json::from_str(&window).map_err(anyhow::Error::new)?;
+    let window = window_json.try_into()?;
+
+    let k = validate_k(k)?;
+
+    let timeseries = st
+        .application
+        .function_call_count_top_k(identity, window, k)
         .await?;
     Ok(Json(timeseries))
 }
@@ -250,4 +273,19 @@ pub(crate) async fn function_concurrency(
         .function_concurrency(identity, window)
         .await?;
     Ok(Json(metrics))
+}
+
+fn validate_k(k: Option<usize>) -> anyhow::Result<usize> {
+    const MIN_K: usize = 1;
+    const MAX_K: usize = 25;
+    const DEFAULT_K: usize = 5;
+
+    let k = k.unwrap_or(DEFAULT_K);
+    if !(MIN_K..=MAX_K).contains(&k) {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "InvalidTopKParameter",
+            format!("k must be between {MIN_K} and {MAX_K}, got {k}")
+        ));
+    }
+    Ok(k)
 }
