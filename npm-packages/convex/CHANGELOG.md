@@ -1,8 +1,18 @@
 # Changelog
 
+## 1.31.6
+
+- Added a new [`authKit`](https://docs.convex.dev/production/project-configuration#configuring-workos-authkit-integration) field in `convex.json` that allows you to customize the automatic provisioning and configuration of WorkOS environments.
+- The CLI now warns you when using a Node.js version older than Node.js 20.
+- Improved error messages when requests fail in the MCP server.
+- Improved the error message when creating a component with an invalid name.
+
 ## 1.31.5
 
-- Exclude source code content from bundled sourcemaps by default.
+- Exclude source code content from bundled sourcemaps by default. This reduces the
+  size of the bundled pushed by `npx convex dev` and `npx convex deploy` to make
+  them run faster.
+- This version drops support for Node.js 18. Please update to Node.js 20 or newer.
 
 ## 1.31.4
 
