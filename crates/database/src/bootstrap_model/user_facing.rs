@@ -117,29 +117,16 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .table_mapping()
             .namespace(self.namespace)
             .tablet_name(id_.tablet_id)?;
-        if let Some(table_name) = self
+        if self
             .tx
             .virtual_system_mapping()
             .primary_system_to_virtual_table(&physical_table_name)
-            .cloned()
+            .is_some()
         {
             log_virtual_table_get();
-            let result = VirtualTable::new(self.tx)
+            VirtualTable::new(self.tx)
                 .get(self.namespace, id, version)
-                .await;
-            if let Ok(Some((document, _))) = &result {
-                let component_path = self
-                    .tx
-                    .must_component_path(ComponentId::from(self.namespace))?;
-                self.tx.reads.record_read_document(
-                    component_path,
-                    table_name,
-                    document.size(),
-                    &self.tx.usage_tracker,
-                    true,
-                )?;
-            }
-            result
+                .await
         } else {
             let table_name = self.tx.table_mapping().tablet_name(id_.tablet_id)?;
             let result = self.tx.get_inner(id_, table_name).await?;
@@ -313,10 +300,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         document: &DeveloperDocument,
         table_name: &TableName,
     ) -> anyhow::Result<()> {
-        let is_virtual_table = self
-            .tx
-            .virtual_system_mapping()
-            .is_virtual_table(table_name);
         let component_path = self
             .tx
             .must_component_path(ComponentId::from(self.namespace))?;
@@ -325,7 +308,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             table_name.clone(),
             document.size(),
             &self.tx.usage_tracker,
-            is_virtual_table,
+            &self.tx.virtual_system_mapping,
         )
     }
 }

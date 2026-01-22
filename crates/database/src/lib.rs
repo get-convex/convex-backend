@@ -88,6 +88,7 @@ pub use transaction_index::{
     TransactionTextSnapshot,
 };
 pub use vector_index_worker::flusher::VectorIndexFlusher;
+pub use virtual_tables::VirtualTable;
 pub use write_limits::BiggestDocumentWrites;
 pub use write_log::{
     LogReader,

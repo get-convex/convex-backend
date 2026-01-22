@@ -31,6 +31,7 @@ use common::{
         Timestamp,
     },
     value::ResolvedDocumentId,
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
 use search::QueryReads as SearchQueryReads;
@@ -492,30 +493,37 @@ impl TransactionReadSet {
         table_name: TableName,
         document_size: usize,
         usage_tracker: &FunctionUsageTracker,
-        is_virtual_table: bool,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> anyhow::Result<()> {
         // Database bandwidth for document reads
-        let is_system_table = table_name.is_system() && !is_virtual_table;
+        // TODO: Remove when we switch over to using egress_v2
+        let skip_logging_usage =
+            table_name.is_system() && !virtual_system_mapping.is_virtual_table(&table_name);
         usage_tracker.track_database_egress(
             component_path.clone(),
             table_name.to_string(),
             document_size as u64,
-            is_system_table,
+            skip_logging_usage,
         );
+        let skip_logging_usage =
+            table_name.is_system() && !virtual_system_mapping.has_virtual_table(&table_name);
         usage_tracker.track_database_egress_v2(
             component_path.clone(),
-            table_name.to_string(),
+            virtual_system_mapping
+                .associated_virtual_table_name(&table_name)
+                .unwrap_or(&table_name)
+                .to_string(),
             document_size as u64,
-            is_system_table,
+            skip_logging_usage,
         );
         usage_tracker.track_database_egress_rows(
             component_path,
             table_name.to_string(),
             1,
-            is_system_table,
+            skip_logging_usage,
         );
 
-        let tx_size = if is_system_table {
+        let tx_size = if skip_logging_usage {
             &mut self.system_tx_size
         } else {
             &mut self.user_tx_size
@@ -527,7 +535,7 @@ impl TransactionReadSet {
         tx_size.total_document_count += 1;
         tx_size.total_document_size += document_size;
 
-        if !is_system_table {
+        if !skip_logging_usage {
             anyhow::ensure!(
                 tx_size.total_document_count <= *TRANSACTION_MAX_READ_SIZE_ROWS,
                 ErrorMetadata::pagination_limit(
@@ -552,11 +560,6 @@ impl TransactionReadSet {
             );
         }
         Ok(())
-    }
-
-    pub fn record_read_system_document(&mut self, document_size: usize) {
-        self.system_tx_size.total_document_count += 1;
-        self.system_tx_size.total_document_size += document_size;
     }
 
     pub fn record_indexed_directly(

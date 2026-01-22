@@ -83,6 +83,7 @@ use imbl::{
 use itertools::Itertools;
 use value::{
     InternalId,
+    ResolvedDocumentId,
     TableMapping,
     TableName,
     TabletId,
@@ -1331,6 +1332,14 @@ impl LazyDocument {
             // proper size of the ConvexValue
             LazyDocument::Packed(doc) => doc.value().size(),
             LazyDocument::Memory(doc) => doc.packed_document.value().size(),
+        }
+    }
+
+    pub fn id(&self) -> ResolvedDocumentId {
+        match self {
+            LazyDocument::Resolved(doc) => doc.id(),
+            LazyDocument::Packed(doc) => doc.id(),
+            LazyDocument::Memory(doc) => doc.packed_document.id(),
         }
     }
 }

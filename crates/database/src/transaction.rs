@@ -930,7 +930,6 @@ impl<RT: Runtime> Transaction<RT> {
         }
         let result = match range_results.into_iter().next() {
             Some((_, doc, timestamp)) => {
-                let is_virtual_table = self.virtual_system_mapping().is_virtual_table(&table_name);
                 let component_path = self
                     .component_path_for_document_id(doc.id())?
                     .unwrap_or_default();
@@ -939,7 +938,7 @@ impl<RT: Runtime> Transaction<RT> {
                     table_name,
                     doc.size(),
                     &self.usage_tracker,
-                    is_virtual_table,
+                    &self.virtual_system_mapping,
                 )?;
 
                 Some((doc, timestamp))
@@ -1093,7 +1092,6 @@ impl<RT: Runtime> Transaction<RT> {
         document: &ResolvedDocument,
         table_name: &TableName,
     ) -> anyhow::Result<()> {
-        let is_virtual_table = self.virtual_system_mapping().is_virtual_table(table_name);
         let component_path = self
             .component_path_for_document_id(document.id())?
             .unwrap_or_default();
@@ -1102,7 +1100,7 @@ impl<RT: Runtime> Transaction<RT> {
             table_name.clone(),
             document.size(),
             &self.usage_tracker,
-            is_virtual_table,
+            &self.virtual_system_mapping,
         )
     }
 

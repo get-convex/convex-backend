@@ -57,9 +57,6 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
             .namespace(namespace)
             .tablet_name(tablet_id)?;
 
-        // NOTE we intentionally pass `system_table_name` in, which means this
-        // `get_inner` doesn't count as bandwidth. It's the caller's
-        // responsibility to count bandwidth.
         let result = self.tx.get_inner(id_, system_table_name).await?;
         match result {
             Some((doc, ts)) => {

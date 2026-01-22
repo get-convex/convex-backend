@@ -263,9 +263,17 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
         for (_, doc, _) in &page {
             // NOTE: since this is a system read, we don't bother tracking usage;
             // we only update `system_tx_size` for stats
-            self.tx
-                .reads
-                .record_read_system_document(doc.approximate_size());
+            let component_path = self
+                .tx
+                .component_path_for_document_id(doc.id())?
+                .unwrap_or_default();
+            self.tx.reads.record_read_document(
+                component_path,
+                T::table_name().clone(),
+                doc.approximate_size(), // This could be wrong
+                &self.tx.usage_tracker,
+                &self.tx.virtual_system_mapping,
+            )?;
         }
 
         Ok((
