@@ -30,6 +30,63 @@ or see editor specific instructions:
   claude mcp get convex
   ```
 
+## Configuration Options
+
+The MCP server supports several command-line options to customize its behavior:
+
+### Project Directory
+
+By default, the MCP server can run for multiple projects, and each tool call
+specifies its project directory. To run the server for a single project instead,
+use:
+
+```bash
+npx -y convex@latest mcp start --project-dir /path/to/project
+```
+
+### Deployment Selection
+
+By default, the MCP server connects to your development deployment. You can
+specify a different deployment using these options:
+
+- `--prod`: Run the MCP server on your project's production deployment (requires
+  `--dangerously-enable-production-deployments`)
+- `--preview-name <name>`: Run on a preview deployment with the given name
+- `--deployment-name <name>`: Run on a specific deployment by name
+- `--env-file <path>`: Path to a custom environment file for choosing the
+  deployment (e.g., containing `CONVEX_DEPLOYMENT` or `CONVEX_SELF_HOSTED_URL`).
+  Uses the same format as `.env.local` or `.env` files.
+
+### Production Deployments
+
+By default, the MCP server cannot access production deployments. This is a
+safety measure to prevent accidental modifications to production data. If you
+need to access production deployments, you must explicitly enable this:
+
+```bash
+npx -y convex@latest mcp start --dangerously-enable-production-deployments
+```
+
+<Admonition type="caution" title="Use with care">
+
+Enabling production access allows the MCP server to read and modify data in your
+production deployment. Only enable this when you specifically need to interact
+with production, and be careful with any operations that modify data.
+
+</Admonition>
+
+### Disabling Tools
+
+You can disable specific tools if you want to restrict what the MCP server can
+do:
+
+```bash
+npx -y convex@latest mcp start --disable-tools data,run,envSet
+```
+
+Available tools that can be disabled: `data`, `envGet`, `envList`, `envRemove`,
+`envSet`, `functionSpec`, `logs`, `run`, `runOneoffQuery`, `status`, `tables`
+
 ## Available Tools
 
 ### Deployment Tools
