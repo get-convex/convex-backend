@@ -504,9 +504,8 @@ impl<RT: Runtime> Limiter<RT> {
             biased;
             _ = request_guard.acquire_permit() => {},
             x = async {
-                // Only report metrics if `acquire_permit` blocked. This avoids
-                // recording a waiting function if there are still available
-                // permits.
+                // Report metrics while waiting for a permit. This captures the
+                // queued state only when the semaphore is actually full.
                 self.report_metrics();
                 future::pending::<!>().await
             } => match x {},
@@ -541,10 +540,13 @@ impl<RT: Runtime> Limiter<RT> {
     // Reports metrics for the current waiting and running function gauges.
     fn report_metrics(&self) {
         let num_running_functions = self.total_permits - self.semaphore.available_permits();
-        let num_queued_functions = self
-            .total_outstanding
-            .load(Ordering::SeqCst)
-            .saturating_sub(num_running_functions);
+        let num_queued_functions = if self.semaphore.available_permits() > 0 {
+            0
+        } else {
+            self.total_outstanding
+                .load(Ordering::SeqCst)
+                .saturating_sub(num_running_functions)
+        };
 
         // Log to prometheus
         log_outstanding_functions(
