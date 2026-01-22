@@ -65,7 +65,7 @@ await ctx.db.insert("books", {
 You can follow references with `ctx.db.get`:
 
 ```ts
-const user = await ctx.db.get("books", book.ownerId);
+const user = await ctx.db.get("users", book.ownerId);
 ```
 
 And [query for documents](/database/reading-data/reading-data.mdx) with a
