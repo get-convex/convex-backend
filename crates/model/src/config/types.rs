@@ -38,6 +38,7 @@ use sync_types::{
 use value::{
     codegen_convex_serialization,
     remove_string,
+    sha256::Sha256Digest,
     ConvexArray,
     ConvexObject,
     ConvexValue,
@@ -67,6 +68,18 @@ pub struct ModuleConfig {
     pub source_map: Option<SourceMap>,
     /// The environment is bundled to run in.
     pub environment: ModuleEnvironment,
+}
+
+/// A module definition that includes a hash instead of the source and
+/// source_map, to be used when the module already exists on the server.
+#[derive(Debug)]
+pub struct ModuleHashConfig {
+    /// Relative path to the module.
+    pub path: ModulePath,
+    /// The environment is bundled to run in.
+    pub environment: ModuleEnvironment,
+    // This is a hash of source + source_map.
+    pub sha256: Sha256Digest,
 }
 
 /// This is not safe to use since convex 0.12.0, where we allow defining actions

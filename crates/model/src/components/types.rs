@@ -28,6 +28,7 @@ use crate::{
     config::types::{
         ConfigMetadata,
         ModuleConfig,
+        ModuleHashConfig,
     },
     modules::module_versions::{
         AnalyzedModule,
@@ -62,23 +63,34 @@ pub struct AppDefinitionConfig {
     // Optional schema.js. Not available at runtime.
     pub schema: Option<ModuleConfig>,
 
+    // Runtime modules that have changed since the last push.
     // Includes all modules directly available at runtime:
     // - Regular function entry points
     // - http.js
     // - crons.js
     // - Bundler dependency chunks within _deps.
     // Also includes auth.config.js which is empty at runtime.
-    pub functions: Vec<ModuleConfig>,
+    pub changed_runtime_modules: Vec<ModuleConfig>,
+    // Runtime modules without any changes
+    // Files that are neither in `changed_runtime_modules` nor in `unchanged_runtime_module_hashes`
+    // are deleted by the push.
+    pub unchanged_runtime_module_hashes: Vec<ModuleHashConfig>,
 
     pub udf_server_version: Version,
 }
 
 impl AppDefinitionConfig {
-    pub fn modules(&self) -> impl Iterator<Item = &ModuleConfig> {
-        self.definition
+    /// Returns an iterator over all app modules: runtime functions + schema +
+    /// definition. Runtime functions need to be passed in since we may need
+    /// to retrieve the ModuleConfigs for the unchanged module hashes.
+    pub fn all_modules<'a>(
+        &'a self,
+        app_functions: &'a [ModuleConfig],
+    ) -> impl Iterator<Item = &'a ModuleConfig> {
+        app_functions
             .iter()
             .chain(self.schema.iter())
-            .chain(&self.functions)
+            .chain(self.definition.iter())
     }
 }
 

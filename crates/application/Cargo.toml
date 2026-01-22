@@ -63,6 +63,7 @@ futures = { workspace = true }
 futures-async-stream = { workspace = true }
 governor = { workspace = true }
 headers = { workspace = true }
+hex = { workspace = true }
 http = { workspace = true }
 http_client = { workspace = true }
 humansize = { workspace = true }

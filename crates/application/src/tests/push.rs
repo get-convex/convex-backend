@@ -2,6 +2,7 @@ use common::knobs::MAX_USER_MODULES;
 use keybroker::Identity;
 use model::{
     config::types::ConfigFile,
+    modules::hash_module_source,
     source_packages::{
         types::NodeVersion,
         SourcePackageModel,
@@ -13,6 +14,7 @@ use value::TableNamespace;
 use crate::{
     deploy_config::{
         AppDefinitionConfigJson,
+        ModuleHashJson,
         ModuleJson,
         StartPushRequest,
     },
@@ -38,6 +40,17 @@ fn make_modules() -> Vec<ModuleJson> {
     functions
 }
 
+fn make_module_hashes() -> Vec<ModuleHashJson> {
+    make_modules()
+        .iter()
+        .map(|m| ModuleHashJson {
+            path: m.path.clone(),
+            environment: m.environment.clone(),
+            sha256: hash_module_source(&m.source.as_str().into(), m.source_map.as_ref()).as_hex(),
+        })
+        .collect()
+}
+
 #[convex_macro::test_runtime]
 async fn test_max_size_push(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
@@ -50,7 +63,8 @@ async fn test_max_size_push(rt: TestRuntime) -> anyhow::Result<()> {
                     definition: None,
                     dependencies: vec![],
                     schema: None,
-                    functions: make_modules(),
+                    changed_modules: make_modules(),
+                    unchanged_module_hashes: vec![],
                     udf_server_version: "1.3939.3939".into(),
                 },
                 component_definitions: vec![],
@@ -105,7 +119,8 @@ async fn test_change_node_version(rt: TestRuntime) -> anyhow::Result<()> {
                 definition: None,
                 dependencies: vec![],
                 schema: None,
-                functions: make_modules(),
+                changed_modules: make_modules(),
+                unchanged_module_hashes: vec![],
                 udf_server_version: "1.3939.3939".into(),
             },
             component_definitions: vec![],
@@ -157,5 +172,87 @@ async fn test_change_node_version_no_components(rt: TestRuntime) -> anyhow::Resu
         .await?
         .and_then(|p| p.node_version);
     assert_eq!(node_version, Some(NodeVersion::V22x));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_push_with_unchanged_modules(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let num_modules = make_modules().len();
+    // Push all modules
+    application
+        .run_test_push(StartPushRequest {
+            admin_key: "".into(),
+            functions: "convex/".into(),
+            app_definition: AppDefinitionConfigJson {
+                definition: None,
+                dependencies: vec![],
+                schema: None,
+                changed_modules: make_modules(),
+                unchanged_module_hashes: vec![],
+                udf_server_version: "1.3939.3939".into(),
+            },
+            component_definitions: vec![],
+            node_dependencies: vec![],
+            node_version: None,
+        })
+        .await?;
+
+    // Push half changed modules and half unchanged module hashes
+    let mut half_modules = make_modules();
+    half_modules.truncate(num_modules / 2);
+    let half_module_hashes = make_module_hashes().split_off(num_modules / 2);
+    let resp = application
+        .run_test_push(StartPushRequest {
+            admin_key: "".into(),
+            functions: "convex/".into(),
+            app_definition: AppDefinitionConfigJson {
+                definition: None,
+                dependencies: vec![],
+                schema: None,
+                changed_modules: half_modules,
+                unchanged_module_hashes: half_module_hashes,
+                udf_server_version: "1.3939.3939".into(),
+            },
+            component_definitions: vec![],
+            node_dependencies: vec![],
+            node_version: None,
+        })
+        .await?;
+    let module_diff = &resp
+        .component_diffs
+        .first_key_value()
+        .expect("app component should exist")
+        .1
+        .module_diff;
+    assert_eq!(module_diff.added.len(), 0);
+    assert_eq!(module_diff.removed.len(), 0);
+
+    // Only push unchanged module hashes
+    application
+        .run_test_push(StartPushRequest {
+            admin_key: "".into(),
+            functions: "convex/".into(),
+            app_definition: AppDefinitionConfigJson {
+                definition: None,
+                dependencies: vec![],
+                schema: None,
+                changed_modules: vec![],
+                unchanged_module_hashes: make_module_hashes(),
+                udf_server_version: "1.3939.3939".into(),
+            },
+            component_definitions: vec![],
+            node_dependencies: vec![],
+            node_version: None,
+        })
+        .await?;
+    let module_diff = &resp
+        .component_diffs
+        .first_key_value()
+        .expect("app component should exist")
+        .1
+        .module_diff;
+    assert_eq!(module_diff.added.len(), 0);
+    assert_eq!(module_diff.removed.len(), 0);
     Ok(())
 }

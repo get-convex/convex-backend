@@ -357,7 +357,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         request: StartPushRequest,
     ) -> anyhow::Result<StartPushResponse> {
         let config = request.into_project_config()?;
-        self.start_push(&config).await
+        let result = self.start_push(&config).await?;
+        Ok(result.response)
     }
 
     async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff> {

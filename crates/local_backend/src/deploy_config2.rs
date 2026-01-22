@@ -218,11 +218,13 @@ pub async fn start_push(
     let config = req.into_project_config().map_err(|e| {
         anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
     })?;
-    let resp =
+    let result =
         st.application.start_push(&config).await.map_err(|e| {
             e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}"))
         })?;
-    Ok(Json(SerializedStartPushResponse::try_from(resp)?))
+    Ok(Json(SerializedStartPushResponse::try_from(
+        result.response,
+    )?))
 }
 
 // This endpoint is similar to `start_push`, but it doesn’t save the schema (so

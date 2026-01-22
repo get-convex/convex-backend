@@ -87,6 +87,7 @@ use model::{
         ConfigFile,
         ConfigMetadata,
         ModuleConfig,
+        ModuleHashConfig,
     },
     deployment_audit_log::types::{
         DeploymentAuditLogEvent,
@@ -124,6 +125,7 @@ use udf::{
 use usage_tracking::FunctionUsageTracker;
 use value::{
     identifier::Identifier,
+    sha256::Sha256Digest,
     DeveloperDocumentId,
     ResolvedDocumentId,
     TableNamespace,
@@ -157,11 +159,12 @@ struct EvaluatedPushContents {
     evaluated_components: BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
     external_deps_id: Option<ExternalDepsPackageId>,
     user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    app_functions: Vec<ModuleConfig>,
 }
 
 impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
-    pub async fn start_push(&self, config: &ProjectConfig) -> anyhow::Result<StartPushResponse> {
+    pub async fn start_push(&self, config: &ProjectConfig) -> anyhow::Result<StartPushResult> {
         let EvaluatedPushContents {
             app,
             auth_info,
@@ -169,6 +172,7 @@ impl<RT: Runtime> Application<RT> {
             mut evaluated_components,
             external_deps_id,
             user_environment_variables,
+            app_functions,
         } = self.evaluate_push_contents(config).await?;
 
         let schema_change = self
@@ -199,7 +203,10 @@ impl<RT: Runtime> Application<RT> {
             app,
             schema_change,
         };
-        Ok(resp)
+        Ok(StartPushResult {
+            response: resp,
+            app_functions,
+        })
     }
 
     #[fastrace::trace]
@@ -208,7 +215,7 @@ impl<RT: Runtime> Application<RT> {
         config: &ProjectConfig,
     ) -> anyhow::Result<EvaluatedPushContents> {
         let unix_timestamp = self.runtime.unix_timestamp();
-        let (external_deps_id, component_definition_packages) =
+        let (external_deps_id, component_definition_packages, app_functions) =
             self.upload_packages(config).await?;
 
         let app_udf_config = UdfConfig {
@@ -230,7 +237,7 @@ impl<RT: Runtime> Application<RT> {
         let (auth_module, app_analysis) = self
             .analyze_modules_with_auth_config(
                 app_udf_config.clone(),
-                config.app_definition.functions.clone(),
+                app_functions.clone(),
                 app_pkg.clone(),
                 user_environment_variables.clone(),
                 system_env_var_overrides.clone(),
@@ -292,6 +299,7 @@ impl<RT: Runtime> Application<RT> {
             evaluated_components,
             external_deps_id,
             user_environment_variables,
+            app_functions,
         })
     }
 
@@ -926,6 +934,13 @@ pub struct StartPushResponse {
 }
 
 #[derive(Debug)]
+pub struct StartPushResult {
+    pub response: StartPushResponse,
+    /// All runtime function modules in the app component
+    pub app_functions: Vec<ModuleConfig>,
+}
+
+#[derive(Debug)]
 pub struct EvaluatePushResponse {
     pub schema_change: SchemaChange,
 }
@@ -945,7 +960,11 @@ pub struct AppDefinitionConfigJson {
     pub definition: Option<ModuleJson>,
     pub dependencies: Vec<String>,
     pub schema: Option<ModuleJson>,
-    pub functions: Vec<ModuleJson>,
+    // CLI versions <= 1.31.5 used functions and did not upload unchanged_module_hashes
+    #[serde(alias = "functions")]
+    pub changed_modules: Vec<ModuleJson>,
+    #[serde(default)]
+    pub unchanged_module_hashes: Vec<ModuleHashJson>,
     pub udf_server_version: String,
 }
 
@@ -961,13 +980,49 @@ impl TryFrom<AppDefinitionConfigJson> for AppDefinitionConfig {
                 .map(|s| s.parse())
                 .collect::<anyhow::Result<_>>()?,
             schema: value.schema.map(TryInto::try_into).transpose()?,
-            functions: value
-                .functions
+            changed_runtime_modules: value
+                .changed_modules
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<anyhow::Result<_>>()?,
             udf_server_version: value.udf_server_version.parse()?,
+            unchanged_runtime_module_hashes: value
+                .unchanged_module_hashes
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<anyhow::Result<_>>()?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppDefinitionConfigJson;
+
+    /// Backwards compatibility test:
+    /// historically clients sent changed app modules under
+    /// `appDefinition.functions`, and did not send `unchangedModuleHashes`
+    /// at all.
+    ///
+    /// We accept that payload by:
+    /// - aliasing `functions` -> `changedModules`
+    /// - defaulting missing `unchangedModuleHashes` to an empty list
+    #[test]
+    fn test_app_definition_config_json_old_format() -> anyhow::Result<()> {
+        let json = r#"{
+            "definition": null,
+            "dependencies": [],
+            "schema": null,
+            "functions": [
+                { "path": "foo.js", "source": "// foo", "sourceMap": null, "environment": null }
+            ],
+            "udfServerVersion": "1.2.3"
+        }"#;
+
+        let parsed: AppDefinitionConfigJson = serde_json::from_str(json)?;
+        assert_eq!(parsed.changed_modules.len(), 1);
+        assert!(parsed.unchanged_module_hashes.is_empty());
+        Ok(())
     }
 }
 
@@ -1031,6 +1086,16 @@ pub struct ModuleJson {
     pub environment: Option<String>,
 }
 
+/// API level structure for representing module hashes as Json (for unchanged
+/// modules)
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ModuleHashJson {
+    pub path: String,
+    pub environment: Option<String>,
+    pub sha256: String,
+}
+
 impl From<ModuleConfig> for ModuleJson {
     fn from(
         ModuleConfig {
@@ -1060,18 +1125,47 @@ impl TryFrom<ModuleJson> for ModuleConfig {
             environment,
         }: ModuleJson,
     ) -> anyhow::Result<ModuleConfig> {
-        let environment = match environment {
-            Some(s) => s.parse()?,
-            // Default to using the path for backwards compatibility
-            None => deprecated_extract_environment_from_path(path.clone())?,
-        };
         Ok(ModuleConfig {
             path: parse_module_path(&path)?,
             source: ModuleSource::new(&source),
             source_map,
-            environment,
+            environment: parse_module_environment(&environment, &path)?,
         })
     }
+}
+
+impl TryFrom<ModuleHashJson> for ModuleHashConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        ModuleHashJson {
+            path,
+            environment,
+            sha256,
+        }: ModuleHashJson,
+    ) -> anyhow::Result<ModuleHashConfig> {
+        let sha256_bytes = hex::decode(&sha256).context("Invalid hex in sha256")?;
+        let sha256_array: [u8; 32] = sha256_bytes
+            .try_into()
+            .ok()
+            .context("sha256 not 32 bytes")?;
+        Ok(ModuleHashConfig {
+            path: parse_module_path(&path)?,
+            environment: parse_module_environment(&environment, &path)?,
+            sha256: Sha256Digest::from(sha256_array),
+        })
+    }
+}
+
+pub fn parse_module_environment(
+    environment: &Option<String>,
+    path: &String,
+) -> anyhow::Result<ModuleEnvironment> {
+    Ok(match environment {
+        Some(s) => s.parse()?,
+        // Default to using the path for backwards compatibility
+        None => deprecated_extract_environment_from_path(path.clone())?,
+    })
 }
 
 pub fn parse_module_path(path: &str) -> anyhow::Result<ModulePath> {
