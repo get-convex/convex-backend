@@ -6,10 +6,11 @@ import {
   CounterClockwiseClockIcon,
   TextAlignBottomIcon,
   GearIcon,
+  InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import udfs from "@common/udfs";
 import classNames from "classnames";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -27,6 +28,7 @@ import { useIsGlobalRunnerShown } from "@common/features/functionRunner/lib/func
 import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsCloudDeploymentInSelfHostedDashboard";
 import { Tooltip } from "@ui/Tooltip";
 import Image from "next/image";
+import { ClosePanelButton } from "@ui/ClosePanelButton";
 
 type LayoutProps = {
   children: JSX.Element;
@@ -147,6 +149,7 @@ export function DeploymentDashboardLayout({
         {(visiblePages === undefined || visiblePages.includes("settings")) && (
           <PauseBanner />
         )}
+        <MobileBanner />
         <div className="flex h-full flex-col overflow-y-auto sm:flex-row">
           {sidebarItems.length > 0 && (
             <Sidebar
@@ -222,6 +225,32 @@ function PauseBanner() {
   );
 }
 
+function MobileBanner() {
+  const isMobile = useMobileDetection();
+  const [isDismissed, setIsDismissed] = useGlobalLocalStorage(
+    "mobileBannerDismissed",
+    false,
+  );
+  const { isSelfHosted } = useContext(DeploymentInfoContext);
+
+  if (!isMobile || isDismissed || isSelfHosted) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 border-b bg-util-accent/10 px-4 py-2 text-sm dark:bg-util-accent/30">
+      <div className="flex items-center gap-2">
+        <InfoCircledIcon className="h-4 w-4 shrink-0" />
+        <p>
+          The Convex dashboard is designed for desktop. We recommend using a
+          desktop browser for the best experience.
+        </p>
+      </div>
+      <ClosePanelButton onClose={() => setIsDismissed(true)} />
+    </div>
+  );
+}
+
 function EmbeddedConvexLogo({ collapsed }: { collapsed: boolean }) {
   const currentPage = useCurrentPage();
   const { deploymentName } = useIsCloudDeploymentInSelfHostedDashboard();
@@ -276,4 +305,25 @@ function EmbeddedConvexLogo({ collapsed }: { collapsed: boolean }) {
       </div>
     </>
   );
+}
+
+function useMobileDetection(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 450px)");
+
+    setIsMobile(mediaQuery.matches);
+
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mediaQuery.addEventListener("change", handler);
+
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
+
+  return isMobile;
 }
