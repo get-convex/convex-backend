@@ -111,6 +111,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_name}/list_deploy_keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deploy keys
+         * @description Lists all deploy keys for the specified deployment.
+         */
+        get: operations["list deploy keys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{deployment_name}/delete_deploy_key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete deploy key
+         * @description Deletes a deploy key for the specified deployment. The `id` in the request body
+         *     can be the full deploy key (with prefix), encoded token, or the name of the deploy key.
+         */
+        post: operations["delete deploy key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/token_details": {
         parameters: {
             query?: never;
@@ -223,6 +264,8 @@ export interface components {
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview";
         DeviceName: string;
+        /** Format: int64 */
+        MemberId: number;
         PlatformCreateDeployKeyArgs: {
             /** @description Name for the deploy key. */
             name: string;
@@ -272,6 +315,25 @@ export interface components {
             domain: string;
             /** @description The destination for this custom domain (convexCloud or convexSite). */
             requestDestination: components["schemas"]["RequestDestination"];
+        };
+        PlatformDeleteDeployKeyArgs: {
+            /** @description The token to delete. This can be the secret value of the token or the token's unique name. */
+            id: string;
+        };
+        PlatformDeployKeyResponse: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this token was created.
+             */
+            creationTime: number;
+            creator?: null | components["schemas"]["MemberId"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this token was last used (if ever).
+             */
+            lastUsedTime?: number | null;
+            /** @description The name given to the deploy key at creation. */
+            name: string;
         };
         PlatformDeploymentResponse: {
             /**
@@ -353,12 +415,15 @@ export type AdminKey = components['schemas']['AdminKey'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
+export type MemberId = components['schemas']['MemberId'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
 export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
 export type PlatformCustomDomainResponse = components['schemas']['PlatformCustomDomainResponse'];
 export type PlatformDeleteCustomDomainArgs = components['schemas']['PlatformDeleteCustomDomainArgs'];
+export type PlatformDeleteDeployKeyArgs = components['schemas']['PlatformDeleteDeployKeyArgs'];
+export type PlatformDeployKeyResponse = components['schemas']['PlatformDeployKeyResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
 export type PlatformProjectDeploymentType = components['schemas']['PlatformProjectDeploymentType'];
@@ -485,6 +550,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlatformCreateDeployKeyResponse"];
                 };
+            };
+        };
+    };
+    "list deploy keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeployKeyResponse"][];
+                };
+            };
+        };
+    };
+    "delete deploy key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformDeleteDeployKeyArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

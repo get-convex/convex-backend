@@ -872,9 +872,16 @@ function AccessTokenSettingsLink({
   metadataEntity: Record<string, any>;
   verb: string;
 }) {
+  const keyType =
+    metadataEntity.projectId && !metadataEntity.deploymentId
+      ? "preview deploy key"
+      : metadataEntity.deploymentId
+        ? "deploy key"
+        : "access token";
+
   return (
     <>
-      {verb} the deploy key{" "}
+      {verb} the {keyType}{" "}
       <span className="font-semibold">{metadataEntity.name}</span>
       {metadataEntity.deploymentId && (
         <>

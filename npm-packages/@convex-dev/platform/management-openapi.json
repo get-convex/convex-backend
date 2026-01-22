@@ -228,6 +228,88 @@
         ]
       }
     },
+    "/deployments/{deployment_name}/list_deploy_keys": {
+      "get": {
+        "summary": "List deploy keys",
+        "description": "Lists all deploy keys for the specified deployment.",
+        "operationId": "list deploy keys",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformDeployKeyResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/deployments/{deployment_name}/delete_deploy_key": {
+      "post": {
+        "summary": "Delete deploy key",
+        "description": "Deletes a deploy key for the specified deployment. The `id` in the request\nbody can be the full deploy key (with prefix), encoded token, or the name of\nthe deploy key.",
+        "operationId": "delete deploy key",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformDeleteDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
     "/token_details": {
       "get": {
         "summary": "Get token details",
@@ -434,6 +516,11 @@
       "DeviceName": {
         "type": "string"
       },
+      "MemberId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
       "PlatformCreateDeployKeyArgs": {
         "type": "object",
         "required": [
@@ -558,6 +645,56 @@
           "requestDestination": {
             "$ref": "#/components/schemas/RequestDestination",
             "description": "The destination for this custom domain (convexCloud or convexSite)."
+          }
+        }
+      },
+      "PlatformDeleteDeployKeyArgs": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token to delete. This can be the secret value of the token or the\ntoken's unique name."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformDeployKeyResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "creationTime"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this token was created."
+          },
+          "creator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId",
+                "description": "The member ID that created this deploy key (if available)."
+              }
+            ]
+          },
+          "lastUsedTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this token was last used (if ever)."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name given to the deploy key at creation."
           }
         }
       },
