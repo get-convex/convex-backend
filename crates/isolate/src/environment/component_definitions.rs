@@ -519,7 +519,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
             .map(|env_vars| env_vars.get(&name).cloned())
             .context(ErrorMetadata::bad_request(
                 "EnvironmentVariablesUnsupported",
-                "Environment variables are only supported in the app's convex.config.ts.",
+                "Environment variables are only supported in the app's convex.config.ts. Learn more at https://docs.convex.dev/components/authoring#environment-variables",
             ))
     }
 

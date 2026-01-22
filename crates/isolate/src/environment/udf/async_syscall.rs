@@ -1573,7 +1573,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         if !component.is_root() && !provider.is_system() {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "PaginationUnsupportedInComponents",
-                "paginate() is only supported in the app.",
+                "paginate() is only supported in the app. Learn more at https://docs.convex.dev/components/authoring#pagination",
             ));
         }
 
