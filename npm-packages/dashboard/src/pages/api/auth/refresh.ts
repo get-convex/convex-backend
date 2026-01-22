@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { refreshSession } from "server/workos";
+import { refreshSession, createSessionCookie } from "server/workos";
 
 export default async function handler(
   req: NextApiRequest,
@@ -18,6 +18,7 @@ export default async function handler(
       return res.status(401).json({ error: "No valid session found" });
     }
 
+    res.setHeader("Set-Cookie", createSessionCookie(result.sealedSession));
     res.status(200).json({ accessToken: result.accessToken });
   } catch (error: any) {
     console.error("Error refreshing session:", error);

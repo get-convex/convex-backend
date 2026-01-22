@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { WorkOS } from "@workos-inc/node";
 import { captureException } from "@sentry/nextjs";
+import { createSessionCookie } from "server/workos";
 
 export default async function handler(
   req: NextApiRequest,
@@ -36,15 +37,13 @@ export default async function handler(
 
     const { sealedSession, authenticationMethod } = authenticateResponse;
 
-    // Store the session in a cookie
-    const secure =
-      // We only use secure cookies in production because development environments might use HTTP
-      // (most browsers tolerate secure cookies on localhost, but not Safari)
-      process.env.NODE_ENV === "production" ? " Secure;" : "";
-    res.setHeader(
-      "Set-Cookie",
-      `wos-session=${sealedSession}; Path=/; HttpOnly;${secure} SameSite=Lax; Max-Age=${60 * 60 * 24 * 14}`,
-    );
+    if (!sealedSession) {
+      return res
+        .status(500)
+        .json({ error: "No sealed session returned from WorkOS" });
+    }
+
+    res.setHeader("Set-Cookie", createSessionCookie(sealedSession));
 
     let returnTo = state && !state.startsWith("/api") ? state : "/";
 
@@ -87,10 +86,6 @@ export default async function handler(
       return;
     }
     captureException(error);
-    // TODO: Figure out what to do here.
-    // res.redirect(
-    //   `/login?error=${error?.rawData?.error_description || error.message}`,
-    // );
   }
 }
 

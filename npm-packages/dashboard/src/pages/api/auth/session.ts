@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { getSession } from "server/workos";
+import { getSession, createSessionCookie } from "server/workos";
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,7 +16,15 @@ export default async function handler(
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    res.status(200).json(session);
+    // If the session was refreshed, update the cookie
+    if (session.sealedSession) {
+      res.setHeader("Set-Cookie", createSessionCookie(session.sealedSession));
+    }
+
+    // Don't send sealedSession to the client
+    const { sealedSession: _sealedSession, ...sessionData } = session;
+
+    res.status(200).json(sessionData);
   } catch (error) {
     console.error("Error getting session:", error);
     res.status(500).json({ error: "Internal server error" });

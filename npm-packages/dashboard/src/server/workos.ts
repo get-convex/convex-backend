@@ -28,34 +28,70 @@ export interface WorkOSSession {
     email: string;
     reason?: string;
   };
+  sealedSession?: string;
+}
+
+export function loadSealedSessionFromRequest(
+  req: NextApiRequest | GetServerSidePropsContext["req"],
+) {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const sessionCookie = cookieHeader
+    .split(";")
+    .find((cookie) => cookie.trim().startsWith("wos-session="))
+    ?.split("=")[1];
+
+  if (!sessionCookie) {
+    return null;
+  }
+
+  const workosInstance = getWorkOS();
+  return workosInstance.userManagement.loadSealedSession({
+    sessionData: sessionCookie,
+    cookiePassword: process.env.WORKOS_COOKIE_PASSWORD || "",
+  });
+}
+
+export function createSessionCookie(sealedSession: string): string {
+  const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
+  return `wos-session=${sealedSession}; Path=/; HttpOnly;${secure} SameSite=Lax; Max-Age=${60 * 60 * 24 * 14}`;
+}
+
+export function deleteSessionCookie(): string {
+  const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
+  return `wos-session=deleted; Max-Age=-1; Path=/; HttpOnly;${secure} SameSite=Lax`;
+}
+
+async function refreshCookieSession(
+  session: ReturnType<
+    ReturnType<typeof getWorkOS>["userManagement"]["loadSealedSession"]
+  >,
+) {
+  const refreshResult = await session.refresh();
+
+  if (
+    !refreshResult.authenticated ||
+    !refreshResult.sealedSession ||
+    !refreshResult.session?.accessToken
+  ) {
+    return null;
+  }
+
+  return {
+    accessToken: refreshResult.session.accessToken,
+    sealedSession: refreshResult.sealedSession,
+    user: refreshResult.session.user,
+  };
 }
 
 export async function getSession(
   req: NextApiRequest | GetServerSidePropsContext["req"],
 ): Promise<WorkOSSession | null> {
   try {
-    const cookieHeader = req.headers.cookie;
-    if (!cookieHeader) {
-      return null;
-    }
-
-    // Extract wos-session cookie
-    const sessionCookie = cookieHeader
-      .split(";")
-      .find((cookie) => cookie.trim().startsWith("wos-session="))
-      ?.split("=")[1];
-
-    if (!sessionCookie) {
-      return null;
-    }
-
-    const workosInstance = getWorkOS();
-
-    // Verify and unseal the session
-    const session = workosInstance.userManagement.loadSealedSession({
-      sessionData: sessionCookie,
-      cookiePassword: process.env.WORKOS_COOKIE_PASSWORD || "",
-    });
+    const session = loadSealedSessionFromRequest(req);
 
     if (!session) {
       return null;
@@ -63,7 +99,24 @@ export async function getSession(
 
     const sess = await session.authenticate();
     if (!sess.authenticated) {
-      return null;
+      // Token expired, try to refresh
+      const refreshed = await refreshCookieSession(session);
+      if (!refreshed) {
+        return null;
+      }
+
+      return {
+        user: {
+          id: refreshed.user.id,
+          email: refreshed.user.email,
+          emailVerified: refreshed.user.emailVerified,
+          firstName: refreshed.user.firstName || "",
+          lastName: refreshed.user.lastName || "",
+          profilePictureUrl: refreshed.user.profilePictureUrl || "",
+        },
+        accessToken: refreshed.accessToken,
+        sealedSession: refreshed.sealedSession,
+      };
     }
     const { user, accessToken } = sess;
     return {
@@ -96,14 +149,23 @@ export async function getAccessToken(
 
 export async function refreshSession(
   req: NextApiRequest,
-): Promise<{ accessToken: string } | null> {
+): Promise<{ accessToken: string; sealedSession: string } | null> {
   try {
-    const session = await getSession(req);
+    const session = loadSealedSessionFromRequest(req);
+
     if (!session) {
       return null;
     }
 
-    return { accessToken: session.accessToken || "" };
+    const refreshed = await refreshCookieSession(session);
+    if (!refreshed) {
+      return null;
+    }
+
+    return {
+      accessToken: refreshed.accessToken,
+      sealedSession: refreshed.sealedSession,
+    };
   } catch (error) {
     console.error("Error refreshing WorkOS session:", error);
     return null;

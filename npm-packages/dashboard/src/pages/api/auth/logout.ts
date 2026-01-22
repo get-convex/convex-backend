@@ -1,5 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { WorkOS } from "@workos-inc/node";
+import {
+  loadSealedSessionFromRequest,
+  deleteSessionCookie,
+} from "server/workos";
 
 export default async function handler(
   req: NextApiRequest,
@@ -9,42 +12,21 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const workos = new WorkOS(process.env.WORKOS_API_SECRET, {
-    clientId: process.env.WORKOS_CLIENT_ID,
-  });
-
   try {
-    const cookieHeader = req.headers.cookie;
-    if (!cookieHeader) {
-      return null;
-    }
-    const sessionCookie = cookieHeader
-      .split(";")
-      .find((cookie) => cookie.trim().startsWith("wos-session="))
-      ?.split("=")[1];
+    const session = loadSealedSessionFromRequest(req);
 
-    if (!sessionCookie) {
-      return null;
+    if (!session) {
+      return res.status(401).json({ error: "No session found" });
     }
 
-    // Verify and unseal the session
-    const session = workos.userManagement.loadSealedSession({
-      sessionData: sessionCookie,
-      cookiePassword: process.env.WORKOS_COOKIE_PASSWORD || "",
-    });
     const logoutUrl = await session.getLogoutUrl({
       returnTo: `${
         process.env.WORKOS_REDIRECT_URI ||
         `https://${process.env.WORKOS_REDIRECT_URI_OVERRIDE}`
       }/login`,
     });
-    const secure =
-      // We only use secure cookies in production because development environments might use HTTP
-      // (most browsers tolerate secure cookies on localhost, but not Safari)
-      process.env.NODE_ENV === "production" ? " Secure;" : "";
-    res.setHeader("Set-Cookie", [
-      `wos-session=deleted; Max-Age=-1; Path=/; HttpOnly;${secure} SameSite=Lax`,
-    ]);
+
+    res.setHeader("Set-Cookie", deleteSessionCookie());
     res.redirect(logoutUrl);
   } catch (error) {
     console.error("Error during logout:", error);
