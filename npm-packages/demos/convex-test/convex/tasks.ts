@@ -28,7 +28,7 @@ export const list = query({
 
     const tasks = await ctx.db
       .query("tasks")
-      .filter((q) => q.eq(q.field("author"), identity.name))
+      .withIndex("by_author", (q) => q.eq("author", identity.name))
       .collect();
 
     return tasks;

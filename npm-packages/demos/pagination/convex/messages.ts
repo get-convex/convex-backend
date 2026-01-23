@@ -21,7 +21,7 @@ export const listWithExtraArg = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("messages")
-      .filter((q) => q.eq(q.field("author"), args.author))
+      .withIndex("by_author", (q) => q.eq("author", args.author))
       .order("desc")
       .paginate(args.paginationOpts);
   },

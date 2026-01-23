@@ -7,7 +7,7 @@ export const getTaskList = query({
   handler: async (ctx, args) => {
     const tasks = await ctx.db
       .query("tasks")
-      .filter((q) => q.eq(q.field("taskListId"), args.taskListId))
+      .withIndex("by_task_list_id", (q) => q.eq("taskListId", args.taskListId))
       .order("desc")
       .take(100);
     return tasks;

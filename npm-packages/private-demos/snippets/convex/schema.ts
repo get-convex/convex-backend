@@ -24,13 +24,13 @@ export default defineSchema({
     created: v.optional(v.string()),
     duration: v.optional(v.number()),
     authorId: v.optional(v.id("users")),
-  }),
+  }).index("by_task_list_id", ["taskListId"]),
   taskLists: defineTable({}),
   messages: defineTable({
     body: v.string(),
     author: v.optional(v.string()),
     channel: v.optional(v.id("channels")),
-  }),
+  }).index("by_author", ["author"]),
   changes: defineTable({
     type: v.string(),
   }),

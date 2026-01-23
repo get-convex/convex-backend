@@ -6,7 +6,7 @@ export const list = query({
   handler: async (ctx, { channelId }) => {
     return await ctx.db
       .query("messages")
-      .filter((q) => q.eq(q.field("channel"), channelId))
+      .withIndex("by_channel", (q) => q.eq("channel", channelId))
       .collect();
   },
 });
