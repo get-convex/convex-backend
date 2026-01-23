@@ -142,8 +142,9 @@ export interface paths {
         put?: never;
         /**
          * Delete deploy key
-         * @description Deletes a deploy key for the specified deployment. The `id` in the request body
-         *     can be the full deploy key (with prefix), encoded token, or the name of the deploy key.
+         * @description Deletes a deploy key for the specified deployment. The `id` in the request
+         *     body can be the full deploy key (with prefix), encoded token, or the name of
+         *     the deploy key.
          */
         post: operations["delete deploy key"];
         delete?: never;
@@ -317,7 +318,8 @@ export interface components {
             requestDestination: components["schemas"]["RequestDestination"];
         };
         PlatformDeleteDeployKeyArgs: {
-            /** @description The token to delete. This can be the secret value of the token or the token's unique name. */
+            /** @description The token to delete. This can be the secret value of the token or the
+             *     token's unique name. */
             id: string;
         };
         PlatformDeployKeyResponse: {

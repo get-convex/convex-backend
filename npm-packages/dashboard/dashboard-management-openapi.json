@@ -6254,7 +6254,8 @@
           "auditLogRetentionDays",
           "maxDeployments",
           "managementApiEnabled",
-          "previewDeploymentRetentionDays"
+          "previewDeploymentRetentionDays",
+          "deploymentClassSelectionEnabled"
         ],
         "properties": {
           "auditLogRetentionDays": {
@@ -6262,6 +6263,9 @@
             "format": "int64"
           },
           "customDomainsEnabled": {
+            "type": "boolean"
+          },
+          "deploymentClassSelectionEnabled": {
             "type": "boolean"
           },
           "logStreamingEnabled": {

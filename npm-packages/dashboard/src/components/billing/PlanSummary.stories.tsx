@@ -45,6 +45,7 @@ export const Primary: Story = {
       maxDeployments: 40,
       managementApiEnabled: true,
       previewDeploymentRetentionDays: 1,
+      deploymentClassSelectionEnabled: false,
     },
     hasFilter: false,
   },

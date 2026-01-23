@@ -2659,6 +2659,7 @@ export interface components {
             /** Format: int64 */
             auditLogRetentionDays: number;
             customDomainsEnabled: boolean;
+            deploymentClassSelectionEnabled: boolean;
             logStreamingEnabled: boolean;
             managementApiEnabled: boolean;
             /** Format: int64 */
