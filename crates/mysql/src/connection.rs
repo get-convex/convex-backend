@@ -443,14 +443,15 @@ pub struct ConvexMySqlPool<RT: Runtime> {
 // to pass cluster_name from 7 layers deep just for metric. It is easy to
 // confuse those with the url and db_name that are used in the actual queries.
 fn derive_cluster_name(url: &Url) -> &str {
+    if url.host_str().is_some_and(|s| s.ends_with(".psdb.cloud")) {
+        return url.path().trim_start_matches('/');
+    }
     let mut cluster_name = url
         .host_str()
         .and_then(|host| host.split('.').next())
         .unwrap_or("");
-    if cluster_name.ends_with("-proxy") {
-        cluster_name = cluster_name
-            .strip_suffix("-proxy")
-            .expect("Failed to strip -proxy suffix even though it exists")
+    if let Some(name) = cluster_name.strip_suffix("-proxy") {
+        cluster_name = name;
     }
     cluster_name
 }
