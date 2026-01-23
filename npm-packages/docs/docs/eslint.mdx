@@ -4,8 +4,8 @@ sidebar_position: 30
 description: ESLint rules for Convex
 ---
 
-ESLint rules for Convex functions enforce best practices. Let us know if there's
-a rule you would find helpful!
+The Convex ESLint plugin provides linter rules that enforce best practices for
+Convex functions. Let us know if there's a rule you would find helpful!
 
 ## Setup
 
