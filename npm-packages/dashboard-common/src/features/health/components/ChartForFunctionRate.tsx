@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { ChartTooltip } from "@common/elements/ChartTooltip";
 import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
-import { timeLabelForMinute } from "@common/lib/format";
+import { timeLabelForMinute, formatNumberCompact } from "@common/lib/format";
 import { ChartData } from "@common/lib/charts/types";
 import { DeploymentTimes } from "@common/features/health/components/DeploymentTimes";
 import { Button } from "@ui/Button";
@@ -27,7 +27,12 @@ export function ChartForFunctionRate({
   kind,
 }: {
   chartData: ChartData | undefined | null;
-  kind: "cacheHitRate" | "failureRate" | "schedulerStatus";
+  kind:
+    | "cacheHitRate"
+    | "failureRate"
+    | "schedulerStatus"
+    | "functionConcurrency"
+    | "functionCalls";
 }) {
   const [shown, setShown] = useState<string | null>(null);
   const [startDate] = useState(new Date(Date.now() - 3600 * 1000));
@@ -61,8 +66,7 @@ export function ChartForFunctionRate({
       >
         {chartData === null ? (
           <div className="flex h-[11.25rem] w-full items-center justify-center px-12 text-center text-sm text-content-secondary">
-            Data will appear here as your{" "}
-            {kind === "cacheHitRate" ? "queries" : "functions"} are called.
+            {`Data will appear here as your ${kind === "cacheHitRate" ? "queries" : "functions"} are called.`}
           </div>
         ) : chartData === undefined ? null : (
           <ResponsiveContainer width="95%" height="95%">
@@ -96,13 +100,35 @@ export function ChartForFunctionRate({
                 tickLine={false}
                 width={40}
                 tickFormatter={(value) =>
-                  kind === "schedulerStatus"
-                    ? value
-                    : `${value.toFixed((value as number) % 1 === 0 ? 0 : 2)}%`
+                  kind === "functionCalls"
+                    ? formatNumberCompact(value as number)
+                    : kind === "schedulerStatus" ||
+                        kind === "functionConcurrency"
+                      ? value
+                      : `${value.toFixed((value as number) % 1 === 0 ? 0 : 2)}%`
+                }
+                domain={
+                  kind !== "schedulerStatus" &&
+                  kind !== "functionConcurrency" &&
+                  kind !== "functionCalls"
+                    ? [0, 100]
+                    : undefined
                 }
                 ticks={
-                  kind !== "schedulerStatus" ? [0, 25, 50, 75, 100] : undefined
+                  kind !== "schedulerStatus" &&
+                  kind !== "functionConcurrency" &&
+                  kind !== "functionCalls"
+                    ? [0, 25, 50, 75, 100]
+                    : undefined
                 }
+                interval={
+                  kind === "schedulerStatus" ||
+                  kind === "functionConcurrency" ||
+                  kind === "functionCalls"
+                    ? 0
+                    : undefined
+                }
+                allowDecimals={kind !== "functionCalls"}
                 className="stroke-content-secondary"
                 tick={{ fontSize: 11, fill: "currentColor" }}
               />
@@ -135,6 +161,13 @@ export function ChartForFunctionRate({
                             `All${payload.length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
                           ) : kind === "schedulerStatus" ? (
                             "Lag Time (minutes)"
+                          ) : kind === "functionConcurrency" ? (
+                            (dataKey as string)
+                          ) : kind === "functionCalls" ? (
+                            <FunctionNameOption
+                              maxChars={24}
+                              label={dataKey as string}
+                            />
                           ) : (
                             <FunctionNameOption
                               maxChars={24}
@@ -170,6 +203,13 @@ export function ChartForFunctionRate({
                                   `All${payload.length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
                                 ) : kind === "schedulerStatus" ? (
                                   "Lag Time"
+                                ) : kind === "functionConcurrency" ? (
+                                  (dataPoint.dataKey as string)
+                                ) : kind === "functionCalls" ? (
+                                  <FunctionNameOption
+                                    maxChars={24}
+                                    label={dataPoint.dataKey as string}
+                                  />
                                 ) : (
                                   <FunctionNameOption
                                     maxChars={24}
@@ -180,11 +220,15 @@ export function ChartForFunctionRate({
                               <div>
                                 {kind === "schedulerStatus"
                                   ? `${(dataPoint.value as number).toLocaleString()} minutes`
-                                  : `${(dataPoint.value as number).toFixed(
-                                      (dataPoint.value as number) % 1 === 0
-                                        ? 0
-                                        : 2,
-                                    )}%`}
+                                  : kind === "functionConcurrency"
+                                    ? `${(dataPoint.value as number).toLocaleString()} ${(dataPoint.value as number) === 1 ? "function" : "functions"}`
+                                    : kind === "functionCalls"
+                                      ? `${formatNumberCompact(dataPoint.value as number)} ${(dataPoint.value as number) === 1 ? "call" : "calls"}`
+                                      : `${(dataPoint.value as number).toFixed(
+                                          (dataPoint.value as number) % 1 === 0
+                                            ? 0
+                                            : 2,
+                                        )}%`}
                               </div>
                             </span>
                           ),
@@ -205,13 +249,14 @@ export function ChartForFunctionRate({
                 vertical={false}
                 verticalFill={[]}
                 horizontalFill={[
-                  "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
+                  "color-mix(in srgb, var(--background-tertiary) 20%, transparent)",
                 ]}
                 syncWithTicks
                 horizontalValues={
-                  kind !== "schedulerStatus"
-                    ? // For some reason (likely due to the size of the chart), ticks don't appear at 75 if the value is exactly 75. So, get as close to 75 as possible
-                      [0, 25, 50, 74.99, 100]
+                  kind !== "schedulerStatus" &&
+                  kind !== "functionConcurrency" &&
+                  kind !== "functionCalls"
+                    ? [0, 25, 50, 75, 100]
                     : undefined
                 }
               />

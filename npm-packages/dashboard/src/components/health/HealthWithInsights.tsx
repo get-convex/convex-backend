@@ -31,6 +31,7 @@ import {
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";
+import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 // We need a context here so the insights components can have data provided to them without rerendering the Health page.
 const InsightsContext = createContext<
@@ -44,6 +45,7 @@ const InsightsContext = createContext<
 >(undefined);
 
 export function HealthWithInsights() {
+  const flags = useLaunchDarkly();
   const { query, push } = useRouter();
   const page = (query.view as string)?.startsWith("insight:")
     ? (query.view as string)
@@ -203,6 +205,9 @@ export function HealthWithInsights() {
         header={header}
         PagesWrapper={InsightsWrapper}
         PageWrapper={PageWrapper}
+        flags={{
+          healthPageFunctionCallsChart: flags.healthPageFunctionCallsChart,
+        }}
       />
     </InsightsContext.Provider>
   );
@@ -289,14 +294,12 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   const { page } = useContext(InsightsContext) || {};
   return (
     <div
-      className="scrollbar flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 pb-4"
+      className="scrollbar flex w-full shrink-0 grow flex-col overflow-y-auto px-6 pb-4"
       // @ts-expect-error https://github.com/facebook/react/issues/17157
       inert={page !== "home" ? "inert" : undefined}
     >
       {children}
-      <div className="max-w-[88rem]">
-        <SmallInsightsSummary onViewAll={onViewAll || (() => {})} />
-      </div>
+      <SmallInsightsSummary onViewAll={onViewAll || (() => {})} />
     </div>
   );
 }

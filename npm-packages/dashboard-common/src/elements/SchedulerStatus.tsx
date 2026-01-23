@@ -1,21 +1,22 @@
 import { formatDistance } from "date-fns";
-import { useContext, useState } from "react";
-import { BarChartIcon, ResetIcon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import { HealthCard } from "@common/elements/HealthCard";
 import { useSchedulerLag } from "@common/lib/appMetrics";
 import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
-import { BigMetric } from "@common/elements/BigMetric";
-import { Button } from "@ui/Button";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { ChartData } from "@common/lib/charts/types";
 
-export function SchedulerStatus({ small = false }: { small?: boolean }) {
-  const lag = useSchedulerLag();
+export function SchedulerStatus({
+  small = false,
+  lag: lagProp,
+}: {
+  small?: boolean;
+  lag?: ChartData | null | undefined;
+}) {
+  const lagFromHook = useSchedulerLag();
+  const lag = lagProp ?? lagFromHook;
+  const lagData = lag?.data as Array<{ time: string; lag: number }> | undefined;
   const behindBySeconds =
-    60 * ((lag && lag.data[lag.data.length - 1].lag) || 0);
-
-  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
-  const log = useLogDeploymentEvent();
+    60 * ((lagData && lagData[lagData.length - 1]?.lag) || 0);
 
   const health =
     behindBySeconds <= 20
@@ -23,8 +24,6 @@ export function SchedulerStatus({ small = false }: { small?: boolean }) {
       : behindBySeconds > 300
         ? "error"
         : "warning";
-
-  const [showChart, setShowChart] = useState(false);
 
   if (small) {
     if (!health || health === "healthy") {
@@ -55,35 +54,8 @@ export function SchedulerStatus({ small = false }: { small?: boolean }) {
     <HealthCard
       title="Scheduler Status"
       tip="The status of function scheduling. Scheduling is unhealthy when functions are executing after their scheduled time."
-      action={
-        <Button
-          size="xs"
-          variant="neutral"
-          onClick={() => {
-            setShowChart(!showChart);
-            log("toggle scheduler chart", { showChart: !showChart });
-          }}
-          icon={showChart ? <ResetIcon /> : <BarChartIcon />}
-          tip={showChart ? "Hide Chart" : "Show Chart"}
-          inline
-        />
-      }
     >
-      {showChart && (
-        <ChartForFunctionRate chartData={lag} kind="schedulerStatus" />
-      )}
-      {!showChart &&
-        (health !== "healthy" ? (
-          <BigMetric metric="Overdue" health="error">
-            Scheduling is behind by {formatDistance(0, behindBySeconds * 1000)}.
-          </BigMetric>
-        ) : (
-          <BigMetric metric="On time">
-            <p className="min-h-10 text-center text-pretty text-content-secondary">
-              Scheduled functions are running on time.
-            </p>
-          </BigMetric>
-        ))}
+      <ChartForFunctionRate chartData={lag} kind="schedulerStatus" />
     </HealthCard>
   );
 }

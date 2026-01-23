@@ -11,6 +11,7 @@ import {
   useDeploymentAuthHeader,
 } from "@common/lib/deploymentApi";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
+import { ChartData } from "@common/lib/charts/types";
 
 export type UdfMetric = "invocations" | "errors" | "cacheHits" | "cacheMisses";
 export type TableMetric = "rowsRead" | "rowsWritten";
@@ -272,6 +273,105 @@ export function useTopKFunctionMetrics(
   };
 }
 
+export function useFunctionCallCountTopK(k: number = 5) {
+  const url = "/api/app_metrics/function_call_count_top_k";
+  const isDisconnected = useDeploymentIsDisconnected();
+  const deploymentUrl = useDeploymentUrl();
+  const authHeader = useDeploymentAuthHeader();
+  const cacheKey = `${deploymentUrl}${url}?k=${k}`;
+
+  const fetcher = async () => {
+    const start = new Date(Date.now() - 60 * 60 * 1000);
+    const end = new Date();
+    const windowArgs = {
+      start: serializeDate(start),
+      end: serializeDate(end),
+      num_buckets: 60,
+    };
+    const window = JSON.stringify(windowArgs);
+    const params: Record<string, string> = { window, k: k.toString() };
+    const queryString = new URLSearchParams(params).toString();
+    return deploymentFetch([
+      deploymentUrl,
+      `${url}?${queryString}`,
+      authHeader,
+    ]);
+  };
+
+  const { data: d } = useSWR(isDisconnected ? null : cacheKey, fetcher, {
+    refreshInterval: 2.5 * 1000,
+  });
+
+  if (!d) {
+    return undefined;
+  }
+
+  const mapFunctionToBuckets = multiResponseToTimeSeries(
+    d as TopKMetricsResponse,
+  );
+  const data = [];
+  const lineKeys = [];
+  const functions: string[] = [...mapFunctionToBuckets.keys()];
+  const xAxisKey = "time";
+
+  if (!mapFunctionToBuckets || !functions.length) {
+    return null;
+  }
+
+  let hadDataAt = -1;
+  for (const [i, bucket] of mapFunctionToBuckets.get(functions[0])!.entries()) {
+    const dataPoint: any = {};
+    dataPoint[xAxisKey] = format(bucket.time, "h:mm a");
+    for (const f of functions) {
+      const { metric } = mapFunctionToBuckets.get(f)![i];
+      if (hadDataAt === -1) {
+        hadDataAt = metric !== null ? i : hadDataAt;
+      }
+      dataPoint[identifierForMetricName(f)] =
+        metric ?? (hadDataAt > -1 ? 0 : null);
+    }
+    data.push(dataPoint);
+  }
+
+  const colorForFunction = new Map<string, string>();
+  for (const f of functions) {
+    if (f === "_rest") {
+      colorForFunction.set(f, restColor);
+      continue;
+    }
+
+    const colorIndex =
+      [...f].reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+      lineColors.length;
+    let color = lineColors[colorIndex];
+    let attempts = 0;
+    while (
+      [...colorForFunction.values()].includes(color) &&
+      attempts < lineColors.length
+    ) {
+      attempts++;
+      color = lineColors[(colorIndex + attempts) % lineColors.length];
+    }
+    colorForFunction.set(f, color);
+  }
+
+  for (const f of functions) {
+    const key = identifierForMetricName(f);
+    const lineKey = {
+      key,
+      name: key,
+      color: colorForFunction.get(f)!,
+    };
+    lineKeys.push(lineKey);
+  }
+
+  return {
+    data: hadDataAt > -1 ? data.slice(hadDataAt === 59 ? 58 : hadDataAt) : data,
+    xAxisKey,
+    lineKeys,
+  };
+}
+
 const restColor = "var(--chart-line-1)";
 const lineColors = [
   "var(--chart-line-2)",
@@ -426,4 +526,125 @@ export async function tableRate(
   }
   const respJSON: TimeseriesResponse = await response.json();
   return responseToTimeseries(respJSON);
+}
+
+type FunctionConcurrencyResponse = Record<string, TimeseriesResponse>;
+
+function mapFunctionTypeToDisplayName(
+  env: string,
+  udfType: string,
+): string | null {
+  if (env === "isolate" && udfType === "Query") return "Queries";
+  if (env === "isolate" && udfType === "Mutation") return "Mutations";
+  if (env === "isolate" && udfType === "Action") return "Actions";
+  if (env === "node" && udfType === "Action") return "Actions (Node)";
+  if (env === "isolate" && udfType === "HttpAction") return "HTTP Actions";
+  return null;
+}
+
+export function useFunctionConcurrency(): {
+  running: ChartData | null;
+  queued: ChartData | null;
+} {
+  const url = "/api/app_metrics/function_concurrency";
+  const isDisconnected = useDeploymentIsDisconnected();
+  const deploymentUrl = useDeploymentUrl();
+  const authHeader = useDeploymentAuthHeader();
+
+  const fetcher = async () => {
+    const start = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
+    const end = new Date();
+    const windowArgs = {
+      start: serializeDate(start),
+      end: serializeDate(end),
+      num_buckets: 60,
+    };
+    const window = JSON.stringify(windowArgs);
+    const params = { window };
+    const queryString = new URLSearchParams(params).toString();
+    return deploymentFetch([
+      deploymentUrl,
+      `${url}?${queryString}`,
+      authHeader,
+    ]);
+  };
+
+  const { data: responseData } = useSWR(isDisconnected ? null : url, fetcher, {
+    refreshInterval: 2.5 * 1000,
+  });
+
+  if (!responseData) {
+    return { running: null, queued: null };
+  }
+
+  const rawData = responseData as FunctionConcurrencyResponse;
+
+  const runningMetrics = new Map<string, Timeseries>();
+  const queuedMetrics = new Map<string, Timeseries>();
+
+  for (const [key, timeseries] of Object.entries(rawData)) {
+    const parts = key.split(":");
+    if (parts.length !== 4 || parts[0] !== "outstanding_functions") {
+      continue;
+    }
+
+    const [, env, udfType, state] = parts;
+    const displayName = mapFunctionTypeToDisplayName(env, udfType);
+
+    if (!displayName) continue;
+
+    const parsedTimeseries = responseToTimeseries(timeseries);
+
+    if (state === "running") {
+      runningMetrics.set(displayName, parsedTimeseries);
+    } else if (state === "queued") {
+      queuedMetrics.set(displayName, parsedTimeseries);
+    }
+  }
+
+  const buildChartData = (
+    metricsMap: Map<string, Timeseries>,
+  ): ChartData | null => {
+    const functionTypes = [...metricsMap.keys()];
+    if (functionTypes.length === 0) return null;
+
+    const data = [];
+    const lineKeys = [];
+    const xAxisKey = "time";
+
+    const firstTimeseries = metricsMap.get(functionTypes[0])!;
+    for (const [i, bucket] of firstTimeseries.entries()) {
+      const dataPoint: any = {};
+      dataPoint[xAxisKey] = format(bucket.time, "h:mm a");
+
+      for (const functionType of functionTypes) {
+        const timeseries = metricsMap.get(functionType)!;
+        const { metric } = timeseries[i];
+        dataPoint[functionType] = metric ?? 0;
+      }
+
+      data.push(dataPoint);
+    }
+
+    const colorForFunction = new Map<string, string>();
+    for (const [index, functionType] of functionTypes.entries()) {
+      const colorIndex = index % lineColors.length;
+      colorForFunction.set(functionType, lineColors[colorIndex]);
+    }
+
+    for (const functionType of functionTypes) {
+      lineKeys.push({
+        key: functionType,
+        name: functionType,
+        color: colorForFunction.get(functionType)!,
+      });
+    }
+
+    return { data, xAxisKey, lineKeys };
+  };
+
+  return {
+    running: buildChartData(runningMetrics),
+    queued: buildChartData(queuedMetrics),
+  };
 }

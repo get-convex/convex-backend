@@ -119,7 +119,7 @@ export function SingleGraph({
                   return (
                     <Line
                       isAnimationActive={false}
-                      strokeWidth={1.5}
+                      strokeWidth={1}
                       activeDot={{ r: 4, className: "stroke-none" }}
                       key={dataKey}
                       dataKey={dataKey}
