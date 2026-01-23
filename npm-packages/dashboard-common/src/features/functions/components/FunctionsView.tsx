@@ -51,8 +51,8 @@ function Functions() {
             className="size-8 min-w-8 text-content-primary"
             aria-hidden
           />
-          Select a function in the expandable panel to the left to view its
-          statistics, code, and logs.
+          Select a function in the expandable panel to the left to view metrics
+          and logs.
         </Sheet>
       </div>
     );
