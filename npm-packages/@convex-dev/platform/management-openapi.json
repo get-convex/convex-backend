@@ -570,6 +570,16 @@
           "projectName": {
             "$ref": "#/components/schemas/ProjectName",
             "description": "The full name of the project as it will appear in the dashboard. Spaces\nand punctuations allowed."
+          },
+          "region": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PlatformProjectRegion"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -789,6 +799,13 @@
             "$ref": "#/components/schemas/TeamId"
           }
         }
+      },
+      "PlatformProjectRegion": {
+        "type": "string",
+        "title": "Region",
+        "enum": [
+          "aws-us-east-1"
+        ]
       },
       "PlatformTokenDetailsResponse": {
         "oneOf": [

@@ -92,7 +92,10 @@ pub use object_key::{
     FullyQualifiedObjectKey,
     ObjectKey,
 };
-pub use region::RegionName;
+pub use region::{
+    default_region,
+    RegionName,
+};
 pub use search_index_metric_labels::SearchIndexMetricLabels;
 pub use snapshot_export::SetExportExpirationRequest;
 pub use table::TableStats;

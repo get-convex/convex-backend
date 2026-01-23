@@ -4134,6 +4134,9 @@
           "projectName": {
             "$ref": "#/components/schemas/ProjectName"
           },
+          "region": {
+            "$ref": "#/components/schemas/RegionName"
+          },
           "team": {
             "$ref": "#/components/schemas/TeamSlug"
           }
@@ -5794,6 +5797,9 @@
           },
           "deploymentType": {
             "$ref": "#/components/schemas/DeploymentType"
+          },
+          "region": {
+            "$ref": "#/components/schemas/RegionName"
           }
         },
         "additionalProperties": false
@@ -5961,6 +5967,9 @@
             ]
           }
         }
+      },
+      "RegionName": {
+        "type": "string"
       },
       "RegisterOauthAppArgs": {
         "type": "object",

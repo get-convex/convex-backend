@@ -2088,6 +2088,7 @@ export interface components {
             deploymentClass?: null | components["schemas"]["DeploymentClass"];
             deploymentType?: null | components["schemas"]["DeploymentType"];
             projectName: components["schemas"]["ProjectName"];
+            region?: components["schemas"]["RegionName"];
             team: components["schemas"]["TeamSlug"];
         };
         CreateProjectResponse: {
@@ -2521,6 +2522,7 @@ export interface components {
         ProvisionDeploymentDashboardArgs: {
             deploymentClass?: null | components["schemas"]["DeploymentClass"];
             deploymentType: components["schemas"]["DeploymentType"];
+            region?: components["schemas"]["RegionName"];
         };
         ProvisionDeploymentDashboardResponse: {
             deploymentName: string;
@@ -2568,6 +2570,7 @@ export interface components {
             referrals: components["schemas"]["TeamName"][];
             referredBy?: null | components["schemas"]["TeamName"];
         };
+        RegionName: string;
         RegisterOauthAppArgs: {
             appName: components["schemas"]["AppName"];
             redirectUris: string[];
@@ -2951,6 +2954,7 @@ export type ProvisionWorkOsTeamResponse = components['schemas']['ProvisionWorkOS
 export type RecordTokensArgs = components['schemas']['RecordTokensArgs'];
 export type ReferralCode = components['schemas']['ReferralCode'];
 export type ReferralState = components['schemas']['ReferralState'];
+export type RegionName = components['schemas']['RegionName'];
 export type RegisterOauthAppArgs = components['schemas']['RegisterOauthAppArgs'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
 export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs'];
