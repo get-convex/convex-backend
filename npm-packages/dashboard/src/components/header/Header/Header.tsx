@@ -9,7 +9,7 @@ import { AskAI } from "elements/AskAI";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";
 import { useCurrentProject } from "api/projects";
 import { User } from "@workos-inc/node";
-import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
+import { ConvexStatusBadge } from "lib/ConvexStatusBadge";
 import { useConvexStatus } from "hooks/useConvexStatus";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { UserMenu } from "../UserMenu/UserMenu";
@@ -30,7 +30,7 @@ function ConvexStatus() {
 
   return (
     <div className="flex items-center px-2.5">
-      <ConvexStatusWidget status={status} />
+      <ConvexStatusBadge status={status} />
     </div>
   );
 }
