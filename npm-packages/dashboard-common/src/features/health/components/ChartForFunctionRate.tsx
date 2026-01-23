@@ -220,15 +220,14 @@ export function ChartForFunctionRate({
                               <div>
                                 {kind === "schedulerStatus"
                                   ? `${(dataPoint.value as number).toLocaleString()} minutes`
-                                  : kind === "functionConcurrency"
-                                    ? `${(dataPoint.value as number).toLocaleString()} ${(dataPoint.value as number) === 1 ? "function" : "functions"}`
-                                    : kind === "functionCalls"
-                                      ? `${formatNumberCompact(dataPoint.value as number)} ${(dataPoint.value as number) === 1 ? "call" : "calls"}`
-                                      : `${(dataPoint.value as number).toFixed(
-                                          (dataPoint.value as number) % 1 === 0
-                                            ? 0
-                                            : 2,
-                                        )}%`}
+                                  : kind === "functionConcurrency" ||
+                                      kind === "functionCalls"
+                                    ? `${formatNumberCompact(dataPoint.value as number)} ${(dataPoint.value as number) === 1 ? "call" : "calls"}`
+                                    : `${(dataPoint.value as number).toFixed(
+                                        (dataPoint.value as number) % 1 === 0
+                                          ? 0
+                                          : 2,
+                                      )}%`}
                               </div>
                             </span>
                           ),
