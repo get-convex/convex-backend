@@ -94,6 +94,7 @@ pub use object_key::{
 };
 pub use region::{
     default_region,
+    set_test_region_as_default,
     RegionName,
 };
 pub use search_index_metric_labels::SearchIndexMetricLabels;

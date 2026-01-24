@@ -1,4 +1,7 @@
-use std::sync::LazyLock;
+use std::sync::{
+    LazyLock,
+    OnceLock,
+};
 
 use tuple_struct::tuple_struct_string;
 
@@ -10,19 +13,20 @@ impl Default for RegionName {
     }
 }
 
-#[cfg_attr(any(test, feature = "testing"), allow(dead_code))]
 static DEFAULT_REGION: LazyLock<RegionName> = LazyLock::new(|| "aws-us-east-1".into());
-#[cfg_attr(not(any(test, feature = "testing")), allow(dead_code))]
-static TEST_REGION: LazyLock<RegionName> = LazyLock::new(|| "local".into());
+
+// We are only able to determine what the default region should be at runtime,
+// so we set the region in local_dev_bootstrap or setup_db, and then use the
+// default_region function everywhere
+static RUNTIME_DEFAULT_REGION: OnceLock<RegionName> = OnceLock::new();
+
+pub fn set_test_region_as_default() -> anyhow::Result<()> {
+    RUNTIME_DEFAULT_REGION
+        .set("local".into())
+        .map_err(|_| anyhow::anyhow!("Default region already set to test region"))
+}
 
 /// Returns the default region for the current environment.
 pub fn default_region() -> &'static RegionName {
-    #[cfg(any(test, feature = "testing"))]
-    {
-        &TEST_REGION
-    }
-    #[cfg(not(any(test, feature = "testing")))]
-    {
-        &DEFAULT_REGION
-    }
+    RUNTIME_DEFAULT_REGION.get_or_init(|| DEFAULT_REGION.clone())
 }
