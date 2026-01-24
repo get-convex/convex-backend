@@ -3,7 +3,6 @@
 //! environment, but the environment may decide not to implement their
 //! functionality, causing a runtime error.
 
-mod blob;
 mod console;
 mod crypto;
 mod database;
@@ -51,11 +50,6 @@ use value::{
 };
 
 use self::{
-    blob::{
-        op_blob_create_part,
-        op_blob_read_part,
-        op_blob_slice_part,
-    },
     console::{
         op_console_message,
         op_console_time_end,
@@ -147,9 +141,6 @@ pub trait OpProvider<'b> {
         resolver: v8::Global<v8::PromiseResolver>,
     ) -> anyhow::Result<()>;
 
-    fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid>;
-    fn get_blob_part(&mut self, uuid: &Uuid) -> anyhow::Result<Option<Bytes>>;
-
     fn create_stream(&mut self) -> anyhow::Result<Uuid>;
     fn extend_stream(
         &mut self,
@@ -229,16 +220,6 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'i>
         state.environment.start_async_op(request, resolver)
     }
 
-    fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid> {
-        let state = self.state_mut()?;
-        state.create_blob_part(bytes)
-    }
-
-    fn get_blob_part(&mut self, uuid: &Uuid) -> anyhow::Result<Option<Bytes>> {
-        let state = self.state_mut()?;
-        Ok(state.blob_parts.get(uuid).cloned())
-    }
-
     fn create_stream(&mut self) -> anyhow::Result<Uuid> {
         self.state_mut()?.create_stream()
     }
@@ -250,17 +231,12 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'i>
         new_done: bool,
     ) -> anyhow::Result<()> {
         let state = self.state_mut()?;
-        let new_part_id = match bytes {
-            Some(bytes) => {
-                if let Some(request_stream_state) = state.request_stream_state.as_mut()
-                    && request_stream_state.stream_id() == id
-                {
-                    request_stream_state.track_bytes_read(bytes.len());
-                }
-                Some(state.create_blob_part(bytes)?)
-            },
-            None => None,
-        };
+        if let Some(bytes) = &bytes
+            && let Some(request_stream_state) = state.request_stream_state.as_mut()
+            && request_stream_state.stream_id() == id
+        {
+            request_stream_state.track_bytes_read(bytes.len());
+        }
         state.streams.mutate(&id, |stream| -> anyhow::Result<()> {
             let Some(Ok(ReadableStream { parts, done })) = stream else {
                 anyhow::bail!("unrecognized stream id {id}");
@@ -268,8 +244,8 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'i>
             if *done {
                 anyhow::bail!("stream {id} is already done");
             }
-            if let Some(new_part_id) = new_part_id {
-                parts.push_back(new_part_id);
+            if let Some(bytes) = bytes {
+                parts.push_back(bytes);
             }
             if new_done {
                 *done = true;
@@ -351,9 +327,6 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "url/getUrlSearchParamPairs" => op_url_get_url_search_param_pairs(provider, args, rv)?,
         "url/stringifyUrlSearchParams" => op_url_stringify_url_search_params(provider, args, rv)?,
         "url/updateUrlInfo" => op_url_update_url_info(provider, args, rv)?,
-        "blob/createPart" => op_blob_create_part(provider, args, rv)?,
-        "blob/slicePart" => op_blob_slice_part(provider, args, rv)?,
-        "blob/readPart" => op_blob_read_part(provider, args, rv)?,
         "headers/getMimeType" => op_headers_get_mime_type(provider, args, rv)?,
         "headers/normalizeName" => op_headers_normalize_name(provider, args, rv)?,
         "stream/create" => op_stream_create(provider, args, rv)?,

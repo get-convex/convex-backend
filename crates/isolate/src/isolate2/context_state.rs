@@ -143,10 +143,6 @@ impl ContextState {
         bytes: Option<Bytes>,
         new_done: bool,
     ) -> anyhow::Result<()> {
-        let new_part_id = match bytes {
-            Some(bytes) => Some(self.create_blob_part(bytes)?),
-            None => None,
-        };
         self.streams.mutate(&id, |stream| -> anyhow::Result<()> {
             let Some(Ok(ReadableStream { parts, done })) = stream else {
                 anyhow::bail!("unrecognized stream id {id}");
@@ -154,8 +150,8 @@ impl ContextState {
             if *done {
                 anyhow::bail!("stream {id} is already done");
             }
-            if let Some(new_part_id) = new_part_id {
-                parts.push_back(new_part_id);
+            if let Some(bytes) = bytes {
+                parts.push_back(bytes);
             }
             if new_done {
                 *done = true;

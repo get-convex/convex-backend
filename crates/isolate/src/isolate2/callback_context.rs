@@ -16,7 +16,6 @@ use errors::{
 };
 use serde::Serialize;
 use serde_json::Value as JsonValue;
-use uuid::Uuid;
 
 use super::{
     client::{
@@ -381,7 +380,7 @@ impl<'callback, 'scope: 'callback, 'i> CallbackContext<'callback, 'scope, 'i> {
             for stream_id in state.stream_listeners.keys() {
                 let chunk = state.streams.mutate(
                     stream_id,
-                    |stream| -> anyhow::Result<Result<(Option<Uuid>, bool), ()>> {
+                    |stream| -> anyhow::Result<Result<(Option<bytes::Bytes>, bool), ()>> {
                         let stream = stream
                             .ok_or_else(|| anyhow::anyhow!("listening on nonexistent stream"))?;
                         let result = match stream {
@@ -400,11 +399,7 @@ impl<'callback, 'scope: 'callback, 'i> CallbackContext<'callback, 'scope, 'i> {
                     },
                     Ok((chunk, stream_done)) => {
                         if let Some(chunk) = chunk {
-                            let ready_chunk = state
-                                .blob_parts
-                                .remove(&chunk)
-                                .ok_or_else(|| anyhow::anyhow!("stream chunk missing"))?;
-                            ready.insert(*stream_id, Ok(Some(ready_chunk)));
+                            ready.insert(*stream_id, Ok(Some(chunk)));
                         } else if stream_done {
                             ready.insert(*stream_id, Ok(None));
                         }
@@ -549,16 +544,6 @@ mod op_provider {
             };
             state.pending_async_ops.push(pending_async_op);
             Ok(())
-        }
-
-        fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid> {
-            let state = self.context_state()?;
-            state.create_blob_part(bytes)
-        }
-
-        fn get_blob_part(&mut self, uuid: &Uuid) -> anyhow::Result<Option<Bytes>> {
-            let state = self.context_state()?;
-            Ok(state.get_blob_part(uuid))
         }
 
         fn create_stream(&mut self) -> anyhow::Result<Uuid> {

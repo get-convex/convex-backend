@@ -1033,3 +1033,15 @@ async fn test_paginate_page_size_limit(rt: TestRuntime) -> anyhow::Result<()> {
     assert_contains(&e, "Requested too many items");
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_blob_oom(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate(rt, async move |t| {
+        let e = t
+            .action_js_error("adversarial:blobOom", assert_obj!())
+            .await?;
+        assert_contains(&e, "allocation failed");
+        Ok(())
+    })
+    .await
+}

@@ -26,10 +26,13 @@ function empty_blob() {
 }
 
 async function from_array_buffer() {
-  const input = new Uint8Array([1, 2, 3]).buffer;
-  const b = new Blob([input]);
+  const input = new Uint8Array([1, 2, 3]);
+  const b = new Blob([input.buffer]);
   assert.strictEqual(b.size, 3);
-  assert.deepEqual(await b.arrayBuffer(), input);
+  assert.deepEqual(await b.arrayBuffer(), input.buffer);
+  // Mutating the original array doesn't mutate the blob
+  input[0] = 10;
+  assert.strictEqual(new Uint8Array(await b.arrayBuffer())[0], 1);
 }
 
 async function from_type_array() {
@@ -37,6 +40,8 @@ async function from_type_array() {
   const b = new Blob([input]);
   assert.strictEqual(b.size, 3);
   assert.deepEqual(await b.arrayBuffer(), input.buffer);
+  input[0] = 10;
+  assert.strictEqual(new Uint8Array(await b.arrayBuffer())[0], 1);
 }
 
 async function from_string() {

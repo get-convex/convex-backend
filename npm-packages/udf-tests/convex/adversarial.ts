@@ -248,6 +248,15 @@ export const oom = query(async ({ db }) => {
   return s.length;
 });
 
+export const blobOom = action(() => {
+  const a = [];
+  const arr = new Uint8Array(1048576);
+  for (let i = 0; i < 20480; i++) {
+    a.push(arr);
+  }
+  return new Blob(a).size;
+});
+
 export const tooManyWrites = mutation(async ({ db }) => {
   for (let i = 0; i < 16002; i++) {
     await db.insert("test", { counter: i });

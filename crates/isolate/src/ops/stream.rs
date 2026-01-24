@@ -69,7 +69,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
             for stream_id in state.stream_listeners.keys() {
                 let chunk = state.streams.mutate(
                     stream_id,
-                    |stream| -> anyhow::Result<Result<(Option<Uuid>, bool), ()>> {
+                    |stream| -> anyhow::Result<Result<(Option<bytes::Bytes>, bool), ()>> {
                         let stream = stream
                             .ok_or_else(|| anyhow::anyhow!("listening on nonexistent stream"))?;
                         let result = match stream {
@@ -88,11 +88,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
                     },
                     Ok((chunk, stream_done)) => {
                         if let Some(chunk) = chunk {
-                            let ready_chunk = state
-                                .blob_parts
-                                .remove(&chunk)
-                                .ok_or_else(|| anyhow::anyhow!("stream chunk missing"))?;
-                            ready.insert(*stream_id, Ok(Some(ready_chunk)));
+                            ready.insert(*stream_id, Ok(Some(chunk)));
                         } else if stream_done {
                             ready.insert(*stream_id, Ok(None));
                         }

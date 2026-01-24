@@ -223,11 +223,9 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
             .context("missing ArrayBufferMemoryLimit?")?
             .used();
         self.with_state_mut(|state| {
-            let blobs_heap_size = state.blob_parts.heap_size();
             let streams_heap_size = state.streams.heap_size() + state.stream_listeners.heap_size();
             state.environment.record_heap_stats(IsolateHeapStats::new(
                 stats,
-                blobs_heap_size,
                 streams_heap_size,
                 array_buffer_size,
             ));

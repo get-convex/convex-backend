@@ -3,7 +3,6 @@
 // https://github.com/denoland/deno/blob/main/LICENSE.md
 
 import { throwNotImplementedMethodError } from "./helpers";
-import { performOp } from "./syscall";
 import { ReadableStream } from "./06_streams";
 
 async function* toIterator(
@@ -22,34 +21,28 @@ async function* toIterator(
   }
 }
 
-// TODO(presley): To have proper streaming, BlobReference should be able to
-// reference resources in rust and fetch them via ops. For now, just wrap Uint8Array.
 class BlobReference {
-  private _id: string;
-  private _size: number;
+  #data: ArrayBuffer;
 
-  constructor(id: string, size: number) {
-    this._id = id;
-    this._size = size;
+  constructor(data: ArrayBuffer) {
+    this.#data = data;
   }
 
   static fromUint8Array(data: Uint8Array) {
-    const id = performOp("blob/createPart", data);
-    return new BlobReference(id, data.byteLength);
+    // Copy the data to freeze it, in case `data` gets mutated later
+    return new BlobReference(data.slice().buffer);
   }
 
   slice(start: number, end: number): BlobReference {
-    const size = end - start;
-    const id = performOp("blob/slicePart", this._id, start, size);
-    return new BlobReference(id, size);
+    return new BlobReference(this.#data.slice(start, end));
   }
 
   arrayBuffer(): ArrayBuffer {
-    return performOp("blob/readPart", this._id);
+    return this.#data.slice();
   }
 
   get size() {
-    return this._size;
+    return this.#data.byteLength;
   }
 }
 
@@ -308,13 +301,6 @@ export class Blob {
       normalizedType = str;
     }
     return normalizedType.toLowerCase();
-  }
-
-  static fromIdPart(id: string, size: number): Blob {
-    const blob = new Blob();
-    blob._parts = [new BlobReference(id, size)];
-    blob._size = size;
-    return blob;
   }
 
   static fromStream(

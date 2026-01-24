@@ -93,7 +93,6 @@ pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     pub rt: RT,
     pub environment: E,
 
-    pub blob_parts: WithHeapSize<BTreeMap<uuid::Uuid, bytes::Bytes>>,
     pub streams: WithHeapSize<BTreeMap<uuid::Uuid, anyhow::Result<ReadableStream>>>,
     pub stream_listeners: WithHeapSize<BTreeMap<uuid::Uuid, StreamListener>>,
     /// Tracks bytes read in HTTP action requests
@@ -137,7 +136,7 @@ pub struct TextDecoderResource {
 
 #[derive(Debug, Default)]
 pub struct ReadableStream {
-    pub parts: WithHeapSize<VecDeque<uuid::Uuid>>,
+    pub parts: WithHeapSize<VecDeque<bytes::Bytes>>,
     pub done: bool,
 }
 
@@ -160,12 +159,6 @@ impl HeapSize for StreamListener {
 }
 
 impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
-    pub fn create_blob_part(&mut self, bytes: bytes::Bytes) -> anyhow::Result<uuid::Uuid> {
-        let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
-        self.blob_parts.insert(uuid, bytes);
-        Ok(uuid)
-    }
-
     pub fn create_stream(&mut self) -> anyhow::Result<uuid::Uuid> {
         let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.streams.insert(uuid, Ok(ReadableStream::default()));
@@ -207,14 +200,6 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
             .remove(decoder_id)
             .ok_or_else(|| anyhow::anyhow!("Text decoder resource not found"))?;
         Ok(decoder)
-    }
-
-    #[allow(unused)]
-    pub fn read_part(&self, id: uuid::Uuid) -> anyhow::Result<bytes::Bytes> {
-        self.blob_parts
-            .get(&id)
-            .ok_or_else(|| anyhow::anyhow!("unrecognized blob id {id}"))
-            .cloned()
     }
 
     /// As the name implies, the time returned by this function would be a

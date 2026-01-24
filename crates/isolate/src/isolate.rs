@@ -128,7 +128,6 @@ pub struct IsolateHeapStats {
     // Heap used for syscalls and similar related to processing the request.
     pub environment_heap_size: usize,
 
-    pub blobs_heap_size: usize,
     pub streams_heap_size: usize,
     pub array_buffer_size: usize,
 }
@@ -136,7 +135,6 @@ pub struct IsolateHeapStats {
 impl IsolateHeapStats {
     pub fn new(
         stats: v8::HeapStatistics,
-        blobs_heap_size: usize,
         streams_heap_size: usize,
         array_buffer_size: usize,
     ) -> Self {
@@ -148,14 +146,13 @@ impl IsolateHeapStats {
             v8_malloced_memory: stats.malloced_memory(),
             v8_external_memory_bytes: stats.external_memory(),
             environment_heap_size: 0,
-            blobs_heap_size,
             streams_heap_size,
             array_buffer_size,
         }
     }
 
     pub fn env_heap_size(&self) -> usize {
-        self.environment_heap_size + self.blobs_heap_size + self.streams_heap_size
+        self.environment_heap_size + self.streams_heap_size
     }
 }
 
@@ -252,7 +249,7 @@ impl<RT: Runtime> Isolate<RT> {
     // Heap stats for an isolate that has no associated state or environment.
     pub fn heap_stats(&mut self) -> IsolateHeapStats {
         let stats = self.v8_isolate.get_heap_statistics();
-        IsolateHeapStats::new(stats, 0, 0, self.array_buffer_memory_limit.used())
+        IsolateHeapStats::new(stats, 0, self.array_buffer_memory_limit.used())
     }
 
     pub fn check_isolate_clean(&mut self) -> Result<(), IsolateNotClean> {
@@ -329,7 +326,6 @@ impl<RT: Runtime> Isolate<RT> {
         let state = RequestState {
             rt: self.rt.clone(),
             environment,
-            blob_parts: WithHeapSize::default(),
             streams: WithHeapSize::default(),
             stream_listeners: WithHeapSize::default(),
             request_stream_state: None,
