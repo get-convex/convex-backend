@@ -2085,7 +2085,7 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         CreateProjectArgs: {
-            deploymentClass?: null | components["schemas"]["DeploymentClass"];
+            deploymentClass?: string | null;
             deploymentType?: null | components["schemas"]["DeploymentType"];
             projectName: components["schemas"]["ProjectName"];
             region?: components["schemas"]["RegionName"];
@@ -2152,8 +2152,6 @@ export interface components {
             workosEnvironmentName: string;
             workosTeamId: string;
         };
-        /** @enum {string} */
-        DeploymentClass: "s16" | "s256" | "d1024";
         /** Format: int64 */
         DeploymentId: number;
         DeploymentResponse: {
@@ -2520,7 +2518,7 @@ export interface components {
         ProjectsResponse: components["schemas"]["PaginatedProjectsResponse"] | components["schemas"]["ProjectDetails"][];
         ProposedTeamName: string;
         ProvisionDeploymentDashboardArgs: {
-            deploymentClass?: null | components["schemas"]["DeploymentClass"];
+            deploymentClass?: string | null;
             deploymentType: components["schemas"]["DeploymentType"];
             region?: components["schemas"]["RegionName"];
         };
@@ -2876,7 +2874,6 @@ export type DeleteProjectEnvironmentResponse = components['schemas']['DeleteProj
 export type DeleteProjectsArgs = components['schemas']['DeleteProjectsArgs'];
 export type DeleteWorkOsEnvironmentRequest = components['schemas']['DeleteWorkOSEnvironmentRequest'];
 export type DeleteWorkOsEnvironmentResponse = components['schemas']['DeleteWorkOSEnvironmentResponse'];
-export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];

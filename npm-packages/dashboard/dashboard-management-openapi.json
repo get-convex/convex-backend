@@ -4112,13 +4112,9 @@
         ],
         "properties": {
           "deploymentClass": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/DeploymentClass"
-              }
+            "type": [
+              "string",
+              "null"
             ]
           },
           "deploymentType": {
@@ -4367,14 +4363,6 @@
             "type": "string"
           }
         }
-      },
-      "DeploymentClass": {
-        "type": "string",
-        "enum": [
-          "s16",
-          "s256",
-          "d1024"
-        ]
       },
       "DeploymentId": {
         "type": "integer",
@@ -5787,13 +5775,9 @@
         ],
         "properties": {
           "deploymentClass": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/DeploymentClass"
-              }
+            "type": [
+              "string",
+              "null"
             ]
           },
           "deploymentType": {

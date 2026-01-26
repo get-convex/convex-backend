@@ -283,8 +283,6 @@ export interface components {
         /** @enum {string} */
         CreateDeploymentType: "dev" | "prod";
         /** @enum {string} */
-        DeploymentClass: "s16" | "s256" | "d1024";
-        /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
         /** Format: int64 */
@@ -298,12 +296,12 @@ export interface components {
             deployKey: components["schemas"]["AdminKey"];
         };
         PlatformCreateDeploymentArgs: {
-            class?: null | components["schemas"]["DeploymentClass"];
+            class?: string | null;
             region?: components["schemas"]["RegionName"];
             type: components["schemas"]["CreateDeploymentType"];
         };
         PlatformCreateProjectArgs: {
-            deploymentClass?: null | components["schemas"]["DeploymentClass"];
+            deploymentClass?: string | null;
             deploymentRegion?: components["schemas"]["RegionName"];
             /** @description Projects always include a deployment, so start this project off with a
              *     "dev" development deployment or a "prod" production deployment. */
@@ -442,7 +440,6 @@ export interface components {
 }
 export type AdminKey = components['schemas']['AdminKey'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
-export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type MemberId = components['schemas']['MemberId'];
