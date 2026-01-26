@@ -1,0 +1,260 @@
+---
+title: 流式传输
+sidebar_label: "Streaming"
+sidebar_position: 340
+description: "使用 Agent 进行消息流式传输"
+---
+
+对消息进行流式传输是在使用 LLM 时向用户提供反馈并保持应用响应性的很好方式。
+
+传统上，流式传输是通过 HTTP 流式传输完成的，客户端发送请求并等待完整响应以流的形式返回。使用 Agent 时，这可以开箱即用，就像你使用 AI SDK 的方式一样。如果你只需要这种用法，请参见[下面](#consuming-the-stream-yourself-with-the-agent)。
+
+不过，使用 Agent 组件你也可以异步地流式传输消息，这意味着生成过程不必发生在 HTTP 处理程序（`httpAction`）中，并且即使客户端的网络连接中断，响应也可以以流式方式返回给一个或多个客户端。
+
+其工作方式是将流式生成的内容分组保存到数据库中（增量，delta），客户端在这些增量被生成时订阅给定线程的新增量。额外的好处是，你甚至不需要使用 Agent 版本的 `streamText` 就可以采用这种增量流式传输方式（参见[下面](#advanced-streaming-deltas-asynchronously-without-using-an-agent)）。
+
+示例：
+
+* 服务器：
+  [streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+* 客户端：
+  [ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)
+
+## 流式传输消息增量 \{#streaming-message-deltas\}
+
+最简单的流式传输方式是将选项 `{ saveStreamDeltas: true }` 传递给
+`agent.streamText`。这会在生成响应的过程中将响应片段作为增量保存下来，因此所有客户端都可以订阅该流，并通过普通的 Convex 查询获取实时更新的文本。
+
+```ts
+agent.streamText(ctx, { threadId }, { prompt }, { saveStreamDeltas: true });
+```
+
+你可以在 async 函数中完成这一操作，即使此时无法通过 HTTP 向客户端进行流式传输。在底层实现中，它会将响应拆分为多段，并对保存这些增量进行防抖处理，以避免占用过多带宽。你可以向 `saveStreamDeltas` 传入更多选项来配置分块和防抖行为。
+
+```ts
+  { saveStreamDeltas: { chunking: "line", throttleMs: 1000 } },
+```
+
+* `chunking` 可以是 &quot;word&quot;、&quot;line&quot;、正则表达式，或自定义函数。
+* `throttleMs` 表示保存增量数据的频率。它会在每个增量中发送多个
+  chunk，按顺序写入，并且写入速度不会快于
+  throttleMs
+  （[single-flighted](https://stack.convex.dev/throttling-requests-by-single-flighting)
+  ）。
+
+## 检索流式增量 \{#retrieving-streamed-deltas\}
+
+要让客户端以流式方式接收消息，你需要暴露一个返回这些流式增量的查询函数。这与
+[检索消息](./messages.mdx#retrieving-messages) 非常相似，只是有一些不同之处：
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+// highlight-next-line
+import { vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    // 非流式消息的分页选项。
+    paginationOpts: paginationOptsValidator,
+    // highlight-next-line
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    // 获取常规非流式消息。
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // highlight-next-line
+    const streams = await syncStreams(ctx, components.agent, args);
+
+    // highlight-next-line
+    return { ...paginated, streams };
+  },
+});
+```
+
+与[非流式消息](./messages.mdx#useuimessages-hook)类似，你可以使用 `useUIMessages` 钩子来获取消息，并传入 `stream: true` 来启用流式传输。
+
+```ts
+const { results, status, loadMore } = useUIMessages(
+  api.chat.streaming.listMessages,
+  { threadId },
+  // highlight-next-line
+  { initialNumItems: 10, stream: true },
+);
+```
+
+### 使用 `SmoothText` 和 `useSmoothText` 进行文本平滑 \{#text-smoothing-with-smoothtext-and-usesmoothtext\}
+
+`useSmoothText` 是一个简单的 Hook，用于在文本发生变化时让其过渡更加平滑。
+它可以用于任意文本，但对流式文本尤其适用。
+
+```ts
+import { useSmoothText } from "@convex-dev/agent/react";
+
+// 在组件中
+const [visibleText] = useSmoothText(message.text);
+```
+
+你可以配置初始的每秒字符数。它会随着时间自动调整，以匹配接收文本的平均速度。
+
+默认情况下，它不会对收到的第一段文本进行流式输出，除非你传入
+`startStreaming: true`。要在同时包含流式和非流式消息的情况下，一收到第一条消息就立即开始流式输出，可以这样做：
+
+```ts
+import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
+
+function Message({ message }: { message: UIMessage }) {
+  const [visibleText] = useSmoothText(message.text, {
+    startStreaming: message.status === "streaming",
+  });
+  return <div>{visibleText}</div>;
+}
+```
+
+如果你不想使用 hook，可以改用 `SmoothText` 组件。
+
+```tsx
+import { SmoothText } from "@convex-dev/agent/react";
+
+//...
+<SmoothText text={message.text} />;
+```
+
+## 使用 Agent 自行消费流 \{#consuming-the-stream-yourself-with-the-agent\}
+
+你可以像使用底层 AI SDK 一样，以各种方式消费这个流——
+例如遍历内容，或者使用
+[`result.toDataStreamResponse()`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#to-data-stream-response)。
+
+如果你不打算同时保存增量数据（deltas），代码可能会像下面这样：
+
+```ts
+const result = await agent.streamText(ctx, { threadId }, { prompt });
+
+for await (const textPart of result.textStream) {
+  console.log(textPart);
+}
+```
+
+如果你既想在流式传输进行时进行迭代，又想保存增量数据，可以将 `{ saveStreamDeltas: { returnImmediately: true } }` 传给
+`streamText`。这会立刻返回，然后你就可以实时迭代该流，或者在 HTTP 响应中返回该流。
+
+```ts
+const result = await agent.streamText(
+  ctx,
+  { threadId },
+  { prompt },
+  { saveStreamDeltas: { returnImmediately: true } },
+);
+
+return result.toUIMessageStreamResponse();
+```
+
+如果你完全不想使用 Agent，下一节将向你展示
+如何自行保存这些增量数据。
+
+## 进阶：在不使用 Agent 的情况下异步流式传输增量 \{#advanced-streaming-deltas-asynchronously-without-using-an-agent\}
+
+要在不使用 Agent 对 `streamText` 的封装的情况下流式传输消息，你可以
+直接使用 AI SDK 中的 `streamText` 函数。
+
+这需要使用 `DeltaStreamer` 类将增量保存到数据库中，然后使用上面的
+方法来读取消息，不过你也可以使用一个更直接的 `useStreamingUIMessages`
+hook，它不需要从数据库中读取任何非流式消息。
+
+读取和写入这些流的要求只是它们使用来自 Agent 组件的 `threadId`，
+并且每个流都使用唯一的 `order` 保存，以便在客户端进行排序。
+
+```ts
+import { components } from "./_generated/api";
+import { type ActionCtx } from "./_generated/server";
+import { DeltaStreamer, compressUIMessageChunks } from "@convex-dev/agent";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+async function stream(ctx: ActionCtx, threadId: string, order: number) {
+  const streamer = new DeltaStreamer(
+    components.agent,
+    ctx,
+    {
+      throttleMs: 100,
+      onAsyncAbort: async () => console.error("Aborted asynchronously"),
+      // This will collapse multiple tiny deltas into one if they're being sent
+      // in quick succession.
+      compress: compressUIMessageChunks,
+      abortSignal: undefined,
+    },
+    {
+      threadId,
+      format: "UIMessageChunk",
+      order,
+      stepOrder: 0,
+      userId: undefined,
+    },
+  );
+  // Do the normal streaming with the AI SDK
+  const response = streamText({
+    model: openai.chat("gpt-4o-mini"),
+    prompt: "Tell me a joke",
+    abortSignal: streamer.abortController.signal,
+    onError: (error) => {
+      console.error(error);
+      streamer.fail(errorToString(error.error));
+    },
+  });
+
+  // 如果想等待流完成,可以在这里使用 await,
+  // 但我们让它异步处理,这样就可以返回一个流式
+  // HTTP 响应。
+  void streamer.consumeStream(response.toUIMessageStream());
+
+  return {
+    // e.g. to do `response.toTextStreamResponse()` for HTTP streaming.
+    response,
+    // We don't need this on the client, but with it we can have some clients
+    // selectively not stream down deltas when they're using HTTP streaming
+    // already.
+    streamId: await streamer.getStreamId(),
+  };
+}
+```
+
+要为客户端获取增量数据，你可以像进行常规 Agent 流式传输一样使用 `syncStreams` 函数。如果你不想获取非流式消息，则可以将其简化为：
+
+```ts
+import { v } from "convex/values";
+import { vStreamArgs, syncStreams } from "@convex-dev/agent";
+import { query } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const listStreams = query({
+  args: {
+    threadId: v.string(),
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    // await authorizeThreadAccess(ctx, args.threadId);
+    const streams = await syncStreams(ctx, components.agent, {
+      ...args,
+      // 默认情况下 syncStreams 只返回流式消息。但是,如果
+      // 您的消息没有在流式传输结束的同一事务中保存,
+      // 您可能希望在此处包含它们以避免 UI 闪烁。
+      includeStatuses: ["streaming", "aborted", "finished"],
+    });
+    return { streams };
+  },
+});
+```
+
+在客户端，你可以使用 `useStreamingUIMessages` hook 来获取这些消息。
+如果你除了 `threadId` 之外还定义了其他参数，这里会将它们与 `threadId` 一起传入。
+
+```ts
+const messages = useStreamingUIMessages(api.example.listStreams, { threadId });
+```
+
+你可以额外传入一个参数，用于跳过某些 `streamId`，或者从某个 `order` 开始来忽略之前的流。

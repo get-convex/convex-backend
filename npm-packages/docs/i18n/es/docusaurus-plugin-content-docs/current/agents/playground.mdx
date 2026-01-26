@@ -1,0 +1,79 @@
+---
+title: Área de pruebas
+sidebar_label: "Área de pruebas"
+sidebar_position: 400
+description: "Una forma sencilla de probar, depurar y desarrollar con el agente"
+---
+
+La interfaz del área de pruebas es una forma sencilla de probar, depurar y desarrollar con el agente.
+
+![Playground UI Screenshot](https://get-convex.github.io/agent/screenshot.png)
+
+* Elige un usuario para listar sus hilos.
+* Explora los hilos del usuario.
+* Muestra los mensajes del hilo seleccionado, junto con los detalles de las llamadas a herramientas.
+* Muestra los detalles de los metadatos de los mensajes.
+* Experimenta con la búsqueda contextual de mensajes, ajustando las opciones de contexto.
+* Envía un mensaje al hilo, con opciones de guardado configurables.
+* Usa claves de API para comunicarse de forma segura con el backend.
+
+También hay una [versión alojada aquí](https://get-convex.github.io/agent/).
+
+## Configuración \{#setup\}
+
+**Nota**: Ya debes tener un proyecto de Convex configurado con el Agent. Consulta la
+[documentación](./getting-started.mdx) para ver las instrucciones de configuración.
+
+En tu proyecto de Convex con el Agent, crea un archivo `convex/playground.ts` con:
+
+```ts
+import { definePlaygroundAPI } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+import { weatherAgent, fashionAgent } from "./example";
+
+/**
+ * Aquí exponemos la API para que el frontend pueda acceder a ella.
+ * La autorización se gestiona pasando una apiKey que puede generarse
+ * en el panel de control o mediante la CLI con:
+ * npx convex run --component agent apiKeys:issue
+ */
+export const {
+  isApiKeyValid,
+  listAgents,
+  listUsers,
+  listThreads,
+  listMessages,
+  createThread,
+  generateText,
+  fetchPromptContext,
+} = definePlaygroundAPI(components.agent, {
+  agents: [weatherAgent, fashionAgent],
+});
+```
+
+Desde el repositorio de tu proyecto, genera una clave de API para ti:
+
+```sh
+npx convex run --component agent apiKeys:issue '{name:"..."}'
+```
+
+Nota: para generar varias claves, asigna un nombre diferente a cada una. Para revocar
+y volver a generar una clave, pasa el mismo nombre.
+
+Luego visita la [versión alojada](https://get-convex.github.io/agent/).
+
+Te pedirá la URL de implementación de tu despliegue de Convex, que se puede encontrar en `.env.local`.
+También te pedirá la clave de API que generaste más arriba. Si usaste una
+ruta diferente para `convex/playground.ts` puedes introducirla. Por ejemplo, si tenías
+`convex/foo/bar.ts`, donde exportaste la API del playground, pondrías
+`foo/bar`.
+
+## Ejecutarlo en local \{#running-it-locally\}
+
+Puedes ejecutar el playground localmente con:
+
+```sh
+npx @convex-dev/agent-playground
+```
+
+Usa la variable de entorno `VITE_CONVEX_URL`, que suele obtenerse de .env.local.

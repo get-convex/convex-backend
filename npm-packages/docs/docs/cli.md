@@ -231,7 +231,7 @@ npx convex deploy
 ```
 
 When run with the `CONVEX_DEPLOY_KEY` environment variable containing a
-[Preview Deploy Key](docs/cli/deploy-key-types.mdx#deploying-to-preview-deployments),
+[Preview Deploy Key](/cli/deploy-key-types.mdx#deploying-to-preview-deployments),
 this command will:
 
 1. Create a new Convex deployment. `npx convex deploy` will infer the Git branch

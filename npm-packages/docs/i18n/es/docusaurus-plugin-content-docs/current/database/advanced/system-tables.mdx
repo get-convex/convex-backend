@@ -1,0 +1,22 @@
+---
+title: "Tablas del sistema"
+sidebar_position: 1
+description:
+  "Accede a los metadatos de las funcionalidades integradas de Convex a través
+  de tablas del sistema, incluidas las funciones programadas y la información
+  de almacenamiento de archivos."
+---
+
+Las tablas del sistema permiten acceso de solo lectura a los metadatos de las funcionalidades integradas de Convex.
+Actualmente hay dos tablas del sistema disponibles:
+
+- La tabla `"_scheduled_functions"` contiene metadatos de
+  [funciones programadas](/scheduling/scheduled-functions.mdx#retrieving-scheduled-function-status)
+- La tabla `"_storage"` contiene metadatos de
+  [archivos almacenados](/file-storage/file-metadata.mdx)
+
+Puedes leer datos de las tablas del sistema usando los métodos `db.system.get` y
+`db.system.query`, que funcionan igual que los métodos estándar `db.get` y
+`db.query`. Las consultas que leen desde tablas del sistema son reactivas y en tiempo real,
+igual que las consultas que leen del resto de tablas, y se puede usar la paginación para
+enumerar todos los documentos incluso cuando hay demasiados para leer en una sola consulta.

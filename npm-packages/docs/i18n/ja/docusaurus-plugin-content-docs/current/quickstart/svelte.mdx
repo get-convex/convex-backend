@@ -1,0 +1,114 @@
+---
+title: Svelte クイックスタート
+sidebar_label: Svelte
+description: "Svelte プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 350
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/sampleData.jsonl";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/routes/+layout.svelte";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/convex/tasks.ts";
+import page from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/routes/+page.svelte";
+
+Convex のデータを Svelte アプリからクエリする方法を説明します。
+
+<StepByStep>
+  <Step title="SvelteKit アプリを作成する">
+    `npx sv create` コマンドを使って SvelteKit アプリを作成します。
+
+    他のオプションの組み合わせでもこのライブラリは動作しますが、このクイックスタートガイドでは次のように選択します:
+
+    * 「Which Svelte app template」には **「SvelteKit minimal」** を選択します。
+    * パッケージマネージャーには **「npm」** を選択します。
+    * 「Add type checking with TypeScript」には **「Yes, using TypeScript syntax」** を選択します。
+    * 「Select additional options」では、どのオプションも有効にする必要はありません。
+
+    <br />
+
+    ```sh
+    npx sv@latest create my-app
+    ```
+  </Step>
+
+  <Step title="Convex のクライアントおよびサーバーライブラリをインストールする">
+    まずはじめに、`convex` と `convex-svelte` パッケージをインストールします。
+
+    ```sh
+    cd my-app && npm install convex convex-svelte
+    ```
+  </Step>
+
+  <Step title="convex のパスをカスタマイズする">
+    SvelteKit はソースディレクトリ外のコード参照を好まないため、
+    `convex` の `functionsDir` を `src/` 配下になるようにカスタマイズします。
+
+    <Snippet source={'{\n\t\"functions\": "src/convex/\"\n}'} title="convex.json" />
+  </Step>
+
+  <Step title="Convex の開発デプロイメントをセットアップする">
+    次に、`npx convex dev` を実行します。これにより、
+    GitHub でのログイン、プロジェクトの作成、本番環境およびデプロイメントURLの保存を
+    行うよう促されます。
+
+    また、バックエンド API 関数を書くための `src/convex/` フォルダも作成されます。
+    その後 `dev` コマンドは、クラウド上の開発デプロイメントと
+    関数を同期し続けるために動き続けます。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、いくつかのサンプルデータを含む
+    `sampleData.jsonl` ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`tasks` テーブルを作成し、
+    `import` コマンドを使ってサンプルデータを Convex データベースに
+    追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダ内に <JSDialectFileName name="tasks.ts" /> という新しいファイルを追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名を組み合わせた `api.tasks.get` という
+    名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="src/convex/tasks.ts" />
+  </Step>
+
+  <Step title="Convex をセットアップする">
+    新しく `src/routes/+layout.svelte` ファイルを作成し、そこで Convex クライアントをセットアップして、アプリ内のすべてのページで利用できるようにします。
+
+    <Snippet source={layout} title="src/routes/+layout.svelte" />
+  </Step>
+
+  <Step title="アプリでデータを表示する">
+    `src/routes/+page.svelte` で `useQuery` を使い、`api.tasks.get`
+    API 関数を購読します。
+
+    <Snippet source={page} title="src/routes/+page.svelte" jsExtension="js" />
+  </Step>
+
+  <Step title="アプリを起動する">
+    アプリを起動し、ブラウザで [http://localhost:5173](http://localhost:5173) を開いて、
+    タスクの一覧を確認します。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+[Svelte npm パッケージのドキュメント](https://www.npmjs.com/package/convex-svelte)も参照してください。

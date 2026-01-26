@@ -1,0 +1,223 @@
+---
+title: "Configuración del proyecto"
+sidebar_label: "Configuración del proyecto"
+sidebar_position: 3
+description:
+  "Configura tu proyecto de Convex para el desarrollo y el despliegue en producción mediante
+  convex.json, variables de entorno y la configuración de despliegue."
+---
+
+## Desarrollo local \{#local-development\}
+
+Cuando desarrollas en local necesitas dos datos:
+
+1. El nombre de tu despliegue dev. Aquí es donde se suben tus funciones
+   y desde donde se sirven. Se almacena en la variable de entorno
+   `CONVEX_DEPLOYMENT`. `npx convex dev` lo escribe en el archivo `.env.local`.
+2. La URL de tu despliegue dev, para que tu cliente se conecte. El nombre de
+   la variable y el archivo desde el que se puede leer varía entre distintos
+   frameworks de cliente. `npx convex dev` escribe la URL en el archivo
+   `.env.local` o `.env`.
+
+## Despliegue de producción \{#production-deployment\}
+
+Solo deberías hacer despliegues a tu despliegue de producción una vez que hayas probado
+tus cambios en tu despliegue local. Cuando estés listo, puedes desplegar
+a través de un proveedor de hosting/CI o desde tu máquina local.
+
+Para un entorno de CI puedes seguir la documentación de
+[hosting](/production/hosting/hosting.mdx). `npx convex deploy`, ejecutado por el
+pipeline de CI, usará `CONVEX_DEPLOY_KEY`, y el comando de compilación del frontend
+usará la variable de la URL de implementación, ambas configuradas en tu entorno de CI.
+
+También puedes desplegar tu backend desde tu máquina local. `npx convex deploy`
+pedirá una confirmación y luego desplegará al despliegue de producción en el
+mismo proyecto que tu `CONVEX_DEPLOYMENT` de desarrollo configurado.
+
+## `convex.json` \{#convexjson\}
+
+Puedes especificar configuración adicional del proyecto en el archivo `convex.json`
+en la raíz de tu proyecto (en el mismo directorio que tu `package.json`).
+
+Puedes usar el esquema JSON para la validación en el editor añadiendo una propiedad
+`$schema`:
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json"
+}
+```
+
+El archivo admite las siguientes opciones de configuración:
+
+### Cambiar el nombre o la ubicación de la carpeta `convex/` \{#changing-the-convex-folder-name-or-location\}
+
+Puedes usar un nombre o una ubicación diferente para la carpeta `convex/` mediante el
+campo `functions`. Por ejemplo, Create React App no permite importar desde
+fuera del directorio `src/`, así que si estás usando Create React App deberías
+tener la siguiente configuración:
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "functions": "src/convex/"
+}
+```
+
+### Instalación de paquetes en el servidor \{#installing-packages-on-the-server\}
+
+Puedes especificar qué paquetes que utilizan las acciones de Node deben instalarse en el
+servidor, en lugar de incluirse en el bundle, mediante el campo `node.externalPackages`.
+[Leer más](/functions/bundling.mdx#external-packages).
+
+### Importar la API de funciones generadas mediante la sintaxis de `require()` \{#importing-the-generated-functions-api-via-require-syntax\}
+
+La generación de código de Convex puede configurarse para que genere una versión CommonJS
+del archivo `_generated/api.js` mediante el campo de configuración `generateCommonJSApi`.
+[Más información](/client/javascript/node.mdx#javascript-with-commonjs-require-syntax).
+
+### Configuración de la versión de Node.js \{#configuring-the-nodejs-version\}
+
+Puedes especificar qué versión de Node.js se usa en las acciones de Node mediante el
+campo `node.nodeVersion`. Los valores actualmente admitidos son `"20"` y `"22"`.
+[Más información](/functions/runtimes.mdx#nodejs-version-configuration).
+
+<Admonition type="info" title="Versión de Convex requerida">
+  Para cambiar la versión de Node.js utilizada por tu proyecto, debes usar la
+  versión 1.27.0 o posterior del paquete `convex` de npm.
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "nodeVersion": "22"
+  }
+}
+```
+
+Nota: Esta configuración no es compatible cuando se ejecuta el backend de Convex
+autoalojado. En su lugar, se utilizará la versión de Node.js especificada en el
+[.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc).
+
+### Uso de generación de código estático (beta) \{#using-static-code-generation-beta\}
+
+La generación de código de Convex depende en gran medida de la inferencia de tipos de TypeScript. Esto
+hace que las actualizaciones sean ágiles y que la acción de ir a la definición funcione para los objetos
+`api` e `internal`, pero a menudo se vuelve más lenta con bases de código grandes.
+
+Si tienes problemas de rendimiento con el servidor de lenguaje, puedes indicarle a la
+CLI de Convex que genere versiones estáticas de `_generated/api.d.ts` y
+`_generated/dataModel.d.ts`:
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "codegen": {
+    "staticApi": true,
+    "staticDataModel": true
+  }
+}
+```
+
+Esto mejorará enormemente el autocompletado y el rendimiento de la comprobación incremental de tipos,
+pero sí tiene algunas desventajas:
+
+* Estos tipos solo se actualizan cuando `convex dev` se está ejecutando.
+* El salto a la definición deja de funcionar. Para encontrar `api.example.f`, tendrás que
+  abrir manualmente `convex/example.ts` y buscar `f`.
+* Las funciones ya no tienen inferencia del tipo de retorno y usarán por defecto `v.any()`
+  si no tienen un validador de retorno.
+* [TypeScript enums](https://www.typescriptlang.org/docs/handbook/enums.html) ya no
+  funcionan en definiciones del esquema o de la API. En su lugar, usa uniones de tipos literales de cadena.
+
+Esta funcionalidad está actualmente en beta y nos encantaría mejorar estas limitaciones.
+Avísanos si encuentras algún problema o tienes comentarios.
+
+### Configuración del compilador de TypeScript \{#configuring-the-typescript-compiler\}
+
+De forma predeterminada, Convex usará el binario `tsc` instalado en tu proyecto para
+la comprobación de tipos. Si quieres usar en su lugar la versión preliminar nativa de TypeScript 7,
+puedes establecer la opción `typescriptCompiler` en `tsgo`. Ten en cuenta que
+`@typescript/native-preview` debe estar instalado en tu proyecto para usar `tsgo`.
+
+<Admonition type="info" title="Versión de Convex requerida">
+  Para usar la versión preliminar nativa de TypeScript 7, debes usar la versión 1.31.1 o posterior
+  del paquete `convex` de npm.
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "typescriptCompiler": "tsgo"
+}
+```
+
+### Configuración de las opciones del empaquetador \{#configuring-bundler-options\}
+
+Convex incluye mapas de código fuente (source maps) al empaquetar tu código para proporcionar trazas de pila (stack traces) y mostrar tu código en el panel de control. Si tu paquete de código es especialmente grande, puedes mejorar los tiempos de carga en la CLI excluyendo el contenido del código fuente del paquete. Establece la propiedad `includeSourcesContent` en `false` en las opciones de `bundler`. Las trazas de pila seguirán funcionando con normalidad, pero ya no podrás ver tu código fuente en el panel de control.
+
+<Admonition type="info" title="Versión de Convex requerida">
+  Esta opción de configuración solo está disponible en la versión 1.31.3 o posterior del
+  paquete `convex` de npm.
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "bundler": {
+    "includeSourcesContent": false
+  }
+}
+```
+
+### Configurar la integración de WorkOS AuthKit \{#configuring-workos-authkit-integration\}
+
+Si estás usando [WorkOS AuthKit](/auth/authkit/index.mdx) para la autenticación,
+puedes configurar el aprovisionamiento automático (solo en desarrollo) y la configuración de
+entornos de WorkOS mediante el campo `authKit`.
+
+<Admonition type="info" title="Versión de Convex requerida">
+  Esta opción de configuración solo está disponible en la versión 1.31.6 o posterior del
+  paquete `convex` de npm.
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "authKit": {
+    "dev": {
+      "configure": {
+        "redirectUris": ["http://localhost:3000/callback"],
+        "appHomepageUrl": "http://localhost:3000",
+        "corsOrigins": ["http://localhost:3000"]
+      },
+      "localEnvVars": {
+        "WORKOS_CLIENT_ID": "${authEnv.WORKOS_CLIENT_ID}",
+        "WORKOS_API_KEY": "${authEnv.WORKOS_API_KEY}",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI": "http://localhost:3000/callback"
+      }
+    },
+    "preview": {
+      "configure": {
+        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
+      }
+    },
+    "prod": {
+      "environmentType": "production",
+      "configure": {
+        "redirectUris": [
+          "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}/callback"
+        ],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}"]
+      }
+    }
+  }
+}
+```
+
+Esta configuración controla cómo se aprovisionan y configuran los entornos de WorkOS para cada tipo de despliegue (dev, preview, prod). Consulta la guía
+[Configuración automática de AuthKit](/auth/authkit/auto-provision.mdx) para obtener información detallada.

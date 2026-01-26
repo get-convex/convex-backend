@@ -1,0 +1,81 @@
+---
+title: "Integraciones"
+description: "Integra Convex con servicios de terceros"
+sidebar_position: 1
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex se integra con una variedad de herramientas de terceros compatibles para
+la transmisión de logs y el reporte de excepciones.
+
+* [Log Streams](/production/integrations/log-streams) permite transmitir eventos
+  de logs desde tu despliegue de Convex a destinos compatibles, como Axiom,
+  Datadog o un webhook personalizado.
+* [Exception Reporting](/production/integrations/exception-reporting) proporciona
+  visibilidad de los errores en las ejecuciones de tus funciones de Convex.
+
+## Configurar una integración \{#configuring-an-integration\}
+
+Para configurar una integración, ve a
+[Deployment Settings](https://dashboard.convex.dev/deployment/settings) en el
+panel de control y a la pestaña &quot;Integrations&quot; en la barra lateral. Esta página proporciona una lista
+de tus integraciones configuradas, su estado de funcionamiento actual y otras
+integraciones disponibles para configurar. Para configurar una integración, haz clic en
+la tarjeta y sigue las instrucciones de configuración.
+
+![Integrations Page](/screenshots/integrations_page.png)
+
+## Eliminar una integración \{#deleting-an-integration\}
+
+Para eliminar una integración y dejar de enviar más eventos al
+destino configurado, selecciona el icono de menú en la esquina superior derecha de un
+panel configurado y elige &quot;Delete integration&quot;. Después de confirmar, la
+integración dejará de ejecutarse en unos pocos segundos.
+
+## Comentarios \{#feedback\}
+
+Si tienes preguntas, comentarios o sugerencias, contáctanos
+[en Discord](https://convex.dev/community).
+
+## Componentes de integración \{#integration-components\}
+
+Más allá de las integraciones para registros y excepciones, [Convex Components](/components)
+facilitan el trabajo con servicios de terceros. Consulta la lista completa de
+componentes en el [Directorio de Convex Components](https://convex.dev/components).
+
+<ComponentCardList
+  items={[
+  {
+    title: "Cloudflare R2",
+    description: "Almacena y sirve archivos en el almacenamiento R2 de Cloudflare.",
+    href: "https://www.convex.dev/components/cloudflare-r2",
+  },
+  {
+    title: "Collaborative Text Editor",
+    description:
+      "Edición de texto colaborativa en tiempo real usando BlockNote o Tiptap.",
+    href: "https://www.convex.dev/components/prosemirror-sync",
+  },
+  {
+    title: "Expo Push Notifications",
+    description: "Envía notificaciones push en móviles usando Expo.",
+    href: "https://www.convex.dev/components/push-notifications",
+  },
+  {
+    title: "Twilio SMS",
+    description: "Envía y recibe mensajes SMS usando la API de Twilio.",
+    href: "https://www.convex.dev/components/twilio",
+  },
+  {
+    title: "LaunchDarkly Feature Flags",
+    description: "Sincroniza feature flags con tu backend, respaldadas por LaunchDarkly.",
+    href: "https://www.convex.dev/components/launchdarkly",
+  },
+  {
+    title: "Polar",
+    description: "Agrega suscripciones y facturación con Polar.",
+    href: "https://www.convex.dev/components/polar",
+  },
+]}
+/>

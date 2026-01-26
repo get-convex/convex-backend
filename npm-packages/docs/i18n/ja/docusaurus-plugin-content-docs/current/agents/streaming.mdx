@@ -1,0 +1,274 @@
+---
+title: ストリーミング
+sidebar_label: "Streaming"
+sidebar_position: 340
+description: "エージェントによるメッセージのストリーミング"
+---
+
+メッセージをストリーミングすることで、LLM を利用している間もユーザーにフィードバックを返しつつ、
+アプリケーションの応答性を高く保つことができます。
+
+従来のストリーミングは HTTP ストリーミング経由で行われ、クライアントがリクエストを送信し、
+完全なレスポンスがストリーミングされて返ってくるまで待機します。これは Agent を使う場合も、
+AI SDK を使うときと同じように、そのまま利用できます。もしそれだけが目的であれば、
+[下記](#consuming-the-stream-yourself-with-the-agent)を参照してください。
+
+一方で、Agent コンポーネントを使うと、メッセージを非同期にストリーミングすることもでき、
+生成処理を HTTP ハンドラー（`httpAction`）内で行う必要がなくなります。また、ネットワーク接続が
+中断されたとしても、1 つ以上のクライアントにレスポンスをストリーミングし続けることができます。
+
+この仕組みは、ストリーミングされた部分をグループ（デルタ）ごとにデータベースへ保存し、
+クライアントは生成に応じて、そのスレッドに対する新しいデルタを購読する、という形で動作します。
+さらに、デルタストリーミング方式を使うために、Agent 版の `streamText` を
+使用する必要すらありません（
+[下記](#advanced-streaming-deltas-asynchronously-without-using-an-agent)を参照）。
+
+例:
+
+* サーバー:
+  [streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+* クライアント:
+  [ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)
+
+## メッセージデルタをストリーミングする \{#streaming-message-deltas\}
+
+最も簡単なストリーミング方法は、`agent.streamText` に `{ saveStreamDeltas: true }` を渡すことです。これにより、レスポンスのチャンクが生成されるたびにデルタとして保存されるため、すべてのクライアントがそのストリームを購読し、通常の Convex クエリ経由でライブ更新されるテキストを取得できます。
+
+```ts
+agent.streamText(ctx, { threadId }, { prompt }, { saveStreamDeltas: true });
+```
+
+これは、クライアントへの HTTP ストリーミングができない場合でも、async 関数の中で実行できます。内部的にはレスポンスをチャンクに分割し、デルタの保存をデバウンスすることで、帯域幅の過剰な使用を防ぎます。チャンク化とデバウンスの挙動を調整するために、`saveStreamDeltas` にさらにオプションを渡すことができます。
+
+```ts
+  { saveStreamDeltas: { chunking: "line", throttleMs: 1000 } },
+```
+
+* `chunking` は &quot;word&quot;、&quot;line&quot;、正規表現、またはカスタム関数にできます。
+* `throttleMs` はデルタを保存する頻度です。これにより各デルタあたり複数のチャンクが送信され、書き込みは逐次行われ、`throttleMs`
+  より短い間隔で書き込まれることはありません
+  ([single-flighted](https://stack.convex.dev/throttling-requests-by-single-flighting)
+  )。
+
+## ストリームされたデルタの取得 \{#retrieving-streamed-deltas\}
+
+クライアントがメッセージをストリーミングできるようにするには、ストリームのデルタを返すクエリを公開する必要があります。これは
+[メッセージの取得](./messages.mdx#retrieving-messages) とほとんど同じですが、いくつかの点だけが異なります。
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+// highlight-next-line
+import { vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    // 非ストリーミングメッセージのページネーションオプション。
+    paginationOpts: paginationOptsValidator,
+    // highlight-next-line
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    // 通常の非ストリーミングメッセージを取得します。
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // highlight-next-line
+    const streams = await syncStreams(ctx, components.agent, args);
+
+    // highlight-next-line
+    return { ...paginated, streams };
+  },
+});
+```
+
+[非ストリーミングメッセージ](./messages.mdx#useuimessages-hook) と同様に、
+`useUIMessages` フックを使ってメッセージを取得できます。ストリーミングを有効にするには、
+`stream: true` を渡します。
+
+```ts
+const { results, status, loadMore } = useUIMessages(
+  api.chat.streaming.listMessages,
+  { threadId },
+  // highlight-next-line
+  { initialNumItems: 10, stream: true },
+);
+```
+
+### `SmoothText` と `useSmoothText` によるテキストスムージング \{#text-smoothing-with-smoothtext-and-usesmoothtext\}
+
+`useSmoothText` フックは、テキストが変化するとき、その見え方をなめらかにするシンプルなフックです。
+あらゆるテキストに使えますが、特にストリーミングされるテキストで便利です。
+
+```ts
+import { useSmoothText } from "@convex-dev/agent/react";
+
+// コンポーネント内
+const [visibleText] = useSmoothText(message.text);
+```
+
+初期の 1 秒あたりの文字数を設定できます。これは時間の経過とともに、
+受信しているテキストの平均的な速度に合わせて適応します。
+
+デフォルトでは、`startStreaming: true` を指定しない限り、最初に受信したテキストはストリーミングされません。ストリーミングするメッセージとしないメッセージが混在している場合に、すぐにストリーミングを開始するには次のようにします：
+
+```ts
+import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
+
+function Message({ message }: { message: UIMessage }) {
+  const [visibleText] = useSmoothText(message.text, {
+    startStreaming: message.status === "streaming",
+  });
+  return <div>{visibleText}</div>;
+}
+```
+
+フックを使わない場合は、`SmoothText` コンポーネントを使用できます。
+
+```tsx
+import { SmoothText } from "@convex-dev/agent/react";
+
+//...
+<SmoothText text={message.text} />;
+```
+
+## Agent を使って自分でストリームを消費する \{#consuming-the-stream-yourself-with-the-agent\}
+
+基盤となる AI SDK と同様に、さまざまな方法でストリームを消費できます。
+たとえばコンテンツを反復処理したり、
+[`result.toDataStreamResponse()`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#to-data-stream-response)
+を使ったりできます。
+
+デルタも保存しない場合は、コードは次のようになります。
+
+```ts
+const result = await agent.streamText(ctx, { threadId }, { prompt });
+
+for await (const textPart of result.textStream) {
+  console.log(textPart);
+}
+```
+
+ストリームの進行中に反復処理を行いつつデルタも保存したい場合は、
+`streamText` に `{ saveStreamDeltas: { returnImmediately: true } }` を渡します。
+これにより即座に制御が返され、その後ストリームをリアルタイムに反復処理したり、
+HTTP レスポンスでストリームを返したりできます。
+
+```ts
+const result = await agent.streamText(
+  ctx,
+  { threadId },
+  { prompt },
+  { saveStreamDeltas: { returnImmediately: true } },
+);
+
+return result.toUIMessageStreamResponse();
+```
+
+Agent を一切関与させたくない場合は、次のセクションで
+自分で差分を保存する方法を説明します。
+
+## 上級編: Agent を使わずにデルタを非同期ストリーミングする \{#advanced-streaming-deltas-asynchronously-without-using-an-agent\}
+
+Agent の `streamText` ラッパーを使わずにメッセージをストリーミングするには、
+AI SDK の `streamText` 関数を直接利用できます。
+
+これは、`DeltaStreamer` クラスを使ってデルタをデータベースに保存し、
+その後、上記のアプローチを使ってメッセージを取得する、という流れになります。
+ただし、データベースから非ストリーミングのメッセージを読み取らない、
+より直接的な `useStreamingUIMessages` フックを使うこともできます。
+
+ストリームを読み書きするための要件は、Agent コンポーネントの
+`threadId` を使用することと、それぞれのストリームをクライアント側での
+順序付けのために一意の `order` とともに保存することだけです。
+
+```ts
+import { components } from "./_generated/api";
+import { type ActionCtx } from "./_generated/server";
+import { DeltaStreamer, compressUIMessageChunks } from "@convex-dev/agent";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+async function stream(ctx: ActionCtx, threadId: string, order: number) {
+  const streamer = new DeltaStreamer(
+    components.agent,
+    ctx,
+    {
+      throttleMs: 100,
+      onAsyncAbort: async () => console.error("Aborted asynchronously"),
+      // This will collapse multiple tiny deltas into one if they're being sent
+      // in quick succession.
+      compress: compressUIMessageChunks,
+      abortSignal: undefined,
+    },
+    {
+      threadId,
+      format: "UIMessageChunk",
+      order,
+      stepOrder: 0,
+      userId: undefined,
+    },
+  );
+  // Do the normal streaming with the AI SDK
+  const response = streamText({
+    model: openai.chat("gpt-4o-mini"),
+    prompt: "Tell me a joke",
+    abortSignal: streamer.abortController.signal,
+    onError: (error) => {
+      console.error(error);
+      streamer.fail(errorToString(error.error));
+    },
+  });
+
+  // We could await here if we wanted to wait for the stream to finish,
+  // but instead we have it process asynchronously so we can return a streaming
+  // http Response.
+  void streamer.consumeStream(response.toUIMessageStream());
+
+  return {
+    // e.g. to do `response.toTextStreamResponse()` for HTTP streaming.
+    response,
+    // クライアント側では不要ですが、これによって一部のクライアントが
+    // すでにHTTPストリーミングを使用している場合に、選択的にデルタの
+    // ストリーミングを行わないようにできます。
+    streamId: await streamer.getStreamId(),
+  };
+}
+```
+
+クライアント向けのデルタを取得するには、通常の Agent のストリーミング時と同様に `syncStreams` 関数を使用できます。非ストリーミングメッセージを取得しないようにしたい場合は、次のように記述を簡略化できます。
+
+```ts
+import { v } from "convex/values";
+import { vStreamArgs, syncStreams } from "@convex-dev/agent";
+import { query } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const listStreams = query({
+  args: {
+    threadId: v.string(),
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    // await authorizeThreadAccess(ctx, args.threadId);
+    const streams = await syncStreams(ctx, components.agent, {
+      ...args,
+      // デフォルトでは syncStreams はストリーミング中のメッセージのみを返します。ただし、
+      // ストリーミング終了時と同じトランザクション内でメッセージが保存されない場合は、
+      // UI のちらつきを避けるためにここに含めることができます。
+      includeStatuses: ["streaming", "aborted", "finished"],
+    });
+    return { streams };
+  },
+});
+```
+
+クライアント側では、`useStreamingUIMessages` フックを使ってメッセージを取得できます。`threadId` 以外にも引数を定義している場合は、それらもここで `threadId` と一緒に渡されます。
+
+```ts
+const messages = useStreamingUIMessages(api.example.listStreams, { threadId });
+```
+
+別のパラメーターを指定すると、特定の `streamId` をスキップしたり、ある `order` 以降から開始してそれ以前のストリームを無視したりできます。

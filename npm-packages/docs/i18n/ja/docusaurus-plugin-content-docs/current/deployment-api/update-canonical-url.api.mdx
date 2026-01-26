@@ -1,0 +1,35 @@
+---
+id: update-canonical-url
+title: "Update canonical URL"
+description: "デプロイメントのconvex.cloudの正規URLを設定または解除"
+sidebar_label: "Update canonical URL"
+hide_title: true
+hide_table_of_contents: true
+api: eJzdVltvIjcU/iuWX7qRhiFJ31BVKSWpFDUqqwC9iCBixgfGi8f22h6S2dH89+rYAwyEqIq0D1Vf0HB87rfv1JSDy6wwXmhFB3QMnmhLSuXAE58DyZjSSmRMkunjA1lpSxjhYKSuClD+B0cyrbbwmmZSl5xo+6RaghMeCNcFEyolk1w4wqTUL45UuiRek6x0XhfiGwQzZDj6/Y+7vxbj+8ndAi0xxZ9USxw+jKa3gQpqK6xWaJpsmRVsKcERoVCp7fiV0oRqA5ZhWPecDmhpOPOw2IezKK2kCbXwtQTnf9G8ooOaZlp5UB4/mTFSZEFB/4vD5NTUZTkUDL98ZYAOqF5+gcy3eoQFTgeznc5bcF6ooIDOE2osOuQFOJQ/wzOoT2rxZw4+B4vJit6/U5CTCpBOAWiy89R5K9SaJhRUWaCXkWuIQjRp/41RZJ5QL7xEoce3XjYJxcztUzA7aFallCh9HMUkB6Lg5djvlIwKgQ0mHIZn4Vy7SXzyOTwpDitWSiy5LCGlTXNwcRoyM9yJTa1snaYNsh3q4m0JgeCMVi5W4fry8m3ag3oHWWmFr+hgVtPb0FfkN8C/8yap6eim9DmZACvIRG9A7ehvKZHzs9XYKJ2neUIL8LnG3jTaYQ8Z5nM6oP13WtWB3YJ1waNQAlofGr5XWtn0mRH97RU9LcHfOBzDUOHOjNCE7kcoZqGrLFJC2umA5t4bN+j3c2ZM1WNKFEz2rq5/TLu9d97uQS0WHqsyP6R3jAMVzXeTvJ8vZgQSEipQXw6Mg8VOYwW+Ymq1Fd9iZ55abxVuoHKEWSClAx7mpePRfke4lIwByIzvhQi64OafdqFznblduBy2/UyKfuTubaDqBe6LoL/QFohQK22LoDslUxdn97ktwjMxFlbilXyCdJ0me/pPUeFiA9XPzxcpDtvZ/vku+RktPRMKOPG51eU6J4zMWj+i0c4GfD8NBVNsDaFrmBEX5EX4nJjWXZdpAx8IX7PS54tWeuEx2OM8dOfrv5uED0d8FOl3j3FogXngCJPoE2cuX2pmOSkVR3hBew68F2rtIsKrKlIRqjOmSIzvA2GhdDeqJqGIoY8HtL17ZYXBDX4eC0/gKe67FmkazMJKh+y0KNDavT1M9s3n+zeJuOGFUPgSohTKg2UZhh279rAXHN4PUmSgXPCwTfNDpDzCqvfr+KF3lV71bgzLcuhdp5dYGw7Ki5UA+6/MTUJxmUe/rtLLSEIgKJjqmIzwdgyep3F1zpb/0/3Wdr6HV983konu7RGhcnb+qpsnNEdEHcxoXS+Zg6mVTYPkryXYgOEH6Is4vZsoxNYNIhB2FKa0N0EvkF2WcQ5PrsIjIP88Gk9oQpftNVlojjKWveCFyF7wuMC7NABO6Hyk1VQytS7ZGnmjTpwXXAzHC2ATFkD7gZ7unlTV8fB0F8Rw8BfPkbMidR3XS9Ps+ePTuxL7BRS5sTbzpmn+AXrVSoM=
+sidebar_class_name: "post api-method"
+info_path: deployment-api/convex-deployment-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"正規 URL を更新する"} />
+
+<MethodEndpoint method={"post"} path={"/update_canonical_url"} context={"endpoint"} />
+
+デプロイメントの convex.cloud または convex.site ドメインに対して、正規 URL を設定またはクリアします。これにより、デプロイメント内の環境変数 CONVEX&#95;SITE&#95;URL と
+CONVEX&#95;CLOUD&#95;URL をカスタマイズできます。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"リクエスト"} />
+
+<ParamsDetails parameters={undefined} />
+
+<RequestSchema title={"ボディ"} body={{"content":{"application/json":{"schema":{"type":"object","required":["requestDestination"],"properties":{"requestDestination":{"description":"convex.cloud または convex.site のどちらの正規 URL を更新するか","type":"string","enum":["convexCloud","convexSite"],"title":"RequestDestination"},"url":{"type":["string","null"],"description":"新しい正規 URL。これを省略すると、正規 URL はデフォルト値にリセットされます。"}},"title":"UpdateCanonicalUrlRequest"}}},"required":true}} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":""}}} />

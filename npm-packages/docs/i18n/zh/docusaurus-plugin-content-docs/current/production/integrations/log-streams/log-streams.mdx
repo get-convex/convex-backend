@@ -1,0 +1,369 @@
+---
+title: "日志流"
+sidebar_label: "日志流"
+sidebar_position: 2
+description: "为你的 Convex 部署配置日志集成"
+---
+
+日志流支持将函数执行、`console.log` 等事件，从你的 Convex 部署实时以流式方式传输到受支持的目的地，例如 Axiom、Datadog 或自定义 webhook。
+
+你的 Convex 部署最近生成的日志可以在 Convex 仪表盘的 [Logs 页面](/dashboard/deployments/logs.md)、[Convex CLI](/cli.md) 或浏览器控制台中查看，从而快速便捷地查看最新日志。
+
+将日志流式传输到 Axiom 或 Datadog 等第三方目的地，可以实现历史日志存储、更强大的查询和数据可视化功能，并与其他工具（例如 PagerDuty、Slack）集成。
+
+<ProFeatureUpsell feature="Log streams" verb="require" />
+
+## 配置日志流 \{#configuring-log-streams\}
+
+我们目前支持以下日志流，并计划支持更多：
+
+* [Axiom](https://www.axiom.co)
+* [Datadog](https://www.datadoghq.com/)
+* 通过 Webhook 推送到自定义 URL
+
+请参阅
+[配置集成](/production/integrations/integrations.mdx#configuring-an-integration)
+中的说明。
+下面将介绍每种日志流所需的具体信息。
+
+### Axiom \{#axiom\}
+
+配置 Axiom 日志流需要指定：
+
+* 你的
+  [Axiom dataset](https://axiom.co/docs/reference/settings#dataset)
+  的名称
+* 一个 Axiom [API key](https://axiom.co/docs/reference/settings#api-token)
+* 一个可选的属性及其值列表，这些会包含在发送到 Axiom 的所有日志事件中。它们将通过
+  [Ingest API](https://axiom.co/docs/send-data/ingest#ingest-api)
+  中的 `attributes` 字段发送。
+
+在 Axiom 中为 Convex 配置数据集时，Axiom 会自动创建一个仪表盘。你可以在 *Dashboards* 标签页的
+*Integrations* 部分找到它。要自定义该仪表盘的布局，你可以
+[fork 它](https://axiom.co/docs/dashboards/create#fork-dashboards)。
+
+![A dashboard in Axiom](/screenshots/axiom_dashboard.png)
+
+### Datadog \{#datadog\}
+
+配置 Datadog 日志流时，你需要指定：
+
+* 你的 Datadog 部署的[站点（site）](https://docs.datadoghq.com/getting_started/site/)
+* 一个 Datadog
+  [API key](https://docs.datadoghq.com/account_management/api-app-keys/#add-an-api-key-or-client-token)
+* 一个以逗号分隔的标签列表，这些标签会通过所有发送到 Datadog 的
+  payload 中的 [`ddtags` 字段](https://docs.datadoghq.com/getting_started/tagging/) 传递。你可以通过这些标签附加其他元数据，用于查询或分类由你的 Datadog 部署收集到的 Convex 日志。
+
+### Webhook \{#webhook\}
+
+Webhook 日志流是最简单、最通用的流类型，它允许通过 POST 请求将日志发送到你配置的任意 URL。设置此流所需的唯一参数是目标 webhook URL。
+
+对该 webhook 的请求，其请求体是一个事件的 JSON 数组，这些事件的模式在下文中定义。
+
+## 保护 webhook 日志流 \{#securing-webhook-log-streams\}
+
+Webhook 日志流请求会带有一个签名，用于验证请求是否合法。请求体使用 HMAC-SHA256 进行签名，并编码为小写十六进制字符串，生成的签名包含在
+`x-webhook-signature` HTTP 请求头中。配置 webhook 时，HMAC 密钥会在仪表盘中显示。
+
+要验证请求的真实性，请使用 HMAC 密钥对请求体进行签名和编码，
+[并以常数时间比较结果](https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html)
+（例如在 JavaScript 中使用
+[`SubtleCrypto.verify()`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/verify)
+）与请求头中包含的签名进行比对。注意签名带有 `sha256=` 前缀。
+
+为提高安全性，建议验证日志事件消息体中的 `timestamp` 字段是否处于可接受的时间范围内，以防止重放攻击。
+
+```typescript
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.post("/webhook", async (c) => {
+  const payload = await c.req.json();
+  const log = payload[0];
+
+  // If using JSONL, parse the first line:
+  // const payload = await c.req.text();
+  // const log = JSON.parse(payload.split("\n")[0]);
+
+  // 验证第一条日志的时间戳在 5 分钟以内
+  if (log.timestamp < Date.now() - 5 * 60 * 1000) {
+    c.status(403);
+    return c.text("Request expired");
+  }
+
+  const signature = c.req.header("x-webhook-signature");
+  if (!signature) {
+    c.status(401);
+    return c.text("Unauthorized");
+  }
+
+  const hmacSecret = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(process.env.WEBHOOK_SECRET!),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const hashPayload = await c.req.arrayBuffer();
+
+  // Use constant-time comparison to verify the payload
+  const isValid = await crypto.subtle.verify(
+    "HMAC",
+    hmacSecret,
+    Uint8Array.fromHex(signature.replace("sha256=", "")),
+    hashPayload,
+  );
+
+  if (isValid) {
+    return c.text("Success");
+  }
+
+  c.status(401);
+  return c.text("Unauthorized");
+});
+
+export default app;
+```
+
+## 日志事件模式 \{#log-event-schema\}
+
+<Admonition type="info">
+  2024 年 5 月 23 日之前配置的日志流会使用旧格式，相关文档见[此页面](/production/integrations/log-streams/legacy-event-schema.mdx)。我们建议你更新日志流以使用新格式。
+</Admonition>
+
+日志事件具有定义明确的 JSON 模式，可用于构建用于摄取日志事件的复杂且类型安全的流水线。
+
+所有事件都包含以下三个字段：
+
+* `topic`：字符串，用于对日志事件分类，为以下之一：
+  `["verification", "console", "function_execution", "audit_log", "concurrency_stats", "scheduler_stats", "current_storage_usage"]`
+* `timestamp`：数字，以毫秒为单位的 Unix 时间戳，整数
+* `convex`：包含与你的 Convex 部署相关元数据的对象，包括 `deployment_name`、`deployment_type`、`project_name` 和 `project_slug`。
+
+注意：在 Axiom 集成中，事件特有的信息会位于 `data` 字段下。
+
+### `verification` 事件 \{#verification-events\}
+
+这是一个用于确认日志流是否正常工作的事件。模式：
+
+* `topic`: `"verification"`
+* `timestamp`: 以毫秒为单位的 Unix 纪元时间戳
+* `message`: 字符串
+
+### `console` 事件 \{#console-events\}
+
+Convex 函数通过 [`console` API](/functions/debugging.mdx) 输出日志。
+
+模式：
+
+* `topic`: `"console"`
+* `timestamp`: 以毫秒为单位的 Unix 时间戳
+* `function`: 对象，参见
+  [function fields](/production/integrations/log-streams/log-streams.mdx#function-fields)
+* `log_level`: 字符串，取值为 `["DEBUG", "INFO", "LOG", "WARN", "ERROR"]` 之一
+* `message`: 字符串，
+  [`object-inspect`](https://www.npmjs.com/package/object-inspect)
+  对 `console.log` 负载的字符串表示
+* `is_truncated`: 布尔值，指示此消息是否已被截断以符合我们的日志限制
+* `system_code`: 可选字符串，当函数接近
+  [limits](/production/state/limits.mdx#functions)
+  时自动添加的警告会包含该字段
+
+`console.log("Sent message!")` 在一次变更函数中产生的示例事件：
+
+```json
+{
+    "topic": "console"
+    "timestamp": 1715879172882,
+    "function": {
+      "path": "messages:send",
+      "request_id": "d064ef901f7ec0b7",
+      "type": "mutation"
+    },
+    "log_level": "LOG",
+    "message": "'Sent message!'"
+}
+```
+
+### `function_execution` 事件 \{#function_execution-events\}
+
+每当函数运行时都会产生这些事件。
+
+模式：
+
+* `topic`: `"function_execution"`
+* `timestamp`: Unix 纪元时间戳（毫秒）
+* `function`: 对象，参见
+  [函数字段](/production/integrations/log-streams/log-streams.mdx#function-fields)
+* `execution_time_ms`: 数值，该函数执行所花费的毫秒数
+* `status`: 字符串，取值为 `["success", "failure"]` 之一
+* `error_message`: 字符串，对于 `status` 为 `failure` 的函数会包含该字段，其中包含错误及任何堆栈跟踪。
+* `mutation_queue_length`: 可选数值（仅针对变更函数），在执行该变更时，每个会话的变更队列长度。用于监控和调试单个会话中的变更队列积压情况。
+* `mutation_retry_count`: 数值，在成功执行前（仅针对变更函数）之前已失败执行的次数。仅适用于变更函数和操作函数。
+* `occ_info`: 对象，如果函数调用导致了 OCC（两个函数之间的写入冲突），则该字段会存在，并包含与 OCC 相关的信息。
+  [了解更多关于写入冲突的信息](https://docs.convex.dev/error/#1)。
+  * `table_name`: 发生冲突的表
+  * `document_id`: 收到冲突写入的文档的 Id
+  * `write_source`: 与 `table_name` 中写入产生冲突的函数名称
+  * `retry_count`: 当前函数执行之前曾经失败的尝试次数
+* `scheduler_info`: 对象，如果存在，表示该函数最初是由
+  [scheduler](/scheduling/scheduled-functions) 调用的。
+  * `job_id`: [`_scheduled_functions`](/scheduling/scheduled-functions#retrieving-scheduled-function-status)
+    表中的作业 ID
+* `usage`:
+  * `database_read_bytes`: 数值
+  * `database_write_bytes`: 数值，与 `database_read_bytes` 一起构成函数使用的数据库带宽
+  * `database_read_documents`: 数值，函数读取的文档数量
+  * `file_storage_read_bytes`: 数值
+  * `file_storage_write_bytes`: 数值，与 `file_storage_read_bytes` 一起构成函数使用的文件带宽
+  * `vector_storage_read_bytes`: 数值
+  * `vector_storage_write_bytes`: 数值，与 `vector_storage_read_bytes` 一起构成函数使用的向量带宽
+  * `memory_used_mb`: 数值，对于查询、变更函数和操作函数，表示使用的内存（MiB）。该值与 `execution_time_ms` 一起构成计算资源消耗。
+
+查询的示例事件：
+
+```json
+{
+  "data": {
+    "execution_time_ms": 294,
+    "function": {
+      "cached": false,
+      "path": "message:list",
+      "request_id": "892104e63bd39d9a",
+      "type": "query"
+    },
+    "status": "success",
+    "timestamp": 1715973841548,
+    "topic": "function_execution",
+    "usage": {
+      "database_read_bytes": 1077,
+      "database_write_bytes": 0,
+      "database_read_documents": 3,
+      "file_storage_read_bytes": 0,
+      "file_storage_write_bytes": 0,
+      "vector_storage_read_bytes": 0,
+      "vector_storage_write_bytes": 0
+    }
+  }
+}
+```
+
+### 函数字段 \{#function-fields\}
+
+对于所有 `console` 和 `function_execution` 事件，都会在 `function` 下新增以下字段：
+
+* `type`: 字符串，取值为 `["query", "mutation", "action", "http_action"]` 之一
+* `path`: 字符串，例如 `"myDir/myFile:myFunction"`，或 `"POST /my_endpoint"`
+* `cached`: 可选布尔值，对于查询而言，表示该事件是否来自缓存的函数执行
+* `request_id`: 字符串，即该函数的
+  [请求 ID](/functions/debugging.mdx#finding-relevant-logs-by-request-id)。
+
+### `concurrency_stats` 事件 \{#concurrency_stats-events\}
+
+这些事件每分钟发送一次，用于报告函数的并发统计信息。
+只有当统计数据发生变化时才会发送事件。缺失的数据点应当根据前一次数据事件进行插值。
+
+模式：
+
+每个事件都包含每种函数类型（例如查询、变更、操作函数）的并发统计信息。每条记录具有以下模式结构：
+
+* `num_running`: 在报告该指标的那一分钟内，并发运行函数的最大数量
+
+* `num_queued`: 在报告该指标的那一分钟内，队列中函数的最大数量。当达到并发限制时，函数可能会被暂时加入队列。
+
+* `topic`: `"concurrency_stats"`
+
+* `timestamp`: 以毫秒为单位的 Unix epoch 时间戳
+
+* `query`: 查询的并发统计信息
+
+* `mutation`: 变更的并发统计信息
+
+* `action`: 操作函数的并发统计信息
+
+* `node_action`: Node 操作函数的并发统计信息
+
+* `http_action`: HTTP 操作函数的并发统计信息
+
+### `scheduler_stats` 事件 \{#scheduler_stats-events\}
+
+这些事件由调度器定期发送，用于报告计划函数执行器的统计信息。
+
+模式：
+
+* `topic`: `"scheduler_stats"`
+* `timestamp`: Unix 纪元时间戳（毫秒）
+* `lag_seconds`: `timestamp` 与最早已逾期计划任务的预定运行时间之间的差值（秒）
+* `num_running_jobs`: number，当前正在运行的计划任务数量
+
+### `current_storage_usage` 事件 \{#current_storage_usage-events\}
+
+这些事件会定期发送，内容是整个部署当前存储使用情况的快照。
+它们提供所有存储类型的汇总总量。
+
+当前不会为自托管部署发送这些事件。
+
+用于计算计费成本：
+
+* 数据库存储字节数：`total_document_size_bytes + total_index_size_bytes`
+* 文件存储：`total_file_storage_bytes + total_backup_storage_bytes`
+* 向量存储：`total_vector_storage_bytes`
+
+模式：
+
+* `topic`: `"current_storage_usage"`
+* `timestamp`: Unix 纪元时间戳（毫秒）
+* `total_document_size_bytes`: number，数据库表中所有文档的总字节大小
+* `total_index_size_bytes`: number，所有数据库索引的总字节大小
+* `total_vector_storage_bytes`: number，向量索引存储的总字节大小
+* `total_file_storage_bytes`: number，文件存储的总字节大小
+* `total_backup_storage_bytes`: number，快照/备份存储的总字节大小
+
+事件示例：
+
+```json
+{
+  "topic": "current_storage_usage",
+  "timestamp": 1715973841548,
+  "total_document_size_bytes": 104857600,
+  "total_index_size_bytes": 10485760,
+  "total_vector_storage_bytes": 5242880,
+  "total_file_storage_bytes": 52428800,
+  "total_backup_storage_bytes": 209715200
+}
+```
+
+### `audit_log` 事件 \{#audit_log-events\}
+
+这些事件表示对你的部署所做的更改，同时也会显示在仪表盘的
+[History 选项卡](https://dashboard.convex.dev/deployment/history) 中。
+
+模式：
+
+* `topic`：`audit_log`
+* `timestamp`：Unix 纪元时间戳（毫秒）
+* `audit_log_action`：字符串，例如 `"create_environment_variable"`、
+  `"push_config"`、`"change_deployment_state"`
+* `audit_log_metadata`：字符串，字符串化的 JSON，包含该事件的元数据。
+  此事件的具体格式可能会发生变化。
+
+`push_config` 审计日志示例：
+
+```json
+{
+  "topic": "audit_log",
+  "timestamp": 1714421999886,
+  "audit_log_action": "push_config",
+  "audit_log_metadata": "{\"auth\":{\"added\":[],\"removed\":[]},\"crons\":{\"added\":[],\"deleted\":[],\"updated\":[]},..."
+}
+```
+
+## 保证 \{#guarantees\}
+
+日志事件只提供尽最大努力的投递保障。日志流会在内存中缓冲，并以批处理方式发送到你的部署中配置的日志流。这意味着如果写入吞吐量过高，日志可能会被丢弃。同样地，由于网络重试，单个日志事件也有可能在某个日志流中被重复。
+
+就是这样！你的日志现在已经配置为可以进行流式传输。如果有你希望我们支持的日志流式传输目标，
+[请告诉我们](/production/contact.md)!
+
+<StackPosts query="axiom" />

@@ -1,0 +1,34 @@
+---
+id: list-custom-domains
+title: "Listar dominios personalizados"
+description: "Recupera todos los dominios personalizados configurados para un despliegue."
+sidebar_label: "Listar dominios personalizados"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVsGO2zYQ/RViTruAYm+KogfdFrtFECBtFpvtyRUCWhxbTCSSIUdODEH/XgwpW5JlJEXbQ/eyMjl884Yz8zgdKAyl1460NZDDGyQh61qUbSDbCGUbqU0QpTU7vW89KrGzXkih0NX22KChFWRgHXrJCG8V5FDrQBcAkIGTXjZI6APkmw6MbBByGHE+xpUMNNNwkirILrg9nm3FYOvxS6s9KsjJt9gXvBKcNQED5B38dHfH/+YokEFpDaEh3pPO1bqM3NefAht0EMoKG8lfdHRM0m4/YUkzfxs4RVZk4DxfAOnk9bQxnpfeyyOHRtiEH+GWHiOdFx1DHC/o9zFmDPSIgbSJlmwVfS65zMBGx9oQ7tFDBjvrG0lp6ZefF1fO5wLJxgltRKPrWgcsrVFBfK3QCKp0GFIsvsogojtUK+gXxEfngbw2+6WrCidVFTM8w9eXVZi8pMD/FvqsJKODCHHlQhdFk8idDWITRHJzzJvSmgN+e6htq4T1Iv38oAlvuU0uKaJpm5jy8VSqzuEQ55M01Xzoecmyz+CAXu+G+p3neDNJsmnrmrH+22Qn36gyjpRdCL0TxtKf5oh03l1B349RPNWSmMVDvLbHCPY8tGwqmimhdywkdvcDMUq8Jnp0zSFDTZ2G0Sv/ZRCwbL2mYxSn9/ctVeIFZSNe7Gc0kG+KPutguZIsn7zlTp5sFRk0SJVlPdwjRf2jCnJYj0zDuruQv36dQv04ymZAfzhpZutryKEiciFfr6XTq1QrK4WH9eH1IqGn4MX901tgSqcgP7DCJYW4GsC5m9gXk4j2kMMWpY8lNXf0fktSG1SCKm/bfSWk2DxEaiLhT2S2uDkFoGwZphE00sg98mW8kk7fxuZcZuL/w+3fsHpISsmdRqwtMlRbK70SrVHoBTF0QCJt9iE9ueaYVo+2FaU0IjFK1a7NzkYOQ9UP8f12Jh0r4JLDfDt6cd4edNDWaLMX0qjkhX8MkC4VSoibk1Jmeat1idxR+fl1f5dWnnH3Kp3nR1ChIZYGf9UgiVpIDF+v7lZ3vORsoEaaGfS1IWMWYDc+9P9wrhlySviN1q7mh6bPUhd2Qz9vJu8cE8iXA81FSxcZVDYQH+26rQz4h6/7npe/tOhZf4oMDtJrueVcbjpQOvC3gnwn64DfifLmeRgkbsVyWLoazGlCMTyfHGTdYhqRPuPxynTWF30GFUrFydt0g9V9WaKjyfnFUDWTwze/vkAGsuXrO7fNuU2GD0a/yq3rkkXsu74/U6XYh33R9/1fcFHQlA==
+sidebar_class_name: "get api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Listar dominios personalizados"} />
+
+<MethodEndpoint method={"get"} path={"/deployments/{deployment_name}/custom_domains"} context={"endpoint"} />
+
+Obtiene todos los dominios personalizados configurados para un despliegue.
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"Solicitud"} />
+
+<ParamsDetails parameters={[{"name":"deployment_name","in":"path","description":"Nombre del despliegue","required":true}]} />
+
+<RequestSchema title={"Cuerpo"} body={undefined} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["domains"],"properties":{"domains":{"type":"array","items":{"type":"object","required":["creationTime","deploymentName","requestDestination","domain"],"properties":{"creationTime":{"type":"integer","format":"int64","description":"Marca temporal en milisegundos cuando se creó este dominio."},"deploymentName":{"type":"string","description":"Nombre del despliegue para el que se configuró este dominio."},"domain":{"type":"string","description":"El nombre de dominio personalizado."},"requestDestination":{"description":"El destino de este dominio personalizado (convexCloud o convexSite).","type":"string","enum":["convexCloud","convexSite"],"title":"RequestDestination"},"verificationTime":{"type":["integer","null"],"format":"int64","description":"Marca temporal en milisegundos cuando se verificó este dominio, o null si aún\nno se ha verificado."}},"title":"PlatformCustomDomainResponse"},"description":"Lista de dominios personalizados configurados para este despliegue."}},"title":"PlatformListCustomDomainsResponse"}}}}}} />

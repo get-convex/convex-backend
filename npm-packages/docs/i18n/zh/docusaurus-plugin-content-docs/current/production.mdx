@@ -1,0 +1,74 @@
+---
+title: "将你的应用部署到生产环境"
+hide_table_of_contents: true
+pagination_prev: search
+description: "构建安全可靠的生产环境应用的技巧"
+---
+
+Convex 专为承载线上生产环境的应用流量而构建。本文将介绍如何部署并维护你的应用的生产环境版本。
+
+## 项目管理 \{#project-management\}
+
+当你注册 Convex 时，系统会为你创建一个 Convex 团队。你可以在
+[仪表盘中创建更多团队](/dashboard/teams.md)，并将其他人添加为成员。你可以将团队升级到
+[Starter](https://www.convex.dev/pricing) 方案以按使用量付费，或者升级到
+[Professional](https://www.convex.dev/pricing) 方案以获得更多功能、更高的内置配额、24 小时支持，以及带折扣的用量计费。
+
+每个团队可以拥有多个项目。第一次运行 `npx convex dev` 时，系统会为你自动创建一个项目。你也可以在仪表盘中创建项目。
+
+每个项目都有一个共享的生产部署，以及每位团队成员一个单独的开发部署。这样，每个团队成员都可以在将变更部署到生产部署之前，各自独立地进行修改和测试。
+
+通常，一个项目下的所有部署都会运行相同的代码库（或其某个版本），但 Convex 并不强制要求这样做。你也可以在属于不同项目的多个生产部署上运行同一个代码库，参见下文的[预发布环境](#staging-environment)。
+
+## 部署到生产环境 \{#deploying-to-production\}
+
+你的 Convex 部署会运行后端逻辑，在大多数情况下，你还会开发一个使用该后端的客户端。如果你的客户端是一个 Web 应用程序，请参考 [Hosting and Deployment](/production/hosting/hosting.mdx) 指南，了解如何同时部署客户端和 Convex 后端。
+
+你也可以单独部署后端。请查看 [Project Configuration](/production/project-configuration.mdx) 页面了解更多信息。
+
+## 预发布环境 \{#staging-environment\}
+
+借助 Convex 的[预览部署](/production/hosting/preview-deployments.mdx)，
+你的团队可以在将更改部署到生产环境之前先进行测试。如果你需要一个更长期存在的预发布环境，可以创建一个单独的 Convex 项目，并在运行 [`npx convex deploy`](/cli.md#deploy-convex-functions-to-production) 时设置 `CONVEX_DEPLOY_KEY` 环境变量，将部署指向该项目。
+
+## 典型的团队开发工作流 \{#typical-team-development-workflow\}
+
+在 Convex 上开发的团队通常会遵循以下工作流程：
+
+1. 如果这是团队的第一个项目，一名团队成员需要在仪表盘中创建一个团队。
+2. 一名团队成员通过运行 `npx convex dev` 创建一个项目，可以从
+   [快速开始](/quickstarts.mdx) 或
+   [模板](https://www.convex.dev/templates) 入手。
+3. 该团队成员使用初始代码创建一个 Git 仓库，并将其分享给团队（通过 GitHub、GitLab 等）。
+4. 其他团队成员拉取代码库，并通过运行 `npx convex dev` 获得各自的开发部署。
+5. 所有团队成员都可以对后端进行修改，并在各自的开发部署中进行测试。变更准备就绪后，该成员发起一个 pull request（或提交到共享分支）。
+   * 可以使用 [备份 / 恢复](/database/backup-restore) 将生产部署的数据填充到开发部署中。
+   * 可以使用 [数据导入](/database/import-export/import.mdx) 将合成的种子数据填充到开发部署中。
+   * 订阅了 [Pro 方案](https://www.convex.dev/pricing) 的团队成员可以获得独立的
+     [预览部署](/production/hosting/preview-deployments.mdx)，用于测试彼此的 pull request。
+6. 当变更合并到指定分支（例如 `main`）时，可以
+   [自动](/production/hosting/hosting.mdx) 部署到生产环境。
+   * 或者，团队成员之一也可以通过运行 `npx convex deploy` 手动部署到生产环境。
+
+### 进行安全更改 \{#making-safe-changes\}
+
+尤其是在你的应用已经上线时，你需要确保对 Convex 代码库所做的更改不会导致其出错或中断服务。
+
+有些不安全的更改会由 Convex 处理并捕获，但其他的需要你自行处理。
+
+1. **模式必须始终符合现有数据。** Convex 会强制执行这一约束。
+   你不能向包含已有数据的部署推送与这些数据不匹配的模式，除非你关闭模式强制约束。通常来说，以下操作是安全的：
+   1. 向模式中添加新表。
+   2. 向现有表的模式添加一个 `optional` 字段，在表中的所有文档上设置该字段，然后再将该字段改为必填。
+   3. 将现有字段标记为 `optional`，从所有文档中移除该字段，然后再删除该字段。
+   4. 将现有字段标记为现有类型与新类型的 `union`，修改所有文档上的该字段以匹配新类型，然后再将字段类型改为新类型。
+2. **函数应保持向后兼容。** 即使你的唯一客户端是一个网站，并且你与后端一起部署它，你的用户在后端发生变化时仍可能在运行旧版本网站。
+   因此，你应让函数保持向后兼容，直到你可以接受对旧客户端引入不兼容变更。通常来说，以下操作是安全的：
+   1. 添加新函数。
+   2. 向现有函数添加一个 `optional` 的具名参数。
+   3. 将现有具名参数标记为 `optional`。
+   4. 将现有具名参数标记为现有类型与新类型的 `union`。
+   5. 以这样的方式更改函数行为：在给定来自旧客户端的参数时，其行为对旧客户端仍然是可以接受的。
+3. **已调度的函数应保持向后兼容。** 当你调度一个函数在未来运行时，你会提供它将接收的参数值。无论何时运行，一个函数总是运行当前已部署的版本。如果你在函数被调度和实际运行之间更改了该函数，你必须确保新版本在给定旧参数时的行为仍然可以接受。
+
+<StackPosts query="deploy" />

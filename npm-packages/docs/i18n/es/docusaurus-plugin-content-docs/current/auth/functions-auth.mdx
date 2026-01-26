@@ -1,0 +1,60 @@
+---
+title: "Autenticación en funciones"
+sidebar_label: "Funciones"
+sidebar_position: 100
+description: "Acceso a la autenticación de usuarios en funciones de Convex"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctions.ts";
+import FieldsTS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFields.ts";
+import FieldsJS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFieldsJS.js";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+*Si estás usando Convex Auth, consulta la
+[documentación de autorización](https://labs.convex.dev/auth/authz#use-authentication-state-in-backend-functions).*
+
+Dentro de una [función](/functions.mdx) de Convex, puedes acceder a información sobre el
+usuario actualmente autenticado mediante la propiedad [`auth`](/api/interfaces/server.Auth)
+del objeto [`QueryCtx`](/generated-api/server#queryctx),
+[`MutationCtx`](/generated-api/server#mutationctx) o
+[`ActionCtx`](/generated-api/server#actionctx):
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+## Campos de identidad de usuario \{#user-identity-fields\}
+
+El objeto [UserIdentity](/api/interfaces/server.UserIdentity) devuelto por
+`getUserIdentity` garantiza que tendrá los campos `tokenIdentifier`, `subject` y
+`issuer`. Los demás campos que incluya dependerán del proveedor de identidad
+utilizado y de la configuración de los tokens JWT y de los
+[scopes de OpenID](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
+
+`tokenIdentifier` es una combinación de `subject` e `issuer` para garantizar
+que sea único incluso cuando se usan varios proveedores.
+
+Si seguiste una de nuestras integraciones con Clerk o Auth0, al menos los
+siguientes campos estarán presentes: `familyName`, `givenName`, `nickname`,
+`pictureUrl`, `updatedAt`, `email`, `emailVerified`. Consulta su definición
+estándar correspondiente en la
+[documentación de OpenID](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
+
+<TSAndJSSnippet sourceTS={FieldsTS} sourceJS={FieldsJS} title="convex/myFunctions.ts" />
+
+### Configuración de claims en Clerk \{#clerk-claims-configuration\}
+
+Si estás usando Clerk, los campos que devuelve `getUserIdentity` están determinados
+por la configuración de *Claims* de tu plantilla de JWT. Si has definido claims personalizadas, estas también
+se devolverán mediante `getUserIdentity`.
+
+### Autenticación JWT personalizada \{#custom-jwt-auth\}
+
+Si estás usando [autenticación JWT personalizada](/auth/advanced/custom-jwt.mdx) en lugar de los campos estándar de OpenID, cada campo anidado estará disponible mediante nombres de campo con puntos, como `identity["properties.email"]`.
+
+## Acciones HTTP \{#http-actions\}
+
+También puedes acceder a la identidad del usuario desde una acción HTTP
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity), llamando a tu endpoint con una cabecera `Authorization` que incluya un token JWT:
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />
+
+<StackPosts query="authentication functions" />

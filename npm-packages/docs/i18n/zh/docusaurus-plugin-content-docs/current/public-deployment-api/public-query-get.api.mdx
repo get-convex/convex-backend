@@ -1,0 +1,41 @@
+---
+id: public-query-get
+title: "执行查询（GET）"
+description: "通过 GET 请求执行查询函数。"
+sidebar_label: "执行查询（GET）"
+hide_title: true
+hide_table_of_contents: true
+api: eJy1VNtOGzEQ/RVrnkDahMDjvqESKBUtCEJfogg5u7NZ013b2OOIaLX/Xs1eciE0ban6lI3neM7xXE4FKfrEKUvKaIhh/IpJIBRSvAR0K5EFnXBILJUUV+OJcPgS0NMQIjAWneTgdQox2DAvVPLUXHtaIEEEVjpZIqHzEE8r0LJEBkrKIQLFdA0aojciLnvSDsqcymEKMbmAEfgkx1JCXAGtLKf05JReQF1HaxbpFv4PWaRbhBI1eSG9+PJw+010+T7GnBlXSjrMfY/eGu1RrMEbpkwW/iDVjNHtfc/xs9GIf3YZIILEaEJNHJPWFippmnXy7BlQbREYjbdZ06KOysyfMdlVNYWlLAJCBJ4kBQ+zCKzjESDVyijM4kbp9rvLI52T/HhFWPp3q9Zn24tFgDqUzOtDkqD3MKujTgODFRWM/t4c1E39D4lH54z7it7LxaE3NLALSe+XRYeigIZpl52V7RDsvzT6b+VpiGFWN3PRC3tMs37EuDicqUTKDS9qv5uUQwwn/Xx6dMt+UYMrOCSt2hvcC7SFWfG2iPO7a2BOpTOz3ZJPRi/xVdw1fiA+TyZ3wplA6PeSjXVqjeLFo1yS6PoltBEyUI6aupGFCAqVID8mXq/ZTXtyj9ng8uFmcDo8HZxbmeQ4OBuOuKgpJ8gUut+CebDQ+VbU6XDUHlnjqZR6i7I3x9Yaj67Gk+O3b6o2W/dXXtp1l/CVTmwhlWYFTR+qrlXTzkpmEeTGEx9U1Vx6fHRFXfNxG+cGpsrLebFlJr/UeHTfLcmxeOu670r6gauNhXfbCM1O/BvnAQ8+oKMz+Q/q2DfhA1RrzIZsxn+cYjaIp2wCOcqU521adbfOkwTt9q09I+Ys69W8Gk+grn8ChD2W8g==
+sidebar_class_name: "get api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"执行查询（GET）"} />
+
+<MethodEndpoint method={"get"} path={"/query"} context={"endpoint"} />
+
+通过 GET 请求执行查询函数。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"请求"} />
+
+<ParamsDetails parameters={[{"name":"path","in":"query","description":"函数路径","required":true,"schema":{"type":"string"}},{"name":"args","in":"query","description":"函数参数（JSON 字符串）","required":true,"schema":{"type":"string"}},{"name":"format","in":"query","description":"响应格式","required":false,"schema":{"type":"string"}}]} />
+
+<RequestSchema title={"请求体"} body={undefined} />
+
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"oneOf":[{"type":"object","required":["value","status"],"properties":{"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["success"]},"value":{"title":"Value"}}},{"type":"object","required":["errorMessage","status"],"properties":{"errorData":{"oneOf":[{"type":"null"},{"title":"Value"}]},"errorMessage":{"type":"string"},"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["error"]}}}],"title":"UdfResponse"}}}}}}
+>
+  
+</StatusCodes>

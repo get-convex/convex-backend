@@ -1,0 +1,183 @@
+---
+title: React 快速入门
+sidebar_label: React
+description: "在 React 项目中集成 Convex"
+hide_table_of_contents: true
+sidebar_position: 100
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/convex/tasks.js";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/main.jsx";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/App.jsx";
+import tasksTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/convex/tasks.ts";
+import mainTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/main.tsx";
+import AppTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/App.tsx";
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/4MgsvjMb59Q" title="YouTube 视频播放器" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+
+要快速完成 Convex 和 React 的设置，请运行：
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest" />
+  </b>
+</p>
+
+或者按照下面的指南进行操作。
+
+***
+
+了解如何在使用 Vite 的 React 应用中从 Convex 查询数据以及 <LanguageSelector verbose />
+
+
+<StepByStep>
+  <Step title="创建一个 React 应用">
+    使用 `create vite` 命令创建一个 React 应用。
+
+    <JSDialectVariants>
+      ```sh
+      npm create vite@latest my-app -- --template react-ts
+      ```
+
+      ```sh
+      npm create vite@latest my-app -- --template react
+      ```
+    </JSDialectVariants>
+
+  </Step>
+  <Step title="安装 Convex 客户端和服务端库">
+    首先，安装 `convex`
+    包，它为在 React 应用中使用
+    Convex 提供了一个便捷接口。
+
+    进入你的应用目录并安装 `convex`。
+
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="设置一个 Convex 开发部署（dev）">
+    接下来运行 `npx convex dev`。这将
+    提示你使用 GitHub 登录，
+    创建一个项目，并保存你的生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用来编写后端 API 函数。`dev` 命令
+    随后会持续运行，将你的函数
+    与云端的开发环境部署保持同步。
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在一个新的终端窗口中，创建一个包含一些示例数据的
+    `sampleData.jsonl` 文件。
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    现在你的项目已经就绪，使用 `import` 命令
+    向 Convex 数据库中添加一个包含示例数据的 `tasks` 表。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="（可选）定义一个模式（schema）">
+    在 `convex/` 文件夹中添加一个新的 `schema.ts` 文件，
+    用来描述你的数据。
+
+    这将为 TypeScript 的可选类型检查声明数据的类型，
+    并且这些类型也会在运行时被强制执行。
+
+    <JSDialectVariants>
+    或者，从 `.eslintrc.cjs` 文件中移除
+    `'plugin:@typescript-eslint/recommended-requiring-type-checking',`
+    这一行，以降低类型检查的严格程度。
+
+    <></>
+    </JSDialectVariants>
+
+    ```ts noDialect title="convex/schema.ts"
+    import { defineSchema, defineTable } from "convex/server";
+    import { v } from "convex/values";
+
+    export default defineSchema({
+      tasks: defineTable({
+        text: v.string(),
+        isCompleted: v.boolean(),
+      }),
+    });
+    ```
+
+  </Step>
+
+  <Step title="提供一个数据库查询">
+    在 `convex/` 文件夹中添加一个新的 <JSDialectFileName name="tasks.ts" /> 文件，
+    其中包含一个用于加载数据的查询函数。
+
+    从该文件中导出一个查询函数
+    会声明一个 API 函数，它的名称由文件名
+    和导出名组成，即 `api.tasks.get`。
+
+    <TSAndJSSnippet
+      sourceTS={tasksTS}
+      sourceJS={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="将应用连接到后端">
+    在 <JSDialectFileName name="src/main.jsx" /> 中，创建一个 `ConvexReactClient`，并将其传递给
+    包裹你应用的 `ConvexProvider`。
+
+    <TSAndJSSnippet
+      sourceTS={mainTS}
+      sourceJS={main}
+      title="src/main.tsx"
+      highlightPatterns={[ "Convex", ]}
+    />
+
+  </Step>
+
+  <Step title="在应用中展示数据">
+    在 <JSDialectFileName name="src/App.jsx" /> 中，使用 `useQuery` hook 从
+    `api.tasks.get` API 函数中获取数据并展示。
+
+    <TSAndJSSnippet
+      sourceTS={AppTS}
+      sourceJS={App}
+      title="src/App.tsx"
+      highlightPatterns={[ "useQuery", "api", "tasks", "text", "\\)\\)\\}" ]}
+    />
+
+  </Step>
+
+  <Step title="启动应用">
+    启动应用，在浏览器中打开 [http://localhost:5173/](http://localhost:5173/)，
+    就可以看到任务列表。
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+查看完整的 [React 文档](/client/react.mdx)。

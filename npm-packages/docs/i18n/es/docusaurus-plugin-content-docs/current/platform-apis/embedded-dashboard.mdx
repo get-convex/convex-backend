@@ -1,0 +1,103 @@
+---
+title: Incrustar el panel de control
+sidebar_position: 20
+---
+
+Convex proporciona un panel de control alojado que se puede incrustar mediante un iframe. Incrustar el
+panel de control es útil para desarrolladores que crean generadores de aplicaciones de IA, como
+[Convex Chef](https://chef.convex.dev).
+
+Puedes incrustar el panel de control de Convex añadiendo un `<iframe>` a
+https://dashboard-embedded.convex.dev. Normalmente, el panel de control incrustado requiere
+que el usuario introduzca credenciales para usarlo, pero puedes omitir el paso de inicio de sesión
+proporcionando credenciales de despliegue mediante un
+[`postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
+al iframe.
+
+Al usar `postMessage`, puede haber una demora hasta que se reciban las credenciales.
+Se mostrará la página de inicio de sesión predeterminada hasta que se reciban las credenciales,
+por lo que recomendamos añadir una espera antes de mostrar el iframe renderizado para evitar
+un parpadeo de la pantalla de inicio de sesión.
+
+<Admonition type="caution" title="Esto compartirá las credenciales del despliegue en el lado del cliente">
+  Al usar `postMessage` para autenticarte con el panel de control incrustado, la
+  clave de despliegue se compartirá con el usuario final. Esto significa que el usuario obtiene
+  control total del despliegue. Hazlo solo cuando compartir credenciales con el
+  usuario sea seguro, como con una [aplicación
+  OAuth](/platform-apis/oauth-applications) (para despliegues de Convex que
+  están en la cuenta de Convex del usuario final), o claves de despliegue [creadas con la
+  Management API](/management-api/create-deploy-key) (si el despliegue de Convex
+  está en una cuenta de Convex que el usuario final no controla).
+</Admonition>
+
+Información requerida para `postMessage`:
+
+* `deploymentUrl`: La URL en la nube del despliegue. Se devuelve al crear el proyecto
+  con la [Create project API](/management-api/create-project)
+* `deploymentName`: El identificador legible del despliegue. Se devuelve al
+  crear el proyecto con la
+  [Create project API](/management-api/create-project).
+* `adminKey`: Una clave de despliegue con ámbito al `deploymentName` especificado. Puede
+  obtenerse con la [Create deploy key API](/management-api/create-deploy-key).
+
+Configuración opcional:
+
+* `visiblePages`: Un array de claves de página que se mostrarán en la barra lateral. Si no se proporciona,
+  se muestran todas las páginas. Si se proporciona un array vacío, la barra lateral
+  se ocultará. Claves de página disponibles: `"health"`, `"data"`, `"functions"`, `"files"`,
+  `"schedules"`, `"logs"`, `"history"`, `"settings"`. Ten en cuenta que esto solo
+  cambia la interfaz de usuario en el lado del cliente y no impide estrictamente
+  que el usuario acceda a la funcionalidad expuesta por las páginas.
+
+Aquí tienes un ejemplo del panel de control de Convex incrustado en una aplicación React:
+
+```tsx
+import { useEffect, useRef } from "react";
+
+export function Dashboard({
+  deploymentUrl,
+  deploymentName,
+  deployKey,
+  visiblePages,
+}: {
+  deploymentUrl: string;
+  deploymentName: string;
+  deployKey: string;
+  visiblePages?: string[];
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Primero esperamos a que el iframe envíe un mensaje dashboard-credentials-request.
+      // Esto garantiza que no enviemos las credenciales hasta que el iframe esté listo.
+      if (event.data?.type !== "dashboard-credentials-request") {
+        return;
+      }
+      iframeRef.current?.contentWindow?.postMessage(
+        {
+          type: "dashboard-credentials",
+          adminKey: deployKey,
+          deploymentUrl,
+          deploymentName,
+          // Optional: specify which pages to show
+          visiblePages,
+        },
+        "*",
+      );
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [deploymentUrl, adminKey, deploymentName, visiblePages]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      // You can also default on other pages, for instance /functions, /files or /logs
+      src="https://dashboard-embedded.convex.dev/data"
+      allow="clipboard-write"
+    />
+  );
+}
+```

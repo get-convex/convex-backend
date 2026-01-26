@@ -1,0 +1,25 @@
+---
+title: "データのインポートとエクスポート"
+sidebar_position: 90
+description:
+  "既存ソースからデータをインポートし、外部システムへデータをエクスポートする"
+---
+
+既存のデータを使ってアプリを立ち上げる場合、Convex にはデータを取り込む方法が 3 つあります。
+
+- [CLI](/database/import-export/import.mdx#single-table-import) を使って、CSV/JSON から単一テーブルにインポートする。
+- [ダッシュボード](/database/backup-restore) または
+  [CLI](/database/import-export/import.mdx#restore-data-from-a-backup-zip-file) を使ってバックアップから復元する。
+- Airbyte の destination connector を経由して、任意の既存データベースから
+  [ストリーミングインポート](/production/integrations/streaming-import-export.md) する。
+
+Convex からデータをエクスポートする方法は 2 つあります。
+
+- [ダッシュボード](/database/backup-restore) から zip 形式でバックアップをダウンロードする。
+- Fivetran または Airbyte を経由して任意の外部データベース向けに
+  [ストリーミングエクスポート](/production/integrations/streaming-import-export.md) を設定する。カスタム BI 環境（例:
+  [Snowflake](https://www.snowflake.com/),
+  [Databricks](https://www.databricks.com)、または
+  [BigQuery](https://cloud.google.com/bigquery)）と接続するのに最適です。
+
+<BetaAdmonition feature="Data Import & Export" verb="is" />

@@ -1,0 +1,141 @@
+---
+title: "カスタム OIDC プロバイダー"
+sidebar_label: "カスタム OIDC プロバイダー"
+sidebar_position: 3
+description:
+  "カスタム認証設定と ConvexProviderWithAuth を使用して、Convex を任意の
+  OpenID Connect アイデンティティプロバイダーと統合します。"
+---
+
+**注意: これは高度な機能です！** できるだけ
+[サポートされているサードパーティ認証プロバイダー](/auth.mdx)
+を利用することをおすすめします。
+
+Convex は、[OpenID Connect](https://openid.net/connect/) プロトコルをサポートする任意のアイデンティティプロバイダーと統合できます。最低限、プロバイダーが
+[ID トークン](https://openid.net/specs/openid-connect-core-1_0.html#IDToken)
+を発行でき、
+対応する
+[JWKS](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-sets)
+を公開している必要があります。ID トークンはクライアントから Convex のバックエンドに渡され、バックエンド側でトークンの有効性が検証されます。そのうえで、[Auth in Functions](/auth/functions-auth.mdx) で説明しているように、トークンに埋め込まれたユーザー情報をクエリできるようになります。
+
+## サーバーサイド統合 \{#server-side-integration\}
+
+[Clerk](/auth/clerk.mdx) や [Auth0](/auth/auth0.mdx) の場合と同様に、
+バックエンドは Issuer のドメインと、特定のアイデンティティプロバイダに対する
+アプリケーション固有の applicationID を把握している必要があります。
+
+これらを `convex/auth.config.ts` ファイルに追加してください：
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      domain: "https://your.issuer.url.com",
+      applicationID: "your-application-id",
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+`applicationID` プロパティは JWT の `aud` フィールドと完全に一致している必要があり、
+`domain` プロパティは JWT の `iss` フィールドと完全に一致している必要があります。
+[jwt.io](https://jwt.io/) のようなツールを使って JWT を確認し、これらのフィールドが
+正確に一致していることを確認してください。
+
+複数のプロバイダーが指定されている場合、上記の条件を最初に満たしたものが使用されます。
+
+`aud` フィールドを含むトークンを取得できない場合は、代わりに
+[Custom JWT](/auth/advanced/custom-jwt.mdx) を設定する必要があります。
+手元のトークンが OIDC ID トークンかどうか分からない場合は、
+必須フィールドの一覧について
+[仕様](https://openid.net/specs/openid-connect-core-1_0-final.html#rfc.section.2)
+を確認してください。
+
+OIDC では `${domain}/.well-known/jwks.json` と
+`${domain}/.well-known/openid-configuration` のルートが必要です。`domain` には
+`https://your.issuer.url.com/api/auth` のようなパスを含めることができます。これは
+サードパーティの認証プロバイダーでは一般的ではありませんが、自前のサーバーで OIDC を
+実装している場合には役立つことがあります。
+
+## クライアント側での連携 \{#client-side-integration\}
+
+### 新しいアイデンティティプロバイダの統合 \{#integrating-a-new-identity-provider\}
+
+[`ConvexProviderWithAuth`](/api/modules/react#convexproviderwithauth)
+コンポーネントは、[Clerk](/auth/clerk.mdx) や
+[Auth0](/auth/auth0.mdx) に対して Convex が提供しているものと同様の
+認証連携を構築するための便利な抽象化を提供します。
+
+次の例では、架空の「ProviderX」との統合を構築します。
+ProviderX の React 連携には `AuthProviderXReactProvider` と
+`useProviderXAuth` フックが含まれているとします。
+
+まず、アプリのルートで `ConvexProviderWithAuth` をラップするように、
+`ConvexProvider` を `AuthProviderXReactProvider` で置き換えます。
+
+```jsx title="src/index.js"
+import { AuthProviderXReactProvider } from "providerX";
+import { ConvexProviderWithAuth } from "convex/react";
+
+root.render(
+  <StrictMode>
+    <AuthProviderXReactProvider>
+      <ConvexProviderWithAuth client={convex} useAuth={useAuthFromProviderX}>
+        <App />
+      </ConvexProviderWithAuth>
+    </AuthProviderXReactProvider>
+  </StrictMode>,
+);
+```
+
+本当に必要なのは、`ConvexProviderWithAuth` コンポーネントに渡す
+`useAuthFromProviderX` フックを実装することだけです。
+
+この `useAuthFromProviderX` フックは、認証プロバイダーの API と
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient)
+API の間の変換役となり、最終的に ID トークンがあなたの Convex バックエンドに
+確実に渡されるようにします。
+
+```jsx title="src/ConvexProviderWithProviderX.js"
+function useAuthFromProviderX() {
+  const { isLoading, isAuthenticated, getToken } = useProviderXAuth();
+  const fetchAccessToken = useCallback(
+    async ({ forceRefreshToken }) => {
+      // ここでIDトークンを取得するために必要な変換を実行できます
+      // またはnullを返します
+      // `forceRefreshToken`がtrueの場合は、必ず新しいトークンを取得してください
+      return await getToken({ ignoreCache: forceRefreshToken });
+    },
+    // If `getToken` isn't correctly memoized
+    // remove it from this dependency array
+    [getToken],
+  );
+  return useMemo(
+    () => ({
+      // Whether the auth provider is in a loading state
+      isLoading: isLoading,
+      // Whether the auth provider has the user signed in
+      isAuthenticated: isAuthenticated ?? false,
+      // The async function to fetch the ID token
+      fetchAccessToken,
+    }),
+    [isLoading, isAuthenticated, fetchAccessToken],
+  );
+}
+```
+
+### 新しいプロバイダを使う \{#using-the-new-provider\}
+
+上記の手順を正しく実行できていれば、認証状態を確認するために Convex の標準ユーティリティを利用できるようになります。
+[`useConvexAuth()`](/api/modules/react#useconvexauth) フックと
+[`Authenticated`](/api/modules/react#authenticated),
+[`Unauthenticated`](/api/modules/react#authenticated),
+[`AuthLoading`](/api/modules/react#authloading) の各ヘルパーコンポーネントです。
+
+### デバッグ \{#debugging\}
+
+詳しくは [認証のデバッグ](/auth/debug.mdx) を参照してください。
+
+<StackPosts query="authentication" />

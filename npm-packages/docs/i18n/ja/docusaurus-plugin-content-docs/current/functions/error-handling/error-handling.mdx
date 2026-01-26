@@ -1,0 +1,189 @@
+---
+title: "エラー処理"
+sidebar_position: 70
+description: "Convex のクエリ、ミューテーション、アクションにおけるエラーの扱い方"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex の[クエリ](/functions/query-functions.mdx)や
+[ミューテーション](/functions/mutation-functions.mdx)でエラーが発生する理由は 4 つあります。
+
+1. [アプリケーションエラー](#application-errors-expected-failures): 関数コードが処理を中断すべき論理条件を検知し、`ConvexError` をスローする場合。
+2. 開発者エラー: 関数内にバグがある場合（`db.get("documents", id)` ではなく
+   `db.get("documents", null)` を呼び出しているようなケース）。
+3. [読み取り/書き込み制限エラー](#readwrite-limit-errors): 関数が取得または書き込んでいるデータ量が多すぎる場合。
+4. Convex 内部エラー: Convex の内部で問題が発生している場合（ネットワークの一時的な障害など）。
+
+Convex は内部エラーを自動的に処理します。Convex 側で問題が発生した場合は、
+問題が解決されてクエリおよびミューテーションが成功するまで、自動的にクエリとミューテーションをリトライします。
+
+一方で、アプリケーションエラー、開発者エラー、読み取り/書き込み制限エラーをどう扱うかは、
+アプリケーション側で決める必要があります。これらのいずれかのエラーが発生した場合の推奨事項は次のとおりです。
+
+1. ユーザーに適切な UI を表示する。
+2. [Exception Reporting Integration](/production/integrations/exception-reporting) を使って、
+   エラーを例外レポートサービスに送信する。
+3. `console.*` を使ってインシデントをログに記録し、
+   [Log Streaming](/production/integrations/log-streams/log-streams.mdx) でレポートを設定する。
+   これは上記のオプションに加えて実行でき、例外をスローする必要はありません。
+
+さらに、デバッグや可観測性のための追加情報を取得する目的で、
+クライアント側のエラーを [Sentry](https://sentry.io) のようなサービスに送信することも検討できます。
+
+## クエリでのエラー \{#errors-in-queries\}
+
+クエリ関数でエラーが発生した場合、そのエラーはクライアントに送信され、
+`useQuery` を呼び出した箇所からスローされます。**これらのエラーを扱う最良の方法は、
+React の
+[エラーバウンダリコンポーネント](https://reactjs.org/docs/error-boundaries.html) を使うことです。**
+
+エラーバウンダリを使うと、子コンポーネントツリー内でスローされたエラーを捕捉して、
+フォールバック用の UI をレンダリングし、そのエラーに関する情報を例外処理サービスに
+送信できます。アプリにエラーバウンダリを追加することは、Convex のクエリ関数内のエラーだけでなく、
+React コンポーネント内のその他のエラーも扱ううえで非常に有効です。Sentry を利用している場合は、
+[`Sentry.ErrorBoundary`](https://docs.sentry.io/platforms/javascript/guides/react/components/errorboundary/)
+コンポーネントを使用できます。
+
+エラーバウンダリを使うことで、フォールバック UI の粒度をどの程度にするかを決められます。
+最もシンプルな方法の 1 つは、次のようにアプリケーション全体を 1 つのエラーバウンダリで
+ラップすることです。
+
+```tsx
+<StrictMode>
+  <ErrorBoundary>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </ErrorBoundary>
+</StrictMode>,
+```
+
+このように設定すると、いずれかのコンポーネントで発生したエラーはすべてエラー境界によって捕捉され、
+同じフォールバック UI がレンダリングされます。
+
+一方で、アプリの一部でエラーが発生しても他の部分は引き続き動作し続けるようにしたい場合には、
+アプリの異なる部分を別々のエラー境界でラップすることができます。
+
+<Admonition type="note" title="再試行について">
+  他のフレームワークと異なり、クエリ関数でエラーが発生した場合の
+  「再試行」という概念はありません。Convex の関数は
+  [deterministic](/functions/query-functions.mdx#caching--reactivity--consistency)
+  であるため、クエリ関数がエラーを返した場合、再試行しても常に同じエラーになります。
+  同じ引数でクエリ関数を再度実行しても意味がありません。
+</Admonition>
+
+## ミューテーションでのエラー \{#errors-in-mutations\}
+
+ミューテーションでエラーが発生すると、次のことが起きます。
+
+1. ミューテーション呼び出しから返される Promise が reject されます。
+2. [楽観的更新](/client/react/optimistic-updates.mdx) がロールバックされます。
+
+[Sentry](https://sentry.io/) のようなエラートラッキングサービスを設定している場合、
+このような「unhandled promise rejections」が自動的にレポートされるはずです。
+つまり、追加の作業をしなくてもミューテーションのエラーが報告されます。
+
+ミューテーションでのエラーは、コンポーネントのレンダリングの一部として発生するわけではないため、
+エラーバウンダリでは捕捉されないことに注意してください。
+
+ミューテーションの失敗に応じて特定の UI をレンダリングしたい場合は、
+ミューテーション呼び出しに対して `.catch` を使用できます。例えば、次のようになります。
+
+```javascript
+sendMessage(newMessageText).catch((error) => {
+  // ここで `error` に対する処理を行う
+});
+```
+
+`async` 関数を使っている場合は、`try...catch` も使用できます。
+
+```javascript
+try {
+  await sendMessage(newMessageText);
+} catch (error) {
+  // ここで `error` に対する処理を行う
+}
+```
+
+<Admonition type="caution" title="捕捉したエラーの報告">
+  ミューテーションで発生したエラーをハンドリングすると、そのエラーは未処理の
+  Promise rejection ではなくなります。エラー監視サービスにこのエラーを手動で
+  報告する必要がある場合があります。
+</Admonition>
+
+## アクション関数でのエラー \{#errors-in-action-functions\}
+
+クエリやミューテーションと異なり、[アクション](//docs/functions/actions.mdx) は
+副作用を持つ可能性があるため、エラーが発生しても Convex によって自動的に
+リトライされることはありません。たとえば、メールを送信するアクションを考えます。
+途中で失敗した場合、Convex はメールがすでに送信されたかどうかを知るすべがなく、
+安全にアクションをリトライすることができません。アクション内で発生したエラーを処理し、
+必要に応じてリトライする責任は呼び出し元にあります。
+
+## dev と本番でのエラー報告の違い \{#differences-in-error-reporting-between-dev-and-prod\}
+
+dev デプロイメントを使用している場合、クライアントに伝播するサーバーエラーには、
+デバッグを容易にするために元のエラーメッセージとサーバー側のスタックトレースが含まれます。
+
+本番デプロイメントを使用している場合、サーバーエラーはマスクされ、
+関数名とスタックトレースを含まない汎用的な `"Server Error"` メッセージのみがクライアントに返されます。
+サーバーの
+[アプリケーションエラー](/functions/error-handling/application-errors.mdx)については、
+引き続きカスタムの `data` が含まれます。
+
+開発環境と本番環境のどちらのデプロイメントでも、スタックトレース付きの完全なエラーがログに記録され、
+各デプロイメントの [Logs](/dashboard/deployments/logs.md) ページで確認できます。
+
+## アプリケーションエラーと予期される失敗 \{#application-errors-expected-failures\}
+
+関数がどのように失敗しうるかがあらかじめ分かっている場合は、
+異なる値を返すか、`ConvexError` をスローすることができます。
+
+[Application Errors](/functions/error-handling/application-errors.mdx) を参照してください。
+
+## 読み取り/書き込み制限エラー \{#readwrite-limit-errors\}
+
+可用性を確保しパフォーマンスを保証するために、Convex は過度に多くのデータを読み書きしようとするクエリや
+ミューテーションを検出します。これらの制限は、単一のクエリまたはミューテーション関数の 1 回の実行単位で
+適用されます。正確な制限値は [Limits](/production/state/limits.mdx#transactions) に記載されています。
+
+ドキュメントは、どのドキュメントを `db.query` から返すべきかを判断するために、データベースによって「スキャン」されます。
+たとえば `db.query("table").take(5).collect()` は 5 件のドキュメントだけをスキャンすればよいですが、
+`db.query("table").filter(...).first()` は、指定されたフィルターに合致する最初の 1 件を見つけるために、
+`"table"` に存在するドキュメントの件数分までスキャンする可能性があります。
+
+`db.get` と `db.query` の呼び出し回数には上限があり、1 つのクエリがあまりにも多くのインデックス範囲を
+購読してしまったり、1 つのミューテーションが競合を引き起こしうる多数の範囲から読み取ってしまうことを防ぎます。
+
+一般的に、これらの制限に頻繁に到達してしまう場合は、スキャンされるドキュメント数を減らして不要な読み取りを避けるために
+[クエリにインデックスを付ける](/database/reading-data/indexes/indexes.md) ことをおすすめします。
+大量のデータを広くスキャンするクエリは一見問題なさそうに見えても、本番スケールでは簡単に破綻する可能性があります。
+関数がこれらの制限に近づいている場合は、警告がログに出力されます。
+
+その他の制限については[こちら](/production/state/limits.mdx)を参照してください。
+
+## エラーのデバッグ \{#debugging-errors\}
+
+[Debugging](/functions/debugging.mdx)、特に
+[Request ID を使って関連ログを見つける](/functions/debugging.mdx#finding-relevant-logs-by-request-id)
+を参照してください。
+
+## 関連コンポーネント \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool は、非同期処理を個別のカスタマイズ可能なキューに整理することで、重要なタスクを優先的に処理します。リトライと並列実行数の制限をサポートします。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "長時間実行される処理フローの実装を簡素化します。Workflow は、設定可能なリトライやディレイとともに永続的に実行されます。",
+    href: "https://www.convex.dev/components/workflow",
+  },
+]}
+/>

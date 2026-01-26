@@ -1,0 +1,47 @@
+---
+title: "在 TanStack Start 中使用 Clerk"
+sidebar_label: 使用 Clerk
+description:
+  "了解如何在 TanStack Start 应用中使用 ID 令牌和 ConvexProviderWithClerk，
+  将 Clerk 身份验证集成到 Convex 中。"
+---
+
+import appRouter from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/router.tsx";
+import appRoutesRoot from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/routes/__root.tsx";
+
+将 Clerk 与 Convex 一起使用，大致遵循
+[Clerk TanStack Quickstart](https://clerk.com/docs/quickstarts/tanstack-start)
+中的步骤，然后按照
+[Convex TanStack Quickstart](/quickstart/tanstack-start.mdx) 中展示的方式添加 Convex。接下来，为了在你可能会在 TanStack Start 中对 Convex 发起认证调用的所有地方都能使用 Clerk 的身份令牌，你需要：
+
+1. 在调用 `getAuth()` 的基础上，从 Clerk 再获取一个 ID 令牌，即使用
+   `const token = await auth.getToken({ template: "convex" })`。
+2. 在 beforeLoad 中设置该 token：
+   使用 `ctx.context.convexQueryClient.serverHttpClient?.setAuth(token)`，这样 token 就可以在 loaders 中使用。
+3. 将 `<ConvexProviderWithClerk>` 添加到根组件中，以便在应用使用过程中持续刷新 Clerk 的 token。
+
+要完成这些更改，可以像这样修改 `app/router.tsx`：
+
+<Snippet source={appRouter} title="app/router.tsx" highlightPatterns={["context: "]} />
+
+以及像这样修改 `app/routes/__root.tsx`：
+
+<Snippet
+  source={appRoutesRoot}
+  title="app/routes/__root.tsx"
+  highlightPatterns={[
+"getAuth\\(get",
+"getToken",
+"token,",
+"ConvexReactClient",
+"ConvexQueryClient",
+"userId, token",
+"ConvexProviderWithClerk",
+"if \\(token",
+"ctx.context.convexQuery",
+]}
+/>
+
+现在，所有使用
+[TanStack Query](/client/tanstack/tanstack-query/index.mdx) 发起的查询、变更和操作
+都会通过 Clerk 身份令牌完成认证。

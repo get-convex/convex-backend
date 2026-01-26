@@ -1,0 +1,34 @@
+---
+title: 継続的インテグレーション
+sidebar_label: CI
+sidebar_position: 300
+description: "Convex アプリケーション向けに継続的インテグレーションのテストを設定する"
+---
+
+継続的インテグレーションを導入すると、チームメンバー全員の変更を統合し、リモートマシン上で自動的にテストできるため、チームは開発を迅速に進められます。
+
+## GitHub Actions でのテスト \{#testing-in-github-actions\}
+
+[GitHub](https://docs.github.com/en/actions) を使っていれば、
+テストスイートを実行するための
+[CI](https://docs.github.com/en/actions/automating-builds-and-tests/about-continuous-integration)
+ワークフローは簡単に設定できます。
+
+```yaml title=".github/workflows/test.yml"
+name: Run Tests
+
+on: [pull_request, push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci
+      - run: npm run test
+```
+
+このファイルをリポジトリにコミットしてプッシュすると、プルリクエストを作成するたび、または新しいコミットをプッシュするたびに、GitHub が `npm run test` を実行します。
+
+{/* todo: プレビューデプロイメントに対するテスト */}

@@ -1,0 +1,46 @@
+---
+id: public-function-post
+title: "任意の関数を実行する"
+description: "名前を指定してクエリ、ミューテーション、またはアクション関数を実行します。"
+sidebar_label: "任意の関数を実行する"
+hide_title: true
+hide_table_of_contents: true
+api: eJy1Vd9v0zAQ/lese3a7jce8DRgCaYiqFHgoFXKTa2NwbM8+b4ui/O/onLRr1GkgJPpS63y+H99336WDCmMZtCftLBRw84hlIhRK3CUMrRRNIsV3UrggVMlHsUt2OGxbYVWDc5DgPIbs+KGCAnzaGl3+ODj+8C4SSAh4lzDSa1e1UHRQOktoiY/Ke6PLHODiZ+RSOohljY3iE7UeoQC3/Yklx5nWvKp1FJFCKknE2iVTCWdNK7YoUsRK7FwQaCvvtKUoqFYklDHuQZTKGG33x37id6tt1BWK0jXeWbQU52KJd0kHjEJVjbbiF7bzsRUdsIJiDV5RDRJU2EfYSPCBwSCNMXfG1rMeegnHHAt+fvRYQ6Sg7R4k2GQMbHoJOxcaRS/7+EmUg0PfSyBNhk1fqt3CRVoOJHzTVL85lAA9Oz71RCFhNkTvbBwaeXV5yX9T7EH+PYvO4qcdFOtzPk/BvFcmIUiIpCg9g6dx+1tt8RRTFYJqQYImbOLzGIzRzu4koE1NRjSVJcaYsRxqYOcRuq/ZwCC9XDyG4MJHjFHtX+ohu71V9DwsmdKcaZqdK5skOO9U/jd4cmLY9H2/mUzUchwRBocjNUi1yytgkPwwlnBx0BijguEeQ8wtp2D4Vnl9Juu36I1rG7QkrhcfgPPyTC2fdsjNo2q8wROVncvqqZODiJ4sfuLRS9B2505pf+PsPT6KRd5m4v1qtRDBJcJ4VuzNdL+MMyGsEypRjZZGWYAEo0tkwIoOeHlCAbeDZYm72bvPt7Or+dXs2quyxtmr+SUTV3GAncbwR2ceXgxxKOpqfjmYmItG2ZOUxz1vW3FCzaSpkwX979+FcZ4IH+nCG6Ut15NZ70b813AsYCOh5rEp1tB1WxXxSzB9z+acFYr1hsUZtNoyP2tWRI2qYmDWHfzCdiCNi56tOPNRy+e7iRU2vLguS/T0ou/mZLIXnz6vQMJ2/Io1ruI3QT3wMlAPw1Z0GcQsqWzrwCi7T1m2MMTk328atJiw
+sidebar_class_name: "post api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"任意の関数の実行"} />
+
+<MethodEndpoint method={"post"} path={"/function"} context={"endpoint"} />
+
+クエリ、ミューテーション、またはアクション関数を名前指定で実行します。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"リクエスト"} />
+
+<ParamsDetails parameters={undefined} />
+
+
+<RequestSchema
+  title={"リクエストボディ"}
+  body={{"content":{"application/json":{"schema":{"type":"object","description":"この構造体は、コンポーネント内で関数呼び出しを許可するエンドポイントでのみ使用してください。\n管理者キーが必要です。","required":["path","args"],"properties":{"args":{"type":"object"},"componentPath":{"type":["string","null"]},"format":{"type":["string","null"]},"path":{"type":"string"}},"title":"UdfPostRequestWithComponent"}}},"required":true}}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"oneOf":[{"type":"object","required":["value","status"],"properties":{"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["success"]},"value":{"title":"値"}}},{"type":"object","required":["errorMessage","status"],"properties":{"errorData":{"oneOf":[{"type":"null"},{"title":"値"}]},"errorMessage":{"type":"string"},"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["error"]}}}],"title":"UdfResponse"}}}}}}
+>
+  
+</StatusCodes>

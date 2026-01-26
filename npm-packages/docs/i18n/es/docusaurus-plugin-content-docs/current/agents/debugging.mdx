@@ -1,0 +1,95 @@
+---
+title: Depuración
+sidebar_label: "Depuración"
+sidebar_position: 1100
+description: "Depuración del componente Agent"
+---
+
+## Depuración en el Playground \{#debugging-in-the-playground\}
+
+En general, el [Playground](./playground.mdx) ofrece mucha información sobre
+lo que ocurre, pero cuando eso no basta, cuentas con otras opciones.
+
+## Registro de la petición y la respuesta sin procesar de las llamadas al LLM \{#logging-the-raw-request-and-response-from-llm-calls\}
+
+Puedes proporcionar un `rawRequestResponseHandler` al agente para registrar la
+petición y la respuesta sin procesar del LLM.
+
+Podrías usar esto para registrar la petición y la respuesta en una tabla, o
+usar registros de consola con
+[Log Streaming](https://docs.convex.dev/production/integrations/log-streams/)
+para permitir la depuración y la búsqueda en Axiom u otro servicio de
+registro.
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  rawRequestResponseHandler: async (ctx, { request, response }) => {
+    console.log("request", request);
+    console.log("response", response);
+  },
+});
+```
+
+## Registrar los mensajes de contexto mediante el contextHandler \{#logging-the-context-messages-via-the-contexthandler\}
+
+Puedes registrar los mensajes de contexto mediante el contextHandler para ver con exactitud
+qué está recibiendo el LLM.
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  contextHandler: async (ctx, { allMessages }) => {
+    console.log("context", allMessages);
+    return allMessages;
+  },
+});
+```
+
+## Inspeccionar la base de datos en el panel de control \{#inspecting-the-database-in-the-dashboard\}
+
+Puedes ir a la pestaña Data en el panel de control y seleccionar el componente Agent encima
+de la lista de tablas para ver los datos del Agent. La organización de las tablas se corresponde con el
+[esquema](https://github.com/get-convex/agent/blob/main/src/component/schema.ts).
+Las tablas más útiles son:
+
+* `threads` tiene una fila por hilo
+* `messages` tiene una fila separada para cada ModelMessage, por ejemplo, un mensaje de usuario,
+  una llamada de herramienta del asistente, un resultado de herramienta, un mensaje del asistente, etc. Los campos más importantes son `agentName`, que indica con qué agente está asociado, `status`, `order`
+  y `stepOrder`, que se usan para ordenar los mensajes, y `message`, que es aproximadamente lo que se pasa al LLM.
+* `streamingMessages` tiene una entrada por cada mensaje transmitido en streaming, hasta que se limpia.
+  Puedes usar el Id para mirar la tabla `streamDeltas` asociada.
+* `files` captura los archivos rastreados por Agent a partir del contenido que se envió en
+  un mensaje que se almacenó en File Storage.
+
+## Solución de problemas \{#troubleshooting\}
+
+### Errores de tipo en `components.agent` \{#type-errors-on-componentsagent\}
+
+Si recibes errores de tipo relacionados con `components.agent`, asegúrate de haber ejecutado
+`npx convex dev` para generar el código del componente. Los tipos que espera la
+biblioteca están en la biblioteca de npm, y los tipos de `components.agent` actualmente
+provienen del código generado en tu proyecto (a través de `npx convex dev`).
+
+### Dependencias circulares \{#circular-dependencies\}
+
+Hacer que el valor de retorno de los workflows dependa de otras funciones de Convex puede provocar dependencias circulares debido a la forma de especificar funciones mediante `internal.foo.bar`. La forma de solucionarlo es definir explícitamente el tipo del valor de retorno del workflow. En caso de duda, añade tipos de retorno a más funciones `handler`, por ejemplo:
+
+```ts
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
+  // highlight-next-line
+  handler: async (step, { prompt, userId, threadId }): Promise<string> => {
+    // ...
+  },
+});
+
+// Y funciones regulares también:
+export const myFunction = action({
+  args: { prompt: v.string() },
+  // highlight-next-line
+  handler: async (ctx, { prompt }): Promise<string> => {
+    // ...
+  },
+});
+```

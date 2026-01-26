@@ -1,0 +1,211 @@
+---
+title: "Convex 概览"
+hidden: false
+sidebar_position: 100
+pagination_next: understanding/workflow
+description:
+  "Convex 简介 —— 具有 TypeScript 查询的响应式数据库"
+---
+
+Convex 是一个开源的响应式数据库，其中的查询是以 TypeScript 代码形式直接在数据库中运行。
+就像 React 组件会对状态变化作出响应一样，Convex 查询会对数据库变化作出响应。
+
+Convex 提供数据库、用于编写服务器函数的运行环境以及客户端库。它让你可以轻松构建和扩展动态的、实时更新的应用。
+
+下图展示了 Convex 支持的标准三层应用架构。我们将从底层开始，一步步向上讲解这个图的每一层。
+
+<div className="center-image" style={{ maxWidth: "600px", background: "white", borderRadius: "10px" }}>
+  ![Convex in your app](/img/basic-diagram.png)
+</div>
+
+## 数据库 \{#database\}
+
+[数据库](/database.mdx) 是 Convex 的核心。当你创建项目时，Convex 数据库会自动创建，无需手动配置连接或管理集群。
+
+<Admonition type="info">
+  在 Convex 中，你的数据库查询就是写在 [服务端函数](/functions.mdx)
+  里的 [TypeScript 代码](/database/reading-data/reading-data.mdx)。你不需要编写 SQL，也不需要任何 ORM。
+</Admonition>
+
+Convex 数据库是响应式的。只要查询所依赖的任意数据发生变化，该查询就会被重新执行，并且客户端订阅会随之更新。
+
+Convex 是一种“文档-关系型”数据库。“文档”表示你在数据库中存储类 JSON 的嵌套对象。“关系型”表示你有带关联关系的表，例如使用 ID 引用其他表中文档的 `tasks` 分配给 `user`。
+
+Convex 的云端服务运行在 Amazon RDS 之上，使用 MySQL 作为持久化层。开源版本则使用 SQLite、Postgres 和 MySQL。该数据库遵循 ACID 事务特性，并使用
+[可串行化隔离级别和乐观并发控制](/database/advanced/occ.md)。
+总而言之，Convex 提供了最严格的事务保障，你永远不会看到不一致的数据。
+
+## 服务端函数 \{#server-functions\}
+
+当你创建一个新的 Convex 项目时，系统会自动生成一个 `convex/` 文件夹，
+你会在其中编写你的[服务端函数](/functions.mdx)。这里包含了你所有的
+后端应用逻辑和数据库查询代码。
+
+下面是一些用 TypeScript 编写的服务端函数示例，它们对数据库执行读取（查询）和写入（变更）操作。
+
+```typescript title="convex/tasks.ts"
+// A Convex query function
+export const getAllOpenTasks = query({
+  args: {},
+  handler: async (ctx, args) => {
+    // 查询数据库以获取所有未完成的项
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_completed", (q) => q.eq("completed", false))
+      .collect();
+    return tasks;
+  },
+});
+
+// A Convex mutation function
+export const setTaskCompleted = mutation({
+  args: { taskId: v.id("tasks"), completed: v.boolean() },
+  handler: async (ctx, { taskId, completed }) => {
+    // Update the database using TypeScript
+    await ctx.db.patch("tasks", taskId, { completed });
+  },
+});
+```
+
+你可以通过查询函数或变更函数来读写数据库。
+[查询函数](/functions/query-functions.mdx) 是只能从数据库读取数据的纯函数。
+[变更函数](/functions/mutation-functions.mdx) 是可以从数据库读取或写入数据的事务。
+这两类数据库函数
+[不允许执行任何非确定性的](/functions/runtimes.mdx#restrictions-on-queries-and-mutations)
+操作，比如发起网络请求，以确保事务语义得到保证。
+
+<Admonition type="info">
+  整个 Convex 变更函数本身就是一个事务。你不需要编写 `begin` 或
+  `end` 事务语句。Convex 会在发生冲突时自动重试
+  该函数，你不需要手动管理任何事务细节。
+</Admonition>
+
+Convex 还提供了一类通用的无服务器函数，称为操作（actions）。
+[操作函数](/functions/actions.mdx) 可以发起网络请求。
+它们必须通过查询函数或变更函数来读写数据库。
+你可以使用操作函数来调用 LLM 或发送邮件。
+
+你还可以通过
+[scheduler](scheduling/scheduled-functions.mdx) 或
+[cron jobs](scheduling/cron-jobs.mdx) 可靠地调度 Convex 函数。
+借助调度功能，你可以构建这样的工作流：如果新用户在一天内尚未完成某个入门任务，就向 TA 发送一封邮件。
+
+你可以通过[客户端库](/client/react.mdx)或直接通过
+[HTTP](/http-api/index.md#functions-api) 来调用 Convex 函数。
+
+## 客户端库 \{#client-libraries\}
+
+Convex 客户端库会让你的前端始终与服务端函数的结果保持同步。
+
+```tsx
+// 在你的 React 组件中
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function TaskList() {
+  const data = useQuery(api.tasks.getAllOpenTasks);
+  return data ?? "Loading...";
+}
+```
+
+就像 `useState` hook 会在本地状态变化时更新 React 组件一样，Convex 的 `useQuery` hook 会在查询结果发生变化时自动更新组件。你不需要手动管理订阅或进行状态同步。
+
+在调用查询函数时，客户端库会订阅该函数的结果。Convex 会跟踪查询函数的依赖，包括从数据库读取了哪些数据。每当数据库中的相关数据发生变化时，Convex 都会自动重新运行该查询并将结果发送给客户端。
+
+客户端库还会在内存中排队要发送到服务器的变更。随着变更执行并导致查询结果更新，客户端库会保持你的应用状态一致。它会把所有订阅都更新到数据库中同一个逻辑时刻。
+
+Convex 为几乎所有主流的 Web 和原生应用框架提供了客户端库。客户端库通过 WebSocket 连接到你的 Convex 部署。然后你可以
+[通过客户端库](/client/react.mdx#fetching-data) 调用你的公共 Convex 函数。你也可以直接通过
+[HTTP](/http-api/index.md#functions-api) 使用 Convex，只是你将无法获得自动订阅功能。
+
+## 综合运用 \{#putting-it-all-together\}
+
+让我们回到前面提到的 `getAllOpenTasks` Convex 查询函数，它会获取所有尚未被标记为 `completed` 的任务：
+
+```typescript title="convex/tasks.ts"
+export const getAllOpenTasks = query({
+  args: {},
+  handler: async (ctx, args) => {
+    // 查询数据库以获取所有未完成的项
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_completed", (q) => q.eq("completed", false))
+      .collect();
+    return tasks;
+  },
+});
+```
+
+当你订阅这个查询时，我们一起来看看会发生什么：
+
+<div className="center-image" style={{ maxWidth: "1800px", background: "white", borderRadius: "10px" }}>
+  ![Convex data flow](/img/convex-query-subscription.png)
+</div>
+
+Web 应用使用 `useQuery` hook 来订阅这个查询，然后会发生以下事情来获取初始值：
+
+* Convex 客户端向 Convex 服务端发送消息来订阅该查询
+* Convex 服务端运行该函数，从数据库中读取数据
+* Convex 服务端将函数的结果通过消息发送给客户端
+
+在这个例子中，初始结果如下所示 (1)：
+
+```json
+[
+  { _id: "e4g", title: "Grocery shopping", complete: false },
+  { _id: "u9v", title: "Plant new flowers", complete: false },
+];
+```
+
+然后，你使用一个变更将某个条目标记为已完成（2）。Convex 随后重新运行查询（3）来获取最新结果，并通过 WebSocket 连接（4）将结果推送到 Web 应用：
+
+```json
+[
+  { _id: "e4g", title: "购物", complete: false },
+];
+```
+
+## 超越响应式 \{#beyond-reactivity\}
+
+除了响应式之外，Convex 的架构还有一个更深层次的重要考量：Convex
+不会允许你的应用在技术栈的任何一层出现不一致的状态。
+
+为说明这一点，我们来想象你正在为一个电商网站构建购物车功能。
+
+<div className="center-image" style={{ maxWidth: "600px" }}>
+  ![应用中的 Convex](/img/convex-swaghaus.png)
+</div>
+
+在商品列表页上，你会看到两个数字：一个显示库存中剩余的商品数量，另一个显示你购物车中的商品数量。每个数字都来自不同的查询函数。
+
+每次你点击 “Add to Cart” 按钮时，都会调用一个变更函数，从库存中移除一件商品并将它加入购物车。
+
+用于修改购物车的变更在一个事务中运行，因此你的数据库始终处于一致状态。这个响应式数据库知道，显示库存数量和购物车数量的查询都需要更新。这些查询会失效并被重新运行。结果会通过 WebSocket 连接推送到 Web 应用。
+
+客户端库会确保这两个查询在 Web 应用中同时更新，因为它们反映的是数据库中的同一时刻。你永远不会遇到这些数字对不上的情况。你的应用始终展示一致的数据。
+
+你可以在
+[Swaghaus 示例应用](https://swaghaus.biz/)
+中看到这个示例的实际效果。
+
+## 适用于人工和 AI 生成的代码 \{#for-human-and-ai-generated-code\}
+
+Convex 围绕一小组可组合的抽象和强有力的保障而设计，让代码不仅编写更快，也更易于阅读和维护——无论是团队成员还是 LLM 编写的。关键特性能帮助你获得尽可能无缺陷的 AI 生成代码：
+
+1. **查询就是 TypeScript** 你的数据库查询是纯 TypeScript 函数，具备端到端的类型安全和 IDE 支持。这意味着 AI 可以利用庞大的 TypeScript 代码训练集来生成数据库代码，而无需切换到 SQL。
+2. **更少的代码完成同样的工作** 由于大量基础设施和样板代码由 Convex 自动管理，你需要编写的代码更少，从而出错的机会也更少。
+3. **自动响应式** 响应式系统会自动跟踪数据依赖并更新你的 UI。AI 不需要手动管理订阅、WebSocket 连接或复杂的状态同步——Convex 会自动处理这一切。
+4. **事务性保证** 查询是只读的，而变更会在事务中运行。这些约束几乎让 AI 不可能写出会破坏你的数据或让应用处于不一致状态的代码。
+
+综合来看，这些特性意味着 AI 可以专注于你的业务逻辑，而 Convex 提供的保证会防止常见的故障模式。
+
+## 了解更多 \{#learn-more\}
+
+<div style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/3d29eKJ2Vws" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+</div>
+
+如果你对 Convex 如何实现这一切的细节感兴趣，可以阅读 Convex 联合创始人 Sujay 撰写的精彩博客文章
+[How Convex Works](https://stack.convex.dev/how-convex-works)。
+
+现在你已经大致了解 Convex 在你的应用中扮演的角色。接下来我们来一起梳理一下从配置到发布 Convex 应用的整体流程。

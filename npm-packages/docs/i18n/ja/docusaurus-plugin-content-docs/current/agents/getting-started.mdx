@@ -1,0 +1,74 @@
+---
+title: "Agent の始め方"
+sidebar_label: "Getting Started"
+sidebar_position: 100
+description: "Agent コンポーネントのセットアップ"
+---
+
+Agent コンポーネントをインストールするには、既存の Convex プロジェクトが必要です。Convex を初めて利用する場合は、
+[チュートリアル](https://docs.convex.dev/tutorial/) を一通り進めてください。
+
+`npm create convex` を実行するか、
+[クイックスタート](https://docs.convex.dev/home) のいずれかに従ってプロジェクトをセットアップしてください。
+
+## インストール \{#installation\}
+
+コンポーネントパッケージをインストールします。
+
+```ts
+npm install @convex-dev/agent
+```
+
+アプリの `convex/` フォルダ内に `convex.config.ts` ファイルを作成し、`use` を呼び出してコンポーネントをインストールします。
+
+```ts
+// convex/convex.config.ts
+import { defineApp } from "convex/server";
+import agent from "@convex-dev/agent/convex.config";
+
+const app = defineApp();
+app.use(agent);
+
+export default app;
+```
+
+次に、コンポーネント用のコードを生成するために `npx convex dev` を実行します。Agent の定義を始める前に、このコマンドが少なくとも一度は正常に実行されている必要があります。
+
+## 最初の Agent を定義する \{#defining-your-first-agent\}
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "My Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+  instructions: "You are a weather forecaster.",
+  tools: { getWeather, getGeocoding },
+  maxSteps: 3,
+});
+```
+
+## 基本的な使い方 \{#basic-usage\}
+
+```ts
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+
+export const helloWorld = action({
+  args: { city: v.string() },
+  handler: async (ctx, { city }) => {
+    const threadId = await createThread(ctx, components.agent);
+    const prompt = `What is the weather in ${city}?`;
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+`components.agent` に関する型エラーが発生する場合は、コンポーネント用のコードを生成するために
+`npx convex dev` を実行したか確認してください。
+
+これで完了です。[Agent Usage](./agent-usage.mdx) を参照して、より詳しい内容や
+オプションを確認してください。

@@ -1,0 +1,84 @@
+---
+title: 嵌入仪表盘
+sidebar_position: 20
+---
+
+Convex 提供了一个托管的仪表盘，可以通过 iframe 进行嵌入。嵌入仪表盘对构建 AI 应用生成器的开发者很有用，例如
+[Convex Chef](https://chef.convex.dev)。
+
+你可以通过在页面中添加一个指向 https://dashboard-embedded.convex.dev 的 `<iframe>` 来嵌入 Convex 仪表盘。通常情况下，嵌入的仪表盘要求用户输入凭证才能使用，但你可以通过向 iframe 发送携带部署凭证的
+[`postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
+来跳过登录步骤。
+
+使用 `postMessage` 时，凭证的接收可能会有延迟。在凭证被接收之前，将显示默认登录页面，因此我们建议在显示渲染好的 iframe 之前加入一个延迟，以避免闪现登录界面。
+
+<Admonition type="caution" title="这会在客户端共享该部署的凭证">
+  使用 `postMessage` 对嵌入的仪表盘进行认证时，部署密钥会与终端用户共享。这意味着用户将获得对该部署的完全控制权。只有在与用户共享凭证是安全的情况下才这样做，例如使用 [OAuth
+  Application](/platform-apis/oauth-applications)（适用于 Convex 部署位于终端用户的 Convex 账户中时），或者使用 [Management API 创建的部署密钥](/management-api/create-deploy-key)（当 Convex 部署位于终端用户不控制的 Convex 账户中时）。
+</Admonition>
+
+`postMessage` 所需的信息：
+
+* `deploymentUrl`：部署的云端 URL。在使用
+  [Create project API](/management-api/create-project) 创建项目时返回。
+* `deploymentName`：该部署的可读标识符。在使用
+  [Create project API](/management-api/create-project) 创建项目时返回。
+* `adminKey`：限定在指定 `deploymentName` 上的部署密钥。可通过
+  [Create deploy key API](/management-api/create-deploy-key) 获取。
+
+可选配置：
+
+* `visiblePages`：要在侧边栏中显示的页面 key 数组。如果未提供，则显示所有页面；如果提供空数组，则隐藏侧边栏。可用的页面 key 有：`"health"`、`"data"`、`"functions"`、`"files"`、`"schedules"`、`"logs"`、`"history"`、`"settings"`。请注意，这只会改变客户端的用户界面，并不会从严格意义上阻止用户访问这些页面所暴露的功能。
+
+下面是一个在 React 应用中嵌入 Convex 仪表盘的示例：
+
+```tsx
+import { useEffect, useRef } from "react";
+
+export function Dashboard({
+  deploymentUrl,
+  deploymentName,
+  deployKey,
+  visiblePages,
+}: {
+  deploymentUrl: string;
+  deploymentName: string;
+  deployKey: string;
+  visiblePages?: string[];
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // 我们首先等待 iframe 发送 dashboard-credentials-request 消息。
+      // 这确保在 iframe 准备就绪之前不会发送凭据。
+      if (event.data?.type !== "dashboard-credentials-request") {
+        return;
+      }
+      iframeRef.current?.contentWindow?.postMessage(
+        {
+          type: "dashboard-credentials",
+          adminKey: deployKey,
+          deploymentUrl,
+          deploymentName,
+          // Optional: specify which pages to show
+          visiblePages,
+        },
+        "*",
+      );
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [deploymentUrl, adminKey, deploymentName, visiblePages]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      // You can also default on other pages, for instance /functions, /files or /logs
+      src="https://dashboard-embedded.convex.dev/data"
+      allow="clipboard-write"
+    />
+  );
+}
+```

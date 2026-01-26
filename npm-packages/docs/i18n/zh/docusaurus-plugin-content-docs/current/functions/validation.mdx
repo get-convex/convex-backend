@@ -1,0 +1,239 @@
+---
+title: "参数与返回值验证"
+sidebar_label: "验证"
+sidebar_position: 50
+description: "验证函数参数和返回值以提高安全性"
+---
+
+import ConvexValues from "@site/i18n/zh/docusaurus-plugin-content-docs/current/_convexValues.mdx";
+
+import messagesTS from "!!raw-loader!@site/../demos/args-validation/convex/messages.ts";
+
+参数和返回值验证器可以确保
+[查询](./query-functions.mdx)、[变更](./mutation-functions.mdx) 和
+[操作](./actions.mdx) 使用正确类型的参数调用，并返回期望类型的返回值。
+
+**这对安全性非常重要！** 如果没有参数验证，恶意用户就可以使用未预期的参数调用你的公共函数，从而导致出人意料的结果。仅靠
+[TypeScript](/understanding/best-practices/typescript) 还不够，因为 TypeScript 类型在运行时并不存在。我们建议在生产环境应用中为所有公共函数添加参数验证。对于不对客户端公开的函数，我们建议使用
+[内部函数](/functions/internal-functions.mdx)，并视情况添加验证。
+
+**示例：**
+[参数验证](https://github.com/get-convex/convex-demos/tree/main/args-validation)
+
+## 添加校验器 \{#adding-validators\}
+
+要为你的函数添加参数验证，将一个带有 `args` 和 `handler` 属性的对象传给 `query`、`mutation` 或 `action` 构造函数。要添加返回值验证，在这个对象中使用 `returns` 属性：
+
+<TSAndJSSnippet title="convex/message.ts" sourceTS={messagesTS} sourceJS={messagesTS} snippet="mutation" />
+
+如果你使用参数校验器来定义函数，就不需要再添加
+[TypeScript](/understanding/best-practices/typescript.mdx) 类型注解！你的函数类型会被自动推断出来。
+同样地，如果你定义了返回值校验器，函数的返回类型将会从校验器中推断出来，并且 TypeScript 会检查它是否
+与从 `handler` 函数推断出的返回类型一致。
+
+与 TypeScript 不同，对对象进行校验时，如果对象包含校验器中未声明的属性，将会抛出错误。
+
+如果客户端提供了 `args` 中未声明的参数，或者函数返回的值与 `returns` 中声明的校验器不匹配，就会抛出错误。
+这有助于防止由于参数名称拼写错误，或者向客户端返回了超出预期的数据而导致的 bug。
+
+即使是 `args: {}` 这种用法，对校验器来说也是有用的，因为当你尝试向一个不期望任何参数的函数传递参数时，
+TypeScript 会在客户端给出错误提示。
+
+## 支持的类型 \{#supported-types\}
+
+所有函数（包括公共函数和内部函数）都可以接收和返回下列数据类型。每种类型都有一个对应的校验器，可以通过从 `"convex/values"` 导入的 [`v`](/api/modules/values#v) 对象来访问。
+
+[数据库](/database.mdx) 可以存储完全相同的一组
+[数据类型](/database/types.md)。
+
+此外，你还可以表示联合类型、字面量类型、`any` 类型以及可选字段。
+
+### Convex 值类型 \{#convex-values\}
+
+<ConvexValues />
+
+### 联合类型 \{#unions\}
+
+你可以使用 `v.union` 来描述可能是多种类型之一的字段：
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    stringOrNull: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, { stringOrNull }) => {
+    //...
+  },
+});
+```
+
+为了方便起见，`v.nullable(foo)` 等价于 `v.union(foo, v.null())`。
+
+### 字面量 \{#literals\}
+
+值为常量的字段可以用 `v.literal` 表示。与 union 类型结合使用时尤其有用：
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    oneTwoOrThree: v.union(
+      v.literal("one"),
+      v.literal("two"),
+      v.literal("three"),
+    ),
+  },
+  handler: async (ctx, { oneTwoOrThree }) => {
+    //...
+  },
+});
+```
+
+### Record 对象 \{#record-objects\}
+
+你可以使用 `v.record` 来描述将任意键名映射到值的对象：
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    simpleMapping: v.record(v.string(), v.boolean()),
+  },
+  handler: async (ctx, { simpleMapping }) => {
+    //...
+  },
+});
+```
+
+你还可以对键使用其他类型的字符串验证器：
+
+```typescript
+defineTable({
+  userIdToValue: v.record(v.id("users"), v.boolean()),
+});
+```
+
+注意：
+
+* 此类型对应于 TypeScript 中的
+  [Record&lt;K,V&gt;](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
+  类型。
+* 不能使用字符串字面量作为 `record` 的键名。
+* 使用 `v.string()` 作为 `record` 的键验证器时，只允许使用 ASCII 字符。
+
+### Any \{#any\}
+
+可以接受任意值的字段可以用 `v.any()` 表示：
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    anyValue: v.any(),
+  },
+  handler: async (ctx, { anyValue }) => {
+    // ...
+  },
+});
+```
+
+这相当于 TypeScript 中的 `any` 类型。
+
+### 可选字段 \{#optional-fields\}
+
+你可以通过将字段的类型包裹在 `v.optional(...)` 中来描述可选字段：
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    optionalString: v.optional(v.string()),
+    optionalNumber: v.optional(v.number()),
+  },
+  handler: async (ctx, { optionalString, optionalNumber }) => {
+    //...
+  },
+});
+```
+
+这相当于在 TypeScript 中用 `?` 标记字段为可选。
+
+## 提取 TypeScript 类型 \{#extracting-typescript-types\}
+
+[`Infer`](/api/modules/values#infer) 类型允许你从校验器调用中推导出 TypeScript 类型。这样可以帮助你消除校验器和 TypeScript 类型之间的重复定义：
+
+```ts
+import { mutation } from "./_generated/server";
+import { Infer, v } from "convex/values";
+
+const nestedObject = v.object({
+  property: v.string(),
+});
+
+// 解析为 `{property: string}`。
+export type NestedObject = Infer<typeof nestedObject>;
+
+export default mutation({
+  args: {
+    nested: nestedObject,
+  },
+  handler: async (ctx, { nested }) => {
+    //...
+  },
+});
+```
+
+### 复用和扩展验证器 \{#reusing-and-extending-validators\}
+
+验证器可以只定义一次，并在函数和表模式之间共享使用。
+
+```typescript
+const statusValidator = v.union(v.literal("active"), v.literal("inactive"));
+
+const userValidator = v.object({
+  name: v.string(),
+  email: v.email(),
+  status: statusValidator,
+  profileUrl: v.optional(v.string()),
+});
+
+const schema = defineSchema({
+  users: defineTable(userValidator).index("by_email", ["email"]),
+});
+```
+
+你可以在对象验证器上使用 `.pick`、`.omit`、`.extend` 和 `.partial` 来添加或移除字段，从而从已有的对象验证器创建新的对象验证器。
+
+```typescript
+// Creates a new validator with only the name and profileUrl fields.
+const publicUser = userValidator.pick("name", "profileUrl");
+
+// Creates a new validator with all fields except the specified fields.
+const userWithoutStatus = userValidator.omit("status", "profileUrl");
+
+// 创建一个所有字段均为可选的验证器。
+// 这对于验证文档的部分更新很有用。
+const userPatch = userWithoutStatus.partial();
+
+// Creates a new validator adding system fields to the user validator.
+const userDocument = userValidator.extend({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+});
+```
+
+Notes:
+
+* Object 验证器不允许多余的属性，包含未在验证器中声明的属性的对象会验证失败。
+* 顶层表字段不能以下划线 `_` 开头，因为它们保留给 `_id` 和 `_creationTime` 这样的系统字段使用。

@@ -1,0 +1,58 @@
+---
+title: "Usar Windsurf con Convex"
+sidebar_position: 200
+sidebar_label: Usar Windsurf
+description: "Consejos y buenas prácticas para usar Windsurf con Convex"
+slug: "using-windsurf"
+---
+
+[Windsurf](https://codeium.com/windsurf), el editor de código con IA, facilita
+escribir y mantener aplicaciones creadas con Convex. Veamos cómo configurar
+Windsurf para sacar el máximo partido a Convex.
+
+## Agregar reglas de Convex \{#add-convex-rules\}
+
+Agrega el siguiente archivo de reglas a tu proyecto y úsalo directamente cuando
+pidas cambios:
+
+* [Convex Rules](https://convex.link/convex_rules.txt)
+
+Trabajamos continuamente para mejorar la calidad de estas reglas para Convex
+utilizando evals rigurosos. Puedes ayudar
+[contribuyendo a nuestro repositorio de evals](https://github.com/get-convex/convex-evals).
+
+## Configurar el servidor Convex MCP \{#setup-the-convex-mcp-server\}
+
+La CLI de Convex incluye un servidor
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx) (MCP) integrado. El
+servidor Convex MCP da a tu agente de código con IA acceso a tu
+despliegue de Convex para consultar y optimizar tu proyecto.
+
+Para empezar con Windsurf, abre &quot;Windsurf Settings &gt; Cascade &gt; Model Context
+Protocol (MCP) Servers&quot;, haz clic en &quot;Add Server&quot;, haz clic en &quot;Add custom server&quot; y
+añade la siguiente configuración para Convex.
+
+```json
+{
+  "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+Después de agregar el servidor, vuelve a la pantalla &quot;Windsurf Settings &gt; Cascade &gt; Model
+Context Protocol (MCP) Servers&quot; y haz clic en el botón &quot;Refresh&quot; para que Windsurf
+detecte el nuevo servidor.
+
+Una vez hecho esto, deberías ver la herramienta de Convex en la lista de servidores:
+
+![Chat UI](/img/windsurf-with-convex/windsurf_convex_mcp.png)
+
+Ahora empieza a hacerle preguntas como:
+
+* Evalúa un esquema de Convex y sugiere mejoras
+* ¿Cuáles son los endpoints públicos de esta aplicación?
+* Ejecuta la consulta `my_convex_function`

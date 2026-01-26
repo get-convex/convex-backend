@@ -1,0 +1,181 @@
+---
+title: Entornos de ejecución
+sidebar_position: 80
+description:
+  "Aprende las diferencias entre los entornos de ejecución de Convex y Node.js para funciones"
+---
+
+# Runtimes \{#runtimes\}
+
+Las funciones de Convex se pueden ejecutar en dos entornos de ejecución:
+
+* [Runtime de Convex predeterminado](#default-convex-runtime)
+* [Runtime de Node.js opcional](#nodejs-runtime)
+
+## Runtime predeterminado de Convex \{#default-convex-runtime\}
+
+Todas las funciones backend de Convex se escriben en JavaScript o TypeScript. De forma predeterminada,
+todas las funciones se ejecutan en un runtime de JavaScript personalizado muy similar al
+[runtime de Cloudflare Workers](https://blog.cloudflare.com/cloud-computing-without-containers/)
+con acceso a la mayoría de los
+[globales estándar de la web](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects).
+
+El runtime predeterminado tiene muchas ventajas, entre ellas:
+
+* **Sin cold starts**. El runtime siempre está activo y listo para gestionar cualquier función
+  al instante.
+* **Estándares más recientes de JavaScript para la web**. El runtime está basado en V8, que también
+  es el motor de Google Chrome. Esto garantiza que proporcione una interfaz muy similar a
+  tu código de frontend, lo que permite simplificar aún más tu código.
+* **Acceso a tus datos con sobrecarga mínima**. El runtime está diseñado para tener
+  un acceso con muy poca sobrecarga a tus datos mediante funciones de consulta (`query`) y mutación (`mutation`), lo que te permite
+  acceder a tu base de datos a través de una sencilla
+  [interfaz de JavaScript](/database/reading-data/reading-data.mdx).
+
+### APIs compatibles \{#supported-apis\}
+
+El runtime predeterminado es compatible con la mayoría de las bibliotecas npm que funcionan en el navegador,
+[Deno](https://deno.com/) y
+[Cloudflare Workers](https://developers.cloudflare.com/workers/). Si tu
+biblioteca no es compatible, puedes usar una acción con el
+[Node.js runtime](#nodejs-runtime) o ponerte en contacto en
+[Discord](https://convex.dev/community). Estamos ampliando la compatibilidad continuamente.
+
+#### APIs de red \{#network-apis\}
+
+* [Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
+* [Event](https://developer.mozilla.org/en-US/docs/Web/API/Event)
+* [EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)
+* [fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch) — solo en las
+  [acciones](#actions)
+* [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
+* [FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData)
+* [Headers](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
+* [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request)
+* [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)
+
+#### APIs de codificación \{#encoding-apis\}
+
+* [TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)
+* [TextEncoder](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder)
+* [atob](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/atob)
+* [btoa](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/btoa)
+
+#### APIs de Web Streams \{#web-stream-apis\}
+
+* [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream)
+* [ReadableStreamBYOBReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader)
+* [ReadableStreamDefaultReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader)
+* [TransformStream](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream)
+* [WritableStream](https://developer.mozilla.org/en-US/docs/Web/API/WritableStream)
+* [WritableStreamDefaultWriter](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultWriter)
+
+#### APIs Web Crypto \{#web-crypto-apis\}
+
+* [crypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+* [CryptoKey](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)
+* [SubtleCrypto](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
+
+### Restricciones sobre consultas y mutaciones \{#restrictions-on-queries-and-mutations\}
+
+Las funciones de consulta y mutación están además **restringidas por el entorno de ejecución a ser
+[deterministas](https://en.wikipedia.org/wiki/Deterministic_algorithm)**. Esto
+permite que Convex las reintente automáticamente según sea necesario.
+
+El determinismo significa que, sin importar cuántas veces se ejecute tu función, mientras
+se le pasen los mismos argumentos, tendrá efectos secundarios idénticos y devolverá
+el mismo valor.
+
+No tienes que preocuparte demasiado por mantener estas propiedades de
+determinismo al escribir tus funciones de Convex. Convex mostrará mensajes de error útiles a medida que avances, de modo que no puedas hacer algo prohibido *por accidente*.
+
+#### Uso de aleatoriedad y tiempo en consultas y mutaciones \{#using-randomness-and-time-in-queries-and-mutations\}
+
+Convex proporciona un generador de números pseudoaleatorios sólido con &quot;semilla&quot;
+en `Math.random()` para poder garantizar el determinismo de tu función.
+La semilla del generador de números aleatorios es un parámetro implícito de tu función.
+Varias llamadas a `Math.random()` en una misma ejecución de función devolverán valores
+aleatorios diferentes. Ten en cuenta que Convex no vuelve a evaluar los módulos de JavaScript en
+cada ejecución de función, por lo que una llamada a `Math.random()` almacenada en una variable global
+no cambiará entre ejecuciones de función.
+
+Para garantizar que la lógica dentro de tu función sea reproducible, la hora del sistema utilizada
+globalmente (fuera de cualquier función) se &quot;congela&quot; en el momento del despliegue, mientras que la hora del
+sistema durante la ejecución de una función de Convex se &quot;congela&quot; cuando la función
+comienza. `Date.now()` devolverá el mismo resultado durante toda la ejecución de tu
+función. Por ejemplo,
+
+```javascript
+const globalRand = Math.random(); // `globalRand` does not change between runs.
+const globalNow = Date.now(); // `globalNow` es el momento en que se desplegaron las funciones de Convex.
+
+export const updateSomething = mutation({
+  args: {},
+  handler: () => {
+    const now1 = Date.now(); // `now1` is the time when the function execution started.
+    const rand1 = Math.random(); // `rand1` has a new value for each function run.
+    // implementation
+    const now2 = Date.now(); // `now2` === `now1`
+    const rand2 = Math.random(); // `rand1` !== `rand2`
+  },
+});
+```
+
+### Acciones \{#actions\}
+
+Las acciones no están sujetas a las mismas reglas de determinismo que las
+funciones de consulta y mutación. En particular, las acciones pueden realizar
+llamadas a endpoints HTTP de terceros mediante la función estándar de navegador
+[`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
+
+De forma predeterminada, las acciones también se ejecutan en el runtime de JavaScript
+personalizado de Convex, con todas sus ventajas, incluidos arranques en frío inexistentes
+y un entorno de APIs similar al del navegador. También pueden vivir en el
+mismo archivo que tus funciones de consulta y mutación.
+
+## Entorno de ejecución de Node.js \{#nodejs-runtime\}
+
+Algunas bibliotecas de JavaScript y TypeScript usan características que no están incluidas en
+el entorno de ejecución predeterminado de Convex. Las acciones de Convex proporcionan una vía de escape a
+[Node.js](https://nodejs.org/en/about) mediante la directiva `"use node"` en la parte superior
+de un archivo que contiene tu acción.
+[Más información](/functions/actions.mdx#choosing-the-runtime-use-node).
+
+El uso del entorno de Node.js está restringido **solo a funciones de acción**. Si
+quieres usar una biblioteca diseñada para Node.js e interactuar con la base de datos de Convex, debes llamar a la biblioteca de Node.js desde una acción y usar
+las funciones auxiliares [`runQuery`](/functions/actions.mdx#action-context) o
+[`runMutation`](/functions/actions.mdx#action-context) para llamar a una consulta o
+mutación.
+
+Cada archivo `.ts` y `.js` en el directorio `convex`
+[se empaqueta](/functions/bundling.mdx) ya sea para el entorno de ejecución de JavaScript
+predeterminado de Convex o para Node.js, junto con cualquier código que importe.
+
+Los archivos con la directiva `"use node"` no deben contener consultas ni
+mutaciones de Convex, ya que no pueden ejecutarse en el entorno de ejecución de Node.js. Además, los archivos
+sin la directiva `"use node"` no deben importar ningún archivo con la
+directiva `"use node"`. Los archivos que no contienen funciones de Convex, como un archivo
+`convex/utils.ts`, también necesitan la directiva `"use node"` si usan
+bibliotecas específicas de Node.js.
+
+Si encuentras errores de empaquetado sobre imports específicos de Node.js como `fs` /
+`node:fs` que no están disponibles al desplegar funciones de Convex, ejecutar
+`npx convex dev --once --debug-node-apis` proporciona más información sobre ellos. Usa
+un método de empaquetado más lento para rastrear la cadena de imports, acotando
+qué import es responsable del error.
+
+Ten en cuenta que los límites de tamaño de los argumentos son más bajos (5MiB en lugar de 16MiB).
+
+### Configuración de la versión de Node.js \{#nodejs-version-configuration\}
+
+De forma predeterminada, todas las acciones que se ejecutan en el entorno de Node.js se ejecutan en
+Node.js 20. Esta versión se puede configurar en el archivo
+[convex.json](/production/project-configuration.mdx#configuring-the-nodejs-version).
+Actualmente admitimos Node.js 20 y 22.
+
+Al enviar una nueva versión de Node.js al servidor, el nuevo código de tus
+funciones puede ejecutarse en la versión anterior de Node.js durante unos minutos.
+
+Nota: Esta configuración no es compatible cuando se ejecuta el backend de Convex
+autohospedado. En su lugar se usará la versión de Node.js especificada en
+[.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc).

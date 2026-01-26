@@ -1,0 +1,184 @@
+---
+title: "使用 Components"
+slug: "using"
+sidebar_position: 20
+hide_table_of_contents: true
+description: "使用现有组件"
+---
+
+Convex Components 会在各自的沙箱环境中为你的后端添加新功能，包含它们自己的函数、模式和数据、计划任务函数，以及所有其他 Convex 的基础功能。
+
+你可以在
+[组件目录](https://convex.dev/components)
+中查看组件的完整列表。
+
+## 安装 \{#installation\}
+
+我们将以 [Agent](https://www.npmjs.com/package/@convex-dev/agent) 组件为例。
+
+<StepByStep>
+  <Step title="从 `npm` 安装">
+    ```bash
+    npm i @convex-dev/agent
+    ```
+  </Step>
+
+  <Step title="将组件添加到你的应用中">
+    在应用的 `convex/` 文件夹中创建或更新 `convex.config.ts` 文件，并通过调用 `use` 来安装组件。通过使用不同的名称多次调用 `use`，可以安装同一个组件的多个实例。每个实例都会拥有自己的数据表和函数。
+
+    ```ts title="convex/convex.config.ts"
+    import { defineApp } from "convex/server";
+    import agent from "@convex-dev/agent/convex.config.js";
+
+    const app = defineApp();
+
+    // highlight-next-line
+    app.use(agent);
+    app.use(agent, { name: "agent2" });
+    //... Add other components here
+
+    export default app;
+    ```
+  </Step>
+
+  <Step title="运行 convex dev">
+    `convex dev` 命令行界面（CLI）命令会生成使用该组件所需的代码。
+
+    ```bash
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="通过组件的 API 使用组件">
+    每个组件实例都会在 `components` 对象下以其名称提供一个 API。一些组件会用类或函数对这个 API 进行封装。查看每个组件的文档以了解更多用法细节。
+
+    ```ts
+    import { components } from "./_generated/api.js";
+
+    const agent = new Agent(components.agent, { ... });
+    ```
+  </Step>
+</StepByStep>
+
+## 直接使用组件的 API \{#using-the-components-api-directly\}
+
+尽管组件可能会暴露更高级别的 TypeScript API，但在内部它们是通过常规的 Convex 函数跨组件沙箱边界进行调用的。
+
+查询、变更和操作的规则依然适用——查询只能调用组件查询，变更也可以调用组件变更，而操作也可以调用组件操作。因此，对组件的查询默认是响应式的，而变更则具有相同的事务保证。
+
+可以使用下列语法在你的应用中调用组件函数：
+
+```ts
+import { internalAction } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const myAction = internalAction({
+  args: { threadId: v.string() },
+  handler: async (ctx, args) => {
+    // 调用组件的 API 获取线程状态。
+    const { status } = await ctx.runQuery(components.agent.threads.getThread, {
+      threadId: args.threadId,
+    });
+    //...
+  },
+});
+```
+
+某些组件对组件的 API 进行了抽象封装。比如，来自 `@convex-dev/agent` 的 `Agent`
+类是通过 `components.agent` 初始化的，它的方法接收 `ctx` 作为参数，从而可以在内部调用该组件的 API。
+[在此了解更多关于 Agent 组件的信息](/agents.mdx)。
+
+## 事务 \{#transactions\}
+
+请记住，Convex 中的变更函数是
+[事务](/functions/mutation-functions.mdx#transactions)。要么变更中的所有
+更改一次性写入，要么一条都不会写入。
+
+顶层变更调用的所有写入，包括通过调用其他组件的变更函数所执行的写入，都会被一并提交。如果顶层变更抛出错误，则所有写入都会被回滚，并且该变更完全不会修改数据库。
+
+但是，如果组件的变更函数调用抛出异常，只有它自己的写入会被回滚。然后，如果调用方捕获了该异常，它可以继续执行，进行更多写操作，并成功返回。如果调用方没有捕获该异常，那么它会被视为失败，并且与该调用方变更关联的所有写入都会被回滚。这意味着你的代码可以根据组件的语义选择不同的执行路径。
+
+例如，以
+[Rate Limiter](https://www.npmjs.com/package/@convex-dev/ratelimiter) 组件为例。
+Rate Limiter 的一个 API 会在触发限流时抛出错误：
+
+```ts
+// 如果达到速率限制,则自动抛出错误。
+await rateLimiter.limit(ctx, "failedLogins", { key: userId, throws: true });
+```
+
+如果对 `rateLimiter.limit` 的调用抛出异常，说明已经超出了速率限制。然后，如果调用该变更没有捕获这个异常，整个事务都会被回滚。
+
+另一方面，调用该变更也可以选择通过捕获异常并继续执行来忽略速率限制。例如，一个应用可能希望在存在开发环境（dev）下的覆盖配置时忽略速率限制。在这种情况下，只有组件变更会被回滚，其余的变更逻辑会继续执行。
+
+## 仪表盘 \{#dashboard\}
+
+你可以通过仪表盘中的下拉菜单查看组件的数据、函数、文件、日志以及其他信息。你还可以使用该下拉菜单隐藏来自某些组件的信息。
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/component_dropdown.png" alt="组件下拉菜单的屏幕截图" width={414} />
+</p>
+
+## 测试组件 \{#testing-components\}
+
+使用 [`convex-test`](/testing/convex-test.mdx) 编写包含组件的测试时，必须在测试实例中注册该组件。这样可以告知测试实例要使用哪个模式来进行校验，以及到哪里查找组件的源代码。大多数组件会从 `/test` 导出一些便捷的辅助函数，以简化这一过程：
+
+```ts title="convex/some.test.ts"
+import agentTest from "@convex-dev/agent/test";
+import { expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { components } from "./_generated/api";
+import { createThread } from "@convex-dev/agent";
+
+// 定义一次,通常在共享的测试辅助文件中。
+export function initConvexTest() {
+  const t = convexTest();
+  // highlight-next-line
+  agentTest.register(t);
+  return t;
+}
+
+test("Agent createThread", async () => {
+  const t = initConvexTest();
+
+  const threadId = await t.run(async (ctx) => {
+    // 调用使用 ctx 和 components.agent 的函数
+    return await createThread(ctx, components.agent, {
+      title: "Hello, world!",
+    });
+  });
+  // 直接在组件的 API 上调用函数
+  const thread = await t.query(components.agent.threads.getThread, {
+    threadId,
+  });
+  expect(thread).toMatchObject({
+    title: "Hello, world!",
+  });
+});
+```
+
+如果你需要自己注册该组件，只需将组件的模式和模块传递给测试实例即可。
+
+```ts title="convex/manual.test.ts"
+/// <reference types="vite/client" />
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./path/to/component/schema.ts";
+const modules = import.meta.glob("./path/to/component/**/*.ts");
+
+test("Test something with a local component", async () => {
+  const t = convexTest();
+  t.registerComponent("componentName", schema, modules);
+
+  await t.run(async (ctx) => {
+    await ctx.runQuery(components.componentName.someQuery, {
+      arg: "value",
+    });
+  });
+});
+```
+
+## 日志流 \{#log-streams\}
+
+你可以在
+[日志流](/production/integrations/log-streams) 中使用 `data.function.component_path` 字段，将日志行按其所属组件进行区分。

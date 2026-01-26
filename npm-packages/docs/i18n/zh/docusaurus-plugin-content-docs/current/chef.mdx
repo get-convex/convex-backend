@@ -1,0 +1,172 @@
+---
+title: Chef
+description: "如何使用 Convex 的 Chef"
+---
+
+Chef 是一个用于构建复杂全栈应用的 AI 应用构建器。它利用 Convex 平台的全部能力，一键生成类似 Slack、Instagram 和 Notion 的应用。
+
+这意味着 Chef 可以：构建实时应用、上传文件、执行文本搜索，并充分利用 Convex Components。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "https://chef.convex.dev",
+  label: "使用 Convex Chef 通过提示词启动应用",
+}}
+/>
+
+<div className="center-image" style={{ maxWidth: "500px" }}>
+  ![Chef 截图](/screenshots/chef_preview.png)
+</div>
+
+## 部署到生产环境 \{#deploying-to-production\}
+
+Chef 内置了将应用开发版本部署出来的能力，你可以立刻分享给朋友试用。
+
+对于打算长期构建和维护的应用，我们建议你下载代码并将其导入到你常用的 IDE 中。当你从 Chef 下载代码时，你的项目会自动包含
+[Convex 的 Cursor 规则](/ai.mdx)，帮助你更放心地持续编写代码。
+
+### 下载代码 \{#download-the-code\}
+
+<div className="center-image" style={{ maxWidth: "700px" }}>
+  ![Chef 截图](/screenshots/chef_download.png)
+</div>
+
+在 Chef UI 的右上角有一个“下载代码”按钮。点击它，你会得到一个 zip 文件。
+
+解压该文件，并将文件夹放到你想要的位置。为了方便起见，我们建议将文件夹重命名为你的应用名称。接下来的设置中，打开终端并 `cd` 进入你的应用目录：
+
+```bash
+cd ~/<应用文件夹>
+```
+
+### 安装依赖 \{#install-dependencies\}
+
+运行以下命令为你的项目安装所有依赖项：
+
+```bash
+npm i
+```
+
+### 运行你的应用 \{#run-your-app\}
+
+运行以下命令来启动你的应用，如果你还没有配置 Convex，将在此过程中完成设置。
+
+```bash
+npm run dev
+```
+
+在你的本机上按照提示登录 Convex。
+
+<Admonition type="caution">
+  你现在已经从 Chef 手中接管了这个应用的开发工作。Chef
+  无法重新导入该项目，也无法在项目之外跟踪任何进度。
+  如果你在 Chef 中重新打开这个项目，会导致你当前项目产生冲突。
+</Admonition>
+
+### 配置前端构建脚本 \{#set-up-the-frontend-build-script\}
+
+Chef 项目默认不带构建脚本。请确保在你的 `package.json` 文件中添加以下内容：
+
+```tsx
+  "scripts": {
+		//... 其他脚本
+    "build": "vite build"
+  },
+```
+
+### 推荐：配置 Git \{#recommended-setup-git\}
+
+在终端中运行以下三个命令来为你的应用配置 Git。下载的代码自带一个 `.gitignore` 文件。
+
+```bash
+git init
+git add --all
+git commit -m "Initial commit"
+```
+
+如果你打算使用下面的生产环境托管指南，建议你也在
+[GitHub](https://github.com/) 上设置一个远程 Git 仓库。
+
+### 设置生产环境前端托管 \{#set-up-production-frontend-hosting\}
+
+按照任意一篇 Convex [托管指南](/production/hosting/hosting.mdx)操作，配置前端托管，并为前端和后端代码设置持续部署。
+
+### 为生产环境初始化 Convex Auth \{#initialize-convex-auth-for-prod\}
+
+当你已经有了一个生产部署后，你需要
+[为生产环境配置 Convex Auth](https://labs.convex.dev/auth/production)。
+
+## 集成 \{#integrations\}
+
+### OpenAI \{#openai\}
+
+如果你让 Chef 使用 AI，默认情况下它会尝试使用内置的 OpenAI
+代理，但可用的调用额度是有限的。这有助于你快速为自己的 AI 应用想法做出原型。
+
+不过，当内置额度用完后，你就需要
+提供你自己的 OpenAI API 密钥，并且移除代理 URL。
+
+也就是说，你需要找到看起来像这样的代码：
+
+```typescript
+const openai = new OpenAI({
+  baseURL: process.env.CONVEX_OPENAI_BASE_URL,
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+并移除 baseURL 参数：
+
+```typescript
+const openai = new OpenAI({
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+Chef 可能会自动提示你更改环境变量。如果没有自动提示，你可以转到 “Database” 选项卡，然后点击 Settings &gt; Environment Variables，将 `CONVEX_OPENAI_API_KEY` 更改为你的
+[个人 OpenAI 密钥](https://platform.openai.com)。
+
+我们计划随着时间推移逐步改进这一迁移体验。
+
+### Resend \{#resend\}
+
+Chef 内置了一种通过 Resend 向自己发送电子邮件的方式。你只能向你用来登录
+Chef 的那个账户发送邮件。要向任何人发送邮件，你必须在生产环境中为你的
+应用配置并绑定一个域名。这是电子邮件服务提供商为打击垃圾邮件而施加的
+限制。
+
+## 常见问题解答 \{#faqs\}
+
+### Chef 支持哪些浏览器？ \{#what-browsers-does-chef-support\}
+
+Chef 最适合在台式机或笔记本电脑上的浏览器中使用。它也可能在某些平板或
+手机浏览器上正常运行。Chef 无法在任何平台上的 Safari 中使用。
+
+### Chef 的定价是如何计算的？ \{#how-does-the-pricing-for-chef-work\}
+
+Chef 的定价主要取决于 AI token 的使用量。免费方案会为你提供足够的 token，让你通过少量提示词构建出应用的第一个版本。之后，你可以升级到 Starter 方案，按实际使用的 token 量付费。
+
+### Chef 和 Convex 有什么区别？ \{#whats-the-difference-between-chef-and-convex\}
+
+Chef 是一个用于构建全栈应用的 AI 应用开发平台。Convex 是为 Chef 提供支持的后端和数据库。
+
+### 我可以把现有的应用导入到 Chef 吗？ \{#can-i-import-my-existing-app-to-chef\}
+
+Chef 目前还不支持导入和 GitHub 集成。不过，你依然可以通过在 Cursor 等 Agentic IDE 中配置 [Convex AI Rules 和 MCP server](/ai.mdx)，获取其中的大部分核心价值。
+
+### Chef 有哪些最佳实践吗？ \{#are-there-any-best-practices-for-chef\}
+
+有的！请查看这篇
+[由我们的一位工程师撰写的技巧文章](https://stack.convex.dev/chef-cookbook-tips-working-with-ai-app-builders)。
+
+### Chef 可以使用哪些 Convex 组件？ \{#what-convex-components-can-chef-use\}
+
+Chef 可以使用
+[协同文本编辑器](https://www.convex.dev/components/prosemirror-sync)
+组件和 [在线状态（presence）](https://www.convex.dev/components/presence)
+组件。我们很快会支持更多组件。Chef 支持 Convex 的所有其他功能，例如文本搜索、文件存储等。
+
+## 限制 \{#limitations\}
+
+Chef 基于一个单一模板构建，该模板使用 Convex、Convex Auth 以及由 Vite 驱动的 React。Chef 不支持替换这些技术。

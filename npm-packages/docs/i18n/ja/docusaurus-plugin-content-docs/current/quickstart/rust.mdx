@@ -1,0 +1,95 @@
+---
+title: "Rust クイックスタート"
+sidebar_label: Rust
+description: "Convex を Rust プロジェクトに追加する"
+hide_table_of_contents: true
+sidebar_position: 700
+---
+
+import sampleData from "!!raw-loader!@site/../../crates/convex/examples/quickstart/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../../crates/convex/examples/quickstart/convex/tasks.js";
+import main from "!!raw-loader!@site/../../crates/convex/examples/quickstart/main.rs";
+
+Tokio を使った Rust アプリで Convex からデータをクエリする方法を説明します。
+
+<StepByStep>
+  <Step title="Cargo プロジェクトを作成する">
+    新しい Cargo プロジェクトを作成します。
+
+    ```sh
+    cargo new my_app
+    cd my_app
+    ```
+  </Step>
+
+  <Step title="Convex のクライアント / サーバーライブラリをインストールする">
+    まず、バックエンドコードを書くための `convex` npm
+    パッケージをインストールします。
+
+    あわせて、`convex` の Rust クライアントライブラリ、
+    `tokio` ランタイム、および `.env` ファイルを扱うための `dotenvy` をインストールします。
+
+    ```sh
+    npm init -y && npm install convex && cargo add convex tokio dotenvy
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に、`npx convex dev` を実行します。
+    これにより GitHub へのログイン、
+    プロジェクトの作成、および本番用とデプロイメントURLの保存を促されます。
+
+    また、バックエンド API 関数を書くための `convex/` フォルダも
+    自動的に作成されます。`dev` コマンドはその後も実行され続け、
+    あなたの関数をクラウド上の dev デプロイメントと同期します。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、`sampleData.jsonl`
+    ファイルを作成し、サンプルデータをいくつか記述します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`tasks` テーブルを作成し、
+    サンプルデータを Convex データベースに
+    `import` コマンドを使って追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダ内に新しく `tasks.js` ファイルを追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすることで、
+    ファイル名とエクスポート名に基づいた
+    `"tasks:get"` という名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="アプリをバックエンドに接続する">
+    `src/main.rs` ファイルで `ConvexClient` を作成し、
+    それを使って `"tasks:get"` API からデータを取得します。
+
+    <Snippet source={main} title="src/main.rs" />
+  </Step>
+
+  <Step title="アプリを実行する">
+    アプリを実行し、シリアライズされた tasks のリストを確認します。
+
+    ```sh
+    cargo run
+    ```
+  </Step>
+</StepByStep>
+
+[Rust ドキュメント全体](https://docs.rs/convex/latest/convex/)も参照してください。

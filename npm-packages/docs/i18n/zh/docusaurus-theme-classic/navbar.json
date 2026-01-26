@@ -1,0 +1,22 @@
+{
+  "logo.alt": {
+    "message": "Convex",
+    "description": "导航栏徽标的替代文字"
+  },
+  "item.label.Dashboard": {
+    "message": "仪表盘",
+    "description": "导航栏中标签为“仪表盘”的项目"
+  },
+  "item.label.Blog": {
+    "message": "博客",
+    "description": "导航栏中标签为“博客”的项目"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "导航栏中标签为“GitHub”的项目"
+  },
+  "item.label.Discord": {
+    "message": "Discord",
+    "description": "导航栏中标签为“Discord”的项目"
+  }
+}

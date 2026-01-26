@@ -1,0 +1,63 @@
+---
+id: delete-deploy-key
+title: "Eliminar clave de despliegue"
+description: "Elimina una clave de despliegue para el despliegue especificado. El `id` de la solicitud"
+sidebar_label: "Eliminar clave de despliegue"
+hide_title: true
+hide_table_of_contents: true
+api: eJzVVU1v4zYQ/SvEXJoAjJ3tUbc028OiLWJk3ZNjZMfi2OKuRDIk5cQQ9N+LIWVHjtzTXtqT5eFw+N58vOlAUSi9dlFbAwV8ppoiBYFCkavtQfygg9haL2JFIjgq9VaTGg4bMnEmlhWJb1p9E9okL08vLYX4ZDZWHUSJRmwoHWzbuh6HvXrVsRLO01a/XUtBprSKlIj2BxkphjcNNiTs9snwn/fLM5BgHXlk3F8UFKAS8pELSHDosaFIPkCx6oBjJc8j+OdkkaCZusNYgZzk4+grBl+mpz0pKKJvqV9nC4X4m1UHKDoorYlkIn+ic7UuE8b598ABOwhlRQ3yVzw4hmM336mMZ5FXoBWsJTjPHKOmwP5ajW6F6LXZTfByMVICRbQip4QrpMO4EIFKT1HssW45t8mWL+WkP5n075cgWqNf2lyEGfS9BFRK81NYL0bYtlgHkhB1rBnbosa4tb7JzZRT+Acd7vwuQM9RPuSQDcFZEzLPX29v+eecWHo9UNl6HQ+pmg93bazEkrARS4YLxWrdyw6mluy58JYTPTpaS2goVpbbx9kQU8fECgqYv/dImHcfGqaf58Q+Z/tz7rVAfn9stNbXUEAVowvFfI5Oz0pr9vQ2U7Sf7z9NqnZMmLhbfAGGdST6lZslZ+UiiVM78FsMIvlDARtCT37y0MMmojY8ZJW37a4SKFb3CZrI8Ucdu746ElC2DGMGDRrcEefjBp2+nkEvL1Tjv4PtZ1Dde8JI6ihuCkO1seiVaI0iLyKHDhSjNruQhBLNIVsPtk1DlxHl8WEReHyXi9/fsHE8Mnm4j0PdsyJtbQI7jNSQiL9O7FKrfAR7fpzgOG/3OmhrtNkJNCrD4T9DSJc7KqTDUduzwta6JBMSvkE7/8yWR9re5PusnopM5L3gLzr0EngwMsJPs9vZLZt43ho0o9CfLwj4Gb2RtP6v9tTQcJHe4tzVqA3zTxLRDXqzGu2kABKK6YqaSs5aQsWiVayg6zYY6G9f9z2bX1ryrJFrCXv0GjfcQqsOlA78rU6C/a/pvXocFPpaTDfgRT6DEQ2XLW0WFm0JjHS6cvt1L6EiVNwzq27wus/v3yw51nuUyRY9E+7Fw9clSNgM27exiu94fOWNiq8ZhU0ck44mWwc1ml2LO/bNMdN2a7kaJ4k4ScLwwUgv8uy67JE0pu9PtFOLMNm+/weTUUsS
+sidebar_class_name: "post api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Eliminar clave de despliegue"} />
+
+
+<MethodEndpoint
+  method={"post"}
+  path={"/deployments/{deployment_name}/delete_deploy_key"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+Elimina una clave de despliegue para el despliegue especificado. El `id` del
+cuerpo de la solicitud puede ser la clave de despliegue completa (con prefijo), el token codificado o el nombre de la clave de despliegue.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+  children={"Solicitud"}
+>
+</Heading>
+
+<ParamsDetails
+  parameters={[{"name":"deployment_name","in":"path","description":"Nombre del despliegue","required":true}]}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"Cuerpo"}
+  body={{"content":{"application/json":{"schema":{"type":"object","required":["id"],"properties":{"id":{"type":"string","description":"El token que se va a eliminar. Puede ser el valor secreto del token o el nombre único del token."}},"additionalProperties":false,"title":"PlatformDeleteDeployKeyArgs"}}},"required":true}}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":""}}}
+>
+  
+</StatusCodes>

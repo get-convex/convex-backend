@@ -1,0 +1,120 @@
+---
+title: "Copia de seguridad y restauración"
+sidebar_position: 85
+description: "Haz copias de seguridad y restaura tus datos y archivos de Convex"
+---
+
+Convex admite copias de seguridad y restauración de datos a través del
+[panel de control](https://dashboard.convex.dev/deployment/settings/backups).
+
+![Página de copias de seguridad](/screenshots/backups.png)
+
+# Copias de seguridad \{#backups\}
+
+Una copia de seguridad es una instantánea consistente de los datos de tus tablas tomada en el momento de tu
+solicitud. Las copias de seguridad se pueden configurar para incluir el almacenamiento de archivos.
+
+Realiza una copia de seguridad manual haciendo clic en el botón &quot;Backup Now&quot;. Esto puede tardar desde unos
+segundos hasta varias horas, dependiendo de cuántos datos haya en tu despliegue.
+
+Las copias de seguridad manuales se almacenan durante 7 días. Puedes descargar o eliminar copias de seguridad desde
+esta página.
+
+La configuración del despliegue y otros datos (código, variables de entorno, funciones programadas, etc.) no se incluirán.
+
+### Copias de seguridad periódicas \{#periodic-backups\}
+
+Programa una copia de seguridad diaria o semanal marcando la casilla «Backup automatically». Puedes seleccionar a qué hora del día y qué día de la semana se realizará
+la copia de seguridad y si incluir o no el almacenamiento de archivos.
+
+Las copias de seguridad diarias se almacenan durante 7 días. Las copias de seguridad semanales se almacenan durante 14 días.
+
+<ProFeatureUpsell feature="Periodic backups" verb="require" />
+
+### Restaurar desde una copia de seguridad \{#restoring-from-backup\}
+
+Restaura desde una copia de seguridad seleccionando &quot;Restore&quot; en el submenú de una
+copia de seguridad individual. Puedes restaurar a partir de copias de seguridad en el mismo despliegue o de otros
+despliegues del mismo equipo utilizando el selector de despliegue en la página de copias de seguridad. Los procesos de restauración pueden tardar desde unos segundos hasta varias horas, dependiendo de cuántos datos
+contenga la copia de seguridad.
+
+Ten en cuenta que restaurar es una operación destructiva que borra tus datos existentes y
+los reemplaza con los de la copia de seguridad. Se recomienda que generes una
+copia de seguridad adicional antes de realizar una restauración.
+
+Los archivos existentes en el despliegue no se eliminarán al restaurar desde una
+copia de seguridad, pero cualquier archivo de la copia de seguridad que no exista actualmente en el
+despliegue se cargará en el despliegue.
+
+### Restaurar en una emergencia \{#restoring-in-an-emergency\}
+
+Si tu despliegue de producción queda en un estado incorrecto, quizá quieras considerar
+hacer una restauración para devolverlo a un estado correcto. Ten en cuenta que dejar tus
+datos en un buen estado puede no ser suficiente. Plantéate si podrías necesitar
+cada una de las siguientes acciones. Dependiendo de la naturaleza de tu
+emergencia, estas pueden ser necesarias.
+
+* Haz una copia de seguridad adicional antes de restaurar, dado que las restauraciones son destructivas
+* Haz una restauración desde una buena copia de seguridad para restaurar los datos
+* Usa `npx convex dev` para subir una versión conocida de código en buen estado.
+* Usa `npx convex env` o el panel de control para restaurar un buen conjunto de variables de entorno
+* Usa el panel de control para hacer cualquier corrección manual en la base de datos de tu aplicación.
+* Escribe mutaciones para hacer las correcciones manuales necesarias (más programáticas) en la
+  base de datos de tu aplicación.
+
+# Descargar una copia de seguridad \{#downloading-a-backup\}
+
+Puedes descargar tus copias de seguridad manuales y periódicas desde el panel de control mediante el botón de descarga del menú.
+
+También puedes generar una exportación en el mismo formato con la
+[línea de comandos](/cli.md#export-data-to-a-file):
+
+```sh
+npx convex export --path ~/Downloads
+```
+
+La copia de seguridad se proporciona como un archivo ZIP generado con todos los documentos en
+todas las tablas de Convex de tu despliegue.
+
+El nombre del archivo ZIP tiene el formato `snapshot_{ts}.zip` donde `ts` es una
+marca de tiempo UNIX de la instantánea en nanosegundos. El archivo ZIP de
+exportación contiene documentos para cada tabla en `<table_name>/documents.jsonl`,
+con un documento por línea.
+
+Los archivos ZIP exportados que incluyen [file storage](/file-storage)
+contendrán datos de almacenamiento en una carpeta `_storage`, con metadatos como
+identificadores y sumas de verificación en `_storage/documents.jsonl` y cada archivo en
+`_storage/<id>`.
+
+### Usar la copia de seguridad descargada. \{#using-the-downloaded-backup\}
+
+Los archivos ZIP descargados se pueden importar en el mismo despliegue o en otro
+despliegue diferente
+[con la CLI (interfaz de línea de comandos)](/database/import-export/import.mdx#restore-data-from-a-backup-zip-file).
+
+## Preguntas frecuentes \{#faq\}
+
+### ¿Existen limitaciones? \{#are-there-any-limitations\}
+
+Cada copia de seguridad es accesible durante un máximo de 7 días.
+
+En el plan Free/Starter, se pueden almacenar hasta dos copias de seguridad por despliegue a la vez.
+Los despliegues en el plan Convex Professional pueden tener muchas copias de seguridad con precios estándar basados en el uso.
+
+### ¿Cómo se calcula su precio? \{#how-are-they-priced\}
+
+Las copias de seguridad usan ancho de banda de base de datos para leer todos los documentos y ancho de banda de archivos para incluir archivos de usuario. La generación y el almacenamiento de la propia copia de seguridad se facturan con las mismas tarifas de ancho de banda y almacenamiento que el almacenamiento de archivos de usuario. Puedes observar este costo de ancho de banda y almacenamiento en el
+[panel de control de uso](https://dashboard.convex.dev/team/settings/usage). Consulta la
+[documentación de límites](/production/state/limits#database) para obtener detalles sobre precios.
+
+### ¿Qué no contiene la copia de seguridad? \{#what-does-the-backup-not-contain\}
+
+La copia de seguridad solo incluye los documentos de tus tablas y los archivos en el
+almacenamiento de archivos. En particular, carece de:
+
+1. El código y la configuración de tu despliegue. Las funciones de Convex, `crons.ts`,
+   `auth.config.js`, `schema.ts`, etc. se configuran en tu código fuente.
+2. Funciones programadas pendientes. Puedes acceder a las funciones programadas pendientes en
+   la tabla del sistema [`_scheduled_functions`](/database/advanced/system-tables.mdx).
+3. Variables de entorno. Las variables de entorno se pueden copiar desde `Settings` en
+   el panel de control de Convex.

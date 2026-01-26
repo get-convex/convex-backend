@@ -1,0 +1,155 @@
+---
+title: 运行时
+sidebar_position: 80
+description:
+  "了解 Convex 运行时与 Node.js 运行时在运行函数时的差异"
+---
+
+# 运行时 \{#runtimes\}
+
+Convex 函数可以运行在两种运行时环境中：
+
+* 默认的 [Convex 运行时](#default-convex-runtime)
+* 可选的 [Node.js 运行时](#nodejs-runtime)
+
+## 默认 Convex 运行时 \{#default-convex-runtime\}
+
+所有 Convex 后端函数都是用 JavaScript 或 TypeScript 编写的。默认情况下，
+所有函数都运行在一个与
+[Cloudflare Workers 运行时](https://blog.cloudflare.com/cloud-computing-without-containers/)
+非常相似的自定义 JavaScript 运行时中，并且可以访问大多数
+[Web 标准全局对象](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects)。
+
+默认运行时具有许多优点，包括：
+
+* **没有冷启动**。运行时始终处于就绪状态，随时可以处理任何函数。
+* **最新的 Web JavaScript 标准**。运行时由同时驱动 Google Chrome 的 V8 提供支持。
+  这确保其提供的接口与你的前端代码非常相似，从而进一步简化你的代码。
+* **低开销地访问数据**。运行时被设计为通过查询（query）和变更（mutation）函数
+  以极低开销访问你的数据，使你可以通过简单的
+  [JavaScript 接口](/database/reading-data/reading-data.mdx)
+  访问数据库。
+
+### 支持的 API \{#supported-apis\}
+
+默认运行时支持大多数适用于浏览器、
+[Deno](https://deno.com/) 和
+[Cloudflare workers](https://developers.cloudflare.com/workers/) 的 npm 库。\
+如果你的库暂时不受支持，你可以在
+[Node.js 运行时](#nodejs-runtime) 中通过操作来使用它，或者在
+[Discord](https://convex.dev/community) 上联系我们。我们也在持续改进支持情况。
+
+#### 网络 API \{#network-apis\}
+
+* [Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
+* [Event](https://developer.mozilla.org/en-US/docs/Web/API/Event)
+* [EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)
+* [fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch) — 仅可在
+  [操作函数（Actions）](#actions) 中使用
+* [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
+* [FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData)
+* [Headers](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
+* [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request)
+* [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)
+
+#### 编码 API \{#encoding-apis\}
+
+* [TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)
+* [TextEncoder](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder)
+* [atob](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/atob)
+* [btoa](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/btoa)
+
+#### Web Stream API 接口 \{#web-stream-apis\}
+
+* [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream)
+* [ReadableStreamBYOBReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader)
+* [ReadableStreamDefaultReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader)
+* [TransformStream](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream)
+* [WritableStream](https://developer.mozilla.org/en-US/docs/Web/API/WritableStream)
+* [WritableStreamDefaultWriter](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultWriter)
+
+#### Web 加密 API \{#web-crypto-apis\}
+
+* [crypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+* [CryptoKey](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)
+* [SubtleCrypto](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
+
+### 对查询和变更的限制 \{#restrictions-on-queries-and-mutations\}
+
+查询和变更函数还会被**运行时进一步限制为
+[确定性](https://en.wikipedia.org/wiki/Deterministic_algorithm)**。这样 Convex 就可以在必要时由系统自动对它们进行重试。
+
+确定性意味着：无论你的函数被运行多少次，只要传入的参数相同，它就会产生完全相同的副作用，并返回相同的值。
+
+在编写 Convex 函数时，你不需要花太多精力去维持这些确定性属性。Convex 会在你开发过程中提供有用的错误信息，因此你不会*不小心*写出被禁止的代码。
+
+#### 在查询和变更中使用随机性和时间 \{#using-randomness-and-time-in-queries-and-mutations\}
+
+Convex 在 `Math.random()` 上提供了一个“带种子”的强伪随机数生成器，
+以保证你的函数具有确定性。随机数生成器的种子是你函数的一个隐式参数。
+在一次函数调用中多次调用 `Math.random()` 会返回不同的随机值。注意 Convex
+不会在每次函数运行时重新执行这些 JavaScript 模块，因此如果将一次
+`Math.random()` 的调用结果存到一个全局变量中，那么在不同函数运行之间这个值不会改变。
+
+为了确保函数内部逻辑是可复现的，全局使用的系统时间（任何函数之外的时间）
+会在部署时被“冻结”，而 Convex 函数执行期间的系统时间会在函数开始时被“冻结”。
+在整个函数执行过程中，`Date.now()` 都会返回相同的结果。例如，
+
+```javascript
+const globalRand = Math.random(); // `globalRand` does not change between runs.
+const globalNow = Date.now(); // `globalNow` 是 Convex 函数部署时的时间。
+
+export const updateSomething = mutation({
+  args: {},
+  handler: () => {
+    const now1 = Date.now(); // `now1` is the time when the function execution started.
+    const rand1 = Math.random(); // `rand1` has a new value for each function run.
+    // implementation
+    const now2 = Date.now(); // `now2` === `now1`
+    const rand2 = Math.random(); // `rand1` !== `rand2`
+  },
+});
+```
+
+### 操作 \{#actions\}
+
+操作不受查询和变更函数所遵循的同样确定性规则的约束。尤其是，操作可以通过浏览器标准的
+[`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) 函数调用第三方 HTTP 端点。
+
+默认情况下，操作运行在 Convex 自定义的 JavaScript 运行时中，享受其所有优势，包括无冷启动以及类似浏览器的 API 环境。它们也可以与你的查询和变更函数位于同一个文件中。
+
+## Node.js 运行时 \{#nodejs-runtime\}
+
+某些 JavaScript 和 TypeScript 库使用的特性并未包含在默认的 Convex 运行时中。Convex 操作函数通过在包含该操作函数的文件顶部添加 `"use node"` 指令，提供了一条接入
+[Node.js](https://nodejs.org/en/about) 的途径。
+[了解更多](/functions/actions.mdx#choosing-the-runtime-use-node)。
+
+Node.js 环境的使用**仅限于操作函数**。如果你想使用为 Node.js 设计的库并与 Convex 数据库交互，你需要在一个操作函数中调用该 Node.js 库，并使用
+[`runQuery`](/functions/actions.mdx#action-context) 或
+[`runMutation`](/functions/actions.mdx#action-context) 辅助函数来调用查询或变更。
+
+convex 目录中的每个 `.ts` 和 `.js` 文件都会
+[被打包](/functions/bundling.mdx)，目标要么是默认的 Convex JavaScript
+运行时，要么是 Node.js，同时包括它所导入的所有代码。
+
+带有 `"use node"` 指令的文件不应包含任何 Convex 查询或变更，因为它们无法在 Node.js 运行时中运行。另外，没有 `"use node"` 指令的文件不应导入任何带有
+`"use node"` 指令的文件。不包含任何 Convex 函数的文件（例如
+`convex/utils.ts` 文件），如果使用了 Node.js 特定的库，也同样需要 `"use node"` 指令。
+
+如果你在部署 Convex 函数时遇到关于 Node.js 特定导入（例如 `fs` /
+`node:fs`）不可用的打包错误，运行
+`npx convex dev --once --debug-node-apis` 可以获取更多相关信息。它会使用较慢的打包方式来跟踪导入链路，从而缩小导致错误的具体导入范围。
+
+请注意，参数大小限制更低（5MiB 而不是 16MiB）。
+
+### Node.js 版本配置 \{#nodejs-version-configuration\}
+
+默认情况下，所有在 Node.js 环境中运行的操作函数都会在 Node.js 20 中执行。可以在
+[convex.json](/production/project-configuration.mdx#configuring-the-nodejs-version)
+文件中配置该版本。目前我们支持 Node.js 20 和 22。
+
+当向服务器推送新的 Node.js 版本时，你的函数的新代码在几分钟内可能仍然会在旧的 Node.js 版本中执行。
+
+注意：在运行自托管 Convex 后端时不支持此配置，此时会使用
+[.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc)
+中指定的 Node 版本。

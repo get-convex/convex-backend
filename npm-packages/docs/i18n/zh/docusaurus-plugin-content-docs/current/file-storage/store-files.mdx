@@ -1,0 +1,40 @@
+---
+title: "存储生成的文件"
+sidebar_label: "存储"
+sidebar_position: 2
+description: "存储在 Convex 操作函数中生成的文件"
+---
+
+import StoreImageTS from "!!raw-loader!@site/../private-demos/snippets/convex/images.ts";
+import StoreImageJS from "!!raw-loader!@site/../private-demos/snippets/convex/imagesJS.js";
+
+可以从客户端将文件上传到 Convex 并直接存储，参见
+[上传](/file-storage/upload-files.mdx)。
+
+或者，也可以在文件被获取或生成之后，通过
+[操作函数](/functions/actions.mdx) 和
+[HTTP 操作函数](/functions/http-actions.mdx) 进行存储。例如，你可以调用
+第三方 API，根据用户的提示生成一张图片，然后将该图片存入 Convex。
+
+**示例：**
+[Dall-E 存储与操作函数](https://github.com/get-convex/convex-demos/tree/main/dall-e-storage-action)
+
+## 在操作中存储文件 \{#storing-files-in-actions\}
+
+在操作中存储文件与
+[通过 HTTP 操作上传文件](/file-storage/upload-files.mdx#uploading-files-via-an-http-action)
+类似。
+
+该操作按以下步骤执行：
+
+1. 获取或生成一张图片。
+2. 使用
+   [`storage.store()`](/api/interfaces/server.StorageActionWriter#store)
+   存储图片，并获得一个存储 ID。
+3. 通过一次变更将该存储 ID 保存到你的数据模型中。
+
+存储 ID 对应 `"_storage"` 系统表中的文档（参见
+[元数据](/file-storage/file-metadata.mdx)），因此可以使用
+`v.id("_storage")` 校验器进行验证，并在 TypeScript 中将其类型标注为 `Id<"_storage">`。
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={StoreImageTS} sourceJS={StoreImageJS} highlightPatterns={["fetch", "storage.store", "runMutation\\("]} />

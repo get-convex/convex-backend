@@ -1,0 +1,70 @@
+---
+title: "在 Convex 中使用 GitHub Copilot"
+sidebar_position: 200
+sidebar_label: 使用 GitHub Copilot
+description: "在 Convex 中使用 GitHub Copilot 的技巧和最佳实践"
+slug: "using-github-copilot"
+---
+
+[GitHub Copilot](https://github.com/features/copilot)，这个集成在 VS
+Code 中的 AI，可以让你更轻松地编写和维护基于 Convex 构建的应用。下面我们来看看如何配置 GitHub Copilot，以便在使用 Convex 时获得最佳效果。
+
+## 添加 Convex 指令 \{#add-convex-instructions\}
+
+将以下
+[instructions](https://code.visualstudio.com/docs/copilot/copilot-customization#_instruction-files)
+文件添加到你项目中的 `.github/instructions` 目录下，在处理 TypeScript 或
+JavaScript 文件时，它会自动被包含进来：
+
+* [convex.instructions.md](https://convex.link/convex_github_copilot_instructions)
+
+![Showing Where to Put GitHub Copilot Instructions](/img/showing-where-to-put-convex-instructions.png)
+
+如果你不希望指令文件自动加入上下文，可以在编辑器中打开该文件，并修改顶部的
+`applyTo` 字段。关于 instructions 文件的更多信息参见：
+https://code.visualstudio.com/docs/copilot/copilot-customization#&#95;use-instructionsmd-files
+
+我们持续通过严格的 eval 提升这些针对 Convex 规则的质量。你可以通过
+[为我们的 evals 仓库做贡献](https://github.com/get-convex/convex-evals)
+来提供帮助。
+
+## 设置 Convex MCP 服务器 \{#setup-the-convex-mcp-server\}
+
+Convex CLI 内置了一个
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx)（MCP）服务器。Convex MCP 服务器使你的 AI 编码智能体能够访问你的 Convex
+部署，对你的项目进行查询和优化。
+
+若要在
+[MCP in VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
+中开始使用 MCP，请先在工作区中新建 `.vscode/mcp.json` 文件，并添加以下内容：
+
+```json
+{
+  "servers": {
+    "convex-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+完成这些步骤后，MCP 服务器会在几秒钟内启动，
+然后你应该能在 CodeLens 中看到列出的 Convex 工具：
+
+![Convex Tool in Codelens](/img/convex-tool-in-codelens.png)
+
+以及在聊天中模型可访问的工具列表中看到它：
+
+![Convex Tool in Chat](/img/convex-tools-in-chat.png)
+
+现在开始向它提一些类似下面这样的问题：
+
+* 评估一个 Convex 模式并提出改进建议
+* 这个应用有哪些公开的端点？
+* 运行 `my_convex_function` 查询
+
+如果你想在所有项目中全局使用 MCP 服务器，可以
+把它添加到你的用户设置中。更多信息请参阅这些文档：
+https://code.visualstudio.com/docs/copilot/chat/mcp-servers#&#95;add-an-mcp-server-to-your-user-settings

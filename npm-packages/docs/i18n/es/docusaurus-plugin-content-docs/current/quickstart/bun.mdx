@@ -1,0 +1,96 @@
+---
+title: Inicio rápido de Bun
+sidebar_label: Bun
+description: "Añade Convex a un proyecto Bun"
+hide_table_of_contents: true
+sidebar_position: 450
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/bun/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/bun/convex/tasks.js";
+import script from "!!raw-loader!@site/../private-demos/quickstarts/bun/index.ts";
+
+Aprende cómo consultar datos de Convex en un proyecto Bun.
+
+Para obtener instrucciones sobre suscripciones en lugar de consultas puntuales, consulta
+[Bun notes](/client/javascript/bun.mdx).
+
+# Uso de Convex con Bun \{#using-convex-with-bun\}
+
+<StepByStep>
+  <Step title="Crea un nuevo proyecto de Bun">
+    Crea un nuevo directorio para tu proyecto de Bun.
+
+    ```sh
+    mkdir my-project && cd my-project && bun init -y
+    ```
+  </Step>
+
+  <Step title="Instala la biblioteca de cliente y servidor de Convex">
+    Instala el paquete `convex`.
+
+    ```sh
+    bun add convex
+    ```
+  </Step>
+
+  <Step title="Configura un despliegue dev de Convex">
+    A continuación, ejecuta `bunx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URL de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde podrás escribir las funciones de tu API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue de dev en la nube.
+
+    ```sh
+    bunx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Añade los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, añade una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    bunx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Añade un nuevo archivo `tasks.js` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API con el nombre del archivo
+    y el nombre de la exportación, `api.tasks.get`.
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="Conecta el script a tu backend">
+    En un nuevo archivo `index.ts`, crea un `ConvexClient` usando
+    la URL de tu entorno de desarrollo.
+
+    <Snippet source={script} title="index.ts" />
+  </Step>
+
+  <Step title="Ejecuta el script">
+    Ejecuta el script desde el mismo directorio y observa la lista de tareas impresa en la terminal.
+
+    ```sh
+    bun index.ts
+    ```
+  </Step>
+</StepByStep>
+
+Consulta la [documentación completa de Bun](/client/javascript/bun.mdx).

@@ -1,0 +1,45 @@
+---
+title: "任务调度"
+hide_table_of_contents: true
+pagination_prev: auth
+description:
+  "使用定时函数和 cron 作业将函数安排为一次性或周期性运行"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex 让你能够轻松安排某个函数在未来一次性或周期性运行。这样你就可以构建持久的工作流，例如在用户加入一天后发送欢迎邮件，或定期与 Stripe 进行账目对账。Convex 提供了两种不同的调度功能：
+
+* [Scheduled Functions](/scheduling/scheduled-functions.mdx) 可以由任何其他函数以持久方式安排在将来的某个时间点执行。你可以将函数安排在几分钟后、几天后，甚至几个月后运行。
+* [Cron Jobs](/scheduling/cron-jobs.mdx) 会按固定周期调度函数运行，例如每天运行一次。
+
+## 持久函数组件 \{#durable-function-components\}
+
+内置的定时函数和 crons 非常适合较为简单的应用和工作流。
+如果你在大规模场景下运行，或需要更严格的保障，请使用以下更高级别的
+[组件](/components.mdx) 来实现持久函数。
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool 通过将异步操作组织到独立且可自定义的队列中，为关键任务提供更高优先级。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "简化长时间运行代码流的编写。Workflow 以持久方式执行，并支持可配置的重试与延迟。",
+    href: "https://www.convex.dev/components/workflow",
+  },
+  {
+    title: "Crons",
+    description:
+      "使用 cronspec 在运行时按重复的计划调度执行函数。",
+    href: "https://www.convex.dev/components/crons",
+  },
+]}
+/>
+
+<StackPosts query="scheduler" />

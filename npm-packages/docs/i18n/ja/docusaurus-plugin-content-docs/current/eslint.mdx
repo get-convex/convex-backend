@@ -1,0 +1,262 @@
+---
+title: ESLint ルール
+sidebar_position: 30
+description: Convex 用の ESLint ルール
+---
+
+Convex ESLint プラグインは、Convex 関数がベストプラクティスに準拠するようにするための Lint ルールを提供します。役に立ちそうなルールがあれば、ぜひ教えてください。
+
+## セットアップ \{#setup\}
+
+ESLint 9（`eslint.config.js` を使うフラット構成）のルールをインストールするには、次を実行します:
+
+```bash
+npm i @convex-dev/eslint-plugin --save-dev
+```
+
+次の内容を `eslint.config.js` ファイルに追加してください：
+
+```ts
+import { defineConfig } from "eslint/config";
+
+import convexPlugin from "@convex-dev/eslint-plugin";
+
+export default defineConfig([
+  // その他の設定
+
+  ...convexPlugin.configs.recommended,
+]);
+```
+
+<Details summary={<>非推奨の <code>.eslintrc.js</code> フォーマットを使用している場合</>}>
+  次の 2 つのライブラリをインストールしてください:
+
+  ```bash
+  npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
+  ```
+
+  `.eslintrc.js` に次を追加します:
+
+  ```js
+  module.exports =
+    extends: [
+      // 他の設定
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@convex-dev/recommended",
+    ],
+    ignorePatterns: ["node_modules/", "dist/", "build/"],
+  };
+  ```
+</Details>
+
+<Details summary={<>Convex 関数を <code>convex</code> 以外のディレクトリに配置している場合</>}>
+  デフォルトでは、Convex ESLint プラグインは `convex`
+  ディレクトリ内にのみルールを適用します。
+
+  Convex ディレクトリの場所を
+  [カスタマイズしている場合](/production/project-configuration#changing-the-convex-folder-name-or-location)は、
+  ESLint 設定を次のように変更します:
+
+  ```ts
+  // eslint.config.js
+  import { defineConfig } from "eslint/config";
+
+  import convexPlugin from "@convex-dev/eslint-plugin";
+
+  const recommendedConfig = convexPlugin.configs.recommended[0];
+  const recommendedRules = recommendedConfig.rules;
+
+  export default defineConfig([
+    // 他の設定をここに追加...
+
+    // ディレクトリパターンを変更したカスタム設定
+    {
+      files: ["**/src/convex/**/*.ts"],
+      plugins: {
+        "@convex-dev": convexPlugin,
+      },
+      rules: recommendedRules,
+    },
+  ]);
+  ```
+</Details>
+
+<Details summary={<>Next.js の <code>next lint</code> コマンドを使用している場合</>}>
+  `next lint` で `convex` ディレクトリにも ESLint を実行するには、そのディレクトリを
+  デフォルトの対象ディレクトリ一覧に追加する必要があります。`next.config.ts` に
+  次のセクションを追加します:
+
+  ```ts
+  const nextConfig: NextConfig = {
+    /* 他のオプション */
+
+    eslint: {
+      dirs: ["pages", "app", "components", "lib", "src", "convex"],
+    },
+  };
+  ```
+</Details>
+
+## ルール \{#rules\}
+
+| ルール                                                                                                                                    | 推奨 | 自動修正可能 |
+| --------------------------------------------------------------------------------------------------------------------------------------- | :--: | :----------: |
+| [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br />登録関数にはオブジェクト構文を推奨する          |  ✅  |      🔧      |
+| [`@convex-dev/require-argument-validators`](#require-argument-validators)<br />Convex 関数に引数バリデータを必須にする                     |  ✅  |      🔧      |
+| [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br />データベース操作でテーブル名を明示的に指定することを必須にする                |  ✅  |      🔧      |
+| [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br />Convex ランタイム用ファイルが Node ランタイム用ファイルを import することを防ぐ |      |              |
+
+### no-old-registered-function-syntax \{#no-old-registered-function-syntax\}
+
+登録する関数にはオブジェクト構文を優先して使用してください。
+
+Convex のクエリ、ミューテーション、アクションは、単一の関数として定義することも、
+`handler` プロパティを持つオブジェクトとして定義することもできます。オブジェクト構文を
+使用すると、引数や戻り値にバリデータを追加できるため、常にこちらの構文を使用することが
+望ましいです。
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  handler: async (ctx) => {
+    const data = await ctx.db.query("messages").collect();
+    ...
+  },
+});
+
+// ❌ このルールで許可されていません:
+export const list = query(async (ctx) => {
+  const data = await ctx.db.query("messages").collect();
+  ...
+});
+```
+
+### require-argument-validators \{#require-argument-validators\}
+
+Convex 関数で引数バリデータの指定を必須にします。
+
+Convex のクエリ、ミューテーション、アクションは、ハンドラー関数の実行を開始する前に引数を検証できます。これは引数を検証する簡潔な方法であるだけでなく、引数の型に対して引数バリデータを使用することで、より記述的な関数仕様を生成でき、その結果として OpenAPI バインディングも生成できるようになります。
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ✅ Allowed by this rule:
+export const list = query({
+  args: { channel: v.id('channel') },
+  handler: async (ctx, { channel }) => {
+    ...
+  },
+});
+
+// ❌ オプション { ignoreUnusedArguments: false } (デフォルト) では許可されていません
+// ✅ オプション { ignoreUnusedArguments: true } では許可されています
+export const list = query({
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const list = query({
+  handler: async (ctx, { channel }: { channel: Id<"channel"> }) => {
+    ...
+  },
+});
+```
+
+このルールは、引数バリデーターを定義していないものの、その引数自体も使用していない関数を許容するようにカスタマイズできます。次のようにルールを設定すると、そのように動作させることができます：
+
+```ts
+// eslint.config.js
+
+export default defineConfig([
+  // その他のルール…
+
+  {
+    files: ["**/convex/**/*.ts"],
+    rules: {
+      "@convex-dev/require-args-validator": [
+        "error",
+        {
+          ignoreUnusedArguments: true,
+        },
+      ],
+    },
+  },
+]);
+```
+
+### explicit-table-ids \{#explicit-table-ids\}
+
+データベース操作でテーブル名を明示的に指定することを必須とします。
+
+`convex` npm パッケージのバージョン 1.31.0 以降では、
+データベース操作（`db.get`、`db.replace`、`db.patch`、`db.delete`）の第 1 引数として
+テーブル名を渡すことを推奨します。
+
+この方法は、あるテーブルの ID が別のテーブルに属するものとして誤って型付けされることによる
+脆弱性を防げるため、より安全です。ID からテーブル名を推論する暗黙的な構文は、
+開発者が ID 生成をより細かく制御できるようにするため、将来的に非推奨になる予定です。
+この 2 つの理由から、新しい形式への移行を開発者に推奨します。
+
+このルールは、古い暗黙的な形式から新しい明示的な形式へのコード移行を支援します。
+TypeScript の型情報を利用して `Id<"tableName">` 型からテーブル名を自動的に推論し、
+自動修正を提供します。
+
+```ts
+const messageId: Id<"messages"> = "123" as Id<"messages">;
+
+// ✅ Allowed by this rule:
+const message = await ctx.db.get("messages", messageId);
+await ctx.db.patch("messages", messageId, { text: "updated" });
+await ctx.db.replace("messages", messageId, {
+  text: "replaced",
+  author: "Alice",
+});
+await ctx.db.delete("messages", messageId);
+
+// ❌ このルールでは許可されていません:
+const message = await ctx.db.get(messageId);
+await ctx.db.patch(messageId, { text: "updated" });
+await ctx.db.replace(messageId, { text: "replaced", author: "Alice" });
+await ctx.db.delete(messageId);
+```
+
+<Admonition type="info" title="typescript-eslint が必要です">
+  このルールを機能させるには、
+  [typescript-eslint](https://typescript-eslint.io) を ESLint の設定でセットアップする必要があります。
+  typescript-eslint がインストールされているにもかかわらずルールが動作しない場合は、
+  [型情報を利用した lint](https://typescript-eslint.io/troubleshooting/typed-linting/)
+  が有効になっているか確認してください。
+</Admonition>
+
+ESLint を使用していない場合は、代わりに
+`@convex-dev/codemod` CLI ツールを使って新しいフォーマットに自動的に移行することもできます。
+
+```bash
+npx @convex-dev/codemod@latest explicit-ids
+```
+
+[詳しくは news.convex.dev を参照 →](https://news.convex.dev/db-table-name/)
+
+### import-wrong-runtime \{#import-wrong-runtime\}
+
+Convex ランタイムファイルが Node ランタイムファイル（`"use node"` ディレクティブを含むファイル）をインポートするのを防ぎます。
+
+このルールは試験的なものです。有用であればぜひフィードバックをお寄せください。
+
+```ts
+// `"use node"` を使用していないファイル内:
+
+// ✅ このルールで許可されています:
+import { someFunction } from "./someOtherFile"; // someOtherFile が `"use node"` を使用していない場合
+
+// ❌ このルールで許可されていません:
+import { someFunction } from "./someNodeFile"; // someNodeFile が `"use node"` を使用している場合
+```

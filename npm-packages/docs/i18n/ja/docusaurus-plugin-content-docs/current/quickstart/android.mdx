@@ -1,0 +1,216 @@
+---
+title: Android Kotlin クイックスタート
+sidebar_label: Android Kotlin
+description: "Android Kotlin プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 600
+---
+
+Android Kotlin プロジェクトで Convex からデータをクエリして取得する方法を説明します。
+
+このクイックスタートでは、Android Studio、Node.js、npm がインストールされていることを前提とします。これらのツールがまだない場合は、先にインストールしてください。
+
+<StepByStep>
+  <Step title="Android Studio で新しい Android アプリを作成">
+    ウィザードで次のオプションを選択してください。
+
+    ```
+    1. Choose the "Empty Activity" template
+    2. Name it "Convex Quickstart"
+    3. Choose min SDK as 26
+    4. Choose Kotlin as the Gradle DSL
+    ```
+  </Step>
+
+  <Step title="AndroidManifest の設定">
+    `AndroidManifest.xml` に以下を追加します。
+
+    ```xml
+    <?xml version="1.0" encoding="utf-8"?>
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools">
+        // highlight-next-line
+        <uses-permission android:name="android.permission.INTERNET"/>
+        <application>
+            <!-- ... 既存のアプリケーションコンテンツ -->
+        </application>
+    </manifest>
+    ```
+  </Step>
+
+  <Step title="依存関係の設定">
+    `:app` の `build.gradle.kts` ファイルに、次のエントリを追加します（IDE がそれらをバージョンカタログへ移動するよう提案してきても、今は無視してください）。
+
+    上記がすべて完了したら、Gradle の同期を実行してください（Android Studio が同期を促してくるはずです）。
+
+    ```kotlin
+    plugins {
+        // ... existing plugins
+        // highlight-next-line
+        kotlin("plugin.serialization") version "1.9.0"
+    }
+
+    dependencies {
+        // ... 既存の依存関係
+        // highlight-next-line
+        implementation("dev.convex:android-convexmobile:0.4.1@aar") {
+            // highlight-next-line
+            isTransitive = true
+        // highlight-next-line
+        }
+        // highlight-next-line
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    }
+    ```
+  </Step>
+
+  <Step title="Convex バックエンドのインストール">
+    Android Studio でターミナルを開き、Convex の
+    クライアントおよびサーバーライブラリをインストールします。
+
+    ```bash
+    npm init -y
+    npm install convex
+    ```
+  </Step>
+
+  <Step title="Convex を開始する">
+    Convex の dev デプロイメントを起動してください。コマンドラインに表示される指示に従ってください。
+
+    ```bash
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベースのサンプルデータを作成する">
+    次の内容で新しい `sampleData.jsonl` ファイルを作成してください。
+
+    ```json
+    {"text": "Buy groceries", "isCompleted": true}
+    {"text": "Go for a swim", "isCompleted": true}
+    {"text": "Integrate Convex", "isCompleted": false}
+    ```
+  </Step>
+
+  <Step title="データベースにサンプルデータを追加する">
+    別のターミナルタブを開き、次を実行してください。
+
+    ```bash
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` ディレクトリに `tasks.ts` ファイルを作成し、次の内容を記述します。
+
+    ```tsx
+    import { query } from "./_generated/server";
+
+    export const get = query({
+      args: {},
+      handler: async (ctx) => {
+        return await ctx.db.query("tasks").collect();
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="データクラスを作成">
+    上で定義したタスクデータを扱えるように、`MainActivity` に新しい `data class` を追加してください。
+    指示に従って必要なものをインポートしてください。
+
+    ```kotlin
+    @Serializable
+    data class Task(val text: String, val isCompleted: Boolean)
+    ```
+  </Step>
+
+  <Step title="UI を作成する">
+    Android Studio が作成したテンプレートの `@Composable` 関数を削除し、
+    Convex のデプロイメントからデータを表示する新しい関数を追加します。ここでも、求められたものはすべてインポートしてください。
+
+    ```kotlin
+    @Composable
+    fun Tasks(client: ConvexClient, modifier: Modifier = Modifier) {
+        var tasks: List<Task> by remember { mutableStateOf(listOf()) }
+        LaunchedEffect(key1 = "launch") {
+            client.subscribe<List<Task>>("tasks:get").collect { result ->
+                result.onSuccess { remoteTasks ->
+                    tasks = remoteTasks
+                }
+            }
+        }
+        LazyColumn(
+            modifier = modifier
+        ) {
+            items(tasks) { task ->
+                Text(text = "Text: ${task.text}, Completed?: ${task.isCompleted}")
+            }
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="アプリをバックエンドに接続する">
+    1. dev サーバーのデプロイメントURLを取得するには
+       `cat .env.local | grep CONVEX_URL` を実行します。
+    2. `MainActivity.kt` の `onCreate` メソッドを次のように更新します。
+
+    ```kotlin
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            ConvexQuickstartTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    // highlight-next-line
+                    Tasks(
+                        // highlight-next-line
+                        client = ConvexClient($YOUR_CONVEX_URL),
+                        // highlight-next-line
+                        modifier = Modifier.padding(innerPadding)
+                    // highlight-next-line
+                    )
+                }
+            }
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="不足しているインポートを修正する">
+    不足しているインポートを補ってください（インポート宣言は次のような形になります）:
+
+    ```kotlin
+    import android.os.Bundle
+    import androidx.activity.ComponentActivity
+    import androidx.activity.compose.setContent
+    import androidx.activity.enableEdgeToEdge
+    import androidx.compose.foundation.layout.fillMaxSize
+    import androidx.compose.foundation.layout.padding
+    import androidx.compose.foundation.lazy.LazyColumn
+    import androidx.compose.foundation.lazy.items
+    import androidx.compose.material3.Scaffold
+    import androidx.compose.material3.Text
+    import androidx.compose.runtime.Composable
+    import androidx.compose.runtime.LaunchedEffect
+    import androidx.compose.runtime.getValue
+    import androidx.compose.runtime.mutableStateOf
+    import androidx.compose.runtime.remember
+    import androidx.compose.runtime.setValue
+    import androidx.compose.ui.Modifier
+    import dev.convex.android.ConvexClient
+    import kotlinx.serialization.Serializable
+    ```
+  </Step>
+
+  <Step title="アプリを実行する">
+    `dashboard.convex.dev` 上で `tasks` テーブルのドキュメントを追加・更新・削除してみることもできます。変更はリアルタイムでアプリに反映されます。
+
+    ```
+    IDEメニューから「Run」>「Run 'app'」を選択します
+    ```
+  </Step>
+</StepByStep>
+
+詳細は、[Android Kotlin の完全なドキュメント](/client/android.md)を参照してください。

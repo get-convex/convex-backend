@@ -1,0 +1,62 @@
+---
+id: delete-deploy-key
+title: "デプロイキーを削除する"
+description: "指定されたデプロイメントに対するデプロイキーを削除します。リクエストの `id` は"
+sidebar_label: "デプロイキーを削除する"
+hide_title: true
+hide_table_of_contents: true
+api: eJzVVU1v4zYQ/SvEXJoAjJ3tUbc028OiLWJk3ZNjZMfi2OKuRDIk5cQQ9N+LIWVHjtzTXtqT5eFw+N58vOlAUSi9dlFbAwV8ppoiBYFCkavtQfygg9haL2JFIjgq9VaTGg4bMnEmlhWJb1p9E9okL08vLYX4ZDZWHUSJRmwoHWzbuh6HvXrVsRLO01a/XUtBprSKlIj2BxkphjcNNiTs9snwn/fLM5BgHXlk3F8UFKAS8pELSHDosaFIPkCx6oBjJc8j+OdkkaCZusNYgZzk4+grBl+mpz0pKKJvqV9nC4X4m1UHKDoorYlkIn+ic7UuE8b598ABOwhlRQ3yVzw4hmM336mMZ5FXoBWsJTjPHKOmwP5ajW6F6LXZTfByMVICRbQip4QrpMO4EIFKT1HssW45t8mWL+WkP5n075cgWqNf2lyEGfS9BFRK81NYL0bYtlgHkhB1rBnbosa4tb7JzZRT+Acd7vwuQM9RPuSQDcFZEzLPX29v+eecWHo9UNl6HQ+pmg93bazEkrARS4YLxWrdyw6mluy58JYTPTpaS2goVpbbx9kQU8fECgqYv/dImHcfGqaf58Q+Z/tz7rVAfn9stNbXUEAVowvFfI5Oz0pr9vQ2U7Sf7z9NqnZMmLhbfAGGdST6lZslZ+UiiVM78FsMIvlDARtCT37y0MMmojY8ZJW37a4SKFb3CZrI8Ucdu746ElC2DGMGDRrcEefjBp2+nkEvL1Tjv4PtZ1Dde8JI6ihuCkO1seiVaI0iLyKHDhSjNruQhBLNIVsPtk1DlxHl8WEReHyXi9/fsHE8Mnm4j0PdsyJtbQI7jNSQiL9O7FKrfAR7fpzgOG/3OmhrtNkJNCrD4T9DSJc7KqTDUduzwta6JBMSvkE7/8yWR9re5PusnopM5L3gLzr0EngwMsJPs9vZLZt43ho0o9CfLwj4Gb2RtP6v9tTQcJHe4tzVqA3zTxLRDXqzGu2kABKK6YqaSs5aQsWiVayg6zYY6G9f9z2bX1ryrJFrCXv0GjfcQqsOlA78rU6C/a/pvXocFPpaTDfgRT6DEQ2XLW0WFm0JjHS6cvt1L6EiVNwzq27wus/v3yw51nuUyRY9E+7Fw9clSNgM27exiu94fOWNiq8ZhU0ck44mWwc1ml2LO/bNMdN2a7kaJ4k4ScLwwUgv8uy67JE0pu9PtFOLMNm+/weTUUsS
+sidebar_class_name: "post api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"デプロイキーの削除"} />
+
+
+<MethodEndpoint
+  method={"post"}
+  path={"/deployments/{deployment_name}/delete_deploy_key"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+指定されたデプロイメントのデプロイキーを削除します。リクエストボディ内の `id` には、プレフィックス付きの完全なデプロイキー、エンコードされたトークン、またはデプロイキーの名前を指定できます。
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+  children={"リクエスト"}
+>
+</Heading>
+
+<ParamsDetails
+  parameters={[{"name":"deployment_name","in":"path","description":"デプロイメント名","required":true}]}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"本文"}
+  body={{"content":{"application/json":{"schema":{"type":"object","required":["id"],"properties":{"id":{"type":"string","description":"削除するトークン。この値には、トークンのシークレット値、またはトークンの一意な名前を指定できます。"}},"additionalProperties":false,"title":"PlatformDeleteDeployKeyArgs"}}},"required":true}}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":""}}}
+>
+  
+</StatusCodes>

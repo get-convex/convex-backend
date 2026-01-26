@@ -1,0 +1,159 @@
+---
+title: "Dominios personalizados y alojamiento"
+sidebar_label: "Dominios personalizados y alojamiento"
+description:
+  "Atiende solicitudes desde cualquier dominio y aloja tu frontend en cualquier proveedor
+  de alojamiento estático, como GitHub."
+sidebar_position: 100
+---
+
+## Dominios personalizados \{#custom-domains\}
+
+Puedes configurar un dominio personalizado, como `api.example.com`, para servir acciones HTTP
+o funciones de Convex desde tus despliegues de Convex en producción. Puedes acceder a la configuración de
+esta funcionalidad desde la página **Project Settings** de cualquiera de tus
+proyectos.
+
+![Add Custom Domain](/screenshots/add_custom_domain.png)
+
+Después de introducir un dominio, se te mostrará qué registros debes configurar en tu
+proveedor de DNS. Algunos proveedores de DNS populares que puedes usar para comprar un
+dominio son Cloudflare y GoDaddy. Verificaremos tu dominio en segundo plano y, una vez
+que se hayan configurado estos registros, verás una marca de verificación verde.
+
+Cuando veas esa marca, tu backend empezará a servir tráfico a través de ese
+dominio. La primera solicitud puede tardar hasta un minuto porque Convex tendrá que
+emitir un nuevo certificado SSL.
+
+Escríbenos a support@convex.dev si tienes alguna pregunta sobre cómo configurarlo.
+
+<ProFeatureUpsell feature="Custom domains" verb="require" />
+
+### Hosting con un dominio personalizado \{#hosting-with-a-custom-domain\}
+
+Para usar un dominio personalizado para servir tus funciones de Convex, hay un paso
+adicional: sobrescribe la variable de entorno `CONVEX_CLOUD_URL`.
+
+![Override system environment variables](/screenshots/override_system_env_vars.png)
+
+Luego vuelve a desplegar tu proyecto. Esto puede implicar hacer clic en &quot;Redeploy&quot;
+en Vercel o Netlify, o ejecutar directamente `npx convex deploy --cmd 'npm run build'`.
+El nuevo código desplegado accederá a tus funciones de Convex a través de tu dominio
+personalizado.
+
+La variable de entorno `CONVEX_CLOUD_URL` se usa en varios lugares:
+
+* `npx convex deploy --cmd '...'` establece `CONVEX_URL` (o de nombre similar) para
+  que tu frontend se conecte a websockets y clientes HTTP
+* En tus funciones de Convex, está disponible como `process.env.CONVEX_CLOUD_URL`
+* URLs de almacenamiento de archivos: `ctx.storage.getUrl(id)` y
+  `ctx.storage.generateUploadUrl()`
+* Generar una especificación OpenAPI con `npx convex function-spec --prod`
+
+También puedes sobrescribir la variable de entorno `CONVEX_SITE_URL` para que sea
+un dominio de acción HTTP personalizado.
+
+* En tus funciones de Convex, está disponible como `process.env.CONVEX_SITE_URL`
+* Se puede usar para webhooks
+* Se puede usar en `auth.config.ts` como el `issuer` para Convex Auth
+
+## Alojamiento personalizado \{#custom-hosting\}
+
+Si solo usas Convex para la funcionalidad de backend, puedes alojar tu aplicación web
+en cualquier proveedor de alojamiento estático. Esta guía utilizará
+[GitHub Pages](https://pages.github.com/) como ejemplo.
+
+Si estás usando Next.js u otro framework con funcionalidad de servidor, tendrás que
+usar un proveedor que la admita, como
+[Netlify](/production/hosting/netlify.mdx) o
+[Vercel](/production/hosting/vercel.mdx). Aun así puedes alojar Next.js de forma estática
+mediante una
+[exportación estática](https://nextjs.org/docs/pages/building-your-application/deploying/static-exports).
+
+### Configura tu build \{#configure-your-build\}
+
+Primero asegúrate de tener un proceso de build funcional.
+
+En esta guía configuraremos un build local, pero tu proveedor de hosting podría
+admitir un build remoto. Por ejemplo, consulta
+la [guía de Vite para implementar en GitHub Pages](https://vitejs.dev/guide/static-deploy.html#github-pages),
+que usa GitHub Actions.
+
+Usaremos Vite y GitHub Pages como ejemplo.
+
+1. Configura <JSDialectFileName name="vite.config.mts" />:
+
+   ```ts title="vite.config.mts"
+   import { defineConfig } from "vite";
+   import react from "@vitejs/plugin-react";
+
+   // https://vitejs.dev/config/
+   export default defineConfig({
+     plugins: [react()],
+     // highlight-next-line
+     build: {
+       // highlight-next-line
+       outDir: "docs",
+       // highlight-next-line
+     },
+     // highlight-next-line
+     base: "/some-repo-name/",
+   });
+   ```
+
+   El campo `build.outDir` especifica dónde colocará Vite el build de producción,
+   y usamos `docs` porque ese es el directorio desde el que GitHub Pages permite
+   alojar contenido.
+
+   El campo `base` especifica la ruta de la URL bajo la cual servirás tu aplicación; en
+   este caso la serviremos en
+   `https://<some username>.github.io/<some repo name>`.
+
+### Configura tu proveedor de alojamiento \{#configure-your-hosting-provider\}
+
+Con GitHub Pages, puedes elegir si quieres incluir el resultado de la compilación
+en tu rama principal de trabajo o publicar desde una rama separada.
+
+Abre la página de GitHub de tu repositorio &gt; *Settings* &gt; *Pages*. En *Build and
+deployment* &gt; *Source* elige `Deploy from a branch`.
+
+En *branch* elige una rama (si quieres usar una rama separada, haz push de al
+menos un commit a ella primero) y el nombre de la carpeta `/docs`. Haz clic en *Save*.
+
+### Compila y despliega en Convex y GitHub Pages \{#build-and-deploy-to-convex-and-github-pages\}
+
+Para desplegar manualmente en GitHub Pages, sigue estos pasos:
+
+1. Cambia a la rama desde la que decidiste publicar
+2. Ejecuta `npx convex deploy --cmd 'npm run build'` y confirma que quieres
+   desplegar tu código de backend actual en tu despliegue de **producción**
+3. Haz commit de los cambios generados por el build y haz push a GitHub.
+
+### Cómo funciona \{#how-it-works\}
+
+Primero, `npx convex deploy` realiza los siguientes pasos:
+
+1. Establece la variable de entorno `VITE_CONVEX_URL` (o con un nombre similar)
+   en tu despliegue de Convex de **producción**.
+2. Invoca el proceso de compilación del framework de frontend, mediante `npm run build`.
+   El proceso de compilación lee la variable de entorno y la usa para apuntar el sitio
+   generado a tu despliegue de **producción**.
+3. Despliega tu código de backend, desde el directorio `convex`, a tu
+   despliegue de **producción**.
+
+Después despliegas el código de frontend compilado en tu proveedor de alojamiento.
+En este caso usaste Git, pero para otros proveedores podrías usar un método
+distinto, como una transferencia FTP a la vieja usanza.
+
+Puedes usar `--cmd-url-env-var-name` para personalizar el nombre de la variable
+que usa tu código de frontend si el comando `deploy` no puede inferirlo, por
+ejemplo
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### Autenticación \{#authentication\}
+
+Debes configurar tu proveedor de [autenticación](/auth.mdx) (Clerk,
+Auth0 u otro) para que acepte tu URL de producción, donde está desplegado tu frontend.

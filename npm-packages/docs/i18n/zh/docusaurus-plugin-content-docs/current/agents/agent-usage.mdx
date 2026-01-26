@@ -1,0 +1,225 @@
+---
+title: "Agent 的定义与使用"
+sidebar_label: "Agent 使用"
+sidebar_position: 140
+description: "配置和使用 Agent 类"
+---
+
+Agent 封装了模型、提示词、工具以及其他配置。它们可以定义为全局实例，也可以在运行时创建。
+
+Agent 使用线程来承载交互过程中产生的一系列消息，这些消息可以来自用户、其他 Agent / LLM，或其他来源。一个线程中可以有多个 Agent 参与回复，也可以只被单个 Agent 使用。
+
+Agent 驱动的工作流是通过结合上下文提示（线程、消息、工具响应、RAG 等）以及通过 LLM 工具调用、结构化 LLM 输出或其他多种技术（通过自定义代码实现）进行动态路由构建起来的。
+
+## 基础 Agent 定义 \{#basic-agent-definition\}
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "Basic Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+});
+```
+
+有关更多配置选项，请参见[下文](#customizing-the-agent)。
+
+除名称以外的所有内容都可以在调用 LLM 时在调用端进行覆盖，而且如果你的用例不需要以这种方式组织工作，你也可以在不使用 Agent 的情况下使用 Agent 提供的许多功能。
+
+## 动态 Agent 定义 \{#dynamic-agent-definition\}
+
+你可以在运行时定义一个 Agent，这在你想为某个特定场景创建 Agent 时很有用。这样可以让 LLM 在调用工具时，不必每次都向每次工具调用传递完整上下文。同时，这也允许为 Agent 动态选择模型或其他选项。
+
+```ts
+import { Agent } from "@convex-dev/agent";
+import { type LanguageModel } from "ai";
+import type { ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { components } from "./_generated/api";
+
+function createAuthorAgent(
+  ctx: ActionCtx,
+  bookId: Id<"books">,
+  model: LanguageModel,
+) {
+  return new Agent(components.agent, {
+    name: "Author",
+    languageModel: model,
+    tools: {
+      // 参见 https://docs.convex.dev/agents/tools
+      getChapter: getChapterTool(ctx, bookId),
+      researchCharacter: researchCharacterTool(ctx, bookId),
+      writeChapter: writeChapterTool(ctx, bookId),
+    },
+    maxSteps: 10, // stopWhen: stepCountIs(10) 的替代方式
+  });
+}
+```
+
+## 使用 Agent 生成文本 \{#generating-text-with-an-agent\}
+
+要生成一条消息，你需要提供一个提示词（可以是字符串或消息列表），它会作为上下文，通过 LLM 生成一条或多条消息，例如调用 `agent.streamText` 或 `agent.generateObject`。
+
+`generateText` 等函数的参数与 AI SDK 相同，只是你不需要指定模型。默认情况下，它会使用该 Agent 的语言模型。还有一些特定于 Agent 组件的额外参数，比如下面会提到的 `promptMessageId`。
+
+[**在此查看 AI SDK 参数的完整列表**](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text)
+
+消息历史记录会默认作为上下文从给定的
+[thread](./threads.mdx)
+中提供。参见 [LLM Context](./context.mdx) 了解如何配置提供的上下文。
+
+注意：下面提到的 `authorizeThreadAccess` 是你需要编写的一个函数，用于对用户访问该 thread 进行认证和授权。你可以在
+[threads.ts](https://github.com/get-convex/agent/blob/main/example/convex/threads.ts)
+中查看一个示例实现。
+
+参见
+[chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)
+或
+[chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+以获取示例代码。
+
+### 流式文本 \{#streaming-text\}
+
+流式文本遵循与下面方法相同的模式，但会根据你使用的流式方式有所不同。更多详情参见
+[streaming](./streaming.mdx)。
+
+### 基础用法（同步） \{#basic-approach-synchronous\}
+
+```ts
+export const generateReplyToPrompt = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+注意：最佳实践是不要依赖该操作返回的数据。相反，
+通过 `useThreadMessages` hook 查询该 thread 的消息，这样就会自动接收
+新消息。详见下文。
+
+### 先保存提示，再异步生成响应 \{#saving-the-prompt-then-generating-responses-asynchronously\}
+
+虽然上面的方式更简单，但以异步方式生成响应有几个好处：
+
+* 你可以在具备事务性的变更上设置乐观 UI 更新，这样在消息真正被保存并出现在你的消息查询结果中之前，会在客户端以乐观方式显示该消息。
+* 你可以在同一个变更（事务）中，将消息与对数据库的其他写入一起保存。之后可以在带有重试机制的操作中使用和复用这条消息，而无需在历史记录中重复这条提示消息。如果 `promptMessageId` 被用于多次生成，那么任何先前的响应会自动作为上下文被包含进来，使 LLM 能从上次中断的地方继续。更多细节参见 [workflows](./workflows.mdx)。
+* 得益于变更的幂等性保证，客户端可以在数天内安全地重试变更，直到它们恰好成功执行一次为止。而操作函数则可能会暂时失败。
+
+任何列出消息的客户端在消息被异步创建时，都会自动收到这些新消息。
+
+要异步生成响应，你需要先保存消息，然后将 `messageId` 作为 `promptMessageId` 传入，以生成/流式传输文本。
+
+```ts
+import { components, internal } from "./_generated/api";
+import { saveMessage } from "@convex-dev/agent";
+import { internalAction, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+// 步骤 1：保存用户消息，并启动异步响应。
+export const sendMessage = mutation({
+  args: { threadId: v.id("threads"), prompt: v.string() },
+  handler: async (ctx, { threadId, prompt }) => {
+    const { messageId } = await saveMessage(ctx, components.agent, {
+      threadId,
+      prompt,
+    });
+    await ctx.scheduler.runAfter(0, internal.example.generateResponseAsync, {
+      threadId,
+      promptMessageId: messageId,
+    });
+  },
+});
+
+// Step 2: Generate a response to a user message.
+export const generateResponseAsync = internalAction({
+  args: { threadId: v.string(), promptMessageId: v.string() },
+  handler: async (ctx, { threadId, promptMessageId }) => {
+    await agent.generateText(ctx, { threadId }, { promptMessageId });
+  },
+});
+```
+
+请注意，该操作函数不需要返回任何内容。所有消息默认都会被保存，因此任何订阅该线程消息的客户端都会在新消息异步生成时收到该消息。
+
+### 生成对象 \{#generating-an-object\}
+
+与 AI SDK 类似，你可以生成对象，也可以以流式方式返回对象。适用的参数相同，不过你无需指定模型。它将使用该 Agent 的默认语言模型。
+
+```ts
+import { z } from "zod/v3";
+
+const result = await thread.generateObject({
+  prompt: "根据到目前为止的对话生成一个计划",
+  schema: z.object({...}),
+});
+```
+
+很遗憾，对象生成目前不支持使用工具。不过，有一种方法是将对象的结构设计为某个工具调用的参数，并让该工具返回这个对象。你可以使用自定义的 `stopWhen`，在工具调用产生结果时停止生成，并使用 `toolChoice: "required"` 来阻止 LLM 返回文本形式的响应。
+
+## 自定义 agent \{#customizing-the-agent\}
+
+默认情况下，agent 只需要配置一个 `chat` 模型。不过，如果要进行向量搜索，你还需要一个 `textEmbeddingModel` 模型。设置一个 `name` 有助于将每条消息归属到特定的 agent。其他选项都有默认值，并且可以在每个 LLM 调用处进行覆盖。
+
+```ts
+import { tool, stepCountIs } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod/v3";
+import { Agent, createTool, type Config } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+const sharedDefaults = {
+  // The language model to use for the agent.
+  languageModel: openai.chat("gpt-4o-mini"),
+  // Embedding model to power vector search of message history (RAG).
+  textEmbeddingModel: openai.embedding("text-embedding-3-small"),
+  // Used for fetching context messages. See https://docs.convex.dev/agents/context
+  contextOptions,
+  // Used for storing messages. See https://docs.convex.dev/agents/messages
+  storageOptions,
+  // Used for tracking token usage. See https://docs.convex.dev/agents/usage-tracking
+  usageHandler: async (ctx, args) => {
+    const { usage, model, provider, agentName, threadId, userId } = args;
+    // ... log, save usage to your database, etc.
+  },
+  // Used for filtering, modifying, or enriching the context messages. See https://docs.convex.dev/agents/context
+  contextHandler: async (ctx, args) => {
+    return [...customMessages, args.allMessages];
+  },
+  // Useful if you want to log or record every request and response.
+  rawResponseHandler: async (ctx, args) => {
+    const { request, response, agentName, threadId, userId } = args;
+    // ... log, save request/response to your database, etc.
+  },
+  // Used for limiting the number of retries when a tool call fails. Default: 3.
+  callSettings: { maxRetries: 3, temperature: 1.0 },
+} satisfies Config;
+
+
+const supportAgent = new Agent(components.agent, {
+  // The default system prompt if not over-ridden.
+  instructions: "You are a helpful assistant.",
+  tools: {
+    // Convex tool. See https://docs.convex.dev/agents/tools
+    myConvexTool: createTool({
+      description: "My Convex tool",
+      args: z.object({...}),
+      // Note: annotate the return type of the handler to avoid type cycles.
+      handler: async (ctx, args): Promise<string> => {
+        return "Hello, world!";
+      },
+    }),
+    // Standard AI SDK tool
+    myTool: tool({ description, parameters, execute: () => {}}),
+  },
+  // 用于限制涉及工具调用时的步骤数。
+  // 注意：如果希望工具调用通过单次调用自动发生，
+  // 需要将此值设置为大于 1（默认值）。
+  stopWhen: stepCountIs(5),
+  ...sharedDefaults,
+});
+```

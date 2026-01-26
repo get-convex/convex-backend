@@ -1,0 +1,113 @@
+---
+title: "Guía rápida de React Native"
+sidebar_label: React Native
+description: "Agrega Convex a un proyecto de Expo con React Native"
+hide_table_of_contents: true
+sidebar_position: 300
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/expo/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/expo/convex/tasks.ts";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/_layout.tsx";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/index.tsx";
+
+Aprende a consultar datos de Convex en una app de React Native.
+
+<StepByStep>
+  <Step title="Crea una app de React Native">
+    Crea una app de React Native usando el comando `npx create-expo-app`.
+
+    ```sh
+    npx create-expo-app my-app
+    ```
+  </Step>
+
+  <Step title="Instala las bibliotecas cliente y de servidor de Convex">
+    Para empezar, instala el paquete `convex`,
+    que proporciona una interfaz práctica para trabajar
+    con Convex desde una app de React.
+
+    Ve al directorio de tu app e instala `convex`.
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="Configura un despliegue de dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes las URL de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde podrás escribir las funciones de tu API backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue de dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    Crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Añade los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, agrega una tabla `tasks` con los datos de ejemplo en
+    tu base de datos de Convex con el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Agrega un nuevo archivo `tasks.ts` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API cuyo nombre se basa en el archivo
+    y en el nombre de la exportación, `api.tasks.get`.
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="Restablece el proyecto de Expo">
+    Si aún no lo has hecho, restablece el proyecto de Expo para obtener un
+    directorio `app` nuevo.
+
+    ```
+    npm run reset-project
+    ```
+  </Step>
+
+  <Step title="Conecta la app a tu backend">
+    En `_layout.tsx`, crea un `ConvexReactClient` y pásalo a un `ConvexProvider`
+    que envuelva tu árbol de componentes.
+
+    <Snippet source={layout} title="app/_layout.tsx" highlightPatterns={[ "Convex", "get-random", "CONVEX", "unsaved", "}\\);", ]} />
+  </Step>
+
+  <Step title="Muestra los datos en tu app">
+    En `index.tsx` usa el hook `useQuery` para obtener datos
+    de tu API `api.tasks.get`.
+
+    <Snippet source={index} title="app/index.tsx" highlightPatterns={[ "api", "useQuery", "tasks" ]} />
+  </Step>
+
+  <Step title="Inicia la app">
+    Inicia la app, escanea el código QR proporcionado con tu teléfono
+    y verás la lista serializada de tareas en el centro de la pantalla.
+
+    ```sh
+    npm start
+    ```
+  </Step>
+</StepByStep>
+
+React Native usa la misma biblioteca que React web. Consulta la
+[documentación completa de React](/client/react.mdx).

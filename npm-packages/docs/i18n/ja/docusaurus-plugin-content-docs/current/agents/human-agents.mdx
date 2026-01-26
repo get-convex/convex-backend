@@ -1,0 +1,162 @@
+---
+title: 人間エージェント
+sidebar_label: "Human Agents"
+sidebar_position: 900
+description: "エージェントとしての人間からのメッセージを保存する"
+---
+
+Agent コンポーネントは一般的に、人間またはエージェントからのプロンプトを受け取り、
+LLM を使って応答を生成します。
+
+一方で、カスタマーサポートのように、エージェントとして人間が返信を行いたいケースもあります。
+
+完全なコードについては
+[chat/human.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/human.ts)
+を参照してください。
+
+## 返信を生成せずにユーザーからのメッセージを保存する \{#saving-a-user-message-without-generating-a-reply\}
+
+`saveMessage` 関数を使用すると、返信を生成せずにユーザーからのメッセージだけを保存できます。
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+await saveMessage(ctx, components.agent, {
+  threadId,
+  prompt: "The user message",
+});
+```
+
+## 人間からのメッセージをエージェントとして保存する \{#saving-a-message-from-a-human-as-an-agent\}
+
+同様に、人間からのメッセージも同じようにエージェントとして保存できます。
+`message` フィールドを使って、ロールとエージェント名を指定します。
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+await saveMessage(ctx, components.agent, {
+  threadId,
+  agentName: "Alex",
+  message: { role: "assistant", content: "The human reply" },
+});
+```
+
+## 人間エージェントに関する追加メタデータの保存 \{#storing-additional-metadata-about-human-agents\}
+
+`saveMessage` 関数で `metadata` フィールドを指定すると、人間エージェントに関する追加メタデータを保存できます。
+
+```ts
+await saveMessage(ctx, components.agent, {
+  threadId,
+  agentName: "Alex",
+  message: { role: "assistant", content: "The human reply" },
+  metadata: {
+    provider: "human",
+    providerMetadata: {
+      human: {
+        /* ... */
+      },
+    },
+  },
+});
+```
+
+## 次に誰が応答するかを決める \{#deciding-who-responds-next\}
+
+次に LLM と人間のどちらが応答するかは、いくつかの方法で決定できます：
+
+1. ユーザーまたは LLM のどちらがスレッドを担当しているかを、データベースに明示的に保存する。
+2. 安価で高速な LLM を呼び出して、ユーザーの質問が人間による応答を必要とするかどうかを判断させる。
+3. ユーザーの質問とメッセージ履歴のベクトル埋め込みを使い、サンプル質問のコーパスと「どのような質問が人間による対応に適しているか」に基づいて判断する。
+4. LLM に、ユーザーの質問が人間による応答を必要とするかどうかを示すフィールドを含むオブジェクトのレスポンスを生成させる。
+5. ユーザーの質問が人間による応答を必要とするかどうかを判断するためのツールを LLM に提供する。そのツールからのレスポンスメッセージが、人間からの応答として扱われる。
+
+## ツール呼び出しとしての人間による応答 \{#human-responses-as-tool-calls\}
+
+ハンドラーを持たないツールを用意することで、人間エージェントへのツール呼び出しを
+LLM に生成させ、ユーザーの質問に答えるためのコンテキストを提供させることができます。
+注意: これは一般的に、LLM は依然として自分で質問に回答する意図はあるものの、そのために人間の介入
+（たとえば事実の確認）が必要な場合に発生します。
+
+```ts
+import { tool } from "ai";
+import { z } from "zod/v3";
+
+const askHuman = tool({
+  description: "人間に質問する",
+  parameters: z.object({
+    question: z.string().describe("人間に尋ねる質問"),
+  }),
+});
+
+export const ask = action({
+  args: { question: v.string(), threadId: v.string() },
+  handler: async (ctx, { question, threadId }) => {
+    const result = await agent.generateText(
+      ctx,
+      { threadId },
+      {
+        prompt: question,
+        tools: { askHuman },
+      },
+    );
+    const supportRequests = result.toolCalls
+      .filter((tc) => tc.toolName === "askHuman")
+      .map(({ toolCallId, args: { question } }) => ({
+        toolCallId,
+        question,
+      }));
+    if (supportRequests.length > 0) {
+      // サポートエージェントが応答する必要があることを通知する処理を行う
+      // 例: 受信トレイにメッセージを保存
+      // await ctx.runMutation(internal.example.sendToSupport, {
+      //   threadId,
+      //   supportRequests,
+      // });
+    }
+  },
+});
+
+export const humanResponseAsToolCall = internalAction({
+  args: {
+    humanName: v.string(),
+    response: v.string(),
+    toolCallId: v.string(),
+    threadId: v.string(),
+    messageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await agent.saveMessage(ctx, {
+      threadId: args.threadId,
+      message: {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            result: args.response,
+            toolCallId: args.toolCallId,
+            toolName: "askHuman",
+          },
+        ],
+      },
+      metadata: {
+        provider: "human",
+        providerMetadata: {
+          human: { name: args.humanName },
+        },
+      },
+    });
+    // LLMからの応答生成を継続
+    await agent.generateText(
+      ctx,
+      { threadId: args.threadId },
+      {
+        promptMessageId: args.messageId,
+      },
+    );
+  },
+});
+```

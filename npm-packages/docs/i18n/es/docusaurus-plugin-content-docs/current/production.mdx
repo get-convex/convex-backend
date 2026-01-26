@@ -1,0 +1,121 @@
+---
+title: "Desplegar tu aplicación en producción"
+hide_table_of_contents: true
+pagination_prev: search
+description: "Consejos para crear aplicaciones de producción seguras y confiables"
+---
+
+Convex está diseñado para manejar tráfico en tiempo real de aplicaciones en producción. Aquí explicamos cómo
+desplegar y mantener una versión de producción de tu aplicación.
+
+## Gestión de proyectos \{#project-management\}
+
+Cuando te registras en Convex, se crea un equipo de Convex para ti. Puedes
+[crear más equipos desde el panel de control](/dashboard/teams.md) y agregar a otras personas
+como miembros. Puedes actualizar tu equipo al plan
+[Starter](https://www.convex.dev/pricing) para pagar a medida que lo uses o al plan
+[Professional](https://www.convex.dev/pricing) para obtener funciones adicionales, límites
+integrados más altos, soporte 24 horas y precios con descuento basados en el uso.
+
+Cada equipo puede tener múltiples proyectos. Cuando ejecutas `npx convex dev` por
+primera vez, se crea un proyecto automáticamente para ti. También puedes crear un
+proyecto desde el panel de control.
+
+Cada proyecto tiene un despliegue de producción compartido y un despliegue de
+desarrollo por miembro del equipo. Esto permite que cada miembro del equipo haga y
+pruebe cambios de forma independiente antes de que se apliquen al despliegue de
+producción.
+
+Normalmente todos los despliegues que pertenecen a un solo proyecto ejecutan el mismo
+código base (o una versión de este), pero Convex no lo exige. También puedes ejecutar
+el mismo código base en varios despliegues de producción diferentes que pertenezcan a
+distintos proyectos; consulta el apartado sobre el [entorno de staging](#staging-environment) a continuación.
+
+## Desplegar en producción \{#deploying-to-production\}
+
+Tus despliegues de Convex ejecutan tu lógica de backend y, en la mayoría de los casos, también desarrollarás un cliente que use ese backend. Si tu cliente es una aplicación web, sigue la guía de
+[Hosting and Deployment](/production/hosting/hosting.mdx) para aprender a
+desplegar tu cliente y tu backend de Convex juntos.
+
+También puedes desplegar tu backend de forma independiente. Consulta la página
+[Project Configuration](/production/project-configuration.mdx) para obtener más información.
+
+## Entorno de staging \{#staging-environment\}
+
+Con los [despliegues de vista previa](/production/hosting/preview-deployments.mdx)
+de Convex, tu equipo puede probar los cambios antes de desplegarlos en producción. Si necesitas
+un entorno de staging más permanente, puedes usar un proyecto de Convex independiente y
+desplegar ahí configurando la variable de entorno `CONVEX_DEPLOY_KEY` al ejecutar
+[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
+
+## Flujo de trabajo típico de desarrollo en equipo \{#typical-team-development-workflow\}
+
+Los equipos que desarrollan en Convex suelen seguir este flujo de trabajo:
+
+1. Si este es el primer proyecto del equipo, un miembro del equipo crea un
+   equipo en el panel de control.
+2. Un miembro del equipo crea un proyecto ejecutando `npx convex dev`, quizás
+   comenzando con una [guía de inicio rápido](/quickstarts.mdx) o una
+   [plantilla](https://www.convex.dev/templates).
+3. El miembro del equipo crea un repositorio Git a partir del código inicial y
+   lo comparte con su equipo (a través de GitHub, GitLab, etc.).
+4. Otros miembros del equipo obtienen el código base y consiguen sus propios
+   despliegues de dev ejecutando `npx convex dev`.
+5. Todos los miembros del equipo pueden hacer cambios en el backend y
+   probarlos con sus despliegues de dev individuales. Cuando un cambio está
+   listo, el miembro del equipo abre un pull request (o hace commits a una rama
+   compartida).
+   * [Copia de seguridad / Restauración](/database/backup-restore) se puede usar
+     para rellenar un despliegue de dev con datos de un despliegue de producción.
+   * La [importación de datos](/database/import-export/import.mdx) se puede usar
+     para rellenar un despliegue de dev con datos sintéticos de prueba.
+   * Los miembros de un equipo con el
+     [plan Pro](https://www.convex.dev/pricing) pueden obtener
+     [despliegues de vista previa](/production/hosting/preview-deployments.mdx)
+     separados para probar los pull requests de los demás.
+6. El despliegue a producción puede realizarse
+   [automáticamente](/production/hosting/hosting.mdx) cuando los cambios se
+   fusionan en la rama designada (por ejemplo, `main`).
+   * Alternativamente, uno de los miembros del equipo puede desplegar a
+     producción manualmente ejecutando `npx convex deploy`.
+
+### Realizar cambios seguros \{#making-safe-changes\}
+
+Especialmente si tu aplicación está en producción, quieres asegurarte de que los cambios que hagas en
+tu base de código de Convex no provoquen errores.
+
+Convex maneja y detecta algunos cambios no seguros, pero otros debes manejarlos
+tú mismo.
+
+1. **El esquema siempre debe coincidir con los datos existentes.** Convex impone esta restricción.
+   No puedes aplicar un esquema a un despliegue con datos existentes que no
+   coincidan con él, a menos que desactives la validación del esquema. En general es seguro:
+   1. Agregar nuevas tablas al esquema.
+   2. Agregar un campo `optional` al esquema de una tabla existente, establecer el campo en
+      todos los documentos de la tabla y luego hacer que el campo sea obligatorio.
+   3. Marcar un campo existente como `optional`, eliminar el campo de todos los documentos
+      y luego eliminar el campo.
+   4. Marcar un campo existente como una `union` del tipo existente y un tipo nuevo,
+      modificar el campo en todos los documentos para que coincida con el tipo nuevo y luego cambiar
+      el tipo al tipo nuevo.
+2. **Las funciones deben ser retrocompatibles.** Incluso si tu único cliente es un
+   sitio web y lo despliegas junto con tu backend, tus usuarios podrían seguir
+   ejecutando la versión antigua de tu sitio web cuando cambie tu backend.
+   Por lo tanto, debes hacer tus funciones retrocompatibles hasta que estés
+   de acuerdo con dejar de admitir clientes antiguos. En general es seguro:
+   1. Agregar funciones nuevas.
+   2. Agregar un argumento con nombre `optional` a una función existente.
+   3. Marcar un argumento con nombre existente como `optional`.
+   4. Marcar un argumento con nombre existente como una `union` del tipo existente y un
+      tipo nuevo.
+   5. Cambiar el comportamiento de la función de tal forma que, dados los argumentos
+      de un cliente antiguo, su comportamiento siga siendo aceptable para el cliente
+      antiguo.
+3. **Las funciones programadas deben ser retrocompatibles.** Cuando programas una
+   función para ejecutarse en el futuro, proporcionas los valores de los argumentos que
+   recibirá. Siempre que se ejecuta una función, se ejecuta su versión
+   actualmente desplegada. Si cambias la función entre el momento en que se programó y el
+   momento en que se ejecuta, debes asegurarte de que la nueva versión se comporte de manera aceptable dados
+   los argumentos antiguos.
+
+<StackPosts query="deploy" />

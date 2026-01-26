@@ -1,0 +1,313 @@
+---
+title: LLM コンテキスト
+sidebar_label: "LLM コンテキスト"
+sidebar_position: 600
+description: "Agent の LLM に提供されるコンテキストのカスタマイズ"
+---
+
+デフォルトでは、Agent はスレッドのメッセージ履歴に基づいたコンテキストを提供します。このコンテキストは次のメッセージを生成するために使用されます。
+
+コンテキストには、最近のメッセージだけでなく、テキスト検索やベクター検索によって見つかったメッセージも含められます。
+
+`promptMessageId` が指定されている場合、そのメッセージに加えて、同じ `order` を持つ他のメッセージもコンテキストに含まれます。`order` の詳細は [messages.mdx](./messages.mdx#message-ordering) にありますが、実際には、ユーザーが送信したメッセージの ID を `promptMessageId` として渡し、その前に assistant や tool からのレスポンスがすでに存在していた場合、それらもコンテキストに含まれ、LLM が会話を継続できるようになります。
+
+[RAG](./rag.mdx) を使って、プロンプトに追加のコンテキストを加えることもできます。
+
+## コンテキストのカスタマイズ \{#customizing-the-context\}
+
+メッセージを生成する際にエージェントに渡されるコンテキストは、
+カスタムの `contextOptions` を使ってカスタマイズできます。これらは `Agent` に対するデフォルトとして設定することも、
+`generateText` などを呼び出す箇所で都度指定することもできます。
+
+```ts
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  { prompt },
+  {
+    // Values shown are the defaults.
+    contextOptions: {
+      // Whether to exclude tool messages in the context.
+      excludeToolMessages: true,
+      // How many recent messages to include. These are added after the search
+      // messages, and do not count against the search limit.
+      recentMessages: 100,
+      // Options for searching messages via text and/or vector search.
+      searchOptions: {
+        limit: 10, // The maximum number of messages to fetch.
+        textSearch: false, // Whether to use text search to find messages.
+        vectorSearch: false, // Whether to use vector search to find messages.
+        // 注意: これは制限適用後の値です。
+        // 例: これにより取得されるメッセージ数が4倍になります。
+        // (検索で見つかった各メッセージの前に2つ、後に1つ)
+        messageRange: { before: 2, after: 1 },
+      },
+      // Whether to search across other threads for relevant messages.
+      // By default, only the current thread is searched.
+      searchOtherThreads: false,
+    },
+  },
+);
+```
+
+## コンテキストの完全な制御 \{#full-context-control\}
+
+どのメッセージを LLM に渡すかを完全に制御するには、次のいずれかを行います:
+
+1. `contextHandler` を指定して、コンテキストメッセージをフィルタリング、変更、または拡張します。
+2. すべてのメッセージを `messages` 引数で手動指定し、
+   最近のメッセージや検索メッセージを使用しないように `contextOptions` を指定します。コンテキストメッセージを手動で取得する方法については、以下を参照してください。
+
+### contextHandler を提供する \{#providing-a-contexthandler\}
+
+Agent は、検索結果、最近のメッセージ、入力メッセージに加えて、
+`promptMessageId` が指定されている場合は同じ `order` のすべてのメッセージを
+まとめて組み合わせます。
+
+それらの組み合わせ方をカスタマイズしたり、メッセージを追加・削除したりするには、
+LLM に渡される `ModelMessage[]` を返す `contextHandler` を指定します。
+
+`contextHandler` は Agent のコンストラクタで指定することもできますし、
+単一の生成処理に対して呼び出し側で指定して、Agent のデフォルトを上書きすることも
+できます。
+
+```ts
+const myAgent = new Agent(components.agent, {
+  ///...
+  contextHandler: async (ctx, args) => {
+    // これはデフォルトの動作です。
+    return [
+      ...args.search,
+      ...args.recent,
+      ...args.inputMessages,
+      ...args.inputPrompt,
+      ...args.existingResponses,
+    ];
+    // 以下と同等:
+    return args.allMessages;
+  },
+);
+```
+
+このコールバックを使うと、次のことができます。
+
+1. 含めたくないメッセージをフィルターする。
+2. メモリやその他のコンテキストを追加する。
+3. LLM がどのように応答すべきかを示すサンプルメッセージを追加する。
+4. ユーザーやスレッドに応じて追加のコンテキストを付与する。
+5. 他のスレッドからメッセージをコピーする。
+6. メッセージを要約する。
+
+例えば次のようになります。
+
+```ts
+// 注意: 呼び出し時に指定する場合、スコープ内で利用可能な変数を活用することもできます。
+// 例えば、ユーザーがワークフロー内の特定のステップにいる場合などです。
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  { prompt },
+  {
+    contextHandler: async (ctx, args) => {
+      // Filter out messages that are not relevant.
+      const relevantSearch = args.search.filter((m) => messageIsRelevant(m));
+      // Fetch user memories to include in every prompt.
+      const userMemories = await getUserMemories(ctx, args.userId);
+      // Fetch sample messages to instruct the LLM on how to respond.
+      const sampleMessages = [
+        { role: "user", content: "Generate a function that adds two numbers" },
+        { role: "assistant", content: "function add(a, b) { return a + b; }" },
+      ];
+      // Fetch user context to include in every prompt.
+      const userContext = await getUserContext(ctx, args.userId, args.threadId);
+      // Fetch messages from a related / parent thread.
+      const related = await getRelatedThreadMessages(ctx, args.threadId);
+      return [
+        // Summarize or truncate context messages if they are too long.
+        ...(await summarizeOrTruncateIfTooLong(related)),
+        ...relevantSearch,
+        ...userMemories,
+        ...sampleMessages,
+        ...userContext,
+        ...args.recent,
+        ...args.inputMessages,
+        ...args.inputPrompt,
+        ...args.existingResponses,
+      ];
+    },
+  },
+);
+```
+
+### コンテキストを手動で取得する \{#fetch-context-manually\}
+
+LLM を直接呼び出さずに、特定のプロンプトに対するコンテキストメッセージを取得したい場合は、
+`fetchContextWithPrompt` を使用できます。これは内部的に、AI SDK の `generateText`、
+`streamText` などに渡されるコンテキストメッセージを取得するために使われます。
+
+通常の生成と同様に、`prompt` または `messages`、および／または
+事前に保存されたメッセージをプロンプトとして使うための `promptMessageId` を指定して、
+コンテキストメッセージを取得できます。
+
+これにより、最近のメッセージと検索メッセージが入力メッセージと結合された結果が返されます。
+
+```ts
+import { fetchContextWithPrompt } from "@convex-dev/agent";
+
+const { messages } = await fetchContextWithPrompt(ctx, components.agent, {
+  prompt,
+  messages,
+  promptMessageId,
+  userId,
+  threadId,
+  contextOptions,
+});
+```
+
+## メッセージを検索する \{#search-for-messages\}
+
+これはエージェントが自動的に行う処理ですが、手動で実行すると便利な場合もあります。
+たとえば、含めたいカスタムコンテキストを探すときなどです。
+
+テキスト検索とベクター検索では、`targetMessageId` や
+`searchText` を指定できます。`searchText` はベクター検索のために埋め込みベクトルに変換されます。
+`searchText` が指定されていない場合は、対象メッセージのテキストが使用されます。
+
+`targetMessageId` が指定されている場合、そのメッセージより前のメッセージだけを検索し、
+そのメッセージの「order」を含む直近のメッセージまでを取得します。
+これにより、以前のメッセージに対するレスポンスを再生成できます。
+
+```ts
+import type { MessageDoc } from "@convex-dev/agent";
+
+const messages: MessageDoc[] = await agent.fetchContextMessages(ctx, {
+  threadId,
+  searchText: prompt, // Optional unless you want text/vector search.
+  targetMessageId: promptMessageId, // オプションで検索対象を指定可能
+  userId, // Optional, unless `searchOtherThreads` is true.
+  contextOptions, // Optional, defaults are used if not provided.
+});
+```
+
+注意: エージェントなしでメッセージを検索することもできます。主な違いは、
+ベクター検索を行うには自分で埋め込みを作成する必要があることと、
+usage ハンドラーは実行されないという点です。
+
+```ts
+import { fetchRecentAndSearchMessages } from "@convex-dev/agent";
+
+const { recentMessages, searchMessages } = await fetchRecentAndSearchMessages(
+  ctx,
+  components.agent,
+  {
+    threadId,
+    searchText: prompt, // Optional unless you want text/vector search.
+    targetMessageId: promptMessageId, // オプションで検索対象を指定可能
+    contextOptions, // Optional, defaults are used if not provided.
+    getEmbedding: async (text) => {
+      const embedding = await textEmbeddingModel.embed(text);
+      return { embedding, textEmbeddingModel };
+    },
+  },
+);
+```
+
+## 他のスレッドを検索する \{#searching-other-threads\}
+
+`searchOtherThreads` を `true` に設定すると、エージェントは指定された `userId` に属するすべての
+スレッドを対象に検索します。これにより、エージェントが参照できる複数の
+会話を持たせることができます。
+
+検索にはテキスト検索とベクトル検索を組み合わせたハイブリッド方式が使われます。
+
+## コンテキストとしてメッセージを渡す \{#passing-in-messages-as-context\}
+
+Agent の LLM にコンテキストとしてメッセージを渡すことができます。たとえば
+[Retrieval-Augmented Generation](./rag.mdx) を実装する場合です。LLM に送信される最終的なメッセージは次のとおりです。
+
+1. system プロンプト（指定された場合、または agent に `instructions` がある場合）
+2. contextOptions を通じて取得されたメッセージ
+3. `generateText` などの関数呼び出しに渡された `messages` 引数
+4. `prompt` 引数が渡された場合、最後に `{ role: "user", content: prompt }` メッセージ
+
+これにより、スレッド履歴の一部ではなく自動的にも保存されないが、LLM がコンテキストとして受け取るメッセージを渡すことができます。
+
+## 埋め込みを手動で管理する \{#manage-embeddings-manually\}
+
+Agent コンストラクタの `textEmbeddingModel` 引数を使うと、ベクター検索に使用する
+テキスト埋め込みモデルを指定できます。
+
+これを設定すると、エージェントはメッセージに対して自動的に埋め込みを生成し、
+それをベクター検索に利用します。
+
+モデルを変更したり、ベクター検索で埋め込みの使用を開始・停止したくなった場合は、
+埋め込みを手動で管理できます。
+
+メッセージの集合に対して埋め込みを生成します。オプションで、利用状況ハンドラーを持つ `config`
+を渡せます。これはグローバルに共有された `Config` であってもかまいません。
+
+```ts
+import { embedMessages } from "@convex-dev/agent";
+
+const embeddings = await embedMessages(
+  ctx,
+  { userId, threadId, textEmbeddingModel, ...config },
+  [{ role: "user", content: "What is love?" }],
+);
+```
+
+既存メッセージの埋め込みを生成して保存します。
+
+```ts
+const embeddings = await supportAgent.generateAndSaveEmbeddings(ctx, {
+  messageIds,
+});
+```
+
+埋め込みを取得・更新します（例：新しいモデルへの移行時など）。
+
+```ts
+const messages = await ctx.runQuery(components.agent.vector.index.paginate, {
+  vectorDimension: 1536,
+  targetModel: "gpt-4o-mini",
+  cursor: null,
+  limit: 10,
+});
+```
+
+Id を指定して埋め込みを更新する。
+
+```ts
+const messages = await ctx.runQuery(components.agent.vector.index.updateBatch, {
+  vectors: [{ model: "gpt-4o-mini", vector: embedding, id: msg.embeddingId }],
+});
+```
+
+注意: 次元を変更した場合は、既存の埋め込みを削除し、新しい埋め込みを挿入する必要があります。
+
+埋め込みの削除
+
+```ts
+await ctx.runMutation(components.agent.vector.index.deleteBatch, {
+  ids: [embeddingId1, embeddingId2],
+});
+```
+
+埋め込みを追加する
+
+```ts
+const ids = await ctx.runMutation(components.agent.vector.index.insertBatch, {
+  vectorDimension: 1536,
+  vectors: [
+    {
+      model: "gpt-4o-mini",
+      table: "messages",
+      userId: "123",
+      threadId: "123",
+      vector: embedding,
+      // オプション。embeddingIdでメッセージを更新する場合
+      messageId: messageId,
+    },
+  ],
+});
+```

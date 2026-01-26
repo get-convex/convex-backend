@@ -1,0 +1,382 @@
+{
+  "version.label": {
+    "message": "下一步",
+    "description": "当前版本标签"
+  },
+  "sidebar.docs.category.Tutorial": {
+    "message": "教程",
+    "description": "文档侧边栏中「Tutorial」分类下的标签"
+  },
+  "sidebar.docs.category.Quickstarts": {
+    "message": "快速入门",
+    "description": "文档侧边栏中「Quickstarts」分类下的标签"
+  },
+  "sidebar.docs.category.Understand Convex": {
+    "message": "了解 Convex",
+    "description": "文档侧边栏中「Understand Convex」分类下的标签"
+  },
+  "sidebar.docs.category.Best Practices": {
+    "message": "最佳实践",
+    "description": "文档侧边栏中「Best Practices」分类下的标签"
+  },
+  "sidebar.docs.category.Functions": {
+    "message": "函数",
+    "description": "侧边栏「Docs」中「函数」分类的标签"
+  },
+  "sidebar.docs.category.Error Handling": {
+    "message": "错误处理",
+    "description": "侧边栏「Docs」中「错误处理」分类的标签"
+  },
+  "sidebar.docs.category.Database": {
+    "message": "数据库",
+    "description": "侧边栏「Docs」中「数据库」分类的标签"
+  },
+  "sidebar.docs.category.Reading Data": {
+    "message": "读取数据",
+    "description": "侧边栏「Docs」中「读取数据」分类的标签"
+  },
+  "sidebar.docs.category.Indexes": {
+    "message": "索引",
+    "description": "侧边栏「Docs」中「索引」分类的标签"
+  },
+  "sidebar.docs.category.Data Import & Export": {
+    "message": "数据导入与导出",
+    "description": "侧边栏「docs」中「数据导入与导出」分类标签"
+  },
+  "sidebar.docs.category.database-advanced": {
+    "message": "高级",
+    "description": "侧边栏「docs」中「高级」分类标签"
+  },
+  "sidebar.docs.category.Authentication": {
+    "message": "身份验证",
+    "description": "侧边栏「docs」中「身份验证」分类标签"
+  },
+  "sidebar.docs.category.WorkOS AuthKit": {
+    "message": "WorkOS AuthKit",
+    "description": "侧边栏「docs」中「WorkOS AuthKit」分类标签"
+  },
+  "sidebar.docs.category.auth-advanced": {
+    "message": "高级",
+    "description": "侧边栏「docs」中「高级」分类标签"
+  },
+  "sidebar.docs.category.Scheduling": {
+    "message": "调度",
+    "description": "「Docs」侧边栏中「调度」类别的标签"
+  },
+  "sidebar.docs.category.File Storage": {
+    "message": "文件存储",
+    "description": "「Docs」侧边栏中「文件存储」类别的标签"
+  },
+  "sidebar.docs.category.Search": {
+    "message": "搜索",
+    "description": "「Docs」侧边栏中「搜索」类别的标签"
+  },
+  "sidebar.docs.category.Components": {
+    "message": "组件",
+    "description": "「Docs」侧边栏中「组件」类别的标签"
+  },
+  "sidebar.docs.category.AI Code Gen": {
+    "message": "AI 代码生成",
+    "description": "「Docs」侧边栏中「AI 代码生成」类别的标签"
+  },
+  "sidebar.docs.category.Agents": {
+    "message": "Agents（智能体）",
+    "description": "文档侧边栏中“Agents（智能体）”分类的标签"
+  },
+  "sidebar.docs.category.Testing": {
+    "message": "测试",
+    "description": "文档侧边栏中“测试”分类的标签"
+  },
+  "sidebar.docs.category.Production": {
+    "message": "生产环境",
+    "description": "文档侧边栏中“生产环境”分类的标签"
+  },
+  "sidebar.docs.category.Hosting and Deployment": {
+    "message": "托管与部署",
+    "description": "文档侧边栏中“托管与部署”分类的标签"
+  },
+  "sidebar.docs.category.Integrations": {
+    "message": "集成",
+    "description": "文档侧边栏中“集成”分类的标签"
+  },
+  "sidebar.docs.category.Log Streams": {
+    "message": "日志流",
+    "description": "侧边栏「文档」中「日志流」类别的标签"
+  },
+  "sidebar.docs.category.Status and Guarantees": {
+    "message": "状态与保证",
+    "description": "侧边栏「文档」中「状态与保证」类别的标签"
+  },
+  "sidebar.docs.category.Platform APIs": {
+    "message": "平台 API",
+    "description": "侧边栏「文档」中「平台 API」类别的标签"
+  },
+  "sidebar.docs.category.React": {
+    "message": "React",
+    "description": "侧边栏「文档」中「React」类别的标签"
+  },
+  "sidebar.docs.category.Next.js": {
+    "message": "Next.js",
+    "description": "侧边栏「文档」中「Next.js」类别的标签"
+  },
+  "sidebar.docs.category.App Router": {
+    "message": "App Router",
+    "description": "侧边栏 docs 中的「App Router」分类标签"
+  },
+  "sidebar.docs.category.Pages Router": {
+    "message": "Pages Router",
+    "description": "侧边栏 docs 中的「Pages Router」分类标签"
+  },
+  "sidebar.docs.category.TanStack": {
+    "message": "TanStack",
+    "description": "侧边栏 docs 中的「TanStack」分类标签"
+  },
+  "sidebar.docs.category.TanStack Start": {
+    "message": "TanStack Start",
+    "description": "侧边栏 docs 中的「TanStack Start」分类标签"
+  },
+  "sidebar.docs.category.JavaScript": {
+    "message": "JavaScript",
+    "description": "侧边栏 docs 中的「JavaScript」分类标签"
+  },
+  "sidebar.docs.category.Vue": {
+    "message": "Vue",
+    "description": "文档侧边栏中 “Vue” 分类的标签"
+  },
+  "sidebar.docs.category.Swift": {
+    "message": "Swift",
+    "description": "文档侧边栏中 “Swift” 分类的标签"
+  },
+  "sidebar.docs.category.Android Kotlin": {
+    "message": "Android Kotlin",
+    "description": "文档侧边栏中 “Android Kotlin” 分类的标签"
+  },
+  "sidebar.docs.category.Dashboard": {
+    "message": "仪表盘",
+    "description": "文档侧边栏中 “仪表盘” 分类的标签"
+  },
+  "sidebar.docs.category.Deployments": {
+    "message": "部署",
+    "description": "文档侧边栏中 “部署” 分类的标签"
+  },
+  "sidebar.docs.category.CLI": {
+    "message": "CLI（命令行界面）",
+    "description": "文档（docs）侧边栏中“CLI”分类的标签"
+  },
+  "sidebar.docs.category.Convex API": {
+    "message": "Convex API",
+    "description": "文档（docs）侧边栏中“Convex API”分类的标签"
+  },
+  "sidebar.docs.category.convex/browser": {
+    "message": "convex/browser",
+    "description": "文档（docs）侧边栏中“convex/browser”分类的标签"
+  },
+  "sidebar.docs.category.convex/server": {
+    "message": "convex/server",
+    "description": "文档（docs）侧边栏中“convex/server”分类的标签"
+  },
+  "sidebar.docs.category.convex/react": {
+    "message": "convex/react",
+    "description": "文档（docs）侧边栏中“convex/react”分类的标签"
+  },
+  "sidebar.docs.category.convex/values": {
+    "message": "convex/values",
+    "description": "在「Docs」侧边栏中的「convex/values」分类标签"
+  },
+  "sidebar.docs.category.Generated Code": {
+    "message": "生成的代码",
+    "description": "在「Docs」侧边栏中的「Generated Code」分类标签"
+  },
+  "sidebar.docs.category.Deployment API": {
+    "message": "部署 API",
+    "description": "在「Docs」侧边栏中的「Deployment API」分类标签"
+  },
+  "sidebar.docs.category.Platform": {
+    "message": "平台",
+    "description": "在「Docs」侧边栏中的「Platform」分类标签"
+  },
+  "sidebar.docs.category.Management API": {
+    "message": "管理 API",
+    "description": "在「Docs」侧边栏中的「Management API」分类标签"
+  },
+  "sidebar.docs.link.Dashboard": {
+    "message": "仪表盘",
+    "description": "在 docs 侧边栏中指向 https://dashboard.convex.dev 的 “Dashboard” 链接标签"
+  },
+  "sidebar.docs.link.Blog": {
+    "message": "博客",
+    "description": "在 docs 侧边栏中指向 https://stack.convex.dev/ 的 “Blog” 链接标签"
+  },
+  "sidebar.docs.link.GitHub": {
+    "message": "GitHub",
+    "description": "在 docs 侧边栏中指向 https://github.com/get-convex 的 “GitHub” 链接标签"
+  },
+  "sidebar.docs.link.Discord": {
+    "message": "Discord",
+    "description": "在 docs 侧边栏中指向 https://convex.dev/community 的 “Discord” 链接标签"
+  },
+  "sidebar.docs.doc.Home": {
+    "message": "首页",
+    "description": "文档侧边栏 “docs” 中名为 “Home” 的条目的标签，链接到文档首页"
+  },
+  "sidebar.docs.doc.React Native": {
+    "message": "React Native",
+    "description": "文档侧边栏 “docs” 中名为 “React Native” 的条目的标签，链接到文档 client/react-native"
+  },
+  "sidebar.docs.doc.Svelte": {
+    "message": "Svelte",
+    "description": "文档侧边栏 “docs” 中名为 “Svelte” 的条目的标签，链接到文档 client/svelte"
+  },
+  "sidebar.docs.doc.Python": {
+    "message": "Python",
+    "description": "文档侧边栏 “docs” 中名为 “Python” 的条目的标签，链接到文档 client/python"
+  },
+  "sidebar.docs.doc.Rust": {
+    "message": "Rust",
+    "description": "侧边栏 “docs” 中名为 “Rust” 的文档条目标签，链接到文档 client/rust"
+  },
+  "sidebar.docs.doc.Open API": {
+    "message": "Open API",
+    "description": "侧边栏 “docs” 中名为 “Open API” 的文档条目标签，链接到文档 client/open-api"
+  },
+  "sidebar.docs.doc.HTTP API": {
+    "message": "HTTP API",
+    "description": "侧边栏 “docs” 中名为 “HTTP API” 的文档条目标签，链接到文档 http-api/index"
+  },
+  "sidebar.docs.doc.Streaming Export": {
+    "message": "流式导出",
+    "description": "侧边栏 “docs” 中名为 “流式导出” 的文档条目标签，链接到文档 streaming-export-api"
+  },
+  "sidebar.docs.doc.Streaming Import": {
+    "message": "流式导入",
+    "description": "文档侧边栏中 “docs” 部分的 “流式导入” 条目的标签，链接到 streaming-import-api 文档"
+  },
+  "sidebar.docs.doc.Update environment variables": {
+    "message": "更新环境变量",
+    "description": "文档侧边栏中 “docs” 部分的 “更新环境变量” 条目的标签，链接到 deployment-api/update-environment-variables 文档"
+  },
+  "sidebar.docs.doc.List environment variables": {
+    "message": "列出环境变量",
+    "description": "文档侧边栏中 “docs” 部分的 “列出环境变量” 条目的标签，链接到 deployment-api/list-environment-variables 文档"
+  },
+  "sidebar.docs.doc.Update canonical URL": {
+    "message": "更新规范 URL",
+    "description": "文档侧边栏 “docs” 中，标题为「更新规范 URL」的条目，链接到文档 deployment-api/update-canonical-url"
+  },
+  "sidebar.docs.doc.Get canonical URLs": {
+    "message": "获取规范 URL 列表",
+    "description": "文档侧边栏 “docs” 中，标题为「获取规范 URL 列表」的条目，链接到文档 deployment-api/get-canonical-urls"
+  },
+  "sidebar.docs.doc.List log streams": {
+    "message": "列出日志流",
+    "description": "文档侧边栏 “docs” 中，标题为「列出日志流」的条目，链接到文档 deployment-api/list-log-streams"
+  },
+  "sidebar.docs.doc.Get log stream": {
+    "message": "获取日志流",
+    "description": "侧边栏 “docs” 中文档条目“获取日志流”的标签，链接到文档 deployment-api/get-log-stream"
+  },
+  "sidebar.docs.doc.Delete log stream": {
+    "message": "删除日志流",
+    "description": "侧边栏 “docs” 中文档条目“删除日志流”的标签，链接到文档 deployment-api/delete-log-stream"
+  },
+  "sidebar.docs.doc.Create log stream": {
+    "message": "创建日志流",
+    "description": "侧边栏 “docs” 中文档条目“创建日志流”的标签，链接到文档 deployment-api/create-log-stream"
+  },
+  "sidebar.docs.doc.Update log stream": {
+    "message": "更新日志流",
+    "description": "侧边栏「docs」中标题为 “Update log stream” 的文档条目的标签，链接到文档 deployment-api/update-log-stream"
+  },
+  "sidebar.docs.doc.Rotate webhook log stream secret": {
+    "message": "轮换 webhook 日志流的密钥",
+    "description": "侧边栏「docs」中标题为 “Rotate webhook log stream secret” 的文档条目的标签，链接到文档 deployment-api/rotate-webhook-secret"
+  },
+  "sidebar.docs.doc.Pause deployment": {
+    "message": "暂停部署",
+    "description": "侧边栏「docs」中标题为 “Pause deployment” 的文档条目的标签，链接到文档 deployment-api/pause-deployment"
+  },
+  "sidebar.docs.doc.Unpause deployment": {
+    "message": "恢复部署",
+    "description": "文档侧边栏「docs」中名为「Unpause deployment」的文档项标签，链接到文档 deployment-api/unpause-deployment"
+  },
+  "sidebar.docs.doc.Create project": {
+    "message": "创建项目",
+    "description": "文档侧边栏「docs」中名为「Create project」的文档项标签，链接到文档 management-api/create-project"
+  },
+  "sidebar.docs.doc.List projects": {
+    "message": "列出项目",
+    "description": "文档侧边栏「docs」中名为「List projects」的文档项标签，链接到文档 management-api/list-projects"
+  },
+  "sidebar.docs.doc.List deployments": {
+    "message": "列出部署",
+    "description": "docs 侧边栏中链接到文档 management-api/list-deployments 的文档条目「列出部署」的标签"
+  },
+  "sidebar.docs.doc.Delete project": {
+    "message": "删除项目",
+    "description": "docs 侧边栏中链接到文档 management-api/delete-project 的文档条目「删除项目」的标签"
+  },
+  "sidebar.docs.doc.Create deploy key": {
+    "message": "创建部署密钥",
+    "description": "docs 侧边栏中链接到文档 management-api/create-deploy-key 的文档条目「创建部署密钥」的标签"
+  },
+  "sidebar.docs.doc.List deploy keys": {
+    "message": "列出部署密钥",
+    "description": "侧边栏“docs”部分中“List deploy keys”文档项的标签，链接到文档 management-api/list-deploy-keys"
+  },
+  "sidebar.docs.doc.Delete deploy key": {
+    "message": "删除部署密钥",
+    "description": "侧边栏“docs”部分中“Delete deploy key”文档项的标签，链接到文档 management-api/delete-deploy-key"
+  },
+  "sidebar.docs.doc.Get token details": {
+    "message": "获取 Token 详情",
+    "description": "侧边栏“docs”部分中“Get token details”文档项的标签，链接到文档 management-api/get-token-details"
+  },
+  "sidebar.docs.doc.Create custom domain": {
+    "message": "创建自定义域名",
+    "description": "文档侧边栏「docs」中，指向文档 management-api/create-custom-domain 的条目「Create custom domain」的标签文本"
+  },
+  "sidebar.docs.doc.Delete custom domain": {
+    "message": "删除自定义域名",
+    "description": "文档侧边栏「docs」中，指向文档 management-api/delete-custom-domain 的条目「Delete custom domain」的标签文本"
+  },
+  "sidebar.docs.doc.List custom domains": {
+    "message": "列出自定义域名",
+    "description": "文档侧边栏「docs」中，指向文档 management-api/list-custom-domains 的条目「List custom domains」的标签文本"
+  },
+  "sidebar.docs.doc.Delete deployment": {
+    "message": "删除部署",
+    "description": "文档侧边栏「docs」中标题为「Delete deployment」的条目标签，链接到文档 management-api/delete-deployment"
+  },
+  "sidebar.docs.doc.Errors": {
+    "message": "错误",
+    "description": "文档侧边栏「docs」中标题为「Errors」的条目标签，链接到文档 error"
+  },
+  "sidebar.docs.doc.ESLint": {
+    "message": "ESLint",
+    "description": "文档侧边栏「docs」中标题为「ESLint」的条目标签，链接到文档 eslint"
+  },
+  "sidebar.docs.category.Get Started": {
+    "message": "快速上手",
+    "description": "文档侧边栏中 “Get Started” 分组的标签"
+  },
+  "sidebar.docs.category.Guides": {
+    "message": "指南",
+    "description": "文档侧边栏中 “Guides” 分组的标签"
+  },
+  "sidebar.docs.category.Client Libraries": {
+    "message": "客户端库",
+    "description": "文档侧边栏中 “Client Libraries” 分组的标签"
+  },
+  "sidebar.docs.category.Tools": {
+    "message": "工具",
+    "description": "文档侧边栏中 “Tools” 分组的标签"
+  },
+  "sidebar.docs.category.API Reference": {
+    "message": "API 参考",
+    "description": "文档侧边栏中 “API Reference” 分组的标签"
+  },
+  "sidebar.docs.category.deployment-platform": {
+    "message": "平台",
+    "description": "侧边栏 docs 部分中 “Platform” 分类下的标签"
+  }
+}

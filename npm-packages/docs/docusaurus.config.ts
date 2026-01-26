@@ -40,7 +40,7 @@ const config: Config = {
   // to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: "en",
-    locales: ["en"],
+    locales: ["en", "es", "ja", "zh"],
   },
   customFields: {
     // Make these environment variables available to the docs site.
@@ -71,6 +71,10 @@ const config: Config = {
         srcDark: "img/convex-dark.svg",
       },
       items: [
+        {
+          type: 'localeDropdown',
+          position: 'right',
+        },
         {
           // See the comment above if you're modifying this link
           type: "docSidebar",
@@ -354,7 +358,13 @@ const config: Config = {
           enableLlmsFullTxt: true,
           excludeRoutes: [
             "/",
+            "/es/",
+            "/ja/",
+            "/zh/",
             "/home",
+            "/es/home",
+            "/ja/home",
+            "/zh/home",
             "/quickstarts",
             "/understanding/best-practices/other-recommendations",
           ],

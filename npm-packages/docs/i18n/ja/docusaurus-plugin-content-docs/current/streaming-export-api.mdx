@@ -1,0 +1,113 @@
+---
+title: "ストリーミングエクスポート"
+sidebar_label: "ストリーミングエクスポート"
+description: "Convex からデータをストリーミングする"
+---
+
+Convex はストリーミングエクスポートをサポートしています。Convex は
+[Fivetran と Airbyte](/production/integrations/streaming-import-export.md)
+向けのコネクタ実装を提供しています。
+これらのコネクタは次の API を使用します。
+
+ストリーミングエクスポートのサポートを利用するには
+[Professional プラン](https://www.convex.dev/pricing)
+に登録してください。
+[ストリーミングエクスポートに関するドキュメント](/production/integrations/streaming-import-export.md)
+も参照できます。
+
+<BetaAdmonition feature="Streaming Export HTTP APIs" verb="are" />
+
+ストリーミングエクスポートのリクエストには、HTTP ヘッダー `Authorization`
+を介したデプロイメント管理者の認可が必要です。値は `Convex <access_key>`
+であり、access key は Convex ダッシュボード上の「Deploy key」から取得します。
+このキーは Convex データへの読み取りおよび書き込みのフルアクセス権を付与します。
+
+### GET `/api/json_schemas` \{#get-apijson_schemas\}
+
+この JSON Schemas エンドポイントはテーブルの一覧を返し、各テーブルについて、
+ドキュメントがどのようにエンコードされるかを [JSON Schema](https://json-schema.org/) 形式で記述します。
+このエンドポイントは、分かりにくいエンコードを説明したり、`Id` フィールドが参照するテーブルといった
+追加情報を提供するために、スキーマ全体にわたって `$description` タグを返します。
+
+**クエリパラメータ**
+
+| Name        | Type    | Required | Description                                                                                                             |
+| ----------- | ------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| deltaSchema | boolean | n        | 設定されている場合、document&#95;deltas および list&#95;snapshot によって返されるメタデータフィールド（`_ts`、`_deleted`、`_table`）を含めます |
+| format      | string  | n        | 値の出力形式。指定可能な値: [`json`]                                                                                       |
+
+### GET `/api/list_snapshot` \{#get-apilist_snapshot\}
+
+`list_snapshot` エンドポイントはドキュメントの一貫したスナップショットを走査します。完全なスナップショットを走査するには、`list_snapshot` を 1 回以上呼び出す必要がある場合があります。
+
+**クエリパラメータ**
+
+| Name      | Type   | Required | Description                                                                         |
+| --------- | ------ | -------- | ----------------------------------------------------------------------------------- |
+| snapshot  | int    | n        | スナップショットの処理を継続する際のデータベースのタイムスタンプ。タイムスタンプは 30 日より古くてはいけません。省略した場合は最新のタイムスタンプが選択されます。 |
+| cursor    | string | n        | スナップショットのページネーションの進行状況を表す不透明なカーソル。省略した場合、スナップショットの最初のページから開始します。                    |
+| tableName | string | n        | 指定された場合、そのテーブルのみにスナップショットをフィルタします。省略した場合は、すべてのテーブルを対象としたスナップショットを取得します。             |
+| format    | string | n        | 値の出力フォーマット。有効な値: [`json`]                                                           |
+
+**結果 JSON**
+
+| Field Name | Type              | Description                                                     |
+| ---------- | ----------------- | --------------------------------------------------------------- |
+| values     | List[ConvexValue] | 要求されたフォーマットでの Convex 値のリスト。各値には追加フィールド `_ts` と `_table` が含まれます。 |
+| hasMore    | boolean           | スナップショットにさらにページが存在する場合は true。                                   |
+| snapshot   | int               | スナップショットが取得された時点のデータベースのタイムスタンプを表す値。                            |
+| cursor     | string            | そのページにおける進行状況の末尾を表す不透明なカーソル。これを後続の呼び出しに渡します。                    |
+
+想定される API の使用例 (疑似コード):
+
+```python
+def list_full_snapshot()
+    snapshot_values = []
+    snapshot = None
+    cursor = None
+    while True:
+        result = api.list_snapshot(cursor, snapshot)
+        snapshot_values.extend(result.values)
+        (cursor, snapshot) = (result.cursor, result.snapshot)
+        if !result.hasMore:
+            break
+    return (snapshot_values, result.snapshot)
+```
+
+### GET `/api/document_deltas` \{#get-apidocument_deltas\}
+
+`document_deltas` エンドポイントは、ドキュメントの変更ログを走査して、新規・更新・削除されたドキュメントを、それらのミューテーションの順序で取得します。この順序は、返されるドキュメントの `_ts` フィールドによって決まります。削除は、フィールド `_id`、`_ts`、および `_deleted: true` を持つ JSON オブジェクトとして表現されます。
+
+**Query parameters**
+
+| Name      | Type   | Required | Description                                                                                    |
+| --------- | ------ | -------- | ---------------------------------------------------------------------------------------------- |
+| cursor    | int    | y        | このデータベースタイムスタンプより後のドキュメントデルタをストリーミングすることを示す値。初期値は list&#95;snapshot から返される `snapshot` フィールドです。 |
+| tableName | string | n        | 指定された場合、そのテーブルのドキュメントデルタのみにフィルタします。省略した場合は、すべてのテーブルにまたがるデルタを返します。                              |
+| format    | string | n        | 値の出力形式。有効な値: [`json`]                                                                          |
+
+**Result JSON**
+
+| Field Name | Type              | Description                                                                                      |
+| ---------- | ----------------- | ------------------------------------------------------------------------------------------------ |
+| values     | List[ConvexValue] | 要求された形式での Convex 値のリスト。それぞれの値には `_ts` と `_table` の追加フィールドが含まれます。削除を表す値には `_deleted` フィールドが含まれます。 |
+| hasMore    | boolean           | スナップショットにさらにページがある場合は true。                                                                      |
+| cursor     | int               | ページ末尾のデータベースタイムスタンプを表す値。後続の document&#95;deltas 呼び出しに渡します。                                       |
+
+想定される API の使用例（疑似コード）:
+
+```python
+def delta_sync(delta_cursor):
+    delta_values = []
+    while True:
+        result = api.document_deltas(cursor)
+        delta_values.extend(result.values)
+        cursor = result.cursor
+        if !hasMore:
+            break
+    return (delta_values, delta_cursor)
+
+(snapshot_values, delta_cursor) = list_full_snapshot()
+(delta_values, delta_cursor) = delta_sync(delta_cursor)
+# 次の同期のためにdelta_cursorを保存
+```

@@ -1,0 +1,182 @@
+---
+title: "Usar Convex con Netlify"
+sidebar_label: "Netlify"
+description: "Aloja tu frontend en Netlify y tu backend en Convex"
+sidebar_position: 20
+---
+
+Alojar tu aplicación de Convex en Netlify te permite volver a desplegar automáticamente
+tanto tu backend como tu frontend cada vez que haces push de tu código.
+
+## Implementación en Netlify \{#deploying-to-netlify\}
+
+Esta guía asume que ya tienes una aplicación React funcional con Convex. Si no
+es así, sigue primero el [Inicio rápido de Convex React](/quickstart/react.mdx). Luego:
+
+<StepByStep>
+  <Step title="Crea una cuenta en Netlify">
+    Si aún no lo has hecho, crea una cuenta en [Netlify](https://netlify.com).
+    Es gratuita para proyectos pequeños y configurarla debería llevarte menos de un minuto.
+
+    <>    </>
+  </Step>
+
+  <Step title="Vincula tu proyecto en Netlify">
+    Crea un proyecto de Netlify en https://app.netlify.com/start y vincúlalo al
+    repositorio del código fuente de tu proyecto en GitHub u otra plataforma Git.
+
+    <div className="screenshot-border">
+      ![Importar proyecto en Netlify](/screenshots/netlify_import.png)
+    </div>
+  </Step>
+
+  <Step title="Sobrescribe el comando Build">
+    Sobrescribe el *Build command* con
+    `npx convex deploy --cmd 'npm run build'`.
+
+    Si tu proyecto vive en un subdirectorio de tu repositorio, también
+    tendrás que cambiar *Base directory* en Netlify en consecuencia.
+
+    <div className="screenshot-border">
+      ![Configuración de compilación de Netlify](/screenshots/netlify_build_settings.png)
+    </div>
+  </Step>
+
+  <Step title="Configura la variable de entorno CONVEX_DEPLOY_KEY">
+    En tu [Convex Dashboard](https://dashboard.convex.dev/)
+    ve a la página *Settings* de tu proyecto. Haz clic en el botón *Generate* para generar una clave de implementación de **Production**.
+    Luego haz clic en el botón de copiar para copiar la clave.
+
+    En Netlify, haz clic en *Add environment variables* y *New variable*.
+
+    Crea una variable de entorno `CONVEX_DEPLOY_KEY` y pega
+    en ella tu clave de implementación.
+
+    <div className="screenshot-border">
+      ![Variable de entorno CONVEX\_DEPLOY\_KEY en Netlify](/screenshots/netlify_prod_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="Implementa tu sitio">
+    Ahora haz clic en el botón *Deploy* y ¡tu trabajo aquí habrá terminado!
+
+    <>    </>
+  </Step>
+</StepByStep>
+
+Netlify publicará automáticamente tu sitio en una URL
+`https://<site-name>.netlify.app` que aparece en la parte superior de la página de resumen del sitio.
+Cada vez que hagas push al repositorio de Git, Netlify implementará automáticamente
+tus funciones de Convex y publicará los cambios de tu sitio.
+
+<Admonition type="info" title="¿Usas un dominio personalizado?">
+  Si estás usando un dominio personalizado para servir tus funciones de Convex, necesitarás
+  una configuración adicional. Consulta [Dominios
+  personalizados](/production/hosting/custom.mdx#hosting-with-a-custom-domain) para obtener más
+  información.
+</Admonition>
+
+### Cómo funciona \{#how-it-works\}
+
+En Netlify, sobrescribimos el *Build Command* para que quede como
+`npx convex deploy --cmd 'npm run build'`.
+
+`npx convex deploy` leerá `CONVEX_DEPLOY_KEY` del entorno y lo usará
+para establecer la variable de entorno `CONVEX_URL` (o de nombre similar) para que apunte a
+tu despliegue de **producción**.
+
+Tu framework de frontend preferido, invocado por `npm run build`, leerá la
+variable de entorno `CONVEX_URL` y hará que tu sitio desplegado (a través de
+`ConvexReactClient`) apunte a tu despliegue de **producción**.
+
+Por último, `npx convex deploy` enviará tus funciones de Convex a tu despliegue
+de producción.
+
+Ahora, tu despliegue de producción tiene tus funciones más recientes y tu aplicación está
+configurada para conectarse a él.
+
+Puedes usar `--cmd-url-env-var-name` para personalizar el nombre de la variable que usa tu
+código de frontend si el comando `deploy` no puede inferirlo, por ejemplo:
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+## Autenticación \{#authentication\}
+
+Deberías configurar tu proveedor de [autenticación](/auth.mdx) (Clerk,
+Auth0 u otro) para que acepte la URL de tu sitio en producción `<site-name>.netlify.app`.
+
+## Vistas previas de despliegue \{#deploy-previews\}
+
+Las Deploy Previews de Netlify te permiten previsualizar los cambios en tu aplicación antes de que se fusionen. Para poder previsualizar tanto los cambios en el código del frontend como en las funciones de Convex, puedes configurar
+[despliegues de vista previa de Convex](/production/hosting/preview-deployments.mdx).
+
+Esto creará un backend de Convex nuevo para cada vista previa y dejará tus despliegues de producción y desarrollo sin cambios.
+
+Esto supone que ya has seguido los pasos de
+[Desplegar en Netlify](#deploying-to-netlify) más arriba.
+
+<StepByStep>
+  <Step title="Configura la variable de entorno CONVEX_DEPLOY_KEY">
+    En tu [Convex Dashboard](https://dashboard.convex.dev/)
+    ve a la página de *Settings* de tu proyecto. Haz clic en el botón *Generate Preview Deploy Key* para generar una clave de despliegue de **Preview**.
+    Luego haz clic en el botón de copiar para copiar la clave.
+
+    En Netlify, haz clic en *Site configuration* &gt; *Environment variables*. Edita tu variable de entorno `CONVEX_DEPLOY_KEY` existente.
+    Selecciona *Different value for each deploy context* y pega la clave en *Deploy Previews*.
+
+    <div className="screenshot-border">
+      ![Netlify environment variable CONVEX\_DEPLOY\_KEY](/screenshots/netlify_preview_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="(opcional) Configura variables de entorno predeterminadas">
+    Si tu aplicación depende de ciertas variables de entorno de Convex, puedes configurar [variables de entorno predeterminadas](/production/environment-variables.mdx#project-environment-variable-defaults) para los despliegues de vista previa y desarrollo en tu proyecto.
+
+    <div className="screenshot-border">
+      ![Project Default Environment Variables](/screenshots/project_default_environment_variables.png)
+    </div>
+  </Step>
+
+  <Step title="(opcional) Ejecuta una función para configurar datos iniciales">
+    Las Deploy Previews se ejecutan contra backends de Convex nuevos, que no comparten datos con los despliegues de Convex de desarrollo o producción. Puedes llamar a una función de Convex para configurar datos agregando `--preview-run 'functionName'` al comando `npx
+      convex deploy`. Esta función solo se ejecutará para despliegues de vista previa y se ignorará
+    al desplegar en producción.
+
+    ```sh title="Netlify > Site configuration > Build & deploy > Build settings > Build command"
+    npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+    ```
+  </Step>
+
+  <Step title="Ahora prueba a crear un PR y generar una Deploy Preview">
+    Puedes encontrar el despliegue de Convex para tu rama en el panel de control de Convex.
+
+    <div className="screenshot-border">
+      ![Preview Deployment in Deployment Picker](/screenshots/preview_deployment_deployment_picker.png)
+    </div>
+  </Step>
+</StepByStep>
+
+### Cómo funciona \{#how-it-works\}
+
+Para los Deploy Previews, `npx convex deploy` leerá `CONVEX_DEPLOY_KEY` del
+entorno y lo usará para crear un despliegue de Convex asociado con el nombre
+de la rama de Git del Deploy Preview. Establecerá la variable de entorno
+`CONVEX_URL` (o con un nombre similar) para que apunte al nuevo despliegue
+de Convex.
+
+El framework de frontend que elijas, invocado por `npm run build`, leerá la
+variable de entorno `CONVEX_URL` y hará que tu sitio desplegado (a través de
+`ConvexReactClient`) apunte al despliegue de vista previa de Convex.
+
+Finalmente, `npx convex deploy` subirá tus funciones de Convex al despliegue de
+vista previa y ejecutará la función `--preview-run` (si se proporciona). Este
+despliegue tiene funciones, datos, tareas cron y el resto de la configuración
+separados de cualquier otro despliegue.
+
+`npx convex deploy` inferirá el nombre de la rama de Git para los entornos de
+Vercel, Netlify, GitHub y GitLab, pero la opción `--preview-create` se puede usar
+para personalizar el nombre asociado con el despliegue recién creado.
+
+Los despliegues de producción funcionarán exactamente igual que antes.

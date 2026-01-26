@@ -1,0 +1,94 @@
+---
+title: 認証
+sidebar_position: 30
+description: Convex アプリに認証を追加します。
+hide_table_of_contents: true
+pagination_prev: file-storage
+---
+
+Convex のデプロイメントのエンドポイントはオープンなインターネットに公開されており、
+クライアントが自分が誰なのかについて行う主張は、ユーザーを識別し、
+閲覧および編集できるデータを制限するために認証されている必要があります。
+
+Convex は OpenID Connect（OAuth に基づく）ID トークン（JWT 形式）を使用して
+WebSocket 接続や RPC を認証するため、ほとんどの認証プロバイダと互換性があります。
+これらの JWT は、それらを検証するための適切な OAuth エンドポイントを実装している
+任意のサービス（自前の Convex バックエンドを含む）から発行できます。
+
+## サードパーティ認証プラットフォーム \{#third-party-authentication-platforms\}
+
+Convex とサードパーティの認証プロバイダとの連携を活用すると、
+最も包括的な認証ソリューションを利用できます。外部サービスを統合することで、
+パスキー、二要素認証、スパム対策など、基本的な認証機能に加えて多くの機能が提供されます。
+
+* [Clerk](/auth/clerk.mdx) は Next.js と React Native のサポートが優れています
+* [WorkOS AuthKit](/auth/authkit/index.mdx) は B2B アプリ向けに構築されており、
+  最大 100 万ユーザーまで無料です
+* [Auth0](/auth/auth0.mdx) は、より実績があり、より多くの機能を備えています
+* [Custom Auth Integration](/auth/advanced/custom-auth.mdx) は、認証に
+  OpenID Connect 互換の任意のアイデンティティプロバイダを利用できるようにします
+
+これらのいずれかを統合したら、[Functions](/auth/functions-auth.mdx) で
+認証情報へアクセスする方法や、[Database](/auth/database-auth.mdx) に
+ユーザー情報を保存する方法についても学びましょう。
+
+## Convex Auth ライブラリ \{#the-convex-auth-library\}
+
+クライアントサイドの React および React Native 製モバイルアプリ向けには、[Convex Auth](/auth/convex-auth.mdx) ライブラリを使って、Convex 上に直接認証を実装できます。この
+[npm パッケージ](https://github.com/get-convex/convex-auth) は Convex のデプロイメント上で動作し、ソーシャル ID プロバイダー、ワンタイムのメールまたは SMS アクセスコード、あるいはパスワードを利用したカスタムのサインアップ／サインインフローを構築するのに役立ちます。
+
+Convex Auth はベータ版です（まだ完成しておらず、後方互換性のない変更が入る可能性があります）。また、サードパーティ製の認証連携ほど多くの機能は提供しません。ただし、別のサービスに登録する必要がないため、認証を手早く立ち上げるための最短ルートです。
+
+<BetaAdmonition feature="Convex Auth" verb="is" />
+
+Next.js への対応は現在積極的に開発を進めています。この実験的なサポートのテストに協力したい場合は、ぜひ[お試し](https://labs.convex.dev/auth)ください。
+
+## デバッグ \{#debugging\}
+
+問題が発生した場合は、[デバッグ](/auth/debug.mdx)ガイドを参照してください。
+
+## サービス認証 \{#service-authentication\}
+
+あなたが管理しているサーバーやサードパーティサービスから Convex の関数を呼び出すことはできますが、
+それらは OpenID JWT を取得できない場合が多く、多くの場合、特定のユーザーのアクションを表しているわけではありません。
+
+たとえば、Python で書かれた [Modal](https://modal.com/) サーバー上で推論処理を実行しているとします。
+そのサーバーが Convex のクエリを購読する場合、特定のエンドユーザーの認証情報を使うのではなく、
+会話の要約や翻訳のような推論タスクを必要としている任意のユーザー向けの関連タスクを探すことになります。
+
+外部サービスから Convex のクエリ、ミューテーション、アクションにアクセスできるようにするには、
+インターネットからアクセス可能な public 関数を作成し、その中で最初に、環境変数などから取得した
+共有シークレットを検証してから処理を行うようにします。
+
+## 認可 \{#authorization\}
+
+Convex では、従来型の 3 層アプリケーション構成を実現できます。つまり、アプリのクライアント/UI、ユーザーリクエストを処理するバックエンド、そしてクエリ用のデータベースです。
+このアーキテクチャにより、すべてのパブリックリクエストを、コードで定義した任意の認可ルールに照らしてチェックできます。
+
+これはつまり、Convex には Firebase や Supabase のようなクライアント指向のデータベースで必須となる RLS のような、意見の強い認可フレームワークが不要であるということです。
+この柔軟性によって、自分のニーズに合った
+[authorization framework](https://en.wikipedia.org/wiki/Authorization)
+を構築して利用できます。
+
+とはいえ、最も一般的な方法は、各パブリック関数の先頭で「ユーザーがログインしているか」「要求されたアクションを行う権限があるか」をチェックするコードを書くことです。
+
+たとえば、次の関数は、現在認証されているユーザーだけが自分のユーザー画像を削除できるように保証しています。
+
+```typescript
+export const removeUserImage = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // highlight-next-line
+    const userId = await getAuthUserId(ctx);
+    // highlight-next-line
+    if (!userId) {
+      // highlight-next-line
+      return;
+      // highlight-next-line
+    }
+    ctx.db.patch("users", userId, { imageId: undefined, image: undefined });
+  },
+});
+```
+
+<StackPosts query="authentication" />

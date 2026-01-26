@@ -1,0 +1,48 @@
+---
+title: "TanStack Start での Clerk 連携"
+sidebar_label: Clerk 連携
+description:
+  "TanStack Start アプリケーションで ID トークンと ConvexProviderWithClerk を使用して、
+  Convex に Clerk 認証を統合する方法を学びます。"
+---
+
+import appRouter from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/router.tsx";
+import appRoutesRoot from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/routes/__root.tsx";
+
+Clerk と Convex を一緒に使うには、
+[Clerk TanStack クイックスタート](https://clerk.com/docs/quickstarts/tanstack-start)
+に従い、さらに
+[Convex TanStack クイックスタート](/quickstart/tanstack-start.mdx)
+で示されているように Convex を追加します。そのうえで、TanStack Start 内で Convex への認証済み呼び出しを行う可能性があるあらゆる場所で Clerk のアイデンティティトークンを利用できるようにするには、次のように設定します。
+
+1. `getAuth()` 呼び出しに加えて、Clerk から ID トークンも取得します。
+   `const token = await auth.getToken({ template: "convex" })`。
+2. beforeLoad 内で
+   `ctx.context.convexQueryClient.serverHttpClient?.setAuth(token)` を呼び出してトークンを設定し、ローダー内でトークンを利用できるようにします。
+3. ルートコンポーネントに `<ConvexProviderWithClerk>` を追加し、アプリの利用中に Clerk トークンが継続的にリフレッシュされるようにします。
+
+これらの変更は、`app/router.tsx` を次のように変更する形になります。
+
+<Snippet source={appRouter} title="app/router.tsx" highlightPatterns={["context: "]} />
+
+そして `app/routes/__root.tsx` を次のように変更します。
+
+<Snippet
+  source={appRoutesRoot}
+  title="app/routes/__root.tsx"
+  highlightPatterns={[
+"getAuth\\(get",
+"getToken",
+"token,",
+"ConvexReactClient",
+"ConvexQueryClient",
+"userId, token",
+"ConvexProviderWithClerk",
+"if \\(token",
+"ctx.context.convexQuery",
+]}
+/>
+
+これで
+[TanStack Query](/client/tanstack/tanstack-query/index.mdx)
+を使って行われるすべてのクエリ、ミューテーション、およびアクションは、Clerk のアイデンティティトークンによって認証されるようになります。

@@ -1,0 +1,255 @@
+---
+title: "Agent の定義と使用方法"
+sidebar_label: "Agent の使用"
+sidebar_position: 140
+description: "Agent クラスの設定と使用"
+---
+
+Agent は、モデル、プロンプト、ツール、そのほかの設定をカプセル化します。Agent は
+グローバルとして、または実行時に定義できます。
+
+Agent はスレッドを使って、処理の過程でやりとりされる一連のメッセージを保持します。これらのメッセージは
+ユーザー、別の Agent / LLM、その他のソースからのものであり得ます。1 つのスレッドには
+複数の Agent が応答することもあれば、単一の Agent のみが利用することもあります。
+
+エージェント駆動のワークフローは、コンテキスト付きプロンプト（スレッド、
+メッセージ、ツールのレスポンス、RAG など）と、LLM ツール呼び出しによる動的ルーティング、
+構造化された LLM 出力、あるいはカスタムコードを通じたさまざまなその他の手法を
+組み合わせることで構築されます。
+
+## 基本的なAgentの定義 \{#basic-agent-definition\}
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "Basic Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+});
+```
+
+より多くの設定オプションについては[下記](#customizing-the-agent)を参照してください。
+
+名前以外はすべて、LLM を呼び出す際に呼び出し側で上書きできます。また、処理をこのような形で整理する必要がないユースケースであれば、Agent なしでも Agent で利用可能な多くの機能を使うことができます。
+
+## 動的な Agent の定義 \{#dynamic-agent-definition\}
+
+特定のコンテキスト用に Agent を作成したい場合などに、Agent は実行時に定義できます。これにより、各ツール呼び出しのたびに LLM が毎回完全なコンテキストを渡さなくてもツールを呼び出せるようになります。また、Agent ごとに使用するモデルやその他のオプションを動的に選択することもできます。
+
+```ts
+import { Agent } from "@convex-dev/agent";
+import { type LanguageModel } from "ai";
+import type { ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { components } from "./_generated/api";
+
+function createAuthorAgent(
+  ctx: ActionCtx,
+  bookId: Id<"books">,
+  model: LanguageModel,
+) {
+  return new Agent(components.agent, {
+    name: "Author",
+    languageModel: model,
+    tools: {
+      // See https://docs.convex.dev/agents/tools
+      getChapter: getChapterTool(ctx, bookId),
+      researchCharacter: researchCharacterTool(ctx, bookId),
+      writeChapter: writeChapterTool(ctx, bookId),
+    },
+    maxSteps: 10, // stopWhen: stepCountIs(10) の代わりに使用可能
+  });
+}
+```
+
+## Agent を使ってテキストを生成する \{#generating-text-with-an-agent\}
+
+メッセージを生成するには、プロンプト（文字列またはメッセージのリスト）を渡し、
+LLM を使って 1 つ以上のメッセージを生成するためのコンテキストとして利用します。
+その際に `agent.streamText` や `agent.generateObject` のような呼び出しを行います。
+
+`generateText` などに渡す引数は AI SDK と同じですが、
+モデルを指定する必要はありません。デフォルトでは Agent の言語モデルが使用されます。
+また、`promptMessageId` のような Agent コンポーネント固有の追加引数もあり、
+これについては後ほど説明します。
+
+[**AI SDK の引数の完全な一覧はこちら**](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text)
+
+メッセージ履歴は、指定された
+[thread](./threads.mdx) からのコンテキストとしてデフォルトで渡されます。
+提供されるコンテキストの構成方法についての詳細は、
+[LLM Context](./context.mdx) を参照してください。
+
+注記: 以下に出てくる `authorizeThreadAccess` は、ユーザーがその thread にアクセスするための
+認証と認可を行うために、あなたが実装する関数です。実装例は
+[threads.ts](https://github.com/get-convex/agent/blob/main/example/convex/threads.ts)
+で確認できます。
+
+実際に動作するコード例は
+[chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)
+または
+[chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+を参照してください。
+
+### テキストのストリーミング \{#streaming-text\}
+
+テキストのストリーミングは、以下のアプローチと同じパターンに従いますが、
+使用するストリーミングの種類によっていくつか異なる点があります。詳細は
+[ストリーミング](./streaming.mdx)を参照してください。
+
+### 基本的なアプローチ（同期処理） \{#basic-approach-synchronous\}
+
+```ts
+export const generateReplyToPrompt = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+注意: ベストプラクティスとしては、アクションから返されるデータに依存しないことをおすすめします。代わりに
+`useThreadMessages` フックを使ってスレッドメッセージをクエリし、
+新しいメッセージを自動的に受け取ってください。詳しくは以下を参照してください。
+
+### プロンプトを保存してからレスポンスを非同期で生成する \{#saving-the-prompt-then-generating-responses-asynchronously\}
+
+上記のアプローチはシンプルですが、レスポンスを非同期で生成すると
+いくつかの利点があります。
+
+* トランザクションとして実行されるミューテーションに対して楽観的 UI 更新を設定できるため、
+  メッセージが保存されてメッセージクエリに現れるまでの間、
+  クライアント側にメッセージを楽観的に表示できます。
+* データベースへの他の書き込みと同じミューテーション（トランザクション）の中で
+  メッセージを保存できます。このメッセージは、その後リトライを行うアクション内で
+  再利用でき、履歴中にプロンプトメッセージを重複させずに済みます。
+  `promptMessageId` が複数回の生成に使われた場合、過去のレスポンスは
+  自動的にコンテキストとして含まれるので、LLM は中断したところから
+  続きを生成できます。詳細は [workflows](./workflows.mdx) を参照してください。
+* ミューテーションの冪等性の保証により、クライアントはミューテーションが
+  ちょうど 1 回実行されるまで、数日にわたって安全にリトライできます。
+  アクションは一時的に失敗する可能性があります。
+
+メッセージを一覧表示している任意のクライアントは、メッセージが非同期に作成されると
+自動的に新しいメッセージを受け取ります。
+
+レスポンスを非同期で生成するには、まずメッセージを保存し、
+その後 `messageId` を `promptMessageId` として渡してテキストを生成／ストリーミングします。
+
+```ts
+import { components, internal } from "./_generated/api";
+import { saveMessage } from "@convex-dev/agent";
+import { internalAction, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+// ステップ1: ユーザーメッセージを保存し、非同期レスポンスを開始します。
+export const sendMessage = mutation({
+  args: { threadId: v.id("threads"), prompt: v.string() },
+  handler: async (ctx, { threadId, prompt }) => {
+    const { messageId } = await saveMessage(ctx, components.agent, {
+      threadId,
+      prompt,
+    });
+    await ctx.scheduler.runAfter(0, internal.example.generateResponseAsync, {
+      threadId,
+      promptMessageId: messageId,
+    });
+  },
+});
+
+// Step 2: Generate a response to a user message.
+export const generateResponseAsync = internalAction({
+  args: { threadId: v.string(), promptMessageId: v.string() },
+  handler: async (ctx, { threadId, promptMessageId }) => {
+    await agent.generateText(ctx, { threadId }, { promptMessageId });
+  },
+});
+```
+
+このアクションは何も返す必要はありません。すべてのメッセージはデフォルトで保存されるため、スレッドのメッセージを購読しているクライアントは、新しいメッセージが非同期に生成され次第、それを受信します。
+
+### オブジェクトの生成 \{#generating-an-object\}
+
+AI SDK と同様に、オブジェクトを生成したりストリーミングしたりできます。引数は同じですが、モデルを指定する必要はありません。エージェントのデフォルトの言語モデルが使用されます。
+
+```ts
+import { z } from "zod/v3";
+
+const result = await thread.generateObject({
+  prompt: "Generate a plan based on the conversation so far",
+  schema: z.object({...}),
+});
+```
+
+残念ながら、オブジェクト生成でツールを使うことはできません。ただし一つの方法として、オブジェクトを、オブジェクトを返すツール呼び出しの引数として構造化することができます。
+ツール呼び出しが結果を生成したタイミングで生成処理を停止するためにカスタムの `stopWhen` を使用し、LLM がテキスト応答を返さないようにするために `toolChoice: "required"` を指定できます。
+
+## エージェントのカスタマイズ \{#customizing-the-agent\}
+
+エージェントはデフォルトでは `chat` モデルだけを設定すれば動作します。ただし、
+ベクター検索を行う場合には `textEmbeddingModel` モデルが必要です。各メッセージを特定の
+エージェントに関連付けるために `name` を指定しておくと便利です。その他のオプションには
+デフォルト値があり、各 LLM の呼び出し箇所ごとに上書きできます。
+
+```ts
+import { tool, stepCountIs } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod/v3";
+import { Agent, createTool, type Config } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+const sharedDefaults = {
+  // The language model to use for the agent.
+  languageModel: openai.chat("gpt-4o-mini"),
+  // Embedding model to power vector search of message history (RAG).
+  textEmbeddingModel: openai.embedding("text-embedding-3-small"),
+  // Used for fetching context messages. See https://docs.convex.dev/agents/context
+  contextOptions,
+  // Used for storing messages. See https://docs.convex.dev/agents/messages
+  storageOptions,
+  // Used for tracking token usage. See https://docs.convex.dev/agents/usage-tracking
+  usageHandler: async (ctx, args) => {
+    const { usage, model, provider, agentName, threadId, userId } = args;
+    // ... log, save usage to your database, etc.
+  },
+  // Used for filtering, modifying, or enriching the context messages. See https://docs.convex.dev/agents/context
+  contextHandler: async (ctx, args) => {
+    return [...customMessages, args.allMessages];
+  },
+  // Useful if you want to log or record every request and response.
+  rawResponseHandler: async (ctx, args) => {
+    const { request, response, agentName, threadId, userId } = args;
+    // ... log, save request/response to your database, etc.
+  },
+  // Used for limiting the number of retries when a tool call fails. Default: 3.
+  callSettings: { maxRetries: 3, temperature: 1.0 },
+} satisfies Config;
+
+
+const supportAgent = new Agent(components.agent, {
+  // The default system prompt if not over-ridden.
+  instructions: "You are a helpful assistant.",
+  tools: {
+    // Convex tool. See https://docs.convex.dev/agents/tools
+    myConvexTool: createTool({
+      description: "My Convex tool",
+      args: z.object({...}),
+      // Note: annotate the return type of the handler to avoid type cycles.
+      handler: async (ctx, args): Promise<string> => {
+        return "Hello, world!";
+      },
+    }),
+    // Standard AI SDK tool
+    myTool: tool({ description, parameters, execute: () => {}}),
+  },
+  // ツール呼び出しが含まれる場合のステップ数を制限するために使用します。
+  // 注意: 単一の呼び出しでツール呼び出しを自動的に実行する場合は、
+  // これを1より大きい値に設定する必要があります(デフォルトは1)
+  stopWhen: stepCountIs(5),
+  ...sharedDefaults,
+});
+```

@@ -1,0 +1,119 @@
+---
+title: "データインポート"
+sidebar_label: "データインポート"
+description: "Convex にデータをインポートする"
+sidebar_position: 169
+---
+
+コマンドラインからローカルファイルのデータを Convex にインポートできます。
+
+```sh
+npx convex import
+```
+
+<BetaAdmonition feature="データのインポート" verb="is" />
+
+すべてのオプションを確認するには `--help` を付けて実行してください。代表的な利用フローを以下で説明します。
+
+## 単一テーブルインポート \{#single-table-import\}
+
+```sh
+npx convex import --table <tableName> <path>
+```
+
+CSV、JSON、または JSONLines ファイルを Convex のテーブルにインポートします。
+
+* `.csv` ファイルにはヘッダーが必要で、各行の要素は（浮動小数点）数値または文字列として解釈されます。
+* `.jsonl` ファイルは、1 行につき 1 つの JSON オブジェクトである必要があります。
+* `.json` ファイルは、JSON オブジェクトの配列である必要があります。
+  * JSON 配列には 8MiB のサイズ上限があります。より多くのデータをインポートする必要がある場合は、CSV または JSONLines を使用してください。`jq -c '.[]' data.json > data.jsonl` のようなコマンドで json を jsonl に変換できます。
+
+既存データがあるテーブルへのインポートはデフォルトでは失敗しますが、`--append` を指定するとインポートした行をテーブルに追記でき、`--replace` を指定するとテーブル内の既存データをインポートしたデータで置き換えることができます。
+
+デフォルトでは dev デプロイメントにインポートされます。`--prod` を使用すると本番デプロイメントに、`--preview-name` を使用するとプレビューデプロイメントにインポートできます。
+
+## バックアップ ZIP ファイルからデータを復元する \{#restore-data-from-a-backup-zip-file\}
+
+```sh
+npx convex import <path>.zip
+```
+
+[Backup](/database/backup-restore) から Convex デプロイメントへインポートします。ここで、
+バックアップはダッシュボードからダウンロードした ZIP ファイルです。ドキュメントは、
+テーブル間の参照関係を維持するために `_id` と `_creationTime` フィールドを保持します。
+
+テーブルに既存データがある場合、そのテーブルへのインポートはデフォルトでは失敗しますが、
+ZIP ファイル内で参照されているテーブルの既存データを置き換えるには `--replace` を指定できます。
+
+## ユースケース \{#use-cases\}
+
+1. dev デプロイメントをサンプルデータで初期化する。
+
+```sh
+# フルバックアップ - 本番環境または別の dev デプロイメントからエクスポートされたもの
+npx convex import seed_data.zip
+
+# Import single table from jsonl/csv
+npx convex import --table <table name> data.jsonl
+```
+
+2. デプロイメントを[バックアップ](/database/backup-restore)から
+   プログラムで復元します。バックアップをダウンロードし、必要に応じてそのバックアップから復元します。
+
+```sh
+npx convex import --prod --replace backup.zip
+```
+
+3. prod、dev、または別のプレビューデプロイメントからエクスポートしたサンプルデータで、
+   プレビューデプロイメントをシードします。たとえば Vercel の場合、リポジトリの
+   ルートにコミットされている `seed_data.zip` からデータをシードします。
+
+```sh
+npx convex deploy --cmd 'npm run build' &&
+if [ "$VERCEL_ENV" == "preview" ]; then
+npx convex import --preview-name "$VERCEL_GIT_COMMIT_REF" seed_data.zip;
+fi
+```
+
+4. 空のインポートを使ってテーブルを効率的にクリアする。
+
+```sh
+touch empty_file.jsonl
+npx convex import --replace --table <tableNameToClear> empty_file.jsonl
+```
+
+## 機能 \{#features\}
+
+* データ インポートは、既存の `_id` と `_creationTime` フィールドを持つドキュメントを作成する唯一の方法です。
+  * `_id` フィールドは Convex の ID 形式と一致している必要があります。
+  * `_id` または `_creationTime` が指定されていない場合、インポート時に新しい値が割り当てられます。
+* データ インポートは、テーブルをアトミックに作成および置き換えます（`--append` を使用する場合を除く）。
+  * クエリやミューテーションは、部分的なデータだけがインポートされた中間状態を参照しません。
+  * インデックスとスキーマは、新しいデータに対して、再バックフィルや再バリデーションの時間をかけることなく動作します。
+* データ インポートは、`--table` で指定されたか、ZIP ファイル内のエントリとして含まれているテーブルにのみ影響します。
+* JSON および JSONLines では任意の JSON 値をインポートできますが、ZIP インポートではさらに他の Convex の値（Int64、Bytes など）もインポートできます。型情報は `generated_schema.jsonl` ファイルを通じて ZIP ファイル内に保持されます。
+* [file storage](/file-storage) を含む ZIP ファイルをデータ インポートすると、ファイルがインポートされ、`_id`、`_creationTime`、`contentType` フィールドを含む [`_storage`](/database/advanced/system-tables.mdx) ドキュメントも保持されます。
+
+## 警告 \{#warnings\}
+
+* [Streaming Export](/production/integrations/streaming-import-export.md)
+  (Fivetran または Airbyte) は、テーブルの削除と作成や一部のスキーマ変更と同様に、
+  データのインポートやバックアップの復元を処理しません。復元またはデータのインポート後は、
+  ストリーミングエクスポートの同期をリセットすることを推奨します。
+* Data Export から ZIP ファイルをダウンロードしてから、
+  `npx convex import` でインポートするまでの間に ZIP ファイルを変更することは避けてください。
+  ZIP ファイルを手動で一部変更できる場合もありますが、ドキュメント化されていません。
+  ユースケースを共有し、[Discord](https://convex.dev/community) で Convex チームに確認してください。
+* Convex バージョン 1.7 より前に作成されたデプロイメントにインポートする場合、
+  データのインポートが常にサポートされるとは限りません。
+  * 特に、ターゲットのデプロイメントとほぼ同じ時期に作成されたデプロイメントの
+    ZIP バックアップをインポートする場合には、インポートが動作する可能性があります。
+    特殊なケースとして、そのデプロイメント自身のバックアップからは常に復元できます。
+  * 問題が発生した場合は、[Discord](https://convex.dev/community) でお問い合わせください。
+    回避策があるかもしれません。
+
+データのインポートでは、すべてのドキュメントを書き込むためにデータベース帯域幅を使用し、
+エクスポートにファイルストレージが含まれている場合はファイル帯域幅も使用します。
+これらの帯域幅は、[使用状況ダッシュボード](https://dashboard.convex.dev/team/settings/usage) で
+関数名 `_cli/import` として確認でき、対応するコストは
+[制限に関するドキュメント](/production/state/limits#database) 内で確認できます。

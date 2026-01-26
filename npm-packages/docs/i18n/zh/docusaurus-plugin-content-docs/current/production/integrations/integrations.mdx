@@ -1,0 +1,72 @@
+---
+title: "集成"
+description: "将 Convex 与第三方服务进行集成"
+sidebar_position: 1
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex 可与多种受支持的第三方工具集成，用于日志流式传输和异常上报。
+
+* [Log Streams](/production/integrations/log-streams) 支持将来自 Convex 部署的日志
+  事件以流式方式发送到受支持的目标，例如 Axiom、Datadog 或自定义 webhook。
+* [Exception Reporting](/production/integrations/exception-reporting) 让你能够清晰了解
+  Convex 函数执行过程中的错误。
+
+## 配置集成 \{#configuring-an-integration\}
+
+要配置集成，请在仪表盘中进入
+[Deployment Settings](https://dashboard.convex.dev/deployment/settings)，然后点击侧边栏中的 “Integrations” 选项卡。此页面会列出你已配置的集成、它们当前的运行状况，以及其他可供配置的集成。要配置某个集成，点击对应卡片并按照设置说明进行操作。
+
+![Integrations Page](/screenshots/integrations_page.png)
+
+## 删除集成 \{#deleting-an-integration\}
+
+要移除某个集成并停止将后续事件发送到已配置的目标，点击已配置面板右上角的菜单图标，然后选择“Delete integration”。确认后，该集成会在几秒钟内停止运行。
+
+## 反馈 \{#feedback\}
+
+如果你有任何问题、意见或建议，
+欢迎在 [Discord](https://convex.dev/community) 上与我们交流。
+
+## 集成组件 \{#integration-components\}
+
+除了日志和异常的集成之外，[Convex Components](/components)
+还能让你更轻松地对接第三方服务。你可以在
+[Convex Components Directory](https://convex.dev/components) 中查看完整组件列表。
+
+<ComponentCardList
+  items={[
+  {
+    title: "Cloudflare R2",
+    description: "在 Cloudflare 的 R2 存储中存储文件并提供访问服务。",
+    href: "https://www.convex.dev/components/cloudflare-r2",
+  },
+  {
+    title: "协作文本编辑器",
+    description:
+      "使用 BlockNote 或 Tiptap 实现实时协作文本编辑。",
+    href: "https://www.convex.dev/components/prosemirror-sync",
+  },
+  {
+    title: "Expo 推送通知",
+    description: "使用 Expo 发送移动端推送通知。",
+    href: "https://www.convex.dev/components/push-notifications",
+  },
+  {
+    title: "Twilio SMS",
+    description: "使用 Twilio 的 API 发送和接收 SMS 短信。",
+    href: "https://www.convex.dev/components/twilio",
+  },
+  {
+    title: "LaunchDarkly 功能开关",
+    description: "将后端中的功能开关与 LaunchDarkly 保持同步。",
+    href: "https://www.convex.dev/components/launchdarkly",
+  },
+  {
+    title: "Polar",
+    description: "使用 Polar 添加订阅和计费功能。",
+    href: "https://www.convex.dev/components/polar",
+  },
+]}
+/>

@@ -1,0 +1,37 @@
+---
+id: update-environment-variables
+title: "Actualizar variables de entorno"
+description: "Actualiza una o más variables de entorno en un despliegue."
+sidebar_label: "Actualizar variables de entorno"
+hide_title: true
+hide_table_of_contents: true
+api: eJzdVt1r40YQ/1eWebqALCfpmymF9O4KRwM58lE4HJOMpbG159Xu3u7KiSr0v5dZyZacj4bAPZS+JPJ8z+zM/KaBnHzmpA3SaJjBjc0xkDCahHGiRF0L0lvpjC5JB7FFJ3GpyAupBYqcrDI1c9JbfV1ILx6kUkLqLSoZDaFSwlfLvQufCC91Ri9bvdXoSGCWkfdyqYi9/KjISfJiWQXBXG2CsOiCMCsRChIZZgWJDdVMwChe32pHvlIhhQSMJYfs+ksOM6hifncj73d775CAox8V+fC7yWuYNZAZHUgH/kRrlcyioel3z7VqwGcFlchfobYEMzDL75SF3o50lMNsDlmBek0eFglYx9EEST5a7xmDPjqHNSQgA5X+LbsaS3puNFIHTR+c1GtoE9iiqkac+Y6VgK6UgkXbJhBkULTvgs96+xe6y64k0L4m4A8khgiDqygSvDXad9GdHh/zv8OeA9bzlFVOhhpm8wY+xb4SfxL/XLRJAxdnVSjENWEprs2G9I7+nNJJfnWGSzZiLRIoKRSGu8Aaz9W0GAqYwfSNpvDktuR8jKxyCmbQDI0/qZxqp2jldHsCyZPMvpnKiY9Gb+lxNCvAj7EzH6sxNtZRVlipADMoQrB+Np0WaG09QS1LVJOT01/SLFpNM2Wq/GW/g1lxc3nOr7MYynzFrdu5Hxd76EQrmZCAZHsFYU6OWyV2F3CJjZN/x3F45r03uKHax4mtPOViZQ4i2k+lT8UVkZjneyXBIfjFh13qucn8Lt2cttNMyWknPdlQPYnSR9F+aRyvjJVxZbSdihtPcUnc949wL6yjlXwUHyhdp8me/mtn8G5D9W/3RynPy4t99FPqc7EMKDXlIhTOVOtCoJj3cXROR7vm9TKUqHFNsWvQyiPxIEMhbB+uz4yld6RvsArFXa99FzjZwzqM5+y/W4R3Z3yQ6U/P8aMjDJQzinFMOfpiadDlotI5ORHYn6cQpF772MAMt5Fam0pkqEWX3zvSYu1xVm0CjFaXA659fsTSKjoAoPkONwZQ6OFiDyCLlkuwMrE0PQr0Tj8NY3329cuzKpzlpdTMiSlKHchhxjl3LTssBc9wrWRG2tMAZXDeUS5pNfnj6nxykp5MziyD/uQ0PeaHyUkHuZLk3hRmGCTnu7hO0uOOxGhQoh657K+gF2+Up/mNroT/4fXUT0GgxzC1CqXmgvUo1cHn/N9vqkUCBaPtbA5Ns0RPN061LZOjL4bmAQ47DN9NGbflhlGJG40rPLnmaIbefHaTHYD814ura0hg2d9ypclZx+ED31H4wIcHX4exriwQaQ0o1OsK1yzb2eQZ4mVxuBQ2cSn0HxzpjqXrUYRP90OXDv/lU+VFlabpVk7b7uU71qsa+6XUSfMbLdq2/QdPwSZl
+sidebar_class_name: "post api-method"
+info_path: deployment-api/convex-deployment-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Actualizar variables de entorno"} />
+
+<MethodEndpoint method={"post"} path={"/update_environment_variables"} context={"endpoint"} />
+
+Actualiza una o varias variables de entorno en un despliegue.
+Esto invalidará todas las suscripciones, ya que las variables de entorno
+son accesibles en consultas pero no forman parte de la clave de caché del
+resultado de una consulta.
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"Solicitud"} />
+
+<ParamsDetails parameters={undefined} />
+
+<RequestSchema title={"Cuerpo"} body={{"content":{"application/json":{"schema":{"type":"object","required":["changes"],"properties":{"changes":{"type":"array","items":{"type":"object","required":["name"],"properties":{"name":{"type":"string"},"value":{"type":["string","null"]}},"title":"UpdateEnvVarRequest"}}},"title":"UpdateEnvVarsRequest"}}},"required":true}} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":""}}} />

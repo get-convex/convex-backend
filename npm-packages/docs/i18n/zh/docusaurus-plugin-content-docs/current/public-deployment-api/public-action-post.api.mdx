@@ -1,0 +1,41 @@
+---
+id: public-action-post
+title: "执行操作"
+description: "执行操作函数。"
+sidebar_label: "执行操作"
+hide_title: true
+hide_table_of_contents: true
+api: eJy1VMFu2zAM/RWDZyVNe/StW1usQIcGabqLERSKzcTqbEmVqDaB4X8fKLlNshTpLsslMkXxkY987KBCXzplSRkNOVxvsAyEmdSZLNmWrYKOhzEIMBad5I/bCnKwYdmo8in5PVnjCQQ4fAno6ZuptpB3UBpNqImP0tpGlfH52bNntA58WWMr+URbi5CDWT5j+R5HOawgL8BKqkGAdGsPCwHWcR6k0MewbD0K0AtYGddK2l0V4MkpvQYBOjQNLHqRIu8eDw59L4AUNWx6rFZT42mWyoKe73a5kQsYDd4a7VNCF5MJ/x3yCuLfqTAa71eQF6dJeZVNQBDgSVL4hJfGrO+Uxn1upHNyCwIUYes/L3uIdnQnAHVoI4mhLNH7SF/KgZ0Htn5FA5N0Onl0zrif6L1cn6ohul1J+pyW2MWIdIjOmR0AHFcq/hs9ERgWfd8vDoZoNowIk8ORWqTaRBUl3aRJhLOkJuYE3Ss6HwsOrol3VoH4a7Cu0DZm26Km7HJ6C4zKEzXbyfB6I1vb4J5W9sSxK2BIYMeQ0iuz39vvRr/iJptG1Wc/5vNp5kwg9Ec5XevKGqXJZ1RLyobGZ9pkMlCNmobZBwGNKpFZyTvQsmWYu2SZ4Wp083A3Oh+fjy6tLGscXYwn3J2KA6wUui+deULR+ZTU+XiSTEx4K/Ue5MfSe+f+oJy9JfbFehxmgnBDZ7aRSjNc7F030FvAgLEQUHPj8wK6bik9Prqm79n8EtBtIS8WLC+n5JLJL3ima5QVV1108Bu3qSOc12jOuB9qPN4urJH04rIs0dJJ38XebE7vH+YgYDks89ZU/MbJN5azfEt7zUSeoiiirYNG6nWIwoMUk39/AFXbMrg=
+sidebar_class_name: "post api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"执行操作"} />
+
+<MethodEndpoint method={"post"} path={"/action"} context={"endpoint"} />
+
+执行操作函数。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"请求"} />
+
+<ParamsDetails parameters={undefined} />
+
+<RequestSchema title={"请求体"} body={{"content":{"application/json":{"schema":{"type":"object","required":["path","args"],"properties":{"args":{"type":"object"},"format":{"type":["string","null"]},"path":{"type":"string"}},"title":"UdfPostRequest"}}},"required":true}} />
+
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"oneOf":[{"type":"object","required":["value","status"],"properties":{"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["success"]},"value":{"title":"值"}}},{"type":"object","required":["errorMessage","status"],"properties":{"errorData":{"oneOf":[{"type":"null"},{"title":"值"}]},"errorMessage":{"type":"string"},"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["error"]}}}],"title":"UdfResponse"}}}}}}
+>
+  
+</StatusCodes>

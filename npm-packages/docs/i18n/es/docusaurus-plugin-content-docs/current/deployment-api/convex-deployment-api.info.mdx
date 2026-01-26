@@ -1,0 +1,153 @@
+---
+id: convex-deployment-api
+title: "API de despliegue de Convex"
+description: "API de administración para interactuar con despliegues."
+sidebar_label: Introducción
+sidebar_position: 0
+hide_title: true
+custom_edit_url: null
+---
+
+import ApiLogo from "@theme/ApiLogo";
+import Heading from "@theme/Heading";
+import SchemaTabs from "@theme/SchemaTabs";
+import TabItem from "@theme/TabItem";
+import Export from "@theme/ApiExplorer/Export";
+
+<span className={"theme-doc-version-badge badge badge--secondary"} children={"Versión: 1.0.0"} />
+
+<Heading as={"h1"} className={"openapi__heading"} children={"API de despliegue de Convex"} />
+
+API de administración para interactuar con los despliegues.
+
+<div style={{"marginBottom":"2rem"}}>
+  <Heading id={"authentication"} as={"h2"} className={"openapi-tabs__heading"} children={"Autenticación"} />
+
+  <SchemaTabs className={"openapi-tabs__security-schemes"}>
+    <TabItem label={"Clave de API: Deploy Key"} value={"Deploy Key"}>
+      Las deploy keys se usan para operaciones de despliegue. Consulta los [tipos de deploy key](https://docs.convex.dev/cli/deploy-key-types) para obtener más información. Usa el prefijo `Convex ` (por ejemplo, `Convex <deploy_key>`).
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                Tipo de esquema de seguridad:
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Nombre del parámetro de cabecera:
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"Clave de API: OAuth Project Token"} value={"OAuth Project Token"}>
+      Se obtiene mediante una [aplicación Convex OAuth](https://docs.convex.dev/management-api) con ámbito de proyecto. Usa el prefijo `Convex ` (por ejemplo, `Convex <oauth_project_token>`).
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                Tipo de esquema de seguridad:
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Nombre del parámetro de cabecera:
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"Clave de API: OAuth Team Token"} value={"OAuth Team Token"}>
+      Se obtiene mediante una [aplicación Convex OAuth](https://docs.convex.dev/management-api). Usa el prefijo `Convex ` (por ejemplo, `Convex <oauth_token>`).
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                Tipo de esquema de seguridad:
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Nombre del parámetro de cabecera:
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"Clave de API: Team Token"} value={"Team Token"}>
+      Se crea en el panel de control, en la configuración del equipo, para cualquier equipo que puedas administrar. Usa el prefijo `Convex ` (por ejemplo, `Convex <team_token>`).
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                Tipo de esquema de seguridad:
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Nombre del parámetro de cabecera:
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+  </SchemaTabs>
+</div>
+
+<div style={{"marginBottom":"var(--ifm-paragraph-margin-bottom)"}}>
+  <h3 style={{"marginBottom":"0.25rem"}}>
+    Licencia
+  </h3>
+</div>

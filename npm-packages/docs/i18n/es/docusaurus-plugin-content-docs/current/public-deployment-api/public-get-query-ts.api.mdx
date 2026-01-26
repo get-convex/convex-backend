@@ -1,0 +1,32 @@
+---
+id: public-get-query-ts
+title: "Obtener la marca de tiempo más reciente"
+description: "Obtén la marca de tiempo más reciente para las consultas."
+sidebar_label: "Obtener la marca de tiempo más reciente"
+hide_title: true
+hide_table_of_contents: true
+api: eJyNUstu2zAQ/BVizvQrR92MPgMEqFG7J8EwaGkdMaVIhlwZcQX9e7GykTjOoT2RnF3u7O5Mj5pylWxkGzwKfCNW3JByhimzYttSZtNGdQhJPXeULOUpNEKkZOTPfY0Csds7W+0eiXeSc9pxhkaiHIPPlFH0uJvP5XjPBo0qeCbPEjMxOluNVWdPWRJ65Kqh1siNT5FQIOyfqOKx+nNnE9UoSnDGViMm6YrtmZDz1a/MyfpHaLBlJ8CakjXO/qF6kzEMb4HxOQjSEjdhnC5kIYyGGxSYXU2YKR0pZRRljy45iZpooW/G/EzRhVNLntVydY9hq2H9IYz9XWg/BX+kF7UaF6m+bzYrlULHlD8U++LrGKznrLgxrC5rUD4o03FDni8rhIazFflMwuNNKzQPZ+QnHSZf1w+TxXQxWUZTNTS5m86hYWspcLCU/pk8aMjs56YW0/kZkl21xl9RiqNu3XQ7VP9mg/924EVZpheeRWesF/pRhP4iVYlXqbYajahYlOj7vcn0K7lhEHhMQVFuNY4mWbMXOcrtoNGQqWUPZY/fdEKBZVVRFCccjeuE+4NhRdlX26x+rDcYhr8uVyfZ
+sidebar_class_name: "post api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Obtener la marca de tiempo más reciente"} />
+
+<MethodEndpoint method={"post"} path={"/query_ts"} context={"endpoint"} />
+
+Obtén la marca de tiempo más reciente para las consultas.
+
+<ParamsDetails parameters={undefined} />
+
+<RequestSchema title={"Cuerpo"} body={undefined} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["ts"],"properties":{"ts":{"type":"string","title":"SerializedTs"}},"title":"Ts"}}}}}} />

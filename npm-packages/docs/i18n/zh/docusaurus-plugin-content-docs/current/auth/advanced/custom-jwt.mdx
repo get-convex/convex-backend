@@ -1,0 +1,101 @@
+---
+title: "自定义 JWT 提供方"
+sidebar_label: "自定义 JWT 提供方"
+sidebar_position: 4
+description:
+  "配置 Convex 以配合未实现完整 OIDC 协议的自定义 JWT 提供方工作，包括配置和客户端集成。"
+---
+
+**注意：这是一个高级特性！** 我们建议优先使用
+[受支持的第三方身份验证提供方](/auth.mdx)。
+
+[JWT](https://en.wikipedia.org/wiki/JSON_Web_Token) 是一个字符串，由三个经 base64 编码的 JSON 对象组合而成，包含关于用户身份的声明（claims），在有限时间内（例如一小时）有效。你可以在接收到某种关于用户身份的证据（通常是 cookie）之后，使用类似
+[jose](https://github.com/panva/jose) 这样的库来创建它们，或者从像
+[Clerk](https://clerk.com) 这样的第三方身份验证服务获取它们。JWT 中的信息是签名的（Convex 部署可以确认这些信息确实来自签发者且未被篡改），但通常未加密（你可以通过 base64 解码该 token，或将其粘贴到
+[jwt.io](https://jwt.io/) 中来读取）。
+
+如果身份验证服务为你的用户签发的 JWT 包含实现 OpenID Connect (OIDC) 协议所需的正确字段，那么接受这些 JWT 的最简单配置方式是在
+`convex/auth.config.ts` 中添加一个
+[OIDC Provider](/auth/advanced/custom-auth) 条目。如果你用来签发 JWT 的身份验证服务或库不支持这些字段（例如
+[OpenAuth](https://openauth.js.org/) 签发的 JWT 缺少 `aud` 字段，因为它们实现的是 OAuth 2.0 规范而不是 OIDC），你就需要在
+`convex/auth.config.ts` 文件中配置一个自定义 JWT 提供方。
+
+自定义 JWT 只要求在 header 中具备字段 `kid`、`alg` 和 `typ`，以及在 payload 中具备字段 `sub`、`iss` 和 `exp`。Convex 客户端还期望有一个 `iat` 字段来实现 token 刷新。
+
+## 服务器端集成 \{#server-side-integration\}
+
+使用 `type: "customJwt"` 来配置自定义 JWT 身份验证提供方：
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      type: "customJwt",
+      applicationID: "your-application-id",
+      issuer: "https://your.issuer.url.com",
+      jwks: "https://your.issuer.url.com/.well-known/jwks.json",
+      algorithm: "RS256",
+    },
+  ],
+};
+```
+
+* `applicationID`：Convex 会验证 JWT 的 `aud` 字段是否等于此值。有关省略此字段的重要信息，请参见下文。`applicationID` 字段不是必需的，但要与许多身份验证提供商安全配合使用则是必要的。在省略它之前请先阅读下文。
+* `issuer`：JWT 的签发方（issuer）URL。
+* `jwks`：用于从身份验证提供商获取 JWKS（JSON Web Key Set，JSON Web 密钥集）的 URL。如果你想避免请求外部服务，可以使用 data URI，例如 `"data:text/plain;charset=utf-8;base64,ey..."`
+* `algorithm`：用于对 JWT 进行签名的算法。目前仅支持 RS256 和 ES256。更多细节参见
+  [RFC 7518](https://datatracker.ietf.org/doc/html/rfc7518#section-3.1)。
+
+`issuer` 属性必须与所使用 JWT 的 `iss` 字段完全匹配；如果指定了 `applicationID` 属性，它必须与 `aud` 字段完全匹配。如果你的 JWT 不匹配，可以使用类似 [jwt.io](https://jwt.io/) 的工具解析 JWT，并确认这些字段完全一致。
+
+### 警告：省略 `applicationID` 通常是不安全的 \{#warning-omitting-applicationid-is-often-insecure\}
+
+在认证配置中省略 `applicationID`，意味着不会验证用户 JWT 的 `aud`
+（audience，受众）字段。在很多情况下这是不安全的，因为原本发给其他服务的 JWT
+可能被用来在你的服务中冒充该用户。
+
+假设某个用户在 `https://todos.com` 和 `https://banking.com` 上都有账号，
+这两个服务都使用同一个第三方认证服务 `accounts.google.com`。一个被
+todos.com 接受的 JWT 可能会被 todos.com 重用，或者被获取了该 JWT 的攻击者重用，
+来对 banking.com 进行认证。
+
+JWT 的 `aud`（audience）字段可以防止这种情况：如果 JWT 是为
+`https://todos.com` 这个特定受众生成的，那么 banking.com 就可以强制检查
+`aud` 字段并知道不应接受它。
+
+如果发给用户的 JWT 的 `iss`（issuer，发行者）URL 是
+`https://accounts.google.com` 这类不特定于你应用的地址，那么在没有
+`applicationID` 的情况下信任这些 JWT 令牌是不安全的，因为该 JWT 可能是被某个恶意应用收集到的。
+
+如果发给用户的 JWT 的 `iss` 字段更加具体，比如
+`https://api.3rd-party-auth.com/client_0123...`，那么在以下情况下，不使用
+`aud` 字段也可能是安全的：你控制发行者 URL 所授予访问权限的所有服务，并且你有意让访问其中任意一个服务就意味着可以访问所有这些服务。
+
+### 自定义声明 \{#custom-claims\}
+
+除了 `subject`、`issuer` 和 `tokenIdentifier` 这样的顶层字段之外，
+JWT 中嵌套字段的子字段也可以在
+`const authInfo = await ctx.auth.getUserIdentity()` 返回的身份验证数据中访问，
+例如，对于如下结构的 JWT，可以通过
+`authInfo["properties.id"]` 和 `authInfo["properties.favoriteColor"]` 来访问：
+
+```json
+{
+  "properties": {
+    "id": "123",
+    "favoriteColor": "red"
+  },
+  "iss": "http://localhost:3000",
+  "sub": "user:8fa2be73c2229e85",
+  "exp": 1750968478
+}
+```
+
+## 客户端集成 \{#client-side-integration\}
+
+你的用户的浏览器需要一种方式来获取初始 JWT，并且最好能在前一个 JWT 过期之前请求更新的 JWT。
+
+有关如何实现这一点的说明，请参阅
+[自定义 OIDC 提供商](/auth/advanced/custom-auth#client-side-integration)。

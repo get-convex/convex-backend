@@ -1,0 +1,51 @@
+---
+title: "Componentes"
+description: "Bloques de construcción autocontenidos de tu aplicación"
+pagination_prev: search
+---
+
+import { LargeCardList } from "@site/src/QuickstartsList.tsx";
+
+<span className="convex-hero">
+  Los componentes de Convex empaquetan código y datos en un entorno aislado que te permite
+  añadir nuevas funcionalidades a tu backend de forma rápida y segura.
+</span>
+
+Los componentes de Convex son como pequeños backends de Convex independientes, y su instalación
+siempre es segura. No pueden leer las tablas de tu aplicación ni llamar a las funciones de tu
+aplicación a menos que se las pases explícitamente.
+
+Puedes leer más sobre la visión completa en
+[Convex: The Software-Defined Database](https://stack.convex.dev/the-software-defined-database#introducing-convex-components).
+
+Los componentes se pueden instalar desde npm o desde una carpeta local. Una vez instalados,
+tienen sus propias tablas de base de datos y un entorno aislado para la ejecución de funciones.
+Consulta el directorio completo de componentes en el
+[sitio web de Convex](https://convex.dev/components).
+
+<LargeCardList
+  items={[
+{
+  title: "Comprender los componentes",
+  description:
+    "Explora los conceptos subyacentes y construye un modelo mental de cómo funcionan los componentes.",
+  href: "/components/understanding",
+},
+{
+  title: "Uso de componentes",
+  description:
+    "Aprende sobre componentes útiles y cómo utilizarlos en tu aplicación.",
+  href: "/components/using",
+},
+{
+  title: "Creación de componentes",
+  description: "Aprende cómo escribir y publicar un componente.",
+  href: "/components/authoring",
+},
+{
+  title: "Directorio de componentes",
+  description: "Lista de todos los componentes.",
+  href: "https://convex.dev/components",
+},
+]}
+/>

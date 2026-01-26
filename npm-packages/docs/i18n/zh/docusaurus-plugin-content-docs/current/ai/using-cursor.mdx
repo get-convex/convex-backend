@@ -1,0 +1,107 @@
+---
+title: "在 Convex 中使用 Cursor"
+sidebar_position: 100
+sidebar_label: 使用 Cursor
+description: "在 Convex 中使用 Cursor 的技巧和最佳实践"
+slug: "using-cursor"
+---
+
+[Cursor](https://cursor.com) 这款 AI 代码编辑器，可以让你轻松编写和维护使用 Convex 构建的应用程序。下面将介绍如何配置 Cursor，以便在配合 Convex 使用时获得最佳效果。
+
+## 添加 Convex `.cursor/rules` \{#add-convex-cursorrules\}
+
+为了在 Cursor 中获得最佳效果，请将各模型对应的 `.mdc` 文件放入项目的 `.cursor/rules` 目录中。
+
+* [Convex Cursor 规则](https://convex.link/convex_rules.mdc)
+
+<video src="/video/showing_where_to_put_convex_rules.mp4" autoPlay loop controls />
+
+我们一直在通过严格的评测来持续改进这些 Convex 规则的质量。你也可以通过
+[为我们的评测仓库（evals repo）做贡献](https://github.com/get-convex/convex-evals) 来提供帮助。
+
+## 设置 Convex MCP 服务器 \{#setup-the-convex-mcp-server\}
+
+Convex CLI 自带一个
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx)（MCP）内置服务器。Convex MCP 服务器让你的 AI 编程代理可以访问你的 Convex
+部署，对你的项目进行查询和优化。
+
+### 快速安装 \{#quick-install\}
+
+你可以点击下面这个便捷的深度链接：
+
+[![安装 MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex\&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+### 手动安装 \{#manual-install\}
+
+要开始使用 Cursor，打开 &quot;Cursor Settings &gt; Tools &amp; Integrations&quot;，点击
+&quot;New MCP Server&quot;，然后在打开的 `mcp.json` 文件中的 &quot;mcpServers&quot; 下添加一个名为 &quot;convex&quot; 的配置项。
+
+```json
+{
+  "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+You can also install the Convex MCP
+[for just one project](https://docs.cursor.com/en/context/mcp#configuration-locations).
+
+在添加服务器之后，确保 &quot;convex&quot; 服务器已启用并显示为绿色状态
+（第一次可能需要等待一分钟，npm 包才会下载完成）。
+
+现在可以开始向它提问，例如：
+
+* 评估我的 Convex 模式并提出改进建议
+* 这个应用的公共端点是什么？
+* 运行 `my_convex_function` 查询
+
+## 技巧与窍门 \{#tips-and-tricks\}
+
+### 自行安装并运行 Convex \{#install-and-run-convex-yourself\}
+
+保持 Convex 持续运行至关重要，因为它
+[会自动生成](https://docs.convex.dev/cli#run-the-convex-dev-server)
+客户端类型。如果没有这样做，agent 可能会卡在 lint 检查循环中，
+因为它无法访问自己创建的查询和变更函数的类型。
+
+我们建议你在终端窗口中自行安装（`npm install convex`）并运行 Convex（`npx convex dev`）。
+
+### 保持请求足够小 \{#keep-your-requests-small\}
+
+在使用具备自主能力的 LLM 时，最好把每次想要进行的更改控制得较小，并且频繁进行 Git 提交。这样你可以更具体地向 agent 提供上下文，同时也意味着 agent 不需要花大量精力去检索上下文。
+
+在每次成功的单个提示或一系列提示之后，最好都提交你的更改，这样如果下一次提示导致问题，你就可以很容易地回滚到那一点。
+
+### 更新并引用你的 `README.md` \{#update-and-reference-your-readmemd\}
+
+agent 需要了解你项目的具体业务目标。\
+虽然它可以从读取的文件中推断出一些细节，但随着项目规模增大，这会变得越来越困难。为你的项目提供一些通用信息，可以让 agent 一开始就拥有有用的上下文。
+
+与其在每个提示中都包含这类信息，不如在项目根目录编写一份完整的 README.md 文件，然后在需要时引用它。
+
+[有些人](https://youtu.be/2PjmPU07KNs?t=145)提倡撰写一份 Product Requirements Document（PRD），对于更复杂的项目，这可能是一个不错的选择。
+
+### 添加 Convex 文档 \{#add-convex-docs\}
+
+添加 Convex 文档可以让你在构建应用时，明确引用 Convex 的各项特性。
+
+在 **`Cursor Settings`** &gt; **`Indexing & Docs`** &gt; **`Docs`** 中添加新的文档，使用
+URL &quot;https://docs.convex.dev/home&quot;
+
+![Chat UI](/img/cursor-with-convex/adding_convex_docs.webp)
+
+然后 Cursor 会为 LLM 索引所有 Convex 文档，供其使用。
+
+![Chat UI](/img/cursor-with-convex/indexed_docs.webp)
+
+之后你就可以在提示词中使用 `@Convex` 符号来引用这些文档。
+
+![Chat UI](/img/cursor-with-convex/reference_convex_docs.webp)
+
+<Admonition type="tip" title="添加更多 Convex 知识">
+  如果你希望为 agent 提供更多上下文，也可以对 https://stack.convex.dev/ 执行相同的操作。
+</Admonition>

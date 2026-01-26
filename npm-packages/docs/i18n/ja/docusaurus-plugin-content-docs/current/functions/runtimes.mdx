@@ -1,0 +1,153 @@
+---
+title: ランタイム
+sidebar_position: 80
+description:
+  "Convex ランタイムと Node.js ランタイムの違いを理解する"
+---
+
+# ランタイム \{#runtimes\}
+
+Convex 関数は次の 2 つのランタイムのいずれかで実行できます:
+
+* デフォルトの [Convex ランタイム](#default-convex-runtime)
+* オプトインの [Node.js ランタイム](#nodejs-runtime)
+
+## デフォルトの Convex ランタイム \{#default-convex-runtime\}
+
+Convex のすべてのバックエンド関数は JavaScript または TypeScript で記述します。デフォルトでは、
+すべての関数はカスタム JavaScript ランタイム上で実行されます。これは
+[Cloudflare Workers runtime](https://blog.cloudflare.com/cloud-computing-without-containers/)
+に非常によく似ており、ほとんどの
+[Web 標準のグローバルオブジェクト](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects)
+にアクセスできます。
+
+デフォルトのランタイムには、次のような多くの利点があります。
+
+* **コールドスタートが発生しない**。ランタイムは常に起動しており、どの関数でも
+  即座に処理できる状態になっています。
+* **最新の Web JavaScript 標準**。ランタイムは Google Chrome を支える V8 を
+  ベースにしています。これによりフロントエンドコードと非常によく似たインターフェースが
+  提供され、コードをさらに単純化できます。
+* **低オーバーヘッドでのデータアクセス**。ランタイムはクエリ関数やミューテーション関数を通じて
+  データに低オーバーヘッドでアクセスできるよう設計されています。シンプルな
+  [JavaScript インターフェース](/database/reading-data/reading-data.mdx)
+  を使ってデータベースにアクセスできます。
+
+### サポートされている API \{#supported-apis\}
+
+デフォルトのランタイムでは、ブラウザーで動作するほとんどの npm ライブラリに加えて、
+[Deno](https://deno.com/) や
+[Cloudflare Workers](https://developers.cloudflare.com/workers/) もサポートしています。お使いの
+ライブラリがサポートされていない場合は、
+[Node.js ランタイム](#nodejs-runtime) を使ったアクションを利用するか、
+[Discord](https://convex.dev/community) でご連絡ください。API サポートは継続的に拡充・改善しています。
+
+#### ネットワーク API \{#network-apis\}
+
+* [Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
+* [Event](https://developer.mozilla.org/en-US/docs/Web/API/Event)
+* [EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)
+* [fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch) — [アクション](#actions) 内でのみ
+* [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
+* [FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData)
+* [Headers](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
+* [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request)
+* [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)
+
+#### エンコード API \{#encoding-apis\}
+
+* [TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)
+* [TextEncoder](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder)
+* [atob](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/atob)
+* [btoa](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/btoa)
+
+#### Web Streams API \{#web-stream-apis\}
+
+* [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream)
+* [ReadableStreamBYOBReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader)
+* [ReadableStreamDefaultReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader)
+* [TransformStream](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream)
+* [WritableStream](https://developer.mozilla.org/en-US/docs/Web/API/WritableStream)
+* [WritableStreamDefaultWriter](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultWriter)
+
+#### Web Crypto API 群 \{#web-crypto-apis\}
+
+* [crypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+* [CryptoKey](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)
+* [SubtleCrypto](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
+
+### クエリとミューテーションに対する制約 \{#restrictions-on-queries-and-mutations\}
+
+クエリ関数とミューテーション関数は、ランタイムによって **[決定的](https://en.wikipedia.org/wiki/Deterministic_algorithm) であることが要求される** という追加の制約を受けます。これにより、必要に応じてシステムがそれらを自動的にリトライできるようになります。
+
+決定的であるとは、同じ引数が与えられる限り、関数が何回実行されても、同一の副作用を持ち、同じ値を返すことを意味します。
+
+Convex 関数を書くときに、これらの決定性の性質についてそれほど深く考える必要はありません。Convex が進行に合わせて有用なエラーメッセージを出してくれるため、*うっかり* 禁止されていることをしてしまうことはありません。
+
+#### クエリとミューテーションで乱数と時刻を使用する \{#using-randomness-and-time-in-queries-and-mutations\}
+
+Convex は、関数の決定性を保証するために、`Math.random()` に対して「シード付き」の強力な疑似乱数生成器を提供します。
+乱数生成器のシードは、その関数に対する暗黙のパラメータとして扱われます。
+1 回の関数呼び出しの中で `Math.random()` を複数回呼び出すと、それぞれ異なる乱数が返されます。
+Convex は各関数実行のたびに JavaScript モジュールを再評価しないため、グローバル変数に保存された `Math.random()` の呼び出し結果は、関数実行間で変化しないことに注意してください。
+
+関数内のロジックが再現可能であることを保証するために、グローバル（任意の関数の外側）で使用されるシステム時刻はデプロイ時に「固定」され、Convex 関数の実行中のシステム時刻は関数が開始された時点で「固定」されます。
+`Date.now()` は、関数の実行全体を通して同じ結果を返します。
+例えば、
+
+```javascript
+const globalRand = Math.random(); // `globalRand` does not change between runs.
+const globalNow = Date.now(); // `globalNow` is the time when Convex functions were deployed.
+
+export const updateSomething = mutation({
+  args: {},
+  handler: () => {
+    const now1 = Date.now(); // `now1` は関数の実行が開始された時刻です。
+    const rand1 = Math.random(); // `rand1` は関数の実行ごとに新しい値になります。
+    // 実装
+    const now2 = Date.now(); // `now2` === `now1`
+    const rand2 = Math.random(); // `rand1` !== `rand2`
+  },
+});
+```
+
+### アクション \{#actions\}
+
+アクションは、クエリやミューテーション関数に適用される決定性に関するルールに制約されません。特に、アクションではブラウザー標準の
+[`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) 関数を使ってサードパーティの HTTP エンドポイントを呼び出すことができます。
+
+デフォルトでは、アクションも Convex 独自の JavaScript ランタイム上で実行され、その利点であるコールドスタートなしやブラウザーライクな API 環境を利用できます。クエリやミューテーション関数と同じファイルに置くこともできます。
+
+## Node.js runtime \{#nodejs-runtime\}
+
+一部の JavaScript および TypeScript ライブラリは、デフォルトの Convex ランタイムには含まれていない機能を使用します。Convex のアクションは、アクションを含むファイルの先頭にある `"use node"` ディレクティブを通じて
+[Node.js](https://nodejs.org/en/about) を利用するための手段を提供します。
+[詳細はこちら](/functions/actions.mdx#choosing-the-runtime-use-node)。
+
+Node.js 環境の利用は **アクション関数にのみ** 制限されています。Node.js 向けに設計されたライブラリを使用しつつ Convex データベースとやり取りしたい場合は、アクションから Node.js ライブラリを呼び出し、クエリまたはミューテーションを呼び出すために
+[`runQuery`](/functions/actions.mdx#action-context) または
+[`runMutation`](/functions/actions.mdx#action-context) ヘルパーを使用してください。
+
+convex ディレクトリ内のすべての `.ts` および `.js` ファイルは、
+[バンドルされ](/functions/bundling.mdx)、デフォルトの Convex JavaScript ランタイムか Node.js のいずれか向けに、インポートしたコードも含めてまとめて処理されます。
+
+`"use node"` ディレクティブを含むファイルには、Node.js ランタイムでは実行できないため、Convex のクエリやミューテーションを含めるべきではありません。加えて、`"use node"` ディレクティブを含まないファイルは、`"use node"` ディレクティブを含むファイルをインポートすべきではありません。`convex/utils.ts` ファイルのように Convex 関数を含まないファイルであっても、Node.js 固有のライブラリを使用する場合は `"use node"` ディレクティブが必要です。
+
+`fs` / `node:fs` のような Node.js 固有のインポートが、convex 関数のデプロイ時に利用できないというバンドルエラーが発生した場合、`npx convex dev --once --debug-node-apis` を実行すると、それらについての詳細な情報が得られます。これはより遅いバンドル手法を使用してインポートの連鎖を追跡し、どのインポートがエラーの原因となっているかを特定します。
+
+なお、引数サイズの上限は 16MiB ではなく 5MiB と、より低くなっています。
+
+### Node.js バージョンの設定 \{#nodejs-version-configuration\}
+
+デフォルトでは、Node.js 環境で実行されるすべてのアクションは
+Node.js 20 で実行されます。このバージョンは
+[convex.json](/production/project-configuration.mdx#configuring-the-nodejs-version)
+ファイルで設定できます。現在、Node.js 20 と 22 をサポートしています。
+
+新しい Node.js バージョンをサーバーにデプロイした場合でも、
+新しいコードが数分間は古い Node.js バージョンで実行される可能性があります。
+
+注意: この設定はセルフホスト型の Convex
+バックエンドを実行している場合はサポートされません。
+代わりに、
+[.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc) で指定されている Node.js バージョンが使用されます。

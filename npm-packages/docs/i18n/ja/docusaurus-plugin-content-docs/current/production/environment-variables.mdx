@@ -1,0 +1,88 @@
+---
+title: "環境変数"
+sidebar_label: "環境変数"
+sidebar_position: 2
+description: "Convex で環境変数を保存および参照する"
+---
+
+環境変数はキーと値のペアであり、たとえば API キーのような、コードやテーブルには保存したくない値を保持するのに便利です。Convex ではダッシュボードから環境変数を設定でき、[関数](/functions.mdx) 内で `process.env` を使ってそれらにアクセスできます。
+
+## 環境変数の設定 \{#setting-environment-variables\}
+
+Dashboard の [Deployment Settings](/dashboard/deployments/settings.md) では、
+現在のデプロイメントに設定されている環境変数の一覧を確認できます。
+![Environment Variables Table](/screenshots/environment_variables_table.png)
+
+環境変数は最大 100 個まで追加できます。環境変数名は 40 文字以内である必要があり、先頭は英字で始まり、英字、数字、アンダースコアのみを含めることができます。環境変数の値は 8KB を超えることはできません。
+
+鉛筆アイコンのボタンをクリックして、環境変数を編集できます。
+
+![Edit Environment Variable](/screenshots/edit_environment_variable.png)
+
+環境変数は、[コマンドライン インターフェイス (CLI)](/cli.md#read-and-write-environment-variables) を使って表示および変更することもできます。
+
+```sh
+npx convex env list
+npx convex env set API_KEY secret-api-key
+```
+
+### dev および本番デプロイメントで環境変数を使う \{#using-environment-variables-in-dev-and-prod-deployments\}
+
+環境変数はデプロイメントごとに設定されるため、同じキーに対して
+dev と本番のデプロイメントで異なる値を利用できます。これは、
+環境ごとに使いたい外部アカウントが異なる場合に便利です。
+たとえば、メール送信用に dev 用と本番用の SendGrid アカウントをそれぞれ持っていて、
+関数が両方の環境で動作するために `SENDGRID_API_KEY` という環境変数を
+参照するようなケースです。
+
+ある関数内で環境変数が常に存在すると想定したい場合は、
+その環境変数を **すべての** デプロイメントに追加しなければなりません。
+この例では、`SENDGRID_API_KEY` という名前の環境変数を dev と本番の
+両方のデプロイメントに追加し、dev と本番で異なる値を設定します。
+
+## 環境変数へのアクセス \{#accessing-environment-variables\}
+
+Convex 関数の中では `process.env.KEY` を使って環境変数にアクセスできます。変数が設定されている場合は `string` で、設定されていない場合は `undefined` です。以下は、キー `GIPHY_KEY` の環境変数にアクセスする例です。
+
+```javascript
+function giphyUrl(query) {
+  return (
+    "https://api.giphy.com/v1/gifs/translate?api_key=" +
+    process.env.GIPHY_KEY +
+    "&s=" +
+    encodeURIComponent(query)
+  );
+}
+```
+
+Convex の関数エクスポートを環境変数によって切り替えたり、条件分岐させたりしないでください。呼び出し可能な
+Convex 関数のセットはデプロイ時に決定され、環境変数を変更しても再評価されません。
+次のコードは、`DEBUG` 環境変数がデプロイ時と関数呼び出し時の間で変更された場合、
+実行時にエラーをスローします。
+
+```javascript
+// これは動作しません!
+export const myFunc = process.env.DEBUG ? mutation(...) : internalMutation(...);
+```
+
+同様に、cron 定義で使用される環境変数も、デプロイメント時にのみ再評価されます。
+
+## システム環境変数 \{#system-environment-variables\}
+
+次の環境変数は、Convex の関数内で常に利用できます:
+
+* `CONVEX_CLOUD_URL` - Convex クライアントで使用するためのデプロイメントURL (例:
+  `https://dusty-nightingale-847.convex.cloud`)
+* `CONVEX_SITE_URL` - [HTTP Actions](/functions/http-actions.mdx) で使用するためのデプロイメントサイトURL (例:
+  `https://dusty-nightingale-847.convex.site`)
+
+## プロジェクト環境変数のデフォルト \{#project-environment-variable-defaults\}
+
+Project Settings で、開発およびプレビューデプロイメント用に、プロジェクトの環境変数のデフォルト値を設定できます。
+
+![Project Default Environment Variables](/screenshots/project_default_environment_variables.png)
+
+これらのデフォルト値は、新しい開発またはプレビューデプロイメントを作成する際に使用され、既存のデプロイメントには影響しません（既存のデプロイメントと同期されることはありません）。
+
+Deployment Settings では、あるデプロイメントの環境変数がプロジェクトのデフォルトと一致していない場合に、そのことが表示されます。
+![Environment Variable Default Mismatch](/screenshots/environment_variable_default_diff.png)

@@ -1,0 +1,80 @@
+---
+title: "Actualizaciones optimistas"
+slug: "optimistic-updates"
+hidden: false
+sidebar_position: 90
+description: "Haz que tu aplicación de React responda más rápido con actualizaciones optimistas de la interfaz de usuario"
+---
+
+import Simple from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesSimple.tsx";
+import ComplexTS from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesComplex.tsx";
+import ComplexJS from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesComplexJS.jsx";
+
+Aunque las consultas de Convex son completamente reactivas, a veces querrás
+actualizar tu interfaz de usuario antes de que los cambios de una mutación se propaguen de vuelta al cliente. Para
+lograr esto, puedes configurar una *actualización optimista* para que se ejecute como parte de
+tu mutación.
+
+Las actualizaciones optimistas son cambios locales y temporales en los resultados de tus consultas que se
+usan para hacer que tu aplicación sea más receptiva. Estas actualizaciones se realizan mediante funciones
+registradas en una invocación de mutación con la opción de configuración
+[`.withOptimisticUpdate`](/api/interfaces/react.ReactMutation#withoptimisticupdate).
+
+Las actualizaciones optimistas se ejecutan cuando se inicia una mutación, se vuelven a ejecutar si los resultados
+locales de la consulta cambian y se revierten cuando una mutación se completa.
+
+## Ejemplo simple \{#simple-example\}
+
+Aquí se muestra cómo se podría agregar una actualización optimista a una mutación `increment` en una aplicación de contador simple:
+
+<TSAndJSSnippet title="src/IncrementCounter.tsx" sourceTS={Simple} sourceJS={Simple} />
+
+Las actualizaciones optimistas reciben un
+[`localStore`](/api/interfaces/browser.OptimisticLocalStore), una vista del
+estado interno del cliente de Convex, y luego los argumentos de la mutación.
+
+Esta actualización optimista actualiza la consulta `api.counter.get` para que sea `increment` unidades más alta si ya está cargada.
+
+## Ejemplo complejo \{#complex-example\}
+
+Si queremos añadir una actualización optimista a una aplicación de chat multicanal, podría verse así:
+
+<TSAndJSSnippet title="src/MessageSender.tsx" sourceTS={ComplexTS} sourceJS={ComplexJS} />
+
+Esta actualización optimista cambia la consulta `api.messages.list` para el canal
+actual de forma que incluya un nuevo mensaje. El objeto de mensaje recién creado debe
+ajustarse a la estructura de los mensajes reales generados por la consulta
+`api.messages.list` en el servidor.
+
+Como este mensaje incluye la hora actual del cliente (no la del
+servidor), inevitablemente dejará de coincidir con la consulta `api.messages.list`
+después de que se ejecute la mutación. ¡Y eso está bien! El cliente de Convex se
+encargará de revertir esta actualización después de que la mutación se complete
+y las consultas se actualicen. Si hay pequeños errores en las actualizaciones
+optimistas, la interfaz de usuario siempre acabará mostrando los valores
+correctos.
+
+De forma similar, la actualización crea un `Id` temporal con
+`new Id("messages", crypto.randomUUID())`. Esto también se revertirá y se
+reemplazará con el Id real una vez que el servidor lo asigne.
+
+Por último, ten en cuenta que esta actualización crea un nuevo array de mensajes
+en lugar de usar `existingMessages.push(newMessage)`. ¡Esto es importante!
+Mutar objetos dentro de las actualizaciones optimistas corromperá el estado interno
+del cliente y dará lugar a resultados sorprendentes. Crea siempre nuevos objetos
+dentro de las actualizaciones optimistas.
+
+## Saber más \{#learning-more\}
+
+Para obtener más información, consulta la documentación de nuestra API:
+
+* [`.withOptimisticUpdate`](/api/interfaces/react.ReactMutation#withoptimisticupdate)
+* [`OptimisticUpdate`](/api/modules/browser#optimisticupdate)
+* [`OptimisticLocalStore`](/api/interfaces/browser.OptimisticLocalStore)
+
+Si quieres algo de experiencia práctica, prueba a añadir actualizaciones optimistas a la
+[aplicación del tutorial](https://github.com/get-convex/convex-tutorial). Si lo haces,
+deberías notar que la aplicación se siente más ágil — solo un poco; Convex ya es bastante rápido — pero, por lo demás, funciona igual.
+
+Para explorar aún más, prueba a introducir un error en esta actualización. Deberías
+ver un parpadeo cuando se aplica la actualización optimista y luego se revierte.

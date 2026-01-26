@@ -1,0 +1,35 @@
+---
+title: "Bun"
+hidden: false
+sidebar_position: 200
+description: "在 Bun JavaScript 运行时中使用 Convex 客户端"
+---
+
+[Bun](https://bun.sh/) 可用于运行使用 Convex 客户端的脚本和服务器，甚至可以运行 Convex CLI。
+
+Convex 支持时间点（point-in-time）查询、变更和操作（参见
+[HTTP client](/api/classes/browser.ConvexHttpClient)），而在 Bun 中，除了这些之外，还支持查询订阅（参见 [ConvexClient](/api/classes/browser.ConvexClient)）。
+
+```js
+import { ConvexHttpClient, ConvexClient } from "convex/browser";
+import { api } from "./convex/_generated/api.js";
+
+// HTTP 客户端
+const httpClient = new ConvexHttpClient(process.env.CONVEX_URL);
+httpClient.query(api.messages.list).then((messages) => {
+  console.log(messages);
+});
+
+// 订阅客户端
+const client = new ConvexClient(process.env.CONVEX_URL);
+const unsubscribe = client.onUpdate(api.messages.list, {}, (messages) =>
+  console.log(messages),
+);
+await Bun.sleep(1000);
+client.mutate(api.messages.send, {}, { body: "hello!", author: "me" });
+await Bun.sleep(1000);
+```
+
+## 在 Bun 中使用 Convex（无需代码生成） \{#using-convex-with-bun-without-codegen\}
+
+如果你手边没有 Convex 函数和 API 文件，你始终可以使用 `anyApi` 对象或字符串。像 `api.folder.file.exportName` 这样的 API 引用，可以写成 `anyApi.folder.file.exportName` 或 `"folder/file:exportName"`。

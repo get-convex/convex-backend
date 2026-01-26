@@ -1,0 +1,120 @@
+---
+title: "Convex MCP 服务器"
+sidebar_position: 300
+description: "Convex MCP 服务器"
+---
+
+Convex
+[Model Context Protocol](https://docs.cursor.com/context/model-context-protocol)
+（MCP）服务器提供了多种工具，允许 AI 代理与您的 Convex 部署进行交互。
+
+## 设置 \{#setup\}
+
+将以下命令添加到你的 MCP 服务器配置中：
+
+`npx -y convex@latest mcp start`
+
+对于 Cursor，你可以使用这个快捷链接进行安装：
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex\&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+或者参阅各编辑器的说明：
+
+* [Cursor](/ai/using-cursor.mdx#setup-the-convex-mcp-server)
+* [Windsurf](/ai/using-windsurf.mdx#setup-the-convex-mcp-server)
+* [VS Code](/ai/using-github-copilot.mdx#setup-the-convex-mcp-server)
+* Claude Code：添加 MCP 服务器并使用以下命令进行测试：
+  ```bash
+  claude mcp add-json convex '{"type":"stdio","command":"npx","args":["convex","mcp","start"]}'
+  claude mcp get convex
+  ```
+
+## 配置选项 \{#configuration-options\}
+
+MCP 服务器支持一系列命令行选项，用于自定义其行为：
+
+### 项目目录 \{#project-directory\}
+
+默认情况下，MCP 服务器可以同时服务多个项目，每次工具调用都会
+指定其项目目录。若要改为仅为单个项目运行服务器，请使用：
+
+```bash
+npx -y convex@latest mcp start --project-dir /path/to/project
+```
+
+### 部署选择 \{#deployment-selection\}
+
+默认情况下，MCP 服务器会连接到你的开发部署。你可以通过以下选项指定其他部署：
+
+* `--prod`：在你项目的生产部署上运行 MCP 服务器（需要同时指定
+  `--dangerously-enable-production-deployments`）
+* `--preview-name <name>`：在名称为 `<name>` 的预览部署上运行
+* `--deployment-name <name>`：在名称为 `<name>` 的特定部署上运行
+* `--env-file <path>`：用于选择部署的自定义环境文件路径（例如，包含
+  `CONVEX_DEPLOYMENT` 或 `CONVEX_SELF_HOSTED_URL`）。使用与 `.env.local` 或 `.env` 文件相同的格式。
+
+### 生产环境部署 \{#production-deployments\}
+
+默认情况下，MCP 服务器无法访问生产环境部署。这是一项安全措施，用于防止意外修改生产数据。如果你需要访问生产环境部署，必须显式地启用此功能：
+
+```bash
+npx -y convex@latest mcp start --dangerously-enable-production-deployments
+```
+
+<Admonition type="caution" title="谨慎使用">
+  启用生产访问会使 MCP 服务器能够读取并修改你生产部署中的数据。
+  仅在确实需要与生产环境交互时才启用此功能，并对任何修改数据的操作格外小心。
+</Admonition>
+
+### 禁用工具 \{#disabling-tools\}
+
+如果您想限制 MCP 服务器的操作范围，可以禁用特定工具：
+
+```bash
+npx -y convex@latest mcp start --disable-tools data,run,envSet
+```
+
+可禁用的工具有：`data`、`envGet`、`envList`、`envRemove`、
+`envSet`、`functionSpec`、`logs`、`run`、`runOneoffQuery`、`status`、`tables`
+
+## 可用工具 \{#available-tools\}
+
+### 部署工具 \{#deployment-tools\}
+
+* **`status`**: 查询可用的部署，并返回一个可与其他工具配合使用的部署选择器。
+  这通常是你用来首先查找自己 Convex 部署的工具。
+
+### 表工具 \{#table-tools\}
+
+* **`tables`**：列出某个部署中的所有表，以及它们的：
+
+  * 声明的模式（如果有）
+  * 推断的模式（由 Convex 自动跟踪）
+  * 表名和元数据
+
+* **`data`**：允许对指定表中的文档进行分页浏览。
+
+* **`runOneoffQuery`**：用于编写并执行运行在沙盒中的 JavaScript
+  查询，以访问部署中的数据。这些查询是只读的，不能修改数据库。
+
+### 函数工具 \{#function-tools\}
+
+* **`functionSpec`**：提供所有已部署函数的元数据，包括：
+
+  * 函数类型
+  * 可见性设置
+  * 接口规范
+
+* **`run`**：使用提供的参数执行已部署的 Convex 函数。
+
+* **`logs`**：获取一段最近的函数执行日志条目，类似于
+  `npx convex logs`，但以结构化对象的形式返回。
+
+### 环境变量工具 \{#environment-variable-tools\}
+
+* **`envList`**: 列出某个部署中的所有环境变量
+* **`envGet`**: 获取指定环境变量的值
+* **`envSet`**: 设置新的环境变量或更新现有环境变量
+* **`envRemove`**: 从部署中删除环境变量
+
+[阅读更多关于如何使用 Convex MCP Server](https://stack.convex.dev/convex-mcp-server)

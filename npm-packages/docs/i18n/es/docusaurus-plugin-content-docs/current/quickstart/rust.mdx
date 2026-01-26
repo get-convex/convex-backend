@@ -1,0 +1,97 @@
+---
+title: "Guía rápida de Rust"
+sidebar_label: Rust
+description: "Añade Convex a un proyecto Rust"
+hide_table_of_contents: true
+sidebar_position: 700
+---
+
+import sampleData from "!!raw-loader!@site/../../crates/convex/examples/quickstart/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../../crates/convex/examples/quickstart/convex/tasks.js";
+import main from "!!raw-loader!@site/../../crates/convex/examples/quickstart/main.rs";
+
+Aprende a consultar datos de Convex en una aplicación Rust con Tokio.
+
+<StepByStep>
+  <Step title="Crea un proyecto Cargo">
+    Crea un nuevo proyecto Cargo.
+
+    ```sh
+    cargo new my_app
+    cd my_app
+    ```
+  </Step>
+
+  <Step title="Instala las bibliotecas de cliente y servidor de Convex">
+    Para empezar, instala el paquete `convex` de npm,
+    que te permite escribir tu
+    backend.
+
+    Y también instala la biblioteca de cliente de Rust `convex`,
+    el entorno de ejecución `tokio` y `dotenvy` para trabajar con archivos `.env`.
+
+    ```sh
+    npm init -y && npm install convex && cargo add convex tokio dotenvy
+    ```
+  </Step>
+
+  <Step title="Configura un despliegue de dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URLs de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde podrás escribir las funciones de la API de tu backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue de dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Añade los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, añade una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Añade un nuevo archivo `tasks.js` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API con un nombre formado a partir del archivo
+    y del nombre del export, `"tasks:get"`.
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="Conecta la aplicación con tu backend">
+    En el archivo `src/main.rs`, crea un `ConvexClient` y úsalo
+    para obtener datos de tu API `"tasks:get"`.
+
+    <Snippet source={main} title="src/main.rs" />
+  </Step>
+
+  <Step title="Ejecuta la aplicación">
+    Ejecuta la aplicación y mira la lista serializada de tareas.
+
+    ```sh
+    cargo run
+    ```
+  </Step>
+</StepByStep>
+
+Consulta la [documentación completa de Rust](https://docs.rs/convex/latest/convex/).

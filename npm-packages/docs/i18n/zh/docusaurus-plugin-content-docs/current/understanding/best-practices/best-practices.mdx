@@ -1,0 +1,466 @@
+---
+title: "最佳实践"
+sidebar_position: 400
+toc_max_heading_level: 2
+description:
+  "构建可扩展 Convex 应用程序的关键最佳实践，包括
+  数据库查询、函数组织、验证和安全。"
+---
+
+import BestPracticesTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/index.ts";
+import HelperFunctionsTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/helperFunctions.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+下面是一些在使用 Convex 时的最佳实践以及常见的反模式。
+我们建议你在将应用全面发布到生产环境之前先通读这一列表。
+你可以选择从一开始就尝试采用所有这些最佳实践，或者等到应用的主要部分
+已经正常运行之后，再回过头来逐一采纳这里的最佳实践。
+
+## 等待所有 Promise 完成 \{#await-all-promises\}
+
+### 为什么？ \{#why\}
+
+Convex 函数使用 async / await。如果你没有对所有 Promise 调用 await（例如
+`await ctx.scheduler.runAfter`、`await ctx.db.patch`），可能会遇到
+意料之外的行为（例如函数未能被调度），或者错过对错误的处理。
+
+### 如何实现？ \{#how\}
+
+我们推荐启用 TypeScript ESLint 的
+[no-floating-promises](https://typescript-eslint.io/rules/no-floating-promises/)
+规则。
+
+## 避免在数据库查询中使用 `.filter` \{#avoid-filter-on-database-queries\}
+
+### 为什么？ \{#why\}
+
+在代码中进行过滤而不是使用 `.filter` 语法，具有相同的性能，而且代码通常更容易编写。条件写在 `.withIndex`
+或 `.withSearchIndex` 中，比使用 `.filter` 或在代码中过滤更高效，因此几乎所有对 `.filter` 的使用都应该改为 `.withIndex` 或
+`.withSearchIndex` 条件，或者直接写成 TypeScript 代码。
+
+阅读
+[indexes 文档](/database/reading-data/indexes/indexes-and-query-perf.md)
+以了解如何定义索引以及它们的工作原理。
+
+### 示例 \{#examples\}
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="filter" />
+
+### 怎么做？ \{#how\}
+
+在你的 Convex 代码库中搜索 `.filter` —— 使用类似 `\.filter\(\(?q` 的正则表达式，
+大概率可以找到所有用于数据库查询的 `.filter` 调用。
+
+判断它们是否应该被 `.withIndex` 条件替换——根据
+[本节](/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results) 的说明，
+如果你是在对数量很大（1000+）或潜在无限多的文档进行过滤，就应该使用索引。
+如果没有使用 `.withIndex` / `.withSearchIndex` 条件，可以考虑改为在代码中进行过滤，
+以获得更好的可读性和灵活性。
+
+查看[这篇文章](https://stack.convex.dev/complex-filters-in-convex)，了解更多
+过滤策略。
+
+### 例外情况 \{#exceptions\}
+
+在分页查询（`.paginate`）上直接使用 `.filter`，比在代码中手动过滤更有优势。分页查询会返回你请求数量的文档记录，这个数量是包含 `.filter` 条件在内来计算的，因此如果事后再在代码中进行过滤，可能会导致本页数据更少，甚至变成空页。在分页查询上使用 `.withIndex` 仍然会比在分页查询上使用 `.filter` 更高效。
+
+## 只在结果数量较少时使用 `.collect` \{#only-use-collect-with-a-small-number-of-results\}
+
+### 为什么？ \{#why\}
+
+从 `.collect` 返回的所有结果都会计入数据库带宽（即使是随后被 `.filter` 过滤掉的结果）。这也意味着只要结果集中任意一个文档发生变化，查询就会重新运行，或者变更就会遇到冲突。
+
+如果结果数量可能会很大（比如超过 1000 个文档），你应该在调用 `.collect` 之前使用索引进一步筛选结果，或者通过其他方式避免加载所有文档，比如使用分页、对数据进行反规范化，或者调整产品功能设计。
+
+### 示例 \{#example\}
+
+**使用索引：**
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="collectIndex" />
+
+**使用分页：**
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="collectPaginate" />
+
+**使用 limit 或进行反规范化：**
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="collectCount" />
+
+### 怎么做？ \{#how\}
+
+在你的 Convex 代码库中搜索 `.collect`（使用类似 `\.collect\(` 的正则
+通常就能找到）。然后仔细评估这些调用返回的结果数量是否始终较小。
+仪表盘中的这个函数健康状况（function health）页面也可以帮助你定位这些调用。
+
+[aggregate 组件](https://www.npmjs.com/package/@convex-dev/aggregate)
+或[数据库触发器](https://stack.convex.dev/triggers)可以作为
+用于数据反规范化的有用模式。
+
+### 特殊情况 \{#exceptions\}
+
+如果你在执行需要加载大量文档的任务
+（例如执行迁移、生成汇总），你可能希望使用操作，
+通过单独的查询和变更函数分批加载它们。
+
+## 检查冗余索引 \{#check-for-redundant-indexes\}
+
+### 为什么？ \{#why\}
+
+像 `by_foo` 和 `by_foo_and_bar` 这样的索引通常是冗余的（你只需要
+`by_foo_and_bar`）。减少索引数量可以节省数据库存储空间，
+并降低对该表写入操作的开销。
+
+<TSAndJSSnippet title="convex/teams.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="redundantIndexes" replacements={[[/\sOMIT_ME.*/g, ""]]} />
+
+### 如何做？ \{#how\}
+
+查看你的索引，可以在 `schema.ts` 文件中或者在仪表盘中查看，
+并找出其中任一索引是另一个索引前缀的情况。
+
+### 例外情况 \{#exceptions\}
+
+`.index("by_foo", ["foo"])` 实际上是对属性 `foo` 和 `_creationTime` 的索引，而
+`.index("by_foo_and_bar", ["foo", "bar"])` 则是对属性 `foo`、`bar` 和 `_creationTime` 的索引。\
+如果你有需要先按 `foo` 再按 `_creationTime` 排序的查询，那么你需要这两个索引。
+
+例如，在一张消息表上定义 `.index("by_channel", ["channel"])`，可以用来查询某个频道中最新的消息；\
+但 `.index("by_channel_and_author", ["channel", "author"])` 不能用于这个目的，因为它会先按 `author` 对消息排序。
+
+## 对所有公共函数都使用参数验证器 \{#use-argument-validators-for-all-public-functions\}
+
+### 为什么？ \{#why\}
+
+公共函数可以被任何人调用，其中也包括可能试图攻破你应用的恶意攻击者。
+[参数校验器](/functions/validation.mdx)（以及返回值校验器）可以帮助确保你接收到的请求流量符合预期。
+
+### 示例 \{#example\}
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="validation" replacements={[[/_OMIT_[0-9]+/g, ""]]} />
+
+### 怎么做？ \{#how\}
+
+在你的 Convex 代码库中搜索 `query`、`mutation` 和 `action`，并确保它们都带有参数验证器（以及可选的返回值验证器）。
+
+你也可以使用
+[`@convex-dev/require-argument-validators` ESLint 规则](/eslint#require-argument-validators)
+自动检查你的函数是否都定义了参数验证器。
+
+如果你使用 HTTP 操作函数，建议使用像
+[Zod](https://zod.dev) 这样的参数验证库，来校验 HTTP 请求的结构是否符合你的预期。
+
+## 为所有对外公开的函数添加某种形式的访问控制 \{#use-some-form-of-access-control-for-all-public-functions\}
+
+### 为什么？ \{#why\}
+
+公共函数可以被任何人调用，其中也包括试图破坏你应用的潜在恶意攻击者。如果你的应用中有部分内容应该只在用户登录后才能访问，请确保所有这些 Convex 函数都会检查 `ctx.auth.getUserIdentity()` 是否已设置。
+
+你可能还需要做一些更具体的检查，比如只加载发给当前用户或由当前用户发送的消息，并且要在每个相关的公共函数中都应用这些检查。
+
+倾向于使用像 `setTeamOwner` 这样更细粒度的函数，而不是使用 `updateTeam` 这样的大而全函数，可以更精细地控制“哪些用户可以做什么”。
+
+访问控制检查应当使用 `ctx.auth.getUserIdentity()`，或者使用一个无法被猜测的函数参数（例如 UUID，或 Convex 的 Id，只要这个 Id 从不会暴露给除该用户以外的任何客户端）。尤其是，不要使用可能被伪造的函数参数（例如 email）来做访问控制检查。
+
+### 示例 \{#example\}
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="accessControl"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+### 如何做？ \{#how\}
+
+在你的 Convex 代码库中搜索 `query`、`mutation`、`action` 和 `httpAction`，并确保它们都采用了某种形式的访问控制。
+[自定义函数](https://github.com/get-convex/convex-helpers/blob/main/packages/convex-helpers/README.md#custom-functions)，比如
+[`authenticatedQuery`](https://stack.convex.dev/custom-functions#modifying-the-ctx-argument-to-a-server-function-for-user-auth)，
+可能会很有帮助。
+
+有些应用使用行级安全（Row Level Security，RLS），在每次加载文档时自动检查访问权限，如[这篇文章](https://stack.convex.dev/row-level-security)中所述。或者，你也可以选择在每个 Convex 函数中检查访问权限，而不是对每个文档分别检查。
+
+用于常见检查和常见操作的辅助函数也很有用——例如 `isTeamMember`、`isTeamAdmin`、`loadTeam`（如果当前用户无权访问该团队则抛出异常）。
+
+## 内部函数中只允许使用 schedule 和 `ctx.run*` \{#only-schedule-and-ctxrun-internal-functions\}
+
+### 为什么？ \{#why\}
+
+公共函数可以被任何人调用，包括可能试图破坏你应用的恶意攻击者，因此需要仔细审计，以确保它们不能被恶意利用。只在 Convex 内部调用的函数可以标记为内部函数，从而放宽这些检查，因为 Convex 会保证内部函数只能在 Convex 内部被调用。
+
+### 怎么做？ \{#how\}
+
+在你的 Convex 代码库中搜索 `ctx.runQuery`、`ctx.runMutation` 和
+`ctx.runAction`。还要搜索 `ctx.scheduler` 并检查 `crons.ts` 文件。确保
+所有这些都使用 `internal.foo.bar` 函数，而不是 `api.foo.bar`
+函数。
+
+如果你有想在公共 Convex 函数和内部 Convex 函数之间共享的代码，创建一个
+辅助函数（helper function），让二者都可以调用。公共函数通常还会包含额外的
+访问控制检查。
+
+或者，确保从 `_generated/api.ts` 导出的 `api` 永远不要在你的 Convex
+函数目录中使用。
+
+### 示例 \{#examples\}
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="internal"
+  replacements={[
+  [/_OMIT_[0-9]+/g, ""],
+  [
+    "// REPLACE_WITH_MUTATION_CTX_IMPORT",
+    "import { MutationCtx } from './_generated/server';",
+  ],
+]}
+/>
+
+## 使用辅助函数编写可复用代码 \{#use-helper-functions-to-write-shared-code\}
+
+### 为什么？ \{#why\}
+
+大部分逻辑都应该写成普通的 TypeScript 函数，而 `query`、`mutation` 和
+`action` 包装函数只是在一个或多个辅助函数外面包了一层轻量封装。
+
+具体来说，你的大部分代码应该放在类似 `convex/model` 这样的目录中，而你的公共
+API（用 `query`、`mutation` 和 `action` 定义）应该由非常短的函数组成，这些函数
+主要只是调用 `convex/model` 中的代码。
+
+以这种方式组织代码，会让本列表中提到的若干重构更容易进行。
+
+参见 [TypeScript 页面](/understanding/best-practices/typescript.mdx) 以获取有用的类型。
+
+### 示例 \{#example\}
+
+**❌** 这个示例过度使用了 `ctx.runQuery` 和 `ctx.runMutation`，我们会在
+[避免在操作函数中串行调用 `ctx.runMutation` / `ctx.runQuery`](/understanding/best-practices/best-practices.mdx#avoid-sequential-ctxrunmutation--ctxrunquery-calls-from-actions)
+一节中更详细地讨论这一点。
+
+<TSAndJSSnippet
+  title="convex/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersWrong"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsWrong"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+**✅** 现在大部分代码都放在 `convex/model` 目录中。该应用的 API 位于
+`convex/conversations.ts` 中，而这个文件本身只包含很少的代码。
+
+<TSAndJSSnippet
+  title="convex/model/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersCorrect"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+  prefix={`import { QueryCtx } from '../_generated/server';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsModelCorrect"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+  prefix={`import { QueryCtx, MutationCtx } from '../_generated/server';\nimport * as Users from './users';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsApiCorrect"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+  prefix={`import * as Conversations from './model/conversations';\n`}
+/>
+
+## 仅在使用不同运行时时调用 `runAction` \{#use-runaction-only-when-using-a-different-runtime\}
+
+### 为什么？ \{#why\}
+
+调用 `runAction` 比调用普通的 TypeScript 函数开销更大。
+它会被算作一次额外的函数调用，会有自己独立的内存和 CPU 使用，而此时父级操作除了等待结果之外什么也不做。
+因此，在绝大多数情况下，都应该用直接调用普通的 TypeScript 函数来替代 `runAction`。
+不过，如果你想在 Convex 运行时中的函数里调用需要 Node.js 的代码（例如使用一个依赖 Node.js 的库），那么可以使用 `runAction` 来调用这段 Node.js 代码。
+
+### 示例 \{#example\}
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runAction"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeModel"
+  prefix={`import { ActionCtx } from '../_generated/server';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeAction"
+  prefix={`import * as Scrape from './model/scrape';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+### 如何操作？ \{#how\}
+
+在你的 Convex 代码库中搜索 `runAction`，检查它调用的函数是否在与父函数相同的运行时中执行。如果是，就把 `runAction` 替换为一个普通的 TypeScript 函数。你可以考虑把这些 Node.js 函数放在单独的目录中，便于更容易识别它们。
+
+## 避免在操作函数中顺序调用 `ctx.runMutation` / `ctx.runQuery` \{#avoid-sequential-ctxrunmutation-ctxrunquery-calls-from-actions\}
+
+### 为什么？ \{#why\}
+
+每次调用 `ctx.runMutation` 或 `ctx.runQuery` 都会在各自独立的事务中执行，
+这意味着如果它们是分别调用的，它们的结果之间可能不一致。
+如果改为只调用一次 `ctx.runQuery` 或 `ctx.runMutation`，则可以保证我们得到的结果是一致的。
+
+### 怎么做？ \{#how\}
+
+检查你在操作函数中对 `ctx.runQuery` 和 `ctx.runMutation` 的调用。如果你看到
+有多个调用连续出现且中间没有其他代码，就将它们合并为一个可以同时处理两者的
+`ctx.runQuery` 或 `ctx.runMutation` 调用。先重构代码、提取出辅助函数，会让这一过程更容易。
+
+### 示例：查询 \{#example-queries\}
+
+<TSAndJSSnippet title="convex/teams.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="runQueryWrong" />
+
+<TSAndJSSnippet title="convex/teams.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="runQueryCorrect" prefix={`import * as Teams from './model/teams';\nimport * as Users from './model/users';\n`} />
+
+### 示例：循环 \{#example-loops\}
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationWrong"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationCorrect"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+### 例外 \{#exceptions\}
+
+如果你是有意要处理超过单个事务所能处理的数据，比如运行迁移或做数据聚合，那么使用多个按顺序执行的 `ctx.runMutation` / `ctx.runQuery` 调用就是合理的。
+
+多次调用 `ctx.runQuery` / `ctx.runMutation` 通常是必要的，因为在这些调用之间，该 action 会执行带有副作用的步骤。比如，先读取一些数据，把它传给外部服务，然后再把结果写回数据库。
+
+## 在查询和变更函数中尽量少用 `ctx.runQuery` 和 `ctx.runMutation` \{#use-ctxrunquery-and-ctxrunmutation-sparingly-in-queries-and-mutations\}
+
+### 为什么？ \{#why\}
+
+虽然这些查询和变更在同一个事务中运行，并且会返回一致的结果，但相比普通的 TypeScript 函数，它们有额外的开销。大多数情况下，你更需要的是一个 TypeScript 辅助函数，而不是 `ctx.runQuery` 或 `ctx.runMutation`。
+
+### 如何操作？ \{#how\}
+
+审查你在查询函数和变更函数中对 `ctx.runQuery` 和 `ctx.runMutation` 的调用。除非符合下文列出的某个例外情况，否则将它们替换为普通的 TypeScript 函数。
+
+### 例外情况 \{#exceptions\}
+
+* 当你使用组件时，这些组件需要使用 `ctx.runQuery` 或 `ctx.runMutation`。
+* 如果你希望在出错时只回滚一部分，就需要使用 `ctx.runMutation`，
+  而不是普通的 TypeScript 函数。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="partialRollback" />
+
+## 在调用 `ctx.db` 函数时始终指定表名 \{#always-include-the-table-name-when-calling-ctxdb-functions\}
+
+### 为什么？ \{#why\}
+
+从 `convex` npm 包的 1.31.0 版本开始，`ctx.db` 函数可以接受表名作为第一个参数。虽然目前这个参数是可选的，但传入表名会提供一层额外的安全保障，并且在未来用于自定义 ID 生成时将是必需的。
+
+### 示例 \{#example\}
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="explicitTableIds" />
+
+### 如何操作？ \{#how\}
+
+在你的 Convex 代码库中搜索 `db.get`、`db.patch`、`db.replace` 和 `db.delete` 的调用，并确保所有这些调用的第一个参数都传入了表名。
+
+你也可以通过 [`@convex-dev/explicit-table-ids` ESLint 规则](/eslint#explicit-table-ids) 自动检查是否传入了表名参数。
+
+你可以使用该 ESLint 规则的自动修复功能，或使用独立工具 `@convex-dev/codemod` 来自动迁移现有代码。
+
+[在 news.convex.dev 上了解更多 →](https://news.convex.dev/db-table-name/)
+
+## 不要在查询函数中使用 `Date.now()` \{#date-in-queries\}
+
+### 为什么？ \{#why\}
+
+当你订阅一个查询时，如果它在数据库中访问的数据发生变化，Convex
+[会自动重新运行该查询](/realtime)。当 `Date.now()` 的返回值变化时，查询并不会被重新运行，因为每毫秒就重新运行一次查询并不是理想的行为。所以，如果你的查询依赖当前时间，它可能会返回陈旧的结果。
+
+另外，在查询中使用 `Date.now()` 会导致 Convex 查询缓存比必要的更频繁失效。一般来说，如果用相同的参数调用查询，Convex 会自动重用查询结果。然而，当在查询中使用 `Date.now()` 时，为了避免显示过旧的结果，查询缓存会被频繁地标记为失效。这会不必要地增加数据库需要完成的工作量。
+
+### 示例 \{#example\}
+
+<TSAndJSSnippet title="convex/posts.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="dateInQueries" />
+
+### 如何做？ \{#how\}
+
+在你的 Convex 查询中，或在从 Convex 查询中调用的函数中，查找所有使用 `Date.now()` 的地方。
+
+如果你想将当前时间与数据库文档中存储的时间戳进行比较，可以考虑在文档中添加一个粒度更粗的字段，并通过一个[计划函数](/scheduling/scheduled-functions) 来更新该字段（参见上面的示例）。这样，查询缓存只会在数据发生变化时被显式地失效。
+
+或者，你也可以从客户端将要比较的目标时间作为显式参数传入。为了获得最佳的缓存效果，客户端应当避免频繁更改这个参数，例如可以将时间向下取整到最近的一分钟，这样在这一分钟内的所有客户端请求都使用相同的参数。

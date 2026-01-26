@@ -1,0 +1,214 @@
+---
+title: "Empaquetado"
+sidebar_position: 90
+description: "Cómo Convex empaqueta y optimiza tu código de funciones"
+---
+
+El empaquetado es el proceso de recopilar, optimizar y transpilar el código
+fuente JS/TS de las [funciones](/functions.mdx) y sus dependencias. Durante el
+desarrollo y el despliegue, el código se transforma a un formato que los
+[runtimes](/functions/runtimes.mdx) de Convex pueden ejecutar de forma directa y
+eficiente.
+
+Actualmente Convex empaqueta todas las dependencias automáticamente, pero para
+el runtime de Node.js puedes desactivar el empaquetado de ciertos paquetes a
+través de la configuración de [paquetes externos](#external-packages).
+
+## Empaquetado para Convex \{#bundling-for-convex\}
+
+Cuando envías código, ya sea mediante `npx convex dev` o `npx convex deploy`, la
+CLI de Convex usa [esbuild](https://esbuild.github.io/) para recorrer tu carpeta `convex/`
+y empaquetar tus funciones y todas las dependencias que utilizan en un
+paquete de código fuente. Este paquete luego se envía al servidor.
+
+Gracias al empaquetado puedes escribir tu código usando tanto módulos modernos de ECMAScript
+(ESM) como la sintaxis más antigua de CommonJS (CJS).
+
+<Details summary="ESM vs. CJS">
+  ESM
+
+  * Es el estándar para JavaScript en el navegador
+  * Usa importaciones estáticas mediante las **palabras clave** `import` y `export` (no funciones)
+    en el ámbito global
+  * También admite importaciones dinámicas mediante la función asíncrona `import`
+
+  CJS
+
+  * Fue el sistema de módulos estándar para Node.js
+  * Se basa en importaciones dinámicas mediante la función `require` y la función asíncrona `import`
+    para obtener módulos externos
+  * Usa el objeto `module.exports` para las exportaciones
+</Details>
+
+## Limitaciones del empaquetado \{#bundling-limitations\}
+
+Por la propia naturaleza del empaquetado, existen algunas limitaciones.
+
+### Límites de tamaño del código \{#code-size-limits\}
+
+El tamaño total del código de tus funciones empaquetadas en tu carpeta `convex/`
+**está limitado a 32 MiB (~33.55 MB)**. Puedes encontrar otros límites de la plataforma
+[aquí](/production/state/limits.mdx).
+
+Aunque este límite es bastante alto solo para código fuente, ciertas
+dependencias pueden hacer que el tamaño de tu bundle supere rápidamente este límite,
+en particular si no se pueden optimizar con
+[tree shaking](https://webpack.js.org/guides/tree-shaking/) de forma efectiva (como
+[aws-sdk](https://www.npmjs.com/package/aws-sdk) o
+[snowflake-sdk](https://www.npmjs.com/package/snowflake-sdk)).
+
+Puedes seguir estos pasos para depurar el tamaño del bundle:
+
+<StepByStep>
+  <Step title="Asegúrate de estar usando la versión más reciente de Convex">
+    ```sh
+    npm install convex@latest
+    ```
+  </Step>
+
+  <Step title="Genera el bundle">
+    Ten en cuenta que esto no subirá el código, solo generará un bundle con fines de depuración.
+
+    ```sh
+    npx convex dev --once --debug-bundle-path /tmp/myBundle
+    ```
+  </Step>
+
+  <Step title="Visualiza el bundle">
+    Usa
+    [source-map-explorer](https://github.com/danvk/source-map-explorer/tree/master)
+    para visualizar tu bundle.
+
+    ```sh
+    npx source-map-explorer /tmp/myBundle/**/*.js
+    ```
+  </Step>
+</StepByStep>
+
+El código empaquetado para el runtime de Convex estará en el directorio `isolate`,
+mientras que el código empaquetado para acciones de Node estará en el directorio `node`.
+
+Las dependencias grandes de Node se pueden eliminar del bundle marcándolas como
+[paquetes externos](/functions/bundling.mdx#external-packages).
+
+### Dependencias dinámicas \{#dynamic-dependencies\}
+
+Algunas bibliotecas dependen de importaciones dinámicas (mediante llamadas a `import`/`require`) para evitar incluir siempre sus dependencias. Estas importaciones no son compatibles con el [runtime predeterminado de Convex](/functions/runtimes.mdx#default-convex-runtime) y provocarán un error en tiempo de ejecución.
+
+Además, algunas bibliotecas dependen de archivos locales, que no pueden ser empaquetados por esbuild. Si se utiliza empaquetado, independientemente de la elección de runtime, estas importaciones siempre fallarán en Convex.
+
+<Details summary="Ejemplos de bibliotecas con dependencias dinámicas">
+  Considera los siguientes ejemplos de paquetes que dependen de dependencias dinámicas:
+
+  * [langchain](https://www.npmjs.com/package/langchain) depende de la presencia
+    de peer dependencies que puede importar dinámicamente. Estas dependencias no
+    se importan de forma estática con `import`, por lo que no serán empaquetadas por `esbuild`.
+  * [sharp](https://www.npmjs.com/package/sharp) depende de la presencia de
+    binarios de `libvips` para operaciones de procesamiento de imágenes.
+  * [pdf-parse](https://www.npmjs.com/package/pdf-parse) depende de ser
+    importado dinámicamente con `require()` para detectar si se está ejecutando en
+    modo de prueba. El empaquetado puede eliminar estas llamadas a `require()`,
+    haciendo que `pdf-parse` asuma que se está ejecutando en modo de prueba.
+  * [tiktoken](https://www.npmjs.com/package/tiktoken) depende de archivos WASM locales.
+</Details>
+
+## Paquetes externos \{#external-packages\}
+
+Como solución alternativa a las limitaciones de empaquetado anteriores, Convex proporciona
+una vía de escape: **paquetes externos**. Esta característica es actualmente exclusiva del
+[entorno de ejecución de Node.js](/functions/runtimes.mdx#nodejs-runtime) de Convex.
+
+Los paquetes externos usan
+[la capacidad de `esbuild` para marcar una dependencia como externa](https://esbuild.github.io/api/#external).
+Esto le indica a `esbuild` que no empaquete en absoluto la dependencia externa y que deje
+la importación como una importación dinámica en tiempo de ejecución usando `require()` o `import()`. Así,
+tus módulos de Convex dependerán de que el sistema subyacente tenga esa dependencia
+disponible en tiempo de ejecución.
+
+### Instalación de paquetes en el servidor \{#package-installation-on-the-server\}
+
+Los paquetes marcados como externos se instalan desde [npm](https://www.npmjs.com/) la
+primera vez que haces push de código que los usa. La versión instalada coincide con la
+versión instalada en la carpeta `node_modules` de tu máquina local.
+
+Aunque esto añade un coste de latencia la primera vez que haces push de
+paquetes externos, tus paquetes se almacenan en caché y este paso de instalación
+solo necesita ejecutarse de nuevo si cambian tus paquetes externos. Una vez en
+caché, los pushes pueden incluso ser más rápidos gracias a que se envían al
+servidor paquetes de código fuente más pequeños durante los pushes.
+
+### Especificar paquetes externos \{#specifying-external-packages\}
+
+Crea un archivo [`convex.json`](/production/project-configuration.mdx#convexjson)
+en el mismo directorio que `package.json` si aún no existe. Configura
+el campo `node.externalPackages` en `["*"]` para marcar como externas todas las dependencias usadas
+dentro de tus acciones de Node:
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "externalPackages": ["*"]
+  }
+}
+```
+
+También puedes especificar explícitamente qué paquetes se deben marcar como externos:
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "externalPackages": ["aws-sdk", "sharp"]
+  }
+}
+```
+
+Los identificadores de paquetes deben coincidir con la cadena que usas en `import`/`require` en
+tu [acción de Node.js](/functions/actions.mdx#choosing-the-runtime-use-node).
+
+### Solución de problemas de paquetes externos \{#troubleshooting-external-packages\}
+
+#### Versiones de paquetes incorrectas \{#incorrect-package-versions\}
+
+La CLI (interfaz de línea de comandos) de Convex busca paquetes externos dentro de tu directorio local `node_modules`.
+Por lo tanto, cambiar la versión de un paquete en el `package.json` no
+afectará a la versión que usa el servidor hasta que hayas actualizado la versión del paquete
+instalada en tu carpeta local `node_modules` (por ejemplo, ejecutando `npm install`).
+
+#### Errores de importación \{#import-errors\}
+
+Marcar una dependencia como externa puede producir errores como este:
+
+> The requested module &quot;some-module&quot; is a CommonJs module, which may not support
+> all module.exports as named exports. CommonJs modules can always be imported
+> via the default export
+
+Esto implica reescribir todas las `import` de este módulo de la siguiente manera:
+
+```ts
+// ❌ antiguo
+import { Foo } from "some-module";
+
+// ✅ new
+import SomeModule from "some-module";
+const { Foo } = SomeModule;
+```
+
+### Limitaciones \{#limitations\}
+
+El tamaño total del *bundle* de tu código fuente y de los paquetes externos no puede exceder
+lo siguiente:
+
+* 45 MB comprimido
+* 240 MB descomprimido
+
+Paquetes que se sabe que no funcionan actualmente:
+
+* [Puppeteer](https://www.npmjs.com/package/puppeteer): la instalación del binario del navegador
+  supera el límite de tamaño
+* [@ffmpeg.wasm](https://www.npmjs.com/package/@ffmpeg/ffmpeg): desde la versión 0.12.0,
+  [ya no es compatible con entornos Node](https://ffmpegwasm.netlify.app/docs/faq#why-ffmpegwasm-doesnt-support-nodejs)
+
+Si hay un paquete que te gustaría poder usar en tus funciones de Convex,
+[ház-noslo saber](https://convex.dev/community).

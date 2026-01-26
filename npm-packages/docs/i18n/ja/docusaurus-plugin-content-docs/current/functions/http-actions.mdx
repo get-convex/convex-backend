@@ -1,0 +1,192 @@
+---
+title: HTTPアクション
+sidebar_position: 35
+description: "Convex 上で HTTP API を直接構築する"
+---
+
+import http from "!!raw-loader!@site/../demos/http/convex/http.ts";
+import httpFunction from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionConstructor.ts";
+import httpStorage from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+HTTPアクションを使えば、Convex 上に直接 HTTP API を構築できます。
+
+```ts title="convex/http.ts"
+import { httpRouter } from "convex/server";
+import { httpAction } from "./_generated/server";
+
+const http = httpRouter();
+
+http.route({
+  path: "/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    return new Response(`Hello from ${request.url}`);
+  }),
+});
+export default http;
+```
+
+HTTP アクションは
+[Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) を受け取り、
+[Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) に従って
+[Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) を返します。
+HTTP アクションではリクエストとレスポンスを直接操作でき、[クエリ](/functions/query-functions.mdx)、
+[ミューテーション](/functions/mutation-functions.mdx)、[アクション](/functions/actions.mdx)
+を実行することで Convex のデータと間接的にやり取りできます。HTTP アクションは、
+外部アプリケーションからの Webhook の受信や、公開 HTTP API の定義に利用できます。
+
+HTTP アクションは `https://<your deployment name>.convex.site`（例:
+`https://happy-animal-123.convex.site`）という URL で公開されます。
+
+**例:**
+[HTTP Actions](https://github.com/get-convex/convex-demos/tree/main/http)
+
+## HTTP アクションの定義 \{#defining-http-actions\}
+
+HTTP アクションハンドラーは
+[`httpAction`](/generated-api/server#httpaction) コンストラクターを使って定義します。これは通常のアクションに使う
+`action` コンストラクターと同様です:
+
+<TSAndJSSnippet title="convex/myHttpActions.ts" sourceTS={Constructor} sourceJS={Constructor} />
+
+`handler` の最初の引数は
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx) オブジェクトで、これは
+[`auth`](/api/interfaces/server.Auth),
+[`storage`](/api/interfaces/server.StorageActionWriter),
+[`scheduler`](/api/interfaces/server.Scheduler) に加えて、`runQuery`,
+`runMutation`, `runAction` を提供します。
+
+2 番目の引数には
+[`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request) のデータが入ります。HTTP
+アクションは引数バリデーションをサポートしていません。受信した Request からの引数のパースは、完全にあなたの実装に委ねられています。
+
+次に例を示します:
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={httpFunction} sourceJS={httpFunction} />
+
+<>
+  {/* Wrapped in fragment because Prettier pushes the JSDialectFileName on new line */}
+
+  HTTP アクションを公開するには、
+  <JSDialectFileName name="convex/http.ts" /> ファイルから
+  [`HttpRouter`](/api/classes/server.HttpRouter) のインスタンスを export します。インスタンスを作成するには
+  `httpRouter` 関数を呼び出します。`HttpRouter` 上では `route` メソッドを使ってルートを定義できます:
+</>
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={http} sourceJS={http} snippet="router" highlightPatterns={["handler: postMessage"]} />
+
+これで、このアクションを HTTP 経由で呼び出し、Convex Database に保存されているデータとやり取りできるようになります。HTTP アクションは
+`https://<your deployment name>.convex.site` で公開されます。
+
+```bash
+export DEPLOYMENT_NAME=... # 例: "happy-animal-123"
+curl -d '{ "author": "User 123", "body": "Hello world" }' \
+    -H 'content-type: application/json' "https://$DEPLOYMENT_NAME.convex.site/postMessage"
+```
+
+他の Convex 関数と同様に、HTTP アクションは
+[ダッシュボード](https://dashboard.convex.dev/) の
+[Functions ビュー](/dashboard/deployments/functions.md) で確認でき、
+それらによって出力されたログは
+[Logs ビュー](/dashboard/deployments/logs.md) で確認できます。
+
+## 制限 \{#limits\}
+
+HTTP アクションはクエリやミューテーションと同じ環境で実行されるため、
+Node.js 固有の JavaScript API にはアクセスできません。HTTP アクションからは
+Node.js 上で実行できる [actions](/functions/actions.mdx) を呼び出せます。
+
+[actions](/functions/actions.mdx#error-handling) と同様に、HTTP アクションは
+副作用を持つ可能性があり、エラー発生時に Convex によって自動的に再試行されることはありません。
+エラー処理と、必要であればリクエストを再試行する責任は呼び出し側にあります。
+
+リクエストおよびレスポンスのサイズは 20MB に制限されています。
+
+HTTP アクションは、`.text()`、`.json()`、`.blob()`、`.arrayBuffer()` の
+リクエストおよびレスポンスボディの型をサポートします。
+
+呼び出し元を自分で制御できる場合、クエリ、ミューテーション、アクションを HTTP 経由で呼び出すために
+HTTP アクションを定義する必要はないことに注意してください。代わりに、JavaScript の
+[`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) や
+[Python クライアント](/client/python.md) を使って、これらの関数を直接呼び出せます。
+
+## デバッグ \{#debugging\}
+
+### Step 1: HTTP アクションがデプロイされていることを確認する \{#step-1-check-that-your-http-actions-were-deployed\}
+
+ダッシュボードの [functions page](https://dashboard.convex.dev/deployment/functions) を開き、`http` という項目があることを確認します。
+
+なければ、`httpRouter` を使って HTTP アクションを `http.js` または `http.ts` という名前のファイル内で定義しているか（ファイル名は完全に一致している必要があります）、また `npx convex dev` でエラーが発生していないかを再確認してください。
+
+### ステップ 2: curl を使ってエンドポイントにアクセスできるか確認する \{#step-2-check-that-you-can-access-your-endpoint-using-curl\}
+
+ダッシュボードの
+[Settings](https://dashboard.convex.dev/deployment/settings) &gt; URL and Deploy
+Key から URL を取得します。
+
+この URL が **`.convex.site`** で終わっていて、`.convex.cloud` ではないことを確認してください。
+例: `https://happy-animal-123.convex.site`
+
+定義済みのエンドポイントの 1 つにアクセスするために `curl` コマンドを実行します。必要であれば、テスト用に新しいエンドポイントを定義してもかまいません。
+
+```
+curl -X GET https://<デプロイメント名>.convex.site/myEndpoint
+```
+
+ダッシュボードの[logs ページ](https://dashboard.convex.dev/deployment/logs)を開き、HTTP アクションのログエントリがあることを確認してください。
+
+### ステップ 3: ブラウザによって送信されているリクエストを確認する \{#step-3-check-the-request-being-made-by-your-browser\}
+
+HTTP アクションがデプロイ済みで curl からアクセスできることは確認できたものの、
+アプリからのリクエストにまだ問題がある場合は、ブラウザによって送信されている
+リクエストの内容を確認してください。
+
+ブラウザの開発者ツールで *Network* タブを開き、HTTP リクエストを実行します。
+
+この URL が先ほど curl でテストしたものと一致しているか確認します。末尾が
+`.convex.site` で、正しいデプロイメント名になっている必要があります。
+
+これらのリクエストはダッシュボードの
+[logs ページ](https://dashboard.convex.dev/deployment/logs)で確認できるはずです。
+
+ブラウザのコンソールに &quot;CORS error&quot; や
+`Access to fetch at '...' from origin '...' has been blocked by CORS policy`
+のようなメッセージが表示されている場合、CORS ヘッダーの設定と、事前
+フライト用の `OPTIONS` リクエストを処理するハンドラーの追加が必要な可能性があります。
+下の [このセクション](/functions/http-actions.mdx#cors) を参照してください。
+
+## 一般的なパターン \{#common-patterns\}
+
+### ファイルストレージ \{#file-storage\}
+
+HTTP アクションを使って、保存されたファイルのアップロードや取得を処理できます。詳しくは次のドキュメントを参照してください。
+
+* [HTTP アクション経由でファイルをアップロードする](/file-storage/upload-files.mdx#uploading-files-via-an-http-action)
+* [HTTP アクションからファイルを配信する](/file-storage/serve-files.mdx#serving-files-from-http-actions)
+
+### CORS \{#cors\}
+
+Web サイトから HTTP アクションにリクエストを送るには、
+[Cross-Origin Resource Sharing (CORS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
+ヘッダーを HTTP アクションに追加する必要があります。
+
+ユースケースごとに、どのような CORS ヘッダーが必要かを解説した既存のリソースがいくつかあります。
+[このサイト](https://httptoolkit.com/will-it-cors/) では、どの CORS ヘッダーを追加すべきかを対話的に確認できます。
+以下は Convex の HTTP アクションに CORS ヘッダーを追加する例です。
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={httpStorage} sourceJS={httpStorage} snippet={["sendImageStore"]} highlightPatterns={["headers: new Headers", "        ", "     \\}\\)"]} />
+
+以下は、プレフライト `OPTIONS` リクエストを処理する例です。
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={httpStorage} sourceJS={httpStorage} snippet="preflight" highlightPatterns={["headers: new Headers", "          ", "       \\}\\)"]} />
+
+### 認証 \{#authentication\}
+
+Convex の組み込み [認証](/auth.mdx) 機能を利用して、
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity) から
+ユーザーのアイデンティティにアクセスできます。これを行うには、JWT を含む
+`Authorization` ヘッダーを付けてエンドポイントを呼び出します。
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />

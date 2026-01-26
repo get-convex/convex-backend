@@ -1,0 +1,186 @@
+---
+title: HTTP 操作函数
+sidebar_position: 35
+description: "直接在 Convex 中构建 HTTP API"
+---
+
+import http from "!!raw-loader!@site/../demos/http/convex/http.ts";
+import httpFunction from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionConstructor.ts";
+import httpStorage from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+HTTP 操作让你可以直接在 Convex 中构建 HTTP API！
+
+```ts title="convex/http.ts"
+import { httpRouter } from "convex/server";
+import { httpAction } from "./_generated/server";
+
+const http = httpRouter();
+
+http.route({
+  path: "/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    return new Response(`Hello from ${request.url}`);
+  }),
+});
+export default http;
+```
+
+HTTP 操作函数接收一个
+[Request](https://developer.mozilla.org/en-US/docs/Web/API/Request)，并返回一个遵循
+[Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) 的
+[Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)。
+HTTP 操作函数可以直接操作请求和响应，并且通过运行
+[queries](/functions/query-functions.mdx)、[mutations](/functions/mutation-functions.mdx) 和
+[actions](/functions/actions.mdx) 间接与 Convex 中的数据交互。HTTP 操作函数可以用于接收来自外部应用的
+webhook，或定义公共 HTTP API。
+
+HTTP 操作函数会暴露在 `https://<your deployment name>.convex.site`（例如
+`https://happy-animal-123.convex.site`）下。
+
+**示例：**
+[HTTP Actions](https://github.com/get-convex/convex-demos/tree/main/http)
+
+## 定义 HTTP 操作函数 \{#defining-http-actions\}
+
+HTTP 操作处理器是使用
+[`httpAction`](/generated-api/server#httpaction) 构造函数定义的，类似于普通操作函数使用的
+`action` 构造函数：
+
+<TSAndJSSnippet title="convex/myHttpActions.ts" sourceTS={Constructor} sourceJS={Constructor} />
+
+`handler` 的第一个参数是一个
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx) 对象，它提供
+[`auth`](/api/interfaces/server.Auth)、[`storage`](/api/interfaces/server.StorageActionWriter) 和
+[`scheduler`](/api/interfaces/server.Scheduler)，以及 `runQuery`、
+`runMutation`、`runAction`。
+
+第二个参数包含
+[`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request) 数据。HTTP
+操作函数不支持参数验证，因为从传入的 Request 中解析参数完全由你来负责。
+
+下面是一个示例：
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={httpFunction} sourceJS={httpFunction} />
+
+<>
+  {/* Wrapped in fragment because Prettier pushes the JSDialectFileName on new line */}
+
+  要公开这个 HTTP 操作函数，需要从
+  <JSDialectFileName name="convex/http.ts" /> 文件中导出一个
+  [`HttpRouter`](/api/classes/server.HttpRouter) 实例。调用 `httpRouter`
+  函数来创建该实例。在 `HttpRouter` 上，你可以使用 `route` 方法来公开路由：
+</>
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={http} sourceJS={http} snippet="router" highlightPatterns={["handler: postMessage"]} />
+
+现在你可以通过 HTTP 调用这个操作函数，并与存储在 Convex 数据库中的数据交互。HTTP 操作函数会通过
+`https://<your deployment name>.convex.site` 对外提供。
+
+```bash
+export DEPLOYMENT_NAME=... # 示例:"happy-animal-123"
+curl -d '{ "author": "User 123", "body": "Hello world" }' \
+    -H 'content-type: application/json' "https://$DEPLOYMENT_NAME.convex.site/postMessage"
+```
+
+与其他 Convex 函数一样，你可以在
+[仪表盘](https://dashboard.convex.dev/) 的
+[Functions 视图](/dashboard/deployments/functions.md) 中查看你的 HTTP 操作函数，
+并在
+[Logs 视图](/dashboard/deployments/logs.md) 中查看它们产生的日志。
+
+## 限制 \{#limits\}
+
+HTTP 操作运行在与查询和变更函数相同的环境中，因此同样无法访问 Node.js 特有的 JavaScript API。HTTP 操作可以调用
+[actions](/functions/actions.mdx)，而这些操作函数可以在 Node.js 中运行。
+
+与 [actions](/functions/actions.mdx#error-handling) 类似，HTTP 操作可能具有副作用，并且在发生错误时不会由 Convex 自动重试。
+调用方有责任处理错误，并在合适时重试请求。
+
+请求和响应体大小限制为 20MB。
+
+HTTP 操作支持 `.text()`、`.json()`、`.blob()` 和 `.arrayBuffer()` 这些请求和响应体类型。
+
+请注意，如果你能够控制调用方，那么无需定义 HTTP 操作就可以通过 HTTP 调用你的查询、变更函数和操作函数，因为你可以使用
+JavaScript 的 [`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) 或
+[Python 客户端](/client/python.md) 直接调用这些函数。
+
+## 调试 \{#debugging\}
+
+### 步骤 1：检查你的 HTTP 操作是否已部署。 \{#step-1-check-that-your-http-actions-were-deployed\}
+
+在仪表盘中查看
+[Functions 页面](https://dashboard.convex.dev/deployment/functions)，并确保其中有一个名为 `http` 的条目。
+
+如果没有，请仔细检查你是否在名为 `http.js` 或 `http.ts` 的文件中使用 `httpRouter` 定义了 HTTP 操作（文件名必须完全匹配），并确认 `npx convex dev` 没有报错。
+
+### 步骤 2：检查是否可以使用 curl 访问你的 endpoint \{#step-2-check-that-you-can-access-your-endpoint-using-curl\}
+
+在仪表盘的
+[Settings](https://dashboard.convex.dev/deployment/settings) &gt; URL and Deploy
+Key 中获取你的 URL。
+
+确保这是以 **`.convex.site`** 结尾的 URL，而不是
+`.convex.cloud`。例如：`https://happy-animal-123.convex.site`
+
+运行一个 `curl` 命令来请求你定义的某个 endpoint，也可以专门为测试
+创建一个新的 endpoint
+
+```
+curl -X GET https://<deployment name>.convex.site/myEndpoint
+```
+
+在仪表盘的 [logs 页面](https://dashboard.convex.dev/deployment/logs)中查看，确认其中有一条关于你的 HTTP 操作的日志记录。
+
+### 步骤 3：检查浏览器发出的请求 \{#step-3-check-the-request-being-made-by-your-browser\}
+
+如果你已经确认你的 HTTP 操作函数已部署并且可以通过 curl 访问，
+但从应用中请求它们时仍然有问题，请检查浏览器实际发出的请求。
+
+打开浏览器开发者工具中的 *Network* 面板，然后触发你的 HTTP 请求。
+
+检查该 URL 是否与你之前使用 curl 测试的一致——它以
+`.convex.site` 结尾，并且具有正确的部署名称。
+
+你应该可以在仪表盘的
+[日志页面](https://dashboard.convex.dev/deployment/logs) 中看到这些请求。
+
+如果你在浏览器控制台中看到 “CORS error” 或类似
+`Access to fetch at '...' from origin '...' has been blocked by CORS policy`
+的消息，你很可能需要配置 CORS 头，并且可能需要为
+预检（preflight）`OPTIONS` 请求添加处理器。参见下面的
+[本节](/functions/http-actions.mdx#cors)。
+
+## 常见模式 \{#common-patterns\}
+
+### 文件存储 \{#file-storage\}
+
+可以使用 HTTP 操作函数来处理文件上传和获取已存储的文件，详见：
+
+* [通过 HTTP 操作函数上传文件](/file-storage/upload-files.mdx#uploading-files-via-an-http-action)
+* [通过 HTTP 操作函数提供文件](/file-storage/serve-files.mdx#serving-files-from-http-actions)
+
+### CORS \{#cors\}
+
+要从网站向 HTTP 操作函数发起请求，你需要在 HTTP 操作函数中添加
+[跨来源资源共享（CORS）](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
+相关的响应头。
+
+针对不同使用场景，已经有现成的资料说明具体需要哪些 CORS 响应头。
+[这个站点](https://httptoolkit.com/will-it-cors/) 提供了一个交互式向导，帮助你确定需要添加哪些 CORS 响应头。下面是在 Convex HTTP 操作函数中添加 CORS 响应头的示例：
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={httpStorage} sourceJS={httpStorage} snippet={["sendImageStore"]} highlightPatterns={["headers: new Headers", "        ", "     \\}\\)"]} />
+
+下面是一个处理预检 `OPTIONS` 请求的示例：
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={httpStorage} sourceJS={httpStorage} snippet="preflight" highlightPatterns={["headers: new Headers", "          ", "       \\}\\)"]} />
+
+### 身份验证 \{#authentication\}
+
+你可以利用 Convex 内置的[身份验证](/auth.mdx)集成，并通过
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity)
+访问用户身份信息。为此，在调用端点时，在 `Authorization` 请求头中包含 JWT 令牌：
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />

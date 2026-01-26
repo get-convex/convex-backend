@@ -1,0 +1,106 @@
+---
+title: Next.js Pages 快速入门
+sidebar_label: 快速入门
+hide_table_of_contents: true
+slug: "quickstart"
+description:
+  "在 Next.js Pages Router 中开始使用 Convex，构建一个使用查询、变更函数和实时更新的响应式任务列表应用。"
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/sampleData.jsonl";
+import tasksJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/convex/tasks.js";
+import app from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/_app.js";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/index.js";
+
+了解如何在使用 Pages Router 的 Next.js 应用中从 Convex 查询数据。
+
+或者查看本快速入门的 [App Router](/quickstart/nextjs.mdx) 版本。
+
+<StepByStep>
+  <Step title="创建 React 应用">
+    使用 `npx create-next-app` 命令创建一个 Next.js 应用。
+
+    对每个提示都选择默认选项（直接按 Enter）。
+
+    ```sh
+    npx create-next-app@latest my-app --no-app --js
+    ```
+  </Step>
+
+  <Step title="安装 Convex 客户端和服务端库">
+    首先，安装 `convex` 包，它为在 React 应用中使用 Convex
+    提供了一个便捷的接口。
+
+    进入应用目录并安装 `convex`。
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发环境（dev）部署">
+    接下来运行 `npx convex dev`。
+    它会提示你使用 GitHub 登录、
+    创建一个项目，并保存你的生产环境和部署 URL 信息。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用于编写后端 API 函数。`dev` 命令
+    会持续运行，将你的函数
+    与云端的开发环境（dev）部署保持同步。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在新的终端窗口中创建一个包含一些示例数据的
+    `sampleData.jsonl` 文件。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库中">
+    项目准备好之后，使用 `import` 命令
+    将包含示例数据的 `tasks` 表添加到你的 Convex 数据库中。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="提供一个数据库查询接口">
+    在 `convex/` 文件夹中添加一个新的 `tasks.js` 文件，
+    并在其中定义一个加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    会声明一个以文件名和导出名命名的 API 函数，
+    即 `api.tasks.get`。
+
+    <Snippet source={tasksJs} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="将应用连接到后端">
+    在 `pages/_app.js` 中创建一个 `ConvexReactClient`，
+    并将其传递给包裹你应用的 `ConvexProvider`。
+
+    <Snippet source={app} title="pages/_app.js" highlightPatterns={[ "Convex", ]} />
+  </Step>
+
+  <Step title="在应用中展示数据">
+    在 `pages/index.js` 中，使用 `useQuery` hook
+    从 `api.tasks.get` API 函数中获取数据。
+
+    <Snippet source={index} title="pages/index.js" highlightPatterns={[ "useQuery", "tasks", "text", "\\)\\)\\}" ]} />
+  </Step>
+
+  <Step title="启动应用">
+    启动应用，在浏览器中打开
+    [http://localhost:3000](http://localhost:3000)，
+    查看任务列表。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>

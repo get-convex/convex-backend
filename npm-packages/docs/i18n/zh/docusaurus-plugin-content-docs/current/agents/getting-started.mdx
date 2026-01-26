@@ -1,0 +1,71 @@
+---
+title: "Agent 入门"
+sidebar_label: "入门"
+sidebar_position: 100
+description: "设置 agent 组件"
+---
+
+要安装 agent 组件，你需要先有一个 Convex 项目。刚接触 Convex？请先阅读[教程](https://docs.convex.dev/tutorial/)。
+
+运行 `npm create convex`，或者按照任一[快速开始](https://docs.convex.dev/home)指南来创建一个项目。
+
+## 安装 \{#installation\}
+
+安装该组件包：
+
+```ts
+npm install @convex-dev/agent
+```
+
+在应用的 `convex/` 目录下创建一个 `convex.config.ts` 文件，并通过调用 `use` 来安装组件：
+
+```ts
+// convex/convex.config.ts
+import { defineApp } from "convex/server";
+import agent from "@convex-dev/agent/convex.config";
+
+const app = defineApp();
+app.use(agent);
+
+export default app;
+```
+
+然后运行 `npx convex dev` 来为该组件生成代码。在开始定义 Agents 之前，你需要先成功运行一次该命令。
+
+## 定义你的第一个 Agent \{#defining-your-first-agent\}
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "My Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+  instructions: "You are a weather forecaster.",
+  tools: { getWeather, getGeocoding },
+  maxSteps: 3,
+});
+```
+
+## 基本用法 \{#basic-usage\}
+
+```ts
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+
+export const helloWorld = action({
+  args: { city: v.string() },
+  handler: async (ctx, { city }) => {
+    const threadId = await createThread(ctx, components.agent);
+    const prompt = `What is the weather in ${city}?`;
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+如果你遇到关于 `components.agent` 的类型错误，请确保你已经运行过
+`npx convex dev` 来为该组件生成代码。
+
+就这些了！查看 [Agent Usage](./agent-usage.mdx) 了解更多详情和选项。

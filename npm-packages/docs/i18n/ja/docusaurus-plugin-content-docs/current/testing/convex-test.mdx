@@ -1,0 +1,335 @@
+---
+title: convex-test
+sidebar_label: convex-test
+sidebar_position: 100
+description: "関数の高速な自動テスト用のモック Convex バックエンド"
+---
+
+import Demo from "!!raw-loader!@site/../demos/convex-test/convex/posts.test.ts";
+import SchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/scheduling.test.ts";
+import ChainedSchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/chainedScheduling.test.ts";
+import AuthDemo from "!!raw-loader!@site/../demos/convex-test/convex/auth.test.ts";
+import MockingFetchDemo from "!!raw-loader!@site/../demos/convex-test/convex/mockingFetch.test.ts";
+import ErrorDemo from "!!raw-loader!@site/../demos/convex-test/convex/error.test.ts";
+import HttpDemo from "!!raw-loader!@site/../demos/convex-test/convex/http.test.ts";
+import RunDemo from "!!raw-loader!@site/../demos/convex-test/convex/run.test.ts";
+
+[`convex-test`](https://www.npmjs.com/package/convex-test) ライブラリは、
+JavaScript で動作する Convex バックエンドのモック実装を提供します。これにより、
+[関数](/functions.mdx) 内のロジックを高速に自動テストできます。
+
+## 例 \{#example\}
+
+<TSAndJSSnippet title="convex/posts.test.ts" sourceTS={Demo} sourceJS={Demo} highlightPatterns={["t.query", "t.mutation", "convexTest(schema)"]} />
+
+convex-test ライブラリの
+[テストスイート](https://github.com/get-convex/convex-test/tree/main/convex) で、さらに多くの例を参照できます。
+
+## はじめに \{#get-started\}
+
+<StepByStep>
+  <Step title="テスト用の依存パッケージをインストールする">
+    [Vitest](https://vitest.dev/) と [`convex-test`](https://www.npmjs.com/package/convex-test) ライブラリをインストールします。
+
+    ```sh
+    npm install --save-dev convex-test vitest @edge-runtime/vm
+    ```
+  </Step>
+
+  <Step title="npm スクリプトのセットアップ">
+    これらのスクリプトを `package.json` に追加してください
+
+    ```json title="package.json"
+    "scripts": {
+      "test": "vitest",
+      "test:once": "vitest run",
+      "test:debug": "vitest --inspect-brk --no-file-parallelism",
+      "test:coverage": "vitest run --coverage --coverage.reporter=text",
+    }
+    ```
+  </Step>
+
+  <Step title="Vitest を設定する">
+    Add <JSDialectFileName name="vitest.config.ts" /> ファイルを追加してテスト環境を Convex ランタイムにより近い形で設定し、依存関係の追跡をしやすくするためにテストライブラリをインライン化します。
+
+    <Details summary={<>Convex 関数が <code>convex</code> 以外のディレクトリにある場合</>}>
+      プロジェクトで `convex.json` 内の `convex/` フォルダに対して
+      [異なる名前や場所を設定している](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)
+      場合は、[`import.meta.glob`](https://vitejs.dev/guide/features#glob-import) を呼び出し、
+      その結果を `convexTest` の 2 番目の引数として渡す必要があります。
+
+      `import.meta.glob` への引数は、Convex 関数を含むすべてのファイルにマッチする
+      グロブパターンでなければなりません。パスは `import.meta.glob` を呼び出している
+      テストファイルからの相対パスになります。これはカスタム関数フォルダ内の 1 箇所で
+      行うのが望ましいです:
+
+      ```ts title="src/convex/test.setup.ts"
+      /// <reference types="vite/client" />
+      export const modules = import.meta.glob(
+        "./**/!(*.*.*)*.*s"
+      );
+      ```
+
+      このグロブパターンの例では、`src/convex` フォルダおよびそのすべての子ディレクトリ内の、
+      `s` で終わる単一の拡張子（`js` や `ts` など）を持つすべてのファイルが含まれます。
+
+      テスト内でこの結果を使用します:
+
+      ```ts title="src/convex/messages.test.ts"
+      import { convexTest } from "convex-test";
+      import { test } from "vitest";
+      import schema from "./schema";
+      import { modules } from "./test.setup";
+
+      test("some behavior", async () => {
+        const t = convexTest(schema, modules);
+        // use `t`...
+      });
+      ```
+    </Details>
+
+    <Details summary="複数のテスト環境を設定する（例: Convex + フロントエンド）">
+      Convex 関数と React フロントエンドの両方を Vitest でテストしたい場合、
+      テストファイルの場所に応じて複数の Vitest 環境を使い分けたくなるかもしれません。
+      その場合は
+      [environmentMatchGlobs](https://vitest.dev/config/#environmentmatchglobs)
+      を使用できます:
+
+      ```ts title="vitest.config.ts"
+      import { defineConfig } from "vitest/config";
+
+      export default defineConfig({
+        test: {
+          environmentMatchGlobs: [
+            // convex/ 内のすべてのテストは edge-runtime で実行される
+            ["convex/**", "edge-runtime"],
+            // それ以外のすべてのテストは jsdom を使用
+            ["**", "jsdom"],
+          ],
+          server: { deps: { inline: ["convex-test"] } },
+        },
+      });
+      ```
+    </Details>
+
+    ```ts title="vitest.config.ts"
+    import { defineConfig } from "vitest/config";
+
+    export default defineConfig({
+      test: {
+        environment: "edge-runtime",
+        server: { deps: { inline: ["convex-test"] } },
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="テスト用ファイルを追加する">
+    `convex` フォルダに、<JSDialectFileName name=".test.ts" /> で終わるファイルを追加します。
+
+    このサンプルテストは `api.messages.send` ミューテーションを 2 回呼び出し、
+    その後で `api.messages.list` クエリが
+    期待される結果を返すとアサートします。
+
+    ```ts title="convex/messages.test.ts"
+    import { convexTest } from "convex-test";
+    import { expect, test } from "vitest";
+    import { api } from "./_generated/api";
+    import schema from "./schema";
+
+    test("sending messages", async () => {
+      const t = convexTest(schema);
+      await t.mutation(api.messages.send, { body: "Hi!", author: "Sarah" });
+      await t.mutation(api.messages.send, { body: "Hey!", author: "Tom" });
+      const messages = await t.query(api.messages.list);
+      expect(messages).toMatchObject([
+        { body: "Hi!", author: "Sarah" },
+        { body: "Hey!", author: "Tom" }
+      ]);
+    });
+    ```
+  </Step>
+
+  <Step title="テストを実行する">
+    `npm run test` を実行してテストを開始します。テストファイルや関数を変更すると、テストは自動的に再実行されます。
+
+    ```sh
+    npm run test
+    ```
+  </Step>
+</StepByStep>
+
+Vitest に不慣れな場合は、先に
+[Vitest 入門ガイド](https://vitest.dev/guide) を読んでください。
+
+## convex-test を使う \{#using-convex-test\}
+
+### `convexTest` の初期化 \{#initialize-convextest\}
+
+このライブラリは `convexTest` 関数をエクスポートしており、各テストの開始時に呼び出します。
+この関数はオブジェクトを返し、その戻り値は慣例的に `t` という変数に代入されます。
+このオブジェクトは、Convex 関数をテストで実行するためのメソッドを提供します。
+
+プロジェクトで[スキーマ](/database/schemas.mdx)を使用している場合は、それを
+`convexTest` 関数に渡してください。
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import schema from "./schema";
+
+test("some behavior", async () => {
+  const t = convexTest(schema);
+  // `t`を使用...
+});
+```
+
+テストでスキーマ検証を正しく行い、
+[`t.run`](#setting-up-and-inspecting-data-and-storage-with-trun)
+の型付けを正しく行うためには、スキーマを渡す必要があります。
+
+スキーマがない場合は、引数なしで `convexTest()` を呼び出してください。
+
+### 関数を呼び出す \{#call-functions\}
+
+テストでは、Convex プロジェクト内の public および internal の[関数](/functions.mdx)を呼び出せます。
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import { api, internal } from "./_generated/api";
+
+test("functions", async () => {
+  const t = convexTest();
+  const x = await t.query(api.myFunctions.myQuery, { a: 1, b: 2 });
+  const y = await t.query(internal.myFunctions.internalQuery, { a: 1, b: 2 });
+  const z = await t.mutation(api.myFunctions.mutateSomething, { a: 1, b: 2 });
+  const w = await t.mutation(internal.myFunctions.mutateSomething, { a: 1 });
+  const u = await t.action(api.myFunctions.doSomething, { a: 1, b: 2 });
+  const v = await t.action(internal.myFunctions.internalAction, { a: 1, b: 2 });
+});
+```
+
+### 関数の外でデータを変更する \{#modify-data-outside-of-functions\}
+
+テストから、プロジェクト内で関数を宣言せずにモックデータベースや
+[ファイルストレージ](/file-storage.mdx)に直接[書き込み](/database/writing-data.mdx)を
+行いたい場合があります。その場合は、`t.run` メソッドを使って、モックバックエンドへの読み書きを
+行える `ctx` が引数として渡されるハンドラーを指定できます:
+
+<TSAndJSSnippet title="convex/tasks.test.ts" sourceTS={RunDemo} sourceJS={RunDemo} highlightPatterns={["t.run"]} />
+
+### HTTP アクション \{#http-actions\}
+
+テストでは、ルーターで登録した [HTTP アクション](/functions/http-actions.mdx)を呼び出すことができます:
+
+<TSAndJSSnippet title="convex/http.test.ts" sourceTS={HttpDemo} sourceJS={HttpDemo} highlightPatterns={["t.fetch"]} />
+
+グローバルな `fetch` 関数をモックしても `t.fetch` には影響しませんが、`fetch` のモック内で `t.fetch` を使って、HTTP アクションへルーティングすることができます。
+
+### スケジュールされた関数 \{#scheduled-functions\}
+
+モック実装を純粋に JavaScript だけで動作させる利点の 1 つは、
+Vitest のテスト環境で時間を制御できることです。
+[スケジュールされた関数](/scheduling/scheduled-functions.mdx) に依存する
+実装をテストするには、
+[Vitest のフェイクタイマー](https://vitest.dev/guide/mocking.html#timers) を
+`t.finishInProgressScheduledFunctions` と組み合わせて使用します：
+
+<TSAndJSSnippet title="convex/scheduling.test.ts" sourceTS={SchedulingDemo} sourceJS={SchedulingDemo} highlightPatterns={[]} />
+
+複数のスケジュールされた関数が連鎖している場合、たとえばあるミューテーションが
+アクションをスケジュールし、そのアクションがさらに別のアクションをスケジュールする
+ようなケースでは、`t.finishAllScheduledFunctions` を使用して、再帰的に
+スケジュールされたものも含め、すべてのスケジュールされた関数が完了するまで
+待機できます：
+
+<TSAndJSSnippet title="convex/chainedScheduling.test.ts" sourceTS={ChainedSchedulingDemo} sourceJS={ChainedSchedulingDemo} highlightPatterns={["finishAllScheduledFunctions"]} />
+
+より多くの例については、
+[このファイル](https://github.com/get-convex/convex-test/blob/main/convex/scheduler.test.ts)
+を参照してください。
+
+### 認証 \{#authentication\}
+
+現在の[認証済み](/auth.mdx)ユーザーのアイデンティティに依存する関数をテストするには、指定した[ユーザーアイデンティティ属性](/api/interfaces/server.UserIdentity)を持つ `t` アクセサのバージョンを作成できます。これらを指定しない場合は、`issuer`、`subject`、`tokenIdentifier` が自動的に生成されます。
+
+<TSAndJSSnippet title="convex/tasks.test.ts" sourceTS={AuthDemo} sourceJS={AuthDemo} highlightPatterns={["withIdentity"]} />
+
+## Vitest のヒント \{#vitest-tips\}
+
+### 結果のアサーション \{#asserting-results\}
+
+Vitest の [Expect](https://vitest.dev/api/expect.html) リファレンスを参照してください。
+
+[`toMatchObject()`](https://vitest.dev/api/expect.html#tomatchobject) は、
+すべてのオブジェクトフィールドを列挙せずに結果の構造をアサーションするときに、特に便利です。
+
+### エラーのアサート \{#asserting-errors\}
+
+関数がエラーをスローすることをアサートするには、
+[`.rejects.toThrowError()`](https://vitest.dev/api/expect.html#tothrowerror)
+を使います。
+
+<TSAndJSSnippet title="convex/messages.test.ts" sourceTS={ErrorDemo} sourceJS={ErrorDemo} highlightPatterns={["toThrowError"]} />
+
+### `fetch` 呼び出しをモックする \{#mocking-fetch-calls\}
+
+Vitest の
+[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) メソッドを使用できます:
+
+<TSAndJSSnippet title="convex/ai.test.ts" sourceTS={MockingFetchDemo} sourceJS={MockingFetchDemo} highlightPatterns={["stubGlobal"]} />
+
+### テストカバレッジの測定 \{#measuring-test-coverage\}
+
+テストによって得られるコードカバレッジのレポートを出力できます。「自分のコードのどのくらいがテストでカバーされているか」という問いに答えられるだけでなく、テストが本当に意図したコードパスを実行しているかを確認するのにも役立ちます。
+
+<CodeWithCopyButton text="npm run test:coverage" /> を実行してください。初回実行時には、必要な依存関係のインストールを求められます。
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/testing_coverage.png" alt="カバレッジ出力の例" width={700} />
+</p>
+
+### テストのデバッグ \{#debugging-tests\}
+
+実行中のテストにデバッガを接続できます。Vitest の
+[デバッグに関するドキュメント](https://vitest.dev/guide/debugging.html) を読んでから、次を実行します。
+
+<CodeWithCopyButton text="npm run test:debug" />
+
+## 制限事項 \{#limitations\}
+
+`convex-test` はあくまでモック実装であり、実際の Convex バックエンドと同じ
+挙動を多くは再現していません。それでも、関数内のロジックをテストしたり、
+コードの変更によって発生したリグレッション（退行バグ）を検知したりするのには役立ちます。
+
+モックが実際と異なる点の一部は次のとおりです:
+
+* エラーメッセージの内容。実際のバックエンドが投げるエラーメッセージの内容に
+  依存するようなアプリケーションロジックを書くべきではありません。エラーメッセージは
+  常に変更される可能性があります。
+* 制限。モックはサイズや時間の
+  [制限](/production/state/limits.mdx)を強制しません。
+* ID 形式。コードはドキュメント ID やストレージ ID の形式に依存しないように
+  すべきです。
+* ランタイムのビルトイン。ほとんどの関数は
+  [Convex のデフォルトランタイム](/functions/runtimes.mdx)向けに記述されますが、
+  Vitest は Vercel の Edge Runtime のモックを使用します。これは類似していますが
+  Convex ランタイムとは異なる点があります。Convex ランタイムでは利用できない
+  ビルトインを使っていないことを確認するために、新しいコードは必ず手動でも
+  テストしてください。
+* 一部の機能は、挙動が簡略化されています。具体的には:
+  * [テキスト検索](/search.mdx)は、検索文字列中の少なくとも 1 つの単語が
+    プレフィックスになっている単語を含むドキュメントをすべて返します。
+    結果は関連度でソートされません。
+  * [ベクター検索](/search/vector-search.mdx)は、コサイン類似度でソートされた
+    結果を返しますが、その実装では効率的なベクターインデックスを使用していません。
+  * [cron ジョブ](/scheduling/cron-jobs.mdx)はサポートされていないため、
+    テストから関数を手動でトリガーする必要があります。
+
+実際の Convex バックエンド上で動作する関数をテストするには、
+[ローカルバックエンドのテスト](/testing/convex-backend.mdx)を参照してください。
+
+## CI \{#ci\}
+
+共有のリモートマシン上でテストを実行する方法については、[Continuous Integration](/testing/ci.mdx) を参照してください。

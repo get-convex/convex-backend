@@ -1,0 +1,82 @@
+---
+title: デバッグ
+sidebar_position: 100
+description: "開発および本番環境で Convex 関数をデバッグする"
+---
+
+デバッグとは、コードが期待どおりに動作しない原因を突き止めるプロセスです。
+
+## 開発中のデバッグ \{#debugging-during-development\}
+
+開発中は、組み込みの `console` API を使うと、関数の内部で何が起きているかを理解できます。
+
+```ts title="convex/myFunctions.ts"
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const mutateSomething = mutation({
+  args: { a: v.number(), b: v.number() },
+  handler: (_, args) => {
+    console.log("Received args", args);
+    // ...
+  },
+});
+```
+
+次のメソッドは
+[デフォルトの Convex ランタイム](/functions/runtimes.mdx#default-convex-runtime)で利用できます:
+
+* 指定した重要度レベルで値をログ出力する:
+  * `console.log`
+  * `console.info`
+  * `console.warn`
+  * `console.error`
+  * `console.debug`
+* スタックトレース付きでログ出力する:
+  * [`console.trace`](https://developer.mozilla.org/en-US/docs/Web/API/console/trace_static)
+* 実行時間を計測する:
+  * [`console.time`](https://developer.mozilla.org/en-US/docs/Web/API/console/time_static)
+  * [`console.timeLog`](https://developer.mozilla.org/en-US/docs/Web/API/console/timelog_static)
+  * [`console.timeEnd`](https://developer.mozilla.org/en-US/docs/Web/API/console/timeend_static)
+
+Convex のバックエンドは、成功したすべての関数実行と、
+あなたが実装した関数からスローされたすべてのエラーを自動的にログ出力します。
+
+これらのログは次の場所で確認できます:
+
+1. [`ConvexReactClient`](/client/react.mdx) を使用している場合、ブラウザの
+   開発者ツールのコンソールペインで確認できます。ログは dev デプロイメントから
+   クライアントに送信され、クライアントがそれをブラウザに出力します。本番デプロイメントは
+   [クライアントにログを送信し**ません**](/functions/error-handling/error-handling.mdx#differences-in-error-reporting-between-dev-and-prod)。
+2. Convex ダッシュボードの [Logs ページ](/dashboard/deployments/logs.md)で確認できます。
+3. 開発中にターミナルで [`npx convex dev`](/cli.md#tail-deployment-logs) を使うか、
+   ログのみを表示する [`npx convex logs`](/cli.md#tail-deployment-logs) を使って確認できます。
+
+### デバッガーの使用 \{#using-a-debugger\}
+
+テストコードから関数を実行して動作を確認でき、その際に
+`debugger;` ステートメントを追加してコードをステップ実行できます。詳しくは
+[Testing](/testing/convex-test.mdx#debugging-tests) を参照してください。
+
+## 本番環境でのデバッグ \{#debugging-in-production\}
+
+本番環境で問題をデバッグする場合、考えられる選択肢は次のとおりです。
+
+1. 既存のログ出力を活用する
+2. ログ出力を追加し、バックエンドの新しいバージョンを本番環境にデプロイする
+
+Convex バックエンドでは現在、保持されるログの量に制限があり、Convex チームが内部メンテナンスやアップグレードを実施する際に、ログがいつでも削除される可能性があります。そのため、
+[ログストリーミングとエラー報告](/production/integrations/integrations.mdx)
+との連携を設定して、チームが過去のログやクライアントから記録された追加情報に簡単にアクセスできるようにしておく必要があります。
+
+## Request ID を使って関連するログを見つける \{#finding-relevant-logs-by-request-id\}
+
+あなたやユーザーが遭遇したエラーに対応するログを特定できるように、Convex
+は dev 環境と prod 環境の両方で、すべての例外メッセージに次の形式で Request ID を含めています:
+`[Request ID: <request_id>]`。
+
+Convex のダッシュボードで Request ID をコピー＆ペーストすると、
+そのリクエストによって開始された関数のログを表示できます。詳細については
+[Dashboard logs page](/dashboard/deployments/logs.md#filter-logs) を参照してください。
+
+{/* TODO: Datadog/Axiom で Request ID によるフィルタリング方法をドキュメント化する */}

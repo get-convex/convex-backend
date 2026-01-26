@@ -1,0 +1,107 @@
+---
+title: "Vue 快速入门"
+sidebar_label: Vue
+description: "为 Vue 项目添加 Convex 支持"
+hide_table_of_contents: true
+sidebar_position: 325
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/main.ts";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/vue/convex/tasks.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/App.vue";
+
+了解如何在 Vue 应用中从 Convex 查询数据。
+
+本快速入门指南使用一个由[社区维护](/client/vue.md)的 Convex Vue 客户端。
+
+<StepByStep>
+  <Step title="Create a Vue site">
+    使用命令 `npm create vue@latest my-vue-app` 创建一个 Vue 应用。
+
+    无论选择什么配置选项 Convex 都能正常工作，但要尽量贴合本快速入门指南，建议选择：
+
+    * “Add TypeScript?” 选择 Yes
+    * 其他所有选项选择 No
+
+    <br />
+
+    ```sh
+    npm create vue@latest my-vue-app
+    ```
+  </Step>
+
+  <Step title="Install the Convex library">
+    首先，安装 `convex` 包。
+
+    ```sh
+    cd my-vue-app && npm install convex convex-vue
+    ```
+  </Step>
+
+  <Step title="Set up a Convex dev deployment">
+    接下来，运行 `npx convex dev`。这会提示你使用 GitHub 登录、
+    创建一个项目，并保存你的生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用于编写后端 API 函数。`dev` 命令
+    会持续运行，将你的函数
+    同步到云端的开发环境部署。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Create sample data for your database">
+    在一个新的终端窗口中，创建一个包含示例数据的
+    `sampleData.jsonl` 文件。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Add the sample data to your database">
+    现在项目已经准备就绪，使用 `import` 命令
+    向你的 Convex 数据库添加一个包含示例数据的 `tasks` 表。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expose a database query">
+    在 `convex/` 文件夹中添加一个新的 `tasks.ts` 文件，
+    在其中编写一个用于加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    会声明一个以文件名和导出名命名的 API 函数，
+    即 `api.tasks.get`。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="Wire up the ConvexProvider">
+    在 `src/main.ts` 中配置 Convex 客户端，使其在应用的每个页面中都可用。
+
+    <Snippet source={main} title="src/main.ts" />
+  </Step>
+
+  <Step title="Display the data in your app">
+    在 `src/App.vue` 中使用 `useQuery` 订阅 `api.tasks.get`
+    这个 API 函数。
+
+    <Snippet source={App} title="src/App.vue" />
+  </Step>
+
+  <Step title="Start the app">
+    启动应用，在浏览器中打开 [http://localhost:5173](http://localhost:5173)，
+    查看任务列表。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+查看完整的
+[Vue npm 包文档](https://www.npmjs.com/package/convex-vue)。

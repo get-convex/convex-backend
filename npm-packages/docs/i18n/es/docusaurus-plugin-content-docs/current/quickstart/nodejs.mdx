@@ -1,0 +1,99 @@
+---
+title: Inicio rápido de Node.js
+sidebar_label: Node.js
+description: "Añade Convex a un proyecto de Node.js"
+hide_table_of_contents: true
+sidebar_position: 400
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/convex/tasks.js";
+import script from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/script.js";
+
+Aprende a consultar datos de Convex en un proyecto de Node.js.
+
+Para obtener instrucciones sobre suscripciones en lugar de consultas puntuales y más
+configuraciones de proyecto (TypeScript, empaquetadores, CJS vs ESM), consulta las
+[notas de Node.js](/client/javascript/node.mdx).
+
+<StepByStep>
+  <Step title="Crea un nuevo proyecto de npm">
+    Crea un nuevo directorio para tu proyecto de Node.js.
+
+    ```sh
+    mkdir my-project && cd my-project && npm init -y && npm pkg set type="module"
+    ```
+  </Step>
+
+  <Step title="Instala la biblioteca cliente y de servidor de Convex">
+    Instala el paquete `convex`,
+    que proporciona una interfaz conveniente para trabajar
+    con Convex desde JavaScript.
+
+    También instala la biblioteca `dotenv` para cargar archivos `.env`.
+
+    ```sh
+    npm install convex dotenv
+    ```
+  </Step>
+
+  <Step title="Configura un despliegue de Convex dev">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URLs de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    para que escribas tus funciones de API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue de dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de la terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Agrega los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, agrega una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Agrega un nuevo archivo `tasks.js` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API con el nombre del archivo
+    y el nombre de la exportación, `api.tasks.get`.
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="Conecta el script a tu backend">
+    En un nuevo archivo `script.js`, crea un `ConvexHttpClient` usando
+    la URL de tu entorno de desarrollo.
+
+    <Snippet source={script} title="script.js" />
+  </Step>
+
+  <Step title="Ejecuta el script">
+    Ejecuta el script desde el mismo directorio y observa la lista de tareas registradas en la terminal.
+
+    ```sh
+    node script.js
+    ```
+  </Step>
+</StepByStep>
+
+Consulta la [documentación completa de Node.js](/client/javascript/node.mdx).

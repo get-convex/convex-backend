@@ -1,0 +1,219 @@
+---
+title: "Uso de componentes"
+slug: "using"
+sidebar_position: 20
+hide_table_of_contents: true
+description: "Uso de componentes existentes"
+---
+
+Convex Components añaden nuevas funcionalidades a tu backend en un entorno aislado propio, con
+sus propias funciones, esquema y datos, funciones programadas y todas las demás
+características fundamentales de Convex.
+
+Puedes ver la lista completa de componentes en el
+[directorio](https://convex.dev/components).
+
+## Instalación \{#installation\}
+
+Usaremos el componente [Agent](https://www.npmjs.com/package/@convex-dev/agent)
+como ejemplo.
+
+<StepByStep>
+  <Step title="Instalar desde `npm`">
+    ```bash
+    npm i @convex-dev/agent
+    ```
+  </Step>
+
+  <Step title="Agregar el componente a tu app">
+    Crea o actualiza el archivo `convex.config.ts` en la carpeta `convex/` de tu aplicación e instala el componente llamando a `use`. Se pueden instalar múltiples instancias del mismo componente llamando a `use` varias veces con diferentes nombres. Cada una tendrá sus propias tablas y funciones.
+
+    ```ts title="convex/convex.config.ts"
+    import { defineApp } from "convex/server";
+    import agent from "@convex-dev/agent/convex.config.js";
+
+    const app = defineApp();
+
+    // highlight-next-line
+    app.use(agent);
+    app.use(agent, { name: "agent2" });
+    //... Add other components here
+
+    export default app;
+    ```
+  </Step>
+
+  <Step title="Ejecutar convex dev">
+    El comando `convex dev` de la interfaz de línea de comandos (CLI) generará el código necesario para usar el componente.
+
+    ```bash
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Acceder al componente a través de su API">
+    Cada instancia de un componente tiene su API definida dentro del objeto `components`
+    bajo su nombre. Algunos componentes encapsulan esta API con clases o funciones. Consulta
+    la documentación de cada componente para más detalles sobre su uso.
+
+    ```ts
+    import { components } from "./_generated/api.js";
+
+    const agent = new Agent(components.agent, { ... });
+    ```
+  </Step>
+</StepByStep>
+
+## Usar directamente la API del componente \{#using-the-components-api-directly\}
+
+Aunque los componentes pueden exponer APIs de TypeScript de nivel más alto, internamente
+se invocan mediante funciones normales de Convex a través del límite del
+sandbox del componente.
+
+Las reglas de consultas, mutaciones y acciones siguen siendo válidas: las consultas
+solo pueden llamar a consultas de componentes, las mutaciones también pueden
+llamar a mutaciones de componentes y las acciones también pueden llamar a
+acciones de componentes. Como resultado, las consultas a componentes son
+reactivas de forma predeterminada y las mutaciones tienen las mismas garantías
+de transacción.
+
+Puedes llamar a funciones de componentes desde tu aplicación usando la
+siguiente sintaxis:
+
+```ts
+import { internalAction } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const myAction = internalAction({
+  args: { threadId: v.string() },
+  handler: async (ctx, args) => {
+    // Llama a la API del componente para obtener el estado del hilo.
+    const { status } = await ctx.runQuery(components.agent.threads.getThread, {
+      threadId: args.threadId,
+    });
+    //...
+  },
+});
+```
+
+Algunos componentes abstraen la API del propio componente. Por ejemplo, la clase `Agent`
+de `@convex-dev/agent` se inicializa con `components.agent`, y sus métodos reciben
+`ctx` para poder llamar internamente a la API del componente.
+[Obtén más información sobre el componente Agent aquí](/agents.mdx).
+
+## Transacciones \{#transactions\}
+
+Recuerda que las funciones de mutación en Convex son
+[transacciones](/functions/mutation-functions.mdx#transactions). O bien todos
+los cambios de la mutación se escriben a la vez o no se escribe ninguno.
+
+Todas las operaciones de escritura de una llamada de mutación de nivel superior,
+incluidas las escrituras realizadas por llamadas a mutaciones de otros
+componentes, se confirman al mismo tiempo. Si la mutación de nivel superior
+lanza un error, todas las escrituras se revierten y la mutación no cambia la
+base de datos en absoluto.
+
+Sin embargo, si una llamada a una mutación de componente lanza una excepción,
+solo sus escrituras se revierten. Luego, si la función que llama captura la
+excepción, puede continuar, realizar más escrituras y finalizar correctamente.
+Si la función que llama no captura la excepción, entonces se considera fallida
+y todas las escrituras asociadas con la mutación de la llamadora se revierten.
+Esto significa que tu código puede elegir una ruta de ejecución diferente
+dependiendo de la semántica de tu componente.
+
+Como ejemplo, considera el componente
+[Rate Limiter](https://www.npmjs.com/package/@convex-dev/ratelimiter).
+Una de las API de Rate Limiter lanza un error si se alcanza un límite de
+frecuencia (rate limit):
+
+```ts
+// Lanzar automáticamente un error si se alcanza el límite de velocidad.
+await rateLimiter.limit(ctx, "failedLogins", { key: userId, throws: true });
+```
+
+Si la llamada a `rateLimiter.limit` lanza una excepción, significa que hemos superado el
+límite de tasa. Luego, si la mutación que hizo la llamada no captura esta
+excepción, se revierte toda la transacción.
+
+La mutación que hizo la llamada, en cambio, también podría decidir ignorar el
+límite de tasa capturando la excepción y continuando. Por ejemplo, una aplicación
+podría querer ignorar los límites de tasa si existe una anulación para el entorno
+de desarrollo. En este caso, solo se revertirá la mutación del componente y el
+resto de la mutación continuará.
+
+## Panel de control \{#dashboard\}
+
+Puedes ver los datos, funciones, archivos, registros y otra información de tu componente
+usando el menú desplegable en el panel de control. También puedes usar el menú desplegable
+para excluir información de ciertos componentes.
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/component_dropdown.png" alt="Captura de pantalla del menú desplegable de componentes" width={414} />
+</p>
+
+## Pruebas de componentes \{#testing-components\}
+
+Al escribir pruebas con [`convex-test`](/testing/convex-test.mdx) que usan
+componentes, debes registrar el componente en la instancia de pruebas. Esto le
+indica qué esquema debe validar y dónde encontrar el código fuente del componente. La mayoría de los
+componentes exportan funciones auxiliares prácticas en `/test` para que esto sea más sencillo:
+
+```ts title="convex/some.test.ts"
+import agentTest from "@convex-dev/agent/test";
+import { expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { components } from "./_generated/api";
+import { createThread } from "@convex-dev/agent";
+
+// Define esto una vez, generalmente en un archivo auxiliar de pruebas compartido.
+export function initConvexTest() {
+  const t = convexTest();
+  // highlight-next-line
+  agentTest.register(t);
+  return t;
+}
+
+test("Agent createThread", async () => {
+  const t = initConvexTest();
+
+  const threadId = await t.run(async (ctx) => {
+    // Llamar funciones que usan ctx y components.agent
+    return await createThread(ctx, components.agent, {
+      title: "Hello, world!",
+    });
+  });
+  // Llamar funciones directamente en la API del componente
+  const thread = await t.query(components.agent.threads.getThread, {
+    threadId,
+  });
+  expect(thread).toMatchObject({
+    title: "Hello, world!",
+  });
+});
+```
+
+Si necesitas registrar tú mismo el componente, puedes hacerlo pasando el esquema del componente y sus módulos a la instancia de prueba.
+
+```ts title="convex/manual.test.ts"
+/// <reference types="vite/client" />
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./path/to/component/schema.ts";
+const modules = import.meta.glob("./path/to/component/**/*.ts");
+
+test("Prueba algo con un componente local", async () => {
+  const t = convexTest();
+  t.registerComponent("componentName", schema, modules);
+
+  await t.run(async (ctx) => {
+    await ctx.runQuery(components.componentName.someQuery, {
+      arg: "value",
+    });
+  });
+});
+```
+
+## Flujos de logs \{#log-streams\}
+
+Puedes usar el campo `data.function.component_path` en
+[flujos de logs](/production/integrations/log-streams) para separar las líneas de log por el componente del que provienen.

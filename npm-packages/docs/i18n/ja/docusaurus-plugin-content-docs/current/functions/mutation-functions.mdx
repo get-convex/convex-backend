@@ -1,0 +1,159 @@
+---
+title: ミューテーション
+sidebar_position: 20
+description: "データベース内のデータを挿入、更新、削除する"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsConstructor.ts";
+import ArgsWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidation.ts";
+import ArgsWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidationJS.js";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContext.ts";
+import ContextDB from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContextDB.ts";
+import Helper from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelper.ts";
+import HelperJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelperJS.js";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsNPM.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/mutationsCall.tsx";
+
+ミューテーションはデータベースにデータを挿入・更新・削除し、認証をチェックしたり
+その他のビジネスロジックを実行したりし、必要に応じてクライアントアプリケーションに
+レスポンスを返します。
+
+これは、名前付き引数を受け取り、データベースにデータを書き込み、結果を返す
+ミューテーションの例です。
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+この先を読み進めて、ミューテーションを自分で実装する方法を学びましょう。
+
+## ミューテーション名 \{#mutation-names\}
+
+ミューテーションはクエリと同じ命名規則に従います。[Query names](/functions/query-functions.mdx#query-names) を参照してください。
+
+名前付きエクスポートを使用する場合は、クエリとミューテーションを同じファイル内に定義できます。
+
+## `mutation` コンストラクタ \{#the-mutation-constructor\}
+
+Convex でミューテーションを宣言するには、`mutation` コンストラクタ関数を使用します。ミューテーションを実行する `handler` 関数を含むオブジェクトを渡します。
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+クエリと異なり、ミューテーションは値を返しても返さなくてもかまいません。
+
+### ミューテーションの引数 \{#mutation-arguments\}
+
+クエリと同様に、ミューテーションも名前付き引数を受け取り、その引数の値には
+`handler` 関数の第 2 引数のフィールドとしてアクセスできます:
+
+<TSAndJSSnippet sourceTS={ArgsWithoutValidationTS} sourceJS={ArgsWithoutValidationJS} title="convex/myFunctions.ts" />
+
+引数とレスポンスは自動的にシリアライズおよびデシリアライズされるため、
+ミューテーションとの間でほとんどの値として扱える JavaScript データを渡したり返したりできます。
+
+引数の型を宣言すると同時に検証も行うには、`v` バリデータを使って `args`
+オブジェクトを追加します:
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} title="convex/myFunctions.ts" />
+
+サポートされている型とバリデータの一覧については、
+[argument validation](/functions/validation.mdx) を参照してください。
+
+`handler` 関数の第 1 引数はミューテーションコンテキストのために予約されています。
+
+### ミューテーションのレスポンス \{#mutation-responses\}
+
+クエリは、サポートされている任意の
+[Convex 型](/functions/validation.mdx) を返すことができ、その値は自動的にシリアライズおよびデシリアライズされます。
+
+ミューテーションも `undefined` を返すことがありますが、これは有効な Convex の値ではありません。ミューテーションが `undefined` を返した場合、**クライアント側では `null` に変換されます**。
+
+### ミューテーションコンテキスト \{#mutation-context\}
+
+`mutation` コンストラクターは、ハンドラー関数の最初の引数として
+[MutationCtx](/generated-api/server.md#mutationctx)
+オブジェクトを渡すことで、データベースへの書き込みやその他の Convex の機能を行えるようにします。
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+ミューテーションコンテキストのどの部分を使うかは、そのミューテーションで何を行う必要があるかによって異なります。
+
+* データベースから読み書きするには `db` フィールドを使います。`db.insert()` が返す
+  Promise を `await` できるように、ハンドラー関数を `async` 関数にしている点に注意してください:
+
+  <TSAndJSSnippet sourceTS={ContextDB} sourceJS={ContextDB} title="convex/myFunctions.ts" />
+
+  詳細は [Writing Data](/database/writing-data.mdx) を参照してください。
+
+* ファイルを保存するためのアップロード URL を生成するには `storage` フィールドを使います。詳細は
+  [File Storage](/file-storage.mdx) を参照してください。
+
+* ユーザー認証を確認するには `auth` フィールドを使います。詳細は
+  [Authentication](/auth.mdx) を参照してください。
+
+* 将来実行する関数をスケジュールするには `scheduler` フィールドを使います。詳細は
+  [Scheduled Functions](/scheduling/scheduled-functions.mdx) を参照してください。
+
+## ヘルパーを使ったミューテーションコードの分割 \{#splitting-up-mutation-code-via-helpers\}
+
+<>
+  {/* Fragment for Prettier */}
+
+  ミューテーション内のコードを分割したい場合や、複数の Convex 関数間でロジックを再利用したい場合は、ヘルパー
+  <LanguageSelector verbose /> 関数を定義して呼び出せます。
+</>
+
+<TSAndJSSnippet sourceTS={Helper} sourceJS={HelperJS} title="convex/myFunctions.ts" />
+
+ミューテーションは、引数として
+[QueryCtx](/generated-api/server.md#queryctx) を受け取るヘルパーを呼び出せます。ミューテーションコンテキストは、クエリコンテキストが行えることはすべて行えるためです。
+
+ヘルパーを `export` して複数ファイル間で使用できます。ただし、それらを Convex 関数の外部から呼び出すことはできません。
+
+TypeScript の型について詳しくは、
+[サーバーサイドヘルパーへの型注釈](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+を参照してください。
+
+## npmパッケージの使用 \{#using-npm-packages\}
+
+ミューテーション関数は、`node_modules` にインストールされた npm パッケージをインポートできます。ただし、すべての npm パッケージがサポートされているわけではありません。詳しくは [Runtimes](/functions/runtimes.mdx#default-convex-runtime) を参照してください。
+
+```sh
+npm install @faker-js/faker
+```
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+## クライアントからミューテーションを呼び出す \{#calling-mutations-from-clients\}
+
+[React](/client/react.mdx) クライアントからミューテーションを呼び出すには、
+生成された [`api`](/generated-api/api) オブジェクトとあわせて
+[`useMutation`](/client/react.mdx#editing-data) フックを使用します。
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
+
+クエリを呼び出すさまざまな方法については、
+[React](/client/react.mdx) クライアントのドキュメントを参照してください。
+
+[React](/client/react.mdx) や [Rust](/client/rust.md) クライアントからミューテーションが呼び出されるときは、
+単一の順序付きキューで 1 つずつ実行されます。ミューテーションが、
+トリガーされた順番と異なる順番でデータベースを編集してしまうことを
+心配する必要はありません。
+
+## トランザクション \{#transactions\}
+
+ミューテーションは**トランザクションとして**実行されます。これは次のことを意味します。
+
+1. トランザクション内のすべてのデータベース読み取りは、データベース内のデータを一貫した状態として参照します。実行の途中で同時更新によってデータが変更されることを心配する必要はありません。
+2. すべてのデータベース書き込みはまとめてコミットされます。ミューテーションがデータベースにいくつかのデータを書き込んだ後にエラーをスローした場合でも、実際には一切データはデータベースに書き込まれません。
+
+これが機能するためには、クエリと同様にミューテーションは決定的でなければならず、サードパーティ API を呼び出すことはできません。サードパーティ API を呼び出すには、
+[アクション](/functions/actions.mdx) を使用してください。
+
+## 制限 \{#limits\}
+
+ミューテーションには、一度に読み書きできるデータ量に制限が設けられており、これにより良好なパフォーマンスが保証されます。詳しくは
+[Read/write limit errors](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)
+を参照してください。
+
+その他の制限については [Limits](/production/state/limits.mdx) を参照してください。

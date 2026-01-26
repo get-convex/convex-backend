@@ -1,0 +1,34 @@
+---
+title: "Agent モード"
+slug: "agent-mode"
+sidebar_position: 20
+sidebar_label: "Agent モード"
+description:
+  "クラウドベースのコーディングエージェント向けに匿名開発モードを構成する"
+---
+
+自分のマシンにログインしている場合、Cursor や Claude Code のようなエージェントは
+`npx convex env list` のような CLI コマンドを実行でき、ログイン済みの認証情報を使って
+あなたの個人用 dev 環境に対して、まるであなた自身がコマンドを実行したかのように
+処理を行えます。これはエージェントと協調して作業する場合に便利です。
+エージェントが `git commit -am "Fix."` を実行したとき、コミットがあなたのローカルの git
+認証情報を使うのと同じです。
+
+しかし、Jules、Devin、Codex、または Cursor Cloud Agents のようなクラウドベースの
+コーディングエージェントが Convex CLI コマンドを実行する場合、それらはログインできません。
+そして、あなたが代わりにログインしてしまうと、そのエージェントはあなたのデフォルトの
+dev デプロイメントを使って開発を行い、あなた自身の変更と競合してしまいます。
+
+代わりに、この環境で `CONVEX_AGENT_MODE=anonymous` を設定してください。これにより、
+エージェントは [anonymous development](/cli/local-deployments-for-dev.mdx) を使って、
+エージェントが動作している VM 上で別の Convex backend を実行するようになります。
+
+<BetaAdmonition feature="Convex Agent Mode" verb="is" />
+
+この変数は .env.local に設定するか、エージェントの実行環境に設定できます。
+
+```
+CONVEX_AGENT_MODE=anonymous npx convex dev
+```
+
+将来的には、`CONVEX_AGENT_MODE` がエージェント自身による短期間だけ有効なクラウドデプロイメントのプロビジョニングなど、他の動作もサポートする可能性があります。

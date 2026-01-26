@@ -1,0 +1,328 @@
+---
+title: "Convex チュートリアル: チャットアプリ"
+sidebar_label: "1. チャットアプリ"
+sidebar_position: 100
+hide_table_of_contents: true
+pagination_next: tutorial/actions
+pagination_label: "Convex チュートリアル: チャットアプリ"
+description:
+  "Convex を使い、クエリとミューテーション、同期エンジンを組み合わせて、
+  すべての接続クライアント間で自動的に更新されるリアルタイムチャットアプリケーションを構築します。"
+---
+
+# Convex チュートリアル: チャットアプリ \{#convex-tutorial-a-chat-app\}
+
+Convex は、クラウド関数、データベース、スケジューリング機能に加え、フロントエンドとバックエンドをリアルタイムで最新状態に保つ同期エンジンを備えた、フル機能のバックエンドを提供します。
+
+これから、**約 10 行のコード** で、データベースの読み書きを行い、チャットアプリ内のすべてのユーザーに更新を自動的に反映するバックエンドを構築します。
+
+その後、外部サービスへの接続方法と、プロダクトを成功とスケールのしやすさを見据えてセットアップする方法を見ていきます。
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/608khv7qqOI?si=ce-M8pt6EWDZ8tfd" title="YouTube 動画プレーヤー" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## Convex で開発を始める \{#start-developing-with-convex\}
+
+<Details summary="始める前に: Node.js 18+ と Git が必要です">
+  コンピューターに Node.js バージョン 18 以上がインストールされていることを確認してください。
+  ターミナルで `node --version` を実行すると、Node.js のバージョンを確認できます。
+  適切なバージョンの Node.js がインストールされていない場合は、
+  [Node.js の公式サイトからインストールしてください。](https://nodejs.org/en)
+
+  また、このチュートリアルでは Git が必要です。ターミナルで `git -v` を実行して、
+  Git がインストールされていることを確認してください。インストールされていない場合は、
+  [Git の公式サイト](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)を参照して
+  インストール手順に従ってください。
+</Details>
+
+まず、GitHub からサンプルプロジェクトのリポジトリをクローンし、依存関係をインストールします。
+
+```shell
+git clone https://github.com/get-convex/convex-tutorial.git
+cd convex-tutorial
+npm install
+```
+
+このアプリの `dev` npm コマンドは、Convex をセットアップしてから Web アプリを起動します。
+
+```shell
+npm run dev
+```
+
+セットアップの途中で、Convex が認証にあなたの GitHub アカウントを使用することがわかります。GitHub で Convex にサインインし、表示されるプロジェクト設定のデフォルト値をそのまま承認してください。
+
+これにより、**バックエンドが自動的に作成され**、プロジェクト内に `convex/` というフォルダが作成されます。この中でバックエンドのコードを書きます。
+
+**このチュートリアルの間中、`npm run dev` コマンドをバックグラウンドで動かし続けてください。** このコマンドは、フロントエンド用の開発用 Web サーバーと、バックグラウンドで動く `convex` コマンドの両方を実行し、ローカルのコードベースとバックエンドを同期させ続けます。
+
+サーバーが起動して動作していることを確認したら、[localhost:5173](http://localhost:5173) を開いて動作を確認してください:
+
+<div className="center-image" style={{ maxWidth: "676px" }}>
+  ![Chat UI](/img/tutorial/tut_chat_ui.png)
+</div>
+
+いまメッセージを送信しようとすると、ミューテーションがまだ実装されていないというアラートが表示されます。すぐにそれを実装しますが、その前に Convex がどのように動作するかを簡単に説明します。
+
+## Convex の仕組み \{#how-convex-works\}
+
+<div className="center-image" style={{ maxWidth: "700px" }}>
+  ![Overview of the sync engine](/img/tutorial/ConvexSyncEngine.png)
+</div>
+
+**データベース。** Convex のデータベースはドキュメント・リレーショナルデータベースです。つまり、
+JSON ライクなドキュメントを格納するテーブルを持ちます。すべてのドキュメントには
+自動生成された `_id` があり、ドキュメント間のリレーションを作成するために使用できます。
+データベースとのやり取りは、すべて TypeScript で記述されたミューテーション関数とクエリ関数を通して行います。
+
+**ミューテーション関数。** ミューテーションはデータベースを更新する TypeScript 関数です。
+Convex のすべてのミューテーション関数はデータベーストランザクションとして実行されます。
+そのため、変更はすべてコミットされるか、まったくコミットされないかのどちらかです。
+
+**クエリ関数。** クエリはデータベースからの読み取りのみを行う TypeScript 関数です。
+後ほど見るように、フロントエンドからこれらにサブスクライブすることで、
+アプリを自動的に最新状態に保てます。
+
+フロントエンドは **クライアントライブラリ** を通じてクエリ更新を購読します。
+クライアントライブラリは WebSocket 経由で Convex と通信し、高速なリアルタイム更新を実現します。
+
+**同期エンジン** は、関数への入力に何か変更があったときにクエリ関数を再実行します。
+ここには、クエリが読み取るデータベース内のドキュメントの変更も含まれます。
+そのうえで、そのクエリを購読しているすべてのアプリを更新します。
+同期エンジンは、クエリ、ミューテーション、データベースを組み合わせたものです。
+
+では、コードに入っていきましょう！
+
+## 最初の `ミューテーション` \{#your-first-mutation\}
+
+`convex/` フォルダに `chat.ts` という新しいファイルを作成してください。ここに、このアプリケーション用の Convex バックエンド関数を記述します。
+
+**次の内容を `convex/chat.ts` ファイルに追加してください。**
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const sendMessage = mutation({
+  args: {
+    user: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("このTypeScript関数はサーバー上で実行されています。");
+    await ctx.db.insert("messages", {
+      user: args.user,
+      body: args.body,
+    });
+  },
+});
+```
+
+これを分解して見ていきましょう。
+
+1. 新しいバックエンドの `mutation` 関数 `sendMessage` を追加し、それをパブリック API として公開しました。
+2. 関数全体は自動的にトランザクションとして実行され、例外がスローされるとロールバックされます。
+3. これは単なる TypeScript 関数なので、サーバー側で簡単なデバッグを行うために `console.log` 行を書き込めます。
+4. `args:` によって、関数の引数が `user` と `body` という 2 つの文字列であることが、型レベルと実行時の値の両方で保証されます。
+5. `ctx.db.insert` は Convex に新しいメッセージのドキュメントをテーブルに挿入するよう指示します。
+
+では、このミューテーションを Web アプリに接続しましょう。
+
+**`src/App.tsx` ファイルを次のように更新してください:**
+
+```tsx
+// highlight-next-line
+// Import `useMutation` and `api` from Convex.
+// highlight-next-line
+import { useMutation } from "convex/react";
+// highlight-next-line
+import { api } from "../convex/_generated/api";
+
+//...
+
+export default function App() {
+  // highlight-next-line
+  // Replace the "TODO: Add mutation hook here." with:
+  // highlight-next-line
+  const sendMessage = useMutation(api.chat.sendMessage);
+
+  //...
+
+  return (
+    <main className="chat">
+      {/* ... */}
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          // highlight-next-line
+          // "alert("Mutation not implemented yet");"を次のように置き換えます:
+          // highlight-next-line
+          await sendMessage({ user: NAME, body: newMessageText });
+
+          setNewMessageText("");
+        }}
+      >
+        {/* ... */}
+      </form>
+    </main>
+  );
+}
+```
+
+フロントエンドからミューテーションを呼び出すには 2 つのステップがあります:
+
+1. `const sendMessage = useMutation(api.chat.sendMessage);` によって、フロントエンド
+   アプリでミューテーション関数を参照できるようにします
+2. `await sendMessage({ user: NAME, body: newMessageText });` で、適切なパラメータを
+   渡してミューテーションを呼び出します。
+
+ここで **Convex ダッシュボードを開いておきましょう**。新しいブラウザウィンドウを開き、
+[https://dashboard.convex.dev](https://dashboard.convex.dev)
+にアクセスして、新しい `convex-tutorial` プロジェクトを見つけてください。
+
+**「Data」画面に移動します。** これまでのところ、データベースにはデータがありません。
+
+**チャットアプリとダッシュボードのウィンドウを横に並べて開いたままにしておき**、
+チャットアプリからいくつかメッセージを送信してみてください。
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_first_mutation.mp4" type="video/mp4" />
+
+  ミューテーションが Convex のバックエンドとデータベースに接続されています。
+</video>
+
+`messages` テーブルに新しいチャットメッセージがリアルタイムで表示されることに気づくはずです。
+
+最初のメッセージを送信したときに、Convex は自動的に `messages` テーブルを作成しました。
+Convex では、[スキーマ](/database/schemas.mdx) は必須ではありません。最終的には
+テーブルの構造を厳密に定義したくなりますが、このチュートリアルではそこは省略します。
+
+ダッシュボードでは
+[logs screen](https://dashboard.convex.dev/deployment/logs) にも移動でき、
+先ほど追加したログ行とともに、ミューテーションへのすべての呼び出しを確認できます。
+logs 画面は、開発時にバックエンドをデバッグするうえで重要な場所です。
+
+これで `mutation` 関数（データベーストランザクションでもあります）を正常に作成し、
+それを UI に接続できました。
+
+次に、ダッシュボードがリアルタイムで更新されるのと同じように、
+あなたのアプリもリアルタイムに更新できることを確認しましょう。
+
+## 最初の `query` \{#your-first-query\}
+
+**`convex/chat.ts` ファイルを次のように更新します:**
+
+```tsx
+// highlight-next-line
+// Update your server import like this:
+// highlight-next-line
+import { query, mutation } from "./_generated/server";
+
+// ...
+
+// highlight-next-line
+// Add the following function to the file:
+// highlight-next-line
+export const getMessages = query({
+  // highlight-next-line
+  args: {},
+  // highlight-next-line
+  handler: async (ctx) => {
+    // highlight-next-line
+    // Get most recent messages first
+    // highlight-next-line
+    const messages = await ctx.db.query("messages").order("desc").take(50);
+    // highlight-next-line
+    // リストを反転して時系列順にします。
+    // highlight-next-line
+    return messages.reverse();
+    // highlight-next-line
+  },
+  // highlight-next-line
+});
+```
+
+これを分解してみましょう。
+
+1. 新しいバックエンドの `query` 関数 `getMessages` を追加し、それを公開 API として
+   外部に公開しました。
+2. これはクエリ関数なので、この関数内の `ctx.db` ではデータの読み取りしか
+   できません。
+3. `handler` の1行目では、最新のメッセージ50件を新しいものから古いものへ並ぶように
+   取得しています。
+4. 2行目では、普通の TypeScript を使ってそのリストを逆順に並べ替えています。
+
+**では `src/App.tsx` を更新して、クエリからデータを読み取るようにしましょう。**
+
+```tsx
+// highlight-next-line
+// Update your convex/react import like this:
+// highlight-next-line
+import { useQuery, useMutation } from "convex/react";
+
+//...
+
+export default function App() {
+  // highlight-next-line
+  // `const messages = ...` の行を次のように置き換えます:
+  // highlight-next-line
+  const messages = useQuery(api.chat.getMessages);
+
+  //...
+}
+```
+
+その1行の `useQuery` が、かなり多くの処理を自動でやってくれています。`getMessages` 関数を購読するように Convex クライアントライブラリに指示しているのです。表示すべき新しいメッセージがあるたびに、そのクエリ関数が自動的に再実行されます。結果は `const messages` 変数に格納され、React が UI コンポーネントを再レンダーして最新のメッセージを表示します。
+
+以上です。ではアプリに戻って、実際にメッセージを送ってみてください。
+
+新しいメッセージが届くと、アプリにライブアップデートが表示されるはずです:
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_first_query.mp4" type="video/mp4" />
+
+  クエリがアプリに接続され、ライブ更新されています。
+</video>
+
+<br />
+
+<br />
+
+まだ半信半疑ですか？ブラウザでチャット画面を2つ並べて開き、メッセージを送ってみてください:
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_side_by_side.mp4" type="video/mp4" />
+
+  リアルタイムで同期するチャットアプリ。
+</video>
+
+## 作成したもの \{#what-you-built\}
+
+たった数行のコードだけで、リアルタイムに更新されるチャットアプリを作成しました。
+
+1. トランザクション内で新しいチャットメッセージをデータベースに追加する `mutation` の TypeScript 関数を作成しました。
+2. アプリを最新のデータで更新する `query` の TypeScript 関数を作成しました。
+3. フロントエンドをバックエンドと常に同期させるクライアントライブラリを使用しました。
+
+Convex の基本と、それを支える同期エンジンについて学びました。
+
+## 次のステップ \{#next-up\}
+
+このチュートリアルでは、ごく基本的な部分だけを扱いました。ここでいったん区切りをつけて、
+[インデックスを使った効率的なクエリ](/database/reading-data/indexes/indexes.md) や
+[結合を使ったリレーションシップのたどり方](/database/reading-data/reading-data.mdx#join)
+など、他のドキュメントを読み進めてかまいません。Convex の仕組みに強い興味があれば、
+[優れた詳解記事](https://stack.convex.dev/how-convex-works)
+も読んでみてください。
+
+外部サービスの呼び出し方や、高度なバックエンドワークフローの構築方法を知りたい場合は、
+[次のセクション →](/tutorial/actions.mdx) に進んでください。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "/tutorial/actions",
+  docId: "tutorial/actions",
+  label: "外部サービスの呼び出し",
+}}
+/>

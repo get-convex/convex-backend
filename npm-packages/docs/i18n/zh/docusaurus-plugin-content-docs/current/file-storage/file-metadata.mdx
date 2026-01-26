@@ -1,0 +1,53 @@
+---
+title: "访问文件元数据"
+sidebar_label: "元数据"
+sidebar_position: 5
+description: "访问存储在 Convex 中的文件元数据"
+---
+
+import FileMetadata from "!!raw-loader!@site/../private-demos/snippets/convex/imagesMetadata.ts";
+import FileMetadataDeprecated from "!!raw-loader!@site/../private-demos/snippets/convex/fileMetadata.ts";
+
+每个已存储的文件都会在 `"_storage"` 系统表中对应一条文档记录。
+可以在
+[查询](/functions/query-functions.mdx) 和
+[变更](/functions/mutation-functions.mdx) 中通过 `db.system.get` 和
+`db.system.query` 访问文件的元数据：
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={FileMetadata} sourceJS={FileMetadata} highlightPatterns={["db.system.get\\(", "db.system.query\\("]} />
+
+下面是返回的文档示例：
+
+```json
+{
+  "_creationTime": 1700697415295.742,
+  "_id": "3k7ty84apk2zy00ay4st1n5p9kh7tf8",
+  "contentType": "image/jpeg",
+  "sha256": "cb58f529b2ed5a1b8b6681d91126265e919ac61fff6a367b8341c0f46b06a5bd",
+  "size": 125338
+}
+```
+
+返回的文档包含以下字段：
+
+* `sha256`：文件内容的 base16 编码的 sha256 校验和
+* `size`：文件的大小（字节数）
+* `contentType`：如果在上传时提供了，则为文件的 `ContentType`
+
+你可以在
+[仪表盘](/dashboard/deployments/files.md)
+中手动查看这些元数据。
+
+## 在操作函数中访问元数据（已弃用） \{#accessing-metadata-from-actions-deprecated\}
+
+另外，还可以使用
+[`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)
+函数，在
+[操作函数](/functions/actions.mdx) 和
+[HTTP 操作函数](/functions/http-actions.mdx) 中访问单个文件的元数据：
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={FileMetadataDeprecated} sourceJS={FileMetadataDeprecated} highlightPatterns={["getMetadata\\("]} />
+
+请注意，
+[`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)
+返回的是一个 [`FileMetadata`](/api/modules/server#filemetadata)，其结构与 `db.system.get` 的返回结果略有不同。

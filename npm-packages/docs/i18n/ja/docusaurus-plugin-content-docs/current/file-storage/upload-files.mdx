@@ -1,0 +1,112 @@
+---
+title: "ファイルのアップロードと保存"
+sidebar_label: "アップロード"
+sidebar_position: 1
+description: "Convex のストレージにファイルをアップロードする"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import URLUploadTS from "!!raw-loader!@site/../demos/file-storage/src/_simpleApp.tsx";
+import URLUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import HttpAction from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpUploadTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/_simpleApp.tsx";
+import HttpUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpApp.jsx";
+
+ファイルを Convex にアップロードするには、
+[生成されたアップロード URL](#uploading-files-via-upload-urls)を使うか、
+[カスタム HTTP アクション](#uploading-files-via-an-http-action)を利用します。
+
+## アップロードURLを使ったファイルのアップロード \{#uploading-files-via-upload-urls\}
+
+任意のサイズのファイルを、生成されたアップロードURLを使ってバックエンドへ直接アップロードできます。これにはクライアントから3つのリクエストが必要です:
+
+1. ミューテーション内で [`storage.generateUploadUrl()`](/api/interfaces/server.StorageWriter#generateuploadurl) を呼び出してアップロードURLを生成します。
+2. ファイル内容をボディに含めた POST リクエストをアップロードURLに送信し、storage ID を受け取ります。
+3. 別のミューテーションで、その storage ID をデータモデルに保存します。
+
+アップロードURLを生成する最初のミューテーション内で、誰が Convex ストレージにファイルをアップロードできるかを制御できます。
+
+**例**:
+[クエリとミューテーションを使ったファイルストレージ](https://github.com/get-convex/convex-demos/tree/main/file-storage)
+
+### Web ページからアップロード API を呼び出す \{#calling-the-upload-apis-from-a-web-page\}
+
+次は、フォームの送信ハンドラから、ミューテーションで生成されたアップロード URL に画像をアップロードする例です。
+
+<TSAndJSSnippet
+  title="src/App.jsx"
+  sourceTS={URLUploadTS}
+  sourceJS={URLUploadJS}
+  snippet="fileUpload"
+  highlightPatterns={[
+  "generateUploadUrl\\(",
+  "sendImage\\(",
+  "await fetch",
+  "method:",
+  "headers:",
+  "body:",
+  "}\\);",
+]}
+/>
+
+### アップロード URL の生成 \{#generating-the-upload-url\}
+
+アップロード URL は
+[`storage.generateUploadUrl`](/api/interfaces/server.StorageWriter#generateuploadurl)
+関数を [`MutationCtx`](/api/interfaces/server.GenericMutationCtx)
+オブジェクトから呼び出すことで生成できます:
+
+<TSAndJSSnippet title="convex/messages.js" sourceTS={Messages} sourceJS={Messages} snippet="generateUploadUrl" highlightPatterns={["storage.generateUploadUrl"]} />
+
+このミューテーションによって、誰がファイルをアップロードできるかを制御できます。
+
+アップロード URL は 1 時間で有効期限が切れるため、アップロードを行う直前に取得する必要があります。
+
+### 新しいストレージ ID をデータベースに保存する \{#writing-the-new-storage-id-to-the-database\}
+
+ストレージ ID はクライアントに返されるので、別のミューテーションを使って
+データベースに永続化しておきたくなるはずです:
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Messages} sourceJS={Messages} prefix={`import { mutation } from "./_generated/server";\n`} snippet="saveStorageId" highlightPatterns={["storage.generateUploadUrl"]} />
+
+### 制限 \{#limits\}
+
+ファイルサイズに上限はありませんが、アップロードの POST リクエストには 2 分のタイムアウトが設定されています。
+
+## HTTP アクション経由でのファイルアップロード \{#uploading-files-via-an-http-action\}
+
+ファイルアップロード処理は、
+[HTTP アクション](/functions/http-actions.mdx) を活用することでより細かく制御できます。単一のリクエストでアップロードフロー全体を実行できますが、適切な CORS ヘッダーの設定が必要です。
+
+カスタムのアップロード HTTP アクションを使うと、誰が Convex のストレージにファイルをアップロードできるかを制御できます。ただし、HTTP アクションのリクエストサイズは
+[現在の制限](/functions/http-actions.mdx#limits)として 20MB に制限されています。それより大きなファイルを扱う場合は、
+[上記](#uploading-files-via-upload-urls)で説明したようにアップロード URL を使用する必要があります。
+
+**例:**
+[HTTP アクションによるファイルストレージ](https://github.com/get-convex/convex-demos/tree/main/file-storage-with-http)
+
+### Web ページからアップロード用の HTTP アクションを呼び出す \{#calling-the-upload-http-action-from-a-web-page\}
+
+次の例は、フォーム送信ハンドラー経由で画像を、続いて定義する
+`sendImage` HTTP アクションにアップロードする方法を示しています。
+
+ハイライトされている行が、HTTP アクションへの実際のリクエスト部分です:
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={HttpUploadTS} sourceJS={HttpUploadJS} snippet="httpFileUpload" highlightPatterns={["fetch", "method:", "headers:", "body:", "}\\);"]} />
+
+### アップロード用 HTTP アクションの定義 \{#defining-the-upload-http-action\}
+
+HTTP リクエストボディで送信されたファイルは、
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx) オブジェクトの
+[`storage.store`](/api/interfaces/server.StorageActionWriter#store) 関数を使って保存できます。この関数は、保存されたファイルの `Id<"_storage">` を返します。
+
+HTTP アクションからミューテーションを呼び出して、ストレージ ID をデータベース内のドキュメントに書き込むことができます。
+
+ホストしているウェブサイト側にアップロードの成功を伝えるには、適切な
+[CORS ヘッダー](/functions/http-actions.mdx#cors) を設定する必要があります。
+
+<TSAndJSSnippet title="convex/http.js" sourceTS={HttpAction} sourceJS={HttpAction} snippet="sendImageStore" highlightPatterns={["storage.store"]} />
+
+また、プリフライト用の `OPTIONS` リクエストも処理する必要があります:
+
+<TSAndJSSnippet title="convex/http.js" sourceTS={HttpAction} sourceJS={HttpAction} snippet="preflight" highlightPatterns={["storage.store"]} />

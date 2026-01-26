@@ -1,0 +1,40 @@
+---
+title: "Almacenar archivos generados"
+sidebar_label: "Almacenar"
+sidebar_position: 2
+description: "Almacenar archivos generados en acciones de Convex"
+---
+
+import StoreImageTS from "!!raw-loader!@site/../private-demos/snippets/convex/images.ts";
+import StoreImageJS from "!!raw-loader!@site/../private-demos/snippets/convex/imagesJS.js";
+
+Los archivos se pueden subir a Convex desde un cliente y almacenarse directamente, consulta
+[Upload](/file-storage/upload-files.mdx).
+
+También puedes almacenar archivos después de haberlos obtenido o generado
+en [acciones](/functions/actions.mdx) y
+[acciones HTTP](/functions/http-actions.mdx). Por ejemplo, podrías llamar a una
+API de terceros para generar una imagen a partir de una instrucción de usuario y luego almacenar esa
+imagen en Convex.
+
+**Ejemplo:**
+[Dall-E Storage &amp; Action](https://github.com/get-convex/convex-demos/tree/main/dall-e-storage-action)
+
+## Almacenar archivos en acciones \{#storing-files-in-actions\}
+
+Almacenar archivos en acciones es similar a
+[subir un archivo mediante una acción HTTP](/file-storage/upload-files.mdx#uploading-files-via-an-http-action).
+
+La acción sigue estos pasos:
+
+1. Obtener o generar una imagen.
+2. Almacenar la imagen usando
+   [`storage.store()`](/api/interfaces/server.StorageActionWriter#store) y
+   recibir un ID de almacenamiento.
+3. Guardar el ID de almacenamiento en tu modelo de datos mediante una mutación.
+
+Los ID de almacenamiento corresponden a documentos en la tabla del sistema `"_storage"` (consulta
+[Metadatos](/file-storage/file-metadata.mdx)), por lo que se pueden validar usando el
+validador `v.id("_storage")` y tiparlos como `Id<"_storage">` en TypeScript.
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={StoreImageTS} sourceJS={StoreImageJS} highlightPatterns={["fetch", "storage.store", "runMutation\\("]} />

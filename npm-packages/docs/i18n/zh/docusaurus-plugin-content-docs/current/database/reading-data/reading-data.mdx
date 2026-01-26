@@ -1,0 +1,225 @@
+---
+title: "读取数据"
+sidebar_position: 3
+description: "从 Convex 数据库的表中查询和读取数据"
+---
+
+import getExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbGet.ts";
+import queryExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbQuery.ts";
+import averageExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataAverage.ts";
+import groupByExampleTS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByTS.ts";
+import groupByExampleJS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByJS.js";
+import joinExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataJoin.ts";
+
+[查询](/functions/query-functions.mdx) 和
+[变更](/functions/mutation-functions.mdx) 函数可以基于 *文档 Id* 或 *文档查询* 从
+数据库表中读取数据。
+
+## 读取单个文档 \{#reading-a-single-document\}
+
+给定单个文档的 id，你可以使用 [`db.get`](/api/interfaces/server.GenericDatabaseReader#get) 方法读取该文档的数据：
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={getExample} sourceJS={getExample} highlightPatterns={["db.get"]} />
+
+**注意**：你应该像上面的示例一样使用 `v.id` 校验器，以确保不会从非预期的表中暴露数据。
+
+## 查询文档 \{#querying-documents\}
+
+文档查询通常从使用
+[`db.query`](/api/interfaces/server.GenericDatabaseReader#query) 方法选择要查询的表开始：
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={queryExample} sourceJS={queryExample} highlightPatterns={["db.query"]} />
+
+然后你可以：
+
+1. 过滤
+2. 排序
+3. 并使用 `await` 获取结果
+
+下面的示例将演示这是如何工作的。
+
+## 为查询添加过滤条件 \{#filtering-your-query\}
+
+在 Convex 中进行过滤的最佳方式是使用索引。索引会在数据库中构建一种特殊的内部结构，以加快查找速度。
+
+使用索引主要分为两个步骤：
+
+1. 在 `convex/schema.ts` 文件中定义索引。
+2. 通过 `withIndex()` 语法进行查询。
+
+### 1. 定义索引 \{#1-define-the-index\}
+
+如果你还不熟悉如何创建 Convex 模式，请阅读
+[schema 文档](/database/schemas.mdx)。
+
+假设你正在构建一个聊天应用，并且希望获取某个特定频道内的所有消息。你可以在
+`messages` 表上定义一个名为 `by_channel` 的新索引，通过在你的模式中使用 `.index()` 方法来实现。
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// 定义一个包含索引的 messages 表。
+export default defineSchema({
+  messages: defineTable({
+    channel: v.id("channels"),
+    body: v.string(),
+    user: v.id("users"),
+    // highlight-next-line
+  }).index("by_channel", ["channel"]),
+});
+```
+
+### 2. 使用索引过滤查询 \{#2-filter-a-query-with-an-index\}
+
+现在，你可以在查询函数中使用 `by_channel` 索引来过滤 `messages` 表。
+
+```ts
+const messages = await ctx.db
+  .query("messages")
+  // highlight-next-line
+  .withIndex("by_channel", (q) => q.eq("channel", channel))
+  .collect();
+```
+
+在 Convex 中，你必须显式使用 `withIndex()` 语法来确保
+数据库实际使用该索引。这不同于更传统的 SQL 数据库，
+后者会基于启发式算法隐式地选择是否使用某个索引。
+从长远来看，Convex 的这种方式能减少意外情况。
+
+你可以一次性在多个字段上创建索引、查询特定范围的数据，
+以及更改查询结果的排序顺序。
+[阅读完整的索引文档](/database/reading-data/indexes/indexes.md)
+以了解更多信息。
+
+Convex 还支持一种较慢的过滤机制，本质上会遍历整张表来匹配过滤条件。
+如果你知道你的表规模会比较小（行数在几千以内）、正在做原型开发，
+或者你想在索引查询的基础上进一步过滤时，这会很有用。
+你可以在[这里](/database/reading-data/filters.mdx)阅读更多关于过滤的内容。
+
+## 排序 \{#ordering\}
+
+默认情况下，Convex 总是按 [`_creationTime`](/database/types.md#system-fields) 对文档进行排序后返回。
+
+你可以使用 [`.order("asc" | "desc")`](/api/interfaces/server.Query#order) 来选择按升序还是降序排序。如果未指定排序方式，则默认为升序。
+
+```ts
+// 获取所有消息,从旧到新。
+const messages = await ctx.db.query("messages").order("asc").collect();
+```
+
+```ts
+// 获取所有消息,从最新到最旧。
+const messages = await ctx.db.query("messages").order("desc").collect();
+```
+
+如果你需要按 `_creationTime` 之外的字段排序，并且查询返回的文档数量较少（大约是几百而不是上千个），请考虑在 JavaScript 中进行排序：
+
+```ts
+// 获取点赞数最多的前 10 条消息,假设 messages 表相对较小:
+const messages = await ctx.db.query("messages").collect();
+const topTenMostLikedMessages = recentMessages
+  .sort((a, b) => b.likes - a.likes)
+  .slice(0, 10);
+```
+
+对于返回大量文档的查询，你会希望使用
+[index](/database/reading-data/indexes/indexes.md) 来提升
+性能。使用索引的文档查询
+[会根据索引中的列进行排序](/database/reading-data/indexes/indexes.md#sorting-with-indexes)，
+并且可以避免缓慢的全表扫描。
+
+```ts
+// 使用 "by_likes" 索引获取有史以来点赞数最多的前 20 条消息。
+const messages = await ctx.db
+  .query("messages")
+  .withIndex("by_likes")
+  .order("desc")
+  .take(20);
+```
+
+详细信息请参见 [Limits](/database/reading-data/indexes/indexes.md#limits)。
+
+### 不同类型值的排序规则 \{#ordering-of-different-types-of-values\}
+
+单个字段可以存储任意[Convex 类型](/database/types.md)的值。当索引字段中包含不同类型的值时，它们按升序排列的顺序如下：
+
+未设置值 (`undefined`) &lt; Null (`null`) &lt; Int64 (`bigint`) &lt;
+Float64 (`number`) &lt; Boolean (`boolean`) &lt; String (`string`) &lt;
+Bytes (`ArrayBuffer`) &lt; Array (`Array`) &lt; Object (`Object`)
+
+过滤比较运算符 `q.lt()`、`q.lte()`、`q.gt()` 和 `q.gte()` 使用相同的排序规则。
+
+## 获取结果 \{#retrieving-results\}
+
+在前面的大多数示例中，我们都以 [`.collect()`](/api/interfaces/server.Query#collect) 方法结束对文档的查询，它会返回所有符合过滤条件的文档。下面是获取结果的其他方式。
+
+### 获取前 `n` 个结果 \{#taking-n-results\}
+
+[`.take(n)`](/api/interfaces/server.Query#take) 仅选择与你的查询匹配的前 `n` 个结果。
+
+```ts
+const users = await ctx.db.query("users").take(5);
+```
+
+### 查找第一个结果 \{#finding-the-first-result\}
+
+[`.first()`](/api/interfaces/server.Query#first) 返回符合查询条件的第一个文档，如果没有找到文档则返回 `null`。
+
+```ts
+// 我们预期只有一个用户使用该电子邮件地址。
+const userOrNull = await ctx.db
+  .query("users")
+  .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
+  .first();
+```
+
+### 使用唯一结果 \{#using-a-unique-result\}
+
+[`.unique()`](/api/interfaces/server.Query#unique) 会从你的查询结果中选出单个文档，
+如果没有找到任何文档则返回 `null`。如果查询命中了多个文档，它会抛出异常。
+
+```ts
+// 我们的 counter 表只有一个文档。
+const counterOrNull = await ctx.db.query("counter").unique();
+```
+
+### 加载一页结果 \{#loading-a-page-of-results\}
+
+[`.paginate(opts)`](/api/interfaces/server.OrderedQuery#paginate) 会加载一页结果，并返回一个用于加载更多结果的 [`Cursor`](/api/modules/server#cursor)。
+
+请参阅[分页查询](/database/pagination.mdx)了解更多信息。
+
+## 更复杂的查询 \{#more-complex-queries\}
+
+Convex 更倾向于只提供少量而简单的方式，来遍历并从表中选取文档。在 Convex 中，没有专门的查询语言来表达诸如 join、聚合或 group by 之类的复杂逻辑。
+
+相反，你可以直接用 JavaScript 来编写这些复杂逻辑！Convex 会保证结果的一致性。
+
+### 连接查询 \{#join\}
+
+表连接的示例如下：
+
+<TSAndJSSnippet title="convex/events.ts" sourceTS={joinExample} sourceJS={joinExample} />
+
+### 聚合 \{#aggregation\}
+
+下面是一个计算平均值的示例：
+
+<TSAndJSSnippet title="convex/purchases.ts" sourceTS={averageExample} sourceJS={averageExample} />
+
+> 如果需要更具扩展性的聚合方案（例如应对频繁更新或大型表），可以考虑使用
+> [Sharded Counter](https://www.convex.dev/components/sharded-counter) 或
+> [Aggregate](https://www.convex.dev/components/aggregate) 组件。这些
+> 组件可以帮助你在不遍历整张表的情况下处理高吞吐量的计数、求和或其他计算。
+
+### 分组 \{#group-by\}
+
+下面是一个分组统计示例：
+
+<TSAndJSSnippet title="convex/purchases.ts" sourceTS={groupByExampleTS} sourceJS={groupByExampleJS} />
+
+## 在仪表盘中探索该语法 \{#explore-the-syntax-on-the-dashboard\}
+
+你可以直接在仪表盘中试用上述语法，方法是
+[编写自定义测试查询](/dashboard/deployments/data.md#writing-custom-queries)。

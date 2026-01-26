@@ -1,0 +1,241 @@
+---
+title: "ベクトル検索"
+sidebar_position: 100
+description: "埋め込みベクトルに対してベクトル検索クエリを実行する"
+slug: "vector-search"
+---
+
+import Schema from "!!raw-loader!@site/../demos/vector-search/convex/schema.ts";
+import VectorSearchSnippets from "!!raw-loader!@site/../private-demos/snippets/convex/vectorSearch.ts";
+import Foods from "!!raw-loader!@site/../private-demos/snippets/convex/foods.ts";
+import VectorSearchSnippets2 from "!!raw-loader!@site/../private-demos/snippets/convex/vectorSearch2.ts";
+import Movies from "!!raw-loader!@site/../demos/vector-search/convex/movies.ts";
+
+ベクター検索を使うと、指定したベクターに類似した Convex ドキュメントを見つけることができます。
+通常、ベクターはテキスト・画像・音声などを数値で表現した埋め込みベクターになります。
+
+埋め込みとベクター検索を組み合わせることで、AI 駆動アプリケーション向けに LLM に有用なコンテキストを与えたり、類似コンテンツのレコメンデーションなどを実現できます。
+
+ベクター検索は一貫性があり、常に最新の状態が保たれます。ベクターを保存すると、すぐにベクター検索から読み出すことができます。
+ただし、[全文検索](/search.mdx) とは異なり、ベクター検索は
+[Convex アクション](/functions/actions.mdx) からのみ利用できます。
+
+**例:**
+[Vector Search App](https://github.com/get-convex/convex-demos/tree/main/vector-search)
+
+ベクター検索を使うには次の手順が必要です:
+
+1. ベクターインデックスを定義する。
+2. [アクション](/functions/actions.mdx) の中からベクター検索を実行する。
+
+## ベクターインデックスの定義 \{#defining-vector-indexes\}
+
+[データベースインデックス](/database/reading-data/indexes/indexes.md) と同様に、ベクター
+インデックスは効率的にクエリするために事前に構築されるデータ構造です。ベクターインデックスは Convex の
+[スキーマ](/database/schemas.mdx) の一部として定義されます。
+
+テーブルにベクターインデックスを追加するには、
+テーブルのスキーマで [`vectorIndex`](/api/classes/server.TableDefinition#vectorindex)
+メソッドを使用します。すべてのベクターインデックスは一意の名前と、次の定義を持ちます:
+
+1. `vectorField` 文字列
+   * ベクター検索のためにインデックスされるフィールド名。
+2. `dimensions` 数値
+   * ベクターインデックスの固定サイズ。埋め込みを使用している場合は、
+     この次元数を埋め込みのサイズに合わせる必要があります（例: OpenAI の場合は
+     `1536`）。
+3. [任意] `filterFields` 配列
+   * ベクターインデックス内で高速にフィルタリングするためにインデックスされる
+     追加フィールドの名前。
+4. [任意] `staged` 真偽値
+   * `true` に設定すると、デプロイ時に
+     [ステージングされたデータベースインデックス](/database/reading-data/indexes#staged-indexes)
+     と同様に、インデックスが非同期にバックフィルされます。
+     これは、インデックスのバックフィル時間が長くなる大きなテーブルで有用です。
+     デフォルトは `false` です。
+
+たとえば、特定の料理ジャンル内で類似した食べ物を検索できるインデックスが必要な場合、
+テーブル定義は次のようになります:
+
+<Snippet source={Schema} title="convex/schema.ts" snippet="schemaOneTable" highlightPatterns={["vectorIndex"]} />
+
+`properties.name` のようなドット区切りのパスを使うことで、
+ネストされたドキュメント内のベクター用フィールドやフィルター用フィールドも指定できます。
+
+## ベクター検索の実行 \{#running-vector-searches\}
+
+データベースクエリや全文検索と異なり、ベクター検索は
+[Convex アクション](/functions/actions.mdx) 内でのみ実行できます。
+
+一般的な手順は次の 3 ステップです。
+
+1. 入力からベクターを生成する（例: OpenAI を使用）
+2. [`ctx.vectorSearch`](/api/interfaces/server.GenericActionCtx#vectorsearch) を使って
+   類似ドキュメントの ID を取得する
+3. そのドキュメントの必要な情報を読み込む
+
+次に、説明文に基づいて類似したフランス料理を検索するための、最初の 2 ステップの例を示します。
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets} sourceJS={VectorSearchSnippets} title="convex/foods.ts" snippet="vectorSearchQuery" highlightPatterns={["vectorSearch"]} />
+
+1 つ目のステップの例は、ベクター検索デモアプリの
+[こちら](https://github.com/get-convex/convex-demos/blob/main/vector-search/convex/foods.ts#L18)
+で確認できます。
+
+2 つ目のステップに注目すると、`vectorSearch` API はテーブル名、インデックス名、
+最後に検索内容を表す
+[`VectorSearchQuery`](/api/interfaces/server.VectorSearchQuery) オブジェクトを受け取ります。
+このオブジェクトには次のフィールドがあります。
+
+1. `vector` array
+   * 検索に使用する数値の配列（例: 埋め込みベクター）です。
+   * この検索は、保存されているベクターの中で最も類似しているものを持つドキュメントの
+     ドキュメント ID を返します。
+   * インデックスの `dimensions` と同じ長さでなければなりません。
+2. [Optional] `limit` number
+   * 取得する結果数です。指定する場合、この値は 1 から 256 の間である必要があります。
+3. [Optional] `filter`
+   * スキーマ内の `vectorIndex` の `filterFields` に基づいて、結果の集合を絞り込むための式です。
+     詳細は [Filter expressions](#filter-expressions) を参照してください。
+
+戻り値は、ちょうど 2 つのフィールドを含むオブジェクトの `Array` です。
+
+1. `_id`
+   * テーブル内でマッチしたドキュメントの
+     [Document ID](https://docs.convex.dev/database/document-ids)
+2. `_score`
+   * 検索に使用したベクターと結果がどれくらい類似しているかを示す指標で、
+     -1（最も類似していない）から 1（最も類似している）までの範囲を取ります
+
+基になるドキュメントやベクター自体は `results` には含まれないため、
+結果のリストを取得した後に、その結果に関する必要な情報を読み込む必要があります。
+
+この情報を読み込むためのいくつかの戦略は、
+[Advanced Patterns](#advanced-patterns) セクションで説明しています。
+
+ここでは、ドキュメントを読み込んでアクションから返すことにしましょう。
+そのために、結果のリストを Convex クエリに渡し、それをアクション内で実行して、
+その結果を返します。
+
+<TSAndJSSnippet sourceTS={Foods} sourceJS={Foods} title="convex/foods.ts" snippet="fetchResults" />
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets2} sourceJS={VectorSearchSnippets2} title="convex/foods.ts" snippet="fetchResults" />
+
+### フィルター式 \{#filter-expressions\}
+
+上で述べたように、ベクター検索では、ドキュメントの追加フィールドを使って、
+単一フィールドの完全一致や、複数の式の `OR` を使って結果を効率的にフィルタリングできます。
+
+たとえば、料理の種類 (`cuisine`) が &quot;French&quot; と完全に一致する料理を絞り込むフィルターは次のとおりです:
+
+<Snippet source={VectorSearchSnippets} snippet="filterSingleValue" />
+
+また、`or` 式を使って、1 つのフィールドに複数の異なる値を指定してドキュメントをフィルタリングすることもできます。次は、フランス料理またはインドネシア料理の料理を対象としたフィルターです:
+
+<Snippet source={VectorSearchSnippets} snippet="filterMultipleValues" />
+
+複数のフィルターフィールドを持つインデックスでは、異なるフィールドに対して `.or()` フィルターを使うこともできます。次は、料理の種類がフランス料理、または主な材料がバターである料理を対象としたフィルターです:
+
+<Snippet source={VectorSearchSnippets} snippet="filterMultipleFields" />
+
+**`cuisine` と `mainIngredient` の両方を、`.vectorIndex` 定義内の
+`filterFields` に含めておく必要があります。**
+
+### その他のフィルタリング \{#other-filtering\}
+
+結果は、アクション内の `_score` フィールドを使って、
+提供されたベクターとどの程度似ているかに基づいてフィルタリングできます。
+
+```ts
+const results = await ctx.vectorSearch("foods", "by_embedding", {
+  vector: embedding,
+});
+const filteredResults = results.filter((result) => result._score >= 0.9);
+```
+
+追加のフィルタリングは、ベクター検索の結果をクエリまたはミューテーション関数に渡し、その関数でドキュメントを読み込んで、ドキュメントの任意のフィールドを使ってフィルタリングを行うことで、いつでも実行できます。
+
+**パフォーマンスのために、可能な限り多くのフィルターを `.vectorSearch` に含めるようにしてください。**
+
+### 順序付け \{#ordering\}
+
+ベクトルクエリは常に関連度順で結果を返します。
+
+現在、Convex では [コサイン類似度](https://en.wikipedia.org/wiki/Cosine_similarity)
+に基づく [近似最近傍探索](https://en.wikipedia.org/wiki/Nearest_neighbor_search#Approximate_nearest_neighbor)
+を使ってベクトルを検索しています。
+より多くの類似度指標への対応は
+[将来的に追加される予定です](#future-development)。
+
+複数のドキュメントのスコアが同じ場合は、ドキュメント ID によって順序が決まります。
+
+## 高度なパターン \{#advanced-patterns\}
+
+### ベクターを保存するための別テーブルを使う \{#using-a-separate-table-to-store-vectors\}
+
+ベクターインデックスを設定する方法には主に 2 つの選択肢があります:
+
+1. ベクターを他のメタデータと同じテーブルに保存する
+2. ベクターを参照付きの別テーブルに保存する
+
+上記の例は最初の選択肢を示しており、こちらのほうがシンプルで、少量のドキュメントを読み込む場合にはうまく機能します。2 つ目の選択肢はより複雑ですが、大量のドキュメントを読み込んだり返したりするケースをより適切にサポートできます。
+
+ベクターは一般的にサイズが大きく、ベクター検索を実行する以外にはあまり有用ではないため、他のデータを読み込むとき（例: `db.get()`）や、関数から返すときにベクターをデータベースから読み込まずに済むよう、別テーブルに保存しておくと便利です。
+
+映画を表すテーブル定義と、ジャンルでフィルタしつつ類似する映画を検索するためのベクターインデックスは次のようになります:
+
+<Snippet source={Schema} title="convex/schema.ts" snippet="schemaTwoTables" />
+
+埋め込みの生成とベクター検索の実行方法は、単一テーブルを使う場合と同じです。ベクター検索の結果から関連ドキュメントを読み込む方法は異なります。`movieEmbeddings` の ID は持っていますが、読み込みたいのは `movies` ドキュメントだからです。これは `movies` テーブル上の `by_embedding` データベースインデックスを使うことで実現できます:
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets} sourceJS={VectorSearchSnippets} title="convex/movies.ts" snippet="fetchMovies" highlightPatterns={["withIndex"]} />
+
+### 結果の取得と新しいドキュメントの追加 \{#fetching-results-and-adding-new-documents\}
+
+ベクター検索から情報を返すには、アクション（ベクター検索はアクションでのみ利用可能なため）と、データを読み込むためのクエリまたはミューテーションが必要です。
+
+上の例では、クエリを使ってデータを読み込み、それをアクションから返していました。これはアクションなので、返されるデータはリアクティブではありません。別の方法としては、ベクター検索の結果自体をアクションで返し、データをリアクティブに読み込むための別のクエリを用意することもできます。検索結果そのものはリアクティブには更新されませんが、各結果に関するデータはリアクティブになります。
+
+[Vector Search Demo App](https://github.com/get-convex/convex-demos/tree/main/vector-search)
+ではこの方法を使って、リアクティブな「Votes」カウント付きで類似映画を表示しています。
+
+## 制限 \{#limits\}
+
+Convex は現在、数百万件のベクターをサポートしています。これは進行中のプロジェクトであり、今後も他の Convex の機能と同様に、この機能を拡張し続けます。
+
+ベクターインデックスには次の制約があります:
+
+* ベクターインデックスフィールドがちょうど 1 つであること。
+  * フィールドの型は `v.array(v.float64())`（または、その候補型の 1 つが
+    `v.array(v.float64())` であるような union 型）でなければなりません
+* 次元フィールドがちょうど 1 つであり、その値が 2 から 4096 の範囲であること。
+* フィルターフィールドは最大 16 個まで。
+
+ベクターインデックスは
+[テーブルごとのインデックス 32 個の制限](/database/reading-data/indexes/indexes.md#limits)
+に含まれます。さらに、テーブルごとに最大 4 個までベクターインデックスを持つことができます。
+
+ベクター検索には次の制約があります:
+
+* `vector` フィールドで検索に使用するベクターがちょうど 1 つであること
+* フィルター式は最大 64 個まで
+* 要求できる結果は最大 256 件まで（デフォルトは 10 件）
+
+アクションがベクター検索を実行し、その結果をクエリまたは
+ミューテーション関数に渡す場合、ベクター検索から得られた結果の 1 つ以上が削除または変更されている可能性があります。ベクター検索はアクション内でのみ利用可能なため、その結果に基づいて追加のトランザクションとしてのクエリやミューテーションを実行することはできません。このような要件が重要なユースケースであれば、
+[Discord でお知らせください](https://convex.dev/community)。
+
+ベクターインデックスで指定されたサイズとフィールドにベクターを含むドキュメントのみがインデックスに含まれ、ベクター検索によって返されます。
+
+制限に関する情報については[こちら](/production/state/limits.mdx)を参照してください。
+
+## 今後の開発予定 \{#future-development\}
+
+Convex では常にお客様からのフィードバックやリクエストを歓迎しています。ベクター検索を改良するために検討しているアイデアには、次のようなものがあります。
+
+* より高度なフィルターおよびフィルター構文
+* `vectorSearch` API におけるスコアに基づくフィルタリング
+* 埋め込み生成機能のさらなる強化
+
+これらの機能のいずれかがアプリにとって重要であれば、
+[Discord でぜひご意見をお寄せください](https://convex.dev/community)。

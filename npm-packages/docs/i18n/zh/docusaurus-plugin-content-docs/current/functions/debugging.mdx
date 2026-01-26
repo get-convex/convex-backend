@@ -1,0 +1,73 @@
+---
+title: 调试
+sidebar_position: 100
+description: "在开发和生产环境中调试 Convex 函数"
+---
+
+调试是弄清楚你的代码为什么没有按你预期的方式运行的过程。
+
+## 开发阶段调试 \{#debugging-during-development\}
+
+在开发时，你可以使用内置的 `console` API 来了解函数内部发生了什么：
+
+```ts title="convex/myFunctions.ts"
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const mutateSomething = mutation({
+  args: { a: v.number(), b: v.number() },
+  handler: (_, args) => {
+    console.log("Received args", args);
+    // ...
+  },
+});
+```
+
+在[默认 Convex 运行时](/functions/runtimes.mdx#default-convex-runtime)中可以使用以下方法：
+
+* 按指定严重级别记录日志：
+  * `console.log`
+  * `console.info`
+  * `console.warn`
+  * `console.error`
+  * `console.debug`
+* 记录带堆栈跟踪的日志：
+  * [`console.trace`](https://developer.mozilla.org/en-US/docs/Web/API/console/trace_static)
+* 测量执行时间：
+  * [`console.time`](https://developer.mozilla.org/en-US/docs/Web/API/console/time_static)
+  * [`console.timeLog`](https://developer.mozilla.org/en-US/docs/Web/API/console/timelog_static)
+  * [`console.timeEnd`](https://developer.mozilla.org/en-US/docs/Web/API/console/timeend_static)
+
+Convex 后端还会自动记录所有成功的函数执行，以及你的函数抛出的所有错误。
+
+你可以通过以下方式查看这些日志：
+
+1. 在使用 [`ConvexReactClient`](/client/react.mdx) 时，在浏览器开发者工具的控制台面板中查看。日志会从你的开发环境（dev 部署）发送到客户端，然后由客户端输出到浏览器中。生产部署[**不会**向客户端发送日志](/functions/error-handling/error-handling.mdx#differences-in-error-reporting-between-dev-and-prod)。
+2. 在 Convex 仪表盘的[日志页面](/dashboard/deployments/logs.md)中查看。
+3. 在开发期间，在终端中使用 [`npx convex dev`](/cli.md#tail-deployment-logs)，或者使用只打印日志的 [`npx convex logs`](/cli.md#tail-deployment-logs) 查看日志。
+
+### 使用调试器 \{#using-a-debugger\}
+
+你可以在测试中调用你的函数，此时可以添加
+`debugger;` 语句并单步调试你的代码。参见
+[测试](/testing/convex-test.mdx#debugging-tests)。
+
+## 在生产环境中调试 \{#debugging-in-production\}
+
+在生产环境中调试问题时，你可以选择：
+
+1. 利用现有日志
+2. 添加更多日志，并将新的后端版本部署到生产环境
+
+Convex 后端目前只保留数量有限的日志记录，并且在 Convex 团队进行内部维护和升级时，这些日志可能会随时被清理。因此，你应当设置
+[日志流式传输和错误上报](/production/integrations/integrations.mdx)
+集成，以便团队可以轻松访问历史日志以及由客户端记录的更多信息。
+
+## 通过 Request ID 查找相关日志 \{#finding-relevant-logs-by-request-id\}
+
+要为你或你的用户遇到的错误找到相应的日志，Convex 会在开发环境（dev）和生产环境（prod）中的所有异常消息中包含一个 Request ID，格式为：`[Request ID: <request_id>]`。
+
+你可以将一个 Request ID 复制并粘贴到 Convex 仪表盘中，以查看由该请求启动的函数的日志。详情参见
+[Dashboard logs 页面](/dashboard/deployments/logs.md#filter-logs)。
+
+{/* TODO: 补充文档，说明如何在 Datadog/Axiom 中按 Request ID 进行过滤 */}

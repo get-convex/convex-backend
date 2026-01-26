@@ -1,0 +1,54 @@
+---
+title: "JavaScript"
+sidebar_label: "JavaScript"
+sidebar_position: 350
+description:
+  "适用于 Node.js 和浏览器应用的 Convex JavaScript 客户端"
+---
+
+import Http from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+
+# Convex JavaScript 客户端 \{#convex-javascript-clients\}
+
+实现了 [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) 或
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) 的 Node.js 或任意 JavaScript 运行时，都可以访问 Convex 应用。
+响应式的 [Convex Client](/api/classes/browser.ConvexClient) 允许 Web 应用和长时间运行的 Node.js 服务器订阅 Convex
+查询的更新，而 [Convex HTTP client](/api/classes/browser.ConvexHttpClient)
+通常用于服务端渲染、数据迁移、管理脚本，以及在某个时间点执行一次性查询的无服务器函数。
+
+如果你使用 React，请参阅
+[React](/client/react.mdx) 中介绍的专用
+[`ConvexReactClient`](/api/classes/browser.ConvexClient)。
+
+## Convex 客户端 \{#convex-client\}
+
+[`ConvexClient`](/api/classes/browser.ConvexClient) 用于在 Node.js 以及任何支持 WebSocket 的 JavaScript 环境中订阅查询。
+
+import VanillaTS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+import VanillaJS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={VanillaTS} sourceJS={VanillaJS} />
+
+Convex 客户端是开源的，可以在
+[GitHub](https://github.com/get-convex/convex-js) 上获取。
+
+请参阅 [Script Tag 快速入门](/quickstart/script-tag.mdx) 以开始上手。
+
+## HTTP 客户端 \{#http-client\}
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/nodeExample.ts";
+
+[`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) 可以在浏览器、Node.js，以及任何支持 `fetch` 的 JavaScript 环境中使用。
+
+请参阅 [Node.js 快速开始](/quickstart/nodejs.mdx)。
+
+<TSAndJSSnippet title="script.ts" sourceTS={Example} sourceJS={Example} />
+
+## 在未生成 `convex/_generated/api.js` 的情况下使用 Convex \{#using-convex-without-generated-convex_generatedapijs\}
+
+如果你的 Convex 函数源码不在同一个项目中，或者不在同一个 monorepo 中，你可以使用名为 `anyApi` 的未加类型的 `api` 对象。
+
+import StringsTS from "!!raw-loader!@site/../private-demos/snippets/src/strings.ts";
+import StringsJS from "!!raw-loader!@site/../private-demos/snippets/src/strings.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={StringsTS} sourceJS={StringsJS} />

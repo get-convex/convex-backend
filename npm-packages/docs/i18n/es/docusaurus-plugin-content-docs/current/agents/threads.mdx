@@ -1,0 +1,166 @@
+---
+title: Hilos
+sidebar_label: "Threads"
+sidebar_position: 200
+description: "Agrupa mensajes en un historial de conversación"
+---
+
+Los hilos son una forma de agrupar mensajes en un historial lineal. Todos los mensajes
+guardados en el componente Agent están asociados con un hilo. Cuando se genera un mensaje
+basado en un prompt, se guardan automáticamente el mensaje del usuario y los mensajes
+generados por el agente.
+
+Los hilos se pueden asociar a un usuario y, además, cada mensaje se puede asociar
+individualmente a un usuario. De forma predeterminada, los mensajes se asocian al usuario
+del hilo.
+
+## Crear un hilo \{#creating-a-thread\}
+
+Puedes crear un hilo en una mutación o una acción. Si lo creas en una acción,
+esta también devolverá un `thread` (ver más abajo) y podrás empezar a llamar a LLMs y
+a generar mensajes. Si especificas un `userId`, el hilo se asociará con
+ese usuario y los mensajes se guardarán en el historial de ese usuario.
+
+```ts
+import { createThread } from "@convex-dev/agent";
+
+const threadId = await createThread(ctx, components.agent);
+```
+
+También puedes pasar metadatos para establecer en el hilo:
+
+```ts
+const userId = await getAuthUserId(ctx);
+const threadId = await createThread(ctx, components.agent, {
+  userId,
+  title: "My thread",
+  summary: "This is a summary of the thread",
+});
+```
+
+Es posible que en el futuro los metadatos se proporcionen automáticamente al agente como contexto,
+pero por ahora son una ayuda práctica que permite organizar los hilos en el
+[Playground](./playground.mdx).
+
+## Generar un mensaje en un hilo \{#generating-a-message-in-a-thread\}
+
+Puedes generar un mensaje en un hilo mediante las funciones del agente:
+`agent.generateText`, `agent.generateObject`, `agent.streamText` y
+`agent.streamObject`. Cualquier agente puede generar un mensaje en un hilo creado por
+cualquier otro agente.
+
+```ts
+const agent = new Agent(components.agent, { languageModel, instructions });
+
+export const generateReplyToPrompt = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+Consulta [Mensajes](./messages.mdx) para más detalles sobre cómo crear y guardar mensajes.
+
+## Continuar un hilo usando el objeto `thread` de `agent.continueThread` \{#continuing-a-thread-using-the-thread-object-from-agentcontinuethread\}
+
+También puedes continuar un hilo creando un objeto `thread` específico para el agente,
+ya sea al llamar a `agent.createThread` o `agent.continueThread` desde dentro
+de una acción. Esto permite invocar métodos sin especificar esos parámetros cada
+vez.
+
+```ts
+const { thread } = await agent.continueThread(ctx, { threadId });
+const result = await thread.generateText({ prompt });
+```
+
+El `thread` de `continueThread` o `createThread` (solo disponible en acciones)
+es un objeto `Thread`, que tiene métodos auxiliares específicos del hilo:
+
+* `thread.getMetadata()` para obtener el `userId`, `title`, `summary`, etc.
+* `thread.updateMetadata({ patch: { title, summary, userId} })` para actualizar
+  los metadatos
+* `thread.generateText({ prompt, ... })` - equivalente a
+  `agent.generateText(ctx, { threadId }, { prompt, ... })`
+* `thread.streamText({ prompt, ... })` - equivalente a
+  `agent.streamText(ctx, { threadId }, { prompt, ... })`
+* `thread.generateObject({ prompt, ... })` - equivalente a
+  `agent.generateObject(ctx, { threadId }, { prompt, ... })`
+* `thread.streamObject({ prompt, ... })` - equivalente a
+  `agent.streamObject(ctx, { threadId }, { prompt, ... })`
+
+Consulta la [documentación de Messages](./messages.mdx) para más detalles sobre cómo generar mensajes.
+
+## Eliminación de threads \{#deleting-threads\}
+
+Puedes eliminar threads por su `threadId`.
+
+De forma asíncrona (desde una mutación o una acción):
+
+```ts
+await agent.deleteThreadAsync(ctx, { threadId });
+```
+
+Sincrónicamente en lotes (desde una acción):
+
+```ts
+await agent.deleteThreadSync(ctx, { threadId });
+```
+
+También puedes eliminar todos los hilos pertenecientes a un usuario usando su `userId`.
+
+```ts
+await agent.deleteThreadsByUserId(ctx, { userId });
+```
+
+## Obtener todos los hilos asociados a un usuario \{#getting-all-threads-owned-by-a-user\}
+
+```ts
+const threads = await ctx.runQuery(
+  components.agent.threads.listThreadsByUserId,
+  { userId, paginationOpts: args.paginationOpts },
+);
+```
+
+## Eliminar todos los hilos y mensajes asociados a un usuario \{#deleting-all-threads-and-messages-associated-with-a-user\}
+
+De manera asíncrona (desde una mutación o acción):
+
+```ts
+await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
+  userId,
+});
+```
+
+Sincrónicamente (desde una acción):
+
+```ts
+await ctx.runMutation(components.agent.users.deleteAllForUserId, { userId });
+```
+
+## Obtener mensajes en un hilo \{#getting-messages-in-a-thread\}
+
+Consulta [messages.mdx](./messages.mdx) para más detalles.
+
+```ts
+import { listMessages } from "@convex-dev/agent";
+
+const messages = await listMessages(ctx, components.agent, {
+  threadId,
+  excludeToolMessages: true,
+  paginationOpts: { cursor: null, numItems: 10 }, // null significa comenzar desde el inicio
+});
+```
+
+O bien para el tipo UIMessage (más sencillo para renderizar la interfaz de usuario):
+
+```ts
+import { listUIMessages } from "@convex-dev/agent";
+
+const messages = await listUIMessages(ctx, components.agent, {
+  threadId,
+  paginationOpts: { cursor: null, numItems: 10 },
+});
+```

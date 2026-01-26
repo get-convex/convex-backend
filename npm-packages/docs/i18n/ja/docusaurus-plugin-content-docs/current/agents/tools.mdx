@@ -1,0 +1,166 @@
+---
+title: ツール
+sidebar_label: "ツール"
+sidebar_position: 500
+description: "Agent コンポーネントでのツール呼び出しの使用"
+---
+
+Agent コンポーネントはツール呼び出しをサポートしており、LLM に外部サービスや関数を呼び出させることができます。これは次のような用途に役立ちます。
+
+* データベースからデータを取得する
+* データベースにデータを書き込む・更新する
+* 追加のコンテキストを得るために Web を検索する
+* 外部 API を呼び出す
+* 先に進む前にユーザーに何らかの操作を依頼する（human-in-the-loop）
+
+## ツールの定義 \{#defining-tools\}
+
+ツールはさまざまな場面で指定できます:
+
+* Agent コンストラクタ: (`new Agent(components.agent, { tools: {...} })`)
+* スレッドの作成時: `createThread(ctx, { tools: {...} })`
+* スレッドの継続時: `continueThread(ctx, { tools: {...} })`
+* スレッド関数内: `thread.generateText({ tools: {...} })`
+* スレッドの外側: `supportAgent.generateText(ctx, {}, { tools: {...} })`
+
+各レイヤーでツールを指定した場合、デフォルト設定が上書きされます。ツールは
+`args.tools ?? thread.tools ?? agent.options.tools` の優先順位で決まります。これにより、都合のよいコンテキストでツールを作成できます。
+
+## ツールの使用 \{#using-tools\}
+
+Agent コンポーネントは、`generateText` や `streamText` に `stopWhen: stepCountIs(num)`（`num > 1` の場合）を渡すと、ツール呼び出し結果の受け取りと、それに基づく再生成を自動的に処理します。
+
+ツール呼び出しとその結果は、元のメッセージに関連付けられたスレッド内のメッセージとして保存されます。詳しくは [Messages](./messages.mdx) を参照してください。
+
+## Convex コンテキストを持つツールの作成 \{#creating-a-tool-with-a-convex-context\}
+
+Convex コンテキストにアクセスできるツールを作成する方法は 2 つあります。
+
+1. AI SDK の `tool` 関数のラッパーである `createTool` 関数を使用する。
+
+```ts
+export const ideaSearch = createTool({
+  description: "Search for ideas in the database",
+  args: z.object({ query: z.string().describe("The query to search for") }),
+  handler: async (ctx, args, options): Promise<Array<Idea>> => {
+    // ctx には agent、userId、threadId、messageId が含まれます
+    // また、auth、storage、runMutation、runAction などの ActionCtx プロパティも含まれます
+    const ideas = await ctx.runQuery(api.ideas.searchIdeas, {
+      query: args.query,
+    });
+    console.log("found ideas", ideas);
+    return ideas;
+  },
+});
+```
+
+2. 利用したい変数を含むコンテキストで、実行時にツールを定義します。
+
+```ts
+async function createTool(ctx: ActionCtx, teamId: Id<"teams">) {
+  const myTool = tool({
+    description: "My tool",
+    parameters: z.object({...}).describe("The arguments for the tool"),
+    execute: async (args, options): Promise<BarReturnType> => {
+      return await ctx.runQuery(internal.foo.bar, args);
+    },
+  });
+}
+```
+
+どちらの場合も、args と options は、裏側で利用している AI SDK の `tool`
+関数と同じものになります。
+
+型エラーが発生する場合は、`execute` 関数の戻り値の型にアノテーションを付けていること、必要であれば `ctx.run*` で呼び出す任意の関数の `handler` の戻り値の型にもアノテーションを付けていることを確認してください。
+
+注意: 各パラメータの詳細を指定するために、zod の `.describe` を使うことを強く推奨します。これは、LLM にツールの説明を提供するために利用されます。
+
+### ツールにカスタムコンテキストを追加する \{#adding-custom-context-to-tools\}
+
+ツールのコンテキストに追加のメタデータを持たせておくと便利なことがよくあります。
+
+デフォルトでは、ツールに渡されるコンテキストは次のフィールドを持つ `ToolCtx` です:
+
+* `agent` - それを呼び出している Agent インスタンス
+* `userId` - 呼び出しに紐づくユーザー ID（存在する場合）
+* `threadId` - スレッド ID（存在する場合）
+* `messageId` - generate/stream に渡されたプロンプトメッセージのメッセージ ID
+* `ActionCtx` に含まれるすべて（`auth`、`storage`、`runQuery` など）。注:
+  スケジュールされた関数やワークフローなどでは、認証ユーザーは `null` になります。
+
+コンテキストにフィールドを追加するには、`agent.generateText({ ...ctx, orgId: "123" })` のように、呼び出し時にカスタムコンテキストを渡します。
+
+Agent を構築する際に型を渡すことで、コンテキストの型を厳密に指定できます。
+
+```ts
+const myAgent = new Agent<{ orgId: string }>(...);
+```
+
+その後は、ツールで `orgId` フィールドを使用できます。
+
+```ts
+type MyCtx = ToolCtx & { orgId: string };
+
+const myTool = createTool({
+  args: z.object({ ... }),
+  description: "...",
+  handler: async (ctx: MyCtx, args) => {
+    // ctx.orgId を使用する
+  },
+});
+```
+
+## ツールとしての LLM や Agent の利用 \{#using-an-llm-or-agent-as-a-tool\}
+
+1 つの Agent に別の Agent へ質問させたい場合など、ツール呼び出しの中で生成処理を行うことができます。
+
+注記: Agent 同士が呼び出し合う構造を、必ずしもツール呼び出しとして表現する必要はありません。
+代わりに、他のコンテキストに基づいて次にどの Agent が応答すべきかを決めて、同じスレッド内で複数の Agent が参加して応答するようにすることもできます。
+
+Agent をツール呼び出しとしてモデル化する最も簡単な方法は、それぞれのツール呼び出しを独立したスレッドで動かすか、あるいはそもそもスレッドを使わずに生成処理を行うことです。そうすると、その出力は次の LLM ステップで利用するためのツール呼び出し結果として返されます。この方法であれば、ツール呼び出し結果を親スレッドに明示的に保存しておく必要は**ありません**。
+
+### スレッドなしでの LLM の直接生成： \{#direct-llm-generation-without-a-thread\}
+
+```ts
+const llmTool = createTool({
+  description: "Ask a question to some LLM",
+  args: z.object({
+    message: z.string().describe("LLMに尋ねるメッセージ"),
+  }),
+  handler: async (ctx, args): Promise<string> => {
+    const result = await generateText({
+      system: "You are a helpful assistant.",
+      // Pass through all messages from the current generation
+      prompt: [...options.messages, { role: "user", content: args.message }],
+      model: myLanguageModel,
+    });
+    return result.text;
+  },
+});
+```
+
+### エージェントをツールとして使う \{#using-an-agent-as-a-tool\}
+
+```ts
+const agentTool = createTool({
+  description: `Ask a question to agent ${agent.name}`,
+  args: z.object({
+    message: z.string().describe("The message to ask the agent"),
+  }),
+  handler: async (ctx, args, options): Promise<string> => {
+    const { userId } = ctx;
+    const { thread } = await agent.createThread(ctx, { userId });
+    const result = await thread.generateText(
+      {
+        // 現在の生成処理からすべてのメッセージを渡す
+        prompt: [...options.messages, { role: "user", content: args.message }],
+      },
+      // 現在の生成処理からすべてのメッセージをこのスレッドに保存する
+      { storageOptions: { saveMessages: "all" } },
+    );
+    // 必要に応じて、独自のテーブルで子スレッドを親スレッドに関連付ける
+    await saveThreadAsChild(ctx, ctx.threadId, thread.threadId);
+    return result.text;
+  },
+});
+```

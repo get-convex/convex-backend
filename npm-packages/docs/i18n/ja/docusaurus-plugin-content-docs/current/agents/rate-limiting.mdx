@@ -1,0 +1,279 @@
+---
+title: レート制限
+sidebar_label: "Rate Limiting"
+sidebar_position: 1200
+description: "AI エージェントへのリクエストのレートを制御する"
+---
+
+レート制限は、AI エージェントへのリクエストのレートを制御し、
+不正利用を防ぎつつ API のコストを管理するための仕組みです。
+
+[Rate Limiter コンポーネント](https://www.convex.dev/components/rate-limiter)
+の使い方を示すために、自分で実行できるサンプル実装を用意しています。
+
+この実装では、一定時間内にユーザーが送信できるメッセージ数と、
+ユーザーごとのトークン使用量の合計にレート制限をかけます。制限を超えた場合、
+クライアントはリアクティブに、ユーザーにどれくらい待つ必要があるかを伝えられます
+（別のブラウザタブで制限を超えた場合でも有効です）。
+
+一般的な利用状況の追跡については、[Usage Tracking](./usage-tracking.mdx) を参照してください。
+
+## 概要 \{#overview\}
+
+このレート制限の例では、2種類のレート制限を示します:
+
+1. **メッセージレート制限**: ユーザーが短時間にメッセージを送りすぎることを防ぎます
+2. **トークン使用レート制限**: 一定時間あたりの AI モデルのトークン消費を制御します
+
+## サンプルを実行する \{#running-the-example\}
+
+```sh
+git clone https://github.com/get-convex/agent.git
+cd agent
+npm run setup
+npm run dev
+```
+
+レート制限がどのように働くか試すために、短時間に立て続けに複数の質問を送ってみてください。
+
+## レート制限戦略 \{#rate-limiting-strategy\}
+
+以下では、各種設定について順に説明します。完全な実装例は
+[rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts)
+でも確認できます。
+
+```ts
+import { MINUTE, RateLimiter, SECOND } from "@convex-dev/rate-limiter";
+import { components } from "./_generated/api";
+
+export const rateLimiter = new RateLimiter(components.rateLimiter, {
+  sendMessage: {
+    kind: "fixed window",
+    period: 5 * SECOND,
+    rate: 1,
+    capacity: 2,
+  },
+  globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+  tokenUsagePerUser: {
+    kind: "token bucket",
+    period: MINUTE,
+    rate: 2000,
+    capacity: 10000,
+  },
+  globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+});
+```
+
+### 1. メッセージに対する固定ウィンドウ方式レート制限 \{#1-fixed-window-rate-limiting-for-messages\}
+
+```ts
+// export const rateLimiter = new RateLimiter(components.rateLimiter, {
+sendMessage: { kind: "fixed window", period: 5 * SECOND, rate: 1, capacity: 2 }
+```
+
+* ユーザーごとに5秒ごと1メッセージを許可します。
+* スパムや連続的な高頻度リクエストを防ぎます。
+* 直前の5秒間に使用量の残りがある場合、`capacity` により5秒以内に最大2メッセージのバースト送信を許可します。
+
+グローバル制限:
+
+```ts
+globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+```
+
+* グローバルに 1 分あたり 1000 件のメッセージを許可し、API 制限を超えないようにします。
+* トークンバケットとして、1 分あたり 1000 トークンの速度で継続的にトークンが蓄積され、
+  トークン数が 1000 に達するとそれ以上は増えません。利用可能なトークンはすべて、短時間にまとめて消費できます。
+
+### 2. トークン使用量に対するトークンバケット方式のレート制限 \{#2-token-bucket-rate-limiting-for-token-usage\}
+
+```ts
+tokenUsage: { kind: "token bucket", period: MINUTE, rate: 1_000 }
+globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+```
+
+* 各ユーザーごとに 1 分あたり 1000 トークン（`userId` がキーとして渡される）、
+  かつグローバルでは 1 分あたり 10 万トークンまで処理できます。
+* 全体の使用量を制御しつつ、一時的なバースト利用も可能にします。しばらく使用していない場合は、
+  その時点で利用可能なトークンを一度にすべて消費できます。ただしその場合は、追加のリクエストを行う前に、
+  トークンが徐々に蓄積されるのを待つ必要があります。
+* ユーザーごとの上限は、単一ユーザーが LLM プロバイダーで利用可能なトークン帯域を独占するのを防ぐのに役立ちます。
+  一方でグローバル上限は、潜在的に長い複数ステップのリクエストの途中でエラーを発生させることなく、
+  API のレート制限を超えないようにするのに役立ちます。
+
+## 動作の仕組み \{#how-it-works\}
+
+### ステップ 1: 事前のレート制限チェック \{#step-1-pre-flight-rate-limit-checks\}
+
+質問を処理する前に、システムは次の処理を行います:
+
+1. ユーザーがさらにメッセージを送信できるかどうかをチェックする（頻度制限）
+2. 質問に対するトークン使用量を見積もる
+3. ユーザーが十分なトークン枠を持っていることを確認する
+4. いずれかの制限を超える場合はエラーをスローする
+5. レート制限を超えない場合、LLM へのリクエストを送信する
+
+完全な実装については、
+[rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts)
+を参照してください。
+
+```ts
+// In the mutation that would start generating a message.
+await rateLimiter.limit(ctx, "sendMessage", { key: userId, throws: true });
+// Also check global limit.
+await rateLimiter.limit(ctx, "globalSendMessage", { throws: true });
+
+// スレッド内の以前のトークン使用量と質問に基づくヒューリスティック。
+const count = await estimateTokens(ctx, args.threadId, args.question);
+// Check token usage, but don't consume the tokens yet.
+await rateLimiter.check(ctx, "tokenUsage", {
+  key: userId,
+  count: estimateTokens(args.question),
+  throws: true,
+});
+// Also check global limit.
+await rateLimiter.check(ctx, "globalTokenUsage", {
+  count,
+  reserve: true,
+  throws: true,
+});
+```
+
+許容量が足りない場合、レートリミッターはエラーをスローし、クライアント側でそれをキャッチしてユーザーに、少し待ってからもう一度試すよう促すことができます。
+
+`limit` と `check` の違いは、`limit` はすぐにトークンを消費するのに対して、`check` は上限を超えるかどうかだけを確認する点です。実際には、リクエストが完了して合計の使用量が分かったタイミングで、トークンを使用済みとしてマークします。
+
+### ステップ 2: 生成後の使用量の追跡 \{#step-2-post-generation-usage-tracking\}
+
+メッセージ送信頻度のレート制限は、短時間に大量のメッセージが送信されるのを防ぐうえで有効ですが、各メッセージが非常に長いレスポンスを生成したり、多くのコンテキストトークンを消費する場合があります。これに対処するため、トークン使用量自体にも別のレート制限を設けて追跡します。
+
+AI がレスポンスを生成した後、その合計使用量を使って消費されたトークンを記録します。生成で推定より多くのトークンが使われた場合に備え、一時的なマイナス残高を許可するために `reserve: true` を使用します。ここでいう「予約」とは、許可された上限を超えてトークンを割り当てることを意味します。通常これは、大きなリクエストのための容量を事前に確保し、後でスケジュール実行できるようにするために行われます。このケースでは、すでに消費された容量を記録しています。これにより、その「負債」が解消されるまで将来のリクエストが開始されるのを防ぎます。
+
+Agent コンポーネントを使用している場合、AI がレスポンスを生成した後に呼び出される `usageHandler` の中でこれを行うことができます。
+
+```ts
+import { Agent, type Config } from "@convex-dev/rate-limiter";
+
+const sharedConfig = {
+  usageHandler: async (ctx, { usage, userId }) => {
+    if (!userId) {
+      return;
+    }
+    // 完全な使用量が判明した時点で、トークン使用量を消費します。
+    // これは最初の生成には間に合いませんが、その負債を返済するまで
+    // 以降のリクエストを防ぎます。
+    await rateLimiter.limit(ctx, "tokenUsage", {
+      key: userId,
+      // ここで異なる種類のトークンに異なる重み付けを行うことができます。
+      count: usage.totalTokens,
+      // トークンを予約することで、ここでは失敗しませんが、
+      // 負の値になることを許可し、以下の `check` 呼び出しで以降のリクエストを拒否します。
+      reserve: true,
+    });
+  },
+} satisfies Config;
+
+// エージェント定義で使用します
+const agent = new Agent(components.agent, {
+  name,
+  languageModel,
+  ...sharedConfig,
+});
+```
+
+ここでの「ポイント」は、ユーザーが 1 回のリクエストに対する上限を超えるリクエストを送ること自体は可能でも、その後は次のリクエスト分のトークンが貯まるまで長く待たなければならない、という点にあります。したがって、時間平均で見るとレート制限以上に消費することはできません。
+
+これは、推定に基づいて事前にリクエストを抑制しようとする現実的なアプローチと、実際の使用量に対するレート制限とのバランスを取るものです。
+
+## クライアント側での処理 \{#client-side-handling\}
+
+クライアント側のコードについては
+[RateLimiting.tsx](https://github.com/get-convex/agent/blob/main/example/ui/rate_limiting/RateLimiting.tsx)
+を参照してください。
+
+クライアントは、リクエストを許可すべきかどうかを最終的に決定するものではありませんが、レート制限をチェックしている間に待機メッセージを表示したり、レート制限を超えたときにエラーメッセージを表示したりできます。これにより、失敗する可能性が高い試行をユーザーが行うのを防げます。
+
+`useRateLimit` フックを使ってレート制限を確認します。詳しくは
+[レート制限のドキュメント](https://www.convex.dev/components/rate-limiter)
+を参照してください。
+
+```ts
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
+// ...
+const { status } = useRateLimit(api.example.getRateLimit);
+```
+
+`convex/example.ts` では `getRateLimit` をエクスポートしています。
+
+```ts
+export const { getRateLimit, getServerTime } = rateLimiter.hookAPI<DataModel>(
+  "sendMessage",
+  { key: (ctx) => getAuthUserId(ctx) },
+);
+```
+
+レート制限の確認中に待機メッセージを表示する:
+
+```ts
+{status && !status.ok && (
+    <div className="text-xs text-gray-500 text-center">
+    <p>メッセージ送信のレート制限を超過しました。</p>
+    <p>
+        <Countdown ts={status.retryAt} /> 後に再試行してください
+    </p>
+    </div>
+)}
+```
+
+レート制限を超えたときにエラーメッセージを表示する:
+
+```ts
+import { isRateLimitError } from "@convex-dev/rate-limiter";
+
+// in a button handler
+await submitQuestion({ question, threadId }).catch((e) => {
+  if (isRateLimitError(e)) {
+    toast({
+      title: "Rate limit exceeded",
+      description: `${e.data.name}のレート制限を超過しました。
+          ${getRelativeTime(Date.now() + e.data.retryAfter)}後に再試行してください`,
+    });
+  }
+});
+```
+
+## トークン数の見積もり \{#token-estimation\}
+
+この例には、トークン数を簡易に見積もる関数が含まれています。
+
+```ts
+import { QueryCtx } from "./_generated/server";
+import { fetchContextMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+// This is a rough estimate of the tokens that will be used.
+// It's not perfect, but it's a good enough estimate for a pre-generation check.
+export async function estimateTokens(
+  ctx: QueryCtx,
+  threadId: string | undefined,
+  question: string,
+) {
+  // Assume roughly 4 characters per token
+  const promptTokens = question.length / 4;
+  // Assume a longer non-zero reply
+  const estimatedOutputTokens = promptTokens * 3 + 1;
+  const latestMessages = await fetchContextMessages(ctx, components.agent, {
+    threadId,
+    searchText: question,
+    contextOptions: { recentMessages: 2 },
+  });
+  // 新しい使用量は、おおよそ以前のトークン数 + 質問のトークン数になります。
+  // 以前のトークン数には、完全なメッセージ履歴のトークンと
+  // 出力トークンが含まれており、これらは新しい履歴の一部となります。
+  const lastUsageMessage = latestMessages
+    .reverse()
+    .find((message) => message.usage);
+  const lastPromptTokens = lastUsageMessage?.usage?.totalTokens ?? 1;
+  return lastPromptTokens + promptTokens + estimatedOutputTokens;
+}
+```

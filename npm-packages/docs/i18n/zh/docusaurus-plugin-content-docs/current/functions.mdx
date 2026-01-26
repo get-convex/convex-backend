@@ -1,0 +1,30 @@
+---
+title: "函数"
+description: "通过编写函数定义你的服务端行为"
+hide_table_of_contents: true
+pagination_prev: tutorial/index
+---
+
+函数运行在后端，使用 JavaScript（或 TypeScript）编写。它们会自动通过
+[客户端库](/client/react.mdx) 作为 API 提供。你在 Convex 后端做的所有事情都从函数开始。
+
+函数有三种类型：
+
+- [查询](/functions/query-functions.mdx) 从你的 Convex 数据库中读取数据，
+  并会自动缓存且可订阅（实时、响应式）。
+- [变更](/functions/mutation-functions.mdx) 将数据写入数据库，并以事务方式运行。
+- [操作](/functions/actions.mdx) 可以调用 OpenAI、Stripe、Twilio，或任何
+  让你的应用正常工作所需的服务或 API。
+
+当你想从 webhook 或自定义客户端调用你的函数时，你也可以编写
+[HTTP 操作](/functions/http-actions.mdx)。
+
+下面是对这三种不同 Convex 函数类型及其功能的概览：
+
+|                            | 查询 | 变更 | 操作 |
+| -------------------------- | ---- | ---- | ---- |
+| 数据库访问                 | 是   | 是   | 否   |
+| 事务性                     | 是   | 是   | 否   |
+| 缓存                       | 是   | 否   | 否   |
+| 实时更新                   | 是   | 否   | 否   |
+| 外部 API 调用（fetch）     | 否   | 否   | 是   |

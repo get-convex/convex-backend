@@ -1,0 +1,56 @@
+{
+    "defaultLocale": "en",
+    "files": {
+      "mdx": {
+        "include": [
+          "docs/**/*.mdx",
+          "docs/**/*.md"
+        ],
+        "transform": [
+          {
+            "match": "^docs/(.*)\\.mdx$",
+            "replace": "i18n/{locale}/docusaurus-plugin-content-docs/current/$1.mdx"
+          },
+          {
+            "match": "^docs/(.*)\\.md$",
+            "replace": "i18n/{locale}/docusaurus-plugin-content-docs/current/$1.md"
+          }
+        ]
+      },
+      "json": {
+        "include": [
+          "docs/**/*.json",
+          "i18n/[locale]/**/*.json"
+        ],
+        "transform": [
+          {
+            "match": "^docs/(.*)\\.json$",
+            "replace": "i18n/{locale}/docusaurus-plugin-content-docs/current/$1.json"
+          }
+        ]
+      },
+      "gt": {
+        "output": "i18n/locales/[locale].json"
+      }
+    },
+    "locales": [
+      "en",
+      "es",
+      "ja",
+      "zh"
+    ],
+    "options": {
+      "experimentalLocalizeStaticImports": true,
+      "docsImportRewrites": [
+        {
+          "match": "@site/docs",
+          "replace": "@site/i18n/[locale]/docusaurus-plugin-content-docs/current"
+        }
+      ],
+      "skipFileValidation": {
+        "mdx": true
+      },
+      "experimentalAddHeaderAnchorIds": "default",
+      "experimentalClearLocaleDirs": true 
+    }
+  }

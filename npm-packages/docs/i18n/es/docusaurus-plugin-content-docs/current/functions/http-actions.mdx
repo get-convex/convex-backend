@@ -1,0 +1,205 @@
+---
+title: Acciones HTTP
+sidebar_position: 35
+description: "Crea APIs HTTP directamente en Convex"
+---
+
+import http from "!!raw-loader!@site/../demos/http/convex/http.ts";
+import httpFunction from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionConstructor.ts";
+import httpStorage from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+¡Las acciones HTTP te permiten crear una API HTTP directamente en Convex!
+
+```ts title="convex/http.ts"
+import { httpRouter } from "convex/server";
+import { httpAction } from "./_generated/server";
+
+const http = httpRouter();
+
+http.route({
+  path: "/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    return new Response(`Hello from ${request.url}`);
+  }),
+});
+export default http;
+```
+
+Las acciones HTTP reciben un
+[Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) y devuelven un
+[Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) de acuerdo con
+la [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
+Las acciones HTTP pueden manipular directamente la solicitud y la respuesta, e interactuar con
+datos en Convex indirectamente ejecutando
+[consultas](/functions/query-functions.mdx),
+[mutaciones](/functions/mutation-functions.mdx) y
+[acciones](/functions/actions.mdx). Las acciones HTTP pueden usarse para recibir
+webhooks de aplicaciones externas o definir una API HTTP pública.
+
+Las acciones HTTP se exponen en `https://<nombre de tu despliegue>.convex.site` (por ejemplo,
+`https://happy-animal-123.convex.site`).
+
+**Ejemplo:**
+[Acciones HTTP](https://github.com/get-convex/convex-demos/tree/main/http)
+
+## Definir acciones HTTP \{#defining-http-actions\}
+
+Los controladores de acciones HTTP se definen usando el constructor
+[`httpAction`](/generated-api/server#httpaction), similar al constructor
+`action` para las acciones normales:
+
+<TSAndJSSnippet title="convex/myHttpActions.ts" sourceTS={Constructor} sourceJS={Constructor} />
+
+El primer argumento de `handler` es un objeto
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx), que proporciona
+[`auth`](/api/interfaces/server.Auth),
+[`storage`](/api/interfaces/server.StorageActionWriter) y
+[`scheduler`](/api/interfaces/server.Scheduler), así como `runQuery`,
+`runMutation`, `runAction`.
+
+El segundo argumento contiene los datos de
+[`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request). Las
+acciones HTTP no admiten validación de argumentos, ya que el análisis de los
+argumentos de la Request entrante queda completamente a tu cargo.
+
+Aquí tienes un ejemplo:
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={httpFunction} sourceJS={httpFunction} />
+
+<>
+  {/* Envuelto en un fragmento porque Prettier mueve JSDialectFileName a una nueva línea */}
+
+  Para exponer la acción HTTP, exporta una instancia de
+  [`HttpRouter`](/api/classes/server.HttpRouter) desde el archivo
+  <JSDialectFileName name="convex/http.ts" />. Para crear la instancia, llama a
+  la función `httpRouter`. En `HttpRouter` puedes exponer rutas usando el
+  método `route`:
+</>
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={http} sourceJS={http} snippet="router" highlightPatterns={["handler: postMessage"]} />
+
+Ahora puedes llamar a esta acción vía HTTP e interactuar con los datos
+almacenados en la base de datos de Convex. Las acciones HTTP se exponen en
+`https://<your deployment name>.convex.site`.
+
+```bash
+export DEPLOYMENT_NAME=... # ejemplo: "happy-animal-123"
+curl -d '{ "author": "User 123", "body": "Hello world" }' \
+    -H 'content-type: application/json' "https://$DEPLOYMENT_NAME.convex.site/postMessage"
+```
+
+Al igual que otras funciones de Convex, puedes ver tus acciones HTTP en la
+[vista Functions](/dashboard/deployments/functions.md) de
+[tu panel de control](https://dashboard.convex.dev/) y consultar los registros que generan
+en la [vista Logs](/dashboard/deployments/logs.md).
+
+## Límites \{#limits\}
+
+Las acciones HTTP se ejecutan en el mismo entorno que las consultas y mutaciones,
+por lo que tampoco tienen acceso a las API de JavaScript específicas de Node.js.
+Las acciones HTTP pueden llamar a
+[acciones](/functions/actions.mdx), que sí pueden ejecutarse en Node.js.
+
+Al igual que las [acciones](/functions/actions.mdx#error-handling), las acciones HTTP
+pueden tener efectos secundarios y Convex no las reintentará automáticamente cuando
+se produzcan errores. Es responsabilidad de quien realiza la llamada manejar los errores y
+reintentar la solicitud si corresponde.
+
+El tamaño de la solicitud y de la respuesta está limitado a 20 MB.
+
+Las acciones HTTP admiten tipos de cuerpo de solicitud y respuesta de `.text()`,
+`.json()`, `.blob()` y `.arrayBuffer()`.
+
+Ten en cuenta que no necesitas definir una acción HTTP para llamar a tus consultas,
+mutaciones y acciones mediante HTTP si controlas al cliente, ya que puedes usar el
+[`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) de JavaScript o
+el [cliente de Python](/client/python.md) para llamar a estas funciones directamente.
+
+## Depuración \{#debugging\}
+
+### Paso 1: Comprueba que tus acciones HTTP se hayan desplegado. \{#step-1-check-that-your-http-actions-were-deployed\}
+
+Revisa la [página de funciones](https://dashboard.convex.dev/deployment/functions) en
+el panel de control y asegúrate de que haya una entrada llamada `http`.
+
+Si no es así, vuelve a comprobar que hayas definido tus acciones HTTP con `httpRouter`
+en un archivo llamado `http.js` o `http.ts` (el nombre del archivo debe coincidir
+exactamente) y que `npx convex dev` no tenga errores.
+
+### Paso 2: Verifica que puedas acceder a tu endpoint usando curl \{#step-2-check-that-you-can-access-your-endpoint-using-curl\}
+
+Obtén tu URL desde el panel de control en
+[Settings](https://dashboard.convex.dev/deployment/settings) &gt; URL and Deploy
+Key.
+
+Asegúrate de que esta sea la URL que termina en **`.convex.site`**, y no en
+`.convex.cloud`. Por ejemplo: `https://happy-animal-123.convex.site`
+
+Ejecuta un comando `curl` para llamar a uno de tus endpoints definidos, o define
+un nuevo endpoint específicamente para pruebas
+
+```
+curl -X GET https://<nombre del despliegue>.convex.site/myEndpoint
+```
+
+Comprueba la [página de registros](https://dashboard.convex.dev/deployment/logs) en el
+panel de control para confirmar que haya un registro de tu acción HTTP.
+
+### Paso 3: Comprueba la solicitud que está haciendo tu navegador \{#step-3-check-the-request-being-made-by-your-browser\}
+
+Si has determinado que tus acciones HTTP se han desplegado y son
+accesibles mediante curl, pero aún hay problemas al solicitarlas desde tu app,
+comprueba las solicitudes exactas que está haciendo tu navegador.
+
+Abre la pestaña *Network* en las herramientas de desarrollador de tu navegador y activa tus solicitudes HTTP.
+
+Comprueba que esta URL coincida con la que probaste antes con curl: debe terminar en
+`.convex.site` y tener el nombre de despliegue correcto.
+
+Deberías poder ver estas solicitudes en el panel de control,
+en la [página de logs](https://dashboard.convex.dev/deployment/logs).
+
+Si ves &quot;CORS error&quot; o mensajes en la consola del navegador como
+`Access to fetch at '...' from origin '...' has been blocked by CORS policy`,
+probablemente necesites configurar los encabezados CORS y, potencialmente, agregar un manejador para la
+solicitud `OPTIONS` de preflight. Consulta
+[esta sección](/functions/http-actions.mdx#cors) más abajo.
+
+## Patrones comunes \{#common-patterns\}
+
+### Almacenamiento de archivos \{#file-storage\}
+
+Las acciones HTTP se pueden usar para gestionar la carga y la recuperación de archivos almacenados, consulta:
+
+* [Cargar archivos mediante una acción HTTP](/file-storage/upload-files.mdx#uploading-files-via-an-http-action)
+* [Servir archivos mediante acciones HTTP](/file-storage/serve-files.mdx#serving-files-from-http-actions)
+
+### CORS \{#cors\}
+
+Para realizar solicitudes a acciones HTTP desde un sitio web debes agregar
+encabezados de
+[Cross-Origin Resource Sharing (CORS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
+a tus acciones HTTP.
+
+Existen recursos que detallan exactamente qué encabezados CORS son necesarios según
+el caso de uso. [Este sitio](https://httptoolkit.com/will-it-cors/) proporciona
+una guía interactiva sobre qué encabezados CORS agregar. Este es un ejemplo de
+cómo agregar encabezados CORS a una acción HTTP de Convex:
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={httpStorage} sourceJS={httpStorage} snippet={["sendImageStore"]} highlightPatterns={["headers: new Headers", "        ", "     \\}\\)"]} />
+
+Este es un ejemplo de cómo manejar una solicitud `OPTIONS` de preflight:
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={httpStorage} sourceJS={httpStorage} snippet="preflight" highlightPatterns={["headers: new Headers", "          ", "       \\}\\)"]} />
+
+### Autenticación \{#authentication\}
+
+Puedes aprovechar la integración de [autenticación](/auth.mdx) integrada en Convex y
+acceder a una identidad de usuario desde
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity). Para ello,
+llama a tu endpoint con un encabezado `Authorization` que incluya un token JWT:
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />

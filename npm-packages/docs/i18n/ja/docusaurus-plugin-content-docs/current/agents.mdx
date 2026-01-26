@@ -1,0 +1,95 @@
+---
+title: "AI エージェント"
+sidebar_position: 100
+description: "Convex で AI エージェントを構築する"
+---
+
+## Convex を使った AI Agent の構築 \{#building-ai-agents-with-convex\}
+
+Convex は、Components と既存の Convex 機能を活用して、エージェント型 AI アプリケーションを構築するための強力なビルディングブロックを提供します。
+
+Convex を使うと、ユーザーのリアクティブかつインタラクティブな体験を損なうことなく、UI から長時間動作するエージェント型ワークフローを分離できます。LLM とのメッセージ履歴はデフォルトで永続化され、すべてのクライアントでリアルタイムに更新され、設定ではなくコードを使って他の Convex 機能と簡単に組み合わせることができます。
+
+## Agent コンポーネント \{#agent-component\}
+
+Agent コンポーネントは、AI エージェントを構築するための中核的なコンポーネントです。スレッドとメッセージを管理し、その上でエージェント同士が静的または動的なワークフローで協調して動作できるようにします。
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd" title="Agent コンポーネントの YouTube 動画" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+[Agent コンポーネントの YouTube
+動画](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
+
+### コアコンセプト \{#core-concepts\}
+
+* Agent は、LLM へのプロンプトを関連するモデルやプロンプト、
+  [Tools](/agents/tools) とともに構造化して管理します。テキストとオブジェクトの両方を生成し、ストリーミングできます。
+* Agent は任意の Convex アクション内で使用できるため、静的な設定ではなく
+  コードを使うことによる抽象化の利点を享受しながら、他のビジネスロジックと並べて
+  Agent 用のコードを書くことができます。
+* [Threads](/agents/threads) は [messages](/agents/messages) を永続化し、
+  複数のユーザーや Agent（[human agents](/agents/human-agents) を含む）で共有できます。
+* [Conversation context](/agents/context) は、各 LLM 呼び出しに自動的に含まれ、
+  メッセージに対するベクター検索とテキスト検索を組み合わせたハイブリッド検索も組み込まれています。
+
+### 高度な機能 \{#advanced-features\}
+
+* [Workflows](/agents/workflows) を使うと、エージェントやユーザーをまたいで、永続的かつ高い信頼性をもつマルチステップ処理を構築できます。
+* [RAG](/agents/rag) 手法にも対応しており、[RAG Component](https://www.convex.dev/components/rag) を使って、プロンプトを事前に拡張したり、ツール呼び出しとして拡張したりできます。
+* [Files](/agents/files) はチャット履歴内で利用でき、自動的に [file storage](/file-storage) に保存されます。
+
+### デバッグとトラッキング \{#debugging-and-tracking\}
+
+* [デバッグ](/agents/debugging) を利用できます。[agent playground](/agents/playground) では、すべてのメタデータを確認し、プロンプトやコンテキスト設定を試行錯誤しながら調整できます。
+* [使用状況トラッキング](/agents/usage-tracking) により、ユーザーやチーム向けの利用課金が可能になります。
+* [レート制限](/agents/rate-limiting) は、ユーザーがエージェントと対話できる頻度を制御し、LLM プロバイダーの制限を超えないようにします。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+href: "/agents/getting-started",
+label: "最初の Agent を作成する",
+}}
+/>
+
+背景にある考え方については、次を参照してください：
+[AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents)。
+
+サンプルコード：
+
+```typescript
+import { Agent } from "@convex-dev/agents";
+import { openai } from "@ai-sdk/openai";
+import { components } from "./_generated/api";
+import { action } from "./_generated/server";
+
+// Define an agent
+const supportAgent = new Agent(components.agent, {
+  name: "Support Agent",
+  chat: openai.chat("gpt-4o-mini"),
+  instructions: "You are a helpful assistant.",
+  tools: { accountLookup, fileTicket, sendEmail },
+});
+
+// Use the agent from within a normal action:
+export const createThread = action({
+  args: { prompt: v.string() },
+  handler: async (ctx, { prompt }) => {
+    const { threadId, thread } = await supportAgent.createThread(ctx);
+    const result = await thread.generateText({ prompt });
+    return { threadId, text: result.text };
+  },
+});
+
+// Pick up where you left off, with the same or a different agent:
+export const continueThread = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // スレッドの以前のメッセージ履歴が自動的に含まれます。
+    const { thread } = await anotherAgent.continueThread(ctx, { threadId });
+    const result = await thread.generateText({ prompt });
+    return result.text;
+  },
+});
+```

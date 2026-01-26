@@ -1,0 +1,99 @@
+---
+title: "ドキュメントID"
+sidebar_position: 10
+description: "Id を使って複雑なリレーショナルデータモデルを構築する"
+---
+
+import SerializeExample from "!!raw-loader!@site/../private-demos/snippets/convex/tasks.ts";
+import SerializeCall from "!!raw-loader!@site/../private-demos/snippets/src/documentIdsSerializeCall.tsx";
+
+**例:**
+[リレーショナルデータモデリング](https://github.com/get-convex/convex-demos/tree/main/relational-data-modeling)
+
+Convex のすべてのドキュメントには、システムによって自動生成されるグローバルに一意な文字列の *document ID* が自動的に割り当てられます。
+
+```ts
+const userId = await ctx.db.insert("users", { name: "Michael Jordan" });
+```
+
+この ID を使うと、`get` メソッドで 1 件のドキュメントを効率的に読み取れます。
+
+```ts
+const retrievedUser = await ctx.db.get("users", userId);
+```
+
+ドキュメントの ID は、
+[`_id` フィールド](/database/types.md#system-fields)から取得できます。
+
+```ts
+const userId = retrievedUser._id;
+```
+
+また、この同じ ID を使って、そのドキュメントを直接更新することもできます。
+
+```ts
+await ctx.db.patch("users", userId, { name: "Steph Curry" });
+```
+
+Convex は、[スキーマ](/database/schemas.mdx)に基づいて、テーブル名を型パラメータに取る [`Id`](/generated-api/data-model#id) の TypeScript 型を生成します。
+
+```typescript
+import { Id } from "./_generated/dataModel";
+
+const userId: Id<"users"> = user._id;
+```
+
+ID は実行時には文字列ですが、[`Id`](/generated-api/data-model#id) 型を使うとコンパイル時に ID を他の文字列と区別できます。
+
+## 参照とリレーション \{#references-and-relationships\}
+
+Convex では、あるドキュメントの `Id` を別のドキュメントに埋め込むだけで、そのドキュメントを参照できます。
+
+```ts
+await ctx.db.insert("books", {
+  title,
+  ownerId: user._id,
+});
+```
+
+`ctx.db.get` を使って参照をたどることができます。
+
+```ts
+const user = await ctx.db.get("users", book.ownerId);
+```
+
+また、参照を使って[ドキュメントをクエリする](/database/reading-data/reading-data.mdx)こともできます。
+
+```ts
+const myBooks = await ctx.db
+  .query("books")
+  .filter((q) => q.eq(q.field("ownerId"), user._id))
+  .collect();
+```
+
+`Id` を参照として利用することで、複雑なデータモデルを構築できます。
+
+## 深くネストされたドキュメントとリレーションシップのトレードオフ \{#trading-off-deeply-nested-documents-vs-relationships\}
+
+Convex がネストされたオブジェクトや配列をサポートしているのは便利ですが、
+ドキュメント自体は比較的小さなサイズに保つようにしてください。実務上は、配列の要素数は
+5〜10 個程度までに抑え、深くネストされたオブジェクトは避けることを推奨します。
+
+その代わりに、別のテーブル、ドキュメント、参照を活用してデータを構造化してください。
+そうすることで、プロジェクトの成長に伴って保守性とパフォーマンスの両方が向上します。
+
+## ID のシリアライズ \{#serializing-ids\}
+
+ID は文字列なので、URL に簡単に埋め込んだり、Convex の外部に保存したりできます。
+
+URL のような外部ソースから ID 文字列を Convex 関数に渡して、対応するオブジェクトを取得できます。クライアント側で TypeScript を使っている場合は、文字列を `Id` 型にキャストできます:
+
+<Snippet title="src/App.tsx" source={SerializeCall} highlightPatterns={[" as "]} />
+
+この ID は外部ソースから渡されるので、引数バリデータや
+[`ctx.db.normalizeId`](/api/interfaces/server.GenericDatabaseReader#normalizeid)
+を使って、この ID が期待するテーブルに属していることを確認してからオブジェクトを返してください。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={SerializeExample} sourceJS={SerializeExample} highlightPatterns={["v.id"]} />
+
+<StackPosts query="document IDs" />

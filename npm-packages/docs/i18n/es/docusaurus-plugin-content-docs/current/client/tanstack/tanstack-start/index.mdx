@@ -1,0 +1,124 @@
+---
+title: "TanStack Start"
+sidebar_label: "TanStack Start"
+description: "Cómo funciona Convex con TanStack Start"
+---
+
+[TanStack Start](https://tanstack.com/start/latest) es un nuevo framework web de React
+con enrutamiento con tipado de primera clase.
+
+Cuando se usa con Convex, TanStack Start proporciona
+
+* Consultas que se actualizan en tiempo real con React Query (el cliente de React para TanStack Query)
+* Reanudación de suscripciones de sesión, desde SSR hasta en vivo en el cliente
+* Precarga y prefetch basados en loaders
+* Marca de tiempo lógica coherente para las consultas durante el SSR
+* SSR local opcional a nivel de componente
+
+¡y más!
+
+Esta página describe la forma recomendada de usar Convex con TanStack Start, a través de
+React Query. Los hooks estándar de Convex React también funcionan con TanStack Start
+sin React Query, al igual que los
+[hooks de React Query](/client/tanstack/tanstack-query/index.mdx) sin TanStack
+Start. Pero usar los tres a la vez es la combinación ideal.
+
+<Admonition type="caution" title="TanStack Start está en Beta">
+  TanStack Start es un nuevo framework de React que actualmente está en beta. Puedes usarlo
+  hoy, pero podrían producirse cambios importantes que rompan la compatibilidad antes de una versión estable.
+</Admonition>
+
+## Primeros pasos \{#getting-started\}
+
+Sigue la [guía de inicio rápido de TanStack Start](/quickstart/tanstack-start.mdx) para añadir
+Convex a un nuevo proyecto de TanStack Start.
+
+## Uso de Convex con React Query \{#using-convex-with-react-query\}
+
+Puedes leer más sobre los
+[React Query hooks](/client/tanstack/tanstack-query/index.mdx), pero aquí resumimos algunos
+puntos destacados relevantes para TanStack Start.
+
+### Mantener la suscripción a las consultas \{#staying-subscribed-to-queries\}
+
+Las consultas de Convex en React Query siguen recibiendo actualizaciones después de que se desmonta el último
+componente suscrito a la consulta. El valor predeterminado para este comportamiento es de 5
+minutos y este valor se configura con
+[`gcTime`](https://tanstack.com/query/latest/docs/framework/react/guides/caching).
+
+Es útil saber esto al depurar por qué un resultado de consulta ya está cargado: en
+navegaciones en el lado del cliente, que una suscripción ya esté activa puede depender de
+qué páginas se visitaron previamente en una sesión.
+
+### Uso de los hooks de Convex React \{#using-convex-react-hooks\}
+
+Los hooks de [Convex React](/client/react.mdx), como
+[`usePaginatedQuery`](/api/modules/react#usepaginatedquery), se pueden usar
+junto con los hooks de TanStack. Estos hooks hacen referencia al mismo cliente de Convex, por lo que
+seguirás disponiendo de un único conjunto coherente de resultados de consultas en tu aplicación cuando se
+combinan.
+
+## Renderizado en el servidor \{#server-side-rendering\}
+
+Usar TanStack Start y Query con Convex hace especialmente fácil
+actualizar en tiempo real las consultas de Convex en el cliente, al mismo tiempo que las
+[renderizas en el servidor](https://tanstack.com/query/v5/docs/framework/react/guides/ssr).
+[`useSuspenseQuery()`](https://tanstack.com/query/latest/docs/framework/react/reference/useSuspenseQuery)
+es la forma más sencilla de hacerlo:
+
+```ts
+const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+```
+
+### Vistas de cliente consistentes \{#consistent-client-views\}
+
+En el navegador, todas las suscripciones de consultas de Convex presentan una vista
+consistente de la base de datos en el mismo instante lógico en el tiempo: si el
+resultado de una consulta refleja una determinada transacción de mutación, todos
+los demás resultados de consulta también lo harán.
+
+El renderizado del lado del servidor suele ser un caso especial: en lugar de una
+sesión con estado basada en WebSocket, en el servidor es más sencillo obtener los
+resultados de las consultas de forma ad hoc. Esto puede provocar inconsistencias
+análogas a cuando un endpoint REST devuelve resultados antes de que se ejecute
+una mutación y otro endpoint devuelve resultados después de ese cambio.
+
+En TanStack Start, este problema se evita enviando una marca de tiempo junto con
+cada consulta: Convex usa la misma marca de tiempo para todas las consultas.
+
+### Loaders \{#loaders\}
+
+Para acelerar la navegación del lado del cliente, puedes añadir un
+[loader](https://tanstack.com/router/latest/docs/framework/react/guide/external-data-loading#using-loaders-to-ensure-data-is-loaded)
+a una ruta. De forma predeterminada, los loaders se ejecutarán al pasar el ratón sobre un enlace a esa página.
+
+```ts
+export const Route = createFileRoute('/posts')({
+  loader: async (opts) => {
+    await opts.context.queryClient.ensureQueryData(
+      convexQuery(api.messages.list, {}),
+    );
+  };
+  component: () => {
+    const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+    return (
+      <div>
+	{data.map((message) => (
+	  <Message key={message.id} post={message} />
+	))}
+      </div>
+    );
+  },
+})
+```
+
+## Autenticación \{#authentication\}
+
+La autenticación en el cliente en Start funciona de la misma manera que
+[la autenticación en el cliente con Convex](https://docs.convex.dev/auth) suele
+funcionar en React, porque TanStack Start funciona bien como framework de cliente.
+
+Para usar Clerk para autenticar y hacer también en el servidor llamadas autenticadas a Convex, consulta
+la [guía de TanStack Start + Clerk](/client/tanstack/tanstack-start/clerk.mdx).
+
+Clerk es un socio oficial de TanStack; consulta nuestra guía de configuración.

@@ -1,0 +1,147 @@
+---
+title: "カスタムドメインとホスティング"
+sidebar_label: "カスタムドメインとホスティング"
+description:
+  "任意のドメインからのリクエストを処理し、GitHub などの任意の静的ホスティング
+  プロバイダー上でフロントエンドをホストできます。"
+sidebar_position: 100
+---
+
+## カスタムドメイン \{#custom-domains\}
+
+`api.example.com` のようなカスタムドメインを設定して、本番 Convex デプロイメントから
+HTTP アクションや Convex 関数を配信できます。この機能の設定は、任意のプロジェクトの
+Project Settings ページから行えます。
+
+![Add Custom Domain](/screenshots/add_custom_domain.png)
+
+ドメインを入力すると、DNS プロバイダ側で設定すべきレコードが表示されます。ドメインの
+購入に利用できる代表的な DNS プロバイダには、Cloudflare や GoDaddy があります。Convex は
+バックグラウンドでドメインの検証を行い、これらのレコードが設定されると、緑色のチェックマークが
+表示されます。
+
+そのチェックマークが表示されたら、そのドメインからバックエンドがトラフィックを処理するように
+なります。Convex が新しい SSL 証明書を発行する必要があるため、最初のリクエストには最大 1 分ほど
+かかる場合があります。
+
+セットアップについてご不明な点があれば、support@convex.dev までお問い合わせください。
+
+<ProFeatureUpsell feature="Custom domains" verb="require" />
+
+### カスタムドメインでのホスティング \{#hosting-with-a-custom-domain\}
+
+カスタムドメインを使用して Convex の関数を提供するには、追加のステップとして
+`CONVEX_CLOUD_URL` 環境変数を上書きする必要があります。
+
+![システム環境変数を上書き](/screenshots/override_system_env_vars.png)
+
+その後、プロジェクトを再デプロイします。これは Vercel や Netlify で「Redeploy」をクリックするか、
+`npx convex deploy --cmd 'npm run build'` を直接実行することを意味する場合があります。
+新しくデプロイされたコードは、カスタムドメイン経由で Convex の関数にアクセスするようになります。
+
+`CONVEX_CLOUD_URL` 環境変数は、次のような場所で使用されます:
+
+* `npx convex deploy --cmd '...'` は、フロントエンドが WebSocket と HTTP クライアントで接続するための
+  `CONVEX_URL`（または類似の名前）を設定します
+* Convex の関数内では、`process.env.CONVEX_CLOUD_URL` として利用できます
+* ファイルストレージの URL: `ctx.storage.getUrl(id)` および
+  `ctx.storage.generateUploadUrl()`
+* `npx convex function-spec --prod` で OpenAPI 仕様を生成
+
+`CONVEX_SITE_URL` 環境変数を上書きして、カスタムの HTTP アクション用ドメインとして使用することもできます。
+
+* Convex の関数内では、`process.env.CONVEX_SITE_URL` として利用できます
+* Webhook に使用できます
+* Convex Auth の `issuer` として `auth.config.ts` 内で使用できます
+
+## カスタムホスティング \{#custom-hosting\}
+
+バックエンド機能に Convex のみを使用している場合、Web アプリは任意の静的ホスティングプロバイダーでホストできます。このガイドでは例として
+[GitHub Pages](https://pages.github.com/) を使用します。
+
+Next.js などサーバー機能を持つフレームワークを使用している場合は、
+[Netlify](/production/hosting/netlify.mdx) や
+[Vercel](/production/hosting/vercel.mdx) など、その機能をサポートするプロバイダーを使用する必要があります。Next.js は
+[static export](https://nextjs.org/docs/pages/building-your-application/deploying/static-exports)
+を使って静的サイトとしてホスティングすることもできます。
+
+### ビルドを設定する \{#configure-your-build\}
+
+まず、ビルドプロセスが問題なく動作していることを確認してください。
+
+このガイドではローカルビルドをセットアップしますが、ホスティングプロバイダによっては
+リモートビルドをサポートしている場合もあります。たとえば、
+[Vite の「Deploying to GitHub Pages」ガイド](https://vitejs.dev/guide/static-deploy.html#github-pages)
+では GitHub Actions を使用しています。
+
+ここでは例として Vite と GitHub Pages を使用します。
+
+1. <JSDialectFileName name="vite.config.mts" /> を設定します:
+
+   ```ts title="vite.config.mts"
+   import { defineConfig } from "vite";
+   import react from "@vitejs/plugin-react";
+
+   // https://vitejs.dev/config/
+   export default defineConfig({
+     plugins: [react()],
+     // highlight-next-line
+     build: {
+       // highlight-next-line
+       outDir: "docs",
+       // highlight-next-line
+     },
+     // highlight-next-line
+     base: "/some-repo-name/",
+   });
+   ```
+
+   `build.outDir` フィールドは、Vite が本番ビルドを配置する場所を指定します。
+   GitHub Pages では `docs` ディレクトリからのホスティングが許可されているため、ここではそれを使用します。
+
+   `base` フィールドは、アプリを配信する URL パスを指定します。
+   この例では、
+   `https://<some username>.github.io/<some repo name>`
+   で配信します。
+
+### ホスティングプロバイダーを設定する \{#configure-your-hosting-provider\}
+
+GitHub Pages では、ビルド出力をメインの作業ブランチに含めるか、別のブランチから公開するかを選択できます。
+
+リポジトリの GitHub ページを開き、*Settings* &gt; *Pages* に移動します。*Build and
+deployment* &gt; *Source* の項目で `Deploy from a branch` を選択します。
+
+*branch* ではブランチを選択し（別ブランチを使いたい場合は、そのブランチに少なくとも 1 回コミットを作成してプッシュしておきます）、`/docs` フォルダを指定します。最後に *Save* をクリックします。
+
+### Convex と GitHub Pages へのビルドとデプロイ \{#build-and-deploy-to-convex-and-github-pages\}
+
+GitHub Pages に手動でデプロイするには、次の手順に従います。
+
+1. 公開元として選んだブランチをチェックアウトする
+2. `npx convex deploy --cmd 'npm run build'` を実行し、
+   現在のバックエンドコードを **本番** デプロイメントにプッシュしてよいか確認する
+3. ビルド出力の変更をコミットし、GitHub にプッシュする。
+
+### 仕組み \{#how-it-works\}
+
+まず、`npx convex deploy` は次のステップを実行します。
+
+1. `VITE_CONVEX_URL`（または同様の名前）の環境変数を、
+   **本番**Convex デプロイメントを指す値に設定します。
+2. `npm run build` を使ってフロントエンドフレームワークのビルドプロセスを実行します。
+   ビルドプロセスはその環境変数を読み取り、ビルド済みサイトが**本番**デプロイメントを参照するようにします。
+3. `convex` ディレクトリ内のバックエンドコードを、**本番**デプロイメントにデプロイします。
+
+その後、ビルドされたフロントエンドコードをホスティングプロバイダにデプロイします。
+ここでは Git を使いましたが、他のプロバイダでは、昔ながらの FTP 経由のアップロードなど、別の方法を使うこともあります。
+
+`deploy` コマンドがフロントエンドコードで使われる環境変数名を推論できない場合は、
+`--cmd-url-env-var-name` を使って変数名をカスタマイズできます。たとえば次のように指定します:
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### 認証 \{#authentication\}
+
+本番環境の URL（フロントエンドが配信される場所）を許可するように、[認証](/auth.mdx) プロバイダー（Clerk、Auth0 など）を設定してください。

@@ -1,0 +1,246 @@
+---
+title: "Búsqueda de texto completo"
+sidebar_position: 110
+description: "Ejecuta consultas de búsqueda sobre tus documentos de Convex"
+slug: "text-search"
+---
+
+La búsqueda de texto completo te permite encontrar documentos de Convex que coincidan de forma aproximada con una
+consulta de búsqueda.
+
+A diferencia de las
+[consultas de documentos](/database/reading-data/reading-data.mdx#querying-documents),
+las consultas de búsqueda buscan *dentro* de un campo de tipo cadena de texto para encontrar las palabras clave. Las consultas de búsqueda
+son útiles para crear funcionalidades como buscar mensajes que contienen
+ciertas palabras.
+
+Las consultas de búsqueda son automáticamente reactivas, consistentes, transaccionales y funcionan
+sin problemas con la paginación. Incluso incluyen nuevos documentos creados con una
+mutación.
+
+**Ejemplo:**
+[Search App](https://github.com/get-convex/convex-demos/tree/main/search)
+
+Para usar la búsqueda de texto completo debes:
+
+1. Definir un índice de búsqueda.
+2. Ejecutar una consulta de búsqueda.
+
+Los índices de búsqueda se construyen y consultan mediante el algoritmo de búsqueda multisegmento de Convex
+sobre [Tantivy](https://github.com/quickwit-oss/tantivy), una
+potente biblioteca de código abierto para búsqueda de texto completo escrita en Rust.
+
+## Definir índices de búsqueda \{#defining-search-indexes\}
+
+Al igual que los [índices de base de datos](/database/reading-data/indexes/indexes.md), los índices
+de búsqueda son una estructura de datos que se construye por adelantado para
+permitir consultas eficientes. Los índices de búsqueda se definen como parte
+del [esquema](/database/schemas.mdx) de Convex.
+
+Cada definición de índice de búsqueda consta de:
+
+1. Un nombre.
+   * Debe ser único por tabla.
+2. Un `searchField`
+   * Es el campo que se indexará para la búsqueda de texto completo.
+   * Debe ser de tipo `string`.
+3. [Opcional] Una lista de `filterField`s
+   * Son campos adicionales que se indexan para un filtrado rápido por igualdad
+     dentro de tu índice de búsqueda.
+4. [Opcional] Un flag booleano `staged`
+   * Si se establece en `true`, el índice se rellenará de forma asíncrona a
+     partir de la implementación, de forma similar a los
+     [índices de base de datos escalonados (staged)](/database/reading-data/indexes#staged-indexes).
+     Esto es útil para tablas grandes donde el tiempo de relleno del índice es
+     significativo. De forma predeterminada es `false`.
+
+Para añadir un índice de búsqueda a una tabla, usa el método
+[`searchIndex`](/api/classes/server.TableDefinition#searchindex) en el esquema
+de tu tabla. Por ejemplo, si quieres un índice que pueda buscar mensajes que
+coincidan con una palabra clave en un canal, tu esquema podría verse así:
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  messages: defineTable({
+    body: v.string(),
+    channel: v.string(),
+  }).searchIndex("search_body", {
+    searchField: "body",
+    filterFields: ["channel"],
+    staged: false,
+  }),
+});
+```
+
+Puedes especificar campos de búsqueda y filtrado en documentos anidados mediante
+una ruta separada por puntos como `properties.name`.
+
+## Ejecutar consultas de búsqueda \{#running-search-queries\}
+
+Una consulta como &quot;10 mensajes en el canal &#39;#general&#39; que mejor coincidan con la consulta &#39;hello
+hi&#39; en su contenido&quot; tendría el siguiente aspecto:
+
+```js
+const messages = await ctx.db
+  .query("messages")
+  .withSearchIndex("search_body", (q) =>
+    q.search("body", "hello hi").eq("channel", "#general"),
+  )
+  .take(10);
+```
+
+Esto es solo una [lectura de base de datos](/database/reading-data/reading-data.mdx)
+normal que comienza consultando el índice de búsqueda.
+
+El método
+[`.withSearchIndex`](/api/interfaces/server.QueryInitializer#withsearchindex)
+define qué índice de búsqueda se va a consultar y cómo usará Convex ese índice
+de búsqueda para seleccionar documentos. El primer argumento es el nombre del
+índice y el segundo es una *expresión de filtro de búsqueda*. Una expresión de
+filtro de búsqueda describe qué documentos debe considerar Convex al ejecutar
+la consulta.
+
+Una expresión de filtro de búsqueda es siempre una lista encadenada de:
+
+1. 1 expresión de búsqueda sobre el campo de búsqueda del índice, definida mediante
+   [`.search`](/api/interfaces/server.SearchFilterBuilder#search).
+2. 0 o más expresiones de igualdad sobre los campos de filtro del índice, definidas mediante
+   [`.eq`](/api/interfaces/server.SearchFilterFinalizer#eq).
+
+### Expresiones de búsqueda \{#search-expressions\}
+
+Las expresiones de búsqueda se aplican sobre un índice de búsqueda, filtrando y
+clasificando documentos según su relevancia respecto a la consulta de la expresión.
+Internamente, Convex dividirá la consulta en palabras independientes (llamadas *términos*) y
+clasificará de forma aproximada los documentos que coincidan con esos términos.
+
+En el ejemplo anterior, la expresión `search("body", "hello hi")` se dividiría
+internamente en `"hi"` y `"hello"` y se compararía con las palabras de tu
+documento (ignorando mayúsculas, minúsculas y puntuación).
+
+El comportamiento de búsqueda incorpora [reglas de coincidencia por prefijo](#search-behavior).
+
+### Expresiones de igualdad \{#equality-expressions\}
+
+A diferencia de las expresiones de búsqueda, las expresiones de igualdad filtrarán únicamente aquellos documentos
+que tengan una coincidencia exacta en el campo indicado. En el ejemplo anterior,
+`eq("channel", "#general")` solo coincidirá con documentos que tengan exactamente
+`"#general"` en su campo `channel`.
+
+Las expresiones de igualdad admiten campos de cualquier tipo (no solo texto).
+
+Para filtrar solo los documentos a los que les falta un campo, usa
+`q.eq("fieldName", undefined)`.
+
+### Otros filtros \{#other-filtering\}
+
+Como las consultas de búsqueda son consultas de base de datos normales, también puedes
+[filtrar resultados](/database/reading-data/filters.mdx) usando el
+[método `.filter`](/api/interfaces/server.Query#filter).
+
+Aquí tienes una consulta para &quot;mensajes que contienen &#39;hi&#39; enviados en los últimos 10 minutos&quot;:
+
+```js
+const messages = await ctx.db
+  .query("messages")
+  .withSearchIndex("search_body", (q) => q.search("body", "hi"))
+  .filter((q) => q.gt(q.field("_creationTime", Date.now() - 10 * 60000)))
+  .take(10);
+```
+
+**Para mejorar el rendimiento, pon siempre la mayor cantidad posible de tus filtros en
+`.withSearchIndex`.**
+
+Cada consulta de búsqueda se ejecuta de la siguiente manera:
+
+1. Primero, consultando el índice de búsqueda usando la expresión de filtro de búsqueda en
+   `withSearchIndex`.
+2. Luego, filtrando los resultados uno por uno usando cualquier expresión `filter`
+   adicional.
+
+Tener una expresión de filtro de búsqueda muy específica hará que tu consulta sea más rápida y
+menos propensa a alcanzar los límites de Convex, porque Convex usará el índice de búsqueda para
+reducir de forma eficiente la cantidad de resultados a considerar.
+
+### Recuperar resultados y paginar \{#retrieving-results-and-paginating\}
+
+Al igual que con las consultas de base de datos normales, puedes
+[recuperar los resultados](/database/reading-data/reading-data.mdx#retrieving-results)
+usando [`.collect()`](/api/interfaces/server.Query#collect),
+[`.take(n)`](/api/interfaces/server.Query#take),
+[`.first()`](/api/interfaces/server.Query#first) y
+[`.unique()`](/api/interfaces/server.Query#unique).
+
+Además, los resultados de búsqueda se pueden [paginar](/database/pagination.mdx) usando
+[`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate).
+
+Ten en cuenta que `collect()` lanzará una excepción si intenta recopilar más
+del límite de 1024 documentos. A menudo es mejor elegir un límite más pequeño y
+usar `take(n)` o paginar los resultados.
+
+### Ordenación \{#ordering\}
+
+Las consultas de búsqueda siempre devuelven resultados en [orden de relevancia](#relevance-order)
+según qué tan bien el documento coincida con la consulta de búsqueda. No se admiten
+otros tipos de ordenación de resultados.
+
+## Comportamiento de búsqueda \{#search-behavior\}
+
+### Búsqueda mientras escribes (typeahead) \{#typeahead-search\}
+
+La búsqueda de texto completo de Convex está diseñada para ofrecer experiencias de búsqueda mientras escribes. En tus consultas de búsqueda, el término de búsqueda final tiene habilitada la *búsqueda por prefijo*, que hace coincidir cualquier término que sea un prefijo del término original. Por ejemplo, la expresión
+`search("body", "r")` devolvería los documentos:
+
+* `"rabbit"`
+* `"send request"`
+
+Las coincidencias de búsqueda aproximada están obsoletas. Después del 15 de enero de 2025, los resultados de búsqueda no incluirán `"snake"` para un error tipográfico como `"stake"`.
+
+### Orden de relevancia \{#relevance-order\}
+
+**El orden de relevancia está sujeto a cambios.** La relevancia de los
+resultados de búsqueda y las reglas exactas que aplica Convex pueden cambiar
+para mejorar la calidad de los resultados de búsqueda.
+
+Las consultas de búsqueda devuelven resultados en orden de relevancia. Internamente,
+Convex clasifica la relevancia de un documento en función de una combinación de su
+[puntuación BM25](https://en.wikipedia.org/wiki/Okapi_BM25) y otros criterios,
+como la proximidad de las coincidencias, la cantidad de coincidencias exactas y más.
+La puntuación BM25 tiene en cuenta:
+
+* ¿Cuántas palabras de la consulta de búsqueda aparecen en el campo?
+* ¿Cuántas veces aparecen?
+* ¿Qué tan largo es el texto del campo?
+
+Si varios documentos tienen la misma puntuación, se devuelven primero los documentos más recientes.
+
+## Límites \{#limits\}
+
+Los índices de búsqueda funcionan mejor con inglés u otros idiomas con alfabeto latino. El texto se
+tokeniza usando el
+[`SimpleTokenizer`](https://docs.rs/tantivy/latest/tantivy/tokenizer/struct.SimpleTokenizer.html)
+de Tantivy, que separa por espacios en blanco y signos de puntuación. También limitamos los términos a 32 caracteres
+de longitud y los convertimos a minúsculas.
+
+Los índices de búsqueda deben tener:
+
+* Exactamente 1 campo de búsqueda.
+* Hasta 16 campos de filtro.
+
+Los índices de búsqueda cuentan para el
+[límite de 32 índices por tabla](/database/reading-data/indexes/indexes.md#limits).
+
+Las consultas de búsqueda pueden tener:
+
+* Hasta 16 términos (palabras) en la expresión de búsqueda.
+* Hasta 8 expresiones de filtro.
+
+Además, las consultas de búsqueda pueden escanear hasta 1024 resultados del índice de búsqueda.
+
+La fuente de referencia para estos límites es nuestro
+[código fuente](https://github.com/get-convex/convex-backend/blob/main/crates/search/src/constants.rs).
+
+Para obtener información sobre otros límites, consulta [aquí](/production/state/limits.mdx).

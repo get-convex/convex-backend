@@ -1,0 +1,116 @@
+---
+title: Guía de inicio rápido de Svelte
+sidebar_label: Svelte
+description: "Añade Convex a un proyecto Svelte"
+hide_table_of_contents: true
+sidebar_position: 350
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/sampleData.jsonl";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/routes/+layout.svelte";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/convex/tasks.ts";
+import page from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/routes/+page.svelte";
+
+Aprende a consultar datos de Convex en una aplicación Svelte.
+
+<StepByStep>
+  <Step title="Crea una app de SvelteKit">
+    Crea una app de SvelteKit usando el comando `npx sv create`.
+
+    Otros conjuntos de opciones funcionarán con la biblioteca, pero para esta guía de inicio rápido:
+
+    * Para &quot;Which Svelte app template,&quot; elige **&quot;SvelteKit minimal.&quot;**
+    * Para un gestor de paquetes, elige **&quot;npm.&quot;**
+    * Para &quot;Add type checking with TypeScript,&quot; elige **&quot;Yes, using TypeScript syntax.&quot;**
+    * Para &quot;Select additional options,&quot; no necesitas habilitar nada.
+
+    <br />
+
+    ```sh
+    npx sv@latest create my-app
+    ```
+  </Step>
+
+  <Step title="Instala la librería cliente y servidor de Convex">
+    Para empezar, instala los paquetes `convex` y `convex-svelte`.
+
+    ```sh
+    cd my-app && npm install convex convex-svelte
+    ```
+  </Step>
+
+  <Step title="Personaliza la ruta de Convex">
+    A SvelteKit no le gusta hacer referencia a código fuera del código fuente, así que personaliza
+    el `functionsDir` de Convex para que quede bajo `src/`.
+
+    <Snippet source={'{\n\t\"functions\": "src/convex/\"\n}'} title="convex.json" />
+  </Step>
+
+  <Step title="Configura un despliegue dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá iniciar sesión con GitHub,
+    crear un proyecto y guardar tus URL de producción y de despliegue.
+
+    También creará una carpeta `src/convex/`
+    en la que podrás escribir tus funciones de API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Agrega los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, agrega una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Agrega un nuevo archivo <JSDialectFileName name="tasks.ts" /> en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Al exportar una función de consulta desde este archivo
+    se declara una función de API cuyo nombre se basa en el nombre del archivo
+    y en el nombre de la exportación, `api.tasks.get`.
+
+    <Snippet source={tasks} title="src/convex/tasks.ts" />
+  </Step>
+
+  <Step title="Configura Convex">
+    Crea un nuevo archivo `src/routes/+layout.svelte` y configura ahí el cliente de Convex para que esté disponible en cada página de tu app.
+
+    <Snippet source={layout} title="src/routes/+layout.svelte" />
+  </Step>
+
+  <Step title="Muestra los datos en tu app">
+    En `src/routes/+page.svelte` usa `useQuery` para suscribirte a tu función de API
+    `api.tasks.get`.
+
+    <Snippet source={page} title="src/routes/+page.svelte" jsExtension="js" />
+  </Step>
+
+  <Step title="Inicia la app">
+    Inicia la app, abre [http://localhost:5173](http://localhost:5173) en un navegador
+    y mira la lista de tareas.
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+Consulta la
+[documentación del paquete convex-svelte en npm](https://www.npmjs.com/package/convex-svelte).

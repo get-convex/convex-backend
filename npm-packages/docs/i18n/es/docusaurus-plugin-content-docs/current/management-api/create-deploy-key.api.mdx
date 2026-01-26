@@ -1,0 +1,41 @@
+---
+id: create-deploy-key
+title: "Crear una clave de despliegue"
+description: "Crear una clave de despliegue (deploy key) como 'dev:happy-animal-123|ey...' que puede ser"
+sidebar_label: "Crear clave de despliegue"
+hide_title: true
+hide_table_of_contents: true
+api: eJztVk1v4zYQ/SvEnHYBWU62N91St4eg2ybIpujBNoKxOLa4kUgtSdkRVP33YkjZViK3RbELtIeeLA+HM2++3rADSS63qvbKaMhgYQk9CRSS6tK04plaUapnEiuQtM8KrOt2hlpVWM6uP3z3O7Vpmq5AHAqVFyJHLTa00o0jKQ7KF8IXJBZG7+lFLD7eCm+EpD2Vpha4Q6WdF8YefeVGUrrSK/1bQVpgnpNzfINtRJWKtBfKiZ1F7UkKX1jT7AqBWtzdNOzOPJMWvlBupUcRHFRZisZRMOWwoqg+O9nha//MNepWGF+QFQdsBQpNh8F7cMZZyEMu5ZCbcNEdbRtdttGBciMPKSRgarLI5biVkEE0MioHJFCjxYo8WQfZsgONFUEGZytPQZKA4orW6AtI3pT5h3NMg66lL42yJCHztqF+HSXk/PdGtpB1kBvtSXv+xLouVR4wzj87NtiBywuqkL98WzMcs/lMuX9leRmhrhOoLUfpFTm+EQM43XTeKr2bYP6F67Y1dlQUzkcKfZ8ASqlYD8v7kektlo4S8MqXbPi+RL81topNHnPwE7U3duegZytvksACVxvtIswPV1f88xoVJN8mM/KIZpqe89HE+2NBYkeaG4bkq6Qkk2wes3AjK6XZGkf8N6l5GOLn9LC6o7yxyreh7+LIPRJW4pE7H7Lluk86mEqi5r01HPjoaJ1ARb4w3Oi1cT70ti8gg/m5m928e9Pa/TxOxVOUP8WpcGT3x5FobAkZFN7XLpvPsVZpHkgolbSf768nvXUMX9zc3wLDOgb6iYsXy3AxiFNR2ReDCPqQwYbQkp04utt4VHpMXWI58GO0P+qg9btjANLkbhxBhRp3xPmYYa3ep9AnF6rx38H2NagWA4sqHQcfXbExaKVotCQrPJt25L3SOxfogZk5SFvThI0UEUWe4KF8OBPbjy9Y1SWdSeg4Lj2z59YEuMOIDKn4+RRfaJa3cF8fB0C1NXvllNFK7wRqGQHxn8FkHXvKhcNR4/MUlyonHsAzwo9R8kDbWbzPTC9Je7VVZC8q9AnwaESE1+lVesUinrgK9cj04sKyeRXeaA38/1T4958KwyR5evHzukSluayB+7qBSJejZ4GDBLLpK2HKpesECmbjbAldt0FHv9qy71n8pSHL5L9OYI9W4YYnY9mBVI6/5Wnl/mnXvHsYlt57MX2EXIxnEKLmbtxj2VBcu4x0+urp130CBaHkUVh2g9Yi+p89sq2zlcm65mUVb9zkOdX+L3XH2+v+7tMjJLAZHkuVkXzH4oHXPB4iYhPyEZZJkHVQot41uGPdaDO8ZRqu3IknT7w4fHBUF3PSdVEjEG3fn1IUeo0T0/d/AKT3NLQ=
+sidebar_class_name: "post api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Crear clave de despliegue"} />
+
+<MethodEndpoint method={"post"} path={"/deployments/{deployment_name}/create_deploy_key"} context={"endpoint"} />
+
+Crea una clave de despliegue como &quot;dev:happy-animal-123|ey...&quot; que se puede
+usar con la CLI de Convex para desarrollar o desplegar código en ese despliegue.
+
+Cuando se concede acceso al despliegue mediante un token OAuth, esta
+clave de despliegue usará el mismo token otorgado por OAuth.
+
+Cuando el acceso al despliegue se concede de cualquier otra forma, se creará
+un nuevo token que otorgará acceso solo a este despliegue.
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"Solicitud"} />
+
+<ParamsDetails parameters={[{"name":"deployment_name","in":"path","description":"Nombre del despliegue","required":true}]} />
+
+<RequestSchema title={"Cuerpo"} body={{"content":{"application/json":{"schema":{"type":"object","required":["name"],"properties":{"name":{"type":"string","description":"Nombre para la clave de despliegue."}},"additionalProperties":false,"title":"PlatformCreateDeployKeyArgs"}}},"required":true}} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["deployKey"],"properties":{"deployKey":{"description":"La clave de despliegue generada.","type":"string","title":"AdminKey"}},"title":"PlatformCreateDeployKeyResponse"}}}}}} />

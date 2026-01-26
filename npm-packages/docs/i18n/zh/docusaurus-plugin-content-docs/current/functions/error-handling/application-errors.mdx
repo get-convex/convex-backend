@@ -1,0 +1,70 @@
+---
+title: "应用错误"
+sidebar_label: "应用错误"
+description: "在 Convex 函数中处理预期失败"
+---
+
+import Server from "!!raw-loader!@site/../private-demos/snippets/convex/applicationErrors.ts";
+import ClientTS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrors.tsx";
+import ClientJS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrorsJS.jsx";
+
+如果你预期函数可能以某些特定方式失败，可以通过返回不同的值或抛出 `ConvexError` 来处理。
+
+## 返回不同的值 \{#returning-different-values\}
+
+如果你使用 TypeScript，不同的返回类型可以帮助确保你处理好错误场景。
+
+例如，一个 `createUser` 变更可以返回
+
+```ts
+Id<"users"> | { error: "EMAIL_ADDRESS_IN_USE" };
+```
+
+来表示要么该变更已成功执行，要么该邮箱地址已经被占用。
+
+这样可以确保你在 UI 中记得处理这些情况。
+
+## 抛出应用错误 \{#throwing-application-errors\}
+
+你可能会出于以下原因更倾向于通过抛出错误来处理异常：
+
+* 你可以利用异常冒泡机制，从深层嵌套的函数调用中抛出错误，而不必在调用栈中手动逐层向上传递错误结果。对于在
+  [操作函数](/functions/actions.mdx) 中调用的 `runQuery`、`runMutation` 和 `runAction` 也同样适用。
+* 在[变更函数](/functions/mutation-functions.mdx)中，抛出错误会阻止该变更事务被提交。
+* 在客户端，统一处理各种错误（包括预期和非预期错误）可能会更简单。
+
+Convex 提供了一个错误类型的子类
+[`ConvexError`](/api/classes/values.ConvexError)，可以用来在后端和客户端之间传递信息：
+
+<TSAndJSSnippet title="convex/myFunctions.ts" sourceTS={Server} sourceJS={Server} snippet="example" highlightPatterns={["ConvexError"]} />
+
+### 应用错误的 `data` 载荷 \{#application-error-data-payload\}
+
+你可以将函数参数、返回类型和数据库所支持的相同 [数据类型](/database/types.md) 传递给 `ConvexError` 构造函数。
+这些数据会被存储在错误对象的 `data` 属性中：
+
+```ts
+// error.data === "My fancy error message"
+throw new ConvexError("My fancy error message");
+
+// error.data === {message: "My fancy error message", code: 123, severity: "high"}
+throw new ConvexError({
+  message: "My fancy error message",
+  code: 123,
+  severity: "high",
+});
+
+// error.data === {code: 123, severity: "high"}
+throw new ConvexError({
+  code: 123,
+  severity: "high",
+});
+```
+
+相比一个简单的 `string`，更复杂的错误负载有助于进行更结构化的错误日志记录，或在客户端对不同的错误集合进行差异化处理。
+
+## 在客户端处理应用错误 \{#handling-application-errors-on-the-client\}
+
+在客户端，应用错误同样使用 `ConvexError` 类，其所携带的数据可以通过 `data` 属性访问：
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={ClientTS} sourceJS={ClientJS} highlightPatterns={["ConvexError", ".data"]} />

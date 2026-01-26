@@ -1,0 +1,77 @@
+---
+title: "アプリケーションエラー"
+sidebar_label: "アプリケーションエラー"
+description: "Convex 関数で予期される失敗を処理する"
+---
+
+import Server from "!!raw-loader!@site/../private-demos/snippets/convex/applicationErrors.ts";
+import ClientTS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrors.tsx";
+import ClientJS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrorsJS.jsx";
+
+関数がどのように失敗しうるかをあらかじめ想定できる場合は、異なる値を返すか、`ConvexError` をスローするかのいずれかを選べます。
+
+## 異なる値を返す \{#returning-different-values\}
+
+TypeScript を使っている場合、戻り値の型を変えることで、エラーシナリオを
+確実に扱っていることを型で保証できます。
+
+たとえば、`createUser` ミューテーションは次のような値を返すようにできます。
+
+```ts
+Id<"users"> | { error: "EMAIL_ADDRESS_IN_USE" };
+```
+
+ミューテーションが成功したか、あるいはメールアドレスがすでに
+使用されているかのいずれかであることを示します。
+
+これにより、UI でこれらのケースへの対応を忘れずに行えるようになります。
+
+## アプリケーションエラーをスローする \{#throwing-application-errors\}
+
+次のような理由から、エラーをスローする方を選ぶ場合があります：
+
+* 例外のバブリング機構を利用することで、エラー結果を手動で呼び出し元へ伝搬させる代わりに、
+  深くネストした関数呼び出しからエラーをスローできます。これは
+  [アクション](/functions/actions.mdx) 内での `runQuery`、`runMutation`、`runAction` 呼び出しでも有効です。
+* [ミューテーション](/functions/mutation-functions.mdx) 内でエラーをスローすると、
+  そのミューテーションのトランザクションがコミットされるのを防げます
+* クライアント側では、想定内・想定外を問わずあらゆる種類のエラーを
+  一貫した方法で処理できるため、その方がシンプルな場合があります
+
+Convex はエラーサブクラス
+[`ConvexError`](/api/classes/values.ConvexError) を提供しており、これを使って
+バックエンドからクライアントへ情報を伝達できます:
+
+<TSAndJSSnippet title="convex/myFunctions.ts" sourceTS={Server} sourceJS={Server} snippet="example" highlightPatterns={["ConvexError"]} />
+
+### アプリケーションエラーの `data` ペイロード \{#application-error-data-payload\}
+
+関数の引数、戻り値の型、およびデータベースでサポートされているものと同じ [data types](/database/types.md) を、`ConvexError` コンストラクタに渡すことができます。
+このデータは、エラーの `data` プロパティに格納されます。
+
+```ts
+// error.data === "My fancy error message"
+throw new ConvexError("My fancy error message");
+
+// error.data === {message: "My fancy error message", code: 123, severity: "high"}
+throw new ConvexError({
+  message: "My fancy error message",
+  code: 123,
+  severity: "high",
+});
+
+// error.data === {code: 123, severity: "high"}
+throw new ConvexError({
+  code: 123,
+  severity: "high",
+});
+```
+
+単純な `string` よりも複雑なエラーペイロードは、より構造化されたエラーログ出力や、クライアント側で複数のエラーを種類ごとに処理するのに役立ちます。
+
+## クライアントでアプリケーションエラーを処理する \{#handling-application-errors-on-the-client\}
+
+クライアント側でも、アプリケーションエラーには `ConvexError` クラスが使用され、
+そのエラーが保持しているデータには `data` プロパティ経由でアクセスできます。
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={ClientTS} sourceJS={ClientJS} highlightPatterns={["ConvexError", ".data"]} />

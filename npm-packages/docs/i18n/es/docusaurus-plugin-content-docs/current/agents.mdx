@@ -1,0 +1,107 @@
+---
+title: "Agentes de IA"
+sidebar_position: 100
+description: "Creación de agentes de IA con Convex"
+---
+
+## Creación de agentes de IA con Convex \{#building-ai-agents-with-convex\}
+
+Convex proporciona potentes bloques para crear aplicaciones de IA basadas en agentes,
+aprovechando Components y las funcionalidades existentes de Convex.
+
+Con Convex, puedes separar tus flujos de trabajo basados en agentes y de larga duración de tu UI,
+sin que el usuario pierda reactividad ni interactividad. El historial de mensajes con
+un LLM se persiste de forma predeterminada, se actualiza en tiempo real en cada cliente y se
+compone fácilmente con otras funcionalidades de Convex usando código en lugar de configuración.
+
+## Componente Agent \{#agent-component\}
+
+El componente Agent es un bloque fundamental para crear agentes de IA. Gestiona
+hilos y mensajes, en torno a los cuales tus agentes pueden cooperar en flujos de trabajo
+estáticos o dinámicos.
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd" title="Video de YouTube del componente Agent" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+[Video de YouTube del componente
+Agent](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
+
+### Conceptos fundamentales \{#core-concepts\}
+
+* Los agentes organizan el prompting de LLM con modelos, prompts y
+  [herramientas](/agents/tools) asociados. Pueden generar y transmitir tanto texto como objetos.
+* Los agentes se pueden usar en cualquier acción de Convex, lo que te permite escribir tu código basado en agentes junto con el resto de tu lógica de negocio, con todos los beneficios de abstracción de usar código en lugar de configuración estática.
+* Los [hilos](/agents/threads) almacenan [mensajes](/agents/messages) y pueden ser
+  compartidos por varios usuarios y agentes (incluidos
+  [agentes humanos](/agents/human-agents)).
+* El [contexto de conversación](/agents/context) se incluye automáticamente en cada llamada al LLM, con búsqueda híbrida vectorial/textual integrada para mensajes.
+
+### Funciones avanzadas \{#advanced-features\}
+
+* [Workflows](/agents/workflows) permiten crear operaciones de varios pasos que
+  pueden abarcar tanto agentes como usuarios y se ejecutan de forma duradera y confiable.
+* También se admiten técnicas de [RAG](/agents/rag) para la ampliación de prompts,
+  ya sea por adelantado o como llamadas a herramientas usando el
+  [Componente RAG](https://www.convex.dev/components/rag).
+* [Files](/agents/files) pueden usarse en el historial del chat con guardado automático
+  en el [almacenamiento de archivos](/file-storage).
+
+### Depuración y seguimiento \{#debugging-and-tracking\}
+
+* Se admite la [depuración](/agents/debugging), incluido el
+  [área de pruebas para agentes](/agents/playground), donde puedes inspeccionar todos los metadatos e
+  iterar sobre los prompts y la configuración de contexto.
+* El [seguimiento de uso](/agents/usage-tracking) habilita la facturación por uso para usuarios y
+  equipos.
+* La [limitación de tasa](/agents/rate-limiting) ayuda a controlar el ritmo al que los usuarios
+  pueden interactuar con los agentes y evita que excedas los límites de tu proveedor de LLM.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+href: "/agents/getting-started",
+label: "Crea tu primer agente",
+}}
+/>
+
+Obtén más información sobre la motivación leyendo:
+[AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
+
+Código de ejemplo:
+
+```typescript
+import { Agent } from "@convex-dev/agents";
+import { openai } from "@ai-sdk/openai";
+import { components } from "./_generated/api";
+import { action } from "./_generated/server";
+
+// Define an agent
+const supportAgent = new Agent(components.agent, {
+  name: "Support Agent",
+  chat: openai.chat("gpt-4o-mini"),
+  instructions: "You are a helpful assistant.",
+  tools: { accountLookup, fileTicket, sendEmail },
+});
+
+// Use the agent from within a normal action:
+export const createThread = action({
+  args: { prompt: v.string() },
+  handler: async (ctx, { prompt }) => {
+    const { threadId, thread } = await supportAgent.createThread(ctx);
+    const result = await thread.generateText({ prompt });
+    return { threadId, text: result.text };
+  },
+});
+
+// Pick up where you left off, with the same or a different agent:
+export const continueThread = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // This includes previous message history from the thread automatically.
+    const { thread } = await anotherAgent.continueThread(ctx, { threadId });
+    const result = await thread.generateText({ prompt });
+    return result.text;
+  },
+});
+```

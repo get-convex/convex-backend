@@ -1,0 +1,175 @@
+---
+title: "开发工作流"
+hidden: false
+sidebar_position: 200
+description:
+  "从创建项目到生产环境部署的开发工作流"
+---
+
+下面我们来逐步了解，从创建一个新项目到在生产环境中发布你的应用，这一过程中需要完成的各个步骤。
+
+本文假设你正在使用 Convex 和 React 构建应用，并且已经有一个基础的 React 应用在运行。你可以按照我们的任一[快速开始](/quickstarts.mdx)指南来完成这一步的设置。
+
+## 安装并运行 Convex \{#installing-and-running-convex\}
+
+你可以通过在应用中添加 Convex 的 npm 依赖来完成安装：
+
+```sh
+npm i convex
+```
+
+然后创建一个 Convex 项目并开始后端开发流程：
+
+```sh
+npx convex dev
+```
+
+第一次运行 `npx convex dev` 命令时，系统会询问你是要在本地直接开始开发（无需账号），还是要创建一个账号。
+
+### 在未创建账户的情况下开发 \{#developing-without-an-account\}
+
+`npx convex dev` 会提示你输入项目名称，然后在你的本机上启动并运行
+开源的 Convex 后端（也称为一个“部署”）。
+
+你的项目数据会被保存到 `~/.convex` 目录中。
+
+1. 你的项目名称会被保存到 `.env.local` 文件中，这样以后运行
+   `npx convex dev` 时就会知道要使用这个项目。
+2. 会创建一个 `convex/` 文件夹（如果它还不存在），你会在其中编写
+   Convex 后端函数。
+
+你可以之后运行 `npx convex login` 来创建账户，并关联任何已有项目。
+
+### 使用账号进行开发 \{#developing-with-an-account\}
+
+如果账号不存在，`npx convex dev` 会引导你创建一个账号，并将你的凭证添加到本机的 `~/.convex/config.json` 中。
+之后你可以运行 `npx convex logout` 让这台机器退出该账号的登录状态。
+
+接下来，`npx convex dev` 会创建一个新项目，并为该项目开通一个新的个人开发环境部署：
+
+1. 部署详细信息会自动添加到你的 `.env.local` 文件中，这样之后运行 `npx convex dev` 时就知道要连接到哪个开发环境部署。
+2. 会创建一个 `convex/` 文件夹（如果尚不存在），你将会在其中编写 Convex 后端函数。
+
+<div className="center-image" style={{ maxWidth: "149px" }}>
+  ![应用中的 Convex 目录](/img/convex-directory.png)
+</div>
+
+## 运行开发循环 \{#running-the-dev-loop\}
+
+在开发 Convex 应用时，保持 `npx convex dev` 命令持续运行。这个命令会不断地将你在 `convex/` 文件夹中编写的后端代码推送到你的部署中。同时，它还会在你编写后端代码的过程中，保持相关的 TypeScript 类型同步更新。
+
+当你在本地运行的部署上进行开发时，`npx convex dev` 也负责运行你的部署。
+
+然后你就可以向 Convex 后端添加新的服务端函数：
+
+```typescript title="convex/tasks.ts"
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+// 返回给定任务列表中最后的 100 个任务。
+export const getTaskList = query({
+  args: { taskListId: v.id("taskLists") },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("taskListId", (q) => q.eq("taskListId", args.taskListId))
+      .order("desc")
+      .take(100);
+    return tasks;
+  },
+});
+```
+
+当你在编辑器中编写并保存这段代码时，会发生以下几件事：
+
+1. `npx convex dev` 命令会对你的代码进行类型检查，并更新
+   `convex/_generated` 目录。
+2. 你的 `convex/` 目录中的内容会被上传到你的开发环境（dev）部署。
+3. 你的 Convex 开发环境（dev）部署会分析你的代码并找到所有 Convex 函数。
+   在这个例子中，它会判断 `tasks.getTaskList` 是一个新的公共查询函数。
+4. 如果 [schema](/database/schemas.mdx) 有任何更改，
+   部署会自动强制应用这些更改。
+5. `npx convex dev` 命令会更新 `convex/_generated` 目录中生成的 TypeScript 代码，
+   为你的函数提供端到端的类型安全。
+
+<Admonition type="tip">
+  将 `convex/_generated/` 目录中的所有内容都提交到版本控制中。这样就能确保你的代码在无需先运行
+  `npx convex dev` 的情况下就能立即通过类型检查并运行。当前端开发者（而非后端开发者）编写前端代码，并希望确保自己的代码能通过与当前已部署后端代码的类型检查时，这尤其有用。
+</Admonition>
+
+完成这些步骤后，你就可以在前端中使用这个新的服务器函数了：
+
+```typescript title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.tasks.getTaskList);
+  return data ?? "Loading...";
+}
+```
+
+如果你的 `convex/` 文件夹中还有其他配置，例如 [crons](/scheduling/cron-jobs.mdx) 或
+[auth](/auth.mdx)，Convex 会确保它们在你的后端中生效并得到严格执行。
+
+## Convex 仪表盘 \{#convex-dashboard\}
+
+[Convex 仪表盘](/dashboard/deployments/deployments.md) 会在你使用 Convex 进行开发、调试和部署的整个工作流中充当可靠的助手。
+
+`npx convex dashboard` 会打开你对应部署的仪表盘链接。
+
+### 日志 \{#logs\}
+
+由于 Convex 函数是 TypeScript 函数，你可以随时使用标准的
+`console.log` 和 `console.time` 函数来调试你的应用。
+
+你的函数生成的日志会显示在
+[你的仪表盘中](/dashboard/deployments/logs.md)。
+
+![Logs Dashboard Page](/screenshots/logs.png)
+
+### 运行状况、数据、函数等 \{#health-data-functions-and-more\}
+
+* [Health](/dashboard/deployments/health.md) - 提供关于你的应用在生产环境中运行情况的宝贵信息，并对你的
+  Convex 查询表现提供深入洞察。
+* [Data](/dashboard/deployments/data.md) - 为你提供一个完整的数据浏览器，用于抽查核对你的数据。
+* [Functions](/dashboard/deployments/functions.md) - 为你提供统计信息，并允许你运行函数进行调试。
+
+仪表盘的功能远不止于此。不妨多到处点点看看，或者
+[查看文档](/dashboard.md)。
+
+## 部署你的应用 \{#deploying-your-app\}
+
+到目前为止，你一直是在你的个人开发环境（dev）部署上开发应用。
+
+所有 Convex 项目在云端都有一个生产部署。它拥有独立的数据，并且与个人开发环境（dev）部署有单独的推送流程，这使得你和你的团队成员可以在个人开发环境（dev）部署中开发新功能，而不会干扰在生产环境中运行的应用。
+
+如果你还没有创建 Convex 账号，你需要通过 `npx convex login` 来创建。此命令会自动将你已经开始的任何项目链接到你的新账号上，并启用你使用生产部署。
+
+要将项目代码推送到项目的生产部署上，你需要运行 `deploy` 命令：
+
+```sh
+npx convex deploy
+```
+
+<Admonition type="info">
+  如果你是第一次运行该命令，它会自动为你的项目创建 prod 部署。
+</Admonition>
+
+### 设置部署流水线 \{#setting-up-your-deployment-pipeline\}
+
+很少会直接运行 `npx convex deploy`。大多数生产环境的应用程序通常会使用
+一个自动化工作流，用来运行测试，并同时部署后端和前端。
+
+你可以在 [Hosting and Deployment](/production/hosting/hosting.mdx) 文档中
+查看关于部署和前端配置的详细说明。对于大多数 React 元框架，Convex
+[会自动设置正确的环境变量](/production/hosting/vercel.mdx#how-it-works)
+以连接到生产部署。
+
+## 接下来 \{#up-next\}
+
+你现在已经了解了 Convex 的基本工作原理，以及它如何融入你的应用中。接下来可以进一步查阅文档，了解你想要使用的具体功能。
+
+当你准备好之后，一定要阅读
+[最佳实践](/understanding/best-practices/best-practices.mdx)，然后在你准备好开始“以 Convex 的方式思考”时，再阅读
+[Convex 之禅](/understanding/zen.mdx)。

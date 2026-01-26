@@ -1,0 +1,104 @@
+---
+title: Next.js Pages クイックスタート
+sidebar_label: クイックスタート
+hide_table_of_contents: true
+slug: "quickstart"
+description:
+  "Next.js Pages Router で Convex を使い始めましょう。クエリとミューテーション、
+  リアルタイム更新機能を備えたリアクティブなタスクリストアプリを構築します。"
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/sampleData.jsonl";
+import tasksJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/convex/tasks.js";
+import app from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/_app.js";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/index.js";
+
+Next.js アプリで Pages Router を使って、Convex からデータをクエリする方法を学びます。
+
+代わりに、このクイックスタートの [App Router](/quickstart/nextjs.mdx) 版を参照することもできます。
+
+<StepByStep>
+  <Step title="React アプリを作成する">
+    `npx create-next-app` コマンドを使って Next.js アプリを作成します。
+
+    すべてのプロンプトではデフォルトの選択肢を選びます（Enter キーを押します）。
+
+    ```sh
+    npx create-next-app@latest my-app --no-app --js
+    ```
+  </Step>
+
+  <Step title="Convex のクライアントおよびサーバーライブラリをインストールする">
+    まず、React アプリから Convex を扱うための便利なインターフェースを提供する
+    `convex` パッケージをインストールします。
+
+    アプリのディレクトリに移動して `convex` をインストールします。
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に、`npx convex dev` を実行します。
+    これにより、GitHub へのログイン、プロジェクトの作成、本番用とデプロイメントURLの保存を行うよう求められます。
+
+    また、バックエンド API 関数を書くための `convex/` フォルダも作成されます。
+    その後は `dev` コマンドが実行され続け、クラウド上の dev デプロイメントと関数を同期し続けます。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、いくつかのサンプルデータを含む
+    `sampleData.jsonl` ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`tasks` テーブルを追加し、
+    `import` コマンドを使ってサンプルデータを Convex データベースに
+    取り込みます。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダに新しく `tasks.js` ファイルを追加し、
+    データをロードするクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいた API 関数
+    `api.tasks.get` が定義されます。
+
+    <Snippet source={tasksJs} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="アプリをバックエンドに接続する">
+    `pages/_app.js` 内で `ConvexReactClient` を作成し、
+    アプリ全体をラップする `ConvexProvider` に渡します。
+
+    <Snippet source={app} title="pages/_app.js" highlightPatterns={[ "Convex", ]} />
+  </Step>
+
+  <Step title="アプリ内にデータを表示する">
+    `pages/index.js` で `useQuery` フックを使い、
+    `api.tasks.get` API 関数からデータを取得します。
+
+    <Snippet source={index} title="pages/index.js" highlightPatterns={[ "useQuery", "tasks", "text", "\\)\\)\\}" ]} />
+  </Step>
+
+  <Step title="アプリを起動する">
+    アプリを起動し、ブラウザで [http://localhost:3000](http://localhost:3000) を開き、
+    タスクの一覧を確認します。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>

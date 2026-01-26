@@ -1,0 +1,88 @@
+---
+title: Depuración
+sidebar_position: 100
+description: "Depura funciones de Convex durante el desarrollo y la producción"
+---
+
+La depuración es el proceso de determinar por qué tu código no se comporta como
+esperas.
+
+## Depuración durante el desarrollo \{#debugging-during-development\}
+
+Durante el desarrollo, la API integrada de `console` te permite comprender qué
+está pasando dentro de tus funciones:
+
+```ts title="convex/myFunctions.ts"
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const mutateSomething = mutation({
+  args: { a: v.number(), b: v.number() },
+  handler: (_, args) => {
+    console.log("Received args", args);
+    // ...
+  },
+});
+```
+
+Los siguientes métodos están disponibles en el
+[entorno de ejecución predeterminado de Convex](/functions/runtimes.mdx#default-convex-runtime):
+
+* Registrar valores con un nivel de gravedad específico:
+  * `console.log`
+  * `console.info`
+  * `console.warn`
+  * `console.error`
+  * `console.debug`
+* Registro con una traza de pila:
+  * [`console.trace`](https://developer.mozilla.org/en-US/docs/Web/API/console/trace_static)
+* Medición del tiempo de ejecución:
+  * [`console.time`](https://developer.mozilla.org/en-US/docs/Web/API/console/time_static)
+  * [`console.timeLog`](https://developer.mozilla.org/en-US/docs/Web/API/console/timelog_static)
+  * [`console.timeEnd`](https://developer.mozilla.org/en-US/docs/Web/API/console/timeend_static)
+
+El backend de Convex también registra automáticamente todas las ejecuciones correctas de funciones
+y todos los errores lanzados por tus funciones.
+
+Puedes ver estos registros:
+
+1. Cuando usas [`ConvexReactClient`](/client/react.mdx), en el panel de la consola
+   de las herramientas de desarrollador de tu navegador. Los registros se envían desde tu despliegue de dev a
+   tu cliente, y el cliente los muestra en la consola del navegador. Los despliegues de producción
+   [**no** envían registros al cliente](/functions/error-handling/error-handling.mdx#differences-in-error-reporting-between-dev-and-prod).
+2. En tu panel de control de Convex en la [página Logs](/dashboard/deployments/logs.md).
+3. En tu terminal con [`npx convex dev`](/cli.md#tail-deployment-logs) durante
+   el desarrollo o con [`npx convex logs`](/cli.md#tail-deployment-logs), que solo
+   imprime registros.
+
+### Uso del depurador \{#using-a-debugger\}
+
+Puedes ejecutar tus funciones desde tests, y en ese caso puedes añadir
+instrucciones `debugger;` y avanzar por tu código paso a paso. Consulta
+[Pruebas](/testing/convex-test.mdx#debugging-tests).
+
+## Depuración en producción \{#debugging-in-production\}
+
+Al depurar un problema en producción, tienes dos opciones:
+
+1. Aprovechar el logging existente
+2. Añadir más logging y desplegar una nueva versión de tu backend en producción
+
+El backend de Convex actualmente solo conserva una cantidad limitada de registros de log, y estos
+pueden borrarse en cualquier momento cuando el equipo de Convex realiza tareas internas de
+mantenimiento y actualizaciones. Por lo tanto, debes configurar integraciones de
+[transmisión de logs y notificación de errores](/production/integrations/integrations.mdx)
+para brindarle a tu equipo acceso sencillo a registros históricos y a información adicional
+registrada por tu cliente.
+
+## Buscar registros relevantes por Request ID \{#finding-relevant-logs-by-request-id\}
+
+Para encontrar los registros adecuados de un error que tú o tus usuarios encuentren, Convex
+incluye un Request ID en todos los mensajes de excepción tanto en dev como en producción, con este
+formato: `[Request ID: <request_id>]`.
+
+Puedes copiar y pegar un Request ID en tu panel de control de Convex para ver los registros
+de las funciones iniciadas por esa solicitud. Consulta la
+[página de registros del panel de control](/dashboard/deployments/logs.md#filter-logs) para obtener más detalles.
+
+{/* TODO: Documentar cómo filtrar por ID de solicitud en Datadog/Axiom */}

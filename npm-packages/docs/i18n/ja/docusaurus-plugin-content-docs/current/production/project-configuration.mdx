@@ -1,0 +1,201 @@
+---
+title: "プロジェクト設定"
+sidebar_label: "プロジェクト設定"
+sidebar_position: 3
+description:
+  "convex.json、環境変数、およびデプロイメント設定を使って
+  開発環境と本番デプロイメント向けにConvexプロジェクトを構成します。"
+---
+
+## ローカル開発 \{#local-development\}
+
+ローカルで開発するときには、次の 2 つの情報が必要です。
+
+1. dev デプロイメントの名前。ここに関数がプッシュされ、そこから提供されます。この値は `CONVEX_DEPLOYMENT` 環境変数に保存されます。`npx convex dev` はこの値を `.env.local` ファイルに書き込みます。
+2. クライアントが接続するための dev デプロイメントの URL。どの変数名を使い、どのファイルから読み取るかはクライアントフレームワークによって異なります。`npx convex dev` はこの URL を `.env.local` または `.env` ファイルに書き込みます。
+
+## 本番デプロイメント \{#production-deployment\}
+
+ローカルのデプロイメントで変更内容をテストし終えるまでは、本番デプロイメントにデプロイしないでください。準備ができたら、ホスティング／CI プロバイダ経由かローカルマシンからデプロイできます。
+
+CI 環境では
+[hosting](/production/hosting/hosting.mdx) ドキュメントに従ってください。CI パイプラインで実行される `npx convex deploy` は `CONVEX_DEPLOY_KEY` を使用し、フロントエンドのビルドコマンドは CI 環境で設定されたデプロイメントURLを保持する変数を使用します。
+
+バックエンドをローカルマシンからデプロイすることもできます。`npx convex deploy`
+は確認を求めたあと、設定されている開発用 `CONVEX_DEPLOYMENT` と同じプロジェクト内の本番デプロイメントにデプロイします。
+
+## `convex.json` \{#convexjson\}
+
+追加のプロジェクト設定は、プロジェクトのルート（`package.json` と同じディレクトリ）
+にある `convex.json` ファイルで行えます。
+
+`$schema` プロパティを追加することで、エディタでのバリデーションに JSON スキーマを
+利用できます。
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json"
+}
+```
+
+このファイルでは、次の設定オプションを指定できます。
+
+### `convex/` フォルダー名や場所の変更 \{#changing-the-convex-folder-name-or-location\}
+
+`functions` フィールドを使って、`convex/` フォルダーの名前や場所を変更できます。たとえば、Create React App では `src/` ディレクトリの外からのインポートが許可されていないため、Create React App を使用している場合は、次のような設定にしてください。
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "functions": "src/convex/"
+}
+```
+
+### サーバーへのパッケージのインストール \{#installing-packages-on-the-server\}
+
+Node アクションで使用するパッケージのうち、バンドルではなくサーバー側にインストールするものを、`node.externalPackages` フィールドで指定できます。
+[詳しくはこちら](/functions/bundling.mdx#external-packages)
+
+### 生成された関数 API を `require()` 構文でインポートする \{#importing-the-generated-functions-api-via-require-syntax\}
+
+Convex のコード生成機能は、`generateCommonJSApi` フィールドを使って
+`_generated/api.js` ファイルの CommonJS 版を生成するように設定できます。
+[詳細はこちら](/client/javascript/node.mdx#javascript-with-commonjs-require-syntax)。
+
+### Node.js バージョンの設定 \{#configuring-the-nodejs-version\}
+
+Node アクションで使用される Node.js のバージョンは、
+`node.nodeVersion` フィールドで指定できます。現在サポートされている値は `"20"` と `"22"` です。
+[詳細はこちら](/functions/runtimes.mdx#nodejs-version-configuration)。
+
+<Admonition type="info" title="必要な Convex バージョン">
+  プロジェクトで使用する Node.js バージョンを変更するには、
+  `convex` npm パッケージのバージョン 1.27.0 以降を使用する必要があります。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "nodeVersion": "22"
+  }
+}
+```
+
+注意: この設定はセルフホスト型で Convex バックエンドを実行している場合には使用できません。代わりに、[.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc) で指定されている Node.js のバージョンが使用されます。
+
+### 静的コード生成を使う（ベータ） \{#using-static-code-generation-beta\}
+
+Convex のコード生成は TypeScript の型推論に大きく依存しています。これにより
+`api` と `internal` オブジェクトに対する更新が軽快になり、定義へのジャンプも機能しますが、
+大規模なコードベースではしばしば動作が重くなることがあります。
+
+言語サーバーのパフォーマンスに問題が生じている場合は、Convex CLI に指示して
+`_generated/api.d.ts` と `_generated/dataModel.d.ts` の静的バージョンを生成させることができます。
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "codegen": {
+    "staticApi": true,
+    "staticDataModel": true
+  }
+}
+```
+
+これにより、補完機能とインクリメンタル型チェックのパフォーマンスは大幅に向上しますが、
+いくつかのトレードオフがあります:
+
+* これらの型が更新されるのは、`convex dev` が動作しているときだけです。
+* 定義へのジャンプは機能しなくなります。`api.example.f` を見つけるには、
+  手動で `convex/example.ts` を開き、`f` を探す必要があります。
+* 関数の戻り値の型はもはや推論されず、returns validator がない場合は
+  デフォルトで `v.any()` になります。
+* [TypeScript enums](https://www.typescriptlang.org/docs/handbook/enums.html) は
+  スキーマや API 定義では使えなくなります。代わりに文字列リテラル型の union を使用してください。
+
+この機能は現在ベータ版であり、今後これらの制限を改善していきたいと考えています。
+問題に遭遇したり、フィードバックがあればぜひお知らせください。
+
+### TypeScript コンパイラの設定 \{#configuring-the-typescript-compiler\}
+
+デフォルトでは、Convex は型チェックのために、プロジェクトにインストールされている `tsc` バイナリを使用します。代わりに TypeScript 7 のネイティブプレビュー版を使用したい場合は、`typescriptCompiler` オプションを `tsgo` に設定できます。`tsgo` を使用するには、`@typescript/native-preview` がプロジェクトにインストールされている必要がある点に注意してください。
+
+<Admonition type="info" title="必要な Convex バージョン">
+  TypeScript 7 のネイティブプレビュー版を使用するには、`convex` の npm パッケージのバージョン 1.31.1 以降を使用する必要があります。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "typescriptCompiler": "tsgo"
+}
+```
+
+### バンドラーオプションの設定 \{#configuring-bundler-options\}
+
+Convex はソースコードをバンドルする際にソースマップを含めて、スタックトレースを提供し、ダッシュボード上にコードを表示できるようにします。コードバンドルが特に大きい場合、バンドルからソースコードの内容を除外することで CLI からのアップロード時間を短縮できます。`bundler` オプション内で `includeSourcesContent` プロパティを `false` に設定してください。スタックトレースはこれまで通り動作しますが、ダッシュボード上でソースコードを表示することはできなくなります。
+
+<Admonition type="info" title="必要な Convex バージョン">
+  この設定オプションは `convex` npm パッケージのバージョン 1.31.3 以降でのみ利用できます。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "bundler": {
+    "includeSourcesContent": false
+  }
+}
+```
+
+### WorkOS AuthKit 連携の設定 \{#configuring-workos-authkit-integration\}
+
+認証に [WorkOS AuthKit](/auth/authkit/index.mdx) を使用している場合、
+`authKit` フィールドを通じて、WorkOS 環境の自動プロビジョニング（開発環境のみ）と
+設定を行うことができます。
+
+<Admonition type="info" title="必要な Convex バージョン">
+  この設定オプションは、`convex` npm パッケージのバージョン 1.31.6 以降でのみ
+  利用可能です。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "authKit": {
+    "dev": {
+      "configure": {
+        "redirectUris": ["http://localhost:3000/callback"],
+        "appHomepageUrl": "http://localhost:3000",
+        "corsOrigins": ["http://localhost:3000"]
+      },
+      "localEnvVars": {
+        "WORKOS_CLIENT_ID": "${authEnv.WORKOS_CLIENT_ID}",
+        "WORKOS_API_KEY": "${authEnv.WORKOS_API_KEY}",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI": "http://localhost:3000/callback"
+      }
+    },
+    "preview": {
+      "configure": {
+        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
+      }
+    },
+    "prod": {
+      "environmentType": "production",
+      "configure": {
+        "redirectUris": [
+          "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}/callback"
+        ],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}"]
+      }
+    }
+  }
+}
+```
+
+この設定では、各デプロイメント種別（dev、preview、prod）ごとに WorkOS の環境がどのようにプロビジョニングおよび構成されるかを制御します。詳細については
+[Automatic AuthKit Configuration](/auth/authkit/auto-provision.mdx) ガイドを参照してください。

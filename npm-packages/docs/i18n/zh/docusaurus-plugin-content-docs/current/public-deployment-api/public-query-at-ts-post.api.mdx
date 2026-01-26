@@ -1,0 +1,41 @@
+---
+id: public-query-at-ts-post
+title: "按时间戳执行查询"
+description: "在指定时间戳执行查询函数。"
+sidebar_label: "按时间戳执行查询"
+hide_title: true
+hide_table_of_contents: true
+api: eJy1VU1v2zAM/SsGz06a9uhbt3VYgQ4N0nQ7BEHA2EyszpZUiW6TGf7vA2V3dpogGwbMFxsUxY/H9+gaMvKpU5aV0ZDAzY7SiinC6Lkit482lU7lKEKOMPKWUrVRacSqJM9Y2jHEYCw5FKfbDBKw1bpQ6SpcXyGv2K+s8QwxOHquyPMHk+0hqSE1mkmzfKK1hUpDjIsnL4XU4NOcSpQv3luCBMz6idK3OMpRBskCLHIOMaDbeoiBPSxjsE4qYkU+xJajoyhNDBvjSuT+aAGendJbiEFXRQHLJm7D95c7hyZkOjLHwIoLMTyQU1ion5TNPTRNf/CYbabG83fF+dzPWjygEY++KXYVBYO3Rvu2iavJRF6Hs4L47zE0mu43kCzOo/mCRUUQg2fk6gSWhdneKU3D3tE53EMMiqk8gYm01kU7gRfpqgzAV2lK3gfI2xrEucPsWzAISOeLJ+eM+0re4/ZcD8HtE/JpWMLkQ6bD7FLZQYJTpPhf8ITEsGyaZnlApVlHEQFHIpXEuQkabAXXshcuBloUYMi9kPOh68oV4oBWQfyOXZ/IFmZfkuboenoLklpoNetFfLPD0hY0ENlAVX0XXRW9SPwBaEpvzHDcH41+oV00DWsk+jKfTyNnKiZ/VOGNzqxRmn3EOXLUcSHSJsKKc9LcyQFiKFRKAlRSg8ZS0ty1lhltRp8f7kaX48vRtcU0p9HVeCIDyyTARpH7o7OQlpxvi7ocT1qTzKBEPUj5tlvbzYrcb9H3rQ2W4z9t5I5ITDu+sAUqLQWFWdfdOBYwJMUyhlwokyygrtfo6dEVTSPm4AXJYinCdArXMqOFqCEnzAScRQ0/aN8OTkoezSX5bx0f7yVRV3vjOk3J8lnf5YDV0/uHOcSw7v4fpcnkjsNXWQT42m5EEyAMcgq2GgrU2ypIFtqY8vwCyitl0A==
+sidebar_class_name: "post api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"在指定时间戳执行查询"} />
+
+<MethodEndpoint method={"post"} path={"/query_at_ts"} context={"endpoint"} />
+
+在指定时间戳执行查询函数。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"请求"} />
+
+<ParamsDetails parameters={undefined} />
+
+<RequestSchema title={"请求体"} body={{"content":{"application/json":{"schema":{"type":"object","required":["path","args","ts"],"properties":{"args":{"type":"object"},"format":{"type":["string","null"]},"path":{"type":"string"},"ts":{"type":"string","title":"SerializedTs"}},"title":"UdfPostWithTsRequest"}}},"required":true}} />
+
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"oneOf":[{"type":"object","required":["value","status"],"properties":{"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["success"]},"value":{"title":"值"}}},{"type":"object","required":["errorMessage","status"],"properties":{"errorData":{"oneOf":[{"type":"null"},{"title":"值"}]},"errorMessage":{"type":"string"},"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["error"]}}}],"title":"UdfResponse"}}}}}}
+>
+  
+</StatusCodes>

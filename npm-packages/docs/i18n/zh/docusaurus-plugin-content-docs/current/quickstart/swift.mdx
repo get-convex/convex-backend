@@ -1,0 +1,161 @@
+---
+title: iOS Swift 快速入门
+sidebar_label: iOS Swift
+description: "将 Convex 添加到 iOS Swift 项目中"
+hide_table_of_contents: true
+sidebar_position: 600
+---
+
+了解如何在使用 Swift 和 SwiftUI 构建、面向 iOS 和 macOS 设备的应用中，从 Convex 查询数据。
+
+本快速入门教程假设你在 Mac 上已安装 Xcode、node 和 npm。
+如果你还没有这些工具，请先花点时间安装它们。
+
+<StepByStep>
+  <Step title="在 Xcode 中新建一个 iOS 应用项目">
+    1. 点击 *Create New Project*
+    2. 选择 iOS App 并点击 *Next*
+    3. 将项目命名为类似 “ConvexQuickstart” 的名称
+    4. 确保 Language 设置为 Swift，User Interface 设置为 SwiftUI
+    5. 点击 *Next*
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_step_1.png" alt="创建新的 iOS 项目" width={600} />
+    </p>
+  </Step>
+
+  <Step title="配置依赖项">
+    1. 在左侧项目导航器中点击顶层的 ConvexQuickstart 应用容器
+    2. 点击 PROJECT 区域下的 ConvexQuickstart
+    3. 点击 Package Dependencies 选项卡
+    4. 点击 + 按钮（见截图）
+    5. 将
+       ```
+       https://github.com/get-convex/convex-swift
+       ```
+       粘贴到搜索框中，然后按下回车键
+    6. 当 `convex-swift` 包加载完成后，点击 *Add Package* 按钮
+    7. 在 *Package Products* 对话框中，在 *Add to Target* 下拉菜单中选择 ConvexQuickstart
+    8. 点击 Add Package 按钮
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_step_2.png" alt="为包添加 Convex 依赖" width={600} />
+    </p>
+  </Step>
+
+  <br />
+
+  <Step title="安装 Convex 后端">
+    打开终端并使用 `cd` 进入你创建的 Xcode 项目目录。运行以下命令安装 Convex 的客户端和服务器库。
+
+    ```bash
+    npm init -y
+    npm install convex
+    ```
+  </Step>
+
+  <Step title="开始使用 Convex">
+    启动一个 Convex 开发环境（dev）部署。按照命令行提示操作，创建一个新项目。
+
+    ```bash
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在 Swift 项目目录下新建一个名为 `sampleData.jsonl` 的文件，并填入以下内容
+
+    ```json
+    {"text": "Buy groceries", "isCompleted": true}
+    {"text": "Go for a swim", "isCompleted": true}
+    {"text": "Integrate Convex", "isCompleted": false}
+    ```
+  </Step>
+
+  <Step title="将示例数据添加到数据库中名为 `tasks` 的表中">
+    按下 ⌘+T 打开一个新的终端标签页，它会在你的 Swift 项目目录下打开，然后运行
+
+    ```bash
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="对外公开数据库查询">
+    在 Swift 项目的 `convex/` 目录下创建一个 `tasks.ts` 文件，内容如下：
+
+    ```tsx
+    import { query } from "./_generated/server";
+
+    export const get = query({
+      args: {},
+      handler: async (ctx) => {
+        return await ctx.db.query("tasks").collect();
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="创建 Swift 结构体">
+    回到 Xcode，在 `ContentView` 文件的底部创建一个 `struct`，用来对应示例数据
+
+    ```swift
+    // 我们使用 Todo 名称而不是 Task,以避免与 Swift 内置的 Task 类型冲突。
+    struct Todo: Decodable {
+      let _id: String
+      let text: String
+      let isCompleted: Bool
+    }
+    ```
+  </Step>
+
+  <Step title="将应用连接到你的后端服务">
+    1. 使用 `cat .env.local | grep CONVEX_URL` 获取开发环境（dev）服务器的部署 URL
+    2. 在文件顶部附近、紧挨着 `ContentView` 结构体上方创建一个 `ConvexClient` 实例
+
+    ```swift
+    import SwiftUI
+    import ConvexMobile
+
+    // highlight-next-line
+    let convex = ConvexClient(deploymentUrl: "YOUR_CONVEX_URL")
+
+    struct ContentView: View {
+    ...
+    ```
+  </Step>
+
+  <Step title="创建 UI 界面">
+    将默认的 `ContentView` 替换为以下代码，这样每当后端数据发生变化时，待办事项列表都会自动刷新。
+
+    ```swift
+    struct ContentView: View {
+      @State private var todos: [Todo] = []
+
+      var body: some View {
+        List {
+          ForEach(todos, id: \._id) { todo in
+            Text(todo.text)
+          }
+        }.task {
+          for await todos: [Todo] in convex.subscribe(to: "tasks:get")
+            .replaceError(with: []).values
+          {
+            self.todos = todos
+          }
+        }.padding()
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="运行应用程序">
+    1. 按下 ⌘+R 或点击菜单中的 *Product → Run*
+    2. 你也可以在 `dashboard.convex.dev` 的 `tasks` 表中尝试添加、更新或删除文档——应用会实时反映这些更改。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_final.png" alt="应用预览" width={400} />
+    </p>
+  </Step>
+</StepByStep>
+
+请参阅完整的 [iOS Swift 文档](/client/swift.md)。

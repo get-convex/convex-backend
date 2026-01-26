@@ -1,0 +1,118 @@
+---
+title: "データの書き込み"
+sidebar_position: 4
+description: "Convex データベースのテーブルにデータを挿入、更新、削除する方法"
+---
+
+import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataInsert.ts";
+import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
+import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
+import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+[ミューテーション](/functions/mutation-functions.mdx) は、データベーステーブルのデータを挿入・更新・削除できます。
+
+## 新しいドキュメントの挿入 \{#inserting-new-documents\}
+
+[`db.insert`](/api/interfaces/server.GenericDatabaseWriter#insert) メソッドを使って、
+データベースに新しいドキュメントを挿入できます。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={insertExample} sourceJS={insertExample} highlightPatterns={["db.insert"]} />
+
+`db.insert` の 2 番目の引数は、新しいドキュメントのデータを持つ JavaScript オブジェクトです。
+
+[クエリ](/functions/query-functions.mdx) や
+[ミューテーション](/functions/mutation-functions.mdx) に渡したり、そこから返したりできるのと同じ種類の値を、データベースに書き込むことができます。
+サポートされている型の完全な一覧については、[データ型](/database/types.md) を参照してください。
+
+`insert` メソッドは、新たに挿入されたドキュメントに対するグローバルに一意な ID を返します。
+
+## 既存のドキュメントの更新 \{#updating-existing-documents\}
+
+既存のドキュメント ID を指定すれば、次の方法でそのドキュメントを更新できます。
+
+1. [`db.patch`](/api/interfaces/server.GenericDatabaseWriter#patch) メソッドは、
+   既存のドキュメントに対して、指定した部分ドキュメントを浅くマージすることでパッチを適用します。
+   新しいフィールドは追加され、既存のフィールドは上書きされます。
+   `undefined` に設定されたフィールドは削除されます。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={patchExample} sourceJS={patchExample} highlightPatterns={["db.patch"]} />
+
+2. [`db.replace`](/api/interfaces/server.GenericDatabaseWriter#replace)
+   メソッドは、既存のドキュメントを完全に置き換え、これにより既存のフィールドが削除される場合があります。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={replaceExample} sourceJS={replaceExample} highlightPatterns={["db.replace"]} />
+
+## ドキュメントの削除 \{#deleting-documents\}
+
+既存のドキュメント ID がある場合は、そのドキュメントを
+[`db.delete`](/api/interfaces/server.GenericDatabaseWriter#delete) メソッドでテーブルから削除できます。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={deleteExample} sourceJS={deleteExample} highlightPatterns={["db.delete"]} />
+
+## 一括インサートや更新 \{#bulk-inserts-or-updates\}
+
+SQL に慣れていると、一括インサートや一括更新ステートメントを探してしまうかもしれません。Convex では、`mutation` 関数全体が自動的に 1 つのトランザクションになります。
+
+ミューテーション関数の中で、ループ内で単に insert や update を行えばかまいません。Convex はその関数内のすべてのデータベース変更をキューに溜めておき、関数が終了したタイミングでそれらを 1 回のトランザクションとしてまとめて実行します。その結果、データベースへの変更は 1 度の効率的な更新として行われます。
+
+````typescript
+/**
+ * 複数の製品をデータベースに一括挿入します。
+ *
+ * 以下のSQLと同等です:
+ * ```sql
+ * INSERT INTO products (product_id, product_name, category, price, in_stock)
+ * VALUES
+ *     ('Laptop Pro', 'Electronics', 1299.99, true),
+ *     ('Wireless Mouse', 'Electronics', 24.95, true),
+ *     ('Ergonomic Keyboard', 'Electronics', 89.50, true),
+ *     ('Ultra HD Monitor', 'Electronics', 349.99, false),
+ *     ('Wireless Headphones', 'Audio', 179.99, true);
+ * ```
+ */
+export const bulkInsertProducts = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        product_name: v.string(),
+        category: v.string(),
+        price: v.number(),
+        in_stock: v.boolean(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { products } = args;
+
+    // ループ内で挿入します。Convexはミューテーション終了時にすべての変更を
+    // 単一のトランザクションで実行するようキューに入れるため、これは効率的です。
+    for (const product of products) {
+      const id = await ctx.db.insert("products", {
+        product_name: product.product_name,
+        category: product.category,
+        price: product.price,
+        in_stock: product.in_stock,
+      });
+    }
+  },
+});
+````
+
+## マイグレーション \{#migrations\}
+
+データベースのマイグレーションは、migration コンポーネントを通じて行います。このコンポーネントは、オンラインマイグレーションを実行して、時間をかけて安全にデータベーススキーマを変更・拡張していけるように設計されています。失敗時の再開や、ドライランによる変更内容の検証が可能です。
+
+<ComponentCardList
+  items={[
+  {
+    title: "Migrations",
+    description: "稼働中のデータに対する長時間実行のデータマイグレーション用フレームワーク。",
+    href: "https://www.convex.dev/components/migrations",
+  },
+]}
+/>
+
+## 書き込みパフォーマンスと制限 \{#write-performance-and-limits\}
+
+大量のレコードが誤って書き込まれることを防ぐため、クエリおよびミューテーションには[こちら](/production/state/limits.mdx#transactions)で詳しく説明されている制限が設けられています。

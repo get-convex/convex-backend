@@ -1,0 +1,22 @@
+{
+  "link.item.label.Releases": {
+    "message": "リリース",
+    "description": "https://convex.dev/releases へのフッターリンクのラベル（label=Releases）"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "https://github.com/get-convex へのフッターリンクのラベル（label=GitHub）"
+  },
+  "link.item.label.Discord": {
+    "message": "Discord",
+    "description": "https://convex.dev/community へのフッターリンクのラベル（label=Discord）"
+  },
+  "link.item.label.Twitter": {
+    "message": "Twitter",
+    "description": "https://twitter.com/convex へのフッターリンクのラベル（label=Twitter）"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 Convex, Inc.",
+    "description": "フッターに表示される著作権表記"
+  }
+}

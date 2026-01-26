@@ -1,0 +1,211 @@
+---
+title: "認証のデバッグ"
+sidebar_label: "デバッグ"
+sidebar_position: 130
+description: "Convex の認証の問題をトラブルシューティングする"
+---
+
+# 認証のデバッグ \{#debugging-authentication\}
+
+どれかの認証ガイドに従ったものの、何かがうまく動作していません。
+すべての手順に従い、正しいシークレットを使用していることも改めて確認しましたが、
+それでもまだ行き詰まっている状況です。
+
+## よくある問題 \{#frequently-encountered-issues\}
+
+### クエリ内で `ctx.auth.getUserIdentity()` が `null` を返す \{#ctxauthgetuseridentity-returns-null-in-a-query\}
+
+これは、React で `useQuery` を使ってクエリを購読する際に、クライアントの認証が完了するのを待たずに実行している場合によく起こります。ユーザーが以前にログインしていたとしても、クライアントが Convex のバックエンドと認証を完了するまでには時間がかかります。そのため、ページ読み込み時にクエリ内で呼び出された `ctx.auth.getUserIdentity()` は `null` を返します。
+
+これに対処するには、次のいずれかの方法を取ってください。
+
+1. `convex/react` の `Authenticated` コンポーネントを使用して、
+   `useQuery` 呼び出しを含むコンポーネントをラップする（
+   [Clerk ガイド](/auth/clerk.mdx#get-started) の最後の 2 ステップを参照）
+2. あるいは、クエリから `null` またはその他の「センチネル」値を返し、
+   クライアント側でそれを処理する
+
+[Next.js のサーバーレンダリング](/client/nextjs/app-router/server-rendering.mdx) で
+`fetchQuery` を使用している場合は、
+[こちら](/client/nextjs/app-router/server-rendering.mdx#server-side-authentication)
+で説明されているように JWT トークンを明示的に渡していることを確認してください。
+
+これでも解決しない場合は、次の手順に従って問題を解消してください。
+
+## ステップ 1: バックエンドで認証が正しく動作しているか確認する \{#step-1-check-whether-authentication-works-on-the-backend\}
+
+1. 関数（query、ミューテーション、
+   アクション、または http action）の*先頭*に次のコードを追加します:
+
+```ts
+console.log("server identity", await ctx.auth.getUserIdentity());
+```
+
+2. 次に、この関数を Convex と通信するために使用している任意のクライアントから呼び出します。
+
+3. [ダッシュボードのログページ](https://dashboard.convex.dev/deployment/logs)を開きます。
+
+4. ログページには何が表示されていますか？
+
+   **回答: 何も表示されない**:
+
+   * 想定される原因: 開いているダッシュボードが正しいものではありません。*Settings* &gt; *URL and Deploy Key* ページに表示される Deployment URL が、クライアントの設定内容と一致しているか確認してください。
+   * 想定される原因: クライアントが Convex に接続されていません。クライアントのログ（ブラウザのログ）にエラーがないか確認してください。ページの再読み込み / クライアントの再起動を行ってください。
+   * 想定される原因: コードがプッシュされていません。dev デプロイメントでは `npx convex dev` が実行されていることを確認してください。本番デプロイメントでは `npx convex deploy` で正常にプッシュできていることを確認してください。ダッシュボードの *Functions* ページに移動し、そこに表示されるコードに、追加した `console.log` の行が含まれていることを確認してください。
+
+   原因を解消すると、ログが表示されるようになるはずです。
+
+   **回答: `'server identity' null` のログが表示される**:
+
+   * 想定される原因: クライアントが認証トークンを送信していません。
+   * 想定される原因: デプロイメントの設定が誤っています。
+   * 想定される原因: クライアントの設定が誤っています。
+
+   [ステップ 2](#step-2-check-whether-authentication-works-on-the-frontend) に進んでください。
+
+   **回答: `'server identity' { tokenIdentifier: '... } ` のログが表示される**
+
+   これで準備は完了です！
+
+## Step 2: フロントエンドで認証が動作しているか確認する \{#step-2-check-whether-authentication-works-on-the-frontend\}
+
+どのクライアントを使う場合でも、認証を機能させるにはバックエンドに JWT トークンを渡す必要があります。
+
+クライアントがトークンをバックエンドに渡していることを確実に確認する最も堅牢な方法は、クライアントとバックエンドの間のトラフィックを検査することです。
+
+1. Web ブラウザでクライアントを利用している場合は、ブラウザの開発者ツールで *Network* タブを開きます。
+
+2. トークンを確認する
+
+   * WebSocket ベースのクライアント（`ConvexReactClient` と `ConvexClient`）の場合は、
+     `sync` という名前でフィルタし、トラフィックの種類として `WS` を選択します。
+     `sync` の項目を確認してください。クライアントの初期化後（通常はページ読み込み後）に、
+     `type: "Authenticate"` というメッセージ（*Messages* タブを確認）を送信し、その `value` が認証トークンになります。
+
+     <p style={{ textAlign: "center" }}>
+       <img src="/screenshots/auth-ws.png" alt="Websocket メッセージを検査している Network タブ" width={500} />
+     </p>
+
+   * HTTP ベースのクライアント（`ConvexHTTPClient` と
+     [HTTP API](/http-api/index.md)）の場合は、トラフィックの種類として `Fetch/XHR` を選択します。
+     各関数呼び出しごとに個別のネットワークリクエストが表示され、その中に認証トークンを続けた
+     `Bearer ` という値の `Authorization` ヘッダーがあるはずです。
+
+     <p style={{ textAlign: "center" }}>
+       <img src="/screenshots/auth-http.png" alt="HTTP ヘッダーを検査している Network タブ" width={480} />
+     </p>
+
+3. トラフィックの中に認証トークンは見えますか？
+
+   **回答: いいえ**:
+
+   * 考えられる原因: Convex クライアントが JWT トークンを取得/フェッチするように構成されていません。
+     `ConvexReactClient` と一緒に
+     `ConvexProviderWithClerk` / `ConvexProviderWithAuth0` / `ConvexProviderWithAuth`
+     を使っていないか、`ConvexHTTPClient` または `ConvexClient` に対して `setAuth` を呼び忘れています。
+   * 考えられる原因: サインインしていないため、トークンが `null` または
+     `undefined` であり、`ConvexReactClient` が認証処理を完全にスキップしています。
+     利用している認証プロバイダから取得したトークンを `console.log` して、サインインできているか確認してください:
+
+     * Clerk:
+
+       ```tsx
+       // import { useAuth } from "@clerk/nextjs"; // Next.js 用
+       import { useAuth } from "@clerk/clerk-react";
+
+       const { getToken } = useAuth();
+       console.log(getToken({ template: "convex" }));
+       ```
+
+     * Auth0:
+
+       ```tsx
+       import { useAuth0 } from "@auth0/auth0-react";
+
+       const { getAccessTokenSilently } = useAuth0();
+       const response = await getAccessTokenSilently({
+         detailedResponse: true,
+       });
+       const token = response.id_token;
+       console.log(token);
+       ```
+
+     * カスタム: `useAuthFromProviderX` をどのように実装しているかによります
+
+     トークンのような長い文字列が表示されない場合は、認証プロバイダからのエラーがブラウザのログに出ていないか確認してください。
+     エラーがなければ、プロバイダへのリクエストが失敗していないか Network タブで確認してください。
+     認証プロバイダの設定が間違っている可能性があります。認証プロバイダの構成（対応する React プロバイダ内、またはクライアント用にどのように設定しているか）を再確認してください。
+     また、ブラウザでクッキーを削除してみてください（dev tools の *Application* &gt; *Cookies* &gt; *Clear all cookies* ボタン）。
+
+   **回答: はい、JWT らしき長い文字列が見えます**:
+
+   その場合は、そのトークン全体をコピーしてください（中に `.` が含まれるので、一部だけでなく必ず全体をコピーしてください）。
+
+4. https://jwt.io/ を開き、ページをスクロールして、左側の「Encoded」テキストエリアにトークンを貼り付けます。
+   右側で次の内容が見えるはずです:
+
+   * *HEADER* に `"typ": "JWT"`
+   * *PAYLOAD* に、少なくとも `"aud"`、`"iss"`、`"sub"` フィールドを含む有効な JSON。
+     ペイロードが意味不明な文字列に見える場合は、トークンを正しくコピーできていないか、有効な JWT トークンではない可能性があります。
+
+   有効な JWT トークンが確認できたら、
+   [Step 1](#step-1-check-whether-authentication-works-on-the-backend) をもう一度行ってください。
+   それでも正しいアイデンティティが見えない場合は、Step 3 に進んでください。
+
+## ステップ 3: バックエンドの設定がフロントエンドの設定と一致しているか確認する \{#step-3-check-that-backend-configuration-matches-frontend-configuration\}
+
+フロントエンド側では有効な JWT トークンがあり、バックエンドに渡されていることも分かっているにもかかわらず、バックエンド側で検証されていません。
+
+1. ダッシュボードの *Settings* &gt; *Authentication* を開きます。何が表示されていますか？
+
+   **回答:\
+   `This deployment has no configured authentication providers` と表示される**:
+
+   * 原因: `convex` ディレクトリに `auth.config.ts`（または `auth.config.js`）ファイルがないか、コードをまだプッシュしていません。認証ガイドに従って、有効な認証設定ファイルを作成してください。dev デプロイメントでは `npx convex dev` が動作していることを確認してください。本番デプロイメントでは `npx convex deploy` で正常にプッシュできていることを確認してください。
+
+   **回答: 1 つ以上の *Domain* と *Application ID* のペアが表示される。
+
+良いですね。JWT トークンと一致しているか確認しましょう。
+
+2. https://jwt.io/ で JWT トークンのペイロードの `iss` フィールドを確認します。それは *Authentication* ページの *Domain* と一致していますか？
+
+   **回答: いいえ、Convex ダッシュボード上に `iss` の URL が見つかりません**:
+
+   * 想定される原因:
+     <JSDialectFileName name="auth.config.ts" />
+     の `domain`、もしくはそこで使用している環境変数に誤った値をコピーしている可能性があります。認証ガイドに戻り、認証プロバイダから正しい URL を取得しているか確認してください。
+   * 想定される原因: クライアント側の設定が誤っています:
+
+     * Clerk: 間違った `publishableKey` が設定されています。このキーは、
+       <JSDialectFileName name="auth.config.ts" /> を設定した Clerk インスタンスに属している必要があります。
+
+       * また、Clerk 側で JWT トークン名が `convex` になっていることも確認してください。`ConvexProviderWithClerk` はその名前でトークンを取得します。
+
+     * Auth0: （クライアント側で）間違った `domain` が設定されています。このドメインは、
+       <JSDialectFileName name="auth.config.ts" /> を設定した Auth0 インスタンスに属している必要があります。
+
+     * Custom: クライアントが
+       <JSDialectFileName name="auth.config.ts" /> の設定と正しく一致するように構成されていることを確認してください。
+
+   **回答: はい、`iss` の URL が表示されています**:
+
+   では、次に進みましょう。
+
+3. https://jwt.io/ で JWT トークンのペイロードの `aud` フィールドを確認します。それは *Authentication* ページの該当する *Domain* の下にある *Application ID* と一致していますか？
+
+   **回答: いいえ、*Application ID* フィールドに `aud` の値が見当たりません**:
+
+   * 想定される原因:
+     <JSDialectFileName name="auth.config.ts" />
+     の `applicationID`、もしくはそこで使用している環境変数に誤った値をコピーしている可能性があります。認証ガイドに戻り、認証プロバイダから正しい値を取得しているか確認してください。
+   * 想定される原因: クライアント側の設定が誤っています:
+     * Clerk: 間違った `publishableKey` が設定されています。このキーは、
+       <JSDialectFileName name="auth.config.ts" /> を設定した Clerk インスタンスに属している必要があります。
+     * Auth0: 間違った `clientId` が設定されています。\
+       <JSDialectFileName name="auth.config.ts" /> を設定した Auth0 インスタンスに対して、正しい `clientId` を使用していることを確認してください。
+     * Custom: クライアントが
+       <JSDialectFileName name="auth.config.ts" /> の設定と正しく一致するように構成されていることを確認してください。
+
+   **回答: はい、*Application ID* フィールドに `aud` の値が表示されています**:
+
+   良いですね。[ステップ 1](#step-1-check-whether-authentication-works-on-the-backend) をもう一度実行すれば、これですべて完了のはずです！

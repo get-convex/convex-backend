@@ -1,0 +1,68 @@
+---
+title: AI 代码生成
+hide_table_of_contents: true
+description: "如何在 Convex 中高效使用 AI 代码生成"
+---
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "https://chef.convex.dev",
+  label: "使用 Convex Chef 通过提示构建应用",
+}}
+/>
+
+Convex 围绕一小组可组合的抽象来设计，并提供强有力的保证，使代码不仅编写更快，而且更易于阅读和维护——无论是团队成员还是 LLM 编写的代码。几个关键特性帮助你获得几乎没有 bug 的 AI 生成代码：
+
+1. **查询就是 TypeScript** 你的数据库查询是纯 TypeScript 函数，具备端到端的类型安全和 IDE 支持。这意味着 AI 可以利用大量的 TypeScript 训练数据来生成数据库代码，而无需切换到 SQL。
+2. **更少的代码完成同样的工作** 由于大量基础设施和样板代码都由 Convex 自动管理，需要编写的代码更少，也就更不容易出错。
+3. **自动响应性** 响应式系统会自动跟踪数据依赖并更新你的 UI。AI 不需要手动管理订阅、WebSocket 连接或复杂的状态同步——这些都由 Convex 自动处理。
+4. **事务性保证** 查询是只读的，变更会在事务中运行。这些约束几乎让 AI 不可能写出会破坏数据或让应用处于不一致状态的代码。
+
+总的来说，这些特性使 AI 能专注于你的业务逻辑，而 Convex 提供的各项保证则可以避免常见的故障模式。要了解目前哪些模型在 Convex 中效果最好，请查看我们的 LLM
+[排行榜](https://convex.dev/llm-leaderboard)。
+
+## Convex AI 规则 \{#convex-ai-rules\}
+
+当你为 AI 提供一组需要遵循的规则时，AI 代码生成的效果会更好。
+
+安装说明请参阅以下文档：
+
+* [Cursor](/ai/using-cursor.mdx#add-convex-cursorrules)
+* [Windsurf](/ai/using-windsurf.mdx#add-convex-rules)
+* [GitHub Copilot](/ai/using-github-copilot.mdx#add-convex-instructions)
+
+对于其他 IDE，请将下面的规则文件添加到你的项目中，并在发出修改请求时引用该文件：
+
+* [convex&#95;rules.txt](https://convex.link/convex_rules.txt)
+
+我们正通过严格的 eval 持续改进这些 Convex 规则的质量。你可以通过
+[为我们的 evals 仓库做贡献](https://github.com/get-convex/convex-evals)
+来提供帮助。
+
+## 在后台 Agent 中使用 Convex \{#using-convex-with-background-agents\}
+
+像 Jules、Devin、Codex 和 Cursor 这类远程云端编码 agent（后台
+agents）可以在 CLI 处于
+[Agent 模式](/cli/background-agents.mdx) 时使用 Convex 部署。这样既能限制这些远程开发环境所需的权限，又允许 agents 运行代码生成、
+迭代代码、运行测试以及执行一次性函数。
+
+一个适合 ChatGPT Codex 等工具使用的初始化脚本可能包括
+
+```
+npm i
+CONVEX_AGENT_MODE=anonymous npx convex dev --once
+```
+
+或者
+
+```
+bun i
+CONVEX_AGENT_MODE=anonymous bun x convex dev --once
+```
+
+此命令需要完整的网络访问权限才能下载该二进制可执行文件。
+
+## Convex MCP Server \{#convex-mcp-server\}
+
+[配置 Convex MCP Server](/ai/convex-mcp-server.mdx)，让你的 AI 编码代理可以访问你的 Convex 部署，以查询并优化你的项目。

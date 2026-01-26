@@ -1,0 +1,280 @@
+---
+title: "El Zen de Convex"
+slug: "zen"
+hidden: false
+sidebar_position: 500
+hide_table_of_contents: true
+description: "Filosofía de diseño y mejores prácticas de Convex"
+---
+
+export function CategoryIcon(props) {
+  switch (props.title) {
+    case "Rendimiento":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z"
+          />
+        </svg>
+      );
+    case "Arquitectura":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path d="M11.584 2.376a.75.75 0 01.832 0l9 6a.75.75 0 11-.832 1.248L12 3.901 3.416 9.624a.75.75 0 01-.832-1.248l9-6z" />
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M20.25 10.332v9.918H21a.75.75 0 010 1.5H3a.75.75 0 010-1.5h.75v-9.918a.75.75 0 01.634-.74A49.109 49.109 0 0112 9c2.59 0 5.134.202 7.616.592a.75.75 0 01.634.74zm-7.5 2.418a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75zm3-.75a.75.75 0 01.75.75v6.75a.75.75 0 01-1.5 0v-6.75a.75.75 0 01.75-.75zM9 12.75a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75z"
+          />
+          <path d="M12 7.875a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" />
+          //{" "}
+        </svg>
+      );
+    case "Flujo de desarrollo":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M2.25 6a3 3 0 013-3h13.5a3 3 0 013 3v12a3 3 0 01-3 3H5.25a3 3 0 01-3-3V6zm3.97.97a.75.75 0 011.06 0l2.25 2.25a.75.75 0 010 1.06l-2.25 2.25a.75.75 0 01-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 010-1.06zm4.28 4.28a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+
+export function ZenHeader({ title }) {
+  return (
+    <h2 className="zen-header">
+      {title} <CategoryIcon title={title} />
+    </h2>
+  );
+}
+
+export function TipIcon({ type }) {
+  switch (type) {
+    case "do":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    case "do-not":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+export function ZenTip({ type, title, children }) {
+  return (
+    <div className={`zen-tip zen-${type}`}>
+      <h3>
+        <TipIcon type={type} /> {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+<div style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/dyEWQ9s2ji4?si=ce-M8pt6EWDZ8tfd" title="Reproductor de video de YouTube" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+</div>
+
+<span className="convex-hero">
+  Convex es un framework de opiniones firmes, en el que cada elemento está diseñado para llevar a las personas desarrolladoras a
+  [el foso del éxito](https://blog.codinghorror.com/falling-into-the-pit-of-success/).
+
+  El Zen de Convex es un conjunto de pautas y buenas prácticas que las personas desarrolladoras han
+  descubierto y que ayudan a que sus proyectos caigan en este maravilloso foso.
+</span>
+
+<ZenHeader title="Rendimiento" />
+
+
+<ZenTip type="do" title={<span>Refuerza el <a href="/tutorial#how-convex-works">motor de sincronización</a></span>} >
+
+    Hay una razón por la que una base de datos determinista y reactiva es el
+    corazón palpitante de Convex: cuanto más centres tus aplicaciones en sus
+    propiedades, mejor les irá a tus proyectos con el tiempo. Tus proyectos
+    serán más fáciles de entender y refactorizar. El rendimiento de tu
+    aplicación seguirá siendo rapidísimo. No tendrás problemas de
+    consistencia ni de gestión de estado.
+
+<Details summary="Usa una consulta para casi todas las lecturas de la aplicación">
+  Las consultas son la forma reactiva, con caché automática, consistente y
+  resiliente de propagar datos a tu aplicación y a sus tareas. Con muy pocas
+  excepciones, cada operación de lectura en tu aplicación debería ocurrir a
+  través de una función de consulta.
+</Details>
+
+<Details summary="Mantén ligeras y rápidas las funciones del motor de sincronización">
+  En general, tus mutaciones y consultas deberían trabajar con menos de unos
+  pocos cientos de registros y deberían intentar terminar en menos de 100 ms.
+  Es casi imposible mantener una aplicación ágil y con buena respuesta si tus
+  transacciones síncronas implican mucho más trabajo que esto.
+</Details>
+
+<Details summary="Usa acciones con moderación y de forma incremental">
+  Las acciones son excelentes para trabajos por lotes y/o para integrarse con
+  servicios externos. Son muy potentes, pero más lentas, más caras, y Convex
+  ofrece muchas menos garantías sobre su comportamiento. Así que nunca uses una
+  acción si una consulta o una mutación pueden hacer el trabajo.
+</Details>
+
+</ZenTip>
+
+<ZenTip type="do-not" title="No sobrecomplique la gestión de estado del lado del cliente">
+
+Convex incorpora una gran cantidad de controles propios de caché y consistencia
+en la biblioteca cliente de la aplicación. En lugar de reinventar la rueda,
+deja que tu código del lado del cliente aproveche estas mejoras de rendimiento
+integradas.
+
+<Details summary="Deja que Convex gestione la caché y la consistencia">
+
+Puede que te veas tentado a construir rápidamente tu propia caché local o capa
+de agregación de estado en Convex para situarla entre tus componentes y tus
+funciones de Convex. Con Convex, la mayoría de las veces no acabarás
+necesitándola. Casi siempre puedes vincular tus componentes a las funciones de
+Convex de formas bastante sencillas y las cosas simplemente funcionarán y serán
+lo suficientemente rápidas.
+
+</Details>
+
+<Details summary="Piensa bien en los valores de retorno de las mutaciones">
+  Los valores de retorno de las mutaciones pueden ser útiles para desencadenar
+  cambios de estado en tu aplicación, pero rara vez es buena idea usarlos para
+  fijar el estado dentro de la aplicación para actualizar la UI. Deja que las
+  consultas y el motor de sincronización se encarguen de eso.
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="Arquitectura" />
+
+<ZenTip type="do" title='Crea frameworks del lado del servidor usando "solo código"'>
+  <p>
+    ¡Los primitivos integrados de Convex son bastante de bajo nivel! Son
+    solo funciones. ¿Y los frameworks de autenticación? ¿Y los mapeos
+    objeto-relacionales (ORM)? ¿Tienes que esperar a que Convex incluya alguna
+    funcionalidad integrada para obtenerlos? No. En general, deberías resolver
+    los problemas de composición y encapsulación en tu código de Convex del lado
+    del servidor usando los mismos métodos que utilizas para el resto de tus
+    bases de código TypeScript. Al fin y al cabo, ¡por eso Convex es "solo
+    código"! [Stack](https://stack.convex.dev) siempre tiene
+    [excelentes](https://stack.convex.dev/functional-relationships-helpers)
+    [ejemplos](https://stack.convex.dev/wrappers-as-middleware-authentication)
+    de formas de abordar [estas
+    necesidades](https://stack.convex.dev/row-level-security).
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="No hagas un mal uso de las acciones" >
+
+Las acciones son potentes, pero es importante ser deliberado respecto a cómo encajan
+en el flujo de datos de tu aplicación.
+
+<Details summary="No invoques acciones directamente desde tu app">
+  En general, es un antipatrón llamar a acciones desde el navegador. Normalmente,
+  las acciones se ejecutan sobre algún registro dependiente que debería vivir en una tabla
+  de Convex. Así que lo mejor es activar acciones invocando una mutación que tanto _escriba_
+  ese registro dependiente como _programe_ la acción posterior para que se ejecute en
+  segundo plano.
+</Details>
+
+<Details summary="No pienses en 'trabajos en segundo plano', piensa en 'flujo de trabajo'">
+   Cuando intervienen acciones, es útil escribir cadenas de efectos y
+   mutaciones, como:
+
+action code &rarr; mutation &rarr; more action code &rarr; mutation.
+
+Luego las apps u otros trabajos pueden seguir el progreso mediante consultas.
+
+</Details>
+
+<Details summary="Registra el progreso paso a paso">
+  Aunque las acciones _podrían_ trabajar con miles de registros y llamar a docenas de APIs,
+  normalmente es mejor hacer lotes de trabajo más pequeños y/o realizar transformaciones
+  individuales con servicios externos. Luego registra tu progreso con una
+  mutación, por supuesto. Usar este patrón facilita depurar problemas, reanudar
+  trabajos parciales e informar del progreso incremental en la interfaz de tu aplicación.
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="Flujo de trabajo de desarrollo" />
+
+<ZenTip type="do" title="Mantén el panel de control a tu lado">
+  <p>
+    Trabajar en tu proyecto de Convex sin usar el panel de control es como conducir un
+    coche con los ojos cerrados. El panel de control te permite ver los logs, probar
+    mutaciones/consultas/acciones, asegurarte de que tu configuración y
+    codebase son como esperas, inspeccionar tus tablas, generar esquemas, etc. Es
+    una parte fundamental de tu ciclo de desarrollo rápido.
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="No lo hagas en solitario" >
+
+  <p>
+    Entre esta [documentación](https://docs.convex.dev),
+    [Stack](https://stack.convex.dev) y [nuestra
+    comunidad](https://convex.dev/community), _probablemente_ alguien ya se ha encontrado
+    con el problema de diseño o arquitectura al que te enfrentas. Entonces, ¿por qué intentar resolver las cosas por las malas, cuando puedes aprovechar la experiencia de toda una comunidad?
+   </p>
+  
+  <Details summary="Aprovecha la búsqueda para desarrolladores de Convex">
+  Con tantos recursos excelentes del equipo y la comunidad de Convex, puede ser difícil saber por dónde empezar. Si quieres una forma rápida de
+    buscar en todos ellos, ¡[tenemos un portal para
+    eso](https://search.convex.dev)!
+  </Details>
+   
+  <Details summary="Únete a la comunidad de Convex">
+  Ya sea que estés atascado con un caso de uso complicado, tengas una pregunta o una solicitud de funcionalidad para el equipo de Convex, o estés emocionado por compartir la(s) increíble(s) aplicación(es) que has creado y ayudar a otros a aprender, ¡la comunidad de Convex está ahí para ti! Únete a la fiesta en [Discord](https://convex.dev/community).
+  </Details>
+</ZenTip>

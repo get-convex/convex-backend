@@ -1,0 +1,177 @@
+---
+description: "了解 Convex 抛出的具体错误"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+# 错误和警告 \{#errors-and-warnings\}
+
+本页介绍由 Convex 抛出的特定错误。
+
+请参阅[错误处理](/functions/error-handling/error-handling.mdx)以了解通用的错误处理方式。
+
+<div id="occ-failure" />
+
+## 写入冲突：乐观并发控制 \{#1\}
+
+当某个变更由于与并行执行的其他变更发生冲突而持续失败时，会抛出此系统错误。
+
+### 示例 A \{#example-a\}
+
+变更函数 `updateCounter` 总是更新同一个文档：
+
+```ts
+export const updateCounter = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const doc = await ctx.db.get("counts", process.env.COUNTER_ID);
+    await ctx.db.patch("counts", doc._id, { value: doc.value + 1 });
+  },
+});
+```
+
+如果每秒多次调用这个变更函数，它的许多次执行之间会发生写入冲突。Convex 在内部会进行多次重试来缓解这个问题，但是如果变更函数的调用频率高于 Convex 实际能执行的速度，一些调用最终会抛出如下错误：
+
+<ErrorExample name="updateCounter">
+  从表 &quot;counters&quot; 读取或写入的文档在此变更运行期间以及后续每次重试时都发生了变化。另一次对该变更的调用修改了 ID 为 &quot;123456789101112&quot; 的文档。
+</ErrorExample>
+
+错误信息会指出表名、导致冲突的变更（在这个例子中，是对同一个变更的另一次调用），以及一个参与了此次冲突变更的文档 ID。
+
+### 示例 B \{#example-b\}
+
+变更 `writeCount` 依赖于整个 `tasks` 表：
+
+```ts
+export const writeCount = mutation({
+  args: {
+    target: v.id("counts"),
+  },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db.query("tasks").collect();
+    await ctx.db.patch("tasks", args.target, { value: tasks });
+  },
+});
+
+export const addTask = mutation({
+  args: {
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("tasks", { text: args.text });
+  },
+});
+```
+
+If the 变更函数 `writeCount` 与多个对 `addTask` 的调用同时触发，这两个变更函数中的任意一个都可能因该错误而失败。这是因为对 `"tasks"` 表的任何修改都会与 `writeCount` 变更产生冲突：
+
+<ErrorExample name="writeCount">
+  从表 &quot;tasks&quot; 读取或写入的文档在此变更执行期间以及后续的每次重试中都发生了变化。一次对 &quot;addTask&quot; 的调用修改了 ID 为 &quot;123456789101112&quot; 的文档。
+</ErrorExample>
+
+### 解决方法 \{#remediation\}
+
+要解决此问题：
+
+1. 确保你的变更函数只读取它们真正需要的数据。可以考虑通过使用带有
+   [选择性索引范围表达式](https://docs.convex.dev/database/indexes/) 的索引查询来减少读取的数据量。
+2. 确保你没有以超出预期的次数调用某个变更函数，例如从循环中的操作里调用它。
+3. 设计数据模型时，应尽量避免需要对同一个文档进行大量写入。
+
+### 资源 \{#resources\}
+
+* 进一步了解[乐观并发控制](/database/advanced/occ.md)。
+* 查看这篇 [Stack 帖子](https://stack.convex.dev/waitlist)，其中有一个如何设计应用以避免变更冲突的示例。
+
+### 相关组件 \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool 通过将异步操作组织到独立且可自定义的队列中，为关键任务提供更高优先级。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Sharded Counter",
+    description:
+      "高吞吐量计数器通过将写入分散到多个文档，实现对非规范化计数的无冲突写入。",
+    href: "https://www.convex.dev/components/sharded-counter",
+  },
+  {
+    title: "Action Cache",
+    description:
+      "缓存高频运行的操作函数。通过利用 `force` 参数保持缓存已被填充，你可以确保缓存始终是最新的，并避免数据竞争。",
+    href: "https://www.convex.dev/components/action-cache",
+  },
+]}
+/>
+
+## 未定义的验证器 \{#undefined-validator\}
+
+当传递给 Convex 函数定义或模式的验证器为 `undefined` 时，就会出现此错误。这通常是由于 TypeScript 中的循环导入（也称为导入循环）导致的。
+
+### 示例 \{#example\}
+
+你有两个文件，彼此之间使用 `import`：
+
+```ts title="convex/validators.ts"
+import { v } from "convex/values";
+import { someUtility } from "./functions";
+
+export const myValidator = v.object({
+  name: v.string(),
+});
+
+// 在某处使用 someUtility...
+```
+
+```ts title="convex/functions.ts"
+import { mutation } from "./_generated/server";
+// functions.ts 和 validators.ts 互相导入。
+import { myValidator } from "./validators";
+
+export function someUtility() {
+  // ...
+}
+
+export const myMutation = mutation({
+  args: {
+    data: myValidator, // <-- 由于导入循环,可能为 undefined
+  },
+  handler: async (ctx, args) => {
+    // ...
+  },
+});
+```
+
+当 `functions.ts` 被加载时，它会从 `validators.ts` 中导入，而 `validators.ts` 又会尝试从 `functions.ts` 导入。由于此时 `functions.ts` 还没有完成执行 `import` 语句，`myValidator` 仍然是 `undefined`，从而导致 `mutation` 构建器抛出错误。
+
+注意：如果你尝试在运行时打印这个值（例如写日志），它可能已经被定义。这只是 TypeScript 在导入时机上的一个小怪癖。
+
+### 涉及 `schema.ts` 的循环依赖 \{#cycles-involving-schemats\}
+
+一种常见且容易不小心引入此类循环依赖的方式，是通过你的
+`schema.ts` 文件。较大的应用通常会在其他文件中定义验证器或整张表，
+然后将它们导入到 `schema.ts` 中。
+
+如果这些文件从 `schema.ts` 中导入，或者依赖于这样做的文件，你就会产生一个循环依赖。
+
+```text
+schema.ts → validators.ts → someFile.ts → schema.ts
+```
+
+为打破循环依赖，请在依赖最少的「纯」文件中定义验证器，然后在需要的地方将它们导入。
+
+### 排查循环导入 \{#investigate-circular-imports\}
+
+如果你怀疑存在循环导入但不确定具体位置，可以使用
+[madge](https://github.com/pahen/madge) 这样的工具来可视化导入依赖图，
+并列出其中的循环：
+
+```bash
+npx madge convex/ --extensions ts --exclude api.d.ts --circular
+```
+
+这里不包括 `api.d.ts`，因为仅类型导入通常是安全的。

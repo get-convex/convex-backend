@@ -1,0 +1,99 @@
+---
+title: "Base de datos"
+description: "Almacena documentos similares a JSON con un modelo de datos relacional"
+hide_table_of_contents: true
+pagination_prev: functions
+---
+
+La base de datos de Convex proporciona un modelo de datos relacional, almacena
+documentos similares a JSON y se puede usar con o sin un esquema. Simplemente
+&quot;funciona&quot;, ofreciéndote un rendimiento de consultas predecible en una interfaz
+fácil de usar.
+
+Las funciones de consulta y mutación
+[funciones](/functions.mdx) leen y escriben datos a través de una API de
+JavaScript ligera. No tienes que configurar nada ni necesitas escribir SQL.
+Solo usa JavaScript para expresar las necesidades de tu aplicación.
+
+Empieza por aprender los conceptos básicos de las
+[tablas](#tables), [documentos](#documents) y [esquemas](#schemas) a
+continuación, luego pasa a
+[Lectura de datos](/database/reading-data/reading-data.mdx) y
+[Escritura de datos](/database/writing-data.mdx).
+
+A medida que tu aplicación se vuelva más compleja, necesitarás más de tu base de datos:
+
+* Modelado de datos relacional con
+  [ID de documentos](/database/document-ids.mdx)
+* Consultas rápidas con [Índices](/database/reading-data/indexes/indexes.md)
+* Exposición de conjuntos de datos grandes con
+  [Consultas paginadas](/database/pagination.mdx)
+* Seguridad de tipos definiendo un
+  [esquema](/database/schemas.mdx)
+* Interoperabilidad con datos
+  [Importación y exportación](/database/import-export/import-export.mdx)
+
+## Tablas \{#tables\}
+
+Tu despliegue de Convex contiene tablas que almacenan los datos de tu aplicación. Inicialmente,
+tu despliegue no contiene tablas ni documentos.
+
+Cada tabla se crea en cuanto agregas el primer documento a ella.
+
+```javascript
+// La tabla `friends` no existe.
+await ctx.db.insert("friends", { name: "Jamie" });
+// Ahora sí existe y tiene un documento.
+```
+
+No es necesario especificar un esquema de antemano ni crear tablas explícitamente.
+
+## Documentos \{#documents\}
+
+Las tablas contienen documentos. Los documentos son muy similares a los objetos de JavaScript. Tienen campos y valores, y puedes anidar arrays u objetos en su interior.
+
+Todos estos son documentos válidos de Convex:
+
+```json
+{}
+{"name": "Jamie"}
+{"name": {"first": "Ari", "second": "Cole"}, "age": 60}
+```
+
+También pueden contener referencias a otros documentos en otras tablas. Consulta
+[Tipos de datos](/database/types.md) para obtener más información sobre los tipos que admite
+Convex y [Identificadores de documentos](/database/document-ids.mdx) para conocer cómo usar
+esos tipos para modelar tus datos.
+
+## Esquemas \{#schemas\}
+
+Aunque son opcionales, los esquemas garantizan que tus datos tengan exactamente la forma que deseas. Para una aplicación de chat sencilla, el esquema tendrá este aspecto:
+
+```typescript
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// @snippet start schema
+export default defineSchema({
+  messages: defineTable({
+    author: v.id("users"),
+    body: v.string(),
+  }),
+});
+```
+
+Puedes elegir ser tan flexible como quieras usando tipos como `v.any()` o
+tan específico como quieras describiendo con precisión un `v.object()`.
+
+Consulta [la documentación de esquemas](/database/schemas.mdx) para obtener más información.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+href: "/database/reading-data",
+docId: "database/reading-data/reading-data",
+label: "Siguiente: Lectura de datos",
+}}
+/>
+
+<StackPosts query="database" />

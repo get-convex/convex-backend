@@ -1,0 +1,42 @@
+---
+title: 测试本地后端
+sidebar_label: 本地后端
+sidebar_position: 200
+description: "使用本地开源 Convex 后端测试函数"
+---
+
+作为 [`convex-test`](/testing/convex-test.mdx) 的另一种方式，你可以使用
+[Convex 后端的开源版本](https://github.com/get-convex/convex-backend)
+来测试你的函数。
+
+## 入门 \{#getting-started\}
+
+请按照[本指南](https://stack.convex.dev/testing-with-local-oss-backend)中的说明进行操作。
+
+与使用 JS 后端模拟的 `convex-test` 相比，在真实后端上运行测试具有以下优势：
+
+* 你的测试将运行在与你的 Convex 生产环境相同的代码上（前提是你保持本地后端为最新状态）。
+* 会严格执行参数、数据和查询大小等方面的限制。
+* 你可以通过数据导入来预置一套大型测试数据集。
+* 你可以在测试中将客户端代码与后端逻辑一同验证。
+
+## 限制 \{#limitations\}
+
+请注意，针对本地后端进行测试也有一些缺点：
+
+* 需要先搭建本地后端，流程相对更复杂。
+* 无法控制时间，任何计划任务函数都会按计划运行。
+* 定时任务（crons）也会运行，除非通过
+  [`IS_TEST`](https://stack.convex.dev/testing-with-local-oss-backend#setting-up-a-local-backend)
+  禁用。
+* 无法模拟 `fetch` 调用。
+* 无法模拟依赖或代码库的部分内容。
+* 无法控制随机性（测试可能不是确定性的）。
+* 无法在测试代码中设置环境变量的值。
+
+要在 JS 中使用模拟的 Convex 后端来测试你的函数，请查看
+[convex-test](/testing/convex-test.mdx)。
+
+## CI \{#ci\}
+
+请参阅[持续集成](/testing/ci.mdx)，了解如何在共享的远程机器上运行测试。

@@ -1,0 +1,22 @@
+{
+  "logo.alt": {
+    "message": "Convex",
+    "description": "ナビゲーションバーのロゴ用代替テキスト"
+  },
+  "item.label.Dashboard": {
+    "message": "ダッシュボード",
+    "description": "ラベル「Dashboard」のナビゲーションバー項目"
+  },
+  "item.label.Blog": {
+    "message": "ブログ",
+    "description": "ラベル「Blog」のナビゲーションバー項目"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "ラベル「GitHub」のナビゲーションバー項目"
+  },
+  "item.label.Discord": {
+    "message": "Discord",
+    "description": "ラベル「Discord」のナビゲーションバー項目"
+  }
+}

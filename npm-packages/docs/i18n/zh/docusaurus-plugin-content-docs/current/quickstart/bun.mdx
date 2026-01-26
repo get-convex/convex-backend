@@ -1,0 +1,92 @@
+---
+title: Bun 快速入门
+sidebar_label: Bun
+description: "将 Convex 添加到 Bun 项目"
+hide_table_of_contents: true
+sidebar_position: 450
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/bun/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/bun/convex/tasks.js";
+import script from "!!raw-loader!@site/../private-demos/quickstarts/bun/index.ts";
+
+了解如何在 Bun 项目中使用 Convex 查询数据。
+
+如果你需要基于订阅而不是时点查询的用法，请参阅
+[Bun 说明](/client/javascript/bun.mdx)。
+
+# 将 Convex 与 Bun 一起使用 \{#using-convex-with-bun\}
+
+<StepByStep>
+  <Step title="创建一个新的 Bun 项目">
+    为你的 Bun 项目创建一个新目录。
+
+    ```sh
+    mkdir my-project && cd my-project && bun init -y
+    ```
+  </Step>
+
+  <Step title="安装 Convex 客户端和服务端库">
+    安装 `convex` 包。
+
+    ```sh
+    bun add convex
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发环境（dev）部署">
+    接下来运行 `bunx convex dev`。此命令会提示你使用 GitHub 登录、
+    创建一个项目，并保存你的生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用来编写后端 API 函数。`dev` 命令
+    会持续运行，以便将你的函数与云端的开发环境（dev）部署保持同步。
+
+    ```sh
+    bunx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在一个新的终端窗口中，创建一个 `sampleData.jsonl`
+    文件，并写入一些示例数据。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    现在项目已经就绪，使用 `import` 命令向你的 Convex 数据库中
+    添加一个包含示例数据的 `tasks` 表。
+
+    ```
+    bunx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="暴露一个数据库查询">
+    在 `convex/` 文件夹中新建文件 `tasks.js`，
+    并添加一个用于加载数据的查询函数。
+
+    从该文件中导出一个查询函数，
+    会声明一个以文件名和导出名命名的 API 函数：`api.tasks.get`。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="将脚本连接到后端">
+    在新文件 `index.ts` 中，使用你的开发环境部署 URL
+    创建一个 `ConvexClient`。
+
+    <Snippet source={script} title="index.ts" />
+  </Step>
+
+  <Step title="运行脚本">
+    在同一目录下运行该脚本，并在终端中查看打印出的任务列表。
+
+    ```sh
+    bun index.ts
+    ```
+  </Step>
+</StepByStep>
+
+查看完整的 [Bun 文档](/client/javascript/bun.mdx)。

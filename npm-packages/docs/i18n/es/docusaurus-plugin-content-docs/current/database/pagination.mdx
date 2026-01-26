@@ -1,0 +1,119 @@
+---
+title: "Consultas paginadas"
+slug: "pagination"
+sidebar_position: 60
+description: "Cargar consultas paginadas"
+---
+
+import Messages from "!!raw-loader!@site/../demos/pagination/convex/messages.ts";
+import Download from "!!raw-loader!@site/../demos/pagination/src/download.ts";
+import SimpleCall from "!!raw-loader!@site/../demos/pagination/src/_simpleListing.tsx";
+import CallWithArgs from "!!raw-loader!@site/../demos/pagination/src/_listingWithArgument.tsx";
+
+Las consultas paginadas son [consultas](/functions/query-functions.mdx) que devuelven
+una lista de resultados en páginas sucesivas.
+
+Se pueden usar para crear componentes con botones de &quot;Cargar más&quot; o interfaces
+de &quot;scroll infinito&quot; donde se cargan más resultados a medida que el usuario hace scroll.
+
+**Ejemplo:**
+[Aplicación de mensajería paginada](https://github.com/get-convex/convex-demos/tree/main/pagination)
+
+Usar paginación en Convex es tan sencillo como:
+
+1. Escribir una función de consulta paginada que llame a
+   [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate).
+2. Usar el hook de React [`usePaginatedQuery`](/api/modules/react#usepaginatedquery).
+
+Al igual que otras consultas de Convex, las consultas paginadas son completamente reactivas.
+
+## Escribir funciones de consulta paginadas \{#writing-paginated-query-functions\}
+
+Convex usa paginación basada en cursores. Esto significa que las consultas paginadas devuelven una
+cadena llamada [`Cursor`](/api/modules/server#cursor) que representa el punto
+en los resultados en el que terminó la página actual. Para cargar más resultados, simplemente
+vuelve a llamar a la función de consulta pasando el cursor.
+
+Para implementar esto en Convex, define una función de consulta que:
+
+1. Reciba un único objeto de argumentos con una propiedad `paginationOpts` de tipo
+   [`PaginationOptions`](/api/interfaces/server.PaginationOptions).
+   * `PaginationOptions` es un objeto con los campos `numItems` y `cursor`.
+   * Usa `paginationOptsValidator` exportado desde `"convex/server"` para
+     [validar](/functions/validation.mdx) este argumento
+   * El objeto de argumentos también puede incluir otras propiedades.
+2. Llame a
+   [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)
+   en una [consulta de base de datos](/database/reading-data/reading-data.mdx), pasando
+   el objeto `paginationOpts` y devolviendo su resultado.
+   * El `page` devuelto en el
+     [`PaginationResult`](/api/interfaces/server.PaginationResult) es un array
+     de documentos. Puedes
+     [`map`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map)
+     o
+     [`filter`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)
+     este array antes de devolverlo.
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} title="convex/messages.ts" highlightPatterns={["paginationOpts"]} snippet="list" />
+
+### Argumentos adicionales \{#additional-arguments\}
+
+Puedes definir funciones de consulta paginada que acepten argumentos además de
+`paginationOpts`:
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} snippet="listWithExtraArg" title="convex/messages.ts" />
+
+### Transformar los resultados \{#transforming-results\}
+
+Puedes aplicar
+[transformaciones](/database/reading-data/reading-data.mdx#more-complex-queries)
+arbitrarias a la propiedad `page` del objeto que devuelve `paginate`, el cual contiene el
+array de documentos:
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} snippet="listWithTransformation" title="convex/messages.ts" />
+
+## Paginación dentro de componentes React \{#paginating-within-react-components\}
+
+Para paginar dentro de un componente React, utiliza el hook
+[`usePaginatedQuery`](/api/modules/react#usepaginatedquery). Este hook
+proporciona una interfaz sencilla para renderizar los elementos actuales y solicitar
+más. Internamente, este hook gestiona los cursores de continuación.
+
+Este hook recibe los siguientes argumentos:
+
+* El nombre de la función de consulta paginada.
+* El objeto de argumentos que se le pasa a la función de consulta, excluyendo
+  `paginationOpts` (el hook lo inyecta).
+* Un objeto de opciones con `initialNumItems`, que indica cuántos elementos cargar en la primera página.
+
+El hook devuelve un objeto con:
+
+* `results`: Un array con los resultados cargados actualmente.
+* `isLoading` - Indica si el hook está cargando resultados en este momento.
+* `status`: El status de la paginación. Los posibles valores son:
+  * `"LoadingFirstPage"`: El hook está cargando la primera página de resultados.
+  * `"CanLoadMore"`: Esta consulta puede tener más elementos por obtener. Llama a `loadMore` para
+    obtener otra página.
+  * `"LoadingMore"`: Actualmente se está cargando otra página de resultados.
+  * `"Exhausted"`: Hemos paginado hasta el final de la lista.
+* `loadMore(n)`: Un callback para obtener más resultados. Solo obtendrá más
+  resultados si el status es `"CanLoadMore"`.
+
+<TSAndJSSnippet sourceTS={SimpleCall} sourceJS={SimpleCall} snippet="example" title="src/App.tsx" highlightPatterns={["usePaginatedQuery\\(", "api.", "{}", "initialNumItems"]} />
+
+También puedes pasar argumentos adicionales en el objeto de argumentos si tu función
+los espera:
+
+<TSAndJSSnippet sourceTS={CallWithArgs} sourceJS={CallWithArgs} snippet="example" title="src/App.tsx" highlightPatterns={["author:"]} />
+
+### Reactividad \{#reactivity\}
+
+Como cualquier otra función de consulta de Convex, las consultas paginadas son **completamente reactivas**. Tus componentes de React se volverán a renderizar automáticamente si se agregan, eliminan o modifican elementos en tu lista paginada.
+
+Una consecuencia de esto es que **¡el tamaño de las páginas en Convex puede cambiar!** Si solicitas una página de 10 elementos y luego se elimina uno, esa página puede &quot;encogerse&quot; y quedarse con solo 9 elementos. De manera similar, si se agregan nuevos elementos, una página puede &quot;crecer&quot; más allá de su tamaño inicial.
+
+## Paginación manual \{#paginating-manually\}
+
+Si paginas fuera de React, puedes llamar manualmente a tu función paginada varias veces para recopilar los elementos:
+
+<TSAndJSSnippet title="download.ts" sourceTS={Download} sourceJS={Download} />

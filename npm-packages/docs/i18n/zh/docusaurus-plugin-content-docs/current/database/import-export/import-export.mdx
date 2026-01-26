@@ -1,0 +1,27 @@
+---
+title: "数据导入与导出"
+sidebar_position: 90
+description:
+  "从现有数据源导入数据，并将数据导出到外部系统"
+---
+
+如果你要基于现有数据初始化你的应用，Convex 提供三种方式将数据导入：
+
+- 通过
+  [CLI](/database/import-export/import.mdx#single-table-import)
+  将 CSV/JSON 导入到单个表中。
+- 通过[仪表盘](/database/backup-restore)或
+  [CLI](/database/import-export/import.mdx#restore-data-from-a-backup-zip-file)
+  从备份中恢复。
+- 通过 Airbyte destination connector，从任意现有数据库进行
+  [流式导入](/production/integrations/streaming-import-export.md)。
+
+你可以通过两种方式从 Convex 导出数据。
+
+- 从[仪表盘](/database/backup-restore)下载 ZIP 格式的备份。
+- 设置[流式导出](/production/integrations/streaming-import-export.md)，
+  通过 Fivetran 或 Airbyte 导出到任意外部数据库。非常适合连接到自定义 BI
+  方案（例如 [Snowflake](https://www.snowflake.com/)、[Databricks](https://www.databricks.com) 或
+  [BigQuery](https://cloud.google.com/bigquery)）：
+
+<BetaAdmonition feature="数据导入与导出" verb="is" />

@@ -1,0 +1,164 @@
+---
+title: Inicio rápido de TanStack Start
+sidebar_label: TanStack Start
+description: "Agregar Convex a un proyecto de TanStack Start"
+hide_table_of_contents: true
+sidebar_position: 200
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/tanstack-start/sampleData.jsonl";
+import appRoutesRoot from "!!raw-loader!@site/../private-demos/quickstarts/tanstack-start/src/routes/__root.tsx";
+import router from "!!raw-loader!@site/../private-demos/quickstarts/tanstack-start/src/router.tsx";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/tanstack-start/src/routes/index.tsx";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/tanstack-start/convex/tasks.ts";
+
+<Admonition type="caution" title="TanStack Start está en fase de Release Candidate">
+  [TanStack Start](https://tanstack.com/start/latest) es un nuevo framework de React
+  que actualmente se encuentra en la fase de Release Candidate. Puedes probarlo hoy,
+  pero todavía puede haber errores o problemas.
+</Admonition>
+
+Para configurar rápidamente Convex y TanStack Start, ejecuta
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest -- -t tanstack-start" />
+  </b>
+</p>
+
+o sigue la guía a continuación.
+
+Para usar Clerk con Convex y TanStack Start, consulta la
+[guía de TanStack Start + Clerk](/client/tanstack/tanstack-start/clerk.mdx)
+
+***
+
+Aprende a consultar datos de Convex en un sitio de TanStack Start.
+
+
+<StepByStep>
+  <Step title="Crea un sitio de TanStack Start">
+
+Crea una app de TanStack Start usando el comando `create-start-app`:
+
+    ```sh
+    npx create-start-app@latest
+    ```
+
+</Step>
+  <Step title="Instala las bibliotecas cliente y servidor de Convex">
+    Para comenzar a usar Convex, instala el paquete `convex` y algunos paquetes relacionados con React Query.
+
+    ```sh
+    npm install convex @convex-dev/react-query @tanstack/react-router-with-query @tanstack/react-query
+    ```
+
+  </Step>
+
+  <Step title="Actualiza app/routes/__root.tsx">
+    Agrega un `QueryClient` al contexto del router para que React Query se pueda usar en cualquier parte del sitio de TanStack Start.
+
+    <Snippet
+      source={appRoutesRoot}
+      title="app/routes/__root.tsx"
+      highlightPatterns={[ "createRootRouteWithContext", "QueryClient", "\\}\\>\\(\\)\\(\\{"]}
+    />
+
+  </Step>
+
+  <Step title="Actualiza app/router.tsx">
+    Reemplaza el archivo `app/router.tsx` con este contenido.
+
+    Esto crea un `ConvexClient` y un `ConvexQueryClient` e integra un `ConvexProvider`.
+
+    <Snippet
+      source={router}
+      title="app/router.tsx"
+    />
+
+  </Step>
+
+  <Step title="Configura un despliegue de dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URL de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde escribir las funciones de tu API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue de dev en la nube.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="Agrega los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, agrega una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="Expone una consulta de base de datos">
+    Agrega un nuevo archivo <JSDialectFileName name="tasks.ts" /> en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API cuyo nombre se basa en el archivo
+    y en el nombre de la exportación, `api.tasks.get`.
+
+    <Snippet
+      source={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="Muestra los datos en tu app">
+    Reemplaza el archivo `app/routes/index.tsx` con este contenido.
+
+    El hook `useSuspenseQuery` renderiza inicialmente en el servidor
+    el resultado de la consulta de la función de API `api.tasks.get`,
+    y luego se actualiza en vivo en el navegador.
+
+    <Snippet
+      source={index}
+      title="app/routes/index.tsx"
+      highlightPatterns={[ "useSuspenseQuery" ]}
+    />
+
+  </Step>
+
+  <Step title="Inicia la app">
+    Inicia la app, abre [http://localhost:3000](http://localhost:3000) en un navegador
+    y mira la lista de tareas.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+Para obtener más información, consulta la
+página de documentación del cliente
+[TanStack Start with Convex](/client/tanstack/tanstack-start/index.mdx).

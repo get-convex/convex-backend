@@ -1,0 +1,98 @@
+---
+title: "AI 智能体"
+sidebar_position: 100
+description: "使用 Convex 构建 AI 智能体"
+---
+
+## 使用 Convex 构建 AI Agent \{#building-ai-agents-with-convex\}
+
+Convex 提供了强大的基础构件，用于搭建具备 Agent 能力的 AI 应用，
+并充分利用 Components 和现有的 Convex 功能。
+
+借助 Convex，你可以将长时间运行的 Agent 工作流与 UI 分离，
+同时不会牺牲用户端的响应性和交互性。与 LLM 的对话历史会默认持久化，
+在每个客户端实时更新，并且可以通过代码（而非配置）轻松与其他 Convex 功能进行组合。
+
+## Agent 组件 \{#agent-component\}
+
+Agent 组件是用于构建 AI Agent 的核心组件。它负责管理线程和消息，你的 Agent 可以围绕这些线程和消息在静态或动态工作流中协同工作。
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd" title="Agent 组件 YouTube 视频" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+[Agent 组件 YouTube
+视频](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
+
+### 核心概念 \{#core-concepts\}
+
+* Agent 通过关联的模型、提示词和 [Tools](/agents/tools) 来组织对 LLM 的提示。它既可以生成和流式传输文本，也可以生成和流式传输对象。
+* 你可以在任意 Convex 操作（action）中使用 Agent，让你在编写其他业务逻辑的同时编写 Agent 相关代码，并享受使用代码而非静态配置所带来的抽象优势。
+* [Threads](/agents/threads) 会持久化 [messages](/agents/messages)，并且可以在多个用户和 Agent（包括 [human agents](/agents/human-agents)）之间共享。
+* [Conversation context](/agents/context) 会自动随每次 LLM 调用一起传入，并为消息提供内置的混合向量/文本检索功能。
+
+### 高级特性 \{#advanced-features\}
+
+* [Workflows](/agents/workflows) 支持构建可跨 agents 和用户、具备持久性与高可靠性的多步操作。
+* 也支持用于提示增强的 [RAG](/agents/rag) 技术，可以在预处理阶段或通过工具调用的方式使用
+  [RAG Component](https://www.convex.dev/components/rag)。
+* 可以在聊天记录中使用 [Files](/agents/files)，并自动保存到
+  [file storage](/file-storage) 中。
+
+### 调试和跟踪 \{#debugging-and-tracking\}
+
+* 支持[调试](/agents/debugging)，包括
+  [agent playground](/agents/playground)，你可以在其中检查所有元数据，
+  并反复调整提示词和上下文设置。
+* [使用情况跟踪](/agents/usage-tracking) 支持针对用户和团队的用量计费。
+* [速率限制](/agents/rate-limiting) 帮助控制用户与 Agent 交互的速率，
+  防止你超出 LLM 提供商的配额限制。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+href: "/agents/getting-started",
+label: "构建你的第一个 Agent",
+}}
+/>
+
+通过阅读下文了解更多设计动机：
+[AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
+
+示例代码：
+
+```typescript
+import { Agent } from "@convex-dev/agents";
+import { openai } from "@ai-sdk/openai";
+import { components } from "./_generated/api";
+import { action } from "./_generated/server";
+
+// Define an agent
+const supportAgent = new Agent(components.agent, {
+  name: "Support Agent",
+  chat: openai.chat("gpt-4o-mini"),
+  instructions: "You are a helpful assistant.",
+  tools: { accountLookup, fileTicket, sendEmail },
+});
+
+// Use the agent from within a normal action:
+export const createThread = action({
+  args: { prompt: v.string() },
+  handler: async (ctx, { prompt }) => {
+    const { threadId, thread } = await supportAgent.createThread(ctx);
+    const result = await thread.generateText({ prompt });
+    return { threadId, text: result.text };
+  },
+});
+
+// Pick up where you left off, with the same or a different agent:
+export const continueThread = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // 这会自动包含该 thread 中的先前消息历史记录。
+    const { thread } = await anotherAgent.continueThread(ctx, { threadId });
+    const result = await thread.generateText({ prompt });
+    return result.text;
+  },
+});
+```

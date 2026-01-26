@@ -1,0 +1,162 @@
+---
+title: Nuxt クイックスタート
+sidebar_label: Nuxt
+description: "Convex を Nuxt プロジェクトに追加する"
+hide_table_of_contents: true
+sidebar_position: 325
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/tasks.ts";
+import schema from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/schema.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/app/app.vue";
+
+Nuxt アプリで Convex からデータをクエリする方法を説明します。
+
+このクイックスタートガイドでは、Convex 用の [コミュニティ主導の](/client/vue/nuxt.md) Nuxt クライアントを使用します。
+
+
+<StepByStep>
+  <Step title="Nuxt アプリケーションを作成する">
+    `npm create nuxt@latest my-nuxt-app` コマンドを使って Nuxt アプリケーションを作成します。
+
+    Convex は公式モジュールのどれとでも動作しますが、このクイックスタートではひとまずそれらのインストールをスキップします。
+
+    <br />
+
+    ```sh
+    npm create nuxt@latest my-nuxt-app
+    ```
+  </Step>
+
+  <Step title="Convex ライブラリをインストールする">
+    まず、Nuxt アプリケーションに `convex` パッケージと `convex-nuxt` モジュールをインストールします。
+
+    ```sh
+    cd my-nuxt-app && npm install convex && npx nuxi module add convex-nuxt
+    ```
+  </Step>
+
+  <Step title="Convex URL を追加する">
+    Convex URL を `nuxt.config.ts` ファイルに追加します。
+
+    ```ts noDialect title="nuxt.config.ts"
+    export default defineNuxtConfig({
+      compatibilityDate: '2025-07-15',
+      devtools: { enabled: true },
+      modules: ['convex-nuxt'],
+      // highlight-start
+      convex: {
+        url: process.env.CONVEX_URL
+      },
+      // highlight-end
+    })
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に、`npx convex dev` を実行します。
+    GitHub へのログイン、プロジェクトの作成、本番用およびデプロイメントURL の保存を求められます。
+
+    さらに、バックエンド API 関数を書くための `convex/` フォルダが作成されます。
+    その後、`dev` コマンドはクラウド上の dev デプロイメントと関数を同期し続けます。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、いくつかのサンプルデータを含む `sampleData.jsonl`
+    ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`tasks` テーブルを作成し、
+    サンプルデータを Convex データベースに `import` コマンドで追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="（オプション）スキーマを定義する">
+    `convex/` フォルダ内に新しい `schema.ts` ファイルを追加し、
+    データの構造を記述します。
+
+    これにより、TypeScript を使ったオプションの型チェックのために
+    データ型が宣言され、実行時にも検証されます。
+
+    <br />
+
+    <Snippet source={schema} title="convex/schema.ts" />
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダ内に新しい `tasks.ts` ファイルを追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数を export すると、
+    ファイル名と export 名に基づいて `api.tasks.get`
+    という名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="アプリでデータを表示する">
+    `app.vue` で `useQuery` を使って、
+    `api.tasks.get` API 関数を購読します。
+
+    <Snippet source={App} title="app/app.vue" />
+  </Step>
+
+  <Step title="開発サーバー起動用スクリプトを更新する">
+    デフォルトでは、Convex は環境変数を `.env.local` に保存し、Nuxt は
+    環境変数を `.env` から読み込みます。
+
+    デフォルトの `npm run dev` コマンドを使うには、
+    `package.json` を更新して `--dotenv .env.local` フラグを追加します。
+
+    ```json title="package.json"
+    {
+      "name": "nuxt-app",
+      "private": true,
+      "type": "module",
+      "scripts": {
+        "build": "nuxt build",
+        // highlight-next-line
+        "dev": "nuxt dev --dotenv .env.local",
+        "generate": "nuxt generate",
+        "preview": "nuxt preview",
+        "postinstall": "nuxt prepare"
+      },
+      "dependencies": {
+        "convex": "^1.25.2",
+        "convex-nuxt": "^0.1.3",
+        "nuxt": "^3.17.6",
+        "vue": "^3.5.17",
+        "vue-router": "^4.5.1"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="アプリを起動する">
+    アプリを起動し、ブラウザで [http://localhost:3000](http://localhost:3000) を開き、
+    `tasks` の一覧を確認します。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+さらに例を見たい場合は、
+[Nuxt 用 Convex モジュールのリポジトリ](https://github.com/chris-visser/convex-nuxt)
+を参照してください。
+
+全体については、
+[Nuxt 用 npm パッケージのドキュメント](https://www.npmjs.com/package/convex-nuxt)
+を参照してください。

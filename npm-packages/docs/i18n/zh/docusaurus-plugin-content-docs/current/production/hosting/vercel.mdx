@@ -1,0 +1,189 @@
+---
+title: "在 Vercel 上使用 Convex"
+sidebar_label: "Vercel"
+description: "在 Vercel 上托管前端，在 Convex 上托管后端"
+sidebar_position: 10
+---
+
+将你的 Convex 应用托管在 Vercel 上后，每次推送代码时都会自动同时重新部署后端和前端。
+
+## 部署到 Vercel \{#deploying-to-vercel\}
+
+### 使用 Vercel Marketplace \{#using-the-vercel-marketplace\}
+
+<Admonition type="info">
+  通过 Vercel Marketplace 部署的项目将会归属于各自独立的 Convex 团队。如果你已经有一个 Convex 团队，可以[按照这些说明操作](/production/hosting/vercel.mdx#connecting-your-convex-project-to-vercel)。
+</Admonition>
+
+Convex 可在
+[Vercel Marketplace](https://vercel.com/marketplace/convex) 中使用。你可以通过
+Vercel 的 Marketplace 创建、部署你的 Convex 项目，并（如果使用付费订阅）在 Vercel 中完成付费。
+
+通过 Vercel Marketplace 创建的 Convex 项目会自动配置为自动部署。
+
+快速将一个模板项目部署到 Vercel Marketplace：
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex\&project-name=vercel-with-convex\&repository-name=vercel-with-convex\&demo-title=Convex%20with%20Vercel\&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel\&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F\&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+### 将 Convex 项目连接到 Vercel \{#connecting-your-convex-project-to-vercel\}
+
+#### 使用模板 \{#using-a-template\}
+
+要快速启动一个新项目，你可以点击这个按钮并按照提示操作，将你的 Convex 项目快速部署到 Vercel。
+
+**注意：** 你需要先在 Convex 仪表盘中创建一个项目，才能使用此模板。
+
+[![Deploy with
+Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex\&project-name=vercel-with-convex\&repository-name=vercel-with-convex\&demo-title=Convex%20with%20Vercel\&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel\&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F\&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+#### 从零开始 \{#from-scratch\}
+
+本指南假设你已经有一个集成了 Convex 的可用 React 应用。如果还没有，
+请先完成 [Convex React 快速上手](/quickstart/react.mdx)。然后：
+
+<StepByStep>
+  <Step title="Create a Vercel account">
+    如果你还没有账号，请创建一个 [Vercel](https://vercel.com) 账号。对于小型项目，它是免费的，而且设置通常不到一分钟就能完成。
+
+    <>    </>
+  </Step>
+
+  <Step title="Link your project on Vercel">
+    在 https://vercel.com/new 创建一个 Vercel 项目，并将其链接到你在 GitHub 或其他 Git 平台上的项目源代码仓库。
+
+    ![Vercel import project](/screenshots/vercel_import.png)
+  </Step>
+
+  <Step title="Override the Build command">
+    将 “Build command” 覆盖为
+    `npx convex deploy --cmd 'npm run build'`。
+
+    如果你的项目位于仓库的子目录中，你还需要相应地修改上面的 *Root Directory*。
+
+    ![Vercel build settings](/screenshots/vercel_build_command.png)
+  </Step>
+
+  <Step title="Set up the CONVEX_DEPLOY_KEY environment variable">
+    在 Convex 仪表盘中打开 [Project Settings](https://dashboard.convex.dev/project/settings#production-deploy-keys) 页面。点击 *Generate Production Deploy Key* 按钮生成一个 **Production** 部署密钥。
+    然后点击复制按钮复制该密钥。
+
+    在 Vercel 中，点击 *Environment Variables*。
+    新建一个名为 `CONVEX_DEPLOY_KEY` 的环境变量，并粘贴你的部署密钥。
+    在 *Environment* 下，取消选中除 *Production* 之外的所有选项，然后点击 *Save*。
+
+    ![Vercel environment variable CONVEX\_DEPLOY\_KEY](/screenshots/vercel_prod_deploy_key.png)
+  </Step>
+
+  <Step title="Deploy your site">
+    现在点击 *Deploy* 按钮，你在这里需要做的就完成了！
+
+    <>    </>
+  </Step>
+</StepByStep>
+
+Vercel 会自动将你的网站发布到类似
+`https://<site-name>.vercel.app` 的 URL，部署完成后会在页面中显示。每次你向 Git 仓库推送代码时，Vercel 都会自动部署你的 Convex
+函数并发布你的网站更新。
+
+<Admonition type="info" title="使用自定义域名？">
+  如果你使用自定义域名来提供 Convex 函数服务，则需要额外配置。请参阅[自定义域名](/production/hosting/custom.mdx#hosting-with-a-custom-domain)了解更多信息。
+</Admonition>
+
+### 工作原理 \{#how-it-works\}
+
+在 Vercel 中，我们将 *Build Command* 改为
+`npx convex deploy --cmd 'npm run build'`。
+
+`npx convex deploy` 会从环境变量中读取 `CONVEX_DEPLOY_KEY`，并使用它设置
+`CONVEX_URL`（或类似名称）的环境变量，使其指向你的**生产**部署。
+
+由 `npm run build` 触发的你所选择的前端框架会读取
+`CONVEX_URL`（或类似名称）的环境变量，从而让已部署站点（通过 `ConvexReactClient`）指向你的**生产**部署。
+
+最后，`npx convex deploy` 会将你的 Convex 函数推送到生产
+部署中。
+
+现在，你的生产部署已经包含最新的函数，并且你的应用也已经
+配置为连接到该部署。
+
+如果 `deploy` 命令无法推断前端代码所使用的变量名，你可以使用
+`--cmd-url-env-var-name` 来自定义该变量名，例如
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### 身份验证 \{#authentication\}
+
+你需要配置你的[身份验证](/auth.mdx)提供商（Clerk、Auth0 或其他），使其接受你的生产环境 URL。注意 Clerk 不支持 `https://<site-name>.vercel.app`，因此你需要配置自定义域名。
+
+## 预览部署 \{#preview-deployments\}
+
+Vercel 预览部署允许你在更改合并之前预览应用的变更。为了同时预览前端代码和 Convex
+函数的更改，你可以设置
+[Convex 预览部署](/production/hosting/preview-deployments.mdx)。
+
+这会为每次预览创建一个全新的 Convex 后端，并且不会影响你的生产和开发部署。
+
+这里假设你已经按照上面
+[Deploying to Vercel](#deploying-to-vercel) 中的步骤操作完成。
+
+<StepByStep>
+  <Step title="设置 CONVEX_DEPLOY_KEY 环境变量">
+    在你的 [Convex Dashboard](https://dashboard.convex.dev/)
+    中进入项目的 *Settings* 页面。点击 *Generate Preview Deploy Key* 按钮生成一个 **Preview** 部署密钥，
+    然后点击复制按钮复制该密钥。
+
+    在 Vercel 中，点击 *Environment Variables*。
+    创建一个名为 `CONVEX_DEPLOY_KEY` 的环境变量，并粘贴你的部署密钥。
+    在 *Environment* 下，仅勾选 *Preview*，然后点击 *Save*。
+
+    <div className="screenshot-border">
+      ![Vercel 环境变量 CONVEX\_DEPLOY\_KEY](/screenshots/vercel_preview_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="（可选）设置默认环境变量">
+    如果你的应用依赖某些 Convex 环境变量，你可以在项目中为预览和开发部署设置[默认
+    环境变量](/production/environment-variables.mdx#project-environment-variable-defaults)。
+
+    <div className="screenshot-border">
+      ![项目默认环境变量](/screenshots/project_default_environment_variables.png)
+    </div>
+  </Step>
+
+  <Step title="（可选）运行函数以初始化数据">
+    Vercel 预览部署会使用全新的 Convex 后端，这些后端不会与开发或生产 Convex 部署共享数据。你可以通过在 `npx
+      convex deploy` 命令中添加 `--preview-run 'functionName'` 来调用一个 Convex
+    函数以初始化数据。该函数只会在预览部署时运行，在部署到生产环境时会被忽略。
+
+    ```sh title="Vercel > Settings > Build & Development settings > Build Command"
+    npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+    ```
+  </Step>
+
+  <Step title="现在试着创建一个 PR 并生成一个预览部署！">
+    你可以在 Convex 仪表盘中找到与你分支对应的 Convex 部署。
+
+    <div className="screenshot-border">
+      ![部署选择器中的预览部署](/screenshots/preview_deployment_deployment_picker.png)
+    </div>
+  </Step>
+</StepByStep>
+
+### 工作原理 \{#how-it-works\}
+
+对于预览部署，`npx convex deploy` 会从环境变量中读取 `CONVEX_DEPLOY_KEY`，
+并使用它创建一个与 Vercel 预览部署的 Git 分支名关联的 Convex 部署。
+它会设置 `CONVEX_URL`（或类似命名的）环境变量指向新的 Convex 部署。
+
+你在执行 `npm run build` 时调用的前端框架会读取 `CONVEX_URL` 环境变量，并将已部署站点（通过
+`ConvexReactClient`）指向该 Convex 预览部署。
+
+最后，`npx convex deploy` 会将你的 Convex 函数推送到该预览部署，并运行
+`--preview-run` 指定的函数（如果提供的话）。此部署中的函数、数据、定时任务以及所有其他配置都与其他任何部署完全隔离。
+
+`npx convex deploy` 会在 Vercel、Netlify、GitHub 和 GitLab 环境中推断 Git 分支名，
+但可以使用 `--preview-create` 选项自定义与新创建部署关联的名称。
+
+生产部署将与之前完全相同地工作。

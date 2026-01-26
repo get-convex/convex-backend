@@ -1,0 +1,126 @@
+---
+title: "Usar Cursor con Convex"
+sidebar_position: 100
+sidebar_label: Usar Cursor
+description: "Consejos y buenas prácticas para usar Cursor con Convex"
+slug: "using-cursor"
+---
+
+[Cursor](https://cursor.com), el editor de código con IA, facilita escribir y
+mantener aplicaciones creadas con Convex. Veamos cómo configurar Cursor para lograr
+los mejores resultados posibles con Convex.
+
+## Añadir las reglas de Convex en `.cursor/rules` \{#add-convex-cursorrules\}
+
+Para obtener los mejores resultados con Cursor, coloca los archivos `.mdc`
+específicos del modelo en el directorio `.cursor/rules` de tu proyecto.
+
+* [Reglas de Convex para Cursor](https://convex.link/convex_rules.mdc)
+
+<video src="/video/showing_where_to_put_convex_rules.mp4" autoPlay loop controls />
+
+Estamos mejorando continuamente la calidad de estas reglas para Convex
+mediante evaluaciones rigurosas. Puedes ayudar
+[contribuyendo a nuestro repositorio de evals](https://github.com/get-convex/convex-evals).
+
+## Configura el servidor Convex MCP \{#setup-the-convex-mcp-server\}
+
+La CLI de Convex incluye un servidor
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx) (MCP) integrado.
+El servidor Convex MCP proporciona a tu agente de programación con IA acceso a tu
+despliegue de Convex para consultar y optimizar tu proyecto.
+
+### Instalación rápida \{#quick-install\}
+
+Haz clic en este práctico enlace directo:
+
+[![Instalar servidor MCP](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex\&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+### Instalación manual \{#manual-install\}
+
+Para empezar con Cursor, abre &quot;Cursor Settings &gt; Tools &amp; Integrations&quot;, haz clic
+en &quot;New MCP Server&quot; y añade una sección &quot;convex&quot; a &quot;mcpServers&quot; en el archivo
+`mcp.json` que se abrirá.
+
+```json
+{
+  "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+También puedes instalar el MCP de Convex
+[solo para un proyecto](https://docs.cursor.com/en/context/mcp#configuration-locations).
+
+Después de agregar el servidor, asegúrate de que el servidor &quot;convex&quot; esté habilitado y se vea en verde
+(puede tardar un minuto la primera vez mientras se descarga el paquete npm).
+
+Ahora puedes empezar a hacerle preguntas como:
+
+* Evalúa mi esquema de Convex y sugiere mejoras
+* ¿Cuáles son los endpoints públicos de esta aplicación?
+* Ejecuta la consulta `my_convex_function`
+
+## Consejos y trucos \{#tips-and-tricks\}
+
+### Instala y ejecuta Convex tú mismo \{#install-and-run-convex-yourself\}
+
+Mantener Convex en ejecución es crucial porque
+[se encarga de generar automáticamente](https://docs.convex.dev/cli#run-the-convex-dev-server)
+los tipos del lado del cliente. Sin esto, el agente puede quedarse atascado en un bucle de linting,
+ya que no puede acceder a los tipos de las consultas y mutaciones que creó.
+
+Te recomendamos que instales (`npm install convex`) y ejecutes Convex
+(`npx convex dev`) tú mismo en una ventana de la terminal.
+
+### Mantén tus solicitudes pequeñas \{#keep-your-requests-small\}
+
+Los mejores resultados al usar LLMs con capacidades de agente se obtienen cuando
+mantienes pequeña la cantidad de cambios que quieres hacer y haces commits con
+`git` con frecuencia. Esto te permite ser más específico con el contexto que le
+proporcionas al agente y significa que el agente no necesita hacer muchas
+búsquedas de contexto.
+
+Después de cada prompt exitoso o serie de prompts, es buena idea hacer commit de
+tus cambios para que sea sencillo volver a ese punto en caso de que el
+siguiente prompt cause problemas.
+
+### Actualiza y referencia tu `README.md` \{#update-and-reference-your-readmemd\}
+
+El agente necesita contexto sobre los objetivos de negocio específicos de tu proyecto.
+Aunque puede deducir algunos detalles de los archivos que lee, esto se vuelve más
+difícil a medida que tu proyecto crece. Proporcionar información general sobre tu
+proyecto le da al agente una ventaja útil desde el principio.
+
+En lugar de incluir esta información en cada prompt, es mejor escribir un archivo
+README.md completo en la raíz de tu proyecto y hacer referencia a él.
+
+[Algunas personas](https://youtu.be/2PjmPU07KNs?t=145) recomiendan redactar un
+documento de requisitos de producto (PRD); esto puede ser una buena idea para proyectos más complejos.
+
+### Agregar la documentación de Convex \{#add-convex-docs\}
+
+Agregar la documentación de Convex te permite hacer referencia específicamente a las funciones de Convex al
+crear tu aplicación.
+
+Desde **`Cursor Settings`** &gt; **`Indexing & Docs`** &gt; **`Docs`** agrega un nuevo documento y usa
+la URL &quot;https://docs.convex.dev/home&quot;
+
+![Chat UI](/img/cursor-with-convex/adding_convex_docs.webp)
+
+Luego Cursor indexará toda la documentación de Convex para que el LLM la utilice.
+
+![Chat UI](/img/cursor-with-convex/indexed_docs.webp)
+
+Luego puedes hacer referencia a esa documentación en tu mensaje con el símbolo `@Convex`.
+
+![Chat UI](/img/cursor-with-convex/reference_convex_docs.webp)
+
+<Admonition type="tip" title="Agrega más conocimiento sobre Convex">
+  También puedes realizar los pasos anteriores para https://stack.convex.dev/ si quieres
+  proporcionar aún más contexto al agente.
+</Admonition>

@@ -1,0 +1,70 @@
+---
+title: "提供文件服务"
+sidebar_label: "提供"
+sidebar_position: 3
+description: "向用户提供存储在 Convex 中的文件"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import AppTS from "!!raw-loader!@site/../demos/file-storage/src/App.tsx";
+import AppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import Http from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpAppTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/App.tsx";
+import HttpAppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpImage.jsx";
+
+你可以通过生成指向该文件的 URL，将存储在 Convex 中的文件提供给用户访问。
+
+## 在查询中生成文件 URL \{#generating-file-urls-in-queries\}
+
+为应用返回包含 URL 在内的结果（连同其他所需数据一起），是提供文件服务的最简单方式。你可以在
+[查询](/functions/query-functions.mdx) 和
+[变更](/functions/mutation-functions.mdx) 中返回这些数据。
+
+可以通过
+[`QueryCtx`](/api/interfaces/server.GenericQueryCtx)、
+[`MutationCtx`](/api/interfaces/server.GenericMutationCtx) 或
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx) 对象的
+[`storage.getUrl`](/api/interfaces/server.StorageReader#geturl) 函数，从存储 ID 生成文件 URL：
+
+<TSAndJSSnippet title="convex/listMessages.ts" sourceTS={Messages} sourceJS={Messages} snippet="query" highlightPatterns={["storage.getUrl"]} />
+
+文件 URL 可以用在 `img` 元素中来渲染图像：
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={AppTS} sourceJS={AppJS} snippet="imageComponent" />
+
+在查询中，你可以在生成 URL 时控制哪些用户可以访问某个文件。如果你需要在文件被&#95;实际提供&#95;时再控制访问权限，则可以改为定义你自己的文件服务 HTTP 操作函数。
+
+## 从 HTTP 操作中提供文件 \{#serving-files-from-http-actions\}
+
+你可以直接通过[HTTP 操作](/functions/http-actions.mdx)提供文件。
+一个 HTTP 操作需要接收一些可以映射到存储 ID 的参数，或者直接接收一个存储 ID。
+
+这使你可以在文件实际被返回时进行访问控制，比如当图片在网站上展示时。
+但请注意，HTTP 操作的响应大小[当前被限制](/functions/http-actions.mdx#limits)为 20MB。
+对于更大的文件，你需要使用前文[在查询中生成文件 URL](#generating-file-urls-in-queries)中描述的文件 URL。
+
+可以通过
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx) 对象的
+[`storage.get`](/api/interfaces/server.StorageActionWriter#get) 函数，从存储 ID 生成一个
+[`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob) 文件对象，然后在 `Response` 中返回：
+
+<TSAndJSSnippet
+  title="convex/http.ts"
+  sourceTS={Http}
+  sourceJS={Http}
+  snippet="getImage"
+  highlightPatterns={["storage.get"]}
+  prefix={
+  `import { httpRouter } from "convex/server";
+import { httpAction } from "./\_generated/server";
+import { Id } from "./\_generated/dataModel";
+
+const http = httpRouter();\
+
+`}
+  suffix={"\nexport default http;"}
+/>
+
+此类操作的 URL 可以直接用在 `img` 元素中来渲染图片：
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={HttpAppTS} sourceJS={HttpAppJS} snippet="getImage" />

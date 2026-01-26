@@ -1,0 +1,12 @@
+在底层，其认证流程如下：
+
+1. 用户点击登录按钮
+2. 用户被重定向到一个页面，在那里通过你在 {props.provider} 中配置的任意方式完成登录
+3. 登录成功后，{props.provider} 会重定向回你的页面，或者跳转到你通过 {props.configProp} 配置的其他页面。
+4. {props.providerProvider} 现在知道用户已经通过身份验证。
+5. {props.integrationProvider} 从 {props.provider} 获取一个认证令牌。
+6. `ConvexReactClient` 将此令牌传递给你的 Convex 后端进行校验。
+7. 你的 Convex 后端从 {props.provider} 获取公钥，以检查令牌签名是否有效。
+8. `ConvexReactClient` 收到认证成功的通知，并且 {props.integrationProvider} 现在知道用户已经在 Convex 中通过身份验证。`useConvexAuth` 返回 `isAuthenticated: true`，`Authenticated` 组件会渲染其子组件。
+
+{props.integrationProvider} 会在需要时负责重新获取令牌，以确保用户在你的后端保持已认证状态。

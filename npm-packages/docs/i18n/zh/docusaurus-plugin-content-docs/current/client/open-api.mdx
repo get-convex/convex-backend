@@ -1,0 +1,69 @@
+---
+title: "OpenAPI 与其他语言"
+sidebar_label: "OpenAPI"
+sidebar_position: 325
+---
+
+import Load from "!!raw-loader!@site/../private-demos/snippets/convex/goClientExample.ts";
+import Go from "!!raw-loader!@site/../private-demos/snippets/goExample.txt";
+
+Convex 目前还没有对包括 Go、Java 和 C++ 在内的许多语言提供直接支持。不过，你可以从 Convex 部署生成 [OpenAPI](https://swagger.io/specification/) 规范，从而为当前尚不支持的语言创建类型安全的客户端。在底层，这是通过我们的 [HTTP API](/http-api) 实现的。这意味着你的查询将不会是响应式/实时的。
+
+<BetaAdmonition feature="OAS generation" verb="is" />
+
+## 设置 \{#setup\}
+
+<StepByStep>
+  <Step title="安装 convex-helpers npm 包">
+    安装 `convex-helpers` 包，其中包含一个用于生成 OpenAPI 规范的 CLI 命令。
+
+    ```sh
+    npm install convex-helpers
+    ```
+  </Step>
+
+  <Step title="运行命令以生成 OpenAPI 规范">
+    运行此命令会调用你配置好的 Convex 部署，并基于它生成一个 `convex-spec.yaml` 文件。你可以在命令后添加 `--help` 来查看更多可用选项。
+
+    ```sh
+    npx convex-helpers open-api-spec
+    ```
+  </Step>
+
+  <Step title="生成类型安全的客户端">
+    你可以使用单独的工具从 `convex-spec.yaml` 文件生成客户端。一些常用的选项包括 [OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator) 和 [Swagger](https://swagger.io/tools/swagger-codegen/)。
+
+    ```yaml
+    # convex-spec.yaml
+    openapi: 3.0.3
+    info:
+      title: Convex 应用 - OpenAPI 3.0
+      version: 0.0.0
+      servers:
+        - url: "{hostUrl}"
+      description: Convex 应用 API
+      ...
+    ```
+  </Step>
+</StepByStep>
+
+## 示例 \{#example\}
+
+下面是一些代码片段，展示了该工作流在实际运行时的效果。这些
+片段包含两个不同的文件：
+
+* `convex/load.ts` - 包含 Convex 函数定义
+* `convex.go` - 包含使用生成的、类型安全的 `HTTP`
+  客户端的 `Go` 代码。该客户端是通过安装
+  [OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator) 包并运行以下命令生成的：
+  `npx openapi-generator-cli generate -i convex-spec.yaml -g go -o convex_client`
+
+<TSAndJSSnippet title="convex/load.ts" sourceTS={Load} sourceJS={Load} />
+
+<Snippet source={Go} title="convex.go" />
+
+## 限制 \{#limits\}
+
+* 参数和返回值验证器不是强制的，但它们会增强你的 OpenAPI 规范中的类型信息。如果没有定义验证器，我们会默认使用 `v.any()` 作为验证器。
+* 你不能从 Convex 部署之外调用内部函数。
+* 我们目前不支持 `bigints` 或 `bytes`。

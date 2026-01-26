@@ -1,0 +1,160 @@
+---
+title: "Límites"
+sidebar_position: 2
+---
+
+Nos encantaría que disfrutaras *sin límites* al crear con Convex, pero las
+consideraciones prácticas de ingeniería imponen algunos límites. Esta página
+describe los límites actuales en el ecosistema de Convex.
+
+Muchos de estos límites se irán relajando con el tiempo. Ponte en
+contacto con nosotros si alguno resulta prohibitivo para tu aplicación.
+
+Los límites se aplican por equipo, a menos que se indique lo contrario.
+
+## Equipo \{#team\}
+
+|             | Gratis/Inicial | Profesional               |
+| ----------- | -------------- | ------------------------- |
+| Desarrolladores | 1-6          | $25 por desarrollador al mes |
+| Despliegues | 40             | 120                       |
+
+## Base de datos \{#database\}
+
+|                   | Gratis/Starter                                                    | Profesional                                        | Notas                                                                                                     |
+| ----------------- | ----------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Storage           | 0,5 GiB incluidos<br />(en Starter: 0,22 US$/mes por GiB adicional) | 50 GiB incluidos<br />0,20 US$/mes por GiB adicional | Incluye filas e índices de la base de datos, pero no archivos ni copias de seguridad.                    |
+| Bandwidth         | 1 GiB/mes incluido<br />(en Starter: 0,22 US$ por GiB adicional)   | 50 GiB/mes incluidos<br />0,20 US$ por GiB adicional | Datos de documentos e índices transferidos entre las funciones de Convex y la base de datos subyacente. |
+| Tables            | 10.000                                                            | 10.000                                             | Por despliegue.                                                                                           |
+| Indexes per table | 32                                                                | 32                                                 |                                                                                                           |
+| Fields per index  | 16                                                                | 16                                                 |
+| Index name length | 64 characters                                                     | 64 caracteres                                      |                                                                                                           |
+
+### Restricciones \{#restrictions\}
+
+* Los nombres de tablas e índices deben ser identificadores válidos y no pueden comenzar con un guion bajo.
+
+## Documentos \{#documents\}
+
+Se aplica por documento y a cualquier `Object` anidado, a menos que se indique lo contrario.
+
+|                     |               | Notas                                                            |
+| ------------------- | ------------- | ---------------------------------------------------------------- |
+| Tamaño              | 1 MiB         |                                                                  |
+| Campos              | 1024          | Número de campos/claves                                          |
+| Longitud del nombre de campo   | 64 caracteres | Las claves de los `Object` anidados pueden tener una longitud de hasta 1024 caracteres. |
+| Profundidad de anidamiento de campos | 16            | Cuántas veces se pueden anidar objetos y arrays, por ejemplo `[[[[]]]]` |
+| Elementos de array  | 8192          |                                                                  |
+
+### Restricciones \{#restrictions\}
+
+* Los nombres de los campos solo pueden contener caracteres ASCII alfanuméricos no de control y
+  guiones bajos, y deben comenzar con un carácter alfabético o un guion bajo.
+* Los documentos no pueden contener campos de primer nivel que comiencen con un guion bajo, excepto
+  los campos del sistema `_id` y `_creationTime`.
+* Las cadenas de texto deben ser secuencias Unicode válidas sin sustitutos (surrogates) no emparejados.
+
+## Funciones \{#functions\}
+
+|                                                                              | Gratis/Starter                                                            | Professional                                              | Notas                                                                                                         |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Llamadas a funciones                                                         | 1,000,000/mes incluidos<br />(en Starter: 2,20 $ por 1,000,000 adicionales) | 25,000,000/mes incluidos<br />2 $ por 1,000,000 adicionales | Las llamadas explícitas del cliente, las ejecuciones programadas, las actualizaciones de suscripciones y los accesos a archivos cuentan como llamadas de función. |
+| Ejecución de acciones                                                        | 20 GiB-horas incluidas<br />(en Starter: 0,33 $/GiB-hora adicional)        | 250 GiB-horas incluidas<br />0,30 $/GiB-hora adicional     | Runtime de Convex: 64 MiB de RAM.<br />Runtime de Node.js: 512 MiB de RAM.                                     |
+| Tamaño del código                                                            | 32 MiB                                                                    | 32 MiB                                                    | Por despliegue.                                                                                               |
+| Tamaño de los argumentos de la función                                       | 16 MiB                                                                    | 16 MiB                                                    | Las acciones de Node solo admiten argumentos de hasta 5 MiB.                                                  |
+| Tamaño del valor de retorno de la función                                    | 16 MiB                                                                    | 16 MiB                                                    |                                                                                                               |
+| Tamaño de la respuesta de la acción HTTP                                     | 20 MiB                                                                    | 20 MiB                                                    | No hay un límite específico para el tamaño de la solicitud                                                    |
+| Longitud de una línea de console.log                                         | 4 KiB                                                                     | 4 KiB                                                     |                                                                                                               |
+| Límites de [Log streaming](/production/integrations/log-streams/log-streams.mdx) | 4096 registros, se vacían cada 10 segundos                                | 4096 registros, se vacían cada 10 segundos                | Cuántos registros se pueden almacenar en búfer durante el streaming                                           |
+
+## Ejecuciones concurrentes de funciones \{#concurrent-function-executions\}
+
+Número de funciones que puedes ejecutar al mismo tiempo para cada tipo de función.
+
+|                        | Free/Starter | Professional<sup>*</sup> |
+| ---------------------- | ------------ | ------------------------- |
+| Consultas              | 16           | 256                       |
+| Mutaciones             | 16           | 256                       |
+| Acciones de tiempo de ejecución de Convex | 64           | 256                       |
+| Acciones de Node       | 64           | 1000                      |
+| Acciones HTTP          | 16           | 128                       |
+| Tareas programadas     | 10           | 300                       |
+
+<sup>*</sup> Los límites se pueden eliminar para clientes del plan Professional de forma
+individual, caso por caso. Envíanos un mensaje de soporte a través del panel de control para comentar
+tus necesidades. Normalmente esto solo es necesario si tu producto tiene un tráfico con picos
+muy marcados.
+
+## Tiempo de ejecución y programación \{#execution-time-and-scheduling\}
+
+|                                              |                 | Notas                                                                                                                   |
+| -------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Tiempo máximo de ejecución de consulta/mutación     | 1 segundo       | El límite se aplica solo al código del usuario y no incluye las operaciones de base de datos.                          |
+| Tiempo máximo de ejecución de acción                | 10 minutos |                                                                                                                         |
+| Funciones programadas                        | 1000            | El número de otras funciones que una sola mutación puede programar.                                                  |
+| Tamaño total de los argumentos de funciones programadas | 16 MiB          | Se aplica solo a mutaciones.                                                                                            |
+| Operaciones de E/S concurrentes por función  | 1000            | El número de operaciones de E/S que una sola función puede realizar, por ejemplo, una operación de base de datos o una solicitud fetch en una acción. |
+| Funciones programadas pendientes             | 1,000,000       |                                                                                                                         |
+
+## Transacciones \{#transactions\}
+
+Estos límites se aplican a cada función `query` o `mutation`.
+
+|                            |        | Notas                                                     |
+| -------------------------- | ------ | --------------------------------------------------------- |
+| Datos leídos               | 16 MiB | Los datos no devueltos debido a un `filter` cuentan como escaneados     |
+| Datos escritos             | 16 MiB |
+| Documentos escaneados      | 32.000 | Los documentos no devueltos debido a un `filter` cuentan como escaneados |
+| Rangos de índice leídos    | 4.096  | El número de llamadas a `db.get` y `db.query`.           |
+| Documentos escritos        | 16.000 |
+| Tamaño del valor de retorno de la función | 16 MiB |
+
+## Variables de entorno \{#environment-variables\}
+
+Se aplican por despliegue.
+
+|                         |               |
+| ----------------------- | ------------- |
+| Número de variables     | 1000          |
+| Longitud máxima del nombre | 40 caracteres |
+| Tamaño máximo del valor | 8 KiB         |
+
+## Almacenamiento de archivos \{#file-storage\}
+
+|           | Gratis/Starter                                                   | Professional                                        | Notas                                                                                                          |
+| --------- | ---------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Storage   | 1 GiB incluido<br />(en Starter: 0,033 USD/mes por GiB adicional) | 100 GiB incluidos<br />0,03 USD/mes por GiB adicional | Incluye archivos de usuario y copias de seguridad.                                                             |
+| Bandwidth | 1 GiB/mes incluido<br />(en Starter: 0,33 USD por GiB adicional)  | 50 GiB/mes incluidos<br />0,30 USD por GiB adicional  | Incluye servir archivos de usuario, acceder a archivos de usuario dentro de funciones y generar y restaurar copias de seguridad. |
+
+## Búsqueda de texto completo \{#full-text-search\}
+
+|                                   | Valor |
+| --------------------------------- | ----- |
+| Índices de búsqueda por tabla     | 4     |
+| Filtros por índice de búsqueda    | 16    |
+| Términos por consulta de búsqueda | 16    |
+| Filtros por consulta de búsqueda  | 8     |
+| Longitud máxima de término        | 32 B  |
+| Número máximo de resultados       | 1024  |
+
+## Búsqueda vectorial \{#vector-search\}
+
+|                          | Valor                    |
+| ------------------------ | ------------------------ |
+| Índices vectoriales por tabla | 4                        |
+| Filtros por índice vectorial | 16                       |
+| Términos por consulta de búsqueda   | 16                       |
+| Vectores por los que buscar     | 1                        |
+| Campos de dimensión         | 1 (valor entre 2-4096) |
+| Filtros por consulta de búsqueda | 64                       |
+| Longitud máxima del término      | 32 B                     |
+| Número máximo de resultados       | 256 (valor predeterminado: 10)     |
+
+Si alguno de estos límites no se ajusta a tus necesidades,
+[háznoslo saber](https://convex.dev/community)!
+
+Consulta nuestra [página de planes y precios](https://www.convex.dev/pricing) para
+ver los límites de recursos. Una vez que se alcancen estos límites en el plan gratuito,
+las nuevas mutaciones que intenten aplicar más inserciones o actualizaciones pueden fallar.
+Los planes de pago no tienen límites estrictos de recursos: pueden escalar hasta miles de millones
+de documentos y TB de almacenamiento.

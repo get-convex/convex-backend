@@ -1,0 +1,190 @@
+---
+title: "コンポーネントの使用"
+slug: "using"
+sidebar_position: 20
+hide_table_of_contents: true
+description: "既存のコンポーネントの使用"
+---
+
+Convex Components は、それぞれ専用のサンドボックス内で、独自の関数やスキーマとデータ、スケジュールされた関数、およびその他すべての
+基本的な Convex 機能を備えることで、バックエンドに新しい機能を追加します。
+
+すべてのコンポーネントの一覧は
+[ディレクトリ](https://convex.dev/components)で確認できます。
+
+## インストール \{#installation\}
+
+例として [Agent](https://www.npmjs.com/package/@convex-dev/agent) コンポーネントを使用します。
+
+<StepByStep>
+  <Step title="`npm` からインストール">
+    ```bash
+    npm i @convex-dev/agent
+    ```
+  </Step>
+
+  <Step title="コンポーネントをアプリに追加する">
+    アプリの `convex/` フォルダ内に `convex.config.ts` ファイルを作成または更新し、`use` を呼び出してコンポーネントをインストールします。同じコンポーネントの複数インスタンスは、異なる名前で `use` を複数回呼び出すことでインストールできます。各インスタンスはそれぞれ専用のテーブルと関数を持ちます。
+
+    ```ts title="convex/convex.config.ts"
+    import { defineApp } from "convex/server";
+    import agent from "@convex-dev/agent/convex.config.js";
+
+    const app = defineApp();
+
+    // 次の行をハイライト表示
+    app.use(agent);
+    app.use(agent, { name: "agent2" });
+    //... 他のコンポーネントをここに追加
+
+    export default app;
+    ```
+  </Step>
+
+  <Step title="convex dev を実行する">
+    `convex dev` CLI コマンドは、このコンポーネントを利用するために必要なコードを生成します。
+
+    ```bash
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="コンポーネントの API を通じてアクセスする">
+    各コンポーネントインスタンスの API は、その名前ごとに `components` オブジェクト内に公開されています。コンポーネントによっては、この API をクラスや関数でラップして提供しています。各コンポーネントの詳細な使い方は、それぞれのドキュメントを参照してください。
+
+    ```ts
+    import { components } from "./_generated/api.js";
+
+    const agent = new Agent(components.agent, { ... });
+    ```
+  </Step>
+</StepByStep>
+
+## コンポーネントの API を直接使用する \{#using-the-components-api-directly\}
+
+コンポーネントは、より高水準の TypeScript API を公開している場合もありますが、
+内部的にはコンポーネントのサンドボックスの境界を越えて、通常の Convex 関数として呼び出されます。
+
+クエリ、ミューテーション、アクションに関する規則は引き続き適用されます。クエリはコンポーネントのクエリのみを呼び出せ、
+ミューテーションはコンポーネントのミューテーションも呼び出すことができ、アクションはコンポーネントのアクションも呼び出すことができます。
+その結果、コンポーネントへのクエリはデフォルトでリアクティブになり、ミューテーションには同じトランザクションの保証が適用されます。
+
+コンポーネント関数は、次の構文を使用してアプリケーションから呼び出せます。
+
+```ts
+import { internalAction } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const myAction = internalAction({
+  args: { threadId: v.string() },
+  handler: async (ctx, args) => {
+    // コンポーネントのAPIを呼び出してスレッドのstatusを取得します。
+    const { status } = await ctx.runQuery(components.agent.threads.getThread, {
+      threadId: args.threadId,
+    });
+    //...
+  },
+});
+```
+
+一部のコンポーネントは、そのコンポーネント自身の API を抽象化します。たとえば、`@convex-dev/agent` の `Agent`
+クラスは `components.agent` で初期化され、そのメソッドは `ctx` を受け取ることで、内部的にコンポーネントの API を呼び出せるようになっています。
+[Agent コンポーネントの詳細はこちら](/agents.mdx) を参照してください。
+
+## トランザクション \{#transactions\}
+
+Convex のミューテーション関数は
+[トランザクション](/functions/mutation-functions.mdx#transactions)であることに注意してください。ミューテーション内の変更はすべて一度に書き込まれるか、まったく書き込まれないかのどちらかです。
+
+コンポーネント内の他のミューテーション呼び出しによって行われた書き込みを含め、トップレベルのミューテーション呼び出しに対するすべての書き込みは同時にコミットされます。トップレベルのミューテーションがエラーをスローした場合、すべての書き込みはロールバックされ、そのミューテーションはデータベースをまったく変更しません。
+
+ただし、コンポーネントのミューテーション呼び出しが例外をスローした場合、その書き込みだけがロールバックされます。その後、呼び出し元がその例外をキャッチすれば、処理を続行してさらに書き込みを行い、正常に完了できます。呼び出し元が例外をキャッチしない場合、その呼び出しは失敗として扱われ、呼び出し元ミューテーションに関連するすべての書き込みがロールバックされます。これは、コンポーネントのセマンティクスに応じて、コードで異なるコードパスを選択できることを意味します。
+
+例として、
+[Rate Limiter](https://www.npmjs.com/package/@convex-dev/ratelimiter) コンポーネントを考えます。
+Rate Limiter のある API は、レートリミットに達した場合にエラーをスローします。
+
+```ts
+// レート制限に達した場合、自動的にエラーをスローします。
+await rateLimiter.limit(ctx, "failedLogins", { key: userId, throws: true });
+```
+
+`rateLimiter.limit` の呼び出しが例外をスローした場合は、レート制限を超えています。
+その後、呼び出し元のミューテーションがこの例外をキャッチしなければ、トランザクション全体がロールバックされます。
+
+一方で、呼び出し元のミューテーションは、例外をキャッチして処理を続行することで、レート制限を無視することもできます。たとえば、アプリが開発環境用のオーバーライドを設定している場合には、レート制限を無視したいことがあるかもしれません。この場合、コンポーネントのミューテーションだけがロールバックされ、それ以外の処理は継続されます。
+
+## ダッシュボード \{#dashboard\}
+
+ダッシュボードのドロップダウンメニューを使うと、コンポーネントのデータ、関数、ファイル、ログなどの情報を確認できます。ドロップダウンメニューから、特定のコンポーネントの情報を表示対象から除外することもできます。
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/component_dropdown.png" alt="コンポーネントのドロップダウンのスクリーンショット" width={414} />
+</p>
+
+## コンポーネントのテスト \{#testing-components\}
+
+コンポーネントを使用するテストを [`convex-test`](/testing/convex-test.mdx) で記述する場合は、
+そのコンポーネントをテスト用インスタンスに登録する必要があります。これにより、どのスキーマを使って検証するかと、
+コンポーネントのソースコードをどこから取得するかをインスタンスに知らせます。ほとんどのコンポーネントは、これを簡単にするために
+`/test` パス配下に便利なヘルパー関数をエクスポートしています。
+
+```ts title="convex/some.test.ts"
+import agentTest from "@convex-dev/agent/test";
+import { expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { components } from "./_generated/api";
+import { createThread } from "@convex-dev/agent";
+
+// これは一度定義します。通常は共有テストヘルパーファイルに記述します。
+export function initConvexTest() {
+  const t = convexTest();
+  // highlight-next-line
+  agentTest.register(t);
+  return t;
+}
+
+test("Agent createThread", async () => {
+  const t = initConvexTest();
+
+  const threadId = await t.run(async (ctx) => {
+    // ctx と components.agent を使用する関数を呼び出す
+    return await createThread(ctx, components.agent, {
+      title: "Hello, world!",
+    });
+  });
+  // コンポーネントの API で関数を直接呼び出す
+  const thread = await t.query(components.agent.threads.getThread, {
+    threadId,
+  });
+  expect(thread).toMatchObject({
+    title: "Hello, world!",
+  });
+});
+```
+
+コンポーネントを自分で登録する必要がある場合は、コンポーネントのスキーマとモジュールをテストインスタンスに渡すことで登録できます。
+
+```ts title="convex/manual.test.ts"
+/// <reference types="vite/client" />
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./path/to/component/schema.ts";
+const modules = import.meta.glob("./path/to/component/**/*.ts");
+
+test("Test something with a local component", async () => {
+  const t = convexTest();
+  t.registerComponent("componentName", schema, modules);
+
+  await t.run(async (ctx) => {
+    await ctx.runQuery(components.componentName.someQuery, {
+      arg: "value",
+    });
+  });
+});
+```
+
+## ログストリーム \{#log-streams\}
+
+`data.function.component_path` フィールドを
+[ログストリーム](/production/integrations/log-streams) で使用して、どのコンポーネントから出力されたかに応じてログ行を振り分けることができます。

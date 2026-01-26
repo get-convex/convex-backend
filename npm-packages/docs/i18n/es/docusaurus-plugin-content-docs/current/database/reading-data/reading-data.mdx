@@ -1,0 +1,254 @@
+---
+title: "Lectura de datos"
+sidebar_position: 3
+description: "Consulta y lee datos de las tablas de la base de datos de Convex"
+---
+
+import getExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbGet.ts";
+import queryExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbQuery.ts";
+import averageExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataAverage.ts";
+import groupByExampleTS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByTS.ts";
+import groupByExampleJS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByJS.js";
+import joinExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataJoin.ts";
+
+Las funciones [Query](/functions/query-functions.mdx) y de
+[mutación](/functions/mutation-functions.mdx) pueden leer datos de
+tablas de base de datos utilizando *Id de documentos* y *consultas de documentos*.
+
+## Lectura de un único documento \{#reading-a-single-document\}
+
+Dado el id de un documento, puedes leer sus datos con el método
+[`db.get`](/api/interfaces/server.GenericDatabaseReader#get):
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={getExample} sourceJS={getExample} highlightPatterns={["db.get"]} />
+
+**Nota**: Debes usar el validador `v.id` como en el ejemplo anterior para
+asegurarte de que no expones datos de tablas distintas de las que pretendías.
+
+## Consultar documentos \{#querying-documents\}
+
+Las consultas de documentos siempre comienzan seleccionando la tabla que quieres consultar con el método
+[`db.query`](/api/interfaces/server.GenericDatabaseReader#query):
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={queryExample} sourceJS={queryExample} highlightPatterns={["db.query"]} />
+
+Luego puedes:
+
+1. filtrar
+2. ordenar
+3. y usar `await` para obtener los resultados
+
+Veremos cómo funciona esto en los ejemplos a continuación.
+
+## Filtrar tu consulta \{#filtering-your-query\}
+
+La mejor forma de filtrar en Convex es usar índices. Los índices construyen una
+estructura interna especial en tu base de datos para acelerar las búsquedas.
+
+Hay dos pasos para usar índices:
+
+1. Define el índice en tu archivo `convex/schema.ts`.
+2. Consulta usando la sintaxis `withIndex()`.
+
+### 1. Definir el índice \{#1-define-the-index\}
+
+Si no estás familiarizado con la creación de un esquema de Convex, lee la
+[documentación de esquemas](/database/schemas.mdx).
+
+Supongamos que estás creando una aplicación de chat y quieres obtener todos los mensajes en un
+canal concreto. Puedes definir un nuevo índice llamado `by_channel` en la
+tabla `messages` usando el método `.index()` en tu esquema.
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// Define una tabla de mensajes con un índice.
+export default defineSchema({
+  messages: defineTable({
+    channel: v.id("channels"),
+    body: v.string(),
+    user: v.id("users"),
+    // highlight-next-line
+  }).index("by_channel", ["channel"]),
+});
+```
+
+### 2. Filtra una consulta con un índice \{#2-filter-a-query-with-an-index\}
+
+En tu función de consulta, ahora puedes filtrar la tabla `messages` mediante el
+índice `by_channel`.
+
+```ts
+const messages = await ctx.db
+  .query("messages")
+  // resaltar-línea-siguiente
+  .withIndex("by_channel", (q) => q.eq("channel", channel))
+  .collect();
+```
+
+En Convex, debes usar explícitamente la sintaxis `withIndex()` para asegurarte de
+que tu base de datos utilice el índice. Esto es diferente de una base de datos SQL
+más tradicional, donde la base de datos decide implícitamente usar un índice en
+función de heurísticas. El enfoque de Convex reduce las sorpresas a largo
+plazo.
+
+Puedes crear un índice sobre varios campos a la vez, consultar un rango
+específico de datos y cambiar el orden del resultado de tu consulta.
+[Lee la documentación completa sobre índices](/database/reading-data/indexes/indexes.md)
+para obtener más información.
+
+Convex también admite un mecanismo de filtrado más lento que, en la práctica,
+recorre la tabla para aplicar el filtro. Esto puede ser útil si sabes
+que tu tabla será pequeña (miles de filas como máximo), estás creando un
+prototipo o quieres filtrar aún más una consulta basada en índice. Puedes leer más
+sobre filtros
+[aquí](/database/reading-data/filters.mdx).
+
+## Ordenación \{#ordering\}
+
+De forma predeterminada, Convex siempre devuelve los documentos ordenados por
+[`_creationTime`](/database/types.md#system-fields).
+
+Puedes usar [`.order("asc" | "desc")`](/api/interfaces/server.Query#order) para
+elegir si el orden es ascendente o descendente. Si no se especifica el orden,
+el valor predeterminado es ascendente.
+
+```ts
+// Obtener todos los mensajes, del más antiguo al más reciente.
+const messages = await ctx.db.query("messages").order("asc").collect();
+```
+
+```ts
+// Obtener todos los mensajes, del más nuevo al más antiguo.
+const messages = await ctx.db.query("messages").order("desc").collect();
+```
+
+Si necesitas ordenar por un campo que no sea `_creationTime` y tu consulta de
+documentos devuelve pocos documentos (del orden de cientos en lugar de miles),
+considera ordenar en JavaScript:
+
+```ts
+// Obtener los 10 mensajes más gustados, asumiendo que messages es una tabla bastante pequeña:
+const messages = await ctx.db.query("messages").collect();
+const topTenMostLikedMessages = recentMessages
+  .sort((a, b) => b.likes - a.likes)
+  .slice(0, 10);
+```
+
+Para las consultas de documentos que devuelven una gran cantidad de resultados, deberías usar
+un [índice](/database/reading-data/indexes/indexes.md) para mejorar el
+rendimiento. Las consultas de documentos que usan índices se
+[ordenan según las columnas del índice](/database/reading-data/indexes/indexes.md#sorting-with-indexes)
+y pueden evitar exploraciones lentas de tablas.
+
+```ts
+// Obtén los 20 mensajes con más "me gusta" de todos los tiempos, usando el índice "by_likes".
+const messages = await ctx.db
+  .query("messages")
+  .withIndex("by_likes")
+  .order("desc")
+  .take(20);
+```
+
+Consulta la sección [Límites](/database/reading-data/indexes/indexes.md#limits) para más detalles.
+
+### Orden de los distintos tipos de valores \{#ordering-of-different-types-of-values\}
+
+Un solo campo puede tener valores de cualquier [tipo de Convex](/database/types.md). Cuando
+hay valores de diferentes tipos en un campo indexado, su orden ascendente
+es el siguiente:
+
+Sin valor definido (`undefined`) &lt; Nulo (`null`) &lt; Int64 (`bigint`) &lt;
+Float64 (`number`) &lt; Booleano (`boolean`) &lt; Cadena (`string`) &lt;
+Bytes (`ArrayBuffer`) &lt; Array (`Array`) &lt; Objeto (`Object`)
+
+El mismo orden se utiliza en los operadores de comparación de filtrado `q.lt()`,
+`q.lte()`, `q.gt()` y `q.gte()`.
+
+## Obtención de resultados \{#retrieving-results\}
+
+La mayoría de nuestros ejemplos anteriores terminaban la consulta de documentos con el método
+[`.collect()`](/api/interfaces/server.Query#collect), que devuelve todos
+los documentos que coinciden con tus filtros. Estas son las otras opciones para obtener
+resultados.
+
+### Obtener `n` resultados \{#taking-n-results\}
+
+[`.take(n)`](/api/interfaces/server.Query#take) selecciona solo los primeros `n`
+resultados que coinciden con tu consulta.
+
+```ts
+const users = await ctx.db.query("users").take(5);
+```
+
+### Encontrar el primer resultado \{#finding-the-first-result\}
+
+[`.first()`](/api/interfaces/server.Query#first) selecciona el primer documento que
+coincide con tu consulta y devuelve `null` si no se encuentra ningún documento.
+
+```ts
+// Esperamos que solo haya un usuario con esa dirección de correo electrónico.
+const userOrNull = await ctx.db
+  .query("users")
+  .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
+  .first();
+```
+
+### Uso de un resultado único \{#using-a-unique-result\}
+
+[`.unique()`](/api/interfaces/server.Query#unique) selecciona el único documento
+de tu consulta o devuelve `null` si no se encontró ningún documento. Si hay
+múltiples resultados, lanzará una excepción.
+
+```ts
+// Nuestra tabla counter solo tiene un documento.
+const counterOrNull = await ctx.db.query("counter").unique();
+```
+
+### Cargar una página de resultados \{#loading-a-page-of-results\}
+
+[`.paginate(opts)`](/api/interfaces/server.OrderedQuery#paginate) carga una página
+de resultados y devuelve un [`Cursor`](/api/modules/server#cursor) para cargar
+resultados adicionales.
+
+Consulta [Consultas paginadas](/database/pagination.mdx) para obtener más información.
+
+## Consultas más complejas \{#more-complex-queries\}
+
+Convex prefiere tener unas pocas formas sencillas de recorrer y seleccionar documentos
+de las tablas. En Convex no hay un lenguaje de consultas específico para lógica compleja,
+como un join, una agregación o un group by.
+
+En su lugar, puedes escribir la lógica compleja en JavaScript. Convex garantiza que
+los resultados serán consistentes.
+
+### Join \{#join\}
+
+Una operación de join entre tablas podría verse así:
+
+<TSAndJSSnippet title="convex/events.ts" sourceTS={joinExample} sourceJS={joinExample} />
+
+### Agregación \{#aggregation\}
+
+Aquí tienes un ejemplo de cómo calcular una media:
+
+<TSAndJSSnippet title="convex/purchases.ts" sourceTS={averageExample} sourceJS={averageExample} />
+
+> Si necesitas opciones de agregación más escalables (por ejemplo, para manejar
+> actualizaciones frecuentes o tablas grandes), considera usar los componentes
+> [Sharded Counter](https://www.convex.dev/components/sharded-counter) o
+> [Aggregate](https://www.convex.dev/components/aggregate). Estos
+> componentes pueden ayudarte a manejar contadores, sumas o cálculos de alto
+> volumen sin tener que recorrer toda la tabla.
+
+### Agrupar por \{#group-by\}
+
+Aquí tienes un ejemplo de agrupación y recuento:
+
+<TSAndJSSnippet title="convex/purchases.ts" sourceTS={groupByExampleTS} sourceJS={groupByExampleJS} />
+
+## Explora la sintaxis en el panel de control \{#explore-the-syntax-on-the-dashboard\}
+
+Puedes probar la sintaxis descrita anteriormente directamente en el panel de control
+[escribiendo una consulta de prueba personalizada](/dashboard/deployments/data.md#writing-custom-queries).

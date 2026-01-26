@@ -1,0 +1,50 @@
+---
+id: create-custom-domain
+title: "创建自定义域名"
+description: "创建自定义域名"
+sidebar_label: "创建自定义域名"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVUFv2zoM/isCTy3gJt07+tal7zBgQ4s27xQYhWIxsTZb8iQ6a2Dovw+UHCeNvdMu72ZTFPV9JD+yB9uik6St+aIgh9KhJBRl58k2QtlGagMZtNLJBgmdh3zTg5ENQg4K29oeGzT0Fi0ZaAM5tJIqyEChL51uOTTk8Dj6isHX4c9OO1SQk+swFMmCnj5bdYS8h9IaQkP8Kdu21mWEufzuOWAPvqywkfxFx5bh2O13LOlD5M0p5iN60iYGYGiJV5FB65g/afQcaLCfQ3py2uwnZNbVVYoiJ0FWKKyRcAEhm3uZn5gEUmcHsbNOUKX9VfSb0poDvq9q2ylhnUi/r5rwdgHZBCyarmHuF7cgg/MlJk6aar70MkUZwvn4uZa0s655jLxWEdVjBPXg9h5CCJNCssG31viU03/u76e84xsey85pOsaWenroqBJrlI1Y2x9oIN8UIethakmez85ytS+OiusqreZ7uUGqLPd6az3F3qYKclieu9kv+6vWDsskjLcU7G0M5tEdTqroXA05VEStz5dL2epFSvlC4WF5+DTpolNuxcPzF2D4p4S8cmen7M2SHduT32IQ0R9y2KJ06CYPPW1JaoNKUOVst6+EFJtVhCZS/At5FTcnAsqW/pJBI43cI6fkTrb6Nvb4tGr/H2x/gyq1jhLaCGKJSl9trXRKdEahE8ShPRJps/dRtNIck/VoO1FKIxKiRWx0nlgv59n277tsWlbXeeCctTs3NT4IOfCU3dnIaRDpkK9vYxJiR11z+ngcUbfOHrTX1mizF9KohJp/hpBtajwfDy8EwlOn1iUaH2kM++Brsrzg7i7d542g0JDeaXSzDiED1k9C+Glxv7hnEyuzkeYi9B+0/IHhWGTCd1q2NbuELMmyH2S+uVhaHjLIpztsVulFBhWPi3wDfb+VHv9zdQhs/tmh4xFWZHCQTsstl2TTg9KevxXkO1l7nGAdtxvcvAwD9FZMt+QspcEozRH41brjP8jgBx5n1nIoQgYVSsU12PSD1yq9f7fmWOcok03Lg2kcmc9Pr2vIYDts6MYqvuPkL+5c+SuhsJFjHF/R1kMtzb6Te/ZNMVkVsuOCjEUblTh8MNJZnn2fPKK0QxhpU5R6KEIIvwHNgBnO
+sidebar_class_name: "post api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"创建自定义域名"} />
+
+<MethodEndpoint method={"post"} path={"/deployments/{deployment_name}/create_custom_domain"} context={"endpoint"} />
+
+创建自定义域名
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"请求"} />
+
+
+<ParamsDetails
+  parameters={[{"name":"deployment_name","in":"path","description":"部署名称","required":true}]}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"请求体"}
+  body={{"content":{"application/json":{"schema":{"type":"object","required":["requestDestination","domain"],"properties":{"domain":{"type":"string","description":"要删除的自定义域名。"},"requestDestination":{"description":"此自定义域名指向的目标（convexCloud 或 convexSite）。","type":"string","enum":["convexCloud","convexSite"],"title":"RequestDestination"}},"title":"PlatformDeleteCustomDomainArgs"}}},"required":true}}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":""}}}
+>
+  
+</StatusCodes>

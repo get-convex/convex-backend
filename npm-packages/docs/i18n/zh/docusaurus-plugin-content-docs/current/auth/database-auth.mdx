@@ -1,0 +1,190 @@
+---
+title: "将用户存储到 Convex 数据库中"
+sidebar_label: "数据库"
+sidebar_position: 120
+description: "在你的 Convex 数据库中存储用户信息"
+---
+
+import Schema from "!!raw-loader!@site/../demos/users-and-clerk/convex/schema.ts";
+import useStoreUserEffectTS from "!!raw-loader!@site/../demos/users-and-clerk/src/useStoreUserEffect.ts";
+import useStoreUserEffectJS from "!!raw-loader!@site/../private-demos/snippets/users-and-clerk/useStoreUserEffect.js";
+import MessagesTS from "!!raw-loader!@site/../demos/users-and-clerk/convex/messages.ts";
+import UsersTS from "!!raw-loader!@site/../demos/users-and-clerk/convex/users.ts";
+import App from "!!raw-loader!@site/../private-demos/snippets/src/clerkStoreUserApp.tsx";
+import WebhooksSchema from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/schema.ts";
+import WebhookMutations from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/users.ts";
+import WebhookEndpoint from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/http.ts";
+import WebhookMessages from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/messages.ts";
+import WebhookHook from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/src/useCurrentUser.ts";
+import WebhookClient from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/src/App.tsx";
+
+*如果你使用的是 [Convex Auth](/auth/convex-auth.mdx)，用户信息已经存储在你的数据库中，你不需要再实现任何其他内容。*
+
+你可能希望将用户信息直接存储在 Convex 数据库中，原因包括：
+
+* 你的函数需要了解其他用户的信息，而不仅仅是当前已登录用户的信息
+* 你的函数需要访问除 [OpenID Connect JWT](/auth/functions-auth.mdx) 中可用字段之外的其他信息
+
+在数据库中存储用户信息有两种方式可选（但只有第二种方式允许存储 JWT 中未包含的信息）：
+
+1. 让你的应用的[客户端调用一个变更](#call-a-mutation-from-the-client)，
+   将 [`ctx.auth`](/api/interfaces/server.Auth) 中 JWT 提供的信息存储起来
+2. [实现一个 webhook](#set-up-webhooks)，并让你的身份提供商在用户信息发生变化时调用它
+
+## 从客户端调用变更函数 \{#call-a-mutation-from-the-client\}
+
+**示例：**
+[使用 Clerk 的 Convex 身份验证](https://github.com/get-convex/convex-demos/tree/main/users-and-clerk)
+
+### （可选）Users 表模式 \{#optional-users-table-schema\}
+
+你可以定义一个 `"users"` 表，并可选择为其添加一个
+[index](/database/reading-data/indexes/indexes.md)，以便高效地在数据库中查找用户。
+
+在下面的示例中，我们会使用 `ctx.auth.getUserIdentity()` 返回的
+`tokenIdentifier` 来标识用户，但你也可以使用
+`subject` 字段（通常设置为来自认证提供方的唯一用户 ID），甚至是 `email`，前提是你的认证提供方支持邮箱验证并且你已启用该功能。
+
+你选择使用哪个字段会影响多个认证提供方之间如何协同工作，以及将来迁移到不同提供方的难易程度。
+
+<Snippet source={Schema} snippet="user" title="convex/schema.ts" />
+
+### 用于存储当前用户的变更函数 \{#mutation-for-storing-current-user\}
+
+下面是一个用于存储用户 `name` 和
+`tokenIdentifier` 的变更函数示例：
+
+<TSAndJSSnippet sourceTS={UsersTS} sourceJS={UsersTS} title="convex/users.js" />
+
+### 在 React 中调用存储用户的变更 \{#calling-the-store-user-mutation-from-react\}
+
+当用户登录时，你可以在 `useEffect` hook 中调用这个变更。变更成功之后，你可以更新本地状态，以反映用户已被存储。
+
+下面这个辅助 hook 可以完成这件事：
+
+<TSAndJSSnippet sourceTS={useStoreUserEffectTS} sourceJS={useStoreUserEffectJS} title="src/useStoreUserEffect.ts" />
+
+你可以在顶层组件中使用这个 hook。如果你的查询需要用户文档已存在，务必确保只有在用户已被存储之后，才渲染那些会调用这些查询的组件：
+
+<TSAndJSSnippet sourceTS={App} sourceJS={App} title="src/App.tsx" />
+
+通过这种方式，`useStoreUserEffect` hook 取代了 `useConvexAuth` hook。
+
+### 使用当前用户的文档 ID \{#using-the-current-users-document-id\}
+
+与用于存储用户的变更类似，你可以获取当前用户的 ID；如果该用户尚未被存储，则抛出错误。
+
+现在你已经在 Convex 数据库中将用户存储为文档，可以在其他文档中把他们的 ID 作为外键使用：
+
+<TSAndJSSnippet
+  sourceTS={MessagesTS}
+  sourceJS={MessagesTS}
+  snippet="load-user"
+  title="convex/messages.ts"
+  suffix={`    // do something with \`user\`...
+}
+});`}
+/>
+
+### 通过用户 ID 加载用户 \{#loading-users-by-their-id\}
+
+你可以根据用户的 ID 获取其他用户的信息：
+
+<TSAndJSSnippet
+  sourceTS={MessagesTS}
+  sourceJS={MessagesTS}
+  snippet="use-users"
+  title="convex/messages.ts"
+  prefix={`import { query } from "./_generated/server";
+`}
+/>
+
+## 设置 webhooks \{#set-up-webhooks\}
+
+本指南以 Clerk 为例，但也可以通过
+[Auth0 Actions](https://auth0.com/docs/customize/actions/actions-overview)
+以类似方式配置 Auth0。
+
+通过这种实现方式，每当有用户注册、更新或删除其账号时，
+Clerk 都会通过一个 HTTP 端点调用你的 Convex 后端。
+
+**示例：**
+[Convex Authentication with Clerk and Webhooks](https://github.com/get-convex/convex-demos/tree/main/users-and-clerk-webhooks)
+
+### 在 Clerk 中配置 webhook 端点 \{#configure-the-webhook-endpoint-in-clerk\}
+
+在你的 Clerk 仪表盘中，进入 *Webhooks*，点击 *+ Add Endpoint*。
+
+将 *Endpoint URL* 设置为
+`https://<your deployment name>.convex.site/clerk-users-webhook`（注意域名以
+**`.site`** 结尾，而不是 `.cloud`）。你可以在项目目录中的 `.env.local`
+文件中，或在 Convex 仪表盘中的
+[Deployment URL](/dashboard/deployments/settings.md) 中查看你的部署名称。例
+如，端点 URL 可以是：
+`https://happy-horse-123.convex.site/clerk-users-webhook`。
+
+在 *Message Filtering* 中，为所有用户事件选择 **user**（向下滚动或使用搜索框）。
+
+点击 *Create*。
+
+端点保存后，复制 *Signing Secret*（在 UI 右侧），它应以 `whsec_` 开头。将其设
+置为 Convex
+[仪表盘](https://dashboard.convex.dev) 中环境变量 `CLERK_WEBHOOK_SECRET` 的值。
+
+### （可选）users 表模式 \{#optional-users-table-schema\}
+
+你可以定义一个 `"users"` 表，并可选地为其添加一个
+[index](/database/reading-data/indexes/indexes.md)，用于在数据库中高效查找用户。
+
+在下面的示例中，我们将使用 `ctx.auth.getUserIdentity()` 返回值中的 `subject` 来标识用户，该字段应设置为 Clerk 用户 ID。
+
+<Snippet source={WebhooksSchema} snippet="table" title="convex/schema.ts" />
+
+### 用于插入或更新以及删除用户的变更函数 \{#mutations-for-upserting-and-deleting-users\}
+
+下面是一些用于处理通过 webhook 接收到的更新的变更函数示例：
+
+<TSAndJSSnippet sourceTS={WebhookMutations} sourceJS={WebhookMutations} title="convex/users.ts" />
+
+在这个文件中还定义了一些辅助函数：
+
+* `current` 向客户端暴露用户信息，帮助客户端判断 webhook 是否已经执行成功
+* `upsertFromClerk` 会在用户注册或更新其账号时被调用
+* `deleteFromClerk` 会在用户通过你应用中的 Clerk UI 删除其账号时被调用
+* `getCurrentUserOrThrow` 获取当前已登录用户，如果不存在则抛出错误
+* `getCurrentUser` 获取当前已登录用户，如果不存在则返回 null
+* `userByExternalId` 根据 Clerk ID 获取用户，仅用于获取当前用户，或在通过 webhook 更新现有用户时使用
+
+### Webhook 端点实现 \{#webhook-endpoint-implementation\}
+
+实际的 HTTP 端点可以这样实现：
+
+<TSAndJSSnippet sourceTS={WebhookEndpoint} sourceJS={WebhookEndpoint} title="convex/http.ts" />
+
+如果你现在部署代码并登录，就会看到该用户已经在你的 Convex 数据库中创建出来了。
+
+### 使用当前用户文档 \{#using-the-current-users-document\}
+
+可以使用前面定义的辅助函数来获取当前用户文档。
+
+现在你已经在 Convex 数据库中将用户存储为文档，就可以在其他文档中将他们的 ID 用作外键：
+
+<TSAndJSSnippet sourceTS={WebhookMessages} sourceJS={WebhookMessages} snippet="current-user" title="convex/messages.ts" />
+
+### 通过用户 ID 加载用户 \{#loading-users-by-their-id\}
+
+可以根据他们的 ID 获取其他用户的信息：
+
+<TSAndJSSnippet sourceTS={MessagesTS} sourceJS={MessagesTS} snippet="use-users" title="convex/messages.ts" />
+
+### 等待当前用户被存储 \{#waiting-for-current-user-to-be-stored\}
+
+如果你想在查询中使用当前用户的文档，要确保该用户已经被存储。你可以在渲染调用查询的组件之前，或在重定向到应用中需要认证的部分之前，显式检查这一条件是否满足。
+
+例如，你可以定义一个 hook，用来确定客户端当前的身份验证状态，并同时考虑当前用户是否已经被存储：
+
+<TSAndJSSnippet sourceTS={WebhookHook} sourceJS={WebhookHook} title="src/useCurrentUser.ts" />
+
+然后你就可以使用它来渲染相应的组件：
+
+<TSAndJSSnippet sourceTS={WebhookClient} sourceJS={WebhookClient} snippet="client-blocking" title="src/App.tsx" />

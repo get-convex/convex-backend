@@ -1,0 +1,34 @@
+---
+id: delete-deployment
+title: "デプロイメントの削除"
+description: "デプロイメントを削除します。これにより、そのデプロイメント内のすべてのデータとファイルが削除されます。"
+sidebar_label: "デプロイメントの削除"
+hide_title: true
+hide_table_of_contents: true
+api: eJzdVU1v2zAM/SsCTy3gOumOvhXtpcC2Bm13So2Bsehaqyypkpw2MPTfB9rOR5tgl12GnSJRlPgew/fcg6RQeeWisgYKuCFNkQQKSU7bTUsm5uKxUUG8Ka2FnI55iREFGilqpSkIZURs6OBa9mSCFW8kPFW2bclIUXnCqMzzcE3aN6MtymEvVli9dE6sqLaeRIVaczw2KjwZMtJZtQMiLQVhbNyC4bLO219URaFiIF3nkIF15JFJ3UooYErdo4MMHHpsKZIPUCx7MNjSkLlN+TlEMlDcF4exgeyoWdtc8X3M9fTaKU8Siug7SiVHgrMmUICihy/zOf98fAVSyiBQ1XkVNwOUu6suNuKRsBWP9oUMFMsyZT0cR8bMxcR+f1Rm0FJsLHN3Nox0YwMFzPYEw6z/xDbNxkYBA/LrbWs6r6GAJkYXitkMncora9b0nktaz9aXR31ZaIy19a24WtwCY9mye6gaasdWnETeQ9w4mmoxiCEfClgRevJHhe5WEZUhKWLjbffcCBTL6wGaGN9H57Sqhjkoz7YEpK3CIYMWDT4TN+ECnTrPIWUn/oJ/B9vfoLpmCZLcyRVDs7LopeiMJC8iPx0oskqDqK0XaDZjdGM7UaERI6J8mFplajtgUFFz0Ynftx3oYQI+Y/h4PFRx3q5VUNZs3WGowpvpyUngYbSO/Qiz1LWqyARiIJOIv46Re6ovxvssY0kmqlqRP5mQMuB5HxFe5vN8ziHWTovm4OmbE07ygV4PlTWRD/4jN52GLNJ7nDmNynBzBlvoJ2NZHjhngAyKYyOdvKXMoGFLKpbQ9ysM9MPrlDj82pFnBywzWKNXuOKhWvYgVeC1hKJGHegPDT+7nwz4XByb80kSUxDNBriq7ngHGbzQ5sTXIJXpwFkXdw+PkAF23ICdEnfKmxbM4GSVvh8zBimntCsaB2mnMqX0G/cvrJ8=
+sidebar_class_name: "post api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"デプロイメントの削除"} />
+
+<MethodEndpoint method={"post"} path={"/deployments/{deployment_name}/delete"} context={"endpoint"} />
+
+デプロイメントを削除します。これにより、そのデプロイメント内のすべてのデータとファイルが削除されるため、このエンドポイントを呼び出す前にバックアップを作成してダウンロードすることをお勧めします。なお、プロジェクト自体は削除されません。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"リクエスト"} />
+
+<ParamsDetails parameters={[{"name":"deployment_name","in":"path","description":"デプロイメント名","required":true}]} />
+
+<RequestSchema title={"ボディ"} body={undefined} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":""}}} />

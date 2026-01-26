@@ -1,0 +1,104 @@
+---
+title: Script 标签快速入门
+sidebar_label: Script 标签
+description: "将 Convex 添加到任何网站"
+hide_table_of_contents: true
+sidebar_position: 450
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/convex/tasks.js";
+import html from "!!raw-loader!@site/../demos/html/simple.html";
+
+了解如何在 HTML 的 script 标签中从 Convex 查询数据。
+
+<StepByStep>
+  <Step title="创建一个新的 npm 项目">
+    为你的 Convex 项目创建一个新目录。
+
+    ```sh
+    mkdir my-project && cd my-project && npm init -y
+    ```
+  </Step>
+
+  <Step title="安装 Convex 客户端和服务端库">
+    安装 `convex`
+    包，它为在 JavaScript 中使用 Convex
+    提供了一个便捷的接口。
+
+    ```sh
+    npm install convex
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发环境（dev）部署">
+    接下来运行 `npx convex dev`。这条命令
+    会提示你使用 GitHub 登录、
+    创建一个项目，并保存生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用来编写后端 API 函数。然后 `dev` 命令
+    会持续运行，将你的函数同步到
+    云端的开发环境（dev）部署中。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在一个新的终端窗口中，创建一个包含示例数据的
+    `sampleData.jsonl` 文件。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    现在项目已经就绪，使用 `import` 命令
+    将包含示例数据的 `tasks` 表添加到
+    Convex 数据库中。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="公开一个数据库查询">
+    在 `convex/` 文件夹中添加一个新的 `tasks.js` 文件，
+    定义一个用于加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    会声明一个基于文件名和导出名称命名的 API 函数，
+    即 `api.tasks.get`。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="复制部署 URL">
+    打开 `.env.local` 文件，复制开发环境中的
+    `CONVEX_URL`，以便在 HTML 文件中使用。
+
+    <>    </>
+  </Step>
+
+  <Step title="在网页中添加脚本">
+    在一个新的 `index.html` 文件中，使用开发环境的 URL
+    创建一个 `ConvexClient`。
+
+    在浏览器中打开这个文件，每当 `tasks`
+    表被修改时，你都可以看到它运行。
+
+    <Snippet
+      source={html}
+      title="index.html"
+      replacements={[
+    [/https?:\/\/localhost:8000/g, 'CONVEX_URL_GOES_HERE'],
+    [/messages:list/g, 'tasks:get'],
+    [/\(messages\)/g, '(tasks)'],
+    [/messages.map\(\(msg\) \=\> msg\.body\)/g, 'tasks.map((task) => task.text)'],
+  ]}
+    />
+  </Step>
+</StepByStep>
+
+参见完整的 [Script Tag 文档](/client/javascript/script-tag.mdx)。

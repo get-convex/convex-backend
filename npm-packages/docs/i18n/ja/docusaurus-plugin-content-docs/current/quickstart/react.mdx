@@ -1,0 +1,186 @@
+---
+title: React クイックスタート
+sidebar_label: React
+description: "React プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 100
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/convex/tasks.js";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/main.jsx";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/App.jsx";
+import tasksTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/convex/tasks.ts";
+import mainTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/main.tsx";
+import AppTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/App.tsx";
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/4MgsvjMb59Q" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+
+Convex と React をすばやくセットアップするには、次を実行してください。
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest" />
+  </b>
+</p>
+
+もしくは、次のガイドに従ってください。
+
+***
+
+Vite と <LanguageSelector verbose /> を使用する React アプリで、
+Convex からデータをクエリ（取得）する方法を学びましょう
+
+
+<StepByStep>
+  <Step title="React アプリを作成する">
+    `create vite` コマンドを使って React アプリを作成します。
+
+    <JSDialectVariants>
+      ```sh
+      npm create vite@latest my-app -- --template react-ts
+      ```
+
+      ```sh
+      npm create vite@latest my-app -- --template react
+      ```
+    </JSDialectVariants>
+
+  </Step>
+  <Step title="Convex のクライアントおよびサーバーライブラリをインストールする">
+    まず、`convex` パッケージをインストールします。
+    このパッケージは React アプリから Convex を扱うための
+    便利なインターフェースを提供します。
+
+    アプリのディレクトリに移動して `convex` をインストールします。
+
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に、`npx convex dev` を実行します。
+    これにより、GitHub へのログイン、
+    プロジェクトの作成、本番およびデプロイメントURLの保存を行うよう促されます。
+
+    また、バックエンドの API 関数を書くための `convex/` フォルダーも
+    自動的に作成されます。続けて `dev` コマンドが実行され、
+    クラウド上の dev デプロイメントとあなたの関数が同期され続けます。
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、`sampleData.jsonl`
+    ファイルを作成し、いくつかサンプルデータを追加します。
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`tasks` テーブルを作成し、
+    サンプルデータを Convex データベースに
+    `import` コマンド（インポートコマンド）で追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="（オプション）スキーマを定義する">
+    `convex/` フォルダー内に新しいファイル `schema.ts` を追加し、
+    データの構造を記述します。
+
+    これにより、TypeScript による任意の型チェックのために
+    データの型が宣言され、さらに実行時にも型が
+    強制されます。
+
+    <JSDialectVariants>
+    代わりに `.eslintrc.cjs` ファイルから
+    `'plugin:@typescript-eslint/recommended-requiring-type-checking',`
+    の行を削除して、型チェックの厳しさを下げることもできます。
+
+    <></>
+    </JSDialectVariants>
+
+    ```ts noDialect title="convex/schema.ts"
+    import { defineSchema, defineTable } from "convex/server";
+    import { v } from "convex/values";
+
+    export default defineSchema({
+      tasks: defineTable({
+        text: v.string(),
+        isCompleted: v.boolean(),
+      }),
+    });
+    ```
+
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダーに <JSDialectFileName name="tasks.ts" /> という新しいファイルを追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数を export することで、
+    ファイル名と export 名に基づいた API 関数
+    `api.tasks.get` が宣言されます。
+
+    <TSAndJSSnippet
+      sourceTS={tasksTS}
+      sourceJS={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="アプリをバックエンドに接続する">
+    <JSDialectFileName name="src/main.jsx" /> で `ConvexReactClient` を作成し、
+    アプリをラップする `ConvexProvider` に渡します。
+
+    <TSAndJSSnippet
+      sourceTS={mainTS}
+      sourceJS={main}
+      title="src/main.tsx"
+      highlightPatterns={[ "Convex", ]}
+    />
+
+  </Step>
+
+  <Step title="アプリでデータを表示する">
+    <JSDialectFileName name="src/App.jsx" /> で `useQuery` フックを使って
+    `api.tasks.get` API 関数からデータを取得し、
+    そのデータを表示します。
+
+    <TSAndJSSnippet
+      sourceTS={AppTS}
+      sourceJS={App}
+      title="src/App.tsx"
+      highlightPatterns={[ "useQuery", "api", "tasks", "text", "\\)\\)\\}" ]}
+    />
+
+  </Step>
+
+  <Step title="アプリを起動する">
+    アプリを起動し、ブラウザで [http://localhost:5173/](http://localhost:5173/) を開いて、
+    タスク一覧を確認します。
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+完全な [React 向けドキュメント](/client/react.mdx) も参照してください。

@@ -1,0 +1,141 @@
+---
+title: 用量跟踪
+sidebar_label: "Usage Tracking"
+sidebar_position: 1300
+description: "跟踪 Agent 组件的 Token 用量"
+---
+
+你可以为 agent 提供一个 `usageHandler` 来跟踪 Token 用量。参见
+[此示例](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/usageHandler.ts)，
+它将用量记录到一张表中，然后遍历该表以生成每个用户的发票。
+
+你可以在整个 agent、每个线程或每条消息的层级上分别提供一个 `usageHandler`。
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  usageHandler: async (ctx, args) => {
+    const {
+      // Who used the tokens
+      userId, threadId, agentName,
+      // What LLM was used
+      model, provider,
+      // 使用了多少 token(额外信息可在 providerMetadata 中获取)
+      usage, providerMetadata
+    } = args;
+    // ... log, save usage to your database, etc.
+  },
+});
+```
+
+提示：在可以访问更多变量的函数中定义 `usageHandler`，以便将使用情况归因于不同的用户、团队、项目等。
+
+## 在表中存储用量 \{#storing-usage-in-a-table\}
+
+要跟踪用量（例如用于计费），你可以在模式中定义一张表，
+并将用量写入其中以便后续处理。
+
+```ts
+export const usageHandler: UsageHandler = async (ctx, args) => {
+  if (!args.userId) {
+    console.debug("不跟踪匿名用户的使用情况");
+    return;
+  }
+  await ctx.runMutation(internal.example.insertRawUsage, {
+    userId: args.userId,
+    agentName: args.agentName,
+    model: args.model,
+    provider: args.provider,
+    usage: args.usage,
+    providerMetadata: args.providerMetadata,
+  });
+};
+
+export const insertRawUsage = internalMutation({
+  args: {
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+  },
+  handler: async (ctx, args) => {
+    const billingPeriod = getBillingPeriod(Date.now());
+    return await ctx.db.insert("rawUsage", {
+      ...args,
+      billingPeriod,
+    });
+  },
+});
+
+function getBillingPeriod(at: number) {
+  const now = new Date(at);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth());
+  return startOfMonth.toISOString().split("T")[0];
+}
+```
+
+在 `convex/schema.ts` 中有一个对应的模式：
+
+```ts
+export const schema = defineSchema({
+  rawUsage: defineTable({
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+
+    // stats
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+
+    // 在此示例中,我们将其设置为当前月份的第一天,
+    // 使用 UTC 时间作为月份边界。
+    // 你也可以选择将其存储为时间戳数字。
+    // 然后可以在计费周期结束时获取所有使用数据
+    // 并计算总费用。
+    billingPeriod: v.string(), // When the usage period ended
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+
+  invoices: defineTable({
+    userId: v.string(),
+    billingPeriod: v.string(),
+    amount: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("failed"),
+    ),
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+  // ... other tables
+});
+```
+
+## 通过 cron 任务生成发票 \{#generating-invoices-via-a-cron-job\}
+
+可以使用 cron 任务在计费周期结束时生成发票。
+
+请参见
+[usage&#95;tracking/invoicing.ts](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/invoicing.ts)
+中的示例代码，了解如何生成发票。
+
+然后将其添加到 `convex/crons.ts` 中：
+
+```ts
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+// 为上个月生成账单
+crons.monthly(
+  "generateInvoices",
+  // 在新月份开始后等待一天生成账单
+  { day: 2, hourUTC: 0, minuteUTC: 0 },
+  internal.usage.generateInvoices,
+  {},
+);
+
+export default crons;
+```

@@ -1,0 +1,339 @@
+---
+title: Mensajes
+sidebar_label: "Mensajes"
+sidebar_position: 300
+description: "Enviar y recibir mensajes con un agente"
+---
+
+El componente Agent almacena el historial de mensajes y de [hilos](./threads.mdx) para permitir
+conversaciones entre humanos y agentes.
+
+Para ver cómo los humanos pueden actuar como agentes, consulta [Human Agents](./human-agents.mdx).
+
+## Recuperar mensajes \{#retrieving-messages\}
+
+Para que los clientes puedan mostrar mensajes, debes exponer una consulta que retorne
+los mensajes. Para el caso de streaming, consulta
+[retrieving streamed deltas](./streaming.mdx#retrieving-streamed-deltas) para una
+versión modificada de esta consulta.
+
+Consulta
+[chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)
+para el código del lado del servidor y
+[chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+para el ejemplo de streaming.
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+import { v } from "convex/values";
+import { listUIMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: { threadId: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // Aquí puedes filtrar o modificar los documentos
+    return paginated;
+  },
+});
+```
+
+Nota: Más arriba usamos `listUIMessages`, que devuelve UIMessages, específicamente la
+extensión de Agent que incluye algunos campos adicionales como order, status, etc.
+UIMessages combinan múltiples MessageDocs en un solo UIMessage cuando hay
+múltiples llamadas a herramientas seguidas de un mensaje del asistente, lo que facilita crear
+interfaces que funcionan con las distintas &quot;partes&quot; del UIMessage.
+
+Si quieres obtener MessageDocs, puedes usar `listMessages` en su lugar.
+
+## Mostrar mensajes en React \{#showing-messages-in-react\}
+
+Consulta
+[ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)
+para ver un ejemplo de streaming, o
+[ChatBasic.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatBasic.tsx)
+para ver un ejemplo sin streaming.
+
+### `useUIMessages` hook \{#useuimessages-hook\}
+
+La clave es usar el hook `useUIMessages`. Para habilitar el *streaming*, pasa
+`stream: true` al hook.
+
+```tsx
+import { api } from "../convex/_generated/api";
+import { useUIMessages } from "@convex-dev/agent/react";
+
+function MyComponent({ threadId }: { threadId: string }) {
+  const { results, status, loadMore } = useUIMessages(
+    api.chat.streaming.listMessages,
+    { threadId },
+    { initialNumItems: 10 /* stream: true */ },
+  );
+  return (
+    <div>
+      {results.map((message) => (
+        <div key={message.key}>{message.text}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+Nota: Si quieres trabajar con MessageDocs en lugar de UIMessages, puedes usar
+el hook más antiguo `useThreadMessages`. Sin embargo, trabajar con UIMessages
+permite capacidades de streaming más avanzadas, como información de status sobre si el agente está
+razonando activamente.
+
+### Tipo UIMessage \{#uimessage-type\}
+
+El componente Agent extiende el tipo `UIMessage` del AI SDK para proporcionar
+metadatos útiles para renderizar mensajes.
+
+El tipo básico `UIMessage` del AI SDK es:
+
+* `parts` es un array de partes (por ejemplo, &quot;text&quot;, &quot;file&quot;, &quot;image&quot;, &quot;toolCall&quot;,
+  &quot;toolResult&quot;).
+* `content` es una cadena con el contenido del mensaje.
+* `role` es el rol del mensaje (por ejemplo, &quot;user&quot;, &quot;assistant&quot;, &quot;system&quot;).
+
+El helper añade estos campos adicionales:
+
+* `key` es un identificador único para el mensaje.
+* `order` es el orden del mensaje en el hilo.
+* `stepOrder` es el orden del paso del mensaje en el hilo.
+* `status` es el estado del mensaje (o &quot;streaming&quot;).
+* `agentName` es el nombre del agente que generó el mensaje.
+* `text` es el texto del mensaje.
+* `_creationTime` es la marca de tiempo del mensaje. Para mensajes en streaming,
+  actualmente se asigna a la hora actual en el cliente de streaming.
+
+Para hacer referencia a estos campos, asegúrate de importar `UIMessage` desde
+`@convex-dev/agent`.
+
+#### Función auxiliar `toUIMessages` \{#touimessages-helper\}
+
+`toUIMessages` es una función auxiliar que transforma MessageDocs en
+&quot;UIMessage&quot;s del AI SDK. Este es un modelo de datos práctico para mostrar mensajes.
+
+Si estás usando `useThreadMessages`, por ejemplo, puedes convertir los mensajes
+a UIMessages de esta forma:
+
+```ts
+import { toUIMessages, type UIMessage } from "@convex-dev/agent";
+
+...
+const { results } = useThreadMessages(...);
+const uiMessages = toUIMessages(results);
+```
+
+### Actualizaciones optimistas para enviar mensajes \{#optimistic-updates-for-sending-messages\}
+
+La función `optimisticallySendMessage` es una función auxiliar para enviar un
+mensaje, de modo que puedas mostrar de forma optimista un mensaje en la lista de mensajes hasta que la
+mutación se haya completado en el servidor.
+
+Pasa la consulta que estás usando para listar mensajes y esta insertará el
+mensaje temporal en la parte superior de la lista.
+
+```ts
+const sendMessage = useMutation(
+  api.streaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  optimisticallySendMessage(api.streaming.listThreadMessages),
+);
+```
+
+Si los argumentos no incluyen `{ threadId, prompt }`, puedes utilizarla como
+función auxiliar en la actualización optimista:
+
+```ts
+import { optimisticallySendMessage } from "@convex-dev/agent/react";
+
+const sendMessage = useMutation(
+  api.chatStreaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  (store, args) => {
+    optimisticallySendMessage(api.chatStreaming.listThreadMessages)(store, {
+      threadId:
+      prompt: /* convierte tus argumentos en el prompt del usuario. */,
+    })
+  }
+);
+```
+
+## Guardar mensajes \{#saving-messages\}
+
+De forma predeterminada, `Agent` guardará los mensajes en la base de datos automáticamente cuando se los proporciones como prompt, así como todos los mensajes generados.
+
+Sin embargo, es útil guardar el mensaje del prompt por adelantado y usar el
+`promptMessageId` para continuar la conversación. Consulta
+[Uso de Agent](./agent-usage.mdx) para más detalles.
+
+Puedes guardar mensajes en la base de datos manualmente usando `saveMessage` o
+`saveMessages`, ya sea en la clase `Agent` o como una llamada de función directa.
+
+* Puedes pasar un `prompt` o un mensaje completo (tipo `ModelMessage`)
+* El argumento `metadata` es opcional y te permite proporcionar más detalles,
+  como `sources`, `reasoningDetails`, `usage`, `warnings`, `error`, etc.
+
+```ts
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "user", content: "The user message" },
+});
+```
+
+Nota: cuando llamas a `agent.generateText` con el prompt sin procesar, las embeddings se generan automáticamente para la búsqueda vectorial (si tienes configurado un modelo de embeddings de texto). De forma similar ocurre con `agent.saveMessage` cuando se llama desde una acción. Sin embargo, si estás guardando mensajes en una mutación, donde no es posible llamar a un LLM, las embeddings se generarán automáticamente si `generateText` recibe un `promptMessageId` que no tiene embedding (y tienes configurado un modelo de embeddings de texto).
+
+### Sin la clase Agent: \{#without-the-agent-class\}
+
+Nota: Si no estás usando la clase Agent con un modelo de embedding de texto configurado,
+tienes que proporcionar un `embedding` si quieres guardarlo al mismo tiempo.
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "assistant", content: result },
+  metadata: [{ reasoning, usage, ... }] // Consulta el tipo MessageWithMetadata
+  agentName: "my-agent",
+  embedding: { vector: [0.1, 0.2, ...], model: "text-embedding-3-small" },
+});
+```
+
+### Uso de la clase Agent: \{#using-the-agent-class\}
+
+```ts
+const { messageId } = await agent.saveMessage(ctx, {
+  threadId,
+  userId,
+  prompt,
+  metadata,
+});
+```
+
+```ts
+const { messages } = await agent.saveMessages(ctx, {
+  threadId, userId,
+  messages: [{ role, content }],
+  metadata: [{ reasoning, usage, ... }] // Consulta el tipo MessageWithMetadata
+});
+```
+
+Si estás guardando el mensaje en una mutación y tienes configurado un modelo de embeddings de texto,
+pasa `skipEmbeddings: true`. Los embeddings del mensaje se generarán
+de forma diferida si el mensaje se usa como prompt. También puedes proporcionar un
+embedding por adelantado si está disponible, o generar los embeddings explícitamente más tarde usando
+`agent.generateEmbeddings`.
+
+## Configuración del almacenamiento de mensajes \{#configuring-the-storage-of-messages\}
+
+En general, los valores predeterminados suelen ser suficientes, pero si quieres pasar varios mensajes
+y que todos se guarden (en lugar de solo el último), o evitar guardar cualquier mensaje
+de entrada o salida, puedes pasar un objeto `storageOptions`, ya sea al
+constructor de Agent o por mensaje.
+
+El caso de uso de pasar varios mensajes pero no guardarlos es si quieres
+incluir algunos mensajes adicionales como contexto para el LLM, pero solo el último mensaje
+es la solicitud real del usuario. Por ejemplo:
+`messages = [...messagesFromRag, messageFromUser]`. El valor predeterminado es guardar el
+prompt y todos los mensajes de salida.
+
+```ts
+const result = await thread.generateText({ messages }, {
+  storageOptions: {
+    saveMessages: "all" | "none" | "promptAndOutput";
+  },
+});
+```
+
+## Orden de los mensajes \{#message-ordering\}
+
+Cada mensaje tiene campos `order` y `stepOrder`, que son enteros que aumentan secuencialmente
+específicos de un hilo.
+
+Cuando se llama a `saveMessage` o `generateText`, el mensaje se agrega al
+siguiente `order` del hilo con un `stepOrder` de 0.
+
+A medida que se generan mensajes como respuesta a ese mensaje, se agregan
+con el mismo `order` y el siguiente `stepOrder`.
+
+Para asociar un mensaje de respuesta con un mensaje anterior, puedes pasar
+`promptMessageId` a `generateText` y otras funciones.
+
+Nota: si `promptMessageId` no es el último mensaje en el hilo, el
+contexto para la generación del mensaje no incluirá ningún mensaje posterior a
+`promptMessageId`.
+
+## Eliminar mensajes \{#deleting-messages\}
+
+Puedes eliminar mensajes mediante su `_id` (devuelto por `saveMessage` o
+`generateText`) o por `order` / `stepOrder`.
+
+Por ID:
+
+```ts
+await agent.deleteMessage(ctx, { messageId });
+// eliminación por lotes
+await agent.deleteMessages(ctx, { messageIds });
+```
+
+Por orden (inicio incluido, final excluido):
+
+```ts
+// Elimina todos los mensajes con el mismo order que un mensaje dado:
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: message.order,
+  endOrder: message.order + 1,
+});
+// Delete all messages with order 1 or 2.
+await agent.deleteMessageRange(ctx, { threadId, startOrder: 1, endOrder: 3 });
+// Delete all messages with order 1 and stepOrder 2-4
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: 1,
+  startStepOrder: 2,
+  endOrder: 2,
+  endStepOrder: 5,
+});
+```
+
+## Otras utilidades: \{#other-utilities\}
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+* `serializeDataOrUrl` es una función de utilidad que serializa un `DataContent`
+  del SDK de IA o una `URL` a un formato serializable por Convex.
+* `filterOutOrphanedToolMessages` es una función de utilidad que filtra los
+  mensajes de llamada a herramientas que no tienen un mensaje de resultado de
+  herramienta correspondiente.
+* `extractText` es una función de utilidad que extrae texto de un objeto
+  similar a un `ModelMessage`.
+
+### Validadores y tipos \{#validators-and-types\}
+
+Existen tipos que permiten validar y definir los tipos de distintos valores
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+* `vMessage` es un validador para un objeto similar a `ModelMessage` (por ejemplo, con campos `role` y `content`).
+* `MessageDoc` y `vMessageDoc` son los tipos para un mensaje (que incluye un
+  campo `.message` con el tipo `vMessage`).
+* `Thread` es el tipo de un hilo devuelto por `continueThread` o
+  `createThread`.
+* `ThreadDoc` y `vThreadDoc` son los tipos para los metadatos de un hilo.
+* `AgentComponent` es el tipo del componente instalado (por ejemplo,
+  `components.agent`).
+* `ToolCtx` es el tipo de `ctx` para las llamadas a herramientas creadas con `createTool`.

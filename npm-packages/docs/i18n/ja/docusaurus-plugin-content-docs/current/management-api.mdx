@@ -1,0 +1,57 @@
+---
+title: Management API
+hide_table_of_contents: true
+description: "API を使った Convex デプロイメントの作成と管理"
+---
+
+<Admonition type="info">
+  Convex Management API は現在 Beta 版として公開されています。ユースケースに応じて追加の機能が必要な場合は、
+  platforms@convex.dev までご連絡ください。
+</Admonition>
+
+Management API を使うと、Convex プロジェクトおよびデプロイメントをプロビジョニングして管理できます。
+
+## 認可 \{#authorization\}
+
+Management API では Bearer トークンの Authorization ヘッダーを使用します。
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://api.convex.dev/v1/teams/41/list_projects",
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```
+
+[Team Access Tokens](/platform-apis#managing-your-own-projects) と
+[OAuth Application Tokens](/platform-apis/oauth-applications) は、Management API を自分のチームのために使っているか、あるいはあなたが構築した Convex 連携のユーザーのチームのために使っているかに応じて、
+Bearer トークンとして使用できます。
+
+## 必須パラメータ \{#required-parameters\}
+
+ほとんどの Management API では、チーム ID またはプロジェクト ID が必要です。
+
+Team Access Token を作成する際、チーム ID は Convex の
+ダッシュボードで確認できます。
+
+OAuth アプリケーションは、[Token Details](/management-api/get-token-details)
+エンドポイントを呼び出すことで、チーム（またはプロジェクトスコープのトークンを使用している場合はプロジェクト）の ID を取得できます。
+
+チームトークンを使用する場合、プロジェクトには作成時に ID が割り当てられます。
+[List Projects](/management-api/list-projects) エンドポイントを使用して、
+プロジェクトの ID を取得することもできます。
+
+## レスポンス \{#responses\}
+
+すべての API レスポンスは JSON 形式で返されます。
+
+## エンドポイント \{#endpoints\}
+
+Management API 用の OpenAPI 仕様は
+[https://api.convex.dev/v1/openapi.json](https://api.convex.dev/v1/openapi.json)
+で公開されています。

@@ -1,0 +1,325 @@
+---
+title: Contexto del LLM
+sidebar_label: "Contexto del LLM"
+sidebar_position: 600
+description: "Personalizar el contexto proporcionado al LLM del Agent"
+---
+
+De forma predeterminada, el Agent proporcionará contexto según el historial
+de mensajes del hilo. Este contexto se utiliza para generar el siguiente mensaje.
+
+El contexto puede incluir mensajes recientes, así como mensajes encontrados por
+búsqueda de texto y/o búsqueda vectorial.
+
+Si se proporciona un `promptMessageId`, el contexto incluirá ese mensaje, así
+como cualquier otro mensaje con ese mismo `order`. Hay más detalles sobre
+`order` en [messages.mdx](./messages.mdx#message-ordering), pero en la práctica
+esto significa que, si pasas el ID del mensaje enviado por el usuario como
+`promptMessageId` y ya hubo algunas respuestas del asistente y/o de herramientas,
+estas se incluirán en el contexto, lo que permitirá al LLM continuar la
+conversación.
+
+También puedes usar [RAG](./rag.mdx) para añadir contexto adicional a tu prompt.
+
+## Personalizar el contexto \{#customizing-the-context\}
+
+Puedes personalizar el contexto proporcionado al agente al generar mensajes
+con `contextOptions` personalizados. Estos se pueden establecer como valores predeterminados en `Agent` o
+proporcionarse en el sitio de llamada para `generateText` y otras funciones.
+
+```ts
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  { prompt },
+  {
+    // Values shown are the defaults.
+    contextOptions: {
+      // Whether to exclude tool messages in the context.
+      excludeToolMessages: true,
+      // How many recent messages to include. These are added after the search
+      // messages, and do not count against the search limit.
+      recentMessages: 100,
+      // Options for searching messages via text and/or vector search.
+      searchOptions: {
+        limit: 10, // The maximum number of messages to fetch.
+        textSearch: false, // Whether to use text search to find messages.
+        vectorSearch: false, // Whether to use vector search to find messages.
+        // Nota: esto es después de aplicar el límite.
+        // Por ejemplo, esto cuadruplicará el número de mensajes obtenidos.
+        // (dos antes y uno después de cada mensaje encontrado en la búsqueda)
+        messageRange: { before: 2, after: 1 },
+      },
+      // Whether to search across other threads for relevant messages.
+      // By default, only the current thread is searched.
+      searchOtherThreads: false,
+    },
+  },
+);
+```
+
+## Control completo del contexto \{#full-context-control\}
+
+Para tener control total sobre qué mensajes se pasan al LLM, puedes:
+
+1. Proporcionar un `contextHandler` para filtrar, modificar o enriquecer los mensajes de contexto.
+2. Proporcionar todos los mensajes manualmente mediante el argumento `messages` y especificar
+   `contextOptions` para omitir el uso de mensajes recientes o de búsqueda. Consulta más abajo cómo
+   obtener los mensajes de contexto manualmente.
+
+### Proporcionar un contextHandler \{#providing-a-contexthandler\}
+
+El Agent combinará mensajes de búsqueda, recientes, mensajes de entrada y todos
+los mensajes con el mismo `order` que el `promptMessageId` si este se proporciona.
+
+Puedes personalizar cómo se combinan, así como agregar o eliminar mensajes,
+proporcionando un `contextHandler` que devuelva el `ModelMessage[]` que se
+pasará al LLM.
+
+Puedes especificar un `contextHandler` en el constructor de Agent, o en el
+punto de llamada para una sola generación, lo que anula cualquier valor
+predeterminado del Agent.
+
+```ts
+const myAgent = new Agent(components.agent, {
+  ///...
+  contextHandler: async (ctx, args) => {
+    // Este es el comportamiento por defecto.
+    return [
+      ...args.search,
+      ...args.recent,
+      ...args.inputMessages,
+      ...args.inputPrompt,
+      ...args.existingResponses,
+    ];
+    // Equivalent to:
+    return args.allMessages;
+  },
+);
+```
+
+Con este callback puedes:
+
+1. Filtrar los mensajes que no quieras incluir.
+2. Añadir memorias u otro contexto.
+3. Añadir mensajes de ejemplo para guiar al LLM sobre cómo debería responder.
+4. Inyectar contexto adicional en función del usuario o del hilo.
+5. Copiar mensajes de otros hilos.
+6. Resumir mensajes.
+
+Por ejemplo:
+
+```ts
+// Nota: cuando lo especificas en el sitio de llamada, también puedes aprovechar variables
+// disponibles en el ámbito, por ejemplo, si el usuario está en un paso específico de un flujo de trabajo.
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  { prompt },
+  {
+    contextHandler: async (ctx, args) => {
+      // Filtrar mensajes que no son relevantes.
+      const relevantSearch = args.search.filter((m) => messageIsRelevant(m));
+      // Obtener recuerdos del usuario para incluir en cada prompt.
+      const userMemories = await getUserMemories(ctx, args.userId);
+      // Obtener mensajes de ejemplo para instruir al LLM sobre cómo responder.
+      const sampleMessages = [
+        { role: "user", content: "Genera una función que sume dos números" },
+        { role: "assistant", content: "function add(a, b) { return a + b; }" },
+      ];
+      // Obtener contexto del usuario para incluir en cada prompt.
+      const userContext = await getUserContext(ctx, args.userId, args.threadId);
+      // Obtener mensajes de un hilo relacionado / padre.
+      const related = await getRelatedThreadMessages(ctx, args.threadId);
+      return [
+        // Resumir o truncar mensajes de contexto si son demasiado largos.
+        ...(await summarizeOrTruncateIfTooLong(related)),
+        ...relevantSearch,
+        ...userMemories,
+        ...sampleMessages,
+        ...userContext,
+        ...args.recent,
+        ...args.inputMessages,
+        ...args.inputPrompt,
+        ...args.existingResponses,
+      ];
+    },
+  },
+);
+```
+
+### Obtener el contexto manualmente \{#fetch-context-manually\}
+
+Si quieres obtener mensajes de contexto para un prompt determinado, sin llamar al LLM,
+puedes usar `fetchContextWithPrompt`. Esto se utiliza internamente para obtener los mensajes
+de contexto que se pasan al SDK de IA `generateText`, `streamText`, etc.
+
+Como con la generación normal, puedes proporcionar un `prompt` o `messages`, y/o un
+`promptMessageId` para obtener los mensajes de contexto usando un mensaje guardado
+previamente como prompt.
+
+Esto devolverá los mensajes recientes y de búsqueda combinados con los mensajes de entrada.
+
+```ts
+import { fetchContextWithPrompt } from "@convex-dev/agent";
+
+const { messages } = await fetchContextWithPrompt(ctx, components.agent, {
+  prompt,
+  messages,
+  promptMessageId,
+  userId,
+  threadId,
+  contextOptions,
+});
+```
+
+## Buscar mensajes \{#search-for-messages\}
+
+Esto es lo que el agente hace automáticamente, pero puede ser útil hacerlo manualmente,
+por ejemplo, para encontrar contexto personalizado que quieras incluir.
+
+Para la búsqueda de texto y la búsqueda vectorial, puedes proporcionar un `targetMessageId` y/o
+`searchText`. Creará un embedding del texto para la búsqueda vectorial. Si no se proporciona
+`searchText`, usará el texto del mensaje de destino.
+
+Si se proporciona `targetMessageId`, solo recuperará mensajes anteriores a
+ese mensaje para la búsqueda, y mensajes recientes hasta e incluyendo el &quot;order&quot; de ese mensaje.
+Esto permite volver a generar una respuesta para un mensaje anterior.
+
+```ts
+import type { MessageDoc } from "@convex-dev/agent";
+
+const messages: MessageDoc[] = await agent.fetchContextMessages(ctx, {
+  threadId,
+  searchText: prompt, // Opcional a menos que desees búsqueda de texto/vectorial.
+  targetMessageId: promptMessageId, // Opcionalmente, dirige la búsqueda.
+  userId, // Opcional, a menos que `searchOtherThreads` sea true.
+  contextOptions, // Opcional, se usan los valores predeterminados si no se proporciona.
+});
+```
+
+Nota: también puedes buscar mensajes sin un agente. La principal diferencia es
+que, para poder realizar búsqueda vectorial, tienes que crear tú mismo los embeddings
+y no se invocará tu usage handler.
+
+```ts
+import { fetchRecentAndSearchMessages } from "@convex-dev/agent";
+
+const { recentMessages, searchMessages } = await fetchRecentAndSearchMessages(
+  ctx,
+  components.agent,
+  {
+    threadId,
+    searchText: prompt, // Opcional a menos que quieras búsqueda de texto/vectorial.
+    targetMessageId: promptMessageId, // Opcionalmente, dirige la búsqueda.
+    contextOptions, // Opcional, se usan los valores predeterminados si no se proporciona.
+    getEmbedding: async (text) => {
+      const embedding = await textEmbeddingModel.embed(text);
+      return { embedding, textEmbeddingModel };
+    },
+  },
+);
+```
+
+## Buscar en otros hilos \{#searching-other-threads\}
+
+Si estableces `searchOtherThreads` en `true`, el agente buscará en todos los
+hilos que pertenezcan al `userId` proporcionado. Esto puede ser útil para tener múltiples
+conversaciones a las que el agente pueda hacer referencia.
+
+La búsqueda usará un enfoque híbrido que combina búsqueda de texto y búsqueda vectorial.
+
+## Pasar mensajes como contexto \{#passing-in-messages-as-context\}
+
+Puedes pasar mensajes como contexto al LLM del agente, por ejemplo para
+implementar [Retrieval-Augmented Generation](./rag.mdx). Los mensajes finales que se envían
+al LLM serán:
+
+1. El prompt del sistema, si se proporciona uno o el agente tiene `instructions`
+2. Los mensajes encontrados mediante `contextOptions`
+3. El argumento `messages` pasado a `generateText` u otras llamadas de función.
+4. Si se proporcionó un argumento `prompt`, un mensaje final
+   `{ role: "user", content: prompt }`.
+
+Esto te permite pasar mensajes que no forman parte del historial del hilo y
+que no se guardarán automáticamente, pero que el LLM recibirá como contexto.
+
+## Gestionar embeddings manualmente \{#manage-embeddings-manually\}
+
+El argumento `textEmbeddingModel` del constructor de Agent te permite especificar
+un modelo de embeddings de texto para usar en búsquedas vectoriales.
+
+Si configuras este valor, el agente generará automáticamente embeddings para los mensajes
+y los usará para la búsqueda vectorial.
+
+Cuando cambies de modelo o decidas empezar o dejar de usar embeddings para la búsqueda
+vectorial, puedes gestionar los embeddings manualmente.
+
+Genera embeddings para un conjunto de mensajes. Opcionalmente pasa `config` con un handler
+de uso, que puede ser una `Config` compartida globalmente.
+
+```ts
+import { embedMessages } from "@convex-dev/agent";
+
+const embeddings = await embedMessages(
+  ctx,
+  { userId, threadId, textEmbeddingModel, ...config },
+  [{ role: "user", content: "What is love?" }],
+);
+```
+
+Genera y guarda embeddings de los mensajes existentes.
+
+```ts
+const embeddings = await supportAgent.generateAndSaveEmbeddings(ctx, {
+  messageIds,
+});
+```
+
+Obtén y actualiza embeddings, por ejemplo, para migrar a un nuevo modelo.
+
+```ts
+const messages = await ctx.runQuery(components.agent.vector.index.paginate, {
+  vectorDimension: 1536,
+  targetModel: "gpt-4o-mini",
+  cursor: null,
+  limit: 10,
+});
+```
+
+Actualizar el embedding por Id.
+
+```ts
+const messages = await ctx.runQuery(components.agent.vector.index.updateBatch, {
+  vectors: [{ model: "gpt-4o-mini", vector: embedding, id: msg.embeddingId }],
+});
+```
+
+Nota: Si cambia la dimensión, debes eliminar el anterior e insertar el nuevo.
+
+Eliminar embeddings
+
+```ts
+await ctx.runMutation(components.agent.vector.index.deleteBatch, {
+  ids: [embeddingId1, embeddingId2],
+});
+```
+
+Insertar embeddings
+
+```ts
+const ids = await ctx.runMutation(components.agent.vector.index.insertBatch, {
+  vectorDimension: 1536,
+  vectors: [
+    {
+      model: "gpt-4o-mini",
+      table: "messages",
+      userId: "123",
+      threadId: "123",
+      vector: embedding,
+      // Opcional, si quieres actualizar el mensaje con el embeddingId
+      messageId: messageId,
+    },
+  ],
+});
+```

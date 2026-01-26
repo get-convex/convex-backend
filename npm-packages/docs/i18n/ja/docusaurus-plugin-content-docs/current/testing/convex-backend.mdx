@@ -1,0 +1,41 @@
+---
+title: ローカルバックエンドでのテスト
+sidebar_label: ローカルバックエンド
+sidebar_position: 200
+description: "ローカル環境で動作するオープンソース版 Convex バックエンドを使って関数をテストする"
+---
+
+[`convex-test`](/testing/convex-test.mdx) の代わりに、
+[ローカル環境で動作するオープンソース版の Convex バックエンド](https://github.com/get-convex/convex-backend)
+を使って関数をテストすることもできます。
+
+## はじめに \{#getting-started\}
+
+手順については[このガイド](https://stack.convex.dev/testing-with-local-oss-backend)を参照してください。
+
+バックエンドの JS モックを使用する `convex-test` と比べて、実際のバックエンドに対して
+テストを実行することには次のような利点があります。
+
+* （ローカルのバックエンドを最新の状態に保っている限り）Convex の本番環境と同じコードに対してテストを実行できます。
+* 引数、データ、クエリサイズの上限が厳密に適用されます。
+* データのインポートから大規模なテストデータセットを初期化できます。
+* バックエンドのロジックと組み合わせてクライアントコードをテストできます。
+
+## 制限事項 \{#limitations\}
+
+ローカルバックエンドに対してテストする場合、次のような欠点もあることに注意してください:
+
+* ローカルバックエンドのセットアップが必要で、手順がより複雑になります。
+* 時刻を制御できず、スケジュールされた関数は予定どおりに実行されます。
+* Cron ジョブも、[`IS_TEST`](https://stack.convex.dev/testing-with-local-oss-backend#setting-up-a-local-backend) で無効化しない限り実行されます。
+* `fetch` 呼び出しをモックする方法がありません。
+* 依存関係やコードベースの一部をモックする方法がありません。
+* 乱数を制御できないため（テストが決定的にならない可能性があります）。
+* テスト内から環境変数の値を設定する方法がありません。
+
+モックされた Convex バックエンドで JavaScript の関数をテストするには、
+[convex-test](/testing/convex-test.mdx) を参照してください。
+
+## CI \{#ci\}
+
+共有リモートマシン上でテストを実行する方法については、[Continuous Integration](/testing/ci.mdx) を参照してください。

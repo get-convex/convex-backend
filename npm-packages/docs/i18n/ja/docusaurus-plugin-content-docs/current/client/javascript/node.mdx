@@ -1,0 +1,77 @@
+---
+title: "Node.js"
+hidden: false
+sidebar_position: 100
+description: "Node.js アプリケーションで Convex の HTTP クライアントとサブスクリプションクライアントを使用する"
+---
+
+Convex は、Node.js において時点指定のクエリ（
+[HTTP client](/api/classes/browser.ConvexHttpClient) を参照）とクエリのサブスクリプション
+（[ConvexClient](/api/classes/browser.ConvexClient) を参照）をサポートしています。
+
+JavaScript コードで import/export 構文を使っている場合、Convex 関数の呼び出しは
+ブラウザの場合と同様に動作します。
+
+```js
+import { ConvexHttpClient, ConvexClient } from "convex/browser";
+import { api } from "./convex/_generated/api.js";
+
+// HTTPクライアント
+const httpClient = new ConvexHttpClient(CONVEX_URL_GOES_HERE);
+httpClient.query(api.messages.list).then(console.log);
+
+// サブスクリプションクライアント
+const client = new ConvexClient(CONVEX_URL_GOES_HERE);
+client.onUpdate(api.messages.list, {}, (messages) => console.log(messages));
+```
+
+## TypeScript \{#typescript\}
+
+ブラウザ向けのバンドルと同様に、Node.js 向けに TypeScript コードをバンドルする場合も、
+webpack、esbuild、rollup、vite などを使えば、通常は特別な設定なしで
+import/export 構文を使うコードからそのまま `import` できるようになります。
+
+TypeScript でコードを「コンパイル」している場合（これは Web プロジェクトではまれですが、
+Node.js ではより一般的です）、`tsconfig.json` の compilerOptions に `"allowJs": true`
+を追加して、TypeScript が `api.js` ファイルもコンパイルするようにしてください。
+
+## コンパイルなしで TypeScript を実行する \{#typescript-without-a-compile-step\}
+
+コンパイル手順なしで TypeScript スクリプトを直接実行したい場合は、
+[ts-node-esm](https://www.npmjs.com/package/ts-node) をインストールし、
+`package.json` で `"type": "module"` を指定していれば ts-node-esm で
+スクリプトを実行できるはずです。
+
+## CommonJS を使った JavaScript（`require()` 構文） \{#javascript-with-commonjs-require-syntax\}
+
+プロジェクトの `package.json` で `"type": "module"` を使っていない場合は
+`require()` 構文を使う必要があり、Node.js は `convex/_generated/api.js`
+ファイルを直接インポートできません。
+
+`package.json` と同じディレクトリで、
+[`convex.json`](/production/project-configuration.mdx#convexjson) を作成または編集します。
+
+```json title=convex.json
+{
+  "generateCommonJSApi": true
+}
+```
+
+`convex dev` コマンドが `convex/_generated/` にファイルを生成したとき、
+CommonJS コードからインポートできる新しい `api_cjs.cjs` ファイルが作成されます。
+
+```js
+const { ConvexHttpClient, ConvexClient } = require("convex/browser");
+const { api } = require("./convex/_generated/api_cjs.cjs");
+const httpClient = new ConvexHttpClient(CONVEX_URL_GOES_HERE);
+```
+
+## コンパイルステップなしで CommonJS と併用する TypeScript \{#typescript-with-commonjs-without-a-compile-step\}
+
+上記の CommonJS 向け手順に従い、
+[`ts-node`](https://www.npmjs.com/package/ts-node) を使ってコードを実行します。`tsconfig.json`
+で CommonJS を出力ターゲットとして設定していることを確認してください。
+
+## コード生成なしで Node.js から Convex を使う \{#using-convex-with-nodejs-without-codegen\}
+
+Convex の関数や API ファイルが手元にない場合でも、`anyApi` オブジェクトや文字列をいつでも利用できます。`api.folder.file.exportName` のような API 参照は、`anyApi.folder.file.exportName` または `"folder/file:exportName"` という形になります。

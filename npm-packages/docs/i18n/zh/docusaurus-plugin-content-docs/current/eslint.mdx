@@ -1,0 +1,250 @@
+---
+title: ESLint 规则
+sidebar_position: 30
+description: Convex 的 ESLint 规则
+---
+
+Convex 的 ESLint 插件提供了一些 linter 规则，用于在 Convex 函数中落实最佳实践。如果你有希望添加的规则，请告诉我们！
+
+## 设置 \{#setup\}
+
+对于 ESLint 9（扁平配置，使用 `eslint.config.js`），通过以下方式安装规则：
+
+```bash
+npm i @convex-dev/eslint-plugin --save-dev
+```
+
+然后将以下内容添加到你的 `eslint.config.js` 文件中：
+
+```ts
+import { defineConfig } from "eslint/config";
+
+import convexPlugin from "@convex-dev/eslint-plugin";
+
+export default defineConfig([
+  // 其他配置
+
+  ...convexPlugin.configs.recommended,
+]);
+```
+
+<Details summary={<>如果你在使用已弃用的 <code>.eslintrc.js</code> 格式</>}>
+  安装以下这两个库：
+
+  ```bash
+  npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
+  ```
+
+  在 `.eslintrc.js` 中添加：
+
+  ```js
+  module.exports =
+    extends: [
+      // Other configurations
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@convex-dev/recommended",
+    ],
+    ignorePatterns: ["node_modules/", "dist/", "build/"],
+  };
+  ```
+</Details>
+
+<Details summary={<>如果你的 Convex 函数位于 <code>convex</code> 目录之外</>}>
+  默认情况下，Convex ESLint 插件只会在 `convex` 目录中应用规则。
+
+  如果你正在
+  [自定义 Convex 目录位置](/production/project-configuration#changing-the-convex-folder-name-or-location)，
+  可以按如下方式调整你的 ESLint 配置：
+
+  ```ts
+  // eslint.config.js
+  import { defineConfig } from "eslint/config";
+
+  import convexPlugin from "@convex-dev/eslint-plugin";
+
+  const recommendedConfig = convexPlugin.configs.recommended[0];
+  const recommendedRules = recommendedConfig.rules;
+
+  export default defineConfig([
+    // Other configurations go here...
+
+    // Custom configuration with modified directory pattern
+    {
+      files: ["**/src/convex/**/*.ts"],
+      plugins: {
+        "@convex-dev": convexPlugin,
+      },
+      rules: recommendedRules,
+    },
+  ]);
+  ```
+</Details>
+
+<Details summary={<>如果你在 Next.js 中使用 <code>next lint</code> 命令</>}>
+  为了让 `next lint` 在你的 `convex` 目录上运行 ESLint，你需要把该目录
+  添加到默认的目录列表中。将下面这一段添加到你的 `next.config.ts` 中：
+
+  ```ts
+  const nextConfig: NextConfig = {
+    /* other options here */
+
+    eslint: {
+      dirs: ["pages", "app", "components", "lib", "src", "convex"],
+    },
+  };
+  ```
+</Details>
+
+## 规则 \{#rules\}
+
+| 规则                                                                                                                                    | 推荐开启 | 可自动修复 |
+| --------------------------------------------------------------------------------------------------------------------------------------- | :------: | :--------: |
+| [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br />注册函数时优先使用对象语法                     |    ✅    |     🔧     |
+| [`@convex-dev/require-argument-validators`](#require-argument-validators)<br />要求为 Convex 函数的参数提供参数校验器                     |    ✅    |     🔧     |
+| [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br />在数据库操作中要求显式指定表名                                              |    ✅    |     🔧     |
+| [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br />禁止 Convex 运行时文件从 Node 运行时文件中导入                          |          |            |
+
+### no-old-registered-function-syntax \{#no-old-registered-function-syntax\}
+
+为注册函数优先使用对象语法。
+
+Convex 查询、变更函数和操作函数可以用单个函数来定义，
+也可以使用包含 `handler` 属性的对象来定义。使用对象形式可以
+添加参数和返回值的验证器，因此总是更推荐使用这种写法。
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  handler: async (ctx) => {
+    const data = await ctx.db.query("messages").collect();
+    ...
+  },
+});
+
+// ❌ 此规则不允许:
+export const list = query(async (ctx) => {
+  const data = await ctx.db.query("messages").collect();
+  ...
+});
+```
+
+### require-argument-validators \{#require-argument-validators\}
+
+要求 Convex 函数必须使用参数校验器。
+
+Convex 查询、变更函数和操作函数可以在处理函数开始执行之前对参数进行校验。除了是一种简洁的方式来校验参数类型之外，使用参数校验器还能生成更具描述性的函数规格说明，从而生成 OpenAPI 绑定。
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ✅ Allowed by this rule:
+export const list = query({
+  args: { channel: v.id('channel') },
+  handler: async (ctx, { channel }) => {
+    ...
+  },
+});
+
+// ❌ 选项 { ignoreUnusedArguments: false }(默认)不允许
+// ✅ 选项 { ignoreUnusedArguments: true } 允许
+export const list = query({
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const list = query({
+  handler: async (ctx, { channel }: { channel: Id<"channel"> }) => {
+    ...
+  },
+});
+```
+
+此规则可以配置为允许那些既没有定义参数验证器、也不使用其参数的函数。你可以按如下方式设置此规则：
+
+```ts
+// eslint.config.js
+
+export default defineConfig([
+  // 你的其他规则…
+
+  {
+    files: ["**/convex/**/*.ts"],
+    rules: {
+      "@convex-dev/require-args-validator": [
+        "error",
+        {
+          ignoreUnusedArguments: true,
+        },
+      ],
+    },
+  },
+]);
+```
+
+### explicit-table-ids \{#explicit-table-ids\}
+
+在数据库操作中强制显式指定表名。
+
+从 `convex` npm 包的 1.31.0 版本开始，我们建议在数据库操作（`db.get`、`db.replace`、`db.patch`、`db.delete`）中，将表名作为第一个参数传入。
+
+这种方式更安全，因为它可以防止出现将某个表的 ID 误当作另一个表的 ID 使用而导致的漏洞。隐式语法（即从 ID 推断表名）将在未来被弃用，以便让开发者对 ID 的生成拥有更多控制权。基于这两个原因，我们建议开发者迁移到新的格式。
+
+此规则有助于将代码从旧的隐式格式迁移到新的显式格式。它使用 TypeScript 的类型信息，从 `Id<"tableName">` 类型中自动推断表名，并提供自动修复功能。
+
+```ts
+const messageId: Id<"messages"> = "123" as Id<"messages">;
+
+// ✅ Allowed by this rule:
+const message = await ctx.db.get("messages", messageId);
+await ctx.db.patch("messages", messageId, { text: "updated" });
+await ctx.db.replace("messages", messageId, {
+  text: "replaced",
+  author: "Alice",
+});
+await ctx.db.delete("messages", messageId);
+
+// ❌ 此规则不允许:
+const message = await ctx.db.get(messageId);
+await ctx.db.patch(messageId, { text: "updated" });
+await ctx.db.replace(messageId, { text: "replaced", author: "Alice" });
+await ctx.db.delete(messageId);
+```
+
+<Admonition type="info" title="需要 typescript-eslint">
+  要使此规则生效，必须在你的 ESLint 配置中正确配置
+  [typescript-eslint](https://typescript-eslint.io)。如果已经安装了
+  typescript-eslint，但规则似乎不起作用，请确保已启用
+  [type-aware linting](https://typescript-eslint.io/troubleshooting/typed-linting/)。
+</Admonition>
+
+请注意，如果你未使用 ESLint，也可以使用 `@convex-dev/codemod` CLI 工具自动迁移到新格式：
+
+```bash
+npx @convex-dev/codemod@latest explicit-ids
+```
+
+[在 news.convex.dev 阅读详情 →](https://news.convex.dev/db-table-name/)
+
+### import-wrong-runtime \{#import-wrong-runtime\}
+
+防止 Convex 运行时文件从 Node 运行时文件（包含 `"use node"` 指令的文件）中导入内容。
+
+此规则目前为实验性功能。如果你觉得它有用，请告诉我们！
+
+```ts
+// 在不使用 `"use node"` 的文件中:
+
+// ✅ 此规则允许:
+import { someFunction } from "./someOtherFile"; // 其中 someOtherFile 不使用 `"use node"`
+
+// ❌ 此规则不允许:
+import { someFunction } from "./someNodeFile"; // 其中 someNodeFile 使用 `"use node"`
+```

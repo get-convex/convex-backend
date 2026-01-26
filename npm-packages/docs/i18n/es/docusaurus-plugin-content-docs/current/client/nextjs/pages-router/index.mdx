@@ -1,0 +1,97 @@
+---
+title: "Next.js Pages Router"
+sidebar_position: 250
+sidebar_label: "Next.js Pages Router"
+description:
+  "Guía completa para usar Convex con Next.js Pages Router, incluyendo
+  autenticación en el cliente, rutas de API y renderizado en el servidor."
+---
+
+import simpleAuthedAppTSX from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/_simpleAuthedApp.tsx";
+import apiTS from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/api/clicks.ts";
+
+Esta página trata la variante Pages Router de Next.js. También puedes consultar la versión de esta página para
+[App Router](/client/nextjs/app-router/index.mdx).
+
+## Primeros pasos \{#getting-started\}
+
+Sigue la
+[guía rápida de Pages Router de Next.js](/client/nextjs/pages-router/quickstart-nextjs-pages-router.mdx)
+para añadir Convex a un proyecto de Next.js nuevo o existente.
+
+## Agregar autenticación del lado del cliente \{#adding-client-side-authentication\}
+
+El enfoque más sencillo para la autenticación en Next.js es mantenerla en el lado del cliente.
+
+Por ejemplo, Auth0 describe este enfoque en
+[Next.js Authentication with Auth0 guide](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0),
+describiéndolo en
+&quot;[Next.js Static Site Approach](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Next-js-Static-Site-Approach)&quot;
+y &quot;Serverless with the user on the frontend&quot;.
+
+Para requerir inicio de sesión en cada página de tu aplicación, puedes agregar lógica a
+`_app.jsx` para renderizar condicionalmente el contenido de la página, bloqueándolo hasta que el usuario haya
+iniciado sesión.
+
+Si estás usando Auth0, el componente auxiliar `ConvexProviderWithAuth0` se puede
+importar desde `convex/react-auth0`.
+
+<Snippet title="pages/_app.jsx" snippet="simpleAuthedApp" source={simpleAuthedAppTSX} />
+
+Las vistas personalizadas de carga y de usuario desconectado se pueden construir con los componentes auxiliares
+`Authenticated`, `Unauthenticated` y `AuthLoading` de
+`convex/react`. Consulta la
+[demo de Convex con Next.js](https://github.com/get-convex/convex-demos/tree/main/nextjs-pages-router/pages/_app.jsx)
+como ejemplo.
+
+Si solo algunas rutas de tu aplicación requieren inicio de sesión, los mismos helpers se pueden usar
+directamente en los componentes de página que sí lo requieren en lugar de compartirse
+entre todas las páginas desde `pages/_app.jsx`. Comparte una única
+instancia de [ConvexReactClient](/api/classes/react.ConvexReactClient) entre páginas
+para evitar tener que volver a conectarte a Convex en la navegación de páginas del lado del cliente.
+
+Lee más sobre cómo autenticar usuarios con Convex en [Authentication](/auth.mdx).
+
+## Rutas de API \{#api-routes\}
+
+Next.js admite la creación de rutas para el manejo de solicitudes HTTP, similares a las
+[HTTP Actions](/functions/http-actions.mdx) de Convex. Usar rutas de Next.js puede ser
+útil si necesitas usar una dependencia que no sea compatible con el runtime
+predeterminado de Convex.
+
+Para crear una [ruta de API](https://nextjs.org/docs/api-routes/introduction), agrega un
+archivo al directorio `pages/api`.
+
+Para cargar y editar datos de Convex en tus endpoints, usa la función
+[`fetchQuery`](/api/modules/nextjs#fetchquery) de `convex/nextjs`:
+
+<Snippet title="pages/api/clicks.js" source={apiTS} />
+
+## Renderizado del lado del servidor \{#server-side-rendering\}
+
+**Considera renderizar datos de Convex en el cliente cuando uses Next.js.** Los
+datos de Convex son
+[totalmente reactivos](/functions/query-functions.mdx#caching--reactivity--consistency),
+por lo que Convex necesita una conexión desde tu despliegue al navegador para
+enviar actualizaciones a medida que los datos cambian.
+
+Por supuesto, puedes cargar datos desde Convex en
+[`getStaticProps`](https://nextjs.org/docs/basic-features/data-fetching/get-static-props)
+o
+[`getServerSideProps`](https://nextjs.org/docs/basic-features/data-fetching/get-server-side-props),
+pero no serán reactivos. Para hacer esto, usa la función
+[`fetchQuery`](/api/modules/nextjs#fetchquery) para llamar a funciones de consulta
+igual que lo harías en las [rutas de API](#api-routes).
+
+Para hacer solicitudes autenticadas a Convex durante el renderizado del lado
+del servidor, necesitas que la información de autenticación esté disponible en
+el servidor. Auth0 describe este enfoque en
+[Serverless with the user on the backend](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Serverless-with-the-user-on-the-backend).
+Al renderizar del lado del servidor, pasa el token de autenticación como `token`
+al tercer argumento de `fetchQuery`.
+
+Para precargar datos en el servidor antes de renderizar una consulta reactiva
+en el cliente, usa [`preloadQuery`](/api/modules/nextjs#preloadquery).
+Consulta la
+[versión de App Router de esta documentación](/client/nextjs/app-router/server-rendering.mdx)
+para más detalles.

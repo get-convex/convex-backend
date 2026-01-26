@@ -1,0 +1,122 @@
+---
+title: "Subir y almacenar archivos"
+sidebar_label: "Subir"
+sidebar_position: 1
+description: "Sube archivos al almacenamiento de Convex"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import URLUploadTS from "!!raw-loader!@site/../demos/file-storage/src/_simpleApp.tsx";
+import URLUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import HttpAction from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpUploadTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/_simpleApp.tsx";
+import HttpUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpApp.jsx";
+
+Sube archivos a Convex mediante
+[URLs de carga generadas](#uploading-files-via-upload-urls) o mediante una
+[acción HTTP personalizada](#uploading-files-via-an-http-action).
+
+## Subir archivos mediante URLs de carga \{#uploading-files-via-upload-urls\}
+
+Se pueden subir archivos arbitrariamente grandes directamente a tu backend usando
+una URL de carga generada. Esto requiere que el cliente realice 3 solicitudes:
+
+1. Generar una URL de carga usando una mutación que llame a
+   [`storage.generateUploadUrl()`](/api/interfaces/server.StorageWriter#generateuploadurl).
+2. Enviar una solicitud POST con el contenido del archivo a la URL de carga y recibir
+   un ID de almacenamiento.
+3. Guardar el ID de almacenamiento en tu modelo de datos mediante otra mutación.
+
+En la primera mutación que genera la URL de carga puedes controlar quién puede
+subir archivos al almacenamiento de Convex.
+
+**Ejemplo**:
+[File Storage with Queries and Mutations](https://github.com/get-convex/convex-demos/tree/main/file-storage)
+
+### Llamar a las APIs de subida desde una página web \{#calling-the-upload-apis-from-a-web-page\}
+
+Aquí tienes un ejemplo de cómo subir una imagen mediante un manejador de envío de formulario a una
+URL de subida generada por una mutación:
+
+<TSAndJSSnippet
+  title="src/App.jsx"
+  sourceTS={URLUploadTS}
+  sourceJS={URLUploadJS}
+  snippet="fileUpload"
+  highlightPatterns={[
+  "generateUploadUrl\\(",
+  "sendImage\\(",
+  "await fetch",
+  "method:",
+  "headers:",
+  "body:",
+  "}\\);",
+]}
+/>
+
+### Generación de la URL de carga \{#generating-the-upload-url\}
+
+Se puede generar una URL de carga con la función
+[`storage.generateUploadUrl`](/api/interfaces/server.StorageWriter#generateuploadurl)
+del objeto [`MutationCtx`](/api/interfaces/server.GenericMutationCtx):
+
+<TSAndJSSnippet title="convex/messages.js" sourceTS={Messages} sourceJS={Messages} snippet="generateUploadUrl" highlightPatterns={["storage.generateUploadUrl"]} />
+
+Esta mutación puede controlar quién puede subir archivos.
+
+La URL de carga expira en 1 hora, por lo que debe obtenerse poco antes de que se
+realice la carga.
+
+### Guardar el nuevo ID de almacenamiento en la base de datos \{#writing-the-new-storage-id-to-the-database\}
+
+Como el ID de almacenamiento se devuelve al cliente, es probable que quieras
+guardarlo en la base de datos mediante otra mutación:
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Messages} sourceJS={Messages} prefix={`import { mutation } from "./_generated/server";\n`} snippet="saveStorageId" highlightPatterns={["storage.generateUploadUrl"]} />
+
+### Límites \{#limits\}
+
+El tamaño del archivo no tiene límite, pero la solicitud POST de carga tiene un tiempo de espera de 2 minutos.
+
+## Subir archivos mediante una acción HTTP \{#uploading-files-via-an-http-action\}
+
+El proceso de subida de archivos se puede controlar de forma más estricta aprovechando
+las [acciones HTTP](/functions/http-actions.mdx), realizando todo el flujo de subida
+con una sola solicitud, aunque requiere configurar correctamente los encabezados CORS.
+
+La acción HTTP de subida personalizada puede controlar quién puede subir archivos a tu
+almacenamiento de Convex. Ten en cuenta, sin embargo, que el tamaño de la solicitud de la acción HTTP
+[está actualmente limitado](/functions/http-actions.mdx#limits) a 20 MB. Para archivos más
+grandes debes usar URLs de subida como se describe
+[arriba](#uploading-files-via-upload-urls).
+
+**Ejemplo:**
+[Almacenamiento de archivos con acciones HTTP](https://github.com/get-convex/convex-demos/tree/main/file-storage-with-http)
+
+### Llamar a la acción HTTP de carga desde una página web \{#calling-the-upload-http-action-from-a-web-page\}
+
+Aquí tienes un ejemplo de cómo subir una imagen mediante un manejador del envío de un formulario a la
+acción HTTP `sendImage` definida a continuación.
+
+Las líneas resaltadas realizan la solicitud a la acción HTTP:
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={HttpUploadTS} sourceJS={HttpUploadJS} snippet="httpFileUpload" highlightPatterns={["fetch", "method:", "headers:", "body:", "}\\);"]} />
+
+### Definir la acción HTTP de carga \{#defining-the-upload-http-action\}
+
+Un archivo enviado en el cuerpo de una solicitud HTTP se puede almacenar mediante la
+función [`storage.store`](/api/interfaces/server.StorageActionWriter#store) del
+objeto [`ActionCtx`](/api/interfaces/server.GenericActionCtx). Esta función
+devuelve un `Id<"_storage">` del archivo almacenado.
+
+Desde la acción HTTP puedes llamar a una mutación para registrar el Id de almacenamiento en un
+documento de tu base de datos.
+
+Para confirmar el éxito de la operación a tu sitio web alojado, necesitarás configurar los
+encabezados [CORS](/functions/http-actions.mdx#cors) correctos:
+
+<TSAndJSSnippet title="convex/http.js" sourceTS={HttpAction} sourceJS={HttpAction} snippet="sendImageStore" highlightPatterns={["storage.store"]} />
+
+También necesitas manejar la solicitud `OPTIONS` de preflight:
+
+<TSAndJSSnippet title="convex/http.js" sourceTS={HttpAction} sourceJS={HttpAction} snippet="preflight" highlightPatterns={["storage.store"]} />

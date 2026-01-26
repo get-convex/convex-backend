@@ -1,0 +1,161 @@
+---
+title: Nuxt 快速入门
+sidebar_label: Nuxt
+description: "在 Nuxt 项目中集成 Convex"
+hide_table_of_contents: true
+sidebar_position: 325
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/tasks.ts";
+import schema from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/schema.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/app/app.vue";
+
+学习如何在 Nuxt 应用中从 Convex 查询数据。
+
+本快速入门指南使用一个[由社区维护的](/client/vue/nuxt.md) Convex Nuxt 客户端。
+
+
+<StepByStep>
+  <Step title="创建 Nuxt 应用">
+    使用 `npm create nuxt@latest my-nuxt-app` 命令创建一个 Nuxt 应用。
+
+    Convex 可以与任何官方模块一起使用，但为了按照本快速入门进行操作，现在先跳过安装这些模块。
+
+    <br />
+
+    ```sh
+    npm create nuxt@latest my-nuxt-app
+    ```
+  </Step>
+
+  <Step title="安装 Convex 库">
+    首先，将 `convex` 包和 `convex-nuxt` 模块安装到你的 Nuxt 应用中。
+
+    ```sh
+    cd my-nuxt-app && npm install convex && npx nuxi module add convex-nuxt
+    ```
+  </Step>
+
+  <Step title="添加 Convex URL">
+    将 Convex URL 添加到你的 `nuxt.config.ts` 文件中。
+
+    ```ts noDialect title="nuxt.config.ts"
+    export default defineNuxtConfig({
+      compatibilityDate: '2025-07-15',
+      devtools: { enabled: true },
+      modules: ['convex-nuxt'],
+      // highlight-start
+      convex: {
+        url: process.env.CONVEX_URL
+      },
+      // highlight-end
+    })
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发部署">
+    接下来运行 `npx convex dev`。这将提示你使用 GitHub 登录、
+    创建一个项目，并保存你的生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用来编写后端 API 函数。`dev` 命令随后会持续运行，
+    将你的函数与云端的开发部署保持同步。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在一个新的终端窗口中，创建一个包含示例数据的
+    `sampleData.jsonl` 文件。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    现在项目已经就绪，使用 `import` 命令向你的 Convex 数据库中
+    添加一个包含示例数据的 `tasks` 表。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="（可选）定义模式">
+    在 `convex/` 文件夹中添加一个新的 `schema.ts` 文件，
+    用来描述你的数据结构。
+
+    这会声明数据的类型，用于可选的 TypeScript 类型检查，
+    同时这些约束也会在运行时生效。
+
+    <br />
+
+    <Snippet source={schema} title="convex/schema.ts" />
+  </Step>
+
+  <Step title="公开一个数据库查询">
+    在 `convex/` 文件夹中添加一个新的 `tasks.ts` 文件，
+    定义一个用于加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    会声明一个以文件名和导出名命名的 API 函数，
+    即 `api.tasks.get`。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="在应用中展示数据">
+    在 `app.vue` 中使用 `useQuery` 订阅 `api.tasks.get`
+    这个 API 函数。
+
+    <Snippet source={App} title="app/app.vue" />
+  </Step>
+
+  <Step title="更新脚本以启动开发服务器">
+    默认情况下，Convex 将环境变量存储在 `.env.local` 中，而 Nuxt
+    在 `.env` 中查找环境变量。
+
+    为了使用默认的 `npm run dev` 命令，
+    将 `package.json` 更新为使用 `--dotenv .env.local` 标志。
+
+    ```json title="package.json"
+    {
+      "name": "nuxt-app",
+      "private": true,
+      "type": "module",
+      "scripts": {
+        "build": "nuxt build",
+        // highlight-next-line
+        "dev": "nuxt dev --dotenv .env.local",
+        "generate": "nuxt generate",
+        "preview": "nuxt preview",
+        "postinstall": "nuxt prepare"
+      },
+      "dependencies": {
+        "convex": "^1.25.2",
+        "convex-nuxt": "^0.1.3",
+        "nuxt": "^3.17.6",
+        "vue": "^3.5.17",
+        "vue-router": "^4.5.1"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="启动应用">
+    启动应用，在浏览器中打开 [http://localhost:3000](http://localhost:3000)，
+    查看任务列表。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+想要查看更多示例，请查看
+[Nuxt Convex 模块仓库](https://github.com/chris-visser/convex-nuxt)。
+
+参阅完整的
+[Nuxt npm 包文档](https://www.npmjs.com/package/convex-nuxt)。

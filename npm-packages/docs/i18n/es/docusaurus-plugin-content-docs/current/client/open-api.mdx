@@ -1,0 +1,78 @@
+---
+title: "OpenAPI y otros lenguajes"
+sidebar_label: "OpenAPI"
+sidebar_position: 325
+---
+
+import Load from "!!raw-loader!@site/../private-demos/snippets/convex/goClientExample.ts";
+import Go from "!!raw-loader!@site/../private-demos/snippets/goExample.txt";
+
+Convex no tiene compatibilidad explícita con muchos lenguajes de programación, incluidos Go, Java y
+C++. Sin embargo, puedes generar especificaciones de [OpenAPI](https://swagger.io/specification/)
+a partir de tu despliegue de Convex para crear clientes con tipado seguro para
+lenguajes que actualmente no tienen soporte nativo. Internamente, esto usa nuestra
+[HTTP API](/http-api). Esto significa que tus consultas no serán
+reactivas ni en tiempo real.
+
+<BetaAdmonition feature="OAS generation" verb="is" />
+
+## Configuración \{#setup\}
+
+<StepByStep>
+  <Step title="Instala el paquete npm Convex Helpers">
+    Instala el paquete `convex-helpers`, que contiene un comando de la CLI (interfaz de línea de comandos) para generar una especificación OpenAPI.
+
+    ```sh
+    npm install convex-helpers
+    ```
+  </Step>
+
+  <Step title="Ejecuta un comando para generar una especificación OpenAPI">
+    Ejecutar este comando llamará a tu despliegue de Convex configurado y generará un archivo `convex-spec.yaml`
+    basado en él. Puedes ver opciones adicionales pasando `--help` al comando.
+
+    ```sh
+    npx convex-helpers open-api-spec
+    ```
+  </Step>
+
+  <Step title="Genera un cliente con tipado seguro">
+    Puedes usar herramientas independientes para generar un cliente a partir del archivo `convex-spec.yaml`. Algunas opciones populares son [OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator) y [Swagger](https://swagger.io/tools/swagger-codegen/).
+
+    ```yaml
+    # convex-spec.yaml
+    openapi: 3.0.3
+    info:
+      title: Convex App - OpenAPI 3.0
+      version: 0.0.0
+      servers:
+        - url: "{hostUrl}"
+      description: Convex App API
+      ...
+    ```
+  </Step>
+</StepByStep>
+
+## Ejemplo \{#example\}
+
+A continuación se muestran fragmentos de código de cómo funciona este flujo de trabajo en la práctica. Estos
+fragmentos incluyen dos archivos diferentes:
+
+* `convex/load.ts` - contiene las definiciones de funciones de Convex
+* `convex.go` - contiene código `Go` que usa un cliente `HTTP` generado con seguridad de tipos.
+  Este cliente se generó instalando el paquete
+  [OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator) y
+  ejecutando el comando
+  `npx openapi-generator-cli generate -i convex-spec.yaml -g go -o convex_client`
+
+<TSAndJSSnippet title="convex/load.ts" sourceTS={Load} sourceJS={Load} />
+
+<Snippet source={Go} title="convex.go" />
+
+## Límites \{#limits\}
+
+* Los validadores de parámetros y valores de retorno no son obligatorios, pero enriquecerán
+  los tipos de tu especificación OpenAPI. Cuando no se definan validadores, usaremos por defecto
+  `v.any()` como validador.
+* No puedes invocar funciones internas desde fuera de tu despliegue de Convex.
+* Actualmente no ofrecemos compatibilidad con `bigints` ni `bytes`.

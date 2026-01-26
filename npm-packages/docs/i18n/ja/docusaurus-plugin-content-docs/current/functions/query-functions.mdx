@@ -1,0 +1,188 @@
+---
+title: クエリ
+sidebar_position: 10
+description: "キャッシュとリアクティブ性を活用してデータベースからデータを取得する"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/queriesExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/queriesConstructor.ts";
+import ArgsWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithoutValidation.ts";
+import ArgsWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithoutValidationJS.js";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/queriesContext.ts";
+import ContextDB from "!!raw-loader!@site/../private-demos/snippets/convex/queriesContextDB.ts";
+import Helper from "!!raw-loader!@site/../private-demos/snippets/convex/queriesHelper.ts";
+import HelperJS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesHelperJS.js";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/queriesNPM.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/queriesCall.tsx";
+
+クエリは、バックエンド API の要となる存在です。データベースからデータを取得し、認証を確認したり、その他のビジネスロジックを実行したりして、そのデータをクライアントアプリケーションに返します。
+
+次は、名前付き引数を受け取り、データベースからデータを読み取り、結果を返すクエリの例です:
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+ここから先では、クエリを自分で構築する方法を説明します。
+
+## クエリ名 \{#query-names\}
+
+クエリは、`convex/` ディレクトリ内の <LanguageSelector verbose /> の各ファイルで定義します。
+
+ファイルのパスと名前に加えて、そのファイルから関数をどのようにエクスポートするかによって、クライアントからクエリを呼び出す際に使用される名前が決まります。
+
+```ts title="convex/myFunctions.ts"
+// この関数は `api.myFunctions.myQuery` として参照されます。
+export const myQuery = …;
+
+// This function will be referred to as `api.myFunctions.sum`.
+export const sum = …;
+```
+
+API を構造化するには、`convex/` ディレクトリ内にさらにディレクトリを作成して階層化できます。
+
+```ts title="convex/foo/myQueries.ts"
+// この関数は `api.foo.myQueries.listMessages` として参照されます。
+export const listMessages = …;
+```
+
+デフォルトエクスポートの名前は `default` になります。
+
+```ts title="convex/myFunctions.ts"
+// この関数は `api.myFunctions.default` として参照されます。
+export default …;
+```
+
+同じルールが[ミューテーション](/functions/mutation-functions.mdx)と
+[アクション](/functions/actions.mdx)にも適用されますが、
+[HTTP アクション](/functions/http-actions.mdx)は異なるルーティング手法を使用します。
+
+JavaScript と TypeScript 以外の言語向けクライアントライブラリでは、API オブジェクトではなく文字列を使用します。
+
+* `api.myFunctions.myQuery` は `"myFunctions:myQuery"` に対応します。
+* `api.foo.myQueries.myQuery` は `"foo/myQueries:myQuery"` に対応します。
+* `api.myFunction.default` は `"myFunction:default"` または `"myFunction"` です。
+
+## `query` コンストラクター \{#the-query-constructor\}
+
+Convex で実際にクエリを宣言するには、`query` コンストラクター関数を使います。
+`handler` 関数を持つオブジェクトを渡し、その関数がクエリ結果を返します。
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+### クエリの引数 \{#query-arguments\}
+
+クエリは名前付き引数を受け取ります。引数の値には、ハンドラー関数の
+2 番目のパラメーターのフィールドとしてアクセスできます。
+
+<TSAndJSSnippet sourceTS={ArgsWithoutValidationTS} sourceJS={ArgsWithoutValidationJS} title="convex/myFunctions.ts" />
+
+引数とレスポンスは自動的にシリアライズおよびデシリアライズされるため、
+クエリとの間でほとんどの値として扱える JavaScript データを渡したり返したりできます。
+
+引数の型を宣言し、同時にバリデーションも行うには、`v` バリデーターを使って
+`args` オブジェクトを追加します:
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} highlightPatterns={["args:"]} title="convex/myFunctions.ts" />
+
+サポートされている型とバリデーターの一覧については、
+[argument validation](/functions/validation.mdx) を参照してください。
+
+ハンドラー関数の最初のパラメーターにはクエリコンテキストが含まれます。
+
+### クエリのレスポンス \{#query-responses\}
+
+クエリはサポートされている任意の
+[Convex 型](/functions/validation.mdx) を返すことができ、返された値は自動的にシリアライズおよびデシリアライズされます。
+
+クエリは `undefined` を返すこともできますが、これは有効な Convex の値ではありません。クエリが `undefined` を返した場合、クライアント側では **`null` に変換されます**。
+
+### クエリコンテキスト \{#query-context\}
+
+`query` コンストラクターは、ハンドラー関数の第1引数として
+[QueryCtx](/generated-api/server.md#queryctx) オブジェクトを渡すことで、
+データの取得やその他の Convex 機能を利用できるようにします。
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+クエリコンテキストのどの部分を使うかは、そのクエリで何を行う必要があるかによって変わります。
+
+* データベースから取得するには `db` フィールドを使います。`db.get()` が返す
+  Promise を `await` できるように、ハンドラー関数を `async` 関数にしている点に注意してください。
+
+  <TSAndJSSnippet sourceTS={ContextDB} sourceJS={ContextDB} highlightPatterns={["db."]} title="convex/myFunctions.ts" />
+
+  詳細は [データの読み取り](/database/reading-data/reading-data.mdx) を参照してください。
+
+* 保存されたファイルへの URL を返すには `storage` フィールドを使います。詳細は
+  [ファイルストレージ](/file-storage.mdx) を参照してください。
+
+* ユーザー認証を確認するには `auth` フィールドを使います。詳細は
+  [認証](/auth.mdx) を参照してください。
+
+## ヘルパーを使ってクエリコードを分割する \{#splitting-up-query-code-via-helpers\}
+
+クエリ内のコードを分割したい場合や、複数の
+Convex 関数間でロジックを再利用したい場合は、ヘルパー関数 <LanguageSelector verbose />
+を定義して呼び出せます：
+
+<TSAndJSSnippet sourceTS={Helper} sourceJS={HelperJS} title="convex/myFunctions.ts" />
+
+ヘルパーを `export` して複数のファイルで利用できます。ただし、Convex 関数の外から
+直接呼び出すことはできません。
+
+TypeScript の型付けについての詳しい解説は、
+[Type annotating server side helpers](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+を参照してください。
+
+## npmパッケージの使用 \{#using-npm-packages\}
+
+クエリでは、`node_modules` にインストールされた npm パッケージをインポートして利用できます。すべての npm パッケージがサポートされているわけではありません。詳細は
+[Runtimes](/functions/runtimes.mdx#default-convex-runtime) を参照してください。
+
+```sh
+npm install @faker-js/faker
+```
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+## クライアントからクエリを呼び出す \{#calling-queries-from-clients\}
+
+[React](/client/react.mdx) からクエリを呼び出すには、生成された
+[`api`](/generated-api/api) オブジェクトとあわせて
+[`useQuery`](/client/react.mdx#fetching-data) フックを使用します。
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/MyApp.tsx" />
+
+クエリを呼び出すためのさまざまな方法については、[React](/client/react.mdx) クライアントのドキュメントを参照してください。
+
+## キャッシュ・リアクティブ性・一貫性 \{#caching-reactivity-consistency\}
+
+クエリには次の 3 つの優れた特性があります。
+
+1. **キャッシュ**: Convex はクエリ結果を自動的にキャッシュします。同じクエリに同じ引数で多くのクライアントが
+   リクエストした場合、それらはキャッシュされたレスポンスを受け取ります。
+2. **リアクティブ性**: クライアントはクエリを購読して、基盤となるデータが変更されたときに
+   新しい結果を受け取ることができます。
+3. **一貫性**: 単一のクエリ呼び出し内のすべてのデータベース読み取りは、同じ論理タイムスタンプで実行されます。
+   競合する書き込みはクエリ結果に影響しません。
+
+これらの特性を持たせるためには、ハンドラー関数が *決定的* である必要があります。これは、同じ引数
+（クエリコンテキストを含む）が与えられた場合には、常に同じレスポンスを返すことを意味します。
+
+このため、クエリからサードパーティ API に対して `fetch` を呼び出すことはできません。サードパーティ API を呼び出すには、
+[アクション](/functions/actions.mdx) を使用してください。
+
+`Math.random()` や `Date.now()` のような非決定的な言語機能を使えるか疑問に思うかもしれません。
+結論から言うと、Convex がこれらを決定性の制約を意識しなくてよい形で実装しているため、
+開発者が気にする必要はありません。
+
+Convex ランタイムの詳細については、[Runtimes](/functions/runtimes.mdx#default-convex-runtime) を参照してください。
+
+## 制限 \{#limits\}
+
+クエリが一度に読み取れるデータ量には上限があり、これによって
+パフォーマンスが良好に保たれます。これらの制限については、
+[読み取り/書き込み制限エラー](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)
+を参照してください。
+
+その他の制限については、[制限](/production/state/limits.mdx) を参照してください。

@@ -1,0 +1,178 @@
+---
+title: 查询
+sidebar_position: 10
+description: "利用缓存和响应式更新从数据库获取数据"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/queriesExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/queriesConstructor.ts";
+import ArgsWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithoutValidation.ts";
+import ArgsWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithoutValidationJS.js";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/queriesContext.ts";
+import ContextDB from "!!raw-loader!@site/../private-demos/snippets/convex/queriesContextDB.ts";
+import Helper from "!!raw-loader!@site/../private-demos/snippets/convex/queriesHelper.ts";
+import HelperJS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesHelperJS.js";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/queriesNPM.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/queriesCall.tsx";
+
+查询是你后端 API 的核心。它们从数据库获取数据，进行身份验证检查或执行其他业务逻辑，并将数据返回给客户端应用程序。
+
+下面是一个查询示例，它接收具名参数，从数据库读取数据并返回结果：
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+继续阅读以了解如何自己构建查询。
+
+## 查询名称 \{#query-names\}
+
+查询定义在你的 `convex/` 目录下的 <LanguageSelector verbose /> 文件中。
+
+文件的路径和名称，以及函数在该文件中的导出方式，共同决定了客户端在调用它时所使用的名称：
+
+```ts title="convex/myFunctions.ts"
+// 此函数将被引用为 `api.myFunctions.myQuery`。
+export const myQuery = …;
+
+// This function will be referred to as `api.myFunctions.sum`.
+export const sum = …;
+```
+
+为了给你的 API 建立结构，你可以在 `convex/` 目录中嵌套子目录：
+
+```ts title="convex/foo/myQueries.ts"
+// 此函数将被引用为 `api.foo.myQueries.listMessages`。
+export const listMessages = …;
+```
+
+默认导出会被命名为 `default`。
+
+```ts title="convex/myFunctions.ts"
+// 此函数将被引用为 `api.myFunctions.default`。
+export default …;
+```
+
+相同的规则同样适用于 [mutations](/functions/mutation-functions.mdx) 和
+[actions](/functions/actions.mdx)，而
+[HTTP actions](/functions/http-actions.mdx) 则使用不同的路由方式。
+
+使用 JavaScript 和 TypeScript 之外其他语言的客户端库会使用字符串，
+而不是 API 对象：
+
+* `api.myFunctions.myQuery` 是 `"myFunctions:myQuery"`
+* `api.foo.myQueries.myQuery` 是 `"foo/myQueries:myQuery"`
+* `api.myFunction.default` 是 `"myFunction:default"` 或 `"myFunction"`。
+
+## `query` 构造函数 \{#the-query-constructor\}
+
+要在 Convex 中声明一个查询，请使用 `query` 构造函数。
+向它传入一个对象，其中包含一个返回查询结果的 `handler` 函数：
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+### 查询参数 \{#query-arguments\}
+
+查询接受具名参数。参数的值可以作为处理函数第二个参数的字段访问：
+
+<TSAndJSSnippet sourceTS={ArgsWithoutValidationTS} sourceJS={ArgsWithoutValidationJS} title="convex/myFunctions.ts" />
+
+参数和响应会自动序列化和反序列化，你可以在查询中传入和返回大多数可作为值使用的 JavaScript 数据。
+
+要同时声明参数类型并对它们进行校验，请使用 `v` 校验器添加一个 `args` 对象：
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} highlightPatterns={["args:"]} title="convex/myFunctions.ts" />
+
+有关支持的类型和校验器的完整列表，请参见[参数校验](/functions/validation.mdx)。
+
+处理函数的第一个参数包含查询上下文。
+
+### 查询响应 \{#query-responses\}
+
+查询可以返回任意受支持的
+[Convex 类型](/functions/validation.mdx)，这些类型会被自动序列化和反序列化。
+
+查询也可以返回 `undefined`，这不是一个有效的 Convex 值。当查询返回 `undefined` 时，**在客户端会被转换为 `null`**。
+
+### 查询上下文 \{#query-context\}
+
+`query` 构造函数通过将一个 [QueryCtx](/generated-api/server.md#queryctx) 对象作为第一个参数传递给处理函数，用于获取数据及使用其他 Convex 功能：
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+查询上下文中具体使用哪一部分，取决于你的查询需要完成什么操作：
+
+* 要从数据库读取数据，请使用 `db` 字段。注意我们将处理函数写成 `async` 函数，这样就可以 `await` `db.get()` 返回的 Promise：
+
+  <TSAndJSSnippet sourceTS={ContextDB} sourceJS={ContextDB} highlightPatterns={["db."]} title="convex/myFunctions.ts" />
+
+  详细内容参见[读取数据](/database/reading-data/reading-data.mdx)。
+
+* 要返回已存储文件的 URL，请使用 `storage` 字段。详细内容参见[文件存储](/file-storage.mdx)。
+
+* 要检查用户的身份验证状态，请使用 `auth` 字段。详细内容参见[身份验证](/auth.mdx)。
+
+## 通过辅助函数拆分查询代码 \{#splitting-up-query-code-via-helpers\}
+
+当你想要拆分查询中的代码，或在多个 Convex 函数之间复用逻辑时，可以定义并调用辅助 <LanguageSelector verbose />
+函数：
+
+<TSAndJSSnippet sourceTS={Helper} sourceJS={HelperJS} title="convex/myFunctions.ts" />
+
+你可以 `export` 辅助函数，以便在多个文件中使用。它们无法从 Convex 函数之外被调用。
+
+参见
+[为服务端辅助函数添加类型注解](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+以获取更多与 TypeScript 类型相关的指导。
+
+## 使用 NPM 包 \{#using-npm-packages\}
+
+查询函数可以导入安装在 `node_modules` 中的 NPM 包。并非所有 NPM
+包都受支持，详情请参见
+[Runtimes](/functions/runtimes.mdx#default-convex-runtime)。
+
+```sh
+npm install @faker-js/faker
+```
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+## 从客户端调用查询 \{#calling-queries-from-clients\}
+
+要在 [React](/client/react.mdx) 中调用查询，使用
+[`useQuery`](/client/react.mdx#fetching-data) hook，并配合生成的
+[`api`](/generated-api/api) 对象。
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/MyApp.tsx" />
+
+关于查询的所有调用方式，请参阅 [React](/client/react.mdx) 客户端文档。
+
+## 缓存、响应式和一致性 \{#caching-reactivity-consistency\}
+
+查询具有三个重要特性：
+
+1. **缓存（Caching）**：Convex 会自动缓存查询结果。如果有很多客户端
+   使用相同的参数请求同一个查询，它们会接收到缓存的响应。
+2. **响应式（Reactivity）**：客户端可以订阅查询，一旦底层数据发生变化，
+   就会收到新的结果。
+3. **一致性（Consistency）**：在一次查询调用中，所有数据库读取都在同一个逻辑时间戳上执行。并发写入不会影响该次查询的结果。
+
+为了具备这些特性，处理函数必须是&#95;确定性的（deterministic）&#95;，也就是说，
+在给定相同参数（包括查询上下文）的情况下，它会返回相同的响应。
+
+基于这个原因，查询不能对第三方 API 执行 `fetch` 请求。如果需要调用第三方
+API，请使用 [actions](/functions/actions.mdx)。
+
+你可能会想是否可以使用诸如 `Math.random()` 或 `Date.now()` 这样的
+非确定性语言特性。简单来说，Convex 会以一种方式来实现这些功能，使你
+无需操心确定性约束的问题。
+
+更多关于 Convex 运行时的细节，参见
+[Runtimes](/functions/runtimes.mdx#default-convex-runtime)。
+
+## 限制 \{#limits\}
+
+查询每次可读取的数据量是有限的，以保证良好的性能表现。请在
+[读写限制错误](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)
+中查看这些限制。
+
+关于其他限制的信息，请参阅 [限制](/production/state/limits.mdx)。

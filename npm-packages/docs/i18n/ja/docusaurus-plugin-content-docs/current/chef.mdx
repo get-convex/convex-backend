@@ -1,0 +1,176 @@
+---
+title: Chef
+description: "Convex による Chef の使い方"
+---
+
+Chef は、複雑なフルスタックアプリを構築できる AI アプリビルダーです。Slack、Instagram、Notion のようなアプリを、一度のプロンプトで構築するために、
+Convex プラットフォームのあらゆる機能を活用します。
+
+つまり、Chef を使うと、リアルタイムアプリの構築、ファイルのアップロード、テキスト検索に加えて、Convex Components を活用できます。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "https://chef.convex.dev",
+  label: "Convex Chef でアプリ作成を始めるプロンプト",
+}}
+/>
+
+<div className="center-image" style={{ maxWidth: "500px" }}>
+  ![Chef Screenshot](/screenshots/chef_preview.png)
+</div>
+
+## 本番環境へのデプロイ \{#deploying-to-production\}
+
+Chef には、アプリの dev バージョンをデプロイして、すぐに友人と共有して試してもらえる機能が組み込まれています。
+
+長期的に構築・保守していく予定のアプリであれば、コードをダウンロードして、好みの IDE にインポートすることをおすすめします。Chef からコードをダウンロードすると、プロジェクトには自動的に
+[Convex 向けの Cursor rules](/ai.mdx)
+が含まれ、自信を持ってコーディングを続けられるようになります。
+
+### コードをダウンロードする \{#download-the-code\}
+
+<div className="center-image" style={{ maxWidth: "700px" }}>
+  ![Chef Screenshot](/screenshots/chef_download.png)
+</div>
+
+Chef の UI の右上にコードをダウンロードするボタンがあります。コードを
+ダウンロードすると、zip ファイルがダウンロードされます。
+
+ファイルを展開して、任意の場所にフォルダーを配置します。利便性のために、
+フォルダー名をアプリ名に変更することをおすすめします。残りのセットアップでは、
+ターミナルを開いて、`cd` コマンドでアプリのディレクトリに移動します。
+
+```bash
+cd ~/<app folder>
+```
+
+### 依存関係をインストール \{#install-dependencies\}
+
+プロジェクトのすべての依存関係をインストールするには、次のコマンドを実行してください。
+
+```bash
+npm i
+```
+
+### アプリを実行する \{#run-your-app\}
+
+次のコマンドを実行してアプリを起動し、まだであれば Convex のセットアップも行ってください。
+
+```bash
+npm run dev
+```
+
+あなたのマシンから Convex にログインするための指示が表示されたら、その手順に従ってください。
+
+<Admonition type="caution">
+  これで、このアプリの開発は Chef からあなたに引き継がれました。Chef には、
+  プロジェクトを再インポートしたり、その外側から進捗を追跡したりすることはできません。
+  Chef 上でこのプロジェクトに戻ると、あなたのプロジェクトに競合が発生します。
+</Admonition>
+
+### フロントエンド用ビルドスクリプトをセットアップする \{#set-up-the-frontend-build-script\}
+
+Chef プロジェクトにはデフォルトでビルドスクリプトが含まれていません。そのため、次の内容を `package.json` ファイルに追加してください。
+
+```tsx
+  "scripts": {
+		//... その他のスクリプト
+    "build": "vite build"
+  },
+```
+
+### 推奨: Git をセットアップする \{#recommended-setup-git\}
+
+ターミナルで次の 3 つのコマンドを実行して、アプリ用に Git をセットアップします。
+ダウンロードしたコードには `.gitignore` ファイルが含まれています。
+
+```bash
+git init
+git add --all
+git commit -m "Initial commit"
+```
+
+以下の本番ホスティングガイドを利用する場合は、
+[GitHub](https://github.com/) でリモートの git リポジトリをセットアップしておくことも推奨します。
+
+### 本番環境向けフロントエンドホスティングを設定する \{#set-up-production-frontend-hosting\}
+
+Convex の[ホスティングガイド](/production/hosting/hosting.mdx)のいずれかに従って、
+フロントエンドのホスティングと、フロントエンドおよびバックエンドコードの継続的デプロイメントを設定します。
+
+### 本番環境の Convex Auth を初期化する \{#initialize-convex-auth-for-prod\}
+
+本番用のデプロイメントを用意できたら、
+[本番環境向けの Convex Auth のセットアップ](https://labs.convex.dev/auth/production)を行う必要があります。
+
+## 連携 \{#integrations\}
+
+### OpenAI \{#openai\}
+
+Chef に AI の使用を指示すると、デフォルトでは呼び出し回数に制限のある
+組み込みの OpenAI プロキシを使用します。これにより、AI アプリのアイデアを
+すばやくプロトタイプできます。
+
+ただし、ある時点で用意された呼び出し回数を使い切ってしまうので、
+自分の OpenAI APIキー を用意し、プロキシ URL を削除する必要があります。
+
+つまり、次のようなコードを探す必要があります:
+
+```typescript
+const openai = new OpenAI({
+  baseURL: process.env.CONVEX_OPENAI_BASE_URL,
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+そして、baseURL パラメーターを削除します。
+
+```typescript
+const openai = new OpenAI({
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+Chef が自動的に環境変数を変更するよう促してくる場合があります。そうでない場合は、「Database」タブに移動して自分で変更できます。その後、「Settings &gt; Environment Variables」をクリックし、`CONVEX_OPENAI_API_KEY` を[自分の OpenAI 個人用キー](https://platform.openai.com)に変更してください。
+
+この切り替えプロセスは、今後さらに改善していく予定です。
+
+### Resend \{#resend\}
+
+Chef には、Resend を通じて自分自身にメールを送信するための組み込み機能があります。メールを送信できるのは、Chef にログインする際に使用したアカウントのみに限られます。任意の相手にメールを送信したい場合は、ドメイン名付きでアプリを本番環境向けにセットアップする必要があります。これは、スパム対策としてメールプロバイダが設計されている仕組みによる制限です。
+
+## よくある質問 \{#faqs\}
+
+### Chef はどのブラウザをサポートしていますか？ \{#what-browsers-does-chef-support\}
+
+Chef はデスクトップ／ノート PC 向けのブラウザでの利用が最適です。タブレットやモバイル向けの一部ブラウザでも動作する場合があります。Chef は Safari では、どのプラットフォームでも動作しません。
+
+### Chef の料金体系はどのようになっていますか？ \{#how-does-the-pricing-for-chef-work\}
+
+Chef の料金は主に AI トークンの使用量に基づいています。無料プランでは、いくつかのプロンプトだけでアプリの最初のバージョンを構築するのに十分なトークンが付与されます。その後は、使用した分だけトークンの料金を支払える Starter プランにアップグレードできます。
+
+### Chef と Convex の違いは何ですか？ \{#whats-the-difference-between-chef-and-convex\}
+
+Chef はフルスタックアプリを構築する AI アプリ開発ツールです。Convex は Chef を支えるバックエンドとデータベースです。
+
+### 既存のアプリを Chef にインポートできますか？ \{#can-i-import-my-existing-app-to-chef\}
+
+Chef には現在、インポート機能や GitHub 連携機能はありません。ただし、Cursor のような Agentic IDE に [Convex AI Rules and MCP server](/ai.mdx) をセットアップすることで、ほとんど同等の価値を得られます。
+
+### Chef を使う際のベストプラクティスはありますか？ \{#are-there-any-best-practices-for-chef\}
+
+はい！こちらの
+[弊社エンジニアが執筆したヒント記事](https://stack.convex.dev/chef-cookbook-tips-working-with-ai-app-builders)
+をご覧ください。
+
+### Chef はどの Convex コンポーネントを利用できますか？ \{#what-convex-components-can-chef-use\}
+
+Chef では
+[collaborative text editor](https://www.convex.dev/components/prosemirror-sync)
+コンポーネントと [presence](https://www.convex.dev/components/presence)
+コンポーネントを利用できます。今後さらに多くのコンポーネントに対応する予定です。Chef ではテキスト検索やファイルストレージなど、他のすべての Convex 機能も利用できます。
+
+## 制限事項 \{#limitations\}
+
+Chef は、Convex、Convex Auth、および React を Vite 上で動作させる単一のテンプレートを前提として動作します。これらの技術を別のものに切り替えることは、Chef ではサポートされていません。

@@ -1,0 +1,27 @@
+---
+title: "Importación y exportación de datos"
+sidebar_position: 90
+description:
+  "Importa datos desde fuentes existentes y exporta datos a sistemas externos"
+---
+
+Si estás inicializando tu aplicación a partir de datos existentes, Convex proporciona tres formas
+de incorporar esos datos:
+
+- Importación desde archivos CSV/JSON a una sola tabla a través de la
+  [CLI](/database/import-export/import.mdx#single-table-import).
+- Restauración desde una copia de seguridad a través del [panel de control](/database/backup-restore) o
+  la [CLI](/database/import-export/import.mdx#restore-data-from-a-backup-zip-file).
+- [Importación por streaming](/production/integrations/streaming-import-export.md) desde
+  cualquier base de datos existente mediante un conector de destino de Airbyte.
+
+Puedes exportar datos desde Convex de dos maneras:
+
+- Descargar una copia de seguridad como un archivo .zip desde el [panel de control](/database/backup-restore).
+- Configurar la [exportación por streaming](/production/integrations/streaming-import-export.md)
+  a cualquier base de datos externa mediante Fivetran o Airbyte. Ideal para conectar con una
+  configuración de BI personalizada (por ejemplo, [Snowflake](https://www.snowflake.com/),
+  [Databricks](https://www.databricks.com) o
+  [BigQuery](https://cloud.google.com/bigquery)):
+
+<BetaAdmonition feature="Data Import & Export" verb="is" />

@@ -1,0 +1,171 @@
+---
+title: Aplicaciones OAuth
+sidebar_position: 10
+---
+
+# Aplicaciones OAuth \{#oauth-applications\}
+
+Convex permite que desarrolladores de aplicaciones de terceros gestionen los proyectos de un usuario en su nombre mediante **tokens de aplicación**.
+
+Los tokens de aplicación se obtienen a través del flujo de código de autorización de OAuth, que se describirá en detalle a continuación.
+
+Hay dos tipos de tokens OAuth:
+
+* Tokens con ámbito de equipo, autorizados para crear nuevos proyectos, crear nuevos
+  despliegues dentro de los proyectos y con acceso de lectura y escritura a los datos y
+  funciones de todos los proyectos del equipo.
+* Tokens con ámbito de proyecto que pueden crear nuevos despliegues y acceder a los datos y
+  funciones dentro de un proyecto específico.
+
+<Admonition type="note">
+  Todos los tokens de aplicación también están restringidos por los permisos del miembro que
+  autorizó su uso. Si se elimina al miembro del equipo o se modifican sus permisos,
+  también cambiarán los permisos del token.
+</Admonition>
+
+## Crear una aplicación \{#creating-an-application\}
+
+Para obtener tokens de aplicación, primero tendrás que registrar una aplicación
+OAuth con Convex, lo cual puedes hacer en la
+[Configuración del equipo](https://dashboard.convex.dev/team/settings/applications/oauth-apps).
+
+Para registrar una aplicación, tendrás que proporcionar un nombre para la
+aplicación y un conjunto de URIs de redirección. Las URIs de redirección se
+usan para devolver a los usuarios a tu aplicación una vez que hayan autorizado
+que accedas a su equipo o proyecto de Convex. Puedes agregar hasta 20 URIs de
+redirección, incluidas aquellas que apunten a
+[localhost](http://localhost) para pruebas.
+
+Una vez que hayas creado tu aplicación, estará en el estado &quot;Unverified&quot; (no
+verificada). En el estado &quot;Unverified&quot;, podrás obtener tokens de aplicación para
+tu propio equipo, pero no para otros equipos. Recomendamos probar tu aplicación
+en el estado &quot;Unverified&quot; antes de solicitar la verificación.
+
+Puedes solicitar la verificación haciendo clic en el botón ⋮ junto a tu
+aplicación y luego en &quot;Request Verification&quot;.
+
+### Requisitos de verificación \{#verification-requirements\}
+
+Para que tu aplicación sea verificada y esté accesible para todos los usuarios de Convex,
+debe cumplir con los siguientes criterios:
+
+* La descripción de la aplicación incluye una explicación de las capacidades actuales y
+  las capacidades futuras previstas de tu aplicación.
+* El nombre de la aplicación, los URI de redirección y el contenido de los URI de
+  redirección no intentan suplantar ni hacerse pasar por otra organización, empresa
+  o entidad.
+* Los URI de redirección indicados pertenecen a tu organización.
+
+El equipo de Convex responderá a tu solicitud de verificación por correo electrónico si
+necesita más información.
+
+## Implementar OAuth \{#implementing-oauth\}
+
+Convex implementa el flujo
+[Authorization Code Grant](https://oauth.net/2/grant-types/authorization-code/)
+de [OAuth 2.0](https://oauth.net/2/) (RFC 6749). Convex también admite de forma
+opcional la [extensión PKCE](https://oauth.net/2/pkce/) (RFC 7636) para mejorar
+la seguridad.
+
+* Convex proporciona dos URL de *authorization endpoint*, según si estás
+  generando tokens con ámbito de equipo o con ámbito de proyecto:
+  * `https://dashboard.convex.dev/oauth/authorize/team`
+  * `https://dashboard.convex.dev/oauth/authorize/project`
+* El **token endpoint** de Convex es `https://api.convex.dev/oauth/token`.
+
+Recorreremos el flujo de autorización paso a paso. Sin embargo, te recomendamos
+usar una biblioteca cliente de OAuth 2.0 para facilitar la construcción de las
+URL y llamadas de API necesarias.
+
+## Paso 1: Redirige al usuario al endpoint de autorización de Convex \{#step-1-redirect-the-user-to-convexs-authorization-endpoint\}
+
+En tu aplicación, redirige al usuario a:
+
+`https://dashboard.convex.dev/oauth/authorize[TOKEN_SCOPE]?client_id=[CLIENT_ID]&redirect_uri=[REDIRECT_URI]&response_type=code&state=[STATE]`
+
+* `[TOKEN_SCOPE]` se debe reemplazar con &quot;team&quot; o &quot;project&quot;.
+* `[CLIENT_ID]` se debe reemplazar con el ID de cliente de tu aplicación tal como lo
+  asignó Convex.
+* `[REDIRECT_URI]` es una URL en el dominio de tu aplicación. El usuario será
+  redirigido de vuelta a esa URL después de autorizar.
+  * **Nota importante**: Tendrás que proporcionarnos todas las redirect URIs
+    que tu aplicación pueda usar (probablemente solo una). Esto es necesario
+    para evitar que una aplicación maliciosa se haga pasar por la tuya, pero
+    redirigiendo a un callback diferente.
+* `[STATE]` es una cadena arbitraria opcional. Depende de ti cómo codificarla,
+  pero tu aplicación usará esto para decidir qué hacer con el token de
+  autenticación después de recibirlo.
+
+**Recuerda codificar como URI todos los parámetros.**
+
+Esto lleva al usuario a una página que se ve así:
+
+![OAuth authorization page](/screenshots/oauth-page.png)
+
+Desde aquí, el usuario puede seleccionar a qué equipo le gustaría autorizar el acceso. Si
+usas el flujo de proyecto, el usuario también podrá seleccionar un proyecto existente
+o crear un proyecto nuevo. Después de hacer clic en &quot;Authorize&quot;, la página redirigirá a
+tu URL de redirección.
+
+## Paso 2: Recibir el callback \{#step-2-receive-the-callback\}
+
+El endpoint de autorización lleva al usuario a tu URI de redirección con los parámetros de consulta `code`
+y `state` establecidos. Si tu `redirect_uri` fuera
+`https://yourapp.example.com/cb`, el resultado se vería así:
+
+`https://yourapp.example.com/cb?code=[CODE]&state=[STATE]`
+
+donde `state` es el mismo valor que proporcionaste antes, y `code` es una cadena
+generada aleatoriamente como `895c59eb98504a5bbaa7ad2e49cf4817`. Este código **no es**
+el token de autenticación final: tendrás que intercambiarlo por uno en un plazo de 10 minutos.
+
+## Paso 3: Intercambiar el código de autorización por un token de proyecto \{#step-3-exchange-the-authorization-code-for-a-project-token\}
+
+Tu aplicación debe hacer una solicitud HTTP POST al siguiente endpoint:
+
+`https://api.convex.dev/oauth/token`
+
+El cuerpo debe tener el tipo de contenido `application/x-www-form-urlencoded` y tener el siguiente formato:
+
+`client_id=[CLIENT_ID]&client_secret=[CLIENT_SECRET]&grant_type=authorization_code&redirect_uri=[REDIRECT_URI]&code=[CODE]`
+
+* `client_id` es el mismo que se usó para construir la URL del endpoint de autorización.
+* `client_secret` es el secreto de tu aplicación asignado por Convex.
+* `grant_type` es siempre `authorization_code`.
+* `redirect_uri` es el mismo que se usó para construir la URL del endpoint de autorización.
+* `code` es el código de autorización proporcionado a tu callback.
+  * Ten en cuenta que un `code` solo puede intercambiarse *una vez* por un token de acceso.
+
+Si todos los valores proporcionados son correctos, la API de Convex devuelve una respuesta JSON
+que contiene:
+
+```jsx
+{
+	"access_token": "team:my-team|AAAAAA==",
+	"token_type": "bearer"
+}
+```
+
+El `access_token` es el token de la aplicación.
+
+# Uso de PKCE (RFC 7636) \{#using-pkce-rfc-7636\}
+
+Convex es compatible con esta extensión del tipo de concesión Authorization Code. Solo se
+permite el método `S256`. PKCE protege un código de autorización filtrado para
+que un atacante no pueda usarlo, incluso si tu client secret no es
+privado (p. ej., si tiene que estar incrustado en una aplicación del lado del
+cliente).
+
+Las bibliotecas de cliente OAuth generalmente ya admiten PKCE, pero para
+implementarlo manualmente:
+
+* Cada vez que solicites autorización del usuario, antes de redirigirlo,
+  construye una cadena aleatoria llamada `code_verifier`. Se recomienda generar
+  un valor aleatorio de 32 bytes y codificarlo en base64url.
+* Calcula `code_challenge = base64url(sha256(code_verifier))`. Esto será una
+  cadena de 43 caracteres.
+* Redirige al usuario al endpoint de autorización como antes
+  (`/oauth/authorize/[TOKEN_SCOPE]`), pero además proporciona los
+  parámetros `code_challenge=[CODE_CHALLENGE]&code_challenge_method=S256`.
+* Al intercambiar el código de autorización por un token, proporciona también el
+  parámetro `code_verifier=[CODE_VERIFIER]`.

@@ -1,0 +1,170 @@
+---
+title: "Agentes humanos"
+sidebar_label: "Agentes humanos"
+sidebar_position: 900
+description: "Guardar mensajes de una persona como agente"
+---
+
+El componente Agent generalmente recibe un mensaje inicial (prompt) de una persona o de un agente y utiliza un
+LLM para generar una respuesta.
+
+Sin embargo, hay casos en los que quieres que la respuesta la genere una persona
+que actúa como agente, por ejemplo, para soporte al cliente.
+
+Para ver el código completo, consulta
+[chat/human.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/human.ts)
+
+## Guardar un mensaje de usuario sin generar una respuesta \{#saving-a-user-message-without-generating-a-reply\}
+
+Puedes guardar un mensaje de un usuario sin generar una respuesta usando la
+función `saveMessage`.
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+await saveMessage(ctx, components.agent, {
+  threadId,
+  prompt: "The user message",
+});
+```
+
+## Guardar un mensaje de una persona como un agente \{#saving-a-message-from-a-human-as-an-agent\}
+
+Del mismo modo, puedes guardar un mensaje de una persona como agente,
+usando el campo `message` para especificar el rol y el nombre del agente:
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+await saveMessage(ctx, components.agent, {
+  threadId,
+  agentName: "Alex",
+  message: { role: "assistant", content: "The human reply" },
+});
+```
+
+## Almacenar metadatos adicionales sobre agentes humanos \{#storing-additional-metadata-about-human-agents\}
+
+Puedes guardar metadatos adicionales sobre agentes humanos usando la función `saveMessage`
+y añadiendo el campo `metadata`.
+
+```ts
+await saveMessage(ctx, components.agent, {
+  threadId,
+  agentName: "Alex",
+  message: { role: "assistant", content: "The human reply" },
+  metadata: {
+    provider: "human",
+    providerMetadata: {
+      human: {
+        /* ... */
+      },
+    },
+  },
+});
+```
+
+## Decidir quién responde a continuación \{#deciding-who-responds-next\}
+
+Puedes elegir si el LLM o un humano responde a continuación de varias maneras:
+
+1. Almacenar explícitamente en la base de datos si el usuario o el LLM está asignado al
+   hilo.
+2. Usar una llamada a un LLM barato y rápido para decidir si la pregunta del usuario requiere
+   una respuesta humana.
+3. Usar embeddings vectoriales de la pregunta del usuario y del historial de mensajes para tomar
+   la decisión, basándote en un corpus de preguntas de ejemplo y en qué preguntas es mejor que
+   atiendan humanos.
+4. Hacer que el LLM genere una respuesta en forma de objeto que incluya un campo que indique
+   si la pregunta del usuario requiere una respuesta humana.
+5. Proporcionar una herramienta al LLM para decidir si la pregunta del usuario requiere una
+   respuesta humana. La respuesta humana pasa entonces a ser el mensaje de respuesta de la herramienta.
+
+## Respuestas humanas como llamadas a herramientas \{#human-responses-as-tool-calls\}
+
+Puedes hacer que el LLM genere una llamada a una herramienta a un agente humano para proporcionar contexto y
+responder a la pregunta del usuario proporcionando una herramienta que no tenga un controlador. Nota:
+esto generalmente sucede cuando el LLM todavía tiene la intención de responder a la pregunta, pero
+necesita intervención humana para hacerlo, como la confirmación de un hecho.
+
+```ts
+import { tool } from "ai";
+import { z } from "zod/v3";
+
+const askHuman = tool({
+  description: "Hacer una pregunta a un humano",
+  parameters: z.object({
+    question: z.string().describe("La pregunta que hacer al humano"),
+  }),
+});
+
+export const ask = action({
+  args: { question: v.string(), threadId: v.string() },
+  handler: async (ctx, { question, threadId }) => {
+    const result = await agent.generateText(
+      ctx,
+      { threadId },
+      {
+        prompt: question,
+        tools: { askHuman },
+      },
+    );
+    const supportRequests = result.toolCalls
+      .filter((tc) => tc.toolName === "askHuman")
+      .map(({ toolCallId, args: { question } }) => ({
+        toolCallId,
+        question,
+      }));
+    if (supportRequests.length > 0) {
+      // Hacer algo para que el agente de soporte sepa que debe responder,
+      // p. ej., guardar un mensaje en su bandeja de entrada
+      // await ctx.runMutation(internal.example.sendToSupport, {
+      //   threadId,
+      //   supportRequests,
+      // });
+    }
+  },
+});
+
+export const humanResponseAsToolCall = internalAction({
+  args: {
+    humanName: v.string(),
+    response: v.string(),
+    toolCallId: v.string(),
+    threadId: v.string(),
+    messageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await agent.saveMessage(ctx, {
+      threadId: args.threadId,
+      message: {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            result: args.response,
+            toolCallId: args.toolCallId,
+            toolName: "askHuman",
+          },
+        ],
+      },
+      metadata: {
+        provider: "human",
+        providerMetadata: {
+          human: { name: args.humanName },
+        },
+      },
+    });
+    // Continuar generando una respuesta desde el LLM
+    await agent.generateText(
+      ctx,
+      { threadId: args.threadId },
+      {
+        promptMessageId: args.messageId,
+      },
+    );
+  },
+});
+```

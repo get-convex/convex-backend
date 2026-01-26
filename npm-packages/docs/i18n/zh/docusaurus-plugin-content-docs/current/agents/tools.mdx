@@ -1,0 +1,172 @@
+---
+title: 工具
+sidebar_label: "工具"
+sidebar_position: 500
+description: "在 Agent 组件中使用工具调用"
+---
+
+Agent 组件支持工具调用，这是一种允许 LLM 调用外部服务或函数的机制。在以下场景中非常有用：
+
+* 从数据库中检索数据
+* 在数据库中写入或更新数据
+* 在 Web 上搜索更多上下文信息
+* 调用外部 API
+* 在继续之前请求用户执行某个操作（引入人工参与的人在回路流程，human-in-the-loop）
+
+## 定义工具 \{#defining-tools\}
+
+你可以在不同的阶段提供工具：
+
+* Agent 构造函数：(`new Agent(components.agent, { tools: {...} })`)
+* 创建线程时：`createThread(ctx, { tools: {...} })`
+* 继续线程时：`continueThread(ctx, { tools: {...} })`
+* 在线程函数中：`thread.generateText({ tools: {...} })`
+* 在线程外部：`supportAgent.generateText(ctx, {}, { tools: {...} })`
+
+在各个层级指定的工具会覆盖默认配置。工具的最终取值为
+`args.tools ?? thread.tools ?? agent.options.tools`。这使你可以在最合适的上下文中定义工具。
+
+## 使用工具 \{#using-tools\}
+
+当你在调用 `generateText` 或 `streamText` 时传入 `stopWhen: stepCountIs(num)` 且 `num > 1` 时，`Agent` 组件会自动处理工具调用结果的回传，并重新生成内容。
+
+工具调用及其结果会作为消息存储在与源消息关联的线程中。更多详情参见 [Messages](./messages.mdx)。
+
+## 使用 Convex 上下文创建工具 \{#creating-a-tool-with-a-convex-context\}
+
+有两种方法可以创建能够访问 Convex 上下文的工具。
+
+1. 使用 `createTool` 函数，它是基于 AI SDK 的 `tool`
+   函数的封装。
+
+```ts
+export const ideaSearch = createTool({
+  description: "在数据库中搜索想法",
+  args: z.object({ query: z.string().describe("要搜索的查询内容") }),
+  handler: async (ctx, args, options): Promise<Array<Idea>> => {
+    // ctx 包含 agent、userId、threadId、messageId
+    // 以及 ActionCtx 属性,如 auth、storage、runMutation 和 runAction
+    const ideas = await ctx.runQuery(api.ideas.searchIdeas, {
+      query: args.query,
+    });
+    console.log("找到的想法", ideas);
+    return ideas;
+  },
+});
+```
+
+2. 在运行时，在包含你要用到的变量的上下文中定义工具。
+
+```ts
+async function createTool(ctx: ActionCtx, teamId: Id<"teams">) {
+  const myTool = tool({
+    description: "My tool",
+    parameters: z.object({...}).describe("The arguments for the tool"),
+    execute: async (args, options): Promise<BarReturnType> => {
+      return await ctx.runQuery(internal.foo.bar, args);
+    },
+  });
+}
+```
+
+在这两种情况下，`args` 和 `options` 都与底层 AI SDK 的 `tool` 函数保持一致。
+
+如果你遇到类型错误，确保你为 `execute` 函数的返回类型添加了类型注解，并在必要时为你通过 `ctx.run*` 调用的任意函数的 `handler` 的返回类型添加类型注解。
+
+注意：强烈建议配合使用带有 `.describe` 的 zod，为每个参数提供详细说明。LLM 会使用这些说明来理解该工具。
+
+### 为工具添加自定义上下文 \{#adding-custom-context-to-tools\}
+
+在工具的上下文中包含额外的元数据通常非常有用。
+
+默认情况下，传递给工具的上下文是一个 `ToolCtx`，其中包含：
+
+* `agent` - 调用它的 Agent 实例
+* `userId` - 与此次调用关联的用户 ID（如果有）
+* `threadId` - 线程 ID（如果有）
+* `messageId` - 传递给 generate/stream 的提示消息的消息 ID
+* `ActionCtx` 中的所有内容，例如 `auth`、`storage`、`runQuery` 等。注意：
+  在定时函数、工作流等中，auth 用户将为 `null`。
+
+要向上下文中添加更多字段，你可以在调用时传入自定义上下文，
+例如 `agent.generateText({ ...ctx, orgId: "123" })`。
+
+你可以在构造 Agent 时传入一个类型来约束上下文的类型。
+
+```ts
+const myAgent = new Agent<{ orgId: string }>(...);
+```
+
+然后，你就可以在工具中使用 `orgId` 字段。
+
+```ts
+type MyCtx = ToolCtx & { orgId: string };
+
+const myTool = createTool({
+  args: z.object({ ... }),
+  description: "...",
+  handler: async (ctx: MyCtx, args) => {
+    // 使用 ctx.orgId
+  },
+});
+```
+
+## 将 LLM 或 Agent 用作工具 \{#using-an-llm-or-agent-as-a-tool\}
+
+你可以在工具调用中进行内容生成，例如当你希望一个 Agent
+向另一个 Agent 提问时。
+
+注意：你不必把 Agent 之间的调用都设计成工具调用。你也可以
+根据其他上下文来决定接下来应该由哪个 Agent 回复，并在同一条线程中
+让多个 Agent 一起参与。
+
+把 Agent 建模为工具调用的最简单方式，是让每一次工具调用都在
+独立的线程中运行，或者甚至在完全不使用线程的情况下进行生成。这样，
+输出会作为工具调用的结果返回，供下一步的 LLM 使用。以这种方式进行时，你 **不需要**
+把工具调用的结果显式保存到父线程中。
+
+### 直接使用 LLM 生成（不使用线程）： \{#direct-llm-generation-without-a-thread\}
+
+```ts
+const llmTool = createTool({
+  description: "Ask a question to some LLM",
+  args: z.object({
+    message: z.string().describe("The message to ask the LLM"),
+  }),
+  handler: async (ctx, args): Promise<string> => {
+    const result = await generateText({
+      system: "You are a helpful assistant.",
+      // 传递当前生成的所有消息
+      prompt: [...options.messages, { role: "user", content: args.message }],
+      model: myLanguageModel,
+    });
+    return result.text;
+  },
+});
+```
+
+### 将 Agent 作为工具使用 \{#using-an-agent-as-a-tool\}
+
+```ts
+const agentTool = createTool({
+  description: `Ask a question to agent ${agent.name}`,
+  args: z.object({
+    message: z.string().describe("The message to ask the agent"),
+  }),
+  handler: async (ctx, args, options): Promise<string> => {
+    const { userId } = ctx;
+    const { thread } = await agent.createThread(ctx, { userId });
+    const result = await thread.generateText(
+      {
+        // 传递当前生成过程中的所有消息
+        prompt: [...options.messages, { role: "user", content: args.message }],
+      },
+      // 将当前生成过程中的所有消息保存到此线程
+      { storageOptions: { saveMessages: "all" } },
+    );
+    // 可选:在您自己的表中将子线程与父线程关联
+    await saveThreadAsChild(ctx, ctx.threadId, thread.threadId);
+    return result.text;
+  },
+});
+```

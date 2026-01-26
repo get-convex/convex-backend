@@ -1,0 +1,22 @@
+{
+  "logo.alt": {
+    "message": "Convex",
+    "description": "Texto alternativo del logotipo en la barra de navegación"
+  },
+  "item.label.Dashboard": {
+    "message": "Panel de control",
+    "description": "Elemento de la barra de navegación con la etiqueta «Panel de control»"
+  },
+  "item.label.Blog": {
+    "message": "Blog",
+    "description": "Elemento de la barra de navegación con la etiqueta «Blog»"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Elemento de la barra de navegación con la etiqueta «GitHub»"
+  },
+  "item.label.Discord": {
+    "message": "Discord",
+    "description": "Elemento de la barra de navegación con la etiqueta «Discord»"
+  }
+}

@@ -1,0 +1,111 @@
+---
+title: "自动配置 AuthKit"
+sidebar_label: "自动配置"
+sidebar_position: 20
+description:
+  "为 Convex 部署配置带有自动预配功能的 WorkOS AuthKit 集成"
+---
+
+Convex 可以代表你在 WorkOS 账户中**创建** AuthKit 环境。默认情况下，WorkOS 只会提供两个环境，但为每个 Convex 开发环境（dev 部署）分配独立的 AuthKit 环境，有助于在多个开发者或并行工作的代理之间隔离开发用户数据以及配置更改。
+
+无论 AuthKit 环境是由 Convex 还是由你创建，只要在构建环境或 Convex 部署中存在 `WORKOS_CLIENT_ID` 和 `WORKOS_API_KEY` 这两个环境变量，Convex CLI 就会对其进行**配置**。在本地开发时，Convex 可以将环境变量写入 `.env.local`，从而大大简化 AuthKit 环境的设置过程。
+
+## 入门 \{#getting-started\}
+
+在 `create convex` 工具中选择 AuthKit 作为你的身份验证方式。
+
+```bash
+npm create convex@latest
+```
+
+这些模板包含一个 `convex.json` 文件，它会为此部署创建并配置一个 AuthKit 环境。只需运行 `npx convex dev`，你就会得到一个已经完成配置并集成好的 WorkOS 环境！
+
+### 迁移到生产环境 \{#going-to-production\}
+
+在 Convex 仪表盘中打开生产部署的设置页面，在“Settings → Integrations”下的 WorkOS Authentication 集成中创建一个 AuthKit 环境。将这些凭据复制到你的托管服务提供商的环境变量中（此外还需要完成其他配置，例如添加生产环境的 `CONVEX_DEPLOY_KEY`、设置构建命令，以及配置其他与框架相关的 AuthKit 环境变量）。
+
+### 预览部署 \{#preview-deployments\}
+
+在你项目中任一部署的 Convex 仪表盘设置中，在 “Settings → Integrations” 下的 WorkOS Authentication 集成里创建一个新的项目级 AuthKit 环境。将这些凭证复制到托管服务商的环境变量中（除此之外，你还需要完成其他配置，比如添加用于预览的 `CONVEX_DEPLOY_KEY`、设置构建命令，以及配置其他特定于框架的 AuthKit 环境变量）。
+
+## 工作原理 \{#how-it-works\}
+
+当 `convex.json` 文件中存在一个 `authKit` 配置段，并且其中包含一个属性用于指定代码推送类型（`dev`、`preview` 或 `prod`）时，就会触发 AuthKit 的创建和配置流程。
+
+如果存在该配置段，则可能会创建一个 AuthKit 环境（仅限 `dev`）、设置本地环境变量（仅限 `dev`），并完成配置（适用于所有代码推送类型）。
+
+### 查找 AuthKit 环境 \{#finding-the-authkit-environment\}
+
+CLI 会按以下顺序查找 WorkOS 凭据 `WORKOS_CLIENT_ID` 和 `WORKOS_API_KEY`：
+
+1. 构建环境 shell 中的环境变量或 `.env.local` 文件
+2. Convex 部署环境变量
+
+在远程构建环境中（例如在 Vercel、Netlify、Cloudflare 中构建项目），如果找不到这两个环境变量，构建将会失败。
+
+在本地开发期间，凭据会随后从 Convex Cloud API 中获取，对应一个新的或已存在的 AuthKit 环境。指向该部署的链接可以在 Convex 仪表盘的 WorkOS 集成下找到。
+
+### 配置 AuthKit 环境 \{#configuring-the-authkit-environment\}
+
+找到凭证后，会使用 `WORKOS_API_KEY`，根据对应 `authKit` 对象中的 `configure` 部分来配置环境。
+这会为该环境设置诸如
+[重定向 URI](https://workos.com/docs/sso/redirect-uris)、
+[允许的 CORS 源](https://workos.com/docs/authkit/client-only) 等内容。
+
+### 设置本地环境变量 \{#setting-local-environment-variables\}
+
+仅对于开发环境（dev）的部署，环境变量会根据相关 `authKit` 配置中的 `localEnvVars` 部分写入 `.env.local`。
+
+## 项目级 vs 部署级 AuthKit 环境 \{#project-level-vs-deployment-level-authkit-environments\}
+
+在像 Vercel 这样使用远程构建流水线的托管服务商中，要在构建时设置像 `WORKOS_API_KEY` 这样的环境变量，并让它们对 Next.js 中间件等服务端代码可用，会比较困难。为此，有必要在这些平台上为预览和生产部署提前设置 `WORKOS_*` 环境变量。
+
+在仪表盘中为生产和预览部署创建 WorkOS AuthKit 环境之后，将 `WORKOS_CLIENT_ID`、`WORKOS_API_KEY`、`WORKOS_REDIRECT_URI` 和 `WORKOS_COOKIE_PASSWORD` 等相关环境变量复制到托管服务商中的预览和生产环境变量配置中。
+
+可以为任意部署创建特定于该部署的 AuthKit 环境，但这些环境很难自动配置，因此共享的项目级环境通常更合适。
+
+在 `convex.json` 的 `authKit` 部分中，`localEnvVars` 用于自动设置开发环境：它会自动在 `.env.local` 中写入正确的环境变量，并使用合适的 `redirectUri` 自动配置环境。
+
+像 Vercel 这种具有构建环境的托管服务商（生产和预览部署）可以在构建时配置环境，但这些构建环境所需的环境变量必须在构建设置中手动配置。
+
+## 推荐配置 \{#recommended-configuration\}
+
+下面是一个常见的项目配置示例，其中生产环境和预览环境都从 Vercel 部署。请查看你的托管服务商文档，替换为正确的环境变量，并参考与你所用框架对应的 AuthKit 使用指南，对本示例进行定制。
+
+```json title="convex.json"
+{
+  "authKit": {
+    "dev": {
+      "configure": {
+        "redirectUris": ["http://localhost:3000/callback"],
+        "appHomepageUrl": "http://localhost:3000",
+        "corsOrigins": ["http://localhost:3000"]
+      },
+      "localEnvVars": {
+        "WORKOS_CLIENT_ID": "${authEnv.WORKOS_CLIENT_ID}",
+        "WORKOS_API_KEY": "${authEnv.WORKOS_API_KEY}",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI": "http://localhost:3000/callback"
+      }
+    },
+    "preview": {
+      "configure": {
+        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
+      }
+    },
+    "prod": {
+      "environmentType": "production",
+      "configure": {
+        "redirectUris": [
+          "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}/callback"
+        ],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}"]
+      }
+    }
+  }
+}
+```
+
+此外，在 **Next.js** 和 **TanStack Start** 的本地开发环境中，如果 `.env.local` 中还没有设置，Convex 会自动生成一个 `WORKOS_COOKIE_PASSWORD`。

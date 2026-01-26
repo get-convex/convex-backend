@@ -1,0 +1,89 @@
+---
+title: "データベース"
+description: "リレーショナルなデータモデルで JSON ライクなドキュメントを保存する"
+hide_table_of_contents: true
+pagination_prev: functions
+---
+
+Convex のデータベースはリレーショナルなデータモデルを提供し、JSON ライクな
+ドキュメントを保存でき、スキーマの有無にかかわらず利用できます。面倒な設定なしで「そのまま動作」し、使いやすいインターフェースで予測可能なクエリ性能を提供します。
+
+クエリとミューテーションの[関数](/functions.mdx)は、軽量な JavaScript API を通してデータを読み書きします。セットアップは一切不要で、SQL を書く必要もありません。アプリの要件は JavaScript で表現してください。
+
+まずは下記の [テーブル](#tables)、[ドキュメント](#documents)、[スキーマ](#schemas) の基本を学び、そのあと
+[Reading Data](/database/reading-data/reading-data.mdx) と
+[Writing Data](/database/writing-data.mdx) に進んでください。
+
+アプリが複雑になるにつれて、データベースに求めるものも増えていきます:
+
+* [Document IDs](/database/document-ids.mdx) を用いたリレーショナルなデータモデリング
+* [Indexes](/database/reading-data/indexes/indexes.md) による高速なクエリ
+* [Paginated Queries](/database/pagination.mdx) を使った大規模データセットの提供
+* [Defining a Schema](/database/schemas.mdx) による型安全性の確保
+* データとの相互運用性のための
+  [インポート &amp; エクスポート](/database/import-export/import-export.mdx)
+
+## テーブル \{#tables\}
+
+Convex デプロイメントには、アプリのデータを保存するテーブルがあります。最初は、デプロイメントにはテーブルもドキュメントも存在しません。
+
+各テーブルは、最初のドキュメントを追加したときに自動的に作成されます。
+
+```javascript
+// `friends` テーブルは存在しません。
+await ctx.db.insert("friends", { name: "Jamie" });
+// これで存在し、1つのドキュメントを持ちます。
+```
+
+あらかじめスキーマを指定したり、テーブルを明示的に作成したりする必要はありません。
+
+## ドキュメント \{#documents\}
+
+テーブルにはドキュメントが格納されます。ドキュメントは JavaScript のオブジェクトと非常によく似ています。
+フィールドと値を持ち、その中に配列やオブジェクトをネストできます。
+
+これらはすべて有効な Convex のドキュメントです：
+
+```json
+{}
+{"name": "Jamie"}
+{"name": {"first": "Ari", "second": "Cole"}, "age": 60}
+```
+
+他のテーブルにある別のドキュメントへの参照を含めることもできます。Convex がサポートする型の詳細については
+[Data Types](/database/types.md) を参照し、これらの型を使ってデータモデルをどのように設計するかについては
+[Document IDs](/database/document-ids.mdx) を参照してください。
+
+## スキーマ \{#schemas\}
+
+必須ではありませんが、スキーマを定義すると、データを意図したとおりの形に保てます。
+シンプルなチャットアプリの場合、スキーマは次のようになります。
+
+```typescript
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// @snippet start schema
+export default defineSchema({
+  messages: defineTable({
+    author: v.id("users"),
+    body: v.string(),
+  }),
+});
+```
+
+`v.any()` のような型を使って好きなだけ柔軟に定義することも、
+`v.object()` の構造を厳密に記述してできるだけ具体的にすることもできます。
+
+スキーマについて詳しくは、[スキーマのドキュメント](/database/schemas.mdx) を参照してください。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+href: "/database/reading-data",
+docId: "database/reading-data/reading-data",
+label: "Next: Reading Data",
+}}
+/>
+
+<StackPosts query="database" />

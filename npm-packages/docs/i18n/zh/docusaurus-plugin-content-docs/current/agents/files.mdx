@@ -1,0 +1,156 @@
+---
+title: Agent 消息中的文件和图片
+sidebar_label: "Files"
+sidebar_position: 1000
+description: "在 Agent 组件中使用图片和文件"
+---
+
+你可以在消息中添加图片和文件，供 LLM 引用。
+
+注意：在云端后端中向 LLM 发送 URL 要容易得多，因为它有对外可访问的存储 URL。要在本地开发，你可以使用 `ngrok` 或类似工具来代理流量。
+
+示例代码：
+
+* [files/autoSave.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/autoSave.ts)
+  展示了如何使用自动文件保存的简单示例。
+* [files/addFile.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/addFile.ts)
+  展示了如何保存文件、提交问题，并在分开的步骤中生成响应。
+* [files/generateImage.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/generateImage.ts)
+  展示了如何生成图片并将其保存在 assistant 消息中的示例。
+* [FilesImages.tsx](https://github.com/get-convex/agent/blob/main/example/ui/files/FilesImages.tsx)
+  展示了客户端代码。
+
+## 运行该示例 \{#running-the-example\}
+
+```sh
+git clone https://github.com/get-convex/agent.git
+cd agent
+npm run setup
+npm run dev
+```
+
+## 通过先上传然后异步生成的方式发送图片 \{#sending-an-image-by-uploading-first-and-generating-asynchronously\}
+
+标准做法是：
+
+1. 将文件上传到数据库（`uploadFile` 操作）。注意：这可以在普通操作中完成，也可以在 `httpAction` 中完成，取决于哪种方式更方便。
+2. 向线程发送一条消息（`submitFileQuestion` 操作）
+3. 将文件发送给 LLM，以异步方式生成 / 流式输出文本（`generateResponse` 操作）
+4. 从线程中查询消息（`listThreadMessages` 查询）
+
+原理说明：
+
+相比在操作（action）中提交消息，在变更（mutation）中提交消息更好，因为你可以在客户端使用乐观更新，立即显示已发送的消息，并且可以在通过查询真正拿到消息时，让该乐观消息准确地消失。
+
+但是，你不能在变更中写入文件存储，所以文件必须已经存在（因此需要 `fileId`）。
+
+然后你就可以异步生成回复（带重试等），而不需要让客户端一直阻塞等待。
+
+### 1: 保存文件 \{#1-saving-the-file\}
+
+```ts
+import { storeFile } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+const { file } = await storeFile(
+  ctx,
+  components.agent,
+  new Blob([bytes], { type: mimeType }),
+  {
+    filename,
+    sha256,
+  },
+);
+const { fileId, url, storageId } = file;
+```
+
+### 2: 发送消息 \{#2-sending-the-message\}
+
+```ts
+// in your mutation
+const { filePart, imagePart } = await getFile(ctx, components.agent, fileId);
+const { messageId } = await fileAgent.saveMessage(ctx, {
+  threadId,
+  message: {
+    role: "user",
+    content: [
+      imagePart ?? filePart, // if it's an image, prefer that kind.
+      { type: "text", text: "What is this image?" },
+    ],
+  },
+  metadata: { fileIds: [fileId] }, // 重要:这会跟踪文件的使用情况。
+});
+```
+
+### 3: 生成响应并对响应进行查询 \{#3-generating-the-response-querying-the-responses\}
+
+这与处理文本输入的方式相同。
+
+```ts
+// 在操作中
+await thread.generateText({ promptMessageId: messageId });
+```
+
+```ts
+// 在查询中
+const messages = await agent.listMessages(ctx, { threadId, paginationOpts });
+```
+
+## 内联保存方式 \{#inline-saving-approach\}
+
+如果你在操作中生成文本时，也可以同时传入图像或文件。任何通过 `message` 参数传入且大于 64k 的图像或文件，都会自动保存在文件存储中，并且其 fileId 会保存在该消息中。
+
+示例：
+
+```ts
+await thread.generateText({
+  message: {
+    role: "user",
+    content: [
+      { type: "image", image: imageBytes, mimeType: "image/png" },
+      { type: "text", text: "这是什么图片?" },
+    ],
+  },
+});
+```
+
+## 底层原理 \{#under-the-hood\}
+
+保存到文件涉及 3 个部分：
+
+1. 保存到文件存储中（在你的应用中，而不是在组件自身的存储中）。这意味着你可以直接通过 `storageId` 访问它并生成 URL。
+2. 在组件中保存一个指向该文件的引用（storageId）。这会自动跟踪有多少条消息引用了该文件，因此你可以回收不再使用的文件（参见
+   [files/vacuum.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/vacuum.ts)）。
+3. 在发送给 LLM 的消息中，用一个 URL 替代原始数据，并附带提供的 mimeType 和其他元数据。如果没有提供，将在
+   [`guessMimeType`](https://github.com/get-convex/agent/blob/main/src/mapping.ts#L556) 中进行推断。
+
+### 我可以自己存储文件然后传入一个 URL 吗？ \{#can-i-just-store-the-file-myself-and-pass-in-a-url\}
+
+可以！你随时可以在需要图片或文件的地方，把 URL 传给 LLM。
+
+```ts
+const storageId = await ctx.storage.store(blob);
+const url = await ctx.storage.getUrl(storageId);
+
+await thread.generateText({
+  message: {
+    role: "user",
+    content: [
+      { type: "image", data: url, mimeType: blob.type },
+      { type: "text", text: "What is this image?" },
+    ],
+  },
+});
+```
+
+## 生成图像 \{#generating-images\}
+
+在
+[files/generateImage.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/generateImage.ts)
+中有一个示例，它接收一个提示词（prompt），使用 OpenAI 的 DALL·E 2 生成图像，然后将生成的图像保存到一个线程中。
+
+你可以通过以下方式体验：
+
+```sh
+npx convex run files:generateImage:replyWithImage '{prompt: "make a picture of a cat" }'
+```

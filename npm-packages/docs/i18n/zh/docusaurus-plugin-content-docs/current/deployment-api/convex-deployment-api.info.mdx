@@ -1,0 +1,153 @@
+---
+id: convex-deployment-api
+title: "Convex 部署 API"
+description: "用于与 Convex 部署交互的管理 API。"
+sidebar_label: 介绍
+sidebar_position: 0
+hide_title: true
+custom_edit_url: null
+---
+
+import ApiLogo from "@theme/ApiLogo";
+import Heading from "@theme/Heading";
+import SchemaTabs from "@theme/SchemaTabs";
+import TabItem from "@theme/TabItem";
+import Export from "@theme/ApiExplorer/Export";
+
+<span className={"theme-doc-version-badge badge badge--secondary"} children={"版本：1.0.0"} />
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Convex 部署 API"} />
+
+用于与部署交互的管理 API。
+
+<div style={{"marginBottom":"2rem"}}>
+  <Heading id={"authentication"} as={"h2"} className={"openapi-tabs__heading"} children={"身份验证"} />
+
+  <SchemaTabs className={"openapi-tabs__security-schemes"}>
+    <TabItem label={"API Key：Deploy Key"} value={"Deploy Key"}>
+      Deploy Key 用于部署相关操作。更多信息请参阅 [Deploy Key 类型](https://docs.convex.dev/cli/deploy-key-types)。使用 `Convex ` 前缀（例如：`Convex <deploy_key>`）。
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                安全方案类型：
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Header 参数名称：
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"API Key：OAuth Project Token"} value={"OAuth Project Token"}>
+      通过具有项目作用域的 [Convex OAuth 应用](https://docs.convex.dev/management-api) 获取。使用 `Convex ` 前缀（例如：`Convex <oauth_project_token>`）。
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                安全方案类型：
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Header 参数名称：
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"API Key：OAuth Team Token"} value={"OAuth Team Token"}>
+      通过 [Convex OAuth 应用](https://docs.convex.dev/management-api) 获取。使用 `Convex ` 前缀（例如：`Convex <oauth_token>`）。
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                安全方案类型：
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Header 参数名称：
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"API Key：Team Token"} value={"Team Token"}>
+      在仪表盘中，你可以在任意有管理权限的团队的团队设置下创建 Team Token。使用 `Convex ` 前缀（例如：`Convex <team_token>`）。
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                安全方案类型：
+              </th>
+
+              <td>
+                apiKey
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                Header 参数名称：
+              </th>
+
+              <td>
+                Authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+  </SchemaTabs>
+</div>
+
+<div style={{"marginBottom":"var(--ifm-paragraph-margin-bottom)"}}>
+  <h3 style={{"marginBottom":"0.25rem"}}>
+    许可证
+  </h3>
+</div>

@@ -1,0 +1,51 @@
+---
+title: 多个代码仓库
+sidebar_label: 多个代码仓库
+description: "在多个代码仓库中使用 Convex"
+sidebar_position: 180
+---
+
+import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/tsGeneration.ts";
+import API from "!!raw-loader!@site/../private-demos/snippets/api.ts";
+import Frontend from "!!raw-loader!@site/../private-demos/snippets/src/tsGeneration.tsx";
+
+Your TypeScript 客户端可以在定义 Convex 函数的代码仓库之外，以类型安全的方式调用这些 Convex 函数。通过完成下面的步骤，你可以生成一个类似于 `convex/_generated/api.d.ts` 的文件，将它提交到代码仓库中，并在单独的代码仓库中使用。
+
+<BetaAdmonition feature="TypeScript API generation" verb="is" />
+
+<StepByStep>
+  <Step title="安装 Convex Helpers npm 包">
+    安装 `convex-helpers` 包，其中包含用于生成 API 文件的 CLI 命令。
+
+    ```sh
+    npm install convex-helpers
+    ```
+  </Step>
+
+  <Step title="运行命令生成 TypeScript API 文件">
+    运行下面的命令会调用你配置好的 Convex 部署，并基于该部署生成一个 `api.ts` 文件。你可以通过给命令传入 `--help` 参数来查看更多可用选项。
+
+    ```sh
+    npx convex-helpers ts-api-spec
+    ```
+  </Step>
+</StepByStep>
+
+## 示例 \{#example\}
+
+下面是一些代码片段，展示此工作流在实际运行时的样子。这些代码片段涉及三个不同的文件：
+
+* `convex/messages.ts` - 包含 Convex 函数定义
+* `api.ts` - 通过运行上面的命令生成的文件
+* `src/App.tsx` - 位于单独仓库中的前端代码，其中已检入 `api.ts` 文件
+
+<TSAndJSSnippet title="convex/messages.ts" snippets="send" sourceTS={Functions} sourceJS={Functions} />
+
+<TSAndJSSnippet title="api.ts" sourceTS={API} sourceJS={API} />
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={Frontend} sourceJS={Frontend} highlightPatterns={["import { api } from"]} />
+
+## 限制 \{#limits\}
+
+* 参数和返回值验证器不是必需的，但它们会丰富你的 TypeScript API 的类型信息。在未定义验证器的地方，我们会默认使用 `v.any()` 作为验证器。
+* 你不能从 Convex 部署之外调用内部函数。

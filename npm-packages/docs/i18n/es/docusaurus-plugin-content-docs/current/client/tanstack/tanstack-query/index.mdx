@@ -1,0 +1,143 @@
+---
+title: "Convex con TanStack Query"
+sidebar_label: "TanStack Query"
+description:
+  "Integra Convex con TanStack Query para utilizar patrones avanzados de obtención de datos"
+---
+
+import Setup from "!!raw-loader!@site/../demos/react-query/src/main.tsx";
+import App from "!!raw-loader!@site/../demos/react-query/src/App.tsx";
+
+[TanStack Query](https://tanstack.com/query/latest) es una biblioteca excelente y popular
+para gestionar solicitudes a un servidor.
+
+La biblioteca
+[`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query)
+proporciona funciones de
+[Query Option](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
+para usar con TanStack Query.
+
+No todas las funciones del [cliente Convex React](/client/react) estándar están
+disponibles a través de las API de TanStack Query, pero puedes usar ambos en
+conjunto, recurriendo a los hooks estándar de Convex React cuando sea necesario.
+
+<BetaAdmonition feature="The TanStack Query adapter" verb="is" />
+
+Así, suscribirse a una función de consulta de Convex usando el hook
+`useQuery` de TanStack Query se ve así:
+
+```ts
+const { data, isPending, error } = useQuery(convexQuery(api.messages.list, {}));
+```
+
+En lugar del patrón típico de sondeo de endpoints de API usado con TanStack
+Query, el código anterior recibe actualizaciones para esta consulta `api.messages.list` del
+servidor de Convex de forma reactiva. Los nuevos resultados para todas las suscripciones relevantes se
+envían al cliente, donde se actualizan al mismo tiempo, de modo que los datos nunca quedan desactualizados
+y no es necesario invalidar manualmente las consultas.
+
+<Admonition type="note" title="Compatibilidad con otros frameworks">
+  Actualmente solo se admite [React
+  Query](https://tanstack.com/query/latest/docs/framework/react/overview)
+  mediante
+  [`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query).
+  [Cuéntanos](https://convex.dev/community) si te sería útil contar con compatibilidad con
+  vue-query, svelte-query, solid-query o angular-query.
+</Admonition>
+
+## Configuración \{#setup\}
+
+Para recibir actualizaciones en tiempo real en TanStack Query, crea un `ConvexQueryClient` y conéctalo
+al [QueryClient](https://tanstack.com/query/latest/docs/reference/QueryClient) de TanStack Query.
+Después de instalar la biblioteca adaptadora con
+
+```
+npm i @convex-dev/react-query
+```
+
+conecta Convex con TanStack Query de esta manera:
+
+<Snippet title="src/main.tsx" source={Setup} highlightPatterns={["QueryClient", "convexQuery"]} />
+
+Ten en cuenta que cuando crees tu árbol de React deberías hacer ambas cosas:
+
+* envolver tu aplicación en
+  [`QueryClientProvider`](https://tanstack.com/query/latest/docs/framework/react/reference/QueryClientProvider)
+  de TanStack Query para poder usar
+  [hooks de TanStack Query](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
+  y
+* envolver tu aplicación en [`ConvexProvider`](/api/modules/react#convexprovider) para
+  que también puedas usar hooks normales de [Convex React](/client/react)
+
+## Consultas \{#queries\}
+
+Una suscripción que se actualiza en tiempo real a una [consulta](/functions/query-functions.mdx)
+de Convex es tan sencilla como llamar a TanStack
+[`useQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
+con `convexQuery`:
+
+```ts
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { data, isPending, error } = useQuery(
+    convexQuery(api.functions.myQuery, { id: 123 }),
+  );
+  return isPending ? "Cargando..." : data;
+}
+```
+
+Puedes propagar el objeto devuelto por `convexQuery` en un objeto que especifique
+[argumentos adicionales de `useQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery).
+
+```ts
+const { data, isPending, error } = useQuery({
+  ...convexQuery(api.functions.myQuery, { id: 123 }),
+  initialData: [], // usa una lista vacía si todavía no hay datos disponibles
+  gcTime: 10000, // mantiene la suscripción durante 10 segundos después de que se desmonte este componente
+});
+```
+
+## Mutaciones \{#mutations\}
+
+Tu aplicación puede llamar a [mutaciones](/functions/mutation-functions.mdx) de Convex mediante el hook
+[`useMutation`](https://tanstack.com/query/latest/docs/framework/react/reference/useMutation)
+de TanStack y estableciendo la propiedad `mutationFn` con el resultado de llamar a
+`useConvexMutation`:
+
+```ts
+import { useMutation } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { mutate, isPending } = useMutation({
+    mutationFn: useConvexMutation(api.functions.doSomething),
+  });
+  return <button onClick={() => mutate({a: "Hello"})}>Click me</button>;
+}
+```
+
+`useConvexMutation` es simplemente una reexportación del hook
+[`useMutation`](/client/react#editing-data) de
+[Convex React](/client/react).
+
+## Diferencias con el uso de `fetch` con TanStack Query \{#differences-from-using-fetch-with-tanstack-query\}
+
+Convex proporciona garantías más sólidas que otros métodos de obtención de datos
+con React Query, por lo que algunas opciones y propiedades del valor de retorno
+ya no son necesarias.
+
+Las suscripciones a consultas de Convex permanecerán activas después de que se
+desmonte el último componente que use `useQuery` para una función dada, durante
+`gcTime` milisegundos. Este valor es de 5 minutos de forma predeterminada; si
+esto provoca actividad no deseada de funciones, usa un valor más pequeño.
+
+Los datos proporcionados por Convex nunca están desactualizados, por lo que la
+propiedad `isStale` del valor de retorno de `useQuery` siempre será falsa. Las
+opciones relacionadas con `retry` se ignoran, ya que Convex proporciona su
+propio mecanismo de reintentos sobre su protocolo WebSocket. Las opciones
+relacionadas con `refetch` se ignoran de forma similar, dado que las consultas
+de Convex siempre están actualizadas.

@@ -1,0 +1,63 @@
+---
+title: "Informe de excepciones"
+sidebar_label: "Informe de excepciones"
+sidebar_position: 3
+description:
+  "Configura integraciones de informe de excepciones para tu despliegue de Convex"
+---
+
+Configura el informe de excepciones para tener visibilidad de los errores en la ejecución de tus funciones de Convex. Convex admite la integración con
+[Sentry](https://sentry.io/) y con
+[Datadog Error Tracking](https://www.datadoghq.com/product/error-tracking/).
+
+Actualmente, el informe de excepciones solo está disponible para usuarios del plan Pro.
+
+## Configuración de Sentry \{#configuring-sentry\}
+
+Para configurar Sentry, dirígete a
+[Deployment Settings](/dashboard/deployments/settings.md) en el panel de control y
+a la pestaña &quot;Integrations&quot; en la barra lateral.
+
+![Integrations Page](/screenshots/integrations_page.png)
+
+Haz clic en la tarjeta de Sentry y sigue las instrucciones de configuración. Necesitarás tu
+[Sentry DSN](https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/).
+Opcionalmente, puedes especificar etiquetas adicionales que se añadirán a cada evento de excepción.
+
+![Configure sentry](/screenshots/configure_sentry.png)
+
+## Etiquetas compatibles \{#supported-tags\}
+
+Convex etiqueta automáticamente los eventos de excepción cuando los envía a Sentry con
+las siguientes etiquetas. Estas etiquetas no se pueden modificar.
+
+* `func`: El nombre de la función en ejecución en
+  [formato de cadena](/functions/query-functions#query-names)
+* `func_type`: Una de `["query", "mutation", "action", "http_action"]`
+* `func_runtime`: Uno de los [runtimes de funciones](/functions/runtimes.mdx) -
+  `["default", "node"]`
+* `request_id`: El
+  [ID de la solicitud](/functions/debugging.mdx#finding-relevant-logs-by-request-id) de
+  la función que produjo el error.
+* `server_name`: El nombre del despliegue, p. ej. `happy-animal-123`
+* `environment`: Uno de `["prod", "dev", "preview"]`
+* `user`: Si la función está
+  [autenticada](/auth.mdx), entonces se usa
+  [tokenIdentifier](/api/interfaces/server.UserIdentity#tokenidentifier)
+  como el ID de usuario en Sentry. `tokenIdentifier` es una cadena de texto estable y globalmente
+  única que representa al usuario autenticado.
+
+## Notas sobre Sentry \{#sentry-notes\}
+
+* Es posible que las excepciones de Sentry tarden uno o dos minutos en propagarse a Sentry.
+* El soporte integrado de Convex para Sentry todavía no admite la personalización avanzada
+  que proporciona el SDK de Sentry.
+* Si tienes preguntas, comentarios o sugerencias,
+  [ponte en contacto por Discord](https://convex.dev/community).
+
+## Configuración del seguimiento de errores de Datadog \{#configuring-datadog-error-tracking\}
+
+Sigue las instrucciones en la
+[aplicación de Datadog](https://app.datadoghq.com/error-tracking/settings/setup/sentry)
+para configurar el seguimiento de errores de Datadog mediante el SDK de Sentry. Después, utiliza la
+integración Convex-Sentry para continuar.

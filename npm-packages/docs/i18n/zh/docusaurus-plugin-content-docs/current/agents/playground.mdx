@@ -1,0 +1,78 @@
+---
+title: Playground
+sidebar_label: "Playground"
+sidebar_position: 400
+description: "一个用于测试、调试和开发 agent 的简单方式"
+---
+
+Playground UI 提供了一种简单方式来测试、调试和开发 agent。
+
+![Playground UI Screenshot](https://get-convex.github.io/agent/screenshot.png)
+
+* 选择一个用户并列出该用户的线程。
+* 浏览该用户的线程。
+* 列出所选线程中的消息，以及工具调用的详细信息。
+* 显示消息的元数据详情。
+* 尝试基于上下文的消息查找，并调整上下文选项。
+* 向线程发送消息，并配置保存选项。
+* 它使用 API key 与后端进行安全通信。
+
+这里还有一个[在线托管版本](https://get-convex.github.io/agent/)可用。
+
+## 设置 \{#setup\}
+
+**注意**：你必须已经在 Convex 项目中完成 Agent 的设置。有关设置说明，请参阅
+[文档](./getting-started.mdx)。
+
+在你的 Agent Convex 项目中，新建文件 `convex/playground.ts`：
+
+```ts
+import { definePlaygroundAPI } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+import { weatherAgent, fashionAgent } from "./example";
+
+/**
+ * 在这里我们公开 API 以便前端访问。
+ * 授权通过传递 apiKey 来处理,该 apiKey 可以在
+ * 仪表盘上生成或通过 CLI 生成:
+ * npx convex run --component agent apiKeys:issue
+ */
+export const {
+  isApiKeyValid,
+  listAgents,
+  listUsers,
+  listThreads,
+  listMessages,
+  createThread,
+  generateText,
+  fetchPromptContext,
+} = definePlaygroundAPI(components.agent, {
+  agents: [weatherAgent, fashionAgent],
+});
+```
+
+在你项目的代码仓库目录下，为自己创建一个 API 密钥：
+
+```sh
+npx convex run --component agent apiKeys:issue '{name:"..."}'
+```
+
+注意：要生成多个密钥，请为每个密钥使用不同的名称。要撤销并重新生成某个密钥，请传入相同的名称。
+
+然后访问[托管版本](https://get-convex.github.io/agent/)。
+
+页面会询问你的 Convex 部署 URL，你可以在 `.env.local` 中找到它。
+它还会询问你在上面生成的 API key。如果你为 `convex/playground.ts` 使用了
+不同的路径，也可以在这里输入。比如，如果你有一个
+`convex/foo/bar.ts`，并在其中导出了 playground API，则填写
+`foo/bar`。
+
+## 在本地运行 \{#running-it-locally\}
+
+你可以通过以下命令在本地运行该 playground：
+
+```sh
+npx @convex-dev/agent-playground
+```
+
+它使用 `VITE_CONVEX_URL` 环境变量，通常从 .env.local 中读取。

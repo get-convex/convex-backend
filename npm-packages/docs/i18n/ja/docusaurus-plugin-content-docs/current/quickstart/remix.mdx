@@ -1,0 +1,102 @@
+---
+title: Remix クイックスタート
+sidebar_label: Remix
+description: "Remix プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 200
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/remix/sampleData.jsonl";
+import root from "!!raw-loader!@site/../private-demos/quickstarts/remix/app/root.tsx";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/remix/convex/tasks.ts";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/remix/app/routes/_index.tsx";
+
+Convex から Remix アプリでデータをクエリする方法を学びます。
+
+<StepByStep>
+  <Step title="Remix サイトを作成する">
+    `npx create-remix@latest` コマンドを使って Remix サイトを作成します。
+
+    <br />
+
+    ```sh
+    npx create-remix@latest my-remix-app
+    ```
+  </Step>
+
+  <Step title="Convex ライブラリをインストールする">
+    まず、`convex` パッケージをインストールします。
+
+    ```sh
+    cd my-remix-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に `npx convex dev` を実行します。これにより、
+    GitHub へのログインが求められ、プロジェクトの作成や
+    本番環境およびデプロイメントURLの保存を行います。
+
+    また、バックエンドの API 関数を書くための `convex/` フォルダも
+    自動的に作成されます。`dev` コマンドはその後も実行され続け、
+    関数をクラウド上の dev デプロイメントと同期し続けます。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    アプリのルートに `sampleData.jsonl` ファイルを作成し、
+    提供されたサンプルデータを書き込みます。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`sampleData.jsonl` に作成した
+    サンプルデータを使って、`import` コマンドで
+    Convex データベースに `tasks` テーブルを追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースのクエリを公開する">
+    `convex/` フォルダに新しいファイル <JSDialectFileName name="tasks.ts" /> を追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいた
+    `api.tasks.get` という名前の API 関数が定義されます。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="ConvexProvider を組み込む">
+    `app/root.tsx` を変更して Convex クライアントをセットアップし、
+    アプリのすべてのページから利用できるようにします。
+
+    <Snippet source={root} title="app/root.tsx" />
+  </Step>
+
+  <Step title="アプリにデータを表示する">
+    `app/routes/_index.tsx` で `useQuery` を使って、
+    `api.tasks.get` API 関数を購読します。
+
+    <Snippet source={index} title="app/routes/_index.tsx" />
+  </Step>
+
+  <Step title="アプリを起動する">
+    アプリを起動し、ブラウザで [http://localhost:5173](http://localhost:5173) を開いて、
+    タスクの一覧を確認します。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+Remix は React の Web ライブラリを使用します。詳しくは
+[React ドキュメント](/client/react.mdx) を参照してください。

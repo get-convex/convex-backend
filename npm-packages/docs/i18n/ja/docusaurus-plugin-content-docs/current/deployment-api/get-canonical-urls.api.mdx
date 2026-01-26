@@ -1,0 +1,44 @@
+---
+id: get-canonical-urls
+title: "正規 URL を取得"
+description: "デプロイメントの正規 URL を取得します。"
+sidebar_label: "正規 URL を取得"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVU1v2zgQ/SvEnBpAluL0JhQLGOluUWyAFvk4LAzDoaWxxVoiWXLkRhX03xcjyrbsuFgE6GF9kKXhcD4e3/C1kKPPnLKkjIYUPiEJKlBkUhutMlmKp/s7L9bGCSlytKVpKtQUQwTGopO87XMOKWyQlodNy9qVHiJw6K3RHj2kLdxcX/PfaT6IIDOaUBOvSWtLlfVBk2+eHVrwWYGV5DdqLEIKZvUNM+qjf6+VwxzSOQfZ4cttaer8yZUh6g5fHhQhfy8isI4LJhWKOfM/RvfklN5Adx7htUcXASkqMaB2u+/9yZX+fugbOv5F4DGrnaIG0nkLH3sUxd/In4suauHLrKZCPKKsxKPZot7bX1uC51dnGILR0iKCCqkww0lABFZSASkkF8/Fo9uh8305NTcH7fFsJ7Uru0RaleymEJ2d1z+mduK2R2ZEB4hgJ52SqzKgexosWNayLglSKIisT5OkkNY2E6lVJcvJ9OZ9HPCOMz6Ty3mPYZmVDO7iiO0D8ySkHyN8ODZpFRsiUByvQJmjgwi0rHiVcTVO/ey59yr7EHCLjRfSoag95v1MjCo6jIOPxQOimOeHTYJL8It3+9Zzk/l9uznukqxUSfCebLGZ9N5XffzKOBRKr42r+tixePLYD+jzcAjPwjpcqxfxDuNNHB3sH0LA5RabP56vYib0RfL8Fny+rEgqjbmgwpl6Uwgp5kMdIelosH8NQyW13GDPGmnVlfihqBB2KNdnxuIb2jeypmI57F4SN3uKw3i4/r8gvLnjk05/e4+3DiVhLpTua8qlL1ZGulzUOkcniPN5JFJ6M4iGboK1MTWLigj9vaEt3j3uquPC16ZvaLh+B9ePx2Gcff38qvZZXinNK31hShM6mXGlgWjHUfasbqXKkG/wtN0jcxcs97ie/PVwN5nG08nMyqzAyU18zXDmqEmtFbr/dO4i4Ps31DWNr4PJGk+V1KOUrManSnzeVXuUz7do90AFwhdKbCmV5vzDVR2UY35J0RcRFMYTr7btSnpWxq5j8/caXa9nRyUImrUnGEvNli9kmGUZ2iAZZR0Ieab6J3L26c9HiIC5fcrhbc/h4YWj75d0M4p9TudQAj9ZTi9uadswIV138A9Lv9xxmKHgzWguuq77FxTQPI8=
+sidebar_class_name: "get api-method"
+info_path: deployment-api/convex-deployment-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"正規 URL 一覧を取得する"} />
+
+<MethodEndpoint method={"get"} path={"/get_canonical_urls"} context={"endpoint"} />
+
+デプロイメントの正規 URL 一覧を取得します。
+
+<ParamsDetails parameters={undefined} />
+
+
+<RequestSchema
+  title={"リクエストボディ"}
+  body={undefined}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["convexCloudUrl","convexSiteUrl"],"properties":{"convexCloudUrl":{"type":"string"},"convexSiteUrl":{"type":"string"}},"title":"GetCanonicalUrlsResponse"}}}}}}
+>
+  
+</StatusCodes>

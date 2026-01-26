@@ -1,0 +1,149 @@
+# （レガシー）イベントスキーマ \{#legacy-event-schema\}
+
+<Admonition type="info">
+  2024年5月23日以前に構成されたログストリームは、
+  ここで説明するレガシー形式を使用し続けます。ログストリームを新しい形式に更新することを推奨します。
+</Admonition>
+
+## 新しいフォーマットへの更新 \{#updating-to-the-new-format\}
+
+既存のログストリームは、ダッシュボードの
+[deployment&#39;s Settings](https://dashboard.convex.dev/deployment/settings) &gt;
+Integrations から新しいフォーマットに更新できます。
+
+新しいフォーマットでイベントを保持するためのまったく新しいデータセットを作成することも、
+既存のデータセットを再利用して、レガシーフォーマットの履歴イベントと
+今後の新フォーマットのイベントを両方とも保持することもできます。
+
+レガシーフォーマットと
+[現行フォーマット](/production/integrations/log-streams/log-streams.mdx#log-event-schema)
+の両方に関するドキュメントを読んで、差分の全体像を把握することを推奨しますが、
+ここでは主な違いをいくつか挙げます:
+
+* 多くのフィールド名が、先頭のアンダースコアを削除し、`snake_case` を使うように変更されています
+* 次のようなフィールドが追加されています
+  * `function.request_id`
+  * `usage.vector_storage_read_bytes`
+  * `log_level`
+* 明確さのためにフィールド名が変更・ネストされています。例:
+  * `reason` -&gt; `error_message`
+  * `_functionPath` -&gt; `function.path`
+
+## （レガシー）イベントスキーマ \{#legacy-event-schema\}
+
+ログイベントには明確に定義された JSON スキーマがあり、ログイベントを取り込むための複雑で型安全なパイプラインを構築できます。
+
+## システムフィールド \{#system-fields\}
+
+システムフィールドは、ログイベントに含まれる予約済みフィールドで、
+先頭にアンダースコアが付きます。
+
+すべてのログイベントには、次のシステムフィールドが含まれます。
+
+* `_topic`: ログイベントをその内部ソースごとに分類する文字列
+* `_timestamp`: ミリ秒単位の Unix エポックタイムスタンプ。整数値です。
+
+## ログの発生元 \{#log-sources\}
+
+このセクションでは、すべてのログイベントの発生元とデータモデルについて説明します。
+
+### `console` ログ \{#console-logs\}
+
+Convex 関数のログは `console` API を通じて記録されます。
+
+スキーマ:
+
+* `_topic = "_console"`
+* `_timestamp` = ミリ秒単位の Unix エポックタイムスタンプ
+* `_functionType = "query" | "mutation" | "action" | "httpAction"`
+* `_functionPath` =
+  * HTTP アクションの場合、HTTP メソッドと URL のパス名からなる文字列。例: `POST /my_endpoint`
+  * それ以外の場合、`convex/` ディレクトリ内の関数へのパスで、任意のモジュールの export 識別子を含む。例: `myDir/myFile:myFunction`。
+* `_functionCached = true | false`。このフィールドは `_functionType = "query"` の場合にのみ設定され、このログイベントがキャッシュされた関数実行に由来するかどうかを表します。
+* `message` = `console` API に渡された引数のペイロード文字列
+
+クエリのログイベントの例:
+
+```json
+{
+  "_topic": "_console",
+  "_timestamp": 1695066350531,
+  "_functionType": "query",
+  "_functionPath": "myDir/myFile",
+  "_functionCached": true,
+  "message": "[LOG] 'My log message'"
+}
+```
+
+### 関数実行記録ログ \{#function-execution-record-logs\}
+
+実行内容とその結果を記録としてログに残す関数実行。
+
+スキーマ:
+
+* `_topic = "_execution_record"`
+* `_timestamp` = Unix エポックタイムスタンプ（ミリ秒単位）
+* `_functionType = "query" | "mutation" | "action" | "httpAction"`
+* `_functionPath` = `convex/` ディレクトリ内の関数へのパス（モジュールの
+  export 識別子を含む）
+* `_functionCached = true | false`。このフィールドは
+  `_functionType = "query"` の場合にのみ設定され、このログイベントがキャッシュされた
+  関数実行によるものかどうかを示します。
+* `status = "success" | "failure"`
+* `reason` = 関数からのエラーメッセージ。`status = "failure"` の場合にのみ設定されます
+* `executionTimeMs` = この関数の実行時間（ミリ秒）
+* `databaseReadBytes` = この関数がデータベースの読み取りで使用したデータ量（バイト単位）
+* `databaseWriteBytes` = この関数がデータベースの書き込みで使用したデータ量（バイト単位）
+* `storageReadBytes` = この関数がファイルストレージの読み取りで使用したデータ量（バイト単位）
+* `storageWriteBytes` = この関数がファイルストレージの書き込みで使用したデータ量（バイト単位）
+
+HTTP アクションの実行記録ログの例:
+
+```json
+{
+  "_topic": "_execution_record",
+  "_timestamp": 1695066350531,
+  "_functionType": "httpAction",
+  "_functionPath": "POST /sendImage",
+  "status": "failure",
+  "reason": "Unexpected Error: Some error message\n\n  at ....",
+  "executionTimeMs": 73
+}
+```
+
+### 監査証跡ログ \{#audit-trail-logs\}
+
+デプロイメント内で発生したイベントの監査ログ。
+
+スキーマ:
+
+* `_topic = "_audit_log"`
+* `_timestamp` = ミリ秒単位の Unix エポックタイムスタンプ
+* `action = "create_environment_variable" | "update_environment_variable" | "delete_environment_variable" | "replace_environment_variable" | "push_config" | "build_indexes" | "change_deployment_state"`
+* `actionMetadata` = `action` フィールドの値に応じてフィールドが変化するオブジェクト
+
+`push_config` 監査ログの例:
+
+```json
+{
+  "_topic": "_audit_log",
+  "_timestamp": 1695066350531,
+  "action": "push_config",
+  "actionMetadata": {
+    "modules": {
+      "added": ["ffmpeg.js", "fetch.js", "test.js"],
+      "removed": ["removed.js"]
+    }
+  }
+}
+```
+
+### 検証ログ \{#verification-logs\}
+
+ログストリームへのアクセスを検証するために使用される内部のログイベント。
+
+スキーマ
+
+* `_topic = "_verification"`
+* `_timestamp` = ミリ秒単位の Unix エポックのタイムスタンプ。
+* `message = Convex connection test`

@@ -1,0 +1,76 @@
+---
+title: "Comprender los componentes"
+slug: "understanding"
+sidebar_position: 10
+description: "Comprender los componentes"
+---
+
+Los componentes de Convex son módulos de backend autosuficientes que agrupan funciones,
+esquemas y datos. Te permiten añadir funcionalidades complejas a tu
+aplicación — como autenticación, limitación de velocidad (rate limiting) o colaboración en documentos — sin
+tener que implementarlo todo desde cero.
+
+Si has trabajado con desarrollo web moderno, probablemente te hayas encontrado
+ideas similares en diferentes formas. Los componentes se inspiran en componentes
+de frontend, API de terceros y arquitecturas orientadas a servicios. La diferencia
+clave es que los componentes de Convex se ejecutan dentro de tu backend, dándote
+composabilidad combinada con la persistencia y fiabilidad de los servicios de backend.
+
+El siguiente diagrama muestra cómo funcionan el acceso a datos y a funciones en el
+ecosistema de componentes. Las flechas de un elemento a otro representan que un
+elemento tiene acceso a las funciones o datos del otro elemento.
+
+<p style={{ textAlign: "center" }}>
+  <img src="/img/components-diagram.png" alt="Captura de pantalla del menú desplegable de componentes" width={600} />
+</p>
+
+### Datos \{#data\}
+
+De forma similar a los componentes de frontend, los componentes de Convex encapsulan estado y comportamiento y permiten exponer una interfaz limpia. Sin embargo, en lugar de almacenar el estado en memoria, estos pueden tener máquinas de estados internas que pueden persistir entre sesiones de usuario, abarcar varios usuarios y cambiar en respuesta a entradas externas, como webhooks. Los componentes pueden almacenar datos de varias maneras:
+
+* Tablas de base de datos con sus propias definiciones de validación de esquemas. Dado que Convex es en tiempo real de forma predeterminada, las lecturas de datos son automáticamente reactivas y las escrituras se confirman de forma transaccional.
+* Almacenamiento de archivos, independiente del almacenamiento de archivos de la aplicación principal.
+* Funciones duraderas mediante el programador de funciones integrado. Los componentes pueden programar funciones para que se ejecuten en el futuro y pasarles estado.
+
+Normalmente, las bibliotecas requieren configurar un servicio de terceros para agregar funcionalidad con estado lista para usar, la cual carece de las garantías transaccionales que se obtienen al almacenar el estado en la misma base de datos.
+
+### Aislamiento \{#isolation\}
+
+Al igual que las librerías de npm habituales, los Convex Components incluyen funciones,
+seguridad de tipos y se invocan desde tu código. Sin embargo, también ofrecen
+garantías adicionales.
+
+* De forma similar a un servicio externo, el código dentro de un componente no puede leer datos que
+  no se le hayan proporcionado explícitamente. Esto incluye tablas de base de datos, almacenamiento de archivos,
+  variables de entorno, funciones programadas, etc. A la inversa, los datos del componente
+  no pueden ser modificados directamente por la aplicación principal, lo que permite una separación completa de
+  responsabilidades.
+* De forma similar a una arquitectura orientada a servicios, las funciones en los componentes se ejecutan en
+  un entorno aislado, por lo que las escrituras en variables globales y las modificaciones al comportamiento del sistema
+  no se comparten entre componentes.
+* De forma similar a una arquitectura monolítica, los cambios de datos se confirman de forma transaccional
+  a través de llamadas a componentes, sin tener que razonar sobre complicados
+  protocolos de confirmación distribuida o inconsistencias de datos. Nunca tendrás un
+  componente que confirme datos mientras el código que lo llama se revierte.
+* Además, cada llamada a una mutación de un componente es una subtransacción aislada
+  de otras llamadas, lo que te permite capturar de forma segura los errores lanzados por los componentes.
+  Esto también permite a los autores de componentes razonar fácilmente sobre los cambios de estado
+  sin condiciones de carrera, y confiar en que una excepción lanzada siempre revertirá la
+  subtransacción del componente. [Leer más](/components/using.mdx#transactions).
+
+### Encapsulación \{#encapsulation\}
+
+Poder razonar sobre tu código es esencial para escalar una base de código.
+Los componentes te permiten razonar sobre los límites de la API y las abstracciones.
+
+* Las garantías transaccionales comentadas anteriormente permiten a autores y usuarios
+  de componentes razonar localmente sobre los cambios en los datos.
+* Los componentes exponen una API explícita, no acceso directo a las tablas de la base de datos. Las invariantes de datos se pueden aplicar en el código, dentro de los límites de la abstracción. Por ejemplo, el [componente aggregate](https://convex.dev/components/aggregate)
+  puede desnormalizar datos internamente, el componente
+  [rate limiter](https://convex.dev/components/rate-limiter) puede fragmentar
+  sus datos, y el componente de
+  [push notification](https://convex.dev/components/push-notifications)
+  puede agrupar internamente las solicitudes de la API, manteniendo al mismo
+  tiempo interfaces simples.
+* La validación en tiempo de ejecución garantiza que todos los datos que cruzan
+  el límite de un componente se validen: tanto los argumentos como los valores de retorno. Igual que con las funciones normales de Convex, los validadores también especifican los tipos de TypeScript, proporcionando tipado de extremo a extremo con garantías en tiempo de ejecución.

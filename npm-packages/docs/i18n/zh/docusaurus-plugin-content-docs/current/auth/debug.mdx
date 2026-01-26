@@ -1,0 +1,208 @@
+---
+title: "调试身份验证"
+sidebar_label: "调试"
+sidebar_position: 130
+description: "排查 Convex 中的身份验证问题"
+---
+
+# 调试身份验证 \{#debugging-authentication\}
+
+你已经按照我们的某个身份验证指南完成了操作，但有些地方仍然无法正常工作。
+你已经仔细核对过每一步操作，并确认使用了正确的密钥，但问题依然没有解决。
+
+## 常见问题 \{#frequently-encountered-issues\}
+
+### 在查询中 `ctx.auth.getUserIdentity()` 返回 `null` \{#ctxauthgetuseridentity-returns-null-in-a-query\}
+
+这通常发生在在 React 中通过 `useQuery` 订阅查询，但没有等待客户端完成认证的情况下。即使用户之前已经登录，客户端与 Convex 后端完成认证仍然需要一些时间。因此，在页面加载时，在查询中调用的 `ctx.auth.getUserIdentity()` 会返回 `null`。
+
+为了解决这个问题，你可以：
+
+1. 使用 `convex/react` 中的 `Authenticated` 组件包裹包含 `useQuery` 调用的组件（参见
+   [Clerk 指南](/auth/clerk.mdx#get-started) 中的最后两个步骤）
+2. 或者从查询中返回 `null` 或某个其他“哨兵”值，并在客户端进行处理
+
+如果你在为
+[Next.js 服务器端渲染](/client/nextjs/app-router/server-rendering.mdx) 使用 `fetchQuery`，请确保你按照文档说明
+[此处](/client/nextjs/app-router/server-rendering.mdx#server-side-authentication) 显式传入 JWT 令牌。
+
+如果这样仍未解决问题，请继续按照下面的步骤排查。
+
+## 步骤 1：检查后端的身份验证是否正常工作 \{#step-1-check-whether-authentication-works-on-the-backend\}
+
+1. 在函数（查询、变更、操作或 HTTP 操作）的*开头*添加以下代码：
+
+```ts
+console.log("server identity", await ctx.auth.getUserIdentity());
+```
+
+2. 然后在你用来与 Convex 通信的任意客户端中调用这个函数。
+
+3. 打开
+   [仪表盘中的日志页面](https://dashboard.convex.dev/deployment/logs)。
+
+4. 你在日志页面上看到了什么？
+
+   **回答：我什么都没看到**：
+
+   * 可能原因：你打开的不是正确的仪表盘。确认 *Settings* &gt; *URL and Deploy Key* 页面中的 部署 URL 是否与你客户端中的配置一致。
+   * 可能原因：你的客户端没有连接到 Convex。检查你的客户端日志（浏览器日志）中是否有错误。重新加载页面 / 重启客户端。
+   * 可能原因：代码还没有被推送。对于开发环境（dev）部署，确保你正在运行 `npx convex dev`。对于生产部署，确保你已经通过 `npx convex deploy` 成功推送。前往仪表盘上的 *Functions* 页面，检查其中展示的代码是否包含你添加的那行 `console.log`。
+
+   找到并解决问题之后，你应该会看到日志出现。
+
+   **回答：我看到一条日志为 `'server identity' null`**：
+
+   * 可能原因：客户端没有提供认证令牌（auth token）。
+   * 可能原因：你的部署配置错误。
+   * 可能原因：你的客户端配置错误。
+
+   继续前往
+   [第 2 步](#step-2-check-whether-authentication-works-on-the-frontend)。
+
+   **回答：我看到一条日志为 `'server identity' { tokenIdentifier: '... } `**
+
+   很好，一切都准备就绪了！
+
+## 步骤 2：检查前端的认证是否正常工作 \{#step-2-check-whether-authentication-works-on-the-frontend\}
+
+无论你使用哪个客户端，它都必须将一个 JWT token 传给后端，认证才能正常工作。
+
+要确保客户端确实把 token 传给后端，最可靠的方式是检查它们之间的网络流量。
+
+1. 如果你在浏览器中使用客户端，打开浏览器开发者工具中的 *Network*（网络）标签页。
+
+2. 检查 token
+
+   * 对于基于 WebSocket 的客户端（`ConvexReactClient` 和 `ConvexClient`），
+     通过名称 `sync` 进行过滤，并选择 `WS` 作为流量类型。查看这些 `sync` 项目。
+     在客户端初始化之后（通常是在页面加载完成后），它会发送一条消息（查看
+     *Messages* 标签页），其中包含 `type: "Authenticate"`，并且 `value`
+     会是认证 token。
+
+     <p style={{ textAlign: "center" }}>
+       <img src="/screenshots/auth-ws.png" alt="在 Network 标签中检查 WebSocket 消息" width={500} />
+     </p>
+
+   * 对于基于 HTTP 的客户端（`ConvexHTTPClient` 和
+     [HTTP API](/http-api/index.md)），选择 `Fetch/XHR` 作为流量类型。
+     你应该能看到每一次函数调用对应的单独网络请求，并且带有一个
+     `Authorization` 头，其值为 `Bearer `，后面跟着认证 token。
+
+     <p style={{ textAlign: "center" }}>
+       <img src="/screenshots/auth-http.png" alt="在 Network 标签中检查 HTTP 头" width={480} />
+     </p>
+
+3. 你能在网络流量中看到认证 token 吗？
+
+   **答案：不能**：
+
+   * 可能原因：Convex 客户端没有被配置为获取/拉取 JWT token。你没有在
+     `ConvexReactClient` 上使用
+     `ConvexProviderWithClerk`/`ConvexProviderWithAuth0`/`ConvexProviderWithAuth`，
+     或者你忘记在 `ConvexHTTPClient` 或 `ConvexClient` 上调用 `setAuth`。
+   * 可能原因：你尚未登录，因此 token 为 `null` 或 `undefined`，`ConvexReactClient`
+     会直接跳过认证。通过在你使用的任意认证提供方中使用 `console.log`
+     打印 token 来确认你已经登录：
+
+     * Clerk：
+
+       ```tsx
+       // import { useAuth } from "@clerk/nextjs"; // 针对 Next.js
+       import { useAuth } from "@clerk/clerk-react";
+
+       const { getToken } = useAuth();
+       console.log(getToken({ template: "convex" }));
+       ```
+
+     * Auth0：
+
+       ```tsx
+       import { useAuth0 } from "@auth0/auth0-react";
+
+       const { getAccessTokenSilently } = useAuth0();
+       const response = await getAccessTokenSilently({
+         detailedResponse: true,
+       });
+       const token = response.id_token;
+       console.log(token);
+       ```
+
+     * 自定义：取决于你是如何实现 `useAuthFromProviderX` 的
+
+     如果你没有看到一长串看起来像 token 的字符串，检查浏览器日志中是否有来自认证提供方的错误。如果没有错误，再检查 Network 标签，看向你的认证提供方发起的请求是否失败。认证提供方可能配置错误。仔细检查认证提供方的配置（在对应的 React provider 中，或者你为客户端配置认证提供方的其他方式）。尝试在浏览器中清理 cookies（开发者工具中的 *Application* &gt; *Cookies* &gt; *Clear all cookies*
+     按钮）。
+
+   **答案：能，我看到了一个看起来像 JWT 的长字符串**：
+
+   很好，把整个 token 复制下来（其中可能包含 `.`，确保你没有只复制其中一部分）。
+
+4. 打开 https://jwt.io/，向下滚动，在页面左侧的 Encoded 文本区域中粘贴该 token。
+   在右侧你应该能看到：
+
+   * 在 *HEADER* 中，`"typ": "JWT"`
+   * 在 *PAYLOAD* 中，有一个有效的 JSON，至少包含 `"aud"`、`"iss"` 和 `"sub"`
+     字段。如果你在 payload 中看到的是乱码，你可能没有正确复制 token，或者它并不是一个有效的 JWT token。
+
+   如果你看到的是一个有效的 JWT token，请回到
+   [步骤 1](#step-1-check-whether-authentication-works-on-the-backend)。如果你仍然看不到正确的身份信息，继续进行步骤 3。
+
+## 步骤 3：检查后端配置是否与前端配置匹配 \{#step-3-check-that-backend-configuration-matches-frontend-configuration\}
+
+你在前端已经有一个有效的 JWT 令牌，并且确认它被传递到了后端，但后端没有对它进行验证。
+
+1. 在仪表盘中打开 *Settings* &gt; *Authentication*。你看到了什么？
+
+   **答案：我看到
+   `This deployment has no configured authentication providers`**：
+
+   * 原因：你的 `convex` 目录中没有 `auth.config.ts`（或 `auth.config.js`）文件，或者你还没有推送代码。请按照认证指南创建一个有效的认证配置文件。对于开发环境（dev）部署，确保正在运行 `npx convex dev`。对于生产（prod）部署，确保已通过 `npx convex deploy` 成功推送。
+
+   **答案：我看到一个或多个 *Domain* 与 *Application ID* 的配对。
+
+很好，我们来检查这些配置是否与 JWT 令牌匹配。
+
+2. 在 https://jwt.io/ 中查看 JWT 令牌的 payload 里的 `iss` 字段。它是否与 *Authentication* 页面中的某个 *Domain* 匹配？
+
+   **答案：不，我在 Convex 仪表盘上没有看到这个 `iss` URL**：
+
+   * 可能原因：你把错误的值复制到了
+     <JSDialectFileName name="auth.config.ts" />
+     的 `domain` 中，或者复制到了该处使用的环境变量中。返回认证指南，确认你从认证提供商那里复制了正确的 URL。
+   * 可能原因：你的客户端配置有误：
+
+     * Clerk：你配置了错误的 `publishableKey`。该 key 必须属于你用来配置
+
+       <JSDialectFileName name="auth.config.ts" /> 的那个 Clerk 实例。
+
+       * 还要确保在 Clerk 中的 JWT 令牌名称是 `convex`，因为 `ConvexProviderWithClerk` 就是用这个名称来获取令牌的！
+
+     * Auth0：你配置了错误的 `domain`（是在客户端上！）。该 domain 必须属于你用来配置
+       <JSDialectFileName name="auth.config.ts" /> 的那个 Auth0 实例。
+
+     * Custom：确保你的客户端配置与
+       <JSDialectFileName name="auth.config.ts" /> 相匹配。
+
+   **答案：是的，我确实看到了这个 `iss` URL**：
+
+   很好，我们继续下一步。
+
+3. 在 https://jwt.io/ 中查看 JWT 令牌的 payload 里的 `aud` 字段。它是否与 *Authentication* 页面中对应 *Domain* 下的 *Application ID* 匹配？
+
+   **答案：不，我没有在 *Application ID* 字段中看到这个 `aud` 值**：
+
+   * 可能原因：你把错误的值复制到了
+     <JSDialectFileName name="auth.config.ts" />
+     的 `applicationID` 中，或者复制到了该处使用的环境变量中。返回认证指南，确认你从认证提供商那里复制了正确的值。
+   * 可能原因：你的客户端配置有误：
+     * Clerk：你配置了错误的 `publishableKey`。该 key 必须属于你用来配置
+       <JSDialectFileName name="auth.config.ts" /> 的那个 Clerk 实例。
+     * Auth0：你配置了错误的 `clientId`。确保你使用的是为你配置
+       <JSDialectFileName name="auth.config.ts" /> 的那个 Auth0 实例对应的正确 `clientId`。
+     * Custom：确保你的客户端配置与
+       <JSDialectFileName name="auth.config.ts" /> 相匹配。
+
+   **答案：是的，我确实在 *Application ID* 字段中看到了这个 `aud` 值**：
+
+   很好，重复
+   [步骤 1](#step-1-check-whether-authentication-works-on-the-backend)，你就一切就绪了！

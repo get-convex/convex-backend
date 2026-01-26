@@ -1,0 +1,159 @@
+---
+title: 线程
+sidebar_label: "线程"
+sidebar_position: 200
+description: "将消息分组为会话历史"
+---
+
+线程是一种将消息按时间顺序组织到一起的方式。保存在 Agent 组件中的所有消息都与某个线程相关联。当基于提示生成消息时，用户消息和生成的 Agent 消息会自动保存。
+
+线程可以与某个用户关联，每条消息也可以分别与某个用户关联。默认情况下，消息会与该线程所属的用户关联。
+
+## 创建线程 \{#creating-a-thread\}
+
+你可以在变更或操作中创建一个线程。如果你在操作中创建它，
+它还会返回一个 `thread`（见下文），然后你就可以开始调用 LLM 并
+生成消息。如果你指定了 userId，该线程会与该用户关联，消息也会被保存到该用户的历史记录中。
+
+```ts
+import { createThread } from "@convex-dev/agent";
+
+const threadId = await createThread(ctx, components.agent);
+```
+
+你还可以传入要设置到线程上的元数据：
+
+```ts
+const userId = await getAuthUserId(ctx);
+const threadId = await createThread(ctx, components.agent, {
+  userId,
+  title: "My thread",
+  summary: "This is a summary of the thread",
+});
+```
+
+将来可能会自动把元数据作为上下文提供给 agent，但目前它只是一个用于在
+[Playground](./playground.mdx)
+中组织线程的便捷功能。
+
+## 在线程中生成消息 \{#generating-a-message-in-a-thread\}
+
+你可以通过以下 agent 函数在线程中生成消息：
+`agent.generateText`、`agent.generateObject`、`agent.streamText` 和
+`agent.streamObject`。任何 agent 都可以在任意其他 agent 创建的线程中生成消息。
+
+```ts
+const agent = new Agent(components.agent, { languageModel, instructions });
+
+export const generateReplyToPrompt = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+有关创建和保存消息的更多详情，请参见 [Messages](./messages.mdx)。
+
+## 使用 `agent.continueThread` 返回的 `thread` 对象继续对话线程 \{#continuing-a-thread-using-the-thread-object-from-agentcontinuethread\}
+
+你也可以通过创建一个特定于 agent 的 `thread` 对象来继续对话线程，
+可以在操作中调用 `agent.createThread` 时创建，或者在操作中调用
+`agent.continueThread` 获取。这样你在之后调用方法时，
+就不必每次都指定这些参数。
+
+```ts
+const { thread } = await agent.continueThread(ctx, { threadId });
+const result = await thread.generateText({ prompt });
+```
+
+来自 `continueThread` 或 `createThread`（仅在操作中可用）的 `thread`
+是一个 `Thread` 对象，它提供了一些特定于该线程的便捷方法：
+
+* 使用 `thread.getMetadata()` 获取 `userId`、`title`、`summary` 等
+* 使用 `thread.updateMetadata({ patch: { title, summary, userId} })` 更新
+  元数据
+* `thread.generateText({ prompt, ... })` —— 等价于
+  `agent.generateText(ctx, { threadId }, { prompt, ... })`
+* `thread.streamText({ prompt, ... })` —— 等价于
+  `agent.streamText(ctx, { threadId }, { prompt, ... })`
+* `thread.generateObject({ prompt, ... })` —— 等价于
+  `agent.generateObject(ctx, { threadId }, { prompt, ... })`
+* `thread.streamObject({ prompt, ... })` —— 等价于
+  `agent.streamObject(ctx, { threadId }, { prompt, ... })`
+
+有关生成消息的更多详细信息，请参阅 [Messages 文档](./messages.mdx)。
+
+## 删除线程 \{#deleting-threads\}
+
+你可以根据 `threadId` 删除线程。
+
+在变更或操作中以异步方式：
+
+```ts
+await agent.deleteThreadAsync(ctx, { threadId });
+```
+
+在操作中同步分批执行：
+
+```ts
+await agent.deleteThreadSync(ctx, { threadId });
+```
+
+你还可以通过该用户的 `userId` 删除其所有线程。
+
+```ts
+await agent.deleteThreadsByUserId(ctx, { userId });
+```
+
+## 获取某个用户的所有线程 \{#getting-all-threads-owned-by-a-user\}
+
+```ts
+const threads = await ctx.runQuery(
+  components.agent.threads.listThreadsByUserId,
+  { userId, paginationOpts: args.paginationOpts },
+);
+```
+
+## 删除与某个用户关联的所有消息线程和消息 \{#deleting-all-threads-and-messages-associated-with-a-user\}
+
+异步执行（在变更或操作中）：
+
+```ts
+await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
+  userId,
+});
+```
+
+以同步方式（在操作中）：
+
+```ts
+await ctx.runMutation(components.agent.users.deleteAllForUserId, { userId });
+```
+
+## 获取对话中的消息 \{#getting-messages-in-a-thread\}
+
+更多详情请参见 [messages.mdx](./messages.mdx)。
+
+```ts
+import { listMessages } from "@convex-dev/agent";
+
+const messages = await listMessages(ctx, components.agent, {
+  threadId,
+  excludeToolMessages: true,
+  paginationOpts: { cursor: null, numItems: 10 }, // null 表示从头开始
+});
+```
+
+或者使用 `UIMessage` 类型（更便于渲染 UI）：
+
+```ts
+import { listUIMessages } from "@convex-dev/agent";
+
+const messages = await listUIMessages(ctx, components.agent, {
+  threadId,
+  paginationOpts: { cursor: null, numItems: 10 }, // null 表示从头开始
+});
+```

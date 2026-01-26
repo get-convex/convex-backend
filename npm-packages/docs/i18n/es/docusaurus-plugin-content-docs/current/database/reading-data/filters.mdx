@@ -1,0 +1,216 @@
+---
+title: "Filtros"
+sidebar_position: 200
+description: "Filtra documentos en consultas de Convex"
+---
+
+# Filtrado \{#filtering\}
+
+El método [`filter`](/api/interfaces/server.Query#filter) te permite restringir
+los documentos que devuelve tu consulta de documentos. Este método recibe un
+filtro construido con [`FilterBuilder`](/api/interfaces/server.FilterBuilder) y
+solo seleccionará los documentos que coincidan.
+
+Los siguientes ejemplos muestran algunos de los usos más comunes de `filter`.
+Puedes ver la lista completa de métodos de filtrado disponibles
+[en la documentación de referencia](/api/interfaces/server.FilterBuilder).
+
+Si necesitas filtrar documentos que contengan ciertas palabras clave, usa una
+[consulta de búsqueda](/search/text-search.mdx).
+
+<Admonition type="caution" title="Usa índices en su lugar">
+  Los filtros efectivamente recorren tu tabla buscando documentos que
+  coincidan. Esto puede ser lento o hacer que tu función alcance un
+  [límite](/production/state/limits.mdx) cuando tu tabla tiene miles de filas.
+  Para consultas más rápidas y eficientes en la base de datos, usa
+  [índices](/database/reading-data/indexes/indexes.md).
+</Admonition>
+
+### Condiciones de igualdad \{#equality-conditions\}
+
+Esta consulta de documentos obtiene los documentos de la tabla `users` donde
+`doc.name === "Alex"`:
+
+```ts
+// Obtén todos los usuarios llamados "Alex".
+const usersNamedAlex = await ctx.db
+  .query("users")
+  .filter((q) => q.eq(q.field("name"), "Alex"))
+  .collect();
+```
+
+Aquí `q` es el objeto auxiliar [`FilterBuilder`](/api/interfaces/server.FilterBuilder).
+Contiene métodos para todos nuestros operadores de filtro admitidos.
+
+Este filtro se ejecutará en todos los documentos de la tabla. Para cada documento,
+`q.field("name")` corresponde a la propiedad `name`. Luego `q.eq` comprueba si esta
+propiedad es igual a `"Alex"`.
+
+Si tu consulta hace referencia a un campo que no existe en un documento determinado, entonces ese
+campo se considerará que tiene el valor `undefined`.
+
+### Comparaciones \{#comparisons\}
+
+Los filtros también se pueden usar para comparar campos con valores. Esta consulta de documentos
+busca documentos en los que `doc.age >= 18`:
+
+```ts
+// Obtiene todos los usuarios con una edad de 18 o superior.
+const adults = await ctx.db
+  .query("users")
+  .filter((q) => q.gte(q.field("age"), 18))
+  .collect();
+```
+
+Aquí, el operador `q.gte` verifica si el primer argumento (`doc.age`) es mayor
+o igual que el segundo (`18`).
+
+Esta es la lista completa de comparaciones:
+
+| Operador      | Equivalente en TypeScript |
+| ------------- | ------------------------- |
+| `q.eq(l, r)`  | `l === r`                 |
+| `q.neq(l, r)` | `l !== r`                 |
+| `q.lt(l, r)`  | `l < r`                   |
+| `q.lte(l, r)` | `l <= r`                  |
+| `q.gt(l, r)`  | `l > r`                   |
+| `q.gte(l, r)` | `l >= r`                  |
+
+### Aritmética \{#arithmetic\}
+
+También puedes incluir aritmética básica en tus consultas. Esta consulta de documentos devuelve
+documentos en la tabla `carpets` donde `doc.height * doc.width > 100`:
+
+```ts
+// Obtener todas las alfombras con un área mayor a 100.
+const largeCarpets = await ctx.db
+  .query("carpets")
+  .filter((q) => q.gt(q.mul(q.field("height"), q.field("width")), 100))
+  .collect();
+```
+
+Esta es la lista completa de operadores aritméticos:
+
+| Operador      | Equivalente en TypeScript |
+| ------------- | ------------------------- |
+| `q.add(l, r)` | `l + r`                   |
+| `q.sub(l, r)` | `l - r`                   |
+| `q.mul(l, r)` | `l * r`                   |
+| `q.div(l, r)` | `l / r`                   |
+| `q.mod(l, r)` | `l % r`                   |
+| `q.neg(x)`    | `-x`                      |
+
+### Combinación de operadores \{#combining-operators\}
+
+Puedes construir filtros más complejos mediante métodos como `q.and`, `q.or` y
+`q.not`. Esta consulta encuentra los documentos en los que
+`doc.name === "Alex" && doc.age >= 18`:
+
+```ts
+// Obtiene todos los usuarios llamados "Alex" cuya edad sea al menos 18.
+const adultAlexes = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.and(q.eq(q.field("name"), "Alex"), q.gte(q.field("age"), 18)),
+  )
+  .collect();
+```
+
+Esta es una consulta que encuentra todos los usuarios donde
+`doc.name === "Alex" || doc.name === "Emma"`:
+
+```ts
+// Obtiene todos los usuarios llamados "Alex" o "Emma".
+const usersNamedAlexOrEmma = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.or(q.eq(q.field("name"), "Alex"), q.eq(q.field("name"), "Emma")),
+  )
+  .collect();
+```
+
+## Técnicas avanzadas de filtrado \{#advanced-filtering-techniques\}
+
+A veces la sintaxis de filtrado no es lo suficientemente expresiva. Por ejemplo, es posible que quieras
+obtener todas las publicaciones que tengan una etiqueta. Tu esquema para las publicaciones es el siguiente:
+
+```ts
+export default defineSchema({
+  posts: defineTable({
+    body: v.string(),
+    tags: v.array(v.string()),
+  }),
+});
+```
+
+Una forma de resolverlo es aplicar un filtro al resultado de la llamada a `collect()`.
+Esto es simplemente filtrar un array de JavaScript:
+
+```ts
+export const postsWithTag = query({
+  args: { tag: v.string() },
+  handler: async (ctx, args) => {
+    const allPosts = await ctx.db.query("posts").collect();
+    return allPosts.filter((post) => post.tags.includes(args.tag));
+  },
+});
+```
+
+Pero esto requiere leer primero toda la tabla. Si solo quieres obtener el
+primer resultado que coincida, leer toda la tabla puede ser muy ineficiente.
+En su lugar, quizá quieras usar la sintaxis de JavaScript
+[`for await...of`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of)
+para iterar sobre la tabla un documento a la vez:
+
+```ts
+export const firstPostWithTag = query({
+  args: { tag: v.string() },
+  handler: (ctx, args) => {
+    for await (const post of db.query("posts")) {
+      if (post.tags.includes(args.tag)) {
+        return post;
+      }
+    }
+  },
+});
+```
+
+Esto funciona porque las consultas de Convex son
+[iterables de JavaScript](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols).
+
+Incluso con esta optimización, sigues recorriendo la tabla para encontrar
+la primera publicación que coincida y podrías alcanzar los límites de ejecución de tu función. Usar índices
+sigue siendo la mejor opción. Puedes leer una
+[discusión detallada sobre cómo manejar etiquetas con índices](https://stack.convex.dev/complex-filters-in-convex#optimize-with-indexes).
+
+## Rendimiento y límites de las consultas \{#querying-performance-and-limits\}
+
+La mayoría de los ejemplos de consultas de documentos anteriores pueden dar lugar a un *full table scan*. Es decir, para que la consulta de documentos devuelva los resultados solicitados, podría necesitar recorrer cada uno de los documentos de la tabla.
+
+Considera este ejemplo sencillo:
+
+```ts
+const tasks = await ctx.db.query("tasks").take(5);
+```
+
+Esta consulta de documentos no recorrerá más de 5 documentos.
+
+Por otro lado, esta consulta de documentos:
+
+```ts
+const tasks = await ctx.db
+  .query("tasks")
+  .filter((q) => q.eq(q.field("isCompleted"), true))
+  .first();
+```
+
+podrías tener que recorrer cada documento de la tabla `"tasks"` solo para
+encontrar el primero con `isCompleted: true`.
+
+Si una tabla tiene más de unos cuantos miles de documentos, deberías usar
+[indexes](/database/reading-data/indexes/indexes.md) para mejorar el rendimiento
+de tus consultas de documentos. De lo contrario, podrías encontrarte con nuestros
+límites establecidos, detallados en
+[Read/write limit errors](/functions/error-handling/error-handling.mdx#readwrite-limit-errors).
+
+Para obtener información sobre otros límites, consulta [Limits](/production/state/limits.mdx).

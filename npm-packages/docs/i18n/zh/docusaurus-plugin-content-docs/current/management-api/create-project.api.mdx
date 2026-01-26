@@ -1,0 +1,34 @@
+---
+id: create-project
+title: "创建项目"
+description: "在团队中创建新项目并配置开发环境（dev）或生产环境部署。"
+sidebar_label: "创建项目"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVsGO2zYQ/RViTgkg27vbNAfdtpseFki7i83mZBvBWBxbTChSISk7hqF/L4aUJdnepEWbQ0+WKXH43vDNmzmAJF84VQdlDeRw5wgDCRSGdqJ29jMVQVgjUATCSqCRvLpVXsVFSVthHS9JIanWdl+RCVPIwNbkkIPeS8ihSGG7gJBBjQ4rCuQ85PMDGKwIcuAzPikJGSgGU2MoITtD+Mw47t9BBo6+NsqRhDy4hjLwRUkVQn6AsK85nDKBNuQgg7V1FYa09PYNZFApo6qmgvwqg6CCpi7yvYS2XabY5MNvVu45YGFNIBP4EetaqyJSm332DOlwebJddTwHjHPo2P/JXJnVMV3PvGeZ8fuaXFDkOdLw/k6jj0vW0MM65qs7xjRaQ5v1/31wymwgAzLMbQ7++i1k4G9+5R95fXXzhg86En53dkS7bC9wRSTj/D8mFl6g3uHeC2UK3UiKYjjuzIS3wgd0QYRS+UFI67XYqVAKXJgFSNougCVE2ta8bRSBVYViwTmRC4gCawpGcCaz7xGXtIWYUTkm/KgxsBQ6Du9OqbbZyRVdMH8uSawbrQWrVdi1CGUvaYFeqCB2SmuBdU3ohDLxA4m+XFl0cio+1FiQX5hYRY0pQhNlxKnUdkfyJUI99BGylnW1UUl7/1wUx1BPae+QLNz5SeMnhD5MrmHZLts2A5RSMTrUjyNdrlF7ukxoso0O463beGjb9rxC44KvrfFJ4TdXV5dJhuynFtu9PCm1i9r76PSPSu8ohPNUXgrDEUpcaRJKkglqrciJtXVJ/6eVUVEoldkIrb7QwtQa9+tGT2wI5CbXN79MoT1H+LcIBiWLQttGio9P7zOxK8nROQKh1Zb8dKR2duh/65mPfQi+7x/K4qm7e5YGf+ypaJwK+6jdh9smlCJ6+7P9Qgby+ZI1fLayzICzZ7mn1NanThJKyGHGvcPPDl0LaWep5XwaWo4ntz32m4aTCmUItc9nM6zVtLBmS9+mkraz7fVFfo+ExO3jPTCKI/gPLMakmkShI3vE3OeVz4KuR/H/FaGLaT496GEVUBmSIpTONptSoJjfRWgixR9VxPLVkYC0hR8zqNDghvi2J1ir1/GyLzP8/8H2X1AljckLuxWNkeTS2OIpBGU2PlYkmn1a3dtGFGhEQjSNCmaTeRp6/+/fsKo1vdiPk9FeNsyh9wytZKjbo3EfbRqUWdvIuqudLqN/9GmKmjtnffo68urnMvYWbjGRF//pQtZ95zbjac1z29GqIK7NvJ/F3qeVJ1pP0n6eynpve/GDNgOusITweno1vYouY32o0IxC351PgyfcRtPWzxtHO00F+hZmtUZlGFmTrDU5yDxOnx4yyIcx9MxElhmU7Dr5HA6HFXr66HTb8vLXhhw72TKDLTrFnSAajVSen2XfOb9L9dVT171ei2HEfRF2t4hmD3yabij1zS+0H83QcZgrCSVf1vzQvb1L502iVIfdF32WvTftuC0KqsMPvx278uPDh2fIYNUNzpWVvMfhjrWPu4TURv7RNePaATSaTYMb/jbFjCNIwxfTG0JvAN3DaOY5zcXhkL6IjtK2Q2qiw/B40/4F1/ODew==
+sidebar_class_name: "post api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"创建项目"} />
+
+<MethodEndpoint method={"post"} path={"/teams/{team_id}/create_project"} context={"endpoint"} />
+
+在团队中创建一个新项目，并预配一个 dev（开发）或 prod（生产）部署。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"请求"} />
+
+<ParamsDetails parameters={[{"name":"team_id","in":"path","description":"团队 ID","required":true,"schema":{"type":"integer","format":"int64","minimum":0,"title":"TeamId"}}]} />
+
+<RequestSchema title={"请求体"} body={{"content":{"application/json":{"schema":{"type":"object","required":["projectName","deploymentType"],"properties":{"deploymentClass":{"oneOf":[{"type":"null"},{"type":"string","enum":["s16","s256","d1024"],"title":"DeploymentClass"}]},"deploymentType":{"description":"项目始终包含一个部署，因此可以选择以 \"dev\" 开发部署或 \"prod\" 生产部署来启动该项目。","type":"string","enum":["dev","prod"],"title":"PlatformProjectDeploymentType"},"projectName":{"description":"项目在仪表盘中显示的全名。允许包含空格和标点符号。","type":"string","title":"ProjectName"},"region":{"oneOf":[{"type":"null"},{"type":"string","title":"Region","enum":["aws-us-east-1"]}]}},"additionalProperties":false,"title":"PlatformCreateProjectArgs"}}},"required":true}} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["projectId","deploymentName","deploymentUrl"],"properties":{"deploymentName":{"type":"string","description":"该部署的可读标识符，例如 playful-otter-123。"},"deploymentUrl":{"type":"string","description":"该部署所在的云端 URL。"},"projectId":{"type":"integer","format":"int64","minimum":0,"title":"ProjectId"}},"title":"PlatformCreateProjectResponse"}}}}}} />

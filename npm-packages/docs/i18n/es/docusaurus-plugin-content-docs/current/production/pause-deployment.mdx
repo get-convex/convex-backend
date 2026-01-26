@@ -1,0 +1,29 @@
+---
+title: "Pausar un despliegue"
+sidebar_label: "Pausar un despliegue"
+sidebar_position: 4
+description: "Deshabilitar temporalmente un despliegue sin eliminar datos"
+---
+
+Pausar un despliegue es una forma de "apagar" un despliegue sin eliminar ningún
+dato. Esto puede ser útil si tienes una acción que está agotando rápidamente la
+cuota de una API de terceros y solo necesitas un gran botón rojo para detener todo.
+
+Cuando un despliegue está pausado:
+
+- Las nuevas llamadas a funciones devolverán un error.
+- Los trabajos programados se pondrán en cola y se ejecutarán cuando se reanude el despliegue.
+- Las tareas cron se omitirán.
+- Todo lo demás (por ejemplo, push de código, ediciones en el panel de control) debería funcionar como de costumbre.
+
+**¡Esto es importante!** Todas las nuevas llamadas a funciones devolverán un error cuando un
+despliegue esté pausado, así que si estás ejecutando una aplicación en producción quizá quieras
+considerar alternativas, como hacer un push de código que deshabilite la funcionalidad que estás intentando
+"apagar". Recomendamos probar primero esta funcionalidad en un despliegue dev
+antes de pausar un despliegue de producción.
+
+![Botón de pausar despliegue](/screenshots/pause_deployment.png)
+
+Se puede reanudar un despliegue con este botón en la misma página:
+
+![Reanudar despliegue](/screenshots/resume_deployment.png)

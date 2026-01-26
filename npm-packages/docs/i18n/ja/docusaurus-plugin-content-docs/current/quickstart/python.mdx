@@ -1,0 +1,95 @@
+---
+title: "Python クイックスタート"
+sidebar_label: Python
+description: "Python プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 500
+---
+
+import sampleData from "!!raw-loader!@site/../demos/python-quickstart/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../demos/python-quickstart/convex/tasks.js";
+import main from "!!raw-loader!@site/../demos/python-quickstart/main.py";
+
+Convex のデータを Python アプリからクエリする方法を説明します。
+
+<StepByStep>
+  <Step title="Python スクリプト用フォルダを作成する">
+    仮想環境付きの Python スクリプト用フォルダを作成します。
+
+    ```sh
+    python3 -m venv my-app/venv
+    ```
+  </Step>
+
+  <Step title="Convex クライアントとサーバーライブラリをインストールする">
+    まず、バックエンドを実装するための `convex` npm
+    パッケージをインストールします。
+
+    あわせて、`convex` の Python クライアントライブラリと、
+    `.env` ファイルを扱うための `python-dotenv` もインストールします。
+
+    ```sh
+    cd my-app && npm init -y && npm install convex && venv/bin/pip install convex python-dotenv
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に `npx convex dev` を実行します。
+    これにより GitHub へのログイン、プロジェクトの作成、
+    そして本番用およびデプロイメントURLの保存が求められます。
+
+    同時に、バックエンド API 関数を書くための `convex/`
+    フォルダも作成されます。`dev` コマンドはその後も実行され続け、
+    クラウド上の dev デプロイメントとあなたの関数を同期します。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで `sampleData.jsonl`
+    ファイルを作成し、いくつかのサンプルデータを書き込みます。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`tasks` テーブルを作成し、
+    サンプルデータを `import` コマンドで Convex データベースに
+    追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダに新しく `tasks.js` ファイルを追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいて
+    `"tasks:get"` という名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="Convex からデータをロードするスクリプトを作成する">
+    新しいファイル `main.py` で `ConvexClient` を作成し、
+    それを使って `"tasks:get"` API からデータを取得します。
+
+    <Snippet source={main} title="main.py" />
+  </Step>
+
+  <Step title="スクリプトを実行する">
+    スクリプトを実行し、
+    シリアライズされたタスク一覧を確認します。
+
+    ```sh
+    venv/bin/python -m main
+    ```
+  </Step>
+</StepByStep>
+
+詳しくは [PyPI のドキュメント](https://pypi.org/project/convex/) を参照してください。

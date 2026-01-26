@@ -1,0 +1,194 @@
+---
+title: "Convex データベースにユーザーを保存する"
+sidebar_label: "データベース"
+sidebar_position: 120
+description: "Convex データベースにユーザー情報を保存する"
+---
+
+import Schema from "!!raw-loader!@site/../demos/users-and-clerk/convex/schema.ts";
+import useStoreUserEffectTS from "!!raw-loader!@site/../demos/users-and-clerk/src/useStoreUserEffect.ts";
+import useStoreUserEffectJS from "!!raw-loader!@site/../private-demos/snippets/users-and-clerk/useStoreUserEffect.js";
+import MessagesTS from "!!raw-loader!@site/../demos/users-and-clerk/convex/messages.ts";
+import UsersTS from "!!raw-loader!@site/../demos/users-and-clerk/convex/users.ts";
+import App from "!!raw-loader!@site/../private-demos/snippets/src/clerkStoreUserApp.tsx";
+import WebhooksSchema from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/schema.ts";
+import WebhookMutations from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/users.ts";
+import WebhookEndpoint from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/http.ts";
+import WebhookMessages from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/messages.ts";
+import WebhookHook from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/src/useCurrentUser.ts";
+import WebhookClient from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/src/App.tsx";
+
+*もし [Convex Auth](/auth/convex-auth.mdx) を使っている場合、ユーザー情報はすでにデータベースに保存されています。追加で実装する必要はありません。*
+
+次のような理由から、ユーザー情報を Convex データベースに直接保存したくなるかもしれません。
+
+* 関数が、現在ログインしているユーザーだけでなく、他のユーザーに関する情報を必要とする場合
+* 関数が、[OpenID Connect JWT](/auth/functions-auth.mdx) で利用可能なフィールド以外の情報にアクセスする必要がある場合
+
+データベースにユーザー情報を保存する方法は 2 つあります（ただし、JWT に含まれない情報を保存できるのは 2 番目の方法だけです）。
+
+1. アプリの[クライアントからミューテーションを呼び出し](#call-a-mutation-from-the-client)、[`ctx.auth`](/api/interfaces/server.Auth) で利用可能な JWT からの情報を保存する
+2. [webhook を実装](#set-up-webhooks)し、ユーザー情報が変更されるたびにアイデンティティプロバイダーからその webhook を呼び出してもらう
+
+## クライアントからミューテーションを実行する \{#call-a-mutation-from-the-client\}
+
+**例:**
+[Clerk を使った Convex 認証](https://github.com/get-convex/convex-demos/tree/main/users-and-clerk)
+
+### （任意）Users テーブルのスキーマ \{#optional-users-table-schema\}
+
+`"users"` テーブルを定義し、必要に応じてデータベース内のユーザーを効率的に検索するための
+[index](/database/reading-data/indexes/indexes.md) を追加できます。
+
+以下の例では、ユーザーを識別するために `ctx.auth.getUserIdentity()` の
+`tokenIdentifier` を使用しますが、代わりに（認証プロバイダからの一意なユーザー ID が通常入る）
+`subject` フィールドを使ったり、認証プロバイダがメールアドレスの検証機能を提供していて、それを有効にしている場合は
+`email` を使うこともできます。
+
+どのフィールドを使うかによって、複数のプロバイダ同士の連携方法や、別のプロバイダへ移行する際の難易度が変わります。
+
+<Snippet source={Schema} snippet="user" title="convex/schema.ts" />
+
+### 現在のユーザー情報を保存するミューテーション \{#mutation-for-storing-current-user\}
+
+次は、ユーザーの `name` と
+`tokenIdentifier` を保存するミューテーションの例です:
+
+<TSAndJSSnippet sourceTS={UsersTS} sourceJS={UsersTS} title="convex/users.js" />
+
+### React から store user ミューテーションを呼び出す \{#calling-the-store-user-mutation-from-react\}
+
+ユーザーがログインしたときに、このミューテーションを `useEffect` フックから呼び出せます。
+ミューテーションが成功したら、ユーザーが保存されたことを反映するようにローカル state を更新します。
+
+この処理を行うヘルパーフックは次のとおりです。
+
+<TSAndJSSnippet sourceTS={useStoreUserEffectTS} sourceJS={useStoreUserEffectJS} title="src/useStoreUserEffect.ts" />
+
+このフックはトップレベルコンポーネントで使用できます。クエリがユーザードキュメントの存在を前提としている場合は、ユーザーが保存された後にのみ、それらのクエリを呼び出すコンポーネントをレンダリングするようにしてください。
+
+<TSAndJSSnippet sourceTS={App} sourceJS={App} title="src/App.tsx" />
+
+このようにして、`useStoreUserEffect` フックは `useConvexAuth` フックの代わりになります。
+
+### 現在のユーザーのドキュメント ID を使用する \{#using-the-current-users-document-id\}
+
+`storeUser` ミューテーションと同様に、現在のユーザーの ID を取得したり、
+ユーザーがまだ保存されていなければエラーをスローしたりできます。
+
+Convex データベースにユーザーをドキュメントとして保存したので、
+他のドキュメントでその ID を外部キーとして利用できます:
+
+<TSAndJSSnippet
+  sourceTS={MessagesTS}
+  sourceJS={MessagesTS}
+  snippet="load-user"
+  title="convex/messages.ts"
+  suffix={`    // do something with \`user\`...
+}
+});`}
+/>
+
+### ユーザーを ID で取得する \{#loading-users-by-their-id\}
+
+他のユーザーの情報は、それぞれの ID を使って取得できます。
+
+<TSAndJSSnippet
+  sourceTS={MessagesTS}
+  sourceJS={MessagesTS}
+  snippet="use-users"
+  title="convex/messages.ts"
+  prefix={`import { query } from "./_generated/server";
+`}
+/>
+
+## Webhook をセットアップする \{#set-up-webhooks\}
+
+このガイドでは Clerk を使用しますが、Auth0 についても
+[Auth0 Actions](https://auth0.com/docs/customize/actions/actions-overview)
+を使って同様にセットアップできます。
+
+この実装では、ユーザーがサインアップ、情報を更新、またはアカウントを削除するたびに、Clerk が HTTP エンドポイント経由であなたの Convex バックエンドを呼び出します。
+
+**例:**
+[Convex Authentication with Clerk and Webhooks](https://github.com/get-convex/convex-demos/tree/main/users-and-clerk-webhooks)
+
+### Clerk で webhook エンドポイントを設定する \{#configure-the-webhook-endpoint-in-clerk\}
+
+Clerk のダッシュボードで *Webhooks* に移動して、*+ Add Endpoint* をクリックします。
+
+*Endpoint URL* を
+`https://<your deployment name>.convex.site/clerk-users-webhook` に設定します（ドメインの末尾が `.cloud` ではなく **`.site`** であることに注意してください）。デプロイメント名は、プロジェクトディレクトリ内の `.env.local` ファイル、または Convex のダッシュボード上の [Deployment URL](/dashboard/deployments/settings.md) の一部として確認できます。たとえば、エンドポイント URL は次のようになります:
+`https://happy-horse-123.convex.site/clerk-users-webhook`。
+
+*Message Filtering* で、すべてのユーザーイベントに対して **user** を選択します（下にスクロールするか、検索入力を使用してください）。
+
+*Create* をクリックします。
+
+エンドポイントが保存されたら、UI の右側に表示されている *Signing Secret* をコピーします。`whsec_` で始まっているはずです。これを `CLERK_WEBHOOK_SECRET` 環境変数の値として、Convex の
+[dashboard](https://dashboard.convex.dev) で設定します。
+
+### （任意）users テーブルのスキーマ \{#optional-users-table-schema\}
+
+`"users"` テーブルを定義できます。オプションで、データベース内のユーザーを効率的に検索するための
+[index](/database/reading-data/indexes/indexes.md) を追加することもできます。
+
+以下の例では、ユーザーを識別するために `ctx.auth.getUserIdentity()` から取得した
+`subject` を使用します。ここには Clerk のユーザー ID が設定されている必要があります。
+
+<Snippet source={WebhooksSchema} snippet="table" title="convex/schema.ts" />
+
+### ユーザーのアップサートおよび削除用ミューテーション \{#mutations-for-upserting-and-deleting-users\}
+
+以下は、ウェブフック経由で受信した更新を処理するミューテーションの例です:
+
+<TSAndJSSnippet sourceTS={WebhookMutations} sourceJS={WebhookMutations} title="convex/users.ts" />
+
+このファイルには、いくつかのヘルパー関数も定義されています:
+
+* `current` はクライアントにユーザー情報を公開し、ウェブフックがすでに成功しているかどうかをクライアントが判定するのに役立ちます
+* `upsertFromClerk` は、ユーザーがサインアップしたとき、またはアカウントを更新したときに呼び出されます
+* `deleteFromClerk` は、ユーザーがアプリ内の Clerk の UI から自分のアカウントを削除したときに呼び出されます
+* `getCurrentUserOrThrow` は、現在ログイン中のユーザーを取得し、存在しない場合はエラーをスローします
+* `getCurrentUser` は、現在ログイン中のユーザーを取得し、存在しない場合は null を返します
+* `userByExternalId` は、Clerk の ID を指定してユーザーを取得し、現在のユーザーの取得時や、ウェブフック経由で既存ユーザーを更新するときにのみ使用されます
+
+### Webhook エンドポイントの実装 \{#webhook-endpoint-implementation\}
+
+実際の HTTP エンドポイントは次のように実装します:
+
+<TSAndJSSnippet sourceTS={WebhookEndpoint} sourceJS={WebhookEndpoint} title="convex/http.ts" />
+
+ここまでのコードをデプロイしてサインインすると、Convex データベース内にユーザーが作成されていることを確認できるはずです。
+
+### 現在のユーザーのドキュメントを使用する \{#using-the-current-users-document\}
+
+前に定義したヘルパー関数を使って、現在のユーザーのドキュメントを取得できます。
+
+Convex データベースにユーザーがドキュメントとして保存されているので、
+他のドキュメント内でその ID を外部キーとして使用できます。
+
+<TSAndJSSnippet sourceTS={WebhookMessages} sourceJS={WebhookMessages} snippet="current-user" title="convex/messages.ts" />
+
+### IDからユーザーを読み込む \{#loading-users-by-their-id\}
+
+他のユーザーの情報は、そのユーザーのIDを指定して取得できます。
+
+<TSAndJSSnippet sourceTS={MessagesTS} sourceJS={MessagesTS} snippet="use-users" title="convex/messages.ts" />
+
+### 現在のユーザーが保存されるのを待つ \{#waiting-for-current-user-to-be-stored\}
+
+クエリの中で現在のユーザーのドキュメントを使用したい場合は、
+そのユーザーがすでに保存されていることを確認してください。これは、
+クエリを呼び出すコンポーネントをレンダーする前や、
+アプリの認証済みエリアにリダイレクトする前に、この条件を明示的に
+チェックすることで行えます。
+
+例えば、現在のユーザーが保存されているかどうかも考慮に入れて、
+クライアントの現在の認証状態を判定するフックを定義できます。
+
+<TSAndJSSnippet sourceTS={WebhookHook} sourceJS={WebhookHook} title="src/useCurrentUser.ts" />
+
+そのうえで、このフックを使って適切なコンポーネントをレンダーできます。
+
+<TSAndJSSnippet sourceTS={WebhookClient} sourceJS={WebhookClient} snippet="client-blocking" title="src/App.tsx" />

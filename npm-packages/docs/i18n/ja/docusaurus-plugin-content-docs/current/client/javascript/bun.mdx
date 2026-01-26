@@ -1,0 +1,34 @@
+---
+title: "Bun"
+hidden: false
+sidebar_position: 200
+description: "Convex クライアントを Bun JavaScript ランタイムで使用する"
+---
+
+[Bun](https://bun.sh/) は Convex クライアントを使用するスクリプトやサーバーを実行でき、Convex CLI の実行にも利用できます。
+
+Convex は、ある時点のスナップショットに対するクエリ、ミューテーション、アクション（[HTTP client](/api/classes/browser.ConvexHttpClient) を参照）をサポートしており、Bun ではそれらに加えて、クエリのサブスクリプション（[ConvexClient](/api/classes/browser.ConvexClient) を参照）もサポートしています。
+
+```js
+import { ConvexHttpClient, ConvexClient } from "convex/browser";
+import { api } from "./convex/_generated/api.js";
+
+// HTTPクライアント
+const httpClient = new ConvexHttpClient(process.env.CONVEX_URL);
+httpClient.query(api.messages.list).then((messages) => {
+  console.log(messages);
+});
+
+// サブスクリプションクライアント
+const client = new ConvexClient(process.env.CONVEX_URL);
+const unsubscribe = client.onUpdate(api.messages.list, {}, (messages) =>
+  console.log(messages),
+);
+await Bun.sleep(1000);
+client.mutate(api.messages.send, {}, { body: "hello!", author: "me" });
+await Bun.sleep(1000);
+```
+
+## コード生成なしで Bun と Convex を使う \{#using-convex-with-bun-without-codegen\}
+
+手元に Convex の関数や `api` ファイルがなくても、`anyApi` オブジェクトや文字列を使うことができます。`api.folder.file.exportName` のような API 参照は、`anyApi.folder.file.exportName` または `"folder/file:exportName"` と書けます。

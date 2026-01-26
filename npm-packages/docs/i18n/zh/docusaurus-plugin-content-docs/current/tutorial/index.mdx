@@ -1,0 +1,317 @@
+---
+title: "Convex 教程：聊天应用"
+sidebar_label: "1. 聊天应用"
+sidebar_position: 100
+hide_table_of_contents: true
+pagination_next: tutorial/actions
+pagination_label: "Convex 教程：聊天应用"
+description:
+  "使用 Convex 构建一个实时聊天应用，利用查询、变更函数和
+  同步引擎在所有已连接的客户端之间自动完成更新。"
+---
+
+# Convex 教程：聊天应用 \{#convex-tutorial-a-chat-app\}
+
+Convex 为你提供了一个功能完备的后端，包括云函数、数据库、调度系统，以及一个让前端和后端实时保持最新状态的同步引擎。
+
+今天，我们只用大约 **10 行代码**，就可以构建一个后端，用来读取和写入数据库，并自动向聊天应用中的所有用户推送更新。
+
+之后，我们会了解如何连接外部服务，并为你的产品的成功和扩展打好基础。
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/608khv7qqOI?si=ce-M8pt6EWDZ8tfd" title="YouTube 视频播放器" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## 开始使用 Convex 开发 \{#start-developing-with-convex\}
+
+<Details summary="开始之前：你需要 Node.js 18+ 和 Git">
+  确保你的电脑上已安装 Node.js 18 或更高版本。
+  你可以在终端中运行 `node --version` 来检查 Node.js 的版本。
+  如果你尚未安装合适版本的 Node.js，
+  [请从 Node.js 官网下载安装。](https://nodejs.org/en)
+
+  此外，本教程还需要 Git，请在终端中运行 `git -v`，确认已安装 Git。
+  如果还没有安装，请前往
+  [Git 官网](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+  查看安装说明。
+</Details>
+
+首先，从 GitHub 克隆示例项目仓库并安装依赖：
+
+```shell
+git clone https://github.com/get-convex/convex-tutorial.git
+cd convex-tutorial
+npm install
+```
+
+此应用的 `dev` npm 命令会先完成 Convex 的初始化，然后再启动 Web 应用：
+
+```shell
+npm run dev
+```
+
+在设置过程中，你会看到 Convex 使用你的 GitHub 账号进行身份验证。使用 GitHub 登录 Convex，然后直接接受默认的项目初始化提示。
+
+这一步会**自动创建你的后端**，并在你的项目中生成一个名为 `convex/` 的文件夹，你将在其中编写后端代码。
+
+**请确保在整个教程过程中，都让这个命令（`npm run dev`）在后台持续运行。** 它既会为前端启动开发环境（dev）的 Web 服务器，又会在后台运行 `convex` 命令，以保持你的后端和本地代码库同步。
+
+当你的服务器启动并运行后，打开 [localhost:5173](http://localhost:5173) 看一下页面效果：
+
+<div className="center-image" style={{ maxWidth: "676px" }}>
+  ![Chat UI](/img/tutorial/tut_chat_ui.png)
+</div>
+
+如果你现在尝试发送一条消息，你会看到一个提示，说明这个变更尚未实现。我们稍后会来实现它，不过先快速了解一下 Convex 的工作原理。
+
+## Convex 的工作原理 \{#how-convex-works\}
+
+<div className="center-image" style={{ maxWidth: "700px" }}>
+  ![Overview of the sync engine](/img/tutorial/ConvexSyncEngine.png)
+</div>
+
+**数据库。** Convex 数据库是一个文档‑关系型数据库，这意味着
+你有一些表，表里存放着 JSON 格式的文档。所有文档都有一个自动生成的 `_id`，
+可以用来在文档之间建立关联。你通过完全用 TypeScript 编写的变更函数和查询函数
+与数据库交互。
+
+**变更函数。** 变更是用 TypeScript 编写的、用于更新数据库的函数。所有在
+Convex 中运行的变更函数都会作为一次数据库事务执行。要么所有更改一起提交，
+要么全部不提交。
+
+**查询函数。** 查询是只能从数据库读取数据的 TypeScript 函数。正如我们稍后会看到的，
+你会在前端订阅这些查询，让应用自动保持最新状态。
+
+你的前端通过**客户端库**注册并监听查询更新。客户端库通过 WebSocket 与 Convex 通信，
+以实现快速的实时更新。
+
+**同步引擎**会在函数的任何输入发生变化时重新运行查询函数，
+包括对该查询所读取的数据库文档所做的任何更改。然后它会更新所有监听该查询的应用。
+同步引擎是 查询、变更 和 数据库 的组合。
+
+现在，让我们深入代码吧！
+
+## 你的第一个 `mutation` \{#your-first-mutation\}
+
+在你的 `convex/` 文件夹中新建一个名为 `chat.ts` 的文件。你将在这里为本应用编写 Convex 后端函数。
+
+**将下面的内容添加到你的 `convex/chat.ts` 文件中。**
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const sendMessage = mutation({
+  args: {
+    user: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("此 TypeScript 函数正在服务器上运行。");
+    await ctx.db.insert("messages", {
+      user: args.user,
+      body: args.body,
+    });
+  },
+});
+```
+
+我们来逐条拆解一下：
+
+1. 你添加了一个名为 `sendMessage` 的后端 `mutation` 函数，
+   并将它暴露为一个公共 API。
+2. 整个函数会自动作为一个事务运行，如果抛出异常则会回滚。
+3. 由于这只是一个 TypeScript 函数，你可以加入 `console.log` 语句，
+   在服务器端做简单调试。
+4. `args:` 确保函数参数是两个名为 `user` 和 `body` 的字符串，
+   在类型和运行时值上都是如此。
+5. `ctx.db.insert` 告诉 Convex 向表中插入一条新的消息文档。
+
+现在，把这个变更函数接入到你的 Web 应用里。
+
+**像下面这样更新你的 `src/App.tsx` 文件：**
+
+```tsx
+// highlight-next-line
+// Import `useMutation` and `api` from Convex.
+// highlight-next-line
+import { useMutation } from "convex/react";
+// highlight-next-line
+import { api } from "../convex/_generated/api";
+
+//...
+
+export default function App() {
+  // highlight-next-line
+  // Replace the "TODO: Add mutation hook here." with:
+  // highlight-next-line
+  const sendMessage = useMutation(api.chat.sendMessage);
+
+  //...
+
+  return (
+    <main className="chat">
+      {/* ... */}
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          // highlight-next-line
+          // 将 "alert("Mutation not implemented yet");" 替换为:
+          // highlight-next-line
+          await sendMessage({ user: NAME, body: newMessageText });
+
+          setNewMessageText("");
+        }}
+      >
+        {/* ... */}
+      </form>
+    </main>
+  );
+}
+```
+
+在前端调用一个变更函数需要两步：
+
+1. `const sendMessage = useMutation(api.chat.sendMessage);` 为你的前端应用提供一个指向该变更函数的句柄
+2. `await sendMessage({ user: NAME, body: newMessageText });` 使用正确的参数调用该变更函数。
+
+现在正是**打开 Convex 仪表盘**的好时机。打开一个新的浏览器窗口，访问
+[https://dashboard.convex.dev](https://dashboard.convex.dev)，找到新的
+`convex-tutorial` 项目。
+
+**前往 “Data” 页面**。目前，你的数据库中还没有任何数据。
+
+**让聊天应用和仪表盘窗口并排保持打开**。现在尝试从聊天应用发送一些消息。
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_first_mutation.mp4" type="video/mp4" />
+
+  变更函数已经接入 Convex 后端和数据库。
+</video>
+
+你会注意到新的聊天消息会实时出现在 `messages` 表中。
+
+当你发送第一条消息时，Convex 会自动创建一个 `messages` 表。在 Convex 中，[模式](/database/schemas.mdx) 是可选的。最终，你会希望对表的结构进行约束，但在本教程中我们将跳过这一步。
+
+在仪表盘中，你也可以前往
+[logs screen](https://dashboard.convex.dev/deployment/logs)，查看每一次对该变更函数的调用，以及我们之前添加的日志行。日志页面是你在开发环境中调试后端的关键工具。
+
+你已经成功创建了一个 `mutation` 函数（它同时也是一个数据库事务），并将它连接到了你的 UI。
+
+现在，让我们确保你的应用也能够像仪表盘一样实现实时更新。
+
+## 你的第一个 `query` \{#your-first-query\}
+
+**像这样更新你的 `convex/chat.ts` 文件：**
+
+```tsx
+// highlight-next-line
+// Update your server import like this:
+// highlight-next-line
+import { query, mutation } from "./_generated/server";
+
+// ...
+
+// highlight-next-line
+// Add the following function to the file:
+// highlight-next-line
+export const getMessages = query({
+  // highlight-next-line
+  args: {},
+  // highlight-next-line
+  handler: async (ctx) => {
+    // highlight-next-line
+    // Get most recent messages first
+    // highlight-next-line
+    const messages = await ctx.db.query("messages").order("desc").take(50);
+    // highlight-next-line
+    // 反转列表使其按时间顺序排列。
+    // highlight-next-line
+    return messages.reverse();
+    // highlight-next-line
+  },
+  // highlight-next-line
+});
+```
+
+让我们来分解一下：
+
+1. 你添加了一个名为 `getMessages` 的新的后端 `query` 函数，并将其暴露为公共 API。
+2. 由于这是一个查询函数，这个函数中的 `ctx.db` 只允许你读取数据。
+3. 在 `handler` 的第一行中，你按从新到旧的顺序查询最近的 50 条消息。
+4. 在第二行中，你使用普通的 TypeScript 代码反转了这个列表。
+
+**现在更新 `src/App.tsx`，让它从你的查询中读取数据：**
+
+```tsx
+// highlight-next-line
+// Update your convex/react import like this:
+// highlight-next-line
+import { useQuery, useMutation } from "convex/react";
+
+//...
+
+export default function App() {
+  // highlight-next-line
+  // 用以下内容替换 `const messages = ...` 这一行
+  // highlight-next-line
+  const messages = useQuery(api.chat.getMessages);
+
+  //...
+}
+```
+
+那一行 `useQuery` 代码为你自动完成了很多工作。它告诉 Convex 客户端库去订阅你的 `getMessages` 函数。
+每当有新消息需要展示时，这个查询函数就会被自动重新运行。结果会被放入 `const messages` 变量中，React 会重新渲染你的
+UI 组件以显示最新的消息。
+
+就是这样。现在回到你的应用里，试着发送一些消息。
+
+你的应用应该会在新消息到达时显示实时更新：
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_first_query.mp4" type="video/mp4" />
+
+  查询已接入应用并实时更新。
+</video>
+
+<br />
+
+<br />
+
+不信？试着并排打开两个聊天窗口，然后发送一些消息：
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_side_by_side.mp4" type="video/mp4" />
+
+  实时同步的聊天应用。
+</video>
+
+## 你构建了什么 \{#what-you-built\}
+
+只用几行代码，你就构建了一个实时更新的聊天应用。
+
+1. 你创建了一个 `mutation` TypeScript 函数，在一个事务中将新的聊天消息添加到数据库。
+2. 你创建了一个 `query` TypeScript 函数，用最新的数据更新你的应用。
+3. 你使用了客户端库，使前端与后端保持实时同步。
+
+你已经学会了 Convex 的基础知识，以及支撑一切的同步引擎。
+
+## 接下来 \{#next-up\}
+
+在本教程中我们只接触到了最基础的内容。你也可以先就此打住，
+去探索其余文档内容，包括
+[通过索引实现高效查询](/database/reading-data/indexes/indexes.md) 和
+[通过连接遍历关系](/database/reading-data/reading-data.mdx#join)。如果你对 Convex 的工作原理非常好奇，可以阅读这篇
+[非常出色的深度解析](https://stack.convex.dev/how-convex-works)。
+
+但如果你想了解如何调用外部服务并构建更复杂的后端工作流，可以继续阅读[下一节 →](/tutorial/actions.mdx)。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "/tutorial/actions",
+  docId: "tutorial/actions",
+  label: "调用外部服务",
+}}
+/>

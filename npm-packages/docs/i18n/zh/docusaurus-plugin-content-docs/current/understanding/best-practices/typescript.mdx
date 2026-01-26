@@ -1,0 +1,119 @@
+---
+title: "TypeScript"
+sidebar_position: 80
+description: "借助端到端的类型安全加速开发"
+pagination_next: null
+---
+
+import ArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithValidation.ts";
+import WithSchema from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithSchema.ts";
+import WithoutArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithoutValidation.ts";
+import ClientDatabaseTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptClientDatabaseTypes.tsx";
+import ContextTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptContextTypes.ts";
+import FunctionReturnTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptFunctionReturnTypes.ts";
+import ValidatorTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptValidatorTypes.ts";
+import SystemFieldsTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptSystemFieldsTypes.ts";
+
+当使用 [TypeScript](https://www.typescriptlang.org/) 编写 Convex 函数时，Convex 提供端到端的类型支持。
+
+你可以在 Convex 项目中循序渐进地引入 TypeScript：以下步骤会逐步提供更完善的类型支持。若想获得最佳支持，建议完成所有步骤。
+
+**示例：**
+[TypeScript 与模式](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## 使用 TypeScript 编写 Convex 函数 \{#writing-convex-functions-in-typescript\}
+
+在 Convex 项目中改进类型支持的第一步，是将文件扩展名设为 `.ts`，用
+TypeScript 编写你的 Convex 函数。
+
+如果你在使用[参数校验](/functions/validation.mdx)，Convex 会自动推断
+你的函数参数类型：
+
+<Snippet title="convex/sendMessage.ts" source={ArgValidation} />
+
+否则你可以手动为参数添加类型注解：
+
+<Snippet title="convex/sendMessage.ts" source={WithoutArgValidation} highlightPatterns={["body: string"]} />
+
+对于接受复杂类型的[内部函数](/functions/internal-functions.mdx)，这会很有用。
+
+如果你的项目中安装了 TypeScript，`npx convex dev` 和
+`npx convex deploy` 会在把代码发送到 Convex 后端之前，对 Convex 函数进行类型检查。
+
+Convex 函数是使用 Convex 目录中的 `tsconfig.json` 进行类型检查的：
+你可以修改这个文件的部分内容来更改类型检查设置，或者删除这个文件来禁用这一步类型检查。
+
+在你添加模式之前，你会发现大多数数据库方法的返回类型都是 `Promise<any>`。
+
+## 添加模式 \{#adding-a-schema\}
+
+一旦你[定义了模式](/database/schemas.mdx)，数据库方法的类型签名就会被确定。你也可以在使用 TypeScript（React、React Native、Node.js 等）编写的 Convex 函数和客户端中，使用从 `convex/_generated/dataModel` 导入的类型。
+
+表中文档的类型可以使用生成的数据模型中的 [`Doc`](/generated-api/data-model#doc) 类型来描述，对文档的引用可以使用参数化的[文档 Id](/database/document-ids.mdx) 来描述。
+
+<Snippet title="convex/messages.ts" source={WithSchema} />
+
+## 为服务端辅助函数添加类型标注 \{#type-annotating-server-side-helpers\}
+
+当你想在多个 Convex 函数之间复用逻辑时，可以定义一些 TypeScript 辅助函数，这些函数可能需要使用 Convex 提供的上下文，以便访问数据库、认证以及其他 Convex 功能。
+
+Convex 会为你的数据库中的文档和 ID 生成对应的类型，即 `Doc` 和 `Id`，还会基于你的模式以及已声明的 Convex 函数生成 `QueryCtx`、`MutationCtx` 和 `ActionCtx` 类型：
+
+<Snippet title="convex/helpers.ts" source={ContextTypes} />
+
+### 从验证器推断类型 \{#inferring-types-from-validators\}
+
+验证器可以同时用于
+[参数验证](/functions/validation.mdx) 和
+[模式验证](/database/schemas.mdx)。你可以使用提供的
+[`Infer`](/api/modules/values#infer) 类型来获取与某个验证器对应的 TypeScript 类型：
+
+<Snippet title="convex/helpers.ts" source={ValidatorTypes} />
+
+### 不包含系统字段的文档类型 \{#document-types-without-system-fields\}
+
+Convex 中的所有文档都包含内置的 `_id` 和 `_creationTime` 字段，
+生成的 `Doc` 类型同样如此。在创建或更新文档时，你
+可能希望使用不带系统字段的类型。Convex 提供了
+[`WithoutSystemFields`](/api/modules/server#withoutsystemfields) 来实现这一点：
+
+<Snippet title="convex/helpers.ts" source={SystemFieldsTypes} />
+
+## 使用 TypeScript 编写前端代码 \{#writing-frontend-code-in-typescript\}
+
+所有 Convex JavaScript 客户端（包括
+[`useQuery`](/api/modules/react#usequery) 和
+[`useMutation`](/api/modules/react#usemutation) 等 React hook）都通过确保参数和返回值与对应的 Convex 函数声明一致来提供端到端的类型安全。对于 React，请安装并配置 TypeScript，这样你就可以在 `.tsx` 文件而不是 `.jsx` 文件中编写 React 组件。
+
+按照我们的 [React](/quickstart/react.mdx) 或 [Next.js](/quickstart/nextjs.mdx)
+快速上手指南，开始使用 Convex 和 TypeScript。
+
+### 为客户端代码添加类型标注 \{#type-annotating-client-side-code\}
+
+当你想在客户端代码库中传递某个函数调用的结果时，可以像在后端一样，
+使用生成的类型 `Doc` 和 `Id`：
+
+<Snippet title="src/App.tsx" source={ClientDatabaseTypes} />
+
+你也可以在后端代码库中声明包含 `Doc` 和 `Id` 的自定义类型，
+然后在客户端代码中导入它们。
+
+你还可以使用 `WithoutSystemFields`，以及通过 `Infer` 从验证器中推断出的任何类型。
+
+#### 使用推断的函数返回类型 \{#using-inferred-function-return-types\}
+
+有时你可能希望在客户端根据后端函数的返回值来标注类型。除了在后端或前端手动声明类型之外，你还可以结合函数引用使用泛型类型 `FunctionReturnType` 和
+`UsePaginatedQueryReturnType`：
+
+<Snippet title="src/Components.tsx" source={FunctionReturnTypes} />
+
+## 将 `string` 转换为有效的文档 ID \{#turning-strings-into-valid-document-ids\}
+
+参见 [ID 序列化](/database/document-ids.mdx#serializing-ids)。
+
+## 所需的 TypeScript 版本 \{#required-typescript-version\}
+
+Convex 需要 TypeScript
+[5.0.3](https://www.npmjs.com/package/typescript/v/5.0.3) 或更高版本。
+
+<StackPosts query="types" />

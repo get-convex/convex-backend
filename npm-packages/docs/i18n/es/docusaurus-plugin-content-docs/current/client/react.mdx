@@ -1,0 +1,319 @@
+---
+title: "Convex React"
+sidebar_label: "React"
+sidebar_position: 4
+description: "Biblioteca cliente de React para interactuar con tu backend de Convex"
+---
+
+import SkipBad from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipBad.tsx";
+import SkipGood from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipGood.tsx";
+
+Convex React es la biblioteca cliente que permite que tu aplicación de React
+interactúe con tu backend de Convex. Permite que tu código de frontend:
+
+1. Llame a tus [consultas](/functions/query-functions.mdx),
+   [mutaciones](/functions/mutation-functions.mdx) y
+   [acciones](/functions/actions.mdx)
+2. Cargue y muestre archivos desde [File Storage](/file-storage.mdx)
+3. Autentique usuarios usando [Authentication](/auth.mdx)
+4. Implemente búsqueda de texto completo sobre tus datos con [Search](/search.mdx)
+
+El cliente de Convex React es de código abierto y está disponible en
+[GitHub](https://github.com/get-convex/convex-js).
+
+Sigue la [guía de inicio rápido de React](/quickstart/react.mdx) para empezar a usar React
+con [Vite](https://vitejs.dev/).
+
+## Instalación \{#installation\}
+
+Convex React está incluido en el paquete `convex` de npm:
+
+```
+npm install convex
+```
+
+## Conectar con un backend \{#connecting-to-a-backend\}
+
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient) mantiene una
+conexión con tu backend de Convex y lo utilizan los hooks de React
+descritos a continuación para invocar tus funciones.
+
+Primero necesitas crear una instancia del cliente proporcionándole la URL de implementación de tu backend. Consulta [Configurar la URL de implementación](/client/react/project-setup.md)
+para saber cómo pasarle el valor correcto:
+
+```jsx
+import { ConvexProvider, ConvexReactClient } from "convex/react";
+
+const convex = new ConvexReactClient("https://<your domain here>.convex.cloud");
+```
+
+Y luego haces que el cliente esté disponible para tu aplicación pasándolo a un
+[`ConvexProvider`](/api/modules/react#convexprovider) que envuelve tu árbol de
+componentes:
+
+```jsx
+reactDOMRoot.render(
+  <React.StrictMode>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </React.StrictMode>,
+);
+```
+
+## Obtención de datos \{#fetching-data\}
+
+Tu aplicación de React obtiene datos usando el hook de React [`useQuery`](/api/modules/react#usequery),
+llamando a tus [consultas](/functions/query-functions.mdx) mediante un objeto
+[`api`](/generated-api/api.md#api).
+
+El comando `npx convex dev` genera este objeto `api` por ti en el módulo
+`convex/_generated/api.js` para proporcionar un mejor autocompletado en
+JavaScript y seguridad de tipos de extremo a extremo en
+[TypeScript](/understanding/best-practices/typescript.mdx):
+
+```tsx title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.functions.myQuery);
+  return data ?? "Cargando...";
+}
+```
+
+El hook `useQuery` devuelve `undefined` mientras los datos se están cargando por primera vez y
+después el valor devuelto por tu consulta.
+
+### Argumentos de la consulta \{#query-arguments\}
+
+Los argumentos de tu consulta siguen al nombre de la consulta:
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const data = useQuery(api.functions.myQuery, { a, b });
+  //...
+}
+```
+
+### Reactividad \{#reactivity\}
+
+El hook `useQuery` hace que tu app sea automáticamente reactiva: cuando los
+datos subyacentes cambian en tu base de datos, tu componente se vuelve a
+renderizar con el nuevo resultado de la consulta.
+
+La primera vez que se usa el hook, se crea una suscripción a tu backend para
+una consulta específica y los argumentos que pases. Cuando tu componente se
+desmonta, la suscripción se cancela.
+
+### Consistencia \{#consistency\}
+
+Convex React garantiza que tu aplicación siempre renderice una vista consistente
+de los resultados de la consulta, basada en un único estado de la base de datos subyacente.
+
+Imagina que una mutación cambia algunos datos en la base de datos y que dos
+distintos puntos donde se llama a `useQuery` dependen de esos datos. Tu aplicación nunca se renderizará en un estado inconsistente en el que solo uno de esos puntos de `useQuery` refleje los datos nuevos.
+
+### Paginación de consultas \{#paginating-queries\}
+
+Consulta
+[la paginación dentro de componentes de React](/database/pagination.mdx#paginating-within-react-components).
+
+### Omitir consultas \{#skipping-queries\}
+
+<Details summary="Avanzado: Cargar una consulta de forma condicional">
+  Con React puede ser complicado invocar dinámicamente un hook, porque los hooks no pueden
+  colocarse dentro de condicionales ni después de returns tempranos:
+
+  <TSAndJSSnippet title="src/App.tsx" sourceTS={SkipBad} sourceJS={SkipBad} snippet="example" highlightPatterns={["useQuery"]} />
+
+  Por este motivo, `useQuery` se puede &quot;deshabilitar&quot; pasando `"skip"` en lugar de
+  sus argumentos:
+
+  <TSAndJSSnippet title="src/App.tsx" sourceTS={SkipGood} sourceJS={SkipGood} highlightPatterns={["skip"]} />
+
+  Cuando se usa `"skip"`, `useQuery` no se comunica en absoluto con tu backend y
+  devuelve `undefined`.
+</Details>
+
+### Consultas puntuales \{#one-off-queries\}
+
+<Details summary="Avanzado: Ejecutar una consulta desde un callback">
+  A veces quizá quieras leer el estado de la base de datos en respuesta a una
+  acción del usuario, por ejemplo para validar el input proporcionado, sin hacer ningún
+  cambio en la base de datos. En este caso puedes usar una llamada puntual a
+  [`query`](/api/classes/react.ConvexReactClient#query), de forma similar
+  a cómo llamas a mutaciones y acciones.
+
+  El método asíncrono `query` está expuesto en `ConvexReactClient`, al que puedes
+  acceder en tus componentes mediante el hook
+  [`useConvex()`](/api/modules/react#useconvex).
+
+  ```tsx title="src/App.tsx"
+  import { useConvex } from "convex/react";
+  import { api } from "../convex/_generated/api";
+
+  export function App() {
+    const convex = useConvex();
+    return (
+      <button
+        onClick={async () => {
+          console.log(await convex.query(api.functions.myQuery));
+        }}
+      >
+        Comprobar
+      </button>
+    );
+  }
+  ```
+</Details>
+
+## Edición de datos \{#editing-data\}
+
+Tu aplicación React edita datos utilizando el hook de React
+[`useMutation`](/api/modules/react#usemutation) mediante llamadas a tus
+[mutaciones](/functions/mutation-functions.mdx).
+
+El comando `convex dev` genera este objeto de API para ti en el módulo
+`convex/_generated/api.js` para proporcionar un mejor autocompletado en
+JavaScript y un tipado de extremo a extremo en
+[TypeScript](/understanding/best-practices/typescript.mdx):
+
+```tsx title="src/App.tsx"
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething()}>Haz clic</button>;
+}
+```
+
+El hook devuelve una función `async` que realiza la llamada a la mutación.
+
+### Argumentos de la mutación \{#mutation-arguments\}
+
+Los argumentos de tu mutación se pasan a la función `async` que devuelve
+`useMutation`:
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething({ a, b })}>Click me</button>;
+}
+```
+
+### Respuesta de la mutación y gestión de errores \{#mutation-response-and-error-handling\}
+
+La mutación puede devolver opcionalmente un valor o lanzar errores, y puedes usar
+[`await`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/await):
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    async function callBackend() {
+      try {
+        const result = await doSomething();
+      } catch (error) {
+        console.error(error);
+      }
+      console.log(result);
+    }
+    void callBackend();
+  };
+  return <button onClick={onClick}>Haz clic aquí</button>;
+}
+```
+
+O trátalo como un
+[`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise):
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    doSomething()
+      .catch((error) => {
+        console.error(error);
+      })
+      .then((result) => {
+        console.log(result);
+      });
+  };
+  return <button onClick={onClick}>Haz clic</button>;
+}
+```
+
+Obtén más información sobre el [manejo de errores](/functions/error-handling/error-handling.mdx)
+en las funciones.
+
+### Reintentos \{#retries\}
+
+Convex React reintenta automáticamente las mutaciones hasta que se confirma que
+se han escrito en la base de datos. El backend de Convex garantiza que, aunque haya
+múltiples reintentos, cada llamada de mutación solo se ejecute una vez.
+
+Además, Convex React advertirá a los usuarios si intentan cerrar la pestaña del
+navegador mientras haya mutaciones pendientes. Esto significa que, cuando llamas a una
+mutación de Convex, puedes estar seguro de que las modificaciones del usuario no se perderán.
+
+### Actualizaciones optimistas \{#optimistic-updates\}
+
+Las consultas de Convex son totalmente reactivas, por lo que todos los resultados de las consultas se actualizarán automáticamente después de una mutación. A veces puedes querer actualizar la interfaz de usuario antes de que los cambios de la mutación se propaguen de vuelta al cliente. Para ello, puedes configurar una *actualización optimista* para que se ejecute como parte de tu mutación.
+
+Las actualizaciones optimistas son cambios locales y temporales en los resultados de tus consultas que se usan para que tu aplicación responda más rápido.
+
+Consulta [Actualizaciones optimistas](/client/react/optimistic-updates.mdx) para ver cómo configurarlas.
+
+## Llamar a APIs de terceros \{#calling-third-party-apis\}
+
+Tu aplicación de React puede leer datos, llamar a servicios de terceros y escribir datos
+con una única llamada al backend usando el hook de React
+[`useAction`](/api/modules/react#useaction) al llamar a tus
+[acciones](/functions/actions.mdx).
+
+Al igual que `useQuery` y `useMutation`, este hook se usa con el objeto `api`
+generado para ti en el módulo `convex/_generated/api.js` para proporcionar un
+mejor autocompletado en JavaScript y seguridad de tipos de extremo a extremo en
+[TypeScript](/understanding/best-practices/typescript.mdx):
+
+```tsx title="src/App.tsx"
+import { useAction } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomeAction = useAction(api.functions.doSomeAction);
+  return <button onClick={() => doSomeAction()}>Haz clic aquí</button>;
+}
+```
+
+El hook devuelve una función `async` que hace la llamada a la acción.
+
+### Argumentos de las acciones \{#action-arguments\}
+
+Los argumentos de las acciones se comportan exactamente igual que los
+[argumentos de las mutaciones](#mutation-arguments).
+
+### Respuesta de las acciones y manejo de errores \{#action-response-and-error-handling\}
+
+La respuesta de las acciones y el manejo de errores funcionan exactamente igual que
+[la respuesta de las mutaciones y el manejo de errores](#mutation-response-and-error-handling).
+
+Las acciones no admiten reintentos automáticos ni actualizaciones optimistas.
+
+## Bajo el capó \{#under-the-hood\}
+
+El [`ConvexReactClient`](/api/classes/react.ConvexReactClient) se conecta a tu
+despliegue de Convex creando un
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket). El
+WebSocket proporciona un canal de comunicación bidireccional sobre TCP. Esto permite que Convex
+envíe de forma reactiva nuevos resultados de consultas al cliente sin que este tenga que
+sondear periódicamente en busca de actualizaciones.
+
+Si la conexión a Internet se interrumpe, el cliente se encargará de volver a conectarse y
+restablecer automáticamente la sesión de Convex.

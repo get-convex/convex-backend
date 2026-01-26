@@ -1,0 +1,300 @@
+---
+title: 消息
+sidebar_label: "Messages"
+sidebar_position: 300
+description: "使用 Agent 发送和接收消息"
+---
+
+Agent 组件会存储消息和[线程](./threads.mdx)历史记录，以支持人类与 Agent 之间的对话。
+
+要了解人类如何充当 Agent，请参阅 [Human Agents](./human-agents.mdx)。
+
+## 获取消息 \{#retrieving-messages\}
+
+为了让客户端显示消息，你需要公开一个返回消息的查询。关于流式传输，请参见
+[retrieving streamed deltas](./streaming.mdx#retrieving-streamed-deltas)，查看该查询的
+改写版本。
+
+参见
+[chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)
+获取服务端代码，以及
+[chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+获取流式传输示例。
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+import { v } from "convex/values";
+import { listUIMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: { threadId: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // 在这里可以过滤或修改文档
+    return paginated;
+  },
+});
+```
+
+注意：在上面的示例中我们使用了 `listUIMessages`，它会返回 UIMessages，具体来说是 Agent 的一种扩展形式，包含一些额外字段（例如顺序、状态等）。当有多个工具调用后面紧跟着一条 assistant 消息时，UIMessages 会将多个 MessageDocs 合并成一个 UIMessage，从而便于你构建能够处理 UIMessage 上各个「部分」的 UI。
+
+如果你想获取 MessageDocs，可以改用 `listMessages`。
+
+## 在 React 中显示消息 \{#showing-messages-in-react\}
+
+请查看
+[ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)
+中的流式示例，或
+[ChatBasic.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatBasic.tsx)
+中的非流式示例。
+
+### `useUIMessages` hook \{#useuimessages-hook\}
+
+关键在于使用 `useUIMessages` 钩子。对于流式场景，在使用该钩子时传入 `stream: true`。
+
+```tsx
+import { api } from "../convex/_generated/api";
+import { useUIMessages } from "@convex-dev/agent/react";
+
+function MyComponent({ threadId }: { threadId: string }) {
+  const { results, status, loadMore } = useUIMessages(
+    api.chat.streaming.listMessages,
+    { threadId },
+    { initialNumItems: 10 /* stream: true */ },
+  );
+  return (
+    <div>
+      {results.map((message) => (
+        <div key={message.key}>{message.text}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+注意：如果你想使用 MessageDocs 而不是 UIMessages，可以改用较早的 `useThreadMessages` hook。不过，使用 UIMessages 可以实现更丰富的流式功能，例如展示该 agent 当前是否正在进行推理的状态。
+
+### UIMessage 类型 \{#uimessage-type\}
+
+Agent 组件扩展了 AI SDK 的 `UIMessage` 类型，以提供用于渲染消息的便捷元数据。
+
+AI SDK 中核心的 UIMessage 类型包含：
+
+* `parts` 是由各个部分组成的数组（例如 &quot;text&quot;、&quot;file&quot;、&quot;image&quot;、&quot;toolCall&quot;、&quot;toolResult&quot;）。
+* `content` 是消息内容的字符串。
+* `role` 是消息的角色（例如 &quot;user&quot;、&quot;assistant&quot;、&quot;system&quot;）。
+
+辅助函数会新增以下字段：
+
+* `key` 是消息的唯一标识符。
+* `order` 是消息在线程中的顺序。
+* `stepOrder` 是消息在线程中的步骤顺序。
+* `status` 是消息的状态（或 &quot;streaming&quot;）。
+* `agentName` 是生成该消息的 agent 的名称。
+* `text` 是消息的文本内容。
+* `_creationTime` 是消息的时间戳。对于流式消息，目前会被设置为流式客户端上的当前时间。
+
+要引用这些类型，请确保你从 `@convex-dev/agent` 导入 `UIMessage`。
+
+#### `toUIMessages` helper \{#touimessages-helper\}
+
+`toUIMessages` 是一个辅助函数，用于将 MessageDocs 转换为 AI SDK 的“UIMessage”。这是一个用于展示消息的便捷数据模型。
+
+如果你在使用 `useThreadMessages`，可以像下面这样把消息转换为 UIMessages：
+
+```ts
+import { toUIMessages, type UIMessage } from "@convex-dev/agent";
+
+...
+const { results } = useThreadMessages(...);
+const uiMessages = toUIMessages(results);
+```
+
+### 发送消息的乐观更新 \{#optimistic-updates-for-sending-messages\}
+
+`optimisticallySendMessage` 函数是一个用于发送消息的辅助函数，这样你就可以在服务器上的变更完成之前，先在消息列表中乐观地显示一条消息。
+
+传入你用于列出消息的查询，它会把这条临时消息插入到列表顶部。
+
+```ts
+const sendMessage = useMutation(
+  api.streaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  optimisticallySendMessage(api.streaming.listThreadMessages),
+);
+```
+
+如果你的参数中不包含 `{ threadId, prompt }`，就可以在乐观更新中把它当作一个辅助函数来用：
+
+```ts
+import { optimisticallySendMessage } from "@convex-dev/agent/react";
+
+const sendMessage = useMutation(
+  api.chatStreaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  (store, args) => {
+    optimisticallySendMessage(api.chatStreaming.listThreadMessages)(store, {
+      threadId:
+      prompt: /* 将你的参数改为用户提示词。 */,
+    })
+  }
+);
+```
+
+## 保存消息 \{#saving-messages\}
+
+默认情况下，当你将消息作为提示词提供时，Agent 会自动把这些消息以及所有生成的消息保存到数据库中。
+
+不过，预先保存这条提示消息，并使用 `promptMessageId` 来继续对话也很有用。更多详情参见
+[Agent Usage](./agent-usage.mdx)。
+
+你可以使用 `saveMessage` 或 `saveMessages` 手动将消息保存到数据库中，可以在 Agent 类上调用，也可以直接调用函数。
+
+* 你可以传入一个 `prompt` 或完整的 `message`（`ModelMessage` 类型）
+* 可选的 `metadata` 参数允许你提供更多细节，比如 `sources`、`reasoningDetails`、`usage`、`warnings`、`error` 等。
+
+```ts
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "user", content: "The user message" },
+});
+```
+
+注意：当使用原始提示词调用 `agent.generateText` 时，如果你配置了文本嵌入模型，会自动为向量搜索生成嵌入。从操作中调用 `agent.saveMessage` 时也是如此。
+
+但是，如果你是在变更中保存消息，而此时无法调用 LLM，那么在你已配置文本嵌入模型的前提下，当 `generateText` 收到一个缺少嵌入的 `promptMessageId` 时，它会自动为其生成嵌入。
+
+### 未使用 Agent 类时： \{#without-the-agent-class\}
+
+注意：如果你没有使用已设置文本 embedding 模型的 Agent 类，但又想在保存消息时同时保存 embedding，那么需要手动传入一个 `embedding`。
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "assistant", content: result },
+  metadata: [{ reasoning, usage, ... }] // 参见 MessageWithMetadata 类型
+  agentName: "my-agent",
+  embedding: { vector: [0.1, 0.2, ...], model: "text-embedding-3-small" },
+});
+```
+
+### 使用 Agent 类： \{#using-the-agent-class\}
+
+```ts
+const { messageId } = await agent.saveMessage(ctx, {
+  threadId,
+  userId,
+  prompt,
+  metadata,
+});
+```
+
+```ts
+const { messages } = await agent.saveMessages(ctx, {
+  threadId, userId,
+  messages: [{ role, content }],
+  metadata: [{ reasoning, usage, ... }] // 参见 MessageWithMetadata 类型
+});
+```
+
+如果你在变更中保存消息，并且已经配置了文本 embedding 模型，请传入 `skipEmbeddings: true`。当该消息被用作提示词时，其 embedding 将被按需生成。或者，如果 embedding 已经可用，你也可以预先提供它，或者稍后通过显式调用 `agent.generateEmbeddings` 来生成。
+
+## 配置消息存储 \{#configuring-the-storage-of-messages\}
+
+一般情况下使用默认配置就可以，但如果你想传入多条消息并将它们全部保存（而不是只保存最后一条），或者想避免保存任何输入或输出消息，你可以传入一个 `storageOptions` 对象，可以在 Agent 构造函数中统一传入，也可以为每条消息单独传入。
+
+一个典型的场景是：你会传入多条消息但不保存它们——例如你想为 LLM 提供一些额外的上下文消息，但只有最后一条消息才是用户的实际请求。例如：
+`messages = [...messagesFromRag, messageFromUser]`。默认行为是保存提示词以及所有输出消息。
+
+```ts
+const result = await thread.generateText({ messages }, {
+  storageOptions: {
+    saveMessages: "all" | "none" | "promptAndOutput";
+  },
+});
+```
+
+## 消息排序 \{#message-ordering\}
+
+每条消息都有 `order` 和 `stepOrder` 字段，它们是在特定线程内递增的整数。
+
+当调用 `saveMessage` 或 `generateText` 时，该消息会以 `stepOrder` 为 0 的形式被添加到该线程的下一个 `order` 上。
+
+当针对该消息生成响应消息时，这些响应消息会以相同的 `order`、递增的 `stepOrder` 被添加。
+
+要将某条响应消息与之前的某条消息关联，可以在调用 `generateText` 等函数时传入 `promptMessageId`。
+
+注意：如果 `promptMessageId` 不是线程中的最新消息，则该次消息生成的上下文将不会包含位于 `promptMessageId` 之后的任何消息。
+
+## 删除消息 \{#deleting-messages\}
+
+你可以根据消息的 `_id`（由 `saveMessage` 或 `generateText` 返回）或 `order` / `stepOrder` 来删除消息。
+
+按 ID 删除：
+
+```ts
+await agent.deleteMessage(ctx, { messageId });
+// 批量删除
+await agent.deleteMessages(ctx, { messageIds });
+```
+
+按顺序（起始位置包含，结束位置不包含）：
+
+```ts
+// Delete all messages with the same order as a given message:
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: message.order,
+  endOrder: message.order + 1,
+});
+// Delete all messages with order 1 or 2.
+await agent.deleteMessageRange(ctx, { threadId, startOrder: 1, endOrder: 3 });
+// 删除 order 为 1 且 stepOrder 为 2-4 的所有消息
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: 1,
+  startStepOrder: 2,
+  endOrder: 2,
+  endStepOrder: 5,
+});
+```
+
+## 其他工具： \{#other-utilities\}
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+* `serializeDataOrUrl` 是一个工具函数，用于将 AI SDK 的
+  `DataContent` 或 `URL` 序列化为 Convex 可序列化的格式。
+* `filterOutOrphanedToolMessages` 是一个工具函数，用于过滤掉
+  没有对应工具结果消息的工具调用消息。
+* `extractText` 是一个工具函数，用于从类似 `ModelMessage` 的对象中
+  提取文本。
+
+### 校验器与类型 \{#validators-and-types\}
+
+提供了一些类型，用于校验各种值并为其提供类型信息
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+* `vMessage` 是一个用于类似 `ModelMessage` 对象的校验器（例如具有 `role` 和
+  `content` 字段）。
+* `MessageDoc` 和 `vMessageDoc` 是消息的类型（其中包含一个类型为 `vMessage` 的
+  `.message` 字段）。
+* `Thread` 是从 `continueThread` 或
+  `createThread` 返回的线程类型。
+* `ThreadDoc` 和 `vThreadDoc` 是线程元数据的类型。
+* `AgentComponent` 是已安装组件的类型（例如
+  `components.agent`）。
+* `ToolCtx` 是用于调用 `createTool` 工具时的 `ctx` 类型。

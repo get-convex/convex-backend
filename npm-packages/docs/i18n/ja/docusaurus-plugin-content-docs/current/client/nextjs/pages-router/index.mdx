@@ -1,0 +1,89 @@
+---
+title: "Next.js Pages Router"
+sidebar_position: 250
+sidebar_label: "Next.js Pages Router"
+description:
+  "Convex を Next.js Pages Router で利用するための包括的なガイドで、クライアントサイド認証、API ルート、サーバーサイドレンダリングについて解説します。"
+---
+
+import simpleAuthedAppTSX from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/_simpleAuthedApp.tsx";
+import apiTS from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/api/clicks.ts";
+
+このページでは、Next.js の Pages Router 版について説明します。代わりに、このページの
+[App Router](/client/nextjs/app-router/index.mdx) 版を参照することもできます。
+
+## はじめに \{#getting-started\}
+
+新規または既存の Next.js プロジェクトに Convex を追加するには、
+[Next.js Pages Router クイックスタート](/client/nextjs/pages-router/quickstart-nextjs-pages-router.mdx)
+の手順に従ってください。
+
+## クライアントサイド認証の追加 \{#adding-client-side-authentication\}
+
+Next.js での認証の最もシンプルなアプローチは、クライアントサイドで完結させることです。
+
+たとえば Auth0 は、このアプローチを
+[Next.js Authentication with Auth0 guide](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0)
+の中で説明しており、
+「[Next.js Static Site Approach](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Next-js-Static-Site-Approach)」
+および「Serverless with the user on the frontend」として紹介しています。
+
+アプリケーションのすべてのページでログインを必須にするには、`_app.jsx` にロジックを追加して、
+ユーザーがログインするまでページコンテンツの描画をブロックする条件付きレンダリングを行います。
+
+Auth0 を使用している場合、ヘルパーコンポーネント `ConvexProviderWithAuth0` を
+`convex/react-auth0` から `import` できます。
+
+<Snippet title="pages/_app.jsx" snippet="simpleAuthedApp" source={simpleAuthedAppTSX} />
+
+カスタムの読み込み中ビューや未ログイン時のビューは、
+`convex/react` のヘルパーである `Authenticated`、`Unauthenticated`、`AuthLoading`
+コンポーネントを使って構築できます。例については
+[Convex Next.js demo](https://github.com/get-convex/convex-demos/tree/main/nextjs-pages-router/pages/_app.jsx)
+を参照してください。
+
+アプリの一部のルートだけがログインを必要とする場合は、同じヘルパーを
+`pages/_app.jsx` からすべてのページで共有する代わりに、
+ログインが必要なページコンポーネント内で直接使用できます。
+クライアントサイドのページ遷移時に毎回 Convex への再接続が不要になるように、
+ページ間で単一の
+[ConvexReactClient](/api/classes/react.ConvexReactClient) インスタンスを共有してください。
+
+Convex によるユーザー認証の詳細については
+[Authentication](/auth.mdx) を参照してください。
+
+## API ルート \{#api-routes\}
+
+Next.js は、Convex の
+[HTTP Actions](/functions/http-actions.mdx) と同様に、HTTP リクエストを処理するルートを作成できます。Convex のデフォルトランタイムでサポートされていない依存関係を使う必要がある場合、Next.js のルートを使うと便利です。
+
+[API ルート](https://nextjs.org/docs/api-routes/introduction) を作成するには、
+`pages/api` ディレクトリにファイルを追加します。
+
+エンドポイント内で Convex データを読み書きするには、
+`convex/nextjs` の [`fetchQuery`](/api/modules/nextjs#fetchquery) 関数を使用します。
+
+<Snippet title="pages/api/clicks.js" source={apiTS} />
+
+## サーバーサイドレンダリング \{#server-side-rendering\}
+
+**Next.js を使う場合は、Convex のデータはクライアントサイドレンダリングを検討してください。** Convex からのデータは
+[完全にリアクティブ](/functions/query-functions.mdx#caching--reactivity--consistency)
+なので、データが変更されたときに更新をプッシュするためには、デプロイメントとブラウザ間に Convex の接続が必要です。
+
+もちろん、
+[`getStaticProps`](https://nextjs.org/docs/basic-features/data-fetching/get-static-props)
+や
+[`getServerSideProps`](https://nextjs.org/docs/basic-features/data-fetching/get-server-side-props)
+の中で Convex からデータを読み込むこともできますが、その場合はリアクティブではなくなります。これを行うには、
+[`fetchQuery`](/api/modules/nextjs#fetchquery) 関数を使ってクエリ関数を呼び出します。これは
+[API Routes](#api-routes) で行うのと同様です。
+
+サーバーサイドレンダリング中に Convex への認証済みリクエストを行うには、サーバー側に認証情報が存在している必要があります。Auth0 はこのアプローチを
+[Serverless with the user on the backend](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Serverless-with-the-user-on-the-backend)
+で説明しています。サーバーサイドレンダリングを行う場合は、認証トークンを `token` として `fetchQuery` の第 3 引数に渡してください。
+
+クライアントサイドでリアクティブなクエリをレンダリングする前に、サーバーサイドでデータをプリロードするには
+[`preloadQuery`](/api/modules/nextjs#preloadquery) を使用します。詳細については、
+[これらのドキュメントの App Router 版](/client/nextjs/app-router/server-rendering.mdx)
+を参照してください。

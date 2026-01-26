@@ -1,0 +1,153 @@
+---
+title: "Next.js 服务端渲染"
+sidebar_label: "服务端渲染"
+sidebar_position: 10
+description:
+  "在 Next.js App Router 中使用 Convex 的 preloadQuery、fetchQuery 以及
+  server actions 实现服务端渲染，从而提升性能。"
+---
+
+import PreloadQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/TasksWrapper.tsx";
+import AuthedPreloadQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/AuthedTasksWrapper.tsx";
+import UsePreloadedQueryTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/Tasks.tsx";
+import UsePreloadedQueryJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/TasksJS.jsx";
+import FetchQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/StaticTasks.tsx";
+import ServerActionTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/example/page.tsx";
+import ServerActionJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/exampleJS/page.jsx";
+import RouteHandlerTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/api/route.ts";
+import RouteHandlerJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/apiJS/route.js";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+Next.js 会在初次加载页面时自动在服务器上同时渲染 Client Components 和 Server Components。
+
+默认情况下，Client Components 不会等待 Convex 数据加载完成，你的 UI 会以“加载中”状态进行渲染。继续阅读，了解如何在服务器端渲染期间预加载数据，以及如何在 Next.js 服务器端与 Convex 部署交互。
+
+**示例：**
+[Next.js App Router](https://github.com/get-convex/convex-demos/tree/main/nextjs-app-router)
+
+本页面介绍的是 Next.js 中 App Router 变体的用法。
+
+<BetaAdmonition feature="Next.js Server Rendering support" verb="is" />
+
+## 为 Client Components 预加载数据 \{#preloading-data-for-client-components\}
+
+如果你想从 Convex 预加载数据并利用 Next.js
+[服务器端渲染](https://nextjs.org/docs/app/building-your-application/rendering/server-components#server-rendering-strategies)，
+但仍然希望在首次页面加载后保持响应式更新，请使用
+[`convex/nextjs`](/api/modules/nextjs) 中的
+[`preloadQuery`](/api/modules/nextjs#preloadquery)。
+
+在一个
+[Server Component](https://nextjs.org/docs/app/building-your-application/rendering/server-components)
+中调用 `preloadQuery`：
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={PreloadQuery} sourceJS={PreloadQuery} />
+
+在一个
+[Client Component](https://nextjs.org/docs/app/building-your-application/rendering/client-components)
+中调用 [`usePreloadedQuery`](/api/modules/react#usepreloadedquery)：
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={UsePreloadedQueryTS} sourceJS={UsePreloadedQueryJS} />
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) 接受三个参数：
+
+1. 查询引用
+2. 可选的、传递给该查询的参数对象
+3. 可选的 [NextjsOptions](/api/modules/nextjs#nextjsoptions) 对象
+
+`preloadQuery` 使用
+[`cache: 'no-store'` 策略](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching-caching-and-revalidating#opting-out-of-data-caching)，
+因此任何使用它的 Server Components 都将无法进行
+[静态渲染](https://nextjs.org/docs/app/building-your-application/rendering/server-components#server-rendering-strategies)。
+
+### 使用查询结果 \{#using-the-query-result\}
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) 返回一个不透明的 `Preloaded`
+数据载荷，你应该将其传递给 `usePreloadedQuery`。如果你想使用查询的返回值，
+例如决定是否要渲染 Client Component，你可以将这个 `Preloaded` 数据载荷传递给
+[`preloadedQueryResult`](/api/modules/nextjs#preloadedqueryresult) 函数。
+
+## 使用 Convex 渲染 Server Components \{#using-convex-to-render-server-components\}
+
+如果你需要在服务端获取 Convex 数据，你可以在
+[Server Components](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching)
+中从 Convex 加载数据，但这些数据将是非响应式的。为此，请使用来自 `convex/nextjs` 的
+[`fetchQuery`](/api/modules/nextjs#fetchquery) 函数：
+
+<TSAndJSSnippet title="app/StaticTasks.tsx" sourceTS={FetchQuery} sourceJS={FetchQuery} />
+
+## 服务端 Actions 和路由处理器 \{#server-actions-and-route-handlers\}
+
+Next.js 支持构建 HTTP 请求处理路由，类似于 Convex 的
+[HTTP Actions](/functions/http-actions.mdx)。你可以在
+[Server Action](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations)
+或
+[Route Handler](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
+中像使用其他任意数据库服务一样使用 Convex。
+
+要在你的 Server Action 或 Route Handler 中读取和修改 Convex 数据，你可以使用
+`fetchQuery`、`fetchMutation` 和 `fetchAction` 函数。
+
+下面是在内联 Server Action 中调用 Convex 变更函数的示例：
+
+<TSAndJSSnippet title="app/example/page.tsx" sourceTS={ServerActionTS} sourceJS={ServerActionJS} />
+
+下面是在 Route Handler 中调用 Convex 变更函数的示例：
+
+<TSAndJSSnippet title="app/api/route.ts" sourceTS={RouteHandlerTS} sourceJS={RouteHandlerJS} />
+
+## 服务器端身份验证 \{#server-side-authentication\}
+
+要在服务端渲染期间向 Convex 发起已通过认证的请求，请在第三个选项参数中将 JWT 令牌传递给 [`preloadQuery`](/api/modules/nextjs#preloadquery) 或
+[`fetchQuery`](/api/modules/nextjs#fetchquery)：
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={AuthedPreloadQuery} sourceJS={AuthedPreloadQuery} snippet="example" />
+
+`getAuthToken` 的实现取决于你的身份验证提供商。
+
+<Tabs>
+  <TabItem value="clerk" label="Clerk">
+    ```ts title="app/auth.ts"
+    import { auth } from "@clerk/nextjs/server";
+
+    export async function getAuthToken() {
+      return (await (await auth()).getToken({ template: "convex" })) ?? undefined;
+    }
+    ```
+  </TabItem>
+
+  <TabItem value="auth0" label="Auth0">
+    ```ts title="app/auth.ts"
+    // 你需要使用 @auth0/nextjs-auth0 的 v4.3 或更高版本
+    import { getSession } from '@auth0/nextjs-auth0';
+
+    export async function getAuthToken() {
+      const session = await getSession();
+      const idToken = session.tokenSet.idToken;
+      return idToken;
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+## 配置 Convex 部署 URL \{#configuring-convex-deployment-url\}
+
+Client Components 使用的 Convex hooks 通过
+`ConvexReactClient` 构造函数进行配置，如
+[Next.js 快速开始](/quickstart/nextjs.mdx) 中所示。
+
+要在 Server Components、Server Actions 和 Route Handlers 中使用 `preloadQuery`、`fetchQuery`、`fetchMutation` 和 `fetchAction`，你必须满足以下条件之一：
+
+1. 将 `NEXT_PUBLIC_CONVEX_URL` 环境变量设置为 Convex 部署 URL
+2. 或者在调用 `preloadQuery`、`fetchQuery`、`fetchMutation` 或 `fetchAction` 时，通过第三个参数传入 [`url` 选项](/api/modules/nextjs#nextjsoptions)
+
+## 一致性 \{#consistency\}
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) 和
+[`fetchQuery`](/api/modules/nextjs#fetchquery) 在底层使用 `ConvexHTTPClient`。
+这个客户端是无状态的。也就是说，两次调用 `preloadQuery` 并不能保证在同一数据库状态下返回一致的数据。
+这与传统数据库类似，但不同于 `ConvexReactClient` 提供的
+[一致性保证](/client/react.mdx#consistency)。
+
+为防止渲染出不一致的 UI，请避免在同一页面上多次调用 `preloadQuery`。

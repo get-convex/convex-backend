@@ -1,0 +1,124 @@
+---
+title: "その他の推奨事項"
+sidebar_position: 170
+sidebar_class_name: "hidden"
+pagination_next: null
+description:
+  "TypeScript の活用、ヘルパー関数、データベースパターン、UI 最適化手法などに関する、
+  Convex 開発向けの追加の推奨事項。"
+---
+
+import UserHelpers from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpers.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+{/* このページは以前は「Best Practices」ページでしたが、書き直されました */}
+
+{/* このコンテンツの一部は削除しましたが、このページ自体は非公開ページとして残しています */}
+
+{/* まだスクレイピング対象です */}
+
+ここでは、アプリケーションを構築する際に Convex を最大限に活用するためのおすすめの方法をまとめています。アプリ固有のニーズに合わせた具体的なアドバイスが必要な場合や、Convex の新しい活用方法を見つけた場合は、
+[Discord でご連絡ください](https://convex.dev/community)!
+
+## [TypeScript](/understanding/best-practices/typescript.mdx) を使う \{#use-typescript\}
+
+すべての Convex ライブラリには完全な型定義が用意されており、これらの型情報を活用すると
+フレームワークの使い方を学ぶうえでとても役立ちます。
+
+さらに Convex では、アプリの
+[スキーマ](/database/schemas.mdx) と
+[Convex functions](/functions.mdx) に特化した型を生成する
+[コード生成](/generated-api/) をサポートしています。
+
+コード生成は
+[`npx convex dev`](/cli.md#run-the-convex-dev-server)
+によって自動的に行われます。
+
+## 生成されたコードをバージョン管理にチェックインする \{#check-generated-code-into-version-control\}
+
+`convex` フォルダーの中には、あなたの Convex 関数用にカスタマイズされたコードを含む `_generated/` ディレクトリがあります。このフォルダーを git リポジトリにチェックインしてください。そうすることで、事前に `npx convex codegen` や
+（codegen を含む）`npx convex dev` を実行しなくても、コードの型チェックを行えるようになります。
+
+これにより、Convex CLI ツールを実行することなく、環境変数を設定して本番デプロイメントに対してアプリケーションを実行するだけで、Convex を使うプロジェクトに開発者が変更を加えられるようにもなります。本番デプロイメントに対して実行するには、使用しているフレームワークによって正確な名前は異なりますが、VITE&#95;CONVEX&#95;URL のような環境変数に、`https://happy-otter-123.convex.cloud` のような本番デプロイメントURLを設定します。これは、ダッシュボード内のそのプロジェクトの本番デプロイメント設定で確認できます。ほとんどのフレームワークは、このような変数を `.env` や `.env.production` というファイルの中から探します。
+
+## 関数 \{#functions\}
+
+### すべての公開関数で[引数バリデーション](/functions/validation.mdx)を使う \{#use-argument-validation-in-all-public-functions\}
+
+引数バリデーションは、悪意のあるユーザーが誤った型の引数で関数を呼び出すことを防ぎます。[内部関数](/functions/internal-functions.mdx)は外部からアクセスできないため、引数バリデーションを省略しても構いません。
+
+### Convex 関数のデバッグには `console.log` を使用する \{#use-consolelog-to-debug-your-convex-functions\}
+
+Convex 関数からのすべてのサーバーサイドログは
+[ダッシュボードの Logs ページ](/dashboard/deployments/logs.md) に表示されます。サーバーサイドで
+例外が発生した場合も、エラーイベントとして記録されます。
+
+**dev デプロイメント** では、ログはクライアントにも転送され、関数呼び出しを行ったユーザーの
+ブラウザの開発者ツールの Console に表示されます。ここには、サーバーのエラーメッセージ全文と
+サーバーサイドのスタックトレースも含まれます。
+
+### 共有コードにはヘルパー関数を使う \{#use-helper-functions-to-write-shared-code\}
+
+`convex/` ディレクトリ内にヘルパー関数を定義し、Convex 関数の中でそれらを利用します。ヘルパーは、ビジネスロジックや認可コードなどを共有するための強力な手段になります。
+
+ヘルパー関数を使うと、コードを共有しつつも、クエリやミューテーション全体を単一トランザクション内で実行できます。アクションの場合も、`ctx.runAction` を使う代わりにヘルパー関数経由でコードを共有することで、関数呼び出し回数とリソース使用量を削減できます。
+
+便利な型については、[TypeScript ページ](/understanding/best-practices/typescript.mdx) を参照してください。
+
+<TSAndJSSnippet sourceTS={Teams} sourceJS={TeamsJS} title="convex/teams.js" />
+
+<TSAndJSSnippet sourceTS={UserHelpers} sourceJS={UserHelpersJS} title="convex/userHelpers.js" snippet="userHelpers" suffix={`}`} />
+
+### アクションよりクエリとミューテーションを優先する \{#prefer-queries-and-mutations-over-actions\}
+
+同じ目的がクエリまたはミューテーションで達成できる場合は、基本的にアクションの使用は避けるべきです。アクションは副作用を持つ可能性があるため、自動リトライや結果のキャッシュを行うことができません。アクションは、サードパーティサービスの呼び出しのような、より限定されたシナリオで使用すべきです。
+
+## データベース \{#database\}
+
+### 大きなデータベースクエリにはインデックスを使うかページネーションを行う \{#use-indexes-or-paginate-all-large-database-queries\}
+
+[Database indexes](/database/reading-data/indexes/indexes.md) と
+[range expressions](/database/reading-data/indexes/indexes.md#querying-documents-using-indexes)
+を使うと、テーブル内の少数のドキュメントだけをスキャンする効率的なデータベースクエリを書けます。
+[Pagination](/database/pagination.mdx) を使うと、結果のリストを段階的にすばやく表示できます。
+テーブルに数千件以上のドキュメントが含まれる可能性がある場合は、クエリの高速性を保つために、
+ページネーションか range expression を伴うインデックスの利用を検討してください。
+
+詳しくは、
+[Introduction to Indexes and Query Performance](/database/reading-data/indexes/indexes-and-query-perf.md)
+の記事を参照してください。
+
+### 論理的に異なるオブジェクト型はテーブルで分けて管理する \{#use-tables-to-separate-logical-object-types\}
+
+Convex はネストされたドキュメントもサポートしていますが、多くの場合は、
+オブジェクトごとに別々のテーブルに格納し、それらの間の参照を作成するために
+`Id` を使う方が適切です。こうすることで、データの読み込みや
+[ドキュメントのクエリ](/database/reading-data/reading-data.mdx) 時に、より柔軟に扱えるようになります。
+
+詳しくは [Document IDs](/database/document-ids.mdx) を参照してください。
+
+## UI パターン \{#ui-patterns\}
+
+### クエリが読み込み中かどうかを判定するために `undefined` をチェックする \{#check-for-undefined-to-determine-if-a-query-is-loading\}
+
+[`useQuery` React hook](/api/modules/react#usequery) は、コンポーネントが最初にマウントされた直後、
+Convex からクエリがまだ読み込まれていない間は `undefined` を返します。
+一度クエリが読み込まれると、その後は（データがリアクティブに更新されても）
+`undefined` が返されることはありません。`undefined` はクエリの有効な戻り値の型ではありません
+（Convex がサポートしている型は [Data Types](/database/types.md) を参照してください）。
+
+これをシグナルとして利用して、ローディングインジケーターやプレースホルダー UI を
+いつレンダリングするかを判断できます。
+
+### きびきび動かしたい操作にはオプティミスティック更新を追加する \{#add-optimistic-updates-for-the-interactions-you-want-to-feel-snappy\}
+
+デフォルトでは、Convex からミューテーションが同期されたあとに、関連するすべての `useQuery` フックが自動的に更新されます。特定の操作をさらに高速に感じさせたい場合は、`useMutation`
+呼び出しに[オプティミスティック更新](/client/react/optimistic-updates.mdx)を追加して、UI が即座に更新されるようにできます。
+
+### 例外処理サービスとエラーバウンダリを使ってエラーを管理する \{#use-an-exception-handling-service-and-error-boundaries-to-manage-errors\}
+
+避けられませんが、Convex の関数にはバグが入り、例外が発生してしまうことがあります。例外処理サービスとエラーバウンダリを設定しておけば、これらのエラーを確実に把握でき、ユーザーには適切な UI を表示できます。
+
+詳しくは [Error Handling](/functions/error-handling/error-handling.mdx) を参照してください。

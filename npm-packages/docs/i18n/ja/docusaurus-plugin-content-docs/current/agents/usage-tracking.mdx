@@ -1,0 +1,141 @@
+---
+title: 利用状況の追跡
+sidebar_label: "利用状況の追跡"
+sidebar_position: 1300
+description: "Agent コンポーネントのトークン利用状況の追跡"
+---
+
+`usageHandler` を Agent コンポーネントに渡してトークン利用状況を追跡できます。利用状況をテーブルに保存しておき、その後スキャンしてユーザーごとの請求書を生成する
+[このデモ](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/usageHandler.ts)
+を参照してください。
+
+`usageHandler` は Agent 全体、スレッド単位、メッセージ単位のいずれにも指定できます。
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  usageHandler: async (ctx, args) => {
+    const {
+      // Who used the tokens
+      userId, threadId, agentName,
+      // What LLM was used
+      model, provider,
+      // 使用されたトークン数（追加情報はproviderMetadataで利用可能）
+      usage, providerMetadata
+    } = args;
+    // ... log, save usage to your database, etc.
+  },
+});
+```
+
+ヒント: `usageHandler` は、利用状況を別のユーザーやチーム、プロジェクトなどに紐付けるために使える変数により多くアクセスできる関数内で定義してください。
+
+## テーブルに利用状況を格納する \{#storing-usage-in-a-table\}
+
+たとえば課金のために利用状況を追跡する場合は、スキーマ内にテーブルを定義し、
+後で処理できるようにそのテーブルに利用状況を記録します。
+
+```ts
+export const usageHandler: UsageHandler = async (ctx, args) => {
+  if (!args.userId) {
+    console.debug("匿名ユーザーの使用状況は追跡しません");
+    return;
+  }
+  await ctx.runMutation(internal.example.insertRawUsage, {
+    userId: args.userId,
+    agentName: args.agentName,
+    model: args.model,
+    provider: args.provider,
+    usage: args.usage,
+    providerMetadata: args.providerMetadata,
+  });
+};
+
+export const insertRawUsage = internalMutation({
+  args: {
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+  },
+  handler: async (ctx, args) => {
+    const billingPeriod = getBillingPeriod(Date.now());
+    return await ctx.db.insert("rawUsage", {
+      ...args,
+      billingPeriod,
+    });
+  },
+});
+
+function getBillingPeriod(at: number) {
+  const now = new Date(at);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth());
+  return startOfMonth.toISOString().split("T")[0];
+}
+```
+
+対応するスキーマは `convex/schema.ts` に次のように定義します：
+
+```ts
+export const schema = defineSchema({
+  rawUsage: defineTable({
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+
+    // stats
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+
+    // この例では、現在の月の初日に設定しており、
+    // 月の境界にはUTC時刻を使用しています。
+    // 代わりにタイムスタンプ数値として保存することもできます。
+    // 請求期間の終了時にすべての使用状況を取得し、
+    // 合計コストを計算できます。
+    billingPeriod: v.string(), // 使用期間が終了した日時
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+
+  invoices: defineTable({
+    userId: v.string(),
+    billingPeriod: v.string(),
+    amount: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("failed"),
+    ),
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+  // ... other tables
+});
+```
+
+## cron ジョブによる請求書の生成 \{#generating-invoices-via-a-cron-job\}
+
+請求期間の終了時に、cron ジョブを使って請求書を生成できます。
+
+請求書を生成する方法の例については、
+[usage&#95;tracking/invoicing.ts](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/invoicing.ts)
+を参照してください。
+
+その後、その処理を `convex/crons.ts` に追加できます。
+
+```ts
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+// 前月の請求書を生成する
+crons.monthly(
+  "generateInvoices",
+  // 新月開始から1日待ってから請求書を生成する
+  { day: 2, hourUTC: 0, minuteUTC: 0 },
+  internal.usage.generateInvoices,
+  {},
+);
+
+export default crons;
+```

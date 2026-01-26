@@ -1,0 +1,74 @@
+---
+title: Playground
+sidebar_label: "Playground"
+sidebar_position: 400
+description: "エージェントを使ってテスト・デバッグ・開発を行うためのシンプルな方法"
+---
+
+Playground の UI は、エージェントを使ってテスト、デバッグ、開発を行うためのシンプルな方法です。
+
+![Playground UI Screenshot](https://get-convex.github.io/agent/screenshot.png)
+
+* ユーザーを選択して、そのユーザーのスレッド一覧を表示します。
+* 選択したユーザーのスレッドを閲覧します。
+* 選択中のスレッド内のメッセージと、ツール呼び出しの詳細を一覧表示します。
+* メッセージのメタデータの詳細を表示します。
+* コンテキストオプションを調整しながら、コンテキスト付きメッセージ参照を試せます。
+* スレッドにメッセージを送信し、保存オプションを設定できます。
+* バックエンドと安全に通信するために API キーを使用します。
+
+[ホストされているバージョンはこちら](https://get-convex.github.io/agent/) から利用できます。
+
+## セットアップ \{#setup\}
+
+**Note**: すでに Agent を設定済みの Convex プロジェクトが必要です。セットアップ手順については
+[ドキュメント](./getting-started.mdx) を参照してください。
+
+Agent を使っている Convex プロジェクト内で、`convex/playground.ts` というファイルを作成して、次の内容を記述します:
+
+```ts
+import { definePlaygroundAPI } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+import { weatherAgent, fashionAgent } from "./example";
+
+/**
+ * ここではフロントエンドがアクセスできるようにAPIを公開しています。
+ * 認証は、ダッシュボードまたはCLI経由で生成できるapiKeyを渡すことで処理されます:
+ * npx convex run --component agent apiKeys:issue
+ */
+export const {
+  isApiKeyValid,
+  listAgents,
+  listUsers,
+  listThreads,
+  listMessages,
+  createThread,
+  generateText,
+  fetchPromptContext,
+} = definePlaygroundAPI(components.agent, {
+  agents: [weatherAgent, fashionAgent],
+});
+```
+
+プロジェクトのリポジトリディレクトリで、自分用の API キーを発行します:
+
+```sh
+npx convex run --component agent apiKeys:issue '{name:"..."}'
+```
+
+注意: 複数のキーを生成するには、それぞれのキーに異なる名前を付けてください。キーを失効させて再発行するには、同じ名前を指定します。
+
+次に、[ホストされているバージョン](https://get-convex.github.io/agent/)にアクセスします。
+
+`.env.local` に記載されている Convex のデプロイメントURLを入力するよう求められます。
+また、上で生成したAPIキーも求められます。もし `convex/playground.ts` とは異なるパスを使用した場合は、そのパスを入力できます。例えば、playground API を `convex/foo/bar.ts` で export していた場合は、`foo/bar` を入力します。
+
+## ローカルでの実行 \{#running-it-locally\}
+
+次のコマンドを実行すると、Playground をローカルで起動できます:
+
+```sh
+npx @convex-dev/agent-playground
+```
+
+`VITE_CONVEX_URL` 環境変数を使用しており、その値は通常 .env.local から読み込まれます。

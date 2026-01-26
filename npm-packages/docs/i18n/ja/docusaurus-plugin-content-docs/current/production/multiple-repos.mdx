@@ -1,0 +1,52 @@
+---
+title: 複数のリポジトリ
+sidebar_label: 複数のリポジトリ
+description: "複数のリポジトリで Convex を使用する"
+sidebar_position: 180
+---
+
+import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/tsGeneration.ts";
+import API from "!!raw-loader!@site/../private-demos/snippets/api.ts";
+import Frontend from "!!raw-loader!@site/../private-demos/snippets/src/tsGeneration.tsx";
+
+TypeScript クライアントから、Convex 関数が定義されているリポジトリ外でも、型安全に Convex 関数を呼び出せます。以下の手順に従うことで、`convex/_generated/api.d.ts` と同様のファイルを生成し、それを別リポジトリにコミットして利用できます。
+
+<BetaAdmonition feature="TypeScript API generation" verb="is" />
+
+<StepByStep>
+  <Step title="Convex Helpers の npm パッケージをインストールする">
+    `convex-helpers` パッケージをインストールします。このパッケージには、API ファイルを生成するための CLI コマンドが含まれています。
+
+    ```sh
+    npm install convex-helpers
+    ```
+  </Step>
+
+  <Step title="TypeScript API ファイルを生成するコマンドを実行する">
+    このコマンドを実行すると、設定済みの Convex デプロイメントにアクセスし、それに基づいて `api.ts` ファイルを生成します。コマンドに `--help` を渡すことで、利用可能な追加フラグを確認できます。
+
+    ```sh
+    npx convex-helpers ts-api-spec
+    ```
+  </Step>
+</StepByStep>
+
+## 例 \{#example\}
+
+以下は、このワークフローが実際にどのように動作するかを示すコード例です。
+これらのスニペットには、次の 3 つのファイルが含まれます。
+
+* `convex/messages.ts` - Convex 関数定義を含みます
+* `api.ts` - 上記のコマンドを実行して生成されたファイル
+* `src/App.tsx` - `api.ts` がコミットされている、別リポジトリにあるフロントエンドコード
+
+<TSAndJSSnippet title="convex/messages.ts" snippets="send" sourceTS={Functions} sourceJS={Functions} />
+
+<TSAndJSSnippet title="api.ts" sourceTS={API} sourceJS={API} />
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={Frontend} sourceJS={Frontend} highlightPatterns={["import { api } from"]} />
+
+## 制限事項 \{#limits\}
+
+* 引数および戻り値のバリデータは必須ではありませんが、指定すると TypeScript API の型がより厳密になります。バリデータが定義されていない場合、デフォルトで `v.any()` がバリデータとして使用されます。
+* Convex のデプロイメント外から内部関数を呼び出すことはできません。

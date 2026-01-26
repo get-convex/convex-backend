@@ -1,0 +1,41 @@
+---
+title: 部署平台 API
+hide_table_of_contents: true
+description: "部署 API"
+---
+
+<Admonition type="info">
+  Convex 部署 API 目前处于公开 Beta 阶段。如果你的使用场景需要额外功能，请联系
+  platforms@convex.dev。
+</Admonition>
+
+不同于向客户端暴露应用程序特定功能的 HTTP 端点，管理 API 端点用于配置部署（例如修改环境变量）。
+
+## 授权 \{#authorization\}
+
+部署管理 API 需要在 `Authorization` 请求头中提供一个密钥，该密钥必须对该部署具有管理员访问权限。
+
+在
+[仪表盘](https://docs.convex.dev/dashboard/deployments/deployment-settings#url-and-deploy-key)
+中创建或通过 API 调用创建的
+[Deployment keys](https://docs.convex.dev/cli/deploy-key-types#development-deploy-keys)
+可以用于这些 API。
+
+[Team Access Tokens](/platform-apis#managing-your-own-projects) 和
+[OAuth Application Tokens](/platform-apis/oauth-applications) 也可以使用，
+具体取决于你是代表你自己的团队使用管理 API，还是代表你构建的 Convex 集成的用户所属团队使用。
+
+无论是哪种类型的密钥，都需要在前面加上字符串 `"Convex "`。
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://happy-otter-123.convex.cloud/api/v1/list_environment_variables",
+  {
+    headers: {
+      Authorization: `Convex ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```

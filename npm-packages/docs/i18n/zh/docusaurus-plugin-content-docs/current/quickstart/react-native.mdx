@@ -1,0 +1,112 @@
+---
+title: React Native 快速入门
+sidebar_label: React Native
+description: "在 React Native Expo 项目中集成 Convex"
+hide_table_of_contents: true
+sidebar_position: 300
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/expo/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/expo/convex/tasks.ts";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/_layout.tsx";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/index.tsx";
+
+了解如何在 React Native 应用中从 Convex 查询数据。
+
+<StepByStep>
+  <Step title="创建 React Native 应用">
+    使用 `npx create-expo-app` 命令创建一个 React Native 应用。
+
+    ```sh
+    npx create-expo-app my-app
+    ```
+  </Step>
+
+  <Step title="安装 Convex 客户端和服务端库">
+    首先，安装 `convex`
+    包，它为在 React 应用中使用 Convex
+    提供了便捷的接口。
+
+    进入你的应用目录并安装 `convex`。
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发环境（dev）部署">
+    接下来运行 `npx convex dev`。这会提示你使用 GitHub 登录、
+    创建一个项目，并保存你的生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用于编写后端 API 函数。`dev` 命令
+    会持续运行，将你的函数与云端的开发环境（dev）部署
+    保持同步。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    创建一个包含一些示例数据的 `sampleData.jsonl`
+    文件。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    现在项目已经准备就绪，使用 `import` 命令将一个带有示例数据的 `tasks` 表
+    添加到你的 Convex 数据库中。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="公开一个数据库查询">
+    在 `convex/` 文件夹中添加一个新的 `tasks.ts` 文件，
+    并在其中定义一个用于加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    将声明一个以文件名和导出名命名的 API 函数，
+    即 `api.tasks.get`。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="重置 Expo 项目">
+    如果你尚未这样做，重置 Expo 项目以获得一个干净的
+    `app` 目录。
+
+    ```
+    npm run reset-project
+    ```
+  </Step>
+
+  <Step title="将应用连接到后端">
+    在 `_layout.tsx` 中创建一个 `ConvexReactClient`，并将其传递给
+    用于包裹组件树的 `ConvexProvider`。
+
+    <Snippet source={layout} title="app/_layout.tsx" highlightPatterns={[ "Convex", "get-random", "CONVEX", "unsaved", "}\\);", ]} />
+  </Step>
+
+  <Step title="在应用中展示数据">
+    在 `index.tsx` 中使用 `useQuery` hook 从
+    你的 `api.tasks.get` API 获取数据。
+
+    <Snippet source={index} title="app/index.tsx" highlightPatterns={[ "api", "useQuery", "tasks" ]} />
+  </Step>
+
+  <Step title="启动应用">
+    启动应用，使用手机扫描提供的二维码，
+    然后在屏幕中央查看序列化的任务列表。
+
+    ```sh
+    npm start
+    ```
+  </Step>
+</StepByStep>
+
+React Native 使用的库与 React Web 相同。参见完整的
+[React 文档](/client/react.mdx)。

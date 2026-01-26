@@ -1,0 +1,34 @@
+---
+title: "Funciones"
+description: "Escribe funciones para definir el comportamiento de tu servidor"
+hide_table_of_contents: true
+pagination_prev: tutorial/index
+---
+
+Las funciones se ejecutan en el backend y se escriben en JavaScript (o TypeScript). Se
+exponen automáticamente como APIs a las que se accede a través de
+[las bibliotecas cliente](/client/react.mdx). Todo lo que haces en el backend de Convex
+empieza con funciones.
+
+Hay tres tipos de funciones:
+
+- [Consultas](/functions/query-functions.mdx) leen datos de tu base de datos de Convex
+  y se almacenan automáticamente en caché y admiten suscripciones (en tiempo real y reactivas).
+- [Mutaciones](/functions/mutation-functions.mdx) escriben datos en la base de datos y
+  se ejecutan como una transacción.
+- [Acciones](/functions/actions.mdx) pueden llamar a OpenAI, Stripe, Twilio o cualquier
+  otro servicio o API que necesites para que tu aplicación funcione.
+
+También puedes crear [acciones HTTP](/functions/http-actions.mdx) cuando quieras
+invocar tus funciones desde un webhook o un cliente personalizado.
+
+A continuación se muestra una descripción general de los tres tipos de funciones de Convex y lo que
+pueden hacer:
+
+|                            | Consultas | Mutaciones | Acciones |
+| -------------------------- | --------- | ---------- | -------- |
+| Acceso a la base de datos  | Sí        | Sí         | No       |
+| Transaccional              | Sí        | Sí         | No       |
+| En caché                   | Sí        | No         | No       |
+| Actualizaciones en tiempo real | Sí    | No         | No       |
+| Llamadas a APIs externas (fetch) | No   | No        | Sí       |

@@ -1,0 +1,141 @@
+---
+title: "Proveedor OIDC personalizado"
+sidebar_label: "Proveedor OIDC personalizado"
+sidebar_position: 3
+description:
+  "Integra Convex con cualquier proveedor de identidad OpenID Connect utilizando
+  una configuración de autenticación personalizada y ConvexProviderWithAuth."
+---
+
+**Nota: ¡Esta es una funcionalidad avanzada!** Recomendamos que sigas utilizando los
+[proveedores de autenticación de terceros compatibles](/auth.mdx).
+
+Convex se puede integrar con cualquier proveedor de identidad que admita el
+protocolo [OpenID Connect](https://openid.net/connect/). Como mínimo, esto
+significa que el proveedor puede emitir
+[ID tokens](https://openid.net/specs/openid-connect-core-1_0.html#IDToken) y
+exponer el conjunto de claves
+[JWKS](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-sets) correspondiente.
+El ID token se pasa desde el cliente a tu backend de Convex, que verifica que
+el token sea válido y te permite consultar la información de usuario incluida en el
+token, como se describe en [Autenticación en funciones](/auth/functions-auth.mdx).
+
+## Integración del lado del servidor \{#server-side-integration\}
+
+Al igual que con [Clerk](/auth/clerk.mdx) y [Auth0](/auth/auth0.mdx), el
+backend debe conocer el dominio del Issuer y el ID de aplicación específico de tu aplicación para un proveedor de identidad determinado.
+
+Agrega lo siguiente a tu archivo `convex/auth.config.ts`:
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      domain: "https://your.issuer.url.com",
+      applicationID: "your-application-id",
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+La propiedad `applicationID` debe coincidir exactamente con el campo `aud` de tu JWT y
+la propiedad `domain` debe coincidir exactamente con el campo `iss` del JWT. Usa una herramienta
+como [jwt.io](https://jwt.io/) para visualizar un JWT y confirmar que estos campos coinciden
+exactamente.
+
+Si se proporcionan varios proveedores, se utilizará el primero que cumpla los criterios anteriores.
+
+Si no puedes obtener tokens con un campo `aud`, tendrás que
+configurar en su lugar un [JWT personalizado](/auth/advanced/custom-jwt.mdx). Si no estás seguro de si
+tu token es un OIDC ID token, consulta
+[la especificación](https://openid.net/specs/openid-connect-core-1_0-final.html#rfc.section.2)
+para ver una lista de todos los campos obligatorios.
+
+OIDC requiere las rutas `${domain}/.well-known/jwks.json` y
+`${domain}/.well-known/openid-configuration`. `domain` puede incluir una ruta como
+`https://your.issuer.url.com/api/auth`. Esto no es común para proveedores de autenticación
+de terceros, pero puede ser útil si estás implementando OIDC en tu propio servidor.
+
+## Integración del lado del cliente \{#client-side-integration\}
+
+### Integrando un nuevo proveedor de identidad \{#integrating-a-new-identity-provider\}
+
+El componente [`ConvexProviderWithAuth`](/api/modules/react#convexproviderwithauth)
+proporciona una abstracción conveniente para crear una integración de autenticación
+similar a las que Convex ofrece para [Clerk](/auth/clerk.mdx) y
+[Auth0](/auth/auth0.mdx).
+
+En el siguiente ejemplo creamos una integración con un &quot;ProviderX&quot; imaginario,
+cuya integración con React incluye `AuthProviderXReactProvider` y
+el hook `useProviderXAuth`.
+
+Primero reemplazamos `ConvexProvider` por `AuthProviderXReactProvider`, envolviendo
+`ConvexProviderWithAuth` en la raíz de nuestra aplicación:
+
+```jsx title="src/index.js"
+import { AuthProviderXReactProvider } from "providerX";
+import { ConvexProviderWithAuth } from "convex/react";
+
+root.render(
+  <StrictMode>
+    <AuthProviderXReactProvider>
+      <ConvexProviderWithAuth client={convex} useAuth={useAuthFromProviderX}>
+        <App />
+      </ConvexProviderWithAuth>
+    </AuthProviderXReactProvider>
+  </StrictMode>,
+);
+```
+
+Realmente solo necesitamos implementar el hook `useAuthFromProviderX`, que se
+pasa al componente `ConvexProviderWithAuth`.
+
+Este hook `useAuthFromProviderX` actúa como una adaptación entre la API del proveedor
+de autenticación y la API de [`ConvexReactClient`](/api/classes/react.ConvexReactClient),
+que en última instancia es la responsable de asegurarse de que el token de ID se pase
+a tu backend de Convex.
+
+```jsx title="src/ConvexProviderWithProviderX.js"
+function useAuthFromProviderX() {
+  const { isLoading, isAuthenticated, getToken } = useProviderXAuth();
+  const fetchAccessToken = useCallback(
+    async ({ forceRefreshToken }) => {
+      // Aquí puedes realizar cualquier transformación para obtener el ID Token
+      // o null
+      // Asegúrate de obtener un nuevo token cuando `forceRefreshToken` sea true
+      return await getToken({ ignoreCache: forceRefreshToken });
+    },
+    // Si `getToken` no está correctamente memoizado,
+    // elimínalo de este array de dependencias
+    [getToken],
+  );
+  return useMemo(
+    () => ({
+      // Indica si el proveedor de autenticación está en estado de carga
+      isLoading: isLoading,
+      // Indica si el proveedor de autenticación tiene al usuario autenticado
+      isAuthenticated: isAuthenticated ?? false,
+      // La función asíncrona para obtener el ID token
+      fetchAccessToken,
+    }),
+    [isLoading, isAuthenticated, fetchAccessToken],
+  );
+}
+```
+
+### Uso del nuevo provider \{#using-the-new-provider\}
+
+Si has seguido correctamente los pasos anteriores, ahora puedes usar las utilidades
+estándar de Convex para comprobar el estado de autenticación: el hook
+[`useConvexAuth()`](/api/modules/react#useconvexauth) y los componentes auxiliares
+[`Authenticated`](/api/modules/react#authenticated),
+[`Unauthenticated`](/api/modules/react#authenticated) y
+[`AuthLoading`](/api/modules/react#authloading).
+
+### Depuración \{#debugging\}
+
+Consulta [Depuración de la autenticación](/auth/debug.mdx).
+
+<StackPosts query="authentication" />

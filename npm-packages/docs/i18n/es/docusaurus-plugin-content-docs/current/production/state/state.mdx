@@ -1,0 +1,85 @@
+---
+title: "Estado y garantías"
+id: "state"
+sidebar_position: 1
+description:
+  "Obtén información sobre las garantías de producción de Convex, los objetivos
+  de disponibilidad, la durabilidad de los datos, las características de seguridad y
+  las próximas mejoras de la plataforma."
+---
+
+[Contáctanos](mailto:support@convex.dev) si tienes requisitos
+específicos o si quieres crear un proyecto en Convex que nuestras
+garantías aún no cubran.
+
+## Garantías \{#guarantees\}
+
+Los Términos de servicio oficiales de Convex, la Política de privacidad y los Acuerdos con clientes están
+[descritos en nuestros términos oficiales](https://www.convex.dev/legal/tos). Aún no
+contamos con acuerdos contractuales más allá de lo indicado en nuestros términos oficiales y
+las discusiones dentro de este documento no constituyen una enmienda a esos
+términos.
+
+Convex está en desarrollo continuo y es posible que futuras versiones requieran
+cambios en el código para poder actualizar a una nueva versión. El código desarrollado en Convex 1.0
+o posterior continuará funcionando tal como está. Si nos vemos obligados a introducir un cambio incompatible en el futuro, nos pondremos en contacto directamente con los equipos para proporcionar un aviso previo con suficiente antelación.
+
+Todos los datos de usuario en Convex se cifran en reposo. El estado de la base de datos se replica
+de forma duradera en múltiples zonas físicas de disponibilidad. Se realizan copias de seguridad
+periódicas e incrementales de la base de datos y se almacenan con una durabilidad del 99,999999999 % (11
+nueves).
+
+Apuntamos a una disponibilidad del 99,99 % (4 nueves) para los despliegues de Convex, aunque
+estos pueden experimentar tiempo de inactividad por mantenimiento sin previo aviso. Una interrupción física
+puede afectar la disponibilidad de un despliegue, pero no afectará la durabilidad de los
+datos almacenados en Convex.
+
+## Límites \{#limits\}
+
+Para obtener información sobre los límites, consulta [esta sección](/production/state/limits.mdx).
+
+## Funcionalidades beta \{#beta-features\}
+
+Las funcionalidades marcadas como **beta** en esta documentación todavía están en desarrollo. Se pueden usar en producción, pero sus API podrían cambiar en el futuro, lo que requeriría trabajo adicional al actualizar a una nueva versión del paquete de Convex para npm y otras bibliotecas cliente de Convex.
+
+## Funcionalidades futuras \{#future-features\}
+
+Convex sigue en desarrollo muy activo y aquí enumeramos algunas de las
+funcionalidades que aún faltan y que tenemos en el radar. Nos encantaría conocer mejor tus
+necesidades en la [Convex Discord Community](https://convex.dev/community).
+
+### Autorización \{#authorization\}
+
+Actualmente, Convex tiene un [*framework de autenticación*](/auth.mdx) que verifica
+las identidades de los usuarios. En el futuro planeamos agregar un *framework de autorización* que
+permitirá a los desarrolladores definir a qué datos puede acceder un usuario.
+
+Por ahora, puedes implementar comprobaciones manuales de autorización dentro de tus consultas y
+mutaciones, pero mantente atento a una solución más completa y a prueba de errores en el
+futuro.
+
+### Telemetría \{#telemetry\}
+
+Actualmente, el panel de control solo proporciona métricas básicas. Las aplicaciones serias a gran escala
+van a necesitar integrar nuestros registros y métricas en sistemas de observabilidad
+más completos que los clasifiquen y permitan funciones como las alertas.
+
+Convex tendrá en el futuro métodos para publicar datos de despliegue en formatos que
+puedan ser consumidos por terceros.
+
+### Analítica / OLAP \{#analytics-olap\}
+
+Convex está diseñado principalmente para cubrir todas las necesidades de implementación en tiempo real
+(OLTP) de tu aplicación. Es menos adecuado como solución para los tipos de
+consultas complejas y grandes recorridos completos de tablas que son necesarios para satisfacer los requisitos de
+casos de uso de analítica (OLAP).
+
+Convex ofrece
+[conectores de Fivetran y Airbyte](/production/integrations/streaming-import-export.md)
+para exportar datos de Convex a sistemas de analítica externos.
+
+### Compatibilidad con navegadores \{#browser-support\}
+
+Convex aún no tiene una política oficial de compatibilidad con navegadores, pero procuramos
+ofrecer compatibilidad con la mayoría de los navegadores modernos que tienen un
+[uso](https://caniuse.com/usage-table) significativo.

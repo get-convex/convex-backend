@@ -1,0 +1,221 @@
+---
+title: ワークフロー
+sidebar_label: "Workflows"
+sidebar_position: 800
+description: "Agent コンポーネント向けの長寿命ワークフローの定義"
+---
+
+エージェント型ワークフローは、次の 2 要素に分解できます。
+
+1. LLM へのプロンプト（メッセージ履歴、コンテキストなどを含む）を行うこと。
+2. LLM の応答をどのように扱うかを決めること。
+
+一般的に、複数のステップが関わり、次に何をするかを動的に決定し、長期間にわたって実行されるものや、ビジネスロジックと LLM 呼び出しが混在しているものを、ワークフローと呼びます。
+
+ツール呼び出しや MCP は、LLM の応答が、取るべきアクションに関する具体的なリクエストである場合に関わってきます。利用可能なツールの一覧とツール呼び出しの結果は、LLM へのプロンプトの一部として使用されます。
+
+特に強力なワークフローの形態として、
+[durable functions](https://stack.convex.dev/durable-workflows-and-strong-guarantees)
+としてモデル化できるものがあります。これらは長寿命で、サーバーの再起動をまたいで継続でき、リトライ、冪等性、完了に関して強い保証を持ちます。
+
+もっとも単純な形としては、あらかじめ定義されたステップを 2、3 個実行するようなものがあります。たとえば、最初に天気予報を取得し、その後その天気に基づいたファッションアドバイスを取得する、といったものです。コード例については、
+[workflows/chaining.ts](https://github.com/get-convex/agent/blob/main/example/convex/workflows/chaining.ts)
+を参照してください。
+
+```ts
+export const getAdvice = action({
+  args: { location: v.string(), threadId: v.string() },
+  handler: async (ctx, { location, threadId }) => {
+    // This uses tool calls to get the weather forecast.
+    await weatherAgent.generateText(
+      ctx,
+      { threadId },
+      { prompt: `What is the weather in ${location}?` },
+    );
+    // This includes previous message history from the thread automatically and
+    // uses tool calls to get user-specific fashion advice.
+    await fashionAgent.generateText(
+      ctx,
+      { threadId },
+      { prompt: `What should I wear based on the weather?` },
+    );
+    // メッセージは自動的に保存され、クライアントはサブスクリプション経由で
+    // レスポンスを取得するため、何も返す必要はありません。
+  },
+});
+```
+
+## 信頼性の高いワークフローの構築 \{#building-reliable-workflows\}
+
+LLM を扱う際のよくある落とし穴の 1 つは、その信頼性の低さです。API プロバイダーが
+障害を起こすこともあれば、LLM 自体が不安定なこともあります。信頼性の高いワークフローを構築するには、しばしば次の 3 つの特性が必要になります。
+
+1. 信頼性の高いリトライ
+2. 負荷分散
+3. 複数ステップのワークフローにおける耐久性と冪等性
+
+ありがたいことに、これらの特性を実現するために活用できる Convex コンポーネントが用意されています。
+
+### リトライ \{#retries\}
+
+デフォルトでは、Convex のミューテーションにはこれらの特性が備わっています。しかし、LLM を呼び出すには副作用を伴うネットワーク呼び出しが必要になるため、アクションを使う必要があります。もしリトライだけを気にするのであれば、
+[Action Retrier](https://convex.dev/components/retrier) コンポーネントを使用できます。
+
+ただし、このまま読み進めてください。[Workpool](https://convex.dev/components/workpool) と
+[Workflow](https://convex.dev/components/workflow) コンポーネントは、リトライを含むより堅牢なソリューションを提供します。
+
+### 負荷分散 \{#load-balancing\}
+
+サーバーレス環境で長時間実行されるアクションを実行すると、多くのリソースを消費する可能性があります。RAG 用のデータ取り込みや、その他スパイクしやすいワークロードのようなタスクでは、リソース不足に陥るリスクがあります。これを軽減するには、[Workpool](https://convex.dev/components/workpool) コンポーネントを使用できます。同時に動作するワーカー数の上限を設定し、リトライや最終的な成功／失敗を処理するコールバックを構成しつつ、非同期的に作業を追加できます。
+
+ただし、マルチステップのワークフローも管理したい場合は、[Workflow](https://convex.dev/components/workflow) コンポーネントを使用してください。これはリトライや負荷分散も含めて標準で備えています。
+
+### 複数ステップのワークフローにおける永続性と冪等性 \{#durability-and-idempotency-for-multi-step-workflows\}
+
+途中で失敗しうる複数ステップのワークフローを実行する場合、作業を重複させることなく、
+中断したところからワークフローを再開できるようにする必要があります。
+[Workflow](https://convex.dev/components/workflow) は
+[Workpool](https://convex.dev/components/workpool) の上に構築されており、
+リトライや遅延を伴う長時間実行関数を永続的に実行できるようにします。
+
+ワークフロー内の各ステップは実行され、その結果が記録されます。サーバーが途中で障害を起こしても、
+設定可能なリトライ設定に従い、最後に完了していなかったステップから再開されます。
+
+## 長期間稼働する耐久性ワークフローに Workflow コンポーネントを使用する \{#using-the-workflow-component-for-long-lived-durable-workflows\}
+
+[Workflow コンポーネント](https://convex.dev/components/workflow) は、
+長期間稼働する耐久性の高いワークフローを構築するのに最適です。再試行処理や、
+最終的に完了させることの保証、サーバー再起動後も動作を継続させることなどを処理します。耐久性ワークフローの詳細については、
+[この Stack の投稿](https://stack.convex.dev/durable-workflows-and-strong-guarantees) を参照してください。
+
+Agent コンポーネントをワークフローと併用するには、ワークフローから実行できる個々の冪等なステップを用意して実行します。
+各ステップにはリトライ回数を設定でき、ワークフローが最終的に完了することが保証されます。
+サーバーがワークフローの途中でクラッシュしたとしても、ワークフローは中断した箇所から再開し、
+次のステップを実行します。ステップが失敗してワークフロー内でキャッチされなかった場合は、
+ワークフローの `onComplete` ハンドラがそのエラー結果を受け取ります。
+
+### ワークフロー内で Agent を使う \{#using-the-agent-within-a-workflow\}
+
+[Workflow コンポーネント](https://convex.dev/components/workflow) を使って
+Agent フローを実行できます。これはリトライや最終的な完了の保証、
+サーバー再起動後の復元などを処理します。永続的なワークフローについての詳細は
+[この Stack の投稿](https://stack.convex.dev/durable-workflows-and-strong-guarantees)を参照してください。
+
+ワークフロー内では、それぞれの「step」は 1 つの冪等な処理です。引数と
+戻り値はワークフローの状態の一部として保存されるため、履歴を再生することで
+中断した場所から再開できます。これにより、ワークフローは長時間動作したり、
+サーバーの再起動に耐えたり、個々のステップを再試行したり、一時停止したり、
+といったことが可能になります。
+
+一部の Agent 関数は、`ctx` の代わりに `step` を渡すことでワークフローから
+直接呼び出すことができます。内部的には、これらの関数は `ctx.runMutation`
+の代わりに `step.runMutation` を呼び出しています。両者の呼び出しはおおよそ
+同じですが、引数と戻り値がワークフロー全体のデータベース帯域幅の上限に
+カウントされるため、step を呼び出す場合にはより大きなオーバーヘッドが
+発生します。そのため、引数や step からの戻り値として大量のデータを渡す
+ことは避け、そのデータは保存しておき、代わりに ID を渡すようにすることを
+推奨します。
+
+```ts
+const workflow = new WorkflowManager(components.workflow);
+
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string() },
+  handler: async (step, { prompt, userId }) => {
+    // Some functions can be called directly from a workflow, passing `step`
+    // instead of `ctx`. This doesn't work for anything action-related.
+    const { threadId } = await createThread(step, components.agent, {
+      userId,
+      title: prompt,
+    });
+    // 内部的には、これらの関数は step.runMutation を呼び出しているため、
+    // メッセージの保存はワークフローのステップとなります。同等の処理として、
+    // ctx で saveMessage を呼び出す独自のミューテーションを使って step.runMutation を呼び出すこともできます。
+    const { messageId } = await saveMessage(step, components.agent, {
+      threadId,
+      prompt,
+    });
+    // For functions that require `fetch` or otherwise need an action, run them
+    // as steps explicitly.
+    const { text } = await step.runAction(
+      internal.example.getSupport,
+      { threadId, userId, promptMessageId: messageId },
+      // Passing in a promptMessageId allows us to safely retry the step.
+      // If it fails partway, the retry will re-use the same prompt message and
+      // any existing responses.
+      { retry: true },
+    );
+    const { object } = await step.runAction(
+      internal.example.getStructuredSupport,
+      {
+        userId,
+        prompt: text,
+      },
+    );
+    // You can also run mutations as steps explicitly.
+    await step.runMutation(internal.example.sendUserMessage, {
+      userId,
+      message: object.instruction,
+    });
+  },
+});
+```
+
+### エージェント関数を Convex のアクションとして公開する \{#exposing-agent-functions-as-convex-actions\}
+
+エージェントの機能を Convex 関数として公開してワークフロー内のステップから
+利用できるようにすると、各ステップごとに個別のアクションを書く代わりになります。
+
+スレッド内でテキストを生成またはストリーミングするアクションの場合:
+
+```ts
+// thread.generateText / thread.streamText と同様
+export const getSupport = supportAgent.asTextAction({
+  stopWhen: stepCountIs(10),
+});
+```
+
+オブジェクトを生成するスタンドアロンのアクションを公開することもできます。
+
+```ts
+// Similar to thread.generateObject / thread.streamObject
+export const getStructuredSupport = supportAgent.asObjectAction({
+  schema: z.object({
+    analysis: z.string().describe("ユーザーのリクエストの詳細な分析"),
+    instruction: z.string().describe("A suggested action to take."),
+  }),
+});
+```
+
+次のサンプルコードを参照してください。
+[workflows/chaining.ts](https://github.com/get-convex/agent/blob/main/example/convex/workflows/chaining.ts)。
+
+## 複雑なワークフローパターン \{#complex-workflow-patterns\}
+
+ここでは単純なワークフローの例だけを示しましたが、Agent コンポーネントを使って次のような複雑なパターンを構築できます:
+
+* LLM 呼び出しやベクター検索に基づくエージェントへの動的ルーティング
+* 複数の LLM 呼び出しへのファンアウトと、その結果の統合
+* 複数エージェントのオーケストレーション
+* 推論と行動 (ReAct) のサイクル
+* エージェント同士がメッセージをやり取りするネットワークのモデリング
+* 一時停止および再開可能なワークフロー
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+<ComponentCardList
+  items={[
+{
+title: "Workpool",
+description:
+  "Action Retrier を基盤として、多数の外部リクエストを効率的に処理するための並列実行制限とリトライ機能を提供します。",
+href: "https://www.convex.dev/components/workpool",
+},
+{
+title: "Workflow",
+description:
+  "Workpool を基盤として、リトライや遅延を伴う長時間実行関数の永続的な実行を提供します。",
+href: "https://www.convex.dev/components/workflow",
+},
+]}
+/>

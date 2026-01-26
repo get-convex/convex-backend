@@ -1,0 +1,148 @@
+---
+title: 变更函数
+sidebar_position: 20
+description: "在数据库中插入、更新和删除数据"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsConstructor.ts";
+import ArgsWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidation.ts";
+import ArgsWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidationJS.js";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContext.ts";
+import ContextDB from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContextDB.ts";
+import Helper from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelper.ts";
+import HelperJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelperJS.js";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsNPM.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/mutationsCall.tsx";
+
+变更函数在数据库中插入、更新和删除数据、检查身份验证或执行其他业务逻辑，并且可以选择性地向客户端应用返回响应。
+
+下面是一个变更函数示例，它接受具名参数，向数据库写入数据并返回结果：
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+继续阅读以了解如何自行构建变更函数。
+
+## 变更函数名称 \{#mutation-names\}
+
+变更函数遵循与查询相同的命名规则，参见
+[查询名称](/functions/query-functions.mdx#query-names)。
+
+使用具名导出时，可以在同一个文件中同时定义查询和变更函数。
+
+## `mutation` 构造函数 \{#the-mutation-constructor\}
+
+要在 Convex 中声明一个变更，请使用 `mutation` 构造函数。向它传入一个包含 `handler` 函数的对象，`handler` 用于执行这次变更：
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+与查询不同，变更可以选择返回一个值，也可以不返回。
+
+### 变更参数 \{#mutation-arguments\}
+
+与查询类似，变更函数接受具名参数，参数的值可以作为 `handler` 函数第二个参数的字段访问：
+
+<TSAndJSSnippet sourceTS={ArgsWithoutValidationTS} sourceJS={ArgsWithoutValidationJS} title="convex/myFunctions.ts" />
+
+参数和响应会自动序列化和反序列化，你可以在变更函数中传入和返回大多数符合 Convex 值类型的 JavaScript 数据。
+
+要同时声明参数的类型并对其进行校验，使用 `v` 校验器添加一个 `args` 对象：
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} title="convex/myFunctions.ts" />
+
+有关支持的类型和校验器的完整列表，参见[参数校验](/functions/validation.mdx)。
+
+处理函数的第一个参数是预留给变更上下文的。
+
+### 变更函数的返回值 \{#mutation-responses\}
+
+查询可以返回任意受支持的
+[Convex 类型](/functions/validation.mdx)，这些类型会被自动序列化和反序列化。
+
+变更函数也可以返回 `undefined`，它不是合法的 Convex 值。当一个变更函数返回 `undefined` 时，**在客户端会被转换为 `null`**。
+
+### 变更上下文 \{#mutation-context\}
+
+`mutation` 构造函数会向处理函数传入一个 [MutationCtx](/generated-api/server.md#mutationctx)
+对象作为第一个参数，从而允许你向数据库写入数据以及使用其他 Convex 功能：
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+具体使用变更上下文的哪一部分，取决于你的变更需要完成什么操作：
+
+* 要从数据库读取和写入数据，请使用 `db` 字段。注意我们将处理函数写成 `async`
+  函数，以便可以 `await` `db.insert()` 返回的 promise：
+
+  <TSAndJSSnippet sourceTS={ContextDB} sourceJS={ContextDB} title="convex/myFunctions.ts" />
+
+  继续阅读：[写入数据](/database/writing-data.mdx)。
+
+* 要生成用于存储文件的上传 URL，请使用 `storage` 字段。继续阅读
+  [文件存储](/file-storage.mdx)。
+
+* 要检查用户身份验证，请使用 `auth` 字段。继续阅读
+  [身份验证](/auth.mdx)。
+
+* 要调度在将来运行的函数，请使用 `scheduler` 字段。继续阅读
+  [计划函数](/scheduling/scheduled-functions.mdx)。
+
+## 通过辅助函数拆分变更代码 \{#splitting-up-mutation-code-via-helpers\}
+
+<>
+  {/* Fragment for Prettier */}
+
+  当你想要拆分变更函数中的代码，或在多个 Convex 函数之间复用逻辑时，可以定义并调用辅助
+  <LanguageSelector verbose /> 函数：
+</>
+
+<TSAndJSSnippet sourceTS={Helper} sourceJS={HelperJS} title="convex/myFunctions.ts" />
+
+变更函数可以调用将 [QueryCtx](/generated-api/server.md#queryctx) 作为参数的辅助函数，因为变更函数上下文具备查询上下文的全部能力。
+
+你可以 `export` 这些辅助函数，以在多个文件中复用它们。它们无法从 Convex 函数之外被调用。
+
+更多关于 TypeScript 类型的说明，请参阅
+[为服务端辅助函数添加类型标注](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)。
+
+## 使用 npm 包 \{#using-npm-packages\}
+
+变更函数可以导入安装在 `node_modules` 中的 npm 包。并非所有 npm
+包都受支持，具体请参见
+[Runtimes](/functions/runtimes.mdx#default-convex-runtime) 了解更多信息。
+
+```sh
+npm install @faker-js/faker
+```
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+## 从客户端调用变更函数 \{#calling-mutations-from-clients\}
+
+要在 [React](/client/react.mdx) 中调用变更函数，请使用
+[`useMutation`](/client/react.mdx#editing-data) Hook，并配合生成的
+[`api`](/generated-api/api) 对象。
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
+
+有关在 [React](/client/react.mdx) 客户端中调用查询的所有方式，请参阅其客户端文档。
+
+当从 [React](/client/react.mdx) 或
+[Rust](/client/rust.md) 客户端调用变更函数时，它们会在单一、有序的队列中按顺序逐个执行。你不必担心变更函数编辑数据库的顺序与触发它们的顺序不一致。
+
+## 事务 \{#transactions\}
+
+变更函数以**事务方式**运行。这意味着：
+
+1. 事务中的所有数据库读取都会看到数据库中一致的视图。你不必担心在执行过程中数据被并发更新所改变。
+2. 所有数据库写入会一起提交。如果某个变更函数向数据库写入了一些数据，但之后抛出错误，那么实际上不会有任何数据被写入数据库。
+
+要实现这一点，与查询类似，变更函数必须具备确定性，且不能调用第三方 API。要调用第三方 API，请使用
+[操作函数](/functions/actions.mdx)。
+
+## 限制 \{#limits\}
+
+变更函数对单次可读取和写入的数据量有上限，以保证良好的性能。详细了解，请参阅
+[读/写限制错误](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)。
+
+关于其他限制的信息，请参阅[限制](/production/state/limits.mdx)。

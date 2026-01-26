@@ -1,0 +1,63 @@
+---
+title: "例外レポーティング"
+sidebar_label: "例外レポーティング"
+sidebar_position: 3
+description:
+  "Convex デプロイメント向けの例外レポーティング連携を設定する"
+---
+
+例外レポーティングを設定して、Convex 関数の実行で発生するエラーの状況を可視化します。
+Convex は
+[Sentry](https://sentry.io/) および
+[Datadog Error Tracking](https://www.datadoghq.com/product/error-tracking/) との連携をサポートしています。
+
+現在、例外レポーティングは Pro プランのユーザーのみ利用できます。
+
+## Sentry の設定 \{#configuring-sentry\}
+
+Sentry を設定するには、Convex ダッシュボードの
+[Deployment Settings](/dashboard/deployments/settings.md) に移動し、
+サイドバーの「Integrations」タブを開きます。
+
+![Integrations Page](/screenshots/integrations_page.png)
+
+Sentry カードをクリックし、セットアップ手順に従ってください。セットアップには
+[Sentry DSN](https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/) が必要です。
+必要に応じて、各例外イベントに追加されるタグを指定することもできます。
+
+![Configure sentry](/screenshots/configure_sentry.png)
+
+## サポートされているタグ \{#supported-tags\}
+
+Convex は、例外イベントを Sentry に送信する際に、自動的に次のタグを付与します。
+これらのタグは上書きできません。
+
+* `func`: 実行中の関数名（
+  [文字列形式](/functions/query-functions#query-names)）
+* `func_type`: `["query", "mutation", "action", "http_action"]` のいずれか
+* `func_runtime`: [function runtimes](/functions/runtimes.mdx) のいずれか -
+  `["default", "node"]`
+* `request_id`:
+  エラーが発生した関数の
+  [request id](/functions/debugging.mdx#finding-relevant-logs-by-request-id)
+* `server_name`: デプロイメントの名前。例: `happy-animal-123`
+* `environment`: `["prod", "dev", "preview"]` のいずれか
+* `user`: 関数が
+  [authenticated](/auth.mdx)
+  である場合、
+  [tokenIdentifier](/api/interfaces/server.UserIdentity#tokenidentifier)
+  が Sentry 上のユーザー ID として使用されます。`tokenIdentifier` は、
+  認証済みユーザーを表す、安定したグローバル一意の文字列です。
+
+## Sentry に関する注意事項 \{#sentry-notes\}
+
+* Sentry の例外が Sentry に表示されるまで、1～2 分かかる場合があります。
+* Convex の組み込みの Sentry サポートは、まだ Sentry SDK が提供する高度な
+  カスタマイズには対応していません。
+* 質問やコメント、提案がありましたら、
+  [Discord](https://convex.dev/community) からご連絡ください。
+
+## Datadog エラー追跡の設定 \{#configuring-datadog-error-tracking\}
+
+Sentry SDK 経由で Datadog のエラー追跡を設定するには、
+[Datadog アプリケーション](https://app.datadoghq.com/error-tracking/settings/setup/sentry) 内の手順に従ってください。その後、Convex-Sentry 連携を使用して続行します。

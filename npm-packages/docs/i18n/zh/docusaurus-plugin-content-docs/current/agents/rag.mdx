@@ -1,0 +1,178 @@
+---
+title: 使用 Agent 组件实现 RAG（检索增强生成）
+sidebar_label: "RAG"
+sidebar_position: 700
+description: "演示如何将 RAG 与 Convex Agent 组件配合使用的示例"
+---
+
+Agent 组件内置了利用混合文本和向量搜索来检索消息历史记录的能力。你还可以使用 RAG 组件，从其他数据中搜索上下文信息。
+
+## 什么是 RAG？ \{#what-is-rag\}
+
+Retrieval-Augmented Generation（RAG，检索增强生成）是一种技术，它允许 LLM 在自定义知识库中搜索来回答问题。
+
+RAG 将大型语言模型（LLM）的能力与知识检索相结合。RAG 不再只依赖模型自身的训练数据，而是让你的 AI 能够：
+
+* 搜索自定义文档和知识库
+* 检索用于回答问题的相关上下文
+* 提供更准确、最新且特定领域的回答
+* 引用信息来源并解释使用了哪些信息
+
+## RAG 组件 \{#rag-component\}
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/dGmtAmdAaFs?si=ce-M8pt6EWDZ8tfd" title="RAG 组件 YouTube 视频" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+RAG 组件是一个 Convex 组件，它允许你添加可用于搜索的数据。它会将数据拆分成若干块，并生成嵌入用于向量搜索。详情参见 [RAG 组件文档](https://convex.dev/components/rag)，下面是一些关键特性：
+
+* **命名空间（Namespaces）：** 使用命名空间来存放特定用户或特定团队的数据，以隔离搜索域。
+* **添加内容（Add Content）：** 通过键添加或替换文本内容。
+* **语义搜索（Semantic Search）：** 使用可配置的嵌入模型进行向量搜索。
+* **自定义过滤（Custom Filtering）：** 在每个文档上定义过滤器，以实现高效的向量搜索。
+* **分块上下文（Chunk Context）：** 获取相邻的分块以获得更好的上下文。
+* **重要性加权（Importance Weighting）：** 通过提供 0 到 1 的&quot;importance&quot;（重要性）来为内容加权，从而影响单个文档的向量搜索结果。
+* **灵活的分块方式（Chunking flexibility）：** 可以使用你自己的文档分块方案，或使用默认方案。
+* **平滑迁移（Graceful Migrations）：** 在不中断的情况下迁移内容或整个命名空间。
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+<ComponentCardList
+  items={[
+{
+title: "RAG（Retrieval-Augmented Generation，检索增强生成）",
+description:
+  "使用 embedding 向量在文档中搜索相关内容，为 LLM 构造提示词。",
+href: "https://www.convex.dev/components/rag",
+},
+]}
+/>
+
+## RAG 实现方案 \{#rag-approaches\}
+
+该目录包含两种不同的 RAG 实现方案：
+
+### 1. 基于 Prompt 的 RAG \{#1-prompt-based-rag\}
+
+一种简单的实现方式，由系统自动为用户的查询检索相关上下文。
+
+* 消息历史中只会包含原始用户 Prompt 和回复，而不包含上下文。
+* 查找上下文并将其注入到用户的 Prompt 中。
+* 当你知道用户的问题*总是*会从额外上下文中受益时，这种方式效果很好。
+
+示例代码参见
+[ragAsPrompt.ts](https://github.com/get-convex/agent/blob/main/example/convex/rag/ragAsPrompt.ts)，了解整体代码结构。最简单的版本如下所示：
+
+```ts
+const context = await rag.search(ctx, {
+  namespace: "global",
+  query: userPrompt,
+  limit: 10,
+});
+
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  {
+    prompt: `# Context:\n\n ${context.text}\n\n---\n\n# Question:\n\n"""${userPrompt}\n"""`,
+  },
+);
+```
+
+### 2. 基于工具的 RAG \{#2-tool-based-rag\}
+
+通过提供一个用于搜索上下文的工具，LLM 可以智能地决定何时搜索上下文或添加新信息。
+
+* 消息历史将包含原始用户提示和先前的消息记录。
+* 在一次工具调用和响应之后，消息历史将包含该工具调用及其响应，供 LLM 参考。
+* LLM 可以自行决定何时搜索上下文或添加新信息。
+* 如果你希望 Agent 能够进行动态搜索，这种方式非常适合。
+
+代码示例见
+[ragAsTools.ts](https://github.com/get-convex/agent/blob/main/example/convex/rag/ragAsTools.ts)。
+最简单的版本是：
+
+```ts
+searchContext: createTool({
+  description: "搜索与此用户提示相关的上下文",
+  args: z.object({ query: z.string().describe("描述您要查找的上下文") }),
+  handler: async (ctx, { query }) => {
+    const context = await rag.search(ctx, { namespace: userId, query });
+    return context.text;
+  },
+}),
+```
+
+## 关键差异 \{#key-differences\}
+
+| 功能              | 基础 RAG                        | 基于工具的 RAG                           |
+| ----------------- | ------------------------------ | ---------------------------------------- |
+| **上下文搜索**    | 始终进行搜索                    | 由 AI 决定何时搜索                       |
+| **添加上下文**    | 通过单独的函数手动添加          | AI 可在对话过程中添加上下文             |
+| **灵活性**        | 简单、可预测                    | 智能、自适应                             |
+| **使用场景**      | FAQ 系统、文档搜索              | 动态知识管理                             |
+| **可预测性**      | 由代码决定                      | AI 可能发起过多或过少的查询             |
+
+## 摄取内容 \{#ingesting-content\}
+
+整体上，RAG 组件处理的是文本。不过，你可以先把其他类型的文件转换成文本，可以使用解析工具，或者让 LLM 来完成。
+
+### 解析图像 \{#parsing-images\}
+
+在处理图像时，LLM 的表现出乎意料地好。你可以使用 `generateText` 来描述并转录图像内容，然后用该描述去搜索相关上下文。通过存储关联的图像，一旦通过搜索将其取回，你就可以在后续流程中传递原始文件。
+
+[在这里查看示例](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L28-L42)。
+
+```ts
+const description = await thread.generateText({
+  message: {
+    role: "user",
+    content: [{ type: "image", data: url, mimeType: blob.type }],
+  },
+});
+```
+
+### 解析 PDF \{#parsing-pdfs\}
+
+对于 PDF 解析，建议在浏览器中使用 Pdf.js。
+
+**为什么不在服务端解析？**
+
+打开 PDF 文件可能会占用数百 MB 内存，并且需要下载一个很大的 Pdf.js 包——大到在实际中通常是按需动态加载的。你大概不会想在每次服务端函数调用时都加载这个包，而且在无服务器环境中对内存使用的限制更严格。如果文件已经在浏览器里了，那么浏览器就是一个非常适合做这些重活的环境（而且是免费的！）。
+
+这里有一个示例：
+[在 RAG demo 中](https://github.com/get-convex/rag/blob/main/example/src/pdfUtils.ts#L14),
+[在这里的 UI 中使用](https://github.com/get-convex/rag/blob/main/example/src/components/UploadSection.tsx#L51),
+[并以静态方式提供 Pdf.js](https://github.com/get-convex/rag/blob/main/example/public/pdf-worker/)。
+
+如果你确实想在服务端处理并且不在乎成本或延迟，也可以把它交给 LLM，但请注意，大文件会花很长时间。
+
+[这里有一个示例](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L50-L65)。
+
+### 解析文本文件 \{#parsing-text-files\}
+
+通常你可以直接使用文本文件——无论是代码、Markdown，还是任何具有自然结构、LLM 能够理解的内容。
+
+不过，为了获得更好的向量嵌入，你也可以使用 LLM 将文本转换成结构化程度更高的格式。
+
+[在这里查看一个示例](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L68-L89)。
+
+## 实例演示 \{#examples-in-action\}
+
+要亲自体验这些示例，请查看
+[RAG 示例](https://github.com/get-convex/rag/blob/main/example/convex/example.ts)。
+
+* 向 RAG 组件添加文本、PDF 和图像内容
+* 基于上下文进行搜索并生成文本。
+* 检视搜索得到的上下文。
+* 浏览生成的文档分块。
+* 尝试按全局、按用户或使用自定义过滤条件进行搜索。
+
+通过以下方式运行该示例：
+
+```bash
+git clone https://github.com/get-convex/rag.git
+cd rag
+npm run setup
+npm run example
+```

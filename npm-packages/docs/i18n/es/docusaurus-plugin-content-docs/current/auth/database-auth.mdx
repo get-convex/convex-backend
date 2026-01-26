@@ -1,0 +1,217 @@
+---
+title: "Almacenamiento de usuarios en la base de datos de Convex"
+sidebar_label: "Base de datos"
+sidebar_position: 120
+description: "Almacena la información de usuario en tu base de datos de Convex"
+---
+
+import Schema from "!!raw-loader!@site/../demos/users-and-clerk/convex/schema.ts";
+import useStoreUserEffectTS from "!!raw-loader!@site/../demos/users-and-clerk/src/useStoreUserEffect.ts";
+import useStoreUserEffectJS from "!!raw-loader!@site/../private-demos/snippets/users-and-clerk/useStoreUserEffect.js";
+import MessagesTS from "!!raw-loader!@site/../demos/users-and-clerk/convex/messages.ts";
+import UsersTS from "!!raw-loader!@site/../demos/users-and-clerk/convex/users.ts";
+import App from "!!raw-loader!@site/../private-demos/snippets/src/clerkStoreUserApp.tsx";
+import WebhooksSchema from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/schema.ts";
+import WebhookMutations from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/users.ts";
+import WebhookEndpoint from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/http.ts";
+import WebhookMessages from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/convex/messages.ts";
+import WebhookHook from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/src/useCurrentUser.ts";
+import WebhookClient from "!!raw-loader!@site/../demos/users-and-clerk-webhooks/src/App.tsx";
+
+*Si estás usando [Convex Auth](/auth/convex-auth.mdx), la información del usuario ya está almacenada en tu base de datos. No tienes que implementar nada más.*
+
+Es posible que quieras almacenar la información del usuario directamente en tu base de datos de Convex por las siguientes razones:
+
+* Tus funciones necesitan información sobre otros usuarios, no solo sobre el
+  usuario actualmente autenticado
+* Tus funciones necesitan acceder a información distinta de los campos
+  disponibles en el [JWT de OpenID Connect](/auth/functions-auth.mdx)
+
+Hay dos formas de almacenar la información del usuario en tu base de datos (pero solo la segunda permite almacenar información que no está contenida en el JWT):
+
+1. Hacer que el [cliente de tu app llame a una mutación](#call-a-mutation-from-the-client)
+   que almacene la información del JWT disponible en
+   [`ctx.auth`](/api/interfaces/server.Auth)
+2. [Implementar un webhook](#set-up-webhooks) y hacer que tu proveedor de identidad lo llame siempre que cambie la información del usuario
+
+## Llamar a una mutación desde el cliente \{#call-a-mutation-from-the-client\}
+
+**Ejemplo:**
+[Autenticación de Convex con Clerk](https://github.com/get-convex/convex-demos/tree/main/users-and-clerk)
+
+### (opcional) Esquema de la tabla de usuarios \{#optional-users-table-schema\}
+
+Puedes definir una tabla `"users"`, opcionalmente con un
+[index](/database/reading-data/indexes/indexes.md) para buscar de forma eficiente usuarios en la base de datos.
+
+En los ejemplos a continuación usaremos `tokenIdentifier` de
+`ctx.auth.getUserIdentity()` para identificar al usuario, pero podrías usar el
+campo `subject` (que normalmente se establece en el ID de usuario único de tu proveedor de autenticación) o incluso `email`, si tu proveedor de autenticación ofrece verificación de correo electrónico y la tienes habilitada.
+
+El campo que uses determinará cómo interactúan múltiples proveedores y qué tan difícil
+será migrar a un proveedor diferente.
+
+<Snippet source={Schema} snippet="user" title="convex/schema.ts" />
+
+### Mutación para almacenar al usuario actual \{#mutation-for-storing-current-user\}
+
+Este es un ejemplo de una mutación que guarda el `name` y el
+`tokenIdentifier` del usuario:
+
+<TSAndJSSnippet sourceTS={UsersTS} sourceJS={UsersTS} title="convex/users.js" />
+
+### Llamar a la mutación para almacenar al usuario desde React \{#calling-the-store-user-mutation-from-react\}
+
+Puedes llamar a esta mutación cuando el usuario inicie sesión desde un hook `useEffect`. Después
+de que la mutación se complete correctamente, puedes actualizar el estado local para reflejar que el usuario ha
+sido almacenado.
+
+Este hook auxiliar hace el trabajo:
+
+<TSAndJSSnippet sourceTS={useStoreUserEffectTS} sourceJS={useStoreUserEffectJS} title="src/useStoreUserEffect.ts" />
+
+Puedes usar este hook en tu componente de nivel superior. Si tus consultas necesitan que el
+documento de usuario esté presente, asegúrate de que solo renderices los componentes que las llaman
+después de que el usuario haya sido almacenado:
+
+<TSAndJSSnippet sourceTS={App} sourceJS={App} title="src/App.tsx" />
+
+De este modo, el hook `useStoreUserEffect` reemplaza al hook `useConvexAuth`.
+
+### Usar el ID de documento del usuario actual \{#using-the-current-users-document-id\}
+
+De forma similar a la mutación para almacenar al usuario, puedes recuperar el ID del
+usuario actual o generar un error si el usuario no se ha almacenado.
+
+Ahora que tienes usuarios almacenados como documentos en tu base de datos de Convex, puedes usar
+sus ID como claves externas en otros documentos:
+
+<TSAndJSSnippet
+  sourceTS={MessagesTS}
+  sourceJS={MessagesTS}
+  snippet="load-user"
+  title="convex/messages.ts"
+  suffix={`    // haz algo con \`user\`...
+}
+});`}
+/>
+
+### Cargar usuarios por su Id \{#loading-users-by-their-id\}
+
+La información de otros usuarios se puede recuperar usando su Id:
+
+<TSAndJSSnippet
+  sourceTS={MessagesTS}
+  sourceJS={MessagesTS}
+  snippet="use-users"
+  title="convex/messages.ts"
+  prefix={`import { query } from "./_generated/server";
+`}
+/>
+
+## Configurar webhooks \{#set-up-webhooks\}
+
+En esta guía usaremos Clerk, pero Auth0 se puede configurar de forma similar mediante
+[Auth0 Actions](https://auth0.com/docs/customize/actions/actions-overview).
+
+Con esta implementación, Clerk llamará a tu backend de Convex mediante un endpoint
+HTTP cada vez que un usuario se registre, actualice o elimine su cuenta.
+
+**Ejemplo:**
+[Autenticación de Convex con Clerk y Webhooks](https://github.com/get-convex/convex-demos/tree/main/users-and-clerk-webhooks)
+
+### Configura el endpoint de webhook en Clerk \{#configure-the-webhook-endpoint-in-clerk\}
+
+En el panel de control de Clerk, ve a *Webhooks* y haz clic en *+ Add Endpoint*.
+
+Establece *Endpoint URL* en
+`https://<your deployment name>.convex.site/clerk-users-webhook` (ten en cuenta
+que el dominio termina en **`.site`**, no en `.cloud`). Puedes ver el nombre de tu despliegue en
+el archivo `.env.local` en el directorio de tu proyecto, o en tu panel de control de Convex como
+parte de la [URL de implementación](/dashboard/deployments/settings.md). Por ejemplo,
+la URL del endpoint podría ser:
+`https://happy-horse-123.convex.site/clerk-users-webhook`.
+
+En *Message Filtering*, selecciona **user** para todos los eventos de usuario (desplázate hacia abajo o utiliza
+el campo de búsqueda).
+
+Haz clic en *Create*.
+
+Después de guardar el endpoint, copia el *Signing Secret* (en el lado derecho de la
+interfaz de usuario); debería comenzar con `whsec_`. Establécelo como el valor de la
+variable de entorno `CLERK_WEBHOOK_SECRET` en tu
+[panel de control](https://dashboard.convex.dev) de Convex.
+
+### (opcional) Esquema de la tabla de usuarios \{#optional-users-table-schema\}
+
+Puedes definir una tabla `"users"`, opcionalmente con un
+[index](/database/reading-data/indexes/indexes.md) para buscar usuarios de forma eficiente en la base de datos.
+
+En los ejemplos siguientes usaremos el `subject` de
+`ctx.auth.getUserIdentity()` para identificar al usuario, que debería corresponder al
+ID de usuario de Clerk.
+
+<Snippet source={WebhooksSchema} snippet="table" title="convex/schema.ts" />
+
+### Mutaciones para insertar o actualizar y eliminar usuarios \{#mutations-for-upserting-and-deleting-users\}
+
+Este es un ejemplo de mutaciones que manejan las actualizaciones recibidas a través del
+webhook:
+
+<TSAndJSSnippet sourceTS={WebhookMutations} sourceJS={WebhookMutations} title="convex/users.ts" />
+
+También hay algunas funciones auxiliares en este archivo:
+
+* `current` expone la información del usuario al cliente, lo que ayuda al
+  cliente a determinar si el webhook ya se completó correctamente
+* `upsertFromClerk` se llamará cuando un usuario se registre o cuando actualice
+  su cuenta
+* `deleteFromClerk` se llamará cuando un usuario elimine su cuenta mediante la
+  interfaz de Clerk desde tu aplicación
+* `getCurrentUserOrThrow` obtiene el usuario que ha iniciado sesión actualmente
+  o lanza un error
+* `getCurrentUser` obtiene el usuario que ha iniciado sesión actualmente o
+  devuelve null
+* `userByExternalId` obtiene un usuario dado el ID de Clerk y se utiliza solo
+  para obtener el usuario actual o al actualizar un usuario existente a través
+  del webhook
+
+### Implementación del endpoint de webhook \{#webhook-endpoint-implementation\}
+
+Así es como puedes implementar el endpoint HTTP real:
+
+<TSAndJSSnippet sourceTS={WebhookEndpoint} sourceJS={WebhookEndpoint} title="convex/http.ts" />
+
+Si ahora despliegas tu código e inicias sesión, deberías ver que se crea el usuario
+en tu base de datos de Convex.
+
+### Usar el documento del usuario actual \{#using-the-current-users-document\}
+
+Puedes usar las funciones auxiliares definidas anteriormente para recuperar el documento del usuario actual.
+
+Ahora que tienes usuarios almacenados como documentos en tu base de datos de Convex, puedes usar
+sus IDs como claves externas en otros documentos:
+
+<TSAndJSSnippet sourceTS={WebhookMessages} sourceJS={WebhookMessages} snippet="current-user" title="convex/messages.ts" />
+
+### Cargar usuarios por su ID \{#loading-users-by-their-id\}
+
+La información de otros usuarios se puede obtener a partir de su ID:
+
+<TSAndJSSnippet sourceTS={MessagesTS} sourceJS={MessagesTS} snippet="use-users" title="convex/messages.ts" />
+
+### Esperar a que se almacene el usuario actual \{#waiting-for-current-user-to-be-stored\}
+
+Si quieres usar el documento del usuario actual en una consulta, asegúrate de
+que el usuario ya se haya almacenado. Puedes hacer esto comprobando explícitamente
+esta condición antes de renderizar los componentes que llaman a la consulta, o
+antes de redirigir a la parte autenticada de tu aplicación.
+
+Por ejemplo, puedes definir un hook que determine el estado de autenticación
+actual del cliente, teniendo en cuenta si el usuario actual se ha almacenado:
+
+<TSAndJSSnippet sourceTS={WebhookHook} sourceJS={WebhookHook} title="src/useCurrentUser.ts" />
+
+Y luego puedes usarlo para renderizar los componentes correspondientes:
+
+<TSAndJSSnippet sourceTS={WebhookClient} sourceJS={WebhookClient} snippet="client-blocking" title="src/App.tsx" />

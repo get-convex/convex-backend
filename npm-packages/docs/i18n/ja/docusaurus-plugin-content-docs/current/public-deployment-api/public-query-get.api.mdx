@@ -1,0 +1,41 @@
+---
+id: public-query-get
+title: "クエリを実行 (GET)"
+description: "GET リクエストでクエリ関数を実行します。"
+sidebar_label: "クエリを実行 (GET)"
+hide_title: true
+hide_table_of_contents: true
+api: eJy1VNtOGzEQ/RVrnkDahMDjvqESKBUtCEJfogg5u7NZ013b2OOIaLX/Xs1eciE0ban6lI3neM7xXE4FKfrEKUvKaIhh/IpJIBRSvAR0K5EFnXBILJUUV+OJcPgS0NMQIjAWneTgdQox2DAvVPLUXHtaIEEEVjpZIqHzEE8r0LJEBkrKIQLFdA0aojciLnvSDsqcymEKMbmAEfgkx1JCXAGtLKf05JReQF1HaxbpFv4PWaRbhBI1eSG9+PJw+010+T7GnBlXSjrMfY/eGu1RrMEbpkwW/iDVjNHtfc/xs9GIf3YZIILEaEJNHJPWFippmnXy7BlQbREYjbdZ06KOysyfMdlVNYWlLAJCBJ4kBQ+zCKzjESDVyijM4kbp9rvLI52T/HhFWPp3q9Zn24tFgDqUzOtDkqD3MKujTgODFRWM/t4c1E39D4lH54z7it7LxaE3NLALSe+XRYeigIZpl52V7RDsvzT6b+VpiGFWN3PRC3tMs37EuDicqUTKDS9qv5uUQwwn/Xx6dMt+UYMrOCSt2hvcC7SFWfG2iPO7a2BOpTOz3ZJPRi/xVdw1fiA+TyZ3wplA6PeSjXVqjeLFo1yS6PoltBEyUI6aupGFCAqVID8mXq/ZTXtyj9ng8uFmcDo8HZxbmeQ4OBuOuKgpJ8gUut+CebDQ+VbU6XDUHlnjqZR6i7I3x9Yaj67Gk+O3b6o2W/dXXtp1l/CVTmwhlWYFTR+qrlXTzkpmEeTGEx9U1Vx6fHRFXfNxG+cGpsrLebFlJr/UeHTfLcmxeOu670r6gauNhXfbCM1O/BvnAQ8+oKMz+Q/q2DfhA1RrzIZsxn+cYjaIp2wCOcqU521adbfOkwTt9q09I+Ys69W8Gk+grn8ChD2W8g==
+sidebar_class_name: "get api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"クエリを実行する (GET)"} />
+
+<MethodEndpoint method={"get"} path={"/query"} context={"endpoint"} />
+
+GET リクエストを使ってクエリ関数を実行します。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"リクエスト"} />
+
+<ParamsDetails parameters={[{"name":"path","in":"query","description":"関数パス","required":true,"schema":{"type":"string"}},{"name":"args","in":"query","description":"JSON 文字列の関数引数","required":true,"schema":{"type":"string"}},{"name":"format","in":"query","description":"レスポンス形式","required":false,"schema":{"type":"string"}}]} />
+
+<RequestSchema title={"ボディ"} body={undefined} />
+
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"oneOf":[{"type":"object","required":["value","status"],"properties":{"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["success"]},"value":{"title":"値"}}},{"type":"object","required":["errorMessage","status"],"properties":{"errorData":{"oneOf":[{"type":"null"},{"title":"値"}]},"errorMessage":{"type":"string"},"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["error"]}}}],"title":"UdfResponse"}}}}}}
+>
+  
+</StatusCodes>

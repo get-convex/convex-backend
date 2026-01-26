@@ -1,0 +1,130 @@
+---
+title: "Proveedor de JWT personalizado"
+sidebar_label: "Proveedor de JWT personalizado"
+sidebar_position: 4
+description:
+  "Configura Convex para trabajar con proveedores de JWT personalizados que no implementan el
+  protocolo OIDC completo, incluyendo la configuración y la integración del lado del cliente."
+---
+
+**Nota: ¡Esta es una característica avanzada!** Recomendamos ceñirte a los
+[proveedores de autenticación de terceros compatibles](/auth.mdx).
+
+Un [JWT](https://en.wikipedia.org/wiki/JSON_Web_Token) es una cadena que combina
+tres objetos JSON codificados en base64 que contienen *claims* sobre la identidad de un usuario,
+válidos durante un periodo limitado de tiempo, como una hora. Puedes crearlos con una
+librería como [jose](https://github.com/panva/jose) después de recibir alguna prueba
+(normalmente una cookie) de la identidad de un usuario, u obtenerlos de un servicio de
+autenticación de terceros como [Clerk](https://clerk.com). La información en un JWT
+está firmada (el despliegue de Convex puede saber que la información proviene realmente
+del emisor y que no ha sido modificada) pero generalmente no está cifrada (puedes leerla
+decodificando el token en base64 o pegándolo en [jwt.io](https://jwt.io/)).
+
+Si los JWT emitidos a tus usuarios por un servicio de autenticación contienen los campos
+correctos para implementar el protocolo OpenID Connect (OIDC), la forma más sencilla de
+configurar la aceptación de estos JWT es añadir una entrada de
+[Proveedor OIDC](/auth/advanced/custom-auth) en `convex/auth.config.ts`. Si el servicio
+de autenticación o la librería que estás usando para emitir JWT no admite estos campos
+(por ejemplo, los JWT de [OpenAuth](https://openauth.js.org/) que no tienen un campo
+`aud` porque implementan la especificación OAuth 2.0 pero no OIDC), tendrás que configurar
+un proveedor de JWT personalizado en el archivo `convex/auth.config.ts`.
+
+Los JWT personalizados solo tienen que incluir los campos de cabecera `kid`, `alg`
+y `typ`, y los campos de *payload* `sub`, `iss` y `exp`. Los clientes de Convex también esperan
+un campo `iat` para implementar la actualización de tokens.
+
+## Integración del lado del servidor \{#server-side-integration\}
+
+Usa `type: "customJwt"` para configurar un proveedor de autenticación JWT personalizado:
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      type: "customJwt",
+      applicationID: "tu-id-de-aplicación",
+      issuer: "https://your.issuer.url.com",
+      jwks: "https://your.issuer.url.com/.well-known/jwks.json",
+      algorithm: "RS256",
+    },
+  ],
+};
+```
+
+* `applicationID`: Convex verificará que los JWT tengan este valor en el campo
+  `aud`. Consulta a continuación información importante sobre dejar este campo
+  fuera. El campo `applicationID` no es obligatorio, pero es necesario usarlo con
+  muchos proveedores de autenticación por motivos de seguridad. Lee más abajo
+  antes de omitirlo.
+* `issuer`: La URL del emisor del JWT.
+* `jwks`: La URL para recuperar el JWKS (JSON Web Key Set) del proveedor de
+  autenticación. Si quieres evitar hacer solicitudes a un servicio externo,
+  puedes usar un URI de datos, por ejemplo `"data:text/plain;charset=utf-8;base64,ey..."`
+* `algorithm`: El algoritmo usado para firmar el JWT. Actualmente solo se
+  admiten RS256 y ES256. Consulta
+  [RFC 7518](https://datatracker.ietf.org/doc/html/rfc7518#section-3.1) para más
+  detalles.
+
+La propiedad `issuer` debe coincidir exactamente con el campo `iss` del JWT
+utilizado y, si se especifica, la propiedad `applicationID` debe coincidir
+exactamente con el campo `aud`. Si tu JWT no coincide, usa una herramienta como
+[jwt.io](https://jwt.io/) para inspeccionar un JWT y confirmar que estos campos
+coinciden exactamente.
+
+### Advertencia: omitir `applicationID` suele ser inseguro \{#warning-omitting-applicationid-is-often-insecure\}
+
+Excluir `applicationID` de una configuración de autenticación significa que el
+campo `aud` (audience) de los JWT de tus usuarios no se verificará. En muchos
+casos esto es inseguro porque un JWT destinado a otro servicio puede usarse para
+suplantarlos en tu servicio.
+
+Supón que un usuario tiene cuentas en `https://todos.com` y `https://banking.com`,
+dos servicios que usan el mismo servicio de autenticación de terceros,
+`accounts.google.com`. Un JWT aceptado por todos.com podría reutilizarse para
+autenticarse en banking.com, ya sea por todos.com o por un atacante que haya
+obtenido acceso a ese JWT.
+
+El campo `aud` (audience) del JWT evita esto: si el JWT se generó para una
+audiencia específica `https://todos.com`, entonces banking.com puede exigir el
+campo `aud` y saber que no debe aceptarlo.
+
+Si los JWT emitidos a tus usuarios tienen una URL `iss` (issuer) como
+`https://accounts.google.com` que no es específica de tu aplicación, no es seguro
+confiar en esos tokens sin un ApplicationID porque ese JWT podría haber sido
+recopilado por una aplicación maliciosa.
+
+Si los JWT emitidos a tus usuarios tienen un campo `iss` más específico como
+`https://api.3rd-party-auth.com/client_0123...`, entonces puede ser seguro no
+usar un campo `aud` si controlas todos los servicios a los que la URL `iss`
+concede acceso y tienes la intención de que el acceso a cualquiera de esos
+servicios otorgue acceso a todos ellos.
+
+### Claims personalizados \{#custom-claims\}
+
+Además de campos de primer nivel como `subject`, `issuer` y `tokenIdentifier`,
+los subcampos de los campos anidados del JWT estarán disponibles en los datos de
+autenticación devueltos por `const authInfo = await ctx.auth.getUserIdentity()`, como
+`authInfo["properties.id"]` y `authInfo["properties.favoriteColor"]` para un JWT
+con la siguiente estructura:
+
+```json
+{
+  "properties": {
+    "id": "123",
+    "favoriteColor": "red"
+  },
+  "iss": "http://localhost:3000",
+  "sub": "user:8fa2be73c2229e85",
+  "exp": 1750968478
+}
+```
+
+## Integración en el cliente \{#client-side-integration\}
+
+Los navegadores de tus usuarios necesitan una forma de obtener un JWT inicial y de solicitar JWT actualizados, idealmente antes de que caduque el anterior.
+
+Consulta las instrucciones de
+[Custom OIDC Providers](/auth/advanced/custom-auth#client-side-integration) para
+saber cómo hacerlo.

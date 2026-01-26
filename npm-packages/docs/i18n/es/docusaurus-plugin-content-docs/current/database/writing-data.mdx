@@ -1,0 +1,124 @@
+---
+title: "Escritura de datos"
+sidebar_position: 4
+description: "Insertar, actualizar y eliminar datos en las tablas de la base de datos de Convex"
+---
+
+import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataInsert.ts";
+import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
+import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
+import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+[Las mutaciones](/functions/mutation-functions.mdx) pueden insertar, actualizar y eliminar
+datos en tablas de la base de datos.
+
+## Insertar nuevos documentos \{#inserting-new-documents\}
+
+Puedes crear nuevos documentos en la base de datos con el método
+[`db.insert`](/api/interfaces/server.GenericDatabaseWriter#insert):
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={insertExample} sourceJS={insertExample} highlightPatterns={["db.insert"]} />
+
+El segundo argumento de `db.insert` es un objeto de JavaScript con los datos del
+nuevo documento.
+
+Los mismos tipos de valores que se pueden pasar a y devolver de
+[consultas](/functions/query-functions.mdx) y
+[mutaciones](/functions/mutation-functions.mdx) se pueden escribir en la base de datos.
+Consulta [Tipos de datos](/database/types.md) para ver la lista completa de tipos compatibles.
+
+El método `insert` devuelve un ID globalmente único para el documento recién insertado.
+
+## Actualizar documentos existentes \{#updating-existing-documents\}
+
+Dado el ID de un documento existente, el documento se puede actualizar usando los
+siguientes métodos:
+
+1. El método [`db.patch`](/api/interfaces/server.GenericDatabaseWriter#patch)
+   aplicará un patch a un documento existente, combinándolo de forma superficial
+   con el documento parcial proporcionado. Se añaden campos nuevos. Los campos
+   existentes se sobrescriben. Los campos con valor `undefined` se eliminan.
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={patchExample} sourceJS={patchExample} highlightPatterns={["db.patch"]} />
+
+2. El método [`db.replace`](/api/interfaces/server.GenericDatabaseWriter#replace)
+   reemplazará el documento existente por completo, eliminando potencialmente
+   campos existentes:
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={replaceExample} sourceJS={replaceExample} highlightPatterns={["db.replace"]} />
+
+## Eliminar documentos \{#deleting-documents\}
+
+Con el ID de un documento existente, puedes eliminar el documento de la tabla con el método [`db.delete`](/api/interfaces/server.GenericDatabaseWriter#delete).
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={deleteExample} sourceJS={deleteExample} highlightPatterns={["db.delete"]} />
+
+## Inserciones o actualizaciones masivas \{#bulk-inserts-or-updates\}
+
+Si estás acostumbrado a SQL, quizá estés buscando algún tipo de sentencia de
+inserción masiva o actualización masiva. En Convex, toda la función `mutation`
+es automáticamente una única transacción.
+
+Simplemente puedes insertar o actualizar en un bucle dentro de la función de mutación. Convex pone en cola todos los cambios en la base de datos que se realizan en la función y los ejecuta todos en una sola transacción cuando la función termina, lo que produce un único cambio eficiente en la base de datos.
+
+````typescript
+/**
+ * Inserta múltiples productos en la base de datos de forma masiva.
+ *
+ * Equivalente al SQL:
+ * ```sql
+ * INSERT INTO products (product_id, product_name, category, price, in_stock)
+ * VALUES
+ *     ('Laptop Pro', 'Electronics', 1299.99, true),
+ *     ('Wireless Mouse', 'Electronics', 24.95, true),
+ *     ('Ergonomic Keyboard', 'Electronics', 89.50, true),
+ *     ('Ultra HD Monitor', 'Electronics', 349.99, false),
+ *     ('Wireless Headphones', 'Audio', 179.99, true);
+ * ```
+ */
+export const bulkInsertProducts = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        product_name: v.string(),
+        category: v.string(),
+        price: v.number(),
+        in_stock: v.boolean(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { products } = args;
+
+    // Inserta en un bucle. Esto es eficiente porque Convex encola todos los cambios
+    // para ejecutarlos en una sola transacción cuando finaliza la mutación.
+    for (const product of products) {
+      const id = await ctx.db.insert("products", {
+        product_name: product.product_name,
+        category: product.category,
+        price: product.price,
+        in_stock: product.in_stock,
+      });
+    }
+  },
+});
+````
+
+## Migraciones \{#migrations\}
+
+Las migraciones de base de datos se realizan mediante el componente de migraciones. El componente está diseñado para ejecutar migraciones en línea y así evolucionar de forma segura el esquema de tu base de datos con el tiempo. Te permite reanudar la ejecución tras fallos y validar los cambios mediante ejecuciones de prueba (dry runs).
+
+<ComponentCardList
+  items={[
+  {
+    title: "Migraciones",
+    description: "Framework para migraciones largas de datos en producción.",
+    href: "https://www.convex.dev/components/migrations",
+  },
+]}
+/>
+
+## Rendimiento de escritura y límites \{#write-performance-and-limits\}
+
+Para evitar escrituras accidentales de grandes volúmenes de registros, las consultas y mutaciones aplican los límites detallados [aquí](/production/state/limits.mdx#transactions).

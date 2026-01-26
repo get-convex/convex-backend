@@ -1,0 +1,20 @@
+---
+title: "删除文件"
+sidebar_label: "删除"
+sidebar_position: 4
+description: "删除存储在 Convex 中的文件"
+---
+
+import DeleteImage from "!!raw-loader!@site/../private-demos/snippets/convex/deletingFiles.ts";
+
+存储在 Convex 中的文件可以在
+[变更函数](/functions/mutation-functions.mdx)、[操作函数](/functions/actions.mdx) 和
+[HTTP 操作函数](/functions/http-actions.mdx) 中通过调用
+[`storage.delete()`](/api/interfaces/server.StorageWriter#delete) 函数删除，
+该函数接受一个存储 ID。
+
+存储 ID 对应 `"_storage"` 系统表中的文档（参见
+[元数据](/file-storage/file-metadata.mdx)），因此可以使用
+`v.id("_storage")` 进行验证。
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={DeleteImage} sourceJS={DeleteImage} highlightPatterns={["delete\\("]} />

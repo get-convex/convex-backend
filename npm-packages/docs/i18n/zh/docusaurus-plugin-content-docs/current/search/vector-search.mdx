@@ -1,0 +1,222 @@
+---
+title: "向量搜索"
+sidebar_position: 100
+description: "在嵌入向量上运行向量搜索查询"
+slug: "vector-search"
+---
+
+import Schema from "!!raw-loader!@site/../demos/vector-search/convex/schema.ts";
+import VectorSearchSnippets from "!!raw-loader!@site/../private-demos/snippets/convex/vectorSearch.ts";
+import Foods from "!!raw-loader!@site/../private-demos/snippets/convex/foods.ts";
+import VectorSearchSnippets2 from "!!raw-loader!@site/../private-demos/snippets/convex/vectorSearch2.ts";
+import Movies from "!!raw-loader!@site/../demos/vector-search/convex/movies.ts";
+
+向量搜索允许你根据给定向量查找与之相似的 Convex 文档。
+通常，这些向量是嵌入（embeddings），也就是对文本、图像或音频的数值表示。
+
+嵌入和向量搜索可以为 LLM 提供有用的上下文，用于构建 AI 驱动的应用、相似内容推荐等。
+
+向量搜索具有强一致性并且始终是最新的。你可以写入一条向量数据，并立即通过向量搜索将其读出。
+但与[全文搜索](/search.mdx)不同，向量搜索仅能在
+[Convex 操作函数](/functions/actions.mdx) 中使用。
+
+**示例：**
+[向量搜索应用](https://github.com/get-convex/convex-demos/tree/main/vector-search)
+
+要使用向量搜索，你需要：
+
+1. 定义一个向量索引。
+2. 在 [操作](/functions/actions.mdx) 内运行一次向量搜索。
+
+## 定义向量索引 \{#defining-vector-indexes\}
+
+与[数据库索引](/database/reading-data/indexes/indexes.md)类似，向量索引是一种预先构建的数据结构，用于支持高效查询。向量索引作为 Convex
+[模式](/database/schemas.mdx)的一部分进行定义。
+
+要在表上添加一个向量索引，请在表的模式上使用
+[`vectorIndex`](/api/classes/server.TableDefinition#vectorindex) 方法。每个向量索引都有唯一的名称以及包含以下内容的定义：
+
+1. `vectorField` 字符串
+   * 为向量搜索建立索引的字段名称。
+2. `dimensions` 数字
+   * 向量索引的固定维度大小。如果你在使用嵌入向量（embeddings），这个维度应与嵌入向量的维度大小匹配（例如 OpenAI 的 `1536`）。
+3. [可选] `filterFields` 数组
+   * 在你的向量索引中，为了加速过滤而额外建立索引的字段名称。
+4. [可选] `staged` 布尔值
+   * 如果设置为 `true`，索引会像
+     [分阶段的数据库索引](/database/reading-data/indexes#staged-indexes)一样在部署后异步进行回填。对于索引回填时间较长的大表来说，这非常有用。默认为 `false`。
+
+例如，如果你希望有一个索引可以在给定菜系中搜索相似的食物，你的表定义可能如下所示：
+
+<Snippet source={Schema} title="convex/schema.ts" snippet="schemaOneTable" highlightPatterns={["vectorIndex"]} />
+
+你可以通过使用类似 `properties.name` 这样的点分路径，在嵌套文档中指定向量字段和过滤字段。
+
+## 运行向量搜索 \{#running-vector-searches\}
+
+与数据库查询或全文搜索不同，向量搜索只能在
+[Convex 操作函数](/functions/actions.mdx) 中执行。
+
+通常包含三个步骤：
+
+1. 从提供的输入生成向量（例如使用 OpenAI）
+2. 使用
+   [`ctx.vectorSearch`](/api/interfaces/server.GenericActionCtx#vectorsearch)
+   来获取相似文档的 ID
+3. 加载这些文档所需的信息
+
+下面是基于描述来搜索相似法式食物的前两个步骤示例：
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets} sourceJS={VectorSearchSnippets} title="convex/foods.ts" snippet="vectorSearchQuery" highlightPatterns={["vectorSearch"]} />
+
+第一步的一个示例可以在向量搜索演示应用中找到：
+[这里](https://github.com/get-convex/convex-demos/blob/main/vector-search/convex/foods.ts#L18)。
+
+在第二步中，`vectorSearch` API 接受表名、索引名，以及一个描述搜索的
+[`VectorSearchQuery`](/api/interfaces/server.VectorSearchQuery) 对象。这个对象包含以下字段：
+
+1. `vector` 数组
+   * 用于搜索的数字数组（例如嵌入向量 embedding）。
+   * 搜索会返回具有最相似已存储向量的文档的文档 ID。
+   * 它的长度必须与索引的 `dimensions` 相同。
+2. [可选] `limit` 数字
+   * 要返回的结果数量。如果指定，该值必须在 1 到 256 之间。
+3. [可选] `filter`
+   * 一个表达式，用于基于你的模式中 `vectorIndex` 的 `filterFields`
+     限制结果集。详情参见
+     [过滤表达式](#filter-expressions)。
+
+它会返回一个 `Array`，其中的对象恰好包含两个字段：
+
+1. `_id`
+   * 表中匹配文档的
+     [Document ID](https://docs.convex.dev/database/document-ids)
+2. `_score`
+   * 表示结果与要搜索的向量有多相似的指标，范围从 -1（最不相似）到 1（最相似）
+
+底层文档本身及其向量都不会包含在 `results` 中，所以一旦你得到了结果列表，就需要再加载这些结果对应的所需信息。
+
+在 [高级模式](#advanced-patterns) 部分中记录了几种加载这些信息的策略。
+
+现在，我们先加载这些文档，并从操作函数中返回它们。为此，我们会将结果列表传递给一个 Convex 查询，并在操作函数内部运行它，然后返回结果：
+
+<TSAndJSSnippet sourceTS={Foods} sourceJS={Foods} title="convex/foods.ts" snippet="fetchResults" />
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets2} sourceJS={VectorSearchSnippets2} title="convex/foods.ts" snippet="fetchResults" />
+
+### 筛选表达式 \{#filter-expressions\}
+
+如上所述，向量搜索支持通过文档上的附加字段高效筛选结果，
+可以使用对单个字段的精确相等匹配，或使用表达式的 `OR` 组合。
+
+例如，下面是一个筛选条件，用于查找菜系完全等于 &quot;French&quot; 的食物：
+
+<Snippet source={VectorSearchSnippets} snippet="filterSingleValue" />
+
+你也可以通过一个包含多种不同取值的单个字段来筛选文档，使用 `or` 表达式。下面是一个筛选条件，用于查找法餐或印尼菜：
+
+<Snippet source={VectorSearchSnippets} snippet="filterMultipleValues" />
+
+对于具有多个筛选字段的索引，你也可以在不同字段上使用 `.or()` 筛选器。下面是一个筛选条件，用于查找菜系为法餐，或主要食材为黄油的菜品：
+
+<Snippet source={VectorSearchSnippets} snippet="filterMultipleFields" />
+
+**在 `.vectorIndex` 定义中，`cuisine` 和 `mainIngredient` 都需要包含在
+`filterFields` 中。**
+
+### 其他过滤方式 \{#other-filtering\}
+
+你可以在操作中使用 `_score` 字段，根据结果与所提供向量的相似度来过滤结果：
+
+```ts
+const results = await ctx.vectorSearch("foods", "by_embedding", {
+  vector: embedding,
+});
+const filteredResults = results.filter((result) => result._score >= 0.9);
+```
+
+你始终可以通过将向量搜索结果传递给查询或变更函数来做进一步过滤，该函数会加载文档，并使用文档中的任意字段执行过滤。
+
+**出于性能考虑，应尽可能多地将过滤条件放入 `.vectorSearch` 中。**
+
+### 排序 \{#ordering\}
+
+向量查询始终按相关性排序返回结果。
+
+目前 Convex 使用基于[余弦相似度](https://en.wikipedia.org/wiki/Cosine_similarity)的
+[近似最近邻搜索](https://en.wikipedia.org/wiki/Nearest_neighbor_search#Approximate_nearest_neighbor)
+来搜索向量。
+对更多相似性度量的支持
+[将在未来提供](#future-development)。
+
+如果多个文档的得分相同，则按文档 ID 排序来打破并列。
+
+## 高级用法 \{#advanced-patterns\}
+
+### 使用单独的表来存储向量 \{#using-a-separate-table-to-store-vectors\}
+
+设置向量索引主要有两个选项：
+
+1. 将向量与其他元数据存储在同一个表中
+2. 将向量存储在单独的表中，并带有一个引用
+
+上面的示例展示了第一种方案，它更简单，并且在读取较少数量文档时效果很好。第二种方案更复杂，但在读取或返回大量文档时更适合。
+
+由于向量通常体积较大，并且除了执行向量搜索之外没有太大用途，因此通过将它们存储在单独的表中，可以在读取其他数据时（例如 `db.get()`）或从函数返回数据时避免从数据库中加载它们。
+
+一个电影表的定义，以及一个支持按类型过滤相似电影搜索的向量索引，大致如下所示：
+
+<Snippet source={Schema} title="convex/schema.ts" snippet="schemaTwoTables" />
+
+生成向量嵌入并执行向量搜索的方式与使用单表时相同。根据向量搜索结果加载相关文档则有所不同，因为我们拿到的是 `movieEmbeddings` 的 ID，但我们希望加载的是 `movies` 文档。我们可以使用 `movies` 表上的 `by_embedding` 数据库索引来完成这一点：
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets} sourceJS={VectorSearchSnippets} title="convex/movies.ts" snippet="fetchMovies" highlightPatterns={["withIndex"]} />
+
+### 获取结果并添加新文档 \{#fetching-results-and-adding-new-documents\}
+
+从向量搜索中返回信息需要使用一个操作（因为向量搜索目前只能在操作中使用），以及一个查询或变更来加载数据。
+
+上面的示例使用了一个查询来加载数据，并从一个操作中返回这些数据。由于这是一个操作，返回的数据不是响应式的。另一种方式是在操作中返回向量搜索的结果，然后使用单独的查询以响应式方式加载数据。搜索结果本身不会响应式更新，但每条结果对应的数据将是响应式的。
+
+[Vector Search Demo App](https://github.com/get-convex/convex-demos/tree/main/vector-search)
+使用这种策略，通过响应式的“Votes”计数来展示相似电影。
+
+## 限制 \{#limits\}
+
+Convex 目前支持数百万个向量。这还是一个持续演进的功能，我们会继续与 Convex 其他能力一同扩展其规模。
+
+向量索引必须满足：
+
+* 恰好 1 个向量索引字段。
+  * 该字段的类型必须是 `v.array(v.float64())`（或者是一个联合类型，其中一种可能的类型是 `v.array(v.float64())`）
+* 恰好 1 个维度字段，其取值在 2 到 4096 之间。
+* 最多 16 个过滤字段。
+
+向量索引会计入
+[每张表 32 个索引的限制](/database/reading-data/indexes/indexes.md#limits)。
+此外，每张表最多可以有 4 个向量索引。
+
+向量搜索的限制为：
+
+* 在 `vector` 字段中恰好 1 个要用于搜索的向量
+* 最多 64 个过滤表达式
+* 最多请求 256 条结果（默认是 10 条）。
+
+如果你的操作执行了一次向量搜索，然后将结果传递给某个查询或
+变更函数，你可能会发现向量搜索返回的一个或多个结果已被删除或发生变更。由于向量搜索只在操作中可用，你无法基于这些结果执行额外的事务性查询或变更。如果这对你的用例很重要，请
+[在 Discord 上告诉我们](https://convex.dev/community)!
+
+只有在向量索引指定的字段中包含一个大小匹配的向量的文档，才会被包含在该索引中，并能通过向量搜索返回。
+
+关于限制的更多信息，请参见[这里](/production/state/limits.mdx)。
+
+## 未来规划 \{#future-development\}
+
+我们始终欢迎用户的反馈和需求。我们正在考虑的一些用于改进 Convex 向量搜索的方向包括：
+
+* 更强大的筛选能力和筛选语法
+* 在 `vectorSearch` API 中按分数进行筛选
+* 对生成 embeddings 的更好支持
+
+如果这些功能中有任何一项对你的应用来说很重要，
+[欢迎在 Discord 上告诉我们](https://convex.dev/community)!

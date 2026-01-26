@@ -1,0 +1,159 @@
+---
+title: Agent メッセージでのファイルと画像
+sidebar_label: "Files"
+sidebar_position: 1000
+description: "Agent コンポーネントで画像とファイルを扱う"
+---
+
+メッセージ内で LLM が参照できるように、画像やファイルを追加できます。
+
+注意: クラウドバックエンドでは公開可能なストレージ URL が利用できるため、LLM に URL を送信するのがはるかに簡単です。ローカルで開発する場合は、`ngrok` などを使ってトラフィックをプロキシできます。
+
+サンプルコード:
+
+* [files/autoSave.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/autoSave.ts)
+  には、自動ファイル保存の使い方のシンプルな例があります。
+* [files/addFile.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/addFile.ts)
+  には、ファイルを保存し、質問を送信し、レスポンスを段階的に生成する例があります。
+* [files/generateImage.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/generateImage.ts)
+  には、画像を生成してアシスタントメッセージ内に保存する例があります。
+* [FilesImages.tsx](https://github.com/get-convex/agent/blob/main/example/ui/files/FilesImages.tsx)
+  には、クライアント側のコードがあります。
+
+## サンプルを実行する \{#running-the-example\}
+
+```sh
+git clone https://github.com/get-convex/agent.git
+cd agent
+npm run setup
+npm run dev
+```
+
+## まずアップロードしてから非同期に生成して画像を送信する \{#sending-an-image-by-uploading-first-and-generating-asynchronously\}
+
+標準的な手順は次のとおりです:
+
+1. ファイルをデータベースにアップロードする（`uploadFile` アクション）。注意: これは通常のアクションでも `httpAction` でも、都合の良い方で構いません。
+2. スレッドにメッセージを送信する（`submitFileQuestion` アクション）
+3. ファイルを LLM に送信して、テキストを非同期に生成／ストリーミングする（`generateResponse` アクション）
+4. スレッドからメッセージをクエリで取得する（`listThreadMessages` クエリ）
+
+理由:
+
+メッセージ送信はアクションではなくミューテーションで行う方が望ましいです。クライアント側で楽観的更新を使って送信済みメッセージを即座に表示し、その後クエリでメッセージが流れてきたタイミングでちょうど消えるようにできるからです。
+
+ただし、ミューテーションからはファイルストレージに保存できないため、ファイルはすでに存在している必要があります（そのための `fileId` です）。
+
+そのうえで、クライアントを待たせることなく、レスポンスを非同期に生成（リトライなども含めて）できます。
+
+### 1: ファイルを保存する \{#1-saving-the-file\}
+
+```ts
+import { storeFile } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+const { file } = await storeFile(
+  ctx,
+  components.agent,
+  new Blob([bytes], { type: mimeType }),
+  {
+    filename,
+    sha256,
+  },
+);
+const { fileId, url, storageId } = file;
+```
+
+### 2: メッセージを送信する \{#2-sending-the-message\}
+
+```ts
+// ミューテーション内
+const { filePart, imagePart } = await getFile(ctx, components.agent, fileId);
+const { messageId } = await fileAgent.saveMessage(ctx, {
+  threadId,
+  message: {
+    role: "user",
+    content: [
+      imagePart ?? filePart, // 画像の場合はそちらを優先
+      { type: "text", text: "What is this image?" },
+    ],
+  },
+  metadata: { fileIds: [fileId] }, // 重要: ファイルの使用状況を追跡
+});
+```
+
+### 3: レスポンスの生成とレスポンスのクエリ実行 \{#3-generating-the-response-querying-the-responses\}
+
+手順はテキスト入力の場合と同様です。
+
+```ts
+// アクション内
+await thread.generateText({ promptMessageId: messageId });
+```
+
+```ts
+// クエリ内
+const messages = await agent.listMessages(ctx, { threadId, paginationOpts });
+```
+
+## インライン保存のアプローチ \{#inline-saving-approach\}
+
+アクション内でテキストを生成する際には、画像やファイル自体を渡すこともできます。
+`message` 引数に渡された画像やファイルは、サイズが 64k を超える場合に自動的にファイルストレージに保存され、
+その `fileId` がメッセージに保存されます。
+
+例:
+
+```ts
+await thread.generateText({
+  message: {
+    role: "user",
+    content: [
+      { type: "image", image: imageBytes, mimeType: "image/png" },
+      { type: "text", text: "What is this image?" },
+    ],
+  },
+});
+```
+
+## 内部動作 \{#under-the-hood\}
+
+ファイルの保存処理は、次の 3 つの要素で構成されます:
+
+1. ファイルストレージへの保存（コンポーネントのストレージではなく、あなたのアプリ側のストレージ）。これにより、`storageId` を使って直接アクセスし、URL を生成できます。
+2. コンポーネント内に、そのファイルへの参照（`storageId`）を保存します。これにより、そのファイルを参照しているメッセージ数が自動的に追跡されるため、もう使われていないファイルをクリーンアップできます（
+   [files/vacuum.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/vacuum.ts) を参照）。
+3. LLM に送信されるメッセージ内のデータの代わりに、mimeType やその他提供されたメタデータとともに URL を挿入します。mimeType が指定されていない場合は、
+   [`guessMimeType`](https://github.com/get-convex/agent/blob/main/src/mapping.ts#L556) によって推論されます。
+
+### 自分でファイルを保存しておいて、URL を渡すだけでもいいですか？ \{#can-i-just-store-the-file-myself-and-pass-in-a-url\}
+
+はい。画像やファイルそのものの代わりに、常に URL を LLM に渡すことができます。
+
+```ts
+const storageId = await ctx.storage.store(blob);
+const url = await ctx.storage.getUrl(storageId);
+
+await thread.generateText({
+  message: {
+    role: "user",
+    content: [
+      { type: "image", data: url, mimeType: blob.type },
+      { type: "text", text: "What is this image?" },
+    ],
+  },
+});
+```
+
+## 画像の生成 \{#generating-images\}
+
+次のファイルのサンプルでは、
+[files/generateImage.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/generateImage.ts)
+でプロンプトを受け取り、OpenAI の DALL·E 2 で画像を生成し、その画像を
+スレッドに保存します。
+
+次のように試すことができます:
+
+```sh
+npx convex run files:generateImage:replyWithImage '{prompt: "make a picture of a cat" }'
+```

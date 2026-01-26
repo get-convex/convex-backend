@@ -1,0 +1,166 @@
+---
+title: "在 Netlify 上使用 Convex"
+sidebar_label: "Netlify"
+description: "在 Netlify 托管前端，在 Convex 托管后端"
+sidebar_position: 20
+---
+
+将你的 Convex 应用托管在 Netlify 上，可以在每次推送代码时自动重新部署前端和后端。
+
+## 部署到 Netlify \{#deploying-to-netlify\}
+
+本指南假设你已经有一个配合 Convex 使用的可用 React 应用。如果还没有，
+请先完成 [Convex React 快速上手](/quickstart/react.mdx)。然后：
+
+<StepByStep>
+  <Step title="创建 Netlify 账号">
+    如果你还没有，请创建一个 [Netlify](https://netlify.com) 账号。
+    对于小型项目这是免费的，而且设置通常不到一分钟即可完成。
+
+    <>    </>
+  </Step>
+
+  <Step title="在 Netlify 上关联你的项目">
+    在 https://app.netlify.com/start 创建一个 Netlify 项目，并将其关联到你在
+    GitHub 或其他 Git 平台上的项目源代码仓库。
+
+    <div className="screenshot-border">
+      ![Netlify import project](/screenshots/netlify_import.png)
+    </div>
+  </Step>
+
+  <Step title="覆盖构建命令（Build command）">
+    将 *Build command* 改为
+    `npx convex deploy --cmd 'npm run build'`。
+
+    如果你的项目位于仓库的某个子目录中，你还需要在 Netlify 中相应修改
+    *Base directory*。
+
+    <div className="screenshot-border">
+      ![Netlify build settings](/screenshots/netlify_build_settings.png)
+    </div>
+  </Step>
+
+  <Step title="配置 CONVEX_DEPLOY_KEY 环境变量">
+    在你的 [Convex Dashboard](https://dashboard.convex.dev/)
+    中打开项目的 *Settings* 页面。点击 *Generate* 按钮生成一个 **Production** 部署密钥。
+    然后点击复制按钮将密钥复制下来。
+
+    在 Netlify 中，点击 *Add environment variables* 和 *New variable*。
+
+    创建一个名为 `CONVEX_DEPLOY_KEY` 的环境变量，并将你的部署密钥粘贴进去。
+
+    <div className="screenshot-border">
+      ![Netlify environment variable CONVEX\_DEPLOY\_KEY](/screenshots/netlify_prod_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="部署你的网站">
+    现在点击 *Deploy* 按钮，你在这里的工作就完成了！
+
+    <>    </>
+  </Step>
+</StepByStep>
+
+Netlify 会自动将你的网站发布到一个 URL：
+`https://<site-name>.netlify.app`，该链接显示在站点概览页面顶部。
+每次你向 git 仓库推送代码时，Netlify 都会自动部署你的 Convex 函数并发布你的网站更新。
+
+<Admonition type="info" title="使用自定义域名？">
+  如果你使用自定义域名来承载 Convex 函数，你需要做额外的配置。
+  请参阅 [自定义域名](/production/hosting/custom.mdx#hosting-with-a-custom-domain) 获取更多信息。
+</Admonition>
+
+### 工作原理 \{#how-it-works\}
+
+在 Netlify 中，我们覆盖了 *Build Command*，将其设置为
+`npx convex deploy --cmd 'npm run build'`。
+
+`npx convex deploy` 会从环境变量中读取 `CONVEX_DEPLOY_KEY`，并使用它来设置
+`CONVEX_URL`（或名称类似的）环境变量，使其指向你的**生产**部署。
+
+由 `npm run build` 调用的前端框架会读取 `CONVEX_URL` 环境变量，并将已部署的网站（通过
+`ConvexReactClient`）指向你的**生产**部署。
+
+最后，`npx convex deploy` 会将你的 Convex 函数推送到生产部署。
+
+现在，你的生产部署已经拥有最新的函数，并且你的应用已配置为连接到它。
+
+如果 `deploy` 命令无法推断出这个变量名，你可以使用 `--cmd-url-env-var-name` 来自定义前端代码使用的变量名，例如：
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+## 身份验证 \{#authentication\}
+
+你需要配置你的[身份验证](/auth.mdx)提供商（Clerk、Auth0 或其他），使其接受你生产环境中的 `<site-name>.netlify.app` URL。
+
+## 部署预览 \{#deploy-previews\}
+
+Netlify 的 Deploy Previews 功能允许你在更改合并到应用之前预览这些更改。为了同时预览前端代码和 Convex
+函数的更改，你可以设置
+[Convex 预览部署](/production/hosting/preview-deployments.mdx)。
+
+这会为每个预览创建一个全新的 Convex 后端，并且不会影响你的生产和开发部署。
+
+这里假定你已经完成了上面
+[部署到 Netlify](#deploying-to-netlify) 中的步骤。
+
+<StepByStep>
+  <Step title="设置 CONVEX_DEPLOY_KEY 环境变量">
+    在你的 [Convex Dashboard](https://dashboard.convex.dev/)
+    中，进入项目的 *Settings* 页面。点击 *Generate Preview Deploy Key* 按钮生成一个 **Preview** 部署密钥，
+    然后点击复制按钮复制该密钥。
+
+    在 Netlify 中，点击 *Site configuration* &gt; *Environment variables*。编辑已有的 `CONVEX_DEPLOY_KEY` 环境变量。
+    选择 *Different value for each deploy context*，并将该密钥粘贴到 *Deploy Previews* 下方。
+
+    <div className="screenshot-border">
+      ![Netlify 环境变量 CONVEX\_DEPLOY\_KEY](/screenshots/netlify_preview_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="（可选）设置默认环境变量">
+    如果你的应用依赖某些 Convex 环境变量，你可以在项目中为预览和开发部署设置[默认
+    环境变量](/production/environment-variables.mdx#project-environment-variable-defaults)。
+
+    <div className="screenshot-border">
+      ![项目默认环境变量](/screenshots/project_default_environment_variables.png)
+    </div>
+  </Step>
+
+  <Step title="（可选）运行函数以设置初始数据">
+    部署预览运行在全新的 Convex 后端上，这些后端不会与开发或生产 Convex 部署共享数据。你可以通过在 `npx
+      convex deploy` 命令中添加 `--preview-run 'functionName'` 来调用一个 Convex
+    函数以设置数据。该函数只会在预览部署中运行，在部署到生产环境时会被忽略。
+
+    ```sh title="Netlify > Site configuration > Build & deploy > Build settings > Build command"
+    npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+    ```
+  </Step>
+
+  <Step title="现在试着创建一个 PR 并生成一个 Deploy Preview 吧！">
+    你可以在 Convex 仪表盘中找到该分支对应的 Convex 部署。
+
+    <div className="screenshot-border">
+      ![部署选择器中的预览部署](/screenshots/preview_deployment_deployment_picker.png)
+    </div>
+  </Step>
+</StepByStep>
+
+### 工作原理 \{#how-it-works\}
+
+对于部署预览，`npx convex deploy` 会从环境变量中读取 `CONVEX_DEPLOY_KEY`，
+并使用它创建一个与该部署预览的 Git 分支名称关联的 Convex 部署。它会设置
+`CONVEX_URL`（或名称类似的）环境变量来指向新的 Convex 部署。
+
+你使用 `npm run build` 调用的前端框架会读取 `CONVEX_URL` 环境变量，并将已部署站点（通过
+`ConvexReactClient`）指向该 Convex 预览部署。
+
+最后，`npx convex deploy` 会将你的 Convex 函数推送到该预览部署，并运行
+`--preview-run` 函数（如果提供的话）。这个部署中的函数、数据、定时任务（cron）以及所有其他配置都与任何其他部署相互独立。
+
+`npx convex deploy` 会在 Vercel、Netlify、GitHub 和 GitLab 环境中自动推断 Git 分支名称，但你可以使用 `--preview-create` 选项自定义与新创建部署关联的名称。
+
+生产部署的工作方式将与之前完全相同。

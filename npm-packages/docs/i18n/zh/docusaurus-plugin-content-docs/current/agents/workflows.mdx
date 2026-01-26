@@ -1,0 +1,196 @@
+---
+title: 工作流
+sidebar_label: "Workflows"
+sidebar_position: 800
+description: "为 Agent 组件定义长生命周期的工作流"
+---
+
+Agent 工作流可以拆分为两个要素：
+
+1. 向 LLM 发出提示（包括消息历史、上下文等）。
+2. 决定如何处理 LLM 的响应。
+
+当一个流程包含多个步骤、需要动态决定下一步该做什么、生命周期较长，或者同时包含业务逻辑和 LLM 调用时，我们通常会将其称为工作流。
+
+当 LLM 的响应是一个明确的操作请求时，工具调用和 MCP 就会发挥作用。可用工具的列表以及调用结果会被用于构建发给 LLM 的提示。
+
+一种尤其强大的工作流形式是可以建模为
+[durable functions](https://stack.convex.dev/durable-workflows-and-strong-guarantees)
+的工作流，它们可以长时间运行、在服务器重启后继续存活，并在重试、幂等性和完成方面提供强有力的保证。
+
+最简单的版本可能只是执行几个预定义步骤，例如先获取天气预报，然后基于天气获取穿搭建议。代码示例参见
+[workflows/chaining.ts](https://github.com/get-convex/agent/blob/main/example/convex/workflows/chaining.ts)。
+
+```ts
+export const getAdvice = action({
+  args: { location: v.string(), threadId: v.string() },
+  handler: async (ctx, { location, threadId }) => {
+    // This uses tool calls to get the weather forecast.
+    await weatherAgent.generateText(
+      ctx,
+      { threadId },
+      { prompt: `What is the weather in ${location}?` },
+    );
+    // 自动包含线程中的先前消息历史记录,
+    // 并使用工具调用来获取用户特定的时尚建议。
+    await fashionAgent.generateText(
+      ctx,
+      { threadId },
+      { prompt: `What should I wear based on the weather?` },
+    );
+    // We don't need to return anything, since the messages are saved
+    // automatically and clients will get the response via subscriptions.
+  },
+});
+```
+
+## 构建可靠的工作流 \{#building-reliable-workflows\}
+
+在使用 LLM 时，一个常见的问题是它们的可靠性不足。API 提供方可能会出现故障，LLM 本身也可能不稳定。要构建可靠的工作流，你通常需要具备三个特性：
+
+1. 可靠的重试机制
+2. 负载均衡
+3. 适用于多步工作流的持久性和幂等性
+
+幸运的是，Convex 提供了可以用来满足这些需求的组件。
+
+### 重试 \{#retries\}
+
+默认情况下，Convex 变更函数自带这些属性。不过，调用 LLM 模型会产生副作用并发起网络请求，因此必须使用操作函数。如果你只关心重试行为，可以使用 [Action Retrier](https://convex.dev/components/retrier) 组件。
+
+不过建议继续往下阅读，因为 [Workpool](https://convex.dev/components/workpool) 和 [Workflow](https://convex.dev/components/workflow) 组件提供了更健壮的解决方案，并且内置重试能力。
+
+### 负载均衡 \{#load-balancing\}
+
+在无服务器环境中运行长时间运行的操作函数时，你可能会消耗大量资源。对于为 RAG 摄取数据或其他有突发特性的工作负载，存在耗尽资源的风险。为缓解这种风险，你可以使用 [Workpool](https://convex.dev/components/workpool) 组件。你可以限制并发 worker 的数量，并以异步方式添加工作项，同时配置重试策略以及用于处理最终成功 / 失败的回调。
+
+不过，如果你还想管理多步骤工作流，则应该使用 [Workflow](https://convex.dev/components/workflow) 组件，它同样开箱即用地提供重试和负载均衡能力。
+
+### 多步骤工作流的持久性与幂等性 \{#durability-and-idempotency-for-multi-step-workflows\}
+
+在执行可能在中途失败的多步骤工作流时，你需要确保工作流能够从上次中断的位置继续执行，而不会重复已经完成的工作。
+[Workflow](https://convex.dev/components/workflow) 构建在
+[Workpool](https://convex.dev/components/workpool) 之上，为具备重试和延迟机制的长时间运行函数提供可靠的持久化执行能力。
+
+工作流中的每个步骤都会被执行，并记录其结果。即使服务器在中途失败，也会从最新的未完成步骤恢复执行，并应用可配置的重试设置。
+
+## 使用 Workflow 组件构建长生命周期的持久化工作流 \{#using-the-workflow-component-for-long-lived-durable-workflows\}
+
+[Workflow 组件](https://convex.dev/components/workflow) 是构建长时间运行、具备持久性的工作流的绝佳方式。它负责处理重试逻辑并提供最终完成的保证，能够在服务器重启后继续运行等。关于持久化工作流的更多内容，请参阅
+[这篇 Stack 文章](https://stack.convex.dev/durable-workflows-and-strong-guarantees)。
+
+要在工作流中配合使用 Agent，你可以将单个幂等步骤作为工作流可以运行的步骤来执行，每个步骤都可以配置重试策略，并且能够保证工作流最终会完成。即使服务器在工作流执行中途崩溃，工作流也会从中断的位置继续并运行下一步。如果某个步骤失败且没有被工作流捕获，工作流的 `onComplete` 处理函数会接收到该错误结果。
+
+### 在工作流中使用 Agent \{#using-the-agent-within-a-workflow\}
+
+你可以使用 [Workflow 组件](https://convex.dev/components/workflow)
+来运行 Agent 流程。它负责重试，并提供最终完成的保证，能够在服务器重启后继续执行等。关于持久化工作流的更多内容，参见
+[这篇 Stack 文章](https://stack.convex.dev/durable-workflows-and-strong-guarantees)。
+
+在一个工作流中，每个“步骤”（step）都是一个单一的幂等操作。其参数和返回值会作为工作流状态的一部分被存储，这样工作流就可以通过重放历史，从中断的位置恢复执行。这样一来，工作流就可以长时间运行，经受住服务器重启、重试单个步骤、暂停等。
+
+某些 Agent 函数可以在工作流中被直接调用，此时传入 `step` 而不是 `ctx`。在底层，这些函数会调用 `step.runMutation`，而不是通常使用的 `ctx.runMutation`。这两种调用大体相同，不过通过步骤调用会有更多开销，因为参数和返回值会计入该工作流的整体数据库带宽限制。因此，尽量避免将大量数据作为参数传入或由步骤返回，更推荐先将这些数据保存下来，只在各处传递 ID。
+
+```ts
+const workflow = new WorkflowManager(components.workflow);
+
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string() },
+  handler: async (step, { prompt, userId }) => {
+    // 某些函数可以直接从工作流中调用,传递 `step`
+    // 而不是 `ctx`。这对任何与操作相关的功能不适用。
+    const { threadId } = await createThread(step, components.agent, {
+      userId,
+      title: prompt,
+    });
+    // 在底层,这些函数调用的是 step.runMutation,
+    // 因此保存消息是一个工作流步骤。等效的做法是使用你自己的变更函数调用
+    // step.runMutation,该变更函数用 ctx 调用 saveMessage。
+    const { messageId } = await saveMessage(step, components.agent, {
+      threadId,
+      prompt,
+    });
+    // 对于需要 `fetch` 或其他需要操作的函数,
+    // 将它们显式地作为步骤运行。
+    const { text } = await step.runAction(
+      internal.example.getSupport,
+      { threadId, userId, promptMessageId: messageId },
+      // 传入 promptMessageId 可以让我们安全地重试该步骤。
+      // 如果中途失败,重试将重新使用相同的提示消息
+      // 以及任何现有的响应。
+      { retry: true },
+    );
+    const { object } = await step.runAction(
+      internal.example.getStructuredSupport,
+      {
+        userId,
+        prompt: text,
+      },
+    );
+    // 你也可以显式地将变更函数作为步骤运行。
+    await step.runMutation(internal.example.sendUserMessage, {
+      userId,
+      message: object.instruction,
+    });
+  },
+});
+```
+
+### 将 Agent 函数暴露为 Convex 操作函数 \{#exposing-agent-functions-as-convex-actions\}
+
+你可以将 Agent 的能力暴露为 Convex 函数，在工作流中作为步骤使用，
+这可以代替为每个步骤单独编写一个操作函数。
+
+对于在线程中生成或流式输出文本的操作函数：
+
+```ts
+// 类似于 thread.generateText / thread.streamText
+export const getSupport = supportAgent.asTextAction({
+  stopWhen: stepCountIs(10),
+});
+```
+
+你也可以公开一个独立的操作，用来生成对象。
+
+```ts
+// Similar to thread.generateObject / thread.streamObject
+export const getStructuredSupport = supportAgent.asObjectAction({
+  schema: z.object({
+    analysis: z.string().describe("对用户请求的详细分析。"),
+    instruction: z.string().describe("A suggested action to take."),
+  }),
+});
+```
+
+示例代码见
+[workflows/chaining.ts](https://github.com/get-convex/agent/blob/main/example/convex/workflows/chaining.ts)。
+
+## 复杂工作流模式 \{#complex-workflow-patterns\}
+
+虽然这里只展示了一个简单工作流的示例，但你可以使用 Agent 组件构建许多复杂的模式：
+
+* 基于一次 LLM 调用或向量搜索结果动态路由到不同的 Agent
+* 将任务扇出为多个 LLM 调用，然后合并结果
+* 编排多个 Agent
+* 推理与行动（ReAct）循环
+* 建模一个由多个 Agent 彼此通信组成的网络
+* 支持暂停与恢复的工作流
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+<ComponentCardList
+  items={[
+{
+title: "Workpool",
+description:
+  "在 Action Retrier 之上构建，通过并发上限和重试机制，高效管理大量外部请求。",
+href: "https://www.convex.dev/components/workpool",
+},
+{
+title: "Workflow",
+description:
+  "在 Workpool 之上构建，为长时间运行的函数提供持久执行能力，并支持重试和延迟。",
+href: "https://www.convex.dev/components/workflow",
+},
+]}
+/>

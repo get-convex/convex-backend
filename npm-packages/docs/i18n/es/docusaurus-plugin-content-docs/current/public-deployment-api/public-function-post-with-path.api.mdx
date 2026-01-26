@@ -1,0 +1,41 @@
+---
+id: public-function-post-with-path
+title: "Ejecutar función mediante la ruta de la URL"
+description: "Ejecuta una función de consulta, mutación o acción mediante la ruta de la URL."
+sidebar_label: "Ejecutar función mediante la ruta de la URL"
+hide_title: true
+hide_table_of_contents: true
+api: eJy1VE1v2zAM/SsCj4Py0R5967YWK5ChQdbuUgSBatOxOllSJaqrEfi/D5STNoGLbpedJFBP4uMjn3ZQYSyD9qSdhQIuX7BMhEKJp4Shk6JNpPhMCheEKnkr6mSHzUMnvKJGaCvuVospSHAeQ8ZfV1CATw9Gl5sDfuNdpM1vTc2Gr4EEr4JqkTBEKO53YFWLUMABf12hJV1rDCBBM739tVPOVwc6mYvRv1C0GKPaYpwZHQkkBHxKOmAFBYWEEmLZYKug2AF1nlNGCtpuoe/XAxgjfXZVx4jSWUJLvFXeG13m+maPkZPvxk+5h0csT5PegwrbCGsJPrBCpDHm9zg6utlLqF1oFb0d3R8ISrDJGFj3vQTSZPjaXVUvXaTVQPsibOONNR30jDktPAeidzYO+c/nc15O5QT57yU7izd1bt1HxT8rkxAkRFKU3pHBuO1CWzyWQoWgOu46YRvf69Pra6MzCWhTmzVLZYkxwrqXew4M3qv2MwdYpI/JYwgufB/m6YMaMuyrovdlyU3LmU6zM7OTBONK5X+TJyfmUeKhPxqm1X5EWBx+qUVqXLazy2bKJixgFpKd7T6NzdqzTBieD65OwTBceT2y7lf0xnUtWhIXy2tgIjxkqzcHXr6o1hs8csuRPY5E0rZ2x+394uwzvohl/oHEt9vbpQguEcYRh0tbeactRUGNIrHvvbBOqEQNFzWMP0gwukQWpnj9qhZDZIX15OrHYnI2PZtceFU2ODmfzrlBb1/Y38A8pBjiQOpsOudQ/wcwsPOP
+sidebar_class_name: "post api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Ejecutar función mediante la ruta de la URL"} />
+
+<MethodEndpoint method={"post"} path={"/run/{*functionIdentifier}"} context={"endpoint"} />
+
+Ejecuta una consulta, mutación o acción mediante la ruta en la URL.
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"Solicitud"} />
+
+<ParamsDetails parameters={[{"name":"functionIdentifier","in":"path","description":"Ruta de la función, como messages/list","required":true,"schema":{"type":"string"}}]} />
+
+<RequestSchema title={"Cuerpo"} body={{"content":{"application/json":{"schema":{"type":"object","required":["args"],"properties":{"args":{"type":"object"},"format":{"type":["string","null"]}},"title":"UdfPostRequestArgsOnly"}}},"required":true}} />
+
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"oneOf":[{"type":"object","required":["value","status"],"properties":{"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["success"]},"value":{"title":"Valor"}}},{"type":"object","required":["errorMessage","status"],"properties":{"errorData":{"oneOf":[{"type":"null"},{"title":"Valor"}]},"errorMessage":{"type":"string"},"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["error"]}}}],"title":"UdfResponse"}}}}}}
+>
+  
+</StatusCodes>

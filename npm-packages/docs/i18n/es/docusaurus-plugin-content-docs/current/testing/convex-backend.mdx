@@ -1,0 +1,44 @@
+---
+title: Pruebas del backend local
+sidebar_label: Backend local
+sidebar_position: 200
+description: "Prueba funciones con el backend local de Convex de código abierto"
+---
+
+Como alternativa a [`convex-test`](/testing/convex-test.mdx), puedes probar tus
+funciones con la
+[versión de código abierto del backend de Convex](https://github.com/get-convex/convex-backend).
+
+## Introducción \{#getting-started\}
+
+Sigue [esta guía](https://stack.convex.dev/testing-with-local-oss-backend) para
+obtener las instrucciones.
+
+En comparación con `convex-test`, que usa un mock de backend en JS, ejecutar tus
+tests contra el backend real tiene estas ventajas:
+
+* Tus tests se ejecutarán contra el mismo código que tu entorno de producción de Convex (siempre
+  y cuando mantengas el backend local actualizado).
+* Se aplican límites en el tamaño de argumentos, datos y consultas.
+* Puedes inicializar un conjunto de datos de prueba grande a partir de una importación de datos.
+* Puedes probar tu código de cliente en combinación con tu lógica de backend.
+
+## Limitaciones \{#limitations\}
+
+Ten en cuenta que probar contra el backend local también tiene algunas desventajas:
+
+* Requiere configurar el backend local, lo cual es más laborioso.
+* No hay control sobre el tiempo y cualquier función programada se ejecutará según lo programado.
+* Los cron jobs también se ejecutarán a menos que se deshabiliten mediante
+  [`IS_TEST`](https://stack.convex.dev/testing-with-local-oss-backend#setting-up-a-local-backend).
+* No hay forma de simular llamadas a `fetch`.
+* No hay forma de simular dependencias o partes de la base de código.
+* No hay forma de controlar la aleatoriedad (las pruebas pueden no ser deterministas).
+* No hay forma de establecer valores de variables de entorno desde dentro de las pruebas.
+
+Para probar tus funciones en JavaScript con un backend de Convex simulado, consulta
+[convex-test](/testing/convex-test.mdx).
+
+## CI \{#ci\}
+
+Consulta [Integración continua](/testing/ci.mdx) para ejecutar las pruebas en una máquina remota compartida.

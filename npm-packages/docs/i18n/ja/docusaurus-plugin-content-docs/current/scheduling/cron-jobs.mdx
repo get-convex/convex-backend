@@ -1,0 +1,55 @@
+---
+title: "Cron ジョブ"
+sidebar_position: 2
+description: "Convex で関数の定期実行をスケジュールする"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/crons.ts";
+
+Convex では、関数を定期的に実行されるようスケジュールできます。たとえば、cron ジョブを使って一定間隔でデータをクリーンアップしたり、毎月同じ時間にリマインドメールを送信したり、毎週土曜日にバックアップを実行するようスケジュールしたりできます。
+
+**例：**
+[Cron Jobs](https://github.com/get-convex/convex-demos/tree/main/cron-jobs)
+
+## Cron ジョブの定義 \{#defining-your-cron-jobs\}
+
+Cron ジョブは `convex/` ディレクトリ内の `crons.ts` ファイルで定義し、次のようになります。
+
+<TSAndJSSnippet title="convex/crons.ts" sourceTS={Example} sourceJS={Example} />
+
+最初の引数は、Cron ジョブの一意の識別子です。
+
+2つ目の引数は、その関数を実行するスケジュールで、以下の
+[サポートされているスケジュール](/scheduling/cron-jobs.mdx#supported-schedules)
+を参照してください。
+
+3つ目の引数は公開関数または
+[内部関数](/functions/internal-functions.mdx)の名前で、
+[ミューテーション](/functions/mutation-functions.mdx) か
+[アクション](/functions/actions.mdx) のいずれかです。
+
+## サポートされているスケジュール \{#supported-schedules\}
+
+* [`crons.interval()`](/api/classes/server.Crons#interval) は、指定した `seconds`、`minutes`、`hours` ごとに関数を実行します。最初の実行は、その cron ジョブが最初に Convex にデプロイされたときに行われます。従来の cron と異なり、このオプションでは秒単位の細かい粒度で間隔を指定できます。
+* [`crons.cron()`](/api/classes/server.Crons#cron) は、スペースで区切られた 5 つのフィールドからなる文字列で cron ジョブを指定する、従来の方法です
+  <nobr>(例: `"* * * * *"`)</nobr>。cron 構文で指定する時刻は UTC タイムゾーンとして解釈されます。[Crontab Guru](https://crontab.guru/) は、この形式のスケジュールを理解し、作成するのに役立つリソースです。
+* [`crons.hourly()`](/api/classes/server.Crons#cron),
+  [`crons.daily()`](/api/classes/server.Crons#daily),
+  [`crons.weekly()`](/api/classes/server.Crons#weekly),
+  [`crons.monthly()`](/api/classes/server.Crons#monthly) は、よく使われる cron スケジュール向けに、引数に明示的な名前を付けた代替の構文を提供します。
+
+## cron ジョブの表示 \{#viewing-your-cron-jobs\}
+
+すべての cron ジョブは
+[Convex ダッシュボードの cron ジョブビュー](/dashboard/deployments/schedules.md#cron-jobs-ui)
+で確認できます。
+追加・更新・削除された cron ジョブは、ログビューと履歴ビューで確認できます。
+過去に実行された cron ジョブの結果も、ログビューから確認できます。
+
+## エラーハンドリング \{#error-handling\}
+
+ミューテーションとアクションには、スケジュールされた関数について
+[Error handling](/scheduling/scheduled-functions.mdx#error-handling)
+で説明されているものと同じ保証が適用されます。
+
+各 cron ジョブは、同時に実行されるのは最大 1 回までです。cron ジョブでスケジュールされた関数の実行に時間がかかりすぎる場合、実行がスケジュールから大きく遅れないように、その後の cron ジョブの実行がスキップされることがあります。前回の実行がまだ進行中であることが原因で cron ジョブのスケジュールされた実行がスキップされると、その旨のメッセージがログに記録され、ダッシュボードのログビューで確認できます。

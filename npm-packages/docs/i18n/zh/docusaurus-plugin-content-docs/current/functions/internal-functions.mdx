@@ -1,0 +1,57 @@
+---
+title: 内部函数
+sidebar_position: 40
+description: "仅能被其他 Convex 函数调用的函数"
+---
+
+import Definition from "!!raw-loader!@site/../private-demos/snippets/convex/plans.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsCall.ts";
+import DefinitionWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidation.ts";
+import DefinitionWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidationJS.js";
+
+内部函数只能被其他[函数](/functions.mdx)调用，不能直接从[Convex 客户端](/client/react.mdx)调用。
+
+默认情况下，你的 Convex 函数是公开的，可供客户端访问。公开函数可能会被恶意用户以导致意外结果的方式调用。内部函数可以帮助你降低这一风险。我们建议在编写不应由客户端直接调用的逻辑时，一律使用内部函数。
+
+虽然内部函数通过减少应用对外暴露的公共接口来帮助降低风险，你仍然可以使用[参数验证](/functions/validation.mdx)和/或[身份验证](/auth/functions-auth.mdx)来验证内部不变式。
+
+## 内部函数的使用场景 \{#use-cases-for-internal-functions\}
+
+通过以下方式使用内部函数：
+
+* 从[操作函数](/functions/actions.mdx#action-context)中通过
+  `runQuery` 和 `runMutation` 调用它们
+* 从[HTTP 操作函数](/functions/http-actions.mdx)中通过 `runQuery`、
+  `runMutation` 和 `runAction` 调用它们
+* 从其他函数中对它们进行[调度](/scheduling/scheduled-functions.mdx)，
+  以在将来运行
+* 调度它们从[cron 作业](/scheduling/cron-jobs.mdx)中周期性运行
+* 使用
+  [Dashboard](/dashboard/deployments/functions.md#running-functions) 运行它们
+* 从[CLI](/cli.md#run-convex-functions) 运行它们
+
+## 定义内部函数 \{#defining-internal-functions\}
+
+内部函数是通过 `internalQuery`、`internalMutation` 或 `internalAction` 来定义的。例如：
+
+<TSAndJSSnippet title="convex/plans.ts" sourceTS={Definition} sourceJS={Definition} highlightPatterns={["internalMutation"]} />
+
+如果你需要向内部函数传递复杂对象，你可能会倾向于不使用参数验证。不过请注意，如果你在使用 `internalQuery` 或 `internalMutation`，更好的做法是传递文档的 Id 而不是整个文档本身，以确保查询或变更始终基于数据库的最新状态执行。
+
+<Details summary="不带参数验证的内部函数">
+  <TSAndJSSnippet title="convex/plans.ts" sourceTS={DefinitionWithoutValidationTS} sourceJS={DefinitionWithoutValidationJS} highlightPatterns={[": {"]} />
+</Details>
+
+## 调用内部函数 \{#calling-internal-functions\}
+
+可以在操作函数中调用内部函数，并在操作函数和变更中通过 [`internal`](/generated-api/api#internal) 对象来调度执行它们。
+
+例如，来看下面这个公共的 `upgrade` 操作，它调用了我们在上面定义的内部
+`plans.markPlanAsProfessional` 变更：
+
+<TSAndJSSnippet title="convex/changes.ts" sourceTS={Call} sourceJS={Call} />
+
+在这个例子中，用户不应该能够直接绕过 `upgrade` 操作去调用
+`internal.plans.markPlanAsProfessional` —— 如果他们能够这样做，就可以免费升级。
+
+你可以在同一个文件中定义公共函数和内部函数。

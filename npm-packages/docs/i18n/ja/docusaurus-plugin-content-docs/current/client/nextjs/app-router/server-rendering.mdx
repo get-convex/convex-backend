@@ -1,0 +1,160 @@
+---
+title: "Next.js のサーバーサイドレンダリング"
+sidebar_label: "サーバーサイドレンダリング"
+sidebar_position: 10
+description:
+  "Next.js の App Router で preloadQuery、fetchQuery、サーバーアクションを使って
+  Convex を用いたサーバーサイドレンダリングを実装し、パフォーマンスを向上させます。"
+---
+
+import PreloadQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/TasksWrapper.tsx";
+import AuthedPreloadQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/AuthedTasksWrapper.tsx";
+import UsePreloadedQueryTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/Tasks.tsx";
+import UsePreloadedQueryJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/TasksJS.jsx";
+import FetchQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/StaticTasks.tsx";
+import ServerActionTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/example/page.tsx";
+import ServerActionJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/exampleJS/page.jsx";
+import RouteHandlerTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/api/route.ts";
+import RouteHandlerJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/apiJS/route.js";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+Next.js は初回ページ読み込み時に、Client Component と Server Component の両方を自動的にサーバー側でレンダリングします。
+
+デフォルトでは、Client Component は Convex のデータの読み込み完了を待たないため、UI は「読み込み中」の状態でレンダリングされます。以下では、サーバー側レンダリング中にデータをプリロードする方法と、Next.js のサーバーサイドから Convex デプロイメントとやり取りする方法を説明します。
+
+**例:**
+[Next.js App Router](https://github.com/get-convex/convex-demos/tree/main/nextjs-app-router)
+
+このページでは Next.js の App Router 版について説明します。
+
+<BetaAdmonition feature="Next.js Server Rendering support" verb="is" />
+
+## クライアントコンポーネント向けのデータプリロード \{#preloading-data-for-client-components\}
+
+Convex からデータをプリロードして Next.js の
+[サーバーレンダリング](https://nextjs.org/docs/app/building-your-application/rendering/server-components#server-rendering-strategies)
+を活用しつつ、初回ページロード後もリアクティブ性を維持したい場合は、
+[`convex/nextjs`](/api/modules/nextjs) から
+[`preloadQuery`](/api/modules/nextjs#preloadquery) を使用します。
+
+[Server Component](https://nextjs.org/docs/app/building-your-application/rendering/server-components)
+内で `preloadQuery` を呼び出します：
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={PreloadQuery} sourceJS={PreloadQuery} />
+
+[Client Component](https://nextjs.org/docs/app/building-your-application/rendering/client-components)
+内で [`usePreloadedQuery`](/api/modules/react#usepreloadedquery) を呼び出します：
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={UsePreloadedQueryTS} sourceJS={UsePreloadedQueryJS} />
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) は 3 つの引数を取ります：
+
+1. クエリの参照
+2. （任意）クエリに渡す引数オブジェクト
+3. （任意）[NextjsOptions](/api/modules/nextjs#nextjsoptions) オブジェクト
+
+`preloadQuery` は
+[`cache: 'no-store'` ポリシー](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching-caching-and-revalidating#opting-out-of-data-caching)
+を使用するため、これを使用する Server Component は
+[静的レンダリング](https://nextjs.org/docs/app/building-your-application/rendering/server-components#server-rendering-strategies)
+の対象にはなりません。
+
+### クエリ結果の利用 \{#using-the-query-result\}
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) は、不透明な `Preloaded`
+ペイロードを返します。このペイロードは `usePreloadedQuery` に渡す必要があります。クエリの返り値を
+使って、たとえば Client Component をそもそもレンダリングするかどうかを決めたい場合は、
+`Preloaded` ペイロードを
+[`preloadedQueryResult`](/api/modules/nextjs#preloadedqueryresult) 関数に渡せます。
+
+## Convex を使って Server Components をレンダリングする \{#using-convex-to-render-server-components\}
+
+サーバー側で Convex のデータが必要な場合は、
+[Server Components](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching)
+の中で Convex からデータを読み込めますが、その場合はリアクティブにはなりません。
+これを行うには、`convex/nextjs` から [`fetchQuery`](/api/modules/nextjs#fetchquery) 関数を使用します：
+
+<TSAndJSSnippet title="app/StaticTasks.tsx" sourceTS={FetchQuery} sourceJS={FetchQuery} />
+
+## サーバーアクションとルートハンドラー \{#server-actions-and-route-handlers\}
+
+Next.js では、Convex の
+[HTTP Actions](/functions/http-actions.mdx)
+と同様に、HTTP リクエストを処理するルートを構築できます。
+[Server Action](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations)
+や
+[Route Handler](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
+から、他のデータベースサービスと同様の方法で Convex を利用できます。
+
+Server Action や Route Handler の中で Convex のデータを読み込んだり編集したりするには、
+`fetchQuery`、`fetchMutation`、`fetchAction` 関数を使用できます。
+
+以下は、インラインの Server Action から Convex のミューテーションを呼び出す例です：
+
+<TSAndJSSnippet title="app/example/page.tsx" sourceTS={ServerActionTS} sourceJS={ServerActionJS} />
+
+以下は、Route Handler から Convex のミューテーションを呼び出す例です：
+
+<TSAndJSSnippet title="app/api/route.ts" sourceTS={RouteHandlerTS} sourceJS={RouteHandlerJS} />
+
+## サーバーサイド認証 \{#server-side-authentication\}
+
+サーバーレンダリング中に Convex へ認証付きリクエストを行うには、JWT を第 3 引数のオプションとして [`preloadQuery`](/api/modules/nextjs#preloadquery) または
+[`fetchQuery`](/api/modules/nextjs#fetchquery) に渡します。
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={AuthedPreloadQuery} sourceJS={AuthedPreloadQuery} snippet="example" />
+
+`getAuthToken` の実装は、利用している認証プロバイダーに依存します。
+
+<Tabs>
+  <TabItem value="clerk" label="Clerk">
+    ```ts title="app/auth.ts"
+    import { auth } from "@clerk/nextjs/server";
+
+    export async function getAuthToken() {
+      return (await (await auth()).getToken({ template: "convex" })) ?? undefined;
+    }
+    ```
+  </TabItem>
+
+  <TabItem value="auth0" label="Auth0">
+    ```ts title="app/auth.ts"
+    // @auth0/nextjs-auth0 の v4.3 以降が必要です
+    import { getSession } from '@auth0/nextjs-auth0';
+
+    export async function getAuthToken() {
+      const session = await getSession();
+      const idToken = session.tokenSet.idToken;
+      return idToken;
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+## Convex デプロイメントURLの設定 \{#configuring-convex-deployment-url\}
+
+Client Components で使用される Convex フックは、
+`ConvexReactClient` コンストラクタを通して設定します。詳しくは
+[Next.js クイックスタート](/quickstart/nextjs.mdx)を参照してください。
+
+Server Components、Server Actions、および Route Handlers で
+`preloadQuery`、`fetchQuery`、`fetchMutation`、`fetchAction` を使用するには、次のいずれかを行う必要があります。
+
+1. `NEXT_PUBLIC_CONVEX_URL` 環境変数に Convex の
+   デプロイメントURL を設定する
+2. または `preloadQuery`、`fetchQuery`、`fetchMutation`、`fetchAction` の第 3 引数で
+   [`url` オプション](/api/modules/nextjs#nextjsoptions) を渡す
+
+## 一貫性 \{#consistency\}
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) と
+[`fetchQuery`](/api/modules/nextjs#fetchquery) は内部的に `ConvexHTTPClient`
+を使用します。このクライアントはステートレスです。つまり、`preloadQuery`
+を 2 回呼び出しても、同じデータベース状態に基づいて一貫したデータが返ってくることは
+保証されません。これは、より従来型のデータベースと同様ですが、
+`ConvexReactClient` によって提供される
+[一貫性の保証](/client/react.mdx#consistency) とは異なります。
+
+UI が不整合な状態でレンダリングされるのを防ぐために、同じページで複数の `preloadQuery`
+呼び出しを行うことは避けてください。

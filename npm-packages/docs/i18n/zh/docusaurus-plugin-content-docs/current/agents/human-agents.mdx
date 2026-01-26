@@ -1,0 +1,158 @@
+---
+title: 人类 Agent
+sidebar_label: "Human Agents"
+sidebar_position: 900
+description: "将人类发送的消息保存为 agent 的消息"
+---
+
+Agent 组件通常接收来自人类或其他 agent 的提示，并使用
+LLM 生成回复。
+
+但是，在某些场景下，你可能希望由人类以 agent 的身份生成回复，比如在客户支持场景中。
+
+要查看完整代码，请参见
+[chat/human.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/human.ts)
+
+## 在不生成回复的情况下保存用户消息 \{#saving-a-user-message-without-generating-a-reply\}
+
+你可以使用 `saveMessage` 函数来保存用户消息，而不生成回复。
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+await saveMessage(ctx, components.agent, {
+  threadId,
+  prompt: "The user message",
+});
+```
+
+## 将来自人类的消息保存为 agent \{#saving-a-message-from-a-human-as-an-agent\}
+
+同样地，你也可以用相同的方式将来自人类的消息保存为 agent，
+使用 `message` 字段来指定角色和 agent 名称：
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+await saveMessage(ctx, components.agent, {
+  threadId,
+  agentName: "Alex",
+  message: { role: "assistant", content: "The human reply" },
+});
+```
+
+## 为人工代理存储额外元数据 \{#storing-additional-metadata-about-human-agents\}
+
+你可以使用 `saveMessage` 函数，并添加 `metadata` 字段，为人工代理存储额外的元数据。
+
+```ts
+await saveMessage(ctx, components.agent, {
+  threadId,
+  agentName: "Alex",
+  message: { role: "assistant", content: "The human reply" },
+  metadata: {
+    provider: "human",
+    providerMetadata: {
+      human: {
+        /* ... */
+      },
+    },
+  },
+});
+```
+
+## 决定下一步由谁来回复 \{#deciding-who-responds-next\}
+
+你可以通过几种方式来决定下一步是由 LLM 还是人类来回复：
+
+1. 在数据库中显式存储该会话当前是分配给 LLM 还是人类。
+2. 调用一个低成本且快速的 LLM 来判断用户问题是否需要人类回复。
+3. 使用用户问题和消息历史的向量嵌入，根据一个示例问题语料库以及哪些问题更适合由人类处理来做出决策。
+4. 让 LLM 生成一个对象形式的响应，其中包含一个字段，用于指示用户问题是否需要人类回复。
+5. 向 LLM 提供一个工具，用于判断用户问题是否需要人类回复。之后，人类的回复就作为该工具的响应消息。
+
+## 将人工回复视为工具调用 \{#human-responses-as-tool-calls\}
+
+你可以通过提供一个没有 handler 的工具，让 LLM 生成对人工代理的工具调用，从而获取上下文来回答用户问题。注意：这通常发生在 LLM 仍打算自己回答问题，但需要人工介入才能完成时，例如确认某个事实。
+
+```ts
+import { tool } from "ai";
+import { z } from "zod/v3";
+
+const askHuman = tool({
+  description: "向人工客服提问",
+  parameters: z.object({
+    question: z.string().describe("要向人工客服提出的问题"),
+  }),
+});
+
+export const ask = action({
+  args: { question: v.string(), threadId: v.string() },
+  handler: async (ctx, { question, threadId }) => {
+    const result = await agent.generateText(
+      ctx,
+      { threadId },
+      {
+        prompt: question,
+        tools: { askHuman },
+      },
+    );
+    const supportRequests = result.toolCalls
+      .filter((tc) => tc.toolName === "askHuman")
+      .map(({ toolCallId, args: { question } }) => ({
+        toolCallId,
+        question,
+      }));
+    if (supportRequests.length > 0) {
+      // 执行某些操作以便客服人员知道需要响应,
+      // 例如将消息保存到他们的收件箱
+      // await ctx.runMutation(internal.example.sendToSupport, {
+      //   threadId,
+      //   supportRequests,
+      // });
+    }
+  },
+});
+
+export const humanResponseAsToolCall = internalAction({
+  args: {
+    humanName: v.string(),
+    response: v.string(),
+    toolCallId: v.string(),
+    threadId: v.string(),
+    messageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await agent.saveMessage(ctx, {
+      threadId: args.threadId,
+      message: {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            result: args.response,
+            toolCallId: args.toolCallId,
+            toolName: "askHuman",
+          },
+        ],
+      },
+      metadata: {
+        provider: "human",
+        providerMetadata: {
+          human: { name: args.humanName },
+        },
+      },
+    });
+    // 继续从 LLM 生成响应
+    await agent.generateText(
+      ctx,
+      { threadId: args.threadId },
+      {
+        promptMessageId: args.messageId,
+      },
+    );
+  },
+});
+```

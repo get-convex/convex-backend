@@ -1,0 +1,64 @@
+---
+title: "Trabajos cron"
+sidebar_position: 2
+description: "Programa funciones periódicas en Convex"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/crons.ts";
+
+Convex te permite programar funciones para que se ejecuten de forma periódica. Por
+ejemplo, los cron jobs se pueden usar para limpiar datos a intervalos regulares, enviar un
+correo electrónico de recordatorio a la misma hora cada mes o programar una copia de seguridad
+cada sábado.
+
+**Ejemplo:**
+[Cron Jobs](https://github.com/get-convex/convex-demos/tree/main/cron-jobs)
+
+## Definir tus trabajos cron \{#defining-your-cron-jobs\}
+
+Los cron jobs se definen en un archivo `crons.ts` en tu directorio `convex/` y tienen el siguiente aspecto:
+
+<TSAndJSSnippet title="convex/crons.ts" sourceTS={Example} sourceJS={Example} />
+
+El primer argumento es un identificador único para el cron job.
+
+El segundo argumento es la programación con la que debe ejecutarse la función; consulta
+[Programaciones compatibles](/scheduling/cron-jobs.mdx#supported-schedules) más abajo.
+
+El tercer argumento es el nombre de la función pública o de la
+[función interna](/functions/internal-functions.mdx), ya sea una
+[mutación](/functions/mutation-functions.mdx) o una
+[acción](/functions/actions.mdx).
+
+## Programaciones compatibles \{#supported-schedules\}
+
+* [`crons.interval()`](/api/classes/server.Crons#interval) ejecuta una función cada
+  número especificado de `seconds`, `minutes` o `hours`. La primera ejecución ocurre
+  cuando la tarea cron se implementa por primera vez en Convex. A diferencia de los cron tradicionales, esta
+  opción te permite configurar una granularidad de segundos.
+* [`crons.cron()`](/api/classes/server.Crons#cron) es la forma tradicional de
+  especificar tareas cron mediante una cadena con cinco campos separados por espacios
+  <nobr>(por ejemplo, `"* * * * *"`)</nobr>. Las horas en la sintaxis de cron están en la zona horaria UTC.
+  [Crontab Guru](https://crontab.guru/) es un recurso útil para
+  comprender y crear programaciones en este formato.
+* [`crons.hourly()`](/api/classes/server.Crons#cron),
+  [`crons.daily()`](/api/classes/server.Crons#daily),
+  [`crons.weekly()`](/api/classes/server.Crons#weekly),
+  [`crons.monthly()`](/api/classes/server.Crons#monthly) proporcionan una sintaxis
+  alternativa para programaciones cron comunes con argumentos nombrados explícitamente.
+
+## Ver tus trabajos cron \{#viewing-your-cron-jobs\}
+
+Puedes ver todos tus trabajos cron en la
+[vista de trabajos cron del panel de control de Convex](/dashboard/deployments/schedules.md#cron-jobs-ui).
+Puedes ver los trabajos cron añadidos, actualizados y eliminados en la vista de registros e historial.
+Los resultados de ejecuciones anteriores de los trabajos cron también están disponibles en la
+vista de registros.
+
+## Gestión de errores \{#error-handling\}
+
+Las mutaciones y las acciones tienen las mismas garantías que se describen en
+[Gestión de errores](/scheduling/scheduled-functions.mdx#error-handling) para
+las funciones programadas.
+
+Como máximo, puede haber una sola ejecución de cada trabajo cron en curso en cualquier momento. Si la función programada por el trabajo cron tarda demasiado en ejecutarse, es posible que se omitan ejecuciones posteriores de ese trabajo cron para evitar que la ejecución se retrase. Omitir una ejecución programada de un trabajo cron porque la ejecución anterior aún está en curso registra un mensaje visible en la vista de registros del panel de control.

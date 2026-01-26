@@ -1,0 +1,84 @@
+---
+title: "Next.js Pages Router"
+sidebar_position: 250
+sidebar_label: "Next.js Pages Router"
+description:
+  "使用 Convex 搭配 Next.js Pages Router 的完整指南，涵盖
+  客户端身份验证、API 路由以及服务端渲染。"
+---
+
+import simpleAuthedAppTSX from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/_simpleAuthedApp.tsx";
+import apiTS from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/api/clicks.ts";
+
+本页介绍的是 Next.js 的 Pages Router 版本。或者你也可以查看对应的
+[App Router](/client/nextjs/app-router/index.mdx) 版本。
+
+## 入门 \{#getting-started\}
+
+按照
+[Next.js Pages Router 快速入门指南](/client/nextjs/pages-router/quickstart-nextjs-pages-router.mdx)
+中的步骤，将 Convex 添加到新的或现有的 Next.js 项目中。
+
+## 添加客户端认证 \{#adding-client-side-authentication\}
+
+在 Next.js 中，实现认证最简单的方法是将其完全在客户端完成。
+
+例如，Auth0 在
+[Next.js Authentication with Auth0 guide](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0)
+中描述了这种方式，并在
+&quot;[Next.js Static Site Approach](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Next-js-Static-Site-Approach)&quot;
+和 &quot;Serverless with the user on the frontend&quot; 中进行了说明。
+
+如果你想要求用户在应用的每个页面都必须登录后才能访问，你可以在
+`_app.jsx` 中添加逻辑来按条件渲染页面内容，在用户登录前阻止其展示。
+
+如果你在使用 Auth0，可以从 `convex/react-auth0` 中导入辅助组件
+`ConvexProviderWithAuth0`。
+
+<Snippet title="pages/_app.jsx" snippet="simpleAuthedApp" source={simpleAuthedAppTSX} />
+
+你可以使用来自 `convex/react` 的 `Authenticated`、`Unauthenticated`
+和 `AuthLoading` 这些辅助组件构建自定义的加载视图和未登录视图，示例参见
+[Convex Next.js demo](https://github.com/get-convex/convex-demos/tree/main/nextjs-pages-router/pages/_app.jsx)。
+
+如果你的应用中只有部分路由需要登录，可以在这些需要登录的页面组件中直接使用这些辅助组件，而不是通过 `pages/_app.jsx` 在所有页面之间共享它们。在各页面之间共享同一个
+[ConvexReactClient](/api/classes/react.ConvexReactClient) 实例，以避免在客户端进行页面导航时需要重新连接到 Convex。
+
+在 [Authentication](/auth.mdx) 中了解更多关于使用 Convex 进行用户认证的内容。
+
+## API 路由 \{#api-routes\}
+
+Next.js 支持构建处理 HTTP 请求的路由，类似于 Convex 的
+[HTTP Actions](/functions/http-actions.mdx)。如果你需要使用 Convex 默认运行时不支持的依赖库，可以考虑使用 Next.js 路由。
+
+要构建一个 [API 路由](https://nextjs.org/docs/api-routes/introduction)，在 `pages/api` 目录下添加一个文件。
+
+要在你的端点中加载和修改 Convex 数据，使用来自 `convex/nextjs` 的
+[`fetchQuery`](/api/modules/nextjs#fetchquery) 函数：
+
+<Snippet title="pages/api/clicks.js" source={apiTS} />
+
+## 服务端渲染 \{#server-side-rendering\}
+
+**在使用 Next.js 时，优先考虑在客户端渲染 Convex 数据。** 来自 Convex 的数据是
+[完全响应式的](/functions/query-functions.mdx#caching--reactivity--consistency)，
+因此 Convex 需要从你的部署到浏览器的连接，才能在数据变化时推送更新。
+
+当然，你也可以在
+[`getStaticProps`](https://nextjs.org/docs/basic-features/data-fetching/get-static-props)
+或
+[`getServerSideProps`](https://nextjs.org/docs/basic-features/data-fetching/get-server-side-props)
+中从 Convex 加载数据，但这些数据将不是响应式的。要这么做，请使用
+[`fetchQuery`](/api/modules/nextjs#fetchquery) 函数调用查询函数，就像在
+[API routes](#api-routes) 中那样。
+
+要在服务端渲染期间向 Convex 发起带身份验证的请求，你需要在服务端具备身份验证信息。
+Auth0 在
+[Serverless with the user on the backend](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Serverless-with-the-user-on-the-backend)
+一文中描述了这种方法。在进行服务端渲染时，将身份验证 token 作为 `token` 传给
+`fetchQuery` 的第三个参数。
+
+要在客户端渲染响应式查询之前先在服务端预加载数据，请使用
+[`preloadQuery`](/api/modules/nextjs#preloadquery)。查看
+[这些文档的 App Router 版本](/client/nextjs/app-router/server-rendering.mdx)
+以了解更多细节。

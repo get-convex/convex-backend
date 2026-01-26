@@ -1,0 +1,48 @@
+---
+title: "组件"
+description: "应用的自成一体构建模块"
+pagination_prev: search
+---
+
+import { LargeCardList } from "@site/src/QuickstartsList.tsx";
+
+<span className="convex-hero">
+  Convex Components 将代码和数据打包在一个沙箱中，让你可以自信且快速地为后端添加新功能。
+</span>
+
+Convex Components 类似于小型、完全自包含的 Convex 后端，安装它们始终是安全的。除非你显式地将应用的表或函数传递给它们，否则它们无法读取你的应用表或调用你的应用函数。
+
+你可以在
+[Convex: The Software-Defined Database](https://stack.convex.dev/the-software-defined-database#introducing-convex-components)
+中了解整体愿景。
+
+组件可以从 npm 或本地目录安装。安装后，它们拥有自己的数据库表和隔离的函数执行环境。你可以在
+[Convex 网站](https://convex.dev/components)
+上查看完整的组件目录。
+
+<LargeCardList
+  items={[
+{
+  title: "理解组件",
+  description:
+    "探索组件背后的核心概念，并建立关于组件如何工作的心智模型。",
+  href: "/components/understanding",
+},
+{
+  title: "使用组件",
+  description:
+    "了解常用组件以及如何在你的应用中使用它们。",
+  href: "/components/using",
+},
+{
+  title: "编写组件",
+  description: "学习如何编写并发布一个组件。",
+  href: "/components/authoring",
+},
+{
+  title: "组件目录",
+  description: "所有组件的列表。",
+  href: "https://convex.dev/components",
+},
+]}
+/>

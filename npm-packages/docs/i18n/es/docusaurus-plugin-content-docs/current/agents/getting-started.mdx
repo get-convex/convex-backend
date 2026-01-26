@@ -1,0 +1,75 @@
+---
+title: "Primeros pasos con Agent"
+sidebar_label: "Primeros pasos"
+sidebar_position: 100
+description: "Configuración del componente Agent"
+---
+
+Para instalar el componente Agent, necesitarás un proyecto existente de Convex. ¿Eres nuevo en
+Convex? Consulta el [tutorial](https://docs.convex.dev/tutorial/).
+
+Ejecuta `npm create convex` o sigue cualquiera de las
+[guías de inicio rápido](https://docs.convex.dev/home) para crear uno.
+
+## Instalación \{#installation\}
+
+Instala el paquete del componente:
+
+```ts
+npm install @convex-dev/agent
+```
+
+Crea un archivo `convex.config.ts` en el directorio `convex/` de tu aplicación e instala el
+componente llamando a la función `use`:
+
+```ts
+// convex/convex.config.ts
+import { defineApp } from "convex/server";
+import agent from "@convex-dev/agent/convex.config";
+
+const app = defineApp();
+app.use(agent);
+
+export default app;
+```
+
+Luego, ejecuta `npx convex dev` para generar el código del componente. Debe ejecutarse correctamente al menos una vez antes de que empieces a definir Agents.
+
+## Definir tu primer agente \{#defining-your-first-agent\}
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "My Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+  instructions: "You are a weather forecaster.",
+  tools: { getWeather, getGeocoding },
+  maxSteps: 3,
+});
+```
+
+## Uso básico \{#basic-usage\}
+
+```ts
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+
+export const helloWorld = action({
+  args: { city: v.string() },
+  handler: async (ctx, { city }) => {
+    const threadId = await createThread(ctx, components.agent);
+    const prompt = `¿Cómo está el clima en ${city}?`;
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+Si ves errores de tipo relacionados con `components.agent`, asegúrate de haber ejecutado
+`npx convex dev` para generar el código del componente.
+
+¡Eso es todo! Consulta [Uso de agentes](./agent-usage.mdx) para ver más detalles y
+opciones.

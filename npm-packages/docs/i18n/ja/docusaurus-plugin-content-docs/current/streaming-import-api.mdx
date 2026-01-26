@@ -1,0 +1,122 @@
+---
+title: "ストリーミングインポート"
+sidebar_label: "ストリーミングインポート"
+description: "Convex にデータをストリーミングする"
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+Convex はストリーミングインポートをサポートしています。Convex は
+[Airbyte](/production/integrations/streaming-import-export.md) 用のコネクタ実装を提供しています。これらのコネクタは
+次の API を使用します。
+
+ストリーミングインポートのサポートは、すべての Convex プロジェクトで自動的に有効になっています。
+
+ストリーミングインポートのリクエストには、HTTP ヘッダー `Authorization` によるデプロイメント管理者権限での認可が必要です。
+値は `Convex <access_key>` であり、アクセスキーは Convex ダッシュボードの「Deploy key」から取得するもので、
+Convex データへの読み書きのフルアクセス権を付与します。
+
+### ヘッダー \{#headers\}
+
+ストリーミングインポートのエンドポイントは、`Convex-Client: streaming-import-<version>` ヘッダーを受け付けます。`<version>` の部分は [SemVer](https://semver.org/) のガイドラインに従います。
+このヘッダーが指定されていない場合、Convex は最新バージョンをデフォルトとして使用します。
+API の変更によって、この API の利用側が動作しなくなることを防ぐため、このヘッダーを使用することを推奨します。
+
+### GET `/api/streaming_import/primary_key_indexes_ready` \{#get-apistreaming_importprimary_key_indexes_ready\}
+
+`primary_key_indexes_ready` エンドポイントはテーブル名のリストを受け取り、
+それらすべてのテーブル上の主キーインデックス（`add_primary_key_indexes` によって
+作成されたもの）が準備完了であれば true を返します。テーブルが新規に作成された
+場合、インデックスは直ちに利用可能になるはずですが、テーブルに既存のドキュメントが
+ある場合は、主キーインデックスのバックフィル処理に時間がかかることがあります。レスポンスは
+次のような形式になります：
+
+```json
+{
+  "indexesReady": true
+}
+```
+
+### PUT `/api/streaming_import/add_primary_key_indexes` \{#put-apistreaming_importadd_primary_key_indexes\}
+
+`add_primary_key_indexes` エンドポイントは、テーブルの主キーを含む JSON リクエストボディを受け取り、バックフィル対象となる主キーにインデックスを作成します。これらのインデックスはすぐにクエリ可能になるわけではない点に注意してください。主キーインデックスを必要とするレコードで `import_airbyte_records` を呼び出す前に、`primary_key_indexes_ready` エンドポイントが `true` を返すまでポーリングする必要があります。また、Convex のクエリからはこれらの追加されたインデックスにはアクセスできない点にも注意してください。これらは `import_airbyte_records` でのみ使用されます。リクエストボディは、インデックス名を、インデックス対象とするフィールドパスのリストに対応付けるマップ形式です。各フィールドパスは、ネストしたフィールドパスも表現できるフィールドのリストとして表されます。
+
+```json
+{
+  "indexes": {
+    "<table_name>": [["<field1>"], ["<field2>", "<nested_field>"]]
+  }
+}
+```
+
+想定される API の利用手順:
+
+1. `add_primary_key_indexes` にリクエストを送信して、主キー用のインデックスを追加します。
+2. レスポンスが true になるまで `primary_key_indexes_ready` をポーリングします。
+3. 追加したインデックスを使ってクエリを実行します。
+
+### PUT `api/streaming_import/clear_tables` \{#put-apistreaming_importclear_tables\}
+
+`clear_tables` エンドポイントは、指定されたテーブルからすべてのドキュメントを削除します。
+これには複数のトランザクションが必要になる場合があります。途中でエラーが発生した場合、
+一部のドキュメントだけが削除される可能性があります。この API リクエストでは、
+指定するテーブル名のリストを JSON ボディに含めます。
+
+```json
+{
+  "tableNames": ["<table_1>", "<table_2>"]
+}
+```
+
+### POST `api/streaming_import/replace_tables` \{#post-apistreaming_importreplace_tables\}
+
+このエンドポイントはサポートされなくなりました。代わりに `api/streaming_import/clear_tables`
+を使用してください。
+
+`replace_tables` エンドポイントは、一時的な名前が付けられたテーブルの名前を最終的な名前に
+変更し、同じ最終名を持つ既存のテーブルがあれば削除します。
+
+この API リクエストで使用する JSON 本文には、テーブル名のリストが含まれます。
+
+```json
+{
+  "tableNames": { "<table_1_temp>": "<table_1>", "<table_2_temp>": "<table_2>" }
+}
+```
+
+### POST `api/streaming_import/import_airbyte_records` \{#post-apistreaming_importimport_airbyte_records\}
+
+`import_airbyte_records` エンドポイントは Convex デプロイメントへのストリーミング形式での取り込みを可能にし、Airbyte の destination コネクタから呼び出されることを想定しています。
+
+このエンドポイントは、JSON ボディ内でストリームのマップとメッセージのリストを受け取ります。各ストリームには名前と JSON スキーマがあり、これは Convex のテーブルに対応します。レコードを重複排除する必要があるストリームにはプライマリキーも含まれます。これはフィールドパスを表す文字列のリストのリストとして表現されます。プライマリキーを持たないストリームのレコードはテーブルに追記されます。プライマリキーを持つストリームのレコードは、プライマリキーの値が一致する既存レコードを置き換えるか、一致するレコードがない場合は追記されます。プライマリキーを使用する場合は、先に `add_primary_key_indexes` エンドポイントを呼び出し、`primary_key_indexes_ready` をポーリングしてバックフィルが完了するまで待つ必要があります。
+
+各メッセージにはストリーム名と JSON ドキュメントが含まれており、対応するストリーム名のテーブルに挿入されます（重複排除同期の場合は置き換えられます）。テーブル名はストリーム名と同じです。Airbyte のレコードは Convex のドキュメントになります。
+
+```json
+{
+   "tables": {
+      "<stream_name>": {
+         "primaryKey": [["<field1>"], ["<field2>", "<nested_field>"]],
+         "jsonSchema": // see https://json-schema.org/ for examples
+      }
+   },
+   "messages": [{
+      "tableName": "<table_name>",
+      "data": {} // そのストリームの `json_schema` に準拠する JSON オブジェクト
+   }]
+}
+```
+
+`clear_tables` と同様に、トランザクションがコミットされた後にエラーが発生した場合でも、
+`import_airbyte_records` を使って部分インポートを実行できます。
+
+想定される API の使用手順:
+
+1. [任意] プライマリキーと
+   [deduplicated sync](https://docs.airbyte.com/understanding-airbyte/connections/incremental-deduped-history/)
+   を使用する場合は、インデックスを追加します（上記の `add_primary_key_indexes` を参照）。
+2. [任意]
+   [overwrite sync](https://docs.airbyte.com/understanding-airbyte/connections/full-refresh-overwrite)
+   を使用する場合は、`clear_tables` を使って指定されたテーブル内のすべてのドキュメントを削除します。
+3. 同期する新しいレコードとストリーム情報を指定して、`import_airbyte_records` にリクエストを送信します。

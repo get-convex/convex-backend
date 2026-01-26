@@ -1,0 +1,660 @@
+---
+title: "コンポーネントの作成"
+slug: "authoring"
+sidebar_position: 40
+description: "新しいコンポーネントの作成"
+---
+
+Convex コンポーネントを作成すると、Convex の関数やスキーマ、
+永続的なステートを再利用可能なモジュールとしてパッケージ化し、自分や他の開発者が
+簡単にプロジェクトに組み込めるようにできます。
+
+コンポーネントは通常のライブラリと異なり、独自のデータベーステーブルや
+サブトランザクションを持ち、分離された実行環境で動作する関数を定義できます。
+
+ライブラリとして実装するか、コンポーネントとして実装するか迷っていますか？コンポーネントとして構築すると、次のことが可能になります。
+
+* 自分でスキーマを管理できるテーブルにデータを永続化できる。
+* データへのアクセスを API の境界の背後にカプセル化して分離できる。
+* 複雑なワークフローを管理するために、非同期で実行可能なクエリ、ミューテーション、アクションを定義できる。
+* アプリ間で機能を予測可能かつ一貫した方法で共有できる。
+
+## コンポーネントの構造 \{#anatomy-of-a-component\}
+
+実際には、コンポーネントは `convex.config.ts` を含むディレクトリ内で定義します。コンポーネントのディレクトリは、通常の `convex/` ディレクトリと同じ構造を持ちます。
+
+```
+ component/
+ ├── _generated/        # コンポーネントのAPIとデータモデル用に生成されたコード。
+ ├── convex.config.ts   # コンポーネントとその子コンポーネントを定義します。
+ ├── schema.ts          # コンポーネントのみがアクセス可能なスキーマを定義します
+ └-- …folders/files.ts  # コンポーネント用のクエリ、ミューテーション、アクション。
+```
+
+コンポーネントの `convex.config.ts` ファイルでは、コンポーネントのデフォルト名と
+子コンポーネントを設定します。
+
+```ts title="component/convex.config.ts"
+import { defineComponent } from "convex/server";
+// import workpool from "@convex-dev/workpool/convex.config.js";
+// import localComponent from "../localComponent/convex.config.js";
+const component = defineComponent("myComponent");
+// component.use(workpool);
+// component.use(localComponent, { name: "customName" });
+export default component;
+```
+
+コンポーネントのインスタンスは、メインアプリや他のコンポーネントで使用される際に、それぞれの `convex.config.ts` ファイル内で設定され、メインアプリをルートとするコンポーネントツリーを構成します。
+
+## はじめに \{#getting-started\}
+
+コンポーネントのソースコードは、ローカルフォルダーに配置することも、npm パッケージとしてバンドルすることもできます。
+
+### ローカルコンポーネント \{#local-components\}
+
+最も簡単な始め方は、コンポーネント用の新しいフォルダーを作成し、
+その中に（上記のような）`convex.config.ts` ファイルを追加することです。
+次に、アプリの `convex/convex.config.ts` ファイルでそれを `import` します。
+
+```ts title="convex/convex.config.ts"
+import { defineApp } from "convex/server";
+import myComponent from "./components/myComponent/convex.config.js";
+
+const app = defineApp();
+app.use(myComponent);
+export default app;
+```
+
+インストールが完了すると、`npx convex dev` は
+`./components/myComponent/_generated/` にコードを生成し、
+コンポーネントのコードを変更するたびに再生成します。
+
+Tip: ローカルコンポーネントの推奨構成は、`convex/components` フォルダー配下にまとめて配置することですが、プロジェクト内の任意の場所に置くこともできます。
+
+### パッケージ化されたコンポーネント \{#packaged-components\}
+
+コンポーネントは npm パッケージとして配布およびインストールできるため、
+[Convex Components directory](https://convex.dev/components) を通じて、
+一般的な課題へのソリューションを、より幅広い開発者コミュニティと共有できます。
+
+[component template](https://github.com/get-convex/templates/tree/main/template-component)
+を使って、新しいプロジェクトを始めましょう。
+
+```bash
+npx create-convex@latest --component
+```
+
+CLI の指示に従ってセットアップを開始し、コンポーネントが生成するコードを常に最新の状態に保ちます。
+[npm パッケージコンポーネントのビルドと公開の詳細については、以下を参照してください。](#building-and-publishing-npm-package-components)
+
+### ハイブリッドコンポーネント \{#hybrid-components\}
+
+ハイブリッドコンポーネントはローカルコンポーネントを定義しつつ、機能の一部には共有ライブラリのコードを使用します。これにより、ユーザーがスキーマや関数をオーバーライドまたは拡張する必要がある場合に、より柔軟に対応できるようになります。
+
+ハイブリッドコンポーネントの例として、
+[Better Auth Component](https://convex-better-auth.netlify.app/features/local-install)
+があります。
+
+注意: 一般に、コンポーネントは組み合わせて利用したり、明示的に拡張できるように設計されるべきです。ハイブリッドコンポーネントは、コンポーネントを後方互換性を保ちながら保守・更新する際に、大きな複雑さをもたらすためです。
+
+## Hello world \{#hello-world\}
+
+新しい関数の追加を試すには、コンポーネントのフォルダに `hello.ts` ファイルを作成します
+（たとえばテンプレートでは `src/component/hello.ts` のようにします）。
+
+```ts title="./path/to/component/hello.ts"
+import { v } from "convex/values";
+import { query } from "./_generated/server.js";
+
+export const world = query({
+  args: {},
+  returns: v.string(),
+  handler: async () => {
+    return "hello world";
+  },
+});
+```
+
+デプロイが完了したら、
+`npx convex run --component myComponent hello:world`
+を実行できます。
+
+また、アプリ内の関数からも次のように実行できます。
+
+```ts title="convex/sayHi.ts"
+import { components } from "./_generated/api";
+import { query } from "./_generated/server";
+
+export default query({
+  handler: async (ctx) => {
+    return await ctx.runQuery(components.myComponent.hello.world);
+  },
+});
+```
+
+試しに実行してみてください: `npx convex run sayHi`。
+
+## 通常の Convex 開発との主な違い \{#key-differences-from-regular-convex-development\}
+
+コンポーネントの開発は、他の Convex バックエンドを開発する場合とほぼ同じです。
+このセクションでは、重要な概念と主な違いについて説明します。
+
+### コンポーネント API \{#the-component-api\}
+
+`components.foo` のようなコンポーネント参照にアクセスするとき、通常の `api`
+オブジェクトとはいくつかの重要な違いがある `ComponentApi` 型を扱うことになります：
+
+* **公開関数のみがアクセス可能**: 内部関数は親アプリには公開されません。
+* **関数は内部参照になる**: コンポーネントの「公開」クエリ、ミューテーション、アクションは、「internal」な可視性を持つ参照に変換されます。
+  それらは `ctx.runQuery`、`ctx.runMutation` などで呼び出すことはできますが、HTTP や WebSocket を通じてクライアントから直接アクセスすることは **できません**。
+  コンポーネントから関数を再エクスポートするパターンについては後述します。
+* **ID は文字列になる**: すべての `Id<"tableName">` 引数または戻り値は、`ComponentApi` 内では通常の文字列になります。詳細は次のセクションを参照してください。
+
+通常の Convex 関数と同様に、`npx convex run` と Convex ダッシュボードを使って公開関数と内部関数の両方を呼び出すことができます。
+
+### `Id` 型とバリデーション \{#id-types-and-validation\}
+
+コンポーネント内のすべての `Id<"table_name">` 型は、コンポーネントの外側（`ComponentApi` 型の中）では単純な文字列型になります。
+
+加えて、現時点では別のコンポーネントやアプリ内のテーブルを表す
+`v.id("table_name")` バリデータを持つことはできません。
+
+なぜでしょうか？
+
+Convex では、`v.id("table_name")` バリデータは、引数、戻り値、データベースドキュメント内の ID が指定されたテーブル名の形式に一致するかどうかをチェックします。
+内部的には、これは現在、スキーマ内の各テーブルに割り当てられた番号としてエンコードされています。
+
+コンポーネントの実装内でも同じことがコンポーネントのテーブルに対して適用されます。
+しかし、コンポーネント内の `v.id("users")` は、別のコンポーネントやメインアプリ内の
+`v.id("users")` と同じではありません。というのも、それぞれの &quot;users&quot; テーブルは異なるテーブル番号表現を持ち得るからです。
+
+このため、`ComponentApi` 内のすべての `Id` 型は単純な文字列型になります。
+
+### 生成されたコード \{#generated-code\}
+
+各コンポーネントには、`convex/_generated` ディレクトリに加えて、それぞれ独自の
+`_generated` ディレクトリがあります。これらは似ていますが、その中身はコンポーネントと
+そのスキーマに特化しています。通常、コンポーネントの外側のコードは、
+`_generated/component` を例外として、このディレクトリからインポートしてはいけません。
+
+* `component.ts` はコンポーネントに対してのみ生成され、コンポーネントの
+  `ComponentApi` 型が含まれます。
+* `server.ts` には、コンポーネントの API を定義するための `query` や `mutation`
+  のような関数ビルダーが含まれています。コンポーネントの関数を定義する際には、
+  必ずこのファイルからインポートし、`convex/_generated/server` からはインポートしないことが重要です。
+  関数の可視性についての詳細は以下を参照してください。
+* `api.ts` には、コンポーネントの関数を参照するための `api` と `internal` オブジェクトが
+  含まれます。また、子コンポーネントがある場合には、それらへの参照を含む
+  `components` オブジェクトも含まれます。通常、コンポーネントの外側のコードはこの
+  ファイルからインポートすべきではありません。代わりに、それぞれ自身の
+  `components` オブジェクトを使用し、その中にこのコンポーネントをインストール時に選んだ
+  名前でキー付けして含めるべきです。
+* `dataModel.ts` には、そのコンポーネントのデータモデルの型が含まれます。ここにある
+  `Id` 型や `Doc` 型は、API が境界であらゆる ID 型を文字列に変換するため、
+  コンポーネントの外側では有用ではない点に注意してください。
+
+### 環境変数 \{#environment-variables\}
+
+コンポーネントの関数はアプリの環境変数から分離されているため、
+`process.env` にアクセスできません。代わりに、環境変数をコンポーネントの関数の
+引数として渡すことができます。
+
+```ts
+return await ctx.runAction(components.sampleComponent.lib.translate, {
+  baseUrl: process.env.BASE_URL,
+  ...otherArgs,
+});
+```
+
+静的構成の別の方法については、以下を参照してください。
+
+### HTTP アクション \{#http-actions\}
+
+コンポーネント自体が HTTP アクションを直接公開することはできません。ルートがメインアプリのルートと競合する可能性があるためです。他の関数（クエリ、ミューテーション、アクション）と同様に、コンポーネントはアプリ側でマウントするかどうかを選択できる HTTP アクションハンドラーを定義できます。例としては
+[Twilio component](https://github.com/get-convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71)
+があります。すべての HTTP アクションはメインアプリの `convex/http.ts` ファイル内でマウントする必要があります。
+
+### ctx.auth による認証 \{#authentication-via-ctxauth\}
+
+コンポーネント内では `ctx.auth` は利用できません。通常はアプリ側で
+認証を行い、そのうえで `userId` などの識別子や、その他の識別情報を
+コンポーネントに渡します。
+
+このように明示的に渡すことで、アプリとコンポーネント間でどんなデータが
+流れているかが明確になり、コンポーネントを理解しやすく、テストもしやすくなります。
+
+```ts title="convex/myFunctions.ts"
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+export const someMutation = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    await ctx.runMutation(components.myComponent.foo.bar, {
+      userId,
+      ...otherArgs,
+    });
+  },
+});
+```
+
+### Function Handles \{#function-handles\}
+
+アプリからコンポーネントを呼び出し、さらにそのコンポーネントからアプリ側の関数をコールバックさせたい場合があります。
+
+たとえば、Migrations コンポーネントを使うときは、アプリがドキュメントを変更する関数を定義し、コンポーネントがその関数をすべてのドキュメントに対して実行します。別の例として、Twilio コンポーネントを利用するアプリは、電話番号がテキストメッセージを受信するたびに実行される関数をコンポーネントに渡します。
+
+これらの機能は function handle（関数ハンドル）を使って実装されています。
+
+function reference（関数参照）は `api.foo.bar` や `internal.foo.bar`、`components.counter.foo.bar` のようなものです。function reference には前述のとおり制限があります（コンポーネントは自分自身の関数、または子コンポーネントの public 関数への参照のみを使えます）。有効な function reference を持っていれば、それをどこからでも呼び出せるものに変換できます。
+
+```ts
+const handle = await createFunctionHandle(api.foo.bar);
+```
+
+このハンドルは文字列です。
+
+文字列なので、関数間で受け渡したり、テーブルに保存したりできます。引数やスキーマのバリデータでは `v.string()` を使います。
+
+これを使いたいときは、いったん FunctionHandle 型にキャストし直して、関数への参照と同じように使ってください。引数と戻り値のバリデーションは実行時に引き続き行われるので、保証が失われる心配はありません。
+
+```ts
+const handle = handleString as FunctionHandle<"mutation">;
+
+const result = await ctx.runMutation(handle, args);
+// またはスケジューラー経由で非同期実行:
+await ctx.scheduler.runAfter(0, handle, args);
+```
+
+[Workpool](https://www.convex.dev/components/workpool) コンポーネントで関数ハンドルを使用する例は
+[こちら](https://github.com/get-convex/workpool/blob/aebe2db49fc3ec50ded6892ed27f464450b3d31e/src/component/worker.ts#L26-L28)
+です。
+
+### ページネーション \{#pagination\}
+
+組み込みの `.paginate()` は、Convex がリアクティブなページネーションを追跡する仕組み上、コンポーネント内では動作しません。そのため、コンポーネント内でページネーションが必要な場合は、`convex-helpers` の `paginator` を使用することを推奨します。
+
+もしコンポーネントで使用するためのページネーション API を公開していて、それを React コンテキスト内で `usePaginatedQuery` と一緒に使いたい場合は、`convex/react` のデフォルトのものではなく、`convex-helpers` の `usePaginatedQuery` を使用してください。この方法では、ユーザーが「load more」をクリックするまでは最初のページサイズは固定されますが、クリックした時点で、2 ページ目より前に何かが追加されていれば、最初のページが拡張されます。
+
+[convex-helpers](https://npmjs.com/package/convex-helpers) の `paginator` を使用することを推奨します。
+
+[こちら](https://github.com/get-convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
+は、[RAG](https://www.convex.dev/components/rag)
+コンポーネントにおけるページネーションの例です。
+
+## ヒントとベストプラクティス \{#tips-and-best-practices\}
+
+### バリデーション \{#validation\}
+
+すべての public なコンポーネント関数では、引数と戻り値に対してバリデータを指定する必要があります。
+そうしないと、引数と戻り値は `any` 型として扱われます。以下に、バリデータの使用例を示します。
+
+```ts
+import schema from "./schema";
+
+const messageDoc = schema.tables.messages.validator.extend({
+  _id: v.id("messages),
+  _creationTime: v.number(),
+});
+
+export const getLatestMessage = query({
+  args: {},
+  returns: v.nullable(messageDoc),
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").order("desc).first();
+  },
+});
+```
+
+関数のバリデーションについての詳しい情報は
+[こちら](/functions/validation.mdx)を参照してください。
+
+### 静的な設定 \{#static-configuration\}
+
+コンポーネント内で設定を管理する一般的なパターンは、設定を含むドキュメントを 1 件だけ格納した「globals」
+テーブルを用意することです。次に、このドキュメントを CLI やアプリから更新するための関数を定義します。値を
+読み取るには、`ctx.db.query("globals").first();` でクエリします。
+
+## クライアントコードでコンポーネントをラップする \{#wrapping-the-component-with-client-code\}
+
+コンポーネントを作成するとき、`ctx.runMutation(components.foo.bar, ...)` を直接呼び出すよりもシンプルな API を提供したい場合や、型安全性を高めたい場合、あるいはコンポーネントの境界をまたいで動作する機能を提供したい場合があります。
+
+コンポーネントの関数呼び出しを、アプリの実行環境内で動作しコンポーネントを呼び出す、より扱いやすいクライアント API で抽象化して隠すことができます。
+
+このセクションでは、クライアントコードを書く際の慣例とアプローチを説明します。これらは絶対的なルールではないので、コンポーネントのニーズに最も適したパターンを選んでください。
+
+注意: このパターンの重要なポイントは、アプリ内で実行されるコードが `ctx.auth`、`process.env` などのアプリレベルのリソースにアクセスできることです。多くのユースケースではこれは重要であり、たとえばアプリ内でマイグレーションを定義するコードを実行し、そのマイグレーションを Migrations コンポーネントから実行するような場合です。一方で、自分のアプリ内でどのコードが実行されるかを厳密に制御したいアプリは、コンポーネントの関数を直接呼び出す方を好むかもしれません。
+
+### シンプルな関数ラッパー \{#simple-function-wrappers\}
+
+最も簡単な方法は、コンポーネントの呼び出しをラップするスタンドアロン関数を定義することです。これは、シンプルな処理やユーティリティには特によく適しています。
+
+```tsx
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+} from "convex/server";
+import type { ComponentApi } from "../component/_generated/component.js";
+
+export async function callMyFunction(
+  ctx: MutationCtx | ActionCtx,
+  component: ComponentApi,
+  args: ...
+) {
+  // 関数ハンドルの作成、共有ユーティリティの追加、
+  // またはアプリの環境で実行する必要がある処理を行うことができます。
+  const functionHandle = await createFunctionHandle(args.someFn);
+  const someArg = process.env.SOME_ARG;
+  await ctx.runMutation(component.call.fn, {
+    ...args,
+    someArg,
+    functionHandle,
+  });
+}
+
+// Useful types for functions that only need certain capabilities.
+type MutationCtx = Pick<GenericMutationCtx<GenericDataModel>, "runMutation">;
+type ActionCtx = Pick<
+  GenericActionCtx<GenericDataModel>,
+  "runQuery" | "runMutation" | "runAction"
+>;
+```
+
+注意: ここでは `ctx.runMutation` だけを使っているので、その関数だけを含む型を選ぶために `Pick` を使えます。これにより、`ctx` が標準の MutationCtx と完全に同じでなくても、この関数を呼び出せるようになります。また、ActionCtx にも `ctx.runMutation` が含まれているため、アクションから呼び出すことも可能です。もしその関数で認証やストレージも必要になる場合は、`Pick` する対象を調整してください。
+
+### コンポーネント関数の再エクスポート \{#re-exporting-component-functions\}
+
+アプリがそのまま自分たちの公開 API から再エクスポートできる、すぐに使える関数を提供したい場合があります。これは、コンポーネントの機能を React クライアントやパブリックインターネットに公開できるようにしたいときに便利です。
+
+これを行う最もシンプルな方法は、ユーザー自身にコンポーネントを呼び出す関数を定義してもらうことです。
+
+これにより、アプリ側で認証やレート制限などを追加するかどうかを選択できるようになります。
+
+```ts title="convex/counter.ts"
+export const add = mutation({
+  args: { value: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // 必要に応じて、ここでユーザー認証を行うことができます
+    await ctx.runMutation(components.counter.add, args);
+  },
+});
+```
+
+これは推奨されるパターンであり、リクエストがどのような方法で認証されているかをユーザーにはっきりと示すことができます。ただし、多数の関数を再エクスポートする必要がある場合は、次のパターンを使用できます。
+
+#### API を再マウントする \{#re-mounting-an-api\}
+
+`src/client/index.ts` のコードから、次の関数をエクスポートできます。
+
+```tsx
+import type { Auth } from "convex/server";
+
+// In your component's src/client/index.ts
+export function makeCounterAPI(
+  component: ComponentApi,
+  options: {
+    // 重要: ユーザーがこれらのリクエストを認証できる方法を提供してください
+    auth: (ctx: { auth: Auth }, operation: "read" | "write") => Promise<string>;
+  },
+) {
+  return {
+    add: mutation({
+      args: { value: v.number() },
+      handler: async (ctx, args) => {
+        await options.auth(ctx, "write");
+        return await ctx.runMutation(component.public.add, args);
+      },
+    }),
+
+    get: query({
+      args: {},
+      handler: async (ctx) => {
+        await options.auth(ctx, "read");
+        return await ctx.runQuery(component.public.get, {});
+      },
+    }),
+  };
+}
+```
+
+その後、アプリ側の API にこれらをマウントできます。
+
+```tsx
+// In the app's convex/counter.ts
+import { makeCounterAPI } from "@convex-dev/counter";
+import { components } from "./_generated/server.js";
+
+export const { add, get } = makeCounterAPI(components.counter, {
+  auth: async (ctx, operation) => {
+    const userId = await getAuthUserId(ctx);
+    // ユーザーが操作を実行する権限を持っているかを確認
+    if (operation === "write" && !userId) {
+      throw new Error("User not authenticated");
+    }
+    return userId;
+  },
+});
+```
+
+このパターンは、連携のために特定のシグネチャを持つ関数を提供する必要があるコンポーネントにも有用です。
+
+実際のユースケースとして、
+[この例](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
+は、
+[ProseMirror コンポーネント](https://www.convex.dev/components/prosemirror-sync) に含まれているもので、
+あらかじめ用意された関数をエクスポートしています。
+
+### クラスベースのクライアント \{#class-based-clients\}
+
+より複雑なコンポーネントでは、クラスベースのクライアントを使うことで、
+設定を保持し複数のメソッドを提供するステートフルなインターフェースを実装できます。
+
+**基本的なクラスパターン:**
+
+```tsx
+import Foo from "@convex-dev/foo";
+import { components } from "./_generated/server.js";
+
+const foo = new Foo(components.foo, {
+  maxShards: 10,
+});
+```
+
+**設定オプションを指定する場合:**
+
+クラスは通常、最初の引数としてコンポーネントの参照を受け取り、
+2 番目の引数としてオプションの設定を受け取ります。
+
+```tsx
+export class Foo {
+  private apiKey: string;
+
+  constructor(
+    public component: ComponentApi,
+    options?: {
+      maxShards?: number;
+      // 明確にするため、上書きする環境変数にちなんで命名されています。
+      FOO_AUTH_KEY?: string;
+    },
+  ) {
+    this.apiKey = options?.FOO_AUTH_KEY ?? process.env.FOO_AUTH_KEY!;
+  }
+
+  async count(ctx: GenericQueryCtx<GenericDataModel>) {
+    return await ctx.runQuery(this.component.public.count, {
+      API_KEY: this.apiKey,
+    });
+  }
+}
+```
+
+**動的なインスタンス化:** クライアントは静的にインスタンス化する必要はありません。実行時の値が必要な場合は、動的にインスタンスを生成できます。
+
+```tsx
+export const myQuery = query({
+  handler: async (ctx, args) => {
+    const foo = new Foo(components.foo, {
+      apiKey: args.customApiKey,
+    });
+    await foo.count(ctx);
+  },
+});
+```
+
+## npm パッケージ用コンポーネントのビルドと公開 \{#building-and-publishing-npm-package-components\}
+
+### ビルドプロセス \{#build-process\}
+
+バンドルされるコンポーネントを開発している間は、それをインストールして動作確認するサンプルアプリが、コンポーネントのバンドル版を `import` します。これにより、テストしているコードが公開されるコードと一致していることを確認できます。
+
+ただしその場合、`npx convex dev` はコンポーネントの元のソースコードの場所を検出できないため、コンポーネント用のコードを自動生成しません。バンドルされるコンポーネントを開発する場合は、コンポーネントの `_generated` ディレクトリを生成するために、別途ビルドプロセスを実行する必要があります。
+
+コンポーネント作成用テンプレートは、`npm run dev` 実行時にコンポーネント用のコードを自動生成します。セットアップの詳細は
+[テンプレートの `package.json` の `scripts`](https://github.com/get-convex/templates/blob/main/template-component/package.json)
+で確認できます。
+
+独自のビルドプロセスを設定する場合は、各コマンドごとにファイルウォッチャーを用意して、次のコマンドを実行する必要があります。
+
+1. **Component codegen**: コンポーネント本体のコード生成
+
+   ```bash
+   npx convex codegen --component-dir ./path/to/component
+   ```
+
+2. **パッケージのビルド**: npm パッケージをビルドする
+
+   ```bash
+   npm run build # あなたのビルドコマンド (例: tsc, esbuild など)
+   ```
+
+3. **サンプルアプリの codegen とデプロイ**: サンプルアプリ用のコードを生成し、
+   そのアプリをデプロイする
+   ```bash
+   npx convex dev --typecheck-components # オプションでコンポーネントの型チェックを行う
+   ```
+
+**順序に関する注意:** 理想的な順序は、コンポーネントの codegen → パッケージのビルド → サンプルアプリでの `convex dev` 実行、です。これはテンプレートでも採用されている推奨の慣例で、ビルド同士が競合するのを避けるためのものです。ただし重要な要件は、サンプルアプリがコンポーネントを `import` しようとする前に、そのコンポーネントがビルド済みで利用可能になっていることです。
+
+### エントリーポイント \{#entry-points\}
+
+コンポーネントを npm に公開するときは、プロジェクト内で使用するための
+関連するすべてのエントリーポイントをエクスポートする必要があります:
+
+* `@your/package` は、アプリのコードからコンポーネントとやり取りするために使用される
+  型、クラス、定数を `export` します。これは必須ではありませんが、一般的です。
+* `@your/package/convex.config.js` はコンポーネントの設定を公開します。
+* `@your/package/_generated/component.js` は `ComponentApi` 型を `export` します。
+  これは、そのコンポーネントが使用されるアプリの視点から見たコンポーネントの型を表します。
+* `@your/package/test` は、`convex-test` でコンポーネントを使用するためのユーティリティを提供します。
+
+[テンプレートの package.json](https://github.com/get-convex/templates/blob/main/template-component/package.json)
+はこれを行ってくれますが、独自のビルドプロセスを構成している場合は、
+package.json でこれを設定する必要があります。
+
+### 開発用のローカルパッケージの解決 \{#local-package-resolution-for-development\}
+
+コンポーネントを開発するときは、一般的にアプリがコンポーネントを
+`import {} from "@your/package"` のようにインポートするのと同じ方法で、
+そのコンポーネントのコードをインポートできるようにしておく必要があります。これを、サンプルアプリで
+npm からパッケージをインストールせずに実現するには、テンプレートのプロジェクト構成に従ってください:
+
+1. プロジェクトのルートに、パッケージ名が `@your/package` と一致する
+   `package.json` を置きます。これにより、その名前でのインポートは
+   `package.json` の `exports` に解決されます。
+2. `package.json` の `exports` セクションで、上記のエントリポイントを、
+   一般的には `dist` ディレクトリ内のバンドル済みファイルにマッピングします。
+   これにより、そのパッケージ名からのインポートはバンドル済みファイルに解決されます。
+3. プロジェクトのルートに、`package.json` ファイルと `node_modules`
+   ディレクトリを 1 つだけ置き、サンプルアプリがデフォルトでそのパッケージ名に解決されるようにします。
+   これにより、ライブラリとサンプルアプリで複数バージョンの `convex` が
+   参照されてしまうことも防げます。サンプルアプリでのみ使用する依存関係を追加する場合は、
+   `package.json` の `devDependencies` に追加してください。
+
+### npm への公開 \{#publishing-to-npm\}
+
+コンポーネントを npm に公開するには、
+[PUBLISHING.md](https://github.com/get-convex/templates/blob/main/template-component/PUBLISHING.md)
+を参照してください。
+
+## テスト \{#testing\}
+
+### 実装のテスト \{#testing-implementations\}
+
+コンポーネントをテストするには、
+[`convex-test` ライブラリ](/testing/convex-test.mdx) を使用できます。主な違いは、
+テストインスタンスにスキーマとモジュールを指定する必要がある点です。
+
+```ts title="component/some.test.ts"
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./schema.ts";
+const modules = import.meta.glob("./**/*.ts");
+
+export function initConvexTest() {
+  const t = convexTest(schema, modules);
+  return t;
+}
+
+test("ローカルコンポーネントを使用した何かのテスト", async () => {
+  const t = initConvexTest();
+  // Test like you would normally.
+  await t.run(async (ctx) => {
+    await ctx.db.insert("myComponentTable", { name: "test" });
+  });
+});
+```
+
+コンポーネントに子コンポーネントが含まれている場合は、「Using Components」ドキュメントの
+[Testing components](/components/using.mdx#testing-components)
+セクションを参照してください。
+
+### API とクライアントコードのテスト \{#testing-the-api-and-client-code\}
+
+コンポーネントからエクスポートされ、アプリの環境で実行される関数をテストするには、
+[Using Components](/components/using.mdx#testing-components) と同じ要領で、
+そのコンポーネントを利用するアプリからテストできます。
+
+テンプレートコンポーネントには、この目的のためにサンプルアプリが含まれています。
+これは、コンポーネントにバンドルされたコードを、アプリにインストールされたときと同じ形で動作検証するためです。
+
+### テスト用ヘルパーのエクスポート \{#exporting-test-helpers\}
+
+ほとんどのコンポーネントでは、コンポーネントをテストインスタンスに登録しやすくするためのテスト用ヘルパーをエクスポートしています。次は、
+[template コンポーネントの `/test` エントリポイント](https://github.com/get-convex/templates/blob/main/template-component/src/test.ts)
+からの例です。
+
+```ts
+/// <reference types="vite/client" />
+import type { TestConvex } from "convex-test";
+import type { GenericSchema, SchemaDefinition } from "convex/server";
+import schema from "./component/schema.js";
+const modules = import.meta.glob("./component/**/*.ts");
+
+/**
+ * テスト用Convexインスタンスにコンポーネントを登録します。
+ * @param t - テスト用Convexインスタンス(例: `convexTest`の呼び出しから取得)
+ * @param name - convex.config.tsに登録されているコンポーネント名
+ */
+export function register(
+  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
+  name: string = "sampleComponent",
+) {
+  t.registerComponent(name, schema, modules);
+}
+export default { register, schema, modules };
+```
+
+npm パッケージでは、パッケージの `package.json` で `@your/package/test` としてエクスポートされます。
+
+```json
+{
+  ...
+  "exports": {
+    ...
+    "./test": "./src/test.ts",
+    ...
+  }
+}
+```

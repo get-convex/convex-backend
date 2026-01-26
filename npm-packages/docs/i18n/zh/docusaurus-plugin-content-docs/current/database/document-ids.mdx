@@ -1,0 +1,97 @@
+---
+title: "文档 ID"
+sidebar_position: 10
+description: "使用 ID 构建复杂的关系数据模型"
+---
+
+import SerializeExample from "!!raw-loader!@site/../private-demos/snippets/convex/tasks.ts";
+import SerializeCall from "!!raw-loader!@site/../private-demos/snippets/src/documentIdsSerializeCall.tsx";
+
+**示例：**
+[Relational Data Modeling](https://github.com/get-convex/convex-demos/tree/main/relational-data-modeling)
+
+在 Convex 中，每个文档都有一个 *document ID*，它是由系统自动生成的全局唯一字符串。
+
+```ts
+const userId = await ctx.db.insert("users", { name: "Michael Jordan" });
+```
+
+你可以使用该 ID，通过 `get` 方法高效读取单个文档：
+
+```ts
+const retrievedUser = await ctx.db.get("users", userId);
+```
+
+你可以通过 [`_id` 字段](/database/types.md#system-fields) 访问文档的 ID：
+
+```ts
+const userId = retrievedUser._id;
+```
+
+此外，同一个 Id 也可以用来直接更新该文档：
+
+```ts
+await ctx.db.patch("users", userId, { name: "Steph Curry" });
+```
+
+Convex 会根据你的[模式](/database/schemas.mdx)，生成一个以表名为类型参数的 [`Id`](/generated-api/data-model#id) TypeScript 类型：
+
+```typescript
+import { Id } from "./_generated/dataModel";
+
+const userId: Id<"users"> = user._id;
+```
+
+在运行时，Id 是字符串，但 [`Id`](/generated-api/data-model#id) 类型
+可以在编译时用于将 Id 与其他字符串区分开来。
+
+## 引用与关系 \{#references-and-relationships\}
+
+在 Convex 中，你可以只需在另一份文档中嵌入它的 `Id` 来引用一个文档：
+
+```ts
+await ctx.db.insert("books", {
+  title,
+  ownerId: user._id,
+});
+```
+
+你可以使用 `ctx.db.get` 根据引用获取文档：
+
+```ts
+const user = await ctx.db.get("users", book.ownerId);
+```
+
+并通过引用来[查询文档](/database/reading-data/reading-data.mdx)：
+
+```ts
+const myBooks = await ctx.db
+  .query("books")
+  .filter((q) => q.eq(q.field("ownerId"), user._id))
+  .collect();
+```
+
+将 `Id` 用作引用可以帮助你构建更复杂的数据模型。
+
+## 在深度嵌套文档与关系之间做权衡 \{#trading-off-deeply-nested-documents-vs-relationships\}
+
+虽然 Convex 支持嵌套对象和数组很有用，但你应当尽量保持文档体积相对较小。在实践中，我们建议数组的元素数量控制在 5-10 个以内，并避免对象出现过深的嵌套层级。
+
+更推荐使用单独的表、文档和引用来组织你的数据。随着项目规模增长，这会带来更好的可维护性和性能。
+
+## 序列化 ID \{#serializing-ids\}
+
+ID 是字符串类型，可以轻松插入到 URL 中或存储在 Convex 之外。
+
+你可以将来自外部来源（比如 URL）的 ID 字符串传入 Convex
+函数并获取对应的对象。如果你在客户端使用 TypeScript，可以将字符串断言为 `Id` 类型：
+
+<Snippet title="src/App.tsx" source={SerializeCall} highlightPatterns={[" as "]} />
+
+由于这个 ID 来自外部来源，在返回对象之前，请使用参数验证器或
+[`ctx.db.normalizeId`](/api/interfaces/server.GenericDatabaseReader#normalizeid)
+来确认该 ID 属于预期的数据表。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={SerializeExample} sourceJS={SerializeExample} highlightPatterns={["v.id"]} />
+
+<StackPosts query="document IDs" />

@@ -1,0 +1,17 @@
+---
+title: "系统表"
+sidebar_position: 1
+description:
+  "通过系统表访问 Convex 内置特性的元数据，包括计划函数和文件存储信息。"
+---
+
+系统表提供对 Convex 内置特性元数据的只读访问。
+目前公开了两个系统表：
+
+- `"_scheduled_functions"` 表包含
+  [计划函数](/scheduling/scheduled-functions.mdx#retrieving-scheduled-function-status) 的元数据
+- `"_storage"` 表包含
+  [已存储文件](/file-storage/file-metadata.mdx) 的元数据
+
+你可以使用 `db.system.get` 和 `db.system.query` 方法从系统表中读取数据，这些方法的工作方式与标准的 `db.get` 和
+`db.query` 方法相同。从系统表读取的查询同样是响应式、实时的，就像读取其他所有表的查询一样，并且可以使用分页在单个查询无法读取全部数据时枚举所有文档。

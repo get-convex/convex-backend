@@ -1,0 +1,146 @@
+---
+title: "TypeScript"
+sidebar_position: 80
+description: "Avanza más rápido con seguridad de tipos de extremo a extremo"
+pagination_next: null
+---
+
+import ArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithValidation.ts";
+import WithSchema from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithSchema.ts";
+import WithoutArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithoutValidation.ts";
+import ClientDatabaseTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptClientDatabaseTypes.tsx";
+import ContextTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptContextTypes.ts";
+import FunctionReturnTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptFunctionReturnTypes.ts";
+import ValidatorTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptValidatorTypes.ts";
+import SystemFieldsTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptSystemFieldsTypes.ts";
+
+Convex proporciona soporte de tipos de extremo a extremo cuando las funciones de Convex se escriben en
+[TypeScript](https://www.typescriptlang.org/).
+
+Puedes añadir TypeScript gradualmente a un proyecto de Convex: los siguientes pasos
+proporcionan un soporte de tipos cada vez mejor. Para obtener el mejor soporte, te conviene
+completarlos todos.
+
+**Ejemplo:**
+[TypeScript and Schema](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## Escribir funciones de Convex en TypeScript \{#writing-convex-functions-in-typescript\}
+
+El primer paso para mejorar el soporte de tipos en un proyecto de Convex es escribir tus
+funciones de Convex en TypeScript usando la extensión `.ts`.
+
+Si estás usando la [validación de argumentos](/functions/validation.mdx), Convex
+inferirá automáticamente los tipos de los argumentos de tus funciones:
+
+<Snippet title="convex/sendMessage.ts" source={ArgValidation} />
+
+De lo contrario, puedes anotar manualmente el tipo de los argumentos:
+
+<Snippet title="convex/sendMessage.ts" source={WithoutArgValidation} highlightPatterns={["body: string"]} />
+
+Esto puede ser útil para [funciones internas](/functions/internal-functions.mdx)
+que aceptan tipos complejos.
+
+Si TypeScript está instalado en tu proyecto, `npx convex dev` y
+`npx convex deploy` comprobarán los tipos de las funciones de Convex antes de enviar el código al backend de
+Convex.
+
+Las funciones de Convex se comprueban con el `tsconfig.json` en la carpeta de Convex:
+puedes modificar algunas partes de este archivo para cambiar la configuración de comprobación de tipos o
+eliminar este archivo para desactivar esta comprobación.
+
+Verás que la mayoría de los métodos de base de datos tienen un tipo de retorno de `Promise<any>` hasta que
+añadas un esquema.
+
+## Agregar un esquema \{#adding-a-schema\}
+
+Una vez que [definas un esquema](/database/schemas.mdx), la firma de tipos de los
+métodos de la base de datos quedará definida. También podrás usar tipos importados desde
+`convex/_generated/dataModel` tanto en funciones de Convex como en clientes escritos en
+TypeScript (React, React Native, Node.js, etc.).
+
+Los tipos de los documentos en las tablas se pueden describir usando el tipo
+[`Doc`](/generated-api/data-model#doc) del modelo de datos generado y
+las referencias a documentos se pueden describir con
+[Id de documento](/database/document-ids.mdx) parametrizadas.
+
+<Snippet title="convex/messages.ts" source={WithSchema} />
+
+## Anotar con tipos los helpers del servidor \{#type-annotating-server-side-helpers\}
+
+Cuando quieras reutilizar lógica entre funciones de Convex, querrás definir
+funciones helper de TypeScript, y puede que estas necesiten parte del contexto
+proporcionado para acceder a la base de datos, la autenticación y cualquier otra
+funcionalidad de Convex.
+
+Convex genera tipos correspondientes a documentos e identificadores en tu base de datos,
+`Documento` e `Id`, así como los tipos `QueryCtx`, `MutationCtx` y `ActionCtx`
+basados en tu esquema y en las funciones de Convex declaradas:
+
+<Snippet title="convex/helpers.ts" source={ContextTypes} />
+
+### Inferir tipos a partir de validadores \{#inferring-types-from-validators\}
+
+Los validadores se pueden reutilizar tanto para la
+[validación de argumentos](/functions/validation.mdx) como para la
+[validación de esquemas](/database/schemas.mdx). Puedes usar el tipo
+[`Infer`](/api/modules/values#infer) proporcionado para obtener el tipo de TypeScript correspondiente
+a un validador:
+
+<Snippet title="convex/helpers.ts" source={ValidatorTypes} />
+
+### Tipos de documento sin campos del sistema \{#document-types-without-system-fields\}
+
+Todos los documentos de Convex incluyen los campos internos `_id` y `_creationTime`,
+y lo mismo ocurre con el tipo generado `Doc`. Cuando creas o actualizas un documento,
+puede que quieras usar el tipo sin esos campos del sistema. Convex ofrece
+[`WithoutSystemFields`](/api/modules/server#withoutsystemfields) para este fin:
+
+<Snippet title="convex/helpers.ts" source={SystemFieldsTypes} />
+
+## Escribir código de frontend en TypeScript \{#writing-frontend-code-in-typescript\}
+
+Todos los clientes de JavaScript de Convex, incluidos hooks de React como
+[`useQuery`](/api/modules/react#usequery) y
+[`useMutation`](/api/modules/react#usemutation), proporcionan seguridad de tipos de extremo a extremo
+al garantizar que los argumentos y los valores de retorno coincidan con las declaraciones
+de las funciones correspondientes de Convex. En React, instala y configura TypeScript para poder
+escribir tus componentes de React en archivos `.tsx` en lugar de archivos `.jsx`.
+
+Sigue la guía de inicio rápido de [React](/quickstart/react.mdx) o de [Next.js](/quickstart/nextjs.mdx)
+para empezar a usar Convex con TypeScript.
+
+### Anotar con tipos el código del lado del cliente \{#type-annotating-client-side-code\}
+
+Si quieres reutilizar el resultado de llamar a una función en todo tu código
+de cliente, puedes usar los tipos generados `Documento` e `Id`, igual que en
+el backend:
+
+<Snippet title="src/App.tsx" source={ClientDatabaseTypes} />
+
+También puedes declarar tipos personalizados dentro de tu código de backend
+que incluyan `Documento`s e `Id`s, e importarlos en tu código del lado del
+cliente.
+
+También puedes usar `WithoutSystemFields` y cualquier tipo inferido a partir de validadores
+mediante `Infer`.
+
+#### Uso de tipos de retorno de función inferidos \{#using-inferred-function-return-types\}
+
+A veces puede que quieras anotar un tipo en el cliente según lo que devuelva tu
+función de backend. Además de declarar manualmente el tipo (en el backend o
+en el frontend), también puedes usar los tipos genéricos `FunctionReturnType` y
+`UsePaginatedQueryReturnType` con una referencia a la función:
+
+<Snippet title="src/Components.tsx" source={FunctionReturnTypes} />
+
+## Convertir `string`s en IDs de documento válidos \{#turning-strings-into-valid-document-ids\}
+
+Consulta [Serializar IDs](/database/document-ids.mdx#serializing-ids).
+
+## Versión de TypeScript requerida \{#required-typescript-version\}
+
+Convex requiere la versión de TypeScript
+[5.0.3](https://www.npmjs.com/package/typescript/v/5.0.3) o una versión posterior.
+
+<StackPosts query="types" />

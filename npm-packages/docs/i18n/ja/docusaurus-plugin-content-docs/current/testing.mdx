@@ -1,0 +1,48 @@
+---
+title: "テスト"
+sidebar_position: 105
+description: "バックエンドのテスト"
+slug: "testing"
+pagination_prev: "search"
+---
+
+Convex を使うと、JavaScript で動作する自動テストや実際のバックエンドに対するテストに加えて、dev・preview・staging 各環境での手動テストなど、アプリのテストを簡単に行えます。
+
+## 自動テスト \{#automated-tests\}
+
+### `convex-test` ライブラリ \{#convex-test-library\}
+
+優れたテストフレームワークである Vitest を利用して JavaScript で関数をテストするには、[`convex-test` ライブラリを使用](/testing/convex-test.mdx)します。
+
+### 実際のバックエンドでのテスト \{#testing-against-a-real-backend\}
+
+Convex のオープンソース版を使うと、実際の
+[ローカル Convex バックエンド](/testing/convex-backend.mdx) 上で動作するすべてのバックエンドロジックをテストできます。
+
+### CI でのテスト設定 \{#set-up-testing-in-ci\}
+
+制御された環境でアプリを継続的にテストするのはよい考えです。どのような自動テスト手法を使っていても、
+[GitHub Actions](/testing/ci.mdx) で簡単に実行できます。
+
+{/* todo: プレビューデプロイメント向けの自動テスト */}
+
+{/* todo: React+Convex のテスト - さまざまな方法 */}
+
+## 手動テスト \{#manual-tests\}
+
+### dev で関数を実行する \{#running-a-function-in-dev\}
+
+dev で関数を手動で実行して、正常に動作しているか素早く確認しましょう:
+
+* [コマンドラインから関数を実行する](/cli.md#run-convex-functions)
+* [ダッシュボードから関数を実行する](/dashboard/deployments/functions.md#running-functions)
+
+### プレビューデプロイメント \{#preview-deployments\}
+
+進行中の機能についてチームから早期にフィードバックを得るには、[プレビューデプロイメントを使用](/production/hosting/preview-deployments.mdx)します。
+
+### ステージング環境 \{#staging-environment\}
+
+テストに使用するステージング環境として、別のプロジェクトを用意できます。詳しくは
+[本番環境へのデプロイ](/production.mdx#staging-environment)
+を参照してください。
