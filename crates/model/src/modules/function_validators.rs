@@ -140,6 +140,13 @@ pub enum ReturnsValidator {
 }
 
 impl ReturnsValidator {
+    pub fn needs_validation(&self) -> bool {
+        !matches!(
+            self,
+            ReturnsValidator::Unvalidated | ReturnsValidator::Validated(Validator::Any)
+        )
+    }
+
     pub fn check_output(
         &self,
         output: &ConvexValue,

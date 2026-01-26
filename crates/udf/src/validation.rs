@@ -918,22 +918,24 @@ impl ValidatedUdfOutcome {
         };
 
         // TODO(CX-6318) Don't pack json value until it's been validated.
-        let returns: ConvexValue = match &validated.result {
-            Ok(json_packed_value) => match json_packed_value.unpack() {
-                Ok(v) => v,
-                Err(mut e) => {
-                    report_error_sync(&mut e);
-                    return validated;
+        if returns_validator.needs_validation() {
+            let returns: ConvexValue = match &validated.result {
+                Ok(json_packed_value) => match json_packed_value.unpack() {
+                    Ok(v) => v,
+                    Err(mut e) => {
+                        report_error_sync(&mut e);
+                        return validated;
+                    },
                 },
-            },
-            Err(_) => return validated,
-        };
+                Err(_) => return validated,
+            };
 
-        if let Some(js_err) =
-            returns_validator.check_output(&returns, table_mapping, virtual_system_mapping())
-        {
-            validated.result = Err(js_err);
-        };
+            if let Some(js_err) =
+                returns_validator.check_output(&returns, table_mapping, virtual_system_mapping())
+            {
+                validated.result = Err(js_err);
+            };
+        }
         validated
     }
 }
@@ -974,7 +976,9 @@ impl ValidatedActionOutcome {
             user_execution_time: outcome.user_execution_time,
         };
 
-        if let Ok(json_packed_value) = &validated.result {
+        if returns_validator.needs_validation()
+            && let Ok(json_packed_value) = &validated.result
+        {
             match json_packed_value.unpack() {
                 Ok(output) => {
                     if let Some(js_err) = returns_validator.check_output(
