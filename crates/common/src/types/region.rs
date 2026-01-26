@@ -40,3 +40,11 @@ pub fn set_test_region_as_default() -> anyhow::Result<()> {
 pub fn default_region() -> &'static RegionName {
     RUNTIME_DEFAULT_REGION.get_or_init(|| DEFAULT_REGION_NAME.clone())
 }
+
+impl RegionName {
+    /// Returns the AWS region portion (e.g. "us-east-1") if this region name
+    /// is prefixed with "aws-".
+    pub fn aws_region(&self) -> Option<&str> {
+        self.as_str().strip_prefix("aws-")
+    }
+}
