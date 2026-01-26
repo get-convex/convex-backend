@@ -1,6 +1,9 @@
 import { logEvent } from "convex-analytics";
+import { GTProvider } from "gt-react";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Analytics from "../components/Analytics/Analytics";
+import loadTranslations from "../loadTranslations";
 
 import { Toaster } from "sonner";
 
@@ -36,12 +39,20 @@ function Root({ children }) {
   }, []);
 
   const [lang, setLang] = useState("TS");
+  const { i18n } = useDocusaurusContext();
 
   return (
     <DialectContext.Provider value={{ lang, setLang }}>
-      {children}
-      <Analytics />
-      <Toaster />
+      <GTProvider
+        locales={i18n?.locales}
+        locale={i18n?.currentLocale}
+        defaultLocale={i18n?.defaultLocale}
+        loadTranslations={loadTranslations}
+      >
+        {children}
+        <Analytics />
+        <Toaster />
+      </GTProvider>
     </DialectContext.Provider>
   );
 }

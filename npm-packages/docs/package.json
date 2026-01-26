@@ -39,6 +39,7 @@
     "algoliasearch": "~4.25.0",
     "react-markdown": "~10.1.0",
     "@types/react": "^18.0.0",
+    "gt-react": "^10.10.4",
     "tailwindcss": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "postcss": "^8.4.19",

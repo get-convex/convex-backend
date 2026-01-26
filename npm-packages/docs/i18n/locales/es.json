@@ -1,0 +1,225 @@
+{
+  "078eb7f64edb1177": {
+    "c": "Cancelar",
+    "i": 1,
+    "t": "button"
+  },
+  "1ea8c63e7db25dfb": {
+    "c": [
+      {
+        "i": 2,
+        "t": "Sparkle"
+      },
+      "Preguntar a IA"
+    ],
+    "i": 1,
+    "t": "div"
+  },
+  "631718f639fed8fc": {
+    "c": [
+      {
+        "c": "Utilizamos cookies de terceros para comprender cómo las personas interactúan con nuestro sitio.",
+        "i": 2,
+        "t": "p"
+      },
+      {
+        "c": [
+          "Consulta nuestra ",
+          {
+            "c": "Política de Privacidad",
+            "i": 4,
+            "t": "a"
+          },
+          " para obtener más información."
+        ],
+        "i": 3,
+        "t": "p"
+      },
+      {
+        "c": [
+          {
+            "c": "Rechazar",
+            "i": 6,
+            "t": "button"
+          },
+          {
+            "c": "Aceptar",
+            "i": 7,
+            "t": "button"
+          }
+        ],
+        "i": 5,
+        "t": "div"
+      }
+    ],
+    "i": 1,
+    "t": "div"
+  },
+  "701964090d7b3438": "Borrar búsqueda",
+  "755ee2c35c99e68e": {
+    "c": "Obtén una respuesta instantánea de IA",
+    "i": 1,
+    "t": "span"
+  },
+  "781336e1f8a1405e": "No se puede copiar en el portapapeles.",
+  "7cb17099c7f653fc": "Buscar en la documentación, Stack y Discord...",
+  "9569d696619e0229": {
+    "c": [
+      {
+        "c": [
+          {
+            "c": {
+              "c": {
+                "c": {
+                  "i": 6,
+                  "t": "path"
+                },
+                "i": 5,
+                "t": "g"
+              },
+              "d": {
+                "arl": "Enter key"
+              },
+              "i": 4,
+              "t": "svg"
+            },
+            "i": 3,
+            "t": "KeyCap"
+          },
+          {
+            "c": "para abrir enlace",
+            "i": 7,
+            "t": "span"
+          }
+        ],
+        "i": 2,
+        "t": "div"
+      },
+      {
+        "c": [
+          {
+            "c": {
+              "c": {
+                "c": {
+                  "i": 12,
+                  "t": "path"
+                },
+                "i": 11,
+                "t": "g"
+              },
+              "d": {
+                "arl": "Arrow down"
+              },
+              "i": 10,
+              "t": "svg"
+            },
+            "i": 9,
+            "t": "KeyCap"
+          },
+          {
+            "c": "para seleccionar",
+            "i": 13,
+            "t": "span"
+          }
+        ],
+        "i": 8,
+        "t": "div"
+      },
+      {
+        "c": [
+          {
+            "c": {
+              "c": {
+                "c": {
+                  "i": 18,
+                  "t": "path"
+                },
+                "i": 17,
+                "t": "g"
+              },
+              "d": {
+                "arl": "Arrow up"
+              },
+              "i": 16,
+              "t": "svg"
+            },
+            "i": 15,
+            "t": "KeyCap"
+          },
+          {
+            "c": "para seleccionar",
+            "i": 19,
+            "t": "span"
+          }
+        ],
+        "i": 14,
+        "t": "div"
+      },
+      {
+        "c": [
+          {
+            "c": {
+              "c": {
+                "c": {
+                  "i": 24,
+                  "t": "path"
+                },
+                "i": 23,
+                "t": "g"
+              },
+              "d": {
+                "arl": "Escape key"
+              },
+              "i": 22,
+              "t": "svg"
+            },
+            "i": 21,
+            "t": "KeyCap"
+          },
+          {
+            "c": "para cerrar",
+            "i": 25,
+            "t": "span"
+          }
+        ],
+        "i": 20,
+        "t": "div"
+      }
+    ],
+    "i": 1,
+    "t": "div"
+  },
+  "a78b9a6cdec1c146": {
+    "c": [
+      {
+        "c": [
+          {
+            "i": 3,
+            "t": "CopyIcon"
+          },
+          "Copiar como Markdown"
+        ],
+        "i": 2,
+        "t": "div"
+      },
+      {
+        "c": [
+          {
+            "i": 5,
+            "t": "CheckIcon"
+          },
+          "¡Copiado!"
+        ],
+        "i": 4,
+        "t": "div"
+      }
+    ],
+    "i": 1,
+    "t": "button"
+  },
+  "b2030735ee9bb263": {
+    "c": "Buscar documentación y más...",
+    "i": 1,
+    "t": "span"
+  }
+}

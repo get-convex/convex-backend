@@ -2,6 +2,7 @@ import { ArrowRightIcon } from "@radix-ui/react-icons";
 import React from "react";
 import { AIButton } from "../AIButton/AIButton";
 import Sparkle from "../AIButton/sparkle.svg";
+import { T } from "gt-react";
 
 declare global {
   interface Window {
@@ -42,7 +43,9 @@ export default function AskAI({ query, onClick, ...rest }: AskAIProps) {
             </strong>
             {promptSuffix}
           </span>
-          <span className="text-sm opacity-70">Get an instant AI answer</span>
+          <T>
+            <span className="text-sm opacity-70">Get an instant AI answer</span>
+          </T>
         </div>
         <ArrowRightIcon className="w-6 h-6 relative -translate-x-0.5 group-hover:translate-x-0.5 transition-transform" />
       </div>

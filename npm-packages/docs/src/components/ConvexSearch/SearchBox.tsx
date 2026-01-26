@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { cn } from "@site/src/lib/cn";
 import { MagnifyingGlassIcon, Cross1Icon } from "@radix-ui/react-icons";
+import { useGT } from "gt-react";
 
 interface SearchBoxProps {
   value: string;
@@ -15,6 +16,7 @@ export default function SearchBox({
   onClear,
   className,
 }: SearchBoxProps) {
+  const gt = useGT();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const focusInput = () => {
@@ -66,7 +68,7 @@ export default function SearchBox({
       <input
         className="bg-transparent border-none grow text-lg font-sans text-neutral-n11 focus:outline-hidden dark:text-neutral-n2"
         type="text"
-        placeholder="Search across Docs, Stack, and Discord..."
+        placeholder={gt("Search across Docs, Stack, and Discord...")}
         value={value}
         onChange={onChange}
         ref={inputRef}
@@ -75,7 +77,7 @@ export default function SearchBox({
         <button
           className="border-none bg-transparent py-0 px-1 flex items-center cursor-pointer"
           onClick={handleClear}
-          aria-label="Clear search"
+          aria-label={gt("Clear search")}
         >
           <Cross1Icon className="h-5 w-5 text-neutral-n9 dark:text-neutral-n6" />
         </button>
