@@ -180,6 +180,88 @@
         ]
       }
     },
+    "/projects/{project_id}/create_deployment": {
+      "post": {
+        "summary": "Create deployment",
+        "description": "Create a new deployment for a project.",
+        "operationId": "create deployment",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/deployments/{deployment_name}/delete": {
+      "post": {
+        "summary": "Delete deployment",
+        "description": "Delete a deployment. This will delete all data and files in the deployment,\nso we recommend creating and downloading a backup before calling this\nendpoint. This does not delete the project itself.",
+        "operationId": "delete deployment",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment Name",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
     "/deployments/{deployment_name}/create_deploy_key": {
       "post": {
         "summary": "Create deploy key",
@@ -458,37 +540,6 @@
           }
         ]
       }
-    },
-    "/deployments/{deployment_name}/delete": {
-      "post": {
-        "summary": "Delete deployment",
-        "description": "Delete a deployment. This will delete all data and files in the deployment,\nso we recommend creating and downloading a backup before calling this\nendpoint. This does not delete the project itself.",
-        "operationId": "delete deployment",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "Deployment Name",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "OAuth Team Token": []
-          },
-          {
-            "Team Token": []
-          },
-          {
-            "OAuth Project Token": []
-          }
-        ]
-      }
     }
   },
   "components": {
@@ -496,6 +547,13 @@
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
+      },
+      "CreateDeploymentType": {
+        "type": "string",
+        "enum": [
+          "dev",
+          "prod"
+        ]
       },
       "DeploymentClass": {
         "type": "string",
@@ -547,6 +605,31 @@
           }
         }
       },
+      "PlatformCreateDeploymentArgs": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "class": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentClass"
+              }
+            ]
+          },
+          "region": {
+            "$ref": "#/components/schemas/RegionName"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CreateDeploymentType"
+          }
+        },
+        "additionalProperties": false
+      },
       "PlatformCreateProjectArgs": {
         "type": "object",
         "required": [
@@ -568,7 +651,7 @@
             "$ref": "#/components/schemas/RegionName"
           },
           "deploymentType": {
-            "$ref": "#/components/schemas/PlatformProjectDeploymentType",
+            "$ref": "#/components/schemas/CreateDeploymentType",
             "description": "Projects always include a deployment, so start this project off with a\n\"dev\" development deployment or a \"prod\" production deployment."
           },
           "projectName": {
@@ -755,13 +838,6 @@
             "description": "List of custom domains configured for this deployment."
           }
         }
-      },
-      "PlatformProjectDeploymentType": {
-        "type": "string",
-        "enum": [
-          "dev",
-          "prod"
-        ]
       },
       "PlatformProjectDetails": {
         "type": "object",

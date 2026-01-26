@@ -84,6 +84,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/create_deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create deployment
+         * @description Create a new deployment for a project.
+         */
+        post: operations["create deployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{deployment_name}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete deployment
+         * @description Delete a deployment. This will delete all data and files in the deployment,
+         *     so we recommend creating and downloading a backup before calling this
+         *     endpoint. This does not delete the project itself.
+         */
+        post: operations["delete deployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deployments/{deployment_name}/create_deploy_key": {
         parameters: {
             query?: never;
@@ -232,34 +274,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/deployments/{deployment_name}/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Delete deployment
-         * @description Delete a deployment. This will delete all data and files in the deployment,
-         *     so we recommend creating and downloading a backup before calling this
-         *     endpoint. This does not delete the project itself.
-         */
-        post: operations["delete deployment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @description Encrypted admin key */
         AdminKey: string;
+        /** @enum {string} */
+        CreateDeploymentType: "dev" | "prod";
         /** @enum {string} */
         DeploymentClass: "s16" | "s256" | "d1024";
         /** @enum {string} */
@@ -275,15 +297,20 @@ export interface components {
             /** @description The generated deploy key. */
             deployKey: components["schemas"]["AdminKey"];
         };
+        PlatformCreateDeploymentArgs: {
+            class?: null | components["schemas"]["DeploymentClass"];
+            region?: components["schemas"]["RegionName"];
+            type: components["schemas"]["CreateDeploymentType"];
+        };
         PlatformCreateProjectArgs: {
             deploymentClass?: null | components["schemas"]["DeploymentClass"];
+            deploymentRegion?: components["schemas"]["RegionName"];
             /** @description Projects always include a deployment, so start this project off with a
              *     "dev" development deployment or a "prod" production deployment. */
-            deploymentType: components["schemas"]["PlatformProjectDeploymentType"];
+            deploymentType: components["schemas"]["CreateDeploymentType"];
             /** @description The full name of the project as it will appear in the dashboard. Spaces
              *     and punctuations allowed. */
             projectName: components["schemas"]["ProjectName"];
-            region?: null | components["schemas"]["PlatformProjectRegion"];
         };
         PlatformCreateProjectResponse: {
             /** @description The readable identifier for this deployment, something like
@@ -358,8 +385,6 @@ export interface components {
             /** @description List of custom domains configured for this deployment. */
             domains: components["schemas"]["PlatformCustomDomainResponse"][];
         };
-        /** @enum {string} */
-        PlatformProjectDeploymentType: "dev" | "prod";
         PlatformProjectDetails: {
             /**
              * Format: int64
@@ -373,11 +398,6 @@ export interface components {
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
         };
-        /**
-         * Region
-         * @enum {string}
-         */
-        PlatformProjectRegion: "aws-us-east-1";
         PlatformTokenDetailsResponse: {
             /**
              * Format: int64
@@ -408,6 +428,7 @@ export interface components {
         ProjectId: number;
         ProjectName: string;
         ProjectSlug: string;
+        RegionName: string;
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
         /** Format: int64 */
@@ -420,12 +441,14 @@ export interface components {
     pathItems: never;
 }
 export type AdminKey = components['schemas']['AdminKey'];
+export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type MemberId = components['schemas']['MemberId'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
+export type PlatformCreateDeploymentArgs = components['schemas']['PlatformCreateDeploymentArgs'];
 export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
 export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
 export type PlatformCustomDomainResponse = components['schemas']['PlatformCustomDomainResponse'];
@@ -434,14 +457,13 @@ export type PlatformDeleteDeployKeyArgs = components['schemas']['PlatformDeleteD
 export type PlatformDeployKeyResponse = components['schemas']['PlatformDeployKeyResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
-export type PlatformProjectDeploymentType = components['schemas']['PlatformProjectDeploymentType'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
-export type PlatformProjectRegion = components['schemas']['PlatformProjectRegion'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
+export type RegionName = components['schemas']['RegionName'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type TeamId = components['schemas']['TeamId'];
 export type $defs = Record<string, never>;
@@ -523,6 +545,52 @@ export interface operations {
             path: {
                 /** @description Project ID */
                 project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "create deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformCreateDeploymentArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeploymentResponse"];
+                };
+            };
+        };
+    };
+    "delete deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment Name */
+                deployment_name: string;
             };
             cookie?: never;
         };
@@ -694,26 +762,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlatformListCustomDomainsResponse"];
                 };
-            };
-        };
-    };
-    "delete deployment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Deployment Name */
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
