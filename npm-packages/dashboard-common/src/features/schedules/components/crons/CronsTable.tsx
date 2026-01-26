@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { CellProps, useTable } from "react-table";
-import formatDuration from "date-fns/formatDuration";
+import { formatDuration } from "date-fns/formatDuration";
 import { ChevronRightIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import {
   CronSchedule,

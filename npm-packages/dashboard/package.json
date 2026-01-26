@@ -37,7 +37,7 @@
     "convex": "workspace:*",
     "convex-analytics": "workspace:*",
     "dashboard-common": "workspace:*",
-    "date-fns": "^2.29.3",
+    "date-fns": "^4.1.0",
     "fetch-retry": "~6.0.0",
     "formik": "^2.4.6",
     "launchdarkly-react-client-sdk": "^3.0.4",
