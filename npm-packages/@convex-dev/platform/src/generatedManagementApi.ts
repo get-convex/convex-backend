@@ -263,7 +263,7 @@ export interface components {
         /** @enum {string} */
         DeploymentClass: "s16" | "s256" | "d1024";
         /** @enum {string} */
-        DeploymentType: "dev" | "prod" | "preview";
+        DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
         /** Format: int64 */
         MemberId: number;

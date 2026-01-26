@@ -2188,7 +2188,7 @@ export interface components {
             projectId: components["schemas"]["ProjectId"];
         };
         /** @enum {string} */
-        DeploymentType: "dev" | "prod" | "preview";
+        DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeploymentWorkOSEnvironmentInfo: {
             deploymentName: string;
             isProduction: boolean;

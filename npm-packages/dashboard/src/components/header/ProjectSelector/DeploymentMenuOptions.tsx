@@ -3,7 +3,11 @@ import { useTeamMembers } from "api/teams";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
 import React, { useRef } from "react";
-import { CommandLineIcon, SignalIcon } from "@heroicons/react/24/outline";
+import {
+  CommandLineIcon,
+  SignalIcon,
+  WrenchIcon,
+} from "@heroicons/react/24/outline";
 import { Tooltip } from "@ui/Tooltip";
 import {
   GearIcon,
@@ -31,6 +35,9 @@ export function DeploymentMenuOptions({
 
   const previews = deployments
     .filter((d) => d.deploymentType === "preview")
+    .sort((a, b) => b.createTime - a.createTime);
+  const custom = deployments
+    .filter((d) => d.deploymentType === "custom")
     .sort((a, b) => b.createTime - a.createTime);
 
   const members = useTeamMembers(team.id);
@@ -134,6 +141,33 @@ export function DeploymentMenuOptions({
                 blankTarget={false}
               />
             ))}
+        </ContextMenu.Submenu>
+      )}
+      {custom.length > 0 && (
+        <ContextMenu.Submenu
+          label={
+            <p className="flex flex-col">
+              Custom Deployments
+              <span className="text-xs text-content-secondary">
+                {custom.length} deployment{custom.length === 1 ? "" : "s"}
+              </span>
+            </p>
+          }
+          icon={<WrenchIcon className="h-4 w-4" />}
+        >
+          {custom.map((customDeployment) => (
+            <ContextMenu.Item
+              key={customDeployment.name}
+              label={
+                <DeploymentOption
+                  identifier={customDeployment.name}
+                  name={customDeployment.name}
+                />
+              }
+              action={`${projectsURI}/${customDeployment.name}/${currentView}`}
+              blankTarget={false}
+            />
+          ))}
         </ContextMenu.Submenu>
       )}
       <ContextMenu.Submenu

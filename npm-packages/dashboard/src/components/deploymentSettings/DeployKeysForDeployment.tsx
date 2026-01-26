@@ -26,9 +26,10 @@ function getAdminKeyPrefix(deployment: DeploymentResponse) {
       return "prod";
     case "dev":
       return "dev";
-    case "preview": {
+    case "preview":
       return "preview";
-    }
+    case "custom":
+      return "custom";
     default: {
       deployment.deploymentType satisfies never;
       return "";

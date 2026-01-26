@@ -510,7 +510,8 @@
         "enum": [
           "dev",
           "prod",
-          "preview"
+          "preview",
+          "custom"
         ]
       },
       "DeviceName": {

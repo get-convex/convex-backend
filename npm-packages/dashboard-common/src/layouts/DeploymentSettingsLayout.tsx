@@ -93,6 +93,8 @@ function DeploymentSettingsText() {
       return <>Production Deployment Settings</>;
     case "dev":
       return <>Personal Deployment Settings</>;
+    case "custom":
+      return <>Custom Deployment Settings</>;
     case "preview":
       if (deployment.previewIdentifier !== null) {
         return (

@@ -348,7 +348,7 @@ function DeploymentTypeIndicator({
         <>
           <span
             className={classNames(
-              "w-4 h-4 rounded-xl mr-2 border bg-purple-100 dark:bg-purple-900",
+              "size-4 rounded-xl mr-2 border bg-purple-100 dark:bg-purple-900",
             )}
           />
           <span className="capitalize">{deploymentType}</span>
@@ -359,7 +359,7 @@ function DeploymentTypeIndicator({
         <>
           <span
             className={classNames(
-              "w-4 h-4 rounded-xl mr-2 border bg-background-success",
+              "size-4 rounded-xl mr-2 border bg-background-success",
             )}
           />
           <span className="capitalize">{deploymentType}</span>
@@ -370,10 +370,21 @@ function DeploymentTypeIndicator({
         <>
           <span
             className={classNames(
-              "w-4 h-4 rounded-xl mr-2 border bg-orange-100 dark:bg-orange-900",
+              "size-4 rounded-xl mr-2 border bg-orange-100 dark:bg-orange-900",
             )}
           />
           <span className="capitalize">Preview</span>
+        </>
+      );
+    case "custom":
+      return (
+        <>
+          <span
+            className={classNames(
+              "size-4 rounded-xl mr-2 border bg-neutral-2 dark:bg-neutral-9",
+            )}
+          />
+          <span className="capitalize">Custom</span>
         </>
       );
     default: {

@@ -178,9 +178,9 @@ function getGenerateButtonText(deploymentType: DeploymentTypeType) {
       return "Generate Production Deploy Key";
     case "dev":
       return "Generate Development Deploy Key";
-    case "preview": {
-      return "Generate Preview Deploy Key";
-    }
+    case "preview": // “preview deploy key” = key for provisioning preview-scoped keys, not a key scoped to an existing preview deployment
+    case "custom":
+      return "Generate Deploy Key";
     default: {
       deploymentType satisfies never;
       return "Generate Deploy Key";

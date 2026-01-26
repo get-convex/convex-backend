@@ -12,7 +12,7 @@ export function NonProdDeploymentWarning({
   deploymentType,
   children,
 }: {
-  deploymentType: Exclude<DeploymentTypeType, "prod">;
+  deploymentType: Exclude<DeploymentTypeType, "prod" | "custom">;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -20,26 +20,11 @@ export function NonProdDeploymentWarning({
   const team = useCurrentTeam();
   const selectedProject = useCurrentProject();
   const { deployments } = useDeployments(selectedProject?.id) || [];
+
+  // TODO(ENG-10316) Update the way the redirection works to use the default production deployment
   const prod = deployments?.find((d) => d.deploymentType === "prod");
   const projectsURI = `/t/${team?.slug}/${projectSlug}`;
   const prodUrl = `${projectsURI}/${prod?.name}/settings`;
-
-  const explanation =
-    deploymentType === "dev" ? (
-      <>
-        This personal <DeploymentType deploymentType="dev" /> Convex deployment
-        also has deployment credentials. Edits you make to functions in your
-        editor sync automatically, but it is also possible to deploy to it from
-        somewhere else using a deploy key.
-      </>
-    ) : (
-      <>
-        This <DeploymentType deploymentType="preview" /> Convex deployment also
-        has deployment credentials, which are typically used in a Vercel or
-        Netlify build step to sync your functions. But it is also possible to
-        deploy to it from somewhere else using a deploy key.
-      </>
-    );
 
   return (
     <Sheet padding={false}>
@@ -69,7 +54,9 @@ export function NonProdDeploymentWarning({
             to deploy this project to a live environment.
           </p>
         )}
-        <p className="mb-4 text-content-primary">{explanation}</p>
+        <p className="mb-4 text-content-primary">
+          {explanation(deploymentType)}
+        </p>
       </div>
       {/* TODO: Replace with disclosure */}
       {/* eslint-disable-next-line react/forbid-elements */}
@@ -82,4 +69,32 @@ export function NonProdDeploymentWarning({
       </details>
     </Sheet>
   );
+}
+
+function explanation(
+  deploymentType: Exclude<DeploymentTypeType, "prod" | "custom">,
+) {
+  switch (deploymentType) {
+    case "dev":
+      return (
+        <>
+          This personal <DeploymentType deploymentType="dev" /> Convex
+          deployment also has deployment credentials. Edits you make to
+          functions in your editor sync automatically, but it is also possible
+          to deploy to it from somewhere else using a deploy key.
+        </>
+      );
+    case "preview":
+      return (
+        <>
+          This <DeploymentType deploymentType="preview" /> Convex deployment
+          also has deployment credentials, which are typically used in a Vercel
+          or Netlify build step to sync your functions. But it is also possible
+          to deploy to it from somewhere else using a deploy key.
+        </>
+      );
+    default:
+      deploymentType satisfies never;
+      return null;
+  }
 }

@@ -10,7 +10,7 @@ import { CopyTextButton } from "@common/elements/CopyTextButton";
 export function DeploymentType({
   deploymentType = "prod",
 }: {
-  deploymentType?: "prod" | "preview" | "dev";
+  deploymentType?: "prod" | "preview" | "dev" | "custom";
 }) {
   switch (deploymentType) {
     case "prod":
@@ -19,6 +19,8 @@ export function DeploymentType({
       return <span>preview</span>;
     case "dev":
       return <span>development</span>;
+    case "custom":
+      return <span>custom</span>;
     default: {
       deploymentType satisfies never;
       return null;

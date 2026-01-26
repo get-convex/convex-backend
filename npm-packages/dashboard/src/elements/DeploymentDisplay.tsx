@@ -1,4 +1,8 @@
-import { CommandLineIcon, SignalIcon } from "@heroicons/react/24/outline";
+import {
+  CommandLineIcon,
+  SignalIcon,
+  WrenchIcon,
+} from "@heroicons/react/24/outline";
 import {
   CaretSortIcon,
   GearIcon,
@@ -336,6 +340,8 @@ export function DeploymentLabel({
                 <SignalIcon className="size-4 min-w-4" />
               ) : deployment.deploymentType === "preview" ? (
                 <Pencil2Icon className="size-4 min-w-4" />
+              ) : deployment.deploymentType === "custom" ? (
+                <WrenchIcon className="size-4 min-w-4" />
               ) : null}
               <span className="max-w-24 truncate sm:contents">
                 {getDeploymentLabel({
@@ -415,6 +421,8 @@ export function getBackgroundColor(deploymentType: DeploymentType): string {
       return "border-orange-600 dark:border-orange-400 bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400";
     case "dev":
       return "border-green-600 dark:border-green-400 bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400";
+    case "custom":
+      return "border-neutral-4 dark:border-neutral-6 bg-neutral-1 text-neutral-11 dark:bg-neutral-12 dark:text-neutral-2";
     default: {
       deploymentType satisfies never;
       return "";
@@ -440,6 +448,8 @@ export function getDeploymentLabel({
       }
       return whoseName === null ? "Development (Cloud)" : `${whoseName}’s Dev`;
     }
+    case "custom":
+      return "Custom";
     default: {
       deployment.deploymentType satisfies never;
       return "";

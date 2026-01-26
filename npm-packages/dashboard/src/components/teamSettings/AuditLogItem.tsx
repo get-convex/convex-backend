@@ -790,7 +790,10 @@ function deploymentDisplayName(deployment: DeploymentResponse) {
       return "a development deployment";
     case "preview":
       return "a preview deployment";
+    case "custom":
+      return "a custom deployment";
     default:
+      deployment.deploymentType satisfies never;
       return "a deployment";
   }
 }

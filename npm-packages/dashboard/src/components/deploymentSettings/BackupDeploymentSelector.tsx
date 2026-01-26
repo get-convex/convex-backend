@@ -334,8 +334,10 @@ function deploymentListOrder(
       return 0;
     case "preview":
       return 1;
+    case "custom":
+      return 3;
     case "dev":
-      return isMine ? 2 : 3;
+      return isMine ? 2 : 4;
     default: {
       deploymentType satisfies never;
       throw new Error("Unexpected deployment type");

@@ -146,7 +146,7 @@ type EnvironmentVariableDiff =
 export const diffEnvironmentVariables = (
   projectEnvVariables: { configs: ProjectEnvVarConfig[] },
   deploymentEnvVariables: EnvironmentVariable[],
-  deploymentType: "dev" | "preview" | "prod",
+  deploymentType: "dev" | "preview" | "prod" | "custom",
 ): EnvironmentVariableDiff => {
   const deploymentEnvVarMap = new Map(
     deploymentEnvVariables.map((e) => [e.name, e.value]),

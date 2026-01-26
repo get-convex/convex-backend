@@ -98,6 +98,22 @@ function DeploymentURLAndDeployKey() {
           <DeletePreviewDeployment />
         </div>
       );
+    case "custom":
+      return (
+        <>
+          <Sheet>
+            <DeploymentUrl>
+              Configure a Convex client with this URL.
+            </DeploymentUrl>
+          </Sheet>
+          <Sheet>
+            <HttpActionsUrl />
+          </Sheet>
+          <Sheet>
+            <DeployKeysForDeployment />
+          </Sheet>
+        </>
+      );
     default: {
       deploymentType satisfies never;
       return null;

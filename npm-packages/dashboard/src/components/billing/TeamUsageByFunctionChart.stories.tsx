@@ -2,6 +2,7 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { DeploymentResponse, ProjectDetails } from "generatedApi";
 import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
+import { Sheet } from "@ui/Sheet";
 import {
   FunctionBreakdownMetricActionCompute,
   FunctionBreakdownMetricCalls,
@@ -12,6 +13,11 @@ import {
 
 const meta = {
   component: TeamUsageByFunctionChart,
+  render: (args) => (
+    <Sheet>
+      <TeamUsageByFunctionChart {...args} />
+    </Sheet>
+  ),
 } satisfies Meta<typeof TeamUsageByFunctionChart>;
 
 export default meta;
@@ -67,6 +73,16 @@ const deployments: DeploymentResponse[] = [
     creator: 1,
     previewIdentifier: null,
   },
+  {
+    kind: "cloud",
+    id: 40,
+    projectId: 42,
+    name: "happy-capybara-123",
+    deploymentType: "custom",
+    createTime: 0,
+    creator: 1,
+    previewIdentifier: null,
+  },
 ];
 
 const rows: AggregatedFunctionMetrics[] = [
@@ -103,6 +119,18 @@ const rows: AggregatedFunctionMetrics[] = [
     databaseEgressSize: 12345,
     vectorIngressSize: 0,
     vectorEgressSize: 0,
+    actionComputeTime: 0,
+    componentPath: rootComponentPath,
+  },
+  {
+    projectId: 42,
+    deploymentId: 40,
+    function: "module.js:thisFunctionHasAReallyLongName",
+    callCount: 23_456,
+    databaseIngressSize: 34567,
+    databaseEgressSize: 12345,
+    vectorIngressSize: 1234,
+    vectorEgressSize: 5678,
     actionComputeTime: 0,
     componentPath: rootComponentPath,
   },

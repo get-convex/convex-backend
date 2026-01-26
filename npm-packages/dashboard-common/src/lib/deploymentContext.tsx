@@ -90,7 +90,7 @@ export type DeploymentInfo = (
         id: number;
         name: string;
         projectId: number;
-        deploymentType: "prod" | "dev" | "preview";
+        deploymentType: "prod" | "dev" | "preview" | "custom";
         kind: "local" | "cloud";
         previewIdentifier?: string | null;
       }
