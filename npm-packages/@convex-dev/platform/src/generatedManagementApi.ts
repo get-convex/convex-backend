@@ -283,6 +283,7 @@ export interface components {
             /** @description The full name of the project as it will appear in the dashboard. Spaces
              *     and punctuations allowed. */
             projectName: components["schemas"]["ProjectName"];
+            region?: null | components["schemas"]["PlatformProjectRegion"];
         };
         PlatformCreateProjectResponse: {
             /** @description The readable identifier for this deployment, something like
@@ -372,6 +373,11 @@ export interface components {
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
         };
+        /**
+         * Region
+         * @enum {string}
+         */
+        PlatformProjectRegion: "aws-us-east-1";
         PlatformTokenDetailsResponse: {
             /**
              * Format: int64
@@ -430,6 +436,7 @@ export type PlatformDeploymentResponse = components['schemas']['PlatformDeployme
 export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
 export type PlatformProjectDeploymentType = components['schemas']['PlatformProjectDeploymentType'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
+export type PlatformProjectRegion = components['schemas']['PlatformProjectRegion'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProjectId = components['schemas']['ProjectId'];

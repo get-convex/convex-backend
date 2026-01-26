@@ -13,7 +13,8 @@ impl Default for RegionName {
     }
 }
 
-static DEFAULT_REGION: LazyLock<RegionName> = LazyLock::new(|| "aws-us-east-1".into());
+static DEFAULT_REGION_NAME: LazyLock<RegionName> = LazyLock::new(|| "aws-us-east-1".into());
+pub static TEST_REGION_NAME: LazyLock<RegionName> = LazyLock::new(|| "local".into());
 
 // We are only able to determine what the default region should be at runtime,
 // so we set the region in local_dev_bootstrap or setup_db, and then use the
@@ -22,11 +23,11 @@ static RUNTIME_DEFAULT_REGION: OnceLock<RegionName> = OnceLock::new();
 
 pub fn set_test_region_as_default() -> anyhow::Result<()> {
     RUNTIME_DEFAULT_REGION
-        .set("local".into())
+        .set(TEST_REGION_NAME.clone())
         .map_err(|_| anyhow::anyhow!("Default region already set to test region"))
 }
 
 /// Returns the default region for the current environment.
 pub fn default_region() -> &'static RegionName {
-    RUNTIME_DEFAULT_REGION.get_or_init(|| DEFAULT_REGION.clone())
+    RUNTIME_DEFAULT_REGION.get_or_init(|| DEFAULT_REGION_NAME.clone())
 }

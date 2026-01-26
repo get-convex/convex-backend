@@ -96,6 +96,7 @@ pub use region::{
     default_region,
     set_test_region_as_default,
     RegionName,
+    TEST_REGION_NAME,
 };
 pub use search_index_metric_labels::SearchIndexMetricLabels;
 pub use snapshot_export::SetExportExpirationRequest;
