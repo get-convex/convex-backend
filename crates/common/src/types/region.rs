@@ -24,9 +24,9 @@ static RUNTIME_DEFAULT_REGION: OnceLock<RegionName> = OnceLock::new();
 pub fn set_test_region_as_default() -> anyhow::Result<()> {
     RUNTIME_DEFAULT_REGION
         .set(TEST_REGION_NAME.clone())
-        .or_else(|region| {
+        .or_else(|_| {
             // Allow calling this multiple times if it's already set to the test region name
-            if region == *TEST_REGION_NAME {
+            if RUNTIME_DEFAULT_REGION.get() == Some(&*TEST_REGION_NAME) {
                 Ok(())
             } else {
                 Err(anyhow::anyhow!(
