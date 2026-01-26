@@ -210,6 +210,7 @@ serde_with = "3.16.1"
 sha2 = { version = "0.10.8" }
 short_future = { version = "0.1.1" }
 slab = "0.4.9"
+slugify = "0.1.0"
 smallvec = "1"
 sourcemap = "9"
 spki = "0.7.3"
