@@ -108,17 +108,22 @@ export default function ResultList({ results }: ResultListProps) {
         >
           <a
             href={result.url}
-            className="text-neutral-n10! flex gap-4 items-center hover:no-underline hover:text-neutral-n10! w-full dark:text-neutral-n2!"
+            className="text-neutral-n10! flex gap-4 items-center no-underline! hover:no-underline! hover:text-neutral-n10! w-full dark:text-neutral-n2!"
           >
             <div className="flex flex-col grow min-w-0">
               <div className="font-bold text-sm">{result.title}</div>
               {result.subtext && (
-                <div className="text-sm text-neutral-n7 overflow-hidden whitespace-nowrap text-ellipsis min-w-0">
+                <div className="text-sm text-neutral-n9 overflow-hidden whitespace-nowrap text-ellipsis min-w-0">
                   {result.subtext}
                 </div>
               )}
+              {!result.url.includes("stack.convex.dev") && (
+                <div className="pt-0.5 text-xs text-neutral-n8 overflow-hidden whitespace-nowrap text-ellipsis min-w-0">
+                  {result.url}
+                </div>
+              )}
             </div>
-            <span className="text-xs text-neutral-n8 font-semibold bg-neutral-n2 rounded-sm shrink-0 px-2 py-1">
+            <span className="text-xs text-neutral-n8 font-semibold bg-neutral-n2 rounded-sm shrink-0 px-2 py-1 no-underline!">
               {labelForUrl(result.url)}
             </span>
           </a>
