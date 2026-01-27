@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context as _;
 use common::{
     bootstrap_model::tables::{
         TableMetadata,
@@ -129,7 +130,10 @@ impl TableSummary {
         let size = object.size() as u64;
         Ok(Self {
             inferred_type: self.inferred_type.remove(object)?,
-            total_size: self.total_size - size,
+            total_size: self
+                .total_size
+                .checked_sub(size)
+                .context("total_size went negative?")?,
         })
     }
 
