@@ -3,7 +3,7 @@ import { canonicalizedModulePath, componentDefinitionPath } from "./paths.js";
 import { Identifier, Reference, identifier, reference } from "./types.js";
 import { analyzedModule, udfConfig } from "./modules.js";
 import { looseObject } from "./utils.js";
-import { convexValidator } from "./validator.js";
+import { ConvexValidator } from "./validator.js";
 
 export const componentArgumentValidator = looseObject({
   type: z.literal("value"),
@@ -83,7 +83,9 @@ export const tableDefinition = looseObject({
   indexes: z.array(indexSchema),
   searchIndexes: z.array(searchIndexSchema).optional().nullable(),
   vectorIndexes: z.array(vectorIndexSchema).optional().nullable(),
-  documentType: convexValidator,
+  // We don't validate validators because of performance issues and since this
+  // is a server returned value.
+  documentType: z.custom<ConvexValidator>(),
 });
 export type TableDefinition = z.infer<typeof tableDefinition>;
 
