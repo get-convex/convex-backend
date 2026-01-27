@@ -5,7 +5,6 @@ import { Command } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { chalkStderr } from "chalk";
 import {
-  CloudDeploymentType,
   DeploymentSelectionOptions,
   deploymentSelectionWithinProjectFromOptions,
   fetchTeamAndProject,
@@ -48,7 +47,7 @@ async function selectEnvDeployment(
   deployment: {
     deploymentUrl: string;
     deploymentName: string;
-    deploymentType: CloudDeploymentType;
+    deploymentType: "dev" | "preview" | "prod";
     adminKey: string;
     deploymentNotice: string;
   };
@@ -78,6 +77,15 @@ async function selectEnvDeployment(
   const deploymentNotice = ` (on ${chalkStderr.bold(deploymentFields.deploymentType)} deployment ${chalkStderr.bold(deploymentFields.deploymentName)})`;
 
   const deploymentType = deploymentFields.deploymentType;
+
+  if (deploymentType === "custom") {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `The WorkOS integration is not available for custom deployments yet.`,
+    });
+  }
+
   if (
     deploymentType !== "dev" &&
     deploymentType !== "preview" &&
@@ -86,7 +94,7 @@ async function selectEnvDeployment(
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `WorkOS integration is only available for cloud deployments (dev, preview, prod), not ${deploymentType}`,
+      printedMessage: `The WorkOS integration is only available for cloud deployments (dev, preview, prod), not ${deploymentType}`,
     });
   }
 

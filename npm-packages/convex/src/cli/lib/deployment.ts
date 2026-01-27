@@ -227,6 +227,7 @@ export function isDeploymentKey(adminKey: string) {
 //  "prod:deploymentName|key" -> "prod"
 //  "preview:deploymentName|key" -> "preview"
 //  "dev:deploymentName|key" -> "dev"
+//  "custom:deploymentName|key" -> "custom"
 //  "key" -> "prod"
 export function deploymentTypeFromAdminKey(adminKey: string) {
   const parts = adminKey.split(":");

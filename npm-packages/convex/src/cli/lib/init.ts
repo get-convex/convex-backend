@@ -42,7 +42,7 @@ export async function finalizeConfiguration(
     options.changedDeploymentEnvVar ||
     envVarWrite !== null;
   if (anyChanges) {
-    const dashboardUrl = getDashboardUrl(ctx, {
+    const dashboardUrl = await getDashboardUrl(ctx, {
       deploymentName: options.deploymentName,
       deploymentType: options.deploymentType,
     });
@@ -63,6 +63,7 @@ function messageForDeploymentType(deploymentType: DeploymentType, url: string) {
     case "dev":
     case "prod":
     case "preview":
+    case "custom":
       return `Provisioned a ${deploymentType} deployment`;
     default: {
       deploymentType satisfies never;

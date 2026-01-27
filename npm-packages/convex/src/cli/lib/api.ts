@@ -19,7 +19,7 @@ import {
 import { loadLocalDeploymentCredentials } from "./localDeployment/localDeployment.js";
 import { loadAnonymousDeployment } from "./localDeployment/anonymous.js";
 export type DeploymentName = string;
-export type CloudDeploymentType = "prod" | "dev" | "preview";
+export type CloudDeploymentType = "prod" | "dev" | "preview" | "custom";
 export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
 export type DeploymentType = AccountRequiredDeploymentType | "anonymous";
 

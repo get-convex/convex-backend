@@ -6,7 +6,7 @@ export const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
   ? "http://localhost:6789"
   : "https://dashboard.convex.dev";
 
-export function getDashboardUrl(
+export async function getDashboardUrl(
   ctx: Context,
   {
     deploymentName,
@@ -15,7 +15,7 @@ export function getDashboardUrl(
     deploymentName: string;
     deploymentType: DeploymentType;
   },
-): string | null {
+): Promise<string | null> {
   switch (deploymentType) {
     case "anonymous": {
       return localDashboardUrl(ctx, deploymentName);
@@ -24,9 +24,15 @@ export function getDashboardUrl(
     case "dev":
     case "prod":
     case "preview":
+    case "custom":
       return deploymentDashboardUrlPage(deploymentName, "");
     default: {
-      return deploymentType satisfies never;
+      deploymentType satisfies never;
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Unknown deployment type: ${deploymentType as any}`,
+      });
     }
   }
 }
