@@ -20,8 +20,8 @@ them, the agent will use your default dev deployment to develop, conflicting
 with your own changes!
 
 Instead, set `CONVEX_AGENT_MODE=anonymous` in this environment, causing the
-agent to use [anonymous development](/docs/cli/local-deployments-for-dev.mdx) to
-run a separate Convex backend on the VM where the agent is working.
+agent to use [anonymous development](/cli/local-deployments-for-dev.mdx) to run
+a separate Convex backend on the VM where the agent is working.
 
 <BetaAdmonition feature="Convex Agent Mode" verb="is" />
 

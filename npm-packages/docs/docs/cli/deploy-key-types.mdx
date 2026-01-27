@@ -27,7 +27,7 @@ permission to push code to and read/write data from any deployment this user has
 access to.
 
 Using Convex locally without logging in
-([anonymous development](/docs/cli/local-deployments-for-dev.mdx#anonymous-development))
+([anonymous development](/cli/local-deployments-for-dev.mdx#anonymous-development))
 creates a deployment locally and records this preference for this project in the
 `.env.local` file in the project directory. The _admin key_ for this anonymous
 backend is stored in `~/.convex/anonymous-convex-backend-state/` along with its
@@ -93,9 +93,8 @@ connection to https://convex.dev to be used since it's a irrevocable secret
 baked into the deployment when created.
 
 These keys are used to control
-[anonymous](/docs/cli/local-deployments-for-dev.mdx#anonymous-development)
-Convex deployments locally without logging in, but rarely need to be set
-explicitly.
+[anonymous](/cli/local-deployments-for-dev.mdx#anonymous-development) Convex
+deployments locally without logging in, but rarely need to be set explicitly.
 
 Setting `CONVEX_DEPLOY_KEY` to one will cause the Convex CLI to run against that
 deployment instead of offering a choice.
@@ -125,4 +124,4 @@ deployment for development.
 This can help limit the blast radius when developing with an agent.
 
 To give an agent exclusive access to its own dev deployment, see
-[Agent Mode](/docs/cli/background-agents.mdx).
+[Agent Mode](/cli/background-agents.mdx).

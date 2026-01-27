@@ -61,9 +61,9 @@ using rigorous evals. You can help by
 
 Remote cloud-based coding agents like Jules, Devin, Codex, and Cursor background
 agents can use Convex deployments when the CLI is in
-[Agent Mode](/docs/cli/background-agents.mdx). This limits the permissions
-necessary for these remote dev environments while letting agents run codegen,
-iterate on code, run tests, run one-off functions.
+[Agent Mode](/cli/background-agents.mdx). This limits the permissions necessary
+for these remote dev environments while letting agents run codegen, iterate on
+code, run tests, run one-off functions.
 
 A good setup script for e.g. ChatGPT Codex might include
 
