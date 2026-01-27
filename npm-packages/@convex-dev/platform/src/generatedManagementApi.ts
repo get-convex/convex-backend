@@ -126,6 +126,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/list_deployment_classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_deployment_classes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deployments/{deployment_name}/create_deploy_key": {
         parameters: {
             query?: never;
@@ -283,8 +299,17 @@ export interface components {
         /** @enum {string} */
         CreateDeploymentType: "dev" | "prod";
         /** @enum {string} */
+        DeploymentClass: "s16" | "s256" | "d1024";
+        DeploymentClassMetadata: {
+            available: boolean;
+            type: components["schemas"]["DeploymentClass"];
+        };
+        /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
+        ListDeploymentClassesResponse: {
+            items: components["schemas"]["DeploymentClassMetadata"][];
+        };
         /** Format: int64 */
         MemberId: number;
         PlatformCreateDeployKeyArgs: {
@@ -440,8 +465,11 @@ export interface components {
 }
 export type AdminKey = components['schemas']['AdminKey'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
+export type DeploymentClass = components['schemas']['DeploymentClass'];
+export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
+export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
@@ -598,6 +626,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_deployment_classes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeploymentClassesResponse"];
+                };
             };
         };
     };

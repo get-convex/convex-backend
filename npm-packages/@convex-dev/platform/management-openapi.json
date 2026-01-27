@@ -262,6 +262,31 @@
         ]
       }
     },
+    "/teams/{team_id}/list_deployment_classes": {
+      "get": {
+        "operationId": "list_deployment_classes",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeploymentClassesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/deployments/{deployment_name}/create_deploy_key": {
       "post": {
         "summary": "Create deploy key",
@@ -555,6 +580,29 @@
           "prod"
         ]
       },
+      "DeploymentClass": {
+        "type": "string",
+        "enum": [
+          "s16",
+          "s256",
+          "d1024"
+        ]
+      },
+      "DeploymentClassMetadata": {
+        "type": "object",
+        "required": [
+          "type",
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "type": {
+            "$ref": "#/components/schemas/DeploymentClass"
+          }
+        }
+      },
       "DeploymentType": {
         "type": "string",
         "enum": [
@@ -566,6 +614,20 @@
       },
       "DeviceName": {
         "type": "string"
+      },
+      "ListDeploymentClassesResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentClassMetadata"
+            }
+          }
+        }
       },
       "MemberId": {
         "type": "integer",
