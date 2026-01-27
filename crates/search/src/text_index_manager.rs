@@ -325,15 +325,33 @@ impl TextIndexManager {
                         ref on_disk_state, ..
                     } = metadata.config
                     {
-                        let TextIndexState::Backfilling(_) = on_disk_state else {
-                            anyhow::bail!(
-                                "Inserted new search index that wasn't backfilling: {metadata:?}"
-                            );
+                        let index = match on_disk_state {
+                            TextIndexState::Backfilling(_) => TextIndex::Backfilling {
+                                memory_index: MemoryTextIndex::new(ts),
+                            },
+                            TextIndexState::Backfilled { snapshot, .. } => {
+                                let disk_index = DiskIndex::try_from(snapshot.data.clone())?;
+                                TextIndex::Backfilled(SnapshotInfo {
+                                    disk_index,
+                                    disk_index_ts: snapshot.ts,
+                                    disk_index_version: snapshot.version,
+                                    // N.B. This is only correct because we only insert search
+                                    // indexes as Backfilled iff the table is empty and we subscribe
+                                    // to the count, which takes a read dependency on the whole
+                                    // table. If there is a write to the table, the transaction will
+                                    // fail.
+                                    memory_index: MemoryTextIndex::new(WriteTimestamp::Committed(
+                                        snapshot.ts.succ()?,
+                                    )),
+                                })
+                            },
+                            TextIndexState::SnapshottedAt(_) => {
+                                anyhow::bail!(
+                                    "Inserted new search index in unexpected state: {metadata:?}"
+                                );
+                            },
                         };
-                        let memory_index = MemoryTextIndex::new(ts);
-                        let index = TextIndex::Backfilling { memory_index };
                         indexes.insert(insertion.id().internal_id(), index);
-
                         metrics::log_index_created();
                     }
                 },

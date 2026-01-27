@@ -30,10 +30,18 @@ use super::{
     IndexConfig,
 };
 use crate::{
-    bootstrap_model::index::text_index::{
-        TextIndexBackfillState,
-        TextIndexSpec,
-        TextIndexState,
+    bootstrap_model::index::{
+        text_index::{
+            TextIndexBackfillState,
+            TextIndexSnapshotData,
+            TextIndexSpec,
+            TextIndexState,
+            TextSnapshotVersion,
+        },
+        vector_index::{
+            VectorIndexSnapshot,
+            VectorIndexSnapshotData,
+        },
     },
     document::{
         ParseDocument,
@@ -44,6 +52,7 @@ use crate::{
         GenericIndexName,
         IndexDescriptor,
         IndexTableIdentifier,
+        RepeatableTimestamp,
     },
 };
 
@@ -68,6 +77,16 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         fields: IndexedFields,
     ) -> Self {
         Self::_new_backfilling(index_created_lower_bound, name, fields, false)
+    }
+
+    pub fn new_backfilled(name: GenericIndexName<T>, fields: IndexedFields, staged: bool) -> Self {
+        Self {
+            name,
+            config: IndexConfig::Database {
+                spec: DatabaseIndexSpec { fields },
+                on_disk_state: DatabaseIndexState::Backfilled { staged },
+            },
+        }
     }
 
     fn _new_backfilling(
@@ -101,6 +120,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         name: GenericIndexName<T>,
         search_field: FieldPath,
         filter_fields: BTreeSet<FieldPath>,
+        staged: bool,
     ) -> Self {
         Self::new_text_index(
             name,
@@ -108,14 +128,16 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                 search_field,
                 filter_fields,
             },
-            TextIndexState::Backfilling(TextIndexBackfillState::new(false)),
+            TextIndexState::Backfilling(TextIndexBackfillState::new(staged)),
         )
     }
 
-    pub fn new_staged_backfilling_text_index(
+    pub fn new_backfilled_text_index(
         name: GenericIndexName<T>,
         search_field: FieldPath,
         filter_fields: BTreeSet<FieldPath>,
+        snapshot_ts: RepeatableTimestamp,
+        staged: bool,
     ) -> Self {
         Self::new_text_index(
             name,
@@ -123,7 +145,14 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                 search_field,
                 filter_fields,
             },
-            TextIndexState::Backfilling(TextIndexBackfillState::new(true)),
+            TextIndexState::Backfilled {
+                snapshot: super::text_index::TextIndexSnapshot {
+                    data: TextIndexSnapshotData::MultiSegment(vec![]),
+                    ts: *snapshot_ts,
+                    version: TextSnapshotVersion::V2UseStringIds,
+                },
+                staged,
+            },
         )
     }
 
@@ -132,6 +161,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         vector_field: FieldPath,
         dimensions: VectorDimensions,
         filter_fields: BTreeSet<FieldPath>,
+        staged: bool,
     ) -> Self {
         Self {
             name,
@@ -141,7 +171,34 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                     vector_field,
                     filter_fields,
                 },
-                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(false)),
+                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(staged)),
+            },
+        }
+    }
+
+    pub fn new_backfilled_vector_index(
+        name: GenericIndexName<T>,
+        vector_field: FieldPath,
+        dimensions: VectorDimensions,
+        filter_fields: BTreeSet<FieldPath>,
+        snapshot_ts: RepeatableTimestamp,
+        staged: bool,
+    ) -> Self {
+        Self {
+            name,
+            config: IndexConfig::Vector {
+                spec: VectorIndexSpec {
+                    dimensions,
+                    vector_field,
+                    filter_fields,
+                },
+                on_disk_state: VectorIndexState::Backfilled {
+                    snapshot: VectorIndexSnapshot {
+                        data: VectorIndexSnapshotData::MultiSegment(vec![]),
+                        ts: *snapshot_ts,
+                    },
+                    staged,
+                },
             },
         }
     }
@@ -161,25 +218,6 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                 Ok(())
             },
             _ => Err(anyhow::anyhow!("Not a vector index in backfilling state")),
-        }
-    }
-
-    pub fn new_staged_backfilling_vector_index(
-        name: GenericIndexName<T>,
-        vector_field: FieldPath,
-        dimensions: VectorDimensions,
-        filter_fields: BTreeSet<FieldPath>,
-    ) -> Self {
-        Self {
-            name,
-            config: IndexConfig::Vector {
-                spec: VectorIndexSpec {
-                    dimensions,
-                    vector_field,
-                    filter_fields,
-                },
-                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(true)),
-            },
         }
     }
 

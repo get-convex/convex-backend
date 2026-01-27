@@ -456,83 +456,131 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     async fn indexes_in_new_schema(
         &mut self,
         tables_in_schema: &BTreeMap<TableName, TableDefinition>,
+        table_namespace: TableNamespace,
     ) -> anyhow::Result<BTreeMap<IndexName, IndexMetadata<TableName>>> {
         let mut indexes_in_schema: BTreeMap<IndexName, IndexMetadata<TableName>> = BTreeMap::new();
+        let snapshot_ts = self.tx.begin_timestamp();
         for (table_name, table_schema) in tables_in_schema {
-            for (index_descriptor, index_schema) in &table_schema.indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                let exists = indexes_in_schema.insert(
-                    index_name.clone(),
-                    IndexMetadata::new_backfilling(
-                        *self.tx.begin_timestamp(),
-                        index_name.clone(),
-                        index_schema.fields.clone(),
-                    ),
-                );
-                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
-            }
-            for (index_descriptor, index_schema) in &table_schema.staged_db_indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                let exists = indexes_in_schema.insert(
-                    index_name.clone(),
-                    IndexMetadata::new_staged_backfilling(
-                        *self.tx.begin_timestamp(),
-                        index_name.clone(),
-                        index_schema.fields.clone(),
-                    ),
-                );
-                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
-            }
-            for (index_descriptor, index_schema) in &table_schema.text_indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                let exists = indexes_in_schema.insert(
-                    index_name.clone(),
-                    IndexMetadata::new_backfilling_text_index(
-                        index_name.clone(),
-                        index_schema.search_field.clone(),
-                        index_schema.filter_fields.clone(),
-                    ),
-                );
-                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
-            }
-            for (index_descriptor, index_schema) in &table_schema.staged_text_indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                let exists = indexes_in_schema.insert(
-                    index_name.clone(),
-                    IndexMetadata::new_staged_backfilling_text_index(
-                        index_name.clone(),
-                        index_schema.search_field.clone(),
-                        index_schema.filter_fields.clone(),
-                    ),
-                );
-                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
-            }
-            for (index_descriptor, index_schema) in &table_schema.vector_indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                let exists = indexes_in_schema.insert(
-                    index_name.clone(),
-                    IndexMetadata::new_backfilling_vector_index(
-                        index_name.clone(),
-                        index_schema.vector_field.clone(),
-                        index_schema.dimension,
-                        index_schema.filter_fields.clone(),
-                    ),
-                );
-                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
-            }
-            for (index_descriptor, index_schema) in &table_schema.staged_vector_indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                let exists = indexes_in_schema.insert(
-                    index_name.clone(),
-                    IndexMetadata::new_staged_backfilling_vector_index(
-                        index_name.clone(),
-                        index_schema.vector_field.clone(),
-                        index_schema.dimension,
-                        index_schema.filter_fields.clone(),
-                    ),
-                );
-                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
-            }
+            let table_is_empty = self.tx.count(table_namespace, table_name).await? == Some(0);
+            let into_db_index_metadata = |indexes: &BTreeMap<_, _>, is_staged: bool| {
+                indexes
+                    .iter()
+                    .map(
+                        |(index_descriptor, index_schema): (
+                            &IndexDescriptor,
+                            &common::schemas::IndexSchema,
+                        )| {
+                            let index_name =
+                                IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                            let index_metadata = if table_is_empty {
+                                IndexMetadata::new_backfilled(
+                                    index_name.clone(),
+                                    index_schema.fields.clone(),
+                                    is_staged,
+                                )
+                            } else if is_staged {
+                                IndexMetadata::new_staged_backfilling(
+                                    *self.tx.begin_timestamp(),
+                                    index_name.clone(),
+                                    index_schema.fields.clone(),
+                                )
+                            } else {
+                                IndexMetadata::new_backfilling(
+                                    *self.tx.begin_timestamp(),
+                                    index_name.clone(),
+                                    index_schema.fields.clone(),
+                                )
+                            };
+                            anyhow::Ok((index_name, index_metadata))
+                        },
+                    )
+                    .try_collect::<BTreeMap<_, _>>()
+            };
+
+            let into_text_index_metadata = |indexes: &BTreeMap<_, _>, is_staged: bool| {
+                indexes
+                    .iter()
+                    .map(
+                        |(index_descriptor, index_schema): (
+                            &IndexDescriptor,
+                            &common::schemas::TextIndexSchema,
+                        )| {
+                            let index_name =
+                                IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                            let index_metadata = if table_is_empty {
+                                IndexMetadata::new_backfilled_text_index(
+                                    index_name.clone(),
+                                    index_schema.search_field.clone(),
+                                    index_schema.filter_fields.clone(),
+                                    snapshot_ts,
+                                    is_staged,
+                                )
+                            } else {
+                                IndexMetadata::new_backfilling_text_index(
+                                    index_name.clone(),
+                                    index_schema.search_field.clone(),
+                                    index_schema.filter_fields.clone(),
+                                    is_staged,
+                                )
+                            };
+                            anyhow::Ok((index_name, index_metadata))
+                        },
+                    )
+                    .try_collect::<BTreeMap<_, _>>()
+            };
+
+            let into_vector_index_metadata = |indexes: &BTreeMap<_, _>, is_staged: bool| {
+                indexes
+                    .iter()
+                    .map(
+                        |(index_descriptor, index_schema): (
+                            &IndexDescriptor,
+                            &common::schemas::VectorIndexSchema,
+                        )| {
+                            let index_name =
+                                IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                            let index_metadata = if table_is_empty {
+                                IndexMetadata::new_backfilled_vector_index(
+                                    index_name.clone(),
+                                    index_schema.vector_field.clone(),
+                                    index_schema.dimension,
+                                    index_schema.filter_fields.clone(),
+                                    snapshot_ts,
+                                    is_staged,
+                                )
+                            } else {
+                                IndexMetadata::new_backfilling_vector_index(
+                                    index_name.clone(),
+                                    index_schema.vector_field.clone(),
+                                    index_schema.dimension,
+                                    index_schema.filter_fields.clone(),
+                                    is_staged,
+                                )
+                            };
+                            anyhow::Ok((index_name, index_metadata))
+                        },
+                    )
+                    .try_collect::<BTreeMap<_, _>>()
+            };
+
+            indexes_in_schema.extend(into_db_index_metadata(&table_schema.indexes, false)?);
+            indexes_in_schema.extend(into_db_index_metadata(
+                &table_schema.staged_db_indexes,
+                true,
+            )?);
+            indexes_in_schema.extend(into_text_index_metadata(&table_schema.text_indexes, false)?);
+            indexes_in_schema.extend(into_text_index_metadata(
+                &table_schema.staged_text_indexes,
+                true,
+            )?);
+            indexes_in_schema.extend(into_vector_index_metadata(
+                &table_schema.vector_indexes,
+                false,
+            )?);
+            indexes_in_schema.extend(into_vector_index_metadata(
+                &table_schema.staged_vector_indexes,
+                true,
+            )?);
         }
         Ok(indexes_in_schema)
     }
@@ -546,7 +594,9 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         namespace: TableNamespace,
         tables_in_new_schema: &BTreeMap<TableName, TableDefinition>,
     ) -> anyhow::Result<IndexDiff> {
-        let indexes_in_schema = self.indexes_in_new_schema(tables_in_new_schema).await?;
+        let indexes_in_schema = self
+            .indexes_in_new_schema(tables_in_new_schema, namespace)
+            .await?;
         let indexes_no_longer_in_schema: HashMap<
             IndexName,
             Vec<ParsedDocument<DeveloperIndexMetadata>>,
@@ -1116,6 +1166,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     index_name,
                     search_field,
                     filter_fields,
+                    false,
                 ),
                 IndexConfig::Vector {
                     spec:
@@ -1130,6 +1181,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     vector_field,
                     dimensions,
                     filter_fields,
+                    false,
                 ),
             };
             SystemMetadataModel::new_global(self.tx)

@@ -170,6 +170,7 @@ impl<RT: Runtime> Scenario<RT> {
             INDEXED_FIELD.parse()?,
             DIMENSIONS.try_into()?,
             FILTER_FIELDS.iter().map(|f| f.parse()).try_collect()?,
+            false,
         );
         IndexModel::new(&mut tx)
             .add_application_index(namespace, index)

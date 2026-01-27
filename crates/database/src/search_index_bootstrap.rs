@@ -907,6 +907,7 @@ mod tests {
             vector_field,
             (2u32).try_into()?,
             btreeset![filter_field],
+            false,
         );
         Ok(metadata)
     }
@@ -1136,6 +1137,7 @@ mod tests {
             "test.by_text".parse()?,
             "searchField".parse()?,
             btreeset! {"filterField".parse()?},
+            false,
         );
         IndexModel::new(&mut tx)
             .add_application_index(TableNamespace::test_user(), index)

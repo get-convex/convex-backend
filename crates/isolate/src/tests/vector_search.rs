@@ -31,6 +31,7 @@ async fn add_vector_index(t: &UdfTest<TestRuntime, TestPersistence>) -> anyhow::
         "vector".parse()?,
         VectorDimensions::try_from(4)?,
         btreeset! { "filterA".parse()?, "filterB".parse()? },
+        false,
     );
     IndexModel::new(&mut tx)
         .add_application_index(TableNamespace::test_user(), index)
