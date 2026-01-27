@@ -143,6 +143,16 @@ pub trait SizedValue {
     fn size(&self) -> u64;
 }
 
+/// Wrapper struct when you're inserting values into the LRU that should always
+/// be considered to be 1 unit in size.
+pub struct UnitSizedValue<T>(pub T);
+
+impl<T> SizedValue for UnitSizedValue<T> {
+    fn size(&self) -> u64 {
+        1
+    }
+}
+
 impl<Value: SizedValue> SizedValue for Arc<Value> {
     fn size(&self) -> u64 {
         Value::size(self)
