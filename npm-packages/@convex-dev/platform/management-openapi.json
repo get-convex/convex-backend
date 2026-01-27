@@ -287,6 +287,31 @@
         }
       }
     },
+    "/teams/{team_id}/list_deployment_regions": {
+      "get": {
+        "operationId": "list_deployment_regions",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDeploymentRegionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/deployments/{deployment_name}/create_deploy_key": {
       "post": {
         "summary": "Create deploy key",
@@ -603,6 +628,25 @@
           }
         }
       },
+      "DeploymentRegionMetadata": {
+        "type": "object",
+        "required": [
+          "name",
+          "displayName",
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/RegionName"
+          }
+        }
+      },
       "DeploymentType": {
         "type": "string",
         "enum": [
@@ -625,6 +669,20 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DeploymentClassMetadata"
+            }
+          }
+        }
+      },
+      "ListDeploymentRegionsResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentRegionMetadata"
             }
           }
         }
