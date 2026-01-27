@@ -264,7 +264,9 @@
     },
     "/teams/{team_id}/list_deployment_classes": {
       "get": {
-        "operationId": "list_deployment_classes",
+        "summary": "List deployment classes",
+        "description": "Lists the available deployment classes for a team.",
+        "operationId": "list deployment classes",
         "parameters": [
           {
             "name": "team_id",
@@ -289,7 +291,9 @@
     },
     "/teams/{team_id}/list_deployment_regions": {
       "get": {
-        "operationId": "list_deployment_regions",
+        "summary": "List deployment regions",
+        "description": "Lists the available deployment regions for a team.",
+        "operationId": "list deployment regions",
         "parameters": [
           {
             "name": "team_id",
@@ -727,10 +731,12 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
           },
           "region": {
-            "$ref": "#/components/schemas/RegionName"
+            "$ref": "#/components/schemas/RegionName",
+            "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
           },
           "type": {
             "$ref": "#/components/schemas/CreateDeploymentType"
@@ -749,10 +755,12 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
           },
           "deploymentRegion": {
-            "$ref": "#/components/schemas/RegionName"
+            "$ref": "#/components/schemas/RegionName",
+            "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
           },
           "deploymentType": {
             "$ref": "#/components/schemas/CreateDeploymentType",

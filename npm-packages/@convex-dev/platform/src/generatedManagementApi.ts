@@ -133,7 +133,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_deployment_classes"];
+        /**
+         * List deployment classes
+         * @description Lists the available deployment classes for a team.
+         */
+        get: operations["list deployment classes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/list_deployment_regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deployment regions
+         * @description Lists the available deployment regions for a team.
+         */
+        get: operations["list deployment regions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -304,11 +328,19 @@ export interface components {
             available: boolean;
             type: components["schemas"]["DeploymentClass"];
         };
+        DeploymentRegionMetadata: {
+            available: boolean;
+            displayName: string;
+            name: components["schemas"]["RegionName"];
+        };
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
         ListDeploymentClassesResponse: {
             items: components["schemas"]["DeploymentClassMetadata"][];
+        };
+        ListDeploymentRegionsResponse: {
+            items: components["schemas"]["DeploymentRegionMetadata"][];
         };
         /** Format: int64 */
         MemberId: number;
@@ -321,12 +353,20 @@ export interface components {
             deployKey: components["schemas"]["AdminKey"];
         };
         PlatformCreateDeploymentArgs: {
+            /** @description The class to use for this deployment. If not provided, the default
+             *     deployment class for your team will be used. */
             class?: string | null;
+            /** @description The hosting region to use for this deployment. If not provided, the
+             *     default deployment region for your team will be used. */
             region?: components["schemas"]["RegionName"];
             type: components["schemas"]["CreateDeploymentType"];
         };
         PlatformCreateProjectArgs: {
+            /** @description The class to use for this deployment. If not provided, the default
+             *     deployment class for your team will be used. */
             deploymentClass?: string | null;
+            /** @description The hosting region to use for this deployment. If not provided, the
+             *     default deployment region for your team will be used. */
             deploymentRegion?: components["schemas"]["RegionName"];
             /** @description Projects always include a deployment, so start this project off with a
              *     "dev" development deployment or a "prod" production deployment. */
@@ -467,9 +507,11 @@ export type AdminKey = components['schemas']['AdminKey'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
+export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMetadata'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
+export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
@@ -629,7 +671,7 @@ export interface operations {
             };
         };
     };
-    list_deployment_classes: {
+    "list deployment classes": {
         parameters: {
             query?: never;
             header?: never;
@@ -647,6 +689,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListDeploymentClassesResponse"];
+                };
+            };
+        };
+    };
+    "list deployment regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeploymentRegionsResponse"];
                 };
             };
         };
