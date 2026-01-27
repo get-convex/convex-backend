@@ -30,11 +30,10 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { useListVanityDomains } from "api/vanityDomains";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
-import { ProdProvider } from "components/projectSettings/CustomDomains";
+import { DeploymentProvider } from "components/projectSettings/CustomDomains";
 import { useContainerWidth } from "../hooks/useContainerWidth";
 
-// New component for prod domain info
-function ProdDomainInfo({
+function DeploymentDomainInfo({
   deployment,
   deployments,
   whoseName,
@@ -46,56 +45,46 @@ function ProdDomainInfo({
   const team = useCurrentTeam();
   const hasEntitlement = !!useTeamEntitlements(team?.id)?.customDomainsEnabled;
   const domains = useListVanityDomains(
-    hasEntitlement && deployment?.deploymentType === "prod"
-      ? deployment?.name
-      : undefined,
+    hasEntitlement ? deployment?.name : undefined,
   );
   const vanityCloudDomains = domains?.filter(
     (d) => d.requestDestination === "convexCloud",
   );
   const canonicalCloudUrl = useQuery(udfs.convexCloudUrl.default);
-  const vanityUrl =
-    vanityCloudDomains?.find((d) => d.domain === canonicalCloudUrl)?.domain ||
-    vanityCloudDomains?.[0]?.domain;
+  const vanityDomain =
+    vanityCloudDomains?.find((d) => d.domain === canonicalCloudUrl) ||
+    vanityCloudDomains?.[0];
   return (
     <DeploymentLabel
       deployment={deployment}
       whoseName={whoseName}
       deployments={deployments}
-      vanityUrl={vanityUrl}
+      vanityUrl={
+        vanityDomain?.verificationTime ? vanityDomain.domain : undefined
+      }
     />
   );
 }
 
-// New wrapper to keep the deployment label node stable
 function DeploymentLabelWrapper({
   deployment,
   whoseName,
   deployments,
-  prod,
+  deploymentName,
 }: {
   deployment: DeploymentResponse;
   whoseName: string | null;
   deployments: DeploymentResponse[];
-  prod?: DeploymentResponse;
+  deploymentName: string;
 }) {
-  if (prod && deployment.name === prod.name) {
-    return (
-      <ProdProvider deploymentName={prod.name}>
-        <ProdDomainInfo
-          deployment={deployment}
-          whoseName={whoseName}
-          deployments={deployments}
-        />
-      </ProdProvider>
-    );
-  }
   return (
-    <DeploymentLabel
-      deployment={deployment}
-      whoseName={whoseName}
-      deployments={deployments}
-    />
+    <DeploymentProvider deploymentName={deploymentName}>
+      <DeploymentDomainInfo
+        deployment={deployment}
+        whoseName={whoseName}
+        deployments={deployments}
+      />
+    </DeploymentProvider>
   );
 }
 
@@ -235,7 +224,7 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
       deployment={deployment}
       whoseName={whoseName}
       deployments={deployments}
-      prod={prod}
+      deploymentName={deployment.name}
     />
   );
 }

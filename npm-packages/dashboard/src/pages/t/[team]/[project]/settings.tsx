@@ -512,7 +512,7 @@ function ProductionDeployKeys({
   });
 
   const deployKeyDescription = (
-    <p className="mb-2 text-sm text-content-primary">
+    <p className="mb-2 max-w-prose text-sm text-content-primary">
       These keys are for your{" "}
       <Link passHref href={prodHref} className="text-content-link">
         <DeploymentType deploymentType="prod" /> deployment
@@ -593,7 +593,7 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
   const projectAccessTokens = useProjectAccessTokens(project.id);
 
   const deployKeyDescription = (
-    <p className="mb-2 text-sm text-content-primary">
+    <p className="mb-2 max-w-prose text-sm text-content-primary">
       These keys are for creating{" "}
       <Link
         passHref

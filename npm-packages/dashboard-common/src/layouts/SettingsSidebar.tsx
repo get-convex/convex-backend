@@ -11,6 +11,7 @@ export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
   "url-and-deploy-key": "URL & Deploy Key",
   "environment-variables": "Environment Variables",
   authentication: "Authentication",
+  "custom-domains": "Custom Domains",
   snapshots: "Snapshot Import & Export",
   components: "Components",
   backups: "Backup & Restore",
@@ -35,6 +36,7 @@ export function SettingsSidebar({
     isSelfHosted,
     useCurrentTeam,
     useCurrentProject,
+    useCurrentDeployment,
     useTeamUsageState,
     teamsURI,
     projectsURI,
@@ -43,6 +45,7 @@ export function SettingsSidebar({
 
   const team = useCurrentTeam();
   const project = useCurrentProject();
+  const deployment = useCurrentDeployment();
 
   const { isCloudDeploymentInSelfHostedDashboard, deploymentName } =
     useIsCloudDeploymentInSelfHostedDashboard();
@@ -67,11 +70,14 @@ export function SettingsSidebar({
       >
         {/* On larger screens, this is a sidebar and not a popover menu. */}
         {allowedPages.map((page) => {
-          const isCloudOnlyPage = ["backups"].includes(page);
           const showInCloudDashboard =
-            isCloudOnlyPage && isCloudDeploymentInSelfHostedDashboard;
+            page === "backups" && isCloudDeploymentInSelfHostedDashboard;
           const isUnavailableForSelfHosted =
-            isCloudOnlyPage && isSelfHostedDeployment;
+            (page === "backups" || page === "custom-domains") &&
+            isSelfHostedDeployment;
+          const isUnavailableForLocal =
+            (page === "backups" || page === "custom-domains") &&
+            deployment?.kind === "local";
 
           return (
             <SidebarLink
@@ -82,11 +88,17 @@ export function SettingsSidebar({
               }
               isActive={page === selectedPage}
               key={page}
-              disabled={shouldLock(page) || isUnavailableForSelfHosted}
+              disabled={
+                shouldLock(page) ||
+                isUnavailableForSelfHosted ||
+                isUnavailableForLocal
+              }
               tip={
-                isUnavailableForSelfHosted
-                  ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not currently available in self-hosted deployments.`
-                  : undefined
+                isUnavailableForLocal
+                  ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not available in local deployments.`
+                  : isUnavailableForSelfHosted
+                    ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not currently available in self-hosted deployments.`
+                    : undefined
               }
               Icon={shouldLock(page) ? LockClosedIcon : undefined}
               target={showInCloudDashboard ? "_blank" : undefined}

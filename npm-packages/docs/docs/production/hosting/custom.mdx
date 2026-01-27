@@ -10,9 +10,8 @@ sidebar_position: 100
 ## Custom Domains
 
 You can configure a custom domain, like `api.example.com`, to serve HTTP actions
-or Convex functions from your production Convex deployments. The settings for
-this feature are accessed through the Project Settings page on any of your
-projects.
+or Convex functions from your Convex deployments. The settings for this feature
+are accessed through the Deployment Settings page on any of your deployments.
 
 ![Add Custom Domain](/screenshots/add_custom_domain.png)
 
