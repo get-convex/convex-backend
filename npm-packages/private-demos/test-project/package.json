@@ -15,14 +15,14 @@
     "@convex-dev/auth": "^0.0.90",
     "@convex-dev/workflow": "^0.3.3",
     "convex": "workspace:*",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "sharp": "~0.34.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^22.5.4",
-    "@types/react": "^19.2.3",
+    "@types/react": "^19.2.4",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.2.1",
     "dotenv": "^16.4.7",

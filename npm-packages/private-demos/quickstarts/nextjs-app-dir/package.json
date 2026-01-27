@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "convex": "^1.27.4",
-    "next": "^15.5.9",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "next": "^15.5.10",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^1.0.0",

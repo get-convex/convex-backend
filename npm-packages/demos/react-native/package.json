@@ -12,8 +12,8 @@
     "convex": "^1.31.4",
     "expo": "^54.0.31",
     "expo-status-bar": "~3.0.9",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "react-native": "0.81.5",
     "react-native-dotenv": "^3.4.11",
     "react-native-get-random-values": "~1.11.0"
