@@ -1,0 +1,114 @@
+---
+title: "分页查询"
+slug: "pagination"
+sidebar_position: 60
+description: "加载分页查询数据"
+---
+
+import Messages from "!!raw-loader!@site/../demos/pagination/convex/messages.ts";
+import Download from "!!raw-loader!@site/../demos/pagination/src/download.ts";
+import SimpleCall from "!!raw-loader!@site/../demos/pagination/src/_simpleListing.tsx";
+import CallWithArgs from "!!raw-loader!@site/../demos/pagination/src/_listingWithArgument.tsx";
+
+分页查询是[查询](/functions/query-functions.mdx)的一种，会以分页增量的方式返回结果列表。
+
+它可以用来构建带有“加载更多”按钮的组件，或“无限滚动”的 UI，在用户滚动时按需加载更多结果。
+
+**示例：**
+[分页消息应用](https://github.com/get-convex/convex-demos/tree/main/pagination)
+
+在 Convex 中使用分页非常简单：
+
+1. 编写一个分页查询函数，调用
+   [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)。
+2. 使用 [`usePaginatedQuery`](/api/modules/react#usepaginatedquery) React
+   hook。
+
+和其他 Convex 查询一样，分页查询是完全响应式的。
+
+## 编写分页查询函数 \{#writing-paginated-query-functions\}
+
+Convex 使用基于游标的分页。这意味着分页查询会返回一个名为
+[`Cursor`](/api/modules/server#cursor) 的字符串，用来表示当前页面在结果集中结束的位置。要加载更多结果，只需再次调用该查询函数，并传入该游标。
+
+要在 Convex 中实现这一点，定义一个查询函数，该函数：
+
+1. 接受一个单个的参数对象，其中包含一个类型为
+   [`PaginationOptions`](/api/interfaces/server.PaginationOptions) 的 `paginationOpts` 属性。
+   * `PaginationOptions` 是一个包含 `numItems` 和 `cursor` 字段的对象。
+   * 使用从 `"convex/server"` 导出的 `paginationOptsValidator` 来
+     [验证](/functions/validation.mdx) 该参数。
+   * 参数对象也可以包含其他属性。
+2. 对[数据库查询](/database/reading-data/reading-data.mdx)调用
+   [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)，传入
+   `PaginationOptions` 并返回其结果。
+   * 返回的
+     [`PaginationResult`](/api/interfaces/server.PaginationResult) 中的 `page`
+     是一个文档数组。你可以在返回之前对其进行
+     [`map`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map)
+     或
+     [`filter`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)
+     操作。
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} title="convex/messages.ts" highlightPatterns={["paginationOpts"]} snippet="list" />
+
+### 额外参数 \{#additional-arguments\}
+
+你可以定义带分页的查询函数，使其在 `paginationOpts` 之外还接收其他参数：
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} snippet="listWithExtraArg" title="convex/messages.ts" />
+
+### 转换结果 \{#transforming-results\}
+
+你可以对 `paginate` 返回对象中的 `page` 属性进行任意
+[转换](/database/reading-data/reading-data.mdx#more-complex-queries)，
+该属性是一个包含文档的数组：
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} snippet="listWithTransformation" title="convex/messages.ts" />
+
+## 在 React 组件中进行分页 \{#paginating-within-react-components\}
+
+要在 React 组件中进行分页，使用
+[`usePaginatedQuery`](/api/modules/react#usepaginatedquery) hook。这个 hook
+为你提供了一个简单的接口来渲染当前项并请求更多数据。在内部，这个 hook 会管理续页游标（continuation cursor）。
+
+这个 hook 的参数是：
+
+* 分页查询函数的名称。
+* 传递给查询函数的参数对象，不包括
+  `paginationOpts`（该参数由 hook 注入）。
+* 一个包含 `initialNumItems` 的选项对象，用于指定第一页加载多少条数据。
+
+这个 hook 返回的对象包含：
+
+* `results`：当前已加载结果的数组。
+* `isLoading`：当前这个 hook 是否正在加载结果。
+* `status`：分页的状态。可能的状态有：
+  * `"LoadingFirstPage"`：正在加载第一页结果。
+  * `"CanLoadMore"`：此查询可能还有更多项可以获取。调用 `loadMore`
+    来获取下一页。
+  * `"LoadingMore"`：当前正在加载另一页结果。
+  * `"Exhausted"`：已经分页到列表末尾。
+* `loadMore(n)`：用于获取更多结果的回调。只有当 `status` 为 `"CanLoadMore"`
+  时才会加载更多结果。
+
+<TSAndJSSnippet sourceTS={SimpleCall} sourceJS={SimpleCall} snippet="example" title="src/App.tsx" highlightPatterns={["usePaginatedQuery\\(", "api.", "{}", "initialNumItems"]} />
+
+如果你的函数需要额外的参数，你也可以在参数对象中一并传入：
+
+<TSAndJSSnippet sourceTS={CallWithArgs} sourceJS={CallWithArgs} snippet="example" title="src/App.tsx" highlightPatterns={["author:"]} />
+
+### 响应式特性 \{#reactivity\}
+
+和其他 Convex 查询函数一样，分页查询也是**完全响应式的**。当分页列表中的
+条目被添加、移除或更改时，你的 React 组件会自动重新渲染。
+
+这带来的一个结果是，**在 Convex 中每页的条目数量可能会发生变化！** 如果你请求一页
+10 个条目，然后其中一个被删除，这一页可能会“缩小”成只有 9 个条目。类似地，如果
+有新条目被添加，这一页也可能会“增长”，超过它最初的大小。
+
+## 手动分页 \{#paginating-manually\}
+
+如果你不是在 React 中进行分页，可以手动多次调用分页函数来收集这些条目：
+
+<TSAndJSSnippet title="download.ts" sourceTS={Download} sourceJS={Download} />

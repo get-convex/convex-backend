@@ -1,0 +1,127 @@
+---
+title: "Claves de despliegue"
+slug: "deploy-key-types"
+sidebar_position: 30
+sidebar_label: "Claves de despliegue"
+description:
+  "Usa claves de despliegue para la autenticación en entornos de compilación de producción"
+---
+
+Cuando no puedas iniciar sesión o usar la CLI de forma interactiva para
+especificar un proyecto o despliegue, por ejemplo en un entorno de compilación
+de producción, puedes establecer la variable de entorno `CONVEX_DEPLOY_KEY`
+con una clave de despliegue para que los comandos de la CLI de Convex se
+ejecuten de forma no interactiva.
+
+Las claves de despliegue identifican un despliegue, proyecto o equipo;
+otorgan permisos para realizar ciertas acciones con esos recursos y pueden
+cambiar el comportamiento de la CLI de Convex.
+
+### Desarrollar localmente no requiere una clave de despliegue \{#developing-locally-does-not-require-a-deploy-key\}
+
+Ejecutar `npx convex dev` en una máquina nueva ofrece la opción de iniciar sesión o ejecutar
+Convex localmente sin una cuenta.
+
+Iniciar sesión almacena un *token de usuario* en `~/.convex/config.json`, que se usa
+automáticamente para todo uso de la CLI en adelante en esa máquina. Este token otorga
+permiso para subir código y leer/escribir datos en cualquier despliegue al que este usuario
+tenga acceso.
+
+Usar Convex localmente sin iniciar sesión
+([desarrollo anónimo](/cli/local-deployments-for-dev.mdx#anonymous-development))
+crea un despliegue local y registra esta preferencia para este proyecto en el
+archivo `.env.local` en el directorio del proyecto. La *clave de administrador* de este backend anónimo
+se almacena en `~/.convex/anonymous-convex-backend-state/` junto con sus
+datos serializados.
+
+En cualquiera de estos casos, no es necesario configurar `CONVEX_DEPLOY_KEY`.
+
+### Cómo configurar una clave de despliegue (deploy key) \{#how-to-set-a-deploy-key\}
+
+Generalmente las deploy keys se configuran en un panel de control del servicio que necesita la clave,
+pero en la mayoría de las shells puedes establecerla justo antes del comando, por ejemplo:
+
+```
+CONVEX_DEPLOY_KEY='key goes here' npx convex dev
+```
+
+o expórtalo antes de ejecutar el comando
+
+```
+export CONVEX_DEPLOY_KEY='la clave va aquí'
+npx convex dev
+```
+
+o añádela al archivo `.env.local`, donde `npx convex` la encontrará al ejecutarse en ese directorio.
+
+# Usos comunes de las claves de despliegue \{#common-uses-of-deploy-keys\}
+
+### Desplegar desde pipelines de compilación \{#deploying-from-build-pipelines\}
+
+Una *deploy key de producción* especifica el despliegue de producción de un proyecto y
+concede permisos para desplegar código en él.
+
+> `prod:qualified-jaguar-123|eyJ2...0=`
+
+Puedes desplegar código desde un pipeline de compilación en el que no puedas iniciar sesión (por ej.
+pipelines de compilación de Vercel, Netlify o Cloudflare).
+
+Lee más sobre
+[desplegar en producción](https://docs.convex.dev/production/hosting/).
+
+### Desplegar en despliegues de vista previa \{#deploying-to-preview-deployments\}
+
+Una *clave de despliegue de vista previa* se ve así:
+
+> `preview:team-slug:project-slug|eyJ2...0=`
+
+Usa una clave de despliegue de vista previa para modificar el comportamiento de un comando normal `npx convex deploy` y desplegar en una rama de vista previa.
+
+Lee más sobre los [despliegues de vista previa](/production/hosting/preview-deployments).
+
+### Claves de administrador \{#admin-keys\}
+
+Una clave de administrador proporciona control total sobre un despliegue.
+
+Una clave de administrador podría verse así:
+
+> `bold-hyena-681|01c2...c09c`
+
+A diferencia de otros tipos de clave de despliegue, una clave de administrador no
+requiere una conexión de red a https://convex.dev para usarse, ya que es un
+secreto irrevocable integrado en el despliegue cuando se crea.
+
+Estas claves se usan para controlar despliegues de Convex
+[anónimos](/cli/local-deployments-for-dev.mdx#anonymous-development)
+localmente sin iniciar sesión, pero rara vez necesitan configurarse de forma
+explícita.
+
+Establecer `CONVEX_DEPLOY_KEY` en una hará que la CLI de Convex se ejecute contra
+ese despliegue en lugar de ofrecer una opción.
+
+## Tipos poco habituales de claves de despliegue \{#rarer-types-of-deploy-keys\}
+
+### Tokens de proyecto \{#project-tokens\}
+
+Un *token de proyecto* otorga control total sobre un proyecto a la CLI de Convex y
+incluye el permiso para crear y usar despliegues de desarrollo y producción
+en ese proyecto.
+
+> `project:team-slug:project-slug|eyJ2...0=`
+
+Los tokens de proyecto se obtienen cuando un usuario concede permiso para usar un proyecto a
+una organización mediante una aplicación OAuth de Convex. Las acciones realizadas con el token se
+efectúan en nombre del usuario, así que si un usuario pierde acceso a un proyecto, el token deja de
+otorgar acceso a este.
+
+### Claves de despliegue de dev \{#development-deploy-keys\}
+
+Una *dev deploy key* puede usarse para otorgar a un agente acceso completo a un único
+despliegue de dev.
+
+> `dev:joyful-jaguar-123|eyJ2...0=`
+
+Esto puede ayudar a limitar el alcance del impacto al desarrollar con un agente.
+
+Para darle a un agente acceso exclusivo a su propio despliegue de dev, consulta
+[Agent Mode](/cli/background-agents.mdx).

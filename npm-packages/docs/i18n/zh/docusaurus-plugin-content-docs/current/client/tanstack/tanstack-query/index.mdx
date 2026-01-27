@@ -1,0 +1,123 @@
+---
+title: "Convex 与 TanStack Query"
+sidebar_label: "TanStack Query"
+description:
+  "将 Convex 与 TanStack Query 集成，实现高级数据获取模式"
+---
+
+import Setup from "!!raw-loader!@site/../demos/react-query/src/main.tsx";
+import App from "!!raw-loader!@site/../demos/react-query/src/App.tsx";
+
+[TanStack Query](https://tanstack.com/query/latest) 是一个优秀且流行的、
+用于管理服务器请求的库。
+
+[`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query)
+库为 TanStack Query 提供了
+[Query Option](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
+相关函数。
+
+标准的 [Convex React 客户端](/client/react) 的所有特性并不都能通过
+TanStack Query 的 API 使用，但你可以将两者结合使用，并在需要时切换回标准的
+Convex React hooks。
+
+<BetaAdmonition feature="The TanStack Query adapter" verb="is" />
+
+这样一来，使用 TanStack Query 的 `useQuery` hook 订阅一个 Convex 查询函数的方式如下：
+
+```ts
+const { data, isPending, error } = useQuery(convexQuery(api.messages.list, {}));
+```
+
+与在 TanStack Query 中针对 API 端点采用的常见轮询模式不同，上面的代码会以响应式的方式从 Convex 服务器接收这个 `api.messages.list` 查询的更新。所有相关订阅的新结果会被推送到客户端，并同时更新，因此数据始终保持最新，而且也不需要手动使查询失效。
+
+<Admonition type="note" title="对其他框架的支持">
+  目前仅通过
+  [`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query)
+  支持 [React
+  Query](https://tanstack.com/query/latest/docs/framework/react/overview)。
+  如果你觉得支持 vue-query、svelte-query、solid-query 或 angular-query 会有帮助，[欢迎告诉我们](https://convex.dev/community)。
+</Admonition>
+
+## 设置 \{#setup\}
+
+要在 TanStack Query 中获取实时更新，创建一个 `ConvexQueryClient` 并将其连接到 TanStack Query 的
+[QueryClient](https://tanstack.com/query/latest/docs/reference/QueryClient)。
+使用以下命令安装适配器库之后
+
+```
+npm i @convex-dev/react-query
+```
+
+像下面这样将 Convex 接入 TanStack Query：
+
+<Snippet title="src/main.tsx" source={Setup} highlightPatterns={["QueryClient", "convexQuery"]} />
+
+注意，当你创建 React 组件树时，你需要同时：
+
+* 使用 TanStack Query 的
+  [`QueryClientProvider`](https://tanstack.com/query/latest/docs/framework/react/reference/QueryClientProvider)
+  包裹你的应用，这样你就可以使用
+  [TanStack Query hooks](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)，以及
+* 使用 [`ConvexProvider`](/api/modules/react#convexprovider) 包裹你的应用，这样你也可以使用标准的 [Convex React](/client/react) hooks
+
+## 查询 \{#queries\}
+
+要为 Convex 的[查询](/functions/query-functions.mdx)建立一个实时更新的订阅，只需在 TanStack 中
+调用 [`useQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)，
+并传入 `convexQuery` 即可：
+
+```ts
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { data, isPending, error } = useQuery(
+    convexQuery(api.functions.myQuery, { id: 123 }),
+  );
+  return isPending ? "加载中..." : data;
+}
+```
+
+你可以将 `convexQuery` 返回的对象展开到一个对象中，并在其中指定附加的
+[`useQuery` 参数](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)。
+
+```ts
+const { data, isPending, error } = useQuery({
+  ...convexQuery(api.functions.myQuery, { id: 123 }),
+  initialData: [], // 如果暂无可用数据,则使用空列表
+  gcTime: 10000, // 组件卸载后继续保持订阅 10 秒
+});
+```
+
+## 变更函数 \{#mutations\}
+
+你的应用可以使用 TanStack
+[`useMutation`](https://tanstack.com/query/latest/docs/framework/react/reference/useMutation)
+hook，并将 `mutationFn` 属性设置为调用 `useConvexMutation` 的结果，从而调用 Convex
+[变更函数](/functions/mutation-functions.mdx)：
+
+```ts
+import { useMutation } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { mutate, isPending } = useMutation({
+    mutationFn: useConvexMutation(api.functions.doSomething),
+  });
+  return <button onClick={() => mutate({a: "Hello"})}>点击我</button>;
+}
+```
+
+`useConvexMutation` 只是对
+[Convex React](/client/react) 中的
+[`useMutation`](/client/react#editing-data) hook 的重新导出。
+
+## 与在 TanStack Query 中使用 `fetch` 的差异 \{#differences-from-using-fetch-with-tanstack-query\}
+
+Convex 比通过 React Query 获取数据的其他方式提供更强的保证，因此某些选项和返回值属性就不再有必要。
+
+对 Convex 查询的订阅会在最后一个使用给定函数的 `useQuery` 的组件卸载后，仍保持活跃状态，持续 `gcTime` 毫秒。该值默认为 5 分钟；如果这会导致函数产生不必要的活动，请使用更小的值。
+
+由 Convex 提供的数据永远不会变陈旧，因此 `useQuery` 返回值中的 `isStale` 属性始终为 false。与 `retry` 相关的选项会被忽略，因为 Convex 通过其 WebSocket 协议提供了自己的重试机制。与 `refetch` 相关的选项同样会被忽略，因为 Convex 查询始终是最新的。

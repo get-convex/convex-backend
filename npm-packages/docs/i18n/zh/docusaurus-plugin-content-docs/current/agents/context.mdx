@@ -1,0 +1,305 @@
+---
+title: LLM 上下文
+sidebar_label: "LLM 上下文"
+sidebar_position: 600
+description: "自定义提供给 Agent 的 LLM 的上下文"
+---
+
+默认情况下，Agent 会基于当前线程的消息历史提供上下文。这个上下文用于生成下一条消息。
+
+上下文可以包含最近的消息，以及通过文本和/或向量搜索找到的消息。
+
+如果提供了 `promptMessageId`，上下文将包含该消息，以及同一 `order` 上的任何其他消息。有关 `order` 的更多详细信息请参见
+[messages.mdx](./messages.mdx#message-ordering)，但在实际使用中，这意味着如果你将用户提交消息的 ID 作为 `promptMessageId` 传入，并且此前已经有一些 assistant 和/或 tool 的响应，这些响应也会被包含在上下文中，从而允许 LLM 继续对话。
+
+你还可以使用 [RAG](./rag.mdx) 为提示词添加额外上下文。
+
+## 自定义上下文 \{#customizing-the-context\}
+
+你可以通过自定义 `contextOptions` 来控制在生成消息时提供给 agent 的上下文。可以在 `Agent` 上将其配置为默认值，也可以在调用 `generateText` 等方法时在调用处传入。
+
+```ts
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  { prompt },
+  {
+    // Values shown are the defaults.
+    contextOptions: {
+      // Whether to exclude tool messages in the context.
+      excludeToolMessages: true,
+      // How many recent messages to include. These are added after the search
+      // messages, and do not count against the search limit.
+      recentMessages: 100,
+      // Options for searching messages via text and/or vector search.
+      searchOptions: {
+        limit: 10, // The maximum number of messages to fetch.
+        textSearch: false, // Whether to use text search to find messages.
+        vectorSearch: false, // Whether to use vector search to find messages.
+        // 注意,这是在应用限制之后。
+        // 例如,这将使获取的消息数量增加四倍。
+        // (搜索中找到的每条消息之前两条,之后一条)
+        messageRange: { before: 2, after: 1 },
+      },
+      // Whether to search across other threads for relevant messages.
+      // By default, only the current thread is searched.
+      searchOtherThreads: false,
+    },
+  },
+);
+```
+
+## 完全控制上下文 \{#full-context-control\}
+
+要完全掌控哪些消息会传递给 LLM，你可以：
+
+1. 提供一个 `contextHandler` 来过滤、修改或丰富上下文消息。
+2. 通过 `messages` 参数手动传入所有消息，并在 `contextOptions` 中指定不使用最近消息或搜索消息。如何手动获取上下文消息，见下文。
+
+### 提供 contextHandler \{#providing-a-contexthandler\}
+
+Agent 会将搜索结果、最近消息、输入消息，以及所有与 `promptMessageId`
+在同一 `order` 上的消息组合在一起（如果提供了 `promptMessageId`）。
+
+你可以通过提供一个 `contextHandler` 来自定义它们的组合方式，并添加或移除
+消息。该函数应返回将要传递给 LLM 的 `ModelMessage[]`。
+
+你可以在 Agent 构造函数中指定 `contextHandler`，也可以在单次生成的调用点
+指定，此时会覆盖 Agent 的任何默认设置。
+
+```ts
+const myAgent = new Agent(components.agent, {
+  ///...
+  contextHandler: async (ctx, args) => {
+    // 这是默认行为。
+    return [
+      ...args.search,
+      ...args.recent,
+      ...args.inputMessages,
+      ...args.inputPrompt,
+      ...args.existingResponses,
+    ];
+    // Equivalent to:
+    return args.allMessages;
+  },
+);
+```
+
+通过这个回调，你可以：
+
+1. 过滤掉你不想包含的消息。
+2. 添加记忆内容或其他上下文。
+3. 添加示例消息，引导 LLM 应该如何响应。
+4. 根据用户或线程注入额外上下文信息。
+5. 从其他线程复制消息。
+6. 对消息进行摘要。
+
+例如：
+
+```ts
+// 注意:在调用点指定时,你也可以利用作用域中可用的变量,
+// 例如,用户处于工作流中的某个特定步骤时。
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  { prompt },
+  {
+    contextHandler: async (ctx, args) => {
+      // Filter out messages that are not relevant.
+      const relevantSearch = args.search.filter((m) => messageIsRelevant(m));
+      // Fetch user memories to include in every prompt.
+      const userMemories = await getUserMemories(ctx, args.userId);
+      // Fetch sample messages to instruct the LLM on how to respond.
+      const sampleMessages = [
+        { role: "user", content: "Generate a function that adds two numbers" },
+        { role: "assistant", content: "function add(a, b) { return a + b; }" },
+      ];
+      // Fetch user context to include in every prompt.
+      const userContext = await getUserContext(ctx, args.userId, args.threadId);
+      // Fetch messages from a related / parent thread.
+      const related = await getRelatedThreadMessages(ctx, args.threadId);
+      return [
+        // Summarize or truncate context messages if they are too long.
+        ...(await summarizeOrTruncateIfTooLong(related)),
+        ...relevantSearch,
+        ...userMemories,
+        ...sampleMessages,
+        ...userContext,
+        ...args.recent,
+        ...args.inputMessages,
+        ...args.inputPrompt,
+        ...args.existingResponses,
+      ];
+    },
+  },
+);
+```
+
+### 手动获取上下文 \{#fetch-context-manually\}
+
+如果你想在不调用 LLM 的情况下，为给定的 prompt 获取上下文消息，
+可以使用 `fetchContextWithPrompt`。这在内部用于获取传递给 AI SDK 的 `generateText`、`streamText` 等方法的上下文消息。
+
+与常规生成一样，你可以提供一个 `prompt` 或 `messages`，以及/或者一个
+`promptMessageId`，通过将某条预先保存的消息作为 prompt 来获取上下文消息。
+
+此方法会返回由最近消息和搜索消息与输入消息合并后的结果。
+
+```ts
+import { fetchContextWithPrompt } from "@convex-dev/agent";
+
+const { messages } = await fetchContextWithPrompt(ctx, components.agent, {
+  prompt,
+  messages,
+  promptMessageId,
+  userId,
+  threadId,
+  contextOptions,
+});
+```
+
+## 搜索消息 \{#search-for-messages\}
+
+这是 agent 自动执行的操作，但有时手动执行也很有用，
+例如查找要包含的自定义上下文。
+
+对于文本和向量搜索，你可以提供 `targetMessageId` 和/或
+`searchText`。它会将该文本嵌入为向量用于搜索。如果未提供 `searchText`，
+则会使用目标消息的文本。
+
+如果提供了 `targetMessageId`，它只会获取该消息之前的搜索消息，
+以及按顺序一直到并包含该消息“order”为止的最近消息。
+这使你可以为较早的消息重新生成回复。
+
+```ts
+import type { MessageDoc } from "@convex-dev/agent";
+
+const messages: MessageDoc[] = await agent.fetchContextMessages(ctx, {
+  threadId,
+  searchText: prompt, // Optional unless you want text/vector search.
+  targetMessageId: promptMessageId, // 可选，用于指定搜索目标。
+  userId, // Optional, unless `searchOtherThreads` is true.
+  contextOptions, // Optional, defaults are used if not provided.
+});
+```
+
+注意：你也可以在没有 agent 的情况下检索消息。主要区别在于，要进行向量搜索时需要你自己创建 embeddings，并且它不会调用你的 usage 处理函数。
+
+```ts
+import { fetchRecentAndSearchMessages } from "@convex-dev/agent";
+
+const { recentMessages, searchMessages } = await fetchRecentAndSearchMessages(
+  ctx,
+  components.agent,
+  {
+    threadId,
+    searchText: prompt, // 可选,除非需要进行文本/向量搜索。
+    targetMessageId: promptMessageId, // 可选,用于指定搜索的目标消息。
+    contextOptions, // 可选,未提供时使用默认值。
+    getEmbedding: async (text) => {
+      const embedding = await textEmbeddingModel.embed(text);
+      return { embedding, textEmbeddingModel };
+    },
+  },
+);
+```
+
+## 搜索其他线程 \{#searching-other-threads\}
+
+如果你将 `searchOtherThreads` 设置为 `true`，Agent 会在属于所提供 `userId` 的所有
+线程中进行搜索。这样可以方便你维护多个 Agent 可以引用的会话。
+
+搜索会使用文本搜索和向量搜索的混合方式。
+
+## 将消息作为上下文传入 \{#passing-in-messages-as-context\}
+
+你可以将消息作为上下文传入 Agent 的 LLM，例如用于实现
+[Retrieval-Augmented Generation](./rag.mdx)。最终发送给 LLM 的消息将是：
+
+1. 系统提示（system prompt）（如果提供了，或者 agent 具有 `instructions`）
+2. 通过 `contextOptions` 找到的消息
+3. 传入 `generateText` 或其他函数调用的 `messages` 参数
+4. 如果提供了 `prompt` 参数，则会追加一条最终消息
+   `{ role: "user", content: prompt }`。
+
+这样，你就可以传入一些不属于线程历史、不会被自动保存，但会被 LLM 作为上下文接收的消息。
+
+## 手动管理嵌入向量 \{#manage-embeddings-manually\}
+
+`Agent` 构造函数中的 `textEmbeddingModel` 参数允许你指定
+用于向量搜索的文本嵌入模型。
+
+如果设置了这个参数，Agent 会自动为消息生成嵌入向量，
+并将其用于向量搜索。
+
+当你更换模型，或决定开始或停止在向量搜索中使用嵌入向量时，
+可以手动管理这些嵌入向量。
+
+为一组消息生成嵌入向量。可以选择传入带有用量处理器的 `config`，
+该配置对象可以是一个全局共享的 `Config` 实例。
+
+```ts
+import { embedMessages } from "@convex-dev/agent";
+
+const embeddings = await embedMessages(
+  ctx,
+  { userId, threadId, textEmbeddingModel, ...config },
+  [{ role: "user", content: "What is love?" }],
+);
+```
+
+为现有消息生成并保存嵌入向量。
+
+```ts
+const embeddings = await supportAgent.generateAndSaveEmbeddings(ctx, {
+  messageIds,
+});
+```
+
+获取和更新嵌入向量，例如在迁移到新模型时使用。
+
+```ts
+const messages = await ctx.runQuery(components.agent.vector.index.paginate, {
+  vectorDimension: 1536,
+  targetModel: "gpt-4o-mini",
+  cursor: null,
+  limit: 10,
+});
+```
+
+根据 Id 更新嵌入。
+
+```ts
+const messages = await ctx.runQuery(components.agent.vector.index.updateBatch, {
+  vectors: [{ model: "gpt-4o-mini", vector: embedding, id: msg.embeddingId }],
+});
+```
+
+注意：如果维度发生变化，你需要先删除旧的嵌入，然后插入新的嵌入。
+
+删除嵌入
+
+```ts
+await ctx.runMutation(components.agent.vector.index.deleteBatch, {
+  ids: [embeddingId1, embeddingId2],
+});
+```
+
+插入向量嵌入
+
+```ts
+const ids = await ctx.runMutation(components.agent.vector.index.insertBatch, {
+  vectorDimension: 1536,
+  vectors: [
+    {
+      model: "gpt-4o-mini",
+      table: "messages",
+      userId: "123",
+      threadId: "123",
+      vector: embedding,
+      // 可选,如果要用 embeddingId 更新消息
+      messageId: messageId,
+    },
+  ],
+});
+```

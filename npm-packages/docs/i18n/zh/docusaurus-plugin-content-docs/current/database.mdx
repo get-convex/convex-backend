@@ -1,0 +1,86 @@
+---
+title: "数据库"
+description: "使用关系型数据模型存储类 JSON 文档"
+hide_table_of_contents: true
+pagination_prev: functions
+---
+
+Convex 数据库提供关系型数据模型，用于存储类 JSON 文档，并且可以在是否定义模式的情况下灵活使用。它“开箱即用”，通过易用的接口为你提供可预测的查询性能。
+
+查询和变更[函数](/functions.mdx)通过轻量级的 JavaScript API 读写数据。你无需进行任何初始化配置，也不需要编写任何 SQL。只需使用 JavaScript 来表达你的应用数据需求。
+
+先从下面的[表](#tables)、[文档](#documents)和[模式](#schemas)基础开始学习，然后继续阅读
+[读取数据](/database/reading-data/reading-data.mdx)和
+[写入数据](/database/writing-data.mdx)。
+
+随着应用变得越来越复杂，你会对数据库提出更多要求：
+
+* 使用[文档 ID](/database/document-ids.mdx)进行关系型数据建模
+* 使用[索引](/database/reading-data/indexes/indexes.md)进行快速查询
+* 使用[分页查询](/database/pagination.mdx)提供大型数据集
+* 通过[定义模式](/database/schemas.mdx)获得类型安全
+* 通过[导入与导出](/database/import-export/import-export.mdx)实现与数据的互操作性
+
+## 表 \{#tables\}
+
+你的 Convex 部署包含用于存储应用数据的表。起初，你的部署中没有任何表或文档。
+
+当你向某个表添加第一个文档时，该表就会自动创建。
+
+```javascript
+// `friends` 表还不存在。
+await ctx.db.insert("friends", { name: "Jamie" });
+// 现在它已存在,并且有一个文档。
+```
+
+无需事先指定模式或显式创建数据表。
+
+## 文档 \{#documents\}
+
+表由文档组成。文档与 JavaScript 对象非常相似。
+它们具有字段和值，并且你可以在其中嵌套数组或对象。
+
+下面这些都是有效的 Convex 文档：
+
+```json
+{}
+{"name": "Jamie"}
+{"name": {"first": "Ari", "second": "Cole"}, "age": 60}
+```
+
+它们还可以包含对其他数据表中其他文档的引用。请参阅
+[数据类型](/database/types.md)，了解 Convex 支持的类型，以及
+[文档 ID](/database/document-ids.mdx)，了解如何使用这些类型对你的数据建模。
+
+## 模式 \{#schemas\}
+
+模式虽为可选，但可以确保你的数据完全符合你的预期。对于一个
+简单的聊天应用，模式大致如下：
+
+```typescript
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// @snippet start schema
+export default defineSchema({
+  messages: defineTable({
+    author: v.id("users"),
+    body: v.string(),
+  }),
+});
+```
+
+你可以根据需要选择尽可能灵活的类型（例如 `v.any()`），也可以通过精确定义一个 `v.object()` 来做到尽可能具体。
+
+查看[模式文档](/database/schemas.mdx)以进一步了解模式。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+href: "/database/reading-data",
+docId: "database/reading-data/reading-data",
+label: "下一步：读取数据",
+}}
+/>
+
+<StackPosts query="database" />

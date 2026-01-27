@@ -1,0 +1,71 @@
+---
+title: "ファイルの配信"
+sidebar_label: "配信"
+sidebar_position: 3
+description: "Convex に保存されたファイルをユーザーに配信する"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import AppTS from "!!raw-loader!@site/../demos/file-storage/src/App.tsx";
+import AppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import Http from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpAppTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/App.tsx";
+import HttpAppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpImage.jsx";
+
+Convex に保存されているファイルは、そのファイルを指す URL を生成することで、ユーザーに提供できます。
+
+## クエリでファイル URL を生成する \{#generating-file-urls-in-queries\}
+
+ファイルを配信する最も簡単な方法は、アプリに必要な他のデータと一緒に
+[クエリ](/functions/query-functions.mdx) や
+[ミューテーション](/functions/mutation-functions.mdx) から URL を返すことです。
+
+ファイル URL は、[`QueryCtx`](/api/interfaces/server.GenericQueryCtx),
+[`MutationCtx`](/api/interfaces/server.GenericMutationCtx),
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx) オブジェクトの
+[`storage.getUrl`](/api/interfaces/server.StorageReader#geturl) 関数を使って
+ストレージ ID から生成できます。
+
+<TSAndJSSnippet title="convex/listMessages.ts" sourceTS={Messages} sourceJS={Messages} snippet="query" highlightPatterns={["storage.getUrl"]} />
+
+ファイル URL は、`img` 要素に指定して画像を表示できます。
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={AppTS} sourceJS={AppJS} snippet="imageComponent" />
+
+クエリ内では、URL が生成される時点で誰がファイルにアクセスできるかを制御できます。ファイルが *配信される* 時にアクセスを制御する必要がある場合は、代わりに独自のファイル配信用 HTTP アクションを定義できます。
+
+## HTTP アクションからファイルを配信する \{#serving-files-from-http-actions\}
+
+[HTTP アクション](/functions/http-actions.mdx)からファイルを直接配信できます。
+HTTP アクションは、ストレージ ID にマッピングできるパラメーター、もしくはストレージ ID 自体を受け取る必要があります。
+
+これは、たとえばウェブサイト上で画像を表示する際など、ファイルが配信されるタイミングでアクセス制御を行うことを可能にします。
+ただし、HTTP アクションのレスポンスサイズには 20MB という
+[現在の制限](/functions/http-actions.mdx#limits)があります。
+より大きなファイルについては、[上記](#generating-file-urls-in-queries)で説明したようにファイル URL を使用する必要があります。
+
+ストレージ ID からは、[`ActionCtx`](/api/interfaces/server.GenericActionCtx) オブジェクトの
+[`storage.get`](/api/interfaces/server.StorageActionWriter#get) 関数を使って
+[`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob) ファイルオブジェクトを生成でき、
+それを `Response` として返すことができます:
+
+<TSAndJSSnippet
+  title="convex/http.ts"
+  sourceTS={Http}
+  sourceJS={Http}
+  snippet="getImage"
+  highlightPatterns={["storage.get"]}
+  prefix={
+  `import { httpRouter } from "convex/server";
+import { httpAction } from "./\_generated/server";
+import { Id } from "./\_generated/dataModel";
+
+const http = httpRouter();\
+
+`}
+  suffix={"\nexport default http;"}
+/>
+
+このようなアクションの URL は、画像を表示するために `img` 要素で直接使用できます:
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={HttpAppTS} sourceJS={HttpAppJS} snippet="getImage" />

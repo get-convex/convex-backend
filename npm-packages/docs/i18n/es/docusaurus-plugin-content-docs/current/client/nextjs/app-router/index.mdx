@@ -1,0 +1,119 @@
+---
+title: "Next.js"
+sidebar_label: "App Router de Next.js"
+sidebar_position: 200
+description: "Cómo funciona Convex en una aplicación Next.js"
+pagination_next: client/nextjs/app-router/server-rendering
+---
+
+import Config from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-14/app/_ConvexClientProviderAuth.tsx";
+
+[Next.js](https://nextjs.org/) es un framework de desarrollo web basado en React. Cuando se usa
+con Convex, Next.js proporciona:
+
+* Enrutamiento basado en el sistema de archivos
+* Recarga rápida en modo de desarrollo
+* Optimización de fuentes e imágenes
+
+¡y más!
+
+Esta página trata la variante App Router de Next.js. Como alternativa, consulta la
+versión de esta página para [Pages Router](/client/nextjs/pages-router/index.mdx).
+
+## Primeros pasos \{#getting-started\}
+
+Sigue la [guía de inicio rápido de Next.js](/quickstart/nextjs.mdx) para agregar Convex a un proyecto de Next.js nuevo o existente.
+
+## Llamar a funciones de Convex desde el código del cliente \{#calling-convex-functions-from-client-code\}
+
+Para recuperar y modificar los datos de tu base de datos desde el código del cliente, usa los hooks de la
+[biblioteca Convex React](/client/react).
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "/client/react",
+  label: "Documentación de la biblioteca Convex React",
+}}
+/>
+
+## Renderizado en el servidor (SSR) \{#server-rendering-ssr\}
+
+Next.js renderiza automáticamente tanto Client como Server Components en el
+servidor durante la carga inicial de la página.
+
+Para mantener tu UI
+[automáticamente reactiva](/functions/query-functions.mdx#caching--reactivity--consistency)
+a los cambios en tu base de datos de Convex, necesita usar Client Components.
+`ConvexReactClient` mantendrá una conexión a tu despliegue y recibirá
+actualizaciones a medida que cambien los datos, y eso debe suceder en el
+cliente.
+
+Consulta la página dedicada a
+[Server Rendering](/client/nextjs/app-router/server-rendering.mdx) para obtener más
+detalles sobre la precarga de datos para Client Components, la obtención de
+datos y la autenticación en Server Components, y la implementación de Route
+Handlers.
+
+## Añadir autenticación \{#adding-authentication\}
+
+### Solo en el lado del cliente \{#client-side-only\}
+
+La forma más sencilla de añadir autenticación de usuarios a tu aplicación Next.js es seguir nuestras guías de autenticación basadas en React para [Clerk](/auth/clerk.mdx) o
+[Auth0](/auth/auth0.mdx), dentro de tu archivo `app/ConvexClientProvider.tsx`. Por
+ejemplo, así se vería el archivo para Auth0:
+
+<TSAndJSSnippet title="app/ConvexClientProvider.tsx" sourceTS={Config} sourceJS={Config} />
+
+Las vistas personalizadas de carga y de usuario sin sesión iniciada se pueden crear con los componentes auxiliares
+`Authenticated`, `Unauthenticated` y `AuthLoading` de
+`convex/react`; consulta el
+[Convex Next.js demo](https://github.com/get-convex/convex-demos/tree/main/nextjs-pages-router/pages/_app.tsx)
+para ver un ejemplo.
+
+Si solo algunas rutas de tu aplicación requieren inicio de sesión, los mismos helpers se pueden usar
+directamente en los componentes de página que sí lo requieren en lugar de compartirse
+entre todas las páginas desde `app/ConvexClientProvider.tsx`. Comparte una única instancia de
+[ConvexReactClient](/api/classes/react.ConvexReactClient) entre las páginas
+para evitar tener que volver a conectarte a Convex durante la navegación entre páginas en el cliente.
+
+### Lado del servidor y del cliente \{#server-and-client-side\}
+
+Para acceder a la información del usuario o cargar datos de Convex que requieran `ctx.auth` desde Server
+Components, Server Actions o Route Handlers, tienes que usar los SDK específicos de Next.js
+proporcionados por Clerk y Auth0.
+
+Se necesita una configuración adicional en `.env.local` para estos SDK híbridos.
+
+#### Clerk \{#clerk\}
+
+Para ver un ejemplo de cómo usar Convex con Next.js 15, ejecuta
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest -- -t nextjs-clerk" />
+  </b>
+</p>
+
+De lo contrario, sigue la
+[Clerk Next.js quickstart](https://clerk.com/docs/quickstarts/nextjs), una guía
+de Clerk que incluye pasos para agregar `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+y `CLERK_SECRET_KEY` al archivo .env.local. En Next.js 15, el componente
+`<ClerkProvider>` importado del paquete `@clerk/nextjs` v6
+funciona como proveedor de contexto tanto en el cliente como en el servidor, por lo que probablemente no necesitarás
+el `ClerkProvider` de `@clerk/clerk-react`.
+
+#### Auth0 \{#auth0\}
+
+Consulta la guía de
+[Auth0 Next.js](https://auth0.com/docs/quickstart/webapp/nextjs/01-login).
+
+#### Otros proveedores \{#other-providers\}
+
+Convex usa tokens JWT de identidad en el cliente para suscripciones a consultas en vivo y
+para ejecutar mutaciones y acciones, y en el backend de Next.js para ejecutar consultas,
+mutaciones y acciones en componentes de servidor y rutas de API.
+
+Obtén el JWT de identidad de OpenID adecuado en ambos entornos y deberías poder
+usar cualquier proveedor de autenticación. Consulta
+[Custom Auth](https://docs.convex.dev/auth/advanced/custom-auth) para más información.

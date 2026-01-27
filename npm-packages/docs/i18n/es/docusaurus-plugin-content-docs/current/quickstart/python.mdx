@@ -1,0 +1,97 @@
+---
+title: "Inicio rápido de Python"
+sidebar_label: Python
+description: "Añade Convex a un proyecto de Python"
+hide_table_of_contents: true
+sidebar_position: 500
+---
+
+import sampleData from "!!raw-loader!@site/../demos/python-quickstart/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../demos/python-quickstart/convex/tasks.js";
+import main from "!!raw-loader!@site/../demos/python-quickstart/main.py";
+
+Aprende a consultar datos de Convex desde una aplicación de Python.
+
+<StepByStep>
+  <Step title="Crea una carpeta para tu script de Python">
+    Crea una carpeta para tu script de Python
+    con un entorno virtual.
+
+    ```sh
+    python3 -m venv my-app/venv
+    ```
+  </Step>
+
+  <Step title="Instala las bibliotecas cliente y de servidor de Convex">
+    Para comenzar, instala el paquete `convex` de npm,
+    que te permite escribir tu backend.
+
+    E instala también la biblioteca cliente de Python `convex`
+    y `python-dotenv` para trabajar con archivos `.env`.
+
+    ```sh
+    cd my-app && npm init -y && npm install convex && venv/bin/pip install convex python-dotenv
+    ```
+  </Step>
+
+  <Step title="Configura un despliegue de dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URL de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde podrás escribir tus funciones de API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue de dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de terminal, crea un archivo
+    `sampleData.jsonl` con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Añade los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, añade una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Añade un nuevo archivo `tasks.js` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API con el nombre compuesto
+    por el nombre del archivo y el nombre de la exportación, `"tasks:get"`.
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="Crea un script para cargar datos desde Convex">
+    En un nuevo archivo `main.py`, crea un `ConvexClient` y úsalo
+    para obtener datos de tu API `"tasks:get"`.
+
+    <Snippet source={main} title="main.py" />
+  </Step>
+
+  <Step title="Ejecuta el script">
+    Ejecuta el script
+    y verás la lista serializada de tareas.
+
+    ```sh
+    venv/bin/python -m main
+    ```
+  </Step>
+</StepByStep>
+
+Consulta la [documentación en PyPI](https://pypi.org/project/convex/) para más detalles.

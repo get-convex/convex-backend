@@ -1,0 +1,252 @@
+---
+title: "引数と戻り値の検証"
+sidebar_label: "バリデーション"
+sidebar_position: 50
+description: "セキュリティを高めるために関数の引数と戻り値を検証する"
+---
+
+import ConvexValues from "@site/i18n/ja/docusaurus-plugin-content-docs/current/_convexValues.mdx";
+
+import messagesTS from "!!raw-loader!@site/../demos/args-validation/convex/messages.ts";
+
+引数と戻り値のバリデータは、
+[クエリ](./query-functions.mdx)、[ミューテーション](./mutation-functions.mdx)、および
+[アクション](./actions.mdx) が正しい型の引数で呼び出され、
+期待される型の戻り値を返すことを保証します。
+
+**これはセキュリティ上とても重要です！** 引数のバリデーションがないと、悪意のある
+ユーザーが公開関数を想定外の引数で呼び出し、予期しない結果を引き起こす可能性があります。
+[TypeScript](/understanding/best-practices/typescript) だけでは不十分で、TypeScript の型は
+実行時には存在しません。プロダクションアプリでは、すべての公開関数に対して
+引数のバリデーションを追加することを推奨します。クライアントから呼び出されない
+非公開の関数については、
+[internal functions](/functions/internal-functions.mdx) の利用と、必要に応じて
+バリデーションを行うことを推奨します。
+
+**例:**
+[Argument Validation](https://github.com/get-convex/convex-demos/tree/main/args-validation)
+
+## バリデーターの追加 \{#adding-validators\}
+
+関数に引数バリデーションを追加するには、`query`、`mutation`、`action` コンストラクターに
+`args` と `handler` プロパティを持つオブジェクトを渡します。戻り値のバリデーションを追加するには、
+このオブジェクト内で `returns` プロパティを使用します。
+
+<TSAndJSSnippet title="convex/message.ts" sourceTS={messagesTS} sourceJS={messagesTS} snippet="mutation" />
+
+関数を引数バリデーター付きで定義した場合、
+[TypeScript](/understanding/best-practices/typescript.mdx) の型注釈を付ける必要はありません。
+関数の型は自動的に推論されます。同様に、戻り値バリデーターを定義すると、その関数の戻り値の型は
+バリデーターから推論され、TypeScript はそれが `handler` 関数から推論された戻り値の型と
+一致しているかをチェックします。
+
+TypeScript とは異なり、オブジェクトのバリデーションでは、そのオブジェクトにバリデーターで宣言されていない
+プロパティが含まれている場合は例外がスローされます。
+
+クライアントが `args` で宣言されていない引数を渡した場合や、関数が `returns` で宣言された
+バリデーターと一致しない値を返した場合も同様にエラーになります。これは、引数名のタイプミスや、
+意図した以上のデータをクライアントに返してしまうことで発生するバグを防ぐのに役立ちます。
+
+`args: {}` であっても、バリデーターとして有用です。なぜなら、その関数が引数を想定していないにもかかわらず
+クライアント側で引数を渡そうとした場合に、TypeScript がエラーを表示してくれるからです。
+
+## サポートされている型 \{#supported-types\}
+
+すべての関数は、公開・内部を問わず、次のデータ型を受け取り、返すことができます。各型には対応するバリデータがあり、`"convex/values"` からインポートした [`v`](/api/modules/values#v) オブジェクト経由で利用できます。
+
+[データベース](/database.mdx)にも、まったく同じ
+[データ型](/database/types.md)のセットを保存できます。
+
+さらに、型のユニオン、リテラル、`any` 型、オプショナルなフィールドも表現できます。
+
+### Convex の値型 \{#convex-values\}
+
+<ConvexValues />
+
+### ユニオン \{#unions\}
+
+`v.union` を使うと、複数の型のいずれかを取りうるフィールドを表現できます：
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    stringOrNull: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, { stringOrNull }) => {
+    //...
+  },
+});
+```
+
+便利のために、`v.nullable(foo)` は `v.union(foo, v.null())` と同等です。
+
+### リテラル \{#literals\}
+
+定数のフィールドは `v.literal` で表現できます。これは特に、ユニオン型と組み合わせて使うときに便利です。
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    oneTwoOrThree: v.union(
+      v.literal("one"),
+      v.literal("two"),
+      v.literal("three"),
+    ),
+  },
+  handler: async (ctx, { oneTwoOrThree }) => {
+    //...
+  },
+});
+```
+
+### Record オブジェクト \{#record-objects\}
+
+`v.record` を使うと、任意のキーを値にマッピングするオブジェクトを表現できます。
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    simpleMapping: v.record(v.string(), v.boolean()),
+  },
+  handler: async (ctx, { simpleMapping }) => {
+    //...
+  },
+});
+```
+
+キーとして他の種類の文字列バリデーターを使用することもできます。
+
+```typescript
+defineTable({
+  userIdToValue: v.record(v.id("users"), v.boolean()),
+});
+```
+
+注意:
+
+* この型は TypeScript の
+  [Record&lt;K,V&gt;](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
+  型に対応します。
+* `record` のキーとして文字列リテラル（型）を使うことはできません。
+* `record` のキー用バリデータとして `v.string()` を使うと、ASCII 文字のみを使用できます。
+
+### Any \{#any\}
+
+任意の値をとりうるフィールドは、`v.any()` で表せます。
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    anyValue: v.any(),
+  },
+  handler: async (ctx, { anyValue }) => {
+    //...
+  },
+});
+```
+
+これは TypeScript における `any` 型に相当します。
+
+### 省略可能なフィールド \{#optional-fields\}
+
+`v.optional(...)` で型をラップすることで、省略可能なフィールドを記述できます。
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    optionalString: v.optional(v.string()),
+    optionalNumber: v.optional(v.number()),
+  },
+  handler: async (ctx, { optionalString, optionalNumber }) => {
+    //...
+  },
+});
+```
+
+これは、TypeScript でフィールドに `?` を付けてオプショナルとしてマークすることに相当します。
+
+## TypeScript 型の抽出 \{#extracting-typescript-types\}
+
+[`Infer`](/api/modules/values#infer) 型を使うと、バリデータの呼び出しから
+TypeScript の型を導出できます。これにより、バリデータと TypeScript の型定義の
+重複をなくすのに役立ちます。
+
+```ts
+import { mutation } from "./_generated/server";
+import { Infer, v } from "convex/values";
+
+const nestedObject = v.object({
+  property: v.string(),
+});
+
+// `{property: string}` に解決されます。
+export type NestedObject = Infer<typeof nestedObject>;
+
+export default mutation({
+  args: {
+    nested: nestedObject,
+  },
+  handler: async (ctx, { nested }) => {
+    //...
+  },
+});
+```
+
+### バリデーターの再利用と拡張 \{#reusing-and-extending-validators\}
+
+バリデーターは一度定義しておけば、関数やテーブルスキーマで共有できます。
+
+```typescript
+const statusValidator = v.union(v.literal("active"), v.literal("inactive"));
+
+const userValidator = v.object({
+  name: v.string(),
+  email: v.email(),
+  status: statusValidator,
+  profileUrl: v.optional(v.string()),
+});
+
+const schema = defineSchema({
+  users: defineTable(userValidator).index("by_email", ["email"]),
+});
+```
+
+既存のオブジェクトバリデータに対して `.pick`、`.omit`、`.extend`、`.partial` を使ってフィールドを追加・削除することで、新しいオブジェクトバリデータを作成できます。
+
+```typescript
+// Creates a new validator with only the name and profileUrl fields.
+const publicUser = userValidator.pick("name", "profileUrl");
+
+// Creates a new validator with all fields except the specified fields.
+const userWithoutStatus = userValidator.omit("status", "profileUrl");
+
+// すべてのフィールドがオプショナルであるバリデーターを作成します。
+// これはドキュメントへのパッチを検証する際に便利です。
+const userPatch = userWithoutStatus.partial();
+
+// Creates a new validator adding system fields to the user validator.
+const userDocument = userValidator.extend({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+});
+```
+
+注意:
+
+* オブジェクト用のバリデータは余分なプロパティを許可しません。スキーマで指定されていないプロパティを持つオブジェクトは検証に失敗します。
+* テーブルのトップレベルフィールドは、`_id` や `_creationTime` のようなシステムフィールド用に予約されているため、`_` で始めることはできません。

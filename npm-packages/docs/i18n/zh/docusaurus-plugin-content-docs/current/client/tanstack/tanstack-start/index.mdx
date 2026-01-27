@@ -1,0 +1,106 @@
+---
+title: "TanStack Start"
+sidebar_label: "TanStack Start"
+description: "Convex 如何与 TanStack Start 协同工作"
+---
+
+[TanStack Start](https://tanstack.com/start/latest) 是一个全新的 React web 框架，
+提供一流的类型安全路由能力。
+
+当与 Convex 一起使用时，TanStack Start 提供：
+
+* 使用 React Query（TanStack Query 的 React 客户端）实现的实时更新查询
+* 订阅会话从 SSR 到客户端实时连接的恢复
+* 基于 loader 的预加载和预取
+* 在 SSR 期间一致的逻辑查询时间戳
+* 可按需启用的组件级 SSR
+
+以及更多特性！
+
+本页介绍通过 React Query 在 TanStack Start 中使用 Convex 的推荐方式。
+标准的 Convex React hooks 在不使用 React Query 的 TanStack Start 中同样可用，
+而 [React Query hooks](/client/tanstack/tanstack-query/index.mdx) 在不使用 TanStack
+Start 的环境中也同样适用！但同时使用这三者是一个理想的组合。
+
+<Admonition type="caution" title="TanStack Start 仍处于 Beta 阶段">
+  TanStack Start 是一个仍处于 Beta 阶段的新 React 框架。你可以从今天开始使用，
+  但在发布稳定版本之前，它可能会有破坏性变更。
+</Admonition>
+
+## 入门 \{#getting-started\}
+
+按照 [TanStack Start 快速入门](/quickstart/tanstack-start.mdx) 将 Convex 添加到新的 TanStack Start 项目中。
+
+## 将 Convex 与 React Query 一起使用 \{#using-convex-with-react-query\}
+
+你可以在
+[React Query hooks](/client/tanstack/tanstack-query/index.mdx) 中了解更多内容，这里先简要介绍几条与 TanStack Start 相关的要点。
+
+### 保持查询订阅状态 \{#staying-subscribed-to-queries\}
+
+在 React Query 中，Convex 查询会在最后一个订阅该查询的组件卸载后，仍继续接收更新。此行为的默认时长为 5 分钟，并且可以通过
+[`gcTime`](https://tanstack.com/query/latest/docs/framework/react/guides/caching)
+进行配置。
+
+在调试为什么某个查询结果已经处于已加载状态时，了解这一点会很有帮助：对于客户端导航而言，一个订阅是否已经处于激活状态，可能取决于当前会话中之前访问过哪些页面。
+
+### 使用 Convex React hooks \{#using-convex-react-hooks\}
+
+[Convex React](/client/react.mdx) 的 hooks（例如
+[`usePaginatedQuery`](/api/modules/react#usepaginatedquery)）可以与 TanStack 的 hooks 一起使用。由于这些 hooks 使用的是同一个 Convex Client 实例，当你将它们组合使用时，你的应用中始终只有一份一致的查询结果。
+
+## 服务器端渲染 \{#server-side-rendering\}
+
+将 TanStack Start 和 TanStack Query 与 Convex 一起使用，可以非常轻松地在客户端实时更新 Convex 查询，同时还对它们进行
+[服务器端渲染](https://tanstack.com/query/v5/docs/framework/react/guides/ssr)。
+[`useSuspenseQuery()`](https://tanstack.com/query/latest/docs/framework/react/reference/useSuspenseQuery)
+是实现这一点的最简单方法：
+
+```ts
+const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+```
+
+### 一致的客户端视图 \{#consistent-client-views\}
+
+在浏览器中，所有 Convex 查询订阅都会在同一个逻辑时间戳上呈现一致的数据库视图：如果某个查询结果已经反映了一次特定的变更事务，那么所有其他查询结果也都会反映该事务。
+
+服务器端渲染通常是一个特殊情况：在服务器上，与其使用有状态的 WebSocket 会话，不如按需获取查询结果更为简单。但这可能导致类似这样的不一致：一个 REST 端点在变更执行之前返回结果，而另一个端点在该变更之后返回结果。
+
+在 TanStack Start 中，通过在每个查询中一并发送时间戳来避免这个问题：Convex 会对所有查询使用相同的时间戳。
+
+### 加载器 \{#loaders\}
+
+为了让客户端导航更快，你可以为路由添加一个
+[loader](https://tanstack.com/router/latest/docs/framework/react/guide/external-data-loading#using-loaders-to-ensure-data-is-loaded)。
+默认情况下，当鼠标悬停在指向该页面的链接上时，对应的 loader 就会运行。
+
+```ts
+export const Route = createFileRoute('/posts')({
+  loader: async (opts) => {
+    await opts.context.queryClient.ensureQueryData(
+      convexQuery(api.messages.list, {}),
+    );
+  };
+  component: () => {
+    const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+    return (
+      <div>
+	{data.map((message) => (
+	  <Message key={message.id} post={message} />
+	))}
+      </div>
+    );
+  },
+})
+```
+
+## Authentication \{#authentication\}
+
+在 Start 中，客户端认证的工作方式与
+[Convex 的客户端认证](https://docs.convex.dev/auth)
+在 React 中的一般用法大体相同，因为 TanStack Start 非常适合作为客户端框架使用。
+
+如果你还想在服务端使用 Clerk 认证来发起已认证的 Convex 调用，请参阅
+[TanStack Start + Clerk 指南](/client/tanstack/tanstack-start/clerk.mdx)。
+
+Clerk 是 TanStack 的官方合作伙伴，请参考我们的设置指南。

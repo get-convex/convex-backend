@@ -1,0 +1,263 @@
+---
+title: "Validación de argumentos y valores de retorno"
+sidebar_label: "Validación"
+sidebar_position: 50
+description: "Valida los argumentos y los valores de retorno de las funciones para mejorar la seguridad"
+---
+
+import ConvexValues from "@site/i18n/es/docusaurus-plugin-content-docs/current/_convexValues.mdx";
+
+import messagesTS from "!!raw-loader!@site/../demos/args-validation/convex/messages.ts";
+
+Los validadores de argumentos y valores de retorno aseguran que las
+[consultas](./query-functions.mdx), [mutaciones](./mutation-functions.mdx) y
+[acciones](./actions.mdx) se invoquen con los tipos correctos de argumentos y
+devuelvan los tipos esperados de valores de retorno.
+
+**¡Esto es importante para la seguridad!** Sin validación de argumentos, un
+usuario malicioso puede llamar a tus funciones públicas con argumentos
+inesperados y provocar resultados inesperados. [TypeScript](/understanding/best-practices/typescript) por sí solo
+no será de ayuda porque los tipos de TypeScript no están presentes en tiempo de ejecución. Recomendamos
+añadir validación de argumentos para todas las funciones públicas en aplicaciones de producción. Para
+funciones no públicas que no son llamadas por los clientes, recomendamos
+[funciones internas](/functions/internal-functions.mdx) y, opcionalmente,
+validación.
+
+**Ejemplo:**
+[Validación de argumentos](https://github.com/get-convex/convex-demos/tree/main/args-validation)
+
+## Añadir validadores \{#adding-validators\}
+
+Para agregar validación de argumentos a tus funciones, pasa un objeto con las
+propiedades `args` y `handler` al constructor de `query`, `mutation` o
+`action`. Para agregar validación del valor de retorno, usa la propiedad
+`returns` en este objeto:
+
+<TSAndJSSnippet title="convex/message.ts" sourceTS={messagesTS} sourceJS={messagesTS} snippet="mutation" />
+
+Si defines tu función con un validador de argumentos, no es necesario incluir
+anotaciones de tipo de [TypeScript](/understanding/best-practices/typescript.mdx).
+El tipo de tu función se inferirá automáticamente. De manera similar, si
+defines un validador del valor de retorno, el tipo de retorno de tu función se
+inferirá a partir del validador, y TypeScript verificará que coincida con el
+tipo de retorno inferido de la función `handler`.
+
+A diferencia de TypeScript, la validación de un objeto lanzará un error si
+el objeto contiene propiedades que no están declaradas en el validador.
+
+Si el cliente proporciona argumentos no declarados en `args`, o si la función
+devuelve un valor que no coincide con el validador declarado en `returns`, se
+producirá un error. Esto es útil para evitar errores causados por nombres de
+argumentos mal escritos o por devolver más datos de los previstos a un cliente.
+
+Incluso `args: {}` es un uso útil de los validadores porque TypeScript mostrará
+un error en el cliente si intentas pasar algún argumento a la función que no
+los espera.
+
+## Tipos compatibles \{#supported-types\}
+
+Todas las funciones, tanto públicas como internas, pueden aceptar y devolver los siguientes
+tipos de datos. Cada tipo tiene un validador correspondiente al que se puede acceder a través del
+objeto [`v`](/api/modules/values#v) importado desde `"convex/values"`.
+
+La [base de datos](/database.mdx) puede almacenar exactamente el mismo conjunto de
+[tipos de datos](/database/types.md).
+
+Además, también puedes expresar uniones de tipos, literales, tipos `any` y
+campos opcionales.
+
+### Valores de Convex \{#convex-values\}
+
+<ConvexValues />
+
+### Uniones \{#unions\}
+
+Puedes describir campos que pueden ser de uno entre varios tipos posibles usando `v.union`:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    stringOrNull: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, { stringOrNull }) => {
+    //...
+  },
+});
+```
+
+Por comodidad, `v.nullable(foo)` es equivalente a `v.union(foo, v.null())`.
+
+### Literales \{#literals\}
+
+Los campos constantes se pueden expresar con `v.literal`. Esto es especialmente útil cuando se combina con uniones:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    oneTwoOrThree: v.union(
+      v.literal("one"),
+      v.literal("two"),
+      v.literal("three"),
+    ),
+  },
+  handler: async (ctx, { oneTwoOrThree }) => {
+    //...
+  },
+});
+```
+
+### Objetos de tipo record \{#record-objects\}
+
+Puedes describir objetos que asignan claves arbitrarias a valores mediante `v.record`:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    simpleMapping: v.record(v.string(), v.boolean()),
+  },
+  handler: async (ctx, { simpleMapping }) => {
+    //...
+  },
+});
+```
+
+Puedes usar otros tipos de validadores de cadenas para las claves:
+
+```typescript
+defineTable({
+  userIdToValue: v.record(v.id("users"), v.boolean()),
+});
+```
+
+Notas:
+
+* Este tipo equivale al tipo
+  [Record&lt;K,V&gt;](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
+  en TypeScript.
+* No puedes usar literales de cadena como clave de un `record`.
+* Usar `v.string()` como validador de clave de un `record` solo permitirá caracteres
+  ASCII.
+
+### Any \{#any\}
+
+Los campos que pueden contener cualquier valor se pueden representar con `v.any()`:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    anyValue: v.any(),
+  },
+  handler: async (ctx, { anyValue }) => {
+    //...
+  },
+});
+```
+
+Corresponde al tipo `any` en TypeScript.
+
+### Campos opcionales \{#optional-fields\}
+
+Puedes describir un campo como opcional al envolver su tipo con `v.optional(...)`:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    optionalString: v.optional(v.string()),
+    optionalNumber: v.optional(v.number()),
+  },
+  handler: async (ctx, { optionalString, optionalNumber }) => {
+    //...
+  },
+});
+```
+
+Esto equivale a marcar campos como opcionales con `?` en TypeScript.
+
+## Extracción de tipos de TypeScript \{#extracting-typescript-types\}
+
+El tipo [`Infer`](/api/modules/values#infer) te permite convertir llamadas a validadores
+en tipos de TypeScript. Esto puede ser útil para eliminar la duplicación entre tus
+validadores y tipos de TypeScript:
+
+```ts
+import { mutation } from "./_generated/server";
+import { Infer, v } from "convex/values";
+
+const nestedObject = v.object({
+  property: v.string(),
+});
+
+// Se resuelve en `{property: string}`.
+export type NestedObject = Infer<typeof nestedObject>;
+
+export default mutation({
+  args: {
+    nested: nestedObject,
+  },
+  handler: async (ctx, { nested }) => {
+    //...
+  },
+});
+```
+
+### Reutilizar y extender validadores \{#reusing-and-extending-validators\}
+
+Los validadores se pueden definir una vez y compartirse entre funciones y esquemas de tablas.
+
+```typescript
+const statusValidator = v.union(v.literal("active"), v.literal("inactive"));
+
+const userValidator = v.object({
+  name: v.string(),
+  email: v.email(),
+  status: statusValidator,
+  profileUrl: v.optional(v.string()),
+});
+
+const schema = defineSchema({
+  users: defineTable(userValidator).index("by_email", ["email"]),
+});
+```
+
+Puedes crear nuevos validadores de objeto a partir de otros existentes añadiendo o eliminando
+campos usando `.pick`, `.omit`, `.extend` y `.partial` sobre validadores de objeto.
+
+```typescript
+// Creates a new validator with only the name and profileUrl fields.
+const publicUser = userValidator.pick("name", "profileUrl");
+
+// Creates a new validator with all fields except the specified fields.
+const userWithoutStatus = userValidator.omit("status", "profileUrl");
+
+// Crea un validador donde todos los campos son opcionales.
+// Esto es útil para validar actualizaciones parciales de un documento.
+const userPatch = userWithoutStatus.partial();
+
+// Creates a new validator adding system fields to the user validator.
+const userDocument = userValidator.extend({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+});
+```
+
+Notas:
+
+* Los validadores de objetos no permiten propiedades adicionales; los objetos que tengan propiedades que
+  no estén especificadas no pasarán la validación.
+* Los campos de tabla de nivel superior no pueden comenzar con `_` porque están reservados para
+  campos del sistema como `_id` y `_creationTime`.

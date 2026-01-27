@@ -1,0 +1,292 @@
+---
+title: "Convex y Auth0"
+sidebar_label: "Auth0"
+sidebar_position: 30
+description: "Integra la autenticación de Auth0 en Convex"
+---
+
+import LogoutButtonTSX from "!!raw-loader!@site/../demos/users-and-auth/src/LogoutButton.tsx";
+import UnderTheHood from "@site/i18n/es/docusaurus-plugin-content-docs/current/auth/_under_the_hood.mdx";
+import ConfigTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuth0.tsx";
+import ConfigJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainAuth0.jsx";
+import ConfigEnvTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuth0Env.tsx";
+import ConfigEnvJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainAuth0Env.jsx";
+
+[Auth0](https://auth0.com) es una plataforma de autenticación que proporciona inicio de sesión mediante
+contraseñas, proveedores de identidad sociales, códigos de acceso de un solo uso por correo electrónico o SMS,
+autenticación multifactor, inicio de sesión único (SSO) y administración básica de usuarios.
+
+**Ejemplo:**
+[Autenticación de Convex con Auth0](https://github.com/get-convex/convex-demos/tree/main/users-and-auth)
+
+Si estás usando Next.js, consulta la
+[guía de configuración de Next.js](https://docs.convex.dev/client/nextjs).
+
+## Primeros pasos \{#get-started\}
+
+Esta guía asume que ya tienes una aplicación React funcionando con Convex. Si no es así,
+sigue primero el [Inicio rápido de Convex con React](/quickstart/react.mdx). Luego:
+
+<StepByStep>
+  <Step title="Sigue el inicio rápido de Auth0 para React">
+    Sigue el [Auth0 React Quickstart](https://auth0.com/docs/quickstart/spa/react/interactive).
+
+    Regístrate para obtener una cuenta gratuita de Auth0.
+
+    Configura tu aplicación usando `http://localhost:3000, http://localhost:5173` como URLs de Callback
+    y Logout y como Allowed Web Origins.
+
+    Vuelve cuando hayas terminado el paso *Install the Auth0 React SDK*.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/auth0-signup.png" alt="Regístrate en Auth0" width={300} />
+    </p>
+  </Step>
+
+  <Step title="Crea la configuración de autenticación">
+    En la carpeta `convex`, crea un nuevo archivo <JSDialectFileName name="auth.config.ts" /> con
+    la configuración del lado del servidor para validar los tokens de acceso.
+
+    Pega los valores de `domain` y `clientId` que se muestran en el paso
+    *Install the Auth0 React SDK* del inicio rápido de Auth0 o
+    en el panel de control de configuración (Settings) de tu aplicación de Auth0.
+
+    ```ts title="convex/auth.config.ts"
+    import { AuthConfig } from "convex/server";
+
+    export default {
+      providers: [
+        {
+          domain: "your-domain.us.auth0.com",
+          applicationID: "yourclientid",
+        },
+      ]
+    } satisfies AuthConfig;
+    ```
+  </Step>
+
+  <Step title="Despliega tus cambios">
+    Ejecuta `npx convex dev` para sincronizar automáticamente tu configuración con tu backend.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Configura ConvexProviderWithAuth0">
+    Ahora reemplaza tu `ConvexProvider` por un `Auth0Provider` que envuelva a `ConvexProviderWithAuth0`.
+    Agrega `domain` y `clientId` como props al `Auth0Provider`.
+
+    Pega los valores de `domain` y `clientId` que se muestran en el paso
+    *Install the Auth0 React SDK* del inicio rápido de Auth0 o
+    en el panel de control de configuración (Settings) de tu aplicación de Auth0 como props para `Auth0Provider`.
+
+    <TSAndJSSnippet
+      title="src/main.tsx"
+      sourceTS={ConfigTS}
+      sourceJS={ConfigJS}
+      highlightPatterns={[
+      "Auth0Provider",
+      "ConvexProviderWithAuth0",
+      "domain=",
+      "clientId=",
+      "authorizationParams=",
+        "redirect_uri: ",
+      "}}",
+      "useRefreshTokens=",
+      "cacheLocation=",
+      "  >",
+    ]}
+    />
+  </Step>
+</StepByStep>
+
+## Flujos de inicio y cierre de sesión \{#login-and-logout-flows\}
+
+Ahora que ya tienes todo configurado, puedes usar el hook
+[`useAuth0()`](https://auth0.github.io/auth0-react/functions/useAuth0.html)
+para crear botones de inicio y cierre de sesión para tu aplicación.
+
+El botón de inicio de sesión redirigirá al usuario a la página de inicio de sesión universal de Auth0. Para obtener más detalles, consulta
+[Add Login to Your Application](https://auth0.com/docs/quickstart/spa/react/interactive#add-login-to-your-application)
+en el Auth0 React Quickstart.
+
+```tsx title="src/login.ts"
+import { useAuth0 } from "@auth0/auth0-react";
+
+export default function LoginButton() {
+  const { loginWithRedirect } = useAuth0();
+  return <button onClick={loginWithRedirect}>Log in</button>;
+}
+```
+
+El botón de cierre de sesión redirigirá al usuario al endpoint de cierre de sesión de Auth0. Para obtener más detalles, consulta
+[Agregar cierre de sesión a tu aplicación](https://auth0.com/docs/quickstart/spa/react/interactive#add-logout-to-your-application)
+en el inicio rápido de Auth0 React.
+
+<TSAndJSSnippet title="src/logout.ts" sourceTS={LogoutButtonTSX} sourceJS={LogoutButtonTSX} />
+
+## Vistas de sesión iniciada y cerrada \{#logged-in-and-logged-out-views\}
+
+Usa el hook [`useConvexAuth()`](/api/modules/react#useconvexauth) en lugar de
+`useAuth0` cuando necesites verificar si el usuario ha iniciado sesión o no.
+El hook `useConvex` se asegura de que el navegador haya obtenido el token de autenticación
+necesario para realizar solicitudes autenticadas a tu backend de Convex:
+
+```tsx title="src/App.ts"
+import { useConvexAuth } from "convex/react";
+
+function App() {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+
+  return (
+    <div className="App">
+      {isAuthenticated ? "Logged in" : "Logged out or still loading"}
+    </div>
+  );
+}
+```
+
+También puedes usar los componentes auxiliares `Authenticated`, `Unauthenticated` y `AuthLoading`, que utilizan el hook `useConvexAuth` bajo el capó:
+
+```tsx title="src/App.ts"
+import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+
+function App() {
+  return (
+    <div className="App">
+      <Authenticated>Logged in</Authenticated>
+      <Unauthenticated>Logged out</Unauthenticated>
+      <AuthLoading>Still loading</AuthLoading>
+    </div>
+  );
+}
+```
+
+## Información del usuario en React \{#user-information-in-react\}
+
+Puedes acceder a información sobre el usuario autenticado, como su nombre, a través del hook `useAuth0`:
+
+```tsx title="src/badge.ts"
+import { useAuth0 } from "@auth0/auth0-react";
+
+export default function Badge() {
+  const { user } = useAuth0();
+  return <span>Sesión iniciada como {user.name}</span>;
+}
+```
+
+## Información del usuario en funciones \{#user-information-in-functions\}
+
+Consulta [Autenticación en funciones](/auth/functions-auth.mdx) para aprender cómo acceder
+a la información sobre el usuario autenticado en tus consultas, mutaciones y acciones.
+
+Consulta [Almacenar usuarios en la base de datos de Convex](/auth/database-auth.mdx) para aprender
+cómo almacenar información de usuario en la base de datos de Convex.
+
+## Configuración de los tenants de dev y prod \{#configuring-dev-and-prod-tenants\}
+
+Para configurar un tenant (entorno) de Auth0 diferente en tus despliegues
+de desarrollo y producción de Convex, puedes usar variables de entorno
+configuradas en el panel de control de Convex.
+
+### Configuración del backend \{#configuring-the-backend\}
+
+Primero, modifica tu archivo <JSDialectFileName name="auth.config.ts" /> para usar
+variables de entorno:
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      domain: process.env.AUTH0_DOMAIN!,
+      applicationID: process.env.AUTH0_CLIENT_ID!,
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+**Configuración de desarrollo**
+
+Abre **Settings** para tu despliegue dev en el
+[panel de control](https://dashboard.convex.dev) de Convex y agrega allí las variables:
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/auth0-convex-dashboard.png" alt="Configuración del despliegue dev en el panel de control de Convex" width={600} />
+</p>
+
+Ahora cambia a la nueva configuración ejecutando `npx convex dev`.
+
+**Configuración de producción**
+
+De forma similar, en el [panel de control](https://dashboard.convex.dev) de Convex cambia a tu
+despliegue de producción en el menú de la izquierda y establece allí los valores para tu
+tenant de Auth0 de producción.
+
+Ahora cambia a la nueva configuración ejecutando `npx convex deploy`.
+
+### Configurar un cliente React \{#configuring-a-react-client\}
+
+Para configurar tu cliente también puedes usar variables de entorno. El nombre
+exacto de las variables de entorno y la forma de hacer referencia a ellas depende de cada
+plataforma de cliente (Vite vs Next.js, etc.); consulta nuestro correspondiente
+[Inicio rápido](/quickstarts.mdx) o la documentación relevante para la plataforma
+que estés usando.
+
+Cambia las props de `Auth0Provider` para que tomen las variables de entorno:
+
+<TSAndJSSnippet title="src/main.tsx" sourceTS={ConfigEnvTS} sourceJS={ConfigEnvJS} highlightPatterns={["domain=", "clientId="]} />
+
+**Configuración de desarrollo**
+
+Usa el archivo `.env.local` o `.env` para configurar tu cliente cuando lo ejecutes
+localmente. El nombre del archivo de variables de entorno depende de cada
+plataforma de cliente (Vite vs Next.js, etc.); consulta nuestro correspondiente
+[Inicio rápido](/quickstarts.mdx) o la documentación relevante para la plataforma
+que estés usando:
+
+```py title=".env.local"
+VITE_AUTH0_DOMAIN="your-domain.us.auth0.com"
+VITE_AUTH0_CLIENT_ID="yourclientid"
+```
+
+**Configuración de producción**
+
+Configura las variables de entorno en tu entorno de producción según tu
+plataforma de hosting. Consulta [Hosting](/production/hosting/hosting.mdx).
+
+## Depuración de la autenticación \{#debugging-authentication\}
+
+Si un usuario completa correctamente el flujo de inicio de sesión de Auth0 y, después de ser
+redirigido de vuelta a tu página, `useConvexAuth` devuelve `isAuthenticated: false`,
+es posible que tu backend no esté configurado correctamente.
+
+El archivo <JSDialectFileName name="auth.config.ts" /> en tu directorio `convex/`
+contiene una lista de proveedores de autenticación configurados. Debes ejecutar
+`npx convex dev` o `npx convex deploy` después de agregar un nuevo proveedor para sincronizar la
+configuración con tu backend.
+
+Para obtener pasos de depuración más detallados, consulta
+[Depuración de la autenticación](/auth/debug.mdx).
+
+## Bajo el capó \{#under-the-hood\}
+
+<UnderTheHood
+  provider="Auth0"
+  integrationProvider={<code>ConvexProviderWithAuth0</code>}
+  providerProvider={<code>Auth0Provider</code>}
+  configProp={
+  <>
+    la{" "}
+    <a
+      href="https://auth0.github.io/auth0-react/interfaces/AuthorizationParams.html"
+      target="_blank"
+    >
+      <code>authorizationParams</code>
+    </a>{" "}
+    propiedad
+  </>
+}
+/>

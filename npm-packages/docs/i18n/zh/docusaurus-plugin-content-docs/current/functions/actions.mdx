@@ -1,0 +1,249 @@
+---
+title: 操作函数
+sidebar_position: 30
+description: "从 Convex 调用第三方服务和外部 API"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/actionsConstructor.ts";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContext.ts";
+import ContextRunQuery from "!!raw-loader!@site/../private-demos/snippets/convex/myFunctions.ts";
+import ContextRunMutation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContextRunMutation.ts";
+import CircularError from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularError.ts";
+import CircularErrorFixedResults from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedResults.ts";
+import CircularErrorFixedReturn from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedReturn.ts";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNPM.ts";
+import Node from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNode.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/actionsCall.tsx";
+import ScheduleFromMutation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsScheduleFromMutation.ts";
+
+操作函数可以调用第三方服务来执行任务，例如通过 [Stripe](https://stripe.com) 处理支付。它们可以在 Convex 的 JavaScript 环境中或在 Node.js 中运行。它们可以通过调用
+[查询函数](/functions/query-functions.mdx) 和
+[变更函数](/functions/mutation-functions.mdx) 间接与数据库交互。
+
+**示例：**
+[GIPHY 操作函数](https://github.com/get-convex/convex-demos/tree/main/giphy-action)
+
+## 操作名称 \{#action-names\}
+
+操作与查询遵循相同的命名规则，参见
+[查询名称](/functions/query-functions.mdx#query-names)。
+
+## `action` 构造函数 \{#the-action-constructor\}
+
+要在 Convex 中声明一个操作，需要使用 `action` 构造函数。向它传入一个包含 `handler` 函数的对象，`handler` 函数负责执行该操作：
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+与查询不同，操作可以返回值，也可以不返回值。
+
+### 操作的参数和返回值 \{#action-arguments-and-responses\}
+
+操作的参数和返回值遵循与
+[变更函数](/functions/mutation-functions.mdx#mutation-arguments)
+相同的规则：
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} title="convex/myFunctions.ts" />
+
+处理函数的第一个参数是为操作上下文预留的。
+
+### 操作上下文 \{#action-context\}
+
+`action` 构造函数通过将一个
+[ActionCtx](/api/interfaces/server.GenericActionCtx) 对象作为第一个参数传入处理函数，
+来实现与数据库以及其他 Convex 功能的交互：
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+在该操作上下文中具体使用哪一部分，取决于你的操作需要完成的工作：
+
+* 要从数据库读取数据，请使用 `runQuery` 字段，并调用执行读取的查询：
+
+  <TSAndJSSnippet sourceTS={ContextRunQuery} sourceJS={ContextRunQuery} snippet="action" title="convex/myFunctions.ts" />
+
+  这里的 `readData` 是一个[内部查询](/functions/internal-functions.mdx)，
+  因为我们不希望将它直接暴露给客户端。操作、变更和查询可以定义在同一个文件中。
+
+* 要向数据库写入数据，请使用 `runMutation` 字段，并调用执行写入的变更：
+
+  <TSAndJSSnippet sourceTS={ContextRunMutation} sourceJS={ContextRunMutation} title="convex/myFunctions.ts" />
+
+  当你想阻止用户直接调用该变更时，请使用[内部变更](/functions/internal-functions.mdx)。
+
+  与查询类似，将操作和变更定义在同一个文件中通常会更方便。
+
+* 要为存储文件生成上传 URL，请使用 `storage` 字段。继续阅读
+  [文件存储](/file-storage.mdx)。
+
+* 要检查用户认证状态，请使用 `auth` 字段。从操作中调用查询和变更时，
+  认证信息会自动传递。继续阅读[认证](/auth.mdx)。
+
+* 要调度函数在未来运行，请使用 `scheduler` 字段。继续阅读
+  [计划函数](/scheduling/scheduled-functions.mdx)。
+
+* 要搜索向量索引，请使用 `vectorSearch` 字段。继续阅读
+  [向量搜索](/search/vector-search.mdx)。
+
+### 处理循环类型推断 \{#dealing-with-circular-type-inference\}
+
+<Details
+  summary={<>
+解决 TypeScript 错误：some action <code>implicitly has
+type 'any' because it does not have a type annotation and is
+referenced directly or indirectly in its own initializer.</code>
+</>}
+>
+  当一个操作的返回值依赖于调用 `ctx.runQuery` 或 `ctx.runMutation` 的结果时，TypeScript 会报错，提示它无法推断该操作的返回类型。下面是该问题的一个最小示例：
+
+  <Snippet title="convex/myFunctions.ts" source={CircularError} snippet="tsError" />
+
+  要规避这个问题，有两种方法：
+
+  1. 显式为处理函数的返回值标注类型：
+     <Snippet title="convex/myFunctions.ts" source={CircularErrorFixedReturn} snippet="fixed" highlightPatterns={["null"]} />
+  2. 显式为 `ctx.runQuery` 或 `ctx.runMutation` 调用的结果标注类型：
+     <Snippet title="convex/myFunctions.ts" source={CircularErrorFixedResults} snippet="fixed" highlightPatterns={["null"]} />
+
+  TypeScript 会检查类型标注是否与被调用的查询或变更的返回类型匹配，因此不会丢失任何类型安全性。
+
+  在这个简单示例中，查询的返回类型是 `null`。在为结果标注类型时，关于其他可能有用的类型，请参考
+  [TypeScript](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+  页面。
+</Details>
+
+## 选择运行时（&quot;use node&quot;） \{#choosing-the-runtime-use-node\}
+
+操作函数可以在 Convex 的自定义 JavaScript 环境或在 Node.js 中运行。
+
+默认情况下，操作函数在 Convex 的环境中运行。该环境支持 `fetch`，因此只需要使用
+`fetch` 调用第三方 API 的操作函数可以在这个环境中运行：
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+在 Convex 环境中运行的操作函数相比在 Node.js 中运行更快，因为它们在运行你的操作函数之前
+不需要额外的启动时间（冷启动）。它们也可以和其他 Convex 函数定义在同一个文件中。
+与查询和变更类似，它们可以导入 npm 包，但并非所有包都受支持。
+
+需要使用不受支持的 npm 包或 Node.js API 的操作函数，可以通过在文件顶部添加 `"use node"`
+指令来配置为在 Node.js 中运行。注意，其他 Convex 函数不能定义在带有 `"use node";`
+指令的文件中。
+
+<TSAndJSSnippet sourceTS={Node} sourceJS={Node} highlightPatterns={["use node"]} title="convex/myAction.ts" />
+
+在[Convex 运行时](/functions/runtimes.mdx)文档中了解这两种运行时的更多信息。
+
+## 通过辅助函数拆分操作函数代码 \{#splitting-up-action-code-via-helpers\}
+
+<>
+  {/* Fragment for Prettier */}
+
+  就像在
+  [查询](/functions/query-functions.mdx#splitting-up-query-code-via-helpers)
+  和
+  [变更](/functions/mutation-functions.mdx#splitting-up-mutation-code-via-helpers)
+  中一样，你可以定义并调用辅助
+  <LanguageSelector verbose /> 函数，来拆分操作函数中的代码，
+  或者在多个 Convex 函数之间复用逻辑。
+
+  但请注意，[ActionCtx](/api/interfaces/server.GenericActionCtx) 只与
+  [QueryCtx](/generated-api/server.md#queryctx) 和
+  [MutationCtx](/generated-api/server.md#mutationctx) 共有 `auth` 字段。
+</>
+
+## 从客户端调用操作函数 \{#calling-actions-from-clients\}
+
+要在 [React](/client/react.mdx) 中调用操作函数，使用
+[`useAction`](/api/modules/react#useaction) hook 以及生成的
+[`api`](/generated-api/api) 对象。
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
+
+与
+[变更函数](/functions/mutation-functions.mdx#calling-mutations-from-clients)
+不同，来自同一个客户端的操作函数是并行执行的。每个操作函数一到达服务端就会被执行（即使同一客户端还有其他操作函数和变更函数正在运行）。如果你的应用依赖某些操作函数在其他操作函数或变更函数之后运行，请确保只在前一个相关函数完成之后再触发该操作函数。
+
+**注意：** 在大多数情况下，直接从客户端调用操作函数**是一种反模式**。更好的方式是让客户端调用一个
+[变更函数](/functions/mutation-functions.mdx)，该变更函数通过写入数据库来捕获用户意图，然后
+[调度](/scheduling/scheduled-functions.mdx) 一个操作函数：
+
+<TSAndJSSnippet sourceTS={ScheduleFromMutation} sourceJS={ScheduleFromMutation} title="convex/myFunctions.ts" />
+
+通过这种方式，变更函数可以确保应用不变量，例如防止用户重复执行同一个操作函数。
+
+## 限制 \{#limits\}
+
+操作函数的执行超时时间为 10 分钟。
+[Node.js](/functions/runtimes.mdx#nodejs-runtime) 和
+[Convex 运行时](/functions/runtimes.mdx#default-convex-runtime) 的内存限制分别为
+512MB 和 64MB。如果你的使用场景需要配置更高的限制，请[联系我们](/production/contact.md)。
+
+操作函数最多可以并发执行 1000 个操作，例如执行查询、
+变更或发起 fetch 请求。
+
+关于其他限制的信息，请参阅[此处](/production/state/limits.mdx)。
+
+## 错误处理 \{#error-handling\}
+
+与查询和变更函数不同，操作函数可能有副作用，因此当发生错误时，Convex
+无法自动对其进行重试。例如，你的操作函数调用 Stripe 给客户发送发票。如
+果该 HTTP 请求失败，Convex 无法知道发票是否已经发送。就像普通后端代码
+一样，由调用方负责处理操作函数抛出的错误，并在合适的时候重新调用该操
+作函数。
+
+## 悬空的 Promise \{#dangling-promises\}
+
+务必 await 在操作内部创建的所有 promise。函数返回时仍在运行的异步任务可能会完成，也可能不会完成。另外，由于 Node.js 执行环境可能会在多次操作调用之间被复用，悬空的 promise 可能会在后续的操作调用中导致错误。
+
+## 最佳实践 \{#best-practices\}
+
+### `await ctx.runAction` 仅应在跨 JS 运行时时使用 \{#await-ctxrunaction-should-only-be-used-for-crossing-js-runtimes\}
+
+**原因：** `await ctx.runAction` 会带来一次额外 Convex 服务器函数的开销。它算作一次额外的函数调用，需要为自己分配系统资源，而且在你等待这个调用返回时，父级操作调用会被冻结，并一直占用它持有的所有资源。如果你把足够多这样的调用堆叠在一起，你的应用可能会明显变慢。
+
+**改进方式：** 这个 API 存在的原因是让你可以在
+[Node.js 环境](/functions/runtimes.mdx) 中运行代码。如果你想在同一运行时中从一个操作调用另一个操作（这是更常见的情况），最佳方式是将你想调用的代码提取到一个 TypeScript
+[辅助函数](/understanding/best-practices/best-practices.mdx#use-helper-functions-to-write-shared-code)
+中，然后直接调用该辅助函数。
+
+### 避免 `await ctx.runMutation` / `await ctx.runQuery` \{#avoid-await-ctxrunmutation-await-ctxrunquery\}
+
+```ts
+// ❌
+const foo = await ctx.runQuery(...)
+const bar = await ctx.runQuery(...)
+
+// ✅
+const fooAndBar = await ctx.runQuery(...)
+```
+
+**原因？** 多个 runQuery / runMutations 会在不同的事务中执行，不能保证彼此之间的数据一致性（例如 foo 和 bar 可能读取到同一条文档却返回两个不同的结果），而单个 runQuery / runMutation 始终可以保证一致性。此外，你还会为多次函数调用付费，而其实没有这个必要。
+
+**修复方法：** 新建一个内部查询 / 变更，一次性完成这两件事。把这两个函数的代码重构到辅助函数中，可以很方便地创建一个同时完成两件事的新内部函数，同时仍然保留原来的函数。也可以考虑重构你的操作代码，将所有数据库访问进行“批处理”。
+
+注意事项：当你是有意要处理超过单个事务容量的数据时，分开的 runQuery / runMutation 调用是合理的（例如执行迁移、做实时聚合时）。
+
+## 相关组件 \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Action 缓存",
+    description:
+      "缓存开销较大或频繁执行的操作函数。支持配置缓存时长，并允许强制刷新。",
+    href: "https://www.convex.dev/components/action-cache",
+  },
+  {
+    title: "Workpool",
+    description:
+      "Workpool 通过将异步操作组织到独立且可自定义的队列中，为关键任务提供更高优先级。支持重试和并行度限制。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "与操作函数类似，Workflow 可以调用查询、变更函数和操作函数。但它们是可持久化的函数，可以挂起、在服务器崩溃后继续存活、为操作调用指定重试策略等。",
+    href: "https://www.convex.dev/components/workflow",
+  },
+]}
+/>

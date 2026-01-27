@@ -1,0 +1,197 @@
+---
+title: "筛选"
+sidebar_position: 200
+description: "在 Convex 查询中筛选文档"
+---
+
+# 过滤 \{#filtering\}
+
+[`filter`](/api/interfaces/server.Query#filter) 方法允许你限制文档查询返回的文档。该方法接收由 [`FilterBuilder`](/api/interfaces/server.FilterBuilder) 构造的过滤条件，并且只会选取匹配的文档。
+
+下面的示例展示了 `filter` 的一些常见用法。你可以在
+[参考文档](/api/interfaces/server.FilterBuilder) 中查看所有可用过滤方法的完整列表。
+
+如果你需要筛选包含某些关键字的文档，请使用
+[搜索查询](/search/text-search.mdx)。
+
+<Admonition type="caution" title="请改用索引">
+  过滤器实际上会遍历整张表来查找匹配的文档。
+  当你的表有成千上万行时，这可能会很慢，或者导致你的函数触及
+  [限制](/production/state/limits.mdx)。
+  若要获得更快、更高效的数据库查询，请改用
+  [索引](/database/reading-data/indexes/indexes.md)。
+</Admonition>
+
+### 相等条件 \{#equality-conditions\}
+
+此查询会在 `users` 表中查找满足 `doc.name === "Alex"` 条件的文档：
+
+```ts
+// 获取所有名为"Alex"的用户。
+const usersNamedAlex = await ctx.db
+  .query("users")
+  .filter((q) => q.eq(q.field("name"), "Alex"))
+  .collect();
+```
+
+这里的 `q` 是 [`FilterBuilder`](/api/interfaces/server.FilterBuilder) 工具对象。它包含了我们支持的所有过滤运算符的方法。
+
+此过滤条件会应用于表中的所有文档。对于每个文档，`q.field("name")` 会返回 `name` 属性，然后 `q.eq` 会检查该属性是否等于 `"Alex"`。
+
+如果你的查询引用了某个文档中不存在的字段，那么该字段会被视为其值为 `undefined`。
+
+### 比较 \{#comparisons\}
+
+过滤器也可以用于将字段与值进行比较。下面这个文档查询
+会找到满足 `doc.age >= 18` 的文档：
+
+```ts
+// 获取所有年龄大于等于 18 岁的用户。
+const adults = await ctx.db
+  .query("users")
+  .filter((q) => q.gte(q.field("age"), 18))
+  .collect();
+```
+
+这里，`q.gte` 运算符会检查第一个参数（`doc.age`）是否大于或等于第二个参数（`18`）。
+
+下面是完整的比较运算符列表：
+
+| Operator      | Equivalent TypeScript |
+| ------------- | --------------------- |
+| `q.eq(l, r)`  | `l === r`             |
+| `q.neq(l, r)` | `l !== r`             |
+| `q.lt(l, r)`  | `l < r`               |
+| `q.lte(l, r)` | `l <= r`              |
+| `q.gt(l, r)`  | `l > r`               |
+| `q.gte(l, r)` | `l >= r`              |
+
+### 算术运算 \{#arithmetic\}
+
+你也可以在查询中使用基本的算术运算。下面这个文档查询会查找 `carpets` 表中满足 `doc.height * doc.width > 100` 的文档：
+
+```ts
+// 获取面积超过 100 的所有地毯。
+const largeCarpets = await ctx.db
+  .query("carpets")
+  .filter((q) => q.gt(q.mul(q.field("height"), q.field("width")), 100))
+  .collect();
+```
+
+以下是算术运算符的完整列表：
+
+| 运算符           | 等价的 TypeScript 表达式 |
+| ------------- | ------------------ |
+| `q.add(l, r)` | `l + r`            |
+| `q.sub(l, r)` | `l - r`            |
+| `q.mul(l, r)` | `l * r`            |
+| `q.div(l, r)` | `l / r`            |
+| `q.mod(l, r)` | `l % r`            |
+| `q.neg(x)`    | `-x`               |
+
+### 组合运算符 \{#combining-operators\}
+
+你可以使用 `q.and`、`q.or` 和 `q.not` 等方法构造更复杂的过滤条件。下面这个文档查询会查找满足
+`doc.name === "Alex" && doc.age >= 18` 的文档：
+
+```ts
+// 获取所有名为 "Alex" 且年龄至少为 18 岁的用户。
+const adultAlexes = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.and(q.eq(q.field("name"), "Alex"), q.gte(q.field("age"), 18)),
+  )
+  .collect();
+```
+
+以下是一个查询，用于查找所有满足
+`doc.name === "Alex" || doc.name === "Emma"` 条件的用户：
+
+```ts
+// 获取所有名为 "Alex" 或 "Emma" 的用户。
+const usersNamedAlexOrEmma = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.or(q.eq(q.field("name"), "Alex"), q.eq(q.field("name"), "Emma")),
+  )
+  .collect();
+```
+
+## 高级过滤技术 \{#advanced-filtering-techniques\}
+
+有时过滤语法本身还不够灵活。例如，你可能想要查询所有带有标签的帖子。你的帖子模式定义如下所示：
+
+```ts
+export default defineSchema({
+  posts: defineTable({
+    body: v.string(),
+    tags: v.array(v.string()),
+  }),
+});
+```
+
+一种解决方法是对 `collect()` 调用的结果进行过滤。这实际上只是对一个 JavaScript 数组进行过滤：
+
+```ts
+export const postsWithTag = query({
+  args: { tag: v.string() },
+  handler: async (ctx, args) => {
+    const allPosts = await ctx.db.query("posts").collect();
+    return allPosts.filter((post) => post.tags.includes(args.tag));
+  },
+});
+```
+
+但这需要先读取整张表。如果你只想获取第一个匹配的结果，读取整张表会非常低效。
+相反，你可以使用 JavaScript 的
+[`for await...of`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of)
+语法，逐条遍历表中的文档：
+
+```ts
+export const firstPostWithTag = query({
+  args: { tag: v.string() },
+  handler: (ctx, args) => {
+    for await (const post of db.query("posts")) {
+      if (post.tags.includes(args.tag)) {
+        return post;
+      }
+    }
+  },
+});
+```
+
+之所以可行，是因为 Convex 查询是
+[JavaScript 可迭代对象](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)。
+
+即使有了这种优化，你依然只是遍历整张表来找到第一个匹配的帖子，仍然可能触及函数调用限制。使用索引才是正确的做法。你可以阅读
+[关于如何使用索引处理标签的详细讨论](https://stack.convex.dev/complex-filters-in-convex#optimize-with-indexes)。
+
+## 查询性能与限制 \{#querying-performance-and-limits\}
+
+上述的大多数文档查询示例都可能导致*全表扫描*。也就是说，为了让文档查询返回所请求的结果，它可能需要遍历表中的每个文档。
+
+来看这个简单示例：
+
+```ts
+const tasks = await ctx.db.query("tasks").take(5);
+```
+
+这个文档查询最多只会扫描 5 个文档。
+
+另一方面，下面这个文档查询会：
+
+```ts
+const tasks = await ctx.db
+  .query("tasks")
+  .filter((q) => q.eq(q.field("isCompleted"), true))
+  .first();
+```
+
+可能需要遍历 `"tasks"` 表中的每一条文档记录，才能找到第一条 `isCompleted: true` 的文档。
+
+如果一个表中有超过几千条文档，你应该使用
+[indexes](/database/reading-data/indexes/indexes.md) 来提升文档
+查询性能。否则，你可能会触发我们强制执行的限制，详见
+[Read/write limit errors](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)。
+
+关于其他限制的信息，请参阅 [Limits](/production/state/limits.mdx)。

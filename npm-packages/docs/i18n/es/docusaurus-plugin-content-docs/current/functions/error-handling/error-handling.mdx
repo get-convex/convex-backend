@@ -1,0 +1,202 @@
+---
+title: "Manejo de errores"
+sidebar_position: 70
+description: "Gestiona errores en consultas, mutaciones y acciones de Convex"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Hay cuatro razones por las que tus [consultas](/functions/query-functions.mdx)
+y [mutaciones](/functions/mutation-functions.mdx) de Convex pueden producir errores:
+
+1. [Errores de aplicación](#application-errors-expected-failures): El código de
+   la función encuentra una condición lógica que debe detener el procesamiento
+   posterior y tu código lanza un `ConvexError`.
+2. Errores de desarrollador: Hay un error en la función (como llamar a
+   `db.get("documents", null)` en lugar de `db.get("documents", id)`).
+3. [Errores de límite de lectura/escritura](#readwrite-limit-errors): La función
+   está leyendo o escribiendo demasiados datos.
+4. Errores internos de Convex: Hay un problema dentro de Convex (como un fallo
+   de red intermitente).
+
+Convex manejará automáticamente los errores internos de Convex. Si hay problemas
+de nuestro lado, reintentaremos automáticamente tus consultas y mutaciones
+hasta que el problema se resuelva y tus consultas y mutaciones se completen con éxito.
+
+Por otro lado, tú debes decidir cómo manejar los errores de aplicación, de
+desarrollador y de límite de lectura/escritura. Cuando ocurre uno de estos
+errores, las prácticas recomendadas son:
+
+1. Mostrar al usuario una interfaz de usuario adecuada.
+2. Enviar el error a un servicio de reporte de excepciones usando la
+   [integración de reporte de excepciones](/production/integrations/exception-reporting).
+3. Registrar el incidente usando `console.*` y configurar el reporte con
+   [Log Streaming](/production/integrations/log-streams/log-streams.mdx). Esto
+   se puede hacer además de las opciones anteriores y no requiere que se lance
+   una excepción.
+
+Además, quizá también quieras enviar errores del lado del cliente a un servicio
+como [Sentry](https://sentry.io) para capturar información adicional para la
+depuración y la observabilidad.
+
+## Errores en consultas \{#errors-in-queries\}
+
+Si tu función de consulta produce un error, este se enviará al cliente y se
+lanzará desde el lugar donde llames a `useQuery`. **La mejor manera de manejar
+estos errores es con un
+[componente de límite de errores](https://reactjs.org/docs/error-boundaries.html)
+de React.**
+
+Los límites de errores te permiten capturar errores lanzados en su árbol de
+componentes hijo, renderizar una interfaz de usuario de reserva y enviar
+información sobre el error a tu servicio de gestión de excepciones. Agregar
+límites de errores a tu aplicación es una excelente forma de manejar errores en
+las funciones de consulta de Convex, así como otros errores en tus componentes
+de React. Si estás usando Sentry, puedes usar su componente
+[`Sentry.ErrorBoundary`](https://docs.sentry.io/platforms/javascript/guides/react/components/errorboundary/).
+
+Con los límites de errores, puedes decidir qué tan granular quieres que sea tu
+interfaz de usuario de reserva. Una opción simple es envolver toda tu aplicación
+en un solo límite de errores como:
+
+```tsx
+<StrictMode>
+  <ErrorBoundary>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </ErrorBoundary>
+</StrictMode>,
+```
+
+Entonces cualquier error en cualquiera de tus componentes será detectado por el error boundary y
+se renderizará la misma UI de fallback.
+
+Por otro lado, si quieres permitir que algunas partes de tu app continúen
+funcionando incluso si otras partes tienen errores, puedes envolver diferentes partes
+de tu app en error boundaries separados.
+
+<Admonition type="note" title="Reintentar">
+  A diferencia de otros frameworks, no existe el concepto de &quot;reintentar&quot; si tu función de consulta
+  encuentra un error. Debido a que las funciones de Convex son
+  [deterministas](/functions/query-functions.mdx#caching--reactivity--consistency),
+  si la función de consulta encuentra un error, volver a ejecutarla siempre producirá el mismo
+  error. No tiene sentido volver a ejecutar la función de consulta con los mismos argumentos.
+</Admonition>
+
+## Errores en las mutaciones \{#errors-in-mutations\}
+
+Si una mutación produce un error, esto hará lo siguiente:
+
+1. Hará que la promesa devuelta por tu llamada de mutación sea rechazada.
+2. Hará que tu [actualización optimista](/client/react/optimistic-updates.mdx)
+   se revierta.
+
+Si tienes configurado un servicio de excepciones como [Sentry](https://sentry.io/),
+este debería informar automáticamente de los &quot;rechazos de promesas no manejados&quot; de este tipo. Eso significa que, sin trabajo adicional, los errores de tus mutaciones deberían registrarse.
+
+Ten en cuenta que los errores en las mutaciones no serán capturados por tus límites de error porque el error no ocurre como parte del renderizado de tus componentes.
+
+Si quieres renderizar una interfaz de usuario específicamente en respuesta al fallo de una mutación,
+puedes usar `.catch` en tu llamada de mutación. Por ejemplo:
+
+```javascript
+sendMessage(newMessageText).catch((error) => {
+  // Haz algo con `error` aquí
+});
+```
+
+Si estás utilizando una función `async`, también puedes usar `try...catch`:
+
+```javascript
+try {
+  await sendMessage(newMessageText);
+} catch (error) {
+  // Haz algo con `error` aquí
+}
+```
+
+<Admonition type="caution" title="Reportar errores capturados">
+  Si manejas el error de tu mutación, ya no se convertirá en un rechazo de promesa
+  no manejado. Es posible que tengas que reportar este error manualmente a tu servicio
+  de gestión de excepciones.
+</Admonition>
+
+## Errores en funciones de acción \{#errors-in-action-functions\}
+
+A diferencia de las consultas y mutaciones, las [acciones](//docs/functions/actions.mdx) pueden tener
+efectos secundarios y, por lo tanto, Convex no puede volver a intentarlas automáticamente cuando se
+producen errores. Por ejemplo, supongamos que tu acción envía un correo electrónico. Si falla a mitad del proceso,
+Convex no tiene forma de saber si el correo electrónico ya se envió y no puede volver a intentar
+la acción de forma segura. Es responsabilidad de quien la invoca manejar los errores generados por
+las acciones y reintentarlas si corresponde.
+
+## Diferencias en los informes de errores entre dev y producción \{#differences-in-error-reporting-between-dev-and-prod\}
+
+Cuando uses un despliegue de dev, cualquier error del servidor que llegue al cliente incluirá el mensaje de error original y una traza de pila del lado del servidor para facilitar la depuración.
+
+Cuando uses un despliegue de producción, cualquier error del servidor se limitará a incluir únicamente el nombre de la función y un mensaje genérico `"Server Error"`, sin traza de pila. Los
+[errores de aplicación](/functions/error-handling/application-errors.mdx) del servidor
+seguirán incluyendo sus `data` personalizados.
+
+Tanto los despliegues de desarrollo como los de producción registran los errores completos con sus trazas de pila, que se pueden encontrar en la página de [Logs](/dashboard/deployments/logs.md) de un determinado despliegue.
+
+## Errores de aplicación, fallos esperados \{#application-errors-expected-failures\}
+
+Si sabes de antemano que tus funciones pueden fallar de determinadas maneras, puedes devolver
+valores diferentes o lanzar errores de tipo `ConvexError`.
+
+Consulta [Errores de aplicación](/functions/error-handling/application-errors.mdx).
+
+## Errores por límites de lectura/escritura \{#readwrite-limit-errors\}
+
+Para garantizar la disponibilidad y el rendimiento, Convex detectará consultas y
+mutaciones que intenten leer o escribir demasiados datos. Estos límites se aplican
+a nivel de una sola ejecución de una función de consulta o mutación. Los límites
+exactos se enumeran en [Límites](/production/state/limits.mdx#transactions).
+
+Los documentos son &quot;escaneados&quot; por la base de datos para determinar qué
+documentos deben devolverse desde `db.query`. Por ejemplo,
+`db.query("table").take(5).collect()` solo necesitará escanear 5 documentos,
+pero `db.query("table").filter(...).first()` podría escanear tantos documentos
+como haya en `"table"`, para encontrar el primero que coincida con el filtro
+indicado.
+
+El número de llamadas a `db.get` y `db.query` tiene un límite para evitar que una
+sola consulta se suscriba a demasiados rangos de índice, o que una mutación lea
+de demasiados rangos que puedan causar conflictos.
+
+En general, si te encuentras con estos límites con frecuencia, recomendamos
+[indexar tus consultas](/database/reading-data/indexes/indexes.md) para
+reducir el número de documentos escaneados, lo que te permitirá evitar lecturas
+innecesarias. Las consultas que escanean grandes porciones de tus datos pueden
+parecer inocuas al principio, pero pueden dispararse fácilmente a cualquier
+escala de producción. Si tus funciones están cerca de alcanzar estos límites,
+registrarán una advertencia en los registros.
+
+Para obtener información sobre otros límites, consulta
+[aquí](/production/state/limits.mdx).
+
+## Depuración de errores \{#debugging-errors\}
+
+Consulta [Depuración](/functions/debugging.mdx) y, en particular,
+[Buscar registros relevantes por ID de solicitud](/functions/debugging.mdx#finding-relevant-logs-by-request-id).
+
+## Componentes relacionados \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool da prioridad a las tareas críticas organizando operaciones asíncronas en colas independientes y personalizables. Admite reintentos y límites de paralelismo.",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "Simplifica la programación de flujos de código de larga duración. Los workflows se ejecutan de forma duradera, con reintentos y retrasos configurables.",
+    href: "https://www.convex.dev/components/workflow",
+  },
+]}
+/>

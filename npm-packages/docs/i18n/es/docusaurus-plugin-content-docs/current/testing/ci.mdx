@@ -1,0 +1,33 @@
+---
+title: Integración continua
+sidebar_label: CI
+sidebar_position: 300
+description: "Configura pruebas de integración continua para aplicaciones de Convex"
+---
+
+La integración continua permite que tu equipo avance rápidamente al combinar los cambios de
+todos los miembros y ejecutarlos automáticamente en una máquina remota.
+
+## Pruebas en GitHub Actions \{#testing-in-github-actions\}
+
+Es fácil si usas [GitHub](https://docs.github.com/en/actions) para configurar un flujo de trabajo de integración continua ([CI](https://docs.github.com/en/actions/automating-builds-and-tests/about-continuous-integration)) para ejecutar tu suite de pruebas:
+
+```yaml title=".github/workflows/test.yml"
+name: Run Tests
+
+on: [pull_request, push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci
+      - run: npm run test
+```
+
+Después de hacer commit y push de este archivo a tu repositorio, GitHub ejecutará
+`npm run test` cada vez que abras una pull request o subas un nuevo commit.
+
+{/* por hacer: pruebas con despliegues de vista previa */}

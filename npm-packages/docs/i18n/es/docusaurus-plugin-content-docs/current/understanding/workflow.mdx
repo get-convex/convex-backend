@@ -1,0 +1,209 @@
+---
+title: "Flujo de trabajo de desarrollo"
+hidden: false
+sidebar_position: 200
+description:
+  "Flujo de trabajo de desarrollo desde la creación del proyecto hasta el despliegue en producción"
+---
+
+Vamos a repasar todos los pasos necesarios desde la creación de un proyecto nuevo
+hasta el lanzamiento de tu aplicación en producción.
+
+Este documento asume que estás creando una aplicación con Convex y React y que ya
+tienes una aplicación básica de React en marcha. Puedes seguir una de nuestras
+[guías de inicio rápido](/quickstarts.mdx) para configurarla.
+
+## Instalación y ejecución de Convex \{#installing-and-running-convex\}
+
+Instala Convex añadiendo la dependencia npm a tu aplicación:
+
+```sh
+npm i convex
+```
+
+Luego creas tu proyecto de Convex y comienzas el ciclo de desarrollo de tu backend:
+
+```sh
+npx convex dev
+```
+
+La primera vez que ejecutes el comando `npx convex dev`, se te preguntará si
+quieres comenzar a desarrollar localmente sin una cuenta o bien crear una cuenta.
+
+### Desarrollar sin una cuenta \{#developing-without-an-account\}
+
+`npx convex dev` te pedirá el nombre de tu proyecto y luego comenzará a ejecutar
+el backend de Convex, de código abierto, localmente en tu máquina (esto también
+se denomina un &quot;despliegue&quot;).
+
+Los datos de tu proyecto se guardarán en el directorio `~/.convex`.
+
+1. El nombre de tu proyecto se guardará en tu archivo `.env.local` para que, en
+   ejecuciones futuras, `npx convex dev` sepa que debe usar este proyecto.
+2. Se creará una carpeta `convex/` (si no existe), donde escribirás las
+   funciones de backend de Convex.
+
+En el futuro, puedes ejecutar `npx convex login` para crear una cuenta y vincular
+cualquier proyecto existente.
+
+### Desarrollar con una cuenta \{#developing-with-an-account\}
+
+`npx convex dev` te guiará para crear una cuenta si aún no existe y añadirá tus credenciales a `~/.convex/config.json` en tu máquina.
+Puedes ejecutar `npx convex logout` para cerrar la sesión de esa cuenta en tu
+máquina en el futuro.
+
+A continuación, `npx convex dev` creará un nuevo proyecto y aprovisionará un nuevo
+despliegue de desarrollo personal para este proyecto:
+
+1. Los detalles del despliegue se añadirán automáticamente a tu archivo `.env.local` para que
+   ejecuciones posteriores de `npx convex dev` sepan con qué despliegue de dev conectarse.
+2. Se creará una carpeta `convex/` (si no existe), donde escribirás
+   tus funciones backend de Convex.
+
+<div className="center-image" style={{ maxWidth: "149px" }}>
+  ![Directorio de Convex en tu app](/img/convex-directory.png)
+</div>
+
+## Ejecutar el ciclo de desarrollo \{#running-the-dev-loop\}
+
+Mantén el comando `npx convex dev` en ejecución mientras trabajas en tu aplicación
+de Convex. Esto envía de forma continua el código de backend que escribes en la
+carpeta `convex/` a tu despliegue. También mantiene al día los tipos de
+TypeScript necesarios a medida que escribes tu código de backend.
+
+Cuando estás desarrollando con un despliegue que se ejecuta localmente, `npx convex dev`
+también se encarga de ejecutar tu despliegue.
+
+A continuación puedes añadir nuevas funciones de servidor a tu backend de Convex:
+
+```typescript title="convex/tasks.ts"
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+// Devuelve las últimas 100 tareas en una lista de tareas dada.
+export const getTaskList = query({
+  args: { taskListId: v.id("taskLists") },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("taskListId", (q) => q.eq("taskListId", args.taskListId))
+      .order("desc")
+      .take(100);
+    return tasks;
+  },
+});
+```
+
+When you write and save this code in your editor, several things happen:
+
+1. The `npx convex dev` command typechecks your code and updates the
+   `convex/_generated` directory.
+2. The contents of your `convex/` directory get uploaded to your dev deployment.
+3. Your Convex dev deployment analyzes your code and finds all Convex functions.
+   In this example, it determines that `tasks.getTaskList` is a new public query
+   function.
+4. If there are any changes to the [schema](/database/schemas.mdx), the
+   deployment will automatically enforce them.
+5. The `npx convex dev` command updates generated TypeScript code in the
+   `convex/_generated` directory to provide end to end type safety for your
+   functions.
+
+<Admonition type="tip">
+  Revisa todo lo que haya en tu directorio `convex/_generated/`. Esto garantiza
+  que tu código se verifique de tipos de inmediato y se ejecute sin tener que ejecutar primero
+  `npx convex dev`. Es particularmente útil cuando desarrolladores que no son de backend
+  escriben código de frontend y quieren asegurarse de que su código se verifique de tipos con respecto
+  al código de backend actualmente desplegado.
+</Admonition>
+
+Once this is done you can use your new server function in your frontend:
+
+```typescript title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.tasks.getTaskList);
+  return data ?? "Loading...";
+}
+```
+
+Si tienes configuración adicional como [crons](/scheduling/cron-jobs.mdx) o
+[auth](/auth.mdx) en tu carpeta `convex/`, Convex garantiza que se apliquen
+y se respeten en tu backend.
+
+## Panel de control de Convex \{#convex-dashboard\}
+
+El [panel de control de Convex](/dashboard/deployments/deployments.md) será un
+aliado de confianza en todo tu flujo de trabajo de desarrollo, depuración y despliegue en Convex.
+
+`npx convex dashboard` abrirá un enlace al panel de control de tu despliegue.
+
+### Registros \{#logs\}
+
+Como las funciones de Convex son funciones de TypeScript, siempre puedes usar las funciones estándar
+`console.log` y `console.time` para depurar tus aplicaciones.
+
+Los registros de tus funciones se muestran
+[en tu panel de control](/dashboard/deployments/logs.md).
+
+![Página de registros del panel de control](/screenshots/logs.png)
+
+### Estado, datos, funciones y más \{#health-data-functions-and-more\}
+
+* [Health](/dashboard/deployments/health.md) - proporciona valiosa información
+  sobre el rendimiento de tu aplicación en producción, con detalles profundos
+  sobre cómo se comportan tus consultas de Convex.
+* [Data](/dashboard/deployments/data.md) - te ofrece un navegador de datos
+  completo para realizar comprobaciones puntuales de tus datos.
+* [Functions](/dashboard/deployments/functions.md) - te muestra estadísticas y
+  te permite ejecutar funciones para depurarlas.
+
+El panel de control ofrece mucho más. Asegúrate de explorarlo o de
+[consultar la documentación](/dashboard.md).
+
+## Desplegar tu aplicación \{#deploying-your-app\}
+
+Hasta ahora has estado trabajando en tu aplicación con tu despliegue personal de dev.
+
+Todos los proyectos de Convex tienen un despliegue de producción en ejecución en la nube. Este tiene
+datos separados y un proceso de publicación separado de los despliegues personales de dev,
+lo que te permite a ti y a tu equipo trabajar en nuevas funcionalidades usando despliegues
+personales de dev sin interrumpir tu aplicación que se ejecuta en producción.
+
+Si aún no has creado una cuenta de Convex, tendrás que hacerlo con
+`npx convex login`. Esto vinculará automáticamente cualquier proyecto que hayas empezado
+con tu nueva cuenta y habilitará el uso de tu despliegue de producción.
+
+Para publicar tu código en el despliegue de producción de tu proyecto, ejecuta el
+comando de deploy:
+
+```sh
+npx convex deploy
+```
+
+<Admonition type="info">
+  Si ejecutas este comando por primera vez, se aprovisionará
+  automáticamente el despliegue de producción de tu proyecto.
+</Admonition>
+
+### Configurar tu pipeline de despliegue \{#setting-up-your-deployment-pipeline\}
+
+Es poco común ejecutar `npx convex deploy` directamente. La mayoría de las aplicaciones de producción ejecutan
+un flujo de trabajo automatizado que ejecuta pruebas y despliega tu backend y frontend
+juntos.
+
+Puedes ver instrucciones detalladas de configuración de despliegue y frontend en el
+documento de [Hosting and Deployment](/production/hosting/hosting.mdx). Para la mayoría de los meta‑frameworks de React, Convex
+[configura automáticamente la variable de entorno correcta](/production/hosting/vercel.mdx#how-it-works)
+para conectarse al despliegue de producción.
+
+## A continuación \{#up-next\}
+
+Ahora ya conoces lo básico de cómo funciona Convex y cómo encaja en tu aplicación. Ve y
+explora la documentación para aprender más sobre las funcionalidades específicas que quieres
+usar.
+
+Cuando estés listo, asegúrate de leer las
+[Mejores prácticas](/understanding/best-practices/best-practices.mdx) y luego el
+[Zen de Convex](/understanding/zen.mdx), para cuando estés preparado para &quot;pensar en Convex&quot;.

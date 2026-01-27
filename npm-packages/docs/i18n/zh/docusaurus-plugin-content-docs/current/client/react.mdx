@@ -1,0 +1,284 @@
+---
+title: "Convex React"
+sidebar_label: "React"
+sidebar_position: 4
+description: "React 客户端库，用于与 Convex 后端交互"
+---
+
+import SkipBad from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipBad.tsx";
+import SkipGood from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipGood.tsx";
+
+Convex React 是一个客户端库，使你的 React 应用能够与 Convex 后端进行交互。它允许你的前端代码：
+
+1. 调用你的[查询](/functions/query-functions.mdx)、[变更](/functions/mutation-functions.mdx)和[操作](/functions/actions.mdx)
+2. 从[文件存储](/file-storage.mdx)中上传和显示文件
+3. 使用[身份验证](/auth.mdx)对用户进行认证
+4. 基于你的数据实现全文[搜索](/search.mdx)
+
+Convex React 客户端是开源的，可在
+[GitHub](https://github.com/get-convex/convex-js) 上获取。
+
+按照 [React 快速上手](/quickstart/react.mdx) 教程，使用
+[Vite](https://vitejs.dev/) 开始使用 React。
+
+## 安装 \{#installation\}
+
+Convex React 是 `convex` npm 包的一部分：
+
+```
+npm install convex
+```
+
+## 连接后端 \{#connecting-to-a-backend\}
+
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient) 会与你的 Convex 后端保持连接，并被下文介绍的 React Hook 用来调用你的函数。
+
+首先，你需要通过提供后端的部署 URL 来创建一个客户端实例。关于如何传入正确的值，请参见[配置部署 URL](/client/react/project-setup.md)：
+
+```jsx
+import { ConvexProvider, ConvexReactClient } from "convex/react";
+
+const convex = new ConvexReactClient("https://<your domain here>.convex.cloud");
+```
+
+接下来，你可以将该客户端传递给包裹组件树的
+[`ConvexProvider`](/api/modules/react#convexprovider)，从而在整个应用中使用它：
+
+```jsx
+reactDOMRoot.render(
+  <React.StrictMode>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </React.StrictMode>,
+);
+```
+
+## 获取数据 \{#fetching-data\}
+
+你的 React 应用使用 [`useQuery`](/api/modules/react#usequery)
+这个 React hook，通过 [`api`](/generated-api/api.md#api) 对象调用你的
+[查询](/functions/query-functions.mdx) 来获取数据。
+
+`npx convex dev` 命令会在 `convex/_generated/api.js` 模块中为你生成这个 `api` 对象，
+以便在 JavaScript 中提供更好的自动补全，并在
+[TypeScript](/understanding/best-practices/typescript.mdx) 中实现端到端的类型安全：
+
+```tsx title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.functions.myQuery);
+  return data ?? "Loading...";
+}
+```
+
+在首次加载数据期间，`useQuery` 钩子会返回 `undefined`，之后会返回对应查询的返回值。
+
+### 查询参数 \{#query-arguments\}
+
+查询的参数紧跟在查询名称之后：
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const data = useQuery(api.functions.myQuery, { a, b });
+  //...
+}
+```
+
+### 响应式 \{#reactivity\}
+
+`useQuery` hook 让你的应用自动具备响应式特性：当数据库中的相关数据发生变化时，你的组件会使用新的查询结果重新渲染。
+
+第一次使用该 hook 时，它会为指定的查询以及你传入的任何参数在后端创建一个订阅。当组件卸载时，这个订阅会被取消。
+
+### 一致性 \{#consistency\}
+
+Convex React 确保你的应用始终基于某个确定的底层数据库状态，渲染出一致的查询结果视图。
+
+设想一次变更修改了数据库中的某些数据，而且有两个不同的 `useQuery` 调用位置依赖这份数据。你的应用永远不会出现不一致的渲染状态——即只有其中一个 `useQuery` 调用位置反映了新数据，而另一个仍然显示旧数据。
+
+### 对查询进行分页 \{#paginating-queries\}
+
+参见
+[在 React 组件中进行分页](/database/pagination.mdx#paginating-within-react-components)。
+
+### 跳过查询 \{#skipping-queries\}
+
+<Details summary="高级：按条件加载查询">
+  在 React 中，按需（动态）调用 Hook 可能比较棘手，因为 Hook 不能写在条件语句内部或提前返回之后：
+
+  <TSAndJSSnippet title="src/App.tsx" sourceTS={SkipBad} sourceJS={SkipBad} snippet="example" highlightPatterns={["useQuery"]} />
+
+  因此，可以通过传入 `"skip"` 而不是参数来“禁用” `useQuery`：
+
+  <TSAndJSSnippet title="src/App.tsx" sourceTS={SkipGood} sourceJS={SkipGood} highlightPatterns={["skip"]} />
+
+  当使用 `"skip"` 时，`useQuery` 根本不会与后端通信，并且返回 `undefined`。
+</Details>
+
+### 一次性查询 \{#one-off-queries\}
+
+<Details summary="高级：在回调中获取查询">
+  有时你可能希望在响应用户操作时从数据库读取状态，例如在不对数据库进行任何更改的情况下验证用户输入。这种情况下，你可以使用一次性
+  [`query`](/api/classes/react.ConvexReactClient#query) 调用，方式与调用变更函数和操作函数类似。
+
+  异步方法 `query` 定义在 `ConvexReactClient` 上，你可以通过
+  [`useConvex()`](/api/modules/react#useconvex) 钩子函数在组件中获取它。
+
+  ```tsx title="src/App.tsx"
+  import { useConvex } from "convex/react";
+  import { api } from "../convex/_generated/api";
+
+  export function App() {
+    const convex = useConvex();
+    return (
+      <button
+        onClick={async () => {
+          console.log(await convex.query(api.functions.myQuery));
+        }}
+      >
+        Check
+      </button>
+    );
+  }
+  ```
+</Details>
+
+## 编辑数据 \{#editing-data\}
+
+你的 React 应用通过使用
+[`useMutation`](/api/modules/react#usemutation) React hook 来编辑数据，
+从而调用你的
+[变更函数](/functions/mutation-functions.mdx)。
+
+`convex dev` 命令会在 `convex/_generated/api.js` 模块中为你生成这个 API 对象，
+以便在 JavaScript 中提供更好的代码补全，
+并在
+[TypeScript](/understanding/best-practices/typescript.mdx) 中实现端到端的类型安全：
+
+```tsx title="src/App.tsx"
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething()}>点击我</button>;
+}
+```
+
+这个 hook 返回一个 `async` 函数，用于执行对该变更的调用。
+
+### 变更参数 \{#mutation-arguments\}
+
+变更的参数会被传入 `useMutation` 返回的 `async` 函数中：
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething({ a, b })}>Click me</button>;
+}
+```
+
+### 变更的返回值与错误处理 \{#mutation-response-and-error-handling\}
+
+变更函数可以选择返回一个值或抛出错误，你可以对其使用
+[`await`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/await)：
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    async function callBackend() {
+      try {
+        const result = await doSomething();
+      } catch (error) {
+        console.error(error);
+      }
+      console.log(result);
+    }
+    void callBackend();
+  };
+  return <button onClick={onClick}>点击我</button>;
+}
+```
+
+或者将其作为 [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) 来处理：
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    doSomething()
+      .catch((error) => {
+        console.error(error);
+      })
+      .then((result) => {
+        console.log(result);
+      });
+  };
+  return <button onClick={onClick}>点击我</button>;
+}
+```
+
+进一步了解函数中的[错误处理](/functions/error-handling/error-handling.mdx)。
+
+### 重试 \{#retries\}
+
+Convex React 会自动重试变更函数调用，直到确认它们已经写入数据库。Convex 后端会确保即使进行了多次重试，每次变更函数调用也只会实际执行一次。
+
+此外，当仍有未完成的变更函数时，如果用户尝试关闭浏览器标签页，Convex React 会发出警告。这意味着，当你调用 Convex 变更函数时，可以确信用户的编辑不会丢失。
+
+### 乐观更新 \{#optimistic-updates\}
+
+Convex 查询是完全响应式的，因此所有查询结果都会在每次变更之后自动更新。有时你可能希望在变更的结果传播回客户端之前就更新 UI。为此，你可以配置一个在变更执行时一并运行的 *乐观更新*。
+
+乐观更新是对查询结果进行的临时本地更改，用来让你的应用对用户操作更加灵敏。
+
+请参阅 [Optimistic Updates](/client/react/optimistic-updates.mdx) 了解如何为它们进行配置。
+
+## 调用第三方 API \{#calling-third-party-apis\}
+
+你的 React 应用可以通过单次后端调用来读取数据、调用第三方服务并写入数据，方法是使用 [`useAction`](/api/modules/react#useaction) React Hook 来调用你的 [操作函数](/functions/actions.mdx)。
+
+与 `useQuery` 和 `useMutation` 类似，这个 Hook 需要配合在 `convex/_generated/api.js` 模块中为你生成的 `api` 对象一起使用，从而在 JavaScript 中提供更好的自动补全，并在 [TypeScript](/understanding/best-practices/typescript.mdx) 中实现端到端的类型安全：
+
+```tsx title="src/App.tsx"
+import { useAction } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomeAction = useAction(api.functions.doSomeAction);
+  return <button onClick={() => doSomeAction()}>点击我</button>;
+}
+```
+
+该 hook 会返回一个 `async` 函数，用于调用该操作。
+
+### 操作参数 \{#action-arguments\}
+
+操作的参数与
+[变更参数](#mutation-arguments)
+的用法完全相同。
+
+### 操作响应与错误处理 \{#action-response-and-error-handling\}
+
+操作的响应与错误处理方式与
+[变更响应与错误处理](#mutation-response-and-error-handling)
+完全相同。
+
+操作函数不支持自动重试或乐观更新。
+
+## 底层原理 \{#under-the-hood\}
+
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient) 通过创建一个
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) 来连接到你的
+Convex 部署。WebSocket 在 TCP 之上提供了双向通信通道，这使 Convex 能够
+以响应式方式将新的查询结果推送给客户端，而无需客户端轮询获取更新。
+
+如果网络连接中断，客户端会自动处理重连并重新建立 Convex 会话。

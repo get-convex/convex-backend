@@ -1,0 +1,53 @@
+---
+title: "Programación"
+hide_table_of_contents: true
+pagination_prev: auth
+description:
+  "Programa funciones para que se ejecuten una vez o de forma periódica mediante funciones programadas y cron jobs"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex te permite programar fácilmente una función para que se ejecute una vez o
+de forma periódica en el futuro. Esto te permite crear flujos de trabajo
+duraderos, como enviar un correo electrónico de bienvenida un día después de que
+alguien se una o conciliar regularmente tus cuentas con Stripe.
+Convex ofrece dos funcionalidades diferentes para la programación:
+
+* [Scheduled Functions](/scheduling/scheduled-functions.mdx) se pueden programar
+  de forma persistente desde cualquier otra función para que se ejecuten más
+  tarde. Puedes programar funciones con minutos, días e incluso meses de
+  antelación.
+* [Cron Jobs](/scheduling/cron-jobs.mdx) programan funciones para que se ejecuten
+  de forma recurrente, por ejemplo, a diario.
+
+## Componentes de funciones duraderas \{#durable-function-components\}
+
+Las funciones programadas integradas y los crons funcionan bien para aplicaciones y flujos de trabajo más simples.
+Si estás operando a gran escala o necesitas garantías más específicas, usa los
+siguientes [componentes](/components.mdx) de alto nivel para funciones duraderas.
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool da prioridad a las tareas críticas organizando operaciones asíncronas en colas independientes y personalizables.",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "Simplifica la programación de flujos de código de larga duración. Los workflows se ejecutan de forma duradera con reintentos y retrasos configurables.",
+    href: "https://www.convex.dev/components/workflow",
+  },
+  {
+    title: "Crons",
+    description:
+      "Usa cronspec para ejecutar funciones con una programación recurrente en tiempo de ejecución.",
+    href: "https://www.convex.dev/components/crons",
+  },
+]}
+/>
+
+<StackPosts query="scheduler" />

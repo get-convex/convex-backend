@@ -1,0 +1,98 @@
+---
+title: "Variables de entorno"
+sidebar_label: "Variables de entorno"
+sidebar_position: 2
+description: "Almacena y accede a variables de entorno en Convex"
+---
+
+Las variables de entorno son pares clave-valor útiles para almacenar valores que no quieres incluir en el código ni en una tabla, como una clave de API. Puedes configurar variables de entorno en Convex mediante el panel de control y acceder a ellas en las [funciones](/functions.mdx) usando `process.env`.
+
+## Configuración de variables de entorno \{#setting-environment-variables\}
+
+En [Deployment Settings](/dashboard/deployments/settings.md) del
+panel de control, puedes ver una lista de las variables de entorno del
+despliegue actual.
+![Tabla de variables de entorno](/screenshots/environment_variables_table.png)
+
+Puedes añadir hasta 100 variables de entorno. Los nombres de las variables de entorno no pueden
+tener más de 40 caracteres de longitud y deben comenzar con una letra y solo
+contener letras, números y guiones bajos. Los valores de las variables de entorno no pueden
+superar los 8 KB.
+
+Puedes modificar las variables de entorno usando el botón con el icono de lápiz:
+
+![Editar variable de entorno](/screenshots/edit_environment_variable.png)
+
+Las variables de entorno también se pueden ver y modificar desde la
+[línea de comandos](/cli.md#read-and-write-environment-variables).
+
+```sh
+npx convex env list
+npx convex env set API_KEY secret-api-key
+```
+
+### Uso de variables de entorno en despliegues de dev y producción \{#using-environment-variables-in-dev-and-prod-deployments\}
+
+Dado que las variables de entorno se configuran por despliegue, puedes usar valores
+diferentes para la misma clave en despliegues de dev y producción. Esto puede ser útil cuando
+tienes distintas cuentas externas que quieres usar según el entorno.
+Por ejemplo, podrías tener una cuenta de SendGrid para dev y otra para producción para enviar correos electrónicos,
+y tu función espera una variable de entorno llamada `SENDGRID_API_KEY` que
+debería funcionar en ambos entornos.
+
+Si esperas que una variable de entorno esté siempre presente en una función,
+debes añadirla a **todos** tus despliegues. En este ejemplo, añadirías una
+variable de entorno con el nombre `SENDGRID_API_KEY` a tus despliegues de dev y producción,
+con un valor diferente para dev y producción.
+
+## Acceder a las variables de entorno \{#accessing-environment-variables\}
+
+Puedes acceder a las variables de entorno en funciones de Convex usando
+`process.env.KEY`. Si la variable está definida es un `string`, de lo contrario es
+`undefined`. A continuación se muestra un ejemplo de cómo acceder a una variable de entorno con la
+clave `GIPHY_KEY`:
+
+```javascript
+function giphyUrl(query) {
+  return (
+    "https://api.giphy.com/v1/gifs/translate?api_key=" +
+    process.env.GIPHY_KEY +
+    "&s=" +
+    encodeURIComponent(query)
+  );
+}
+```
+
+Ten en cuenta que no debes condicionar los exports de funciones de Convex a
+variables de entorno. El conjunto de funciones de Convex que se pueden invocar se
+determina durante el despliegue y no se vuelve a evaluar cuando cambias una variable
+de entorno. El siguiente código generará un error en tiempo de ejecución si la
+variable de entorno DEBUG cambia entre el despliegue y la llamada a la función.
+
+```javascript
+// ¡ESTO NO FUNCIONARÁ!
+export const myFunc = process.env.DEBUG ? mutation(...) : internalMutation(...);
+```
+
+Del mismo modo, las variables de entorno utilizadas en las definiciones de cron solo se reevaluarán durante el despliegue.
+
+## Variables de entorno del sistema \{#system-environment-variables\}
+
+Las siguientes variables de entorno siempre están disponibles en las funciones de Convex:
+
+* `CONVEX_CLOUD_URL` - Tu URL de implementación (por ejemplo,
+  `https://dusty-nightingale-847.convex.cloud`) para usar con los clientes de Convex.
+* `CONVEX_SITE_URL` - La URL del sitio de tu despliegue (por ejemplo,
+  `https://dusty-nightingale-847.convex.site`) para usar con
+  [Acciones HTTP](/functions/http-actions.mdx)
+
+## Valores predeterminados de variables de entorno del proyecto \{#project-environment-variable-defaults\}
+
+Puedes configurar valores predeterminados de variables de entorno para un proyecto, para usar en los despliegues de desarrollo y de vista previa, en Project Settings.
+
+![Project Default Environment Variables](/screenshots/project_default_environment_variables.png)
+
+Estos valores predeterminados se usarán al crear un nuevo despliegue de desarrollo o de vista previa y no tendrán ningún efecto en los despliegues existentes (no se mantienen sincronizados).
+
+Deployment Settings indicará cuándo un despliegue tenga variables de entorno que no coincidan con los valores predeterminados del proyecto.
+![Environment Variable Default Mismatch](/screenshots/environment_variable_default_diff.png)

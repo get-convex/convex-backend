@@ -1,0 +1,22 @@
+{
+  "link.item.label.Releases": {
+    "message": "Releases",
+    "description": "The label of footer link with label=Releases linking to https://convex.dev/releases"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "The label of footer link with label=GitHub linking to https://github.com/get-convex"
+  },
+  "link.item.label.Discord": {
+    "message": "Discord",
+    "description": "The label of footer link with label=Discord linking to https://convex.dev/community"
+  },
+  "link.item.label.Twitter": {
+    "message": "Twitter",
+    "description": "The label of footer link with label=Twitter linking to https://twitter.com/convex"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 Convex, Inc.",
+    "description": "The footer copyright"
+  }
+}

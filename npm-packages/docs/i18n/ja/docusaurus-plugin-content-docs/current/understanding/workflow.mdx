@@ -1,0 +1,182 @@
+---
+title: "開発ワークフロー"
+hidden: false
+sidebar_position: 200
+description:
+  "プロジェクト作成から本番デプロイメントまでの開発ワークフロー"
+---
+
+新しいプロジェクトを作成してから、アプリを本番環境にリリースするまでに必要なことを順を追って見ていきます。
+
+このドキュメントは、Convex と React を使ってアプリを構築しており、すでに基本的な React アプリが動作していることを前提としています。まだでなければ、[クイックスタート](/quickstarts.mdx)のいずれかに沿ってセットアップしてください。
+
+## Convex のインストールと実行 \{#installing-and-running-convex\}
+
+アプリに Convex の npm 依存関係を追加してインストールします。
+
+```sh
+npm i convex
+```
+
+次に Convex プロジェクトを作成し、バックエンドの開発サイクルを開始します。
+
+```sh
+npx convex dev
+```
+
+初めて `npx convex dev` コマンドを実行すると、アカウントなしでローカルで開発を開始するか、アカウントを作成するかを選択するよう求められます。
+
+### アカウントなしで開発する \{#developing-without-an-account\}
+
+`npx convex dev` を実行すると、プロジェクト名の入力を求められ、その後、
+オープンソース版の Convex バックエンドがローカル環境（あなたのマシン上）で起動します
+（これは「デプロイメント」とも呼ばれます）。
+
+プロジェクトのデータは `~/.convex` ディレクトリに保存されます。
+
+1. プロジェクト名は `.env.local` ファイルに保存されるため、今後
+   `npx convex dev` を実行したときにこのプロジェクトが自動的に使われます。
+2. （まだ存在しない場合は）`convex/` フォルダが作成され、そこに Convex のバックエンド関数を記述します。
+
+あとからアカウントを作成して既存のプロジェクトをリンクするには、`npx convex login` を実行します。
+
+### アカウントを使った開発 \{#developing-with-an-account\}
+
+`npx convex dev` を実行すると、まだアカウントが存在しない場合は作成のためのプロンプトが表示され、
+ローカルマシン上の `~/.convex/config.json` に認証情報が追加されます。
+今後このマシンのアカウントをログアウトしたい場合は、`npx convex logout` を実行できます。
+
+次に、`npx convex dev` は新しいプロジェクトを作成し、このプロジェクト用の個人向け開発デプロイメントをプロビジョニングします。
+
+1. デプロイメントの詳細は自動的に `.env.local` ファイルに追加されるため、
+   今後 `npx convex dev` を実行したときに、どの dev デプロイメントへ接続するかが分かるようになります。
+2. `convex/` フォルダが (存在しない場合は) 作成され、そこで Convex のバックエンド関数を記述できます。
+
+<div className="center-image" style={{ maxWidth: "149px" }}>
+  ![アプリ内の Convex ディレクトリ](/img/convex-directory.png)
+</div>
+
+## 開発ループを回す \{#running-the-dev-loop\}
+
+Convex アプリを開発している間は、`npx convex dev` コマンドを起動したままにしておいてください。
+これにより、`convex/` フォルダ内で記述したバックエンドコードが継続的に
+デプロイメントへプッシュされます。また、バックエンドコードの作成に合わせて、
+必要な TypeScript 型も常に最新の状態に保たれます。
+
+ローカルで実行中のデプロイメントで開発している場合は、
+`npx convex dev` がそのデプロイメントを実行する役割も担います。
+
+この状態で、Convex バックエンドに新しいサーバー関数を追加できます。
+
+```typescript title="convex/tasks.ts"
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+// 指定されたタスクリスト内の最新100件のタスクを返します。
+export const getTaskList = query({
+  args: { taskListId: v.id("taskLists") },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("taskListId", (q) => q.eq("taskListId", args.taskListId))
+      .order("desc")
+      .take(100);
+    return tasks;
+  },
+});
+```
+
+エディタでこのコードを書いて保存すると、いくつかのことが起こります:
+
+1. `npx convex dev` コマンドがコードの型チェックを行い、
+   `convex/_generated` ディレクトリを更新します。
+2. `convex/` ディレクトリの内容が dev デプロイメントにアップロードされます。
+3. Convex の dev デプロイメントがコードを解析して、すべての Convex 関数を検出します。
+   この例では、`tasks.getTaskList` が新しい公開クエリ関数であると判断されます。
+4. [schema](/database/schemas.mdx) に変更がある場合、デプロイメントがそれらを自動的に適用・強制します。
+5. `npx convex dev` コマンドは、`convex/_generated` ディレクトリ内の生成された TypeScript コードを更新し、関数に対してエンドツーエンドの型安全性を提供します。
+
+<Admonition type="tip">
+  `convex/_generated/` ディレクトリ内のすべてのファイルを必ずバージョン管理にチェックインしてください。これにより、事前に
+  `npx convex dev` を実行しなくても、コードがすぐに型チェックされて実行できます。特に、バックエンド開発者ではない人が
+  フロントエンドコードを書いていて、そのコードが現在デプロイされているバックエンドコードに対して型チェックされることを
+  確認したい場合に便利です。
+</Admonition>
+
+これが完了したら、新しいサーバー関数をフロントエンドで使用できます。
+
+```typescript title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.tasks.getTaskList);
+  return data ?? "読み込み中...";
+}
+```
+
+`convex/` フォルダ内に [crons](/scheduling/cron-jobs.mdx) や
+[auth](/auth.mdx) などの他の設定がある場合、Convex はそれらが
+バックエンドに確実に適用され、順守されるようにします。
+
+## Convex ダッシュボード \{#convex-dashboard\}
+
+[Convex dashboard](/dashboard/deployments/deployments.md) は、Convex における開発・デバッグ・デプロイのワークフロー全体を通して、頼りになるツールです。
+
+`npx convex dashboard` を実行すると、デプロイメント用のダッシュボードへのリンクが開きます。
+
+### ログ \{#logs\}
+
+Convex 関数は TypeScript 関数なので、いつでも標準の `console.log` や `console.time` 関数を使ってアプリをデバッグできます。
+
+関数のログは
+[ダッシュボード](/dashboard/deployments/logs.md)
+に表示されます。
+
+![ログのダッシュボードページ](/screenshots/logs.png)
+
+### ヘルス、データ、関数など \{#health-data-functions-and-more\}
+
+* [Health](/dashboard/deployments/health.md) - 本番環境でアプリがどのように動作しているかについて、
+  Convex のクエリの状況に関する詳細なインサイトを含む、非常に有益な情報を提供します。
+* [Data](/dashboard/deployments/data.md) - データをスポットチェックできる、フル機能のデータブラウザを提供します。
+* [Functions](/dashboard/deployments/functions.md) - 統計情報を表示し、関数を実行してデバッグできるようにします。
+
+ダッシュボードには他にもさまざまな機能があります。画面内をいろいろクリックして試してみるか、
+[ドキュメントを確認してください](/dashboard.md)。
+
+## アプリをデプロイする \{#deploying-your-app\}
+
+これまでは、個人用 dev デプロイメントに対してアプリを開発してきました。
+
+すべての Convex プロジェクトには、クラウド上で稼働している本番デプロイメントが 1 つあります。これは個人用 dev デプロイメントとはデータもプッシュ手順も分離されており、チームメンバーと一緒に個人用 dev デプロイメントを使って新機能を開発しても、本番で動作しているアプリに影響を与えないようになっています。
+
+まだ Convex アカウントを作成していない場合は、`npx convex login` を実行して作成する必要があります。これにより、すでに開始している任意のプロジェクトが新しいアカウントに自動的にリンクされ、本番デプロイメントを利用できるようになります。
+
+プロジェクトのコードを本番デプロイメントにプッシュするには、次のように `deploy` コマンドを実行します。
+
+```sh
+npx convex deploy
+```
+
+<Admonition type="info">
+  このコマンドを初めて実行すると、プロジェクトの本番デプロイメントが自動的にプロビジョニングされます。
+</Admonition>
+
+### デプロイメントパイプラインのセットアップ \{#setting-up-your-deployment-pipeline\}
+
+`npx convex deploy` を直接実行することはほとんどありません。ほとんどの本番アプリケーションでは、
+テストを実行し、バックエンドとフロントエンドをまとめてデプロイする自動化されたワークフローを使用します。
+
+デプロイメントとフロントエンドの詳細な設定手順は
+[ホスティングとデプロイメント](/production/hosting/hosting.mdx) ドキュメントを参照してください。ほとんどの React メタフレームワークでは、Convex が
+本番デプロイメントに接続するための[適切な環境変数を自動的に設定します](/production/hosting/vercel.mdx#how-it-works)。
+
+## 次のステップ \{#up-next\}
+
+これで、Convex の基本的な仕組みと、あなたのアプリにどのように組み込まれるかが理解できました。ぜひこのままドキュメントを読み進めて、使いたい機能についてさらに詳しく学んでください。
+
+準備ができたら、まず
+[Best Practices](/understanding/best-practices/best-practices.mdx) を必ず読んでから、
+Convex で「物事を考える」準備ができた段階で
+[Zen of Convex](/understanding/zen.mdx) に進んでください。

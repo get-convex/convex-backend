@@ -1,0 +1,229 @@
+---
+title: "Convex の概要"
+hidden: false
+sidebar_position: 100
+pagination_next: understanding/workflow
+description:
+  "Convex の紹介 - TypeScript クエリを備えたリアクティブなデータベース"
+---
+
+Convex はオープンソースのリアクティブなデータベースであり、クエリはデータベース内で直接実行される
+TypeScript コードとして記述されます。React コンポーネントが状態の変化に反応するのと同様に、
+Convex のクエリはデータベースの変更に反応します。
+
+Convex は、データベース、サーバー関数を記述するための環境、そしてクライアントライブラリを提供します。
+これにより、動的でリアルタイムに更新されるアプリを簡単に構築し、スケールさせることができます。
+
+次の図は、Convex が可能にする標準的な 3 層アプリケーションアーキテクチャを示しています。
+この図の一番下から始めて、一番上へと順に見ていきます。
+
+<div className="center-image" style={{ maxWidth: "600px", background: "white", borderRadius: "10px" }}>
+  ![アプリにおける Convex](/img/basic-diagram.png)
+</div>
+
+## データベース \{#database\}
+
+[データベース](/database.mdx)は Convex の中核を成します。Convex のデータベースは、
+プロジェクトを作成すると自動的にプロビジョニングされます。接続設定や
+クラスタ管理は不要です。
+
+<Admonition type="info">
+  Convex では、データベースへのクエリはすべて [TypeScript
+  コード](/database/reading-data/reading-data.mdx)として、[サーバー
+  関数](/functions.mdx)の中に書きます。SQL を書く必要はなく、ORM も
+  必要ありません。
+</Admonition>
+
+Convex のデータベースはリアクティブです。クエリが依存しているデータが
+変更されると、そのクエリは再実行され、クライアントのサブスクリプションが更新されます。
+
+Convex は「ドキュメント・リレーショナル」データベースです。「ドキュメント」とは、
+JSON に似た入れ子のオブジェクトをデータベースに保存するという意味です。
+「リレーショナル」とは、他のテーブル内のドキュメントを参照するために ID を使い、
+`tasks` が `user` に割り当てられているようなリレーションを持つテーブルを
+扱うという意味です。
+
+Convex のクラウド版は、MySQL を永続層として利用しながら Amazon RDS の上で
+動作します。オープンソース版は SQLite、Postgres、MySQL を使用します。
+データベースは ACID に準拠しており、
+[直列化可能分離レベルと楽観的同時実行制御](/database/advanced/occ.md)
+を採用しています。つまり、Convex は可能な限り厳密なトランザクション保証を提供し、
+不整合なデータが見えることはありません。
+
+## サーバー関数 \{#server-functions\}
+
+新しい Convex プロジェクトを作成すると、自動的に `convex/` フォルダが作成され、
+その中に[サーバー関数](/functions.mdx)を書きます。ここに、バックエンドの
+アプリケーションロジックとデータベースのクエリ用コードがすべて置かれます。
+
+データベースの読み取り（クエリ）と書き込み（ミューテーション）を行う、
+TypeScript のサーバー関数の例です。
+
+```typescript title="convex/tasks.ts"
+// A Convex query function
+export const getAllOpenTasks = query({
+  args: {},
+  handler: async (ctx, args) => {
+    // 完了していないすべてのアイテムを取得するためにデータベースにクエリを実行
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_completed", (q) => q.eq("completed", false))
+      .collect();
+    return tasks;
+  },
+});
+
+// A Convex mutation function
+export const setTaskCompleted = mutation({
+  args: { taskId: v.id("tasks"), completed: v.boolean() },
+  handler: async (ctx, { taskId, completed }) => {
+    // Update the database using TypeScript
+    await ctx.db.patch("tasks", taskId, { completed });
+  },
+});
+```
+
+データベースへの読み書きは、クエリ関数またはミューテーション関数を通じて行います。
+[Query functions](/functions/query-functions.mdx) はデータベースからの読み取りのみが可能な純粋関数です。
+[Mutation functions](/functions/mutation-functions.mdx) は、データベースの読み書きが可能なトランザクションです。これら 2 種類のデータベース関数は、
+トランザクションの保証を維持するためにネットワークリクエストのような
+[非決定的な処理を行うことは許可されていません](/functions/runtimes.mdx#restrictions-on-queries-and-mutations)。
+
+<Admonition type="info">
+  Convex のミューテーション関数全体が 1 つのトランザクションです。`begin` や
+  `end` といったトランザクション文を書く必要はありません。Convex が自動的に競合時の再試行を行うので、
+  自分で管理する必要はありません。
+</Admonition>
+
+Convex には、汎用的な標準のサーバーレス関数であるアクションも用意されています。
+[Action functions](/functions/actions.mdx) はネットワークリクエストを実行できます。
+データベースに対して読み書きを行うには、クエリ関数またはミューテーション関数を呼び出す必要があります。
+LLM を呼び出したりメールを送信したりする際にアクションを使用します。
+
+Convex 関数は
+[scheduler](scheduling/scheduled-functions.mdx) や
+[cron jobs](scheduling/cron-jobs.mdx) を通じて確実にスケジューリングすることもできます。
+スケジューリングを使うと、「ユーザーがオンボーディングタスクを実行していなければ 1 日後に新規ユーザーへメールを送る」
+といったワークフローを構築できます。
+
+Convex 関数は [client libraries](/client/react.mdx)（クライアントライブラリ）経由で、または
+[HTTP](/http-api/index.md#functions-api) を通じて直接呼び出すことができます。
+
+## クライアントライブラリ \{#client-libraries\}
+
+Convex のクライアントライブラリは、フロントエンドをサーバー関数の結果と常に同期された状態に保ちます。
+
+```tsx
+// React コンポーネント内
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function TaskList() {
+  const data = useQuery(api.tasks.getAllOpenTasks);
+  return data ?? "Loading...";
+}
+```
+
+ローカル状態が変化したときに React コンポーネントを更新する `useState` フックと同様に、Convex の `useQuery` フックは、クエリの結果が変化するたびにコンポーネントを自動的に更新します。手動でサブスクリプションを管理したり、状態を同期したりする必要はありません。
+
+クエリ関数を呼び出すと、クライアントライブラリはその関数の結果をサブスクライブします。Convex はクエリ関数の依存関係を追跡し、データベースからどのデータが読み取られたかも記録します。データベース内の関連するデータが変更されると、Convex はそのクエリを自動的に再実行し、その結果をクライアントに送信します。
+
+クライアントライブラリはまた、ミューテーションをメモリ内でキューイングしてサーバーに送信します。ミューテーションが実行されてクエリ結果が更新されると、クライアントライブラリはアプリの状態が一貫したままになるよう維持します。データベース上の同じ論理的な時点を表すすべてのサブスクリプションを更新します。
+
+Convex は、主要なほとんどの Web およびネイティブアプリフレームワーク向けにクライアントライブラリを提供しています。クライアントライブラリは WebSocket を通じて Convex のデプロイメントに接続します。そして、公開された Convex 関数を
+[ライブラリ経由で](/client/react.mdx#fetching-data) 呼び出せます。Convex を [HTTP で直接](/http-api/index.md#functions-api) 利用することもできますが、その場合は自動サブスクリプションは利用できません。
+
+## ここまでのまとめ \{#putting-it-all-together\}
+
+先ほど取り上げた、`completed` とマークされていないすべてのタスクを取得する Convex のクエリ関数 `getAllOpenTasks` に戻りましょう。
+
+```typescript title="convex/tasks.ts"
+export const getAllOpenTasks = query({
+  args: {},
+  handler: async (ctx, args) => {
+    // データベースをクエリして、完了していないすべてのアイテムを取得する
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_completed", (q) => q.eq("completed", false))
+      .collect();
+    return tasks;
+  },
+});
+```
+
+このクエリをサブスクライブしたときに何が起こるか、順を追って見ていきましょう。
+
+<div className="center-image" style={{ maxWidth: "1800px", background: "white", borderRadius: "10px" }}>
+  ![Convex data flow](/img/convex-query-subscription.png)
+</div>
+
+Web アプリは `useQuery` フックを使ってこのクエリをサブスクライブし、
+初期の値を取得するまでに次のことが起こります。
+
+* Convex クライアントが Convex サーバーに、このクエリのサブスクライブを要求するメッセージを送信する
+* Convex サーバーが関数を実行し、データベースからデータを読み取る
+* Convex サーバーが関数の結果を含むメッセージをクライアントに送信する
+
+この場合、初期結果は次のようになります (1):
+
+```json
+[
+  { _id: "e4g", title: "Grocery shopping", complete: false },
+  { _id: "u9v", title: "Plant new flowers", complete: false },
+];
+```
+
+次に、ミューテーションを使ってアイテムを完了済みにします（2）。その後、Convex が
+クエリ（3）を再実行して最新の結果を取得し、その結果を WebSocket
+接続（4）経由で Web アプリにプッシュします。
+
+```json
+[
+  { _id: "e4g", title: "Grocery shopping", complete: false },
+];
+```
+
+## リアクティブ性のその先へ \{#beyond-reactivity\}
+
+リアクティブ性だけではなく、Convex のアーキテクチャにはさらに重要な意味があります。Convex では、スタックのどのレイヤーでも、アプリが不整合な状態になることはありません。
+
+これを説明するために、あなたが EC サイト向けにショッピングカート機能を作っていると想像してみましょう。
+
+<div className="center-image" style={{ maxWidth: "600px" }}>
+  ![Convex in your app](/img/convex-swaghaus.png)
+</div>
+
+商品一覧ページには 2 つの数値があります。1 つは在庫として残っている商品の数、もう 1 つはショッピングカート内の商品の数です。それぞれ別々のクエリ関数の結果です。
+
+「Add to Cart」ボタンを押すたびに、在庫から商品を 1 つ減らし、それをショッピングカートに追加するミューテーションが呼び出されます。
+
+カートを変更するミューテーションはトランザクション内で実行されるため、データベースは常に一貫した状態に保たれます。リアクティブなデータベースは、在庫数とショッピングカート内の商品の数を表示しているクエリの両方を更新する必要があることを把握しています。クエリは無効化されて再実行されます。その結果は WebSocket 接続を通じて Web アプリにプッシュされます。
+
+クライアントライブラリは、これら 2 つのクエリが Web アプリ上で同時に更新されるようにします。どちらもデータベース内のある一瞬の状態を反映しているからです。こうした数値が食い違う瞬間は決してありません。アプリは常に一貫したデータを表示します。
+
+この例は
+[Swaghaus sample app](https://swaghaus.biz/)
+で実際に確認できます。
+
+## 人間と AI が生成するコードのために \{#for-human-and-ai-generated-code\}
+
+Convex は、少数の組み合わせ可能な抽象化と強力な保証を中心に設計されており、コードは素早く書けるだけでなく、チームメンバーが書いても LLM が書いても、読みやすく保守しやすくなります。いくつかの主要な機能により、AI がバグのないコードを生成できるようになります。
+
+1. **クエリはただの TypeScript** データベースクエリは、エンドツーエンドの型安全性と IDE サポートを備えた純粋な TypeScript 関数です。これにより、AI は SQL に切り替えることなく、大量の TypeScript コードの学習データを使ってデータベースコードを生成できます。
+2. **同じ作業でもコード量が少ない** 多くのインフラストラクチャやボイラープレートが Convex によって自動的に管理されるため、書くべきコードが少なくなり、その結果、間違いも起きにくくなります。
+3. **自動リアクティビティ** リアクティブシステムがデータ依存関係を自動で追跡し、UI を更新します。AI がサブスクリプション、WebSocket 接続、複雑な状態同期を手動で管理する必要はありません — Convex がこれらすべてを自動的に処理します。
+4. **トランザクションの保証** クエリは読み取り専用で、ミューテーションはトランザクション内で実行されます。これらの制約により、AI がデータを破損させたり、アプリを不整合な状態のままにしてしまうようなコードを書くことはほぼ不可能になります。
+
+これらの機能により、AI はビジネスロジックに集中でき、Convex の保証によってよくある失敗パターンが防がれます。
+
+## さらに詳しく学ぶ \{#learn-more\}
+
+<div style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/3d29eKJ2Vws" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+</div>
+
+Convex がどのようにしてこれらを実現しているか、その詳細に興味があれば、
+Convex の共同創業者 Sujay によるブログ記事
+[How Convex Works](https://stack.convex.dev/how-convex-works) を読んでみてください。
+
+これで、Convex があなたのアプリにどのように組み込まれるかについて、おおよそのイメージはつかめたはずです。次は、Convex アプリをセットアップして公開するまでの全体的なワークフローを見ていきましょう。

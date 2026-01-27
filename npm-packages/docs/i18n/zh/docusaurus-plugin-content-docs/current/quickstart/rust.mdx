@@ -1,0 +1,97 @@
+---
+title: "Rust 快速入门"
+sidebar_label: Rust
+description: "在 Rust 项目中集成 Convex"
+hide_table_of_contents: true
+sidebar_position: 700
+---
+
+import sampleData from "!!raw-loader!@site/../../crates/convex/examples/quickstart/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../../crates/convex/examples/quickstart/convex/tasks.js";
+import main from "!!raw-loader!@site/../../crates/convex/examples/quickstart/main.rs";
+
+了解如何在使用 Tokio 的 Rust 应用中，从 Convex 查询数据。
+
+<StepByStep>
+  <Step title="创建 Cargo 项目">
+    创建一个新的 Cargo 项目。
+
+    ```sh
+    cargo new my_app
+    cd my_app
+    ```
+  </Step>
+
+  <Step title="安装 Convex 客户端和服务端库">
+    首先，安装 `convex` npm
+    包，用它来编写你的
+    后端。
+
+    还需要安装 `convex` Rust 客户端库、
+    `tokio` 运行时，以及用于处理 `.env` 文件的 `dotenvy`。
+
+    ```sh
+    npm init -y && npm install convex && cargo add convex tokio dotenvy
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发环境（dev）部署">
+    接下来运行 `npx convex dev`。
+    它会提示你使用 GitHub 登录，
+    创建一个项目，并保存生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用于编写后端 API 函数。`dev` 命令
+    将持续运行，把你的函数
+    同步到云端的开发环境（dev）部署中。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在一个新的终端窗口中，创建一个包含
+    一些示例数据的 `sampleData.jsonl` 文件。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    现在项目已经就绪，使用 `import` 命令
+    将带有示例数据的 `tasks` 表
+    添加到你的 Convex 数据库中。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="暴露一个数据库查询">
+    在 `convex/` 文件夹中添加一个新的 `tasks.js`
+    文件，并在其中定义一个加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    会声明一个 API 函数，这个函数的名称由文件名
+    和导出名组成，即 `"tasks:get"`。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="将应用连接到你的后端">
+    在 `src/main.rs` 文件中创建一个 `ConvexClient`，
+    并使用它从 `"tasks:get"` API 获取数据。
+
+    <Snippet source={main} title="src/main.rs" />
+  </Step>
+
+  <Step title="运行应用">
+    运行应用并查看序列化后的任务列表。
+
+    ```sh
+    cargo run
+    ```
+  </Step>
+</StepByStep>
+
+查看完整的 [Rust 文档](https://docs.rs/convex/latest/convex/)。

@@ -1,0 +1,96 @@
+---
+title: Node.js 快速上手
+sidebar_label: Node.js
+description: "在 Node.js 项目中集成 Convex"
+hide_table_of_contents: true
+sidebar_position: 400
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/convex/tasks.js";
+import script from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/script.js";
+
+了解如何在 Node.js 项目中从 Convex 查询数据。
+
+如果你需要订阅（而不是某个时间点的查询）以及更多项目配置（TypeScript、打包工具、CJS 与 ESM 等），请参阅
+[Node.js 注意事项](/client/javascript/node.mdx)。
+
+<StepByStep>
+  <Step title="创建一个新的 npm 项目">
+    为你的 Node.js 项目创建一个新目录。
+
+    ```sh
+    mkdir my-project && cd my-project && npm init -y && npm pkg set type="module"
+    ```
+  </Step>
+
+  <Step title="安装 Convex 客户端和服务端库">
+    安装 `convex`
+    包，它为在 JavaScript 中使用 Convex
+    提供了一个便捷接口。
+
+    同时安装 `dotenv` 库用于加载 `.env` 文件。
+
+    ```sh
+    npm install convex dotenv
+    ```
+  </Step>
+
+  <Step title="设置一个 Convex 开发环境（dev）部署">
+    接下来运行 `npx convex dev`。这会提示你使用 GitHub
+    登录、创建一个项目，并保存你的生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用于编写后端 API 函数。`dev` 命令
+    会持续运行，将你的函数同步到云端的开发环境（dev）部署中。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在一个新的终端窗口中，创建一个 `sampleData.jsonl`
+    文件，并写入一些示例数据。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库中">
+    现在项目已经就绪，使用 `import` 命令
+    将带有示例数据的 `tasks` 表
+    添加到你的 Convex 数据库中。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="暴露一个数据库查询">
+    在 `convex/` 文件夹中新建文件 `tasks.js`，
+    添加一个加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    会声明一个 API 函数，其名称由文件名
+    和导出名组成，即 `api.tasks.get`。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="将脚本连接到你的后端">
+    在新文件 `script.js` 中，使用
+    你的开发环境 URL 创建一个 `ConvexHttpClient`。
+
+    <Snippet source={script} title="script.js" />
+  </Step>
+
+  <Step title="运行脚本">
+    在同一目录下运行脚本，你会在终端中看到任务列表的输出。
+
+    ```sh
+    node script.js
+    ```
+  </Step>
+</StepByStep>
+
+查看完整的 [Node.js 文档](/client/javascript/node.mdx)。

@@ -1,0 +1,201 @@
+---
+description: "Entiende los errores específicos que lanza Convex"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+# Errores y advertencias \{#errors-and-warnings\}
+
+Esta página explica errores específicos que lanza Convex.
+
+Consulta [Manejo de errores](/functions/error-handling/error-handling.mdx) para aprender
+a manejar errores en general.
+
+<div id="occ-failure" />
+
+## Conflicto de escritura: Control de concurrencia optimista \{#1\}
+
+Este error del sistema se genera cuando una mutación falla repetidamente debido a cambios en conflicto provenientes de ejecuciones paralelas de mutaciones.
+
+### Ejemplo A \{#example-a\}
+
+La mutación `updateCounter` siempre actualiza el mismo documento:
+
+```ts
+export const updateCounter = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const doc = await ctx.db.get("counts", process.env.COUNTER_ID);
+    await ctx.db.patch("counts", doc._id, { value: doc.value + 1 });
+  },
+});
+```
+
+Si esta mutación se invoca muchas veces por segundo, muchas de sus ejecuciones
+entrarán en conflicto entre sí. Convex realiza internamente varios reintentos
+para mitigar este problema, pero si la mutación se llama más rápido de lo que
+Convex puede ejecutarla, algunas de las invocaciones eventualmente lanzarán este error:
+
+<ErrorExample name="updateCounter">
+  Los documentos leídos de o escritos en la tabla &quot;counters&quot; cambiaron mientras
+  se estaba ejecutando esta mutación y en cada uno de los reintentos posteriores. Otra
+  llamada a esta mutación cambió el documento con ID &quot;123456789101112&quot;.
+</ErrorExample>
+
+El mensaje de error indicará el nombre de la tabla, qué mutación causó el conflicto
+(en este ejemplo es otra llamada a la misma mutación) y un ID de documento que
+formó parte del cambio en conflicto.
+
+### Ejemplo B \{#example-b\}
+
+La mutación `writeCount` depende de la tabla `tasks` completa:
+
+```ts
+export const writeCount = mutation({
+  args: {
+    target: v.id("counts"),
+  },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db.query("tasks").collect();
+    await ctx.db.patch("tasks", args.target, { value: tasks });
+  },
+});
+
+export const addTask = mutation({
+  args: {
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("tasks", { text: args.text });
+  },
+});
+```
+
+Si la mutación `writeCount` se invoca al mismo tiempo que se realizan muchas llamadas
+a `addTask`, cualquiera de las mutaciones puede fallar con este error. Esto se
+debe a que cualquier cambio en la tabla `"tasks"` entrará en conflicto con la
+mutación `writeCount`:
+
+<ErrorExample name="writeCount">
+  Los documentos leídos o escritos en la tabla &quot;tasks&quot; cambiaron mientras se
+  estaba ejecutando esta mutación y en cada uno de los reintentos posteriores. Una llamada a
+  &quot;addTask&quot; cambió el documento con ID &quot;123456789101112&quot;.
+</ErrorExample>
+
+### Solución \{#remediation\}
+
+Para solucionar este problema:
+
+1. Asegúrate de que tus mutaciones solo lean los datos necesarios. Considera reducir
+   la cantidad de datos leídos usando consultas indexadas con
+   [expresiones de rango de índice selectivas](https://docs.convex.dev/database/indexes/).
+2. Asegúrate de no estar llamando a una mutación un número inesperado de veces,
+   quizá desde una acción dentro de un bucle.
+3. Diseña tu modelo de datos de forma que no requiera realizar muchas escrituras en el
+   mismo documento.
+
+### Recursos \{#resources\}
+
+* Más información sobre el [control de concurrencia optimista](/database/advanced/occ.md).
+* Consulta este [artículo de Stack](https://stack.convex.dev/waitlist) para ver un ejemplo de
+  cómo diseñar una aplicación para evitar conflictos de mutación.
+
+### Componentes relacionados \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool da prioridad a las tareas críticas organizando las operaciones asíncronas en colas separadas y personalizables.",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Sharded Counter",
+    description:
+      "El contador de alto rendimiento permite mantener conteos desnormalizados sin conflictos de escritura al distribuir las escrituras entre varios documentos.",
+    href: "https://www.convex.dev/components/sharded-counter",
+  },
+  {
+    title: "Action Cache",
+    description:
+      "Almacena en caché acciones que se ejecutan con frecuencia. Al utilizar el parámetro `force` para mantener la caché poblada, puedes asegurarte de que la caché esté siempre actualizada y evitar condiciones de carrera de datos.",
+    href: "https://www.convex.dev/components/action-cache",
+  },
+]}
+/>
+
+## Validador indefinido \{#undefined-validator\}
+
+Este error se produce cuando un validador pasado a la definición de una función de Convex o a un
+esquema es `undefined`. Esto sucede con mayor frecuencia debido a importaciones circulares (también
+conocidas como ciclos de importación) en TypeScript.
+
+### Ejemplo \{#example\}
+
+Tienes dos archivos que se importan mutuamente:
+
+```ts title="convex/validators.ts"
+import { v } from "convex/values";
+import { someUtility } from "./functions";
+
+export const myValidator = v.object({
+  name: v.string(),
+});
+
+// Utiliza someUtility en algún lugar...
+```
+
+```ts title="convex/functions.ts"
+import { mutation } from "./_generated/server";
+// Both functions.ts and validators.ts import from each other.
+import { myValidator } from "./validators";
+
+export function someUtility() {
+  // ...
+}
+
+export const myMutation = mutation({
+  args: {
+    data: myValidator, // <-- Puede ser undefined debido al ciclo de importación
+  },
+  handler: async (ctx, args) => {
+    // ...
+  },
+});
+```
+
+Cuando se carga `functions.ts`, este importa desde `validators.ts`, que a su vez
+intenta importar desde `functions.ts`. Como `functions.ts` aún no ha terminado la
+instrucción `import`, `myValidator` sigue siendo `undefined`, lo que hace que el
+constructor de la `mutación` lance un error.
+
+Nota: es posible que el valor esté definido en tiempo de ejecución si intentas registrarlo en los logs. Esto es solo una
+peculiaridad del comportamiento de TypeScript en tiempo de importación.
+
+### Ciclos que involucran `schema.ts` \{#cycles-involving-schemats\}
+
+Una forma común de introducir accidentalmente este tipo de ciclo es a través de tu
+archivo `schema.ts`. Las aplicaciones más grandes suelen definir validadores o tablas completas en otros
+archivos e importarlas en `schema.ts`.
+
+Si estos archivos importan desde `schema.ts` o dependen de archivos que lo hagan, tienes un
+ciclo.
+
+```text
+schema.ts → validators.ts → someFile.ts → schema.ts
+```
+
+Para romper el ciclo, define los validadores en archivos &quot;puros&quot; con pocas dependencias e impórtalos en los lugares donde los necesites.
+
+### Investiga importaciones circulares \{#investigate-circular-imports\}
+
+Si sospechas una importación circular pero no estás seguro de dónde se produce, herramientas como
+[madge](https://github.com/pahen/madge) pueden ayudarte a visualizar tu grafo de importaciones
+y enumerar los ciclos:
+
+```bash
+npx madge convex/ --extensions ts --exclude api.d.ts --circular
+```
+
+Excluimos `api.d.ts` aquí porque las importaciones únicamente de tipos suelen ser seguras.

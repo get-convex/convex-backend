@@ -1,0 +1,127 @@
+---
+title: "TypeScript"
+sidebar_position: 80
+description: "エンドツーエンドの型安全性で開発を加速"
+pagination_next: null
+---
+
+import ArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithValidation.ts";
+import WithSchema from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithSchema.ts";
+import WithoutArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithoutValidation.ts";
+import ClientDatabaseTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptClientDatabaseTypes.tsx";
+import ContextTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptContextTypes.ts";
+import FunctionReturnTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptFunctionReturnTypes.ts";
+import ValidatorTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptValidatorTypes.ts";
+import SystemFieldsTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptSystemFieldsTypes.ts";
+
+Convex では、Convex 関数を
+[TypeScript](https://www.typescriptlang.org/) で記述する場合、エンドツーエンドの型サポートを提供しています。
+
+Convex プロジェクトには、TypeScript を段階的に導入できます。以下の手順を順に進めていくことで、型サポートを徐々に強化できます。最良の型サポートを得るには、すべての手順を完了することをおすすめします。
+
+**例:**
+[TypeScript とスキーマ](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## TypeScript で Convex 関数を書く \{#writing-convex-functions-in-typescript\}
+
+Convex プロジェクトで型サポートを改善する最初のステップは、`.ts`
+拡張子を付けて Convex 関数を TypeScript で記述することです。
+
+[引数バリデーション](/functions/validation.mdx) を使用している場合、Convex は
+関数の引数の型を自動的に推論します。
+
+<Snippet title="convex/sendMessage.ts" source={ArgValidation} />
+
+それ以外の場合は、引数の型に型注釈を手動で付けることができます。
+
+<Snippet title="convex/sendMessage.ts" source={WithoutArgValidation} highlightPatterns={["body: string"]} />
+
+これは複雑な型を受け取る
+[内部関数](/functions/internal-functions.mdx) に対して有用です。
+
+プロジェクトに TypeScript がインストールされていれば、`npx convex dev` と
+`npx convex deploy` は Convex バックエンドにコードを送信する前に Convex 関数を
+型チェックします。
+
+Convex 関数は Convex フォルダー内の `tsconfig.json` を使って型チェックされます。
+このファイルの一部を変更して型チェックの設定を変えるか、このファイルを削除して
+型チェックを無効にできます。
+
+スキーマを追加するまでは、ほとんどのデータベースメソッドの戻り値の型は
+`Promise<any>` のままです。
+
+## スキーマを追加する \{#adding-a-schema\}
+
+[スキーマを定義](/database/schemas.mdx)すると、データベースメソッドの型シグネチャが確定します。TypeScript（React、React Native、Node.js など）で書かれた Convex 関数やクライアントの両方で、`convex/_generated/dataModel` からインポートした型も使用できるようになります。
+
+テーブル内のドキュメントの型は、生成されたデータモデルの [`Doc`](/generated-api/data-model#doc) 型で表現でき、ドキュメントへの参照は、パラメータ化された [Document IDs](/database/document-ids.mdx) を使って表現できます。
+
+<Snippet title="convex/messages.ts" source={WithSchema} />
+
+## サーバーサイドヘルパーへの型注釈 \{#type-annotating-server-side-helpers\}
+
+Convex 関数間でロジックを再利用したい場合は、TypeScript のヘルパー関数を定義します。
+これらの関数がデータベースや認証、その他の Convex 機能にアクセスするには、提供されるコンテキストの一部が必要になる場合があります。
+
+Convex は、データベース内のドキュメントや ID に対応する `Doc` と `Id` に加えて、
+スキーマと宣言済みの Convex 関数に基づいた `QueryCtx`、`MutationCtx`、`ActionCtx` 型を自動生成します。
+
+<Snippet title="convex/helpers.ts" source={ContextTypes} />
+
+### バリデータから型を推論する \{#inferring-types-from-validators\}
+
+バリデータは
+[引数の検証](/functions/validation.mdx) と
+[スキーマ検証](/database/schemas.mdx) の両方で再利用できます。提供されている
+[`Infer`](/api/modules/values#infer) 型を使うと、バリデータに対応する TypeScript 型を取得できます：
+
+<Snippet title="convex/helpers.ts" source={ValidatorTypes} />
+
+### システムフィールドを含まないドキュメント型 \{#document-types-without-system-fields\}
+
+Convex のすべてのドキュメントには組み込みフィールド `_id` と `_creationTime` が
+含まれており、生成される `Doc` 型も同様です。ドキュメントを作成または更新する際に、
+システムフィールドを除いた型を使いたい場合もあります。そのために Convex は
+[`WithoutSystemFields`](/api/modules/server#withoutsystemfields) を提供しています：
+
+<Snippet title="convex/helpers.ts" source={SystemFieldsTypes} />
+
+## TypeScript でフロントエンドコードを書く \{#writing-frontend-code-in-typescript\}
+
+React フックである
+[`useQuery`](/api/modules/react#usequery) や
+[`useMutation`](/api/modules/react#usemutation) を含む、すべての Convex の
+JavaScript クライアントは、引数と戻り値が対応する Convex 関数の宣言と一致するよう保証することで、エンドツーエンドの型安全性を提供します。React を使う場合は、TypeScript をインストールして設定し、`.jsx` ファイルではなく `.tsx` ファイルで React コンポーネントを記述できるようにしてください。
+
+Convex と TypeScript の利用を始めるには、[React](/quickstart/react.mdx) または
+[Next.js](/quickstart/nextjs.mdx) のクイックスタートに従ってください。
+
+### クライアントサイドコードへの型注釈 \{#type-annotating-client-side-code\}
+
+関数呼び出しの結果をクライアント側のコードベース内で使い回したい場合は、
+バックエンドと同様に、生成された型 `Doc` と `Id` を使用できます:
+
+<Snippet title="src/App.tsx" source={ClientDatabaseTypes} />
+
+バックエンドのコードベース内で `Doc` や `Id` を含むカスタム型を定義し、
+それらをクライアントサイドコードで `import` して使うこともできます。
+
+さらに、`WithoutSystemFields` や、バリデータから `Infer` を使って推論された任意の型も使用できます。
+
+#### 推論された関数の戻り値型を使う \{#using-inferred-function-return-types\}
+
+バックエンド関数が返す値に基づいて、クライアント側で型注釈を付けたい場合があります。型を手動で宣言する（バックエンド側またはフロントエンド側で）代わりに、関数参照と組み合わせて、ジェネリック型の `FunctionReturnType` と
+`UsePaginatedQueryReturnType` を使用できます。
+
+<Snippet title="src/Components.tsx" source={FunctionReturnTypes} />
+
+## `string` を有効なドキュメント ID に変換する \{#turning-strings-into-valid-document-ids\}
+
+[ID のシリアライズ](/database/document-ids.mdx#serializing-ids) を参照してください。
+
+## 必要な TypeScript のバージョン \{#required-typescript-version\}
+
+Convex では、TypeScript のバージョン
+[5.0.3](https://www.npmjs.com/package/typescript/v/5.0.3) 以降が必要です。
+
+<StackPosts query="types" />

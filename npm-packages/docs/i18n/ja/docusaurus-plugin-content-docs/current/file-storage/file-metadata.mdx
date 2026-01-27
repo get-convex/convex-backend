@@ -1,0 +1,51 @@
+---
+title: "ファイルのメタデータへのアクセス"
+sidebar_label: "メタデータ"
+sidebar_position: 5
+description: "Convex に保存されているファイルのメタデータにアクセスする"
+---
+
+import FileMetadata from "!!raw-loader!@site/../private-demos/snippets/convex/imagesMetadata.ts";
+import FileMetadataDeprecated from "!!raw-loader!@site/../private-demos/snippets/convex/fileMetadata.ts";
+
+保存された各ファイルは、`"_storage"` システムテーブル内のドキュメントとして表現されます。
+ファイルのメタデータには、
+[クエリ](/functions/query-functions.mdx) や
+[ミューテーション](/functions/mutation-functions.mdx) から `db.system.get` および
+`db.system.query` を経由してアクセスできます。
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={FileMetadata} sourceJS={FileMetadata} highlightPatterns={["db.system.get\\(", "db.system.query\\("]} />
+
+これは返されるドキュメントの例です。
+
+```json
+{
+  "_creationTime": 1700697415295.742,
+  "_id": "3k7ty84apk2zy00ay4st1n5p9kh7tf8",
+  "contentType": "image/jpeg",
+  "sha256": "cb58f529b2ed5a1b8b6681d91126265e919ac61fff6a367b8341c0f46b06a5bd",
+  "size": 125338
+}
+```
+
+返されるドキュメントには次のフィールドが含まれます:
+
+* `sha256`: ファイル内容の sha256 チェックサムを base16 でエンコードしたもの
+* `size`: ファイルのサイズ（バイト数）
+* `contentType`: アップロード時に指定されていれば、そのファイルの `ContentType`
+
+メタデータは [ダッシュボード](/dashboard/deployments/files.md) で手動で確認できます。
+
+## アクションからメタデータにアクセスする（非推奨） \{#accessing-metadata-from-actions-deprecated\}
+
+代わりに、
+[`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)
+関数を使用して、[アクション](/functions/actions.mdx) および
+[HTTP アクション](/functions/http-actions.mdx) から個々のファイルのメタデータにアクセスできます。
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={FileMetadataDeprecated} sourceJS={FileMetadataDeprecated} highlightPatterns={["getMetadata\\("]} />
+
+なお、
+[`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)
+は [`FileMetadata`](/api/modules/server#filemetadata) を返しますが、これは
+`db.system.get` の結果とは少し異なる構造になっています。

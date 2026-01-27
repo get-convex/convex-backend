@@ -1,0 +1,88 @@
+---
+title: "Convex チュートリアル: アプリをスケールする"
+sidebar_label: "3. アプリのスケーリング"
+slug: "scale"
+sidebar_position: 300
+hide_table_of_contents: true
+description:
+  "インデックスの利用、書き込み競合の処理、Convex Components の活用といったベストプラクティスを通じて、
+  Convex アプリケーションをどのようにスケールさせるかを学びます。"
+---
+
+import ComponentsIcon from "@site/static/img/sidebar-icons/components.svg";
+
+# Convex チュートリアル: アプリをスケールさせる \{#convex-tutorial-scaling-your-app\}
+
+Convex は、最初からスケールすることを前提に設計されています。前のセクションでは、アクションを小さく保ち、ほとんどのロジックをクエリとミューテーションに置くことが、高速でスケーラブルなバックエンドを構築するうえでどれだけ重要かについて説明しました。
+
+ここでは、アプリを高速かつスケーラブルに保つための、他のいくつかの方法について見ていきます。
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/7lOGqFHnEsA" title="YouTube 動画プレーヤー" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## インデックス付きクエリ \{#indexed-queries\}
+
+インデックスとは、データベースに検索用の構造を作成させ、データをフィルタリングする処理を非常に高速にするための仕組みです。チャットアプリで特定ユーザーの `messages` だけを取得できるようにしたい場合には、Convex に `messages` テーブルの `user` フィールドにインデックスを作成するよう指示し、`withIndex` 構文を使ってクエリを書きます。
+
+[インデックスの使い方を学ぶ](/database/reading-data/indexes/indexes.md)。
+
+## 同じドキュメントに対する書き込みが多すぎる場合 \{#too-many-writes-on-the-same-document\}
+
+アプリにカウンターを表示することにしたとします。数値フィールドを読み取り、1 を足して、同じフィールドをデータベース内で更新する `mutation`
+を書くかもしれません。
+ある時点で、このパターンが原因で
+[楽観的同時実行制御の競合](/error#1) が発生することがあります。これは、
+データベースがそのドキュメントをそれほど高頻度には更新しきれないという意味です。
+この種のパターンは、どんなデータベースでも問題になりえます。
+
+これに対処する[いくつかの方法](/error#remediation)があり、その一つに
+シャーディングされたカウンターと呼ばれるものを構築する方法があります。
+
+しかし、自分で高度なスケーリング手法を学びに行く前に、
+[Convex Components](/components.mdx) を使う、より良い方法があります。
+
+## Convex Components を使ったスケーリングのベストプラクティス \{#scaling-best-practices-with-convex-components\}
+
+前述のカウンターのケースでは、Convex チームがすでに
+[スケーラブルなカウンター](https://www.convex.dev/components/sharded-counter) である Convex
+Component を用意しており、すぐに利用できます。
+
+Convex Components はあなたの Convex バックエンドと一緒にデプロイされますが、独自の
+テーブルと関数を持ちます。
+
+[AI agents](/agents.mdx)、
+[workflows](https://www.convex.dev/components/workflow)、
+[leaderboards](https://www.convex.dev/components/aggregate)、
+[feature flags](https://www.convex.dev/components/launchdarkly)、
+[rate limiters](https://www.convex.dev/components/rate-limiter)
+といった、より複雑な機能を実装していくと、その問題をすでに解決してくれる Convex Component が
+用意されていることに気づくかもしれません。
+[Convex Components についてさらに詳しく学ぶ](/components.mdx)。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  icon: <ComponentsIcon height={40} />,
+  href: "https://www.convex.dev/components",
+  label: "Components ディレクトリ",
+}}
+/>
+
+## まとめ \{#wrap-up\}
+
+このチュートリアルでは、多くの内容を扱ってきました。まず、
+Convex の同期エンジンを構成する基本的なビルディングブロックである
+クエリ、ミューテーション、データベースを使って
+[チャットアプリを構築](/tutorial/index.mdx)しました。
+次に、スケジューラを使って処理を調整しながら、バックエンドから
+[外部 API](/tutorial/actions.mdx) を呼び出しました。最後に、
+[Convex Components](/components.mdx) によって、スケーリングのベストプラクティスが
+使いやすい形でパッケージ化されていることを学びました。
+
+さらにヒントを探している場合は、
+[ベストプラクティス](/understanding/best-practices/best-practices.mdx) を読んで、
+[コミュニティ](https://www.convex.dev/community) に参加してください。
+
+Convex を使えば、MVP をすばやく構築し、その後大きくスケールさせることができます。
+すでに多くの優れたプロダクトがそうしてきました。あなたもその一員です。

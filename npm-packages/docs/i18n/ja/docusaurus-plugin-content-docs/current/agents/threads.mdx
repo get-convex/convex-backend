@@ -1,0 +1,155 @@
+---
+title: スレッド
+sidebar_label: "スレッド"
+sidebar_position: 200
+description: "会話履歴の中でメッセージをグループ化する"
+---
+
+スレッドは、メッセージを時系列の履歴としてまとめるための仕組みです。Agent コンポーネントに保存されたすべてのメッセージは、いずれかのスレッドに関連付けられます。プロンプトに基づいてメッセージが生成されると、ユーザーのメッセージとエージェントによって生成されたメッセージが自動的に保存されます。
+
+スレッドはユーザーと関連付けることができ、メッセージごとに個別にユーザーと関連付けることもできます。デフォルトでは、メッセージはそのスレッドのユーザーに関連付けられます。
+
+## スレッドの作成 \{#creating-a-thread\}
+
+スレッドはミューテーションまたはアクション内で作成できます。アクション内で作成した場合は、
+`thread`（後述）も返されるため、そのまま LLM を呼び出してメッセージの生成を開始できます。
+`userId` を指定すると、そのスレッドはそのユーザーに関連付けられ、メッセージはユーザーの履歴に保存されます。
+
+```ts
+import { createThread } from "@convex-dev/agent";
+
+const threadId = await createThread(ctx, components.agent);
+```
+
+スレッドに設定するメタデータを渡すこともできます。
+
+```ts
+const userId = await getAuthUserId(ctx);
+const threadId = await createThread(ctx, components.agent, {
+  userId,
+  title: "My thread",
+  summary: "This is a summary of the thread",
+});
+```
+
+メタデータは将来的にはコンテキストとして自動的にエージェントに提供される可能性がありますが、
+現時点では [Playground](./playground.mdx) 内のスレッドを整理するのに役立つ補助的な機能にとどまります。
+
+## スレッド内でメッセージを生成する \{#generating-a-message-in-a-thread\}
+
+エージェント関数 `agent.generateText`、`agent.generateObject`、`agent.streamText`、`agent.streamObject` を使って、スレッド内でメッセージを生成できます。任意のエージェントが、他のエージェントによって作成されたスレッド内でもメッセージを生成できます。
+
+```ts
+const agent = new Agent(components.agent, { languageModel, instructions });
+
+export const generateReplyToPrompt = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+メッセージの作成と保存方法の詳細については、[Messages](./messages.mdx) を参照してください。
+
+## `agent.continueThread` で取得した `thread` オブジェクトを使ってスレッドを継続する \{#continuing-a-thread-using-the-thread-object-from-agentcontinuethread\}
+
+`agent.createThread` を呼ぶとき、またはアクションの中から `agent.continueThread` を
+呼ぶときに、エージェント固有の `thread` オブジェクトを作成することで、スレッドを
+継続することもできます。これにより、それらの引数を毎回指定せずにメソッドを
+呼び出せるようになります。
+
+```ts
+const { thread } = await agent.continueThread(ctx, { threadId });
+const result = await thread.generateText({ prompt });
+```
+
+`continueThread` または `createThread`（アクション内でのみ利用可能）から得られる `thread`
+は `Thread` オブジェクトであり、スレッド専用の便利なメソッドを持ちます：
+
+* `thread.getMetadata()` - `userId`、`title`、`summary` などのメタデータを取得
+* `thread.updateMetadata({ patch: { title, summary, userId} })` - メタデータを更新
+* `thread.generateText({ prompt, ... })` -
+  `agent.generateText(ctx, { threadId }, { prompt, ... })` と同等
+* `thread.streamText({ prompt, ... })` -
+  `agent.streamText(ctx, { threadId }, { prompt, ... })` と同等
+* `thread.generateObject({ prompt, ... })` -
+  `agent.generateObject(ctx, { threadId }, { prompt, ... })` と同等
+* `thread.streamObject({ prompt, ... })` -
+  `agent.streamObject(ctx, { threadId }, { prompt, ... })` と同等
+
+メッセージ生成の詳細については [Messages のドキュメント](./messages.mdx) を参照してください。
+
+## スレッドの削除 \{#deleting-threads\}
+
+`threadId` を指定してスレッドを削除できます。
+
+非同期で実行する場合（ミューテーションまたはアクション内から）：
+
+```ts
+await agent.deleteThreadAsync(ctx, { threadId });
+```
+
+アクション内で同期的にバッチ処理する場合:
+
+```ts
+await agent.deleteThreadSync(ctx, { threadId });
+```
+
+`userId` を指定して、そのユーザーのすべてのスレッドを削除することもできます。
+
+```ts
+await agent.deleteThreadsByUserId(ctx, { userId });
+```
+
+## ユーザーに紐づくすべてのスレッドを取得する \{#getting-all-threads-owned-by-a-user\}
+
+```ts
+const threads = await ctx.runQuery(
+  components.agent.threads.listThreadsByUserId,
+  { userId, paginationOpts: args.paginationOpts },
+);
+```
+
+## ユーザーに関連付けられたすべてのスレッドとメッセージの削除 \{#deleting-all-threads-and-messages-associated-with-a-user\}
+
+非同期に実行します（ミューテーションまたはアクション内から）:
+
+```ts
+await ctx.runMutation(components.agent.users.deleteAllForUserIdAsync, {
+  userId,
+});
+```
+
+同期的に（アクション内から）:
+
+```ts
+await ctx.runMutation(components.agent.users.deleteAllForUserId, { userId });
+```
+
+## スレッド内のメッセージの取得 \{#getting-messages-in-a-thread\}
+
+詳しくは [messages.mdx](./messages.mdx) を参照してください。
+
+```ts
+import { listMessages } from "@convex-dev/agent";
+
+const messages = await listMessages(ctx, components.agent, {
+  threadId,
+  excludeToolMessages: true,
+  paginationOpts: { cursor: null, numItems: 10 }, // null は先頭から開始することを意味します
+});
+```
+
+または、UI のレンダリングに適した `UIMessage` 型を使う場合:
+
+```ts
+import { listUIMessages } from "@convex-dev/agent";
+
+const messages = await listUIMessages(ctx, components.agent, {
+  threadId,
+  paginationOpts: { cursor: null, numItems: 10 },
+});
+```

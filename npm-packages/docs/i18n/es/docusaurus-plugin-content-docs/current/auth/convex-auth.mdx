@@ -1,0 +1,50 @@
+---
+title: "Convex Auth"
+sidebar_label: "Convex Auth"
+sidebar_position: 1
+description: "Autenticación integrada para aplicaciones Convex"
+---
+
+[Convex Auth](https://labs.convex.dev/auth) es una biblioteca para implementar
+autenticación directamente en tu backend de Convex. Esto te permite
+autenticar usuarios sin necesidad de un servicio de autenticación ni siquiera de un
+servidor de alojamiento. Actualmente, Convex Auth admite aplicaciones web de React
+que se ejecutan en el cliente y se sirven desde un CDN, así como aplicaciones móviles de React Native.
+
+**Ejemplo:** [Demostración en vivo](https://labs.convex.dev/auth-example)
+([Código fuente](https://github.com/get-convex/convex-auth-example))
+
+<BetaAdmonition feature="Convex Auth" verb="is" />
+
+La compatibilidad con
+[autenticación en Next.js](https://labs.convex.dev/auth/authz/nextjs) en
+componentes del servidor, rutas de API, middleware, SSR, etc. está en desarrollo activo. Si quieres ayudar a probar esta compatibilidad experimental,
+[cuéntanos cómo te va en Discord](https://convex.dev/community).
+
+## Primeros pasos \{#get-started\}
+
+Para iniciar un proyecto nuevo desde cero con Convex y Convex Auth, ejecuta:
+
+```sh
+npm create convex@latest
+```
+
+y selecciona `React (Vite)` y `Convex Auth`.
+
+***
+
+Para añadir Convex Auth a un proyecto existente, sigue la
+[guía de configuración completa](https://labs.convex.dev/auth/setup).
+
+## Descripción general \{#overview\}
+
+Convex Auth te permite implementar los siguientes métodos de autenticación:
+
+1. Magic Links y OTP: envía un enlace o código por correo electrónico
+2. OAuth: inicia sesión con GitHub / Google / Apple etc.
+3. Contraseñas: incluye el flujo de restablecimiento de contraseña y la verificación de correo electrónico opcional
+
+La biblioteca no incluye componentes de UI, pero puedes copiar código de la documentación
+y del repositorio de ejemplo para crear rápidamente una UI en React.
+
+Obtén más información en la [documentación de Convex Auth](https://labs.convex.dev/auth).

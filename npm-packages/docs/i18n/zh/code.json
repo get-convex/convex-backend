@@ -1,0 +1,329 @@
+{
+  "theme.CodeBlock.copied": {
+    "message": "已复制",
+    "description": "代码块中“已复制”按钮的标签"
+  },
+  "theme.CodeBlock.copyButtonAriaLabel": {
+    "message": "将代码复制到剪贴板",
+    "description": "代码块复制按钮的 ARIA 标签"
+  },
+  "theme.CodeBlock.copy": {
+    "message": "复制",
+    "description": "代码块中复制按钮的标签"
+  },
+  "theme.docs.breadcrumbs.navAriaLabel": {
+    "message": "面包屑导航",
+    "description": "面包屑导航的 ARIA 标签"
+  },
+  "theme.docs.breadcrumbs.home": {
+    "message": "首页",
+    "description": "面包屑导航中首页的 ARIA 标签"
+  },
+  "theme.docs.sidebar.collapseButtonTitle": {
+    "message": "折叠侧边栏",
+    "description": "文档侧边栏折叠按钮的 title 属性文本"
+  },
+  "theme.docs.sidebar.collapseButtonAriaLabel": {
+    "message": "折叠侧边栏",
+    "description": "文档侧边栏折叠按钮的 title 属性文本"
+  },
+  "theme.docs.sidebar.navAriaLabel": {
+    "message": "文档侧边栏",
+    "description": "文档侧边栏导航的 ARIA 标签"
+  },
+  "theme.ErrorPageContent.title": {
+    "message": "此页面已崩溃。",
+    "description": "页面崩溃时显示的后备页面标题"
+  },
+  "theme.BackToTopButton.buttonAriaLabel": {
+    "message": "滚动回顶部",
+    "description": "返回顶部按钮的 ARIA 标签"
+  },
+  "theme.blog.archive.title": {
+    "message": "归档",
+    "description": "博客归档页的页面标题和主视觉区域标题"
+  },
+  "theme.blog.archive.description": {
+    "message": "归档",
+    "description": "博客归档页的页面描述和主视觉区域描述"
+  },
+  "theme.blog.paginator.navAriaLabel": {
+    "message": "博客列表页导航栏",
+    "description": "博客分页的 ARIA 标签文本"
+  },
+  "theme.blog.paginator.newerEntries": {
+    "message": "较新的文章",
+    "description": "用于跳转到较新博客文章页面（上一页）的标签文本"
+  },
+  "theme.blog.paginator.olderEntries": {
+    "message": "较旧的文章",
+    "description": "用于跳转到较旧博客文章页面（下一页）的标签文本"
+  },
+  "theme.blog.post.paginator.navAriaLabel": {
+    "message": "博客文章分页导航",
+    "description": "博客文章分页导航的 ARIA 标签文本"
+  },
+  "theme.blog.post.paginator.newerPost": {
+    "message": "较新的文章",
+    "description": "用于跳转到较新/上一篇文章的按钮标签文本"
+  },
+  "theme.blog.post.paginator.olderPost": {
+    "message": "较旧的文章",
+    "description": "用于跳转到较旧/下一篇文章的按钮标签文本"
+  },
+  "theme.tags.tagsPageLink": {
+    "message": "查看所有标签",
+    "description": "指向标签列表页的链接文本"
+  },
+  "theme.colorToggle.ariaLabel.mode.system": {
+    "message": "系统模式",
+    "description": "系统配色模式的名称"
+  },
+  "theme.colorToggle.ariaLabel.mode.light": {
+    "message": "浅色模式",
+    "description": "浅色模式名称"
+  },
+  "theme.colorToggle.ariaLabel.mode.dark": {
+    "message": "深色模式",
+    "description": "深色模式名称"
+  },
+  "theme.colorToggle.ariaLabel": {
+    "message": "在深色和浅色模式之间切换（当前为 {mode}）",
+    "description": "颜色模式切换开关的 ARIA 标签"
+  },
+  "theme.docs.DocCard.categoryDescription.plurals": {
+    "message": "1 个项目|{count} 个项目",
+    "description": "默认说明文本，用于在生成的索引中描述此分类卡片包含的项目数量"
+  },
+  "theme.docs.paginator.navAriaLabel": {
+    "message": "文档页面",
+    "description": "文档分页的 ARIA 标签"
+  },
+  "theme.docs.paginator.previous": {
+    "message": "上一篇",
+    "description": "跳转到上一篇文档的标签文本"
+  },
+  "theme.docs.paginator.next": {
+    "message": "下一篇",
+    "description": "跳转到下一篇文档的标签文本"
+  },
+  "theme.docs.tagDocListPageTitle.nDocsTagged": {
+    "message": "{count} 篇文档已添加标签",
+    "description": "“{count} 篇文档已添加标签”的复数形式标签。根据目标语言支持的复数形式数量使用相应数量的变体（使用“|”分隔）（参见 https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html）"
+  },
+  "theme.docs.tagDocListPageTitle": {
+    "message": "{nDocsTagged} 篇带有“{tagName}”标签的文档",
+    "description": "文档标签页的标题"
+  },
+  "theme.docs.versionBadge.label": {
+    "message": "版本：{versionLabel}"
+  },
+  "theme.docs.versions.unreleasedVersionLabel": {
+    "message": "这是 {siteTitle} 的 {versionLabel} 版本文档，该版本尚未发布。",
+    "description": "用于在标签中提示用户当前正在浏览尚未发布文档版本的文本"
+  },
+  "theme.docs.versions.unmaintainedVersionLabel": {
+    "message": "这是 {siteTitle} 的 {versionLabel} 版本文档，该版本已不再积极维护。",
+    "description": "用于在标签中提示用户当前正在浏览不再维护的文档版本的文本"
+  },
+  "theme.docs.versions.latestVersionSuggestionLabel": {
+    "message": "要查看最新文档，请参阅 {latestVersionLink}（{versionLabel}）。",
+    "description": "用于提示用户查看最新版本的标签文本"
+  },
+  "theme.docs.versions.latestVersionLinkLabel": {
+    "message": "最新版本",
+    "description": "用于“最新版本推荐”链接标签的文本"
+  },
+  "theme.common.editThisPage": {
+    "message": "编辑此页面",
+    "description": "用于编辑当前页面的链接标签"
+  },
+  "theme.common.headingLinkTitle": {
+    "message": "指向「{heading}」的直达链接",
+    "description": "指向标题的链接的说明文本"
+  },
+  "theme.lastUpdated.atDate": {
+    "message": " 于 {date}",
+    "description": "用于说明页面上次更新日期的文本"
+  },
+  "theme.lastUpdated.byUser": {
+    "message": " 由 {user} 更新",
+    "description": "用于描述最近更新此页面的用户的文本"
+  },
+  "theme.lastUpdated.lastUpdatedAtBy": {
+    "message": "最近更新：{atDate}{byUser}",
+    "description": "用于显示页面最近的更新时间和更新人员的句子"
+  },
+  "theme.navbar.mobileVersionsDropdown.label": {
+    "message": "版本",
+    "description": "移动端视图中导航栏版本下拉菜单的标签"
+  },
+  "theme.NotFound.title": {
+    "message": "页面未找到",
+    "description": "404 页面标题"
+  },
+  "theme.tags.tagsListLabel": {
+    "message": "标签：",
+    "description": "用于显示在标签列表前面的标签文本"
+  },
+  "theme.admonition.caution": {
+    "message": "注意",
+    "description": "用于 Caution 提示块（:::caution）的默认标签文本"
+  },
+  "theme.admonition.danger": {
+    "message": "危险",
+    "description": "用于 Danger 提示块（:::danger）的默认标签文本"
+  },
+  "theme.admonition.info": {
+    "message": "信息",
+    "description": "用于 Info 提示块（:::info）的默认标签文本"
+  },
+  "theme.admonition.note": {
+    "message": "备注",
+    "description": "用于 Note 提示块（:::note）的默认标签文本"
+  },
+  "theme.admonition.tip": {
+    "message": "提示",
+    "description": "用于 Tip 提示块（:::tip）的默认标签文本"
+  },
+  "theme.admonition.warning": {
+    "message": "警告",
+    "description": "警告提示块（:::warning）的默认标题文本"
+  },
+  "theme.AnnouncementBar.closeButtonAriaLabel": {
+    "message": "关闭",
+    "description": "公告栏关闭按钮的 ARIA 无障碍标签"
+  },
+  "theme.blog.sidebar.navAriaLabel": {
+    "message": "博客最新文章导航",
+    "description": "博客侧边栏中“最新文章”的 ARIA 无障碍标签"
+  },
+  "theme.DocSidebarItem.expandCategoryAriaLabel": {
+    "message": "展开侧边栏分类“{label}”",
+    "description": "用于展开侧边栏分类的 ARIA 无障碍标签"
+  },
+  "theme.DocSidebarItem.collapseCategoryAriaLabel": {
+    "message": "折叠侧边栏分类“{label}”",
+    "description": "用于折叠侧边栏分类的 ARIA 无障碍标签"
+  },
+  "theme.IconExternalLink.ariaLabel": {
+    "message": "（在新标签页中打开）",
+    "description": "外部链接图标的 ARIA 标签"
+  },
+  "theme.NavBar.navAriaLabel": {
+    "message": "主要内容",
+    "description": "主导航栏的 ARIA 标签"
+  },
+  "theme.NotFound.p1": {
+    "message": "我们无法找到你要访问的内容。",
+    "description": "404 页面中的第一段文本"
+  },
+  "theme.NotFound.p2": {
+    "message": "请联系将你引导至原始 URL 的网站所有者，并告知他们该链接已失效。",
+    "description": "404 页面中的第二段文本"
+  },
+  "theme.TOCCollapsible.toggleButtonLabel": {
+    "message": "本页内容",
+    "description": "可折叠目录（TOC）组件中按钮的标签文本"
+  },
+  "theme.navbar.mobileLanguageDropdown.label": {
+    "message": "语言",
+    "description": "移动端语言切换下拉菜单的标签"
+  },
+  "theme.blog.post.readMore": {
+    "message": "阅读更多",
+    "description": "用于在博客文章摘要中链接到完整博文的标签"
+  },
+  "theme.blog.post.readMoreLabel": {
+    "message": "阅读更多关于 {title} 的内容",
+    "description": "用于从摘要跳转到完整博文链接的 ARIA 标签"
+  },
+  "theme.blog.post.readingTime.plurals": {
+    "message": "阅读约需 1 分钟|阅读约需 {readingTime} 分钟",
+    "description": "用于“{readingTime} 分钟阅读”的复数形式标签。根据目标语言所支持的复数形式数量提供相应数量的形式（用“|”分隔）（参见：https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html）"
+  },
+  "theme.CodeBlock.wordWrapToggle": {
+    "message": "切换自动换行",
+    "description": "代码块中切换自动换行按钮的 title 属性"
+  },
+  "theme.docs.sidebar.closeSidebarButtonAriaLabel": {
+    "message": "关闭导航栏",
+    "description": "移动端侧边栏关闭按钮的 ARIA 无障碍标签"
+  },
+  "theme.navbar.mobileSidebarSecondaryMenu.backButtonLabel": {
+    "message": "← 返回主菜单",
+    "description": "移动端导航侧边栏二级菜单中，用于返回主菜单的返回按钮标签（主要用于文档侧边栏）"
+  },
+  "theme.docs.sidebar.toggleSidebarButtonAriaLabel": {
+    "message": "切换导航栏",
+    "description": "移动端导航栏汉堡菜单按钮的 ARIA 标签"
+  },
+  "theme.navbar.mobileDropdown.collapseButton.expandAriaLabel": {
+    "message": "展开下拉菜单",
+    "description": "用于展开移动端下拉导航项按钮的 ARIA 标签"
+  },
+  "theme.navbar.mobileDropdown.collapseButton.collapseAriaLabel": {
+    "message": "收起下拉菜单",
+    "description": "用于收起移动端下拉导航项按钮的 ARIA 标签"
+  },
+  "theme.docs.sidebar.expandButtonTitle": {
+    "message": "展开侧边栏",
+    "description": "文档侧边栏“展开”按钮的 ARIA 标签和 title 属性值"
+  },
+  "theme.docs.sidebar.expandButtonAriaLabel": {
+    "message": "展开侧边栏",
+    "description": "文档侧边栏展开按钮的 ARIA label 与 title 属性"
+  },
+  "theme.blog.post.plurals": {
+    "message": "1 篇文章|{count} 篇文章",
+    "description": "用于“{count} 篇文章”的复数形式标签。根据你的语言所支持的复数形式数量，尽可能提供多种变体（用“|”分隔）（参见 https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html）"
+  },
+  "theme.blog.tagTitle": {
+    "message": "包含标签“{tagName}”的 {nPosts} 篇文章",
+    "description": "博客标签页标题"
+  },
+  "theme.blog.author.pageTitle": {
+    "message": "{authorName} - {nPosts} 篇文章",
+    "description": "博客作者页面标题"
+  },
+  "theme.blog.authorsList.pageTitle": {
+    "message": "作者",
+    "description": "作者页面标题"
+  },
+  "theme.blog.authorsList.viewAll": {
+    "message": "查看所有作者",
+    "description": "指向博客作者页面的链接文本"
+  },
+  "theme.blog.author.noPosts": {
+    "message": "该作者尚未撰写任何文章。",
+    "description": "当作者尚无博客文章时显示的提示文本"
+  },
+  "theme.contentVisibility.unlistedBanner.title": {
+    "message": "未列出的页面",
+    "description": "“未列出内容”横幅标题"
+  },
+  "theme.contentVisibility.unlistedBanner.message": {
+    "message": "此页面未被列出。搜索引擎不会对其进行索引，只有拥有直接链接的用户才能访问。",
+    "description": "未列出内容横幅消息文本"
+  },
+  "theme.contentVisibility.draftBanner.title": {
+    "message": "草稿页面",
+    "description": "草稿内容横幅标题文本"
+  },
+  "theme.contentVisibility.draftBanner.message": {
+    "message": "此页面当前为草稿。它只会在开发环境（dev）中可见，并且不会包含在生产环境的构建中。",
+    "description": "草稿内容横幅消息文本"
+  },
+  "theme.ErrorPageContent.tryAgain": {
+    "message": "重试",
+    "description": "在 React 错误边界捕获到错误时，用于重试渲染的按钮标签"
+  },
+  "theme.common.skipToMainContent": {
+    "message": "跳转到主内容",
+    "description": "用于无障碍访问的“跳转到内容”标签，允许用户通过键盘 Tab/Enter 快速跳转到主内容区域"
+  },
+  "theme.tags.tagsPageTitle": {
+    "message": "标签",
+    "description": "标签列表页标题"
+  }
+}

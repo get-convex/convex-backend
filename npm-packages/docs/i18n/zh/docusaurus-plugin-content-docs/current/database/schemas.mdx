@@ -1,0 +1,339 @@
+---
+title: "模式"
+sidebar_position: 5
+description:
+  "模式验证帮助你的 Convex 数据保持井井有条。它还能为你提供端到端的 TypeScript 类型安全！"
+toc_max_heading_level: 4
+---
+
+import SchemaTS from "!!raw-loader!@site/../demos/users-and-auth/convex/schema.ts";
+import circularExample from "!!raw-loader!@site/../private-demos/snippets/convex/schemasCircular.ts";
+
+模式是一种对以下内容的描述：
+
+1. 你的 Convex 项目中的表
+2. 表中各个文档的类型
+
+虽然在 *不* 定义模式的情况下也可以使用 Convex，但添加一个
+`schema.ts` 文件可以确保表中的文档具有正确的类型。如果你在使用
+[TypeScript](/understanding/best-practices/typescript.mdx)，添加模式还可以在整个应用中提供端到端的类型安全。
+
+我们建议在进行快速原型开发时，项目初期先不定义模式，等你把整体方案确定下来后再添加模式。要了解更多，请参阅
+[Schema Philosophy](/database/advanced/schema-philosophy.md)。
+
+**示例：**
+[TypeScript and Schemas](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## 编写模式 \{#writing-schemas\}
+
+模式定义在 `convex/` 目录下的 `schema.ts` 文件中，如下所示：
+
+<Snippet source={SchemaTS} title="convex/schema.ts" />
+
+这个模式（基于我们的
+[users and auth 示例](https://github.com/get-convex/convex-demos/tree/main/users-and-auth)），
+包含 2 个表：messages 和 users。每个表都使用
+[`defineTable`](/api/modules/server#definetable) 函数定义。在每个表中，
+文档类型使用验证器构建器
+[`v`](/api/modules/values#v) 来定义。除了列出的字段之外，Convex 还会
+自动添加 `_id` 和 `_creationTime` 字段。要了解更多，请参阅
+[系统字段](/database/types.md#system-fields)。
+
+<Admonition type="tip" title="生成模式">
+  在编写模式时，参考
+  [Convex 仪表盘](/dashboard/deployments/data.md#generating-a-schema)
+  会很有帮助。「Generate Schema」按钮位于「Data」视图中，会根据表中的数据
+  为你推荐一个模式声明。
+</Admonition>
+
+### 验证器 \{#validators\}
+
+验证器构建器 [`v`](/api/modules/values#v) 用于定义每个表中文档的类型。它为
+[Convex 的每种类型](/database/types) 提供相应的方法：
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  documents: defineTable({
+    id: v.id("documents"),
+    string: v.string(),
+    number: v.number(),
+    boolean: v.boolean(),
+    nestedObject: v.object({
+      property: v.string(),
+    }),
+  }),
+});
+```
+
+它还允许你定义联合类型、可选字段、字符串字面量等内容。[参数验证](/functions/validation.mdx)和模式都使用同一个验证器构建器 `v`。
+
+#### 可选字段 \{#optional-fields\}
+
+你可以通过使用 `v.optional(...)` 将字段的类型包裹起来来表示可选字段：
+
+```typescript
+defineTable({
+  optionalString: v.optional(v.string()),
+  optionalNumber: v.optional(v.number()),
+});
+```
+
+这相当于在 TypeScript 中用 `?` 将字段标记为可选。
+
+#### 联合类型 \{#unions\}
+
+你可以使用 `v.union` 来描述值可以为多种类型之一的字段：
+
+```typescript
+defineTable({
+  stringOrNumber: v.union(v.string(), v.number()),
+});
+```
+
+如果你的表中需要存储多种不同类型的文档，可以在顶层使用
+`v.union`：
+
+```typescript
+defineTable(
+  v.union(
+    v.object({
+      kind: v.literal("StringDocument"),
+      value: v.string(),
+    }),
+    v.object({
+      kind: v.literal("NumberDocument"),
+      value: v.number(),
+    }),
+  ),
+);
+```
+
+在此模式中，文档要么 `kind` 为 `"StringDocument"`，并且其 `value` 字段是字符串：
+
+```json
+{
+  "kind": "StringDocument",
+  "value": "abc"
+}
+```
+
+或者它们的 `kind` 为 `"NumberDocument"`，并且其 `value` 字段是一个数字：
+
+```json
+{
+  "kind": "NumberDocument",
+  "value": 123
+}
+```
+
+#### 字面量 \{#literals\}
+
+是常量的字段可以使用 `v.literal` 表示：
+
+```typescript
+defineTable({
+  oneTwoOrThree: v.union(
+    v.literal("one"),
+    v.literal("two"),
+    v.literal("three"),
+  ),
+});
+```
+
+#### Record 对象 \{#record-objects\}
+
+你可以使用 `v.record` 来描述把任意键映射到值的对象：
+
+```typescript
+defineTable({
+  simpleMapping: v.record(v.string(), v.boolean()),
+});
+```
+
+你也可以为键使用其他类型的字符串验证器：
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    userIdToValue: v.record(v.id("users"), v.boolean()),
+  },
+  handler: async ({ db }, { userIdToValue }) => {
+    //...
+  },
+});
+```
+
+Notes:
+
+* 此类型对应 TypeScript 中的
+  [Record&lt;K,V&gt;](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
+  类型
+* 不能使用字符串字面量作为 `record` 的键
+* 使用 `v.string()` 作为 `record` 键的验证器时，只允许使用 ASCII 字符
+
+#### Any \{#any\}
+
+可以取任何值的字段或文档可以用 `v.any()` 来表示：
+
+```typescript
+defineTable({
+  anyValue: v.any(),
+});
+```
+
+这相当于 TypeScript 中的 `any` 类型。
+
+### 选项 \{#options\}
+
+这些选项会作为
+[options](/api/interfaces/server.DefineSchemaOptions) 参数的一部分，传递给
+[`defineSchema`](/api/modules/server#defineschema)。
+
+#### `schemaValidation: boolean` \{#schemavalidation-boolean\}
+
+是否在运行时由 Convex 校验你的文档是否符合模式。
+
+默认情况下，Convex 会确保所有新的和已有的文档都符合你的模式。
+
+你可以通过传入 `schemaValidation: false` 来禁用 `schemaValidation`：
+
+```typescript
+defineSchema(
+  {
+    // 在这里定义表。
+  },
+  {
+    schemaValidation: false,
+  },
+);
+```
+
+当禁用 `schemaValidation` 时，Convex 不会验证新的或现有文档是否符合你的模式。你仍然会得到基于模式生成的 TypeScript 类型，但在运行时不会进行任何验证来确保你的文档符合这些类型。
+
+#### `strictTableNameTypes: boolean` \{#stricttablenametypes-boolean\}
+
+TypeScript 类型是否应当允许访问未在模式中定义的表。
+
+默认情况下，由你的模式生成的 TypeScript 表名类型是严格的。
+这意味着它们会是字符串联合类型（例如 `"messages" | "users"`），并且
+只支持访问在你的模式中显式列出的数据表。
+
+有时只定义部分模式会很有用。比如在快速原型开发时，你可能希望在把新表添加到
+`schema.ts` 文件之前先试用一下它。
+
+你可以通过传入 `strictTableNameTypes: false` 来禁用
+`strictTableNameTypes`：
+
+```typescript
+defineSchema(
+  {
+    // 在此处定义表。
+  },
+  {
+    strictTableNameTypes: false,
+  },
+);
+```
+
+当禁用 `strictTableNameTypes` 时，TypeScript 类型将允许访问未在模式中列出的表，并且这些表的文档类型将是 `any`。
+
+无论 `strictTableNameTypes` 的取值如何，你的模式只会对模式中列出的表里的文档进行验证。你仍然可以在 JavaScript 中或在仪表盘上创建和修改其他表中的文档（只是它们不会被验证）。
+
+## 模式验证 \{#schema-validation\}
+
+在运行
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) 和
+[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production)
+时，模式会被自动推送。
+
+在新增或修改模式后的首次推送中，Convex 会验证所有现有文档是否符合该模式。如果存在未通过验证的文档，本次推送将失败。
+
+模式推送之后，Convex 会验证所有后续文档的插入和更新操作是否符合该模式。
+
+如果将 [`schemaValidation`](#schemavalidation-boolean) 设置为 `false`，则会跳过模式验证。
+
+请注意，模式只会验证其中列出的表里的文档。你仍然可以在其他表中创建和修改文档（只是它们不会被验证）。
+
+### 循环引用 \{#circular-references\}
+
+你可能希望定义一个包含循环 Id 引用的模式，例如：
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.id("users"),
+  }),
+});
+```
+
+在此模式中，`users` 表中的文档包含对 `preferences` 表中文档的引用，反之亦然。
+
+由于模式验证会在每一次 `db.insert`、`db.replace` 和 `db.patch` 调用时强制应用你的模式，因此无法创建这样的循环引用。
+
+最简单的解决办法是将其中一个引用设为可为 null（nullable）：
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.union(v.id("users"), v.null()),
+  }),
+});
+```
+
+这样，你可以先创建一个 preferences 文档，然后创建一个 user
+文档，最后在 preferences 文档上设置这个引用：
+
+<TSAndJSSnippet title="convex/users.ts" sourceTS={circularExample} sourceJS={circularExample} />
+
+如果你需要我们对循环引用提供更好的支持，请[告诉我们](/production/contact.md)。
+
+## TypeScript 类型 \{#typescript-types\}
+
+一旦你定义了模式，
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) 就会生成基于你的模式的新版
+[`dataModel.d.ts`](/generated-api/data-model) 和
+[`server.d.ts`](/generated-api/server) 类型定义文件。
+
+### `Doc<TableName>` \{#doctablename\}
+
+来自 [`dataModel.d.ts`](/generated-api/data-model) 的 [`Doc`](/generated-api/data-model#doc) TypeScript 类型为你的所有表提供了对应的文档类型。你可以在编写 Convex 函数时使用这些类型，也可以在 React 组件中使用它们：
+
+```tsx noDialect title="MessageView.tsx"
+import { Doc } from "../convex/_generated/dataModel";
+
+function MessageView(props: { message: Doc<"messages"> }) {
+  ...
+}
+```
+
+如果你只需要文档中某一部分的类型，可以使用
+[`Infer` 类型辅助工具](/functions/validation#extracting-typescript-types)。
+
+### `query` 和 `mutation` \{#query-and-mutation\}
+
+[`server.js`](/generated-api/server) 中的
+[`query`](/generated-api/server#query) 和
+[`mutation`](/generated-api/server#mutation) 函数与之前拥有相同的 API，但现在提供了类型更加精确的 `db`。像
+[`db.insert(table, document)`](/api/interfaces/server.GenericDatabaseWriter#insert)
+这样的函数现在能够识别你的模式。此外，
+[数据库查询](/database/reading-data/reading-data.mdx) 现在会返回正确的文档类型（不再是 `any`）。
+
+<StackPosts query="schemas" />

@@ -1,0 +1,40 @@
+---
+title: "Tiempo real"
+sidebar_position: 100
+description: "Crear aplicaciones en tiempo real con Convex"
+---
+
+Resulta que Convex funciona en tiempo real de forma automática. No tienes que hacer nada
+especial si ya estás usando [funciones de consulta](./functions/query-functions),
+[base de datos](./database) y [bibliotecas de cliente](./client/react/) en tu aplicación.
+Convex realiza un seguimiento de las dependencias de tus funciones de consulta, incluidos los cambios
+en la base de datos, y activa la suscripción en las bibliotecas de cliente.
+
+<div align="center">
+  ![Convex es automáticamente reactivo y en tiempo real](/img/realtime.gif)
+</div>
+
+Además de permitirte crear con facilidad una aplicación muy interactiva, hay otros beneficios
+de la arquitectura en tiempo real de Convex:
+
+## Caché automático \{#automatic-caching\}
+
+Convex almacena automáticamente en caché el resultado de tus funciones de consulta para que las llamadas futuras solo tengan que leer desde la caché. La caché se actualiza si los datos cambian en algún momento.
+No se te cobra por el ancho de banda de base de datos en las lecturas desde la caché.
+
+Esto no requiere ningún trabajo ni gestión adicional de tu parte.
+
+## Datos consistentes en toda tu app \{#consistent-data-across-your-app\}
+
+La suscripción de cada cliente se actualiza simultáneamente a la misma instantánea de
+la base de datos. Tu app siempre muestra la vista más consistente de tus datos.
+
+Esto evita errores como incrementar el número de artículos en el carrito de la compra y
+no mostrar que un artículo está agotado.
+
+## Más información \{#learn-more\}
+
+Aprende a trabajar con consultas reactivas y en tiempo real en Convex en
+[Stack](https://stack.convex.dev/tag/Reactivity).
+
+<StackPosts query="reactivity" />

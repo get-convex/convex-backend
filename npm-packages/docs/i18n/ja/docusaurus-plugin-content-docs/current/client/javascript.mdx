@@ -1,0 +1,58 @@
+---
+title: "JavaScript"
+sidebar_label: "JavaScript"
+sidebar_position: 350
+description:
+  "Convex を使用する Node.js およびブラウザアプリケーション向けの JavaScript クライアント"
+---
+
+import Http from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+
+# Convex JavaScript クライアント \{#convex-javascript-clients\}
+
+Convex アプリケーションは、[`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) または
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) を実装している
+Node.js やあらゆる JavaScript ランタイムからアクセスできます。リアクティブな
+[Convex Client](/api/classes/browser.ConvexClient) は、ウェブアプリケーションや長時間稼働する
+Node.js サーバーが Convex クエリの更新を購読できるようにします。一方、
+[Convex HTTP client](/api/classes/browser.ConvexHttpClient) は、通常サーバーサイドレンダリング、
+マイグレーション、管理スクリプト、およびサーバーレス関数から、ある時点のクエリを一度きりで実行するために
+使用されます。
+
+React を使用している場合は、[React](/client/react.mdx) で説明している
+専用の [`ConvexReactClient`](/api/classes/browser.ConvexClient) を参照してください。
+
+## Convex クライアント \{#convex-client\}
+
+[`ConvexClient`](/api/classes/browser.ConvexClient) は、Node.js および WebSocket をサポートする任意の JavaScript 実行環境で、クエリに対するサブスクリプションを提供します。
+
+import VanillaTS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+import VanillaJS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={VanillaTS} sourceJS={VanillaJS} />
+
+Convex クライアントはオープンソースで、
+[GitHub](https://github.com/get-convex/convex-js) から利用できます。
+
+始めるには [Script Tag クイックスタート](/quickstart/script-tag.mdx) を参照してください。
+
+## HTTP クライアント \{#http-client\}
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/nodeExample.ts";
+
+[`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) は
+ブラウザ、Node.js、および `fetch` が利用できるあらゆる JavaScript 環境で動作します。
+
+[Node.js クイックスタート](/quickstart/nodejs.mdx) を参照してください。
+
+<TSAndJSSnippet title="script.ts" sourceTS={Example} sourceJS={Example} />
+
+## 生成された `convex/_generated/api.js` を使わずに Convex を利用する \{#using-convex-without-generated-convex_generatedapijs\}
+
+Convex 関数のソースコードが同じプロジェクトや同じモノレポ内にない場合は、
+`anyApi` と呼ばれる、型付けされていない `api` オブジェクトを使用できます。
+
+import StringsTS from "!!raw-loader!@site/../private-demos/snippets/src/strings.ts";
+import StringsJS from "!!raw-loader!@site/../private-demos/snippets/src/strings.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={StringsTS} sourceJS={StringsJS} />

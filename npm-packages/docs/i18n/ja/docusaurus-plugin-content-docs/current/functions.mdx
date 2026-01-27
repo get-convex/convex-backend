@@ -1,0 +1,32 @@
+---
+title: "関数"
+description: "サーバーの挙動を定義する関数を作成する"
+hide_table_of_contents: true
+pagination_prev: tutorial/index
+---
+
+関数はバックエンドで実行され、JavaScript（または TypeScript）で記述します。
+これらは自動的に、[クライアントライブラリ](/client/react.mdx) を通じて呼び出せる API として利用可能になります。
+Convex バックエンドで行うすべての処理は関数から始まります。
+
+関数には 3 種類あります:
+
+- [クエリ](/functions/query-functions.mdx) は Convex データベースからデータを読み取り、
+  自動的にキャッシュされ、購読可能（リアルタイムかつリアクティブ）です。
+- [ミューテーション](/functions/mutation-functions.mdx) はデータベースにデータを書き込み、
+  トランザクションとして実行されます。
+- [アクション](/functions/actions.mdx) は OpenAI、Stripe、Twilio など、
+  アプリの動作に必要なあらゆるサービスや API を呼び出すことができます。
+
+Webhook やカスタムクライアントから関数を呼び出したい場合は、
+[HTTP actions](/functions/http-actions.mdx) を構築することもできます。
+
+ここでは、Convex の 3 種類の関数とそれぞれができることの概要を示します:
+
+|                            | クエリ | ミューテーション | アクション |
+| -------------------------- | ------ | ----------------- | ---------- |
+| データベースアクセス       | Yes    | Yes               | No         |
+| トランザクション実行       | Yes    | Yes               | No         |
+| キャッシュ済み             | Yes    | No                | No         |
+| リアルタイム更新           | Yes    | No                | No         |
+| 外部 API 呼び出し (fetch) | No     | No                | Yes        |

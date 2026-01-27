@@ -1,0 +1,118 @@
+---
+title: "デプロイキー"
+slug: "deploy-key-types"
+sidebar_position: 30
+sidebar_label: "デプロイキー"
+description:
+  "本番ビルド環境での認証にデプロイキーを使用する"
+---
+
+プロジェクトやデプロイメントを指定するためにログインしたり、CLI を対話的に
+使ったりできない場合、たとえば本番ビルド環境では、環境変数 `CONVEX_DEPLOY_KEY`
+にデプロイキーを設定することで、Convex CLI コマンドを非対話的に実行できます。
+
+デプロイキーはデプロイメント、プロジェクト、またはチームを識別し、それらのリソースに対して特定のアクションを実行する権限を付与し、さらに Convex
+CLI の動作に影響を与えることがあります。
+
+### ローカル開発にはデプロイキーは不要です \{#developing-locally-does-not-require-a-deploy-key\}
+
+新しいマシンで `npx convex dev` を実行すると、ログインするか、アカウントなしで
+Convex をローカル実行するかを選択できます。
+
+ログインすると、*ユーザートークン* が `~/.convex/config.json` に保存され、
+以後そのマシンでのすべての CLI 利用時に自動的に使用されます。このトークンは、
+このユーザーがアクセス権を持つ任意のデプロイメントに対して、コードをプッシュし、
+データを読み書きする権限を付与します。
+
+ログインせずに Convex をローカル実行する場合
+([匿名開発](/cli/local-deployments-for-dev.mdx#anonymous-development))
+は、ローカルにデプロイメントを作成し、このプロジェクトに対するこの選択を
+プロジェクトディレクトリ内の `.env.local` ファイルに記録します。この匿名バックエンドの
+*admin key* は、そのシリアラライズされたデータとともに
+`~/.convex/anonymous-convex-backend-state/` に保存されます。
+
+どちらの場合でも、`CONVEX_DEPLOY_KEY` を設定する必要はありません。
+
+### デプロイキーの設定方法 \{#how-to-set-a-deploy-key\}
+
+通常、デプロイキーはそのキーを必要とするサービスのダッシュボードで設定しますが、
+多くのシェルでは、コマンドの直前で次のように設定することもできます。
+
+```
+CONVEX_DEPLOY_KEY='key goes here' npx convex dev
+```
+
+または、コマンドを実行する前にエクスポートしてください
+
+```
+export CONVEX_DEPLOY_KEY='key goes here'
+npx convex dev
+```
+
+または、そのディレクトリで `npx convex` を実行したときに読み込まれるように、`.env.local` ファイルに追加します。
+
+# デプロイキーの代表的な用途 \{#common-uses-of-deploy-keys\}
+
+### ビルドパイプラインからのデプロイ \{#deploying-from-build-pipelines\}
+
+*プロダクションデプロイキー* は、プロジェクトの本番デプロイメントを指定し、
+そのデプロイメントにコードをデプロイするための権限を付与します。
+
+> `prod:qualified-jaguar-123|eyJ2...0=`
+
+ログインできないビルドパイプライン（例: Vercel、Netlify、Cloudflare のビルドパイプライン）からコードをデプロイできます。
+
+[本番環境へのデプロイ](https://docs.convex.dev/production/hosting/)の詳細を参照してください。
+
+### プレビューデプロイメントへのデプロイ \{#deploying-to-preview-deployments\}
+
+*プレビューデプロイキー* は次のような形式です:
+
+> `preview:team-slug:project-slug|eyJ2...0=`
+
+プレビューデプロイキーを使うと、通常の `npx convex deploy` コマンドの挙動を変更して、プレビューブランチにデプロイできます。
+
+[プレビューデプロイメント](/production/hosting/preview-deployments)の詳細を参照してください。
+
+### 管理者キー \{#admin-keys\}
+
+管理者キーは、デプロイメントを完全に制御するためのキーです。
+
+管理者キーは次のような形式になります。
+
+> `bold-hyena-681|01c2...c09c`
+
+他の種類のデプロイキーと異なり、管理者キーは取り消し不可能なシークレットとしてデプロイメント作成時に埋め込まれるため、使用する際に https://convex.dev へのネットワーク接続を必要としません。
+
+これらのキーは、
+[anonymous](/cli/local-deployments-for-dev.mdx#anonymous-development)
+な Convex デプロイメントを、ログインせずにローカルで制御するために使われますが、明示的に設定する必要があるケースはまれです。
+
+`CONVEX_DEPLOY_KEY` を管理者キーに設定すると、Convex CLI はデプロイメントの選択肢を提示する代わりに、そのデプロイメントを対象に実行されます。
+
+## あまり一般的ではないタイプのデプロイキー \{#rarer-types-of-deploy-keys\}
+
+### プロジェクトトークン \{#project-tokens\}
+
+*プロジェクトトークン* は Convex CLI（コマンドラインインターフェース）に対してプロジェクトの完全な制御権限を与え、
+そのプロジェクト内で開発用および本番用のデプロイメントを作成・利用する権限を伴います。
+
+> `project:team-slug:project-slug|eyJ2...0=`
+
+プロジェクトトークンは、ユーザーが Convex の OAuth アプリケーションを通じて、
+組織にプロジェクトの利用権限を付与したときに発行されます。
+トークンを使って行われる操作はユーザー本人に代わって行われるため、
+そのユーザーがプロジェクトへのアクセス権を失った場合、そのトークンでも
+もはやそのプロジェクトへアクセスできなくなります。
+
+### 開発用デプロイキー \{#development-deploy-keys\}
+
+*dev deploy key* は、エージェントに 1 つのデプロイメントへの完全なアクセス権を
+開発用途として与えるために使われる場合があります。
+
+> `dev:joyful-jaguar-123|eyJ2...0=`
+
+これは、エージェントを使って開発する際の影響範囲を限定するのに役立ちます。
+
+エージェントに自分専用の dev デプロイメントへの排他的アクセスを与えたい場合は、
+[Agent Mode](/cli/background-agents.mdx) を参照してください。

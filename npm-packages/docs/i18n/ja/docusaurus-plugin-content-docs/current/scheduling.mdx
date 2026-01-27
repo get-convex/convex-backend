@@ -1,0 +1,45 @@
+---
+title: "スケジューリング"
+hide_table_of_contents: true
+pagination_prev: auth
+description:
+  "スケジュールされた関数や cron ジョブを使って、関数を一度だけまたは繰り返し実行するように設定します"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex では、将来のある時点で一度だけ、または繰り返し実行する関数を簡単にスケジュールできます。これにより、ユーザーが参加してから 1 日後にウェルカムメールを送信したり、Stripe を使って定期的にアカウントの照合を行ったりするような、永続的なワークフローを構築できます。
+Convex はスケジューリングのために 2 つの機能を提供しています:
+
+* [Scheduled Functions](/scheduling/scheduled-functions.mdx) は、他の任意の関数から、後の時点で実行するように永続的にスケジュールできます。関数は数分後、数日後、さらには数か月後に実行されるようにスケジュールできます。
+* [Cron Jobs](/scheduling/cron-jobs.mdx) は、関数を毎日などの一定間隔で繰り返し実行するようにスケジュールします。
+
+## 永続的な関数コンポーネント \{#durable-function-components\}
+
+組み込みのスケジュールされた関数と cron は、シンプルなアプリやワークフローには有効です。
+大規模な運用や、より厳密な動作保証が必要な場合は、永続的な関数向けに、次のような高レベルの[コンポーネント](/components.mdx)を使用してください。
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool は非同期処理を分離されたカスタマイズ可能なキューに整理することで、重要なタスクを優先的に処理します。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "長時間実行されるコードフローの記述をシンプルにします。Workflow は再試行回数や遅延を設定しつつ、永続的に実行されます。",
+    href: "https://www.convex.dev/components/workflow",
+  },
+  {
+    title: "Crons",
+    description:
+      "cronspec を使用して、関数を繰り返し実行するスケジュールをランタイム上で設定します。",
+    href: "https://www.convex.dev/components/crons",
+  },
+]}
+/>
+
+<StackPosts query="scheduler" />

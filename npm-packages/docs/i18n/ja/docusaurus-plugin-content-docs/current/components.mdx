@@ -1,0 +1,49 @@
+---
+title: "コンポーネント"
+description: "アプリを構成する自己完結型の構成要素"
+pagination_prev: search
+---
+
+import { LargeCardList } from "@site/src/QuickstartsList.tsx";
+
+<span className="convex-hero">
+  Convex Components はコードとデータをサンドボックス環境にまとめ、バックエンドに新機能を自信を持って素早く追加できるようにします。
+</span>
+
+Convex Components は、小さな自己完結型の Convex バックエンドのようなもので、インストールしても常に安全です。明示的に渡さない限り、アプリのテーブルを読み取ったり、アプリの関数を呼び出したりすることはできません。
+
+全体的なビジョンについては、
+[Convex: The Software-Defined Database](https://stack.convex.dev/the-software-defined-database#introducing-convex-components)
+を参照してください。
+
+コンポーネントは npm から、またはローカルフォルダーからインストールできます。インストールされると、それぞれが独自のデータベーステーブルと分離された関数実行環境を持ちます。
+コンポーネントの完全なディレクトリは
+[Convex website](https://convex.dev/components)
+で確認できます。
+
+<LargeCardList
+  items={[
+{
+  title: "コンポーネントの理解",
+  description:
+    "コンポーネントの背後にある概念を学び、コンポーネントがどのように動作するかのメンタルモデルを構築します。",
+  href: "/components/understanding",
+},
+{
+  title: "コンポーネントの利用",
+  description:
+    "便利なコンポーネントと、それらをアプリケーションでどのように使うかを学びます。",
+  href: "/components/using",
+},
+{
+  title: "コンポーネントの作成",
+  description: "コンポーネントを作成して公開する方法を学びます。",
+  href: "/components/authoring",
+},
+{
+  title: "コンポーネントディレクトリ",
+  description: "すべてのコンポーネントの一覧。",
+  href: "https://convex.dev/components",
+},
+]}
+/>

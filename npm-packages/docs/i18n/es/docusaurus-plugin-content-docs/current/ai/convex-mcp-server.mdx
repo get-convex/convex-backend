@@ -1,0 +1,126 @@
+---
+title: "Servidor MCP de Convex"
+sidebar_position: 300
+description: "Servidor MCP de Convex"
+---
+
+El servidor
+[Model Context Protocol](https://docs.cursor.com/context/model-context-protocol)
+(MCP) de Convex proporciona varias herramientas que permiten que los agentes de IA interactúen con tu
+despliegue de Convex.
+
+## Configuración \{#setup\}
+
+Añade el siguiente comando a la configuración de tus servidores MCP:
+
+`npx -y convex@latest mcp start`
+
+Para Cursor puedes usar este enlace rápido de instalación:
+
+[![Instalar servidor MCP](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex\&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+o consulta las instrucciones específicas por editor:
+
+* [Cursor](/ai/using-cursor.mdx#setup-the-convex-mcp-server)
+* [Windsurf](/ai/using-windsurf.mdx#setup-the-convex-mcp-server)
+* [VS Code](/ai/using-github-copilot.mdx#setup-the-convex-mcp-server)
+* Claude Code: añade el servidor MCP y pruébalo con
+  ```bash
+  claude mcp add-json convex '{"type":"stdio","command":"npx","args":["convex","mcp","start"]}'
+  claude mcp get convex
+  ```
+
+## Opciones de configuración \{#configuration-options\}
+
+El servidor MCP acepta varias opciones de línea de comandos para personalizar su comportamiento:
+
+### Directorio del proyecto \{#project-directory\}
+
+De forma predeterminada, el servidor MCP puede ejecutarse para varios proyectos, y cada llamada a una herramienta
+especifica su directorio de proyecto. Para ejecutar el servidor para un único proyecto, usa:
+
+```bash
+npx -y convex@latest mcp start --project-dir /path/to/project
+```
+
+### Selección de despliegue \{#deployment-selection\}
+
+De forma predeterminada, el servidor MCP se conecta a tu despliegue de desarrollo. Puedes
+especificar un despliegue diferente usando estas opciones:
+
+* `--prod`: Ejecuta el servidor MCP en el despliegue de producción de tu proyecto (requiere
+  `--dangerously-enable-production-deployments`)
+* `--preview-name <name>`: Ejecuta el servidor en un despliegue de vista previa con el nombre indicado
+* `--deployment-name <name>`: Ejecuta el servidor en un despliegue específico por nombre
+* `--env-file <path>`: Ruta a un archivo de entorno personalizado para seleccionar el
+  despliegue (por ejemplo, que contenga `CONVEX_DEPLOYMENT` o `CONVEX_SELF_HOSTED_URL`).
+  Usa el mismo formato que los archivos `.env.local` o `.env`.
+
+### Despliegues de producción \{#production-deployments\}
+
+De forma predeterminada, el servidor MCP no puede acceder a los despliegues de producción. Esta es una medida de seguridad para evitar modificaciones accidentales en los datos de producción. Si necesitas acceder a despliegues de producción, debes habilitar explícitamente este acceso:
+
+```bash
+npx -y convex@latest mcp start --dangerously-enable-production-deployments
+```
+
+<Admonition type="caution" title="Usar con cuidado">
+  Habilitar el acceso a producción permite que el servidor MCP lea y modifique datos en tu
+  despliegue de producción. Solo habilítalo cuando realmente necesites interactuar
+  con producción, y ten cuidado con cualquier operación que modifique datos.
+</Admonition>
+
+### Desactivar herramientas \{#disabling-tools\}
+
+Puedes desactivar herramientas específicas si quieres restringir lo que el servidor MCP puede hacer:
+
+```bash
+npx -y convex@latest mcp start --disable-tools data,run,envSet
+```
+
+Herramientas disponibles que pueden deshabilitarse: `data`, `envGet`, `envList`, `envRemove`,
+`envSet`, `functionSpec`, `logs`, `run`, `runOneoffQuery`, `status`, `tables`
+
+## Herramientas disponibles \{#available-tools\}
+
+### Herramientas de despliegue \{#deployment-tools\}
+
+* **`status`**: Consulta los despliegues disponibles y devuelve un selector de despliegue
+  que puedes usar con otras herramientas. Esta suele ser la primera herramienta que usarás
+  para encontrar tu despliegue de Convex.
+
+### Herramientas de tablas \{#table-tools\}
+
+* **`tables`**: Enumera todas las tablas de un despliegue junto con sus:
+
+  * Esquemas declarados (si están presentes)
+  * Esquemas inferidos (rastreados automáticamente por Convex)
+  * Nombres de tablas y metadatos
+
+* **`data`**: Permite paginar los documentos de una tabla especificada.
+
+* **`runOneoffQuery`**: Permite escribir y ejecutar consultas de JavaScript
+  aisladas (sandboxed) contra los datos de tu despliegue. Estas consultas son de solo lectura y no pueden
+  modificar la base de datos.
+
+### Herramientas de funciones \{#function-tools\}
+
+* **`functionSpec`**: Proporciona metadatos sobre todas las funciones desplegadas, incluyendo:
+
+  * Tipos de función
+  * Configuración de visibilidad
+  * Especificaciones de interfaz
+
+* **`run`**: Ejecuta funciones de Convex desplegadas con los argumentos proporcionados.
+
+* **`logs`**: Obtiene un bloque reciente de entradas de registro de ejecuciones de funciones, similar
+  a ejecutar `npx convex logs`, pero como objetos estructurados.
+
+### Herramientas para variables de entorno \{#environment-variable-tools\}
+
+* **`envList`**: Lista todas las variables de entorno de un despliegue
+* **`envGet`**: Obtiene el valor de una variable de entorno específica
+* **`envSet`**: Configura una nueva variable de entorno o actualiza una existente
+* **`envRemove`**: Elimina una variable de entorno del despliegue
+
+[Más información sobre cómo usar el Convex MCP Server](https://stack.convex.dev/convex-mcp-server)

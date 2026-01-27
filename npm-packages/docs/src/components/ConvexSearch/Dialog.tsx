@@ -5,6 +5,7 @@ import AskAI from "./AskAI";
 import KeyboardLegend from "./KeyboardLegend";
 import Results from "./Results";
 import SearchBox from "./SearchBox";
+import { T } from "gt-react";
 
 type Props = {
   open: boolean;
@@ -85,12 +86,14 @@ const Dialog = ({ open, onClose }: Props) => {
             onChange={handleChange}
             onClear={handleClear}
           />
-          <button
-            className="border-none bg-transparent font-sans cursor-pointer md:hidden"
-            onClick={handleClose}
-          >
-            Cancel
-          </button>
+          <T>
+            <button
+              className="border-none bg-transparent font-sans cursor-pointer md:hidden"
+              onClick={handleClose}
+            >
+              Cancel
+            </button>
+          </T>
         </div>
         {query !== "" && (
           <>

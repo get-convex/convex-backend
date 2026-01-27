@@ -1,0 +1,101 @@
+---
+title: Remix 快速入门
+sidebar_label: Remix
+description: "向 Remix 项目添加 Convex"
+hide_table_of_contents: true
+sidebar_position: 200
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/remix/sampleData.jsonl";
+import root from "!!raw-loader!@site/../private-demos/quickstarts/remix/app/root.tsx";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/remix/convex/tasks.ts";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/remix/app/routes/_index.tsx";
+
+在 Remix 应用中学习如何从 Convex 查询数据。
+
+<StepByStep>
+  <Step title="创建一个 Remix 站点">
+    使用 `npx create-remix@latest` 命令创建一个 Remix 站点。
+
+    <br />
+
+    ```sh
+    npx create-remix@latest my-remix-app
+    ```
+  </Step>
+
+  <Step title="安装 Convex 库">
+    首先，安装 `convex` 包。
+
+    ```sh
+    cd my-remix-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发环境部署">
+    接下来运行 `npx convex dev`。它会提示你使用 GitHub 登录、
+    创建一个项目，并记录你的生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用于编写后端 API 函数。`dev` 命令
+    会持续运行，将你的函数与云端的开发环境（dev 部署）保持同步。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在应用根目录创建一个 `sampleData.jsonl` 文件，
+    并填入给定的示例数据。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    现在你的项目已准备就绪，使用 `import` 命令，
+    将你刚在 `sampleData.jsonl` 中创建的示例数据
+    作为 `tasks` 表导入到 Convex 数据库中。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="公开一个数据库查询">
+    在 `convex/` 文件夹中添加一个新的 <JSDialectFileName name="tasks.ts" /> 文件，
+    并在其中定义一个用于加载数据的查询函数。
+
+    从这个文件中导出一个查询函数，
+    会声明一个 API 函数，名字由文件名和导出名组成，
+    即 `api.tasks.get`。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="接入 ConvexProvider">
+    修改 `app/root.tsx`，在其中初始化 Convex 客户端，
+    以便在应用的每个页面中都可以使用它。
+
+    <Snippet source={root} title="app/root.tsx" />
+  </Step>
+
+  <Step title="在应用中展示数据">
+    在 `app/routes/_index.tsx` 中使用 `useQuery`
+    订阅你的 `api.tasks.get` API 函数。
+
+    <Snippet source={index} title="app/routes/_index.tsx" />
+  </Step>
+
+  <Step title="启动应用">
+    启动应用，在浏览器中打开 [http://localhost:5173](http://localhost:5173)，
+    查看任务列表。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+Remix 使用 React 前端库。查看完整的
+[React 文档](/client/react.mdx)。

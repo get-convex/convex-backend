@@ -1,0 +1,74 @@
+---
+title: プラットフォーム API
+---
+
+# プラットフォーム API \{#platform-apis\}
+
+<Admonition type="info">
+  Convex プラットフォーム API は公開 Beta 版として提供されています。追加の機能が必要なユースケースがある場合は
+  platforms@convex.dev までお問い合わせください。
+</Admonition>
+
+このガイドは、自分のアカウント内で複数の Convex プロジェクトをオーケストレーションしたいプロダクトや、ユーザーのアカウント内のプロジェクトを管理したいプロダクト向けです。これらの API は、[Bloom](https://bloom.diy/)、
+[A0](https://a0.dev/)、[Macaly](https://www.macaly.com/) などの AI アプリケーション構築プラットフォームで最もよく利用されています。
+
+これらのガイドは、Convex のクラウド階層構造（チーム、プロジェクト、デプロイメント）および
+[開発ワークフロー](/understanding/workflow) を十分に理解していることを前提としています。
+
+## 自分のプロジェクトの管理 \{#managing-your-own-projects\}
+
+ここで説明するのは、自分が所属するチームのコンテキストで、プロジェクトやデプロイメントを作成し、
+コードをプログラムからプッシュするケースです。
+
+自分のチーム内のプロジェクトを管理するには、チーム単位のトークンと ID を
+[Team Settings](https://dashboard.convex.dev/team/settings/access-tokens)
+から取得する必要があります。
+
+<Admonition type="caution">
+  これらのトークンは、取得時に Convex ダッシュボードへログインしている
+  チームメンバーに紐づきます。
+
+  つまり、これらのトークンを使って作成された dev デプロイメントは、そのユーザーの所有物になります。
+  このユーザーがチームを離れると、そのユーザーの dev デプロイメントもチームからすべて削除されます。
+
+  サービスアカウント用の別ユーザーを作成し、それをチームメンバーとして追加することを推奨します。
+  そのうえで、このサービスアカウントとしてログインした後にトークンを取得してください。
+</Admonition>
+
+## ユーザーのプロジェクトを管理する \{#managing-your-users-projects\}
+
+これは、ユーザーが自分の Convex チームやプロジェクトの管理を、あなたのプロダクトに任せることを意味します。
+
+そのためには、ユーザーがあなたのプロダクトに必要な権限を付与できるように、OAuth 2.0 アプリケーションを作成する必要があります。
+
+[OAuth Applications](/platform-apis/oauth-applications) ガイドに従って OAuth アプリケーションを作成し、適切なトークンをリクエストしてください。
+
+## プロジェクトを管理するための API \{#apis-to-manage-projects\}
+
+上記のいずれかの方法でトークンを取得したら、それを使って
+Convex プロジェクトおよびデプロイメントを管理するための該当する API を呼び出せます。
+
+[管理 API リファレンス](/management-api)
+
+## デプロイメントへのコードのプッシュ \{#pushing-code-to-a-deployment\}
+
+デプロイメントの操作は、主に既存の Convex CLI を使ったスクリプト化によって行います。Convex CLI はコードのバンドルやレスポンスの適切な処理など、多くの面倒な作業を肩代わりしてくれます。
+
+ここでの例では、シェルおよびファイルシステムへアクセスでき、そこからアプリのビルドプロセスを実行できるコンテナ内で作業していることを前提としています。フロントエンドコードを生成しているのであれば、すでにそのような環境を使っている可能性が高いでしょう。
+
+[`CONVEX_DEPLOY_KEY`](/cli/deploy-key-types.mdx) には、
+[Create deploy key](/management-api/create-deploy-key) API によって返される値を設定してください。
+
+### dev Convex バックエンドにコードをプッシュする \{#pushing-code-to-the-dev-convex-backend\}
+
+```bash
+CONVEX_DEPLOY_KEY="YOUR_DEPLOY_KEY" npx convex dev --once
+```
+
+### 本番環境の Convex バックエンドにコードをデプロイする \{#pushing-code-to-the-prod-convex-backend\}
+
+```bash
+CONVEX_DEPLOY_KEY="YOUR_DEPLOY_KEY" npx convex deploy
+```
+
+すべてのコマンドの一覧は [CLI ドキュメント](/cli) を参照してください。

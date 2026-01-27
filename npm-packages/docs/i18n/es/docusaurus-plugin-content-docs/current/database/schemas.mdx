@@ -1,0 +1,366 @@
+---
+title: "Esquemas"
+sidebar_position: 5
+description:
+  "La validación del esquema mantiene tus datos de Convex limpios y ordenados. ¡También te proporciona tipado de TypeScript de extremo a extremo!"
+toc_max_heading_level: 4
+---
+
+import SchemaTS from "!!raw-loader!@site/../demos/users-and-auth/convex/schema.ts";
+import circularExample from "!!raw-loader!@site/../private-demos/snippets/convex/schemasCircular.ts";
+
+Un esquema es una descripción de
+
+1. las tablas en tu proyecto de Convex
+2. los tipos de documentos dentro de tus tablas
+
+Aunque es posible usar Convex *sin* definir un esquema, agregar un archivo
+`schema.ts` garantizará que los documentos de tus tablas sean del tipo
+correcto. Si usas
+[TypeScript](/understanding/best-practices/typescript.mdx), agregar un esquema
+también te dará seguridad de tipos de extremo a extremo en toda tu aplicación.
+
+Recomendamos comenzar tu proyecto sin un esquema para un prototipado rápido y
+luego agregar un esquema una vez que hayas solidificado tu plan. Para obtener
+más información, consulta nuestra
+[Filosofía del esquema](/database/advanced/schema-philosophy.md).
+
+**Ejemplo:**
+[TypeScript y esquemas](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## Definición de esquemas \{#writing-schemas\}
+
+Los esquemas se definen en un archivo `schema.ts` en tu directorio `convex/` y
+tienen el siguiente aspecto:
+
+<Snippet source={SchemaTS} title="convex/schema.ts" />
+
+Este esquema (basado en nuestro
+[ejemplo de usuarios y autenticación](https://github.com/get-convex/convex-demos/tree/main/users-and-auth)),
+tiene dos tablas: `messages` y `users`. Cada tabla se define usando la función
+[`defineTable`](/api/modules/server#definetable). Dentro de cada tabla, el tipo
+de documento se define usando el generador de validadores
+[`v`](/api/modules/values#v). Además de los campos listados, Convex también
+añadirá automáticamente los campos `_id` y `_creationTime`. Para obtener más
+información, consulta
+[Campos del sistema](/database/types.md#system-fields).
+
+<Admonition type="tip" title="Generar un esquema">
+  Mientras defines tu esquema, puede ser útil consultar el
+  [Convex Dashboard](/dashboard/deployments/data.md#generating-a-schema). El
+  botón &quot;Generate Schema&quot; en la vista &quot;Data&quot; propone una declaración de esquema
+  basada en los datos de tus tablas.
+</Admonition>
+
+### Validadores \{#validators\}
+
+El constructor de validadores, [`v`](/api/modules/values#v), se usa para definir el tipo
+de los documentos en cada tabla. Tiene métodos para cada uno de
+[los tipos de Convex](/database/types):
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  documents: defineTable({
+    id: v.id("documents"),
+    string: v.string(),
+    number: v.number(),
+    boolean: v.boolean(),
+    nestedObject: v.object({
+      property: v.string(),
+    }),
+  }),
+});
+```
+
+Además, te permite definir uniones, propiedades opcionales, literales de cadena de texto y más. Tanto la [validación de argumentos](/functions/validation.mdx) como los esquemas utilizan el mismo generador de validadores, `v`.
+
+#### Campos opcionales \{#optional-fields\}
+
+Puedes describir campos opcionales envolviendo el tipo con `v.optional(...)`:
+
+```typescript
+defineTable({
+  optionalString: v.optional(v.string()),
+  optionalNumber: v.optional(v.number()),
+});
+```
+
+Esto equivale a marcar campos como opcionales con `?` en TypeScript.
+
+#### Uniones \{#unions\}
+
+Puedes describir campos que pueden ser de varios tipos usando `v.union`:
+
+```typescript
+defineTable({
+  stringOrNumber: v.union(v.string(), v.number()),
+});
+```
+
+Si tu tabla almacena varios tipos distintos de documentos, puedes usar
+`v.union` a nivel superior:
+
+```typescript
+defineTable(
+  v.union(
+    v.object({
+      kind: v.literal("StringDocument"),
+      value: v.string(),
+    }),
+    v.object({
+      kind: v.literal("NumberDocument"),
+      value: v.number(),
+    }),
+  ),
+);
+```
+
+En este esquema, los documentos pueden tener un `kind` igual a `"StringDocument"` y una
+cadena como su `value`:
+
+```json
+{
+  "kind": "StringDocument",
+  "value": "abc"
+}
+```
+
+o bien tienen un `kind` con el valor `"NumberDocument"` y un número en su propiedad `value`:
+
+```json
+{
+  "kind": "NumberDocument",
+  "value": 123
+}
+```
+
+#### Literales \{#literals\}
+
+Los campos constantes se pueden expresar con `v.literal`:
+
+```typescript
+defineTable({
+  oneTwoOrThree: v.union(
+    v.literal("one"),
+    v.literal("two"),
+    v.literal("three"),
+  ),
+});
+```
+
+#### Objetos record \{#record-objects\}
+
+Puedes describir objetos que mapean claves arbitrarias a valores con `v.record`:
+
+```typescript
+defineTable({
+  simpleMapping: v.record(v.string(), v.boolean()),
+});
+```
+
+Puedes utilizar otros tipos de validadores de cadenas de texto para las claves:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    userIdToValue: v.record(v.id("users"), v.boolean()),
+  },
+  handler: async ({ db }, { userIdToValue }) => {
+    //...
+  },
+});
+```
+
+Notas:
+
+* Este tipo corresponde al tipo
+  [Record&lt;K,V&gt;](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
+  en TypeScript
+* No puedes usar literales de cadena (`string`) como clave de un `record`
+* Usar `v.string()` como validador de claves de `record` solo permitirá
+  caracteres ASCII
+
+#### Any \{#any\}
+
+Campos o documentos que pueden tomar cualquier valor se representan con
+`v.any()`:
+
+```typescript
+defineTable({
+  anyValue: v.any(),
+});
+```
+
+Corresponde al tipo `any` de TypeScript.
+
+### Opciones \{#options\}
+
+Estas opciones se pasan como parte del argumento
+[options](/api/interfaces/server.DefineSchemaOptions) de
+[`defineSchema`](/api/modules/server#defineschema).
+
+#### `schemaValidation: boolean` \{#schemavalidation-boolean\}
+
+Indica si Convex debe validar en tiempo de ejecución que tus documentos coincidan con tu esquema.
+
+De forma predeterminada, Convex exigirá que todos los documentos nuevos y existentes coincidan con tu esquema.
+
+Puedes desactivar `schemaValidation` pasando `schemaValidation: false`:
+
+```typescript
+defineSchema(
+  {
+    // Define las tablas aquí.
+  },
+  {
+    schemaValidation: false,
+  },
+);
+```
+
+Cuando `schemaValidation` está desactivado, Convex no comprobará que los documentos nuevos o existentes coincidan con tu esquema. Seguirás obteniendo tipos de TypeScript específicos del esquema, pero no habrá ninguna validación en tiempo de ejecución que garantice que tus documentos coincidan con esos tipos.
+
+#### `strictTableNameTypes: boolean` \{#stricttablenametypes-boolean\}
+
+Indica si los tipos de TypeScript deben permitir acceder a tablas que no están en el esquema.
+
+De forma predeterminada, los tipos de nombres de tabla de TypeScript producidos por tu esquema son estrictos.
+Eso significa que serán una unión de cadenas de texto (por ejemplo, `"messages" | "users"`) y
+solo permitirán acceder a tablas que estén listadas explícitamente en tu esquema.
+
+A veces es útil definir solo parte de tu esquema. Por ejemplo, si estás
+prototipando rápidamente, podría ser útil probar una tabla nueva antes de agregarla
+a tu archivo `schema.ts`.
+
+Puedes deshabilitar `strictTableNameTypes` pasando
+`strictTableNameTypes: false`:
+
+```typescript
+defineSchema(
+  {
+    // Define las tablas aquí.
+  },
+  {
+    strictTableNameTypes: false,
+  },
+);
+```
+
+Cuando `strictTableNameTypes` está deshabilitado, los tipos de TypeScript permitirán el acceso
+a tablas que no figuran en el esquema y su tipo de documento será `any`.
+
+Independientemente del valor de `strictTableNameTypes`, tu esquema solo
+validará documentos en las tablas listadas en el esquema. Aun así podrás crear y
+modificar documentos en otras tablas en JavaScript o en el panel de control (simplemente
+no se validarán).
+
+## Validación de esquemas \{#schema-validation\}
+
+Los esquemas se publican automáticamente con
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) y
+[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
+
+La primera publicación después de agregar o modificar un esquema validará que
+todos los documentos existentes cumplan con el esquema. Si hay documentos que
+no pasan la validación, la publicación fallará.
+
+Después de que se publique el esquema, Convex validará que todas las futuras
+inserciones y actualizaciones de documentos cumplan con el esquema.
+
+La validación de esquemas se omite si [`schemaValidation`](#schemavalidation-boolean)
+se establece en `false`.
+
+Ten en cuenta que los esquemas solo validan documentos en las tablas incluidas en el esquema.
+Aún puedes crear y modificar documentos en otras tablas (simplemente no serán
+validados).
+
+### Referencias circulares \{#circular-references\}
+
+Tal vez quieras definir un esquema con referencias de Id circulares como:
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.id("users"),
+  }),
+});
+```
+
+En este esquema, los documentos en la tabla `users` contienen una referencia a documentos
+en `preferences` y viceversa.
+
+Como la validación del esquema hace cumplir tu esquema en cada llamada a `db.insert`,
+`db.replace` y `db.patch`, no es posible crear referencias circulares como esta.
+
+La forma más sencilla de evitarlo es hacer que una de las referencias admita `null`:
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.union(v.id("users"), v.null()),
+  }),
+});
+```
+
+De este modo puedes crear primero un documento de preferencias, luego un
+documento de usuario y después establecer la referencia en el documento de preferencias:
+
+<TSAndJSSnippet title="convex/users.ts" sourceTS={circularExample} sourceJS={circularExample} />
+
+[Avísanos](/production/contact.md) si necesitas un mejor soporte para referencias
+circulares.
+
+## Tipos de TypeScript \{#typescript-types\}
+
+Una vez que hayas definido un esquema,
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) generará nuevas versiones
+de [`dataModel.d.ts`](/generated-api/data-model) y
+[`server.d.ts`](/generated-api/server) con tipos basados en tu esquema.
+
+### `Doc<TableName>` \{#doctablename\}
+
+El tipo de TypeScript [`Doc`](/generated-api/data-model#doc) de
+[`dataModel.d.ts`](/generated-api/data-model) proporciona tipos de documento para
+todas tus tablas. Puedes usarlos tanto al escribir funciones de Convex como en
+tus componentes de React:
+
+```tsx noDialect title="MessageView.tsx"
+import { Doc } from "../convex/_generated/dataModel";
+
+function MessageView(props: { message: Doc<"messages"> }) {
+  ...
+}
+```
+
+Si necesitas el tipo de una parte de un documento, usa el helper de tipo [`Infer`](/functions/validation#extracting-typescript-types).
+
+### `query` y `mutation` \{#query-and-mutation\}
+
+Las funciones [`query`](/generated-api/server#query) y
+[`mutation`](/generated-api/server#mutation) en
+[`server.js`](/generated-api/server) siguen teniendo la misma API que antes, pero ahora proporcionan
+un `db` con tipos más precisos. Funciones como
+[`db.insert(table, document)`](/api/interfaces/server.GenericDatabaseWriter#insert)
+ahora tienen en cuenta tu esquema. Además,
+[las consultas a la base de datos](/database/reading-data/reading-data.mdx) ahora devolverán el
+tipo de documento correcto (no `any`).
+
+<StackPosts query="schemas" />

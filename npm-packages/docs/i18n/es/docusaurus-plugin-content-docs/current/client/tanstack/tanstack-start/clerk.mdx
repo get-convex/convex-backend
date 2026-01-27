@@ -1,0 +1,51 @@
+---
+title: "TanStack Start con Clerk"
+sidebar_label: Con Clerk
+description:
+  "Aprende a integrar la autenticación con Clerk y Convex en aplicaciones de
+  TanStack Start usando tokens de ID y ConvexProviderWithClerk."
+---
+
+import appRouter from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/router.tsx";
+import appRoutesRoot from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/routes/__root.tsx";
+
+Usar Clerk con Convex es como seguir el
+[Clerk TanStack Quickstart](https://clerk.com/docs/quickstarts/tanstack-start)
+y agregar Convex como se muestra en
+[Convex TanStack Quickstart](/quickstart/tanstack-start.mdx). Luego, para hacer
+que los tokens de identidad de Clerk estén disponibles en todos los lugares
+donde vayas a hacer llamadas autenticadas a Convex en TanStack Start, querrás:
+
+1. Obtener un token de ID de Clerk además de la llamada a `getAuth()` con
+   `const token = await auth.getToken({ template: "convex" })`.
+2. Establecer el token en beforeLoad con
+   `ctx.context.convexQueryClient.serverHttpClient?.setAuth(token)` para que el
+   token esté disponible en los loaders.
+3. Agregar `<ConvexProviderWithClerk>` al componente raíz para seguir
+   actualizando los tokens de Clerk mientras la aplicación está en uso.
+
+Hacer estos cambios implica modificar `app/router.tsx` de esta forma:
+
+<Snippet source={appRouter} title="app/router.tsx" highlightPatterns={["context: "]} />
+
+y modificar `app/routes/__root.tsx` de esta forma:
+
+<Snippet
+  source={appRoutesRoot}
+  title="app/routes/__root.tsx"
+  highlightPatterns={[
+"getAuth\\(get",
+"getToken",
+"token,",
+"ConvexReactClient",
+"ConvexQueryClient",
+"userId, token",
+"ConvexProviderWithClerk",
+"if \\(token",
+"ctx.context.convexQuery",
+]}
+/>
+
+Ahora todas las consultas, mutaciones y acciones realizadas con
+[TanStack Query](/client/tanstack/tanstack-query/index.mdx) se autenticarán
+mediante un token de identidad de Clerk.

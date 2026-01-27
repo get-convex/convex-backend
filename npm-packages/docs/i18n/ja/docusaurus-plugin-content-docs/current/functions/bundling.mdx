@@ -1,0 +1,202 @@
+---
+title: "バンドル"
+sidebar_position: 90
+description: "Convex が関数コードをどのようにバンドルおよび最適化するか"
+---
+
+バンドルとは、[functions](/functions.mdx) とそれらの依存関係の JS/TS
+ソースコードをまとめて最適化し、トランスパイルするプロセスです。開発時およびデプロイ時には、コードは Convex の
+[runtimes](/functions/runtimes.mdx) が直接かつ効率的に実行できる形式に変換されます。
+
+Convex は現在、すべての依存関係を自動的にバンドルしますが、Node.js
+ランタイムでは [external packages](#external-packages) 設定で特定のパッケージのバンドルを無効化できます。
+
+## Convex のためのバンドル \{#bundling-for-convex\}
+
+`npx convex dev` や `npx convex deploy` を使ってコードをプッシュするとき、
+Convex の CLI（コマンドラインインターフェース）は [esbuild](https://esbuild.github.io/) を使って `convex/`
+フォルダを走査し、関数とそれらが使用しているすべての依存関係を
+1 つのソースコードバンドルにまとめます。このバンドルがサーバーに送信されます。
+
+このバンドル処理により、最新の ECMAScript Modules (ESM) と、より古い CommonJS (CJS)
+のどちらの構文でもコードを書くことができます。
+
+<Details summary="ESM と CJS">
+  ESM
+
+  * ブラウザにおける JavaScript の標準です
+  * グローバルスコープで `import` と `export` **キーワード**（関数ではない）による静的インポートを使用します
+  * 非同期の `import` 関数による動的インポートもサポートします
+
+  CJS
+
+  * 以前は Node.js の標準的なモジュールシステムでした
+  * 外部モジュールを取得するために、`require` や 非同期の `import`
+    関数による動的インポートに依存します
+  * `module.exports` オブジェクトを使ってエクスポートします
+</Details>
+
+## バンドルの制限事項 \{#bundling-limitations\}
+
+バンドルという仕組み上、いくつかの制約があります。
+
+### コードサイズの制限 \{#code-size-limits\}
+
+`convex/` フォルダ内でバンドルされた関数コードの合計サイズは
+**32MiB（約 33.55MB）に制限されています**。その他のプラットフォームの制限は
+[こちら](/production/state/limits.mdx)に記載されています。
+
+この制限はソースコードだけを考えるとかなり大きいものの、特定の
+依存関係によってはバンドルサイズがすぐにこの制限を超えてしまうことがあり、
+特にそれらが効果的に
+[ツリーシェイキング](https://webpack.js.org/guides/tree-shaking/) できない場合に
+顕著です（[aws-sdk](https://www.npmjs.com/package/aws-sdk) や
+[snowflake-sdk](https://www.npmjs.com/package/snowflake-sdk) など）。
+
+バンドルサイズをデバッグするには、次の手順に従ってください:
+
+<StepByStep>
+  <Step title="最新バージョンの convex を使用していることを確認する">
+    ```sh
+    npm install convex@latest
+    ```
+  </Step>
+
+  <Step title="バンドルを生成する">
+    これはコードを push せず、デバッグ用のバンドルだけを生成することに注意してください。
+
+    ```sh
+    npx convex dev --once --debug-bundle-path /tmp/myBundle
+    ```
+  </Step>
+
+  <Step title="バンドルを可視化する">
+    バンドルを可視化するために
+    [source-map-explorer](https://github.com/danvk/source-map-explorer/tree/master)
+    を使用します。
+
+    ```sh
+    npx source-map-explorer /tmp/myBundle/**/*.js
+    ```
+  </Step>
+</StepByStep>
+
+Convex ランタイム向けにバンドルされたコードは `isolate` ディレクトリに、
+node アクション向けにバンドルされたコードは `node` ディレクトリに配置されます。
+
+サイズの大きい node 依存関係は、
+[外部パッケージ](/functions/bundling.mdx#external-packages) としてマークすることで
+バンドルから除外できます。
+
+### 動的な依存関係 \{#dynamic-dependencies\}
+
+一部のライブラリは、常に依存関係を含めないようにするために、動的インポート（`import` / `require` 呼び出し）に依存しています。これらのインポートは
+[デフォルトの Convex ランタイム](/functions/runtimes.mdx#default-convex-runtime) ではサポートされておらず、
+実行時にエラーがスローされます。
+
+さらに、一部のライブラリはローカルファイルに依存しており、これは esbuild によってバンドルできません。ランタイムの種類に関係なく、
+バンドルを有効にしている場合、これらのインポートは Convex 上では常に失敗します。
+
+<Details summary="動的依存関係を持つライブラリの例">
+  動的な依存関係に依存するパッケージの例は次のとおりです:
+
+  * 動的にインポート可能な peer dependency（ピア依存関係）の存在に依存する
+    [langchain](https://www.npmjs.com/package/langchain)。これらの依存関係は静的に `import` されないため、
+    `esbuild` によってバンドルされません。
+  * 画像処理オペレーションのための `libvips` バイナリの存在に依存する
+    [sharp](https://www.npmjs.com/package/sharp)
+  * テストモードで実行されているかどうかを検出するために、`require()` による動的インポートに依存する
+    [pdf-parse](https://www.npmjs.com/package/pdf-parse)。バンドルによってこれらの `require()` 呼び出しが削除されると、
+    `pdf-parse` はテストモードで実行されていると判断してしまいます。
+  * ローカルの WASM ファイルに依存する
+    [tiktoken](https://www.npmjs.com/package/tiktoken)
+</Details>
+
+## 外部パッケージ \{#external-packages\}
+
+上記のバンドル制限への回避策として、Convex は **外部パッケージ** という抜け道（escape hatch）を提供しています。この機能は現在、Convex の
+[Node.js runtime](/functions/runtimes.mdx#nodejs-runtime) に限定されています。
+
+外部パッケージは、
+[`esbuild` の依存関係を external としてマークする機能](https://esbuild.github.io/api/#external)
+を利用します。これは、`esbuild` に対して外部の依存関係を一切バンドルせず、
+`require()` や `import()` を使った動的なランタイム import としてそのまま残すよう指示します。
+そのため、Convex モジュールは、実行時にその依存関係が利用可能になっていることを前提に、
+基盤となるシステムに依存することになります。
+
+### サーバーでのパッケージインストール \{#package-installation-on-the-server\}
+
+external としてマークされたパッケージは、それらを使用するコードを初めて push したタイミングで [npm](https://www.npmjs.com/) からインストールされます。インストールされるバージョンは、ローカルマシンの `node_modules` フォルダにインストールされているバージョンと一致します。
+
+初回に external パッケージを push する際には、この処理の分だけレイテンシーが増えますが、パッケージはキャッシュされ、external パッケージが変更された場合にのみこのインストールステップを再実行する必要があります。一度キャッシュされれば、push 時にサーバーへ送信されるソースコードバンドルが小さくなるため、push がかえって高速になる場合もあります。
+
+### 外部パッケージの指定 \{#specifying-external-packages\}
+
+まだ存在しない場合は、`package.json` と同じディレクトリに
+[`convex.json`](/production/project-configuration.mdx#convexjson) ファイルを作成します。
+`node.externalPackages` フィールドを `["*"]` に設定して、Node アクション内で使用される
+すべての依存パッケージを外部として扱うようにします。
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "externalPackages": ["*"]
+  }
+}
+```
+
+または、外部パッケージとしてマークするものを明示的に指定することもできます。
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "externalPackages": ["aws-sdk", "sharp"]
+  }
+}
+```
+
+パッケージ識別子は、[Node.js アクション](/functions/actions.mdx#choosing-the-runtime-use-node) 内で `import` や `require` に指定している文字列と一致している必要があります。
+
+### 外部パッケージに関するトラブルシューティング \{#troubleshooting-external-packages\}
+
+#### 不適切なパッケージバージョン \{#incorrect-package-versions\}
+
+Convex CLI はローカルの `node_modules` ディレクトリ内で外部パッケージを検索します。したがって、`package.json` のパッケージのバージョンを変更しただけでは、ローカルの `node_modules` フォルダーにインストールされているパッケージのバージョンを更新するまで（例: `npm install` を実行する）、サーバー側で使用されるバージョンは変わりません。
+
+#### インポートエラー \{#import-errors\}
+
+依存関係を external としてマークすると、次のようなエラーが発生することがあります:
+
+> The requested module &quot;some-module&quot; is a CommonJs module, which may not support
+> all module.exports as named exports. CommonJs modules can always be imported
+> via the default export
+
+このモジュールを `import` している箇所をすべて、次のように書き換える必要があります:
+
+```ts
+// ❌ old
+import { Foo } from "some-module";
+
+// ✅ new
+import SomeModule from "some-module";
+const { Foo } = SomeModule;
+```
+
+### 制限事項 \{#limitations\}
+
+ソースコードバンドルと外部パッケージの合計サイズは、次の上限を超えることはできません。
+
+* 圧縮後 45MB
+* 展開後 240MB
+
+現在、動作しないことが分かっているパッケージは次のとおりです:
+
+* [Puppeteer](https://www.npmjs.com/package/puppeteer) - ブラウザバイナリの
+  インストールによってサイズ上限を超えてしまいます
+* [@ffmpeg.wasm](https://www.npmjs.com/package/@ffmpeg/ffmpeg) - バージョン 0.12.0 以降、
+  [Node 環境をサポートしなくなりました](https://ffmpegwasm.netlify.app/docs/faq#why-ffmpegwasm-doesnt-support-nodejs)
+
+Convex 関数内で動作させたいパッケージがある場合は、
+[こちらからお知らせください](https://convex.dev/community)。

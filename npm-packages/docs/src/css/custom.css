@@ -747,15 +747,41 @@ ul.menu__list {
 }
 
 /* Sidebar headers */
-.convex-menu-header {
+.convex-menu-header .menu__link,
+.convex-sidebar-section > .menu__list-item-collapsible > .menu__link {
   text-transform: uppercase;
   font-weight: 600;
   font-size: 0.75rem;
   color: var(--color-n8);
   padding: 0.5rem 0.75rem;
+  cursor: default;
 }
-html[data-theme="dark"] .convex-menu-header {
+html[data-theme="dark"] .convex-menu-header .menu__link,
+html[data-theme="dark"]
+  .convex-sidebar-section
+  > .menu__list-item-collapsible
+  > .menu__link {
   color: var(--color-n6);
+}
+.convex-menu-header .menu__link:hover,
+.convex-sidebar-section > .menu__list-item-collapsible > .menu__link:hover {
+  background: transparent;
+}
+.convex-sidebar-section > .menu__list-item-collapsible:hover {
+  background: transparent;
+}
+.convex-sidebar-section
+  > .menu__list-item-collapsible
+  > .menu__link--sublist:after {
+  display: none;
+}
+.convex-sidebar-section + .convex-sidebar-section {
+  margin-top: 0.75rem;
+}
+.convex-sidebar-section + .convex-sidebar-section
+  > .menu__list-item-collapsible {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ifm-toc-border-color);
 }
 
 /* Sidebar: Increase level 2 padding because top level has icons */
@@ -788,6 +814,36 @@ html[data-theme="dark"] .convex-menu-header {
   height: 1.0625rem;
   content: var(--inner-convex-icon);
   filter: var(--convex-sidebar-icon-filter);
+}
+
+/* Sidebar sections: treat level-2 items like top-level items */
+.convex-sidebar-section .theme-doc-sidebar-item-link-level-2 > a::before,
+.convex-sidebar-section
+  .theme-doc-sidebar-item-category-level-2
+  > div
+  > a::before {
+  content: var(--convex-icon);
+}
+.convex-sidebar-section .theme-doc-sidebar-item-link-level-2 > a.menu__link,
+.convex-sidebar-section
+  .theme-doc-sidebar-item-category-level-2
+  > .menu__list-item-collapsible
+  > a.menu__link {
+  color: var(--ifm-navbar-link-color);
+  font-size: 0.95rem;
+}
+.convex-sidebar-section > ul.menu__list {
+  padding-left: 0;
+}
+.theme-doc-sidebar-menu > .menu__list {
+  padding-left: 0;
+  padding-right: 0;
+}
+.theme-doc-sidebar-menu
+  > .menu__list
+  > li.convex-sidebar-section
+  > ul.menu__list {
+  padding-left: 0;
 }
 
 /* Ensures all menu items are the same height, with or without a submenu. */

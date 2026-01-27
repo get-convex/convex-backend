@@ -1,0 +1,55 @@
+---
+title: "Despliegues de vista previa"
+sidebar_label: "Despliegues de vista previa"
+description: "Usa Convex con los despliegues de vista previa de tu proveedor de alojamiento"
+sidebar_position: 200
+---
+
+Los despliegues de vista previa de Convex permiten que tu equipo pruebe cambios en el backend antes de
+publicarlos en producción.
+
+En combinación con Vercel Preview Deployments o Netlify Deploy Previews, puedes
+previsualizar en conjunto los cambios tanto del frontend como del backend.
+
+<BetaAdmonition feature="Despliegues de vista previa de Convex" verb="son" />
+
+## Configuración \{#setup\}
+
+Sigue la guía de hosting de [Vercel](/production/hosting/vercel.mdx#preview-deployments) o
+[Netlify](/production/hosting/netlify.mdx#deploy-previews) para configurar conjuntamente las previsualizaciones de frontend y backend, así como para ver los detalles sobre cómo funcionan los despliegues de previsualización de Convex.
+
+Consulta `npx convex deploy --help` para ver todas las opciones disponibles de
+`npx convex deploy`.
+
+## Límites \{#limits\}
+
+Los despliegues de vista previa de Convex se eliminan automáticamente 5 días (14
+días en el plan Professional de Convex) después de su creación o cuando se crea
+un nuevo despliegue de vista previa con el mismo nombre. También se pueden
+eliminar manualmente desde el panel de control de Convex.
+
+Los despliegues de vista previa cuentan para tu límite de despliegues.
+
+Cuando se elimina un despliegue de vista previa de Convex, el enlace de vista
+previa de Vercel/Netlify se abrirá y mostrará la interfaz de usuario, pero no
+podrá ejecutar ninguna función de Convex porque apunta a un despliegue de Convex
+que ya no existe. En estos casos, volver a desplegar en Vercel/Netlify debería
+generar un enlace que apunte a un nuevo despliegue de Convex.
+
+Convex permite un único despliegue a la vez para un nombre dado (rama de Git).
+Al hacer push de actualizaciones a una rama existente, el despliegue se
+eliminará, lo que dará lugar a un enlace de vista previa que no puede ejecutar
+funciones de Convex, antes de ser reemplazado por un nuevo despliegue de Convex.
+
+Los datos iniciales se pueden configurar en un despliegue de vista previa de
+Convex ejecutando una función. Actualmente no hay otras formas de configurar
+datos en un despliegue de vista previa de Convex: no se admite ver cambios sobre
+una copia de los datos de producción ni importar datos desde un despliegue de
+Convex diferente.
+
+Ten en cuenta que si la llamada a la función falla, el comando `deploy` fallará,
+pero el nuevo despliegue de vista previa ya habrá sido aprovisionado. La mejor
+forma de actuar es corregir el problema en la función y volver a desplegar.
+
+El soporte para despliegues de vista previa es una función beta, así que
+[cuéntanos en Discord](https://convex.dev/community) si tienes comentarios.

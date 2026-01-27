@@ -1,0 +1,39 @@
+---
+title: "生成されたファイルの保存"
+sidebar_label: "保存"
+sidebar_position: 2
+description: "Convex のアクション内で生成したファイルを保存する"
+---
+
+import StoreImageTS from "!!raw-loader!@site/../private-demos/snippets/convex/images.ts";
+import StoreImageJS from "!!raw-loader!@site/../private-demos/snippets/convex/imagesJS.js";
+
+クライアントから Convex にファイルをアップロードして、そのまま保存できます。詳しくは
+[Upload](/file-storage/upload-files.mdx)
+を参照してください。
+
+また、取得したり生成したファイルを
+[アクション](/functions/actions.mdx) や
+[HTTP アクション](/functions/http-actions.mdx) 内で保存することもできます。たとえば、ユーザーのプロンプトに基づいて画像を生成するサードパーティ API を呼び出し、その画像を Convex に保存できます。
+
+**例:**
+[Dall-E Storage &amp; Action](https://github.com/get-convex/convex-demos/tree/main/dall-e-storage-action)
+
+## アクションでファイルを保存する \{#storing-files-in-actions\}
+
+アクションでファイルを保存する方法は、
+[HTTP アクション経由でファイルをアップロードする](/file-storage/upload-files.mdx#uploading-files-via-an-http-action)
+場合と似ています。
+
+このアクションでは次の手順を実行します:
+
+1. 画像を取得または生成する。
+2. [`storage.store()`](/api/interfaces/server.StorageActionWriter#store) を使って
+   画像を保存し、ストレージ ID を受け取る。
+3. ミューテーションを通して、そのストレージ ID をデータモデルに保存する。
+
+Storage ID は `"_storage"` システムテーブル内のドキュメントに対応しているため
+（[Metadata](/file-storage/file-metadata.mdx) を参照）、`v.id("_storage")`
+バリデータで検証でき、TypeScript では `Id<"_storage">` として型付けできます。
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={StoreImageTS} sourceJS={StoreImageJS} highlightPatterns={["fetch", "storage.store", "runMutation\\("]} />

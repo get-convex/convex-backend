@@ -1,0 +1,104 @@
+---
+title: "流式导出"
+sidebar_label: "流式导出"
+description: "以流式方式从 Convex 导出数据"
+---
+
+Convex 支持流式导出。Convex 为
+[Fivetran 和 Airbyte](/production/integrations/streaming-import-export.md) 提供了连接器实现。
+这些连接器使用以下 API。
+
+订阅 [Professional 方案](https://www.convex.dev/pricing) 以获得流式导出支持。你也可以阅读
+[关于流式导出的文档](/production/integrations/streaming-import-export.md)。
+
+<BetaAdmonition feature="Streaming Export HTTP APIs" verb="are" />
+
+流式导出请求需要在 HTTP `Authorization` 头中提供部署管理员授权。其取值为 `Convex <access_key>`，其中 access key 来自 Convex 仪表盘中的 “Deploy key”，并对你的 Convex 数据提供完整的读写访问权限。
+
+### GET `/api/json_schemas` \{#get-apijson_schemas\}
+
+`JSON Schemas` 端点会列出所有表，并针对每个表描述文档的编码方式，以 [JSON Schema](https://json-schema.org/) 的形式给出。
+该端点在整个模式中通过 `$description` 标签来解释不直观的编码，并提供额外信息，例如 `Id` 字段所引用的表。
+
+**查询参数**
+
+| Name        | Type    | Required | Description                                                                                                     |
+| ----------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| deltaSchema | boolean | n        | 如果设置，则包含由 `document_deltas` 和 `list_snapshot` 返回的元数据字段（`_ts`、`_deleted` 和 `_table`） |
+| format      | string  | n        | 值的输出格式。有效值：[`json`]                                                                                  |
+
+### GET `/api/list_snapshot` \{#get-apilist_snapshot\}
+
+`list_snapshot` 端点会遍历一份一致性的文档快照。可能需要一次或多次调用 `list_snapshot` 才能遍历完整快照。
+
+**查询参数**
+
+| Name      | Type   | Required | Description                                  |
+| --------- | ------ | -------- | -------------------------------------------- |
+| snapshot  | int    | n        | 用于继续快照的数据库时间戳。该时间戳不能早于 30 天前。如果省略，则选择最新的时间戳。 |
+| cursor    | string | n        | 表示在快照分页进度中的不透明游标。如果省略，则从快照的第一页开始。            |
+| tableName | string | n        | 如果提供，则将快照限定为某个表。如果省略，则返回包含所有表的快照。            |
+| format    | string | n        | 值的输出格式。有效值：[`json`]                          |
+
+**结果 JSON**
+
+| Field Name | Type              | Description                                      |
+| ---------- | ----------------- | ------------------------------------------------ |
+| values     | List[ConvexValue] | 以请求格式返回的 Convex 值列表。每个值都包含额外字段 `_ts` 和 `_table`。 |
+| hasMore    | boolean           | 如果该快照还有更多分页结果，则为 true。                           |
+| snapshot   | int               | 表示获取该快照时的数据库时间戳。                                 |
+| cursor     | string            | 表示当前页面末尾进度的不透明游标。将其传递给后续调用。                      |
+
+预期的 API 使用方式（伪代码）：
+
+```python
+def list_full_snapshot()
+    snapshot_values = []
+    snapshot = None
+    cursor = None
+    while True:
+        result = api.list_snapshot(cursor, snapshot)
+        snapshot_values.extend(result.values)
+        (cursor, snapshot) = (result.cursor, result.snapshot)
+        if !result.hasMore:
+            break
+    return (snapshot_values, result.snapshot)
+```
+
+### GET `/api/document_deltas` \{#get-apidocument_deltas\}
+
+`document_deltas` 端点会遍历文档的变更日志，按文档变更发生的顺序查找新的、已更新的和已删除的文档。这个顺序由返回文档中的 `_ts` 字段给出。删除操作表示为包含字段 `_id`、`_ts` 和 `_deleted: true` 的 JSON 对象。
+
+**查询参数**
+
+| Name      | Type   | Required | Description                                                     |
+| --------- | ------ | -------- | --------------------------------------------------------------- |
+| cursor    | int    | y        | 数据库时间戳，用于在其之后继续流式获取文档增量。初始值为 `list_snapshot` 返回的 `snapshot` 字段。 |
+| tableName | string | n        | 如果提供，则只返回该数据表的文档增量；如果省略，则返回所有数据表的增量。                            |
+| format    | string | n        | 值的输出格式。有效取值：[`json`]                                            |
+
+**Result JSON**
+
+| Field Name | Type              | Description                                                             |
+| ---------- | ----------------- | ----------------------------------------------------------------------- |
+| values     | List[ConvexValue] | 按请求格式返回的 Convex 值列表。每个值都包含额外的 `_ts` 和 `_table` 字段。删除记录还包含字段 `_deleted`。 |
+| hasMore    | boolean           | 如果相对于当前快照还有更多分页内容，则为 true。                                              |
+| cursor     | int               | 表示当前页末尾数据库时间戳的值。将该值传递给后续对 `document_deltas` 的调用。                        |
+
+预期的 API 使用方式（伪代码）：
+
+```python
+def delta_sync(delta_cursor):
+    delta_values = []
+    while True:
+        result = api.document_deltas(cursor)
+        delta_values.extend(result.values)
+        cursor = result.cursor
+        if !hasMore:
+            break
+    return (delta_values, delta_cursor)
+
+(snapshot_values, delta_cursor) = list_full_snapshot()
+(delta_values, delta_cursor) = delta_sync(delta_cursor)
+# 保存 delta_cursor 供下次同步使用
+```

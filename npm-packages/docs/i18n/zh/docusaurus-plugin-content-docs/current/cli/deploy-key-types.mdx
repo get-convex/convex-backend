@@ -1,0 +1,112 @@
+---
+title: "部署密钥"
+slug: "deploy-key-types"
+sidebar_position: 30
+sidebar_label: "部署密钥"
+description:
+  "在生产构建环境中使用部署密钥进行身份验证"
+---
+
+当你无法登录或无法以交互方式使用 CLI（命令行界面）来指定项目或部署时，例如在生产构建环境中，可以将环境变量 `CONVEX_DEPLOY_KEY` 设置为某个部署密钥，使 Convex CLI 命令以非交互模式运行。
+
+部署密钥用于标识某个部署、项目或团队；授予对这些资源执行特定操作的权限；并且可以改变 Convex CLI 的行为。
+
+### 本地开发不需要部署密钥 \{#developing-locally-does-not-require-a-deploy-key\}
+
+在新机器上运行 `npx convex dev` 时，你可以选择登录，或者在没有账号的情况下
+在本地运行 Convex。
+
+登录后会在 `~/.convex/config.json` 中保存一个 *user token*，此后在该机器上
+进行的所有 CLI 操作都会自动使用这个 token。这个 token 允许你向该用户有权限
+访问的任何部署推送代码并进行读写操作。
+
+在不登录的情况下本地使用 Convex
+（[匿名开发](/cli/local-deployments-for-dev.mdx#anonymous-development)）
+会在本地创建一个部署，并在项目目录下的 `.env.local` 文件中记录该项目的
+这一偏好设置。这个匿名后端的 *admin key* 会连同其序列化数据一起保存在
+`~/.convex/anonymous-convex-backend-state/` 中。
+
+在上述任一情况下，都没有必要设置 `CONVEX_DEPLOY_KEY`。
+
+### 如何设置部署密钥 \{#how-to-set-a-deploy-key\}
+
+通常会在需要该密钥的服务的仪表盘中设置部署密钥，
+但在大多数 shell 中，你也可以直接在命令前设置，例如：
+
+```
+CONVEX_DEPLOY_KEY='key goes here' npx convex dev
+```
+
+或者在运行该命令之前先将其导出
+
+```
+export CONVEX_DEPLOY_KEY='在此处填写密钥'
+npx convex dev
+```
+
+或者将它添加到你的 `.env.local` 文件中，这样在该目录中运行 `npx convex` 时就会自动找到它。
+
+# 部署密钥的常见用途 \{#common-uses-of-deploy-keys\}
+
+### 从构建流水线进行部署 \{#deploying-from-build-pipelines\}
+
+*生产部署密钥* 用于指定项目的生产部署，并授予向其部署代码的权限。
+
+> `prod:qualified-jaguar-123|eyJ2...0=`
+
+你可以在无法登录的构建流水线中使用它来部署代码（例如
+Vercel、Netlify、Cloudflare 的构建流水线）。
+
+阅读更多关于
+[部署到生产环境](https://docs.convex.dev/production/hosting/) 的内容。
+
+### 部署到预览部署环境 \{#deploying-to-preview-deployments\}
+
+*预览部署密钥* 如下所示：
+
+> `preview:team-slug:project-slug|eyJ2...0=`
+
+使用预览部署密钥可以改变普通 `npx convex deploy`
+命令的行为，从而将代码部署到预览分支。
+
+阅读[预览部署](/production/hosting/preview-deployments)了解更多信息。
+
+### 管理密钥 \{#admin-keys\}
+
+管理密钥可以对某个部署实现完全控制。
+
+一个管理密钥可能看起来像
+
+> `bold-hyena-681|01c2...c09c`
+
+与其他类型的部署密钥不同，管理密钥在使用时不需要与 https://convex.dev 建立网络连接，因为它是在创建部署时写入其中的、不可撤销的机密。
+
+这些密钥用于在本地控制无需登录的
+[匿名](/cli/local-deployments-for-dev.mdx#anonymous-development)
+Convex 部署，但通常不需要手动设置。
+
+将 `CONVEX_DEPLOY_KEY` 设置为某个管理密钥会让 Convex CLI 针对该部署运行，而不是提示你进行选择。
+
+## 较少使用的部署密钥类型 \{#rarer-types-of-deploy-keys\}
+
+### 项目令牌 \{#project-tokens\}
+
+*项目令牌* 会授予 Convex CLI 对某个项目的完全控制权限，
+并随之授予在该项目中创建和使用开发环境（dev）和生产环境部署的权限。
+
+> `project:team-slug:project-slug|eyJ2...0=`
+
+当用户通过 Convex OAuth 应用，将某个项目的使用权限授予某个组织时，就会生成项目令牌。
+使用该令牌执行的操作都是代表该用户进行的，因此如果用户失去对某个项目的访问权限，
+该令牌也将不再能访问该项目。
+
+### 开发部署密钥 \{#development-deploy-keys\}
+
+*开发部署密钥（dev deploy key）* 可用于为某个 agent 提供对单个部署的完全访问权限，以便进行开发。
+
+> `dev:joyful-jaguar-123|eyJ2...0=`
+
+在使用 agent 开发时，这有助于限制潜在影响范围。
+
+要为某个 agent 提供对其专属开发环境（dev）部署的独占访问权限，请参阅
+[Agent Mode](/cli/background-agents.mdx)。

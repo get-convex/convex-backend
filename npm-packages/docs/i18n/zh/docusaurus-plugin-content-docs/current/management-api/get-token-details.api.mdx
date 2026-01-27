@@ -1,0 +1,49 @@
+---
+id: get-token-details
+title: "获取 token 详情"
+description: "返回团队 token 对应的团队 ID。"
+sidebar_label: "获取 token 详情"
+hide_title: true
+hide_table_of_contents: true
+api: eJztVk2P2zYQ/SvEnFpAkZ2i6EG3RTYIFmi7wdY9OUZBSyNrEolkyJE2hqD/Xgwp23K8KIq2hxzqiyV+vHlvZvioESoMpSfHZA0U8ITcexMUN6gYdace7lVtfXpm+wlNyD+Yt8FhSbptj6oPWPet0jWjVx5LpIHMQenFDlV72ylt1ONdz42qW/v8wQQyJarOBlZoKmfJcFAeP/fkz5FzyMA69FrIPVRQwAF5xqyQNbUBMvAYnDUBAxQj/LBey9+1KMigtIbRsMxp51oqI+bqY5AFI4SywU7LkzX4WEOxHYGPDqEAu/+IJcc4kVwFxRaE4EMFGRjdocB71Iwbii9x4y4D54U8U2K2WFKcwckwHtBDBrX1neY09NOPkH0lQfYF1p1TZFRHbUsBS2uqoJ4bNIobCnNinnVQKVaVwzQzvEnJpkElM+pAg+y3qeIRQXMCIGvyk5wCAnsyB3knbmXgHgcq8VeBn7JTRv6WtI4MdX0HxfqCtjll9JbnqQ8XIikoHYItSWSqZ+Imak2hxxvKaCRaKttGAGA3TVP21zV23sro/2VelvmSlH9c6feLvN6ynQP8N/WewS4l3y1otJqFb5y8T27yNFsJTPLLIGDZe+Jj9IPkXtKnKgEW25300O1IWjnrXEztMuiQGzs7GWTgNDdQwCqq/OPiaQH9gD7EuL1voYCG2YVitdKO8tKaAb/kFQ6r4fVNFk/C1N37B5CYJxW/icmlLn2R4TmPEktIxPVQwB61j/W9DvS4Z00GK8WNt/2hUVpt30Rqs9MvnHb33UlAZcuwVNBpow/YoeFX2tH3sa63qf52uP0bVm/SgZXDLeew0qHZW+0r1ZsK50s2IDOZQ4jXrjbHNHq0vSq1UYlRDtKdZGobOcwdPev75Uw6dsDXHK6nYxTn7UCBrIk3t6lSFHmZIedzFOJkha61RwEI4hstlShHphhnD4Kf08gT1q/SfsiAKjRMNaF/ccGUgfR7Yvg6X+fraDY2cKfNAvrdC/f/lbzxctN/e98yc7MwfuGVazUZERmP9zg7wRaunWCXQWMDy8Q47nXA3307TTL8uUcvvrTLYNCe9F5aQOwHGtSVpHk7wic8QgF3ZYlO3GbQbS8Ebr6Arpzp3dsNZKB74XNu8HNDzw+LDyRtjgvscUwr4gmZJshmElEXTGLCfwIN86BR
+sidebar_class_name: "get api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"获取令牌详细信息"} />
+
+<MethodEndpoint method={"get"} path={"/token_details"} context={"endpoint"} />
+
+
+返回团队令牌对应的团队 ID。
+在通过 OAuth 流程获取团队令牌后尤其有用，因为大多数接口都需要团队 ID。
+
+<ParamsDetails
+  parameters={undefined}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"请求体"}
+  body={undefined}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"oneOf":[{"type":"object","required":["teamId","name","createTime","type"],"properties":{"createTime":{"type":"integer","format":"int64","description":"创建此令牌时的时间戳（毫秒）。"},"name":{"description":"为该令牌在创建时指定的名称。","type":"string","title":"设备名称"},"teamId":{"type":"integer","format":"int64","minimum":0,"title":"TeamId","description":"此令牌关联的团队 ID。"},"type":{"type":"string","enum":["teamToken"]}}},{"type":"object","required":["projectId","name","createTime","type"],"properties":{"createTime":{"type":"integer","format":"int64","description":"创建此令牌时的时间戳（毫秒）。"},"name":{"description":"为该令牌在创建时指定的名称。","type":"string","title":"设备名称"},"projectId":{"type":"integer","format":"int64","minimum":0,"title":"ProjectId","description":"此令牌关联的项目 ID。"},"type":{"type":"string","enum":["projectToken"]}}}],"title":"PlatformTokenDetailsResponse"}}}}}}
+>
+  
+</StatusCodes>

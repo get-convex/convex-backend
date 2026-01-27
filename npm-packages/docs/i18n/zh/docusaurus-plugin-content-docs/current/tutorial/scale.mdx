@@ -1,0 +1,76 @@
+---
+title: "Convex 教程：扩展应用规模"
+sidebar_label: "3. 扩展应用规模"
+slug: "scale"
+sidebar_position: 300
+hide_table_of_contents: true
+description:
+  "学习如何通过索引、处理写入冲突，以及利用 Convex Components 来扩展你的 Convex 应用并遵循最佳实践。"
+---
+
+import ComponentsIcon from "@site/static/img/sidebar-icons/components.svg";
+
+# Convex 教程：扩展你的应用 \{#convex-tutorial-scaling-your-app\}
+
+Convex 从一开始就为可扩展性而设计。在上一节中，我们
+已经讨论了如何让你的操作尽量小，并将大部分逻辑放在查询和变更中，
+这对于构建快速且可扩展的后端至关重要。
+
+接下来我们来看看让应用保持快速且可扩展的其他几种方式。
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/7lOGqFHnEsA" title="YouTube 视频播放器" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## 索引查询 \{#indexed-queries\}
+
+索引会指示数据库创建查找结构，从而让数据过滤变得非常高效。比如，在我们的聊天应用中，如果我们想根据某个用户来查找该用户的 `messages`，我们会告诉 Convex 在 `messages` 表中为 `user` 字段建立索引，并使用 `withIndex` 语法来编写该查询。
+
+[了解如何使用索引](/database/reading-data/indexes/indexes.md)。
+
+## 对同一文档的写入过多 \{#too-many-writes-on-the-same-document\}
+
+假设你决定在应用中显示一个计数器。你可能会写一个变更函数，
+读取一个数字字段，加 1，然后更新数据库中的同一个字段。
+在某个时刻，这种做法可能会导致
+[乐观并发控制冲突](/error#1)。这意味着数据库
+无法以这么高的频率更新该文档。所有数据库在处理这类模式时都会遇到问题。
+
+有[几种处理方式](/error#remediation)，包括构建所谓的分片计数器（sharded counter）……
+
+但在你自己去学习这些高级扩展技术之前，使用
+[Convex Components](/components.mdx) 是一个更好的办法。
+
+## 使用 Convex Components 实现扩展的最佳实践 \{#scaling-best-practices-with-convex-components\}
+
+在上面的计数器示例中，Convex 团队已经为你构建好了一个
+[可扩展计数器](https://www.convex.dev/components/sharded-counter) Convex
+组件，你可以直接使用。
+
+Convex Components 会和你的 Convex 后端一起部署，但它们拥有各自独立的
+数据表和函数。
+
+当你构建更复杂的功能，比如 [AI agents](/agents.mdx)、
+[workflows](https://www.convex.dev/components/workflow)、
+[leaderboards](https://www.convex.dev/components/aggregate)、
+[feature flags](https://www.convex.dev/components/launchdarkly) 或
+[rate limiters](https://www.convex.dev/components/rate-limiter) 时，你可能会发现，
+其实已经有现成的 Convex Component 可以解决这个问题。
+[在这里了解更多 Convex Components](/components.mdx)。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  icon: <ComponentsIcon height={40} />,
+  href: "https://www.convex.dev/components",
+  label: "Components 目录",
+}}
+/>
+
+## 总结 \{#wrap-up\}
+
+在本教程中我们已经涵盖了很多内容。我们从[构建聊天应用](/tutorial/index.mdx) 开始，使用查询、变更函数和数据库来构建 Convex 同步引擎的基本构件。然后，我们在后端调用了一个[外部 API](/tutorial/actions.mdx)，并使用调度器来协调这些工作。最后，我们了解到，[Convex Components](/components.mdx) 以整洁的封装形式为你提供扩展性和伸缩性方面的最佳实践。
+
+如果你想要了解更多技巧，请阅读我们的[最佳实践](/understanding/best-practices/best-practices.mdx)，并加入[社区](https://www.convex.dev/community)。
+
+Convex 让你能够快速构建 MVP，然后再扩展到新的高度。已经有许多优秀的产品这样做了。你会与它们站在同一阵线。

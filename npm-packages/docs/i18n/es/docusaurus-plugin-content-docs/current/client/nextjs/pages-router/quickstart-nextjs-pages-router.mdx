@@ -1,0 +1,108 @@
+---
+title: Guía rápida de Next.js Pages
+sidebar_label: Guía rápida
+hide_table_of_contents: true
+slug: "quickstart"
+description:
+  "Empieza a usar Convex con el Pages Router de Next.js creando una aplicación
+  de lista de tareas reactiva con consultas, mutaciones y actualizaciones en tiempo real."
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/sampleData.jsonl";
+import tasksJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/convex/tasks.js";
+import app from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/_app.js";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/index.js";
+
+Aprende a consultar datos de Convex en una app de Next.js utilizando el Pages Router.
+
+Como alternativa, consulta la versión de este inicio rápido para [App Router](/quickstart/nextjs.mdx).
+
+<StepByStep>
+  <Step title="Crear una app de React">
+    Crea una app de Next.js usando el comando `npx create-next-app`.
+
+    Elige la opción predeterminada para cada mensaje (pulsa Enter).
+
+    ```sh
+    npx create-next-app@latest my-app --no-app --js
+    ```
+  </Step>
+
+  <Step title="Instalar la biblioteca de cliente y servidor de Convex">
+    Para empezar, instala el paquete `convex`,
+    que proporciona una interfaz práctica para trabajar
+    con Convex desde una app de React.
+
+    Ve a tu app e instala `convex`.
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="Configurar un despliegue de desarrollo de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URL de producción y de despliegue.
+
+    También creará una carpeta `convex/`
+    donde escribir tus funciones de API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue de desarrollo en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crear datos de ejemplo para tu base de datos">
+    En una nueva ventana de terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Agregar los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, agrega una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Exponer una consulta de base de datos">
+    Agrega un nuevo archivo `tasks.js` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API cuyo nombre combina el nombre del archivo
+    y el de la exportación, `api.tasks.get`.
+
+    <Snippet source={tasksJs} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="Conectar la app con tu backend">
+    En `pages/_app.js`, crea un `ConvexReactClient` y pásalo a un `ConvexProvider`
+    que envuelva tu app.
+
+    <Snippet source={app} title="pages/_app.js" highlightPatterns={[ "Convex", ]} />
+  </Step>
+
+  <Step title="Mostrar los datos en tu app">
+    En `pages/index.js`, usa el hook `useQuery` para hacer una consulta a tu función
+    de API `api.tasks.get`.
+
+    <Snippet source={index} title="pages/index.js" highlightPatterns={[ "useQuery", "tasks", "text", "\\)\\)\\}" ]} />
+  </Step>
+
+  <Step title="Iniciar la app">
+    Inicia la app, abre [http://localhost:3000](http://localhost:3000) en un navegador
+    y verás la lista de tareas.
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>

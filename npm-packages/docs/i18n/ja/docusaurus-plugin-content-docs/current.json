@@ -1,0 +1,382 @@
+{
+  "version.label": {
+    "message": "次へ",
+    "description": "現在のバージョンのラベル"
+  },
+  "sidebar.docs.category.Tutorial": {
+    "message": "チュートリアル",
+    "description": "サイドバー「docs」の「チュートリアル」カテゴリ用ラベル"
+  },
+  "sidebar.docs.category.Quickstarts": {
+    "message": "クイックスタート",
+    "description": "サイドバー「docs」の「クイックスタート」カテゴリ用ラベル"
+  },
+  "sidebar.docs.category.Understand Convex": {
+    "message": "Convex を理解する",
+    "description": "サイドバー「docs」の「Convex を理解する」カテゴリ用ラベル"
+  },
+  "sidebar.docs.category.Best Practices": {
+    "message": "ベストプラクティス",
+    "description": "サイドバー「docs」の「ベストプラクティス」カテゴリ用ラベル"
+  },
+  "sidebar.docs.category.Functions": {
+    "message": "関数",
+    "description": "docs サイドバー内の「関数」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Error Handling": {
+    "message": "エラー処理",
+    "description": "docs サイドバー内の「エラー処理」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Database": {
+    "message": "データベース",
+    "description": "docs サイドバー内の「データベース」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Reading Data": {
+    "message": "データの読み取り",
+    "description": "docs サイドバー内の「データの読み取り」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Indexes": {
+    "message": "インデックス",
+    "description": "docs サイドバー内の「インデックス」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Data Import & Export": {
+    "message": "データのインポートとエクスポート",
+    "description": "サイドバー「Docs」内の「データのインポートとエクスポート」カテゴリのラベル"
+  },
+  "sidebar.docs.category.database-advanced": {
+    "message": "高度な機能",
+    "description": "サイドバー「Docs」内の「高度な機能」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Authentication": {
+    "message": "認証",
+    "description": "サイドバー「Docs」内の「認証」カテゴリのラベル"
+  },
+  "sidebar.docs.category.WorkOS AuthKit": {
+    "message": "WorkOS AuthKit",
+    "description": "サイドバー「Docs」内の「WorkOS AuthKit」カテゴリのラベル"
+  },
+  "sidebar.docs.category.auth-advanced": {
+    "message": "高度な機能",
+    "description": "サイドバー「Docs」内の「高度な機能」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Scheduling": {
+    "message": "スケジューリング",
+    "description": "サイドバー「docs」の「Scheduling」カテゴリのラベル"
+  },
+  "sidebar.docs.category.File Storage": {
+    "message": "ファイルストレージ",
+    "description": "サイドバー「docs」の「File Storage」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Search": {
+    "message": "検索",
+    "description": "サイドバー「docs」の「Search」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Components": {
+    "message": "コンポーネント",
+    "description": "サイドバー「docs」の「Components」カテゴリのラベル"
+  },
+  "sidebar.docs.category.AI Code Gen": {
+    "message": "AI コード生成",
+    "description": "サイドバー「docs」の「AI Code Gen」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Agents": {
+    "message": "Agents",
+    "description": "「docs」サイドバーの「Agents」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Testing": {
+    "message": "テスト",
+    "description": "「docs」サイドバーの「テスト」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Production": {
+    "message": "本番運用",
+    "description": "「docs」サイドバーの「本番運用」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Hosting and Deployment": {
+    "message": "ホスティングとデプロイメント",
+    "description": "「docs」サイドバーの「ホスティングとデプロイメント」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Integrations": {
+    "message": "連携",
+    "description": "「docs」サイドバーの「連携」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Log Streams": {
+    "message": "ログストリーム",
+    "description": "サイドバー「docs」内の「Log Streams」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Status and Guarantees": {
+    "message": "ステータスと保証",
+    "description": "サイドバー「docs」内の「Status and Guarantees」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Platform APIs": {
+    "message": "プラットフォーム API",
+    "description": "サイドバー「docs」内の「Platform APIs」カテゴリのラベル"
+  },
+  "sidebar.docs.category.React": {
+    "message": "React",
+    "description": "サイドバー「docs」内の「React」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Next.js": {
+    "message": "Next.js",
+    "description": "サイドバー「docs」内の「Next.js」カテゴリのラベル"
+  },
+  "sidebar.docs.category.App Router": {
+    "message": "App Router",
+    "description": "Docs サイドバー内の「App Router」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Pages Router": {
+    "message": "Pages Router",
+    "description": "Docs サイドバー内の「Pages Router」カテゴリのラベル"
+  },
+  "sidebar.docs.category.TanStack": {
+    "message": "TanStack",
+    "description": "Docs サイドバー内の「TanStack」カテゴリのラベル"
+  },
+  "sidebar.docs.category.TanStack Start": {
+    "message": "TanStack Start",
+    "description": "Docs サイドバー内の「TanStack Start」カテゴリのラベル"
+  },
+  "sidebar.docs.category.JavaScript": {
+    "message": "JavaScript",
+    "description": "Docs サイドバー内の「JavaScript」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Vue": {
+    "message": "Vue",
+    "description": "「docs」サイドバーの「Vue」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Swift": {
+    "message": "Swift",
+    "description": "「docs」サイドバーの「Swift」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Android Kotlin": {
+    "message": "Android Kotlin",
+    "description": "「docs」サイドバーの「Android Kotlin」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Dashboard": {
+    "message": "ダッシュボード",
+    "description": "「docs」サイドバーの「ダッシュボード」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Deployments": {
+    "message": "デプロイメント",
+    "description": "「docs」サイドバーの「デプロイメント」カテゴリのラベル"
+  },
+  "sidebar.docs.category.CLI": {
+    "message": "CLI",
+    "description": "docs サイドバー内「CLI」カテゴリのラベル"
+  },
+  "sidebar.docs.category.Convex API": {
+    "message": "Convex API",
+    "description": "docs サイドバー内「Convex API」カテゴリのラベル"
+  },
+  "sidebar.docs.category.convex/browser": {
+    "message": "convex/browser",
+    "description": "docs サイドバー内「convex/browser」カテゴリのラベル"
+  },
+  "sidebar.docs.category.convex/server": {
+    "message": "convex/server",
+    "description": "docs サイドバー内「convex/server」カテゴリのラベル"
+  },
+  "sidebar.docs.category.convex/react": {
+    "message": "convex/react",
+    "description": "docs サイドバー内「convex/react」カテゴリのラベル"
+  },
+  "sidebar.docs.category.convex/values": {
+    "message": "convex/values",
+    "description": "サイドバー「docs」のカテゴリ「convex/values」のラベル"
+  },
+  "sidebar.docs.category.Generated Code": {
+    "message": "生成コード",
+    "description": "サイドバー「docs」のカテゴリ「生成コード」のラベル"
+  },
+  "sidebar.docs.category.Deployment API": {
+    "message": "Deployment API",
+    "description": "サイドバー「docs」のカテゴリ「Deployment API」のラベル"
+  },
+  "sidebar.docs.category.Platform": {
+    "message": "プラットフォーム",
+    "description": "サイドバー「docs」のカテゴリ「プラットフォーム」のラベル"
+  },
+  "sidebar.docs.category.Management API": {
+    "message": "Management API",
+    "description": "サイドバー「docs」のカテゴリ「Management API」のラベル"
+  },
+  "sidebar.docs.link.Dashboard": {
+    "message": "ダッシュボード",
+    "description": "ドキュメントのサイドバーにある「Dashboard」リンクのラベル。「https://dashboard.convex.dev」へ遷移します"
+  },
+  "sidebar.docs.link.Blog": {
+    "message": "ブログ",
+    "description": "ドキュメントのサイドバーにある「Blog」リンクのラベル。「https://stack.convex.dev/」へ遷移します"
+  },
+  "sidebar.docs.link.GitHub": {
+    "message": "GitHub",
+    "description": "ドキュメントのサイドバーにある「GitHub」リンクのラベル。「https://github.com/get-convex」へ遷移します"
+  },
+  "sidebar.docs.link.Discord": {
+    "message": "Discord",
+    "description": "ドキュメントのサイドバーにある「Discord」リンクのラベル。「https://convex.dev/community」へ遷移します"
+  },
+  "sidebar.docs.doc.Home": {
+    "message": "ホーム",
+    "description": "サイドバー「docs」内のドキュメント項目「Home」のラベルで、ドキュメントホームへのリンクです"
+  },
+  "sidebar.docs.doc.React Native": {
+    "message": "React Native",
+    "description": "サイドバー「docs」内のドキュメント項目「React Native」のラベルで、ドキュメント「client/react-native」へのリンクです"
+  },
+  "sidebar.docs.doc.Svelte": {
+    "message": "Svelte",
+    "description": "サイドバー「docs」内のドキュメント項目「Svelte」のラベルで、ドキュメント「client/svelte」へのリンクです"
+  },
+  "sidebar.docs.doc.Python": {
+    "message": "Python",
+    "description": "サイドバー「docs」内のドキュメント項目「Python」のラベルで、ドキュメント「client/python」へのリンクです"
+  },
+  "sidebar.docs.doc.Rust": {
+    "message": "Rust",
+    "description": "サイドバー「docs」にある、client/rust ドキュメントへリンクするドキュメント項目「Rust」のラベル"
+  },
+  "sidebar.docs.doc.Open API": {
+    "message": "Open API",
+    "description": "サイドバー「docs」にある、client/open-api ドキュメントへリンクするドキュメント項目「Open API」のラベル"
+  },
+  "sidebar.docs.doc.HTTP API": {
+    "message": "HTTP API",
+    "description": "サイドバー「docs」にある、http-api/index ドキュメントへリンクするドキュメント項目「HTTP API」のラベル"
+  },
+  "sidebar.docs.doc.Streaming Export": {
+    "message": "ストリーミングエクスポート",
+    "description": "サイドバー「docs」にある、streaming-export-api ドキュメントへリンクするドキュメント項目「Streaming Export」のラベル"
+  },
+  "sidebar.docs.doc.Streaming Import": {
+    "message": "ストリーミングインポート",
+    "description": "サイドバー「docs」のドキュメント項目「Streaming Import」のラベルで、ドキュメント「streaming-import-api」へのリンクです。"
+  },
+  "sidebar.docs.doc.Update environment variables": {
+    "message": "環境変数を更新する",
+    "description": "サイドバー「docs」のドキュメント項目「環境変数を更新する」のラベルで、ドキュメント「deployment-api/update-environment-variables」へのリンクです。"
+  },
+  "sidebar.docs.doc.List environment variables": {
+    "message": "環境変数を一覧表示する",
+    "description": "サイドバー「docs」のドキュメント項目「環境変数を一覧表示する」のラベルで、ドキュメント「deployment-api/list-environment-variables」へのリンクです。"
+  },
+  "sidebar.docs.doc.Update canonical URL": {
+    "message": "正規URLを更新する",
+    "description": "「docs」サイドバー内のドキュメント項目「Update canonical URL」のラベルであり、ドキュメント deployment-api/update-canonical-url へのリンクです"
+  },
+  "sidebar.docs.doc.Get canonical URLs": {
+    "message": "カノニカル URL を取得",
+    "description": "「docs」サイドバー内のドキュメント項目「Get canonical URLs」のラベルであり、ドキュメント deployment-api/get-canonical-urls へのリンクです"
+  },
+  "sidebar.docs.doc.List log streams": {
+    "message": "ログストリームを一覧表示",
+    "description": "「docs」サイドバー内のドキュメント項目「List log streams」のラベルであり、ドキュメント deployment-api/list-log-streams へのリンクです"
+  },
+  "sidebar.docs.doc.Get log stream": {
+    "message": "ログストリームを取得",
+    "description": "サイドバー「Docs」にあるドキュメント項目「Get log stream」のラベルで、ドキュメント deployment-api/get-log-stream へのリンクです"
+  },
+  "sidebar.docs.doc.Delete log stream": {
+    "message": "ログストリームの削除",
+    "description": "サイドバー「Docs」にあるドキュメント項目「Delete log stream」のラベルで、ドキュメント deployment-api/delete-log-stream へのリンクです"
+  },
+  "sidebar.docs.doc.Create log stream": {
+    "message": "ログストリームの作成",
+    "description": "サイドバー「Docs」にあるドキュメント項目「Create log stream」のラベルで、ドキュメント deployment-api/create-log-stream へのリンクです"
+  },
+  "sidebar.docs.doc.Update log stream": {
+    "message": "ログストリームの更新",
+    "description": "サイドバー「docs」にあるドキュメント項目「Update log stream」のラベルです。ドキュメント deployment-api/update-log-stream へのリンクです。"
+  },
+  "sidebar.docs.doc.Rotate webhook log stream secret": {
+    "message": "Webhook ログストリームのシークレットをローテーションする",
+    "description": "サイドバー「docs」にあるドキュメント項目「Rotate webhook log stream secret」のラベルです。ドキュメント deployment-api/rotate-webhook-secret へのリンクです。"
+  },
+  "sidebar.docs.doc.Pause deployment": {
+    "message": "デプロイメントを一時停止する",
+    "description": "サイドバー「docs」にあるドキュメント項目「Pause deployment」のラベルです。ドキュメント deployment-api/pause-deployment へのリンクです。"
+  },
+  "sidebar.docs.doc.Unpause deployment": {
+    "message": "デプロイメントの一時停止を解除する",
+    "description": "docs サイドバー内のドキュメント項目「Unpause deployment」のラベルで、ドキュメント deployment-api/unpause-deployment へのリンクです"
+  },
+  "sidebar.docs.doc.Create project": {
+    "message": "プロジェクトを作成",
+    "description": "docs サイドバー内のドキュメント項目「Create project」のラベルで、ドキュメント management-api/create-project へのリンクです"
+  },
+  "sidebar.docs.doc.List projects": {
+    "message": "プロジェクトを一覧表示",
+    "description": "docs サイドバー内のドキュメント項目「List projects」のラベルで、ドキュメント management-api/list-projects へのリンクです"
+  },
+  "sidebar.docs.doc.List deployments": {
+    "message": "デプロイメントを一覧表示",
+    "description": "「docs」サイドバー内のドキュメント項目「List deployments」のラベルであり、ドキュメント management-api/list-deployments へのリンクです。"
+  },
+  "sidebar.docs.doc.Delete project": {
+    "message": "プロジェクトを削除",
+    "description": "「docs」サイドバー内のドキュメント項目「Delete project」のラベルであり、ドキュメント management-api/delete-project へのリンクです。"
+  },
+  "sidebar.docs.doc.Create deploy key": {
+    "message": "デプロイキーを作成",
+    "description": "「docs」サイドバー内のドキュメント項目「Create deploy key」のラベルであり、ドキュメント management-api/create-deploy-key へのリンクです。"
+  },
+  "sidebar.docs.doc.List deploy keys": {
+    "message": "デプロイキーを一覧表示",
+    "description": "サイドバー「docs」内のドキュメント項目「List deploy keys」（ドキュメント management-api/list-deploy-keys へのリンク）のラベル"
+  },
+  "sidebar.docs.doc.Delete deploy key": {
+    "message": "デプロイキーを削除",
+    "description": "サイドバー「docs」内のドキュメント項目「Delete deploy key」（ドキュメント management-api/delete-deploy-key へのリンク）のラベル"
+  },
+  "sidebar.docs.doc.Get token details": {
+    "message": "トークンの詳細を取得",
+    "description": "サイドバー「docs」内のドキュメント項目「Get token details」（ドキュメント management-api/get-token-details へのリンク）のラベル"
+  },
+  "sidebar.docs.doc.Create custom domain": {
+    "message": "カスタムドメインを作成",
+    "description": "サイドバー「docs」のドキュメント項目「カスタムドメインを作成」のラベルであり、ドキュメント management-api/create-custom-domain へのリンクです。"
+  },
+  "sidebar.docs.doc.Delete custom domain": {
+    "message": "カスタムドメインを削除",
+    "description": "サイドバー「docs」のドキュメント項目「カスタムドメインを削除」のラベルであり、ドキュメント management-api/delete-custom-domain へのリンクです。"
+  },
+  "sidebar.docs.doc.List custom domains": {
+    "message": "カスタムドメインの一覧",
+    "description": "サイドバー「docs」のドキュメント項目「カスタムドメインの一覧」のラベルであり、ドキュメント management-api/list-custom-domains へのリンクです。"
+  },
+  "sidebar.docs.doc.Delete deployment": {
+    "message": "デプロイメントを削除",
+    "description": "docs サイドバー内のドキュメント項目「Delete deployment」のラベル。ドキュメント management-api/delete-deployment へのリンク。"
+  },
+  "sidebar.docs.doc.Errors": {
+    "message": "エラー",
+    "description": "docs サイドバー内のドキュメント項目「Errors」のラベル。ドキュメント error へのリンク。"
+  },
+  "sidebar.docs.doc.ESLint": {
+    "message": "ESLint",
+    "description": "docs サイドバー内のドキュメント項目「ESLint」のラベル。ドキュメント eslint へのリンク。"
+  },
+  "sidebar.docs.category.Get Started": {
+    "message": "はじめに",
+    "description": "「docs」サイドバーにある「Get Started」カテゴリのラベルです"
+  },
+  "sidebar.docs.category.Guides": {
+    "message": "ガイド",
+    "description": "「docs」サイドバーにある「Guides」カテゴリのラベルです"
+  },
+  "sidebar.docs.category.Client Libraries": {
+    "message": "クライアントライブラリ",
+    "description": "「docs」サイドバーにある「Client Libraries」カテゴリのラベルです"
+  },
+  "sidebar.docs.category.Tools": {
+    "message": "ツール",
+    "description": "「docs」サイドバーにある「Tools」カテゴリのラベルです"
+  },
+  "sidebar.docs.category.API Reference": {
+    "message": "API リファレンス",
+    "description": "「docs」サイドバーにある「API Reference」カテゴリのラベルです"
+  },
+  "sidebar.docs.category.deployment-platform": {
+    "message": "プラットフォーム",
+    "description": "サイドバー「docs」内の「Platform」カテゴリのラベル"
+  }
+}

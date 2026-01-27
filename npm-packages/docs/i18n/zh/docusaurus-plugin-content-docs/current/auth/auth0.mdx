@@ -1,0 +1,271 @@
+---
+title: "Convex & Auth0"
+sidebar_label: "Auth0"
+sidebar_position: 30
+description: "将 Auth0 身份验证与 Convex 集成"
+---
+
+import LogoutButtonTSX from "!!raw-loader!@site/../demos/users-and-auth/src/LogoutButton.tsx";
+import UnderTheHood from "@site/i18n/zh/docusaurus-plugin-content-docs/current/auth/_under_the_hood.mdx";
+import ConfigTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuth0.tsx";
+import ConfigJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainAuth0.jsx";
+import ConfigEnvTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuth0Env.tsx";
+import ConfigEnvJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainAuth0Env.jsx";
+
+[Auth0](https://auth0.com) 是一个身份验证平台，提供基于密码、社交身份提供商、一次性邮箱或短信验证码、多因素身份验证、单点登录以及基础用户管理等登录功能。
+
+**示例：**
+[在 Convex 中使用 Auth0 进行身份验证](https://github.com/get-convex/convex-demos/tree/main/users-and-auth)
+
+如果你正在使用 Next.js，请查看
+[Next.js 设置指南](https://docs.convex.dev/client/nextjs)。
+
+## 入门 \{#get-started\}
+
+本指南假设你已经有一个集成了 Convex 的可运行 React 应用。如果还没有，先完成
+[Convex React 快速入门](/quickstart/react.mdx)。然后：
+
+<StepByStep>
+  <Step title="遵循 Auth0 React 快速入门">
+    按照 [Auth0 React Quickstart](https://auth0.com/docs/quickstart/spa/react/interactive) 教程操作。
+
+    注册一个免费的 Auth0 账户。
+
+    配置你的应用，将 `http://localhost:3000, http://localhost:5173` 用作 Callback 和 Logout URL，
+    以及 Allowed Web Origins。
+
+    完成 Auth0 快速入门中的 *Install the Auth0 React SDK* 步骤后，再回到本指南继续。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/auth0-signup.png" alt="注册 Auth0 账户" width={300} />
+    </p>
+  </Step>
+
+  <Step title="创建认证配置">
+    在 `convex` 文件夹中创建一个新文件 <JSDialectFileName name="auth.config.ts" />，
+    用于保存验证访问令牌的服务端配置。
+
+    将 Auth0 快速入门中 *Install the Auth0 React SDK* 步骤里显示的
+    `domain` 和 `clientId` 值，或在 Auth0 应用 Settings 仪表盘中显示的值粘贴进来。
+
+    ```ts title="convex/auth.config.ts"
+    import { AuthConfig } from "convex/server";
+
+    export default {
+      providers: [
+        {
+          domain: "your-domain.us.auth0.com",
+          applicationID: "yourclientid",
+        },
+      ]
+    } satisfies AuthConfig;
+    ```
+  </Step>
+
+  <Step title="部署你的改动">
+    运行 `npx convex dev`，将你的配置自动同步到后端。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="配置 ConvexProviderWithAuth0">
+    现在将你的 `ConvexProvider` 替换为由 `Auth0Provider` 包裹的 `ConvexProviderWithAuth0`。
+    把 `domain` 和 `clientId` 作为 props 传给 `Auth0Provider`。
+
+    将 Auth0 快速入门中 *Install the Auth0 React SDK* 步骤里显示的
+    `domain` 和 `clientId` 值，或在 Auth0 应用 Settings 仪表盘中显示的值，
+    作为 props 传入 `Auth0Provider`。
+
+    <TSAndJSSnippet
+      title="src/main.tsx"
+      sourceTS={ConfigTS}
+      sourceJS={ConfigJS}
+      highlightPatterns={[
+      "Auth0Provider",
+      "ConvexProviderWithAuth0",
+      "domain=",
+      "clientId=",
+      "authorizationParams=",
+        "redirect_uri: ",
+      "}}",
+      "useRefreshTokens=",
+      "cacheLocation=",
+      "  >",
+    ]}
+    />
+  </Step>
+</StepByStep>
+
+## 登录与登出流程 \{#login-and-logout-flows\}
+
+现在你已经完成了所有设置，可以使用
+[`useAuth0()`](https://auth0.github.io/auth0-react/functions/useAuth0.html) Hook
+为你的应用创建登录和登出按钮。
+
+登录按钮会将用户重定向到 Auth0 通用登录页面。更多详情参见 Auth0 React 快速入门中的
+[为应用添加登录功能](https://auth0.com/docs/quickstart/spa/react/interactive#add-login-to-your-application)。
+
+```tsx title="src/login.ts"
+import { useAuth0 } from "@auth0/auth0-react";
+
+export default function LoginButton() {
+  const { loginWithRedirect } = useAuth0();
+  return <button onClick={loginWithRedirect}>Log in</button>;
+}
+```
+
+注销按钮会将用户重定向到 Auth0 的注销端点。更多详情请参阅 Auth0 React 快速入门中的
+[为应用添加注销功能](https://auth0.com/docs/quickstart/spa/react/interactive#add-logout-to-your-application)。
+
+<TSAndJSSnippet title="src/logout.ts" sourceTS={LogoutButtonTSX} sourceJS={LogoutButtonTSX} />
+
+## 已登录和未登录视图 \{#logged-in-and-logged-out-views\}
+
+当你需要检查用户当前是否处于登录状态时，请使用 [`useConvexAuth()`](/api/modules/react#useconvexauth) Hook，而不是
+`useAuth0` Hook。`useConvex` Hook 会确保浏览器已获取向你的 Convex
+后端发送带身份验证请求所需的 auth token：
+
+```tsx title="src/App.ts"
+import { useConvexAuth } from "convex/react";
+
+function App() {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+
+  return (
+    <div className="App">
+      {isAuthenticated ? "已登录" : "已登出或仍在加载"}
+    </div>
+  );
+}
+```
+
+你也可以使用 `Authenticated`、`Unauthenticated` 和 `AuthLoading` 辅助组件，
+它们在内部使用 `useConvexAuth` hook：
+
+```tsx title="src/App.ts"
+import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+
+function App() {
+  return (
+    <div className="App">
+      <Authenticated>已登录</Authenticated>
+      <Unauthenticated>已退出登录</Unauthenticated>
+      <AuthLoading>正在加载</AuthLoading>
+    </div>
+  );
+}
+```
+
+## 在 React 中获取用户信息 \{#user-information-in-react\}
+
+你可以通过 `useAuth0` hook 获取已认证用户的信息，比如用户名：
+
+```tsx title="src/badge.ts"
+import { useAuth0 } from "@auth0/auth0-react";
+
+export default function Badge() {
+  const { user } = useAuth0();
+  return <span>以 {user.name} 身份登录</span>;
+}
+```
+
+## 函数中的用户信息 \{#user-information-in-functions\}
+
+参见 [函数中的身份验证](/auth/functions-auth.mdx) 了解如何在你的查询、变更和操作中访问已通过身份验证的用户信息。
+
+参见 [在 Convex 数据库中存储用户](/auth/database-auth.mdx) 了解如何在 Convex 数据库中存储用户信息。
+
+## 配置开发和生产环境租户 \{#configuring-dev-and-prod-tenants\}
+
+要在 Convex 的开发部署和生产部署之间使用不同的 Auth0 租户（环境），你可以通过在 Convex 仪表盘中配置环境变量来实现。
+
+### 配置后端 \{#configuring-the-backend\}
+
+首先，将你的 <JSDialectFileName name="auth.config.ts" /> 文件改为使用环境变量：
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      domain: process.env.AUTH0_DOMAIN!,
+      applicationID: process.env.AUTH0_CLIENT_ID!,
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+**开发环境配置**
+
+在 Convex
+[仪表盘](https://dashboard.convex.dev) 中打开开发环境部署的 Settings 页面，并在其中添加这些变量：
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/auth0-convex-dashboard.png" alt="Convex dashboard dev deployment settings" width={600} />
+</p>
+
+然后运行 `npx convex dev` 以切换到新的配置。
+
+**生产环境配置**
+
+同样地，在 Convex [仪表盘](https://dashboard.convex.dev) 中，通过左侧菜单切换到你的生产环境部署，并为生产环境的 Auth0 tenant 设置相应的值。
+
+然后运行 `npx convex deploy` 以切换到新的配置。
+
+### 配置 React 客户端 \{#configuring-a-react-client\}
+
+要配置客户端，你也可以使用环境变量。环境变量的具体名称以及引用方式取决于各个客户端平台（例如 Vite 与 Next.js 等），请参考相应的
+[快速开始](/quickstarts.mdx) 或该平台的相关文档。
+
+将 `Auth0Provider` 的 props 属性修改为从环境变量中读取：
+
+<TSAndJSSnippet title="src/main.tsx" sourceTS={ConfigEnvTS} sourceJS={ConfigEnvJS} highlightPatterns={["domain=", "clientId="]} />
+
+**开发环境配置**
+
+在本地运行时，使用 `.env.local` 或 `.env` 文件来配置客户端。环境变量文件的名称取决于各个客户端平台（例如 Vite 与 Next.js 等），请参考相应的
+[快速开始](/quickstarts.mdx) 或该平台的相关文档：
+
+```py title=".env.local"
+VITE_AUTH0_DOMAIN="your-domain.us.auth0.com"
+VITE_AUTH0_CLIENT_ID="yourclientid"
+```
+
+**生产环境配置**
+
+根据你的托管平台，在生产环境中设置环境变量。参见 [托管](/production/hosting/hosting.mdx)。
+
+## 调试身份验证 \{#debugging-authentication\}
+
+如果用户顺利完成 Auth0 登录流程，但在被重定向回你的页面后，
+`useConvexAuth` 返回 `isAuthenticated: false`，则很可能是你的后端配置不正确。
+
+`convex/` 目录中的 <JSDialectFileName name="auth.config.ts" /> 文件
+包含已配置的身份验证提供商列表。你在添加新的提供商之后，必须运行
+`npx convex dev` 或 `npx convex deploy`，以将配置同步到你的后端。
+
+有关更全面的调试步骤，请参阅
+[调试身份验证](/auth/debug.mdx)。
+
+## 底层机制 \{#under-the-hood\}
+
+<UnderTheHood
+  provider="Auth0"
+  integrationProvider={<code>ConvexProviderWithAuth0</code>}
+  providerProvider={<code>Auth0Provider</code>}
+  configProp={
+  <>
+    名为{" "}
+    <a
+      href="https://auth0.github.io/auth0-react/interfaces/AuthorizationParams.html"
+      target="_blank"
+    >
+      <code>authorizationParams</code>
+    </a>{" "}
+    的 prop 属性
+  </>
+}
+/>

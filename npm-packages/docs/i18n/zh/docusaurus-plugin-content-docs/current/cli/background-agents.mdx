@@ -1,0 +1,25 @@
+---
+title: "代理模式"
+slug: "agent-mode"
+sidebar_position: 20
+sidebar_label: "代理模式"
+description:
+  "为云端编码代理配置匿名开发模式"
+---
+
+当你在自己的机器上登录时，Cursor 和 Claude Code 之类的代理可以运行
+`npx convex env list` 等 CLI 命令，这些命令会使用你当前登录的凭证，在你的个人开发环境（dev）上执行，就像你自己运行命令一样。當你与代理协作时，这种方式非常好用；就像代理运行 `git commit -am "Fix."` 时，提交会使用你本地的 git 凭证。
+
+但是，当像 Jules、Devin、Codex 或 Cursor Cloud Agents 这样的云端编码代理运行 Convex CLI 命令时，它们无法登录。而如果你替它们登录，代理就会使用你的默认开发部署，从而与你自己的更改产生冲突！
+
+因此，请在该环境中设置 `CONVEX_AGENT_MODE=anonymous`，这样会让代理使用[匿名开发](/cli/local-deployments-for-dev.mdx)，在代理工作的虚拟机（VM）上运行一个独立的 Convex 后端。
+
+<BetaAdmonition feature="Convex Agent Mode" verb="is" />
+
+你可以在 .env.local 中设置该变量，或者在代理的运行环境中设置它。
+
+```
+CONVEX_AGENT_MODE=anonymous npx convex dev
+```
+
+未来，`CONVEX_AGENT_MODE` 可能会支持其他功能，例如允许代理自行开通其短期存续的云部署。

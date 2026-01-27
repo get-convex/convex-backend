@@ -1,0 +1,34 @@
+---
+id: list-deployments
+title: "列出部署"
+description: "列出项目的部署。"
+sidebar_label: "列出部署"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVsGO2zYQ/RViTgnAtb1p0YNui6QoDKTYxXaLHmwjoMWxxSxFKuTIG0PQvxdDybZkGUWA9lBfZFHDmTePM4/TgMaYB1OR8Q4y+GwiCY2V9ccSHUWx80EoUQX/FXOKM5DgKwyKzZcaMrBXG0BCpYIqkTBEyFYNOFUiZNC7+GI0SDAcq1JUgLwC8NSZieUnkBDwW20Casgo1Cgh5gWWCrIG6FixU+MI9xhAws6HUlG39MvPIKE0zpR1CdlCAhmyeHG+1NC2G3YfK+8iRvb4YbHgxxgNSMi9I3TE31RVWZOn3OdfIxs0U0gqBHXkFAnLOFj3Ww49SmrVcSMhD6gIX0x6uZD5wjvlibmlhk16qTCQ6UAPNv4QKePseF8kVVbCOFEaa03E3DsdxVuBTlBh4uBoxZuKoguoZ9BOgE7I+6tAKjB0fkwUSqxB42ENQuMBra+S10EAH8SaE9Rr4IrTdc6e1u5iwvXXZxkpGLcHCej4lFfsuiNLpwceDL4xY6fD/zSG28q+MpuJxyuWChQBlVZbi8JodGR2BkPqjCuKpIi+RCqM2wtrXnHtKquOu9reeSIMd/cffkrM9eiWZ2eMwjt83KWO6fG42lpo5TWtT93mIXEXVFKY3YDwamJ7i8FLeyTrC1EDgO2mHVbif9CCt3juA0xKb4vWu30U5GfQtgNvVhGHvUB+7nsa2vSTEDGvg6FjYvbxoaZCvKAqxYt/RQfZasMMT1c6y5MaXT5tJPAJe9a+PVKSOyogg/lJI+fNReraOevjl7E+RgyHkzjWwUIGBVEVs/lcVWaWe3fA7zONh/nhfiqPfcLi4WkJDOaU3h+sQ50o3IR+Pi+OBb2U8vsWVUjHNw70uCVlHGpBRfD1vhBKrD4maKLzPxDDzbtTAtrncZhBqZzaIyd+pyrzPhX/9Az+P9j+DaqPnTSyllKBQqtYbL0KWtROswqy64hEhgs5Xavu2K0efS1y5USHqKtw43Y+Yegrvc/v9zPoVAHXGMafU5Qq+IOJxjsWJeV0F4Vfepenuk0fB5XKSmFNjtxM2fka/9ytPOPurtvPV91Ax24YtBK43juE97PFbJE00EcqlRu5nowSo+yay138I3NKf3qE32leWWUcR0391vQ9uzoJGofKRgPKpG03EgofiTc1zVZF/DPYtuXlbzUGVpeNhIMKhq+J1NraRP6vIdspG/Efknn33I8E78Vo/LmZwWnMcDxkHJStsZtTXvE4nrKSYheoNB/LqukNHvIcKxpsnQw1I4n77dcXkKBqpuvcEOcG6P8M7qwxrKbpLFJHte0ZJaUOazdt2/4NwG6q1A==
+sidebar_class_name: "get api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"列出部署"} />
+
+<MethodEndpoint method={"get"} path={"/projects/{project_id}/list_deployments"} context={"endpoint"} />
+
+列出项目的所有部署。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"请求"} />
+
+<ParamsDetails parameters={[{"name":"project_id","in":"path","description":"项目 ID","required":true,"schema":{"type":"integer","format":"int64","minimum":0,"title":"ProjectId"}}]} />
+
+<RequestSchema title={"请求体"} body={undefined} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"array","items":{"type":"object","required":["name","createTime","deploymentType","projectId"],"properties":{"createTime":{"type":"integer","format":"int64","description":"此部署创建时的时间戳（毫秒）。"},"deploymentType":{"description":"指示该部署是 \"dev\" 开发环境部署还是 \"prod\" 生产部署。","type":"string","enum":["dev","prod","preview"],"title":"DeploymentType"},"name":{"type":"string","description":"此部署的可读标识符，例如\nplayful-otter-123。"},"previewIdentifier":{"oneOf":[{"type":"null"},{"description":"预览部署的标识符（如果这是一个预览部署）。","type":"string","title":"PreviewDeploymentIdentifier"}]},"projectId":{"type":"integer","format":"int64","minimum":0,"title":"ProjectId","description":"此部署所属的项目。"}},"title":"PlatformDeploymentResponse"}}}}}}} />

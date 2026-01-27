@@ -1,0 +1,421 @@
+---
+title: "Flujos de registros"
+sidebar_label: "Flujos de registros"
+sidebar_position: 2
+description: "Configura integraciones de registros para tu despliegue de Convex"
+---
+
+Los flujos de registros permiten la transmisión en tiempo real de eventos como
+ejecuciones de funciones y llamadas a `console.log` desde tu despliegue de
+Convex a destinos compatibles, como Axiom, Datadog o un webhook personalizado.
+
+Los registros más recientes producidos por tu despliegue de Convex pueden verse
+en la [página Logs](/dashboard/deployments/logs.md) del panel de control,
+en la [CLI de Convex](/cli.md) o en la consola del navegador, lo que proporciona
+una forma rápida y sencilla de ver los registros recientes.
+
+La transmisión de registros a un destino de terceros como Axiom o Datadog
+permite almacenar registros históricos, realizar consultas y visualizaciones de
+datos más potentes e integrarse con otras herramientas (por ejemplo, PagerDuty,
+Slack).
+
+<ProFeatureUpsell feature="Log streams" verb="require" />
+
+## Configuración de flujos de logs \{#configuring-log-streams\}
+
+Actualmente ofrecemos compatibilidad con los siguientes flujos de logs, con planes de añadir muchos más:
+
+* [Axiom](https://www.axiom.co)
+* [Datadog](https://www.datadoghq.com/)
+* Webhook a una URL personalizada
+
+Consulta las instrucciones para
+[configurar una integración](/production/integrations/integrations.mdx#configuring-an-integration).
+La información específica necesaria para cada flujo de logs se detalla a continuación.
+
+### Axiom \{#axiom\}
+
+Configurar un flujo de logs en Axiom requiere especificar:
+
+* El nombre de tu
+  [dataset de Axiom](https://axiom.co/docs/reference/settings#dataset)
+* Una clave de [API de Axiom](https://axiom.co/docs/reference/settings#api-token)
+* Una lista opcional de atributos y sus valores que se incluirán en todos los
+  eventos de log enviados a Axiom. Estos se enviarán a través del campo
+  `attributes` en la
+  [Ingest API](https://axiom.co/docs/send-data/ingest#ingest-api).
+
+Al configurar un dataset de Convex en Axiom, se creará automáticamente un
+panel de control en Axiom. Puedes encontrarlo en la sección *Integrations* de
+la pestaña *Dashboards*. Para personalizar el diseño del panel de control,
+puedes
+[hacerle un fork](https://axiom.co/docs/dashboards/create#fork-dashboards).
+
+![Un panel de control en Axiom](/screenshots/axiom_dashboard.png)
+
+### Datadog \{#datadog\}
+
+Configurar un flujo de logs de Datadog requiere que especifiques:
+
+* La [ubicación del sitio](https://docs.datadoghq.com/getting_started/site/) de tu
+  despliegue de Datadog
+* Una
+  [clave de API](https://docs.datadoghq.com/account_management/api-app-keys/#add-an-api-key-or-client-token)
+  de Datadog
+* Una lista de etiquetas separadas por comas que se pasarán usando el
+  campo [`ddtags`](https://docs.datadoghq.com/getting_started/tagging/) en todas
+  las cargas útiles enviadas a Datadog. Esto se puede usar para incluir cualquier otro metadato que
+  pueda ser útil para consultar o clasificar tus logs de Convex ingeridos por tu
+  despliegue de Datadog.
+
+### Webhook \{#webhook\}
+
+Un flujo de registros de webhook es el flujo más simple y genérico, que permite canalizar
+registros mediante solicitudes POST a cualquier URL que configures. El único parámetro necesario para
+configurar este flujo es la URL de webhook que desees.
+
+Una solicitud a este webhook contiene como cuerpo un array JSON de eventos con el
+esquema definido a continuación.
+
+## Proteger flujos de registros de webhooks \{#securing-webhook-log-streams\}
+
+Las solicitudes de flujos de registros de webhooks incluyen una firma para que puedas verificar que una solicitud es legítima. El cuerpo de la solicitud se firma usando HMAC-SHA256 y se codifica como una cadena hexadecimal en minúsculas, y la firma resultante se incluye en el encabezado HTTP `x-webhook-signature`. El secreto HMAC es visible en el panel de control al configurar el webhook.
+
+Para verificar la autenticidad de una solicitud, firma y codifica el cuerpo de la solicitud usando el secreto HMAC y
+[compara el resultado en tiempo constante](https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html)
+(por ejemplo, usando
+[`SubtleCrypto.verify()`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/verify)
+en JavaScript) con la firma incluida en el encabezado de la solicitud. Ten en cuenta que la firma lleva el prefijo `sha256=`.
+
+Para mayor seguridad, considera validar que el campo `timestamp` del cuerpo del evento de registro esté dentro de un intervalo de tiempo aceptable para evitar ataques de repetición.
+
+```typescript
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.post("/webhook", async (c) => {
+  const payload = await c.req.json();
+  const log = payload[0];
+
+  // Si usas JSONL, analiza la primera línea:
+  // const payload = await c.req.text();
+  // const log = JSON.parse(payload.split("\n")[0]);
+
+  // Valida que la marca de tiempo del primer log esté dentro de los últimos 5 minutos
+  if (log.timestamp < Date.now() - 5 * 60 * 1000) {
+    c.status(403);
+    return c.text("Solicitud expirada");
+  }
+
+  const signature = c.req.header("x-webhook-signature");
+  if (!signature) {
+    c.status(401);
+    return c.text("No autorizado");
+  }
+
+  const hmacSecret = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(process.env.WEBHOOK_SECRET!),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const hashPayload = await c.req.arrayBuffer();
+
+  // Usa comparación de tiempo constante para verificar el payload
+  const isValid = await crypto.subtle.verify(
+    "HMAC",
+    hmacSecret,
+    Uint8Array.fromHex(signature.replace("sha256=", "")),
+    hashPayload,
+  );
+
+  if (isValid) {
+    return c.text("Éxito");
+  }
+
+  c.status(401);
+  return c.text("No autorizado");
+});
+
+export default app;
+```
+
+## Esquema de eventos de registro \{#log-event-schema\}
+
+<Admonition type="info">
+  Los flujos de registros configurados antes del 23 de mayo de 2024 usarán el formato heredado
+  documentado en [esta
+  página](/production/integrations/log-streams/legacy-event-schema.mdx). Te recomendamos actualizar tu flujo de registros para usar el nuevo formato.
+</Admonition>
+
+Los eventos de registro tienen un esquema JSON bien definido que permite crear
+canalizaciones complejas, con tipado seguro, para la ingesta de eventos de registro.
+
+Todos los eventos tendrán los siguientes tres campos:
+
+* `topic`: string, categoriza un evento de registro, uno de
+  `["verification", "console", "function_execution", "audit_log", "concurrency_stats", "scheduler_stats", "current_storage_usage"]`
+* `timestamp`: number, marca de tiempo Unix epoch en milisegundos como entero
+* `convex`: objeto que contiene metadatos relacionados con tu despliegue de Convex,
+  incluidos `deployment_name`, `deployment_type`, `project_name` y
+  `project_slug`.
+
+Nota: En la integración con Axiom, la información específica del evento estará disponible
+en el campo `data`.
+
+### Eventos `verification` \{#verification-events\}
+
+Este es un evento enviado para confirmar que el flujo de logs está funcionando. Esquema:
+
+* `topic`: `"verification"`
+* `timestamp`: marca de tiempo de la época Unix en milisegundos
+* `message`: string
+
+### Eventos de `console` \{#console-events\}
+
+Registros de funciones de Convex mediante la [API de `console`](/functions/debugging.mdx).
+
+Esquema:
+
+* `topic`: `"console"`
+* `timestamp`: marca de tiempo de época Unix en milisegundos
+* `function`: objeto, ver
+  [campos de función](/production/integrations/log-streams/log-streams.mdx#function-fields)
+* `log_level`: cadena, uno de `["DEBUG", "INFO", "LOG", "WARN", "ERROR"]`
+* `message`: cadena, la representación de
+  [`object-inspect`](https://www.npmjs.com/package/object-inspect)
+  del contenido de `console.log`
+* `is_truncated`: booleano, indica si este mensaje se truncó para ajustarse a
+  nuestros límites de registro
+* `system_code`: cadena opcional, presente para advertencias agregadas
+  automáticamente cuando las funciones se acercan a los
+  [límites](/production/state/limits.mdx#functions)
+
+Ejemplo de evento para `console.log("Sent message!")` desde una mutación:
+
+```json
+{
+    "topic": "console"
+    "timestamp": 1715879172882,
+    "function": {
+      "path": "messages:send",
+      "request_id": "d064ef901f7ec0b7",
+      "type": "mutation"
+    },
+    "log_level": "LOG",
+    "message": "'Sent message!'"
+}
+```
+
+### Eventos de `function_execution` \{#function_execution-events\}
+
+Estos eventos ocurren cada vez que se ejecuta una función.
+
+Esquema:
+
+* `topic`: `"function_execution"`
+* `timestamp`: marca de tiempo de época Unix en milisegundos
+* `function`: objeto, ver
+  [campos de función](/production/integrations/log-streams/log-streams.mdx#function-fields)
+* `execution_time_ms`: número, el tiempo en milisegundos que tardó en ejecutarse esta función
+* `status`: string, uno de `["success", "failure"]`
+* `error_message`: string, presente para funciones con status `failure`,
+  que contiene el error y cualquier traza de pila.
+* `mutation_queue_length`: número opcional (solo para mutaciones), la longitud
+  de la cola de mutaciones por sesión en el momento en que se ejecutó la
+  mutación. Esto es útil para monitorear y depurar acumulaciones en la cola de
+  mutaciones en sesiones individuales.
+* `mutation_retry_count`: número, la cantidad de ejecuciones fallidas previas
+  (solo para mutaciones) realizadas antes de una exitosa. Solo aplicable a
+  mutaciones y acciones.
+* `occ_info`: objeto, si la llamada a la función resultó en un OCC (conflicto de
+  escritura entre dos funciones), este campo estará presente y contendrá
+  información relacionada con el OCC.
+  [Más información sobre conflictos de escritura](https://docs.convex.dev/error/#1).
+  * `table_name`: tabla en la que ocurrió el conflicto
+  * `document_id`: Id del documento que recibió escrituras en conflicto
+  * `write_source`: nombre de la función que generó escrituras en conflicto en
+    `table_name`
+  * `retry_count`: el número de intentos fallidos previos antes de la ejecución
+    actual de la función
+* `scheduler_info`: objeto, si está definido, indica que la función fue
+  invocada originalmente por el
+  [scheduler](/scheduling/scheduled-functions).
+  * `job_id`: el job dentro de la tabla
+    [`_scheduled_functions`](/scheduling/scheduled-functions#retrieving-scheduled-function-status)
+* `usage`:
+  * `database_read_bytes`: número
+  * `database_write_bytes`: número, este y `database_read_bytes` constituyen el
+    ancho de banda de base de datos usado por la función
+  * `database_read_documents`: número, la cantidad de documentos leídos por la
+    función
+  * `file_storage_read_bytes`: número
+  * `file_storage_write_bytes`: número, este y `file_storage_read_bytes`
+    constituyen el ancho de banda de archivos usado por la función
+  * `vector_storage_read_bytes`: número
+  * `vector_storage_write_bytes`: número, este y `vector_storage_read_bytes`
+    constituyen el ancho de banda de vectores usado por la función
+  * `memory_used_mb`: número, para consultas, mutaciones y acciones, la memoria
+    usada en MiB. Esto, combinado con `execution_time_ms`, conforma el cómputo.
+
+Ejemplo de evento para una consulta:
+
+```json
+{
+  "data": {
+    "execution_time_ms": 294,
+    "function": {
+      "cached": false,
+      "path": "message:list",
+      "request_id": "892104e63bd39d9a",
+      "type": "query"
+    },
+    "status": "success",
+    "timestamp": 1715973841548,
+    "topic": "function_execution",
+    "usage": {
+      "database_read_bytes": 1077,
+      "database_write_bytes": 0,
+      "database_read_documents": 3,
+      "file_storage_read_bytes": 0,
+      "file_storage_write_bytes": 0,
+      "vector_storage_read_bytes": 0,
+      "vector_storage_write_bytes": 0
+    }
+  }
+}
+```
+
+### Campos de función \{#function-fields\}
+
+Se añaden los siguientes campos dentro de `function` para todos los eventos de
+`console` y `function_execution`:
+
+* `type`: string, uno de `["query", "mutation", "action", "http_action"]`
+* `path`: string, por ejemplo `"myDir/myFile:myFunction"` o `"POST /my_endpoint"`
+* `cached`: boolean opcional; en el caso de las consultas indica si este evento provino
+  de una ejecución de función en caché
+* `request_id`: string, el
+  [ID de solicitud](/functions/debugging.mdx#finding-relevant-logs-by-request-id)
+  de la función.
+
+### Eventos `concurrency_stats` \{#concurrency_stats-events\}
+
+Estos eventos se envían una vez por minuto e informan estadísticas de concurrencia de funciones.
+Los eventos solo se envían si las estadísticas han cambiado. Los puntos de datos faltantes deben
+interpolarse a partir del evento de datos anterior.
+
+Esquema:
+
+Cada evento contiene estadísticas de concurrencia para cada tipo de función (por ejemplo, consultas,
+mutaciones, acciones). Los registros de cada evento tienen el siguiente esquema:
+
+* `num_running`: El número máximo de funciones que se ejecutan de forma concurrente durante el
+  minuto en que se informó la métrica
+
+* `num_queued`: El número máximo de funciones en cola durante el minuto en que se informó la
+  métrica. Las funciones pueden quedar temporalmente en cola cuando se han alcanzado los límites
+  de concurrencia.
+
+* `topic`: `"concurrency_stats"`
+
+* `timestamp`: Marca de tiempo Unix epoch en milisegundos
+
+* `query`: Estadísticas de concurrencia para consultas
+
+* `mutation`: Estadísticas de concurrencia para mutaciones
+
+* `action`: Estadísticas de concurrencia para acciones
+
+* `node_action`: Estadísticas de concurrencia para acciones de nodo
+
+* `http_action`: Estadísticas de concurrencia para acciones HTTP
+
+### `scheduler_stats` events \{#scheduler_stats-events\}
+
+Estos eventos son enviados periódicamente por el scheduler y reportan estadísticas del
+ejecutor de funciones programadas.
+
+Esquema:
+
+* `topic`: `"scheduler_stats"`
+* `timestamp`: marca de tiempo de época Unix en milisegundos
+* `lag_seconds`: la diferencia entre `timestamp` y la hora de ejecución programada
+  de la tarea programada atrasada más antigua, en segundos.
+* `num_running_jobs`: número, la cantidad de tareas programadas que se están ejecutando actualmente
+
+### Eventos `current_storage_usage` \{#current_storage_usage-events\}
+
+Estos eventos se envían periódicamente con instantáneas del uso de almacenamiento
+actual en todo tu despliegue. Proporcionan totales agregados para todos los tipos de almacenamiento.
+
+Actualmente estos eventos no se envían para despliegues autoalojados.
+
+Para calcular los costos de facturación:
+
+* Database Storage Bytes: `total_document_size_bytes + total_index_size_bytes`
+* File Storage: `total_file_storage_bytes + total_backup_storage_bytes`
+* Vector Storage: `total_vector_storage_bytes`
+
+Esquema:
+
+* `topic`: `"current_storage_usage"`
+* `timestamp`: marca de tiempo Unix (epoch) en milisegundos
+* `total_document_size_bytes`: número, tamaño total en bytes de todos los documentos
+  almacenados en tablas de la base de datos
+* `total_index_size_bytes`: número, tamaño total en bytes de todos los índices de base de datos
+* `total_vector_storage_bytes`: número, tamaño total en bytes del almacenamiento de
+  índices vectoriales
+* `total_file_storage_bytes`: número, tamaño total en bytes del almacenamiento de archivos
+* `total_backup_storage_bytes`: número, tamaño total en bytes del almacenamiento de
+  instantáneas/copias de seguridad
+
+Ejemplo de evento:
+
+```json
+{
+  "topic": "current_storage_usage",
+  "timestamp": 1715973841548,
+  "total_document_size_bytes": 104857600,
+  "total_index_size_bytes": 10485760,
+  "total_vector_storage_bytes": 5242880,
+  "total_file_storage_bytes": 52428800,
+  "total_backup_storage_bytes": 209715200
+}
+```
+
+### Eventos de `audit_log` \{#audit_log-events\}
+
+Estos eventos representan cambios en tu despliegue y también aparecen en la
+[pestaña History](https://dashboard.convex.dev/deployment/history) en el panel de control.
+
+Esquema:
+
+* `topic`: `audit_log`
+* `timestamp`: marca de tiempo Unix epoch en milisegundos
+* `audit_log_action`: string, p. ej. `"create_environment_variable"`,
+  `"push_config"`, `"change_deployment_state"`
+* `audit_log_metadata`: string, JSON serializado como cadena que contiene metadatos
+  sobre el evento. El formato exacto de este evento puede cambiar.
+
+Ejemplo de registro de auditoría `push_config`:
+
+```json
+{
+  "topic": "audit_log",
+  "timestamp": 1714421999886,
+  "audit_log_action": "push_config",
+  "audit_log_metadata": "{\"auth\":{\"added\":[],\"removed\":[]},\"crons\":{\"added\":[],\"deleted\":[],\"updated\":[]},..."
+}
+```
+
+## Garantías \{#guarantees\}
+
+Los eventos de registro proporcionan una garantía de entrega basada en el mejor esfuerzo. Los flujos de registros se almacenan en búfer en memoria y se envían en lotes a los flujos configurados de tu despliegue. Esto significa que los registros se pueden descartar si la tasa de ingesta es demasiado alta. De manera similar, debido a los reintentos de red, es posible que un evento de registro se duplique en un flujo de registros.
+
+¡Eso es todo! Tus registros ya están configurados para transmitirse. Si hay algún destino de transmisión de registros que te gustaría que admitiéramos,
+[por favor háznoslo saber](/production/contact.md)!
+
+<StackPosts query="axiom" />

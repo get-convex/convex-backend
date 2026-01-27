@@ -1,0 +1,63 @@
+---
+title: 内部関数
+sidebar_position: 40
+description: "他の Convex 関数からのみ呼び出せる関数"
+---
+
+import Definition from "!!raw-loader!@site/../private-demos/snippets/convex/plans.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsCall.ts";
+import DefinitionWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidation.ts";
+import DefinitionWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidationJS.js";
+
+内部関数は他の [functions](/functions.mdx) からのみ呼び出すことができ、
+[Convex client](/client/react.mdx) から直接呼び出すことはできません。
+
+デフォルトでは、Convex 関数はパブリックであり、クライアントからアクセス可能です。パブリック関数は、悪意のあるユーザーによって予期しない結果につながるような呼び出され方をされる可能性があります。内部関数を使うことで、このリスクを軽減できます。クライアントから呼び出されるべきでないロジックを書く場合は、常に内部関数を使うことをおすすめします。
+
+内部関数はアプリケーションの公開インターフェースの範囲を狭めることでリスクを軽減しますが、それでもなお
+[argument validation](/functions/validation.mdx) や
+[authentication](/auth/functions-auth.mdx) を使ってアプリケーション内部の不変条件を検証できます。
+
+## 内部関数の利用例 \{#use-cases-for-internal-functions\}
+
+内部関数は次のように活用できます:
+
+* [アクション](/functions/actions.mdx#action-context) から `runQuery` と `runMutation` を使って呼び出す
+* [HTTP アクション](/functions/http-actions.mdx) から `runQuery`、`runMutation`、`runAction` を使って呼び出す
+* 他の関数から
+  [スケジュール](/scheduling/scheduled-functions.mdx) して、将来実行する
+* [cron ジョブ](/scheduling/cron-jobs.mdx) から定期的に実行するようスケジュールする
+* [Dashboard](/dashboard/deployments/functions.md#running-functions) から実行する
+* [CLI](/cli.md#run-convex-functions) から実行する
+
+## 内部関数の定義 \{#defining-internal-functions\}
+
+内部関数は `internalQuery`、`internalMutation`、または
+`internalAction` を使って定義します。例えば次のようにします:
+
+<TSAndJSSnippet title="convex/plans.ts" sourceTS={Definition} sourceJS={Definition} highlightPatterns={["internalMutation"]} />
+
+複雑なオブジェクトを内部関数に渡す必要がある場合、引数バリデーションを
+使用しない方がよい場合もあります。ただし、`internalQuery`
+や `internalMutation` を使っている場合は、クエリやミューテーションが
+常に最新のデータベース状態で動作するように、ドキュメントそのものではなく
+ドキュメント ID を渡す方が望ましいです。
+
+<Details summary="引数バリデーションなしの内部関数">
+  <TSAndJSSnippet title="convex/plans.ts" sourceTS={DefinitionWithoutValidationTS} sourceJS={DefinitionWithoutValidationJS} highlightPatterns={[": {"]} />
+</Details>
+
+## 内部関数の呼び出し \{#calling-internal-functions\}
+
+内部関数は、[`internal`](/generated-api/api#internal) オブジェクトを使ってアクションから呼び出したり、
+アクションやミューテーションからスケジュールしたりできます。
+
+たとえば、先ほど定義した内部ミューテーション
+`plans.markPlanAsProfessional` を呼び出す公開 `upgrade` アクションは次のようになります:
+
+<TSAndJSSnippet title="convex/changes.ts" sourceTS={Call} sourceJS={Call} />
+
+この例では、ユーザーが `upgrade` アクションを経由せずに
+`internal.plans.markPlanAsProfessional` を直接呼び出せないようにすべきです — もし直接呼び出せてしまうと、無料でアップグレードできてしまいます。
+
+公開関数と内部関数は同じファイル内に定義できます。

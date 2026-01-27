@@ -1,0 +1,102 @@
+---
+title: Script タグ クイックスタート
+sidebar_label: Script タグ
+description: "任意のウェブサイトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 450
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/convex/tasks.js";
+import html from "!!raw-loader!@site/../demos/html/simple.html";
+
+HTML の script タグから Convex のデータをクエリする方法を説明します。
+
+<StepByStep>
+  <Step title="新しい npm プロジェクトを作成する">
+    Convex プロジェクト用の新しいディレクトリを作成します。
+
+    ```sh
+    mkdir my-project && cd my-project && npm init -y
+    ```
+  </Step>
+
+  <Step title="Convex クライアントとサーバーライブラリをインストールする">
+    JavaScript から Convex を扱うための便利なインターフェースを提供する
+    `convex` パッケージをインストールします。
+
+    ```sh
+    npm install convex
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に `npx convex dev` を実行します。
+    これにより、GitHub へのログイン、
+    プロジェクトの作成、および本番用とデプロイメントURL の保存が促されます。
+
+    また、バックエンドの API 関数を書くための `convex/` フォルダも作成されます。
+    その後、`dev` コマンドはクラウド上の dev デプロイメントと
+    関数を同期し続けるために実行され続けます。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、いくつかのサンプルデータを含む
+    `sampleData.jsonl` ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたので、`import` コマンドを使って
+    `tasks` テーブルにサンプルデータを追加し、
+    Convex データベースに取り込みます。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダに新しいファイル `tasks.js` を追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいて
+    `api.tasks.get` という名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="デプロイメントURLをコピーする">
+    `.env.local` ファイルを開き、HTML ファイルで使うために、
+    開発環境の `CONVEX_URL` をコピーします。
+
+    <>    </>
+  </Step>
+
+  <Step title="スクリプトをウェブページに追加する">
+    新しいファイル `index.html` で、開発環境の URL を使って
+    `ConvexClient` を作成します。
+
+    このファイルをウェブブラウザで開くと、`tasks`
+    テーブルが変更されるたびに、その内容が反映されるのがわかります。
+
+    <Snippet
+      source={html}
+      title="index.html"
+      replacements={[
+    [/https?:\/\/localhost:8000/g, 'CONVEX_URL_GOES_HERE'],
+    [/messages:list/g, 'tasks:get'],
+    [/\(messages\)/g, '(tasks)'],
+    [/messages.map\(\(msg\) \=\> msg\.body\)/g, 'tasks.map((task) => task.text)'],
+  ]}
+    />
+  </Step>
+</StepByStep>
+
+全体は [Script Tag documentation](/client/javascript/script-tag.mdx) を参照してください。

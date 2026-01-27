@@ -1,0 +1,34 @@
+---
+id: delete-project
+title: "Eliminar proyecto"
+description: "Elimina un proyecto. También elimina todos los despliegues de ese proyecto."
+sidebar_label: "Eliminar proyecto"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVLFu2zAQ/RXipgRgbKcoOmgrksVAiwRJOhlCcRbPFhuJZMiTG0PgvxeUKCd2jS7t0MnSkX737une60FRqLx2rK2BAm6pISaBwnn7gyqeibESBDaNUOQau2/JcBDaCK5puicwiJ/UNDOQYB15THhLBQWoETHfAwkOPbbE5AMUqx4MtgQF5PPvWoEEnag45BrkCb/73G55CxI8vXTak4KCfUcSQlVTi1D0wHuXQLVh2pIHCRvrW+Sx9OkjSGi10W3XQrGQwJobegNfKoixTPDBWRMoJMQPi0X6OWYDMUoIVHVe836Y5u5zx7V4ImzFk30mA8WqjLKHk0opoSWubRLI2TDKwjUUMM9ChHn/JkmcjypC6uZ3k3Sdb6CAmtmFYj5Hp2eVNTt6nSnazXfXv4vXICchxOf7JSQOE/XHJNw45zjAJHNmfBA09YIsdHpfE/pB3+NGd2tGbUgJrr3ttrVAsboZqIkRH51rdDUsSXkxDaBsFd5P0KLBLaVtu0KnL2cQ5Rl9/x9uf8PqxhMyqclVCkO9tuiV6IwiLzhBB2LWZhvExnqBZj9W97YTFRoxMpoNK6nNxg4c8mLn+b4eSA8bcMrh+Hjo4rzd6aCt0WYr0KixS3rJkNO2Dofv4iHlQKMrMoESkWzyL2PlgTZX4/+T1xUZ1htN/uyFKCHt+8jweraYLVIpeaZF8w769jRmjmbrobKGyfA/irj8cZleee4a1CaRGuzYZyOvpkQLIKE4Srfs5VJCnaxfrKDv1xjom29iTOWXjnyKk1LCDr3GdfqIqx6UDulZQbHBJtAfZrx4yNF4KY4S8yzvXESzh9Sw6dIbSHim/XEwxzK+y637u8cnkIBdGvew74f9zg+J99kGfT/eGAwT46EfDwaKZYzxF3n+SCM=
+sidebar_class_name: "post api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Eliminar proyecto"} />
+
+<MethodEndpoint method={"post"} path={"/projects/{project_id}/delete"} context={"endpoint"} />
+
+Elimina un proyecto y todos los despliegues asociados a él.
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"Solicitud"} />
+
+<ParamsDetails parameters={[{"name":"project_id","in":"path","description":"ID del proyecto","required":true,"schema":{"type":"integer","format":"int64","minimum":0,"title":"ProjectId"}}]} />
+
+<RequestSchema title={"Cuerpo"} body={undefined} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":""}}} />

@@ -1,0 +1,46 @@
+---
+title: "测试"
+sidebar_position: 105
+description: "测试你的后端"
+slug: "testing"
+pagination_prev: "search"
+---
+
+Convex 让你可以轻松地通过在 JS 中运行的自动化测试或针对真实后端的自动化测试，以及在开发环境（dev）、预览环境和预发布环境中的手动测试来测试你的应用。
+
+## 自动化测试 \{#automated-tests\}
+
+### `convex-test` 库 \{#convex-test-library\}
+
+[使用 `convex-test` 库](/testing/convex-test.mdx)，借助优秀的 Vitest 测试框架在 JS 中测试你的函数。
+
+### 针对真实后端进行测试 \{#testing-against-a-real-backend\}
+
+Convex 开源版本允许你在真实的[本地 Convex 后端](/testing/convex-backend.mdx)上运行并测试所有后端逻辑。
+
+### 在 CI 中设置测试 \{#set-up-testing-in-ci\}
+
+在受控环境中持续对你的应用进行测试是个好主意。无论你使用哪种自动化方法，都可以很方便地使用
+[GitHub Actions](/testing/ci.mdx) 运行这些测试。
+
+{/* 待办：针对预览部署环境的自动化测试 */}
+
+{/* 待办：补充 React+Convex 的各种测试方式 */}
+
+## 手动测试 \{#manual-tests\}
+
+### 在开发环境（dev）中运行函数 \{#running-a-function-in-dev\}
+
+在开发环境（dev）中手动运行函数，快速确认一切是否正常：
+
+* [从命令行运行函数](/cli.md#run-convex-functions)
+* [从仪表盘运行函数](/dashboard/deployments/functions.md#running-functions)
+
+### 预览部署 \{#preview-deployments\}
+
+[使用预览部署](/production/hosting/preview-deployments.mdx)，让你的团队尽早为正在开发的功能提供反馈。
+
+### 预发布环境 \{#staging-environment\}
+
+你可以创建一个单独的项目作为预发布环境进行测试。请参阅
+[将应用部署到生产环境](/production.mdx#staging-environment)。

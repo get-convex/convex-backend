@@ -1,0 +1,22 @@
+{
+  "link.item.label.Releases": {
+    "message": "版本发布",
+    "description": "页脚中指向 https://convex.dev/releases，链接文字为 “Releases” 的标签文本"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "页脚中指向 https://github.com/get-convex，链接文字为 “GitHub” 的标签文本"
+  },
+  "link.item.label.Discord": {
+    "message": "Discord",
+    "description": "页脚中指向 https://convex.dev/community，链接文字为 “Discord” 的标签文本"
+  },
+  "link.item.label.Twitter": {
+    "message": "Twitter",
+    "description": "页脚中指向 https://twitter.com/convex，链接文字为 “Twitter” 的标签文本"
+  },
+  "copyright": {
+    "message": "版权所有 © 2026 年 Convex, Inc.",
+    "description": "页脚中的版权信息文本"
+  }
+}

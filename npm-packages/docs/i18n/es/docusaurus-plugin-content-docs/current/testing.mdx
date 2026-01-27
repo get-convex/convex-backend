@@ -1,0 +1,50 @@
+---
+title: "Pruebas"
+sidebar_position: 105
+description: "Pruebas de tu backend"
+slug: "testing"
+pagination_prev: "search"
+---
+
+Convex facilita la realización de pruebas en tu aplicación, mediante tests automatizados que se ejecutan en JavaScript o contra un backend real, y manualmente en los entornos dev, preview y staging.
+
+## Pruebas automatizadas \{#automated-tests\}
+
+### Biblioteca `convex-test` \{#convex-test-library\}
+
+[Usa la biblioteca `convex-test`](/testing/convex-test.mdx) para probar tus funciones
+de JavaScript con el excelente framework de pruebas Vitest.
+
+### Pruebas con un backend real \{#testing-against-a-real-backend\}
+
+Las versiones de código abierto de Convex te permiten probar toda tu lógica de backend ejecutándose en
+un [backend local real de Convex](/testing/convex-backend.mdx).
+
+### Configurar pruebas en CI \{#set-up-testing-in-ci\}
+
+Es una buena idea probar tu aplicación de forma continua en un entorno controlado. No
+importa qué método automatizado utilices, es fácil ejecutarlo con
+[GitHub Actions](/testing/ci.mdx).
+
+{/* TODO: pruebas automatizadas en despliegues de vista previa */}
+
+{/* TODO: pruebas de React+Convex: todas las variantes */}
+
+## Pruebas manuales \{#manual-tests\}
+
+### Ejecutar una función en dev \{#running-a-function-in-dev\}
+
+Ejecuta manualmente una función en dev para comprobar rápidamente que todo funciona:
+
+* [Ejecutar funciones desde la línea de comandos](/cli.md#run-convex-functions)
+* [Ejecutar funciones desde el panel de control](/dashboard/deployments/functions.md#running-functions)
+
+### Despliegues de vista previa \{#preview-deployments\}
+
+[Usa despliegues de vista previa](/production/hosting/preview-deployments.mdx) para obtener
+comentarios anticipados de tu equipo sobre tus funcionalidades en desarrollo.
+
+### Entorno de staging \{#staging-environment\}
+
+Puedes configurar un proyecto aparte como entorno de staging para realizar pruebas. Consulta
+[Implementar tu aplicación en producción](/production.mdx#staging-environment).

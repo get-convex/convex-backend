@@ -1,0 +1,25 @@
+---
+title: "スクリプトタグ"
+sidebar_position: 100
+description:
+  "ビルドツールは不要、HTML の script タグから直接 Convex を使う"
+---
+
+ときには、ただウェブページでデータを扱いたいだけ、という場合があります。
+パッケージのインストールも、ビルドステップも、TypeScript も不要です。
+既存の Convex デプロイメントにデプロイされているクエリを script タグから購読するのは簡単です。
+
+import simpleHtml from "!!raw-loader!@site/../demos/html/simple.html";
+import typedHtml from "!!raw-loader!@site/../demos/html/typed-example.html";
+import script from "!!raw-loader!@site/../demos/html/script.js";
+
+<Snippet source={simpleHtml} title="index.html" replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]} />
+
+VS Code は HTML ファイル内で TypeScript のオートコンプリートをサポートしていないため、
+型情報やより良いオートコンプリートのためにコードをスクリプトファイルに分離できます。
+
+<Snippet source={typedHtml} title="index.html" replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]} />
+
+<Snippet source={script} title="script.js" replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]} />
+
+新しい Convex プロジェクトのセットアップ手順については、[Script Tag クイックスタート](/quickstart/script-tag.mdx) を参照してください。

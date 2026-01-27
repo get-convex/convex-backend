@@ -1,0 +1,258 @@
+---
+title: "Definición y uso de agentes"
+sidebar_label: "Uso de agentes"
+sidebar_position: 140
+description: "Configuración y uso de la clase Agent"
+---
+
+Los agentes encapsulan modelos, prompts, herramientas y otra configuración. Pueden
+definirse como globales o en tiempo de ejecución.
+
+Usan hilos para contener una serie de mensajes utilizados a lo largo del proceso, ya sean
+mensajes de un usuario, de otro agente o LLM, o de otra fuente. Un hilo puede
+tener varios agentes respondiendo o ser usado por un solo agente.
+
+Los flujos de trabajo basados en agentes se construyen combinando prompts contextuales (hilos,
+mensajes, respuestas de herramientas, RAG, etc.) y enrutamiento dinámico mediante llamadas a herramientas de LLM,
+salidas estructuradas de LLM o multitud de otras técnicas mediante código personalizado.
+
+## Definición básica de Agent \{#basic-agent-definition\}
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "Basic Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+});
+```
+
+Consulta [más abajo](#customizing-the-agent) para más opciones de configuración.
+
+Todo excepto el nombre se puede sobrescribir en el lugar donde llames al
+LLM, y muchas de las funcionalidades disponibles en el agente se pueden usar sin un Agent, si no necesitas organizar el trabajo de esta manera para tu caso de uso.
+
+## Definición dinámica de un Agent \{#dynamic-agent-definition\}
+
+Puedes definir un Agent en tiempo de ejecución, lo cual es útil si quieres crear un
+Agent para un contexto específico. Esto permite que el LLM invoque herramientas sin
+que tenga que proporcionar siempre el contexto completo en cada llamada. También
+permite elegir dinámicamente un modelo u otras opciones para el Agent.
+
+```ts
+import { Agent } from "@convex-dev/agent";
+import { type LanguageModel } from "ai";
+import type { ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { components } from "./_generated/api";
+
+function createAuthorAgent(
+  ctx: ActionCtx,
+  bookId: Id<"books">,
+  model: LanguageModel,
+) {
+  return new Agent(components.agent, {
+    name: "Author",
+    languageModel: model,
+    tools: {
+      // See https://docs.convex.dev/agents/tools
+      getChapter: getChapterTool(ctx, bookId),
+      researchCharacter: researchCharacterTool(ctx, bookId),
+      writeChapter: writeChapterTool(ctx, bookId),
+    },
+    maxSteps: 10, // Alternativa a stopWhen: stepCountIs(10)
+  });
+}
+```
+
+## Generar texto con un Agent \{#generating-text-with-an-agent\}
+
+Para generar un mensaje, proporcionas un prompt (como cadena o como lista de mensajes)
+que se usará como contexto para generar uno o más mensajes mediante un LLM, usando llamadas
+como `agent.streamText` o `agent.generateObject`.
+
+Los argumentos de `generateText` y de otras funciones son los mismos que en el AI SDK, excepto
+que no tienes que proporcionar un modelo. De forma predeterminada usará el modelo de lenguaje
+del agente. También hay argumentos adicionales específicos del componente Agent,
+como `promptMessageId`, que veremos a continuación.
+
+[**Consulta aquí la lista completa de argumentos del AI SDK**](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text)
+
+El historial de mensajes se proporcionará de forma predeterminada como contexto a partir del
+[hilo](./threads.mdx) dado. Consulta [Contexto del LLM](./context.mdx) para obtener detalles sobre cómo
+configurar el contexto proporcionado.
+
+Nota: `authorizeThreadAccess`, mencionada a continuación, es una función que escribirías para
+autenticar y autorizar al usuario a acceder al hilo. Puedes ver un ejemplo de
+implementación en
+[threads.ts](https://github.com/get-convex/agent/blob/main/example/convex/threads.ts).
+
+Consulta
+[chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)
+o
+[chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+para ver ejemplos de código en vivo.
+
+### Texto en streaming \{#streaming-text\}
+
+El texto en streaming sigue el mismo patrón que el enfoque descrito a continuación, pero con algunas
+diferencias, según el tipo de streaming que estés realizando. Consulta
+[streaming](./streaming.mdx) para más detalles.
+
+### Enfoque básico (sincrónico) \{#basic-approach-synchronous\}
+
+```ts
+export const generateReplyToPrompt = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+Nota: la práctica recomendada es no depender de devolver datos desde la acción. En su lugar,
+consulta los mensajes del hilo mediante el hook `useThreadMessages` y recibirás el
+nuevo mensaje automáticamente. Ver más abajo.
+
+### Guardar el prompt y luego generar respuestas de forma asíncrona \{#saving-the-prompt-then-generating-responses-asynchronously\}
+
+Si bien el enfoque anterior es sencillo, generar respuestas de forma asíncrona
+ofrece algunos beneficios:
+
+* Puedes configurar actualizaciones optimistas de la interfaz de usuario en
+  mutaciones transaccionales, de modo que el mensaje se mostrará de forma
+  optimista en el cliente hasta que se guarde y aparezca en tu consulta de
+  mensajes.
+* Puedes guardar el mensaje en la misma mutación (transacción) que otras
+  escrituras en la base de datos. Este mensaje luego se puede usar y reutilizar
+  en una acción con reintentos, sin duplicar el mensaje de prompt en el
+  historial. Si `promptMessageId` se usa para múltiples generaciones,
+  cualquier respuesta anterior se incluirá automáticamente como contexto, para
+  que el LLM pueda continuar donde lo dejó. Consulta [workflows](./workflows.mdx)
+  para obtener más detalles.
+* Gracias a las garantías de idempotencia de las mutaciones, el cliente puede
+  reintentar de forma segura las mutaciones durante días hasta que se ejecuten
+  exactamente una vez. Las acciones pueden fallar de forma transitoria.
+
+Cualquier cliente que liste los mensajes recibirá automáticamente los nuevos
+mensajes a medida que se creen de forma asíncrona.
+
+Para generar respuestas de forma asíncrona, primero debes guardar el mensaje y
+luego pasar `messageId` como `promptMessageId` para generar o transmitir texto.
+
+```ts
+import { components, internal } from "./_generated/api";
+import { saveMessage } from "@convex-dev/agent";
+import { internalAction, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+// Paso 1: Guardar un mensaje de usuario e iniciar una respuesta asíncrona.
+export const sendMessage = mutation({
+  args: { threadId: v.id("threads"), prompt: v.string() },
+  handler: async (ctx, { threadId, prompt }) => {
+    const { messageId } = await saveMessage(ctx, components.agent, {
+      threadId,
+      prompt,
+    });
+    await ctx.scheduler.runAfter(0, internal.example.generateResponseAsync, {
+      threadId,
+      promptMessageId: messageId,
+    });
+  },
+});
+
+// Paso 2: Generar una respuesta a un mensaje de usuario.
+export const generateResponseAsync = internalAction({
+  args: { threadId: v.string(), promptMessageId: v.string() },
+  handler: async (ctx, { threadId, promptMessageId }) => {
+    await agent.generateText(ctx, { threadId }, { promptMessageId });
+  },
+});
+```
+
+Ten en cuenta que la acción no tiene que devolver ningún valor. Todos los mensajes se guardan automáticamente, por lo que cualquier cliente suscrito al hilo de mensajes recibirá el nuevo mensaje a medida que se va generando de forma asíncrona.
+
+### Generar un objeto \{#generating-an-object\}
+
+De forma similar al AI SDK, puedes generar o hacer streaming de un objeto. Se aplican los mismos argumentos,
+salvo que no tienes que especificar un modelo. Se usará el modelo de lenguaje
+predeterminado del agente.
+
+```ts
+import { z } from "zod/v3";
+
+const result = await thread.generateObject({
+  prompt: "Generate a plan based on the conversation so far",
+  schema: z.object({...}),
+});
+```
+
+Lamentablemente, la generación de objetos no admite el uso de herramientas. Sin embargo, una opción es estructurar tu objeto como los argumentos de una llamada a una herramienta que devuelva el objeto.
+Puedes usar un `stopWhen` personalizado para detener la generación cuando la llamada a la herramienta produzca el resultado y usar `toolChoice: "required"` para evitar que el LLM devuelva una respuesta de texto.
+
+## Personalizar el agente \{#customizing-the-agent\}
+
+De forma predeterminada, el agente solo necesita que se configure un modelo `chat`. Sin embargo, para la búsqueda vectorial necesitarás un modelo `textEmbeddingModel`. Un `name` es útil para atribuir cada mensaje a un agente específico. El resto de opciones son valores predeterminados que se pueden sobrescribir en cada llamada al LLM.
+
+```ts
+import { tool, stepCountIs } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod/v3";
+import { Agent, createTool, type Config } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+const sharedDefaults = {
+  // El modelo de lenguaje que se usará para el agente.
+  languageModel: openai.chat("gpt-4o-mini"),
+  // Modelo de embedding para impulsar la búsqueda vectorial del historial de mensajes (RAG).
+  textEmbeddingModel: openai.embedding("text-embedding-3-small"),
+  // Se usa para obtener mensajes de contexto. Ver https://docs.convex.dev/agents/context
+  contextOptions,
+  // Se usa para almacenar mensajes. Ver https://docs.convex.dev/agents/messages
+  storageOptions,
+  // Se usa para rastrear el uso de tokens. Ver https://docs.convex.dev/agents/usage-tracking
+  usageHandler: async (ctx, args) => {
+    const { usage, model, provider, agentName, threadId, userId } = args;
+    // ... registra, guarda el uso en tu base de datos, etc.
+  },
+  // Se usa para filtrar, modificar o enriquecer los mensajes de contexto. Ver https://docs.convex.dev/agents/context
+  contextHandler: async (ctx, args) => {
+    return [...customMessages, args.allMessages];
+  },
+  // Útil si quieres registrar o grabar cada solicitud y respuesta.
+  rawResponseHandler: async (ctx, args) => {
+    const { request, response, agentName, threadId, userId } = args;
+    // ... registra, guarda solicitud/respuesta en tu base de datos, etc.
+  },
+  // Se usa para limitar el número de reintentos cuando falla una llamada de herramienta. Por defecto: 3.
+  callSettings: { maxRetries: 3, temperature: 1.0 },
+} satisfies Config;
+
+
+const supportAgent = new Agent(components.agent, {
+  // El prompt del sistema por defecto si no se sobrescribe.
+  instructions: "Eres un asistente útil.",
+  tools: {
+    // Herramienta de Convex. Ver https://docs.convex.dev/agents/tools
+    myConvexTool: createTool({
+      description: "Mi herramienta de Convex",
+      args: z.object({...}),
+      // Nota: anota el tipo de retorno del handler para evitar ciclos de tipos.
+      handler: async (ctx, args): Promise<string> => {
+        return "¡Hola, mundo!";
+      },
+    }),
+    // Herramienta estándar de AI SDK
+    myTool: tool({ description, parameters, execute: () => {}}),
+  },
+  // Se usa para limitar el número de pasos cuando se involucran llamadas de herramientas.
+  // NOTA: si quieres que las llamadas de herramientas ocurran automáticamente con una sola llamada,
+  // necesitas establecer esto en algo mayor que 1 (el valor por defecto).
+  stopWhen: stepCountIs(5),
+  ...sharedDefaults,
+});
+```

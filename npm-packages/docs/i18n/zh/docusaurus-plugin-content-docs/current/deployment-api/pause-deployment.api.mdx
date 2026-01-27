@@ -1,0 +1,59 @@
+---
+id: pause-deployment
+title: "暂停部署"
+description: "在不删除任何数据的情况下禁用部署。该部署将不会"
+sidebar_label: "暂停部署"
+hide_title: true
+hide_table_of_contents: true
+api: eJztVktrJDcQ/iuFTmvo6bGd2xACZk1gicFmbROCbeyaVs1IO2pJq4e9nab/e5DU8+jYSzDsYQ+5zKOe31cqlapnnHzjpA3SaLZg59LjUpEHBE5Wma4lHeBFBmFiAE6KgtRrQN0Bx4A13AiaWioF2oR7bSw5DARRB6lABpAeorYYPfEa/hRS0TSJ9FC0FWh6gVXUTQLl73WDSvkS2lGITgNqIOeMq8A3gnhUxOGLWY5GXyNFAtQcXNTwIkhDEHSvp8kc+dimbMmwcUYfRFgS+I20NkG9EdJDS6g9BIEBtLnXW3BQoBkHS9T8RfIgIHpc0y5MI9CticNLJhym1ZL+Xm85L2MAH4xLzo3xYUTiQ/pEa1VXs4qVqkqjP3G2YNn3cR+QVcyRt0Z78mzRs9Pj4/Q1PWI2DBXz1EQnQ8cWdz07zwHgD0p/H4aqZ5dnMQi4IWzhxmxIb+WvJcXyypkv1IQD1UPFWgrCZJjGJ2gWg2ALNn8DtSf3TM5nNNEptmD9Xj+LTg1ztHL+fMKqf7H5y0QHH41+pm8wCfmMTuZWLhU4DFYkK4wqsAUTIVi/mM8FWtvNUMsW1ezk9Je6yVHrRpnI3857cJS3ny/YMCTa29JeN4Lakv6wwD0LnSW2YGhlElRMpniCkJNjFdPYJm0qq3Hy73zYr7KPATfUeUBHkFoIVmaCaNcqvoZrIrjjOydIEPzDhy11bhq/pcvped4oOS/Wsw11s2x9lOO3xhFIvTKuzbFruPWlrZ/GQ3gC62glv8EHqtd1tZP/WgI+bqj77emoZkP1du/8kPpcLgNKTRyCcCauBSDcjThK0nShZJOdv1+GFjWuKXcNWnmUxyDYEa5vjKV30DcYg3gcvR9DIjutw+Hd+nmL8G7GE6Y/nONHRxiIg9RltqIXS4OOQ9ScHISUz1NIj5bPDZxeriztTIQGNRR+76CVvA9ZDQn4ymRCMqiEeTQ931/Gs6tPr7Cf8VbqpMnApA7ksMnPa260/VX2afIr2ZD2lNKMlbkoks+0mv1+fTE7qU9mZxYbQbPT+jiVk5MOciXJ/afxULE0fwuuk/q4iNLcblEfpLxKo3s6ZyecetYYHZLi/1XiZ18lxtsX6FuYW4VSpyMfX8fyVN+9XjAeKibSa764Y32/RE+3Tg1DEn+N5PL+sH96y46w3wOuLq9vWMXSWJhe/02+/uOPtANsVbrLL7mKb02CbJw/0yLypkvfl+EyDDv7ovqux278FOtUlYdhGP4Bu6/tcw==
+sidebar_class_name: "post api-method"
+info_path: deployment-api/convex-deployment-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"暂停部署"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/pause_deployment"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+在不删除任何数据的情况下将部署停用。该部署在取消暂停之前将不会运行。当部署处于暂停状态时，新的函数调用会返回错误，计划任务会排队，并在部署恢复后运行，而 cron 任务将被跳过。这意味着在部署暂停期间，不会对函数调用或带宽使用进行计费，但仍会收取存储费用。
+
+<ParamsDetails
+  parameters={undefined}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"请求体"}
+  body={undefined}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":""}}}
+>
+  
+</StatusCodes>

@@ -1,0 +1,109 @@
+---
+title: "Id de documentos"
+sidebar_position: 10
+description: "Crea modelos de datos relacionales complejos usando Id"
+---
+
+import SerializeExample from "!!raw-loader!@site/../private-demos/snippets/convex/tasks.ts";
+import SerializeCall from "!!raw-loader!@site/../private-demos/snippets/src/documentIdsSerializeCall.tsx";
+
+**Ejemplo:**
+[Relational Data Modeling](https://github.com/get-convex/convex-demos/tree/main/relational-data-modeling)
+
+Cada documento en Convex tiene una cadena de caracteres que sirve como *ID de documento*, única a nivel global, que se genera automáticamente por el sistema.
+
+```ts
+const userId = await ctx.db.insert("users", { name: "Michael Jordan" });
+```
+
+Puedes usar este ID para leer de forma eficiente un único documento con el método `get`:
+
+```ts
+const retrievedUser = await ctx.db.get("users", userId);
+```
+
+Puedes acceder al Id de un documento en el
+[campo `_id`](/database/types.md#system-fields):
+
+```ts
+const userId = retrievedUser._id;
+```
+
+Además, este mismo Id se puede usar para actualizar directamente ese Documento:
+
+```ts
+await ctx.db.patch("users", userId, { name: "Steph Curry" });
+```
+
+Convex genera un tipo de TypeScript [`Id`](/generated-api/data-model#id) basado
+en tu [esquema](/database/schemas.mdx), parametrizado por los nombres de tus tablas:
+
+```typescript
+import { Id } from "./_generated/dataModel";
+
+const userId: Id<"users"> = user._id;
+```
+
+Los IDs son cadenas en tiempo de ejecución, pero el tipo [`Id`](/generated-api/data-model#id)
+se puede usar para distinguirlos de otras cadenas en tiempo de compilación.
+
+## Referencias y relaciones \{#references-and-relationships\}
+
+En Convex, puedes hacer referencia a un documento simplemente incluyendo su `Id` en otro
+documento:
+
+```ts
+await ctx.db.insert("books", {
+  title,
+  ownerId: user._id,
+});
+```
+
+Puedes seguir las referencias con `ctx.db.get`:
+
+```ts
+const user = await ctx.db.get("users", book.ownerId);
+```
+
+Y [consulta documentos](/database/reading-data/reading-data.mdx) mediante una
+referencia:
+
+```ts
+const myBooks = await ctx.db
+  .query("books")
+  .filter((q) => q.eq(q.field("ownerId"), user._id))
+  .collect();
+```
+
+El uso de `Id`s como referencias puede permitirte crear un modelo de datos complejo.
+
+## Equilibrar documentos profundamente anidados y relaciones \{#trading-off-deeply-nested-documents-vs-relationships\}
+
+Si bien es útil que Convex admita objetos y arrays anidados, deberías mantener
+los documentos relativamente pequeños. En la práctica, recomendamos
+limitar los arrays a no más de 5-10 elementos y evitar objetos profundamente
+anidados.
+
+En su lugar, aprovecha tablas, documentos y referencias separados para
+estructurar tus datos. Esto dará como resultado una mejor mantenibilidad y
+rendimiento a medida que tu proyecto crezca.
+
+## Serialización de ID \{#serializing-ids\}
+
+Los IDs son cadenas de texto que se pueden insertar fácilmente en URL o almacenar fuera de
+Convex.
+
+Puedes pasar una cadena de texto con un ID desde una fuente externa (como una URL) a una función
+de Convex y obtener el objeto correspondiente. Si estás usando TypeScript en el
+cliente, puedes convertir una cadena de texto al tipo `Id`:
+
+<Snippet title="src/App.tsx" source={SerializeCall} highlightPatterns={[" as "]} />
+
+Dado que este ID proviene de una fuente externa, usa un validador de argumentos o
+[`ctx.db.normalizeId`](/api/interfaces/server.GenericDatabaseReader#normalizeid)
+para confirmar que el ID pertenece a la tabla esperada antes de devolver el
+objeto.
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={SerializeExample} sourceJS={SerializeExample} highlightPatterns={["v.id"]} />
+
+<StackPosts query="document IDs" />

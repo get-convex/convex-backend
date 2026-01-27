@@ -1,0 +1,102 @@
+---
+title: Guía de inicio rápido de Remix
+sidebar_label: Remix
+description: "Agregar Convex a un proyecto de Remix"
+hide_table_of_contents: true
+sidebar_position: 200
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/remix/sampleData.jsonl";
+import root from "!!raw-loader!@site/../private-demos/quickstarts/remix/app/root.tsx";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/remix/convex/tasks.ts";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/remix/app/routes/_index.tsx";
+
+Aprende a consultar datos de Convex en una app Remix.
+
+<StepByStep>
+  <Step title="Crea un sitio Remix">
+    Crea un sitio Remix usando el comando `npx create-remix@latest`.
+
+    <br />
+
+    ```sh
+    npx create-remix@latest my-remix-app
+    ```
+  </Step>
+
+  <Step title="Instala la librería de Convex">
+    Para comenzar, instala el paquete `convex`.
+
+    ```sh
+    cd my-remix-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="Configura un despliegue dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URL de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde podrás escribir las funciones de tu API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    Crea un archivo `sampleData.jsonl` en la raíz de tu app
+    y complétalo con los datos de ejemplo proporcionados.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Agrega los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, agrega una tabla `tasks`
+    con los datos de ejemplo que acabas de crear en `sampleData.jsonl`
+    a tu base de datos de Convex usando el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Agrega un nuevo archivo <JSDialectFileName name="tasks.ts" /> en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API con el nombre del archivo
+    y el nombre del export, `api.tasks.get`.
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="Conecta el ConvexProvider">
+    Modifica `app/root.tsx` para configurar allí el cliente de Convex y hacerlo disponible en cada página de tu app.
+
+    <Snippet source={root} title="app/root.tsx" />
+  </Step>
+
+  <Step title="Muestra los datos en tu app">
+    En `app/routes/_index.tsx` usa `useQuery` para suscribirte a tu función de API
+    `api.tasks.get`.
+
+    <Snippet source={index} title="app/routes/_index.tsx" />
+  </Step>
+
+  <Step title="Inicia la app">
+    Inicia la app, abre [http://localhost:5173](http://localhost:5173) en un navegador
+    y ve la lista de tareas.
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+Remix usa la librería web React. Consulta la
+[documentación completa de React](/client/react.mdx).

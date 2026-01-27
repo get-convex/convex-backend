@@ -1,0 +1,111 @@
+---
+title: "其他建议"
+sidebar_position: 170
+sidebar_class_name: "hidden"
+pagination_next: null
+description:
+  "更多 Convex 开发实践建议，包括 TypeScript 的使用、辅助函数、数据库模式以及 UI 优化技巧。"
+---
+
+import UserHelpers from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpers.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+{/* 本页面之前是“最佳实践”页面，现已重写 */}
+
+{/* 删去了部分内容。我们将其保留为一个隐藏页面，其 */}
+
+{/* 仍可被抓取 */}
+
+以下是我们关于如何充分利用 Convex 构建你的应用的一系列推荐做法。如果你想要更贴合你应用需求的具体指导，或者发现了其他使用 Convex 的方式，
+[欢迎在 Discord 上给我们留言](https://convex.dev/community)!
+
+## 使用 [TypeScript](/understanding/best-practices/typescript.mdx) \{#use-typescript\}
+
+所有 Convex 库都带有完整的类型注解，使用这些类型是学习该框架的绝佳方式。
+
+更进一步，Convex 支持[代码生成](/generated-api/)，为你的应用生成特定的类型，这些类型基于你的[模式](/database/schemas.mdx)和
+[Convex 函数](/functions.mdx)。
+
+代码生成会通过 [`npx convex dev`](/cli.md#run-the-convex-dev-server) 自动执行。
+
+## 将生成的代码提交到版本控制 \{#check-generated-code-into-version-control\}
+
+在 convex 文件夹中有一个 `_generated/` 目录，包含为你的 Convex 函数定制的代码。将这个文件夹提交到你的 git 仓库中。这样你的代码在不需要先运行 `npx convex codegen` 或 `npx convex dev`（其中包含代码生成）的情况下也能通过类型检查。
+
+这也允许开发者在无需运行 Convex CLI 工具的情况下，通过设置环境变量，让一个使用 Convex 的项目直接针对生产部署运行并进行修改。要针对生产部署运行，可以将一个类似 VITE&#95;CONVEX&#95;URL 的环境变量（具体变量名取决于你使用的框架）设置为一个生产部署 URL，例如在仪表盘中项目的生产部署设置里找到的 `https://happy-otter-123.convex.cloud`。大多数框架会在名为 `.env` 或 `.env.production` 的文件中查找这类变量。
+
+## 函数 \{#functions\}
+
+### 在所有公共函数中使用[参数验证](/functions/validation.mdx)。 \{#use-argument-validation-in-all-public-functions\}
+
+参数验证可以防止恶意用户使用错误类型的参数调用你的函数。对于[内部函数](/functions/internal-functions.mdx)，可以省略参数验证，因为它们不会被外部直接访问。
+
+### 使用 `console.log` 调试你的 Convex 函数。 \{#use-consolelog-to-debug-your-convex-functions\}
+
+所有来自 Convex 函数的服务端日志都会显示在
+[仪表盘 Logs 页面](/dashboard/deployments/logs.md)。如果发生服务端异常，
+也会作为错误事件被记录下来。
+
+在 **开发环境（dev）部署** 中，这些日志还会被转发到客户端，并显示在
+触发该函数调用的用户浏览器开发者工具的 Console 控制台中，其中包括完整的服务器错误信息和服务端堆栈追踪。
+
+### 使用辅助函数来编写共享代码。 \{#use-helper-functions-to-write-shared-code\}
+
+在你的 `convex/` 目录中编写辅助函数，并在 Convex 函数中使用它们。辅助函数是复用业务逻辑、鉴权代码等内容的一种强大方式。
+
+辅助函数可以在复用代码的同时，依然让整个查询或变更在单个事务中执行。对于操作，通过辅助函数复用代码而不是使用 `ctx.runAction`，可以减少函数调用次数和资源占用。
+
+查看 [TypeScript 页面](/understanding/best-practices/typescript.mdx) 以获取有用的类型。
+
+<TSAndJSSnippet sourceTS={Teams} sourceJS={TeamsJS} title="convex/teams.js" />
+
+<TSAndJSSnippet sourceTS={UserHelpers} sourceJS={UserHelpersJS} title="convex/userHelpers.js" snippet="userHelpers" suffix={`}`} />
+
+### 优先使用查询函数和变更函数而不是操作函数 \{#prefer-queries-and-mutations-over-actions\}
+
+当可以通过查询函数或变更函数实现同样目标时，一般应避免使用操作函数。由于操作函数可能产生副作用，它们既不能被自动重试，其结果也无法被缓存。操作函数应只在更有限的场景中使用，例如调用第三方服务。
+
+## 数据库 \{#database\}
+
+### 对所有大型数据库查询使用索引或分页。 \{#use-indexes-or-paginate-all-large-database-queries\}
+
+[数据库索引](/database/reading-data/indexes/indexes.md)与
+[范围表达式](/database/reading-data/indexes/indexes.md#querying-documents-using-indexes)
+结合使用，可以让你编写高效的数据库查询，只需要扫描表中少量的文档。[分页](/database/pagination.mdx)可以帮助你
+快速展示逐步加载的结果列表。如果你的表可能包含超过几千条文档，就应该考虑使用分页，或者使用带有
+范围表达式的索引，以确保查询始终保持快速。
+
+想了解更多细节，请查看我们的
+[索引与查询性能简介](/database/reading-data/indexes/indexes-and-query-perf.md)
+一文。
+
+### 使用数据表来区分不同的逻辑对象类型。 \{#use-tables-to-separate-logical-object-types\}
+
+尽管 Convex 支持嵌套文档，但通常更好的做法是将不同的对象放入不同的数据表中，并使用 `Id` 在它们之间创建引用。这样在加载和[查询文档](/database/reading-data/reading-data.mdx)时会更灵活。
+
+你可以在[文档 ID](/database/document-ids.mdx)中了解更多相关内容。
+
+## UI 设计模式 \{#ui-patterns\}
+
+### 通过检查 `undefined` 来判断查询是否处于加载状态。 \{#check-for-undefined-to-determine-if-a-query-is-loading\}
+
+[`useQuery` React hook](/api/modules/react#usequery) 在首次挂载时会返回 `undefined`，
+此时查询尚未从 Convex 加载完成。一旦查询加载完成，之后就不会再返回 `undefined`
+（即使数据在响应式更新）。`undefined` 不是查询的有效返回类型（你可以在
+[Data Types](/database/types.md) 中查看 Convex 支持的类型）。
+
+你可以利用这一点来判断何时渲染加载指示器和占位 UI。
+
+### 为需要快速响应的交互添加乐观更新。 \{#add-optimistic-updates-for-the-interactions-you-want-to-feel-snappy\}
+
+默认情况下，所有相关的 `useQuery` Hook 会在变更从 Convex 同步后自动更新。
+如果你希望某些交互更加迅速，可以在 `useMutation` 调用中添加
+[乐观更新](/client/react/optimistic-updates.mdx)，让 UI 立即更新。
+
+### 使用异常处理服务和错误边界来管理错误。 \{#use-an-exception-handling-service-and-error-boundaries-to-manage-errors\}
+
+在实际开发中，你的 Convex 函数难免会出现 bug 并抛出异常。如果你配置了异常处理服务和错误边界，就可以确保自己能够及时获知这些错误，同时让用户看到合适的界面反馈。
+
+更多信息参见 [Error Handling](/functions/error-handling/error-handling.mdx)。

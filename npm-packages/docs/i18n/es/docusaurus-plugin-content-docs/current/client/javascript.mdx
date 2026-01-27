@@ -1,0 +1,60 @@
+---
+title: "JavaScript"
+sidebar_label: "JavaScript"
+sidebar_position: 350
+description:
+  "Clientes de JavaScript para aplicaciones en Node.js y en el navegador que usan Convex"
+---
+
+import Http from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+
+# Clientes JavaScript de Convex \{#convex-javascript-clients\}
+
+Se puede acceder a las aplicaciones de Convex desde Node.js o cualquier entorno de ejecución de JavaScript que
+implemente [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) o
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket). El
+[Convex Client](/api/classes/browser.ConvexClient) reactivo permite que las aplicaciones web
+y los servidores de Node.js de ejecución prolongada se suscriban a actualizaciones en las
+consultas de Convex, mientras que el [cliente HTTP de Convex](/api/classes/browser.ConvexHttpClient)
+se suele usar para renderizado del lado del servidor, migraciones, scripts administrativos
+y funciones serverless para ejecutar consultas en un momento puntual.
+
+Si usas React, consulta el
+[`ConvexReactClient`](/api/classes/browser.ConvexClient) descrito en
+[React](/client/react.mdx).
+
+## Cliente de Convex \{#convex-client\}
+
+El [`ConvexClient`](/api/classes/browser.ConvexClient) proporciona suscripciones
+a consultas en Node.js y en cualquier entorno JavaScript que admita WebSockets.
+
+import VanillaTS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+import VanillaJS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={VanillaTS} sourceJS={VanillaJS} />
+
+El cliente de Convex es de código abierto y está disponible en
+[GitHub](https://github.com/get-convex/convex-js).
+
+Consulta la [guía rápida para la etiqueta `<script>`](/quickstart/script-tag.mdx) para empezar.
+
+## Cliente HTTP \{#http-client\}
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/nodeExample.ts";
+
+[`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) funciona en el
+navegador, en Node.js y en cualquier entorno JavaScript con `fetch`.
+
+Consulta la [guía de inicio rápido de Node.js](/quickstart/nodejs.mdx).
+
+<TSAndJSSnippet title="script.ts" sourceTS={Example} sourceJS={Example} />
+
+## Usar Convex sin el archivo generado `convex/_generated/api.js` \{#using-convex-without-generated-convex_generatedapijs\}
+
+Si el código fuente de tu función de Convex no está ubicado en el mismo proyecto o
+en el mismo monorepo, puedes usar el objeto sin tipado `api` llamado `anyApi`.
+
+import StringsTS from "!!raw-loader!@site/../private-demos/snippets/src/strings.ts";
+import StringsJS from "!!raw-loader!@site/../private-demos/snippets/src/strings.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={StringsTS} sourceJS={StringsJS} />

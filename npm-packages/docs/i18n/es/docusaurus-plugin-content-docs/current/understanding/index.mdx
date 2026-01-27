@@ -1,0 +1,259 @@
+---
+title: "Descripción general de Convex"
+hidden: false
+sidebar_position: 100
+pagination_next: understanding/workflow
+description:
+  "Introducción a Convex: la base de datos reactiva con consultas en TypeScript"
+---
+
+Convex es la base de datos reactiva de código abierto donde las consultas son
+código TypeScript que se ejecuta directamente en la base de datos. Al igual que
+los componentes de React reaccionan a los cambios de estado, las consultas de
+Convex reaccionan a los cambios en la base de datos.
+
+Convex proporciona una base de datos, un lugar para escribir tus funciones de
+servidor y bibliotecas de cliente. Facilita la creación y el escalado de
+aplicaciones dinámicas con actualización en tiempo real.
+
+El siguiente diagrama muestra la arquitectura estándar de aplicaciones de tres
+capas que Convex hace posible. Empezaremos desde abajo y avanzaremos hasta la
+parte superior de este diagrama.
+
+<div className="center-image" style={{ maxWidth: "600px", background: "white", borderRadius: "10px" }}>
+  ![Convex en tu app](/img/basic-diagram.png)
+</div>
+
+## Base de datos \{#database\}
+
+La [base de datos](/database.mdx) está en el núcleo de Convex. La base de datos de Convex se
+aprovisiona automáticamente cuando creas tu proyecto. No hay configuración de
+conexión ni gestión de clústeres.
+
+<Admonition type="info">
+  En Convex, tus consultas a la base de datos son simplemente
+  [código TypeScript](/database/reading-data/reading-data.mdx) escrito en tus
+  [funciones de servidor](/functions.mdx). No hay SQL que escribir. No necesitas ORMs.
+</Admonition>
+
+La base de datos de Convex es reactiva. Cada vez que cambian los datos de los que depende una consulta,
+la consulta se vuelve a ejecutar y se actualizan las suscripciones de los clientes.
+
+Convex es una base de datos &quot;documento‑relacional&quot;. &quot;Documento&quot; significa que guardas objetos
+anidados de tipo JSON en tu base de datos. &quot;Relacional&quot; significa que tienes tablas con
+relaciones, como `tasks` asignadas a un `user` mediante IDs para referenciar documentos en
+otras tablas.
+
+La oferta en la nube de Convex se ejecuta sobre Amazon RDS usando MySQL como capa de
+persistencia. La versión de código abierto utiliza SQLite, Postgres y MySQL. La
+base de datos cumple con ACID y utiliza
+[aislamiento serializable y control de concurrencia optimista](/database/advanced/occ.md).
+En resumen, Convex proporciona las garantías transaccionales más estrictas
+posibles y nunca verás datos inconsistentes.
+
+## Funciones de servidor \{#server-functions\}
+
+Cuando creas un nuevo proyecto de Convex, obtienes automáticamente una carpeta `convex/`
+donde escribes tus [funciones de servidor](/functions.mdx). Aquí es donde se encuentra toda la
+lógica de tu aplicación de backend y el código de consulta a la base de datos.
+
+Ejemplo de funciones de servidor en TypeScript que leen (consulta) y escriben (mutación) en
+la base de datos.
+
+```typescript title="convex/tasks.ts"
+// Una función de consulta de Convex
+export const getAllOpenTasks = query({
+  args: {},
+  handler: async (ctx, args) => {
+    // Consulta la base de datos para obtener todos los elementos que no están completados
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_completed", (q) => q.eq("completed", false))
+      .collect();
+    return tasks;
+  },
+});
+
+// Una función de mutación de Convex
+export const setTaskCompleted = mutation({
+  args: { taskId: v.id("tasks"), completed: v.boolean() },
+  handler: async (ctx, { taskId, completed }) => {
+    // Actualiza la base de datos usando TypeScript
+    await ctx.db.patch("tasks", taskId, { completed });
+  },
+});
+```
+
+Lees y escribes en tu base de datos mediante funciones de consulta o de mutación.
+[Las funciones de consulta](/functions/query-functions.mdx) son funciones puras que
+solo pueden leer de la base de datos.
+[Las funciones de mutación](/functions/mutation-functions.mdx) son transacciones que
+pueden leer o escribir en la base de datos. Estas dos funciones de base de datos
+[no pueden realizar ninguna acción no determinista](/functions/runtimes.mdx#restrictions-on-queries-and-mutations),
+como solicitudes de red, para garantizar las propiedades transaccionales.
+
+<Admonition type="info">
+  Cada función de mutación de Convex es una transacción completa. No hay sentencias
+  de transacción `begin` o `end` que escribir. Convex vuelve a ejecutar
+  automáticamente la función en caso de conflictos y no tienes que gestionar nada.
+</Admonition>
+
+Convex también proporciona funciones serverless estándar y de propósito general llamadas
+acciones. [Las funciones de acción](/functions/actions.mdx) pueden hacer solicitudes de red.
+Tienen que llamar a funciones de consulta o de mutación para leer y escribir en la base de datos.
+Usas acciones para llamar a modelos de lenguaje (LLM) o enviar correos electrónicos.
+
+También puedes programar de forma persistente funciones de Convex mediante el
+[scheduler](scheduling/scheduled-functions.mdx) o
+[cron jobs](scheduling/cron-jobs.mdx). La programación te permite crear flujos de trabajo como
+enviar un correo electrónico a un usuario nuevo un día después si no ha realizado una tarea de onboarding.
+
+Llamas a tus funciones de Convex mediante [bibliotecas de cliente](/client/react.mdx) o
+directamente a través de [HTTP](/http-api/index.md#functions-api).
+
+## Bibliotecas cliente \{#client-libraries\}
+
+Las bibliotecas cliente de Convex mantienen tu frontend sincronizado con los resultados de tus funciones de servidor.
+
+```tsx
+// En tu componente React
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function TaskList() {
+  const data = useQuery(api.tasks.getAllOpenTasks);
+  return data ?? "Loading...";
+}
+```
+
+Al igual que el hook `useState`, que actualiza tu componente de React cuando cambia el estado local, el hook `useQuery` de Convex actualiza automáticamente tu componente siempre que cambie el resultado de tu consulta. No necesitas gestión manual de suscripciones ni sincronización de estado.
+
+Al llamar a funciones de consulta, la biblioteca cliente se suscribe a los resultados de la función. Convex realiza el seguimiento de las dependencias de tus funciones de consulta, incluidos los datos que se leyeron de la base de datos. Siempre que cambian datos relevantes en la base de datos, Convex vuelve a ejecutar automáticamente la consulta y envía el resultado al cliente.
+
+La biblioteca cliente también pone en cola las mutaciones en memoria para enviarlas al servidor. A medida que las mutaciones se ejecutan y hacen que se actualicen los resultados de las consultas, la biblioteca cliente mantiene coherente el estado de tu aplicación. Actualiza todas las suscripciones al mismo momento lógico en el tiempo dentro de la base de datos.
+
+Convex proporciona bibliotecas cliente para casi todos los frameworks populares de aplicaciones web y nativas. Las bibliotecas cliente se conectan a tu despliegue de Convex mediante WebSockets. Luego puedes llamar a tus funciones públicas de Convex
+[a través de la biblioteca](/client/react.mdx#fetching-data). También puedes usar Convex
+[directamente con HTTP](/http-api/index.md#functions-api); simplemente no obtendrás las suscripciones automáticas.
+
+## Pongámoslo todo junto \{#putting-it-all-together\}
+
+Volvamos a la función de consulta de Convex `getAllOpenTasks` que vimos antes y que
+obtiene todas las tareas que no están marcadas como `completed`:
+
+```typescript title="convex/tasks.ts"
+export const getAllOpenTasks = query({
+  args: {},
+  handler: async (ctx, args) => {
+    // Consulta la base de datos para obtener todos los elementos que no estén completados
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_completed", (q) => q.eq("completed", false))
+      .collect();
+    return tasks;
+  },
+});
+```
+
+Veamos qué ocurre cuando te suscribes a esta consulta:
+
+<div className="center-image" style={{ maxWidth: "1800px", background: "white", borderRadius: "10px" }}>
+  ![Convex data flow](/img/convex-query-subscription.png)
+</div>
+
+La aplicación web usa el hook `useQuery` para suscribirse a esta consulta, y
+ocurre lo siguiente para obtener un valor inicial:
+
+* El cliente de Convex envía un mensaje al servidor de Convex para suscribirse a la
+  consulta
+* El servidor de Convex ejecuta la función, que lee datos de la base de datos
+* El servidor de Convex envía un mensaje al cliente con el resultado de la función
+
+En este caso, el resultado inicial tiene este aspecto (1):
+
+```json
+[
+  { _id: "e4g", title: "Grocery shopping", complete: false },
+  { _id: "u9v", title: "Plant new flowers", complete: false },
+];
+```
+
+Luego utilizas una mutación para marcar un elemento como completado (2). Convex luego vuelve a ejecutar la
+consulta (3) para obtener un resultado actualizado y envía el resultado a la aplicación web a través de la
+conexión WebSocket (4):
+
+```json
+[
+  { _id: "e4g", title: "Grocery shopping", complete: false },
+];
+```
+
+## Más allá de la reactividad \{#beyond-reactivity\}
+
+Más allá de la reactividad, la arquitectura de Convex es crucial por una razón más profunda. Convex
+no permite que tu aplicación tenga un estado inconsistente en ninguna capa de la pila.
+
+Para ilustrar esto, imaginemos que estás creando un carrito de compras para una
+tienda de comercio electrónico.
+
+<div className="center-image" style={{ maxWidth: "600px" }}>
+  ![Convex en tu aplicación](/img/convex-swaghaus.png)
+</div>
+
+En la página de listado de productos tienes dos números: uno que muestra la cantidad de
+artículos restantes en inventario y otro que muestra la cantidad de artículos en tu
+carrito de compras. Cada número es el resultado de una función de consulta diferente.
+
+Cada vez que haces clic en el botón &quot;Agregar al carrito&quot;, se llama a una mutación para quitar
+un artículo del inventario y agregarlo al carrito de compras.
+
+La mutación que cambia el carrito se ejecuta en una transacción, por lo que tu base de datos
+siempre está en un estado consistente. La base de datos reactiva sabe que las consultas
+que muestran la cantidad de artículos en inventario y la cantidad de artículos en el
+carrito de compras deben actualizarse. Las consultas se invalidan y se vuelven a ejecutar. Los resultados
+se envían a la aplicación web a través de la conexión WebSocket.
+
+La biblioteca de cliente se asegura de que ambas consultas se actualicen al mismo tiempo en la
+aplicación web, ya que reflejan un único momento en el tiempo en tu base de datos. Nunca
+hay un momento en el que esos números no cuadren. Tu aplicación siempre muestra datos
+consistentes.
+
+Puedes ver este ejemplo en acción en la
+[aplicación de ejemplo Swaghaus](https://swaghaus.biz/).
+
+## Para código generado por humanos y por IA \{#for-human-and-ai-generated-code\}
+
+Convex está diseñado en torno a un pequeño conjunto de abstracciones componibles con sólidas
+garantías que dan como resultado código que no solo es más rápido de escribir, sino también más fácil de
+leer y mantener, ya sea escrito por un miembro del equipo o por un LLM. Funciones clave garantizan
+que obtengas código generado por IA sin errores:
+
+1. **Las consultas son simplemente TypeScript** Tus consultas a la base de datos son funciones
+   TypeScript puras con seguridad de tipos de extremo a extremo y soporte del IDE. Esto significa
+   que la IA puede generar código de acceso a la base de datos usando el gran conjunto de entrenamiento de
+   código TypeScript sin cambiar a SQL.
+2. **Menos código para el mismo trabajo** Como Convex administra automáticamente gran parte de la
+   infraestructura y el código repetitivo, hay menos código que escribir y, por lo tanto, menos
+   código en el que equivocarse.
+3. **Reactividad automática** El sistema reactivo rastrea automáticamente las dependencias de datos
+   y actualiza tu UI. La IA no necesita gestionar manualmente suscripciones, conexiones WebSocket
+   ni sincronización de estado compleja: Convex se encarga de todo esto automáticamente.
+4. **Garantías transaccionales** Las consultas son de solo lectura y las mutaciones se ejecutan en
+   transacciones. Estas restricciones hacen que sea casi imposible que la IA escriba código que
+   pueda corromper tus datos o dejar tu aplicación en un estado inconsistente.
+
+En conjunto, estas características significan que la IA puede centrarse en tu lógica de negocio
+mientras que las garantías de Convex previenen formas comunes de fallo.
+
+## Más información \{#learn-more\}
+
+<div style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/3d29eKJ2Vws" title="Reproductor de video de YouTube" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+</div>
+
+Si te intrigan los detalles de cómo Convex consigue que todo esto funcione, puedes
+leer el excelente artículo del blog del cofundador de Convex, Sujay,
+[How Convex Works](https://stack.convex.dev/how-convex-works).
+
+Ahora que tienes una buena idea de cómo encaja Convex en tu aplicación, vamos a repasar
+el flujo de trabajo general para configurar y poner en marcha una aplicación de Convex.

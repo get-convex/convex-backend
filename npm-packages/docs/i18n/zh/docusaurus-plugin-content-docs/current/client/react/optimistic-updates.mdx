@@ -1,0 +1,58 @@
+---
+title: "乐观更新"
+slug: "optimistic-updates"
+hidden: false
+sidebar_position: 90
+description: "使用乐观式 UI 更新让你的 React 应用响应更迅速"
+---
+
+import Simple from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesSimple.tsx";
+import ComplexTS from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesComplex.tsx";
+import ComplexJS from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesComplexJS.jsx";
+
+即使 Convex 查询是完全实时响应的，有时你也会希望在变更带来的更新传播回客户端之前就先更新 UI。要实现这一点，你可以配置一个 *乐观更新*，使其作为变更的一部分执行。
+
+乐观更新是对查询结果进行的临时本地更改，用于让你的应用响应更及时。这些更新由在某次变更调用上注册的函数完成，通过
+[`.withOptimisticUpdate`](/api/interfaces/react.ReactMutation#withoptimisticupdate)
+配置选项进行注册。
+
+当变更被发起时会运行乐观更新，如果本地查询结果发生变化则会重新运行，并在变更完成时回滚。
+
+## 简单示例 \{#simple-example\}
+
+下面展示了如何在一个简单计数器应用中，给 `increment` 变更添加乐观更新：
+
+<TSAndJSSnippet title="src/IncrementCounter.tsx" sourceTS={Simple} sourceJS={Simple} />
+
+乐观更新会接收一个
+[`localStore`](/api/interfaces/browser.OptimisticLocalStore)，这是 Convex 客户端内部状态的一个视图，随后是传递给该变更的参数。
+
+此乐观更新会在已加载的情况下，将 `api.counter.get` 查询中的值增加 `increment`。
+
+## 复杂示例 \{#complex-example\}
+
+如果我们想给一个多频道聊天应用添加乐观更新，它可能会像这样：
+
+<TSAndJSSnippet title="src/MessageSender.tsx" sourceTS={ComplexTS} sourceJS={ComplexJS} />
+
+这个乐观更新会修改当前频道的 `api.messages.list` 查询，使其包含一条新消息。新创建的消息对象应该与服务器端通过 `api.messages.list` 查询生成的真实消息结构相匹配。
+
+由于这条消息包含的是客户端的当前时间（而不是服务器时间），在变更执行完成后，它必然会与 `api.messages.list` 查询的结果不再匹配。没关系！变更完成并且查询更新之后，Convex 客户端会负责回滚这次更新。即使乐观更新中有一些小错误，UI 最终仍然会渲染出正确的值。
+
+类似地，这次更新会通过 `new Id("messages", crypto.randomUUID())` 创建一个临时的 `Id`。在服务器分配真正的 ID 之后，这个临时 ID 也会被回滚并替换为真实的 ID。
+
+最后需要注意的是，这次更新是通过创建一个新的消息数组来完成的，而不是使用 `existingMessages.push(newMessage)`。这一点非常重要！在乐观更新中就地修改对象会破坏客户端的内部状态，并导致出乎意料的结果。务必在乐观更新中创建新的对象。
+
+## 进一步学习 \{#learning-more\}
+
+如需了解更多，请查看我们的 API 文档：
+
+* [`.withOptimisticUpdate`](/api/interfaces/react.ReactMutation#withoptimisticupdate)
+* [`OptimisticUpdate`](/api/modules/browser#optimisticupdate)
+* [`OptimisticLocalStore`](/api/interfaces/browser.OptimisticLocalStore)
+
+如果你想动手实践，可以试着给这个
+[教程应用](https://github.com/get-convex/convex-tutorial)加上乐观更新！如果你这么做了，
+你会注意到应用响应更快了一点——只是一点点，Convex 已经相当快了！——但在行为上仍然完全一致。
+
+如果你还想进一步探索，试着在这个更新里故意写一个错误！你应该会看到界面闪一下，因为乐观更新被应用，然后又被回滚。

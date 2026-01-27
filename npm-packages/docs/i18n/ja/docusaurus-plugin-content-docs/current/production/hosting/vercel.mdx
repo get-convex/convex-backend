@@ -1,0 +1,201 @@
+---
+title: "Vercel で Convex を使用する"
+sidebar_label: "Vercel"
+description: "フロントエンドを Vercel、バックエンドを Convex でホスティングする"
+sidebar_position: 10
+---
+
+Convex アプリを Vercel にホストすると、コードをプッシュするたびに
+バックエンドとフロントエンドの両方が自動的に再デプロイされます。
+
+## Vercel へのデプロイ \{#deploying-to-vercel\}
+
+### Vercel Marketplace を使用する \{#using-the-vercel-marketplace\}
+
+<Admonition type="info">
+  Vercel Marketplace を使ってデプロイされたプロジェクトは、専用の
+  Convex チーム配下で管理されます。すでに Convex チームをお持ちの場合は、[こちらの手順](/production/hosting/vercel.mdx#connecting-your-convex-project-to-vercel)に従ってください。
+</Admonition>
+
+Convex は
+[Vercel Marketplace](https://vercel.com/marketplace/convex) から利用できます。マーケットプレイスを通じて、Convex プロジェクトを作成、デプロイし、有料サブスクリプションを利用している場合は支払いも Vercel 経由で行えます。
+
+Vercel Marketplace から作成された Convex プロジェクトは、自動デプロイされるように設定されます。
+
+テンプレートプロジェクトを Vercel Marketplace に素早くデプロイするには、次のボタンを使用します。
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex\&project-name=vercel-with-convex\&repository-name=vercel-with-convex\&demo-title=Convex%20with%20Vercel\&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel\&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F\&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+### Convex プロジェクトを Vercel と連携する \{#connecting-your-convex-project-to-vercel\}
+
+#### テンプレートを使用する \{#using-a-template\}
+
+新しいプロジェクトをすばやく開始するには、このボタンをクリックして指示に従うことで、
+Convex プロジェクトを Vercel にすぐにデプロイできます。
+
+**注意:** このテンプレートを使用するには、Convex ダッシュボードであらかじめプロジェクトを
+作成しておく必要があります。
+
+[![Deploy with
+Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex\&project-name=vercel-with-convex\&repository-name=vercel-with-convex\&demo-title=Convex%20with%20Vercel\&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel\&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F\&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+#### ゼロから始める \{#from-scratch\}
+
+このガイドでは、Convex を使った動作する React アプリがすでにあることを前提とします。まだない場合は、先に [Convex React クイックスタート](/quickstart/react.mdx) を完了してください。そのうえで、次の手順に従ってください。
+
+<StepByStep>
+  <Step title="Vercel アカウントを作成する">
+    まだの場合は、[Vercel](https://vercel.com) アカウントを作成してください。小規模なプロジェクトであれば無料で、セットアップには 1 分もかかりません。
+
+    <>    </>
+  </Step>
+
+  <Step title="Vercel 上でプロジェクトをリンクする">
+    https://vercel.com/new で Vercel プロジェクトを作成し、プロジェクトのソースコードリポジトリ（GitHub などの Git プラットフォーム）とリンクします。
+
+    ![Vercel import project](/screenshots/vercel_import.png)
+  </Step>
+
+  <Step title="Build command を上書きする">
+    &quot;Build command&quot; を
+    `npx convex deploy --cmd 'npm run build'`
+    に上書きします。
+
+    プロジェクトがリポジトリ内のサブディレクトリにある場合は、
+    上の *Root Directory* もそれに合わせて変更する必要があります。
+
+    ![Vercel build settings](/screenshots/vercel_build_command.png)
+  </Step>
+
+  <Step title="CONVEX_DEPLOY_KEY 環境変数を設定する">
+    Convex ダッシュボードの [Project Settings](https://dashboard.convex.dev/project/settings#production-deploy-keys) ページに移動します。*Generate Production Deploy Key* ボタンをクリックして、**Production** デプロイキーを生成します。
+    その後、コピー ボタンをクリックしてキーをコピーします。
+
+    Vercel で *Environment Variables* をクリックします。
+    `CONVEX_DEPLOY_KEY` という名前の環境変数を作成し、先ほどのデプロイキーを貼り付けます。*Environment* では *Production* 以外のチェックを外し、*Save* をクリックします。
+
+    ![Vercel environment variable CONVEX\_DEPLOY\_KEY](/screenshots/vercel_prod_deploy_key.png)
+  </Step>
+
+  <Step title="サイトをデプロイする">
+    あとは *Deploy* ボタンをクリックすれば作業は完了です。
+
+    <>    </>
+  </Step>
+</StepByStep>
+
+Vercel はデプロイ後のページに表示される `https://<site-name>.vercel.app` のような URL にサイトを自動的に公開します。Git リポジトリに push するたびに、Vercel が Convex 関数を自動的にデプロイし、サイトの変更を公開します。
+
+<Admonition type="info" title="カスタムドメインを使用していますか？">
+  Convex 関数の配信にカスタムドメインを使用している場合は、追加の設定が必要です。詳しくは [カスタムドメイン](/production/hosting/custom.mdx#hosting-with-a-custom-domain) を参照してください。
+</Admonition>
+
+### 仕組み \{#how-it-works\}
+
+Vercel では、*Build Command* を
+`npx convex deploy --cmd 'npm run build'`
+に上書きしています。
+
+`npx convex deploy` は環境変数から `CONVEX_DEPLOY_KEY` を読み取り、それを使って
+`CONVEX_URL`（または同様の名前の）環境変数を設定し、**本番**デプロイメントを指すようにします。
+
+`npm run build` によって起動される任意のフロントエンドフレームワークは、
+`CONVEX_URL`（または同様の名前の）環境変数を読み取り、デプロイされたサイト
+（`ConvexReactClient` 経由）を **本番**デプロイメントに向けるようにします。
+
+最後に、`npx convex deploy` は Convex 関数を本番デプロイメントにプッシュします。
+
+これで、本番デプロイメントには最新の関数が反映され、アプリはそれに接続するように構成されます。
+
+`deploy` コマンドが環境変数名を推論できない場合は、
+`--cmd-url-env-var-name` を使ってフロントエンドコードで使用する変数名をカスタマイズできます。例えば次のようにします。
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### 認証 \{#authentication\}
+
+本番用の URL を受け入れるように、[認証](/auth.mdx) プロバイダー（Clerk、
+Auth0 など）を設定する必要があります。なお、Clerk は
+`https://<site-name>.vercel.app` をサポートしていないため、カスタムドメインを
+設定する必要があります。
+
+## プレビュー デプロイメント \{#preview-deployments\}
+
+Vercel のプレビュー デプロイメントを使うと、変更がマージされる前に
+アプリの変更内容をプレビューできます。フロントエンドコードと Convex
+関数の両方の変更をプレビューするには、
+[Convex のプレビュー デプロイメント](/production/hosting/preview-deployments.mdx) をセットアップします。
+
+これにより、各プレビューごとに新しい Convex バックエンドが作成され、
+本番および開発デプロイメントには影響しません。
+
+ここでは、すでに上記の
+[Deploying to Vercel](#deploying-to-vercel) の手順を完了していることを前提とします。
+
+<StepByStep>
+  <Step title="CONVEX_DEPLOY_KEY 環境変数を設定する">
+    [Convex Dashboard](https://dashboard.convex.dev/) で
+    プロジェクトの *Settings* ページに移動します。*Generate Preview Deploy Key* ボタンをクリックして **Preview** デプロイキーを生成します。
+    その後、コピー ボタンをクリックしてキーをコピーします。
+
+    Vercel で *Environment Variables* をクリックします。
+    `CONVEX_DEPLOY_KEY` という名前の環境変数を作成し、
+    デプロイキーを貼り付けます。*Environment* では *Preview* 以外のチェックを外し、*Save* をクリックします。
+
+    <div className="screenshot-border">
+      ![Vercel 環境変数 CONVEX\_DEPLOY\_KEY](/screenshots/vercel_preview_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="(任意) デフォルトの環境変数を設定する">
+    アプリが特定の Convex 環境変数に依存している場合は、プロジェクトでプレビューおよび開発デプロイメント向けの
+    [デフォルト環境変数](/production/environment-variables.mdx#project-environment-variable-defaults) を設定できます。
+
+    <div className="screenshot-border">
+      ![プロジェクトのデフォルト環境変数](/screenshots/project_default_environment_variables.png)
+    </div>
+  </Step>
+
+  <Step title="(任意) 初期データをセットアップする関数を実行する">
+    Vercel のプレビュー デプロイメントは新しい Convex バックエンドに対して実行され、開発・本番の Convex デプロイメントとはデータを共有しません。`npx
+      convex deploy` コマンドに `--preview-run 'functionName'` を追加して Convex
+    関数を呼び出し、データをセットアップできます。この関数はプレビュー デプロイメントのときだけ実行され、本番環境へのデプロイ時には無視されます。
+
+    ```sh title="Vercel > Settings > Build & Development settings > Build Command"
+    npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+    ```
+  </Step>
+
+  <Step title="PR を作成してプレビュー デプロイメントを生成してみましょう">
+    ブランチ用の Convex デプロイメントは Convex ダッシュボードで確認できます。
+
+    <div className="screenshot-border">
+      ![Deployment Picker でのプレビュー デプロイメント](/screenshots/preview_deployment_deployment_picker.png)
+    </div>
+  </Step>
+</StepByStep>
+
+### 仕組み \{#how-it-works\}
+
+Preview デプロイメントでは、`npx convex deploy` は環境変数から
+`CONVEX_DEPLOY_KEY` を読み取り、それを使用して、Vercel の Preview デプロイメント用の
+Git ブランチ名に紐づく Convex デプロイメントを作成します。また、
+`CONVEX_URL`（あるいはそれと同様の名前の）環境変数を、新しく作成された
+Convex デプロイメントを指すように設定します。
+
+`npm run build` によって起動される任意のフロントエンドフレームワークは、
+`CONVEX_URL` 環境変数を読み取り、デプロイされたサイトを（`ConvexReactClient`
+経由で）Convex のプレビューデプロイメントに接続します。
+
+最後に、`npx convex deploy` は Convex 関数をプレビューデプロイメントに
+プッシュし、`--preview-run` 関数（指定されている場合）を実行します。この
+デプロイメントは、他のどのデプロイメントとも別個の関数、データ、
+cron ジョブ、およびその他すべての設定を持ちます。
+
+`npx convex deploy` は Vercel、Netlify、GitHub、GitLab の各環境では
+Git ブランチ名を自動的に推測しますが、`--preview-create` オプションを
+使って、新しく作成されるデプロイメントに紐づく名前をカスタマイズできます。
+
+本番デプロイメントも、これまでとまったく同じように動作します。

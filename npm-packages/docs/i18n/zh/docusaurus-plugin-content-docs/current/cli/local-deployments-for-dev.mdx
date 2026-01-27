@@ -1,0 +1,84 @@
+---
+title: "用于开发的本地部署"
+slug: "local-deployments"
+sidebar_position: 10
+sidebar_label: "本地部署"
+description: "使用在本机本地运行的部署进行 Convex 开发"
+---
+
+你可以不必再将代码同步到托管在云端的 Convex 开发环境（dev）部署，而是直接连接到运行在自己电脑上的部署进行开发。你甚至可以在本地部署上使用 Convex 仪表盘！
+
+## Convex 中的部署概述 \{#background-on-deployments-in-convex\}
+
+每个 Convex 部署都有自己独立的数据、函数、定时函数等。一个项目会有一个生产部署，每位团队成员最多有一个用于开发的云端部署，并且还可以有多个临时的
+[预览部署](/production/hosting/preview-deployments.mdx)。
+
+你也可以使用运行在自己机器上的部署来进行 Convex 开发。由于部署在本地运行，代码同步会更快，而且函数调用和数据库带宽等资源不会计入
+[你的 Convex 套餐配额](https://www.convex.dev/pricing)。
+
+你可以在现有的 Convex 项目中使用本地部署，并在 Convex 仪表盘中、对应的项目下查看该部署。你也可以在没有 Convex 账号的情况下使用本地部署，并通过在本地运行的 Convex 仪表盘对其进行调试和查看。
+
+## 使用本地部署 \{#using-local-deployments\}
+
+<BetaAdmonition feature="Local deployments" verb="are" />
+
+当你使用本地部署时，本地 Convex 后端会作为 `npx convex dev` 命令的子进程运行，并在该命令停止时退出。这意味着必须有一个正在运行的 `convex dev` 命令，才能对这个本地部署执行 `npx convex run` 等其他命令，或者让你的前端连接到该部署。
+
+本地后端的状态数据保存在 `~/.convex/` 目录中。
+
+### 匿名开发 \{#anonymous-development\}
+
+你可以使用本地部署在 Convex 上进行开发，而无需先创建账户。每当你想创建账户、将应用部署到生产环境或使用更多 Convex 功能时，都可以运行 `npx convex login`，将本地部署与你的账户关联起来。
+
+### 在现有项目中使用本地部署 \{#local-deployments-for-an-existing-project\}
+
+要在现有项目中使用本地部署，请运行：
+
+```sh
+npx convex dev --local --once
+```
+
+如果你运行 `npx convex dev --configure`，始终都可以选择使用本地部署。其他流程在某些情况下可能会默认你需要云端部署，例如在连接到一个你已经拥有云端开发环境部署的项目时。
+
+## 本地部署 vs. 生产环境 \{#local-deployments-vs-production\}
+
+不建议在生产环境中使用本地部署：本地部署是开发环境部署，也就是说，函数结果的日志和错误响应的完整堆栈跟踪会发送到所有已连接的客户端。
+
+要运行生产应用，你可以使用托管在 Convex 云上的生产部署。要了解更多关于部署到生产环境的信息，请查看[此处](/production.mdx)。
+
+或者，你也可以使用[开源的 convex-backend 仓库](https://github.com/get-convex/convex-backend)自托管一个生产部署。
+
+### 停用 \{#disabling\}
+
+要在某个项目中停止使用本地开发环境，运行以下命令：
+
+```sh
+npx convex disable-local-deployments
+```
+
+请记住，你的云端开发环境（dev）部署和每个本地开发环境（dev）部署是完全独立的，因此包含不同的数据。在部署之间切换时，你可能希望[导出并重新导入](/database/import-export/import-export.mdx)数据，以便继续使用这些数据。
+
+## 限制 \{#limitations\}
+
+* **没有公共 URL** - 云端部署具有公共 URL，可以接收来自 Twilio 等服务的传入 HTTP 请求，但本地部署只会在你自己的电脑上监听 HTTP 请求。同样地，除非用户的浏览器知道如何访问你的电脑，否则你无法使用 Convex WebSocket 连接来驱动网站。对于这些场景，可以配置如 ngrok 之类的代理，或者使用云端部署。
+
+* **Node 操作需要特定的 Node.js 版本** - 运行 Node.js 操作（定义在包含 `"use node;"` 的文件中的操作）要求你本地安装的 Node.js 版本与项目
+  [配置的版本](/production/project-configuration#configuring-the-nodejs-version)
+  相同。默认情况下目前是 Node.js 20，但未来可能会改变。要解决这个问题，你可以安装并设置 [nvm](https://github.com/nvm-sh/nvm)，然后安装所需的 Node.js 版本。你无需在项目的其他部分使用这个版本。
+
+* **Node.js 操作直接在你的电脑上运行** - 和普通的 Node.js 服务器类似，在 Node.js 操作中运行的代码拥有不受限制的文件系统访问权限。查询、变更函数和 Convex 运行时操作函数仍然在隔离环境中运行。
+
+* 每次重新启动 `npx convex dev` 命令时，日志都会被清空。
+
+* <a id="safari" /> **在 Safari 中使用仪表盘**：Safari
+  [会阻止发往 localhost 的请求](https://bugs.webkit.org/show_bug.cgi?id=171934)，这会导致仪表盘无法与本地部署一起使用。如果你在使用本地部署，建议改用其他浏览器。
+
+* <a id="brave" /> **在 Brave 中使用仪表盘**：Brave
+  [默认会阻止发往 localhost 的请求](https://brave.com/privacy-updates/27-localhost-permission/)，这会导致仪表盘无法与本地部署一起使用。你可以使用以下变通方法：
+  * 访问 `brave://flags/`
+  * 启用 `#brave-localhost-access-permission` 开关
+  * 返回 Convex 仪表盘
+  * 在地址栏中点击 **View Site Information**
+    (<img src="/screenshots/brave-site-information.png" alt="View Site Information 图标" width={24} style={{ verticalAlign: "middle" }} />)
+    ，然后点击 **Site settings**
+  * 将 **Localhost access** 的设置更改为 **Allow**

@@ -1,0 +1,95 @@
+---
+title: Python 快速入门
+sidebar_label: Python
+description: "将 Convex 添加到 Python 项目中"
+hide_table_of_contents: true
+sidebar_position: 500
+---
+
+import sampleData from "!!raw-loader!@site/../demos/python-quickstart/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../demos/python-quickstart/convex/tasks.js";
+import main from "!!raw-loader!@site/../demos/python-quickstart/main.py";
+
+了解如何在 Python 应用中从 Convex 查询数据。
+
+<StepByStep>
+  <Step title="创建 Python 脚本文件夹">
+    创建一个用于存放 Python 脚本的文件夹，
+    并在其中创建一个虚拟环境。
+
+    ```sh
+    python3 -m venv my-app/venv
+    ```
+  </Step>
+
+  <Step title="安装 Convex 客户端和服务端库">
+    首先，安装 `convex` npm 包，
+    它允许你编写后端代码。
+
+    同时安装 `convex` Python 客户端库
+    和用于处理 `.env` 文件的 `python-dotenv`。
+
+    ```sh
+    cd my-app && npm init -y && npm install convex && venv/bin/pip install convex python-dotenv
+    ```
+  </Step>
+
+  <Step title="设置 Convex 开发环境（dev）部署">
+    接下来运行 `npx convex dev`。
+    该命令会提示你使用 GitHub 登录、
+    创建一个项目，并保存生产环境和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用于编写后端 API 函数。`dev` 命令会持续运行，
+    将你的函数与云端的开发环境（dev 部署）保持同步。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在新的终端窗口中，创建一个包含示例数据的
+    `sampleData.jsonl` 文件。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    项目准备就绪后，使用 `import` 命令向 Convex 数据库中
+    添加一个带有示例数据的 `tasks` 表。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="暴露一个数据库查询">
+    在 `convex/` 文件夹中添加一个新的 `tasks.js` 文件，
+    在其中定义一个用于加载数据的查询函数。
+
+    从该文件中导出查询函数，
+    会声明一个 API 函数，其名称由文件名和导出名组成，
+    即 `"tasks:get"`。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="创建脚本从 Convex 加载数据">
+    在新文件 `main.py` 中创建一个 `ConvexClient`，
+    并使用它从 `"tasks:get"` API 获取数据。
+
+    <Snippet source={main} title="main.py" />
+  </Step>
+
+  <Step title="运行脚本">
+    运行该脚本，
+    即可看到序列化后的任务列表。
+
+    ```sh
+    venv/bin/python -m main
+    ```
+  </Step>
+</StepByStep>
+
+更多详情请参阅 [PyPI 上的文档](https://pypi.org/project/convex/)。

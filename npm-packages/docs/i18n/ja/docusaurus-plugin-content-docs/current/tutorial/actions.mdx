@@ -1,0 +1,234 @@
+---
+title: "Convex チュートリアル: 外部サービスの呼び出し"
+sidebar_label: "2. 外部サービスの呼び出し"
+slug: "actions"
+sidebar_position: 200
+hide_table_of_contents: true
+description:
+  "Convex のアクションとスケジューラを使って外部 API を呼び出し、
+  Wikipedia の要約をアプリケーションに統合してチャットアプリを拡張します。"
+---
+
+# Convex チュートリアル: 外部サービスの呼び出し \{#convex-tutorial-calling-external-services\}
+
+[前のステップ](/tutorial/index.mdx)では、完全に自己完結したチャットアプリを作成しました。データを受け取って、データを返すだけです。
+
+先ほど見た自動的なリアクティビティを提供しつつ、強力なデータベーストランザクションを実現するために、Convex のクエリ関数とミューテーション関数では外部への `fetch` 呼び出しは許可されていません。
+
+実際のアプリはこんなに単純ではありません。多くの場合、バックエンドから直接インターネット上の他のサービスと通信する必要があります。Convex では、**アクション**関数を使うことでこれも実現できます。
+
+アクション関数は、同期エンジンが外部の世界へアクセスできるように処理をスケジューリングし、その結果をミューテーション経由でデータとして書き戻せるようにします。
+
+Wikipedia API を使って、チャット内の誰でもトピックの Wikipedia 要約を取得できるようにして、チャットアプリを少し賢くしてみましょう。
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/0bn9RcwOwOQ?si=C5Gvz2Us2H1KIAQu" title="YouTube 動画プレーヤー" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## 最初の`action` \{#your-first-action\}
+
+**次のアクションを `convex/chat.ts` ファイルに追加してください。**
+
+```typescript
+// highlight-next-line
+// サーバーのインポートを次のように更新してください:
+// highlight-next-line
+import { query, mutation, internalAction } from "./_generated/server";
+
+//...
+
+// highlight-next-line
+export const getWikipediaSummary = internalAction({
+  // highlight-next-line
+  args: { topic: v.string() },
+  // highlight-next-line
+  handler: async (ctx, args) => {
+    // highlight-next-line
+    const response = await fetch(
+      // highlight-next-line
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        // highlight-next-line
+        args.topic,
+      // highlight-next-line
+    );
+    // highlight-next-line
+
+    // highlight-next-line
+    return getSummaryFromJSON(await response.json());
+    // highlight-next-line
+  },
+  // highlight-next-line
+});
+// highlight-next-line
+
+// highlight-next-line
+function getSummaryFromJSON(data: any) {
+  // highlight-next-line
+  const firstPageId = Object.keys(data.query.pages)[0];
+  // highlight-next-line
+  return data.query.pages[firstPageId].extract;
+  // highlight-next-line
+}
+```
+
+では、順を追って見ていきましょう。
+
+1. まず、`getWikipediaSummary` という名前の新しい Convex のアクション関数を作成しました。
+   この関数を Convex のバックエンド専用にして、公開 API にはしたくないので
+   `internalAction` を使用しました。この関数は指定したトピックで Wikipedia API に対して単純な
+   fetch を行います。
+2. 次に、JSON レスポンスから要約テキストを取り出すための TypeScript のヘルパー関数
+   `getSummaryFromJSON` を用意しました。
+3. `getWikipediaSummary` 関数は、ほかの TypeScript 関数と同じようにこのヘルパー関数を呼び出します。
+
+ここまではよいとして、これをどうやって使えばよいのでしょうか？
+
+この関数を手早く試すには、Convex ダッシュボードで
+[https://dashboard.convex.dev](https://dashboard.convex.dev/deployment/functions)
+にアクセスして自分のプロジェクトを開きます。左側のナビゲーションで Functions をクリックし、
+続いて `getWikipediaSummary` 関数をクリックします。その後「Run Function」をクリックします。
+
+関数実行用の UI が表示されます。いくつか検索を試してみてください。
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_dashboard_action.mp4" type="video/mp4" />
+
+  Wikipedia クエリをいくつか実行している様子
+</video>
+
+## アプリに組み込む \{#hooking-it-up-to-your-app\}
+
+Wikipedia を呼び出せるのは素晴らしいですが、その結果をチャットに表示する必要があります。では、これらをすべてつなげていきましょう。
+
+**既存の `sendMessage` ミューテーションを次のように更新してください。**
+
+```typescript
+// highlight-next-line
+// API リファレンスをインポートする
+// highlight-next-line
+import { api, internal } from "./_generated/api";
+
+//...
+
+export const sendMessage = mutation({
+  args: {
+    user: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("この TypeScript 関数はサーバー上で実行されています。");
+    await ctx.db.insert("messages", {
+      user: args.user,
+      body: args.body,
+    });
+
+    // highlight-next-line
+    // 以下の行を追加する:
+    // highlight-next-line
+    if (args.body.startsWith("/wiki")) {
+      // highlight-next-line
+      // 最初のスペースの後の文字列を取得する
+      // highlight-next-line
+      const topic = args.body.slice(args.body.indexOf(" ") + 1);
+      // highlight-next-line
+      await ctx.scheduler.runAfter(0, internal.chat.getWikipediaSummary, {
+        // highlight-next-line
+        topic,
+        // highlight-next-line
+      });
+      // highlight-next-line
+    }
+  },
+});
+```
+
+ちょっと待ってください！この `ctx.scheduler` って何でしょうか？Convex には強力な永続型の関数スケジューラが組み込まれています。これは同期エンジンの根幹をなす機能であり、Convex 内で非同期関数を調整するための仕組みです。
+
+ミューテーションの場合、外部の世界（外部サービスなど）からデータを取得するアクションを呼び出す唯一の手段です。すごいのは、何らかの理由でミューテーションが例外をスローした場合、何もスケジュールされないという点です。これはミューテーションがトランザクションであり、スケジューリングとは「Convex にこの関数を将来のある時点で実行するよう指示するためにデータベースへ書き込むこと」にすぎないからです。
+
+さて、アクションをスケジュールできるようになりましたが、まだ要約をチャットに書き戻す必要があります。
+
+**`getWikipediaSummary` アクションに戻って更新しましょう。**
+
+```typescript
+export const getWikipediaSummary = internalAction({
+  args: { topic: v.string() },
+  handler: async (ctx, args) => {
+    const response = await fetch(
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        args.topic,
+    );
+
+    // highlight-next-line
+    // `return ...` を以下のコードに置き換えます。
+    // highlight-next-line
+    const summary = getSummaryFromJSON(await response.json());
+    // highlight-next-line
+    await ctx.scheduler.runAfter(0, api.chat.sendMessage, {
+      // highlight-next-line
+      user: "Wikipedia",
+      // highlight-next-line
+      body: summary,
+      // highlight-next-line
+    });
+  },
+});
+```
+
+アクションをスケジューリングしたときと同様に、今度は `sendMessage` ミューテーションをスケジューリングして、
+Wikipedia の検索結果をチャットに送信します。
+
+さあ、アプリをいろいろ触ってみてください！
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_wikipedia.mp4" type="video/mp4" />
+
+  Wikipedia とチャットする
+</video>
+
+## スケジューラ、アクション、そして同期エンジン \{#the-scheduler-actions-and-the-sync-engine\}
+
+<div className="center-image" style={{ maxWidth: "900px" }}>
+  ![アクションを用いた同期エンジン](/img/tutorial/ConvexSyncAction.png)
+</div>
+
+クエリとミューテーションは、データベースとやり取りする唯一の方法であり、
+スケジューラはその間にアクションを挟んだ高度なワークフローの構築を可能にします。
+
+[Actions](/functions/actions.mdx) は、AWS Lambda や Google Cloud Run のような通常のサーバーレス関数です。AI API の呼び出しや Vector Store の利用といったフローをモデリングするのに役立ちます。いわば「最後の逃げ道」として機能し、ほとんど保証のない混沌とした外部世界の現実と向き合います。
+
+アクションは同期エンジンの一部ではありません。データベースとやり取りするには、
+クエリ関数やミューテーション関数を経由する必要があります。この制約によって Convex は
+データベースのトランザクション保証を維持しつつ、同期エンジンを高速かつ軽量に保てます。
+
+アプリケーションをスケールさせる最良の構成方法は、アクション内で行う処理を最小限に抑えることです。
+[非決定性](https://en.wikipedia.org/wiki/Deterministic_algorithm) を必要とする部分、
+例えば外部への `fetch` 呼び出しのような処理だけでアクションを使うようにします。
+アクションを可能な限り小さく保つことが、Convex アプリを最もスケーラブルに構築し、
+最高のスループットを実現する方法です。
+
+スケジューラを使うことで、アプリは重要なロジックのほとんどをクエリと
+ミューテーションに保持しつつ、アクションの内外をまたぐワークフローとしてコードを構成できます。
+
+## 作成したもの \{#what-you-built\}
+
+このセクションでは、外部サービスとやり取りするためのアクションを作成し、Scheduler を使ってこの処理を実行するようトリガーしました。
+
+アクション自体は小さく保ち、ほとんどの処理をクエリとミューテーションに集約することが、スケーラブルな Convex バックエンドを構築するうえで重要であることを学びました。
+
+## 次のステップ \{#next-up\}
+
+これで Convex における最も重要なコンセプトを学びました。フル機能の
+バックエンドとして、Convex は [認証](/auth.mdx) や
+[ファイルストレージ](/file-storage.mdx)、[検索](/search.mdx) など、さまざまなことができます。必要に応じて、ドキュメントに従ってこれらの機能を追加できます。
+
+アプリケーションを成功させるためのセットアップについても少し触れました。アプリケーションがスケールするにつれて、新たな課題に直面するようになります。こうした課題のいくつかにどのように対処するかを、[次のセクション →](/tutorial/scale.mdx) で学びましょう。
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "/tutorial/scale",
+  docId: "tutorial/scale",
+  label: "アプリのスケーリング",
+}}
+/>

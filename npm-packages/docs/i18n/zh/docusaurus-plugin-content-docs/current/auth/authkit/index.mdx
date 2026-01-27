@@ -1,0 +1,732 @@
+---
+title: "Convex 与 WorkOS AuthKit"
+sidebar_label: "WorkOS AuthKit"
+sidebar_position: 20
+description: "将 WorkOS AuthKit 身份验证集成到 Convex 中"
+---
+
+import UnderTheHood from "@site/i18n/zh/docusaurus-plugin-content-docs/current/auth/_under_the_hood.mdx";
+import ConfigTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuthKit.tsx";
+import ConfigJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainAuthKit.jsx";
+import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/workosFunctions.ts";
+
+[WorkOS AuthKit](https://authkit.com) 是一款身份验证解决方案，支持使用密码、社交登录方式、电子邮件一次性验证码、双因素认证以及用户管理功能进行登录。
+
+你可以将你自己的 WorkOS 账号与 AuthKit 搭配使用，或者
+[通过 Convex 创建一个 WorkOS 账号](/auth/authkit/auto-provision.mdx)，以自动创建 AuthKit 环境并完成部分配置。
+
+## 入门 \{#get-started\}
+
+入门最快的方法是使用模板：
+
+```bash
+npm create convex@latest -- -t react-vite-authkit
+cd my-app  # 或你为目录指定的任何名称
+npm run dev
+```
+
+按照提示创建一个与 Convex 团队关联的 WorkOS 团队。完成后，此团队中项目的 Convex 部署将能够自动为自己开通并配置对应的 WorkOS 环境。
+
+就这样！之后，你和 Convex 团队的其他成员可以在不访问
+[workos.com](https://workos.com) 的情况下创建和配置开发用的 WorkOS 环境。
+
+参见
+[AuthKit configuration in convex.json](/auth/authkit/auto-provision.mdx)，根据你的需求修改此模板中的 convex.json 文件。
+
+### 配置现有的 WorkOS 账户 \{#configuring-an-existing-workos-account\}
+
+要在现有的 WorkOS 账户中使用 AuthKit，你需要先配置该账户，然后将凭证复制到 Convex 部署和本地的
+`.env.local` 文件中。
+
+<StepByStep>
+  <Step title="注册 WorkOS 账户">
+    在 [workos.com/sign-up](https://signin.workos.com/sign-up) 注册一个免费的 WorkOS 账户。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/workos-signup.png" alt="注册 WorkOS 账户" width={200} />
+    </p>
+  </Step>
+
+  <Step title="设置 AuthKit">
+    在 WorkOS 仪表盘中，依次进入 **Authentication** 和 **AuthKit**。在这里点击 **Set up
+    AuthKit** 按钮，在你的账户中启用 AuthKit。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/workos-setup-authkit.png" alt="在你的账户中设置 AuthKit" width={600} />
+    </p>
+  </Step>
+
+  <Step title="完成 AuthKit 配置">
+    选择 **Use AuthKit&#39;s customizable hosted UI** 后，点击 **Begin setup** 按钮。在到达第 4 步
+    **Add default redirect endpoint URI** 之前，这些选项都可以按需填写。
+
+    Redirect URI 是 WorkOS 在登录后返回授权码的端点。它应当与你应用程序的域名和端口匹配，并以 `/callback` 作为路径。
+    例如，如果你的应用运行在 `localhost:5173`，那么这里的值应为 `http://localhost:5173/callback`。
+
+    完成 AuthKit 的配置。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/workos-redirect-uri.png" alt="设置重定向 URI 端点" width={400} />
+    </p>
+  </Step>
+
+  <Step title="复制你的 Client ID 和 API Key">
+    在 **Quick start** 下的 [get started](https://dashboard.workos.com/get-started) 页面中找到你的
+    `WORKOS_CLIENT_ID` 并将其复制。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/workos-client-id.png" alt="获取你的 WorkOS Client ID" width={400} />
+    </p>
+  </Step>
+</StepByStep>
+
+## 客户端配置 \{#client-configuration\}
+
+Convex 提供了一个专门用于与 WorkOS AuthKit 集成的 provider，名为 `<ConvexProviderWithAuthKit>`。它使用 WorkOS 的
+[authkit-react](https://github.com/workos/authkit-react) SDK 工作。
+
+在你完成上面的 WorkOS 设置后，选择下面的框架继续进行集成。
+
+根据你使用的 WorkOS SDK，参阅以下部分：
+
+* [React](#react) - 如果你的 SDK 未在列表中，请从这里开始
+* [Next.js](#nextjs)
+
+### React \{#react\}
+
+**示例：**
+[React with Convex and AuthKit](https://github.com/workos/template-convex-react-vite-authkit)
+
+本指南假设你已经
+[完成 AuthKit 设置](#configuring-an-existing-workos-account)，并且已有一个已集成 Convex 的
+可运行 React 应用。如果还没有，请先完成
+[Convex React 快速上手](/quickstart/react.mdx)。然后：
+
+<StepByStep>
+  <Step title="在 WorkOS 仪表盘中配置 CORS">
+    在你的 WorkOS Dashboard 中，前往 [*Authentication* &gt; *Sessions*](https://dashboard.workos.com/environment/authentication/sessions) &gt; *Cross-Origin Resource Sharing (CORS)*，然后点击 **Manage**。将你的本地开发域名（例如 Vite 使用的 `http://localhost:5173`）添加到列表中。部署到生产环境后，你还需要添加生产环境域名。这样可以让你的应用通过 WorkOS AuthKit 对用户进行身份验证。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/workos-cors-setup.png" alt="CORS 设置" width={400} />
+    </p>
+  </Step>
+
+  <Step title="配置环境变量">
+    在你的 `.env.local` 文件中，添加 `WORKOS_CLIENT_ID` 和 `WORKOS_REDIRECT_URI` 环境变量。如果你使用的是 Vite，需要在变量名前加上 `VITE_` 前缀。
+
+    **注意：** 这些值可以在你的 [WorkOS 仪表盘](https://dashboard.workos.com/) 中找到。
+
+    ```env title=".env.local"
+    # WorkOS AuthKit 配置
+    VITE_WORKOS_CLIENT_ID=your-workos-client-id-here
+    VITE_WORKOS_REDIRECT_URI=http://localhost:5173/callback
+    ```
+  </Step>
+
+  <Step title="将 Convex 配置为使用 WorkOS Client ID">
+    在你的应用程序的 `convex` 文件夹中，创建一个名为 <JSDialectFileName name="auth.config.ts" /> 的新文件，并添加以下代码。这是用于在服务端验证访问令牌的配置。
+
+    ```ts title="convex/auth.config.ts"
+    const clientId = process.env.WORKOS_CLIENT_ID;
+
+    const authConfig = {
+      providers: [
+        {
+          type: 'customJwt',
+          issuer: `https://api.workos.com/`,
+          algorithm: 'RS256',
+      jwks: `https://api.workos.com/sso/jwks/${clientId}`,
+      applicationID: clientId,
+        },
+        {
+          type: 'customJwt',
+          issuer: `https://api.workos.com/user_management/${clientId}`,
+          algorithm: 'RS256',
+          jwks: `https://api.workos.com/sso/jwks/${clientId}`,
+        },
+      ],
+    };
+
+    export default authConfig;
+    ```
+  </Step>
+
+  <Step title="部署更改">
+    运行 `npx convex dev`，将你的配置自动同步到后端。
+
+    你会看到一条错误信息以及一个链接，提示你点击以在 Convex 部署中填写 `WORKOS_CLIENT_ID` 环境变量。打开该链接，粘贴 WorkOS client ID，保存后，你应该会看到 `npx convex dev` 命令显示 “Convex functions ready.”。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="安装 AuthKit">
+    在新的终端窗口中安装 AuthKit React SDK：
+
+    ```sh
+    npm install @workos-inc/authkit-react @convex-dev/workos
+    ```
+  </Step>
+
+  <Step title="配置 ConvexProviderWithAuthKit 组件">
+    AuthKit 和 Convex 都提供 provider 组件，用于为你的应用注入认证和客户端上下文。
+
+    你应该已经使用 `<ConvexProvider>` 包裹了你的应用。现在将它替换为 `<ConvexProviderWithAuthKit>`，并将 WorkOS 的 `useAuth()` hook 传给它。
+
+    然后，再在外层用 `<AuthKitProvider>` 包裹。`<AuthKitProvider>` 需要 `clientId` 和 `redirectUri` 这两个 prop，你可以分别设置为 `VITE_WORKOS_CLIENT_ID` 和 `VITE_WORKOS_REDIRECT_URI`。
+
+    <TSAndJSSnippet title="src/main.tsx" sourceTS={ConfigTS} sourceJS={ConfigJS} highlightPatterns={["AuthKitProvider", "clientId", "redirectUri", "ConvexProviderWithAuthKit"]} />
+  </Step>
+
+  <Step title="根据认证状态展示界面">
+    你可以使用 Convex 的 `<Authenticated>`、`<Unauthenticated>` 和 `<AuthLoading>` 辅助组件来控制用户在已登录或未登录状态下显示哪段 UI。
+
+    当你需要检查用户是否已登录时，一定要使用 [`useConvexAuth()`](/api/modules/react#useconvexauth) hook，而不是
+    AuthKit 的 `useAuth()` hook。`useConvexAuth()` hook 会确保浏览器已经获取到向你的 Convex 后端发起已认证请求所需的
+    auth token，并且 Convex 后端已经完成对该 token 的验证。
+
+    在下面的示例中，`<Content />` 组件是 `<Authenticated>` 的子组件，因此它的内容以及它的任何子组件都可以保证存在已认证的用户，并且 Convex 查询可以要求进行身份验证。
+
+    ```tsx title="src/App.tsx"
+    import { Authenticated, Unauthenticated, useQuery } from 'convex/react';
+    import { api } from '../convex/_generated/api';
+    import { useAuth } from '@workos-inc/authkit-react';
+
+    export default function App() {
+      const { user, signIn, signOut } = useAuth();
+
+      return (
+        <div className="p-4"> <div className="flex justify-between items-center mb-4">
+            <h1>Convex + AuthKit</h1>
+            <button onClick={() => (user ? signOut() : void signIn())}>{user ? '登出' : '登录'}</button>
+          </div>
+          <Authenticated>
+            <Content />
+          </Authenticated>
+          <Unauthenticated>
+            <p>请登录以查看数据</p>
+          </Unauthenticated>
+        </div>
+      );
+    }
+
+    function Content() {
+      const data = useQuery(api.myFunctions.listNumbers, { count: 10 });
+
+      if (!data) return <p>加载中...</p>;
+
+      return (
+        <div>
+          <p>欢迎,{data.viewer}!</p>
+          <p>数字:{data.numbers?.join(', ') || '无'}</p>
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="在你的 Convex 函数中使用身份验证状态">
+    如果客户端已通过身份验证，你可以通过 `ctx.auth.getUserIdentity` 访问
+    存储在 JWT 中的信息。
+
+    如果客户端尚未通过身份验证，`ctx.auth.getUserIdentity` 将返回 `null`。
+
+    **确保调用此查询的组件是 `convex/react` 中 `<Authenticated>` 的子组件**。否则将在页面加载时抛出错误。
+
+    <TSAndJSSnippet title="convex/myFunctions.ts" sourceTS={Functions} sourceJS={Functions} />
+  </Step>
+</StepByStep>
+
+**注意：**[React 模板代码仓库](https://github.com/workos/template-convex-react-vite-authkit)
+包含用于完整可运行应用的更多功能和函数。
+本教程只讲解核心集成步骤，而该模板则提供了
+更完整、更全面的实现。
+
+### Next.js \{#nextjs\}
+
+**示例：**
+[Next.js with Convex and AuthKit](https://github.com/workos/template-convex-nextjs-authkit)
+
+本指南假设你已经
+[完成 AuthKit 配置](#configuring-an-existing-workos-account)，并且已有一个可正常运行、
+集成了 Convex 的 Next.js 应用。如果还没有，请先完成
+[Convex Next.js 快速入门](/quickstart/nextjs.mdx)。然后再继续：
+
+<StepByStep>
+  <Step title="配置环境变量">
+    在 `.env.local` 文件中添加以下环境变量：
+
+    ```env title=".env.local"
+    # WorkOS AuthKit 配置
+    WORKOS_CLIENT_ID=client_your_client_id_here
+    WORKOS_API_KEY=sk_test_your_api_key_here
+    WORKOS_COOKIE_PASSWORD=your_secure_password_here_must_be_at_least_32_characters_long
+    NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/callback
+
+    # Convex 配置（无需手动填写,由 Convex 自动生成）
+    # `npx convex dev` 使用的部署
+    CONVEX_DEPLOY_KEY=your_convex_deploy_key_here
+    NEXT_PUBLIC_CONVEX_URL=https://your-convex-url.convex.cloud
+    ```
+  </Step>
+
+  <Step title="将 Convex 配置为使用 WorkOS Client ID">
+    在你的应用的 `convex` 文件夹下，新建一个名为 <JSDialectFileName name="auth.config.ts" /> 的文件，并添加以下代码。这是用于验证访问令牌的服务器端配置。
+
+    ```ts title="convex/auth.config.ts"
+    const clientId = process.env.WORKOS_CLIENT_ID;
+
+    const authConfig = {
+      providers: [
+        {
+          type: 'customJwt',
+          issuer: `https://api.workos.com/`,
+          algorithm: 'RS256',
+          applicationID: clientId,
+          jwks: `https://api.workos.com/sso/jwks/${clientId}`,
+        },
+        {
+          type: 'customJwt',
+          issuer: `https://api.workos.com/user_management/${clientId}`,
+          algorithm: 'RS256',
+          jwks: `https://api.workos.com/sso/jwks/${clientId}`,
+        },
+      ],
+    };
+
+    export default authConfig;
+    ```
+  </Step>
+
+  <Step title="部署更改">
+    运行 `npx convex dev`，即可自动将你的配置同步到后端。
+
+    你会看到一条错误信息和一个链接。点击该链接，在你的 Convex 部署中填写 WORKOS&#95;CLIENT&#95;ID 环境变量。按照链接提示操作，粘贴 WorkOS client ID 并保存，随后你应该会在 `npx convex dev` 命令的输出中看到 &quot;Convex functions ready.&quot;
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="安装 AuthKit">
+    在新的终端窗口中，安装 AuthKit Next.js SDK：
+
+    ```sh
+    npm install @workos-inc/authkit-nextjs @convex-dev/workos
+    ```
+  </Step>
+
+  <Step title="添加 AuthKit 中间件">
+    AuthKit 的 `authkitMiddleware()` 辅助函数让你可以在整个应用中访问用户身份验证状态。
+
+    创建一个 `middleware.ts` 文件。
+
+    在你的 `middleware.ts` 文件中，导出 `authkitMiddleware()` 辅助函数：
+
+    ```tsx {{ filename: 'middleware.ts' }}
+    import { authkitMiddleware } from '@workos-inc/authkit-nextjs';
+
+    export default authkitMiddleware({
+      middlewareAuth: {
+        enabled: true,
+        unauthenticatedPaths: ['/', '/sign-in', '/sign-up'],
+      },
+    });
+
+    export const config = {
+      matcher: [
+        // 跳过 Next.js 内部文件和所有静态文件,除非在搜索参数中找到
+        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+        // Always run for API routes
+        '/(api|trpc)(.*)',
+      ],
+    };
+    ```
+  </Step>
+
+  <Step title="添加认证路由">
+    为 WorkOS AuthKit 创建必需的身份验证路由，以处理登录、注册和回调流程。
+
+    这些路由通过为用户提供登录、注册以及完成身份验证后的回调端点来启用整个身份验证流程。
+
+    **创建回调路由** 来处理 OAuth 回调：
+
+    ```tsx title="app/callback/route.ts"
+    import { handleAuth } from '@workos-inc/authkit-nextjs';
+
+    export const GET = handleAuth();
+    ```
+  </Step>
+
+  <Step title="创建登录路由">
+    ```tsx title="app/sign-in/route.ts"
+    import { redirect } from 'next/navigation';
+    import { getSignInUrl } from '@workos-inc/authkit-nextjs';
+
+    export async function GET() {
+      const authorizationUrl = await getSignInUrl();
+      return redirect(authorizationUrl);
+    }
+    ```
+  </Step>
+
+  <Step title="创建注册页面路由">
+    要将用户重定向到 WorkOS 注册页面：
+
+    ```tsx title="app/sign-up/route.ts"
+    import { redirect } from 'next/navigation';
+    import { getSignUpUrl } from '@workos-inc/authkit-nextjs';
+
+    export async function GET() {
+      const authorizationUrl = await getSignUpUrl();
+      return redirect(authorizationUrl);
+    }
+    ```
+  </Step>
+
+  <Step title="配置 ConvexProviderWithAuthKit">
+    你的 Next.js 应用需要将 AuthKit 身份验证与 Convex 集成，以获取实时数据。我们将创建一个统一的 Provider 组件来同时处理这两部分工作。
+
+    **创建 Provider 组件**
+
+    这个组件负责：
+
+    * WorkOS 身份验证设置
+    * Convex 客户端初始化
+    * WorkOS 与 Convex 之间的令牌管理
+    * 加载状态和错误处理
+
+    创建 `components/ConvexClientProvider.tsx`：
+
+    ```tsx title="components/ConvexClientProvider.tsx"
+    'use client';
+
+    import { ReactNode, useCallback, useRef } from 'react';
+    import { ConvexReactClient } from 'convex/react';
+    import { ConvexProviderWithAuth } from 'convex/react';
+    import { AuthKitProvider, useAuth, useAccessToken } from '@workos-inc/authkit-nextjs/components';
+
+    const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+    export function ConvexClientProvider({ children }: { children: ReactNode }) {
+      return (
+        <AuthKitProvider>
+          <ConvexProviderWithAuth client={convex} useAuth={useAuthFromAuthKit}>
+            {children}
+          </ConvexProviderWithAuth>
+        </AuthKitProvider>
+      );
+    }
+
+    function useAuthFromAuthKit() {
+      const { user, loading: isLoading } = useAuth();
+      const { accessToken, loading: tokenLoading, error: tokenError } = useAccessToken();
+      const loading = (isLoading ?? false) || (tokenLoading ?? false);
+      const authenticated = !!user && !!accessToken && !loading;
+
+      const stableAccessToken = useRef<string | null>(null);
+      if (accessToken && !tokenError) {
+        stableAccessToken.current = accessToken;
+      }
+
+      const fetchAccessToken = useCallback(async () => {
+        if (stableAccessToken.current && !tokenError) {
+          return stableAccessToken.current;
+        }
+        return null;
+      }, [tokenError]);
+
+      return {
+        isLoading: loading,
+        isAuthenticated: authenticated,
+        fetchAccessToken,
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="添加到布局中">
+    更新 `app/layout.tsx` 以使用该 provider：
+
+    ```tsx title="app/layout.tsx"
+    import type { Metadata } from 'next';
+    import { Geist, Geist_Mono } from 'next/font/google';
+    import './globals.css';
+    import { ConvexClientProvider } from '@/components/ConvexClientProvider';
+
+    const geistSans = Geist({
+      variable: '--font-geist-sans',
+      subsets: ['latin'],
+    });
+
+    const geistMono = Geist_Mono({
+      variable: '--font-geist-mono',
+      subsets: ['latin'],
+    });
+
+    export const metadata: Metadata = {
+      title: 'Create Next App',
+      description: 'Generated by create next app',
+      icons: {
+        icon: '/convex.svg',
+      },
+    };
+
+    export default function RootLayout({
+      children,
+    }: Readonly<{
+      children: React.ReactNode;
+    }>) {
+      return (
+        <html lang="en">
+          <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+            <ConvexClientProvider>{children}</ConvexClientProvider>
+          </body>
+        </html>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="根据认证状态展示 UI">
+    你可以使用 Convex 的 `<Authenticated>`、`<Unauthenticated>` 和 `<AuthLoading>` 辅助组件来控制用户在已登录或未登录时显示的 UI。这些组件应当替代 WorkOS AuthKit 的
+    `useAuth()` 加载状态和手动身份验证检查。
+
+    当你需要检查用户是否已登录时，务必使用 [`useConvexAuth()`](/api/modules/react#useconvexauth) hook，而不是
+    WorkOS AuthKit 的 `useAuth()` hook。`useConvexAuth()` hook 会确保浏览器已获取向你的 Convex 后端发起带身份验证请求所需的
+    auth token，并且 Convex 后端已经对其完成验证。
+
+    在下面的示例中，`<Content />` 组件是 `<Authenticated>` 的子组件，因此它的内容及其任意子组件都可以保证存在一个已通过身份验证的用户，并且 Convex 查询可以强制要求
+    身份验证。
+
+    ```tsx title="app/page.tsx"
+    "use client";
+
+    import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+    import { useAuth } from "@workos-inc/authkit-nextjs/components";
+    import { api } from "../convex/_generated/api";
+    import Link from "next/link";
+
+    export default function Home() {
+      const { user, signOut } = useAuth();
+
+      return (
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h1>Convex + AuthKit</h1>
+            <div className="flex gap-2">
+              {user ? (
+                <button onClick={() => signOut()}>退出登录</button>
+              ) : (
+                <>
+                  <Link href="/sign-in">
+                    <button>登录</button>
+                  </Link>
+                  <Link href="/sign-up">
+                    <button>注册</button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+          <Authenticated>
+            <Content />
+          </Authenticated>
+          <Unauthenticated>
+            <p>请登录以查看数据</p>
+          </Unauthenticated>
+        </div>
+      );
+    }
+
+    function Content() {
+      const data = useQuery(api.myFunctions.listNumbers, { count: 10 });
+
+      if (!data) return <p>加载中...</p>;
+
+      return (
+        <div>
+          <p>欢迎,{data.viewer}!</p>
+          <p>数字:{data.numbers?.join(', ') || '无'}</p>
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="在 Convex 函数中使用身份验证状态">
+    如果客户端已通过身份验证，你可以通过 `ctx.auth.getUserIdentity` 访问存储在 JWT 中的信息。
+
+    如果客户端尚未通过身份验证，`ctx.auth.getUserIdentity` 将返回 `null`。
+
+    **确保调用此查询的组件是 `convex/react` 中 `<Authenticated>` 的子组件**。否则，在页面加载时会抛出错误。
+
+    <TSAndJSSnippet title="convex/myFunctions.ts" sourceTS={Functions} sourceJS={Functions} />
+  </Step>
+</StepByStep>
+
+**注意：**[Next.js 模板仓库](https://github.com/workos/template-convex-nextjs-authkit)
+包含用于构建完整可用应用的额外功能和函数。
+本教程只涵盖核心集成步骤，而该模板则提供了
+更完整的实现。
+
+## 后续步骤 \{#next-steps\}
+
+### 在函数中访问用户信息 \{#accessing-user-information-in-functions\}
+
+参见 [Auth in Functions](/auth/functions-auth.mdx)，了解如何在你的查询、变更和操作函数中访问已通过身份验证的用户信息。
+
+参见 [Storing Users in the Convex Database](/auth/database-auth.mdx)，了解如何在 Convex 数据库中存储用户信息。
+
+### 在客户端访问用户信息 \{#accessing-user-information-client-side\}
+
+要在客户端访问已通过身份验证用户的信息，请使用 AuthKit 的 `User` 对象，
+可以通过 AuthKit 的
+[`useAuth()`](https://github.com/workos/authkit-react?tab=readme-ov-file#useauth)
+hook 获取。关于 `User` 对象的更多信息，请参阅
+[WorkOS 文档](https://workos.com/docs/reference/user-management/user)。
+
+```tsx title="components/Badge.tsx"
+export default function Badge() {
+  const { user } = useAuth();
+
+  return <span>已登录为 {user.firstName}</span>;
+}
+```
+
+## 配置开发（dev）和生产（prod）实例 \{#configuring-dev-and-prod-instances\}
+
+要为 Convex 的开发环境和生产部署配置不同的 AuthKit 实例，你可以使用在 Convex 仪表盘中设置的环境变量。
+
+### 配置后端 \{#configuring-the-backend\}
+
+在 WorkOS 仪表盘中，前往
+[**API keys**](https://dashboard.workos.com/api-keys) 页面。复制你的 WorkOS
+Client ID。Convex 需要这个 Client ID 来验证来自
+WorkOS AuthKit 的访问令牌。在开发环境中，它的格式为
+`client_01XXXXXXXXXXXXXXXXXXXXXXXX`。在生产环境中，它会采用相同格式，但代表你的生产 WorkOS 应用。
+
+将你的 WorkOS Client ID 粘贴到 `.env` 文件中，并将其设置为
+`WORKOS_CLIENT_ID` 环境变量。请注意，这个环境变量仅在服务器端使用，不需要 `NEXT_PUBLIC_` 前缀。
+
+```env title=".env"
+WORKOS_CLIENT_ID=client_01XXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+然后，将你的 `convex/auth.config.ts` 文件更新为使用该环境变量：
+
+```ts title="convex/auth.config.ts"
+const clientId = process.env.WORKOS_CLIENT_ID;
+
+export default {
+  providers: [
+    {
+      type: "customJwt",
+      issuer: `https://api.workos.com/`,
+      algorithm: "RS256",
+      applicationID: clientId,
+      jwks: `https://api.workos.com/sso/jwks/${clientId}`,
+    },
+    {
+      type: "customJwt",
+      issuer: `https://api.workos.com/user_management/${clientId}`,
+      algorithm: "RS256",
+      jwks: `https://api.workos.com/sso/jwks/${clientId}`,
+    },
+  ],
+};
+```
+
+**开发环境配置**
+
+在 Convex [仪表盘](https://dashboard.convex.dev) 的左侧导航栏中，
+切换到你的开发部署，并将 `WORKOS_CLIENT_ID` 环境变量
+设置为你的开发环境 WorkOS Client ID。
+
+然后，为了让该部署使用新的配置，运行 `npx convex dev`。
+
+**生产环境配置**
+
+在 Convex [仪表盘](https://dashboard.convex.dev) 的左侧导航栏中，
+切换到你的生产部署，并将 `WORKOS_CLIENT_ID` 环境变量
+设置为你的生产环境 WorkOS Client ID。
+
+然后，为了让该部署使用新的配置，运行
+`npx convex deploy`。
+
+### 配置 WorkOS AuthKit 的 API 密钥 \{#configuring-workos-authkits-api-keys\}
+
+WorkOS AuthKit 的 API 密钥会因是用于开发环境还是生产环境而有所不同。别忘了同时更新 `.env` 文件中的环境变量以及托管平台（例如 Vercel 或 Netlify）上的环境变量。
+
+**开发环境配置**
+
+用于开发环境的 WorkOS API Key 的格式为 `sk_test_...`。用于开发环境的 WorkOS Client ID 的格式为 `client_01...`。
+
+```env title=".env.local"
+WORKOS_CLIENT_ID="client_01XXXXXXXXXXXXXXXXXXXXXXXX"
+WORKOS_API_KEY="sk_test_..."
+WORKOS_COOKIE_PASSWORD="your_secure_password_here_must_be_at_least_32_characters_long"
+NEXT_PUBLIC_WORKOS_REDIRECT_URI="http://localhost:3000/callback"
+```
+
+**生产环境配置**
+
+生产环境的 WorkOS API Key 格式为 `sk_live_...`。生产环境的 WorkOS Client ID 格式为 `client_01...`。
+
+```env title=".env"
+WORKOS_CLIENT_ID="client_01XXXXXXXXXXXXXXXXXXXXXXXX"
+WORKOS_API_KEY="sk_live_..."
+WORKOS_COOKIE_PASSWORD="your_secure_password_here_must_be_at_least_32_characters_long"
+NEXT_PUBLIC_WORKOS_REDIRECT_URI="https://your-domain.com/callback"
+```
+
+### 其他 WorkOS AuthKit 配置 \{#additional-workos-authkit-configuration\}
+
+WorkOS AuthKit 需要一些额外的配置：
+
+**Cookie Password**：用于加密会话 cookie 的安全密码。长度必须至少为 32 个字符。你可以使用 `openssl rand -base64 24` 生成一个随机密码。
+
+**Redirect URI**：用户在完成身份验证后被重定向到的 URL。你必须同时在环境变量和 WorkOS 仪表盘的应用设置中配置该 URL。
+
+## 调试身份验证 \{#debugging-authentication\}
+
+如果用户顺利完成 WorkOS AuthKit 登录流程，并在重定向回你的页面后，
+`useConvexAuth()` 返回 `isAuthenticated: false`，那很可能是你的后端没有正确配置。
+
+`convex/auth.config.ts` 文件中包含已配置的身份验证提供商列表。在添加新的提供商后，
+你必须运行 `npx convex dev` 或 `npx convex deploy`，以将配置同步到后端。
+
+WorkOS AuthKit 集成中的常见问题：
+
+1. **Client ID 不正确**：确保 Convex 环境中的 `WORKOS_CLIENT_ID`
+   与你的 WorkOS 应用一致
+2. **缺少环境变量**：确认所有必需的 WorkOS 环境变量在本地环境和 Convex 仪表盘中都已设置
+3. **重定向 URI 不匹配**：确保 `NEXT_PUBLIC_WORKOS_REDIRECT_URI`
+   与 WorkOS 仪表盘中配置的值一致
+4. **缺少 `aud` 声明**：WorkOS 的 JWT 默认可能不包含 `aud`（audience，受众）
+   声明，而 Convex 在验证令牌时需要它。检查 WorkOS 仪表盘中的 JWT 配置，
+   确认受众（audience）声明已正确设置为你的 Client ID
+
+如需更详细的调试步骤，请参阅 WorkOS AuthKit 文档或
+[调试身份验证](/auth/debug.mdx)。
+
+## 底层原理 \{#under-the-hood\}
+
+<UnderTheHood
+  provider="AuthKit"
+  integrationProvider={<code>ConvexProviderWithAuthKit</code>}
+  providerProvider={<code>AuthKitProvider</code>}
+  configProp={
+  <>
+    名为{" "}
+    <a
+      href="https://workos.com/docs/user-management/vanilla/nodejs/1-configure-your-project/configure-a-redirect-uri"
+      target="_blank"
+    >
+      <code>redirectUri</code>
+    </a>{" "}
+    的 prop
+  </>
+}
+/>

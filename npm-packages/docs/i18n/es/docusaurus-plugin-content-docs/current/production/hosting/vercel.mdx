@@ -1,0 +1,214 @@
+---
+title: "Usar Convex con Vercel"
+sidebar_label: "Vercel"
+description: "Aloja tu frontend en Vercel y tu backend en Convex"
+sidebar_position: 10
+---
+
+Alojar tu aplicación de Convex en Vercel te permite volver a desplegar automáticamente
+tanto tu backend como tu frontend cada vez que subas tu código.
+
+## Despliegue en Vercel \{#deploying-to-vercel\}
+
+### Uso del Vercel Marketplace \{#using-the-vercel-marketplace\}
+
+<Admonition type="info">
+  Los proyectos desplegados con el Vercel Marketplace formarán parte de su propio
+  equipo de Convex. Si ya tienes un equipo de Convex, puedes [seguir estas
+  instrucciones](/production/hosting/vercel.mdx#connecting-your-convex-project-to-vercel).
+</Admonition>
+
+Convex está disponible en el
+[Vercel Marketplace](https://vercel.com/marketplace/convex). Puedes crear,
+desplegar y pagar (si usas una suscripción de pago) tus proyectos de Convex
+a través de Vercel mediante el marketplace.
+
+Los proyectos de Convex creados a través del Vercel Marketplace se
+configurarán automáticamente para desplegarse.
+
+Despliega rápidamente un proyecto de plantilla en el Vercel Marketplace:
+
+[![Desplegar con Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex\&project-name=vercel-with-convex\&repository-name=vercel-with-convex\&demo-title=Convex%20with%20Vercel\&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel\&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F\&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+### Conectar tu proyecto de Convex con Vercel \{#connecting-your-convex-project-to-vercel\}
+
+#### Usar una plantilla \{#using-a-template\}
+
+Para iniciar un proyecto nuevo rápidamente, haz clic en este botón y sigue las
+instrucciones para desplegar rápidamente tu proyecto de Convex en Vercel.
+
+**Nota:** Tendrás que crear un proyecto en el panel de control de Convex para usar esta
+plantilla.
+
+[![Deploy with
+Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex\&project-name=vercel-with-convex\&repository-name=vercel-with-convex\&demo-title=Convex%20with%20Vercel\&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel\&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F\&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+#### Desde cero \{#from-scratch\}
+
+Esta guía asume que ya tienes una aplicación de React funcionando con Convex. Si no es así,
+sigue primero la guía [Inicio rápido de Convex React](/quickstart/react.mdx). Luego:
+
+<StepByStep>
+  <Step title="Create a Vercel account">
+    Si aún no lo has hecho, crea una cuenta en [Vercel](https://vercel.com). Es
+    gratuita para proyectos pequeños y debería llevarte menos de un minuto configurarla.
+
+    <>    </>
+  </Step>
+
+  <Step title="Link your project on Vercel">
+    Crea un proyecto en Vercel en https://vercel.com/new y vincúlalo con el
+    repositorio de código fuente de tu proyecto en GitHub u otra plataforma Git.
+
+    ![Vercel import project](/screenshots/vercel_import.png)
+  </Step>
+
+  <Step title="Override the Build command">
+    Anula el valor de *Build command* para que sea
+    `npx convex deploy --cmd 'npm run build'`.
+
+    Si tu proyecto se encuentra en un subdirectorio del repositorio, también
+    tendrás que cambiar la opción *Root Directory* de arriba en consecuencia.
+
+    ![Vercel build settings](/screenshots/vercel_build_command.png)
+  </Step>
+
+  <Step title="Set up the CONVEX_DEPLOY_KEY environment variable">
+    Ve a la página [Project Settings](https://dashboard.convex.dev/project/settings#production-deploy-keys) en el Convex Dashboard. Haz clic en el botón *Generate Production Deploy Key* para generar una clave de despliegue de **Producción**.
+    Luego haz clic en el botón de copia para copiar la clave.
+
+    En Vercel, haz clic en *Environment Variables*.
+    Crea una variable de entorno llamada `CONVEX_DEPLOY_KEY` y pega
+    tu clave de despliegue. En *Environment*, desmarca todo excepto *Production* y haz clic en *Save*.
+
+    ![Vercel environment variable CONVEX\_DEPLOY\_KEY](/screenshots/vercel_prod_deploy_key.png)
+  </Step>
+
+  <Step title="Deploy your site">
+    Ahora haz clic en el botón *Deploy* y ¡tu trabajo aquí habrá terminado!
+
+    <>    </>
+  </Step>
+</StepByStep>
+
+Vercel publicará automáticamente tu sitio en una URL como
+`https://<site-name>.vercel.app`, que se mostrará en la página tras el despliegue. Cada vez que
+hagas un push a tu repositorio de Git, Vercel desplegará automáticamente tus funciones
+de Convex y publicará los cambios de tu sitio.
+
+<Admonition type="info" title="¿Usas un dominio personalizado?">
+  Si estás usando un dominio personalizado para servir tus funciones de Convex, necesitarás
+  una configuración adicional. Consulta [Dominios
+  personalizados](/production/hosting/custom.mdx#hosting-with-a-custom-domain) para obtener más
+  información.
+</Admonition>
+
+### Cómo funciona \{#how-it-works\}
+
+En Vercel, sobrescribimos el *Build Command* para que sea
+`npx convex deploy --cmd 'npm run build'`.
+
+`npx convex deploy` leerá `CONVEX_DEPLOY_KEY` del entorno y lo usará
+para establecer la variable de entorno `CONVEX_URL` (o con un nombre similar) para que apunte a tu despliegue de **producción**.
+
+Tu framework de frontend preferido, invocado por `npm run build`, leerá la
+variable de entorno `CONVEX_URL` (o con un nombre similar) para que tu sitio desplegado (a través de `ConvexReactClient`) apunte a tu despliegue de **producción**.
+
+Finalmente, `npx convex deploy` subirá tus funciones de Convex a tu despliegue
+de producción.
+
+Ahora, tu despliegue de producción tiene tus funciones más recientes y tu aplicación
+está configurada para conectarse a él.
+
+Puedes usar `--cmd-url-env-var-name` para personalizar el nombre de la variable que usa tu
+código de frontend si el comando `deploy` no puede inferirlo, por ejemplo:
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### Autenticación \{#authentication\}
+
+Deberás configurar tu proveedor de [autenticación](/auth.mdx) (Clerk,
+Auth0 u otro) para que acepte tu URL de producción. Ten en cuenta que Clerk no admite
+`https://<site-name>.vercel.app`, por lo que tendrás que configurar un dominio personalizado.
+
+## Despliegues de vista previa \{#preview-deployments\}
+
+Los despliegues de vista previa de Vercel te permiten previsualizar los cambios en tu app antes de
+que se fusionen. Para previsualizar tanto los cambios en el código de frontend como en las funciones de Convex,
+puedes configurar
+[despliegues de vista previa de Convex](/production/hosting/preview-deployments.mdx).
+
+Esto creará un backend de Convex nuevo para cada vista previa y dejará tus
+despliegues de producción y desarrollo sin cambios.
+
+Esto supone que ya has seguido los pasos de
+[Deploying to Vercel](#deploying-to-vercel) anteriores.
+
+<StepByStep>
+  <Step title="Configurar la variable de entorno CONVEX_DEPLOY_KEY">
+    En tu [Convex Dashboard](https://dashboard.convex.dev/)
+    ve a la página *Settings* de tu proyecto. Haz clic en el botón *Generate Preview Deploy Key* para generar una clave de despliegue de **Preview**.
+    Luego haz clic en el botón de copiar para copiar la clave.
+
+    En Vercel, haz clic en *Environment Variables*.
+    Crea una variable de entorno llamada `CONVEX_DEPLOY_KEY` y pega
+    tu clave de despliegue. En *Environment*, desmarca todo excepto *Preview* y haz clic en *Save*.
+
+    <div className="screenshot-border">
+      ![Variable de entorno de Vercel CONVEX\_DEPLOY\_KEY](/screenshots/vercel_preview_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="(opcional) Configurar variables de entorno predeterminadas">
+    Si tu app depende de ciertas variables de entorno de Convex, puedes configurar [variables de entorno
+    predeterminadas](/production/environment-variables.mdx#project-environment-variable-defaults) para los despliegues de vista previa y de desarrollo de tu proyecto.
+
+    <div className="screenshot-border">
+      ![Variables de entorno predeterminadas del proyecto](/screenshots/project_default_environment_variables.png)
+    </div>
+  </Step>
+
+  <Step title="(opcional) Ejecutar una función para configurar datos iniciales">
+    Los despliegues de vista previa de Vercel se ejecutan sobre backends de Convex nuevos, que no comparten datos
+    con los despliegues de Convex de desarrollo o de producción. Puedes llamar a una función
+    de Convex para configurar datos añadiendo `--preview-run 'functionName'` al comando `npx
+      convex deploy`. Esta función solo se ejecutará para los despliegues de vista previa y se ignorará
+    al desplegar en producción.
+
+    ```sh title="Vercel > Settings > Build & Development settings > Build Command"
+    npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+    ```
+  </Step>
+
+  <Step title="Ahora prueba a crear un PR y generar un despliegue de vista previa">
+    Puedes encontrar el despliegue de Convex para tu rama en el panel de control de Convex.
+
+    <div className="screenshot-border">
+      ![Despliegue de vista previa en el selector de despliegues](/screenshots/preview_deployment_deployment_picker.png)
+    </div>
+  </Step>
+</StepByStep>
+
+### Cómo funciona \{#how-it-works\}
+
+Para los despliegues de vista previa, `npx convex deploy` leerá `CONVEX_DEPLOY_KEY` del
+entorno y lo usará para crear un despliegue de Convex asociado con el
+nombre de la rama de Git del despliegue de vista previa de Vercel. Establecerá la variable
+de entorno `CONVEX_URL` (o con un nombre similar) para que apunte al nuevo despliegue de Convex.
+
+El framework de frontend que elijas, invocado por `npm run build`, leerá la
+variable de entorno `CONVEX_URL` y hará que tu sitio desplegado (a través de
+`ConvexReactClient`) apunte al despliegue de vista previa de Convex.
+
+Finalmente, `npx convex deploy` subirá tus funciones de Convex al despliegue de
+vista previa y ejecutará la función `--preview-run` (si se proporciona). Este despliegue
+tiene funciones, datos, tareas programadas (crons) y toda la demás configuración separados de cualquier otro
+despliegue.
+
+`npx convex deploy` inferirá el nombre de la rama de Git para los entornos de Vercel, Netlify, GitHub
+y GitLab, pero se puede usar la opción `--preview-create` para
+personalizar el nombre asociado con el despliegue recién creado.
+
+Los despliegues de producción funcionarán exactamente igual que antes.

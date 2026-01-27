@@ -1,0 +1,88 @@
+---
+title: デバッグ
+sidebar_label: "デバッグ"
+sidebar_position: 1100
+description: "Agent コンポーネントのデバッグ"
+---
+
+## Playground でのデバッグ \{#debugging-in-the-playground\}
+
+通常、[Playground](./playground.mdx) からは何が起きているかについて多くの情報を得られますが、
+それでも不十分な場合には、ほかにも利用できる手段があります。
+
+## LLM 呼び出しの生のリクエストとレスポンスのログ出力 \{#logging-the-raw-request-and-response-from-llm-calls\}
+
+エージェントに `rawRequestResponseHandler` を指定することで、LLM に対する
+生のリクエストとレスポンスをログに記録できます。
+
+これを使ってリクエストとレスポンスをテーブルに記録したり、コンソールログと
+[Log Streaming](https://docs.convex.dev/production/integrations/log-streams/) を併用して、
+Axiom などのログサービスでデバッグや検索ができるようにできます。
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  rawRequestResponseHandler: async (ctx, { request, response }) => {
+    console.log("request", request);
+    console.log("response", response);
+  },
+});
+```
+
+## contextHandler を使ったコンテキストメッセージのログ出力 \{#logging-the-context-messages-via-the-contexthandler\}
+
+LLM が実際にどのような内容を受け取っているか確認したい場合は、
+contextHandler でコンテキストメッセージをログに出力できます。
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  contextHandler: async (ctx, { allMessages }) => {
+    console.log("context", allMessages);
+    return allMessages;
+  },
+});
+```
+
+## ダッシュボードでデータベースを確認する \{#inspecting-the-database-in-the-dashboard\}
+
+ダッシュボードの「Data」タブに移動し、テーブル一覧の上にある agent コンポーネントを選択すると、Agent のデータを確認できます。テーブルの構成は
+[スキーマ](https://github.com/get-convex/agent/blob/main/src/component/schema.ts)
+に対応しています。特に有用なテーブルは次のとおりです:
+
+* `threads` はスレッドごとに 1 行のレコードがあります
+* `messages` は `ModelMessage` ごとに別々の行があります。例: ユーザーメッセージ、
+  アシスタントのツール呼び出し、ツールの結果、アシスタントメッセージなどです。特に重要なフィールドは、そのメッセージがどのエージェントに紐づいているかを示す `agentName`、`status`、メッセージの並び順に使われる `order` と `stepOrder`、そして LLM に渡される内容にほぼ相当する `message` です。
+* `streamingMessages` には、クリーンアップされるまでストリーミングされたメッセージごとのレコードがあります。ID を使って関連する `streamDeltas` テーブルを参照できます。
+* `files` は、メッセージで送信されて File Storage に保存されたコンテンツのうち、Agent によってトラッキングされているファイルを記録します。
+
+## トラブルシューティング \{#troubleshooting\}
+
+### `components.agent` に関する型エラー \{#type-errors-on-componentsagent\}
+
+`components.agent` に関する型エラーが発生する場合は、そのコンポーネント用のコードを生成するために
+`npx convex dev` を実行したか確認してください。ライブラリが想定する型は npm ライブラリ内にあり、
+`components.agent` の型は現在、（`npx convex dev` によって）あなたのプロジェクト内で生成されたコードから提供されています。
+
+### 循環依存 \{#circular-dependencies\}
+
+workflow の戻り値が他の Convex 関数に依存している場合、関数を `internal.foo.bar` という形式で指定することにより、循環依存が発生することがあります。これを解消するには、workflow の戻り値の型を明示的に指定します。迷った場合は、次のように、より多くの `handler` 関数に戻り値の型を追加してください。
+
+```ts
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
+  // highlight-next-line
+  handler: async (step, { prompt, userId, threadId }): Promise<string> => {
+    // ...
+  },
+});
+
+// 通常の関数も同様:
+export const myFunction = action({
+  args: { prompt: v.string() },
+  // highlight-next-line
+  handler: async (ctx, { prompt }): Promise<string> => {
+    // ...
+  },
+});
+```

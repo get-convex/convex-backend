@@ -1,0 +1,344 @@
+---
+title: "スキーマ"
+sidebar_position: 5
+description:
+  "スキーマ検証を使うと、Convex のデータをきれいに整理された状態に保てます。さらに、TypeScript によるエンドツーエンドの型安全性も得られます！"
+toc_max_heading_level: 4
+---
+
+import SchemaTS from "!!raw-loader!@site/../demos/users-and-auth/convex/schema.ts";
+import circularExample from "!!raw-loader!@site/../private-demos/snippets/convex/schemasCircular.ts";
+
+スキーマとは、次の内容を表します。
+
+1. Convex プロジェクト内のテーブル
+2. 各テーブル内のドキュメントの型
+
+Convex をスキーマを *定義せずに* 使うことも可能ですが、
+`schema.ts` ファイルを追加すると、各テーブル内のドキュメントが正しい型であることを保証できます。
+[TypeScript](/understanding/best-practices/typescript.mdx) を使っている場合は、スキーマを追加することで、
+アプリ全体にわたってエンドツーエンドの型安全性も得られます。
+
+プロジェクトの初期段階では迅速にプロトタイピングするためにスキーマなしで始め、
+計画が固まったタイミングでスキーマを追加することを推奨します。詳しくは
+[スキーマに関する考え方](/database/advanced/schema-philosophy.md) を参照してください。
+
+**例:**
+[TypeScript とスキーマ](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## スキーマの記述 \{#writing-schemas\}
+
+スキーマは `convex/` ディレクトリ内の `schema.ts` ファイルに定義し、次のようになります:
+
+<Snippet source={SchemaTS} title="convex/schema.ts" />
+
+このスキーマは
+[users and auth example](https://github.com/get-convex/convex-demos/tree/main/users-and-auth)
+に基づいており、messages と users の 2 つのテーブルが含まれます。各テーブルは
+[`defineTable`](/api/modules/server#definetable) 関数を使って定義します。各テーブル内の
+ドキュメントの型は、バリデータビルダーである
+[`v`](/api/modules/values#v) を使って定義します。列挙されているフィールドに加えて、Convex は
+`_id` と `_creationTime` フィールドも自動的に追加します。詳しくは
+[システムフィールド](/database/types.md#system-fields) を参照してください。
+
+<Admonition type="tip" title="スキーマの生成">
+  スキーマを作成する際には、
+  [Convex Dashboard](/dashboard/deployments/data.md#generating-a-schema) を参照すると便利です。
+  「Data」ビューの「Generate Schema」ボタンは、テーブル内のデータに基づいて
+  スキーマ定義を提案します。
+</Admonition>
+
+### バリデータ \{#validators\}
+
+バリデータビルダー [`v`](/api/modules/values#v) は、各テーブル内のドキュメントの型を定義するために使用されます。Convex の各[型](/database/types) に対応するメソッドを持っています。
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  documents: defineTable({
+    id: v.id("documents"),
+    string: v.string(),
+    number: v.number(),
+    boolean: v.boolean(),
+    nestedObject: v.object({
+      property: v.string(),
+    }),
+  }),
+});
+```
+
+さらに、ユニオン型、オプションのプロパティ、文字列リテラルなども定義できます。[引数のバリデーション](/functions/validation.mdx) とスキーマは、いずれも同じバリデータビルダー `v` を使用します。
+
+#### オプションフィールド \{#optional-fields\}
+
+`v.optional(...)` で型をラップすることで、オプションフィールドを表現できます：
+
+```typescript
+defineTable({
+  optionalString: v.optional(v.string()),
+  optionalNumber: v.optional(v.number()),
+});
+```
+
+これは、TypeScript でフィールドに `?` を付けてオプショナルにするのと同じです。
+
+#### ユニオン型 \{#unions\}
+
+`v.union` を使うと、複数の型のいずれかになりうるフィールドを表現できます。
+
+```typescript
+defineTable({
+  stringOrNumber: v.union(v.string(), v.number()),
+});
+```
+
+テーブルに異なる種類のドキュメントを複数保存する場合は、トップレベルで
+`v.union` を使用できます。
+
+```typescript
+defineTable(
+  v.union(
+    v.object({
+      kind: v.literal("StringDocument"),
+      value: v.string(),
+    }),
+    v.object({
+      kind: v.literal("NumberDocument"),
+      value: v.number(),
+    }),
+  ),
+);
+```
+
+このスキーマでは、ドキュメントは `kind` が `"StringDocument"` で
+`value` が文字列のものか、
+
+```json
+{
+  "kind": "StringDocument",
+  "value": "abc"
+}
+```
+
+または、`kind` が `"NumberDocument"` で、その `value` が数値である場合です。
+
+```json
+{
+  "kind": "NumberDocument",
+  "value": 123
+}
+```
+
+#### リテラル \{#literals\}
+
+定数値のフィールドは `v.literal` で表現できます。
+
+```typescript
+defineTable({
+  oneTwoOrThree: v.union(
+    v.literal("one"),
+    v.literal("two"),
+    v.literal("three"),
+  ),
+});
+```
+
+#### レコードオブジェクト \{#record-objects\}
+
+`v.record` を使うと、任意のキーを値に対応付けるオブジェクトを表現できます：
+
+```typescript
+defineTable({
+  simpleMapping: v.record(v.string(), v.boolean()),
+});
+```
+
+キーとして、他の種類の文字列バリデータを使用することもできます。
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    userIdToValue: v.record(v.id("users"), v.boolean()),
+  },
+  handler: async ({ db }, { userIdToValue }) => {
+    //...
+  },
+});
+```
+
+注意:
+
+* この型は TypeScript の
+  [Record&lt;K,V&gt;](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
+  型に対応しています
+* `record` 型のキーとして文字列リテラルを使用することはできません
+* `record` のキー用バリデータとして `v.string()` を使用すると、キーには ASCII 文字のみを使用できます
+
+#### Any \{#any\}
+
+任意の値を取り得るフィールドやドキュメントは、`v.any()` で表せます。
+
+```typescript
+defineTable({
+  anyValue: v.any(),
+});
+```
+
+これは TypeScript における `any` 型に相当します。
+
+### オプション \{#options\}
+
+これらのオプションは、
+[`defineSchema`](/api/modules/server#defineschema) の
+[options](/api/interfaces/server.DefineSchemaOptions) 引数の一部として渡されます。
+
+#### `schemaValidation: boolean` \{#schemavalidation-boolean\}
+
+Convex が、ドキュメントがスキーマに一致しているかどうかを実行時に検証するかどうかを指定します。
+
+デフォルトでは、Convex は新規および既存のすべてのドキュメントがスキーマに一致していることを保証します。
+
+`schemaValidation` を無効にするには、`schemaValidation: false` を指定します。
+
+```typescript
+defineSchema(
+  {
+    // ここにテーブルを定義します。
+  },
+  {
+    schemaValidation: false,
+  },
+);
+```
+
+`schemaValidation` が無効化されている場合、Convex は新規および既存のドキュメントがスキーマに準拠しているか検証しません。スキーマに基づく TypeScript の型定義は引き続き生成されますが、ドキュメントがそれらの型に一致しているかどうかを実行時に検証することはありません。
+
+#### `strictTableNameTypes: boolean` \{#stricttablenametypes-boolean\}
+
+TypeScript の型が、スキーマに存在しないテーブルへのアクセスを許可するかどうかを指定します。
+
+デフォルトでは、スキーマによって生成される TypeScript のテーブル名の型は厳密です。
+これは、文字列のユニオン（例: `"messages" | "users"`）となり、
+スキーマに明示的に列挙されたテーブルにのみアクセスをサポートすることを意味します。
+
+スキーマの一部だけを定義しておくと便利な場合もあります。たとえば、素早くプロトタイピングしている場合、新しいテーブルを `schema.ts` ファイルに追加する前に事前に試してみたいことがあるかもしれません。
+
+`strictTableNameTypes` は、`strictTableNameTypes: false` を指定することで無効化できます。
+
+```typescript
+defineSchema(
+  {
+    // ここでテーブルを定義します。
+  },
+  {
+    strictTableNameTypes: false,
+  },
+);
+```
+
+`strictTableNameTypes` が無効になっている場合、TypeScript の型定義では
+スキーマに記載されていないテーブルへのアクセスも許可され、そのドキュメント型は `any` になります。
+
+`strictTableNameTypes` の値に関係なく、スキーマはスキーマ内に列挙されたテーブルの
+ドキュメントだけを検証します。JavaScript のコード内やダッシュボード上では、他のテーブルの
+ドキュメントを作成および変更することは引き続き可能です（それらについては検証は行われません）。
+
+## スキーマ検証 \{#schema-validation\}
+
+スキーマは
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) と
+[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production) の実行時に自動的にプッシュされます。
+
+スキーマが追加または変更された後の最初のプッシュでは、既存のすべてのドキュメントがスキーマに準拠しているかが検証されます。検証に失敗するドキュメントがある場合、そのプッシュは失敗します。
+
+スキーマがプッシュされた後は、Convex は以降のすべてのドキュメントの挿入および更新がスキーマに準拠していることを検証します。
+
+[`schemaValidation`](#schemavalidation-boolean) が `false` に設定されている場合、スキーマ検証はスキップされます。
+
+スキーマは、スキーマ内に列挙されているテーブルのドキュメントのみを検証することに注意してください。その他のテーブルに対してもドキュメントの作成や変更は可能ですが（それらは検証されません）。
+
+### 循環参照 \{#circular-references\}
+
+次のような循環する ID 参照を持つスキーマを定義したくなることがあります:
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.id("users"),
+  }),
+});
+```
+
+このスキーマでは、`users` テーブル内のドキュメントが `preferences` のドキュメントを参照し、逆に `preferences` のドキュメントも `users` を参照しています。
+
+スキーマ検証では、すべての `db.insert`、`db.replace`、`db.patch` 呼び出しに対してスキーマが適用されるため、このような循環参照を作成することはできません。
+
+これを回避する最も簡単な方法は、参照のどちらか一方を nullable にすることです。
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.union(v.id("users"), v.null()),
+  }),
+});
+```
+
+このようにすると、まず preferences ドキュメントを作成し、その後 user
+ドキュメントを作成し、最後に preferences ドキュメントに参照を設定できます:
+
+<TSAndJSSnippet title="convex/users.ts" sourceTS={circularExample} sourceJS={circularExample} />
+
+循環参照について、より良いサポートが必要な場合は、[ご連絡ください](/production/contact.md)。
+
+## TypeScript の型 \{#typescript-types\}
+
+スキーマを定義すると、
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) によって
+スキーマに基づいた型定義を含む新しいバージョンの
+[`dataModel.d.ts`](/generated-api/data-model) と
+[`server.d.ts`](/generated-api/server) が生成されます。
+
+### `Doc<TableName>` \{#doctablename\}
+
+[`dataModel.d.ts`](/generated-api/data-model) に含まれる [`Doc`](/generated-api/data-model#doc) の TypeScript 型は、
+すべてのテーブルに対応するドキュメント型を提供します。これらの型は Convex 関数を実装するときや、
+React コンポーネント内でも使用できます。
+
+```tsx noDialect title="MessageView.tsx"
+import { Doc } from "../convex/_generated/dataModel";
+
+function MessageView(props: { message: Doc<"messages"> }) {
+  ...
+}
+```
+
+ドキュメントの一部の型が必要な場合は、
+[`Infer` 型ヘルパー](/functions/validation#extracting-typescript-types)を使用してください。
+
+### `query` と `mutation` \{#query-and-mutation\}
+
+[`server.js`](/generated-api/server) の
+[`query`](/generated-api/server#query) 関数と
+[`mutation`](/generated-api/server#mutation) 関数は、これまでと同じ API を持ちますが、より正確な型情報を持つ `db` を提供するようになりました。
+[`db.insert(table, document)`](/api/interfaces/server.GenericDatabaseWriter#insert)
+のような関数は、プロジェクトのスキーマを理解します。加えて、
+[database queries](/database/reading-data/reading-data.mdx) は、（`any` ではなく）正しいドキュメント型を返すようになります。
+
+<StackPosts query="schemas" />

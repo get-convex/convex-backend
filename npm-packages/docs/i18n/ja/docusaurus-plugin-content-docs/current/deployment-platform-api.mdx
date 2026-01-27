@@ -1,0 +1,40 @@
+---
+title: デプロイメントプラットフォーム API
+hide_table_of_contents: true
+description: "デプロイメント API"
+---
+
+<Admonition type="info">
+  Convex デプロイメント API は現在ベータ版として公開されています。追加の機能が必要なユースケースがある場合は
+  platforms@convex.dev までお問い合わせください。
+</Admonition>
+
+クライアントにアプリケーション固有の機能を提供する HTTP エンドポイントとは異なり、管理用 API エンドポイントはデプロイメントの設定を行います（例: 環境変数の変更）。
+
+## 認可 \{#authorization\}
+
+Deployment Management API には、そのデプロイメントへの管理者アクセス権を持つキーを指定した Authorization ヘッダーが必要です。
+
+[Deployment keys](https://docs.convex.dev/cli/deploy-key-types#development-deploy-keys) は
+[ダッシュボード](https://docs.convex.dev/dashboard/deployments/deployment-settings#url-and-deploy-key)
+または API 呼び出しで作成でき、これらの API に使用できます。
+
+[Team Access Tokens](/platform-apis#managing-your-own-projects) と
+[OAuth Application Tokens](/platform-apis/oauth-applications) も、
+Management API を自分のチームのために使うのか、
+あなたが構築した Convex 連携機能を利用するユーザーのチームのために使うのかに応じて使用できます。
+
+どの種類のキーであっても、先頭に文字列 `"Convex "` を追加してください。
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://happy-otter-123.convex.cloud/api/v1/list_environment_variables",
+  {
+    headers: {
+      Authorization: `Convex ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```

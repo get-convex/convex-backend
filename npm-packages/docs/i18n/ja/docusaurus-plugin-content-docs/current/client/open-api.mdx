@@ -1,0 +1,71 @@
+---
+title: "OpenAPI とその他の言語"
+sidebar_label: "OpenAPI"
+sidebar_position: 325
+---
+
+import Load from "!!raw-loader!@site/../private-demos/snippets/convex/goClientExample.ts";
+import Go from "!!raw-loader!@site/../private-demos/snippets/goExample.txt";
+
+Convex は Go、Java、C++ など多くの言語を明示的にはサポートしていません。しかし、現在サポートされていない言語向けにも、Convex のデプロイメントから [OpenAPI](https://swagger.io/specification/)
+仕様を生成することで、型安全なクライアントを作成できます。内部的には、これは
+[HTTP API](/http-api) を利用しています。そのため、クエリはリアクティブ／リアルタイムにはなりません。
+
+<BetaAdmonition feature="OAS generation" verb="is" />
+
+## セットアップ \{#setup\}
+
+<StepByStep>
+  <Step title="Convex Helpers の npm パッケージをインストールする">
+    OpenAPI 仕様を生成するための CLI（コマンドラインインターフェイス）コマンドを含む `convex-helpers` パッケージをインストールします。
+
+    ```sh
+    npm install convex-helpers
+    ```
+  </Step>
+
+  <Step title="OpenAPI 仕様を生成するコマンドを実行する">
+    このコマンドを実行すると、設定済みの Convex デプロイメントにアクセスし、その内容に基づいて `convex-spec.yaml` ファイルを生成します。`--help` をコマンドに渡すことで、利用可能な追加のフラグを確認できます。
+
+    ```sh
+    npx convex-helpers open-api-spec
+    ```
+  </Step>
+
+  <Step title="型安全なクライアントを生成する">
+    `convex-spec.yaml` ファイルからクライアントを生成するには、別のツールを使って生成します。よく使われるオプションとしては、[OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator) や [Swagger](https://swagger.io/tools/swagger-codegen/) などがあります。
+
+    ```yaml
+    # convex-spec.yaml
+    openapi: 3.0.3
+    info:
+      title: Convex App - OpenAPI 3.0
+      version: 0.0.0
+      servers:
+        - url: "{hostUrl}"
+      description: Convex App API
+      ...
+    ```
+  </Step>
+</StepByStep>
+
+## 例 \{#example\}
+
+以下は、このワークフローが実際にどのように動作するかを示すコードスニペットです。
+これらのスニペットには、次の 2つのファイルが含まれます：
+
+* `convex/load.ts` - Convex 関数の定義を含みます
+* `convex.go` - 生成された型安全な `HTTP` クライアントを利用する `Go` コードを含みます。このクライアントは、
+  [OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator) パッケージをインストールし、
+  コマンド `npx openapi-generator-cli generate -i convex-spec.yaml -g go -o convex_client`
+  を実行して生成されたものです
+
+<TSAndJSSnippet title="convex/load.ts" sourceTS={Load} sourceJS={Load} />
+
+<Snippet source={Go} title="convex.go" />
+
+## 制限事項 \{#limits\}
+
+* 引数および戻り値のバリデーターは必須ではありませんが、定義すると OpenAPI 仕様の型情報がより充実したものになります。バリデーターが定義されていない場合、デフォルトで `v.any()` が使用されます。
+* Convex のデプロイメントの外部から内部関数を呼び出すことはできません。
+* 現在 `bigints` と `bytes` はサポートしていません。

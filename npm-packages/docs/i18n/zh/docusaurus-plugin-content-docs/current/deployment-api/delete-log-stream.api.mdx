@@ -1,0 +1,56 @@
+---
+id: delete-log-stream
+title: "删除日志流"
+description: "删除此部署中具有给定 ID 的日志流。"
+sidebar_label: "删除日志流"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVk1v2zgQ/SvEXDYBZDlOb8JigaBBgaIBEuTjsDAMhxHHFmuJZEnKG63A/74YUv6K3S1S9NCLbY3ImfceZ/jcg0BXWmm81AoKuMYaPTJfIRNoat01qPwfjtV6yZy3yBv2j/RVXLCUa1RMihwy0AYtpxyfBRQgYpZ5rZfztAkyMNzyBj1aB8W0B8UbhAKkgAwkVTbcV5C9gSMF04tYbA+A1ywVgAwsfmulRQGFty1m4MoKGw5FD74zVMB5K9USQpjRYme0cujo/eXFBX0d1oMQMnBYtlb6LuK8jiqwL0iPs5D1cHvV+oo9EpJHvUK1iR9H0so7q79i6fdezTJo0FeapDLa+aiOr6CA8ZFy416KAATKrjfatbaGAvrdAY1aW4cxN3K8nhxp+LduLfuo1Rpf984UMlhzK/lLneQ4TJYiC97WHgqovDeuGI8rbkw34ko2vB5NLj/kZcyal7Vuxem6u7Ts6f4GQjyHjcAPdFip/L7M27PjRlJgaJAKuUAL2aZ1SFxt5b+x7Y6qDwlX2DnGLbLWoWALfYBo27QuZw+IbCq2mxhBcLOzDXWhS7ehK3A9Lms5TqtHK+xGcfV5zN9oi0yqhbZNzJ2zJ5cG6nk4hGdmLC7kKzvDfJln2/ifKeF8hd1fz+c5hOx0B/0SfW5fPJcKBfOV1e2yYpxNBxypKDemlmXc/H0ZGq74EmPXcCPP091gBriu1AbfQV/z1lfzYffcE9lDHfYn7PcV4d2MD5j+co4fLXKPgkmVbnXuqhfNrWCtEmiZp3oOvZdq6WIDc9WlaKdbVnLFEr930KLd+6wCAV/oSEj6mjAPS693w3h19/kI+5VopKI3EZhUHi0vCWlqtN0oO/KgWpaoHFKZQZmbFLnHxejTw81okk9GV4aXFY4u8wuSU6DyciHR/nBxyIDu34Rrkl+kEN3eDVd7JQcD3dnVW1I9lFp5uoF/3m2HtvD46sem5lIRluHaTk4yPenBhRQwy6Aizymm0Pcv3OGTrUOg8LcWbXS5nTVEuxHS0W8BxYLXDv+Hz9n9YMfn7IfOfZLDpt9VF/2pbukJMliRL9CfhTALe+Z5d/vwCBnQFB1OyypOy/CDOJxM/HZwUhX6JPc+uaXv0yyGsF2fXn13x3ZaBw6KOITwHxraQm8=
+sidebar_class_name: "post api-method"
+info_path: deployment-api/convex-deployment-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"删除日志流"} />
+
+<MethodEndpoint method={"post"} path={"/delete_log_stream/{id}"} context={"endpoint"} />
+
+删除指定 Id 的部署日志流。
+
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+  children={"请求"}
+>
+</Heading>
+
+<ParamsDetails
+  parameters={[{"name":"id","in":"path","description":"要删除的日志流的 id","required":true,"schema":{"type":"string"}}]}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"请求体"}
+  body={undefined}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":""}}}
+>
+  
+</StatusCodes>

@@ -1,0 +1,68 @@
+---
+title: AI コード生成
+hide_table_of_contents: true
+description: "Convex で AI コード生成を効果的に使う方法"
+---
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "https://chef.convex.dev",
+  label: "Convex Chef でアプリを構築するプロンプト",
+}}
+/>
+
+Convex は、少数のコンポーズ可能な抽象化と強力な保証を中心に設計されており、コードは素早く書けるだけでなく、チームメンバーが書いた場合でも LLM が書いた場合でも、読みやすく保守しやすくなっています。いくつかの主要な機能により、バグのない AI 生成コードを実現できます。
+
+1. **クエリはただの TypeScript** データベースクエリは、エンドツーエンドの型安全性と IDE サポートを備えた純粋な TypeScript 関数です。これにより、AI は SQL に切り替えることなく、大量の TypeScript コードの学習データを使ってデータベースコードを生成できます。
+2. **同じ処理をより少ないコードで** Convex が多くのインフラとボイラープレートを自動的に管理するため、記述すべきコード量が減り、その分だけ間違える余地も少なくなります。
+3. **自動的なリアクティビティ** リアクティブシステムがデータ依存関係を自動的に追跡し、UI を更新します。AI がサブスクリプション、WebSocket 接続、複雑な状態同期を手動で管理する必要はありません — Convex がこれらをすべて自動的に処理します。
+4. **トランザクションの保証** クエリは読み取り専用で、ミューテーションはトランザクション内で実行されます。これらの制約により、AI がデータを破損させたり、アプリを一貫性のない状態にしたりするようなコードを書くことはほぼ不可能になります。
+
+これらの機能により、AI はビジネスロジックに集中でき、Convex の保証によってよくある失敗パターンが防がれます。どのモデルが Convex と最も相性が良いかについての最新情報は、LLM
+[leaderboard](https://convex.dev/llm-leaderboard) を参照してください。
+
+## Convex AI のルール \{#convex-ai-rules\}
+
+AI によるコード生成は、従うべき一連のルールを与えたときに最も効果的に機能します。
+
+インストール手順については、次のドキュメントを参照してください:
+
+* [Cursor](/ai/using-cursor.mdx#add-convex-cursorrules)
+* [Windsurf](/ai/using-windsurf.mdx#add-convex-rules)
+* [GitHub Copilot](/ai/using-github-copilot.mdx#add-convex-instructions)
+
+その他の IDE については、次のルールファイルをプロジェクトに追加し、変更内容を生成させるときに参照してください:
+
+* [convex&#95;rules.txt](https://convex.link/convex_rules.txt)
+
+Convex 用のこれらのルールの品質は、厳密な eval による評価を用いて継続的に改善しています。
+[evals リポジトリへのコントリビュート](https://github.com/get-convex/convex-evals)という形で、ぜひご協力ください。
+
+## バックグラウンドエージェントと Convex を使う \{#using-convex-with-background-agents\}
+
+Jules、Devin、Codex、Cursor のようなリモートクラウドベースのコーディングエージェントや
+バックグラウンドエージェントは、CLI を
+[Agent Mode](/cli/background-agents.mdx) で動かすことで Convex のデプロイメントを利用できます。これにより、
+これらのリモートの dev 環境に必要な権限を最小限に抑えつつ、エージェントに codegen の実行、
+コードの反復的な更新、テストの実行、単発の関数実行を行わせることができます。
+
+例えば ChatGPT Codex 向けの良いセットアップスクリプトには、次のようなものを含めるとよいでしょう
+
+```
+npm i
+CONVEX_AGENT_MODE=anonymous npx convex dev --once
+```
+
+または
+
+```
+bun i
+CONVEX_AGENT_MODE=anonymous bun x convex dev --once
+```
+
+このコマンドでバイナリをダウンロードするには、インターネットへの「フル」アクセス権が必要です。
+
+## Convex MCP Server \{#convex-mcp-server\}
+
+[Convex MCP server をセットアップ](/ai/convex-mcp-server.mdx)して、AI コーディングエージェントが Convex デプロイメントにアクセスし、プロジェクトに対するクエリおよび最適化を行えるようにします。

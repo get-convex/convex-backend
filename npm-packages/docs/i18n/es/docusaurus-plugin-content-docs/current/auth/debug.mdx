@@ -1,0 +1,249 @@
+---
+title: "Depuración de la autenticación"
+sidebar_label: "Depuración"
+sidebar_position: 130
+description: "Resuelve problemas de autenticación en Convex"
+---
+
+# Depuración de la autenticación \{#debugging-authentication\}
+
+Has seguido una de nuestras guías de autenticación, pero algo no está funcionando.
+Has comprobado cuidadosamente que seguiste todos los pasos y que usaste los
+secretos correctos, pero aun así sigues atascado.
+
+## Problemas habituales \{#frequently-encountered-issues\}
+
+### `ctx.auth.getUserIdentity()` devuelve `null` en una consulta \{#ctxauthgetuseridentity-returns-null-in-a-query\}
+
+Esto suele ocurrir al suscribirse a consultas mediante `useQuery` en React sin
+esperar a que el cliente esté autenticado. Incluso si el usuario ha iniciado
+sesión previamente, el cliente tarda un tiempo en autenticarse con el backend de
+Convex. Por lo tanto, al cargar la página, `ctx.auth.getUserIdentity()` llamado
+dentro de una consulta devuelve `null`.
+
+Para manejar esto, puedes:
+
+1. Usar el componente `Authenticated` de `convex/react` para envolver el
+   componente que incluye la llamada a `useQuery` (consulta los dos últimos
+   pasos en la [guía de Clerk](/auth/clerk.mdx#get-started))
+2. O devolver `null` u otro valor «centinela» desde la consulta y manejarlo en
+   el cliente
+
+Si estás usando `fetchQuery` para el
+[renderizado del lado del servidor con Next.js](/client/nextjs/app-router/server-rendering.mdx),
+asegúrate de que estás pasando explícitamente un token JWT, como se documenta
+[aquí](/client/nextjs/app-router/server-rendering.mdx#server-side-authentication).
+
+Si esto no ha solucionado el problema, sigue los pasos a continuación para resolverlo.
+
+## Paso 1: Comprueba si la autenticación funciona en el backend \{#step-1-check-whether-authentication-works-on-the-backend\}
+
+1. Agrega el siguiente código al *principio* de tu función (consulta, mutación,
+   acción o acción HTTP):
+
+```ts
+console.log("server identity", await ctx.auth.getUserIdentity());
+```
+
+2. Luego llama a esta función desde el cliente que estés usando para comunicarte con Convex.
+
+3. Abre la
+   [página de registros en tu panel de control](https://dashboard.convex.dev/deployment/logs).
+
+4. ¿Qué ves en la página de registros?
+
+   **Respuesta: No veo nada**:
+
+   * Posible causa: No tienes abierto el panel de control correcto. Confirma que la
+     URL de implementación en la página *Settings* &gt; *URL and Deploy Key* coincide con cómo está configurado tu
+     cliente.
+   * Posible causa: Tu cliente no está conectado a Convex. Revisa los registros de tu cliente
+     (registros del navegador) en busca de errores. Recarga la página o reinicia el cliente.
+   * Posible causa: El código no se ha publicado. Para despliegues de desarrollo asegúrate de tener `npx convex dev` ejecutándose. Para despliegues de producción asegúrate de
+     haber publicado correctamente mediante `npx convex deploy`. Ve a la página *Functions* en
+     el panel de control y comprueba que el código que se muestra allí incluye la
+     línea `console.log` que agregaste.
+
+   Una vez que resuelvas la causa deberías ver que aparece el registro.
+
+   **Respuesta: Veo un registro con `'server identity' null`**:
+
+   * Posible causa: El cliente no está proporcionando un token de autenticación.
+   * Posible causa: Tu despliegue está mal configurado.
+   * Posible causa: Tu cliente está mal configurado.
+
+   Continúa con el
+   [paso 2](#step-2-check-whether-authentication-works-on-the-frontend).
+
+   **Respuesta: Veo un registro con `'server identity' { tokenIdentifier: '... } `**
+
+   Perfecto, ya está todo listo.
+
+## Paso 2: Comprueba si la autenticación funciona en el frontend \{#step-2-check-whether-authentication-works-on-the-frontend\}
+
+Independientemente del cliente que uses, este debe pasar un token JWT a tu backend para
+que la autenticación funcione.
+
+La forma más fiable de asegurarte de que tu cliente está pasando el token al
+backend es inspeccionar el tráfico entre ambos.
+
+1. Si estás usando un cliente desde el navegador web, abre la pestaña *Network* en las
+   herramientas de desarrollo de tu navegador.
+
+2. Comprueba el token
+
+   * Para clientes basados en WebSocket (`ConvexReactClient` y `ConvexClient`),
+     filtra por el nombre `sync` y selecciona `WS` como tipo de tráfico. Revisa
+     los elementos `sync`. Después de que el cliente se haya inicializado (normalmente después de cargar
+     la página), enviará un mensaje (revisa la pestaña *Messages*) con
+     `type: "Authenticate"`, y `value` será el token de autenticación.
+
+     <p style={{ textAlign: "center" }}>
+       <img src="/screenshots/auth-ws.png" alt="Pestaña Network inspeccionando mensajes WebSocket" width={500} />
+     </p>
+
+   * Para clientes basados en HTTP (`ConvexHTTPClient` y la
+     [HTTP API](/http-api/index.md)), selecciona `Fetch/XHR` como tipo de tráfico.
+     Deberías ver una solicitud de red individual por cada llamada de función, con
+     un encabezado `Authorization` cuyo valor sea `Bearer ` seguido del
+     token de autenticación.
+
+     <p style={{ textAlign: "center" }}>
+       <img src="/screenshots/auth-http.png" alt="Pestaña Network inspeccionando encabezados HTTP" width={480} />
+     </p>
+
+3. ¿Ves el token de autenticación en el tráfico?
+
+   **Respuesta: No**:
+
+   * Posible causa: El cliente de Convex no está configurado para obtener/recuperar un token
+     JWT. No estás usando
+     `ConvexProviderWithClerk`/`ConvexProviderWithAuth0`/`ConvexProviderWithAuth`
+     con `ConvexReactClient` o te olvidaste de llamar a `setAuth` en
+     `ConvexHTTPClient` o `ConvexClient`.
+   * Posible causa: No has iniciado sesión, así que el token es `null` o
+     `undefined` y `ConvexReactClient` omitió la autenticación por completo.
+     Verifica que hayas iniciado sesión haciendo `console.log` del token desde el
+     proveedor de autenticación que estés usando:
+
+     * Clerk:
+
+       ```tsx
+       // import { useAuth } from "@clerk/nextjs"; // para Next.js
+       import { useAuth } from "@clerk/clerk-react";
+
+       const { getToken } = useAuth();
+       console.log(getToken({ template: "convex" }));
+       ```
+
+     * Auth0:
+
+       ```tsx
+       import { useAuth0 } from "@auth0/auth0-react";
+
+       const { getAccessTokenSilently } = useAuth0();
+       const response = await getAccessTokenSilently({
+         detailedResponse: true,
+       });
+       const token = response.id_token;
+       console.log(token);
+       ```
+
+     * Personalizado: Sea como sea que hayas implementado `useAuthFromProviderX`
+
+     Si no ves una cadena larga que parezca un token, revisa los registros del navegador
+     buscando errores de tu proveedor de autenticación. Si no hay ninguno, revisa la
+     pestaña Network para ver si las solicitudes a tu proveedor están fallando. Quizás
+     el proveedor de autenticación esté mal configurado. Vuelve a comprobar la configuración
+     del proveedor de autenticación (en el proveedor de React correspondiente o según
+     cómo esté configurado tu proveedor de autenticación para el cliente). Intenta borrar
+     tus cookies en el navegador (en las herramientas de desarrollo *Application* &gt; *Cookies* &gt; botón
+     *Clear all cookies*).
+
+   **Respuesta: Sí, veo una cadena larga que parece un JWT**:
+
+   Perfecto, copia el token completo (puede contener `.`s, así que asegúrate de no
+   copiar solo una parte).
+
+4. Abre https://jwt.io/, desplázate hacia abajo y pega el token en el área de texto Encoded
+   en la parte izquierda de la página. A la derecha deberías ver:
+
+   * En *HEADER*, `"typ": "JWT"`
+   * en *PAYLOAD*, un JSON válido con al menos los campos `"aud"`, `"iss"` y `"sub"`.
+     Si ves caracteres sin sentido en el payload, probablemente no copiaste el
+     token correctamente o no es un token JWT válido.
+
+   Si ves un token JWT válido, repite el
+   [paso 1](#step-1-check-whether-authentication-works-on-the-backend). Si
+   aún no ves la identidad correcta, continúa con el paso 3.
+
+## Paso 3: Comprueba que la configuración del backend coincide con la del frontend \{#step-3-check-that-backend-configuration-matches-frontend-configuration\}
+
+Tienes un token JWT válido en el frontend y sabes que se está enviando
+al backend, pero el backend no lo está validando.
+
+1. Abre *Settings* &gt; *Authentication* en tu panel de control. ¿Qué ves?
+
+   **Respuesta: Veo
+   `This deployment has no configured authentication providers`**:
+
+   * Causa: No tienes un archivo `auth.config.ts` (o `auth.config.js`) en tu
+     directorio `convex`, o no has subido tu código. Sigue la guía de autenticación para crear un archivo de configuración de autenticación válido. Para despliegues de dev asegúrate de tener `npx convex dev` en ejecución. Para despliegues de producción asegúrate de haber desplegado correctamente mediante `npx convex deploy`.
+
+   **Respuesta: Veo uno o más pares de *Domain* y *Application ID*.
+
+Genial, comprobemos que coinciden con el token JWT.
+
+2. Mira el campo `iss` en el payload del token JWT en https://jwt.io/. ¿Coincide
+   con un *Domain* en la página *Authentication*?
+
+   **Respuesta: No, no veo la URL `iss` en el panel de control de Convex**:
+
+   * Causa potencial: Copiaste el valor equivocado en el `domain` de tu
+     <JSDialectFileName name="auth.config.ts" />
+     o en la variable de entorno que se usa allí. Vuelve a la guía de autenticación y asegúrate de tener la URL correcta de tu proveedor de autenticación.
+   * Causa potencial: Tu cliente está mal configurado:
+
+     * Clerk: Tienes configurado el `publishableKey` incorrecto. La clave debe
+       pertenecer a la instancia de Clerk que usaste para configurar tu
+
+       <JSDialectFileName name="auth.config.ts" />.
+
+       * Además, asegúrate de que el token JWT en Clerk se llame `convex`, ya
+         que ese es el nombre que `ConvexProviderWithClerk` usa para obtener el token.
+
+     * Auth0: Tienes configurado el `domain` incorrecto (¡en el cliente!). El
+       dominio debe pertenecer a la instancia de Auth0 que usaste para configurar tu
+       <JSDialectFileName name="auth.config.ts" />.
+
+     * Custom: Asegúrate de que tu cliente esté correctamente configurado para que coincida con tu
+       <JSDialectFileName name="auth.config.ts" />.
+
+   **Respuesta: Sí, veo la URL `iss`**:
+
+   Genial, sigamos.
+
+3. Mira el campo `aud` en el payload del token JWT en https://jwt.io/. ¿Coincide
+   con el *Application ID* bajo el *Domain* correcto en la página
+   *Authentication*?
+
+   **Respuesta: No, no veo el valor `aud` en el campo *Application ID***:
+
+   * Causa potencial: Copiaste el valor equivocado en el `applicationID` de tu
+     <JSDialectFileName name="auth.config.ts" />
+     o en la variable de entorno que se usa allí. Vuelve a la guía de autenticación y asegúrate de tener el valor correcto de tu proveedor de autenticación.
+   * Causa potencial: Tu cliente está mal configurado:
+     * Clerk: Tienes configurado el `publishableKey` incorrecto. La clave debe pertenecer
+       a la instancia de Clerk que usaste para configurar tu
+       <JSDialectFileName name="auth.config.ts" />.
+     * Auth0: Tienes configurado el `clientId` incorrecto. Asegúrate de estar usando
+       el `clientId` correcto para la instancia de Auth0 que usaste para configurar
+       tu <JSDialectFileName name="auth.config.ts" />.
+     * Custom: Asegúrate de que tu cliente esté correctamente configurado para que coincida con tu
+       <JSDialectFileName name="auth.config.ts" />.
+
+   **Respuesta: Sí, veo el valor `aud` en el campo *Application ID***:
+
+   Genial, repite
+   [paso 1](#step-1-check-whether-authentication-works-on-the-backend) y
+   todo debería quedar listo.

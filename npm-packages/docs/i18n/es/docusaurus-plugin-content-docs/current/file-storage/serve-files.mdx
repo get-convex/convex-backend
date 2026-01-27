@@ -1,0 +1,78 @@
+---
+title: "Servir archivos"
+sidebar_label: "Servir"
+sidebar_position: 3
+description: "Servir archivos almacenados en Convex a los usuarios"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import AppTS from "!!raw-loader!@site/../demos/file-storage/src/App.tsx";
+import AppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import Http from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpAppTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/App.tsx";
+import HttpAppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpImage.jsx";
+
+Los archivos almacenados en Convex se pueden poner a disposición de tus usuarios generando una URL que apunte
+a un archivo determinado.
+
+## Generar URLs de archivos en consultas \{#generating-file-urls-in-queries\}
+
+La forma más sencilla de servir archivos es devolver URLs junto con otros datos
+que tu aplicación necesite desde [consultas](/functions/query-functions.mdx) y
+[mutaciones](/functions/mutation-functions.mdx).
+
+Se puede generar una URL de archivo a partir de un ID de almacenamiento mediante
+la función [`storage.getUrl`](/api/interfaces/server.StorageReader#geturl) del
+objeto [`QueryCtx`](/api/interfaces/server.GenericQueryCtx),
+[`MutationCtx`](/api/interfaces/server.GenericMutationCtx) o
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx):
+
+<TSAndJSSnippet title="convex/listMessages.ts" sourceTS={Messages} sourceJS={Messages} snippet="query" highlightPatterns={["storage.getUrl"]} />
+
+Las URLs de archivos se pueden usar en elementos `img` para mostrar imágenes:
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={AppTS} sourceJS={AppJS} snippet="imageComponent" />
+
+En tu consulta puedes controlar quién puede acceder a un archivo cuando se
+genera la URL. Si necesitas controlar el acceso cuando el archivo se *sirve*,
+puedes definir en su lugar tus propias acciones HTTP para servir archivos.
+
+## Servir archivos desde acciones HTTP \{#serving-files-from-http-actions\}
+
+Puedes servir archivos directamente desde [acciones HTTP](/functions/http-actions.mdx).
+Una acción HTTP deberá recibir uno o más parámetros que puedan asignarse a
+un ID de almacenamiento, o un ID de almacenamiento en sí.
+
+Esto permite el control de acceso en el momento en que se sirve el archivo, por ejemplo, cuando se muestra
+una imagen en un sitio web. Pero ten en cuenta que el tamaño de la respuesta de las acciones HTTP
+[actualmente está limitado](/functions/http-actions.mdx#limits) a 20 MB. Para archivos más
+grandes debes usar URL de archivos como se describe
+[arriba](#generating-file-urls-in-queries).
+
+Se puede generar un objeto [`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
+a partir de un ID de almacenamiento mediante la función
+[`storage.get`](/api/interfaces/server.StorageActionWriter#get) del objeto
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx), que puede
+devolverse en un `Response`:
+
+<TSAndJSSnippet
+  title="convex/http.ts"
+  sourceTS={Http}
+  sourceJS={Http}
+  snippet="getImage"
+  highlightPatterns={["storage.get"]}
+  prefix={
+  `import { httpRouter } from "convex/server";
+import { httpAction } from "./\_generated/server";
+import { Id } from "./\_generated/dataModel";
+
+const http = httpRouter();\
+
+`}
+  suffix={"\nexport default http;"}
+/>
+
+La URL de dicha acción se puede usar directamente en elementos `img` para renderizar
+imágenes:
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={HttpAppTS} sourceJS={HttpAppJS} snippet="getImage" />

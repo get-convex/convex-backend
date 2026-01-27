@@ -1,0 +1,104 @@
+---
+title: Guía rápida de la etiqueta de script
+sidebar_label: Etiqueta de script
+description: "Añade Convex a cualquier sitio web"
+hide_table_of_contents: true
+sidebar_position: 450
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/convex/tasks.js";
+import html from "!!raw-loader!@site/../demos/html/simple.html";
+
+Aprende a consultar datos de Convex desde etiquetas `<script>` en HTML.
+
+<StepByStep>
+  <Step title="Crea un nuevo proyecto de npm">
+    Crea un nuevo directorio para tu proyecto de Convex.
+
+    ```sh
+    mkdir my-project && cd my-project && npm init -y
+    ```
+  </Step>
+
+  <Step title="Instala la librería de cliente y servidor de Convex">
+    Instala el paquete `convex`,
+    que proporciona una interfaz conveniente para trabajar
+    con Convex desde JavaScript.
+
+    ```sh
+    npm install convex
+    ```
+  </Step>
+
+  <Step title="Configura un despliegue dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URL de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde escribir tus funciones de API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Agrega los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, agrega una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Agrega un nuevo archivo `tasks.js` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API con el nombre del archivo
+    y el nombre de la exportación, `api.tasks.get`.
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="Copia la URL de implementación">
+    Abre el archivo `.env.local` y copia el `CONVEX_URL` de tu entorno de
+    desarrollo para usarlo en el archivo HTML.
+
+    <>    </>
+  </Step>
+
+  <Step title="Agrega el script a tu página web">
+    En un nuevo archivo `index.html`, crea un `ConvexClient` usando
+    la URL de tu entorno de desarrollo.
+
+    Abre este archivo en un navegador web y verás que se ejecuta cada vez que se modifica
+    la tabla `tasks`.
+
+    <Snippet
+      source={html}
+      title="index.html"
+      replacements={[
+    [/https?:\/\/localhost:8000/g, 'CONVEX_URL_GOES_HERE'],
+    [/messages:list/g, 'tasks:get'],
+    [/\(messages\)/g, '(tasks)'],
+    [/messages.map\(\(msg\) \=\> msg\.body\)/g, 'tasks.map((task) => task.text)'],
+  ]}
+    />
+  </Step>
+</StepByStep>
+
+Consulta la [documentación completa sobre etiquetas de script](/client/javascript/script-tag.mdx).

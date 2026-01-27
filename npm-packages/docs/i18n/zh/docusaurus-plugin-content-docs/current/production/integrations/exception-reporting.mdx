@@ -1,0 +1,57 @@
+---
+title: "异常上报"
+sidebar_label: "异常上报"
+sidebar_position: 3
+description:
+  "为你的 Convex 部署配置异常上报集成"
+---
+
+配置异常上报，以便洞察 Convex 函数执行过程中出现的错误。Convex 支持与
+[Sentry](https://sentry.io/) 以及
+[Datadog Error Tracking](https://www.datadoghq.com/product/error-tracking/) 的集成。
+
+目前，异常上报仅对 Pro 用户开放。
+
+## 配置 Sentry \{#configuring-sentry\}
+
+要配置 Sentry，请在仪表盘中进入
+[部署设置](/dashboard/deployments/settings.md)，然后在侧边栏中选择 “Integrations” 标签页。
+
+![Integrations 页面](/screenshots/integrations_page.png)
+
+点击 Sentry 卡片并按照设置指引完成配置。你需要提供你的
+[Sentry DSN](https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/)。
+你还可以选择性地为每个异常事件添加额外标签。
+
+![配置 Sentry](/screenshots/configure_sentry.png)
+
+## 支持的标签 \{#supported-tags\}
+
+Convex 会在异常事件发送到 Sentry 的过程中自动添加以下标签。
+这些标签无法被修改。
+
+* `func`：正在运行的函数名称，使用
+  [字符串格式](/functions/query-functions#query-names)
+* `func_type`：以下之一：`["query", "mutation", "action", "http_action"]`
+* `func_runtime`：以下[函数运行时](/functions/runtimes.mdx)之一 —
+  `["default", "node"]`
+* `request_id`：发生错误的函数的
+  [request id](/functions/debugging.mdx#finding-relevant-logs-by-request-id)。
+* `server_name`：部署的名称，例如 `happy-animal-123`
+* `environment`：以下之一：`["prod", "dev", "preview"]`
+* `user`：如果函数是[已认证的](/auth.mdx)，则使用
+  [tokenIdentifier](/api/interfaces/server.UserIdentity#tokenidentifier)
+  作为在 Sentry 中的用户 ID。`tokenIdentifier` 是一个稳定且全局唯一的字符串，用于表示已认证用户。
+
+## Sentry 注意事项 \{#sentry-notes\}
+
+* Sentry 异常可能需要一两分钟才会出现在 Sentry 中。
+* Convex 内置的 Sentry 集成目前还不支持由 Sentry SDK 提供的高级自定义功能。
+* 如有任何问题、意见或建议，请[在 Discord 上联系我们](https://convex.dev/community)。
+
+## 配置 Datadog 错误跟踪 \{#configuring-datadog-error-tracking\}
+
+按照
+[Datadog 应用](https://app.datadoghq.com/error-tracking/settings/setup/sentry)
+中的说明，通过 Sentry SDK 配置 Datadog 错误跟踪。然后使用
+Convex-Sentry 集成继续操作。

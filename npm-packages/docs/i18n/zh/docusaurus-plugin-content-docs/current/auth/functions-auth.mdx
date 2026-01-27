@@ -1,0 +1,50 @@
+---
+title: "函数中的身份验证"
+sidebar_label: "函数"
+sidebar_position: 100
+description: "在 Convex 函数中获取用户身份验证信息"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctions.ts";
+import FieldsTS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFields.ts";
+import FieldsJS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFieldsJS.js";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+*如果你正在使用 Convex Auth，请参阅
+[授权文档](https://labs.convex.dev/auth/authz#use-authentication-state-in-backend-functions)。*
+
+在 Convex 的[函数](/functions.mdx)中，你可以通过 [`QueryCtx`](/generated-api/server#queryctx)、[`MutationCtx`](/generated-api/server#mutationctx) 或 [`ActionCtx`](/generated-api/server#actionctx) 对象上的 [`auth`](/api/interfaces/server.Auth) 属性来访问当前登录用户的信息：
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+## 用户身份字段 \{#user-identity-fields\}
+
+由 `getUserIdentity` 返回的 [UserIdentity](/api/interfaces/server.UserIdentity) 对象一定包含 `tokenIdentifier`、`subject` 和 `issuer` 字段。它还会包含哪些其他字段，取决于所使用的身份提供商，以及 JWT 令牌和
+[OpenID 作用域（OpenID scopes）](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims) 的配置。
+
+`tokenIdentifier` 是 `subject` 和 `issuer` 的组合，用于确保在使用多个身份提供商时仍然具有唯一性。
+
+如果你按照我们与 Clerk 或 Auth0 的集成指南进行配置，至少会包含以下字段：`familyName`、`givenName`、`nickname`、`pictureUrl`、`updatedAt`、`email`、`emailVerified`。你可以在
+[OpenID 文档](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims) 中查看这些字段对应的标准定义。
+
+<TSAndJSSnippet sourceTS={FieldsTS} sourceJS={FieldsJS} title="convex/myFunctions.ts" />
+
+### Clerk 声明配置 \{#clerk-claims-configuration\}
+
+如果你在使用 Clerk，`getUserIdentity` 返回的字段由你的 JWT 模板的 *Claims* 配置决定。\
+如果你设置了自定义声明，它们也会通过 `getUserIdentity` 一并返回。
+
+### 自定义 JWT 认证 \{#custom-jwt-auth\}
+
+如果你使用的是 [自定义 JWT 认证](/auth/advanced/custom-jwt.mdx) 而不是
+OpenID 标准字段，你会发现每个嵌套字段都可以通过带点号的字符串形式的字段名来访问，例如 `identity["properties.email"]`。
+
+## HTTP 操作 \{#http-actions\}
+
+你也可以在 HTTP 操作中通过
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity)
+获取用户身份信息，只需在调用端点时在 `Authorization` 请求头中附带一个 JWT 令牌：
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />
+
+<StackPosts query="authentication functions" />

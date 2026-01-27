@@ -1,0 +1,153 @@
+---
+title: "Importación en streaming"
+sidebar_label: "Importación en streaming"
+description: "Importación de datos en streaming en Convex"
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+Convex es compatible con la importación en streaming. Convex proporciona una implementación de conector para
+[Airbyte](/production/integrations/streaming-import-export.md). Esos conectores
+usan las siguientes API.
+
+La compatibilidad con la importación en streaming se habilita automáticamente para todos los proyectos de Convex.
+
+Las solicitudes de importación en streaming requieren autorización de administrador del despliegue mediante el encabezado HTTP
+`Authorization`. El valor es `Convex <access_key>`, donde la clave de acceso
+proviene de &quot;Deploy key&quot; en el panel de control de Convex y otorga acceso completo de lectura y escritura
+a tus datos de Convex.
+
+### Encabezados \{#headers\}
+
+Los endpoints de importación en streaming aceptan un encabezado
+`Convex-Client: streaming-import-<version>`, donde la versión sigue las
+directrices de [Semver](https://semver.org/). Si no se especifica este
+encabezado, Convex utilizará por defecto la última versión. Recomendamos
+usar el encabezado para garantizar que el consumidor de esta API no deje de
+funcionar a medida que la API vaya cambiando.
+
+### GET `/api/streaming_import/primary_key_indexes_ready` \{#get-apistreaming_importprimary_key_indexes_ready\}
+
+El endpoint `primary_key_indexes_ready` recibe una lista de nombres de tablas y devuelve
+`true` si los índices de clave primaria (creados por `add_primary_key_indexes`) en todas
+esas tablas están listos. Si las tablas se acaban de crear, los índices deberían estar
+listos inmediatamente; sin embargo, si ya existen documentos en las tablas, puede
+llevar algo de tiempo rellenar los índices de clave primaria. La respuesta tiene el siguiente formato:
+
+```json
+{
+  "indexesReady": true
+}
+```
+
+### PUT `/api/streaming_import/add_primary_key_indexes` \{#put-apistreaming_importadd_primary_key_indexes\}
+
+El endpoint `add_primary_key_indexes` recibe un cuerpo JSON que contiene las claves
+primarias de las tablas y crea índices en esas claves primarias para rellenarlos de forma retroactiva (backfill). Ten en cuenta
+que no estarán inmediatamente listos para ser consultados: es necesario hacer *polling* del endpoint
+`primary_key_indexes_ready` hasta que devuelva True antes de llamar a
+`import_airbyte_records` con registros que requieran índices de clave primaria. También
+ten en cuenta que las consultas de Convex no tendrán acceso a estos índices añadidos. Estos son
+exclusivamente para uso en `import_airbyte_records`. El cuerpo de la solicitud tiene la forma de un mapa que asocia
+nombres de índices con una lista de rutas de campos a indexar. Cada ruta de campo se representa mediante una
+lista de campos que puede representar rutas de campos anidadas.
+
+```json
+{
+  "indexes": {
+    "<table_name>": [["<field1>"], ["<field2>", "<nested_field>"]]
+  }
+}
+```
+
+Uso previsto de la API:
+
+1. Agrega índices para las claves primarias enviando una solicitud a
+   `add_primary_key_indexes`.
+2. Consulta `primary_key_indexes_ready` periódicamente hasta que la respuesta sea `true`.
+3. Realiza consultas usando los índices agregados.
+
+### PUT `api/streaming_import/clear_tables` \{#put-apistreaming_importclear_tables\}
+
+El endpoint `clear_tables` elimina todos los documentos de las tablas especificadas.
+Ten en cuenta que esto puede requerir varias transacciones. Si ocurre un error
+intermedio, es posible que solo se eliminen algunos documentos. El cuerpo JSON para
+usar esta solicitud de API contiene una lista de nombres de tablas:
+
+```json
+{
+  "tableNames": ["<tabla_1>", "<tabla_2>"]
+}
+```
+
+### POST `api/streaming_import/replace_tables` \{#post-apistreaming_importreplace_tables\}
+
+Este endpoint ya no está disponible. Usa `api/streaming_import/clear_tables`
+en su lugar.
+
+El endpoint `replace_tables` renombra tablas con nombres temporales
+a sus nombres finales, eliminando cualquier tabla existente con esos
+nombres finales.
+
+El cuerpo JSON para esta solicitud de API contiene una lista de nombres
+de tablas:
+
+```json
+{
+  "tableNames": { "<table_1_temp>": "<table_1>", "<table_2_temp>": "<table_2>" }
+}
+```
+
+### POST `api/streaming_import/import_airbyte_records` \{#post-apistreaming_importimport_airbyte_records\}
+
+El endpoint `import_airbyte_records` habilita la ingesta en streaming en un
+despliegue de Convex y está diseñado para ser invocado desde un conector de
+destino de Airbyte.
+
+Recibe un mapa de streams y una lista de mensajes en el cuerpo JSON. Cada
+stream tiene un nombre y un esquema JSON que corresponderá a una tabla de
+Convex. Los streams cuyos registros deban desduplicarse incluyen también una
+clave primaria, que se representa como una lista de listas de cadenas que son
+rutas de campos. Los registros de streams sin clave primaria se agregan a las
+tablas; los registros de streams con una clave primaria reemplazan un registro
+existente cuya valor de clave primaria coincida o se agregan si no hay
+coincidencia. Si estás usando claves primarias, primero debes llamar al
+endpoint `add_primary_key_indexes` y esperar a que se completen haciendo
+polling de `primary_key_indexes_ready`.
+
+Cada mensaje contiene un nombre de stream y un documento JSON que se insertará
+(o reemplazará, en el caso de una sincronización desduplicada) en la tabla con
+el nombre de stream correspondiente. Los nombres de tabla son iguales a los
+nombres de stream. Los registros de Airbyte se convierten en documentos de
+Convex.
+
+```json
+{
+   "tables": {
+      "<stream_name>": {
+         "primaryKey": [["<field1>"], ["<field2>", "<nested_field>"]],
+         "jsonSchema": // see https://json-schema.org/ for examples
+      }
+   },
+   "messages": [{
+      "tableName": "<table_name>",
+      "data": {} // objeto JSON que se ajusta al `json_schema` de ese stream
+   }]
+}
+```
+
+De forma similar a `clear_tables`, es posible ejecutar una importación parcial usando
+`import_airbyte_records` si se produce un error después de que se haya
+confirmado una transacción.
+
+Uso previsto de la API:
+
+1. [Opcional] Añade los índices necesarios si usas claves primarias y
+   [deduplicated sync](https://docs.airbyte.com/understanding-airbyte/connections/incremental-deduped-history/)
+   (consulta `add_primary_key_indexes` arriba).
+2. [Opcional] Elimina todos los documentos de las tablas especificadas usando `clear_tables` si
+   usas
+   [overwrite sync](https://docs.airbyte.com/understanding-airbyte/connections/full-refresh-overwrite).
+3. Realiza una solicitud a `import_airbyte_records` con nuevos registros para sincronizar e
+   información de streaming.

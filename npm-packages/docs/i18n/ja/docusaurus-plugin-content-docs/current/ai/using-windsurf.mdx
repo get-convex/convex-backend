@@ -1,0 +1,55 @@
+---
+title: "Convex と Windsurf の使用"
+sidebar_position: 200
+sidebar_label: Windsurf の使用
+description: "Convex と Windsurf を併用する際のヒントとベストプラクティス"
+slug: "using-windsurf"
+---
+
+[Windsurf](https://codeium.com/windsurf) は AI コードエディタで、Convex を使って構築したアプリケーションの作成と保守を簡単にしてくれます。ここでは、Convex と組み合わせた際に最高の結果を得られるように、Windsurf をどのようにセットアップするかを順を追って説明します。
+
+## Convex ルールを追加する \{#add-convex-rules\}
+
+次のルールファイルをプロジェクトに追加し、変更を行うようプロンプトするときに
+このファイルを直接参照してください:
+
+* [Convex Rules](https://convex.link/convex_rules.txt)
+
+Convex 用のこれらのルールの品質は、厳密な evals を用いて継続的に改善しています。
+[evals リポジトリに貢献](https://github.com/get-convex/convex-evals)することで、あなたも協力できます。
+
+## Convex MCP サーバーのセットアップ \{#setup-the-convex-mcp-server\}
+
+Convex CLI には
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx) (MCP) サーバーが
+組み込まれています。Convex MCP サーバーを使うと、AI コーディングエージェントが
+Convex デプロイメントへアクセスして、あなたのプロジェクトに対してクエリを実行したり、
+最適化したりできるようになります。
+
+Windsurf を使い始めるには、「Windsurf Settings &gt; Cascade &gt; Model Context
+Protocol (MCP) Servers」を開き、「Add Server」をクリックし、「Add custom server」をクリックして、
+Convex 用に次の設定を追加します。
+
+```json
+{
+  "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+サーバーを追加したら、「Windsurf Settings &gt; Cascade &gt; Model
+Context Protocol (MCP) Servers」画面に戻り、Windsurf が新しいサーバーを認識するように「Refresh」ボタンをクリックします。
+
+これが完了すると、サーバー一覧に Convex ツールが表示されるはずです：
+
+![Chat UI](/img/windsurf-with-convex/windsurf_convex_mcp.png)
+
+あとは次のような質問を投げてみましょう：
+
+* Convex のスキーマを評価して、改善点を提案してください
+* このアプリの公開エンドポイントは何ですか？
+* `my_convex_function` クエリを実行してください

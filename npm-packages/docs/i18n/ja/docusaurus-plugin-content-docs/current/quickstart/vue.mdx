@@ -1,0 +1,110 @@
+---
+title: Vue クイックスタート
+sidebar_label: Vue
+description: "Vue プロジェクトに Convex を導入する"
+hide_table_of_contents: true
+sidebar_position: 325
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/main.ts";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/vue/convex/tasks.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/App.vue";
+
+Convex のデータを Vue アプリからクエリする方法を説明します。
+
+このクイックスタートガイドでは、Convex 用の[コミュニティによってメンテナンスされている](/client/vue.md) Vue クライアントを使用します。
+
+<StepByStep>
+  <Step title="Vue サイトを作成する">
+    `npm create vue@latest my-vue-app` コマンドを使って Vue サイトを作成します。
+
+    Convex はどのオプション構成でも動作しますが、このクイックスタートに忠実に従うには次のように選択してください:
+
+    * &quot;Add TypeScript?&quot; には Yes
+    * それ以外はすべて No
+
+    <br />
+
+    ```sh
+    npm create vue@latest my-vue-app
+    ```
+  </Step>
+
+  <Step title="Convex ライブラリをインストールする">
+    まずは `convex` パッケージをインストールします。
+
+    ```sh
+    cd my-vue-app && npm install convex convex-vue
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に `npx convex dev` を実行します。
+    これにより GitHub へのログイン、
+    プロジェクトの作成、
+    本番用とデプロイメントURL の保存を促されます。
+
+    また、バックエンド API 関数を書くための `convex/` フォルダも作成されます。
+    その後 `dev` コマンドは、クラウド上の dev デプロイメントと
+    定義した関数を同期し続けるために実行状態を維持します。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、いくつかのサンプルデータを含む
+    `sampleData.jsonl` ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたので、`tasks` テーブルを作成し、
+    `import` コマンドを使ってサンプルデータを
+    Convex データベースにインポートします。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダに新しいファイル `tasks.ts` を追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいた
+    `api.tasks.get` という名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="ConvexProvider を組み込む">
+    `src/main.ts` で Convex クライアントをセットアップし、
+    アプリのすべてのページで利用できるようにします。
+
+    <Snippet source={main} title="src/main.ts" />
+  </Step>
+
+  <Step title="アプリでデータを表示する">
+    `src/App.vue` で `useQuery` を使い、
+    `api.tasks.get` API 関数を購読します。
+
+    <Snippet source={App} title="src/App.vue" />
+  </Step>
+
+  <Step title="アプリを起動する">
+    アプリを起動し、ブラウザで [http://localhost:5173](http://localhost:5173) を開き、
+    タスクの一覧を確認します。
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+完全な
+[Vue 用 npm パッケージのドキュメント](https://www.npmjs.com/package/convex-vue)も参照してください。

@@ -1,0 +1,12 @@
+認証フローの内部的な動作は次のとおりです。
+
+1. ユーザーがログインボタンをクリックする
+2. ユーザーは、{props.provider} で設定した任意の方法でログインできるページにリダイレクトされる
+3. ログインに成功すると、{props.provider} はユーザーをあなたのページ、または {props.configProp} で設定した別のページにリダイレクトする
+4. {props.providerProvider} は、ユーザーが認証済みであることを把握する
+5. {props.integrationProvider} が {props.provider} から認証トークンを取得する
+6. `ConvexReactClient` がこのトークンを Convex のバックエンドに渡して検証する
+7. Convex のバックエンドは {props.provider} から公開鍵を取得し、トークンの署名が有効かどうかを確認する
+8. `ConvexReactClient` は認証成功の通知を受け取り、{props.integrationProvider} はユーザーが Convex で認証されていることを認識する。`useConvexAuth` は `isAuthenticated: true` を返し、`Authenticated` コンポーネントは子要素をレンダリングする。
+
+{props.integrationProvider} は、必要に応じてトークンを再取得し、ユーザーがあなたのバックエンドで認証された状態を維持できるようにします。

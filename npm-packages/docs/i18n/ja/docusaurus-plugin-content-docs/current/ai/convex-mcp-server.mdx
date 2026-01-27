@@ -1,0 +1,122 @@
+---
+title: "Convex MCP サーバー"
+sidebar_position: 300
+description: "Convex MCP サーバー"
+---
+
+Convex
+[Model Context Protocol](https://docs.cursor.com/context/model-context-protocol)
+(MCP) サーバーは、AI エージェントが Convex デプロイメントと対話できるようにする、いくつかのツールを提供します。
+
+## セットアップ \{#setup\}
+
+次のコマンドを MCP サーバーの設定に追加します。
+
+`npx -y convex@latest mcp start`
+
+Cursor を使用している場合は、次のクイックリンクからインストールできます。
+
+[![MCP サーバーをインストール](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex\&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+または、エディタごとの手順を参照してください。
+
+* [Cursor](/ai/using-cursor.mdx#setup-the-convex-mcp-server)
+* [Windsurf](/ai/using-windsurf.mdx#setup-the-convex-mcp-server)
+* [VS Code](/ai/using-github-copilot.mdx#setup-the-convex-mcp-server)
+* Claude Code: MCP サーバーを追加し、次のコマンドでテストします。
+  ```bash
+  claude mcp add-json convex '{"type":"stdio","command":"npx","args":["convex","mcp","start"]}'
+  claude mcp get convex
+  ```
+
+## 設定オプション \{#configuration-options\}
+
+MCP サーバーでは、動作をカスタマイズするためのコマンドラインオプションをいくつか利用できます。
+
+### プロジェクトディレクトリ \{#project-directory\}
+
+デフォルトでは、MCP サーバーは複数のプロジェクトに対して動作でき、各ツール呼び出しで
+そのプロジェクトディレクトリが指定されます。代わりに単一のプロジェクトに対してのみサーバーを実行するには、
+次を使用します:
+
+```bash
+npx -y convex@latest mcp start --project-dir /path/to/project
+```
+
+### デプロイメントの選択 \{#deployment-selection\}
+
+デフォルトでは、MCP サーバーは開発用デプロイメントに接続されます。次のオプションを使って、別のデプロイメントを指定できます:
+
+* `--prod`: MCP サーバーをプロジェクトの本番デプロイメント上で実行します（`--dangerously-enable-production-deployments` が必要）
+* `--preview-name <name>`: 指定した名前のプレビュー用デプロイメント上で実行します
+* `--deployment-name <name>`: 指定した名前の特定のデプロイメント上で実行します
+* `--env-file <path>`: デプロイメントを選択するためのカスタム環境ファイルのパス（例: `CONVEX_DEPLOYMENT` や `CONVEX_SELF_HOSTED_URL` を含むファイル）。
+  `.env.local` や `.env` ファイルと同じ形式を使用します。
+
+### 本番デプロイメント \{#production-deployments\}
+
+デフォルトでは、MCP サーバーは本番デプロイメントにアクセスできません。これは、
+本番データを誤って変更してしまうことを防ぐための安全対策です。本番デプロイメントにアクセスする
+必要がある場合は、明示的に有効化する必要があります。
+
+```bash
+npx -y convex@latest mcp start --dangerously-enable-production-deployments
+```
+
+<Admonition type="caution" title="慎重に使用してください">
+  本番アクセスを有効にすると、MCP サーバーが本番デプロイメント内のデータを読み取り、
+  変更できるようになります。本番環境での操作が本当に必要な場合にのみ有効にし、
+  データを変更する可能性のあるすべての操作を慎重に行ってください。
+</Admonition>
+
+### ツールの無効化 \{#disabling-tools\}
+
+MCP サーバーが実行できる処理を制限したい場合は、特定のツールを無効化できます。
+
+```bash
+npx -y convex@latest mcp start --disable-tools data,run,envSet
+```
+
+無効化可能なツール: `data`, `envGet`, `envList`, `envRemove`,
+`envSet`, `functionSpec`, `logs`, `run`, `runOneoffQuery`, `status`, `tables`
+
+## 利用可能なツール \{#available-tools\}
+
+### デプロイメントツール \{#deployment-tools\}
+
+* **`status`**: 利用可能なデプロイメントをクエリし、他のツールで使用できるデプロイメントセレクターを返します。通常、Convex デプロイメントを見つける際に最初に使うツールです。
+
+### テーブルツール \{#table-tools\}
+
+* **`tables`**: デプロイメント内のすべてのテーブルを、以下の情報とともに一覧表示します:
+
+  * 宣言されたスキーマ（存在する場合）
+  * Convex によって自動的に追跡される推論されたスキーマ
+  * テーブル名とメタデータ
+
+* **`data`**: 指定したテーブル内のドキュメントをページごとに表示して閲覧できます。
+
+* **`runOneoffQuery`**: サンドボックス化された JavaScript クエリを記述し、
+  デプロイメントのデータに対して実行できます。これらのクエリは読み取り専用であり、
+  データベースを変更することはできません。
+
+### Function Tools \{#function-tools\}
+
+* **`functionSpec`**: デプロイ済みのすべての関数に関するメタデータを提供します。内容は次のとおりです。
+
+  * 関数の種類
+  * 可視性設定
+  * インターフェース仕様
+
+* **`run`**: 渡された引数を使って、デプロイ済みの Convex 関数を実行します。
+
+* **`logs`**: 直近の関数実行ログエントリのチャンクを取得します。`npx convex logs` と同様ですが、構造化されたオブジェクトとして返されます。
+
+### 環境変数ツール \{#environment-variable-tools\}
+
+* **`envList`**: デプロイメントのすべての環境変数を一覧表示します
+* **`envGet`**: 特定の環境変数の値を取得します
+* **`envSet`**: 新しい環境変数を設定するか、既存の環境変数を更新します
+* **`envRemove`**: デプロイメントから環境変数を削除します
+
+[Convex MCP Server の使い方の詳細はこちら](https://stack.convex.dev/convex-mcp-server)

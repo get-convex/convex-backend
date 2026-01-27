@@ -1,0 +1,47 @@
+---
+title: "Convex Auth"
+sidebar_label: "Convex Auth"
+sidebar_position: 1
+description: "Convex アプリケーション向けの組み込み認証機能"
+---
+
+[Convex Auth](https://labs.convex.dev/auth) は、認証機能を Convex
+バックエンド内に直接組み込むためのライブラリです。これにより、専用の認証サービスやホスティング
+サーバーを用意しなくてもユーザー認証を行えるようになります。現在 Convex Auth は、CDN
+から配信されるクライアントサイドの React 製 Web アプリケーションと、React Native モバイルアプリをサポートしています。
+
+**例:** [ライブデモ](https://labs.convex.dev/auth-example)
+（[ソース](https://github.com/get-convex/convex-auth-example)）
+
+<BetaAdmonition feature="Convex Auth" verb="is" />
+
+[Next.js の認証](https://labs.convex.dev/auth/authz/nextjs) を
+server components、API routes、middleware、SSR などでサポートする機能は、現在も積極的に開発中です。この実験的な機能のテストに協力したい場合は、
+[Discord でフィードバックをお寄せください](https://convex.dev/community)。
+
+## はじめに \{#get-started\}
+
+Convex と Convex Auth を使って一から新しいプロジェクトを作成するには、次を実行してください:
+
+```sh
+npm create convex@latest
+```
+
+そして、`React (Vite)` と `Convex Auth` を選択します。
+
+***
+
+既存のプロジェクトに Convex Auth を追加するには、完全な
+[セットアップガイド](https://labs.convex.dev/auth/setup)に従ってください。
+
+## 概要 \{#overview\}
+
+Convex Auth を使うと、次のような認証方法を実装できます:
+
+1. マジックリンクと OTP - メールでリンクまたはコードを送信
+2. OAuth - GitHub / Google / Apple などでサインイン
+3. パスワード - パスワードリセットのフローと、任意のメールアドレス検証機能を含む
+
+このライブラリには UI コンポーネントは付属していませんが、ドキュメントやサンプルリポジトリのコードをコピーして、React で素早く UI を構築できます。
+
+詳しくは [Convex Auth のドキュメント](https://labs.convex.dev/auth) を参照してください。

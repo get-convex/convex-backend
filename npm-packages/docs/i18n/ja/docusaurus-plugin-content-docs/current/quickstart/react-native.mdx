@@ -1,0 +1,111 @@
+---
+title: React Native クイックスタート
+sidebar_label: React Native
+description: "Expo（React Native）プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 300
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/expo/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/expo/convex/tasks.ts";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/_layout.tsx";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/index.tsx";
+
+Convex からデータを React Native アプリで取得する方法を学びましょう。
+
+<StepByStep>
+  <Step title="React Native アプリを作成する">
+    `npx create-expo-app` コマンドを使って React Native アプリを作成します。
+
+    ```sh
+    npx create-expo-app my-app
+    ```
+  </Step>
+
+  <Step title="Convex クライアントとサーバーライブラリをインストールする">
+    まずは、React アプリから Convex を扱うための便利なインターフェースを提供する
+    `convex` パッケージをインストールします。
+
+    アプリのディレクトリに移動して `convex` をインストールします。
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に、`npx convex dev` を実行します。
+    これにより GitHub へのログイン、
+    プロジェクトの作成、および本番環境用とデプロイメントURLの保存を求められます。
+
+    また、バックエンド API 関数を書くための `convex/` フォルダも作成されます。
+    その後 `dev` コマンドは継続して実行され、
+    クラウド上の dev デプロイメントと関数を同期し続けます。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    いくつかのサンプルデータを含む `sampleData.jsonl`
+    ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`tasks` テーブルを作成し、
+    `import` コマンドを使ってサンプルデータを Convex データベースに追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダに新しいファイル `tasks.ts` を追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいて `api.tasks.get`
+    という名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="Expo プロジェクトをリセットする">
+    まだ行っていない場合は、Expo プロジェクトをリセットして
+    新しい `app` ディレクトリを作成します。
+
+    ```
+    npm run reset-project
+    ```
+  </Step>
+
+  <Step title="アプリをバックエンドに接続する">
+    `_layout.tsx` で `ConvexReactClient` を作成し、
+    それを `ConvexProvider` に渡してコンポーネントツリーをラップします。
+
+    <Snippet source={layout} title="app/_layout.tsx" highlightPatterns={[ "Convex", "get-random", "CONVEX", "unsaved", "}\\);", ]} />
+  </Step>
+
+  <Step title="アプリ内にデータを表示する">
+    `index.tsx` で `useQuery` フックを使って
+    `api.tasks.get` API からデータを取得します。
+
+    <Snippet source={index} title="app/index.tsx" highlightPatterns={[ "api", "useQuery", "tasks" ]} />
+  </Step>
+
+  <Step title="アプリを起動する">
+    アプリを起動し、表示された QR コードをスマートフォンでスキャンして、
+    画面中央にシリアライズされたタスクの一覧が表示されることを確認します。
+
+    ```sh
+    npm start
+    ```
+  </Step>
+</StepByStep>
+
+React Native は React Web と同じライブラリを使用します。詳しくは
+[React のドキュメント](/client/react.mdx) を参照してください。

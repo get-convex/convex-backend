@@ -1,0 +1,192 @@
+---
+title: "打包"
+sidebar_position: 90
+description: "Convex 如何打包和优化你的函数代码"
+---
+
+打包是收集、优化并转译 JS/TS 源代码（包括[函数](/functions.mdx)及其依赖）的过程。在开发和部署过程中，代码会被转换成一种 Convex [运行时](/functions/runtimes.mdx) 可以直接且高效执行的格式。
+
+Convex 目前会自动打包所有依赖，但对于 Node.js 运行时，你可以通过
+[external packages](#external-packages) 配置来禁用对某些包的打包。
+
+## 为 Convex 打包 \{#bundling-for-convex\}
+
+当你通过 `npx convex dev` 或 `npx convex deploy` 推送代码时，
+Convex CLI 会使用 [esbuild](https://esbuild.github.io/) 遍历你的 `convex/`
+文件夹，将其中的函数及其所使用的全部依赖打包成一个
+源代码 bundle，然后发送到服务器。
+
+得益于打包机制，你可以使用现代的 ECMAScript Modules
+(ESM) 或较早的 CommonJS (CJS) 语法来编写代码。
+
+<Details summary="ESM 与 CJS">
+  ESM
+
+  * 是浏览器 JavaScript 的标准
+  * 在全局作用域中通过 `import` 和 `export` **关键字**（而不是函数）
+    进行静态导入
+  * 也支持通过异步的 `import` 函数进行动态导入
+
+  CJS
+
+  * 以前是 Node.js 的标准模块系统
+  * 依赖通过 `require` 和异步的 `import`
+    函数来动态导入外部模块
+  * 使用 `module.exports` 对象来导出
+</Details>
+
+## 打包限制 \{#bundling-limitations\}
+
+由于打包的特性，会存在一些限制。
+
+### 代码体积限制 \{#code-size-limits\}
+
+`convex/` 文件夹中已打包的函数代码总大小
+**限制为 32MiB（约 33.55MB）**。其他平台限制可以在
+[这里](/production/state/limits.mdx) 找到。
+
+虽然这个限制本身对于仅包含源代码来说已经相当高了，但某些依赖
+可能会很快让你的打包体积超出这个限制，尤其是在它们不能被有效地进行
+[tree-shaking](https://webpack.js.org/guides/tree-shaking/) 时（例如
+[aws-sdk](https://www.npmjs.com/package/aws-sdk) 或
+[snowflake-sdk](https://www.npmjs.com/package/snowflake-sdk)）。
+
+你可以按照下面这些步骤来排查 bundle 体积问题：
+
+<StepByStep>
+  <Step title="确保你使用的是最新版本的 Convex">
+    ```sh
+    npm install convex@latest
+    ```
+  </Step>
+
+  <Step title="生成 bundle">
+    注意这不会推送代码，只是生成一个 bundle 以便调试。
+
+    ```sh
+    npx convex dev --once --debug-bundle-path /tmp/myBundle
+    ```
+  </Step>
+
+  <Step title="可视化 bundle">
+    使用
+    [source-map-explorer](https://github.com/danvk/source-map-explorer/tree/master)
+    来可视化你的 bundle。
+
+    ```sh
+    npx source-map-explorer /tmp/myBundle/**/*.js
+    ```
+  </Step>
+</StepByStep>
+
+为 Convex 运行时打包的代码会在 `isolate` 目录中，而为 Node 操作函数打包的代码会在
+`node` 目录中。
+
+可以通过将较大的 Node 依赖标记为
+[external packages](/functions/bundling.mdx#external-packages)
+来把它们排除出 bundle。
+
+### 动态依赖 \{#dynamic-dependencies\}
+
+某些库依赖动态导入（通过 `import`/`require` 调用）来避免始终打包它们的依赖项。这类动态导入不受
+[默认 Convex 运行时](/functions/runtimes.mdx#default-convex-runtime) 支持，并且会在运行时抛出错误。
+
+另外，一些库依赖本地文件，而这些文件无法被 esbuild 打包。如果使用打包功能，则不论选择哪种运行时，这些
+导入在 Convex 中都会始终失败。
+
+<Details summary="具有动态依赖的库示例">
+  请看以下依赖动态导入的包示例：
+
+  * [langchain](https://www.npmjs.com/package/langchain) 依赖可以被动态导入的 peer 依赖。这些依赖并没有被静态
+    `import`，因此不会被 `esbuild` 打包。
+  * [sharp](https://www.npmjs.com/package/sharp) 依赖用于图像处理操作的 `libvips` 二进制文件
+  * [pdf-parse](https://www.npmjs.com/package/pdf-parse) 需要通过 `require()` 动态导入，以检测它是否在
+    测试模式下运行。打包可能会消除这些 `require()` 调用，从而让 `pdf-parse` 认为自己正在测试模式下运行。
+  * [tiktoken](https://www.npmjs.com/package/tiktoken) 依赖本地 WASM 文件
+</Details>
+
+## 外部包 \{#external-packages\}
+
+作为上述打包限制的变通方案，Convex 提供了一个“逃生通道”：**外部包（external packages）**。该特性目前仅在 Convex 的
+[Node.js 运行时](/functions/runtimes.mdx#nodejs-runtime) 中可用。
+
+外部包使用了
+[`esbuild` 提供的将依赖标记为 external 的功能](https://esbuild.github.io/api/#external)。
+这会告诉 `esbuild` 完全不要打包该外部依赖，并将其导入保留为在运行时使用 `require()` 或 `import()` 的动态导入。这样一来，
+你的 Convex 模块就依赖于底层系统在执行时已经提供好该依赖。
+
+### 服务器上的包安装 \{#package-installation-on-the-server\}
+
+标记为 external 的包会在你第一次推送使用它们的代码时，从 [npm](https://www.npmjs.com/) 安装。安装的版本会与本地机器 `node_modules` 文件夹中安装的版本一致。
+
+虽然在你第一次推送 external 包时会带来一些额外的延迟开销，但你的包会被缓存，只有当 external 包发生变化时才需要重新执行这一安装步骤。缓存完成后，由于在推送过程中发送到服务器的源代码包体积更小，推送实际上甚至可能会更快！
+
+### 指定外部依赖包 \{#specifying-external-packages\}
+
+如果尚不存在，请在与你的 `package.json` 相同的目录下创建一个 [`convex.json`](/production/project-configuration.mdx#convexjson) 文件。将
+`node.externalPackages` 字段设置为 `["*"]`，以将你的 Node 操作函数中使用的所有依赖标记为外部包：
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "externalPackages": ["*"]
+  }
+}
+```
+
+或者，你也可以显式指定哪些包应标记为 external：
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "externalPackages": ["aws-sdk", "sharp"]
+  }
+}
+```
+
+这些包标识符应与你在
+[Node.js 操作函数](/functions/actions.mdx#choosing-the-runtime-use-node)
+中使用的 `import`/`require` 字符串保持一致。
+
+### 外部依赖包故障排查 \{#troubleshooting-external-packages\}
+
+#### 错误的包版本 \{#incorrect-package-versions\}
+
+Convex CLI 会在本地的 `node_modules` 目录中搜索外部包。因此，只在 `package.json` 中更改某个包的版本并不会影响服务器上使用的版本，只有在你更新本地 `node_modules` 文件夹中已安装的包版本后（例如运行 `npm install` 命令），服务器端才会使用新的版本。
+
+#### 导入错误 \{#import-errors\}
+
+将某个依赖标记为 external 可能会导致类似下面这样的错误：
+
+> The requested module &quot;some-module&quot; is a CommonJs module, which may not support
+> all module.exports as named exports. CommonJs modules can always be imported
+> via the default export
+
+这就需要你将对该模块的所有 `import` 重写为如下形式：
+
+```ts
+// ❌ old
+import { Foo } from "some-module";
+
+// ✅ 新写法
+import SomeModule from "some-module";
+const { Foo } = SomeModule;
+```
+
+### 限制 \{#limitations\}
+
+你的源代码包和外部包的总大小不能超过以下限制：
+
+* 压缩后 45MB
+* 解压后 240MB
+
+目前已知无法使用的包：
+
+* [Puppeteer](https://www.npmjs.com/package/puppeteer) - 浏览器二进制文件安装体积超过大小限制
+* [@ffmpeg.wasm](https://www.npmjs.com/package/@ffmpeg/ffmpeg) - 自 0.12.0 起，
+  [不再支持 Node 环境](https://ffmpegwasm.netlify.app/docs/faq#why-ffmpegwasm-doesnt-support-nodejs)
+
+如果有你希望能在 Convex 函数中使用的包，
+[请告诉我们](https://convex.dev/community)。

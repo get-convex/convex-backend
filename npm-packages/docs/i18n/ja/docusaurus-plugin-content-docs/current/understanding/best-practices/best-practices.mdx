@@ -1,0 +1,481 @@
+---
+title: "ベストプラクティス"
+sidebar_position: 400
+toc_max_heading_level: 2
+description:
+  "スケーラブルな Convex アプリケーションを構築するための必須のベストプラクティスであり、
+  データベースクエリ、関数の構成、バリデーション、およびセキュリティを扱います。"
+---
+
+import BestPracticesTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/index.ts";
+import HelperFunctionsTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/helperFunctions.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+これは、Convex を使用する際のベストプラクティスと、よく見られるアンチパターンの一覧です。
+アプリを本番環境に本格リリースする前に、この一覧に一通り目を通すことをおすすめします。
+最初からこれらすべてのベストプラクティスを試してみてもよいですし、
+アプリの主要な部分が動作するようになってから、この一覧を見直してベストプラクティスを取り入れていく形でもかまいません。
+
+## すべての Promise を await する \{#await-all-promises\}
+
+### なぜ？ \{#why\}
+
+Convex 関数では async / await を使用します。すべての Promise を await していないと（例:
+`await ctx.scheduler.runAfter` や `await ctx.db.patch` を書き忘れた場合など）、思わぬ動作（関数のスケジューリングに失敗するなど）が発生したり、エラー処理を見落としてしまう可能性があります。
+
+### 方法 \{#how\}
+
+typescript-eslint の
+[no-floating-promises](https://typescript-eslint.io/rules/no-floating-promises/)
+ルールの使用を推奨します。
+
+## データベースクエリに対して `.filter` を使うのは避ける \{#avoid-filter-on-database-queries\}
+
+### なぜ？ \{#why\}
+
+`.filter` 構文を使わずにコード内でフィルタリングしてもパフォーマンスは同等であり、たいていの場合その方がコードも書きやすくなります。`.withIndex` や `.withSearchIndex` 内の条件は、`.filter` やコード内でのフィルタリングよりも効率的なので、ほとんどの `.filter` の使用箇所は `.withIndex` または `.withSearchIndex` の条件に置き換えるか、TypeScript コードとして記述すべきです。
+
+インデックスの定義方法とその動作の概要については
+[indexes documentation](/database/reading-data/indexes/indexes-and-query-perf.md)
+を参照してください。
+
+### 例 \{#examples\}
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="filter" />
+
+### どうやって？ \{#how\}
+
+Convex のコードベース内で `.filter` を検索してください。`\.filter\(\(?q`
+のような正規表現を使うと、データベースクエリ上の `.filter` をすべて見つけられるはずです。
+
+それぞれについて、`.withIndex` の条件に置き換えるべきかどうかを判断してください。
+[このセクション](/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results)
+にもあるように、大量（1000 件以上）または潜在的に上限のない数のドキュメントに対してフィルタリングしている場合は、インデックスを使うべきです。
+`.withIndex` / `.withSearchIndex` 条件を使わない場合は、可読性と柔軟性を高めるために、アプリケーションコード側でのフィルタ処理に置き換えることを検討してください。
+
+Convex におけるフィルタリングのさらなる戦略については、
+[この記事](https://stack.convex.dev/complex-filters-in-convex) を参照してください。
+
+### 例外 \{#exceptions\}
+
+ページネーションされたクエリ（`.paginate`）に対して `.filter` を使うことには、
+結果をコード側でフィルタリングする場合と比べて利点があります。ページネーションさ
+れたクエリは、`.filter` の条件を含めて要求されたドキュメント数を返すため、その後
+にコード内でフィルタリングすると、ページサイズが小さくなったり、場合によっては空
+になってしまうことがあります。それでも、ページネーションされたクエリに対して
+`.withIndex` を使用する方が、`.filter` よりも効率的です。
+
+## `.collect` は結果件数が少ない場合にのみ使用する \{#only-use-collect-with-a-small-number-of-results\}
+
+### 理由 \{#why\}
+
+`.collect` から返されるすべての結果は、（`.filter` で除外されたものも含めて）データベース帯域幅の消費としてカウントされます。また、結果に含まれるどのドキュメントでも変更があった場合、クエリが再実行されたり、ミューテーションで競合が発生したりします。
+
+結果の件数が多くなる可能性がある場合（例えばドキュメントが 1000 件以上）、`.collect` を呼び出す前にインデックスを使って結果をさらに絞り込むか、ページネーションの利用、データの非正規化、あるいはプロダクトの機能の変更など、すべてのドキュメントを読み込まない別の方法を検討すべきです。
+
+### 例 \{#example\}
+
+**インデックスを使う:**
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="collectIndex" />
+
+**ページネーションを使う:**
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="collectPaginate" />
+
+**`limit` を使う、またはデノーマライズする:**
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="collectCount" />
+
+### 方法 \{#how\}
+
+Convex のコードベース内で `.collect` を検索します（`\.collect\(` のような正規表現を使えば
+おそらく見つかります）。そして、返ってくる結果の件数が少数に収まっているかどうかを考えてください。
+ダッシュボードのこの Function Health ページでも、そういったケースを洗い出すのに役立ちます。
+
+[aggregate コンポーネント](https://www.npmjs.com/package/@convex-dev/aggregate)
+や [データベーストリガー](https://stack.convex.dev/triggers) は、
+データを非正規化する際に役立つパターンです。
+
+### 例外 \{#exceptions\}
+
+大量のドキュメントを読み込む必要がある処理
+（例: マイグレーションの実行、サマリーの作成）を行う場合は、
+クエリやミューテーションを分割してバッチごとに読み込めるように、
+アクションを使うことを検討してください。
+
+## 冗長なインデックスの有無を確認する \{#check-for-redundant-indexes\}
+
+### なぜ？ \{#why\}
+
+`by_foo` と `by_foo_and_bar` のようなインデックスは、多くの場合冗長です（必要なのは
+`by_foo_and_bar` だけです）。インデックスの数を減らすと、データベースのストレージ使用量を削減でき、
+テーブルへの書き込み時のオーバーヘッドも減らせます。
+
+<TSAndJSSnippet title="convex/teams.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="redundantIndexes" replacements={[[/\sOMIT_ME.*/g, ""]]} />
+
+### どうすればよいですか？ \{#how\}
+
+`schema.ts` ファイルまたはダッシュボードでインデックスを確認し、
+あるインデックスが別のインデックスの先頭部分（プレフィックス）になっているものがないか探してください。
+
+### 例外 \{#exceptions\}
+
+`.index("by_foo", ["foo"])` は実際にはプロパティ `foo` と
+`_creationTime` に対するインデックスであり、一方 `.index("by_foo_and_bar", ["foo", "bar"])` は
+プロパティ `foo`、`bar`、および `_creationTime` に対するインデックスとなります。もし `foo` でソートし、
+その後 `_creationTime` でソートする必要があるクエリがある場合は、両方のインデックスが必要です。
+
+例えば、メッセージのテーブルに対する `.index("by_channel", ["channel"])` は、
+あるチャンネル内の最新のメッセージを取得するのに使えますが、
+`.index("by_channel_and_author", ["channel", "author"])` は、まずメッセージを `author` で
+ソートしてしまうため、この用途には使用できません。
+
+## すべての公開関数で引数バリデーターを必ず使用する \{#use-argument-validators-for-all-public-functions\}
+
+### なぜ？ \{#why\}
+
+公開関数は、悪意のある攻撃者を含め、誰からでも呼び出される可能性があり、アプリを壊されてしまうかもしれません。
+[引数バリデータ](/functions/validation.mdx)（および戻り値のバリデータ）は、想定どおりのトラフィックだけを受け取れていることを確認するのに役立ちます。
+
+### 例 \{#example\}
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="validation" replacements={[[/_OMIT_[0-9]+/g, ""]]} />
+
+### どのように？ \{#how\}
+
+Convex のコードベース内で `query`、`mutation`、`action` を検索し、
+それらすべてに引数バリデータ（必要に応じて戻り値バリデータも）が
+定義されていることを確認してください。
+
+[`@convex-dev/require-argument-validators` ESLint rule](/eslint#require-argument-validators)
+を使うと、関数に引数バリデータが定義されているかどうかを自動的にチェックできます。
+
+HTTP アクションを使っている場合は、
+HTTP リクエストが想定どおりの構造になっていることを検証するために、
+[Zod](https://zod.dev) のような引数バリデーションライブラリを使うとよいでしょう。
+
+## すべての公開関数には必ず何らかのアクセス制御を設ける \{#use-some-form-of-access-control-for-all-public-functions\}
+
+### なぜ？ \{#why\}
+
+公開関数は、あなたのアプリを攻撃しようとする悪意のある攻撃者を含め、誰からでも呼び出される可能性があります。アプリの一部がサインインしているユーザーにのみアクセス可能であるべき場合は、該当するすべての Convex 関数で `ctx.auth.getUserIdentity()` が設定されていることを必ず確認してください。
+
+また、送信元または送信先が現在のユーザーであるメッセージだけを読み込む、といった特定のチェックを行いたい場合もあり、そのようなチェックは関連するすべての公開関数で適用する必要があります。
+
+`updateTeam` よりも `setTeamOwner` のような、より粒度の細かい関数を優先すると、どのユーザーが何をできるかについて、より細かいチェックを行えるようになります。
+
+アクセス制御チェックでは、`ctx.auth.getUserIdentity()` か、推測不能な関数引数（例: UUID や Convex の Id。ただし、この Id がそのユーザー以外のクライアントに一切公開されない場合に限る）のどちらかを使用すべきです。特に、アクセス制御チェックには、なりすまし可能な関数引数（例: メールアドレス）を使わないでください。
+
+### 例 \{#example\}
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="accessControl"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+### どうやって行うか？ \{#how\}
+
+Convex のコードベース内で `query`、`mutation`、`action`、`httpAction` を検索し、
+それらすべてに何らかの形のアクセス制御が入っていることを確認してください。
+[カスタム関数](https://github.com/get-convex/convex-helpers/blob/main/packages/convex-helpers/README.md#custom-functions)
+（たとえば
+[`authenticatedQuery`](https://stack.convex.dev/custom-functions#modifying-the-ctx-argument-to-a-server-function-for-user-auth)
+など）が役に立つことがあります。
+
+一部のアプリでは、[この記事](https://stack.convex.dev/row-level-security) で説明しているように、
+各ドキュメントが読み込まれるたびに自動的にアクセスチェックを行う Row Level Security (RLS) を使用します。
+別の方法として、各ドキュメントごとにアクセスをチェックする代わりに、
+各 Convex 関数の中でアクセスをチェックすることもできます。
+
+よくあるチェックや共通の操作向けのヘルパー関数も有用です。
+たとえば `isTeamMember`、`isTeamAdmin`、`loadTeam`（現在のユーザーにそのチームへのアクセス権がない場合に例外をスローする）などです。
+
+## `schedule` と `ctx.run*` の内部関数だけ \{#only-schedule-and-ctxrun-internal-functions\}
+
+### なぜ？ \{#why\}
+
+Public 関数は、悪意のある攻撃者を含め、誰からでも呼び出すことができるため、悪用されないよう慎重に監査する必要があります。Convex 内からのみ呼び出される関数は internal としてマークでき、これらについては Convex が internal 関数が Convex 内からのみ呼び出されることを保証するため、チェックを緩和できます。
+
+### 方法 \{#how\}
+
+Convex のコードベース内で `ctx.runQuery`、`ctx.runMutation`、`ctx.runAction` を検索します。さらに `ctx.scheduler` を検索し、`crons.ts` ファイルも確認します。これらがすべて `api.foo.bar` 関数ではなく `internal.foo.bar` 関数を使うようになっていることを確認してください。
+
+公開 Convex 関数と内部 Convex 関数の両方で共有したいコードがある場合は、どちらからも呼び出せるヘルパー関数を作成してください。公開関数側では、追加のアクセス制御チェックが必要になる可能性があります。
+
+あるいは、`_generated/api.ts` の `api` が Convex の functions ディレクトリ内で一切使用されていないことを確認してください。
+
+### 例 \{#examples\}
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="internal"
+  replacements={[
+  [/_OMIT_[0-9]+/g, ""],
+  [
+    "// REPLACE_WITH_MUTATION_CTX_IMPORT",
+    "import { MutationCtx } from './_generated/server';",
+  ],
+]}
+/>
+
+## ヘルパー関数を使って共通処理を書く \{#use-helper-functions-to-write-shared-code\}
+
+### なぜ？ \{#why\}
+
+ほとんどのロジックは通常の TypeScript 関数として書き、そのうえで `query`、
+`mutation`、`action` のラッパー関数は 1 つ以上のヘルパー関数を薄く包むだけのもの、つまり薄いラッパーにとどめるべきです。
+
+具体的には、ほとんどのコードは `convex/model` のようなディレクトリに配置し、`query`、`mutation`、`action` で定義されるパブリック API では、主に `convex/model` を呼び出すだけのごく短い関数を書くようにします。
+
+このようにコードを整理することで、このリストで挙げたリファクタリングのいくつかを行いやすくなります。
+
+便利な型については [TypeScript のページ](/understanding/best-practices/typescript.mdx) を参照してください。
+
+### 例 \{#example\}
+
+**❌** この例では `ctx.runQuery` と `ctx.runMutation` を過度に使用しており、この点については
+[アクションからの連続した `ctx.runMutation` / `ctx.runQuery` 呼び出しを避ける](/understanding/best-practices/best-practices.mdx#avoid-sequential-ctxrunmutation--ctxrunquery-calls-from-actions)
+セクションで詳しく説明しています。
+
+<TSAndJSSnippet
+  title="convex/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersWrong"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsWrong"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+**✅** ここで使われているコードのほとんどは、現在 `convex/model` ディレクトリ内にあります。このアプリケーションの API は `convex/conversations.ts` にあり、このファイル自体のコード量はごくわずかです。
+
+<TSAndJSSnippet
+  title="convex/model/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersCorrect"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+  prefix={`import { QueryCtx } from '../_generated/server';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsModelCorrect"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+  prefix={`import { QueryCtx, MutationCtx } from '../_generated/server';\nimport * as Users from './users';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsApiCorrect"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+  prefix={`import * as Conversations from './model/conversations';\n`}
+/>
+
+## 別のランタイムを使う場合だけ `runAction` を使用する \{#use-runaction-only-when-using-a-different-runtime\}
+
+### なぜ？ \{#why\}
+
+`runAction` を呼び出すことは、通常の TypeScript 関数を呼び出す場合よりもオーバーヘッドがあります。
+これは独自のメモリと CPU を消費する追加の関数呼び出しとして扱われ、その間、親アクションは結果を待つ以外のことを何もしません。
+そのため、`runAction` はほとんど常に、通常の TypeScript 関数の呼び出しに置き換えるべきです。
+ただし、Convex ランタイム内の関数から Node.js を必要とするコード（例: Node.js を必要とするライブラリの利用）を呼び出したい場合には、`runAction` を使ってその Node.js コードを呼び出すことができます。
+
+### 例 \{#example\}
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runAction"
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeModel"
+  prefix={`import { ActionCtx } from '../_generated/server';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeAction"
+  prefix={`import * as Scrape from './model/scrape';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+### 対応方法 \{#how\}
+
+Convex のコードベース内で `runAction` を検索し、その呼び出し先の関数が
+親関数と同じランタイムを使っているか確認してください。もしそうであれば、
+その `runAction` を通常の TypeScript 関数呼び出しに置き換えましょう。Node.js 関数を
+別のディレクトリにまとめておくと、このようなケースを見つけやすくなるかもしれません。
+
+## アクション内での `ctx.runMutation` / `ctx.runQuery` の順次呼び出しは避ける \{#avoid-sequential-ctxrunmutation-ctxrunquery-calls-from-actions\}
+
+### なぜ？ \{#why\}
+
+それぞれの `ctx.runMutation` や `ctx.runQuery` は個別のトランザクションで実行されます。
+そのため、別々に呼び出された場合には、それぞれの結果が互いに一貫しない可能性があります。
+代わりに単一の `ctx.runQuery` または `ctx.runMutation` を呼び出せば、
+取得する結果が一貫していることが保証されます。
+
+### どうするか \{#how\}
+
+アクション内での `ctx.runQuery` と `ctx.runMutation` の呼び出しを見直してください。間に他のコードがない状態で複数が連続している箇所があれば、それらを両方とも処理できる単一の `ctx.runQuery` または `ctx.runMutation` に置き換えてください。ヘルパー関数を使うようにコードをリファクタリングしておくと、この作業がやりやすくなります。
+
+### 例：クエリ \{#example-queries\}
+
+<TSAndJSSnippet title="convex/teams.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="runQueryWrong" />
+
+<TSAndJSSnippet title="convex/teams.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="runQueryCorrect" prefix={`import * as Teams from './model/teams';\nimport * as Users from './model/users';\n`} />
+
+### 例: ループ \{#example-loops\}
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationWrong"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationCorrect"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+  [/\sOMIT_ME.*/g, ""],
+  [/_OMIT_[0-9]+/g, ""],
+]}
+/>
+
+### 例外 \{#exceptions\}
+
+意図的に、1つのトランザクションでは処理しきれない量のデータを扱おうとしている場合（たとえばマイグレーションの実行やデータの集計など）、`ctx.runMutation` / `ctx.runQuery` を複数回、順番に呼び出すのは理にかなっています。
+
+複数の `ctx.runQuery` / `ctx.runMutation` 呼び出しが必要になるのは、多くの場合、その間にアクションで副作用を行う必要があるためです。例えば、あるデータを読み取り、それを外部サービスに渡し、その結果をデータベースに書き戻すようなケースです。
+
+## クエリやミューテーション内では `ctx.runQuery` と `ctx.runMutation` の使用を最小限に抑えてください \{#use-ctxrunquery-and-ctxrunmutation-sparingly-in-queries-and-mutations\}
+
+### なぜ？ \{#why\}
+
+これらのクエリやミューテーションは同じトランザクション内で実行されて一貫した結果が得られますが、生の TypeScript 関数と比べると余分なオーバーヘッドがあります。`ctx.runQuery` や `ctx.runMutation` を使う必要があるケースよりも、TypeScript のヘルパー関数が欲しいケースのほうがはるかに一般的です。
+
+### 方法 \{#how\}
+
+クエリとミューテーション内での `ctx.runQuery` と `ctx.runMutation` の呼び出しを見直してください。以下のいずれかの例外に該当しない限り、プレーンな TypeScript 関数に置き換えてください。
+
+### 例外 \{#exceptions\}
+
+* コンポーネントを使用している場合は、`ctx.runQuery` または `ctx.runMutation` が必要です。
+* エラー発生時に部分的なロールバックを行いたい場合は、単なる TypeScript 関数ではなく
+  `ctx.runMutation` を使用する必要があります。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="partialRollback" />
+
+## `ctx.db` 関数を呼び出すときは必ずテーブル名を指定する \{#always-include-the-table-name-when-calling-ctxdb-functions\}
+
+### なぜ？ \{#why\}
+
+`convex` の npm パッケージのバージョン 1.31.0 以降、`ctx.db` 関数は
+最初の引数としてテーブル名を受け取れるようになりました。現時点ではこの
+最初の引数は省略可能ですが、テーブル名を渡すことで追加の安全性が得られ、
+将来的にはカスタム ID の生成に必須となる予定です。
+
+### 例 \{#example\}
+
+<TSAndJSSnippet title="convex/movies.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="explicitTableIds" />
+
+### 方法 \{#how\}
+
+Convex のコードベース内で `db.get`、`db.patch`、`db.replace`、`db.delete` の呼び出しを検索し、それらすべてでテーブル名が第 1 引数として渡されていることを確認してください。
+
+また、[`@convex-dev/explicit-table-ids` ESLint ルール](/eslint#explicit-table-ids) を使って、テーブル名の引数が渡されているかどうかを自動的にチェックすることもできます。
+
+既存のコードは、ESLint ルールの自動修正 (autofix) を使うか、`@convex-dev/codemod` のスタンドアロンツールを使って自動的に移行できます。
+
+[news.convex.dev で詳しく読む →](https://news.convex.dev/db-table-name/)
+
+## クエリで `Date.now()` を使わないでください \{#date-in-queries\}
+
+### なぜ？ \{#why\}
+
+クエリを購読すると、そのクエリがアクセスしているデータベース内のデータが変更されたときに、
+Convex は[自動的にクエリを再実行します](/realtime)。ただし、`Date.now()` が変化しても
+クエリは再実行されません。クエリが毎ミリ秒ごとに再実行されるような動作は望ましくないためです。
+そのため、クエリが現在時刻に依存している場合、古い結果を返してしまう可能性があります。
+
+また、クエリ内で `Date.now()` を使うと、Convex のクエリキャッシュが必要以上に頻繁に
+無効化されることがあります。一般に、Convex は同じ引数でクエリが呼び出された場合、
+そのクエリ結果を自動的に再利用します。しかし、クエリ内で `Date.now()` を使用していると、
+結果が古くなりすぎるのを避けるためにクエリキャッシュが頻繁に無効化されます。
+これにより、データベースが行う必要のある処理量が不必要に増えてしまいます。
+
+### 例 \{#example\}
+
+<TSAndJSSnippet title="convex/posts.ts" sourceTS={BestPracticesTS} sourceJS={BestPracticesTS} snippet="dateInQueries" />
+
+### 方法 \{#how\}
+
+Convex のクエリ内、または Convex のクエリから呼び出される関数内で `Date.now()` が使われていないか検索してください。
+
+現在時刻をデータベース内のドキュメントに保存されているタイムスタンプと比較したい場合は、そのドキュメントにより粗い粒度を持つフィールドを追加し、[scheduled function](/scheduling/scheduled-functions) から更新することを検討してください（上記の例を参照）。こうすることで、データが変更されたときにのみクエリ キャッシュが明示的に無効化されるようになります。
+
+別の方法として、クライアントから比較対象となる時刻を明示的な引数として渡すこともできます。キャッシュ効果を最大化するために、クライアント側ではこの引数を頻繁に変更しないようにしてください。たとえば、時刻を直近の 1 分単位に切り捨てることで、その 1 分間に行われるすべてのクライアント リクエストが同じ引数を使うようにできます。

@@ -1,0 +1,134 @@
+---
+title: "自定义域名和托管"
+sidebar_label: "自定义域名和托管"
+description:
+  "通过任意域名响应请求，并在任意静态托管服务商（如 GitHub）上托管你的前端。"
+sidebar_position: 100
+---
+
+## 自定义域名 \{#custom-domains\}
+
+你可以配置一个自定义域名，比如 `api.example.com`，用于从生产环境的 Convex 部署中提供 HTTP 操作
+或 Convex 函数的服务。此功能的设置可以在任意项目的 Project Settings 页面中进行配置。
+
+![Add Custom Domain](/screenshots/add_custom_domain.png)
+
+在你输入域名后，系统会显示你需要在 DNS 服务商处设置哪些记录。常见且可用于购买域名的 DNS 服务商包括
+Cloudflare 和 GoDaddy。我们会在后台验证你的域名，一旦这些记录设置完成，你就会看到一个绿色的对勾图标。
+
+当你看到该对勾图标时，你的后端就会开始通过该域名提供服务。第一次请求可能会花费最多一分钟，因为 Convex 需要
+颁发一个新的 SSL 证书。
+
+如果你在配置过程中有任何问题，请联系 support@convex.dev！
+
+<ProFeatureUpsell feature="Custom domains" verb="require" />
+
+### 使用自定义域名托管 \{#hosting-with-a-custom-domain\}
+
+要使用自定义域名来提供 Convex 函数服务，还需要一个额外的步骤：
+覆盖 `CONVEX_CLOUD_URL` 环境变量。
+
+![Override system environment variables](/screenshots/override_system_env_vars.png)
+
+然后重新部署你的项目。这可能需要在 Vercel 或 Netlify 中点击 “Redeploy”，或者直接运行
+`npx convex deploy --cmd 'npm run build'`。新部署的代码会通过你的自定义域名访问 Convex
+函数。
+
+`CONVEX_CLOUD_URL` 环境变量会在多个地方被使用：
+
+* `npx convex deploy --cmd '...'` 会为你的前端设置 `CONVEX_URL`（或类似名称），用于连接
+  WebSocket 和 HTTP 客户端
+* 在你的 Convex 函数中，可以通过 `process.env.CONVEX_CLOUD_URL` 访问它
+* 文件存储 URL：`ctx.storage.getUrl(id)` 和
+  `ctx.storage.generateUploadUrl()`
+* 使用 `npx convex function-spec --prod` 生成 OpenAPI 规范
+
+你也可以将 `CONVEX_SITE_URL` 环境变量覆盖为一个自定义的 HTTP 操作域名。
+
+* 在你的 Convex 函数中，可以通过 `process.env.CONVEX_SITE_URL` 访问它
+* 它可以用于 webhook
+* 它可以在 `auth.config.ts` 中作为 Convex Auth 的 `issuer` 使用
+
+## 自定义托管 \{#custom-hosting\}
+
+如果你只使用 Convex 提供后端功能，你可以将 Web 应用托管在任意静态网站托管服务商上。本指南将以
+[GitHub Pages](https://pages.github.com/) 为例。
+
+如果你使用的是带有服务端功能的 Next.js 或其他框架，则需要使用支持服务端功能的托管服务商，例如
+[Netlify](/production/hosting/netlify.mdx) 或
+[Vercel](/production/hosting/vercel.mdx)。你仍然可以通过
+[静态导出（static export）](https://nextjs.org/docs/pages/building-your-application/deploying/static-exports)
+的方式，将 Next.js 以静态站点形式托管。
+
+### 配置你的构建 \{#configure-your-build\}
+
+首先确保你已经有一个可用的构建流程。
+
+在本指南中，我们将设置本地构建，但你的托管服务提供商可能支持远程构建。比如参见
+[Vite 的部署到 GitHub Pages 指南](https://vitejs.dev/guide/static-deploy.html#github-pages)，
+其中使用了 GitHub Actions。
+
+我们将以 Vite 和 GitHub Pages 作为示例。
+
+1. 配置 <JSDialectFileName name="vite.config.mts" />：
+
+   ```ts title="vite.config.mts"
+   import { defineConfig } from "vite";
+   import react from "@vitejs/plugin-react";
+
+   // https://vitejs.dev/config/
+   export default defineConfig({
+     plugins: [react()],
+     // highlight-next-line
+     build: {
+       // highlight-next-line
+       outDir: "docs",
+       // highlight-next-line
+     },
+     // highlight-next-line
+     base: "/some-repo-name/",
+   });
+   ```
+
+   `build.outDir` 字段指定 Vite 会把生产环境构建产物输出到哪里，这里我们使用 `docs`，
+   因为 GitHub Pages 支持从该目录进行托管。
+
+   `base` 字段指定你的应用将被提供服务时所处的 URL 路径，在本例中我们将通过
+   `https://<some username>.github.io/<some repo name>` 提供应用。
+
+### 配置你的托管服务提供商 \{#configure-your-hosting-provider\}
+
+对于 GitHub Pages，你可以选择是否要将构建输出包含在主工作分支中，或者从单独的分支进行发布。
+
+打开你仓库的 GitHub 页面，依次进入 *Settings* &gt; *Pages*。在 *Build and
+deployment* &gt; *Source* 下选择 `Deploy from a branch`。
+
+在 *branch* 中选择一个分支（如果你想使用单独的分支，请先向该分支推送至少一个提交），并将文件夹名称设置为 `/docs`。点击 *Save* 保存。
+
+### 构建并部署到 Convex 和 GitHub Pages \{#build-and-deploy-to-convex-and-github-pages\}
+
+要手动部署到 GitHub Pages，请按照以下步骤操作：
+
+1. 切换到你选择用于发布的分支
+2. 运行 `npx convex deploy --cmd 'npm run build'`，并确认要将当前后端代码推送到 **生产** 部署
+3. 提交构建产物的更改并推送到 GitHub。
+
+### 工作原理 \{#how-it-works\}
+
+首先，`npx convex deploy` 会执行以下步骤：
+
+1. 将 `VITE_CONVEX_URL`（或类似名称）的环境变量设置为你的 **生产** Convex 部署。
+2. 通过 `npm run build` 触发前端框架的构建流程。构建流程会读取该环境变量，并使用它将构建出的网站指向你的 **生产** 部署。
+3. 将 `convex` 目录中的后端代码部署到你的 **生产** 部署。
+
+之后，你需要将构建好的前端代码部署到你的托管服务提供商。在本例中你使用了 Git，但对于其他服务商，你可能会使用不同的方法，比如传统的 FTP 上传。
+
+如果 `deploy` 命令无法推断出前端代码使用的环境变量名，你可以使用 `--cmd-url-env-var-name` 来自定义它，比如：
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### 认证 \{#authentication\}
+
+你需要配置你的[认证](/auth.mdx)提供商（Clerk、Auth0 或其他），让它接受你的生产环境 URL，即前端对外提供服务的地址。

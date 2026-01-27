@@ -1,0 +1,234 @@
+---
+title: "Convexの禅"
+slug: "zen"
+hidden: false
+sidebar_position: 500
+hide_table_of_contents: true
+description: "Convexのベストプラクティスと設計哲学"
+---
+
+export function CategoryIcon(props) {
+  switch (props.title) {
+    case "パフォーマンス":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z"
+          />
+        </svg>
+      );
+    case "アーキテクチャ":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path d="M11.584 2.376a.75.75 0 01.832 0l9 6a.75.75 0 11-.832 1.248L12 3.901 3.416 9.624a.75.75 0 01-.832-1.248l9-6z" />
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M20.25 10.332v9.918H21a.75.75 0 010 1.5H3a.75.75 0 010-1.5h.75v-9.918a.75.75 0 01.634-.74A49.109 49.109 0 0112 9c2.59 0 5.134.202 7.616.592a.75.75 0 01.634.74zm-7.5 2.418a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75zm3-.75a.75.75 0 01.75.75v6.75a.75.75 0 01-1.5 0v-6.75a.75.75 0 01.75-.75zM9 12.75a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75z"
+          />
+          <path d="M12 7.875a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" />
+          //{" "}
+        </svg>
+      );
+    case "開発ワークフロー":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M2.25 6a3 3 0 013-3h13.5a3 3 0 013 3v12a3 3 0 01-3 3H5.25a3 3 0 01-3-3V6zm3.97.97a.75.75 0 011.06 0l2.25 2.25a.75.75 0 010 1.06l-2.25 2.25a.75.75 0 01-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 010-1.06zm4.28 4.28a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+
+export function ZenHeader({ title }) {
+  return (
+    <h2 className="zen-header">
+      {title} <CategoryIcon title={title} />
+    </h2>
+  );
+}
+
+export function TipIcon({ type }) {
+  switch (type) {
+    case "do":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    case "do-not":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+export function ZenTip({ type, title, children }) {
+  return (
+    <div className={`zen-tip zen-${type}`}>
+      <h3>
+        <TipIcon type={type} /> {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+<div style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/dyEWQ9s2ji4?si=ce-M8pt6EWDZ8tfd" title="YouTube 動画プレーヤー" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+</div>
+
+<span className="convex-hero">
+  Convex は強い設計思想を持つフレームワークであり、そのあらゆる要素が開発者を
+  [成功の落とし穴](https://blog.codinghorror.com/falling-into-the-pit-of-success/)
+  へと引き込むように設計されています。
+
+  Zen of Convex は、開発者が培ってきたガイドラインとベストプラクティスの集合であり、
+  プロジェクトがこの素晴らしい「落とし穴」に自然と落ちていく状態を保てるようにしてくれます。
+</span>
+
+<ZenHeader title="パフォーマンス" />
+
+
+<ZenTip type="do" title={<span><a href="/tutorial#how-convex-works">同期エンジン</a>を最大限に活用する</span>} >
+
+    決定的でリアクティブなデータベースが Convex の鼓動する心臓になっているのには理由があります。アプリをその特性の周りに据えれば据えるほど、時間の経過とともにプロジェクトの状態は良くなっていきます。プロジェクトは理解しやすく、リファクタリングもしやすくなります。アプリのパフォーマンスは常に驚くほど高速なままです。一貫性や状態管理の問題に悩まされることもありません。
+
+<Details summary="ほとんどすべてのアプリの読み取りにクエリを使う">
+  クエリは、リアクティブで自動的にキャッシュ可能、一貫性があり堅牢な、アプリケーションやそのジョブにデータを伝播させる手段です。ごくわずかな例外を除いて、アプリ内のすべての読み取り操作はクエリ関数経由で行うべきです。
+</Details>
+
+<Details summary="同期エンジンの関数は軽く・高速に保つ">
+  一般に、ミューテーションやクエリは数百レコード未満を扱い、100ms 未満で終了することを目標にすべきです。同期トランザクションでこれよりはるかに多くの仕事をさせてしまうと、キビキビとしたレスポンスの良いアプリを維持するのはほぼ不可能になります。
+</Details>
+
+<Details summary="アクションは慎重かつ段階的に使う">
+  アクションはバッチジョブや外部サービスとの統合には非常に便利です。とても強力ですが、その分遅く、コストも高く、その振る舞いについて Convex が提供できる保証もずっと少なくなります。つまり、クエリやミューテーションで済むのであれば、決してアクションを使わないでください。
+</Details>
+
+</ZenTip>
+
+<ZenTip type="do-not" title="クライアント側の状態管理を過度に複雑にしない">
+
+Convex は独自のキャッシュと一貫性制御を多くクライアントライブラリに組み込んでいます。車輪の再発明をするのではなく、クライアント側コードにこの組み込みのパフォーマンス向上機構を活用させましょう。
+
+<Details summary="キャッシュと一貫性は Convex に任せる">
+
+コンポーネントと Convex 関数の間に挟むためのローカルキャッシュや状態集約レイヤーを、手早く自前で Convex の上に構築したくなるかもしれません。しかし Convex では、ほとんどの場合それは不要になります。たいていの場合、コンポーネントを Convex 関数にかなり単純な方法でバインドするだけで、十分に高速に「ただ動く」状態にできます。
+</Details>
+
+<Details summary="ミューテーションの戻り値は慎重に扱う">
+  ミューテーションの戻り値はアプリ内の状態変更をトリガーするのに役立ちますが、UI を更新するためにアプリ内状態を直接セットする用途に使うのは、ほとんどの場合よくありません。その役割はクエリと同期エンジンに任せましょう。
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="アーキテクチャ" />
+
+<ZenTip type="do" title='「ただのコード」でサーバーサイドフレームワークを作る'>
+  <p>
+    Convex に組み込まれているプリミティブはかなり低レベルです！ただの関数です。
+    では認証フレームワークはどうでしょうか？オブジェクトリレーショナルマッピングは？
+    そういったものを手に入れるには、Convex が組み込み機能をリリースするまで待つ必要があるのでしょうか？
+    いいえ。一般に、サーバーサイドの Convex コードでは、他の TypeScript コードベースと同じ方法で、構成やカプセル化の問題を解決すべきです。結局のところ、これこそが Convex が「ただのコード」である理由です。
+    [Stack](https://stack.convex.dev) には常に、
+    [優れた](https://stack.convex.dev/functional-relationships-helpers)
+    [サンプル](https://stack.convex.dev/wrappers-as-middleware-authentication)
+    があり、[こうしたニーズ](https://stack.convex.dev/row-level-security)
+    への取り組み方を示しています。
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="アクションを誤用しない" >
+
+アクションは強力ですが、アプリのデータフローの中でどのような位置付けにするかを意図的に設計することが重要です。
+
+<Details summary="アプリからアクションを直接呼び出さない">
+  一般的に、ブラウザからアクションを呼び出すのはアンチパターンです。通常、アクションは Convex のテーブルに存在すべき関連レコードに対して実行されます。そのため、関連レコードに対して_書き込み_を行い、その後に実行されるアクションをバックグラウンドで_スケジュール_するミューテーションを呼び出すことで、アクションをトリガーするのが最適です。
+</Details>
+
+<Details summary="「バックグラウンドジョブ」ではなく「ワークフロー」と考える">
+   アクションが関わる場合、次のようにアクションコードやミューテーションを連鎖させて書くと便利です:
+
+action code &rarr; mutation &rarr; more action code &rarr; mutation.
+
+その後、アプリや他のジョブはクエリを使ってその進行状況を追跡できます。
+
+</Details>
+
+<Details summary="進捗は一歩ずつ記録する">
+  アクションは数千件のレコードを扱い、数十個の API を呼び出すことも_可能_ですが、通常はより小さなバッチに分けて処理したり、外部サービスを使って個々の変換を実行したりするのが最適です。そしてもちろん、ミューテーションで進捗を記録します。このパターンを使うと、問題のデバッグや中断したジョブの再開が簡単になり、アプリの UI で段階的な進捗を報告しやすくなります。
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="開発ワークフロー" />
+
+<ZenTip type="do" title="ダッシュボードを常に手元に置く">
+  <p>
+    Convex プロジェクトの開発でダッシュボードを使わないのは、目を閉じて車を運転するようなものです。ダッシュボードではログの閲覧、ミューテーション／クエリ／アクションの試験実行、設定とコードベースが想定どおりになっているかの確認、テーブルの検査、スキーマの生成などができます。これは迅速な開発サイクルにとって欠かせない存在です。
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="一人で抱え込まない" >
+
+  <p>
+    この [ドキュメント](https://docs.convex.dev)、
+    [Stack](https://stack.convex.dev)、そして[コミュニティ](https://convex.dev/community)のおかげで、あなたが直面している設計やアーキテクチャ上の問題には、_おそらく_すでに誰かが遭遇しています。せっかくコミュニティ全体の経験が活かせるのに、なぜあえて大変なやり方で一人で答えを出そうとする必要があるでしょうか？
+   </p>
+  
+  <Details summary="Convex developer search を活用する">
+  Convex チームとコミュニティによる優れたリソースが豊富にあるため、最初にどこを見ればよいか分からなくなることがあります。これらすべてを素早く横断検索したい場合は、[そのためのポータルがあります](https://search.convex.dev)!
+  </Details>
+   
+  <Details summary="Convex コミュニティに参加する">
+  難しいユースケースで行き詰まっている場合や、Convex チームへの質問や機能リクエストがある場合、あるいは自分が作ったすばらしいアプリを共有して他の人の学びを助けたい場合でも、Convex コミュニティがあなたを支えます！[Discord](https://convex.dev/community) でぜひ参加してください。
+  </Details>
+</ZenTip>

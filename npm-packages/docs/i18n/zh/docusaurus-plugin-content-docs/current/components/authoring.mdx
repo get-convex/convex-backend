@@ -1,0 +1,611 @@
+---
+title: "编写组件"
+slug: "authoring"
+sidebar_position: 40
+description: "创建新组件"
+---
+
+构建一个 Convex 组件可以让你将 Convex 函数、模式以及
+持久化状态打包成一个可重用模块，方便你或其他开发者直接集成到各自的项目中。
+
+它与常规库的不同之处在于，它有自己的数据库表、
+子事务，并且可以定义在隔离环境中运行的函数。
+
+在犹豫是写一个库还是一个组件？将其构建为组件可以让你：
+
+* 将数据持久化到由你控制模式的表中。
+* 通过 API 边界来隔离对数据的访问。
+* 定义可以异步运行的查询、变更函数和操作函数，以管理
+  复杂的工作流程。
+* 在应用之间以可预测的方式共享功能。
+
+## 组件结构 \{#anatomy-of-a-component\}
+
+在实际使用中，组件是定义在一个包含 `convex.config.ts` 的文件夹中的。该组件的文件夹结构与普通的 `convex/` 文件夹相同：
+
+```
+ component/
+ ├── _generated/        # 为组件的 API 和数据模型生成的代码。
+ ├── convex.config.ts   # 定义组件及其子组件。
+ ├── schema.ts          # 定义仅可由该组件访问的模式
+ └-- …folders/files.ts  # 组件的查询、变更函数和操作函数。
+```
+
+该组件的 `convex.config.ts` 文件用于配置该组件的默认名称以及子组件。
+
+```ts title="component/convex.config.ts"
+import { defineComponent } from "convex/server";
+// 从 "@convex-dev/workpool/convex.config.js" 导入 workpool
+// 从 "../localComponent/convex.config.js" 导入 localComponent
+const component = defineComponent("myComponent");
+// component.use(workpool);
+// component.use(localComponent, { name: "customName" });
+export default component;
+```
+
+当该组件被主应用或其他组件在各自的 `convex.config.ts` 文件中引用时，其实例会在其中进行配置，从而形成一个以主应用为根的组件树。
+
+## 入门 \{#getting-started\}
+
+组件的源代码可以位于本地文件夹中，或者打包为 npm 包。
+
+### 本地组件 \{#local-components\}
+
+最简单的入门方式是为你的组件创建一个新的文件夹，
+并在其中添加一个 `convex.config.ts` 文件（如上面的示例）。然后在你的应用的
+`convex/convex.config.ts` 文件中导入它：
+
+```ts title="convex/convex.config.ts"
+import { defineApp } from "convex/server";
+import myComponent from "./components/myComponent/convex.config.js";
+
+const app = defineApp();
+app.use(myComponent);
+export default app;
+```
+
+安装完成后，`npx convex dev` 会在 `./components/myComponent/_generated/` 中生成代码，并且每当你修改该组件的代码时都会重新生成。
+
+提示：本地组件的推荐做法是将它们放在 `convex/components` 文件夹中，但你也可以将它们存放在项目中的任意位置。
+
+### 打包组件 \{#packaged-components\}
+
+组件可以作为 npm 包进行分发和安装，这使你能够通过
+[Convex Components 目录](https://convex.dev/components)
+向更广泛的开发者社区分享常见问题的解决方案。
+
+使用
+[组件模板](https://github.com/get-convex/templates/tree/main/template-component)
+来创建一个新项目：
+
+```bash
+npx create-convex@latest --component
+```
+
+按照 CLI（命令行界面）的提示开始使用，并确保组件生成的代码保持最新。
+[有关构建和发布 npm 包组件的更多信息，请参见下文。](#building-and-publishing-npm-package-components)
+
+### 混合组件 \{#hybrid-components\}
+
+混合组件定义了一个本地组件，但会对部分功能使用共享的库代码。这样，当用户需要覆盖或扩展模式或函数时，你就可以提供额外的灵活性。
+
+一个混合组件的示例是
+[Better Auth Component](https://convex-better-auth.netlify.app/features/local-install)。
+
+注意：一般来说，组件应该通过组合，或通过显式设计为可扩展的形式来使用，因为混合组件会引入大量复杂性，使得在保持向后兼容的前提下维护和更新组件变得更加困难。
+
+## Hello world \{#hello-world\}
+
+要试着添加一个新函数，请在组件目录下创建一个名为 `hello.ts` 的文件（例如在模板中为 `src/component/hello.ts`）：
+
+```ts title="./path/to/component/hello.ts"
+import { v } from "convex/values";
+import { query } from "./_generated/server.js";
+
+export const world = query({
+  args: {},
+  returns: v.string(),
+  handler: async () => {
+    return "hello world";
+  },
+});
+```
+
+部署完成后，你可以运行
+`npx convex run --component myComponent hello:world`。
+
+你现在也可以在你的应用的函数中运行它：
+
+```ts title="convex/sayHi.ts"
+import { components } from "./_generated/api";
+import { query } from "./_generated/server";
+
+export default query({
+  handler: async (ctx) => {
+    return await ctx.runQuery(components.myComponent.hello.world);
+  },
+});
+```
+
+试一下：`npx convex run sayHi`。
+
+## 与常规 Convex 开发的主要区别 \{#key-differences-from-regular-convex-development\}
+
+开发组件与开发 Convex 后端的其他部分类似。
+本节将帮助你了解其中的关键概念和差异。
+
+### 组件 API \{#the-component-api\}
+
+当你访问类似 `components.foo` 这样的组件引用时，实际使用的是
+`ComponentApi` 类型，它与常规的 `api` 对象相比有几个关键区别：
+
+* **只有公开函数是可访问的**：内部函数不会暴露给父应用。
+* **函数会变成内部引用**：组件的“公开”查询、变更和操作会被转换为具有 “internal” 可见性的引用。它们可以通过 `ctx.runQuery`、`ctx.runMutation` 等调用，但**不能**通过 HTTP 或 WebSocket 被客户端直接访问。请参见下文，了解从组件重新导出函数的模式。
+* **ID 会变成字符串**：任何 `Id<"tableName">` 参数或返回值在 `ComponentApi` 中都会变成普通字符串。详情见下一节。
+
+与常规 Convex 函数类似，你可以通过 `npx convex run` 和 Convex 仪表盘调用公开和内部函数。
+
+### `Id` 类型和验证 \{#id-types-and-validation\}
+
+组件内的所有 `Id<"table_name">` 类型，在组件外部（在 `ComponentApi` 类型中）都会退化为简单的字符串类型。
+
+此外，目前你不能使用一个 `v.id("table_name")` 校验器来表示其他组件或应用中的表。
+
+为什么？
+
+在 Convex 中，`v.id("table_name")` 校验器会检查参数、返回值或数据库文档中的某个 ID 是否符合该指定表的格式。在底层，这目前是通过为模式中的每个表分配一个数字来编码的。
+
+在组件的实现内部，这同样适用于该组件的表。然而，组件内部的 `v.id("users")` 与另一个组件或主应用中的 `v.id("users")` 并不相同，因为每个 &quot;users&quot; 表都可能对应不同的表编号。
+
+基于这个原因，`ComponentApi` 中的所有 `Id` 类型都会变成简单的字符串。
+
+### 生成的代码 \{#generated-code\}
+
+每个组件都有自己的 `_generated` 目录，此外还有一个
+`convex/_generated` 目录。它们很相似，但其中的内容是该组件及其模式
+特有的。一般来说，组件外的代码不应从这个目录中 `import`，唯一的例外是
+`_generated/component`。
+
+* `component.ts` 只为组件生成，包含该组件的 `ComponentApi` 类型。
+* `server.ts` 包含用于定义组件 API 的函数构建器，例如 `query` 和 `mutation`。
+  定义组件函数时务必从这里导入这些构建器，而不是从
+  `convex/_generated/server` 导入。有关函数可见性的更多信息见下文。
+* `api.ts` 包含用于引用组件函数的 `api` 和 `internal` 对象。它还包含
+  `components` 对象，其中包含对其子组件的引用（如果有的话）。通常，组件
+  外部的代码不应从此文件中 `import`。相反，它们应该使用自己的
+  `components` 对象，其中以安装该组件时选择的名称作为键来引用此组件。
+* `dataModel.ts` 包含组件数据模型的类型。请注意，这里的 `Id` 和 `Doc` 类型在
+  组件外部并没有用处，因为在 API 边界处，所有 ID 类型都会被转换为字符串。
+
+### 环境变量 \{#environment-variables\}
+
+该组件的函数与应用的环境变量是隔离的，因此
+这些函数无法访问 `process.env`。相反，你可以将环境变量作为
+参数传递给组件的函数。
+
+```ts
+return await ctx.runAction(components.sampleComponent.lib.translate, {
+  baseUrl: process.env.BASE_URL,
+  ...otherArgs,
+});
+```
+
+请参阅下文了解其他静态配置方案。
+
+### HTTP 操作 \{#http-actions\}
+
+组件本身不能直接对外提供 HTTP 操作，因为这些路由可能与主应用的路由冲突。与其他函数（查询、变更和操作）类似，组件可以定义 HTTP 操作处理器，由应用决定是否挂载。有一个示例在
+[Twilio 组件](https://github.com/get-convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71)
+中。所有 HTTP 操作都需要在主应用的 `convex/http.ts` 文件中挂载。
+
+### 通过 ctx.auth 进行身份验证 \{#authentication-via-ctxauth\}
+
+在组件内部，`ctx.auth` 是不可用的。你通常会在应用中完成身份验证，然后将 `userId` 等标识符或其他标识信息传递给组件。
+
+这种显式传递可以清晰地展现应用与组件之间的数据流，从而让你的组件更易于理解和测试。
+
+```ts title="convex/myFunctions.ts"
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+export const someMutation = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    await ctx.runMutation(components.myComponent.foo.bar, {
+      userId,
+      ...otherArgs,
+    });
+  },
+});
+```
+
+### 函数句柄 \{#function-handles\}
+
+有时你希望应用调用一个组件，而组件再回调到应用中。
+
+例如，在使用 Migrations 组件时，应用会定义一个修改文档的函数，组件会对每个文档运行这个函数。再比如，一个使用 Twilio 组件的应用会提供一个函数，在电话号码收到短信时运行。
+
+这些功能是通过函数句柄实现的。
+
+一个函数引用看起来像 api.foo.bar 或 `internal.foo.bar` 或
+`components.counter.foo.bar`。函数引用受到上文所述的限制（组件只能使用对自身函数或其子组件公开函数的引用）。如果你有一个有效的函数引用，你可以把它转换成一个可从任意位置调用的实体：
+
+```ts
+const handle = await createFunctionHandle(api.foo.bar);
+```
+
+这个 handle 是一个字符串。
+
+由于它是字符串，你可以在函数之间传递它，甚至把它存到一个表中。你会在参数/模式验证器中使用 `v.string()`。
+
+当你想要使用它时，把它再转换回 FunctionHandle，然后像使用函数引用一样使用它。注意参数和返回值的验证仍会在运行时执行，所以不用担心失去这些保障。
+
+```ts
+const handle = handleString as FunctionHandle<"mutation">;
+
+const result = await ctx.runMutation(handle, args);
+// 或通过调度器异步运行它:
+await ctx.scheduler.runAfter(0, handle, args);
+```
+
+[这里](https://github.com/get-convex/workpool/blob/aebe2db49fc3ec50ded6892ed27f464450b3d31e/src/component/worker.ts#L26-L28)
+是一个在
+[Workpool](https://www.convex.dev/components/workpool) 组件中使用函数句柄的示例。
+
+### 分页 \{#pagination\}
+
+内置的 `.paginate()` 在组件中无法使用，这是由于 Convex 跟踪响应式分页的方式所致。因此，如果你需要在组件内部实现分页，我们推荐使用来自 [`convex-helpers`](https://npmjs.com/package/convex-helpers) 的 `paginator`。
+
+如果你要暴露一个打算在 React 场景下配合 `usePaginatedQuery` 使用的分页 API，请使用来自 `convex-helpers` 的 `usePaginatedQuery`，而不是 `convex/react` 中的默认版本。在你点击 “Load more” 之前，它会保持固定的第一页大小；一旦点击 “Load more”，如果在第二页之前新增了内容，第一页就会随之变大。
+
+[这里](https://github.com/get-convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
+是 [RAG](https://www.convex.dev/components/rag) 组件中分页的一个示例。
+
+## 技巧与最佳实践 \{#tips-and-best-practices\}
+
+### 验证 \{#validation\}
+
+所有公共组件函数都应为参数和返回值添加验证器。
+否则，参数和返回值的类型将被视为 `any`。下面是一个使用验证器的示例。
+
+```ts
+import schema from "./schema";
+
+const messageDoc = schema.tables.messages.validator.extend({
+  _id: v.id("messages),
+  _creationTime: v.number(),
+});
+
+export const getLatestMessage = query({
+  args: {},
+  returns: v.nullable(messageDoc),
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").order("desc).first();
+  },
+});
+```
+
+在[这里](/functions/validation.mdx)了解有关函数验证的更多信息。
+
+### 静态配置 \{#static-configuration\}
+
+在组件中管理配置的一种常见模式，是使用一个只包含单条文档的 `globals` 表来存放配置。然后你可以定义函数，从命令行界面（CLI）或应用中更新该文档。要读取这些值，可以通过 `ctx.db.query("globals").first();` 来查询。
+
+## 使用客户端代码包装组件 \{#wrapping-the-component-with-client-code\}
+
+在构建组件时，有时你希望提供比直接调用 `ctx.runMutation(components.foo.bar, ...)` 更简单的 API，增强类型安全性，或者提供跨越组件边界的功能。
+
+你可以将对组件函数的调用封装在一个更易用的客户端 API 中，这个 API 运行在应用环境中，并向组件发起调用。
+
+本节介绍编写客户端代码的惯例和方法。这些并非硬性规定；请选择最符合组件需求的模式。
+
+注意：这一模式的关键之处在于，运行在应用中的代码可以访问 `ctx.auth`、`process.env` 等应用级资源。对许多用例来说，这一点非常重要，比如在应用中运行代码来定义迁移，然后由迁移组件（Migrations Component）来执行这些迁移。另一方面，那些希望对在其应用中运行的代码进行非常严格控制的应用，可能更倾向于直接调用组件的函数。
+
+### 简单的函数封装 \{#simple-function-wrappers\}
+
+最简单的方法是定义独立函数来封装对该组件的调用。这种方式非常适合一些简单的操作和工具函数。
+
+```tsx
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+} from "convex/server";
+import type { ComponentApi } from "../component/_generated/component.js";
+
+export async function callMyFunction(
+  ctx: MutationCtx | ActionCtx,
+  component: ComponentApi,
+  args: ...
+) {
+  // 你可以创建函数句柄、添加共享工具，
+  // 或执行任何需要在应用环境中运行的处理。
+  const functionHandle = await createFunctionHandle(args.someFn);
+  const someArg = process.env.SOME_ARG;
+  await ctx.runMutation(component.call.fn, {
+    ...args,
+    someArg,
+    functionHandle,
+  });
+}
+
+// Useful types for functions that only need certain capabilities.
+type MutationCtx = Pick<GenericMutationCtx<GenericDataModel>, "runMutation">;
+type ActionCtx = Pick<
+  GenericActionCtx<GenericDataModel>,
+  "runQuery" | "runMutation" | "runAction"
+>;
+```
+
+注意：我们这里只用到了 `ctx.runMutation`，所以可以使用 `Pick` 选出只包含该函数的类型。这样，即使用户的 `ctx` 并不完全是标准的 MutationCtx，也依然可以调用它。这也意味着它可以在一个操作（Action）中被调用，因为 ActionCtx 同样包含 `ctx.runMutation`。如果你的函数还需要身份验证或存储相关能力，你可以相应地调整要 `Pick` 的内容。
+
+### 重新导出组件函数 \{#re-exporting-component-functions\}
+
+有时候你会希望提供现成的函数，让应用可以直接将它们重新导出到自己的公共 API 中。这样，当你希望让应用能够把你的组件功能暴露给 React 客户端或公共互联网时就很有用。
+
+最直接的方式是让用户定义自己的函数，这些函数用于调用该组件。
+
+这样应用就可以自行选择是否添加鉴权、限流等功能。
+
+```ts title="convex/counter.ts"
+export const add = mutation({
+  args: { value: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // 如果需要,应用可以在此处对用户进行身份验证
+    await ctx.runMutation(components.counter.add, args);
+  },
+});
+```
+
+这是推荐的做法，因为它能让用户清楚了解请求是如何进行身份验证的。不过，如果你需要重新导出很多函数，可以使用下面这种模式。
+
+#### 重新挂载 API \{#re-mounting-an-api\}
+
+`src/client/index.ts` 文件中的代码可以导出以下函数：
+
+```tsx
+import type { Auth } from "convex/server";
+
+// In your component's src/client/index.ts
+export function makeCounterAPI(
+  component: ComponentApi,
+  options: {
+    // 重要:为用户提供验证这些请求的方式
+    auth: (ctx: { auth: Auth }, operation: "read" | "write") => Promise<string>;
+  },
+) {
+  return {
+    add: mutation({
+      args: { value: v.number() },
+      handler: async (ctx, args) => {
+        await options.auth(ctx, "write");
+        return await ctx.runMutation(component.public.add, args);
+      },
+    }),
+
+    get: query({
+      args: {},
+      handler: async (ctx) => {
+        await options.auth(ctx, "read");
+        return await ctx.runQuery(component.public.get, {});
+      },
+    }),
+  };
+}
+```
+
+然后应用可以在自己的 API 中集成这些客户端：
+
+```tsx
+// In the app's convex/counter.ts
+import { makeCounterAPI } from "@convex-dev/counter";
+import { components } from "./_generated/server.js";
+
+export const { add, get } = makeCounterAPI(components.counter, {
+  auth: async (ctx, operation) => {
+    const userId = await getAuthUserId(ctx);
+    // 检查用户是否有执行该操作的权限
+    if (operation === "write" && !userId) {
+      throw new Error("User not authenticated");
+    }
+    return userId;
+  },
+});
+```
+
+这种模式对于那些需要为集成提供特定函数签名的组件也同样有用。
+
+下面是一个来自实际项目的
+[示例](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)，出自
+[ProseMirror 组件](https://www.convex.dev/components/prosemirror-sync)，该组件会导出现成可用的函数。
+
+### 基于类的客户端 \{#class-based-clients\}
+
+对于更复杂的组件，基于类的客户端提供了一个有状态的接口，
+可以保存配置并提供多个方法。
+
+**基本类模式：**
+
+```tsx
+import Foo from "@convex-dev/foo";
+import { components } from "./_generated/server.js";
+
+const foo = new Foo(components.foo, {
+  maxShards: 10,
+});
+```
+
+**带有配置选项：**
+
+类通常将组件引用作为第一个参数，可选的配置对象作为第二个参数：
+
+```tsx
+export class Foo {
+  private apiKey: string;
+
+  constructor(
+    public component: ComponentApi,
+    options?: {
+      maxShards?: number;
+      // 为清晰起见,命名与其覆盖的环境变量一致。
+      FOO_AUTH_KEY?: string;
+    },
+  ) {
+    this.apiKey = options?.FOO_AUTH_KEY ?? process.env.FOO_AUTH_KEY!;
+  }
+
+  async count(ctx: GenericQueryCtx<GenericDataModel>) {
+    return await ctx.runQuery(this.component.public.count, {
+      API_KEY: this.apiKey,
+    });
+  }
+}
+```
+
+**动态实例化：** 请注意，客户端不需要静态实例化。如果你需要在运行时使用值，可以动态创建实例：
+
+```tsx
+export const myQuery = query({
+  handler: async (ctx, args) => {
+    const foo = new Foo(components.foo, {
+      apiKey: args.customApiKey,
+    });
+    await foo.count(ctx);
+  },
+});
+```
+
+## 构建并发布 npm 包组件 \{#building-and-publishing-npm-package-components\}
+
+### 构建流程 \{#build-process\}
+
+在开发将要被打包的组件时，用来安装并测试该组件的示例应用会导入组件的打包版本。这样可以确保你测试的代码与最终要发布的代码保持一致。
+
+但是，这也意味着 `npx convex dev` 无法定位到该组件的原始源代码位置，因此不会自动为组件生成代码。在开发将要被打包的组件时，你需要单独运行一套构建流程来生成该组件的 `_generated` 目录。
+
+组件编写模板会在运行 `npm run dev` 时自动为该组件生成代码。你可以在
+[模板的 `package.json` 脚本](https://github.com/get-convex/templates/blob/main/template-component/package.json) 中查看相关配置。
+
+如果你在自行搭建构建流程，则需要为以下命令分别配置文件监听器并运行它们：
+
+1. **组件代码生成（codegen）**：为组件本身生成代码
+
+   ```bash
+   npx convex codegen --component-dir ./path/to/component
+   ```
+
+2. **构建包**：构建 npm 包
+
+   ```bash
+   npm run build # Your build command (e.g., tsc, esbuild, etc.)
+   ```
+
+3. **示例应用代码生成与部署**：为示例应用生成代码并部署该应用
+   ```bash
+   npx convex dev --typecheck-components # optionally type-check the components
+   ```
+
+**关于执行顺序的说明：** 理想的执行顺序是：组件代码生成 → 构建包 → 运行示例应用的 `convex dev`。这是模板所遵循的一种推荐约定，用来避免不同构建过程相互抢占资源；但关键要求是：在示例应用尝试导入组件之前，组件必须已经完成构建并可用。
+
+### 入口点 \{#entry-points\}
+
+在将组件发布到 npm 时，你需要公开所有在项目中要使用的相关入口点：
+
+* `@your/package` 导出在应用代码中与组件交互所用的类型、类和常量。这是可选的，但很常见。
+* `@your/package/convex.config.js` 暴露组件的配置。
+* `@your/package/_generated/component.js` 导出 `ComponentApi` 类型，它从使用该组件的应用视角来描述组件的类型。
+* `@your/package/test` 提供将组件与 `convex-test` 一起使用的实用工具。
+
+[模板的 package.json](https://github.com/get-convex/templates/blob/main/template-component/package.json)
+已经为你完成了这些配置，但如果你在搭建自己的构建流程，就需要
+在你的 package.json 中自行完成这些设置。
+
+### 开发环境中的本地包解析 \{#local-package-resolution-for-development\}
+
+在开发组件时，你通常希望以与应用导入该组件相同的方式来导入组件的代码，例如
+`import {} from "@your/package"`。要在示例应用中无需从 npm 安装该包就实现这一点，请遵循模板的项目结构：
+
+1. 在项目根目录下，放置一个 `package.json`，其包名与 `@your/package` 名称匹配。这样会使对该名称的导入解析到该 `package.json` 的 `exports`。
+2. 在 `package.json` 的 `exports` 部分中，将上述入口点映射到打包后的文件，通常位于 `dist` 目录中。这样，从该包名进行导入时就会解析到打包文件。
+3. 在项目根目录中仅使用单一的 `package.json` 文件和 `node_modules` 目录，这样示例应用中对该包名的导入会默认在这里解析。这也能避免库和示例应用分别引用多个版本的 `convex`。如果要添加仅供示例应用使用的依赖，请在 `package.json` 中将它们添加为 `devDependencies`。
+
+### 发布到 npm \{#publishing-to-npm\}
+
+要在 npm 上发布组件，请参见
+[PUBLISHING.md](https://github.com/get-convex/templates/blob/main/template-component/PUBLISHING.md)。
+
+## 测试 \{#testing\}
+
+### 测试实现 \{#testing-implementations\}
+
+要测试组件，可以使用
+[`convex-test` 库](/testing/convex-test.mdx)。主要区别在于你需要为测试实例提供模式和模块。
+
+```ts title="component/some.test.ts"
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./schema.ts";
+const modules = import.meta.glob("./**/*.ts");
+
+export function initConvexTest() {
+  const t = convexTest(schema, modules);
+  return t;
+}
+
+test("Test something with a local component", async () => {
+  const t = initConvexTest();
+  // 像往常一样进行测试。
+  await t.run(async (ctx) => {
+    await ctx.db.insert("myComponentTable", { name: "test" });
+  });
+});
+```
+
+如果你的组件有子组件，请参阅 “Using Components” 文档中的 [测试组件](/components/using.mdx#testing-components) 一节。
+
+### 测试 API 和客户端代码 \{#testing-the-api-and-client-code\}
+
+要在应用的运行环境中测试从组件中导出的、供应用使用的函数，你可以采用与
+[使用组件](/components/using.mdx#testing-components) 中相同的方法，从一个使用该组件的应用中进行测试。
+
+模板组件还附带了一个示例应用，部分目的就在于此：在与安装该组件的应用相同的使用方式下，测试组件打包后的代码。
+
+### 导出测试辅助工具 \{#exporting-test-helpers\}
+
+大多数组件都会导出测试辅助工具，方便你在测试实例中注册组件。下面是来自
+[模板组件 `/test` 入口文件](https://github.com/get-convex/templates/blob/main/template-component/src/test.ts)的一个示例：
+
+```ts
+/// <reference types="vite/client" />
+import type { TestConvex } from "convex-test";
+import type { GenericSchema, SchemaDefinition } from "convex/server";
+import schema from "./component/schema.js";
+const modules = import.meta.glob("./component/**/*.ts");
+
+/**
+ * 将组件注册到测试 Convex 实例。
+ * @param t - 测试 Convex 实例,例如通过调用 `convexTest` 获得。
+ * @param name - 组件名称,应与 convex.config.ts 中注册的名称一致。
+ */
+export function register(
+  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
+  name: string = "sampleComponent",
+) {
+  t.registerComponent(name, schema, modules);
+}
+export default { register, schema, modules };
+```
+
+对于 npm 包，这在该包的 `package.json` 中会被暴露为 `@your/package/test`：
+
+```json
+{
+  ...
+  "exports": {
+    ...
+    "./test": "./src/test.ts",
+    ...
+  }
+}
+```

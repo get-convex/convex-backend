@@ -1,0 +1,44 @@
+---
+title: API de plataforma de despliegue
+hide_table_of_contents: true
+description: "API de despliegue"
+---
+
+<Admonition type="info">
+  La API de despliegue de Convex está disponible públicamente en Beta. Ponte en contacto con
+  platforms@convex.dev si tu caso de uso requiere capacidades adicionales.
+</Admonition>
+
+A diferencia de los endpoints HTTP, que exponen funcionalidad específica de la aplicación a
+los clientes, los endpoints de la API de gestión configuran despliegues (por ejemplo, para modificar
+variables de entorno).
+
+## Autorización \{#authorization\}
+
+La Deployment Management API requiere un encabezado `Authorization` con una clave que
+conceda acceso de administrador a ese despliegue.
+
+Las [Deployment keys](https://docs.convex.dev/cli/deploy-key-types#development-deploy-keys)
+creadas en el
+[panel de control](https://docs.convex.dev/dashboard/deployments/deployment-settings#url-and-deploy-key)
+o mediante llamadas a la API se pueden usar con estas APIs.
+
+[Team Access Tokens](/platform-apis#managing-your-own-projects) y
+[OAuth Application Tokens](/platform-apis/oauth-applications) también se pueden usar,
+según si estás utilizando la Management API en nombre de tu propio
+equipo o en nombre del equipo de un usuario de una integración de Convex que hayas creado.
+
+Sea cual sea el tipo de clave, añade la cadena `"Convex "` al principio.
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://happy-otter-123.convex.cloud/api/v1/list_environment_variables",
+  {
+    headers: {
+      Authorization: `Convex ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```

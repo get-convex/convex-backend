@@ -1,0 +1,112 @@
+---
+title: 定时函数
+sidebar_position: 1
+description: "将函数安排在未来运行"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/messages.ts";
+
+Convex 允许你将函数安排在未来的某个时间点运行。这样你就可以在无需设置和维护队列或其他基础设施的情况下，构建强大且持久的工作流。
+
+已调度的函数会存储在数据库中。这意味着你可以将函数安排在几分钟、几天，甚至几个月之后运行。调度机制能够在意外停机或系统重启时保持可靠。
+
+**示例：**
+[Scheduling](https://github.com/get-convex/convex-demos/tree/main/scheduling)
+
+## 调度函数 \{#scheduling-functions\}
+
+你可以在变更和操作函数中，通过各自函数上下文中提供的
+[scheduler](/api/interfaces/server.Scheduler)，调度公开函数和
+[内部函数](/functions/internal-functions.mdx)。
+
+* [runAfter](/api/interfaces/server.Scheduler#runafter) 调度一个函数在延迟一段时间后运行（以毫秒为单位）。
+* [runAt](/api/interfaces/server.Scheduler#runat) 调度一个函数在某个日期或时间戳运行（以自纪元以来经过的毫秒数为单位）。
+
+其余参数为要调用的函数路径及其参数，方式类似于从客户端调用函数。例如，下面展示了如何发送一条在五秒后自毁的消息。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-runAfter" highlightPatterns={["scheduler", "runAfter"]} />
+
+单个函数最多可以调度 1000 个函数，且所有参数的总大小最多为 8MB。
+
+### 从变更中调度 \{#scheduling-from-mutations\}
+
+从
+[变更](/functions/mutation-functions.mdx#transactions) 中调度函数会与该变更的其余部分一起原子执行。这意味着如果变更成功，调度一定会生效。另一方面，如果变更失败，则不会调度任何函数，即使失败发生在调度调用之后也是如此。
+
+### 从操作函数中调度 \{#scheduling-from-actions\}
+
+与变更函数不同，[操作函数](/functions/actions.mdx) 不会作为单个数据库事务执行，并且可以产生副作用。因此，从操作函数中进行调度不依赖于该函数的执行结果。也就是说，一个操作函数可能成功调度了一些函数的执行，但随后由于临时错误或超时而失败。已被调度的函数仍然会执行。
+
+### 立即调度 \{#scheduling-immediately\}
+
+将 `runAfter()` 的延迟设置为 0 可以立即把函数加入事件队列。如果你习惯调用
+`setTimeout(fn, 0)`，这种用法应该会让你觉得很熟悉。
+
+如上所述，操作函数不是原子的，旨在产生副作用。当你希望从一个变更中，有条件地触发一个仅在该变更成功时才会运行的操作函数时，立即调度就很有用。
+[这篇文章](https://stack.convex.dev/pinecone-and-embeddings#kick-off-a-background-action)
+详细展示了一个直接的示例，其中应用依赖外部服务来向数据库填充信息。
+
+## 检索已调度函数的状态 \{#retrieving-scheduled-function-status\}
+
+每个已调度函数都会作为一条文档记录存储在 `"_scheduled_functions"` 系统表中。`runAfter()` 和 `runAt()` 会返回已调度函数的 ID。你可以使用 `db.system.get` 和 `db.system.query` 方法从系统表中读取数据，它们的工作方式与标准的 `db.get` 和 `db.query` 方法相同。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-status" highlightPatterns={["system"]} />
+
+这是返回文档的示例：
+
+```json
+{
+  "_creationTime": 1699931054642.111,
+  "_id": "3ep33196167235462543626ss0scq09aj4gqn9kdxrdr",
+  "args": [{}],
+  "completedTime": 1699931054690.366,
+  "name": "messages.js:destruct",
+  "scheduledTime": 1699931054657,
+  "state": { "kind": "success" }
+}
+```
+
+返回的文档包含以下字段：
+
+* `name`：已调度函数的路径
+* `args`：传递给已调度函数的参数
+* `scheduledTime`：函数计划运行的时间戳
+  （以自 Unix 纪元以来经过的毫秒数计）
+* `completedTime`：函数完成运行时的时间戳（如果已完成）
+  （以自 Unix 纪元以来经过的毫秒数计）
+* `state`：已调度函数的状态。可能的状态包括：
+  * `Pending`：函数尚未开始执行
+  * `InProgress`：函数已开始运行但尚未完成（仅适用于操作函数）
+  * `Success`：函数已成功运行完成且没有错误
+  * `Failed`：函数在运行时遇到错误，该错误可以是用户错误，也可以是内部服务器错误
+  * `Canceled`：函数通过仪表盘、`ctx.scheduler.cancel`，或因其父级已调度函数在执行中被取消而被递归取消
+
+已调度函数的结果在完成后会保留 7 天可用。
+
+## 取消已调度的函数 \{#canceling-scheduled-functions\}
+
+你可以通过相应函数上下文中提供的
+[scheduler](/api/interfaces/server.Scheduler)，调用
+[`cancel`](/api/interfaces/server.Scheduler#cancel) 来取消之前已调度的函数。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-cancel" highlightPatterns={["scheduler.cancel"]} />
+
+`cancel` 的行为取决于该已调度函数的状态：
+
+* 如果它尚未开始运行，则不会再运行。
+* 如果它已经开始运行，将会继续运行，但它所调度的任何函数都不会运行。
+
+## 调试 \{#debugging\}
+
+你可以在 Convex 仪表盘的 [Logs 视图](/dashboard/deployments/logs.md) 中查看之前执行过的计划任务函数的日志。你也可以在
+[Functions 视图](/dashboard/deployments/functions.md) 中查看和取消已调度但尚未执行的函数。
+
+## 错误处理 \{#error-handling\}
+
+一旦被调度，变更函数就**保证只会被执行一次**。Convex 会自动重试任何内部的 Convex 错误，只会在开发者错误时才最终失败。关于不同错误类型的详细说明，参见[错误处理](/functions/error-handling/error-handling.mdx)。
+
+由于操作函数可能产生副作用，Convex 不会自动对其进行重试。因此，操作函数**最多执行一次**，如果在执行过程中出现瞬时错误，它们将会永久失败。开发者可以通过手动重试来处理这种情况，例如调度一个变更函数来检查预期结果是否已经达成，如果没有，则再次调度该操作函数。
+
+## Auth \{#auth\}
+
+从调度任务到被调度的函数之间，身份验证信息不会自动传播。如果你想进行身份验证或检查授权，就必须将所需的用户信息作为参数传入。

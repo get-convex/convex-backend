@@ -1,0 +1,113 @@
+---
+title: "Convex での Cursor の使い方"
+sidebar_position: 100
+sidebar_label: Cursor の使い方
+description: "Convex で Cursor を使う際のヒントとベストプラクティス"
+slug: "using-cursor"
+---
+
+[Cursor](https://cursor.com) は AI コードエディターで、Convex を使って構築したアプリの開発と
+保守を簡単にしてくれます。ここでは、Convex で最高の結果を得るために Cursor をどのように設定するかを説明します。
+
+## Convex の `.cursor/rules` を追加する \{#add-convex-cursorrules\}
+
+Cursor を最大限に活用するには、モデル固有の `.mdc` ファイルを
+プロジェクトの `.cursor/rules` ディレクトリに配置してください。
+
+* [Convex Cursor Rules](https://convex.link/convex_rules.mdc)
+
+<video src="/video/showing_where_to_put_convex_rules.mp4" autoPlay loop controls />
+
+Convex 用のこれらのルールの品質は、厳密な eval を用いて継続的に改善しています。\
+[evals リポジトリへコントリビュート](https://github.com/get-convex/convex-evals)してご協力いただけると助かります。
+
+## Convex MCP サーバーのセットアップ \{#setup-the-convex-mcp-server\}
+
+Convex CLI には
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx) (MCP) サーバーが
+組み込まれています。Convex MCP サーバーにより、AI コーディングエージェントに
+Convex デプロイメントへのアクセス権が与えられ、プロジェクトをクエリして最適化できるようになります。
+
+### クイックインストール \{#quick-install\}
+
+次の便利なディープリンクをクリックしてください:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex\&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+### 手動インストール \{#manual-install\}
+
+Cursor を使い始めるには、「Cursor Settings &gt; Tools &amp; Integrations」を開き、
+「New MCP Server」をクリックして、開いた `mcp.json` ファイルの
+&quot;mcpServers&quot; に &quot;convex&quot; セクションを追加します。
+
+```json
+{
+  "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+Convex MCP を
+[特定のプロジェクトだけにインストールすることもできます](https://docs.cursor.com/en/context/mcp#configuration-locations)。
+
+サーバーを追加したら、&quot;convex&quot; サーバーが有効になっていて緑色に点灯していることを確認してください
+（初回は npm パッケージのダウンロードに 1 分ほどかかる場合があります）。
+
+あとは、次のような質問を投げてみてください:
+
+* Convex のスキーマを評価して改善点を提案して
+* このアプリの公開エンドポイントは何ですか？
+* `my_convex_function` クエリを実行して
+
+## ヒントとコツ \{#tips-and-tricks\}
+
+### Convex を自分でインストールして実行する \{#install-and-run-convex-yourself\}
+
+Convex を動かし続けることは非常に重要です。というのも、
+[クライアント側の型を自動生成](https://docs.convex.dev/cli#run-the-convex-dev-server)
+してくれるからです。これがないと、エージェントは自分で作成したクエリやミューテーション用の型にアクセスできず、Lint チェックのループにはまり込んでしまう可能性があります。
+
+ターミナルウィンドウで `npm install convex` を実行してインストールし、
+`npx convex dev` を実行して自分で Convex を動かしておくことをおすすめします。
+
+### リクエストは小さく保つ \{#keep-your-requests-small\}
+
+エージェント指向の LLM を使う際は、一度に行う変更量を小さく抑え、こまめに git commit することで、より良い結果が得られます。そうすることで、エージェントに提供するコンテキストをより具体的にでき、エージェントも大量のコンテキストを探し回る必要がなくなります。
+
+各プロンプト、または一連のプロンプトがうまくいった後は、その時点までの変更を commit しておくとよいでしょう。そうしておけば、次のプロンプトで問題が発生した場合でも、そのポイントまで簡単にロールバックできます。
+
+### `README.md` を更新して参照する \{#update-and-reference-your-readmemd\}
+
+エージェントには、あなたのプロジェクトの具体的なビジネス目標に関するコンテキストが必要です。
+読み取ったファイルからある程度の情報を推論できますが、プロジェクトが大きくなるほどそれは難しくなっていきます。プロジェクトに関する一般的な情報を用意しておくと、エージェントにとって有用な出発点になります。
+
+この情報を毎回のプロンプトに含めるのではなく、プロジェクトのルートディレクトリに包括的な `README.md` ファイルを書き、それを参照するほうがよいでしょう。
+
+[一部の人](https://youtu.be/2PjmPU07KNs?t=145)は Product Requirements Document (PRD) を作成することを勧めており、より複雑なプロジェクトでは良いアイデアかもしれません。
+
+### Convex ドキュメントを追加する \{#add-convex-docs\}
+
+Convex ドキュメントを追加すると、アプリを構築するときに Convex の機能を
+明示的に参照できるようになります。
+
+**`Cursor Settings`** &gt; **`Indexing & Docs`** &gt; **`Docs`** から新しいドキュメントを追加し、
+URL として &quot;https://docs.convex.dev/home&quot; を使用します。
+
+![Chat UI](/img/cursor-with-convex/adding_convex_docs.webp)
+
+その後、Cursor は LLM が利用できるように Convex ドキュメント全体をインデックスします。
+
+![Chat UI](/img/cursor-with-convex/indexed_docs.webp)
+
+これらのドキュメントは、プロンプト内で `@Convex` シンボルを使って参照できます。
+
+![Chat UI](/img/cursor-with-convex/reference_convex_docs.webp)
+
+<Admonition type="tip" title="Convex に関する知識をさらに追加する">
+  上記と同じ手順を https://stack.convex.dev/ に対しても実行すると、
+  エージェントにさらに多くのコンテキストを提供できます。
+</Admonition>

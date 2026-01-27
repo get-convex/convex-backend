@@ -1,0 +1,98 @@
+---
+title: Node.js クイックスタート
+sidebar_label: Node.js
+description: "Node.js プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 400
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/convex/tasks.js";
+import script from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/script.js";
+
+Node.js プロジェクトで Convex からデータをクエリする方法を説明します。
+
+スナップショットとしての単発クエリではなく購読（サブスクリプション）を使う手順や、
+より詳細なプロジェクト構成（TypeScript、バンドラー、CJS と ESM など）については
+[Node.js notes](/client/javascript/node.mdx) を参照してください。
+
+<StepByStep>
+  <Step title="新しい npm プロジェクトを作成する">
+    Node.js プロジェクト用の新しいディレクトリを作成します。
+
+    ```sh
+    mkdir my-project && cd my-project && npm init -y && npm pkg set type="module"
+    ```
+  </Step>
+
+  <Step title="Convex クライアントとサーバーライブラリをインストールする">
+    JavaScript から Convex を便利に扱うためのインターフェースを提供する
+    `convex` パッケージをインストールします。
+
+    あわせて `.env` ファイルを読み込むための `dotenv` ライブラリもインストールします。
+
+    ```sh
+    npm install convex dotenv
+    ```
+  </Step>
+
+  <Step title="Convex の dev デプロイメントをセットアップする">
+    次に `npx convex dev` を実行します。
+    このコマンドは GitHub でのログイン、プロジェクトの作成、
+    そして本番環境とデプロイメントURL の保存を促します。
+
+    また、バックエンド API 関数を書くための `convex/` フォルダも作成されます。
+    引き続き `dev` コマンドが動作し続け、
+    クラウド上の dev デプロイメントと関数を同期します。
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、
+    いくつかのサンプルデータを含む `sampleData.jsonl` ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、
+    `tasks` テーブルを作成し、そのサンプルデータを Convex データベースに
+    `import` コマンドを使って追加します。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    `convex/` フォルダ内に新しいファイル `tasks.js` を追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいて `api.tasks.get` という
+    API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="スクリプトをバックエンドに接続する">
+    新しいファイル `script.js` 内で、
+    開発環境の URL を使って `ConvexHttpClient` を作成します。
+
+    <Snippet source={script} title="script.js" />
+  </Step>
+
+  <Step title="スクリプトを実行する">
+    同じディレクトリからスクリプトを実行し、
+    ターミナルにタスクの一覧がログ出力されることを確認します。
+
+    ```sh
+    node script.js
+    ```
+  </Step>
+</StepByStep>
+
+詳しくは [Node.js ドキュメント](/client/javascript/node.mdx) を参照してください。

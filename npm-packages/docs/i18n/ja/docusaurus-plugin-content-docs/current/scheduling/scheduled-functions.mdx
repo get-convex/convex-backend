@@ -1,0 +1,124 @@
+---
+title: スケジュールされた関数
+sidebar_position: 1
+description: "関数を将来の時刻に実行するようスケジュールする"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/messages.ts";
+
+Convex では、将来のある時点で実行されるように関数をスケジュールできます。これにより、キューやその他のインフラストラクチャをセットアップ・運用することなく、強力で堅牢なワークフローを構築できます。
+
+スケジュールされた関数はデータベースに保存されます。つまり、数分後、数日後、さらには数か月先に関数をスケジュールできます。スケジューリングは、予期しないダウンタイムやシステムの再起動の影響を受けにくくなっています。
+
+**例:**
+[Scheduling](https://github.com/get-convex/convex-demos/tree/main/scheduling)
+
+## 関数のスケジューリング \{#scheduling-functions\}
+
+ミューテーションやアクションから公開関数および
+[内部関数](/functions/internal-functions.mdx)を、それぞれの関数コンテキストで提供される
+[scheduler](/api/interfaces/server.Scheduler) 経由でスケジュールできます。
+
+* [runAfter](/api/interfaces/server.Scheduler#runafter) は、指定した遅延時間
+  （ミリ秒単位）後に関数を実行するようスケジュールします。
+* [runAt](/api/interfaces/server.Scheduler#runat) は、指定した日時または
+  タイムスタンプの時刻に関数を実行するようスケジュールします（エポックからの経過ミリ秒）。
+
+残りの引数は、その関数へのパスと、その関数に渡す引数です。
+これはクライアントから関数を呼び出す場合と同様です。
+たとえば、5 秒後に自動的に消滅するメッセージを送信する方法は次のとおりです。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-runAfter" highlightPatterns={["scheduler", "runAfter"]} />
+
+1 つの関数からは、合計引数サイズが 8 MB 以内で最大 1000 個の関数をスケジュールできます。
+
+### ミューテーションからのスケジューリング \{#scheduling-from-mutations\}
+
+[ミューテーション](/functions/mutation-functions.mdx#transactions) から関数をスケジューリングする処理は、
+そのミューテーション内の他の処理とアトミックに行われます。つまり、ミューテーションが成功した場合には、
+その関数は必ずスケジュールされます。一方、ミューテーションが失敗した場合には、
+スケジューリング呼び出しの後でミューテーションが失敗したとしても、どの関数もスケジュールされません。
+
+### アクションからのスケジューリング \{#scheduling-from-actions\}
+
+ミューテーションと異なり、[actions](/functions/actions.mdx) は単一の
+データベーストランザクションとして実行されるわけではなく、副作用を持つ可能性があります。
+そのため、アクションからのスケジューリングは関数の成否に依存しません。
+つまり、あるアクションはいくつかの関数のスケジューリングに成功した後で、
+一時的なエラーやタイムアウトによって失敗する可能性があります。
+それでも、スケジュールされた関数は実行されます。
+
+### 即時にスケジュールする \{#scheduling-immediately\}
+
+`runAfter()` を遅延を 0 にして使うと、関数を即座にイベントキューに追加できます。これは、`setTimeout(fn, 0)` を呼び出すことに慣れている場合には、おなじみの使い方かもしれません。
+
+上で述べたように、アクションはアトミックではなく、副作用を起こすことを目的としています。ミューテーションが成功した場合にのみ条件付きでアクションをトリガーしたいとき、即時のスケジューリングが有用になります。
+[この投稿](https://stack.convex.dev/pinecone-and-embeddings#kick-off-a-background-action)では、その直接的な例を取り上げており、アプリケーションが外部サービスに依存してデータベースに情報を追加するケースを説明しています。
+
+## スケジュール済み関数のステータスの取得 \{#retrieving-scheduled-function-status\}
+
+すべてのスケジュール済み関数は、`"_scheduled_functions"` システムテーブル内の
+ドキュメントとして表現されます。`runAfter()` と `runAt()` は、スケジュール済み関数の id
+を返します。システムテーブルからデータを取得するには、標準の `db.get` や `db.query`
+メソッドと同様に動作する `db.system.get` および `db.system.query` メソッドを使用できます。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-status" highlightPatterns={["system"]} />
+
+これは返されるドキュメントの例です。
+
+```json
+{
+  "_creationTime": 1699931054642.111,
+  "_id": "3ep33196167235462543626ss0scq09aj4gqn9kdxrdr",
+  "args": [{}],
+  "completedTime": 1699931054690.366,
+  "name": "messages.js:destruct",
+  "scheduledTime": 1699931054657,
+  "state": { "kind": "success" }
+}
+```
+
+返されるドキュメントには、次のフィールドがあります:
+
+* `name`: スケジュールされた関数のパス
+* `args`: スケジュールされた関数に渡された引数
+* `scheduledTime`: 関数の実行がスケジュールされた時刻のタイムスタンプ
+  (エポックからの経過ミリ秒数)
+* `completedTime`: 関数の実行が完了した時刻のタイムスタンプ (完了している場合)
+  (エポックからの経過ミリ秒数)
+* `state`: スケジュールされた関数の状態。取りうる状態は次のとおりです:
+  * `Pending`: 関数がまだ開始されていない
+  * `InProgress`: 関数の実行が開始されていて、まだ完了していない (アクションにのみ適用)
+  * `Success`: 関数がエラーなく正常に実行を完了した
+  * `Failed`: 実行中にエラーが発生した。ユーザーエラーまたは内部サーバーエラーのいずれか
+  * `Canceled`: ダッシュボード、`ctx.scheduler.cancel`、または進行中にキャンセルされた親のスケジュールされた関数からの再帰的なキャンセルによって、関数がキャンセルされた
+
+スケジュールされた関数の結果は、完了後 7 日間利用できます。
+
+## スケジュールされた関数のキャンセル \{#canceling-scheduled-functions\}
+
+以前にスケジュールした関数は、各関数コンテキストで利用できる
+[scheduler](/api/interfaces/server.Scheduler) を介して
+[`cancel`](/api/interfaces/server.Scheduler#cancel) を使うことでキャンセルできます。
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-cancel" highlightPatterns={["scheduler.cancel"]} />
+
+`cancel` が行う処理は、スケジュールされた関数の状態によって異なります。
+
+* まだ実行が開始されていない場合、その関数は実行されません。
+* すでに実行が開始されている場合は、実行は継続されますが、その関数が新たにスケジュールする関数は実行されません。
+
+## デバッグ \{#debugging\}
+
+Convex ダッシュボードの [Logs view](/dashboard/deployments/logs.md) では、これまでに実行されたスケジュール済み関数のログを確認できます。今後実行予定の関数は
+[Functions view](/dashboard/deployments/functions.md) で確認およびキャンセルできます。
+
+## エラー処理 \{#error-handling\}
+
+一度スケジュールされると、ミューテーションは必ず一度だけ実行されます。Convex は内部の Convex エラーについては自動的にリトライし、開発者起因のエラーのときのみ失敗します。さまざまなエラー種別の詳細については、[Error Handling](/functions/error-handling/error-handling.mdx) を参照してください。
+
+アクションは副作用を持つ可能性があるため、Convex によって自動的にはリトライされません。したがって、アクションは最大 1 回だけ実行され、実行中に一時的なエラーが発生した場合はそのまま失敗として扱われます。開発者は、意図した結果が達成されているかを確認するミューテーションをスケジュールし、達成されていない場合はアクションを再度スケジュールすることで、手動でリトライできます。
+
+## 認証 \{#auth\}
+
+スケジューリング元の認証情報は、スケジュールされた関数には引き継がれません。認証や認可を行いたい場合は、必要なユーザー情報をパラメータとして渡す必要があります。

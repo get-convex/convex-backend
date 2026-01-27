@@ -1,0 +1,174 @@
+---
+title: Mutaciones
+sidebar_position: 20
+description: "Inserta, actualiza y elimina datos en la base de datos"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsConstructor.ts";
+import ArgsWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidation.ts";
+import ArgsWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidationJS.js";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContext.ts";
+import ContextDB from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContextDB.ts";
+import Helper from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelper.ts";
+import HelperJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelperJS.js";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsNPM.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/mutationsCall.tsx";
+
+Las mutaciones insertan, actualizan y eliminan datos de la base de datos, verifican la autenticación
+o realizan otra lógica de negocio y, opcionalmente, devuelven una respuesta a la aplicación
+cliente.
+
+Este es un ejemplo de mutación que recibe argumentos nombrados, escribe datos en la
+base de datos y devuelve un resultado:
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+Sigue leyendo para comprender cómo crear mutaciones por tu cuenta.
+
+## Nombres de las mutaciones \{#mutation-names\}
+
+Las mutaciones siguen las mismas reglas de nomenclatura que las consultas; consulta
+[Nombres de las consultas](/functions/query-functions.mdx#query-names).
+
+Las consultas y las mutaciones se pueden definir en el mismo archivo cuando se usan `named exports`.
+
+## El constructor `mutation` \{#the-mutation-constructor\}
+
+Para declarar una mutación en Convex, usa la función constructora `mutation`. Pásale
+un objeto con una función `handler`, que realiza la mutación:
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+A diferencia de una consulta, una mutación puede devolver un valor, pero no es obligatorio.
+
+### Argumentos de la mutación \{#mutation-arguments\}
+
+Al igual que las consultas, las mutaciones aceptan argumentos con nombre, y los valores de los argumentos
+son accesibles como campos del segundo parámetro de la función `handler`:
+
+<TSAndJSSnippet sourceTS={ArgsWithoutValidationTS} sourceJS={ArgsWithoutValidationJS} title="convex/myFunctions.ts" />
+
+Los argumentos y las respuestas se serializan y deserializan automáticamente, y puedes
+pasar y devolver la mayoría de datos de JavaScript que se comportan como valores hacia y desde tu mutación.
+
+Para declarar tanto los tipos de los argumentos como validarlos, agrega un objeto `args`
+usando validadores de `v`:
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} title="convex/myFunctions.ts" />
+
+Consulta [validación de argumentos](/functions/validation.mdx) para ver la lista completa de
+tipos y validadores compatibles.
+
+El primer parámetro de la función `handler` está reservado para el contexto
+de la mutación.
+
+### Respuestas de mutaciones \{#mutation-responses\}
+
+Las consultas pueden devolver valores de cualquier
+[tipo de Convex](/functions/validation.mdx) compatible, que se serializan y
+deserializan automáticamente.
+
+Las mutaciones también pueden devolver `undefined`, que no es un Valor de Convex válido. Cuando una
+mutación devuelve `undefined`, **se convierte en `null`** en el cliente.
+
+### Contexto de mutación \{#mutation-context\}
+
+El constructor `mutation` permite escribir datos en la base de datos y usar otras
+funcionalidades de Convex pasando un objeto
+[MutationCtx](/generated-api/server.md#mutationctx)
+a la función manejadora como primer parámetro:
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+La parte del contexto de mutación que se usa depende de lo que tu mutación
+necesite hacer:
+
+* Para leer de y escribir en la base de datos usa el campo `db`. Ten en cuenta que
+  hacemos que la función manejadora sea una función `async` para poder esperar
+  (`await`) la promesa que devuelve `db.insert()`:
+
+  <TSAndJSSnippet sourceTS={ContextDB} sourceJS={ContextDB} title="convex/myFunctions.ts" />
+
+  Sigue leyendo sobre [Escritura de datos](/database/writing-data.mdx).
+
+* Para generar URLs de carga para almacenar archivos usa el campo `storage`.
+  Sigue leyendo sobre [Almacenamiento de archivos](/file-storage.mdx).
+
+* Para comprobar la autenticación del usuario usa el campo `auth`. Sigue
+  leyendo sobre [Autenticación](/auth.mdx).
+
+* Para programar funciones para que se ejecuten en el futuro, usa el campo
+  `scheduler`. Sigue leyendo sobre
+  [Funciones programadas](/scheduling/scheduled-functions.mdx).
+
+## Dividir el código de mutación mediante helpers \{#splitting-up-mutation-code-via-helpers\}
+
+<>
+  {/* Fragment for Prettier */}
+
+  Cuando quieras dividir el código de tu mutación o reutilizar lógica entre
+  varias funciones de Convex, puedes definir y llamar a funciones helper de
+  <LanguageSelector verbose />:
+</>
+
+<TSAndJSSnippet sourceTS={Helper} sourceJS={HelperJS} title="convex/myFunctions.ts" />
+
+Las mutaciones pueden llamar helpers que tomen un
+[QueryCtx](/generated-api/server.md#queryctx) como argumento, ya que el contexto
+de una mutación puede hacer todo lo que puede hacer el contexto de una consulta.
+
+Puedes exportar helpers con `export` para usarlos en varios archivos. No se
+podrán llamar desde fuera de tus funciones de Convex.
+
+Consulta
+[Anotación de tipos en helpers del lado del servidor](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+para obtener más información sobre tipos de TypeScript.
+
+## Uso de paquetes NPM \{#using-npm-packages\}
+
+Las mutaciones pueden importar paquetes NPM instalados en `node_modules`. No todos los paquetes NPM son compatibles; consulta la sección
+[Runtimes](/functions/runtimes.mdx#default-convex-runtime) para obtener más detalles.
+
+```sh
+npm install @faker-js/faker
+```
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+## Invocar mutaciones desde los clientes \{#calling-mutations-from-clients\}
+
+Para invocar una mutación desde [React](/client/react.mdx), usa el hook
+[`useMutation`](/client/react.mdx#editing-data) junto con el objeto generado
+[`api`](/generated-api/api).
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
+
+Consulta la documentación del cliente de [React](/client/react.mdx) para ver todas las formas de llamar a las consultas.
+
+Cuando se invocan mutaciones desde los clientes de [React](/client/react.mdx) o
+[Rust](/client/rust.md), se ejecutan una por una en una sola cola ordenada. No tienes que preocuparte de que las mutaciones editen la base de datos en un orden distinto del que se activaron.
+
+## Transacciones \{#transactions\}
+
+Las mutaciones se ejecutan **de forma transaccional**. Esto significa que:
+
+1. Todas las lecturas de la base de datos dentro de la transacción obtienen una vista coherente de los datos
+   de la base de datos. No tienes que preocuparte por que una actualización concurrente cambie
+   los datos a mitad de la ejecución.
+2. Todas las escrituras en la base de datos se confirman juntas. Si la mutación escribe algunos datos
+   en la base de datos pero luego lanza un error, en realidad no se escribe ningún dato
+   en la base de datos.
+
+Para que esto funcione, de forma similar a las consultas, las mutaciones deben ser deterministas y
+no pueden llamar a APIs de terceros. Para llamar a APIs de terceros, usa
+[acciones](/functions/actions.mdx).
+
+## Límites \{#limits\}
+
+Las mutaciones tienen un límite en la cantidad de datos que pueden leer y escribir al mismo tiempo para
+garantizar un buen rendimiento. Obtén más información en
+[Errores de límite de lectura/escritura](/functions/error-handling/error-handling.mdx#readwrite-limit-errors).
+
+Para obtener información sobre otros límites, consulta [Límites](/production/state/limits.mdx).

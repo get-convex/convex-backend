@@ -1,0 +1,33 @@
+---
+title: 持续集成
+sidebar_label: CI
+sidebar_position: 300
+description: "为 Convex 应用设置持续集成测试"
+---
+
+持续集成通过合并所有团队成员的代码变更，并在远程环境中自动运行测试，让你的团队能够快速迭代。
+
+## 在 GitHub Actions 中运行测试 \{#testing-in-github-actions\}
+
+如果你使用 [GitHub](https://docs.github.com/en/actions)，为测试套件设置用于运行的
+[CI](https://docs.github.com/en/actions/automating-builds-and-tests/about-continuous-integration)
+工作流会非常简单：
+
+```yaml title=".github/workflows/test.yml"
+name: Run Tests
+
+on: [pull_request, push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci
+      - run: npm run test
+```
+
+当你将此文件提交并推送到仓库后，每当你创建 pull request 或推送新的提交时，GitHub 都会运行 `npm run test`。
+
+{/* 待办：针对预览部署进行测试 */}

@@ -1,0 +1,98 @@
+---
+title: Autenticación
+sidebar_position: 30
+description: Añade autenticación a tu aplicación de Convex.
+hide_table_of_contents: true
+pagination_prev: file-storage
+---
+
+Los endpoints de los despliegues de Convex están expuestos a internet y las
+declaraciones que hacen los clientes sobre su identidad deben estar
+autenticadas para identificar a los usuarios y restringir qué datos pueden ver
+y editar.
+
+Convex es compatible con la mayoría de los proveedores de autenticación porque
+usa tokens de identificación (ID) de OpenID Connect (basado en OAuth) en forma
+de JWT para autenticar conexiones WebSocket o llamadas RPC. Estos JWT pueden
+ser proporcionados por cualquier servicio (incluido tu propio backend de
+Convex) que implemente los endpoints OAuth adecuados para verificarlos.
+
+## Plataformas de autenticación de terceros \{#third-party-authentication-platforms\}
+
+Aprovechar una integración de Convex con un proveedor de autenticación de terceros ofrece las soluciones de autenticación más completas. Integrar otro servicio proporciona una gran cantidad de funcionalidades como passkeys, autenticación de dos factores, protección contra spam y más, además de las bases de la autenticación.
+
+* [Clerk](/auth/clerk.mdx) tiene una excelente compatibilidad con Next.js y React Native
+* [WorkOS AuthKit](/auth/authkit/index.mdx) está diseñado para aplicaciones B2B y es gratuito
+  hasta 1 M de usuarios
+* [Auth0](/auth/auth0.mdx) es una opción más consolidada y ofrece más funcionalidades avanzadas
+* [Custom Auth Integration](/auth/advanced/custom-auth.mdx) permite utilizar cualquier proveedor de identidad compatible con OpenID Connect para la autenticación
+
+Después de integrar uno de estos proveedores, aprende más sobre cómo acceder a la información de autenticación en las [Funciones](/auth/functions-auth.mdx) y almacenar información de usuario en la [Base de datos](/auth/database-auth.mdx).
+
+## La biblioteca Convex Auth \{#the-convex-auth-library\}
+
+Para aplicaciones de React y aplicaciones móviles de React Native del lado del cliente puedes implementar autenticación
+directamente en Convex con la biblioteca [Convex Auth](/auth/convex-auth.mdx). Este
+[paquete de npm](https://github.com/get-convex/convex-auth) se ejecuta en tu despliegue de Convex
+y te ayuda a crear un flujo de registro e inicio de sesión personalizado mediante proveedores de identidad
+social, códigos de acceso de un solo uso enviados por correo electrónico o SMS, o mediante contraseñas.
+
+Convex Auth está en beta (no está completa y puede cambiar de formas
+incompatibles con versiones anteriores) y no proporciona tantas funciones como las integraciones de autenticación de terceros. Como no requiere registrarse en otro servicio, es
+la forma más rápida de poner la autenticación en marcha.
+
+<BetaAdmonition feature="Convex Auth" verb="is" />
+
+La compatibilidad con Next.js está en desarrollo activo. Si quieres ayudar a probar esta
+compatibilidad experimental, [pruébala](https://labs.convex.dev/auth)!
+
+## Depuración \{#debugging\}
+
+Si tienes algún problema, consulta la guía de [Depuración](/auth/debug.mdx).
+
+## Autenticación de servicios \{#service-authentication\}
+
+Los servidores que controlas o servicios de terceros pueden llamar a funciones de Convex, pero es posible que no puedan obtener JWT de OpenID y, a menudo, no representan las acciones de un usuario específico.
+
+Supongamos que estás ejecutando alguna inferencia en un servidor de [Modal](https://modal.com/) escrito en Python. Cuando ese servidor se suscribe a una consulta de Convex, no lo hace con las credenciales de un usuario final en particular; más bien, busca tareas relevantes para cualquier usuario que necesite esa tarea de inferencia, por ejemplo, completar una tarea de resumir y traducir una conversación.
+
+Para proporcionar acceso a consultas, mutaciones y acciones de Convex a un servicio externo, puedes escribir funciones públicas accesibles desde Internet que verifiquen un secreto compartido, por ejemplo, desde una variable de entorno, antes de hacer cualquier otra cosa.
+
+## Autorización \{#authorization\}
+
+Convex permite una estructura de aplicación tradicional de tres capas: un cliente/interfaz de usuario (UI) para
+tu aplicación, un backend que maneja las solicitudes de los usuarios y una base de datos para consultas. Esta
+arquitectura te permite comprobar cada solicitud pública con respecto a cualquier regla de autorización
+que definas en código.
+
+Esto significa que Convex no necesita un framework de autorización con una postura marcada como RLS,
+que es necesario en bases de datos orientadas al cliente como Firebase o Supabase. Esta
+flexibilidad te permite crear y usar un
+[framework de autorización](https://en.wikipedia.org/wiki/Authorization) según tus
+necesidades.
+
+Dicho esto, la forma más común es simplemente escribir código que verifique si el usuario
+ha iniciado sesión y si tiene permiso para realizar la acción solicitada al inicio
+de cada función pública.
+
+Por ejemplo, la siguiente función garantiza que solo el usuario
+autenticado actualmente pueda eliminar su propia imagen de usuario:
+
+```typescript
+export const removeUserImage = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // highlight-next-line
+    const userId = await getAuthUserId(ctx);
+    // highlight-next-line
+    if (!userId) {
+      // highlight-next-line
+      return;
+      // highlight-next-line
+    }
+    ctx.db.patch("users", userId, { imageId: undefined, image: undefined });
+  },
+});
+```
+
+<StackPosts query="autenticación" />

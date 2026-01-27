@@ -1,0 +1,185 @@
+---
+title: Inicio rápido de React
+sidebar_label: React
+description: "Añade Convex a un proyecto React"
+hide_table_of_contents: true
+sidebar_position: 100
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/convex/tasks.js";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/main.jsx";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/App.jsx";
+import tasksTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/convex/tasks.ts";
+import mainTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/main.tsx";
+import AppTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/App.tsx";
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/4MgsvjMb59Q" title="Reproductor de video de YouTube" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+
+Para empezar rápidamente con Convex y React, ejecuta
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest" />
+  </b>
+</p>
+
+o sigue la guía a continuación.
+
+***
+
+Aprende a consultar datos de Convex en una aplicación de React usando Vite
+y <LanguageSelector verbose />
+
+
+<StepByStep>
+  <Step title="Crea una app de React">
+    Crea una app de React usando el comando `create vite`.
+
+    <JSDialectVariants>
+      ```sh
+      npm create vite@latest my-app -- --template react-ts
+      ```
+
+      ```sh
+      npm create vite@latest my-app -- --template react
+      ```
+    </JSDialectVariants>
+
+  </Step>
+  <Step title="Instala la librería de cliente y servidor de Convex">
+    Para comenzar, instala el paquete `convex`,
+    que proporciona una interfaz conveniente para trabajar
+    con Convex desde una app de React.
+
+    Navega al directorio de tu app e instala `convex`.
+
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="Configura un despliegue dev de Convex">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes las URLs de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    donde podrás escribir tus funciones de API de backend. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue dev en la nube.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="Crea datos de ejemplo para tu base de datos">
+    En una nueva ventana de la terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="Añade los datos de ejemplo a tu base de datos">
+    Ahora que tu proyecto está listo, añade una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="(opcional) Define un esquema">
+    Añade un nuevo archivo `schema.ts` en la carpeta `convex/`
+    con una descripción de tus datos.
+
+    Esto declarará los tipos de tus datos para una comprobación
+    de tipos opcional con TypeScript, y también se
+    aplicará en tiempo de ejecución.
+
+    <JSDialectVariants>
+    Como alternativa, elimina la línea `'plugin:@typescript-eslint/recommended-requiring-type-checking',`
+    del archivo `.eslintrc.cjs` para reducir el nivel de exigencia de la comprobación de tipos.
+
+    <></>
+    </JSDialectVariants>
+
+    ```ts noDialect title="convex/schema.ts"
+    import { defineSchema, defineTable } from "convex/server";
+    import { v } from "convex/values";
+
+    export default defineSchema({
+      tasks: defineTable({
+        text: v.string(),
+        isCompleted: v.boolean(),
+      }),
+    });
+    ```
+
+  </Step>
+
+  <Step title="Expón una consulta de base de datos">
+    Añade un nuevo archivo <JSDialectFileName name="tasks.ts" /> en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API nombrada a partir del archivo
+    y del nombre del export, `api.tasks.get`.
+
+    <TSAndJSSnippet
+      sourceTS={tasksTS}
+      sourceJS={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="Conecta la app con tu backend">
+    En <JSDialectFileName name="src/main.jsx" />, crea un `ConvexReactClient` y pásalo a un `ConvexProvider`
+    que envuelva tu app.
+
+    <TSAndJSSnippet
+      sourceTS={mainTS}
+      sourceJS={main}
+      title="src/main.tsx"
+      highlightPatterns={[ "Convex", ]}
+    />
+
+  </Step>
+
+  <Step title="Muestra los datos en tu app">
+    En <JSDialectFileName name="src/App.jsx" />, usa el hook `useQuery` para obtener datos de tu función de API
+    `api.tasks.get` y mostrar los datos.
+
+    <TSAndJSSnippet
+      sourceTS={AppTS}
+      sourceJS={App}
+      title="src/App.tsx"
+      highlightPatterns={[ "useQuery", "api", "tasks", "text", "\\)\\)\\}" ]}
+    />
+
+  </Step>
+
+  <Step title="Inicia la app">
+    Inicia la app, abre [http://localhost:5173/](http://localhost:5173/) en un navegador
+    y ve la lista de tareas.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+Consulta la [documentación completa de React](/client/react.mdx).

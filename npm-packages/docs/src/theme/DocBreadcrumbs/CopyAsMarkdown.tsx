@@ -3,8 +3,10 @@ import clsx from "clsx";
 import React, { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { useLocation } from "@docusaurus/router";
+import { T, useGT } from "gt-react";
 
 export function CopyAsMarkdown() {
+  const gt = useGT();
   const [isCopied, setIsCopied] = useState(false);
   const [hasBeenCopied, setHasBeenCopied] = useState(false);
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
@@ -54,41 +56,43 @@ export function CopyAsMarkdown() {
         setIsCopied(false);
       }, 2000);
     } catch (error) {
-      toast.error("Can’t write to clipboard.");
+      toast.error(gt("Can’t write to clipboard."));
       console.error("Failed to copy as Markdown:", error);
     }
   }, [markdownContent]);
 
   return (
-    <button
-      type="button"
-      className="font-[inherit] appearance-none bg-transparent border p-0 border-(--convex-breadcrumb-font-color)/50 hover:border-(--convex-breadcrumb-font-color)/80 rounded text-(--convex-breadcrumb-font-color) transition-colors cursor-pointer disabled:opacity-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none overflow-hidden relative"
-      onClick={handleCopyAsMarkdown}
-      disabled={markdownContent === null}
-      {...(markdownContent === null && { inert: "inert" })}
-    >
-      <div
-        className={clsx(
-          "px-2 py-1 flex gap-1.5 items-center",
-          hasBeenCopied && !isCopied && "animate-slideToTop",
-          isCopied && "opacity-0",
-        )}
-        {...(isCopied && { inert: "inert" })}
+    <T>
+      <button
+        type="button"
+        className="font-[inherit] appearance-none bg-transparent border p-0 border-(--convex-breadcrumb-font-color)/50 hover:border-(--convex-breadcrumb-font-color)/80 rounded text-(--convex-breadcrumb-font-color) transition-colors cursor-pointer disabled:opacity-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus:outline-none overflow-hidden relative"
+        onClick={handleCopyAsMarkdown}
+        disabled={markdownContent === null}
+        {...(markdownContent === null && { inert: "inert" })}
       >
-        <CopyIcon />
-        Copy as Markdown
-      </div>
-      <div
-        className={clsx(
-          "absolute inset-0 px-2 py-1 flex gap-1.5 items-center",
-          isCopied && "animate-slideToTop",
-          !isCopied && "opacity-0",
-        )}
-        {...(!isCopied && { inert: "inert" })}
-      >
-        <CheckIcon className="text-green-g3" />
-        Copied!
-      </div>
-    </button>
+        <div
+          className={clsx(
+            "px-2 py-1 flex gap-1.5 items-center",
+            hasBeenCopied && !isCopied && "animate-slideToTop",
+            isCopied && "opacity-0",
+          )}
+          {...(isCopied && { inert: "inert" })}
+        >
+          <CopyIcon />
+          Copy as Markdown
+        </div>
+        <div
+          className={clsx(
+            "absolute inset-0 px-2 py-1 flex gap-1.5 items-center",
+            isCopied && "animate-slideToTop",
+            !isCopied && "opacity-0",
+          )}
+          {...(!isCopied && { inert: "inert" })}
+        >
+          <CheckIcon className="text-green-g3" />
+          Copied!
+        </div>
+      </button>
+    </T>
   );
 }

@@ -1,0 +1,127 @@
+---
+title: "Despliegues locales para desarrollo"
+slug: "local-deployments"
+sidebar_position: 10
+sidebar_label: "Despliegues locales"
+description: "Desarrolla con Convex usando despliegues que se ejecutan localmente en tu máquina"
+---
+
+En lugar de sincronizar código con un despliegue dev de Convex alojado en la nube, puedes
+desarrollar usando un despliegue que se ejecute en tu propia computadora. ¡Incluso puedes usar el
+panel de control de Convex con despliegues locales!
+
+## Información general sobre los despliegues en Convex \{#background-on-deployments-in-convex\}
+
+Cada despliegue de Convex contiene sus propios datos, funciones, funciones programadas,
+etc. Un proyecto tiene un despliegue de producción, hasta un despliegue en la nube para
+desarrollo por cada miembro del equipo y, potencialmente, muchos
+[despliegues de vista previa](/production/hosting/preview-deployments.mdx) transitorios.
+
+También puedes desarrollar con Convex usando un despliegue que se ejecute en tu propia máquina.
+Dado que el despliegue se está ejecutando localmente, la sincronización de código es más rápida y hace que recursos
+como las llamadas a funciones y el ancho de banda de la base de datos no cuenten para
+[las cuotas de tu plan de Convex](https://www.convex.dev/pricing).
+
+Puedes usar despliegues locales con un proyecto de Convex existente y ver tu
+despliegue en el panel de control de Convex dentro de tu proyecto. También puedes usar despliegues
+locales sin una cuenta de Convex y depurarlos e inspeccionarlos con una versión local
+del panel de control de Convex.
+
+## Uso de despliegues locales \{#using-local-deployments\}
+
+<BetaAdmonition feature="Local deployments" verb="are" />
+
+Al usar despliegues locales, el backend local de Convex se ejecuta como un subproceso
+del comando `npx convex dev` y finaliza cuando ese comando se detiene. Esto significa
+que debe haber un comando `convex dev` en ejecución para poder ejecutar otros comandos, como
+`npx convex run`, contra este despliegue local o para que tu frontend pueda conectarse
+a este despliegue.
+
+El estado de los backends locales se almacena en el directorio `~/.convex/`.
+
+### Desarrollo anónimo \{#anonymous-development\}
+
+Puedes usar despliegues locales para desarrollar con Convex sin necesidad de crear
+una cuenta. Cuando quieras crear una cuenta para desplegar tu aplicación en producción
+o para usar más funciones de Convex, puedes usar `npx convex login` para vincular tus
+despliegues locales con tu cuenta.
+
+### Despliegues locales para un proyecto existente \{#local-deployments-for-an-existing-project\}
+
+Para usar un despliegue local en un proyecto existente, ejecuta:
+
+```sh
+npx convex dev --local --once
+```
+
+Siempre tendrás también la opción de un despliegue local si ejecutas
+`npx convex dev --configure`. Otros flujos pueden suponer que quieres un despliegue
+en la nube en algunas situaciones, por ejemplo, al conectarte a un proyecto para el que
+ya cuentas con un despliegue de desarrollo en la nube.
+
+## Despliegues locales vs. producción \{#local-deployments-vs-production\}
+
+Los despliegues locales no se recomiendan para su uso en producción: son despliegues
+de desarrollo, es decir, los registros de resultados de funciones y las trazas
+de pila completas de las respuestas de error se envían a los clientes conectados.
+
+Para ejecutar una aplicación en producción, puedes usar un despliegue de producción
+alojado en la nube de Convex. Obtén más información sobre cómo hacer un despliegue
+a producción [aquí](/production.mdx).
+
+Como alternativa, puedes alojar por tu cuenta un despliegue de producción usando el
+[repositorio de código abierto convex-backend](https://github.com/get-convex/convex-backend).
+
+### Desactivación \{#disabling\}
+
+Para dejar de usar el desarrollo local en un proyecto, ejecuta lo siguiente:
+
+```sh
+npx convex disable-local-deployments
+```
+
+Recuerda que tu despliegue de dev en la nube y cada despliegue de dev local son completamente independientes, por lo que contienen datos diferentes. Al cambiar entre despliegues, puede que quieras [exportar y volver a importar](/database/import-export/import-export.mdx) los datos para poder seguir usándolos.
+
+## Limitaciones \{#limitations\}
+
+* **Sin URL pública**: los despliegues en la nube tienen una URL pública para recibir
+  solicitudes HTTP entrantes desde servicios como Twilio, pero los despliegues
+  locales escuchan solicitudes HTTP en tu propia computadora. Del mismo modo, no
+  puedes servir sitios web con conexiones WebSocket de Convex a menos que los
+  navegadores de tus usuarios sepan cómo llegar a tu computadora. Configura un
+  proxy como ngrok o usa un despliegue en la nube para estos casos de uso.
+
+* **Las acciones de Node requieren versiones específicas de Node.js**: ejecutar
+  acciones de Node.js (acciones definidas en archivos con `"use node;"`) requiere
+  tener la misma versión de Node.js para la que tu proyecto está
+  [configurado](/production/project-configuration#configuring-the-nodejs-version).
+  De forma predeterminada, actualmente es Node.js 20, aunque esto puede cambiar
+  en el futuro. Para resolver esto, puedes instalar y configurar
+  [nvm](https://github.com/nvm-sh/nvm) y luego instalar la versión requerida de
+  Node.js. No necesitas usar esta versión para el resto de tu proyecto.
+
+* **Las acciones de Node.js se ejecutan directamente en tu computadora**: igual
+  que un servidor Node.js normal, el código que se ejecuta en acciones de
+  Node.js tiene acceso sin restricciones al sistema de archivos. Las consultas,
+  mutaciones y acciones del entorno de ejecución de Convex siguen ejecutándose
+  en entornos aislados.
+
+* Los registros se borran cada vez que se reinicia un comando `npx convex dev`.
+
+* <a id="safari" /> **Usar el panel de control con Safari**: Safari
+  [bloquea las solicitudes a localhost](https://bugs.webkit.org/show_bug.cgi?id=171934),
+  lo que impide que el panel de control funcione con despliegues locales.
+  Recomendamos usar otro navegador si estás utilizando despliegues locales.
+
+* <a id="brave" /> **Usar el panel de control con Brave**: Brave
+  [bloquea las solicitudes a localhost de forma
+  predeterminada](https://brave.com/privacy-updates/27-localhost-permission/),
+  lo que impide que el panel de control funcione con despliegues locales. Puedes
+  usar la siguiente solución alternativa:
+  * Ve a `brave://flags/`
+  * Habilita la opción `#brave-localhost-access-permission`
+  * Vuelve al panel de control de Convex
+  * Haz clic en **View Site Information**
+    (<img src="/screenshots/brave-site-information.png" alt="Icono de View Site Information" width={24} style={{ verticalAlign: "middle" }} />)
+    en la barra de direcciones y luego en **Site settings**
+  * Cambia la configuración de **Localhost access** a **Allow**

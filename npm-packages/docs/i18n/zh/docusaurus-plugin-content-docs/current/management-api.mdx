@@ -1,0 +1,54 @@
+---
+title: 管理 API
+hide_table_of_contents: true
+description: "通过 API 创建和管理 Convex 部署"
+---
+
+<Admonition type="info">
+  Convex 管理 API 目前处于 Beta 测试阶段并向所有用户开放。如果你的用例需要额外功能，请联系
+  platforms@convex.dev。
+</Admonition>
+
+你可以使用管理 API 来创建和管理 Convex 项目及其部署。
+
+## 授权 \{#authorization\}
+
+Management API 使用带有 Bearer 令牌的 Authorization 请求头。
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://api.convex.dev/v1/teams/41/list_projects",
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```
+
+[Team Access Tokens](/platform-apis#managing-your-own-projects) 和
+[OAuth Application Tokens](/platform-apis/oauth-applications) 可以用作
+Bearer token，具体取决于你是在代表自己的团队使用 Management API，还是在代表你所构建的 Convex 集成的某个用户所属的团队使用它。
+
+## 必需参数 \{#required-parameters\}
+
+大多数管理 API 都需要团队 ID 或项目 ID。
+
+在创建 Team Access Token 时，可以在 Convex 仪表盘中看到团队 ID。
+
+OAuth 应用可以通过调用 [Token Details](/management-api/get-token-details)
+端点来获取团队（或项目，如果使用 project-scoped token）ID。
+
+使用团队 token 时，项目在创建时会被自动分配 ID。还可以通过
+[List Projects](/management-api/list-projects) 端点来获取项目的 ID。
+
+## 响应 \{#responses\}
+
+所有 API 响应均采用 JSON 格式返回。
+
+## 端点 \{#endpoints\}
+
+Management API 的 OpenAPI 规范文档可在以下链接获取：
+[https://api.convex.dev/v1/openapi.json](https://api.convex.dev/v1/openapi.json)。

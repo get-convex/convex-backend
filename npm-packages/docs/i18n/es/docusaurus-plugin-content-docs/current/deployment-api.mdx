@@ -1,0 +1,19 @@
+---
+title: API de despliegue
+hide_table_of_contents: true
+description: "API de despliegue"
+---
+
+La interfaz pública de un despliegue de Convex está definida por las funciones
+definidas en archivos dentro de la carpeta `convex`.
+
+Los endpoints HTTP públicos de cada despliegue de Convex se componen de endpoints
+HTTP personalizados definidos por [HTTP Actions](/functions/http-actions.mdx)
+y una [API HTTP pública](/http-api/index.md) estática.
+
+Los despliegues también proporcionan endpoints privados solo para los
+administradores de ese despliegue:
+
+- [API de exportación en streaming](/streaming-export-api.mdx)
+- [API de importación en streaming](/streaming-import-api.mdx)
+- [APIs de plataforma](/deployment-platform-api.mdx)

@@ -1,0 +1,297 @@
+---
+title: "Convex React"
+sidebar_label: "React"
+sidebar_position: 4
+description: "Convex バックエンドと連携するための React クライアントライブラリ"
+---
+
+import SkipBad from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipBad.tsx";
+import SkipGood from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipGood.tsx";
+
+Convex React は、React アプリケーションが Convex バックエンドとやり取りできるようにするクライアントライブラリです。これにより、フロントエンドコードで次のことができます:
+
+1. [クエリ](/functions/query-functions.mdx)、[ミューテーション](/functions/mutation-functions.mdx)、[アクション](/functions/actions.mdx) を呼び出す
+2. [File Storage](/file-storage.mdx) を使ってファイルをアップロードおよび表示する
+3. [Authentication](/auth.mdx) を使ってユーザーを認証する
+4. データに対して [Search](/search.mdx) による全文検索を実装する
+
+Convex React クライアントはオープンソースで、
+[GitHub](https://github.com/get-convex/convex-js) から利用できます。
+
+[React Quickstart](/quickstart/react.mdx) に従って、
+[Vite](https://vitejs.dev/) を使って React を始めてください。
+
+## インストール \{#installation\}
+
+Convex React は npm パッケージ `convex` の一部です。
+
+```
+npm install convex
+```
+
+## バックエンドへの接続 \{#connecting-to-a-backend\}
+
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient) は Convex バックエンドへの
+接続を維持し、以下で説明する React フックからあなたの関数を呼び出すために使用されます。
+
+まず、バックエンドのデプロイメントURLを指定してクライアントのインスタンスを作成する必要があります。
+適切な値の渡し方については
+[デプロイメントURLの設定](/client/react/project-setup.md) を参照してください。
+
+```jsx
+import { ConvexProvider, ConvexReactClient } from "convex/react";
+
+const convex = new ConvexReactClient("https://<your domain here>.convex.cloud");
+```
+
+次に、コンポーネントツリーをラップする
+[`ConvexProvider`](/api/modules/react#convexprovider) にクライアントを渡して、
+アプリからクライアントを利用できるようにします。
+
+```jsx
+reactDOMRoot.render(
+  <React.StrictMode>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </React.StrictMode>,
+);
+```
+
+## データの取得 \{#fetching-data\}
+
+React アプリは、[`useQuery`](/api/modules/react#usequery)
+React フックを使って [`api`](/generated-api/api.md#api) オブジェクトを通じて
+[クエリ](/functions/query-functions.mdx) を呼び出すことでデータを取得します。
+
+`npx convex dev` コマンドは、JavaScript でのより優れたオートコンプリートと
+[TypeScript](/understanding/best-practices/typescript.mdx) におけるエンドツーエンドの型安全性を提供するために、
+`convex/_generated/api.js` モジュール内にこの `api` オブジェクトを生成します。
+
+```tsx title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.functions.myQuery);
+  return data ?? "読み込み中...";
+}
+```
+
+`useQuery` フックは、最初のデータ読み込み中は `undefined` を返し、その後はクエリの返り値を返します。
+
+### クエリの引数 \{#query-arguments\}
+
+クエリの引数は、クエリ名の後に指定します。
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const data = useQuery(api.functions.myQuery, { a, b });
+  //...
+}
+```
+
+### リアクティビティ \{#reactivity\}
+
+`useQuery` フックによって、アプリは自動的にリアクティブになります。データベース内の基盤となる
+データが変更されると、コンポーネントは新しいクエリ結果で再レンダリングされます。
+
+フックが最初に呼び出されたとき、指定したクエリと渡した引数に対して
+バックエンドへのサブスクリプションが作成されます。コンポーネントがアンマウントされると、
+そのサブスクリプションは解除されます。
+
+### 一貫性 \{#consistency\}
+
+Convex React は、基盤となるデータベースの単一の状態に基づいて、アプリケーションが常に一貫したクエリ結果のビューをレンダーするようにします。
+
+ミューテーションがデータベース内の一部のデータを変更し、2 つの異なる `useQuery` 呼び出し箇所がこのデータに依存している状況を考えてみてください。アプリが、一方の `useQuery` 呼び出し箇所だけが新しいデータを反映しているような不整合な状態でレンダーされることは決してありません。
+
+### クエリのページネーション \{#paginating-queries\}
+
+詳しくは[React コンポーネント内でのページネーション](/database/pagination.mdx#paginating-within-react-components)を参照してください。
+
+### クエリをスキップする \{#skipping-queries\}
+
+<Details summary="上級: クエリを条件付きで読み込む">
+  React ではフックを動的に呼び出すのは難しい場合があります。フックは
+  条件分岐の内側や早期 return の後に置くことができないからです。
+
+  <TSAndJSSnippet title="src/App.tsx" sourceTS={SkipBad} sourceJS={SkipBad} snippet="example" highlightPatterns={["useQuery"]} />
+
+  この制約があるため、`useQuery` には引数の代わりに `"skip"` を渡すことで「無効化」できます。
+
+  <TSAndJSSnippet title="src/App.tsx" sourceTS={SkipGood} sourceJS={SkipGood} highlightPatterns={["skip"]} />
+
+  `"skip"` が使われた場合、`useQuery` はバックエンドと一切通信せず、
+  `undefined` を返します。
+</Details>
+
+### 単発クエリ \{#one-off-queries\}
+
+<Details summary="上級: コールバック内からクエリを実行する">
+  ユーザーのアクションに応じて、たとえば入力値を検証するために、データベースの状態を読み取りたいが、データベース自体は変更したくない場合があります。このような場合は、ミューテーションやアクションを呼び出すのと同様に、単発の
+  [`query`](/api/classes/react.ConvexReactClient#query) 呼び出しを使用できます。
+
+  非同期メソッド `query` は `ConvexReactClient` 上で提供されており、
+  [`useConvex()`](/api/modules/react#useconvex) フックを通じてコンポーネント内から参照できます。
+
+  ```tsx title="src/App.tsx"
+  import { useConvex } from "convex/react";
+  import { api } from "../convex/_generated/api";
+
+  export function App() {
+    const convex = useConvex();
+    return (
+      <button
+        onClick={async () => {
+          console.log(await convex.query(api.functions.myQuery));
+        }}
+      >
+        Check
+      </button>
+    );
+  }
+  ```
+</Details>
+
+## データの編集 \{#editing-data\}
+
+React アプリでは [`useMutation`](/api/modules/react#usemutation) React フックを使って
+[ミューテーション](/functions/mutation-functions.mdx) を呼び出すことでデータを編集します。
+
+`convex dev` コマンドは、JavaScript での補完機能と
+[TypeScript](/understanding/best-practices/typescript.mdx) におけるエンドツーエンドの型安全性を高めるために、
+`convex/_generated/api.js` モジュール内にこの `api` オブジェクトを自動生成します。
+
+```tsx title="src/App.tsx"
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething()}>クリック</button>;
+}
+```
+
+このフックは、ミューテーションを呼び出す `async` 関数を返します。
+
+### ミューテーションの引数 \{#mutation-arguments\}
+
+ミューテーションの引数は、`useMutation` が返す `async` 関数に渡されます:
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething({ a, b })}>Click me</button>;
+}
+```
+
+### ミューテーションのレスポンスとエラー処理 \{#mutation-response-and-error-handling\}
+
+ミューテーションは値を返したりエラーをスローしたりでき、それらを
+[`await`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/await)
+で待機できます。
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    async function callBackend() {
+      try {
+        const result = await doSomething();
+      } catch (error) {
+        console.error(error);
+      }
+      console.log(result);
+    }
+    void callBackend();
+  };
+  return <button onClick={onClick}>クリックしてください</button>;
+}
+```
+
+あるいは
+[`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
+として扱うこともできます：
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    doSomething()
+      .catch((error) => {
+        console.error(error);
+      })
+      .then((result) => {
+        console.log(result);
+      });
+  };
+  return <button onClick={onClick}>クリックしてください</button>;
+}
+```
+
+関数での[エラー処理](/functions/error-handling/error-handling.mdx)について詳しくは参照してください。
+
+### リトライ \{#retries\}
+
+Convex React は、ミューテーションによる書き込みがデータベースに反映されたことが確認されるまで、自動的にリトライします。Convex のバックエンドは、複数回リトライされたとしても、各ミューテーション呼び出しが実際には 1 回だけ実行されることを保証します。
+
+さらに、保留中のミューテーションが残っている状態でユーザーがブラウザのタブを閉じようとすると、Convex React は警告を表示します。つまり、Convex のミューテーションを呼び出したとき、ユーザーの編集内容が失われないと確信してよいでしょう。
+
+### 楽観的アップデート \{#optimistic-updates\}
+
+Convex のクエリは完全にリアクティブなので、ミューテーションの後にはすべてのクエリ結果が自動的に更新されます。場合によっては、ミューテーションによる変更がクライアントに反映される前に UI を更新したいこともあります。これを実現するには、ミューテーションの一部として実行される *楽観的アップデート* を設定します。
+
+楽観的アップデートはクエリ結果に対する一時的なローカル変更であり、アプリの応答性を高めるために使用されます。
+
+設定方法については、[Optimistic Updates](/client/react/optimistic-updates.mdx) を参照してください。
+
+## サードパーティ API の呼び出し \{#calling-third-party-apis\}
+
+React アプリは、[`useAction`](/api/modules/react#useaction) React
+フックを使って [アクション](/functions/actions.mdx) を呼び出すことで、一度の
+バックエンド呼び出しでデータの読み取り、サードパーティサービスの呼び出し、
+データの書き込みを行うことができます。
+
+`useQuery` や `useMutation` と同様に、このフックは
+`convex/_generated/api.js` モジュールで自動生成される `api` オブジェクトと
+組み合わせて使用します。これにより、JavaScript でのオートコンプリートが向上し、
+[TypeScript](/understanding/best-practices/typescript.mdx) におけるエンドツーエンドでの
+型安全性が提供されます。
+
+```tsx title="src/App.tsx"
+import { useAction } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomeAction = useAction(api.functions.doSomeAction);
+  return <button onClick={() => doSomeAction()}>Click me</button>;
+}
+```
+
+フックは、アクションを呼び出す `async` 関数を返します。
+
+### アクションの引数 \{#action-arguments\}
+
+アクションの引数は、
+[ミューテーションの引数](#mutation-arguments)
+とまったく同じように扱われます。
+
+### アクションのレスポンスとエラー処理 \{#action-response-and-error-handling\}
+
+アクションのレスポンスとエラー処理は、
+[ミューテーションのレスポンスとエラー処理](#mutation-response-and-error-handling) とまったく同じように機能します。
+
+アクションは自動リトライや楽観的更新をサポートしません。
+
+## 内部的な仕組み \{#under-the-hood\}
+
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient) は
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) を作成して、
+Convex デプロイメントに接続します。WebSocket は TCP 上で双方向の通信チャネルを提供します。これにより、クライアント側で更新をポーリングすることなく、Convex から新しいクエリ結果をリアクティブにクライアントへプッシュできます。
+
+インターネット接続が切れた場合でも、クライアントが自動的に再接続して Convex セッションを再確立します。

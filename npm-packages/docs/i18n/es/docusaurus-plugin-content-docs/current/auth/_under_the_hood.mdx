@@ -1,0 +1,20 @@
+El flujo de autenticación funciona internamente de la siguiente manera:
+
+1. El usuario hace clic en un botón de inicio de sesión.
+2. El usuario es redirigido a una página donde inicia sesión mediante el método
+   que configures en {props.provider}.
+3. Después de un inicio de sesión exitoso, {props.provider} redirige de vuelta a tu página o a
+   una página diferente que configures mediante {props.configProp}.
+4. Ahora {props.providerProvider} sabe que el usuario está autenticado.
+5. {props.integrationProvider} obtiene un token de autenticación de {props.provider}.
+6. `ConvexReactClient` pasa este token a tu backend de Convex para
+   validarlo.
+7. Tu backend de Convex obtiene la clave pública de {props.provider} para verificar
+   que la firma del token sea válida.
+8. `ConvexReactClient` es notificado de que la autenticación fue exitosa y
+   {props.integrationProvider} ahora sabe que el usuario está autenticado con
+   Convex. `useConvexAuth` devuelve `isAuthenticated: true` y el
+   componente `Authenticated` renderiza sus elementos secundarios.
+
+{props.integrationProvider} se encarga de volver a obtener el token cuando sea necesario para
+asegurarse de que el usuario permanezca autenticado con tu backend.

@@ -1,0 +1,308 @@
+---
+title: メッセージ
+sidebar_label: "メッセージ"
+sidebar_position: 300
+description: "エージェントとのメッセージの送受信"
+---
+
+Agent コンポーネントは、メッセージと[スレッド](./threads.mdx)の履歴を保存し、人間とエージェント間の対話を可能にします。
+
+人間がどのようにエージェントとして振る舞えるかについては、[Human Agents](./human-agents.mdx) を参照してください。
+
+## メッセージの取得 \{#retrieving-messages\}
+
+クライアントがメッセージを表示できるようにするには、メッセージを返すクエリを用意して公開する必要があります。ストリーミング版については、このクエリを変更したバージョンとして
+[retrieving streamed deltas](./streaming.mdx#retrieving-streamed-deltas)
+を参照してください。
+
+サーバーサイドのコードは
+[chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)
+を、ストリーミングの例は
+[chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+を参照してください。
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+import { v } from "convex/values";
+import { listUIMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: { threadId: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // ここでドキュメントをフィルタリング/変更できます
+    return paginated;
+  },
+});
+```
+
+Note: 上記では `listUIMessages` を使用しました。これは UIMessages を返し、具体的には order や status などの追加フィールドを含む Agent 用の拡張です。
+UIMessages は、複数のツール呼び出しの後に assistant メッセージが続く場合に、複数の MessageDoc を 1 つの UIMessage にまとめてくれるため、UIMessage 上のさまざまな「パーツ」と連携する UI を簡単に構築できるようにします。
+
+MessageDoc を取得したい場合は、代わりに `listMessages` を使用できます。
+
+## React でメッセージを表示する \{#showing-messages-in-react\}
+
+ストリーミングの例については
+[ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)
+を、ストリーミングしない例については
+[ChatBasic.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatBasic.tsx)
+を参照してください。
+
+### `useUIMessages` フック \{#useuimessages-hook\}
+
+要点は `useUIMessages` フックを使うことです。ストリーミングを行うには、このフックに `stream: true` を渡してください。
+
+```tsx
+import { api } from "../convex/_generated/api";
+import { useUIMessages } from "@convex-dev/agent/react";
+
+function MyComponent({ threadId }: { threadId: string }) {
+  const { results, status, loadMore } = useUIMessages(
+    api.chat.streaming.listMessages,
+    { threadId },
+    { initialNumItems: 10 /* ストリーミングを有効にする場合は stream: true */ },
+  );
+  return (
+    <div>
+      {results.map((message) => (
+        <div key={message.key}>{message.text}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+注: UIMessages ではなく MessageDocs を扱いたい場合は、代わりに古い `useThreadMessages` フックを使用できます。ただし、UIMessages を使うと、エージェントが現在推論中かどうかを示す status など、よりリッチなストリーミング機能を利用できます。
+
+### UIMessage type \{#uimessage-type\}
+
+Agent コンポーネントは、メッセージのレンダリングに便利なメタデータを提供するために、AI SDK の `UIMessage` 型を拡張します。
+
+AI SDK のコアとなる UIMessage 型は次のとおりです:
+
+* `parts` はパーツの配列です (例: &quot;text&quot;, &quot;file&quot;, &quot;image&quot;, &quot;toolCall&quot;,
+  &quot;toolResult&quot;)。
+* `content` はメッセージ内容の文字列です。
+* `role` はメッセージの役割です (例: &quot;user&quot;, &quot;assistant&quot;, &quot;system&quot;)。
+
+このヘルパーは次のフィールドを追加します:
+
+* `key` はメッセージの一意な識別子です。
+* `order` はスレッド内でのメッセージの順序です。
+* `stepOrder` はスレッド内でのメッセージのステップ順序です。
+* `status` はメッセージの status（または &quot;streaming&quot;）を表します。
+* `agentName` はメッセージを生成したエージェントの名前です。
+* `text` はメッセージのテキストです。
+* `_creationTime` はメッセージのタイムスタンプです。ストリーミングメッセージの場合は、
+  現在はストリーミングしているクライアントの現在時刻が設定されます。
+
+これらを参照するには、`@convex-dev/agent` から `UIMessage` をインポートしていることを確認してください。
+
+#### `toUIMessages` ヘルパー \{#touimessages-helper\}
+
+`toUIMessages` は、MessageDoc を AI SDK の
+&quot;UIMessage&quot; 型に変換するヘルパー関数です。これはメッセージを表示するための便利なデータモデルです。
+
+たとえば `useThreadMessages` を使っている場合、メッセージを次のように
+UIMessages に変換できます:
+
+```ts
+import { toUIMessages, type UIMessage } from "@convex-dev/agent";
+
+...
+const { results } = useThreadMessages(...);
+const uiMessages = toUIMessages(results);
+```
+
+### メッセージ送信のための楽観的更新 \{#optimistic-updates-for-sending-messages\}
+
+`optimisticallySendMessage` 関数はメッセージ送信用のヘルパー関数であり、
+サーバー上でミューテーションが完了するまで、そのメッセージをメッセージ一覧に
+楽観的に表示できるようにします。
+
+メッセージの一覧取得に使用しているクエリを渡すと、一時的なメッセージが
+リストの先頭に挿入されます。
+
+```ts
+const sendMessage = useMutation(
+  api.streaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  optimisticallySendMessage(api.streaming.listThreadMessages),
+);
+```
+
+引数に `{ threadId, prompt }` が含まれていない場合は、楽観的更新で使うヘルパー関数として利用できます。
+
+```ts
+import { optimisticallySendMessage } from "@convex-dev/agent/react";
+
+const sendMessage = useMutation(
+  api.chatStreaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  (store, args) => {
+    optimisticallySendMessage(api.chatStreaming.listThreadMessages)(store, {
+      threadId:
+      prompt: /* args をユーザープロンプトに変換します。 */,
+    })
+  }
+);
+```
+
+## メッセージの保存 \{#saving-messages\}
+
+デフォルトでは、Agent はプロンプトとしてメッセージを与えたときに、そのメッセージおよび生成されたすべてのメッセージを自動的にデータベースに保存します。
+
+ただし、会話を継続するために、プロンプトメッセージをあらかじめ保存しておき、その `promptMessageId` を使うと便利な場合があります。詳しくは
+[Agent Usage](./agent-usage.mdx) を参照してください。
+
+`saveMessage` または `saveMessages` を使って、Agent クラス経由でも、関数を直接呼び出す形でも、メッセージを手動でデータベースに保存できます。
+
+* `prompt` または完全な `message`（`ModelMessage` 型）を渡すことができます
+* `metadata` 引数はオプションで、`sources`、`reasoningDetails`、`usage`、`warnings`、`error` などの詳細情報を指定できます。
+
+```ts
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "user", content: "The user message" },
+});
+```
+
+Note: `agent.generateText` をそのままのプロンプトで呼び出すと、（テキスト埋め込みモデルが設定されている場合）ベクター検索用の埋め込みが自動的に生成されます。`agent.saveMessage` をアクション内から呼び出す場合も同様です。
+
+一方、LLM を呼び出せないミューテーション内でメッセージを保存している場合でも、`generateText` が埋め込みを持たない `promptMessageId` を受け取った場合（かつテキスト埋め込みモデルが設定されている場合）は、その埋め込みが自動的に生成されます。
+
+### Agent クラスを使わない場合: \{#without-the-agent-class\}
+
+Note: テキスト埋め込みモデルを設定済みの Agent クラスを使っていない場合は、
+同時に保存したい場合に `embedding` を渡す必要があります。
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "assistant", content: result },
+  metadata: [{ reasoning, usage, ... }] // MessageWithMetadata 型を参照してください
+  agentName: "my-agent",
+  embedding: { vector: [0.1, 0.2, ...], model: "text-embedding-3-small" },
+});
+```
+
+### Agent クラスを使う: \{#using-the-agent-class\}
+
+```ts
+const { messageId } = await agent.saveMessage(ctx, {
+  threadId,
+  userId,
+  prompt,
+  metadata,
+});
+```
+
+```ts
+const { messages } = await agent.saveMessages(ctx, {
+  threadId, userId,
+  messages: [{ role, content }],
+  metadata: [{ reasoning, usage, ... }] // MessageWithMetadata 型を参照してください
+});
+```
+
+メッセージをミューテーションで保存していて、テキスト埋め込みモデルが設定されている場合は、`skipEmbeddings: true` を渡してください。メッセージがプロンプトとして使用されたときに、そのメッセージの埋め込みが必要に応じて遅延的に生成されます。あるいは、利用可能であれば事前に埋め込みを渡すか、後から `agent.generateEmbeddings` を使って明示的に生成することもできます。
+
+## メッセージの保存設定 \{#configuring-the-storage-of-messages\}
+
+通常はデフォルト設定のままで問題ありませんが、複数のメッセージを渡してそれらをすべて保存したい場合（最後のものだけでなく）や、どの入力・出力メッセージも保存したくない場合は、`storageOptions` オブジェクトを Agent コンストラクタ、またはメッセージごとに渡すことができます。
+
+複数のメッセージを渡しつつそれらを保存しないユースケースとしては、LLM に追加のメッセージをコンテキストとして渡したいが、実際のユーザーからのリクエストは最後のメッセージだけ、というケースがあります。たとえば
+`messages = [...messagesFromRag, messageFromUser]` のようにします。デフォルトでは、プロンプトとすべての出力メッセージが保存されます。
+
+```ts
+const result = await thread.generateText({ messages }, {
+  storageOptions: {
+    saveMessages: "all" | "none" | "promptAndOutput";
+  },
+});
+```
+
+## メッセージの順序付け \{#message-ordering\}
+
+各メッセージには、スレッドごとに連番となる整数の `order` フィールドと
+`stepOrder` フィールドがあります。
+
+`saveMessage` または `generateText` が呼び出されると、メッセージは
+`stepOrder` が 0 の状態で、そのスレッドの次の `order` に追加されます。
+
+そのメッセージに対する応答メッセージが生成されると、同じ `order` で
+次の `stepOrder` を持つメッセージとして追加されます。
+
+以前のメッセージに対する応答メッセージを関連付けるには、
+`promptMessageId` を `generateText` などの呼び出しに渡します。
+
+注意: スレッド内で `promptMessageId` が最新のメッセージでない場合、
+メッセージ生成のコンテキストには、その `promptMessageId` より後の
+メッセージは含まれません。
+
+## メッセージの削除 \{#deleting-messages\}
+
+`_id`（`saveMessage` または `generateText` から返される）もしくは `order` / `stepOrder` によってメッセージを削除できます。
+
+ID で削除:
+
+```ts
+await agent.deleteMessage(ctx, { messageId });
+// 一括削除
+await agent.deleteMessages(ctx, { messageIds });
+```
+
+順序（start は含み、end は含まない）:
+
+```ts
+// 指定されたメッセージと同じ order を持つすべてのメッセージを削除:
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: message.order,
+  endOrder: message.order + 1,
+});
+// Delete all messages with order 1 or 2.
+await agent.deleteMessageRange(ctx, { threadId, startOrder: 1, endOrder: 3 });
+// Delete all messages with order 1 and stepOrder 2-4
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: 1,
+  startStepOrder: 2,
+  endOrder: 2,
+  endStepOrder: 5,
+});
+```
+
+## その他のユーティリティ： \{#other-utilities\}
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+* `serializeDataOrUrl` は、AI SDK の `DataContent` または `URL` を Convex でシリアライズ可能な形式に変換するユーティリティ関数です。
+* `filterOutOrphanedToolMessages` は、対応するツール結果メッセージを持たないツール呼び出しメッセージを除外するユーティリティ関数です。
+* `extractText` は、`ModelMessage` に類似したオブジェクトからテキストを抽出するユーティリティ関数です。
+
+### バリデータと型 \{#validators-and-types\}
+
+さまざまな値の検証と型付けに使える型が用意されています
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+* `vMessage` は、`ModelMessage` のようなオブジェクト（`role` と `content` フィールドを持つものなど）のためのバリデータです。
+* `MessageDoc` と `vMessageDoc` はメッセージを表す型です（`vMessage` 型の `.message` フィールドを含みます）。
+* `Thread` は、`continueThread` または `createThread` から返されるスレッドを表す型です。
+* `ThreadDoc` と `vThreadDoc` は、スレッドのメタデータを表す型です。
+* `AgentComponent` は、インストールされたコンポーネント（例: `components.agent`）を表す型です。
+* `ToolCtx` は、`createTool` で作成されたツールからの呼び出し時に使用される `ctx` の型です。

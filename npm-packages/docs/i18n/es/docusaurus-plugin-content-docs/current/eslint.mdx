@@ -1,0 +1,265 @@
+---
+title: Reglas de ESLint
+sidebar_position: 30
+description: Reglas de ESLint para Convex
+---
+
+El plugin de ESLint de Convex proporciona reglas de linter que aplican las mejores prácticas para las funciones de Convex. ¡Háznos saber si hay alguna regla que te sería útil!
+
+## Configuración \{#setup\}
+
+Para ESLint 9 (configuración plana, usando `eslint.config.js`), instala las reglas con:
+
+```bash
+npm i @convex-dev/eslint-plugin --save-dev
+```
+
+y añade lo siguiente a tu archivo `eslint.config.js`:
+
+```ts
+import { defineConfig } from "eslint/config";
+
+import convexPlugin from "@convex-dev/eslint-plugin";
+
+export default defineConfig([
+  // Otras configuraciones
+
+  ...convexPlugin.configs.recommended,
+]);
+```
+
+<Details summary={<>Si estás usando el formato obsoleto <code>.eslintrc.js</code></>}>
+  Instala estos dos plugins:
+
+  ```bash
+  npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
+  ```
+
+  En `.eslintrc.js`, agrega:
+
+  ```js
+  module.exports =
+    extends: [
+      // Other configurations
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@convex-dev/recommended",
+    ],
+    ignorePatterns: ["node_modules/", "dist/", "build/"],
+  };
+  ```
+</Details>
+
+<Details summary={<>Si tus funciones de Convex están en un directorio distinto de <code>convex</code></>}>
+  De forma predeterminada, el plugin de ESLint de Convex solo aplicará reglas en el directorio `convex`.
+
+  Si estás
+  [personalizando la ubicación del directorio de Convex](/production/project-configuration#changing-the-convex-folder-name-or-location),
+  aquí te mostramos cómo adaptar tu configuración de ESLint:
+
+  ```ts
+  // eslint.config.js
+  import { defineConfig } from "eslint/config";
+
+  import convexPlugin from "@convex-dev/eslint-plugin";
+
+  const recommendedConfig = convexPlugin.configs.recommended[0];
+  const recommendedRules = recommendedConfig.rules;
+
+  export default defineConfig([
+    // Other configurations go here...
+
+    // Custom configuration with modified directory pattern
+    {
+      files: ["**/src/convex/**/*.ts"],
+      plugins: {
+        "@convex-dev": convexPlugin,
+      },
+      rules: recommendedRules,
+    },
+  ]);
+  ```
+</Details>
+
+<Details summary={<>Si estás usando el comando <code>next lint</code> de Next.js</>}>
+  Para que `next lint` ejecute ESLint en tu directorio `convex`, debes agregar ese
+  directorio al conjunto predeterminado de directorios. Agrega esta sección a tu
+  `next.config.ts`:
+
+  ```ts
+  const nextConfig: NextConfig = {
+    /* other options here */
+
+    eslint: {
+      dirs: ["pages", "app", "components", "lib", "src", "convex"],
+    },
+  };
+  ```
+</Details>
+
+## Reglas \{#rules\}
+
+| Regla                                                                                                                                   | Recomendado | Autocorregible |
+| --------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------: |
+| [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br />Preferir la sintaxis de objeto para las funciones registradas |     ✅      |       🔧       |
+| [`@convex-dev/require-argument-validators`](#require-argument-validators)<br />Requerir validadores de argumentos para las funciones de Convex |     ✅      |       🔧       |
+| [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br />Requerir nombres de tabla explícitos en las operaciones de base de datos    |     ✅      |       🔧       |
+| [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br />Evitar que los archivos de runtime de Convex importen desde archivos de runtime de Node |             |                |
+
+### no-old-registered-function-syntax \{#no-old-registered-function-syntax\}
+
+Usa la sintaxis de objeto para las funciones registradas.
+
+Las consultas, mutaciones y acciones de Convex se pueden definir con una única función o
+con un objeto que contenga una propiedad handler. Usar objetos hace
+posible agregar validadores de argumentos y de valores de retorno, por lo que siempre es preferible.
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  handler: async (ctx) => {
+    const data = await ctx.db.query("messages").collect();
+    ...
+  },
+});
+
+// ❌ No permitido por esta regla:
+export const list = query(async (ctx) => {
+  const data = await ctx.db.query("messages").collect();
+  ...
+});
+```
+
+### require-argument-validators \{#require-argument-validators\}
+
+Exigir validadores de argumentos para las funciones de Convex.
+
+Las consultas, mutaciones y acciones de Convex pueden validar sus argumentos antes
+de comenzar a ejecutar la función manejadora. Además de ser una forma concisa de validar
+los tipos de argumentos, el uso de validadores de argumentos permite generar especificaciones
+de funciones más descriptivas y, por lo tanto, bindings de OpenAPI.
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ✅ Allowed by this rule:
+export const list = query({
+  args: { channel: v.id('channel') },
+  handler: async (ctx, { channel }) => {
+    ...
+  },
+});
+
+// ❌ No permitido con la opción { ignoreUnusedArguments: false } (predeterminada)
+// ✅ Permitido con la opción { ignoreUnusedArguments: true }
+export const list = query({
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const list = query({
+  handler: async (ctx, { channel }: { channel: Id<"channel"> }) => {
+    ...
+  },
+});
+```
+
+Esta regla se puede personalizar para tolerar funciones que no definen un validador de argumentos y que tampoco usan sus argumentos. Así puedes configurar la regla para que funcione de esta forma:
+
+```ts
+// eslint.config.js
+
+export default defineConfig([
+  // Tus otras reglas...
+
+  {
+    files: ["**/convex/**/*.ts"],
+    rules: {
+      "@convex-dev/require-args-validator": [
+        "error",
+        {
+          ignoreUnusedArguments: true,
+        },
+      ],
+    },
+  },
+]);
+```
+
+### explicit-table-ids \{#explicit-table-ids\}
+
+Exige nombres de tablas explícitos en las operaciones de base de datos.
+
+A partir de la versión 1.31.0 del paquete `convex` de npm, recomendamos incluir
+el nombre de la tabla como primer argumento en las operaciones de base de datos (`db.get`,
+`db.replace`, `db.patch`, `db.delete`).
+
+Este enfoque es más seguro porque evita vulnerabilidades cuando un Id de
+una tabla se tipa incorrectamente como perteneciente a otra tabla. La sintaxis
+implícita (donde los nombres de las tablas se infieren a partir del Id) quedará obsoleta en el
+futuro para dar a los desarrolladores un mayor control sobre la generación de Id. Por ambas
+razones, recomendamos que los desarrolladores migren al nuevo formato.
+
+Esta regla ayuda a migrar código del antiguo formato implícito al nuevo formato
+explícito. Utiliza la información de tipos de TypeScript para inferir automáticamente el nombre
+de la tabla a partir del tipo `Id<"tableName">` y proporciona correcciones automáticas.
+
+```ts
+const messageId: Id<"messages"> = "123" as Id<"messages">;
+
+// ✅ Allowed by this rule:
+const message = await ctx.db.get("messages", messageId);
+await ctx.db.patch("messages", messageId, { text: "updated" });
+await ctx.db.replace("messages", messageId, {
+  text: "replaced",
+  author: "Alice",
+});
+await ctx.db.delete("messages", messageId);
+
+// ❌ No permitido por esta regla:
+const message = await ctx.db.get(messageId);
+await ctx.db.patch(messageId, { text: "updated" });
+await ctx.db.replace(messageId, { text: "replaced", author: "Alice" });
+await ctx.db.delete(messageId);
+```
+
+<Admonition type="info" title="Se requiere typescript-eslint">
+  Para que esta regla funcione,
+  [typescript-eslint](https://typescript-eslint.io) debe estar configurado en la
+  configuración de ESLint. Si typescript-eslint está instalado y la regla no
+  parece funcionar, asegúrate de que el
+  [linting con conocimiento de tipos](https://typescript-eslint.io/troubleshooting/typed-linting/)
+  esté habilitado.
+</Admonition>
+
+Ten en cuenta que, si no estás usando ESLint, también puedes usar la
+herramienta de CLI `@convex-dev/codemod` para migrar automáticamente al nuevo formato:
+
+```bash
+npx @convex-dev/codemod@latest explicit-ids
+```
+
+[Más información en news.convex.dev →](https://news.convex.dev/db-table-name/)
+
+### import-wrong-runtime \{#import-wrong-runtime\}
+
+Impide que los archivos de runtime de Convex importen desde archivos de runtime de Node (archivos con la directiva `"use node"`).
+
+Esta regla es experimental. Haznos saber si te resulta útil.
+
+```ts
+// En un archivo que no usa `"use node"`:
+
+// ✅ Permitido por esta regla:
+import { someFunction } from "./someOtherFile"; // donde someOtherFile no usa `"use node"`
+
+// ❌ No permitido por esta regla:
+import { someFunction } from "./someNodeFile"; // donde someNodeFile usa `"use node"`
+```

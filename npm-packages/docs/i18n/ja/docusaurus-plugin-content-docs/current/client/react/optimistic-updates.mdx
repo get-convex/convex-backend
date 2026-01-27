@@ -1,0 +1,65 @@
+---
+title: "楽観的更新"
+slug: "optimistic-updates"
+hidden: false
+sidebar_position: 90
+description: "楽観的な UI 更新で React アプリをよりレスポンシブにする"
+---
+
+import Simple from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesSimple.tsx";
+import ComplexTS from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesComplex.tsx";
+import ComplexJS from "!!raw-loader!@site/../private-demos/snippets/src/optimisticUpdatesComplexJS.jsx";
+
+Convex のクエリは完全にリアクティブですが、ミューテーションによる変更がクライアントに
+反映される前に UI を更新したくなることがあります。これを実現するには、ミューテーションの
+一部として実行される *楽観的アップデート* を設定できます。
+
+楽観的アップデートは、クエリ結果に対する一時的なローカル変更であり、アプリをより
+レスポンシブにするために使われます。これらのアップデートは、
+[`.withOptimisticUpdate`](/api/interfaces/react.ReactMutation#withoptimisticupdate)
+設定オプションを使って、ミューテーション呼び出し時に登録された関数によって行われます。
+
+楽観的アップデートはミューテーションが開始されたときに実行され、ローカルのクエリ結果が
+変化した場合には再実行され、ミューテーションが完了したときにロールバックされます。
+
+## シンプルな例 \{#simple-example\}
+
+楽観的更新を、シンプルなカウンターアプリの `increment` ミューテーションに
+次のように追加できます。
+
+<TSAndJSSnippet title="src/IncrementCounter.tsx" sourceTS={Simple} sourceJS={Simple} />
+
+楽観的更新は、
+Convex クライアントの内部状態のビューである
+[`localStore`](/api/interfaces/browser.OptimisticLocalStore) と、
+続けてミューテーションへの引数を受け取ります。
+
+この楽観的更新は、読み込み済みであれば `api.counter.get` クエリを
+`increment` 分だけ増加させた値に更新します。
+
+## 複雑な例 \{#complex-example\}
+
+マルチチャンネル対応のチャットアプリに楽観的更新を追加したい場合、次のようになります:
+
+<TSAndJSSnippet title="src/MessageSender.tsx" sourceTS={ComplexTS} sourceJS={ComplexJS} />
+
+この楽観的更新は、現在のチャンネルに対する `api.messages.list` クエリを変更して、新しいメッセージを含めます。新しく作成されるメッセージオブジェクトは、サーバー上で `api.messages.list` クエリによって生成される実際のメッセージの構造と一致している必要があります。
+
+このメッセージにはクライアントの現在時刻（サーバーのものではない）が含まれているため、ミューテーションの実行後には `api.messages.list` クエリと必然的に一致しなくなります。問題ありません！Convex クライアントが、ミューテーションの完了とクエリの更新後にこの更新をロールバックします。楽観的更新に小さな誤りがあっても、UI は最終的に常に正しい値をレンダリングします。
+
+同様に、この更新では `new Id("messages", crypto.randomUUID())` を使って一時的な `Id` を作成します。これもロールバックされ、サーバーが ID を割り当てたあとに本来の ID に置き換えられます。
+
+最後に、この更新では `existingMessages.push(newMessage)` を使う代わりに、新しいメッセージ配列を作成している点に注意してください。これは重要です！楽観的更新の内部でオブジェクトをミューテートすると、クライアントの内部状態が壊れ、予期しない結果を招きます。楽観的更新の内部では、常に新しいオブジェクトを作成してください。
+
+## さらに学ぶ \{#learning-more\}
+
+詳しく知るには、API ドキュメントを参照してください:
+
+* [`.withOptimisticUpdate`](/api/interfaces/react.ReactMutation#withoptimisticupdate)
+* [`OptimisticUpdate`](/api/modules/browser#optimisticupdate)
+* [`OptimisticLocalStore`](/api/interfaces/browser.OptimisticLocalStore)
+
+ハンズオンで試してみたい場合は、楽観的更新を
+[チュートリアルアプリ](https://github.com/get-convex/convex-tutorial) に追加してみてください！そうすると、アプリの反応が（Convex はもともとかなり高速ですが、それでも）少しきびきび感じられるはずです。一方で、挙動自体は今までと同じです。
+
+さらに踏み込んで試したい場合は、この更新処理にあえてミスを入れてみてください！楽観的更新が適用されてからロールバックされるまでの間に、一瞬ちらつきが見えるはずです。

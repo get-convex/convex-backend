@@ -1,0 +1,187 @@
+---
+title: Chef
+description: "Cómo usar Chef de Convex"
+---
+
+Chef es un creador de aplicaciones con IA que construye aplicaciones full‑stack complejas. Aprovecha toda la potencia de la plataforma Convex para generar de una sola vez aplicaciones como Slack, Instagram y Notion.
+
+Esto significa que Chef puede crear aplicaciones en tiempo real, subir archivos, hacer búsqueda de texto y aprovechar Convex Components.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "https://chef.convex.dev",
+  label: "Prompt para iniciar una aplicación con Chef de Convex",
+}}
+/>
+
+<div className="center-image" style={{ maxWidth: "500px" }}>
+  ![Captura de pantalla de Chef](/screenshots/chef_preview.png)
+</div>
+
+## Despliegue en producción \{#deploying-to-production\}
+
+Chef tiene la capacidad integrada de desplegar por ti la versión de desarrollo (dev) de tu aplicación
+para que puedas compartirla de inmediato con tus amigos y que la prueben.
+
+Para aplicaciones que se vayan a crear y mantener a largo plazo, te recomendamos
+descargar el código e importarlo en tu IDE de preferencia. Cuando descargas
+el código desde Chef, tu proyecto incluye automáticamente
+[reglas de Cursor para Convex](/ai.mdx), lo que te ayuda a seguir programando con confianza.
+
+### Descarga el código \{#download-the-code\}
+
+<div className="center-image" style={{ maxWidth: "700px" }}>
+  ![Chef Screenshot](/screenshots/chef_download.png)
+</div>
+
+En la parte superior derecha de la interfaz de Chef hay un botón para descargar el código. Descarga el
+código y obtendrás un archivo .zip.
+
+Descomprime el archivo y coloca la carpeta en la ubicación que desees. Te recomendamos
+renombrar la carpeta con el nombre de tu aplicación para mayor comodidad. Para el resto de la
+configuración, abre la terminal y usa `cd` para entrar en tu aplicación:
+
+```bash
+cd ~/<app folder>
+```
+
+### Instalar dependencias \{#install-dependencies\}
+
+Ejecuta el siguiente comando para instalar todas las dependencias de tu proyecto
+
+```bash
+npm i
+```
+
+### Ejecuta tu aplicación \{#run-your-app\}
+
+Ejecuta el siguiente comando para iniciar tu aplicación y configurar Convex si todavía no lo has hecho.
+
+```bash
+npm run dev
+```
+
+Sigue las instrucciones para iniciar sesión en Convex desde tu máquina.
+
+<Admonition type="caution">
+  Ahora has asumido el desarrollo de esta aplicación en lugar de Chef. Chef no
+  puede volver a importar un proyecto ni hacer seguimiento del progreso desde fuera de él.
+  Si vuelves a este proyecto en Chef, se producirán conflictos con tu proyecto.
+</Admonition>
+
+### Configura el script de build del frontend \{#set-up-the-frontend-build-script\}
+
+Los proyectos de Chef no incluyen ningún script de build. Por lo tanto, asegúrate de añadir lo siguiente
+a tu archivo `package.json`:
+
+```tsx
+  "scripts": {
+		//... otros scripts
+    "build": "vite build"
+  },
+```
+
+### Recomendado: Configurar Git \{#recommended-setup-git\}
+
+En la terminal, ejecuta los siguientes tres comandos para configurar Git para tu aplicación.
+El código descargado incluye un archivo `.gitignore`.
+
+```bash
+git init
+git add --all
+git commit -m "Initial commit"
+```
+
+También se recomienda configurar un repositorio git remoto con
+[GitHub](https://github.com/) si vas a utilizar las guías de hosting en producción
+que aparecen a continuación.
+
+### Configura el hosting de frontend en producción \{#set-up-production-frontend-hosting\}
+
+Sigue una de las [guías de hosting](/production/hosting/hosting.mdx) de Convex para
+configurar el hosting del frontend y el despliegue continuo del código de tu
+frontend y backend.
+
+### Inicializar Convex Auth para producción \{#initialize-convex-auth-for-prod\}
+
+Una vez que tengas un despliegue de producción, debes
+[configurar Convex Auth para producción](https://labs.convex.dev/auth/production).
+
+## Integraciones \{#integrations\}
+
+### OpenAI \{#openai\}
+
+Si le pides a Chef que use IA, de forma predeterminada intentará usar el proxy
+integrado de OpenAI con un número limitado de llamadas. Esto te ayuda a
+prototipar rápidamente tu idea de aplicación de IA.
+
+Sin embargo, en algún momento se agotará ese número integrado de llamadas y
+tendrás que proporcionar tu propia clave de API de OpenAI y eliminar la URL del proxy.
+
+Esto significa que tendrás que encontrar el código que se ve así:
+
+```typescript
+const openai = new OpenAI({
+  baseURL: process.env.CONVEX_OPENAI_BASE_URL,
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+Y elimina el parámetro baseURL:
+
+```typescript
+const openai = new OpenAI({
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+Es posible que Chef te pida automáticamente que cambies la variable de entorno. Pero si no lo hace, puedes cambiarla yendo a la pestaña &quot;Database&quot;. Luego haz clic en
+Settings &gt; Environment Variables y cambia `CONVEX_OPENAI_API_KEY` por tu
+[clave personal de OpenAI](https://platform.openai.com).
+
+Tenemos previsto mejorar esta transición con el tiempo.
+
+### Resend \{#resend\}
+
+Chef incluye una forma integrada de enviarte correos electrónicos a ti mismo mediante Resend. Solo puedes enviar correos electrónicos a la cuenta que usaste para iniciar sesión en Chef. Para enviar correos electrónicos a cualquier otra persona, tienes que configurar tu aplicación para producción con un nombre de dominio. Esta es una limitación derivada de cómo funcionan los proveedores de correo electrónico para combatir el spam.
+
+## Preguntas frecuentes \{#faqs\}
+
+### ¿Qué navegadores son compatibles con Chef? \{#what-browsers-does-chef-support\}
+
+Lo ideal es usar Chef en navegadores de escritorio o portátiles. Es posible que funcione en algunos navegadores de tabletas o móviles. Chef no funciona en Safari en ninguna plataforma.
+
+### ¿Cómo funciona el precio de Chef? \{#how-does-the-pricing-for-chef-work\}
+
+La tarifa de Chef se basa principalmente en el uso de tokens de IA. El plan gratuito te da
+suficientes tokens para crear la primera versión de tu aplicación con una pequeña cantidad de
+prompts. Después de eso puedes pasarte al plan Starter, donde puedes pagar
+por los tokens a medida que los uses.
+
+### ¿Cuál es la diferencia entre Chef y Convex? \{#whats-the-difference-between-chef-and-convex\}
+
+Chef es un generador de aplicaciones de IA que te permite crear aplicaciones full‑stack. Convex es el backend y
+la base de datos que da soporte a Chef.
+
+### ¿Puedo importar mi aplicación existente a Chef? \{#can-i-import-my-existing-app-to-chef\}
+
+Actualmente, Chef no tiene función de importación ni integración con GitHub. Aun así, puedes obtener la mayor parte del valor configurando [Convex AI Rules and MCP server](/ai.mdx) en un IDE con agentes como Cursor.
+
+### ¿Existen buenas prácticas para Chef? \{#are-there-any-best-practices-for-chef\}
+
+¡Sí! Consulta esta
+[publicación con consejos escrita por uno de nuestros ingenieros](https://stack.convex.dev/chef-cookbook-tips-working-with-ai-app-builders).
+
+### ¿Qué componentes de Convex puede usar Chef? \{#what-convex-components-can-chef-use\}
+
+Chef puede usar el componente de
+[editor de texto colaborativo](https://www.convex.dev/components/prosemirror-sync)
+y el componente de [presencia](https://www.convex.dev/components/presence).
+Pronto admitiremos más componentes. Chef es compatible con todas las demás
+funcionalidades de Convex como búsqueda de texto, almacenamiento de archivos, etc.
+
+## Limitaciones \{#limitations\}
+
+Chef funciona a partir de una única plantilla con Convex, Convex Auth y React, basada en
+Vite. Chef no permite cambiar estas tecnologías.

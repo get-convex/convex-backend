@@ -1,0 +1,34 @@
+---
+title: "Modo de agente"
+slug: "agent-mode"
+sidebar_position: 20
+sidebar_label: "Modo de agente"
+description:
+  "Configura el modo de desarrollo anónimo para agentes de programación basados en la nube"
+---
+
+Cuando inicias sesión en tu propia máquina, agentes como Cursor y Claude Code pueden ejecutar
+comandos de la CLI como `npx convex env list` que usan tus credenciales iniciadas para ejecutar
+comandos contra tu entorno de desarrollo personal como si ejecutaras tú mismo esos comandos.
+Esto funciona bien cuando colaboras con un agente; del mismo modo que
+cuando el agente ejecuta `git commit -am "Fix."`, el commit usará tus credenciales
+locales de git.
+
+Pero cuando agentes de programación basados en la nube como Jules, Devin, Codex o Cursor Cloud
+Agents ejecutan comandos de la Convex CLI, no pueden iniciar sesión. Y si inicias sesión en su
+nombre, el agente utilizará tu despliegue dev predeterminado para desarrollar, lo que
+entrará en conflicto con tus propios cambios.
+
+En su lugar, establece `CONVEX_AGENT_MODE=anonymous` en este entorno, lo que hará que el
+agente use el [desarrollo anónimo](/cli/local-deployments-for-dev.mdx) para
+ejecutar un backend de Convex separado en la VM donde el agente está trabajando.
+
+<BetaAdmonition feature="Convex Agent Mode" verb="is" />
+
+Puedes configurar esta variable en .env.local o establecerla en el entorno del agente.
+
+```
+CONVEX_AGENT_MODE=anonymous npx convex dev
+```
+
+En el futuro, `CONVEX_AGENT_MODE` podría admitir otros comportamientos, como permitir que los agentes aprovisionen sus propios despliegues en la nube temporales.

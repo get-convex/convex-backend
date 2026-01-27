@@ -1,0 +1,55 @@
+---
+id: list-environment-variables
+title: "環境変数の一覧表示"
+description: "デプロイメント内のすべての環境変数を取得します。"
+sidebar_label: "環境変数の一覧表示"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVm1r4zgQ/itiPm3BcZreN3MchH2jXLktfVk40pAq9iTWxpa00jhXr/F/P8ZyEqfN7lJYuPuSl5nRo+cZzWjUQIY+dcqSMhoS+IgkZFEI1FvljC5Rk9hKp+SyQC+UFlJkaAtTsyd+0JdaUI5iVVHlUFCuvCjVOiehDQml06LKUDyAx9QhPcAQ90HvgWOIwFh0kllcZpBAoTwtBsGLfSxE4NBboz16SBq4OD/nr2MZEEFqNKEm9klrC5V24OMvngMa8GmOpeRfVFuEBMzyC6bUoX+tlMMMkhkMGHzeE5hHYB3TJRUonIw6gSyzTDEJWVwfre/jPDml19Du4eu/ZHkyom0jIEUF266Up/d6+1k6f9PnhQM4xGNaOUU1JLMG3nXHJv5E/jtvowY+TSvKxR3KUtyZDeqd/aUlRF47w0IGrnkEJVJu+MTWyBKtpBwSGP/w/Dy6LTrf0apcAQk0h6IaVa5ox9Kq8XYC0bNz/dtUTrw1eotPgzqECLbDvB+DBctKVgVBAjmR9cl4nEtr65HUqpTFaHLxW5x2qHFamCo7ve8BVtzfXHGS54cc33I9he2Hmd4fnbSKDREoxstRZuggAi1L9nJ+jVPfuhp9sXsPuMHaC+lQVB4zsTJHjPbt42Nxiyhm2X6RYAp+/mYnPTOp38nNcDtOCzUO0aMN1qMu+qzDL41DofTKuLLDjsW9x67hH/tDeBTW4Uo9iTcYr+Nob/89AC42WP/xeBZzUZ8sol+Sn09LkkpjJih3plrnQopZzyNsOrgAvp+GUmq5xq5qpFVn4h9FubA9XZ8ai6+Qb2RF+aJfvSAWe5yHYZP9f5PwasVHSn+5xrcOJWHGc4g5ZdLnSyNdJiqdoRPE+3kkUnrtuwKWug7W2lQilVoEfa+QxauHqlomvjKdoP4G7kPfHZpxen35gvs0K5VmT0dMaUInU2YaCu3Qyt00LFSKfJMnzS4zV8Fyg6vRh9ur0SSejKZWpjmOLuJzTmeGmtRKoftpcBsB37+B1yQ+DyZrPJVSH23p6fRL4Lm65jBu/8MnRF9hhE80toVUmmX1EyAMptmPHhbzCHLjiaOaZik93ruibdn8tULXjc3DoAmjcVe/PMk2fN/DNE3RholUVKHenz0+jqbmx/d3/DComNywRTZdi/Q/GH3n0vUA+3m3BAr8yVP75JKmCQ3Ytvv44Pruin2LhmjO6rxt238BHemTsA==
+sidebar_class_name: "get api-method"
+info_path: deployment-api/convex-deployment-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"環境変数の一覧"} />
+
+
+<MethodEndpoint
+  method={"get"}
+  path={"/list_environment_variables"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+デプロイメント内のすべての環境変数を取得します。
+将来的には、これに「シークレット」環境変数が含まれない可能性があります。
+
+<ParamsDetails
+  parameters={undefined}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"Body"}
+  body={undefined}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["environmentVariables"],"properties":{"environmentVariables":{"type":"object","additionalProperties":{"type":"string"},"propertyNames":{"type":"string"}}},"title":"ListEnvVarsResponse"}}}}}}
+>
+  
+</StatusCodes>

@@ -1,0 +1,152 @@
+---
+title: "错误处理"
+sidebar_position: 70
+description: "处理 Convex 查询、变更和操作函数中的错误"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+你的 Convex [查询](/functions/query-functions.mdx)
+和[变更函数](/functions/mutation-functions.mdx) 可能会出错的原因有四种：
+
+1. [应用错误](#application-errors-expected-failures)：函数代码遇到某个逻辑条件，应当停止后续处理，并且你的代码抛出了 `ConvexError`。
+2. 开发者错误：函数中存在 bug（例如调用
+   `db.get("documents", null)` 而不是 `db.get("documents", id)`）。
+3. [读/写限制错误](#readwrite-limit-errors)：函数读取或写入了过多数据。
+4. Convex 内部错误：Convex 内部出现问题（例如网络抖动）。
+
+Convex 会自动处理 Convex 内部错误。如果是我们这边出现了问题，我们会自动重试你的查询和变更函数，直到问题解决，你的查询和变更函数成功执行。
+
+另一方面，你需要决定如何处理应用错误、开发者错误以及读/写限制错误。当发生这些错误之一时，最佳实践包括：
+
+1. 向用户展示合适的界面（UI）。
+2. 使用[异常上报集成](/production/integrations/exception-reporting)将错误发送到异常上报服务。
+3. 使用 `console.*` 记录该事件，并通过
+   [日志流](/production/integrations/log-streams/log-streams.mdx) 配置上报。这可以在上述选项之外额外执行，并且不需要抛出异常。
+
+此外，你可能还希望将客户端错误发送到类似
+[Sentry](https://sentry.io) 的服务，以捕获更多用于调试和可观测性的信息。
+
+## 查询中的错误 \{#errors-in-queries\}
+
+如果你的查询函数遇到错误，该错误会被发送到客户端，并在你调用 `useQuery` 的地方抛出。**处理这些错误的最佳方式是使用 React 的
+[错误边界组件](https://reactjs.org/docs/error-boundaries.html)。**
+
+错误边界允许你捕获其子组件树中抛出的错误、渲染回退 UI，并将错误信息发送到你的异常处理服务。在应用中添加错误边界，是处理 Convex 查询函数错误以及 React 组件中其他错误的一个很好的方式。如果你在使用 Sentry，可以使用它们提供的
+[`Sentry.ErrorBoundary`](https://docs.sentry.io/platforms/javascript/guides/react/components/errorboundary/)
+组件。
+
+通过错误边界，你可以决定回退 UI 的粒度要多细。一个简单的做法是用一个错误边界包裹整个应用，例如：
+
+```tsx
+<StrictMode>
+  <ErrorBoundary>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </ErrorBoundary>
+</StrictMode>,
+```
+
+这样一来，你的任意组件中出现的任何错误，都会被这个边界捕获，并渲染相同的回退 UI。
+
+另一方面，如果你希望在应用的某些部分出错时，其他部分依然可以继续正常工作，你可以将应用的不同部分分别包裹在不同的 error boundary 中。
+
+<Admonition type="note" title="重试">
+  与其他框架不同，这里不存在在查询函数出错时进行“重试”的概念。因为 Convex 函数是
+  [确定性的](/functions/query-functions.mdx#caching--reactivity--consistency)，
+  如果查询函数出错，重试始终会产生相同的错误。使用相同参数再次运行该查询函数是没有意义的。
+</Admonition>
+
+## 变更中的错误 \{#errors-in-mutations\}
+
+如果某个变更发生错误，这会：
+
+1. 导致你的变更调用返回的 Promise 被拒绝（rejected）。
+2. 导致你的[乐观更新](/client/react/optimistic-updates.mdx)
+   被回滚。
+
+如果你配置了像 [Sentry](https://sentry.io/) 这样的异常监控服务，它应当会自动上报类似
+&quot;unhandled promise rejections&quot; 的情况。也就是说，你无需做额外工作，变更错误就会被上报。
+
+请注意，变更中的错误不会被错误边界（error boundaries）捕获，因为这个错误并不是在渲染组件的过程中发生的。
+
+如果你想在变更失败时专门渲染对应的 UI，可以在你的变更调用上使用 `.catch`。例如：
+
+```javascript
+sendMessage(newMessageText).catch((error) => {
+  // 在此处理 `error`
+});
+```
+
+如果你的处理函数是 `async` 函数，也可以使用 `try...catch`：
+
+```javascript
+try {
+  await sendMessage(newMessageText);
+} catch (error) {
+  // 在此处理 `error`
+}
+```
+
+<Admonition type="caution" title="报告已捕获的错误">
+  如果你对 mutation 抛出的错误进行了处理，它就不会再变成未处理的 Promise 拒绝。
+  你可能需要手动将这个错误上报到你的异常处理服务。
+</Admonition>
+
+## 操作函数中的错误 \{#errors-in-action-functions\}
+
+与查询和变更函数不同，[操作函数](//docs/functions/actions.mdx) 可能具有副作用，因此当发生错误时，Convex 无法自动对其进行重试。比如，假设你的操作函数会发送一封电子邮件。如果它在执行到一半时失败，Convex 无法知道这封邮件是否已经发送，也就无法安全地重试该操作。由调用方负责处理操作函数抛出的错误，并在合适的情况下决定是否重试。
+
+## 开发环境和生产环境中错误报告的差异 \{#differences-in-error-reporting-between-dev-and-prod\}
+
+在使用开发环境（dev）部署时，客户端抛出的任何服务器错误都会包含原始错误消息和服务器端的堆栈跟踪，以便于调试。
+
+在使用生产部署时，任何服务器错误都会被脱敏，仅包含函数名称和通用的 `"Server Error"` 消息，而不会包含堆栈跟踪。服务器端的
+[应用错误](/functions/error-handling/application-errors.mdx)
+仍然会包含其自定义的 `data`。
+
+开发环境和生产环境的部署都会记录带有堆栈跟踪的完整错误，这些错误可以在相应部署的
+[Logs](/dashboard/deployments/logs.md) 页面中查看。
+
+## 应用错误与预期失败 \{#application-errors-expected-failures\}
+
+如果你预见到函数可能以某些方式失败，可以返回不同的返回值，或者抛出 `ConvexError` 异常。
+
+请参阅[应用错误](/functions/error-handling/application-errors.mdx)。
+
+## 读写限制错误 \{#readwrite-limit-errors\}
+
+为了确保可用性并保证性能，Convex 会捕获尝试读取或写入过多数据的查询和变更函数。这些限制是在单次查询或变更函数执行的粒度上强制执行的。具体限制列在 [Limits](/production/state/limits.mdx#transactions) 中。
+
+数据库会“扫描”文档，以确定应该从 `db.query` 返回哪些文档。例如，`db.query("table").take(5).collect()` 只需要扫描 5 个文档，但 `db.query("table").filter(...).first()` 可能需要扫描多达 `"table"` 中的所有文档，才能找到第一个匹配给定过滤条件的文档。
+
+对 `db.get` 和 `db.query` 的调用次数有上限，以防止单个查询订阅过多索引范围，或者单个变更函数从过多范围读取数据从而导致冲突。
+
+一般来说，如果你频繁遇到这些限制，我们建议[为查询建立索引](/database/reading-data/indexes/indexes.md)，以减少被扫描的文档数量，从而避免不必要的读取。扫描大量数据的查询一开始看起来可能无害，但在任何生产规模下都很容易迅速失控。如果你的函数接近触及这些限制，它们会记录一条警告日志。
+
+关于其他限制的信息，请参见[此处](/production/state/limits.mdx)。
+
+## 调试错误 \{#debugging-errors\}
+
+参见[调试](/functions/debugging.mdx)，尤其是
+[通过请求 ID 查找相关日志](/functions/debugging.mdx#finding-relevant-logs-by-request-id)。
+
+## 相关组件 \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool 通过将异步操作组织到独立且可自定义的队列中，为关键任务设置更高优先级。支持重试和并行度上限。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "简化长时间运行代码流程的编写。Workflow 以可配置的重试和延迟持久地执行流程。",
+    href: "https://www.convex.dev/components/workflow",
+  },
+]}
+/>

@@ -1,0 +1,183 @@
+---
+title: Herramientas
+sidebar_label: "Herramientas"
+sidebar_position: 500
+description: "Uso de llamadas a herramientas con el componente Agent"
+---
+
+El componente Agent admite llamadas a herramientas, que son una forma de permitir que un LLM invoque
+servicios o funciones externas. Esto puede ser útil para:
+
+* Recuperar datos de la base de datos
+* Escribir o actualizar datos en la base de datos
+* Buscar en la web para obtener más contexto
+* Llamar a una API externa
+* Solicitar que un usuario realice una acción antes de continuar (humano en el circuito)
+
+## Definir herramientas \{#defining-tools\}
+
+Puedes proporcionar herramientas en distintos momentos:
+
+* Constructor del agente: (`new Agent(components.agent, { tools: {...} })`)
+* Al crear un hilo: `createThread(ctx, { tools: {...} })`
+* Al continuar un hilo: `continueThread(ctx, { tools: {...} })`
+* En funciones de hilo: `thread.generateText({ tools: {...} })`
+* Fuera de un hilo: `supportAgent.generateText(ctx, {}, { tools: {...} })`
+
+Especificar herramientas en cada uno de estos niveles sobrescribirá los valores predeterminados. Las herramientas serán
+`args.tools ?? thread.tools ?? agent.options.tools`. Esto te permite definir
+herramientas en el contexto que te resulte más conveniente.
+
+## Uso de herramientas \{#using-tools\}
+
+El componente Agent manejará automáticamente el envío de los resultados de las llamadas a herramientas de vuelta
+y volverá a generar si pasas `stopWhen: stepCountIs(num)` donde `num > 1` a
+`generateText` o `streamText`.
+
+La llamada a la herramienta y su resultado se almacenarán como mensajes en el hilo asociado
+al mensaje de origen. Consulta [Mensajes](./messages.mdx) para más detalles.
+
+## Crear una herramienta con un contexto de Convex \{#creating-a-tool-with-a-convex-context\}
+
+Hay dos formas de crear una herramienta que tenga acceso al contexto de Convex.
+
+1. Usa la función `createTool`, que es un contenedor (wrapper) alrededor de la función `tool`
+   del SDK de IA.
+
+```ts
+export const ideaSearch = createTool({
+  description: "Buscar ideas en la base de datos",
+  args: z.object({ query: z.string().describe("La consulta de búsqueda") }),
+  handler: async (ctx, args, options): Promise<Array<Idea>> => {
+    // ctx tiene agent, userId, threadId, messageId
+    // así como las propiedades de ActionCtx como auth, storage, runMutation y runAction
+    const ideas = await ctx.runQuery(api.ideas.searchIdeas, {
+      query: args.query,
+    });
+    console.log("ideas encontradas", ideas);
+    return ideas;
+  },
+});
+```
+
+2. Define las herramientas en tiempo de ejecución en un contexto con las variables que quieras utilizar.
+
+```ts
+async function createTool(ctx: ActionCtx, teamId: Id<"teams">) {
+  const myTool = tool({
+    description: "My tool",
+    parameters: z.object({...}).describe("The arguments for the tool"),
+    execute: async (args, options): Promise<BarReturnType> => {
+      return await ctx.runQuery(internal.foo.bar, args);
+    },
+  });
+}
+```
+
+En ambos casos, los args y options coinciden con la función `tool` del SDK de IA subyacente.
+
+Si te encuentras con errores de tipo, asegúrate de anotar el tipo de retorno de la
+función execute y, si es necesario, el tipo de retorno de los `handler` de cualquier
+función que llames con `ctx.run*`.
+
+Nota: se recomienda encarecidamente usar zod con `.describe` para proporcionar detalles
+sobre cada parámetro. Esto se usará para proporcionar una descripción de la herramienta al
+LLM.
+
+### Agregar contexto personalizado a las herramientas \{#adding-custom-context-to-tools\}
+
+A menudo es útil tener metadatos adicionales en el contexto de una herramienta.
+
+De forma predeterminada, el contexto pasado a una herramienta es un `ToolCtx` con:
+
+* `agent`: la instancia de `Agent` que la llama
+* `userId`: el ID de usuario asociado con la llamada, si existe
+* `threadId`: el ID del hilo, si existe
+* `messageId`: el ID del mensaje de prompt pasado a `generate`/`stream`
+* Todo lo que hay en `ActionCtx`, como `auth`, `storage`, `runQuery`, etc. Nota:
+  en funciones programadas, workflows, etc., el usuario en `auth` será `null`.
+
+Para agregar más campos al contexto, puedes pasar un contexto personalizado a la llamada,
+como `agent.generateText({ ...ctx, orgId: "123" })`.
+
+Puedes definir el tipo del contexto pasando un tipo al crear el
+Agent.
+
+```ts
+const myAgent = new Agent<{ orgId: string }>(...);
+```
+
+Luego, en tus herramientas, puedes usar el campo `orgId`.
+
+```ts
+type MyCtx = ToolCtx & { orgId: string };
+
+const myTool = createTool({
+  args: z.object({ ... }),
+  description: "...",
+  handler: async (ctx: MyCtx, args) => {
+    // usa ctx.orgId
+  },
+});
+```
+
+## Usar un LLM o Agente como herramienta \{#using-an-llm-or-agent-as-a-tool\}
+
+Puedes generar dentro de una llamada de herramienta, por ejemplo, si quisieras que un Agente
+le hiciera una pregunta a otro Agente.
+
+Nota: no tienes que estructurar agentes llamándose entre sí como llamadas de herramienta. En su lugar,
+podrías decidir qué Agente debería responder a continuación en función de otro contexto y tener muchos Agentes
+contribuyendo en el mismo hilo.
+
+La forma más sencilla de modelar Agentes como llamadas de herramienta es hacer que cada llamada de herramienta
+se ejecute en un hilo independiente, o generar sin ningún hilo en absoluto. Entonces, el resultado se devuelve como
+el resultado de la llamada de herramienta para que lo use el siguiente paso del LLM. Cuando lo haces de esta
+manera, **no** necesitas guardar explícitamente el resultado de la llamada de herramienta en el hilo padre.
+
+### Generación directa con un LLM sin hilo: \{#direct-llm-generation-without-a-thread\}
+
+```ts
+const llmTool = createTool({
+  description: "Ask a question to some LLM",
+  args: z.object({
+    message: z.string().describe("The message to ask the LLM"),
+  }),
+  handler: async (ctx, args): Promise<string> => {
+    const result = await generateText({
+      system: "You are a helpful assistant.",
+      // Pasar todos los mensajes de la generación actual
+      prompt: [...options.messages, { role: "user", content: args.message }],
+      model: myLanguageModel,
+    });
+    return result.text;
+  },
+});
+```
+
+### Usar un Agent como herramienta \{#using-an-agent-as-a-tool\}
+
+```ts
+const agentTool = createTool({
+  description: `Ask a question to agent ${agent.name}`,
+  args: z.object({
+    message: z.string().describe("The message to ask the agent"),
+  }),
+  handler: async (ctx, args, options): Promise<string> => {
+    const { userId } = ctx;
+    const { thread } = await agent.createThread(ctx, { userId });
+    const result = await thread.generateText(
+      {
+        // Pasar todos los mensajes de la generación actual
+        prompt: [...options.messages, { role: "user", content: args.message }],
+      },
+      // Guardar todos los mensajes de la generación actual en este hilo.
+      { storageOptions: { saveMessages: "all" } },
+    );
+    // Opcionalmente, asocia el hilo hijo con el hilo padre en tus propias
+    // tablas.
+    await saveThreadAsChild(ctx, ctx.threadId, thread.threadId);
+    return result.text;
+  },
+});
+```

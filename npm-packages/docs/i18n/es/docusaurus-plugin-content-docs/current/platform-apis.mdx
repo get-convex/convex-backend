@@ -1,0 +1,83 @@
+---
+title: APIs de la plataforma
+---
+
+# APIs de la plataforma Convex \{#platform-apis\}
+
+<Admonition type="info">
+  Las APIs de la plataforma Convex están disponibles públicamente en versión beta. Ponte en contacto con
+  platforms@convex.dev si tu caso de uso requiere capacidades adicionales.
+</Admonition>
+
+Esta guía está pensada para productos que quieren orquestar múltiples proyectos de Convex en
+sus cuentas o administrar proyectos en las cuentas de sus usuarios. Estas APIs se usan con mayor
+frecuencia por creadores de aplicaciones de IA, como [Bloom](https://bloom.diy/),
+[A0](https://a0.dev/) o [Macaly](https://www.macaly.com/).
+
+Estas guías asumen una buena comprensión de la jerarquía de la nube de Convex (equipos,
+proyectos y despliegues), así como del
+[flujo de trabajo de desarrollo](/understanding/workflow).
+
+## Gestión de tus propios proyectos \{#managing-your-own-projects\}
+
+Esto significa que estás creando proyectos, despliegues y publicando código
+de forma programática en el contexto del equipo que administras.
+
+Para gestionar proyectos en tu propio equipo, necesitas obtener un token e ID con ámbito de equipo
+desde tus
+[Team Settings](https://dashboard.convex.dev/team/settings/access-tokens).
+
+<Admonition type="caution">
+  Estos tokens pertenecen al miembro del equipo que haya iniciado sesión en el panel de control de Convex
+  cuando los obtienes.
+
+  Esto implica que este usuario es el propietario de cualquier despliegue de dev creado usando estos
+  tokens. Si este usuario abandona el equipo, también se eliminarán todos sus despliegues de dev
+  del equipo.
+
+  Recomendamos crear una cuenta de servicio independiente y añadirla como miembro del equipo.
+  Obtén el token después de iniciar sesión como esta cuenta de servicio.
+</Admonition>
+
+## Administrar los proyectos de tus usuarios \{#managing-your-users-projects\}
+
+Esto significa que tus usuarios autorizan que tu producto administre su propio
+equipo o sus proyectos de Convex.
+
+Para ello, debes crear una aplicación OAuth 2.0 para que el usuario pueda
+conceder a tu producto los permisos necesarios.
+
+Sigue la guía de [Aplicaciones OAuth](/platform-apis/oauth-applications) para
+crear una aplicación OAuth y solicitar el token correspondiente.
+
+## APIs para gestionar proyectos \{#apis-to-manage-projects\}
+
+Una vez que hayas obtenido un token mediante uno de los métodos anteriores, puedes usarlo para
+llamar a las APIs correspondientes y gestionar proyectos y despliegues de Convex.
+
+[Referencia de la API de administración](/management-api)
+
+## Enviar código a un despliegue \{#pushing-code-to-a-deployment\}
+
+Trabajar con tu despliegue debería automatizarse principalmente mediante scripts usando la CLI (interfaz de línea de comandos) de Convex. La CLI de Convex se encarga de gran parte del trabajo más complejo: empaquetar código, manejar correctamente las respuestas, etc.
+
+Los ejemplos aquí suponen que estás trabajando en un contenedor con acceso a la shell y
+al sistema de archivos desde el cual puedes orquestar el proceso de construcción de la aplicación.
+Probablemente ya tengas esto si estás generando código de frontend.
+
+Configura [`CONVEX_DEPLOY_KEY`](/cli/deploy-key-types.mdx) con el valor devuelto
+por la API [Create deploy key](/management-api/create-deploy-key).
+
+### Enviar código al backend de desarrollo de Convex \{#pushing-code-to-the-dev-convex-backend\}
+
+```bash
+CONVEX_DEPLOY_KEY="YOUR_DEPLOY_KEY" npx convex dev --once
+```
+
+### Implementar código en el backend de producción de Convex \{#pushing-code-to-the-prod-convex-backend\}
+
+```bash
+CONVEX_DEPLOY_KEY="YOUR_DEPLOY_KEY" npx convex deploy
+```
+
+Para ver la lista completa de comandos, consulta la [documentación de la CLI](/cli).

@@ -1,0 +1,83 @@
+---
+title: Generación de código con IA
+hide_table_of_contents: true
+description: "Cómo usar la generación de código con IA de forma efectiva con Convex"
+---
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "https://chef.convex.dev",
+  label: "Prompt para crear una aplicación con Convex Chef",
+}}
+/>
+
+Convex está diseñado en torno a un conjunto reducido de abstracciones componibles con sólidas
+garantías que dan como resultado código no solo más rápido de escribir, sino también más fácil de
+leer y mantener, ya sea escrito por un miembro de tu equipo o por un LLM. Sus características clave
+garantizan que obtengas código generado por IA libre de errores:
+
+1. **Las consultas son simplemente TypeScript** Tus consultas a la base de datos son funciones
+   TypeScript puras con tipado seguro de extremo a extremo y soporte del IDE. Esto significa que la
+   IA puede generar código de base de datos usando el gran corpus de código TypeScript usado para
+   entrenamiento sin cambiar a SQL.
+2. **Menos código para el mismo trabajo** Dado que Convex gestiona automáticamente gran parte de la
+   infraestructura y el boilerplate, hay menos código que escribir y, por tanto, menos código
+   susceptible de errores.
+3. **Reactividad automática** El sistema reactivo realiza automáticamente el seguimiento de las
+   dependencias de datos y actualiza tu UI. La IA no necesita gestionar manualmente suscripciones,
+   conexiones WebSocket ni sincronización de estado compleja: Convex se encarga de todo esto de
+   forma automática.
+4. **Garantías transaccionales** Las consultas son de solo lectura y las mutaciones se ejecutan en
+   transacciones. Estas restricciones hacen que sea casi imposible que la IA escriba código que
+   pueda corromper tus datos o dejar tu aplicación en un estado inconsistente.
+
+En conjunto, estas características permiten que la IA se centre en tu lógica de negocio mientras las
+garantías de Convex evitan los modos de fallo más comunes. Para obtener información actualizada
+sobre qué modelos funcionan mejor con Convex, consulta nuestro
+[leaderboard](https://convex.dev/llm-leaderboard) de LLM.
+
+## Reglas de Convex AI \{#convex-ai-rules\}
+
+La generación de código con IA es más efectiva cuando le proporcionas un conjunto de reglas que debe seguir.
+
+Consulta estos documentos para ver las instrucciones de instalación:
+
+* [Cursor](/ai/using-cursor.mdx#add-convex-cursorrules)
+* [Windsurf](/ai/using-windsurf.mdx#add-convex-rules)
+* [GitHub Copilot](/ai/using-github-copilot.mdx#add-convex-instructions)
+
+Para todos los demás IDEs, agrega el siguiente archivo de reglas a tu proyecto y úsalo como referencia cuando pidas cambios:
+
+* [convex&#95;rules.txt](https://convex.link/convex_rules.txt)
+
+Estamos trabajando constantemente para mejorar la calidad de estas reglas para Convex usando evaluaciones rigurosas. Puedes ayudar
+[contribuyendo a nuestro repositorio de evaluaciones (evals)](https://github.com/get-convex/convex-evals).
+
+## Usar Convex con agentes en segundo plano \{#using-convex-with-background-agents\}
+
+Agentes de programación remotos basados en la nube como Jules, Devin, Codex y
+los agentes en segundo plano de Cursor pueden usar despliegues de Convex cuando la CLI está en
+[modo agente](/cli/background-agents.mdx). Esto limita los permisos
+necesarios para estos entornos de desarrollo remotos mientras permite que los agentes ejecuten codegen,
+iteren sobre el código, ejecuten pruebas y funciones puntuales.
+
+Un buen script de configuración para, por ejemplo, ChatGPT Codex podría incluir
+
+```
+npm i
+CONVEX_AGENT_MODE=anonymous npx convex dev --once
+```
+
+o
+
+```
+bun i
+CONVEX_AGENT_MODE=anonymous bun x convex dev --once
+```
+
+Este comando requiere &quot;acceso total&quot; a Internet para descargar el binario.
+
+## Servidor Convex MCP \{#convex-mcp-server\}
+
+[Configura el servidor Convex MCP](/ai/convex-mcp-server.mdx) para que tu agente de programación con IA pueda acceder a tu despliegue de Convex y consultar y optimizar tu proyecto.

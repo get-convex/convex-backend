@@ -1,0 +1,135 @@
+---
+title: "自定义 OIDC 提供商"
+sidebar_label: "自定义 OIDC 提供商"
+sidebar_position: 3
+description:
+  "通过自定义认证配置和 ConvexProviderWithAuth，将 Convex 与任意
+  OpenID Connect 身份提供商集成。"
+---
+
+**注意：这是一个高级特性！** 我们建议优先使用
+[受支持的第三方认证提供商](/auth.mdx)。
+
+Convex 可以与任何支持
+[OpenID Connect](https://openid.net/connect/) 协议的身份提供商集成。至少这意味着
+该提供商可以签发
+[ID tokens](https://openid.net/specs/openid-connect-core-1_0.html#IDToken)，并公开相应的
+[JWKS](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-sets)。
+ID token 会从客户端传递到你的 Convex 后端，由后端验证该 token 的有效性，并使你能够查询
+嵌入在 token 中的用户信息，具体参见
+[函数中的认证](/auth/functions-auth.mdx)。
+
+## 服务端集成 \{#server-side-integration\}
+
+就像使用 [Clerk](/auth/clerk.mdx) 和 [Auth0](/auth/auth0.mdx) 一样，
+后端需要知道 Issuer 的域名，以及你的应用在给定身份提供商处对应的
+特定 applicationID。
+
+将这些值添加到你的 `convex/auth.config.ts` 文件中：
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      domain: "https://your.issuer.url.com",
+      applicationID: "your-application-id",
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+`applicationID` 属性必须与你的 JWT 中的 `aud` 字段完全匹配，
+`domain` 属性必须与 JWT 中的 `iss` 字段完全匹配。使用类似
+[jwt.io](https://jwt.io/) 这样的工具查看一个 JWT，并确认这些字段完全一致。
+
+如果配置了多个 provider，将使用第一个满足以上条件的 provider。
+
+如果你无法获取带有 `aud` 字段的 token，你需要改为配置
+[Custom JWT](/auth/advanced/custom-jwt.mdx)。如果你不确定你的 token 是否是
+OIDC ID token，请查看
+[规范](https://openid.net/specs/openid-connect-core-1_0-final.html#rfc.section.2)
+以获取所有必需字段的列表。
+
+OIDC 要求存在 `${domain}/.well-known/jwks.json` 和
+`${domain}/.well-known/openid-configuration` 这两个路由。`domain` 可以包含类似
+`https://your.issuer.url.com/api/auth` 的路径。对于第三方身份验证提供方来说，这并不常见，但如果你在自己的服务器上实现 OIDC，这可能会很有用。
+
+## 客户端集成 \{#client-side-integration\}
+
+### 集成新的身份提供方 \{#integrating-a-new-identity-provider\}
+
+[`ConvexProviderWithAuth`](/api/modules/react#convexproviderwithauth)
+组件为构建类似 Convex 针对 [Clerk](/auth/clerk.mdx) 和
+[Auth0](/auth/auth0.mdx) 所提供的认证集成，提供了一个便捷的抽象层。
+
+在下面的示例中，我们将与一个虚构的「ProviderX」进行集成，
+它的 React 集成包含 `AuthProviderXReactProvider` 和
+`useProviderXAuth` 钩子。
+
+首先，我们在应用的根部，用 `AuthProviderXReactProvider` 包裹
+`ConvexProviderWithAuth`，并替换原来的 `ConvexProvider`：
+
+```jsx title="src/index.js"
+import { AuthProviderXReactProvider } from "providerX";
+import { ConvexProviderWithAuth } from "convex/react";
+
+root.render(
+  <StrictMode>
+    <AuthProviderXReactProvider>
+      <ConvexProviderWithAuth client={convex} useAuth={useAuthFromProviderX}>
+        <App />
+      </ConvexProviderWithAuth>
+    </AuthProviderXReactProvider>
+  </StrictMode>,
+);
+```
+
+我们真正需要做的只是实现 `useAuthFromProviderX` 这个 hook，然后将它传递给
+`ConvexProviderWithAuth` 组件。
+
+这个 `useAuthFromProviderX` hook 在认证提供商的 API 和
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient)
+API 之间起到转换作用，而后者最终负责确保 ID 令牌被传递到你的 Convex 后端。
+
+```jsx title="src/ConvexProviderWithProviderX.js"
+function useAuthFromProviderX() {
+  const { isLoading, isAuthenticated, getToken } = useProviderXAuth();
+  const fetchAccessToken = useCallback(
+    async ({ forceRefreshToken }) => {
+      // 在这里你可以进行任何转换来获取 ID Token
+      // 或 null
+      // 确保在 `forceRefreshToken` 为 true 时获取新 token
+      return await getToken({ ignoreCache: forceRefreshToken });
+    },
+    // If `getToken` isn't correctly memoized
+    // remove it from this dependency array
+    [getToken],
+  );
+  return useMemo(
+    () => ({
+      // Whether the auth provider is in a loading state
+      isLoading: isLoading,
+      // Whether the auth provider has the user signed in
+      isAuthenticated: isAuthenticated ?? false,
+      // The async function to fetch the ID token
+      fetchAccessToken,
+    }),
+    [isLoading, isAuthenticated, fetchAccessToken],
+  );
+}
+```
+
+### 使用新的 provider \{#using-the-new-provider\}
+
+如果你成功完成了上面的步骤，现在就可以使用标准的 Convex 实用工具来检查认证状态：
+[`useConvexAuth()`](/api/modules/react#useconvexauth) hook，以及
+[`Authenticated`](/api/modules/react#authenticated)、[`Unauthenticated`](/api/modules/react#authenticated) 和
+[`AuthLoading`](/api/modules/react#authloading) 辅助组件。
+
+### 调试 \{#debugging\}
+
+参见[调试身份验证](/auth/debug.mdx)。
+
+<StackPosts query="authentication" />

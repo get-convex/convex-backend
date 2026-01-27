@@ -1,0 +1,242 @@
+---
+title: Flujos de trabajo
+sidebar_label: "Workflows"
+sidebar_position: 800
+description: "Definir flujos de trabajo de larga duración para el componente Agent"
+---
+
+Los flujos de trabajo con agentes se pueden descomponer en dos elementos:
+
+1. Generar un prompt para un LLM (incluyendo el historial de mensajes, contexto, etc.).
+2. Decidir qué hacer con la respuesta del LLM.
+
+En general, los llamamos flujos de trabajo cuando hay varios pasos involucrados,
+implican decidir dinámicamente qué hacer a continuación, son de larga duración
+o combinan lógica de negocio con llamadas al LLM.
+
+Las llamadas a herramientas y MCP entran en juego cuando la respuesta del LLM
+es una solicitud específica de una acción a realizar. La lista de herramientas
+disponibles y el resultado de las llamadas se usan en el prompt al LLM.
+
+Una forma especialmente potente de estos flujos de trabajo son aquellos que se pueden
+modelar como
+[durable functions](https://stack.convex.dev/durable-workflows-and-strong-guarantees)
+que pueden ser de larga duración, sobrevivir reinicios del servidor y ofrecer
+fuertes garantías en cuanto a reintentos, idempotencia y finalización.
+
+La forma más sencilla de esto podría ser realizar un par de pasos
+predefinidos, como primero obtener el pronóstico del tiempo y luego obtener
+consejos de moda basados en el clima. Para un ejemplo de código, consulta
+[workflows/chaining.ts](https://github.com/get-convex/agent/blob/main/example/convex/workflows/chaining.ts).
+
+```ts
+export const getAdvice = action({
+  args: { location: v.string(), threadId: v.string() },
+  handler: async (ctx, { location, threadId }) => {
+    // This uses tool calls to get the weather forecast.
+    await weatherAgent.generateText(
+      ctx,
+      { threadId },
+      { prompt: `What is the weather in ${location}?` },
+    );
+    // Esto incluye automáticamente el historial de mensajes previos del hilo y
+    // utiliza llamadas a herramientas para obtener consejos de moda específicos del usuario.
+    await fashionAgent.generateText(
+      ctx,
+      { threadId },
+      { prompt: `What should I wear based on the weather?` },
+    );
+    // We don't need to return anything, since the messages are saved
+    // automatically and clients will get the response via subscriptions.
+  },
+});
+```
+
+## Creación de flujos de trabajo fiables \{#building-reliable-workflows\}
+
+Un problema común al trabajar con LLM es su falta de fiabilidad. Los proveedores
+de API sufren caídas y los LLM pueden ser inestables. Para crear flujos de trabajo fiables, a menudo necesitas
+tres características:
+
+1. Reintentos fiables
+2. Balanceo de carga
+3. Durabilidad e idempotencia para flujos de trabajo de varios pasos
+
+Afortunadamente, hay componentes de Convex que puedes aprovechar para estas características.
+
+### Reintentos \{#retries\}
+
+De forma predeterminada, las mutaciones de Convex tienen estas propiedades. Sin embargo, invocar LLMs implica efectos secundarios y el uso de llamadas de red, por lo que es necesario usar acciones. Si solo te preocupan los reintentos, puedes usar el componente
+[Action Retrier](https://convex.dev/components/retrier).
+
+Sin embargo, sigue leyendo, porque los componentes [Workpool](https://convex.dev/components/workpool)
+y [Workflow](https://convex.dev/components/workflow) proporcionan soluciones más
+robustas, incluidos los reintentos.
+
+### Balanceo de carga \{#load-balancing\}
+
+Con acciones de ejecución prolongada en un entorno serverless, puedes consumir muchos
+recursos. Y con tareas como la ingesta de datos para RAG u otras cargas de
+trabajo con picos, existe el riesgo de quedarte sin recursos. Para mitigar esto,
+puedes usar el componente
+[Workpool](https://convex.dev/components/workpool). Puedes establecer un
+límite en el número de workers concurrentes y añadir trabajo de forma
+asíncrona, con reintentos configurables y un callback para gestionar el
+resultado final (éxito o fallo).
+
+Sin embargo, si también quieres gestionar flujos de trabajo de varios pasos,
+deberías usar el componente
+[Workflow](https://convex.dev/components/workflow), que también proporciona
+reintentos y balanceo de carga listo para usar.
+
+### Durabilidad e idempotencia para flujos de trabajo de múltiples pasos \{#durability-and-idempotency-for-multi-step-workflows\}
+
+Al ejecutar flujos de trabajo de múltiples pasos que pueden fallar a mitad del proceso, debes asegurarte de que
+el flujo de trabajo pueda reanudarse desde donde se detuvo, sin duplicar trabajo.
+El componente [Workflow](https://convex.dev/components/workflow) se basa en
+[Workpool](https://convex.dev/components/workpool) para proporcionar una ejecución duradera
+de funciones de larga duración con reintentos y retrasos.
+
+Cada paso del flujo de trabajo se ejecuta y su resultado se registra. Incluso si el servidor
+falla a mitad del proceso, se reanudará desde el último paso incompleto, con una configuración de
+reintentos configurable.
+
+## Usar el componente Workflow para flujos de trabajo de larga duración y alta durabilidad \{#using-the-workflow-component-for-long-lived-durable-workflows\}
+
+El [componente Workflow](https://convex.dev/components/workflow) es una excelente forma
+de crear flujos de trabajo de larga duración y alta durabilidad. Se encarga de los reintentos y garantiza que
+eventualmente se completen, que sobrevivan a reinicios del servidor y más. Lee más sobre
+flujos de trabajo duraderos en
+[esta publicación en Stack](https://stack.convex.dev/durable-workflows-and-strong-guarantees).
+
+Para usar el agente junto con los flujos de trabajo, puedes ejecutar pasos idempotentes individuales
+que el flujo de trabajo puede ejecutar, cada uno con reintentos configurables, con la garantía de que
+el flujo de trabajo eventualmente se completará. Incluso si el servidor se cae a mitad del flujo de trabajo,
+este retomará desde donde se quedó y ejecutará el siguiente paso. Si un
+paso falla y no es controlado por el flujo de trabajo, el manejador `onComplete` del flujo de trabajo
+recibirá el error resultante.
+
+### Uso del Agent dentro de un workflow \{#using-the-agent-within-a-workflow\}
+
+Puedes usar el [componente Workflow](https://convex.dev/components/workflow) para
+ejecutar flujos de agentes. Gestiona reintentos y garantiza que eventualmente se completen,
+sobrevive a reinicios del servidor y más. Lee más sobre workflows duraderos
+[en esta publicación de Stack](https://stack.convex.dev/durable-workflows-and-strong-guarantees).
+
+Dentro de un workflow, cada &quot;step&quot; es una única operación idempotente. Los argumentos
+y valores de retorno se almacenan como parte del estado del workflow, por lo que puede reanudarse
+donde se quedó reproduciendo el historial. Esto permite que los workflows se ejecuten durante
+mucho tiempo, sobrevivan a reinicios del servidor, reintenten pasos individuales, se pausen y más.
+
+Algunas funciones de Agent se pueden llamar directamente desde un workflow, pasando `step`
+en lugar de `ctx`. Internamente, estas funciones llaman a `step.runMutation`
+en lugar del `ctx.runMutation` que se usaría de otro modo. Las dos llamadas son
+aproximadamente iguales, aunque hay más sobrecarga asociada a invocar pasos,
+ya que los argumentos y valores de retorno cuentan para el límite general
+de ancho de banda de base de datos del workflow. Por lo tanto, procura evitar pasar grandes cantidades de datos
+como argumentos o devolverlos desde los pasos, y prefiere guardar esos datos y pasar
+IDs en su lugar.
+
+```ts
+const workflow = new WorkflowManager(components.workflow);
+
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string() },
+  handler: async (step, { prompt, userId }) => {
+    // Algunas funciones pueden llamarse directamente desde un flujo de trabajo, pasando `step`
+    // en lugar de `ctx`. Esto no funciona para nada relacionado con acciones.
+    const { threadId } = await createThread(step, components.agent, {
+      userId,
+      title: prompt,
+    });
+    // Internamente, estas funciones están llamando a step.runMutation,
+    // por lo que guardar el mensaje es un paso del flujo de trabajo. El equivalente sería llamar a
+    // step.runMutation con tu propia mutación que llamara a saveMessage con ctx.
+    const { messageId } = await saveMessage(step, components.agent, {
+      threadId,
+      prompt,
+    });
+    // Para funciones que requieren `fetch` o que de otro modo necesitan una acción, ejecútalas
+    // como pasos de forma explícita.
+    const { text } = await step.runAction(
+      internal.example.getSupport,
+      { threadId, userId, promptMessageId: messageId },
+      // Pasar un promptMessageId nos permite reintentar el paso de forma segura.
+      // Si falla a mitad de camino, el reintento reutilizará el mismo mensaje de prompt y
+      // cualquier respuesta existente.
+      { retry: true },
+    );
+    const { object } = await step.runAction(
+      internal.example.getStructuredSupport,
+      {
+        userId,
+        prompt: text,
+      },
+    );
+    // También puedes ejecutar mutaciones como pasos de forma explícita.
+    await step.runMutation(internal.example.sendUserMessage, {
+      userId,
+      message: object.instruction,
+    });
+  },
+});
+```
+
+### Exponer funciones de Agent como acciones de Convex \{#exposing-agent-functions-as-convex-actions\}
+
+Puedes exponer las capacidades del agente como funciones de Convex para usarlas como pasos
+dentro de un flujo de trabajo, como alternativa a escribir una acción para cada paso.
+
+Para una acción que genere o envíe texto en streaming en un hilo:
+
+```ts
+// Similar a thread.generateText / thread.streamText
+export const getSupport = supportAgent.asTextAction({
+  stopWhen: stepCountIs(10),
+});
+```
+
+También puedes exponer una acción independiente que genere un objeto.
+
+```ts
+// Similar to thread.generateObject / thread.streamObject
+export const getStructuredSupport = supportAgent.asObjectAction({
+  schema: z.object({
+    analysis: z.string().describe("Un análisis detallado de la solicitud del usuario."),
+    instruction: z.string().describe("A suggested action to take."),
+  }),
+});
+```
+
+Consulta el código de ejemplo en
+[workflows/chaining.ts](https://github.com/get-convex/agent/blob/main/example/convex/workflows/chaining.ts).
+
+## Patrones de flujo de trabajo complejos \{#complex-workflow-patterns\}
+
+Aunque aquí solo se muestra un ejemplo de un flujo de trabajo simple, se pueden crear muchos patrones complejos con el componente Agent:
+
+* Enrutamiento dinámico a agentes basado en una llamada a un LLM o en una búsqueda vectorial
+* Desplegar en paralelo llamadas a LLM y luego combinar los resultados
+* Orquestar múltiples agentes
+* Ciclos de razonamiento y acción (ReAct)
+* Modelar una red de agentes que se envían mensajes entre sí
+* Flujos de trabajo que se pueden pausar y reanudar
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+<ComponentCardList
+  items={[
+{
+title: "Workpool",
+description:
+  "Se basa en Action Retrier para proporcionar límites de paralelismo y reintentos a fin de gestionar grandes volúmenes de solicitudes externas de forma eficiente.",
+href: "https://www.convex.dev/components/workpool",
+},
+{
+title: "Workflow",
+description:
+  "Se basa en Workpool para proporcionar ejecución duradera de funciones de larga ejecución con reintentos y retrasos.",
+href: "https://www.convex.dev/components/workflow",
+},
+]}
+/>

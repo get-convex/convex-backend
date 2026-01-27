@@ -1,0 +1,34 @@
+---
+id: list-custom-domains
+title: "カスタムドメインの一覧"
+description: "デプロイメントに設定されているすべてのカスタムドメインを取得します。"
+sidebar_label: "カスタムドメインの一覧"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVsGO2zYQ/RViTruAYm+KogfdFrtFECBtFpvtyRUCWhxbTCSSIUdODEH/XgwpW5JlJEXbQ/eyMjl884Yz8zgdKAyl1460NZDDGyQh61qUbSDbCGUbqU0QpTU7vW89KrGzXkih0NX22KChFWRgHXrJCG8V5FDrQBcAkIGTXjZI6APkmw6MbBByGHE+xpUMNNNwkirILrg9nm3FYOvxS6s9KsjJt9gXvBKcNQED5B38dHfH/+YokEFpDaEh3pPO1bqM3NefAht0EMoKG8lfdHRM0m4/YUkzfxs4RVZk4DxfAOnk9bQxnpfeyyOHRtiEH+GWHiOdFx1DHC/o9zFmDPSIgbSJlmwVfS65zMBGx9oQ7tFDBjvrG0lp6ZefF1fO5wLJxgltRKPrWgcsrVFBfK3QCKp0GFIsvsogojtUK+gXxEfngbw2+6WrCidVFTM8w9eXVZi8pMD/FvqsJKODCHHlQhdFk8idDWITRHJzzJvSmgN+e6htq4T1Iv38oAlvuU0uKaJpm5jy8VSqzuEQ55M01Xzoecmyz+CAXu+G+p3neDNJsmnrmrH+22Qn36gyjpRdCL0TxtKf5oh03l1B349RPNWSmMVDvLbHCPY8tGwqmimhdywkdvcDMUq8Jnp0zSFDTZ2G0Sv/ZRCwbL2mYxSn9/ctVeIFZSNe7Gc0kG+KPutguZIsn7zlTp5sFRk0SJVlPdwjRf2jCnJYj0zDuruQv36dQv04ymZAfzhpZutryKEiciFfr6XTq1QrK4WH9eH1IqGn4MX901tgSqcgP7DCJYW4GsC5m9gXk4j2kMMWpY8lNXf0fktSG1SCKm/bfSWk2DxEaiLhT2S2uDkFoGwZphE00sg98mW8kk7fxuZcZuL/w+3fsHpISsmdRqwtMlRbK70SrVHoBTF0QCJt9iE9ueaYVo+2FaU0IjFK1a7NzkYOQ9UP8f12Jh0r4JLDfDt6cd4edNDWaLMX0qjkhX8MkC4VSoibk1Jmeat1idxR+fl1f5dWnnH3Kp3nR1ChIZYGf9UgiVpIDF+v7lZ3vORsoEaaGfS1IWMWYDc+9P9wrhlySviN1q7mh6bPUhd2Qz9vJu8cE8iXA81FSxcZVDYQH+26rQz4h6/7npe/tOhZf4oMDtJrueVcbjpQOvC3gnwn64DfifLmeRgkbsVyWLoazGlCMTyfHGTdYhqRPuPxynTWF30GFUrFydt0g9V9WaKjyfnFUDWTwze/vkAGsuXrO7fNuU2GD0a/yq3rkkXsu74/U6XYh33R9/1fcFHQlA==
+sidebar_class_name: "get api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"カスタムドメインの一覧"} />
+
+<MethodEndpoint method={"get"} path={"/deployments/{deployment_name}/custom_domains"} context={"endpoint"} />
+
+デプロイメントに設定されているすべてのカスタムドメインを取得します。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"リクエスト"} />
+
+<ParamsDetails parameters={[{"name":"deployment_name","in":"path","description":"デプロイメント名","required":true}]} />
+
+<RequestSchema title={"ボディ"} body={undefined} />
+
+<StatusCodes id={undefined} label={undefined} responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["domains"],"properties":{"domains":{"type":"array","items":{"type":"object","required":["creationTime","deploymentName","requestDestination","domain"],"properties":{"creationTime":{"type":"integer","format":"int64","description":"このドメインが作成された時刻（ミリ秒単位のタイムスタンプ）。"},"deploymentName":{"type":"string","description":"このドメインが設定されているデプロイメント名。"},"domain":{"type":"string","description":"カスタムドメイン名。"},"requestDestination":{"description":"このカスタムドメインの宛先（convexCloud または convexSite）。","type":"string","enum":["convexCloud","convexSite"],"title":"RequestDestination"},"verificationTime":{"type":["integer","null"],"format":"int64","description":"このドメインが検証された時刻（ミリ秒単位のタイムスタンプ）。まだ検証されていない場合は null。"}},"title":"PlatformCustomDomainResponse"},"description":"このデプロイメントに設定されているカスタムドメインの一覧。"}},"title":"PlatformListCustomDomainsResponse"}}}}}} />

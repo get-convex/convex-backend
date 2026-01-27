@@ -1,0 +1,157 @@
+# (Legado) Esquema de eventos \{#legacy-event-schema\}
+
+<Admonition type="info">
+  Los flujos de logs configurados antes del 23 de mayo de 2024 seguirán usando el
+  formato legado documentado aquí. Recomendamos actualizar tu flujo de logs para usar el nuevo formato.
+</Admonition>
+
+## Actualizar al nuevo formato \{#updating-to-the-new-format\}
+
+Puedes actualizar los flujos de logs existentes al nuevo formato en el panel de control, en
+la sección [Settings de tu despliegue](https://dashboard.convex.dev/deployment/settings) &gt;
+Integrations.
+
+Puedes crear un dataset completamente nuevo para almacenar eventos usando el nuevo
+formato, o puedes reutilizar tu dataset existente para almacenar eventos históricos en el
+formato heredado, así como eventos en el nuevo formato a partir de ahora.
+
+Te recomendamos leer la documentación tanto sobre el formato heredado como sobre el
+[formato actual](/production/integrations/log-streams/log-streams.mdx#log-event-schema)
+para ver todas las diferencias, pero aquí hay algunas diferencias clave:
+
+* Muchos campos se han renombrado para eliminar guiones bajos iniciales y usar `snake_case`
+* Se han añadido campos, por ejemplo:
+  * `function.request_id`
+  * `usage.vector_storage_read_bytes`
+  * `log_level`
+* Algunos campos se han renombrado o anidado para mayor claridad, por ejemplo:
+  * `reason` -&gt; `error_message`
+  * `_functionPath` -&gt; `function.path`
+
+## (Legado) Esquema de eventos \{#legacy-event-schema\}
+
+Los eventos de registro tienen un esquema JSON bien definido que permite crear pipelines complejos con seguridad de tipos para la ingesta de eventos de registro.
+
+## Campos del sistema \{#system-fields\}
+
+Los campos del sistema son campos reservados que se incluyen en los eventos de registro y van
+precedidos por un guion bajo.
+
+Todos los eventos de registro incluyen los siguientes campos del sistema:
+
+* `_topic`: cadena que categoriza un evento de registro según su origen interno
+* `_timestamp`: marca de tiempo Unix epoch en milisegundos. Se representa como un número entero.
+
+## Orígenes de registros \{#log-sources\}
+
+Esta sección describe el origen y el modelo de datos de todos los eventos de registro.
+
+### Registros de `console` \{#console-logs\}
+
+Registros de funciones de Convex mediante la API de `console`.
+
+Esquema:
+
+* `_topic = "_console"`
+* `_timestamp` = marca de tiempo de época Unix en milisegundos
+* `_functionType = "query" | "mutation" | "action" | "httpAction"`
+* `_functionPath` =
+  * Si se trata de una acción HTTP, es una cadena con el método HTTP y la ruta
+    de la URL, es decir, `POST /my_endpoint`
+  * En caso contrario, es una ruta a la función dentro del directorio `convex/`
+    que incluye un identificador de exportación de módulo opcional, es decir,
+    `myDir/myFile:myFunction`.
+* `_functionCached = true | false`. Este campo solo se establece si
+  `_functionType = "query"` e indica si este evento de registro proviene de
+  la ejecución en caché de una función.
+* `message` = cadena de carga útil de los argumentos para la API de `console`
+
+Ejemplo de evento de registro de una consulta:
+
+```json
+{
+  "_topic": "_console",
+  "_timestamp": 1695066350531,
+  "_functionType": "query",
+  "_functionPath": "myDir/myFile",
+  "_functionCached": true,
+  "message": "[LOG] 'My log message'"
+}
+```
+
+### Registros de ejecución de funciones \{#function-execution-record-logs\}
+
+Ejecuciones de funciones que registran su propia ejecución y su resultado.
+
+Esquema:
+
+* `_topic = "_execution_record"`
+* `_timestamp` = marca de tiempo de época Unix en milisegundos
+* `_functionType = "query" | "mutation" | "action" | "httpAction"`
+* `_functionPath` = ruta a la función dentro del directorio `convex/`, incluido el
+  identificador de export del módulo
+* `_functionCached = true | false`. Este campo solo se establece si
+  `_functionType = "query"` e indica si este evento de log provino de una
+  ejecución de función en caché.
+* `status = "success" | "failure"`
+* `reason` = mensaje de error de la función. Solo se establece si `status = "failure"`
+* `executionTimeMs` = duración de la ejecución de esta función en milisegundos
+* `databaseReadBytes` = el ancho de banda de lectura de la base de datos utilizado
+  por esta función en bytes
+* `databaseWriteBytes` = el ancho de banda de escritura de la base de datos
+  utilizado por esta función en bytes
+* `storageReadBytes` = el ancho de banda de lectura del almacenamiento de archivos
+  que utilizó esta función en bytes
+* `storageWriteBytes` = el ancho de banda de escritura del almacenamiento de
+  archivos que utilizó esta función en bytes
+
+Ejemplo de registro de ejecución de una acción HTTP:
+
+```json
+{
+  "_topic": "_execution_record",
+  "_timestamp": 1695066350531,
+  "_functionType": "httpAction",
+  "_functionPath": "POST /sendImage",
+  "status": "failure",
+  "reason": "Unexpected Error: Some error message\n\n  at ....",
+  "executionTimeMs": 73
+}
+```
+
+### Registros de auditoría \{#audit-trail-logs\}
+
+Registros de auditoría de eventos de despliegue.
+
+Esquema:
+
+* `_topic = "_audit_log"`
+* `_timestamp` = marca de tiempo Unix epoch en milisegundos
+* `action = "create_environment_variable" | "update_environment_variable" | "delete_environment_variable" | "replace_environment_variable" | "push_config" | "build_indexes" | "change_deployment_state"`
+* `actionMetadata` = objeto cuyos campos dependen del valor de `action`.
+
+Ejemplo de registro de auditoría `push_config`:
+
+```json
+{
+  "_topic": "_audit_log",
+  "_timestamp": 1695066350531,
+  "action": "push_config",
+  "actionMetadata": {
+    "modules": {
+      "added": ["ffmpeg.js", "fetch.js", "test.js"],
+      "removed": ["removed.js"]
+    }
+  }
+}
+```
+
+### Registros de verificación \{#verification-logs\}
+
+Eventos de registro internos que se utilizan para verificar el acceso a un flujo de registros.
+
+Esquema
+
+* `_topic = "_verification"`
+* `_timestamp` = marca de tiempo (epoch) de Unix en milisegundos.
+* `message = Convex connection test`

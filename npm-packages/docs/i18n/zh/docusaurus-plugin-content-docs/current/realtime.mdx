@@ -1,0 +1,37 @@
+---
+title: "实时性"
+sidebar_position: 100
+description: "使用 Convex 构建实时应用"
+---
+
+其实 Convex 天生就具备实时特性！如果你已经在应用中使用
+[查询函数](./functions/query-functions)、[数据库](./database) 和
+[客户端库](./client/react/)，就无需做任何额外操作。
+Convex 会跟踪查询函数的依赖，包括数据库中的变更，并通过客户端库触发订阅更新。
+
+<div align="center">
+  ![Convex is automatically reactive and realtime](/img/realtime.gif)
+</div>
+
+除了可以轻松构建高度交互的应用之外，Convex 的实时架构还有其他优势：
+
+## 自动缓存 \{#automatic-caching\}
+
+Convex 会自动缓存你的查询函数的返回结果，这样后续调用只需要从缓存中读取。只要数据发生变化，缓存就会被更新。
+对于缓存读取，你不会产生数据库带宽费用。
+
+这不需要你做任何额外工作或手动管理。
+
+## 在整个应用中保持数据一致 \{#consistent-data-across-your-app\}
+
+每个客户端订阅都会同时更新为同一个数据库快照。
+你的应用始终展示最一致的数据视图。
+
+这样可以避免诸如购物车中商品数量增加，却没有显示某个商品已售罄之类的错误。
+
+## 了解更多 \{#learn-more\}
+
+在 Convex 中了解如何使用实时和响应式查询，请访问
+[Stack](https://stack.convex.dev/tag/Reactivity)。
+
+<StackPosts query="reactivity" />

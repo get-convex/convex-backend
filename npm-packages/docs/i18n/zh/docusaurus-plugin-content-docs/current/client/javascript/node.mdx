@@ -1,0 +1,69 @@
+---
+title: "Node.js"
+hidden: false
+sidebar_position: 100
+description: "在 Node.js 应用中使用 Convex 的 HTTP 客户端和订阅客户端"
+---
+
+Convex 在 Node.js 中支持时点查询（参见
+[HTTP client](/api/classes/browser.ConvexHttpClient)）和查询订阅
+（参见 [ConvexClient](/api/classes/browser.ConvexClient)）。
+
+如果你的 JavaScript 代码使用 import/export 语法，调用 Convex 函数的方式与在浏览器中完全相同。
+
+```js
+import { ConvexHttpClient, ConvexClient } from "convex/browser";
+import { api } from "./convex/_generated/api.js";
+
+// HTTP 客户端
+const httpClient = new ConvexHttpClient(CONVEX_URL_GOES_HERE);
+httpClient.query(api.messages.list).then(console.log);
+
+// 订阅客户端
+const client = new ConvexClient(CONVEX_URL_GOES_HERE);
+client.onUpdate(api.messages.list, {}, (messages) => console.log(messages));
+```
+
+## TypeScript \{#typescript\}
+
+就像为浏览器打包一样，使用 webpack、esbuild、rollup、vite 等工具为 Node.js 打包 TypeScript 代码时，通常可以在不做额外配置的情况下，直接从使用 import/export 语法的代码中进行 import。
+
+如果你使用 TypeScript 来**编译**代码（这在 Web 项目中比较少见，但在 Node.js 中更常见），请在 `tsconfig.json` 的编译选项中添加 `"allowJs": true`，这样 TypeScript 也会编译 `api.js` 文件。
+
+## 无需编译步骤的 TypeScript \{#typescript-without-a-compile-step\}
+
+如果你想在没有单独编译步骤的情况下直接运行 TypeScript 脚本，
+可以安装 [ts-node-esm](https://www.npmjs.com/package/ts-node)，并使用 ts-node-esm 来运行脚本；只要你在
+`package.json` 中将 `"type"` 设置为 `"module"`，一般就可以正常工作。
+
+## 使用 CommonJS 的 JavaScript（`require()` 语法） \{#javascript-with-commonjs-require-syntax\}
+
+如果你没有在项目的 `package.json` 中配置 `"type": "module"`，则需要使用
+`require()` 语法，并且 Node.js 将无法直接导入 `convex/_generated/api.js` 文件。
+
+在与你的 `package.json` 相同的目录下，创建或编辑
+[`convex.json`](/production/project-configuration.mdx#convexjson)：
+
+```json title=convex.json
+{
+  "generateCommonJSApi": true
+}
+```
+
+当 `convex dev` 命令在 `convex/_generated/` 中生成文件时，会创建一个新的 `api_cjs.cjs` 文件，可供 CommonJS 代码导入使用。
+
+```js
+const { ConvexHttpClient, ConvexClient } = require("convex/browser");
+const { api } = require("./convex/_generated/api_cjs.cjs");
+const httpClient = new ConvexHttpClient(CONVEX_URL_GOES_HERE);
+```
+
+## 在无需编译步骤的情况下使用 TypeScript 和 CommonJS \{#typescript-with-commonjs-without-a-compile-step\}
+
+按照上文中针对 CommonJS 的步骤操作，并使用
+[`ts-node`](https://www.npmjs.com/package/ts-node) 来运行你的代码。请确保你的
+`tsconfig.json` 已配置为输出 CommonJS。
+
+## 在 Node.js 中不使用代码生成搭配 Convex \{#using-convex-with-nodejs-without-codegen\}
+
+如果你手头没有现成的 Convex 函数和 api 文件，你始终可以使用 `anyApi` 对象或字符串。类似 `api.folder.file.exportName` 这样的 api 引用，可以写成 `anyApi.folder.file.exportName` 或 `"folder/file:exportName"`。

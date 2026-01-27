@@ -1,0 +1,62 @@
+---
+id: list-deploy-keys
+title: "デプロイキーの一覧"
+description: "指定したデプロイメントのすべてのデプロイキーを一覧表示します。"
+sidebar_label: "デプロイキーの一覧"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVsGO4zYM/RWBpxnAm2SLogffBrtFMeguZjDNnoJgwNhMrB1b0kp0dgPD/15QchJ7PGiBtofmEpuiyEeKT88dlBQKrx1rayCHTzpwUFjXqiRX25N6oVNQe+sVV6SCo0LvNZXDakOGF5CBdeRRItyXkEOtA4+3QwYOPTbE5APkmw4MNgQ5XIM8R0sGWjA45AqyV8A+XnzV4OvpW6s9lZCzb6nfiiU4awIFyDv4abWSv2kUyKCwhsmwrKFztS4i8OXXIA4dhKKiBuWJT05Aovd4EmhMTRjZ7e4rFTzBsYEBWuEpRl3rhmCbgfPSIdYJ2WT1GlAbpgN5yGBvfYOcTL/8PGuF7AuMjVPaqEbXtQ5UWFMG9b0io7jSQbF9IaO+Y1AxG5UL6Adc1ktSa+hhHw9jSG/auoY+e92xdUWqoWZHXt1/VFwhnyOmRNdzVjd6r/CIusZdTbcyF39fWaONbtoG8lUGrLkW988x3X0J/bbPoMbAXwKV025tRkEj8u1/3DZJq9pAZSyLjuRvYwvT6F66Fthrc5jnqiiOqTroo8S2kT6jXp3bqK1ZQN9fi3+skaWQNO+/0+lpGGro4y+DQEXrNZ/i4T3ctVypNWGj1oId8s1WDnFuSZ6P3srYjpa2GTTElRXmHogjWbmCHJZXeoZl94qr/VJY/pyszwPLA/njmeKtryGHitmFfLlEpxeFNUf6sSjpuDy+n3XsXLe6e7wHAXUu8w8hZCLOmyVcjkJyCYjoDznsCH2cj2mihx2jNnF8vW0PlUK1+RChqRR/dCtsb84FlLYI4woaNHggacc7dDqNxvws/j/Y/g2qDwPftUlTjKHaWfSlak1JXrGEDsSszSFJBZpTsp5sqwo0KiFKg67N3kYMw8AP9X2+gI4T8BrDdDlmcd4eddDWaHNQaMqURV6GkC4NSoiLo2GWm6nWBQmp8osYfUqWJ9q/S/vlzi/JsAief9Ohz0DmPSF8v1gtVmJyNnCDZhJ6JoiT6rqrKP1DAR4OlOkHL12N2giQSMFuoPNmpLYCIJ+L74zR2wwqG1g2d90OA33xdd+L+VtLXi6gbQZH9Fou/Mj6Ugd5LiHfYx3oL+q8eRpk81bNpf3Ncs56bESNj1i3lAT9hU5vfEtE7agISzm7TTd43RUFOR7tn30CTO7D335dQwbYSgMvrLmwZHgYaegUW9clj0i7vr9AjSIjAPv+TzrtTxA=
+sidebar_class_name: "get api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"デプロイキー一覧"} />
+
+
+<MethodEndpoint
+  method={"get"}
+  path={"/deployments/{deployment_name}/list_deploy_keys"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+指定されたデプロイメントのすべてのデプロイキーを一覧表示します。
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+  children={"リクエスト"}
+>
+</Heading>
+
+<ParamsDetails
+  parameters={[{"name":"deployment_name","in":"path","description":"デプロイメント名","required":true}]}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"ボディ"}
+  body={undefined}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"array","items":{"type":"object","required":["name","creationTime"],"properties":{"creationTime":{"type":"integer","format":"int64","description":"このトークンが作成された時刻（ミリ秒単位のタイムスタンプ）。"},"creator":{"oneOf":[{"type":"null"},{"description":"このデプロイキーを作成したメンバー ID（存在する場合）。","type":"integer","format":"int64","minimum":0,"title":"MemberId"}]},"lastUsedTime":{"type":["integer","null"],"format":"int64","description":"このトークンが最後に使用された時刻（使用されている場合、ミリ秒単位のタイムスタンプ）。"},"name":{"type":"string","description":"作成時にこのデプロイキーに付けられた名前。"}},"title":"PlatformDeployKeyResponse"}}}}}}}
+>
+  
+</StatusCodes>

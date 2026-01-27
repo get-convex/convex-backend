@@ -1,0 +1,123 @@
+---
+id: convex-management-api
+title: "Convex 管理 API"
+description: "用于创建和管理 Convex 项目和部署的管理 API。"
+sidebar_label: 简介
+sidebar_position: 0
+hide_title: true
+custom_edit_url: null
+---
+
+import ApiLogo from "@theme/ApiLogo";
+import Heading from "@theme/Heading";
+import SchemaTabs from "@theme/SchemaTabs";
+import TabItem from "@theme/TabItem";
+import Export from "@theme/ApiExplorer/Export";
+
+<span className={"theme-doc-version-badge badge badge--secondary"} children={"版本：1.0.0"} />
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Convex 管理 API"} />
+
+用于配置和管理 Convex 项目和部署的 API。
+
+<div style={{"marginBottom":"2rem"}}>
+  <Heading id={"authentication"} as={"h2"} className={"openapi-tabs__heading"} children={"身份验证"} />
+
+  <SchemaTabs className={"openapi-tabs__security-schemes"}>
+    <TabItem label={"HTTP: Bearer 认证"} value={"OAuth Project Token"}>
+      通过 [Convex OAuth 应用](https://docs.convex.dev/management-api) 获取。
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                安全方案类型：
+              </th>
+
+              <td>
+                http
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                HTTP 授权方案：
+              </th>
+
+              <td>
+                bearer
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"HTTP: Bearer 认证"} value={"OAuth Team Token"}>
+      通过 [Convex OAuth 应用](https://docs.convex.dev/management-api) 获取。
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                安全方案类型：
+              </th>
+
+              <td>
+                http
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                HTTP 授权方案：
+              </th>
+
+              <td>
+                bearer
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+
+    <TabItem label={"HTTP: Bearer 认证"} value={"Team Token"}>
+      可在仪表盘中你有管理权限的任意团队的“团队设置”下创建。
+
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                安全方案类型：
+              </th>
+
+              <td>
+                http
+              </td>
+            </tr>
+
+            <tr>
+              <th>
+                HTTP 授权方案：
+              </th>
+
+              <td>
+                bearer
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+  </SchemaTabs>
+</div>
+
+<div style={{"marginBottom":"var(--ifm-paragraph-margin-bottom)"}}>
+  <h3 style={{"marginBottom":"0.25rem"}}>
+    许可证
+  </h3>
+</div>

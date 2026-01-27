@@ -1,0 +1,22 @@
+{
+  "link.item.label.Releases": {
+    "message": "Lanzamientos",
+    "description": "Etiqueta del enlace del pie de página con label=\"Releases\" que apunta a https://convex.dev/releases"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Etiqueta del enlace del pie de página con label=\"GitHub\" que apunta a https://github.com/get-convex"
+  },
+  "link.item.label.Discord": {
+    "message": "Discord",
+    "description": "Etiqueta del enlace del pie de página con label=\"Discord\" que apunta a https://convex.dev/community"
+  },
+  "link.item.label.Twitter": {
+    "message": "Twitter",
+    "description": "Etiqueta del enlace del pie de página con label=\"Twitter\" que apunta a https://twitter.com/convex"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 Convex, Inc.",
+    "description": "Texto de copyright del pie de página"
+  }
+}

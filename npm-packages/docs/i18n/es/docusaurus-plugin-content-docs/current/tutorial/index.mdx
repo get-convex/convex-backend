@@ -1,0 +1,346 @@
+---
+title: "Tutorial de Convex: una aplicación de chat"
+sidebar_label: "1. Una aplicación de chat"
+sidebar_position: 100
+hide_table_of_contents: true
+pagination_next: tutorial/actions
+pagination_label: "Tutorial de Convex: una aplicación de chat"
+description:
+  "Crea una aplicación de chat en tiempo real con Convex utilizando consultas, mutaciones y
+  el motor de sincronización para mantener actualizados automáticamente todos los clientes conectados."
+---
+
+# Tutorial de Convex: Una aplicación de chat \{#convex-tutorial-a-chat-app\}
+
+Convex te proporciona un backend con todas las funciones: funciones en la nube,
+base de datos, programación de tareas y un motor de sincronización que mantiene tu frontend y tu backend
+siempre actualizados en tiempo real.
+
+Hoy, en unas **10 líneas de código,** crearemos un backend que lee y
+escribe en la base de datos y actualiza automáticamente a todos los usuarios en una aplicación de chat.
+
+Después veremos cómo conectar con servicios externos y configurar tu producto
+para que tenga éxito y escale sin problemas.
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/608khv7qqOI?si=ce-M8pt6EWDZ8tfd" title="Reproductor de vídeo de YouTube" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## Comienza a desarrollar con Convex \{#start-developing-with-convex\}
+
+<Details summary="Antes de comenzar: Necesitarás Node.js 18+ y Git">
+  Asegúrate de tener instalada en tu computadora la versión 18 o superior de Node.js.
+  Puedes comprobar tu versión de Node.js ejecutando `node --version` en tu terminal.
+  Si no tienes instalada la versión adecuada de Node.js,
+  [instálala desde el sitio web de Node.js.](https://nodejs.org/en)
+
+  Además, este tutorial requiere Git, así que verifica que lo tengas instalado
+  ejecutando `git -v` en tu terminal. Si no es así, ve al
+  [sitio web de Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) para
+  consultar las instrucciones de instalación.
+</Details>
+
+Primero, clona el repositorio del proyecto de ejemplo desde GitHub e instala las dependencias:
+
+```shell
+git clone https://github.com/get-convex/convex-tutorial.git
+cd convex-tutorial
+npm install
+```
+
+El comando npm `dev` de esta aplicación prepara Convex y luego ejecuta la aplicación web:
+
+```shell
+npm run dev
+```
+
+Durante la configuración verás que Convex usa tu cuenta de GitHub para la
+autenticación. Inicia sesión en Convex con GitHub y luego acepta las opciones
+predeterminadas del asistente de configuración del proyecto.
+
+Esto **creará automáticamente tu backend** y una carpeta llamada `convex/` en
+tu proyecto, donde escribirás tu código de backend.
+
+**Asegúrate de mantener este comando (`npm run dev`) ejecutándose en segundo
+plano durante todo este tutorial.** Está ejecutando tanto el servidor web de
+desarrollo del frontend como el comando `convex` en segundo plano para
+mantener tu backend sincronizado con tu código local.
+
+Una vez que tu servidor esté en funcionamiento, abre [localhost:5173](http://localhost:5173)
+y échale un vistazo:
+
+<div className="center-image" style={{ maxWidth: "676px" }}>
+  ![Chat UI](/img/tutorial/tut_chat_ui.png)
+</div>
+
+Si intentas enviar un mensaje ahora, verás una alerta que te indica que la
+mutación aún no está implementada. Lo haremos en un momento, pero antes aquí
+tienes un resumen rápido de cómo funciona Convex.
+
+## Cómo funciona Convex \{#how-convex-works\}
+
+<div className="center-image" style={{ maxWidth: "700px" }}>
+  ![Descripción general del motor de sincronización](/img/tutorial/ConvexSyncEngine.png)
+</div>
+
+**Base de datos.** La base de datos de Convex es una base de datos documental‑relacional, lo que significa que dispones de tablas con documentos de tipo JSON. Todos los documentos tienen un `_id` autogenerado que se puede usar para crear relaciones entre documentos. Interactúas con la base de datos mediante funciones de mutación y de consulta que están escritas completamente en TypeScript.
+
+**Funciones de mutación.** Las mutaciones son funciones de TypeScript que actualizan la
+base de datos. Todas las funciones de mutación en Convex se ejecutan como una transacción de base de datos. Así, o bien se confirman todos los cambios, o no se confirma ninguno.
+
+**Funciones de consulta.** Las consultas son funciones de TypeScript que solo pueden leer de
+la base de datos. Como veremos en un momento, te suscribes a ellas desde tu frontend para
+mantener tu app automáticamente actualizada.
+
+Tu frontend se suscribe para recibir actualizaciones de consultas a través de la **biblioteca cliente**. Las bibliotecas cliente se comunican con Convex mediante WebSockets para actualizaciones rápidas en tiempo real.
+
+El **motor de sincronización** vuelve a ejecutar las funciones de consulta cuando cualquier parámetro de entrada de la función
+cambia, incluidas las modificaciones en los documentos de la base de datos que la consulta
+lee. Luego actualiza todas las aplicaciones que están escuchando esa consulta. El motor de sincronización es la
+combinación de consultas, mutaciones y la base de datos.
+
+Ahora, ¡veamos el código!
+
+## Tu primera `mutación` \{#your-first-mutation\}
+
+Crea un nuevo archivo en tu carpeta `convex/` llamado `chat.ts`. Aquí es donde
+escribirás tus funciones del backend de Convex para esta aplicación.
+
+**Añade lo siguiente a tu archivo `convex/chat.ts`.**
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const sendMessage = mutation({
+  args: {
+    user: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("Esta función de TypeScript se ejecuta en el servidor.");
+    await ctx.db.insert("messages", {
+      user: args.user,
+      body: args.body,
+    });
+  },
+});
+```
+
+Desglosemos esto:
+
+1. Has agregado una nueva función de backend de tipo `mutation` llamada `sendMessage` y
+   la has expuesto como una API pública.
+2. Toda la función se ejecuta automáticamente como una transacción que se revertirá si
+   se lanza una excepción.
+3. Dado que esto es solo una función de TypeScript, puedes agregar líneas de `console.log`
+   para hacer depuración sencilla en el servidor.
+4. `args:` garantiza que los argumentos de la función sean dos strings llamados `user` y
+   `body`, tanto a nivel de tipos como en tiempo de ejecución.
+5. `ctx.db.insert` le indica a Convex que inserte un nuevo documento de mensaje en la tabla.
+
+Ahora, conectemos esta mutación a tu aplicación web.
+
+**Actualiza tu archivo `src/App.tsx` así:**
+
+```tsx
+// highlight-next-line
+// Importa `useMutation` y `api` desde Convex.
+// highlight-next-line
+import { useMutation } from "convex/react";
+// highlight-next-line
+import { api } from "../convex/_generated/api";
+
+//...
+
+export default function App() {
+  // highlight-next-line
+  // Reemplaza "TODO: Add mutation hook here." con:
+  // highlight-next-line
+  const sendMessage = useMutation(api.chat.sendMessage);
+
+  //...
+
+  return (
+    <main className="chat">
+      {/* ... */}
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          // highlight-next-line
+          // Reemplaza "alert("Mutation not implemented yet");" con:
+          // highlight-next-line
+          await sendMessage({ user: NAME, body: newMessageText });
+
+          setNewMessageText("");
+        }}
+      >
+        {/* ... */}
+      </form>
+    </main>
+  );
+}
+```
+
+Hay dos pasos para llamar a una mutación en tu frontend:
+
+1. `const sendMessage = useMutation(api.chat.sendMessage);` le da a tu app de
+   frontend una referencia a la función de mutación
+2. `await sendMessage({ user: NAME, body: newMessageText });` llama a la
+   mutación con los parámetros correctos.
+
+Este es un buen momento para **abrir el panel de control de Convex**. Abre una
+nueva ventana del navegador y ve a
+[https://dashboard.convex.dev](https://dashboard.convex.dev) y encuentra el
+nuevo proyecto `convex-tutorial`.
+
+**Ve a la pantalla &quot;Datos&quot;**. Hasta ahora, no hay datos en tu base de datos.
+
+**Mantén tu app de chat y la ventana del panel de control abiertas lado a lado**.
+Ahora intenta enviar algunos mensajes desde tu app de chat.
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_first_mutation.mp4" type="video/mp4" />
+
+  Mutaciones conectadas al backend y la base de datos de Convex.
+</video>
+
+Verás que nuevos mensajes de chat aparecen en tiempo real en la tabla `messages`.
+
+Convex creó automáticamente una tabla `messages` cuando enviaste el primer
+mensaje. En Convex, los [esquemas](/database/schemas.mdx) son opcionales. Con el
+tiempo, querrás imponer la estructura de tus tablas, pero para los propósitos
+de este tutorial nos saltaremos esto.
+
+En el panel de control también puedes ir a la
+[pantalla de registros](https://dashboard.convex.dev/deployment/logs) y ver
+cada llamada a la mutación cuando se ejecutó, junto con la línea de registro
+que agregamos antes. La pantalla de registros es una parte fundamental para
+depurar tu backend en desarrollo.
+
+Has creado correctamente una función de `mutación`, que también es una
+transacción de base de datos, y la has conectado a tu interfaz de usuario.
+
+Ahora, asegurémonos de que tu app pueda actualizarse en tiempo real de la misma
+forma en que el panel de control se está actualizando en tiempo real.
+
+## Tu primera `query` \{#your-first-query\}
+
+**Actualiza tu archivo `convex/chat.ts` de la siguiente manera:**
+
+```tsx
+// highlight-next-line
+// Update your server import like this:
+// highlight-next-line
+import { query, mutation } from "./_generated/server";
+
+// ...
+
+// highlight-next-line
+// Add the following function to the file:
+// highlight-next-line
+export const getMessages = query({
+  // highlight-next-line
+  args: {},
+  // highlight-next-line
+  handler: async (ctx) => {
+    // highlight-next-line
+    // Get most recent messages first
+    // highlight-next-line
+    const messages = await ctx.db.query("messages").order("desc").take(50);
+    // highlight-next-line
+    // Invierte la lista para que esté en orden cronológico.
+    // highlight-next-line
+    return messages.reverse();
+    // highlight-next-line
+  },
+  // highlight-next-line
+});
+```
+
+Analicemos esto:
+
+1. Has agregado una nueva función de consulta de backend llamada `getMessages` y la has expuesto
+   como una API pública.
+2. Como esta es una función de consulta, `ctx.db` en esta función solo te permite
+   leer datos.
+3. En la primera línea del `handler` estás consultando los 50 mensajes más recientes,
+   del más nuevo al más antiguo.
+4. En la segunda línea estás invirtiendo la lista usando TypeScript puro.
+
+**Ahora actualiza `src/App.tsx` para leer datos de tu consulta:**
+
+```tsx
+// highlight-next-line
+// Update your convex/react import like this:
+// highlight-next-line
+import { useQuery, useMutation } from "convex/react";
+
+//...
+
+export default function App() {
+  // highlight-next-line
+  // Reemplaza la línea `const messages = ...` con lo siguiente:
+  // highlight-next-line
+  const messages = useQuery(api.chat.getMessages);
+
+  //...
+}
+```
+
+Esa única línea de `useQuery` está haciendo mucho trabajo automáticamente por ti. Le indica a la librería cliente de Convex que se suscriba a tu función `getMessages`. Cada vez que haya nuevos mensajes que mostrar, la función de consulta se vuelve a ejecutar automáticamente. El resultado se guarda en la variable `const messages` y React vuelve a renderizar tu componente de UI para mostrar los mensajes más recientes.
+
+Eso es todo. Ahora vuelve a tu aplicación e intenta enviar mensajes.
+
+Tu aplicación debería mostrar actualizaciones en tiempo real a medida que lleguen nuevos mensajes:
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_first_query.mp4" type="video/mp4" />
+
+  Consultas conectadas y actualizándose en vivo en la aplicación.
+</video>
+
+<br />
+
+<br />
+
+¿No te lo crees? Intenta abrir dos ventanas de chat una al lado de la otra y envía algunos
+mensajes:
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_side_by_side.mp4" type="video/mp4" />
+
+  Aplicación de chat sincronizándose en vivo.
+</video>
+
+## Lo que has creado \{#what-you-built\}
+
+Con solo unas pocas líneas de código has creado una aplicación de chat que se actualiza en tiempo real.
+
+1. Creaste una función de TypeScript de `mutación` que, en una transacción, agrega nuevos mensajes de chat a tu base de datos.
+2. Creaste una función de TypeScript de `consulta` que actualiza tu aplicación con los datos más recientes.
+3. Usaste la biblioteca cliente que mantiene tu frontend sincronizado en tiempo real con el backend.
+
+Has aprendido los fundamentos de Convex y el motor de sincronización que impulsa todo.
+
+## A continuación \{#next-up\}
+
+En este tutorial solo hemos visto lo más básico. Está bien detenerte aquí
+y explorar el resto de la documentación, incluyendo
+[consultas eficientes mediante índices](/database/reading-data/indexes/indexes.md) y
+recorrer
+[relaciones mediante joins](/database/reading-data/reading-data.mdx#join). Si
+te intriga cómo funciona Convex, puedes leer este
+[excelente análisis en profundidad](https://stack.convex.dev/how-convex-works).
+
+Pero si quieres ver cómo llamar a servicios externos y crear flujos de trabajo
+de backend sofisticados, salta a la [siguiente sección →](/tutorial/actions.mdx).
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "/tutorial/actions",
+  docId: "tutorial/actions",
+  label: "Llamar a servicios externos",
+}}
+/>

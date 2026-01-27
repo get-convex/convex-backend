@@ -1,0 +1,172 @@
+---
+title: "Convex を Netlify で使う"
+sidebar_label: "Netlify"
+description: "フロントエンドを Netlify に、バックエンドを Convex にホストする"
+sidebar_position: 20
+---
+
+Convex アプリを Netlify にホストすると、コードをプッシュするたびに
+バックエンドとフロントエンドの両方が自動的に再デプロイされます。
+
+## Netlify へのデプロイ \{#deploying-to-netlify\}
+
+このガイドでは、すでに Convex を利用した動作する React アプリがあることを前提とします。まだの場合は、先に [Convex React クイックスタート](/quickstart/react.mdx) を完了してください。その後、次の手順を実行します。
+
+<StepByStep>
+  <Step title="Netlify アカウントを作成する">
+    まだ作成していない場合は、[Netlify](https://netlify.com) アカウントを作成してください。
+    小規模なプロジェクトであれば無料で利用でき、セットアップは 1 分もかからないはずです。
+
+    <>    </>
+  </Step>
+
+  <Step title="Netlify でプロジェクトをリンクする">
+    https://app.netlify.com/start で Netlify プロジェクトを作成し、
+    プロジェクトのソースコードリポジトリ（GitHub などの Git プラットフォーム）にリンクします。
+
+    <div className="screenshot-border">
+      ![Netlify import project](/screenshots/netlify_import.png)
+    </div>
+  </Step>
+
+  <Step title="ビルドコマンドを上書きする">
+    *Build command* を
+    `npx convex deploy --cmd 'npm run build'`
+    に設定し直します。
+
+    プロジェクトがリポジトリ内のサブディレクトリにある場合は、
+    Netlify の *Base directory* もそれに合わせて変更する必要があります。
+
+    <div className="screenshot-border">
+      ![Netlify build settings](/screenshots/netlify_build_settings.png)
+    </div>
+  </Step>
+
+  <Step title="CONVEX_DEPLOY_KEY 環境変数を設定する">
+    [Convex Dashboard](https://dashboard.convex.dev/)
+    で、プロジェクトの *Settings* ページに移動します。*Generate* ボタンをクリックして、**Production** デプロイキーを生成します。
+    次に、コピー ボタンをクリックしてキーをコピーします。
+
+    Netlify で、*Add environment variables* と *New variable* をクリックします。
+
+    環境変数 `CONVEX_DEPLOY_KEY` を作成し、
+    デプロイキーを貼り付けます。
+
+    <div className="screenshot-border">
+      ![Netlify environment variable CONVEX\_DEPLOY\_KEY](/screenshots/netlify_prod_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="サイトをデプロイする">
+    *Deploy* ボタンをクリックすれば、ここでの作業は完了です。
+
+    <>    </>
+  </Step>
+</StepByStep>
+
+Netlify は、自動的にサイトを
+`https://<site-name>.netlify.app`
+という URL で公開し、この URL はサイト概要ページの上部に表示されます。
+git リポジトリに push するたびに、Netlify は自動的に Convex 関数をデプロイし、
+サイトの変更を公開します。
+
+<Admonition type="info" title="カスタムドメインを使用していますか？">
+  Convex 関数を配信するのにカスタムドメインを使用している場合は、
+  追加の設定が必要です。詳しくは
+  [Custom Domains](/production/hosting/custom.mdx#hosting-with-a-custom-domain)
+  を参照してください。
+</Admonition>
+
+### 仕組み \{#how-it-works\}
+
+Netlify では、*Build Command* を次のように設定します:
+`npx convex deploy --cmd 'npm run build'`。
+
+`npx convex deploy` は環境変数から `CONVEX_DEPLOY_KEY` を読み取り、それを使って
+`CONVEX_URL`（または同様の名前の）環境変数を設定し、**本番**デプロイメントを指すようにします。
+
+`npm run build` によって起動される使用中のフロントエンドフレームワークは、
+`CONVEX_URL` 環境変数を読み取り、デプロイされたサイトを（`ConvexReactClient` 経由で）
+**本番**デプロイメントに向けるようにします。
+
+最後に、`npx convex deploy` が Convex の関数群を本番デプロイメントにプッシュします。
+
+これで、本番デプロイメントには最新の関数が配置され、アプリはそのデプロイメントに
+接続するよう構成されています。
+
+`deploy` コマンドが変数名を推論できない場合は、`--cmd-url-env-var-name` を使って
+フロントエンドコードで利用する環境変数名をカスタマイズできます。例えば、次のようにします。
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+## 認証 \{#authentication\}
+
+本番環境の `<site-name>.netlify.app` URL を受け付けるように、[認証](/auth.mdx) プロバイダー（Clerk、Auth0 など）を設定してください。
+
+## デプロイプレビュー \{#deploy-previews\}
+
+Netlify の Deploy Previews を使うと、アプリへの変更をマージする前にプレビューできます。フロントエンドコードと Convex
+関数の両方の変更をプレビューするには、
+[Convex プレビューデプロイメント](/production/hosting/preview-deployments.mdx) を設定します。
+
+これによりプレビューごとに新しい Convex バックエンドが作成され、本番および開発デプロイメントには影響しません。
+
+ここでは、すでに上で説明した
+[Netlify へのデプロイ](#deploying-to-netlify) を完了していることを前提とします。
+
+<StepByStep>
+  <Step title="CONVEX_DEPLOY_KEY 環境変数をセットアップする">
+    [Convex Dashboard](https://dashboard.convex.dev/) にアクセスし、
+    プロジェクトの *Settings* ページに移動します。*Generate Preview Deploy Key* ボタンをクリックして **Preview** デプロイキーを生成します。
+    その後、コピーボタンをクリックしてキーをコピーします。
+
+    Netlify で、*Site configuration* &gt; *Environment variables* をクリックします。既存の `CONVEX_DEPLOY_KEY` 環境変数を編集します。
+    *Different value for each deploy context* を選択し、*Deploy Previews* の欄にキーを貼り付けます。
+
+    <div className="screenshot-border">
+      ![Netlify 環境変数 CONVEX\_DEPLOY\_KEY](/screenshots/netlify_preview_deploy_key.png)
+    </div>
+  </Step>
+
+  <Step title="（任意）デフォルトの環境変数をセットアップする">
+    アプリが特定の Convex の環境変数に依存している場合、プレビューおよび開発デプロイメント用の
+    [デフォルトの環境変数](/production/environment-variables.mdx#project-environment-variable-defaults) をプロジェクトに設定できます。
+
+    <div className="screenshot-border">
+      ![プロジェクトのデフォルト環境変数](/screenshots/project_default_environment_variables.png)
+    </div>
+  </Step>
+
+  <Step title="（任意）初期データをセットアップする関数を実行する">
+    デプロイプレビューは新しい Convex バックエンドに対して実行され、開発または本番の Convex デプロイメントとデータを共有しません。`npx
+      convex deploy` コマンドに `--preview-run 'functionName'` を追加して Convex
+    関数を呼び出し、データをセットアップできます。この関数はプレビューデプロイメントに対してのみ実行され、本番環境へのデプロイ時には無視されます。
+
+    ```sh title="Netlify > Site configuration > Build & deploy > Build settings > Build command"
+    npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+    ```
+  </Step>
+
+  <Step title="PR を作成して Deploy Preview を生成してみましょう！">
+    ブランチごとの Convex デプロイメントは Convex ダッシュボードで確認できます。
+
+    <div className="screenshot-border">
+      ![Deployment Picker に表示されるプレビューデプロイメント](/screenshots/preview_deployment_deployment_picker.png)
+    </div>
+  </Step>
+</StepByStep>
+
+### 仕組み \{#how-it-works\}
+
+Deploy Preview の場合、`npx convex deploy` は環境変数から `CONVEX_DEPLOY_KEY` を読み取り、それを使って、その Deploy Preview 用の Git ブランチ名に紐づいた Convex デプロイメントを作成します。さらに、新しい Convex デプロイメントを指すように `CONVEX_URL`（または同様の名前の）環境変数を設定します。
+
+`npm run build` で呼び出される任意のフロントエンドフレームワークは
+`CONVEX_URL` 環境変数を読み取り、`ConvexReactClient` を通じて、デプロイされたサイトを Convex のプレビューデプロイメントに向けます。
+
+最後に、`npx convex deploy` は Convex 関数をプレビューデプロイメントにプッシュし、（指定されていれば）`--preview-run` 関数を実行します。このデプロイメントは、他のどのデプロイメントとも別個の関数、データ、cron ジョブ、およびその他すべての設定を持ちます。
+
+`npx convex deploy` は Vercel、Netlify、GitHub、GitLab の各環境では Git ブランチ名を自動的に推測しますが、`--preview-create` オプションを使うと、新しく作成されるデプロイメントに紐づける名前をカスタマイズできます。
+
+本番デプロイメントは、これまでとまったく同じように動作します。

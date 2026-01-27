@@ -1,0 +1,92 @@
+---
+title: "Tutorial de Convex: Escalar tu aplicación"
+sidebar_label: "3. Escalar tu aplicación"
+slug: "scale"
+sidebar_position: 300
+hide_table_of_contents: true
+description:
+  "Aprende a escalar tu aplicación de Convex usando índices, gestionando
+  conflictos de escritura y aprovechando los Convex Components para seguir las mejores prácticas."
+---
+
+import ComponentsIcon from "@site/static/img/sidebar-icons/components.svg";
+
+# Tutorial de Convex: Escalar tu app \{#convex-tutorial-scaling-your-app\}
+
+Convex se diseñó desde cero para escalar. En la sección anterior
+ya hablamos de que mantener tus acciones pequeñas y la mayor parte de tu lógica en
+consultas y mutaciones es crucial para crear backends rápidos y escalables.
+
+Hablemos de algunas otras formas de mantener tu app rápida y escalable.
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/7lOGqFHnEsA" title="Reproductor de video de YouTube" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## Consultas indexadas \{#indexed-queries\}
+
+Los índices le indican a la base de datos que cree una estructura de búsqueda que haga
+muy rápido filtrar datos. Si, en nuestra aplicación de chat, quisiéramos una forma de buscar `messages`
+de un solo usuario, le diríamos a Convex que indexe el campo `user` de la tabla `messages`
+y escribiríamos la consulta con la sintaxis `withIndex`.
+
+[Aprende a usar índices](/database/reading-data/indexes/indexes.md).
+
+## Demasiadas escrituras en el mismo documento \{#too-many-writes-on-the-same-document\}
+
+Supongamos que decides mostrar un contador en tu app. Puedes escribir una mutación
+que lea un campo numérico, sume 1 y actualice el mismo campo en la base de datos.
+En algún momento, este patrón puede causar un
+[conflicto de control de concurrencia optimista](/error#1). Eso significa que la
+base de datos no es capaz de manejar la actualización del documento tan rápido. Todas las bases de datos
+tienen problemas con este tipo de patrón.
+
+Hay [varias formas de manejar esto](/error#remediation), incluyendo construir
+algo llamado contador fragmentado (sharded counter)...
+
+Pero antes de ir a aprender por tu cuenta técnicas avanzadas de escalado, hay una
+mejor manera con [Convex Components](/components.mdx).
+
+## Mejores prácticas de escalado con Convex Components \{#scaling-best-practices-with-convex-components\}
+
+En el caso del contador anterior, el equipo de Convex ya ha creado un
+[contador escalable](https://www.convex.dev/components/sharded-counter), un componente de Convex
+para que puedas usarlo.
+
+Los Convex Components se despliegan junto con tu backend de Convex, pero tienen sus
+propias tablas y funciones.
+
+A medida que crees funcionalidades más complejas como [agentes de IA](/agents.mdx),
+[flujos de trabajo](https://www.convex.dev/components/workflow),
+[tablas de clasificación](https://www.convex.dev/components/aggregate),
+[feature flags](https://www.convex.dev/components/launchdarkly) o
+[limitadores de velocidad](https://www.convex.dev/components/rate-limiter), es posible que
+descubras que ya existe un Convex Component que resuelve este problema.
+[Obtén más información sobre Convex Components aquí](/components.mdx).
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  icon: <ComponentsIcon height={40} />,
+  href: "https://www.convex.dev/components",
+  label: "Directorio de Components",
+}}
+/>
+
+## Conclusión \{#wrap-up\}
+
+Hemos cubierto mucho terreno en este tutorial. Empezamos
+[creando una aplicación de chat](/tutorial/index.mdx) con consultas, mutaciones y la
+base de datos, que son los bloques fundamentales del motor de
+sincronización de Convex. Luego llamamos a una
+[API externa](/tutorial/actions.mdx) desde nuestro backend, usando el
+scheduler para coordinar el trabajo. Por último, aprendimos que
+[Convex Components](/components.mdx) te ofrecen las mejores prácticas de escalabilidad en
+paquetes muy prácticos.
+
+Si buscas más consejos, lee nuestras
+[mejores prácticas](/understanding/best-practices/best-practices.mdx) y únete a la
+[comunidad](https://www.convex.dev/community).
+
+Convex te permite crear tu MVP rápidamente y luego escalarlo a un nuevo nivel. Muchos
+productos excelentes ya lo han hecho. Estás en buena compañía.

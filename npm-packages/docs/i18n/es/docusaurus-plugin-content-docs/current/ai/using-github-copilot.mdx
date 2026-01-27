@@ -1,0 +1,72 @@
+---
+title: "Uso de GitHub Copilot con Convex"
+sidebar_position: 200
+sidebar_label: Uso de GitHub Copilot
+description: "Consejos y buenas prácticas para usar GitHub Copilot con Convex"
+slug: "using-github-copilot"
+---
+
+[GitHub Copilot](https://github.com/features/copilot), la IA integrada en VS
+Code, hace que sea más fácil escribir y mantener aplicaciones creadas con Convex. Veamos
+cómo configurar GitHub Copilot para obtener los mejores resultados posibles con Convex.
+
+## Agregar instrucciones de Convex \{#add-convex-instructions\}
+
+Agrega el siguiente archivo de
+[instrucciones](https://code.visualstudio.com/docs/copilot/copilot-customization#_instruction-files)
+al directorio `.github/instructions` de tu proyecto y se incluirá
+automáticamente cuando trabajes con archivos de TypeScript o JavaScript:
+
+* [convex.instructions.md](https://convex.link/convex_github_copilot_instructions)
+
+![Mostrando dónde colocar las instrucciones de GitHub Copilot](/img/showing-where-to-put-convex-instructions.png)
+
+Si prefieres que el archivo de instrucciones NO se incluya automáticamente en el
+contexto, abre el archivo en tu editor y modifica el campo `applyTo` en la
+parte superior. Lee más sobre archivos de instrucciones aquí:
+https://code.visualstudio.com/docs/copilot/copilot-customization#&#95;use-instructionsmd-files
+
+Estamos trabajando constantemente para mejorar la calidad de estas reglas para Convex mediante evals rigurosas. Puedes ayudar
+[colaborando en nuestro repositorio de evals](https://github.com/get-convex/convex-evals).
+
+## Configura el servidor Convex MCP \{#setup-the-convex-mcp-server\}
+
+La CLI de Convex incluye un servidor
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx) (MCP) integrado. El
+servidor Convex MCP le da a tu agente de programación con IA acceso a tu
+despliegue de Convex para realizar consultas y optimizar tu proyecto.
+
+Para empezar con
+[MCP en VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers),
+crea un archivo en `.vscode/mcp.json` y agrega lo siguiente:
+
+```json
+{
+  "servers": {
+    "convex-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+Una vez hecho esto, el servidor MCP tardará unos segundos en iniciarse y luego
+deberías ver la herramienta de Convex mostrada en CodeLens:
+
+![Convex Tool in Codelens](/img/convex-tool-in-codelens.png)
+
+y en la selección de herramientas a las que el modelo tiene acceso en el chat:
+
+![Convex Tool in Chat](/img/convex-tools-in-chat.png)
+
+Ahora empieza a hacerle preguntas como:
+
+* Evalúa un esquema de Convex y sugiere mejoras
+* ¿Cuáles son los endpoints públicos de esta app?
+* Ejecuta la consulta `my_convex_function`
+
+Si quieres usar el servidor MCP de forma global para todos tus proyectos, puedes
+añadirlo a tu configuración de usuario; consulta esta documentación para más información:
+https://code.visualstudio.com/docs/copilot/chat/mcp-servers#&#95;add-an-mcp-server-to-your-user-settings

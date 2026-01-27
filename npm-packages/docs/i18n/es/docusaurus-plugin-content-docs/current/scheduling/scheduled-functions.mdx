@@ -1,0 +1,155 @@
+---
+title: Funciones programadas
+sidebar_position: 1
+description: "Programa funciones para que se ejecuten en el futuro"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/messages.ts";
+
+Convex te permite programar funciones para que se ejecuten en el futuro. Esto te
+permite crear potentes flujos de trabajo persistentes sin necesidad de configurar
+ni mantener colas u otra infraestructura.
+
+Las funciones programadas se almacenan en la base de datos. Esto significa que puedes programar
+funciones para que se ejecuten dentro de minutos, días e incluso meses. La programación es resiliente
+frente a tiempos de inactividad inesperados o reinicios del sistema.
+
+**Ejemplo:**
+[Scheduling](https://github.com/get-convex/convex-demos/tree/main/scheduling)
+
+## Programar funciones \{#scheduling-functions\}
+
+Puedes programar funciones públicas y
+[funciones internas](/functions/internal-functions.mdx) desde mutaciones y
+acciones mediante el [scheduler](/api/interfaces/server.Scheduler) disponible
+en el contexto de cada función.
+
+* [runAfter](/api/interfaces/server.Scheduler#runafter) programa una función
+  para que se ejecute tras un retardo (medido en milisegundos).
+* [runAt](/api/interfaces/server.Scheduler#runat) programa la ejecución de una
+  función en una fecha o marca de tiempo (medida en milisegundos transcurridos
+  desde la época Unix).
+
+El resto de los argumentos corresponde a la ruta de la función y sus argumentos,
+de forma similar a invocar una función desde el cliente. Por ejemplo, así es
+como se envía un mensaje que se autodestruye en cinco segundos.
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-runAfter" highlightPatterns={["scheduler", "runAfter"]} />
+
+Una sola función puede programar hasta 1000 funciones con un tamaño total de
+argumentos de 8 MB.
+
+### Programación desde mutaciones \{#scheduling-from-mutations\}
+
+La programación de funciones desde
+[mutaciones](/functions/mutation-functions.mdx#transactions) es atómica junto con el
+resto de la mutación. Esto significa que, si la mutación se completa correctamente, se garantiza que la función programada quedará efectivamente programada. Por otro lado, si la mutación falla, no se programará ninguna función, incluso si la función falla después de la llamada de programación.
+
+### Programar desde acciones \{#scheduling-from-actions\}
+
+A diferencia de las mutaciones, las [acciones](/functions/actions.mdx) no se ejecutan
+como una única transacción de base de datos y pueden tener efectos secundarios.
+Por lo tanto, programar desde acciones no depende del resultado de la función.
+Esto significa que una acción podría programar correctamente algunas funciones y luego
+fallar debido a un error transitorio o a un tiempo de espera. Las funciones
+programadas se ejecutarán igualmente.
+
+### Programar inmediatamente \{#scheduling-immediately\}
+
+Usar `runAfter()` con el retraso establecido en 0 sirve para agregar una función
+inmediatamente a la cola de eventos. Es posible que este uso te resulte familiar si
+estás acostumbrado a llamar a `setTimeout(fn, 0)`.
+
+Como se señaló arriba, las acciones no son atómicas y están pensadas para causar efectos secundarios.
+Programar inmediatamente se vuelve útil cuando quieres específicamente iniciar una
+acción desde una mutación que depende de que la mutación se complete correctamente.
+[Esta publicación](https://stack.convex.dev/pinecone-and-embeddings#kick-off-a-background-action)
+repasa un ejemplo concreto de esto en acción, donde la aplicación depende de
+un servicio externo para completar información en la base de datos.
+
+## Obtener el estado de una función programada \{#retrieving-scheduled-function-status\}
+
+Cada función programada se refleja como un documento en la tabla del sistema
+`"_scheduled_functions"`. `runAfter()` y `runAt()` devuelven el id
+de la función programada. Puedes leer datos de las tablas del sistema usando los
+métodos `db.system.get` y `db.system.query`, que funcionan igual que los
+métodos estándar `db.get` y `db.query`.
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-status" highlightPatterns={["system"]} />
+
+Este es un ejemplo del documento devuelto:
+
+```json
+{
+  "_creationTime": 1699931054642.111,
+  "_id": "3ep33196167235462543626ss0scq09aj4gqn9kdxrdr",
+  "args": [{}],
+  "completedTime": 1699931054690.366,
+  "name": "messages.js:destruct",
+  "scheduledTime": 1699931054657,
+  "state": { "kind": "success" }
+}
+```
+
+El documento devuelto tiene los siguientes campos:
+
+* `name`: la ruta de la función programada
+* `args`: los argumentos pasados a la función programada
+* `scheduledTime`: la marca de tiempo del momento en que está programado que la función se ejecute
+  (medida en milisegundos transcurridos desde la época Unix)
+* `completedTime`: la marca de tiempo del momento en que la función terminó de ejecutarse, si
+  se ha completado (medida en milisegundos transcurridos desde la época Unix)
+* `state`: el estado de la función programada. Estos son los posibles estados en los que
+  puede estar una función programada:
+  * `Pending`: la función aún no se ha iniciado
+  * `InProgress`: la función ha comenzado a ejecutarse y aún no se ha completado (solo
+    aplica a las acciones)
+  * `Success`: la función terminó de ejecutarse correctamente, sin errores
+  * `Failed`: la función encontró un error durante la ejecución, que puede ser
+    un error del usuario o un error interno del servidor
+  * `Canceled`: la función se canceló a través del panel de control,
+    `ctx.scheduler.cancel` o de forma recursiva por una función programada
+    padre que fue cancelada mientras estaba en curso
+
+Los resultados de las funciones programadas están disponibles durante 7 días después de que se hayan completado.
+
+## Cancelar funciones programadas \{#canceling-scheduled-functions\}
+
+Puedes cancelar una función programada previamente con
+[`cancel`](/api/interfaces/server.Scheduler#cancel) a través del
+[scheduler](/api/interfaces/server.Scheduler) proporcionado en el contexto
+de la función correspondiente.
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Example} sourceJS={Example} snippet="scheduling-cancel" highlightPatterns={["scheduler.cancel"]} />
+
+Lo que hace `cancel` depende del estado en el que se encuentre la función programada:
+
+* Si no ha comenzado a ejecutarse, no se ejecutará.
+* Si ya ha comenzado, continuará ejecutándose, pero cualquier función que programe
+  no se ejecutará.
+
+## Depuración \{#debugging\}
+
+Puedes ver los registros de funciones programadas que se hayan ejecutado previamente en el
+panel de control de Convex, en la [vista Logs](/dashboard/deployments/logs.md). Puedes ver y cancelar
+las funciones aún por ejecutar en la
+[vista Functions](/dashboard/deployments/functions.md).
+
+## Manejo de errores \{#error-handling\}
+
+Una vez programadas, las mutaciones tienen la garantía de ejecutarse exactamente una vez. Convex
+reintentará automáticamente cualquier error interno de Convex y solo fallará en caso de errores de
+desarrollador. Consulta [Manejo de errores](/functions/error-handling/error-handling.mdx) para
+más detalles sobre los diferentes tipos de errores.
+
+Dado que las acciones pueden tener efectos secundarios, no se reintentan automáticamente en
+Convex. Por lo tanto, las acciones se ejecutarán como máximo una vez y fallarán de forma
+permanente si hay errores temporales mientras se ejecutan. Los desarrolladores pueden volver
+a intentarlas manualmente programando una mutación que verifique si se ha logrado el resultado
+deseado y, si no, programe de nuevo la acción.
+
+## Auth \{#auth\}
+
+La autenticación no se propaga desde la planificación a la función programada. Si
+quieres autenticar o verificar la autorización, deberás pasar la información de
+usuario necesaria como parámetro.

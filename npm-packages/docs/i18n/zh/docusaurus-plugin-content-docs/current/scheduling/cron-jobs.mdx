@@ -1,0 +1,58 @@
+---
+title: "Cron 任务"
+sidebar_position: 2
+description: "在 Convex 中调度定时执行的函数"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/crons.ts";
+
+Convex 允许你按固定周期调度函数运行。比如，你可以使用 cron 作业定期清理数据、在每个月的同一时间发送提醒邮件，或者在每个星期六安排一次备份。
+
+**示例：**
+[Cron Jobs](https://github.com/get-convex/convex-demos/tree/main/cron-jobs)
+
+## 定义 cron 任务 \{#defining-your-cron-jobs\}
+
+Cron 任务定义在 `convex/` 目录下的 `crons.ts` 文件中，形式如下：
+
+<TSAndJSSnippet title="convex/crons.ts" sourceTS={Example} sourceJS={Example} />
+
+第一个参数是该 cron 任务的唯一标识符。
+
+第二个参数是函数应运行的调度计划，参见下方的
+[支持的调度](/scheduling/cron-jobs.mdx#supported-schedules)。
+
+第三个参数是公开函数或
+[内部函数](/functions/internal-functions.mdx) 的名称，可以是
+[变更](/functions/mutation-functions.mdx) 或
+[操作](/functions/actions.mdx)。
+
+## 支持的调度方式 \{#supported-schedules\}
+
+* [`crons.interval()`](/api/classes/server.Crons#interval) 会按指定数量的
+  `seconds`、`minutes` 或 `hours` 周期性运行一个函数。该 cron 任务在首次部署到 Convex
+  时会先运行一次。与传统 cron 不同，此选项可以精确到秒级。
+* [`crons.cron()`](/api/classes/server.Crons#cron) 是通过一个包含五个以空格分隔字段的字符串
+  来指定 cron 任务的传统方式
+  <nobr>(例如 `"* * * * *"`)</nobr>。cron 语法中的时间使用 UTC 时区。
+  [Crontab Guru](https://crontab.guru/) 是一个理解和创建此格式调度计划的实用资源。
+* [`crons.hourly()`](/api/classes/server.Crons#cron),
+  [`crons.daily()`](/api/classes/server.Crons#daily),
+  [`crons.weekly()`](/api/classes/server.Crons#weekly),
+  [`crons.monthly()`](/api/classes/server.Crons#monthly) 提供了一个带有显式命名参数的备用语法，用于定义常见的 cron 调度。
+
+## 查看你的 cron 作业 \{#viewing-your-cron-jobs\}
+
+你可以在
+[Convex 仪表盘的 cron 作业视图](/dashboard/deployments/schedules.md#cron-jobs-ui)
+中查看所有 cron 作业。
+你可以在日志和历史记录视图中查看新增、更新和删除的 cron 作业。
+此前已执行的 cron 作业运行结果也可以在日志视图中查看。
+
+## 错误处理 \{#error-handling\}
+
+变更和操作具有与定时函数的
+[错误处理](/scheduling/scheduled-functions.mdx#error-handling)
+中描述的相同行为保证。
+
+在任意时刻，每个 cron 任务至多只有一次运行在执行。如果由 cron 任务调度的函数运行时间过长，为了避免执行进度落后，后续的 cron 任务运行可能会被跳过。由于前一次运行仍在执行而跳过某次 cron 任务的计划运行时，会记录一条日志消息，你可以在仪表盘的日志视图中看到这条消息。

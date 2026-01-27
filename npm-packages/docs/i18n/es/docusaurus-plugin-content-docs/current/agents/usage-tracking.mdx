@@ -1,0 +1,143 @@
+---
+title: Seguimiento del uso
+sidebar_label: "Seguimiento del uso"
+sidebar_position: 1300
+description: "Seguimiento del uso de tokens del componente Agent"
+---
+
+Puedes proporcionar un `usageHandler` al agente para registrar el uso de tokens. Consulta un
+ejemplo en
+[este ejemplo](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/usageHandler.ts)
+que registra el uso en una tabla y luego la consulta para generar facturas por usuario.
+
+Puedes proporcionar un `usageHandler` al agente, por hilo o por mensaje.
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  usageHandler: async (ctx, args) => {
+    const {
+      // Who used the tokens
+      userId, threadId, agentName,
+      // What LLM was used
+      model, provider,
+      // Cuántos tokens se utilizaron (información adicional disponible en providerMetadata)
+      usage, providerMetadata
+    } = args;
+    // ... log, save usage to your database, etc.
+  },
+});
+```
+
+Consejo: Define `usageHandler` dentro de una función en la que dispongas de más variables
+para poder atribuir el uso a otro usuario, equipo, proyecto, etc.
+
+## Almacenar el uso en una tabla \{#storing-usage-in-a-table\}
+
+Para hacer un seguimiento del uso, por ejemplo para facturación, puedes definir una tabla en tu esquema e
+insertar en ella los datos de uso para procesarlos más adelante.
+
+```ts
+export const usageHandler: UsageHandler = async (ctx, args) => {
+  if (!args.userId) {
+    console.debug("No se rastrea el uso de usuario anónimo");
+    return;
+  }
+  await ctx.runMutation(internal.example.insertRawUsage, {
+    userId: args.userId,
+    agentName: args.agentName,
+    model: args.model,
+    provider: args.provider,
+    usage: args.usage,
+    providerMetadata: args.providerMetadata,
+  });
+};
+
+export const insertRawUsage = internalMutation({
+  args: {
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+  },
+  handler: async (ctx, args) => {
+    const billingPeriod = getBillingPeriod(Date.now());
+    return await ctx.db.insert("rawUsage", {
+      ...args,
+      billingPeriod,
+    });
+  },
+});
+
+function getBillingPeriod(at: number) {
+  const now = new Date(at);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth());
+  return startOfMonth.toISOString().split("T")[0];
+}
+```
+
+Con un esquema asociado en `convex/schema.ts`:
+
+```ts
+export const schema = defineSchema({
+  rawUsage: defineTable({
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+
+    // stats
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+
+    // En este caso, lo establecemos al primer día del mes actual,
+    // usando hora UTC para los límites del mes.
+    // Alternativamente, podrías almacenarlo como un número de timestamp.
+    // Luego puedes obtener todo el uso al final del período de facturación
+    // y calcular el costo total.
+    billingPeriod: v.string(), // When the usage period ended
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+
+  invoices: defineTable({
+    userId: v.string(),
+    billingPeriod: v.string(),
+    amount: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("failed"),
+    ),
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+  // ... other tables
+});
+```
+
+## Generación de facturas mediante una tarea de cron \{#generating-invoices-via-a-cron-job\}
+
+Puedes usar una tarea de cron para generar facturas al final del período de facturación.
+
+Consulta
+[usage&#95;tracking/invoicing.ts](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/invoicing.ts)
+para ver un ejemplo de cómo generar facturas.
+
+Luego puedes agregarlo a `convex/crons.ts`:
+
+```ts
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+// Generar facturas del mes anterior
+crons.monthly(
+  "generateInvoices",
+  // Esperar un día después del inicio del nuevo mes para generar facturas
+  { day: 2, hourUTC: 0, minuteUTC: 0 },
+  internal.usage.generateInvoices,
+  {},
+);
+
+export default crons;
+```

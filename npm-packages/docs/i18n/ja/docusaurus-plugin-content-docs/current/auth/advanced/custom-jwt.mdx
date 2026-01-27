@@ -1,0 +1,100 @@
+---
+title: "カスタム JWT プロバイダー"
+sidebar_label: "カスタム JWT プロバイダー"
+sidebar_position: 4
+description:
+  "完全な OIDC プロトコルを実装していないカスタム JWT プロバイダーと Convex を連携させるための設定方法と、クライアント側での統合方法について説明します。"
+---
+
+**注意: これは上級者向け機能です！** 可能であれば、
+[サポートされているサードパーティ認証プロバイダー](/auth.mdx)
+を使うことを推奨します。
+
+[JWT](https://en.wikipedia.org/wiki/JSON_Web_Token) は、ユーザーが誰であるかに関するクレームを含む 3 つの JSON オブジェクトを base64 エンコードして結合した文字列で、有効期間は 1 時間程度などの限られた時間です。JWT は、ユーザーの本人確認の証拠（典型的にはクッキー）を受け取った後に
+[jose](https://github.com/panva/jose) のようなライブラリを使って自前で作成することも、
+[Clerk](https://clerk.com) のようなサードパーティ認証サービスから取得することもできます。JWT 内の情報には署名が付与されており（Convex のデプロイメントは、その情報が本当に発行者から来ており改ざんされていないことを検証できます）が、一般的には暗号化はされていません（トークンを base64 デコードしたり、
+[jwt.io](https://jwt.io/) に貼り付けることで中身を読むことができます）。
+
+利用している認証サービスがユーザーに発行する JWT に、OpenID Connect (OIDC) プロトコルを実装するために必要なフィールドが含まれている場合、これらの JWT を受け入れる最も簡単な方法は、
+`convex/auth.config.ts` に
+[OIDC Provider](/auth/advanced/custom-auth)
+エントリを追加することです。JWT を発行するために使っている認証サービスやライブラリがこれらのフィールドをサポートしていない場合（たとえば
+[OpenAuth](https://openauth.js.org/) の JWT は OAuth 2.0 仕様は実装しているものの OIDC を実装しておらず、そのため `aud` フィールドが欠けています）、`convex/auth.config.ts` ファイルでカスタム JWT プロバイダーを設定する必要があります。
+
+カスタム JWT では、ヘッダーには `kid`、`alg`、`typ` フィールドが、ペイロードには `sub`、`iss`、`exp` フィールドが含まれていることだけが必須です。さらに、トークンのリフレッシュを実装するために Convex クライアントは `iat` フィールドが存在することも期待します。
+
+## サーバー側での統合 \{#server-side-integration\}
+
+`type: "customJwt"` を使用して、カスタム JWT 認証プロバイダを設定します。
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      type: "customJwt",
+      applicationID: "your-application-id",
+      issuer: "https://your.issuer.url.com",
+      jwks: "https://your.issuer.url.com/.well-known/jwks.json",
+      algorithm: "RS256",
+    },
+  ],
+};
+```
+
+* `applicationID`: Convex は JWT の `aud` クレームがこの値であることを検証します。以下に、このフィールドを省略する場合に関する重要な情報があります。
+  `applicationID` フィールドは必須ではありませんが、多くの認証プロバイダと安全に連携するためには必要です。省略する前に以下の説明を読んでください。
+* `issuer`: JWT の issuer（発行者）URL。
+* `jwks`: 認証プロバイダから JWKS（JSON Web Key Set）を取得するための URL。外部サービスへのアクセスを避けたい場合は、
+  データ URI を使用できます（例: `"data:text/plain;charset=utf-8;base64,ey..."`）。
+* `algorithm`: JWT の署名に使用されるアルゴリズム。現在サポートされているのは RS256 と ES256 のみです。詳細は
+  [RFC 7518](https://datatracker.ietf.org/doc/html/rfc7518#section-3.1) を参照してください。
+
+`issuer` プロパティは、使用する JWT の `iss` フィールドと完全に一致している必要があり、`applicationID` プロパティが指定されている場合は、その値が `aud` フィールドと完全に一致している必要があります。
+JWT がこれらと一致しない場合は、[jwt.io](https://jwt.io/) のようなツールを使って JWT を表示し、これらのフィールドが正確に一致していることを確認してください。
+
+### 警告: `applicationID` を省略すると多くの場合安全ではありません \{#warning-omitting-applicationid-is-often-insecure\}
+
+認証設定から `applicationID` を省略すると、ユーザーの JWT の `aud`
+(audience) フィールドが検証されなくなります。多くの場合これは安全ではありません。別のサービス向けに発行された JWT が、あなたのサービスでそのユーザーになりすますために利用されてしまう可能性があるためです。
+
+たとえば、あるユーザーが `https://todos.com` と `https://banking.com` に
+アカウントを持っていて、どちらのサービスも同じサードパーティー認証サービス
+`accounts.google.com` を利用しているとします。todos.com で受け入れられた JWT は、todos.com 自身、あるいはその JWT にアクセスした攻撃者によって再利用され、banking.com への認証に使われてしまう可能性があります。
+
+JWT の `aud` (audience) フィールドはこれを防ぎます。JWT が
+`https://todos.com` という特定の audience 向けに生成されていれば、banking.com は `aud` フィールドを厳密にチェックすることで、その JWT を受け入れるべきではないと判断できます。
+
+もしユーザーに発行される JWT の `iss` (issuer) URL が
+`https://accounts.google.com` のようにあなたのアプリケーション固有ではない場合、そのような JWT を ApplicationID なしで信頼するのは安全ではありません。その JWT は悪意あるアプリケーションによって収集されたものである可能性があるためです。
+
+一方、ユーザーに発行される JWT の `iss` フィールドが
+`https://api.3rd-party-auth.com/client_0123...` のように、より特定の値である場合には、発行者の URL がアクセスを許可するすべてのサービスをあなたが管理しており、かつそれらのサービスのいずれか 1 つへのアクセスを許可することが、すべてのサービスへのアクセス許可も意味する、という前提で設計しているのであれば、`aud` フィールドなしの構成でも安全な場合があります。
+
+### カスタムクレーム \{#custom-claims\}
+
+`subject`、`issuer`、`tokenIdentifier` のようなトップレベルフィールドに加えて、
+JWT のネストされたフィールド内のサブフィールドも、
+`const authInfo = await ctx.auth.getUserIdentity()` から返される認証データ内で
+`authInfo["properties.id"]` や `authInfo["properties.favoriteColor"]` のように
+参照できるようになります。これは次のような構造の JWT の場合です:
+
+```json
+{
+  "properties": {
+    "id": "123",
+    "favoriteColor": "red"
+  },
+  "iss": "http://localhost:3000",
+  "sub": "user:8fa2be73c2229e85",
+  "exp": 1750968478
+}
+```
+
+## クライアント側での統合 \{#client-side-integration\}
+
+ユーザーのブラウザーは、最初の JWT を取得し、その後も更新された JWT を要求する手段が必要です。理想的には、前のトークンが失効する前に更新されたトークンを取得できる必要があります。
+
+これを行う方法については、
+[カスタム OIDC プロバイダー](/auth/advanced/custom-auth#client-side-integration) の手順を参照してください。

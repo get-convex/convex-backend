@@ -1,0 +1,198 @@
+---
+title: Consultas
+sidebar_position: 10
+description: "Recupera datos de la base de datos con caché y reactividad"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/queriesExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/queriesConstructor.ts";
+import ArgsWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithoutValidation.ts";
+import ArgsWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithoutValidationJS.js";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/queriesArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/queriesContext.ts";
+import ContextDB from "!!raw-loader!@site/../private-demos/snippets/convex/queriesContextDB.ts";
+import Helper from "!!raw-loader!@site/../private-demos/snippets/convex/queriesHelper.ts";
+import HelperJS from "!!raw-loader!@site/../private-demos/snippets/convex/queriesHelperJS.js";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/queriesNPM.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/queriesCall.tsx";
+
+Las consultas son la base de tu API de backend. Obtienen datos de la
+base de datos, verifican la autenticación o realizan otra lógica de negocio y devuelven datos
+a la aplicación cliente.
+
+Esta es una consulta de ejemplo que recibe argumentos con nombre, lee datos de la
+base de datos y devuelve un resultado:
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+Sigue leyendo para entender cómo crear consultas por tu cuenta.
+
+## Nombres de consultas \{#query-names\}
+
+Las consultas se definen en archivos <LanguageSelector verbose /> dentro de tu directorio `convex/`.
+
+La ruta y el nombre del archivo, así como la forma en que la función se exporta
+desde el archivo, determinan el nombre que el cliente usará para invocarla:
+
+```ts title="convex/myFunctions.ts"
+// Esta función se referirá como `api.myFunctions.myQuery`.
+export const myQuery = …;
+
+// This function will be referred to as `api.myFunctions.sum`.
+export const sum = …;
+```
+
+Para estructurar tu API, puedes anidar directorios dentro de `convex/`:
+
+```ts title="convex/foo/myQueries.ts"
+// Esta función se referenciará como `api.foo.myQueries.listMessages`.
+export const listMessages = …;
+```
+
+Las exportaciones por defecto tienen el nombre `default`.
+
+```ts title="convex/myFunctions.ts"
+// Esta función se referirá como `api.myFunctions.default`.
+export default …;
+```
+
+Las mismas reglas se aplican a las [mutaciones](/functions/mutation-functions.mdx) y
+[acciones](/functions/actions.mdx), mientras que las
+[acciones HTTP](/functions/http-actions.mdx) usan un enfoque de enrutamiento diferente.
+
+Las bibliotecas cliente en lenguajes distintos de JavaScript y TypeScript usan cadenas
+en lugar de objetos de la API:
+
+* `api.myFunctions.myQuery` es `"myFunctions:myQuery"`
+* `api.foo.myQueries.myQuery` es `"foo/myQueries:myQuery"`.
+* `api.myFunction.default` es `"myFunction:default"` o `"myFunction"`.
+
+## El constructor `query` \{#the-query-constructor\}
+
+Para declarar una consulta en Convex usa la función constructora `query`.
+Pásale un objeto con una función `handler` que devuelve el resultado de la consulta:
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+### Argumentos de la consulta \{#query-arguments\}
+
+Las consultas aceptan argumentos nombrados. Los valores de los argumentos son
+accesibles como propiedades del segundo parámetro de la función del handler:
+
+<TSAndJSSnippet sourceTS={ArgsWithoutValidationTS} sourceJS={ArgsWithoutValidationJS} title="convex/myFunctions.ts" />
+
+Los argumentos y las respuestas se serializan y deserializan automáticamente, y
+puedes enviar y devolver la mayoría de datos de JavaScript que se comportan como valores hacia y desde tu consulta.
+
+Para declarar los tipos de los argumentos y validarlos, agrega un objeto `args`
+usando los validadores de `v`:
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} highlightPatterns={["args:"]} title="convex/myFunctions.ts" />
+
+Consulta [validación de argumentos](/functions/validation.mdx) para ver la lista completa de
+tipos y validadores compatibles.
+
+El primer parámetro de la función del handler contiene el contexto de la consulta.
+
+### Respuestas de consultas \{#query-responses\}
+
+Las consultas pueden devolver valores de cualquier
+[tipo de Convex](/functions/validation.mdx), que se serializan y
+deserializan automáticamente.
+
+Las consultas también pueden devolver `undefined`, que no es un valor válido en Convex. Cuando una
+consulta devuelve `undefined`, **se traduce a `null`** en el cliente.
+
+### Contexto de consulta \{#query-context\}
+
+El constructor `query` permite obtener datos y otras funcionalidades de Convex
+pasando un objeto [QueryCtx](/generated-api/server.md#queryctx) a la función
+manejadora como primer parámetro:
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+La parte del contexto de consulta que se utiliza depende de lo que tu consulta necesite hacer:
+
+* Para leer de la base de datos usa el campo `db`. Ten en cuenta que hacemos
+  que la función manejadora sea una función `async` para poder hacer `await`
+  de la promesa que devuelve `db.get()`:
+
+  <TSAndJSSnippet sourceTS={ContextDB} sourceJS={ContextDB} highlightPatterns={["db."]} title="convex/myFunctions.ts" />
+
+  Lee más sobre [Lectura de datos](/database/reading-data/reading-data.mdx).
+
+* Para devolver URL a archivos almacenados usa el campo `storage`. Lee más sobre
+  [Almacenamiento de archivos](/file-storage.mdx).
+
+* Para comprobar la autenticación de usuarios usa el campo `auth`. Lee más sobre
+  [Autenticación](/auth.mdx).
+
+## Dividir el código de las consultas mediante helpers \{#splitting-up-query-code-via-helpers\}
+
+Cuando quieras dividir el código de tu consulta o reutilizar lógica entre varias
+funciones de Convex, puedes definir y llamar a funciones helper <LanguageSelector verbose />:
+
+<TSAndJSSnippet sourceTS={Helper} sourceJS={HelperJS} title="convex/myFunctions.ts" />
+
+Puedes hacer `export` de helpers para usarlos en varios archivos. No se podrán llamar
+desde fuera de tus funciones de Convex.
+
+Consulta
+[Anotación de tipos en helpers del lado del servidor](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+para obtener más información sobre los tipos de TypeScript.
+
+## Uso de paquetes de npm \{#using-npm-packages\}
+
+Las consultas pueden importar paquetes de npm instalados en `node_modules`. No todos los paquetes de npm son compatibles; consulta
+[Runtimes](/functions/runtimes.mdx#default-convex-runtime) para más detalles.
+
+```sh
+npm install @faker-js/faker
+```
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+## Llamar consultas desde los clientes \{#calling-queries-from-clients\}
+
+Para llamar a una consulta desde [React](/client/react.mdx), usa el hook
+[`useQuery`](/client/react.mdx#fetching-data) junto con el objeto generado
+[`api`](/generated-api/api).
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/MyApp.tsx" />
+
+Consulta la documentación del cliente de [React](/client/react.mdx) para ver todas las formas en que se pueden llamar las consultas.
+
+## Caché, reactividad y consistencia \{#caching-reactivity-consistency\}
+
+Las consultas tienen tres características excelentes:
+
+1. **Caché**: Convex almacena en caché los resultados de las consultas automáticamente. Si muchos clientes
+   solicitan la misma consulta, con los mismos argumentos, recibirán una respuesta
+   en caché.
+2. **Reactividad**: los clientes pueden suscribirse a consultas para recibir nuevos resultados cuando
+   cambian los datos subyacentes.
+3. **Consistencia**: Todas las lecturas de base de datos dentro de una única llamada de consulta se realizan
+   en el mismo timestamp lógico. Las escrituras concurrentes no afectan a los resultados
+   de la consulta.
+
+Para tener estas características, la función handler debe ser *determinista*, lo que
+significa que, dado el mismo conjunto de argumentos (incluido el contexto de la consulta), devolverá
+la misma respuesta.
+
+Por esta razón las consultas no pueden hacer `fetch` a APIs de terceros. Para llamar a APIs de terceros,
+usa [acciones](/functions/actions.mdx).
+
+Quizás te preguntes si puedes usar funcionalidades no deterministas del lenguaje
+como `Math.random()` o `Date.now()`. La respuesta corta es que Convex se encarga
+de implementarlas de una forma que no tengas que preocuparte por la
+restricción de determinismo.
+
+Consulta [Runtimes](/functions/runtimes.mdx#default-convex-runtime) para más detalles
+sobre el runtime de Convex.
+
+## Límites \{#limits\}
+
+Las consultas tienen un límite en la cantidad de datos que pueden leer a la vez para garantizar un buen rendimiento. Consulta estos límites en
+[Errores de límite de lectura/escritura](/functions/error-handling/error-handling.mdx#readwrite-limit-errors).
+
+Para obtener información sobre otros límites, consulta [Límites](/production/state/limits.mdx).

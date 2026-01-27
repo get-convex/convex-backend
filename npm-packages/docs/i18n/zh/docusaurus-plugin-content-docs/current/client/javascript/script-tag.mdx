@@ -1,0 +1,24 @@
+---
+title: "script 标签"
+sidebar_position: 100
+description:
+  "直接在 HTML 中使用 script 标签接入 Convex，无需构建工具"
+---
+
+有时候你只是想在网页上获取数据：不安装依赖包、
+不需要构建步骤，也不需要 TypeScript。通过 script 标签从现有
+Convex 部署订阅查询非常简单。
+
+import simpleHtml from "!!raw-loader!@site/../demos/html/simple.html";
+import typedHtml from "!!raw-loader!@site/../demos/html/typed-example.html";
+import script from "!!raw-loader!@site/../demos/html/script.js";
+
+<Snippet source={simpleHtml} title="index.html" replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]} />
+
+VS Code 在 HTML 文件中不支持 TypeScript 自动补全，因此如果你需要类型支持和更好的自动补全，可以将代码拆分到一个单独的脚本文件中：
+
+<Snippet source={typedHtml} title="index.html" replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]} />
+
+<Snippet source={script} title="script.js" replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]} />
+
+请参阅 [Script Tag Quickstart](/quickstart/script-tag.mdx)，了解如何创建一个新的 Convex 项目。

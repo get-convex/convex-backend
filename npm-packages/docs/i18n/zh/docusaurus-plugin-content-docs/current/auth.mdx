@@ -1,0 +1,79 @@
+---
+title: 身份验证
+sidebar_position: 30
+description: 为你的 Convex 应用添加身份验证。
+hide_table_of_contents: true
+pagination_prev: file-storage
+---
+
+Convex 部署的端点暴露在公开互联网中，客户端对自身身份作出的声明必须经过认证，才能识别用户并限制他们可以查看和编辑的数据。
+
+Convex 与大多数认证提供商兼容，因为它使用基于 OAuth 的 OpenID
+Connect ID 令牌（以 JWT 的形式）来认证 WebSocket
+连接或 RPC。只要实现了相应的 OAuth 端点来验证这些令牌，任何服务（包括你自己的 Convex 后端）都可以签发这些 JWT。
+
+## 第三方身份验证平台 \{#third-party-authentication-platforms\}
+
+通过将 Convex 与第三方身份验证提供商集成，可以获得最完善的身份验证解决方案。集成这些服务可以在基础身份验证之上提供大量功能，例如通行密钥、双重验证、垃圾信息防护等。
+
+* [Clerk](/auth/clerk.mdx) 对 Next.js 和 React Native 提供出色支持
+* [WorkOS AuthKit](/auth/authkit/index.mdx) 专为 B2B 应用构建，对最多 100 万用户免费
+* [Auth0](/auth/auth0.mdx) 更加成熟，提供更多高级功能
+* [Custom Auth Integration](/auth/advanced/custom-auth.mdx) 允许使用任何兼容 OpenID Connect 的身份提供方进行身份验证
+
+在集成了上述任一服务之后，继续了解如何在 [Functions](/auth/functions-auth.mdx) 中访问身份验证信息，以及如何在 [Database](/auth/database-auth.mdx) 中存储用户信息。
+
+## Convex Auth 库 \{#the-convex-auth-library\}
+
+对于基于 React 的 Web 客户端和 React Native 移动应用，你可以使用 [Convex Auth](/auth/convex-auth.mdx) 库直接在 Convex 中实现认证功能。这个
+[npm package](https://github.com/get-convex/convex-auth) 运行在你的 Convex
+部署上，帮助你通过社交身份提供商、一次性邮箱或短信验证码，或密码来构建自定义的注册/登录流程。
+
+Convex Auth 目前处于测试（beta）阶段（尚未完成，且可能以不向后兼容的方式变更），并且提供的功能没有第三方
+身份验证集成方案那么多。由于它不需要另外注册服务，因此是最快让认证功能跑起来的方式。
+
+<BetaAdmonition feature="Convex Auth" verb="is" />
+
+对 Next.js 的支持正在积极开发中。如果你希望帮忙测试这一实验性支持，请[试用一下](https://labs.convex.dev/auth)！
+
+## 调试 \{#debugging\}
+
+如果遇到问题，请参阅 [调试](/auth/debug.mdx) 指南。
+
+## 服务认证 \{#service-authentication\}
+
+你控制的服务器或第三方服务可以调用 Convex 函数，但它们可能无法获取 OpenID JWT，并且通常也不是在代表某个特定用户执行操作。
+
+假设你在一个用 Python 编写的 [Modal](https://modal.com/) 服务器上运行某些推理。当该服务器订阅一个 Convex 查询时，它并不是以某个具体终端用户的凭证进行订阅，而是为了查找任何需要该推理任务（例如对话的总结和翻译）的用户所对应的相关任务。
+
+为了让外部服务能够访问 Convex 查询、变更和操作，你可以编写对互联网公开的函数，在执行任何其他操作之前，先检查一个共享密钥（例如从环境变量中读取）。
+
+## 授权 \{#authorization\}
+
+Convex 支持传统的三层应用结构：为你的应用提供客户端/UI、一层处理用户请求的后端，以及一层用于查询的数据库。这种架构让你可以在代码中定义任意授权规则，并据此校验每一个公开请求。
+
+这意味着 Convex 不需要像 RLS 这样的强约束的授权框架，而这些通常在 Firebase 或 Supabase 这类面向客户端的数据库中是必需的。这种灵活性让你可以根据自己的需求构建和使用一个
+[授权框架](https://en.wikipedia.org/wiki/Authorization)。
+
+更常见的方式是在每个公共函数的一开始，直接编写代码来检查用户是否已登录，以及他们是否有权限执行所请求的操作。
+
+例如，下面的函数强制要求只有当前已通过身份验证的用户才能删除自己的用户头像：
+
+```typescript
+export const removeUserImage = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // highlight-next-line
+    const userId = await getAuthUserId(ctx);
+    // highlight-next-line
+    if (!userId) {
+      // highlight-next-line
+      return;
+      // highlight-next-line
+    }
+    ctx.db.patch("users", userId, { imageId: undefined, image: undefined });
+  },
+});
+```
+
+<StackPosts query="authentication" />

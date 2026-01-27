@@ -1,0 +1,235 @@
+---
+title: "Convex 之道"
+slug: "zen"
+hidden: false
+sidebar_position: 500
+hide_table_of_contents: true
+description: "Convex 的最佳实践与设计理念"
+---
+
+export function CategoryIcon(props) {
+  switch (props.title) {
+    case "性能":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z"
+          />
+        </svg>
+      );
+    case "架构":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path d="M11.584 2.376a.75.75 0 01.832 0l9 6a.75.75 0 11-.832 1.248L12 3.901 3.416 9.624a.75.75 0 01-.832-1.248l9-6z" />
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M20.25 10.332v9.918H21a.75.75 0 010 1.5H3a.75.75 0 010-1.5h.75v-9.918a.75.75 0 01.634-.74A49.109 49.109 0 0112 9c2.59 0 5.134.202 7.616.592a.75.75 0 01.634.74zm-7.5 2.418a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75zm3-.75a.75.75 0 01.75.75v6.75a.75.75 0 01-1.5 0v-6.75a.75.75 0 01.75-.75zM9 12.75a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75z"
+          />
+          <path d="M12 7.875a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" />
+          //{" "}
+        </svg>
+      );
+    case "开发流程":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M2.25 6a3 3 0 013-3h13.5a3 3 0 013 3v12a3 3 0 01-3 3H5.25a3 3 0 01-3-3V6zm3.97.97a.75.75 0 011.06 0l2.25 2.25a.75.75 0 010 1.06l-2.25 2.25a.75.75 0 01-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 010-1.06zm4.28 4.28a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+
+export function ZenHeader({ title }) {
+  return (
+    <h2 className="zen-header">
+      {title} <CategoryIcon title={title} />
+    </h2>
+  );
+}
+
+export function TipIcon({ type }) {
+  switch (type) {
+    case "do":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    case "do-not":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+export function ZenTip({ type, title, children }) {
+  return (
+    <div className={`zen-tip zen-${type}`}>
+      <h3>
+        <TipIcon type={type} /> {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+<div style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/dyEWQ9s2ji4?si=ce-M8pt6EWDZ8tfd" title="YouTube 视频播放器" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+</div>
+
+<span className="convex-hero">
+  Convex 是一个有明确设计哲学的框架，其每个元素都旨在将开发者引向
+  [成功之坑](https://blog.codinghorror.com/falling-into-the-pit-of-success/)。
+
+  “The Zen of Convex” 是一组由开发者总结出的指导方针与最佳实践，能让他们的项目一次次掉进这个美妙的“坑”。
+</span>
+
+<ZenHeader title="性能" />
+
+
+<ZenTip type="do" title={<span>更大程度地依赖<a href="/tutorial#how-convex-works">同步引擎</a></span>} >
+
+    Convex 之所以以确定性的响应式数据库为核心，是有原因的：你的应用越是围绕它的特性来构建，你的项目在长期内表现就会越好。你的项目会更易理解和重构。你的应用性能会始终保持极高水准。你也不会再被一致性或状态管理问题困扰。
+
+<Details summary="几乎所有应用读取都使用查询">
+  查询是将数据传播到你的应用及其任务的响应式、自动缓存、一致且健壮的方式。除极少数例外，你的应用中每一次读取操作都应该通过查询函数完成。
+</Details>
+
+<Details summary="让同步引擎函数保持轻量且快速">
+  一般来说，你的变更和查询应该只处理至多几百条记录，并且应当力争在 100ms 内完成。如果你的同步事务工作量远超这个范围，要维持应用的轻快与灵敏响应几乎是不可能的。
+</Details>
+
+<Details summary="谨慎而循序渐进地使用操作函数">
+  操作函数非常适合批处理任务和/或与外部服务集成。它们非常强大，但也更慢、成本更高，而且 Convex 对其行为提供的保证要少得多。所以，如果查询或变更就能完成任务，就不要使用操作函数。
+</Details>
+
+</ZenTip>
+
+<ZenTip type="do-not" title="不要把客户端状态管理搞得过于复杂">
+
+Convex 在应用的客户端库中内建了大量自己的缓存与一致性控制。与其重复造轮子，不如让你的客户端代码充分利用这些内建的性能优化。
+
+<Details summary="让 Convex 处理缓存与一致性">
+
+你可能会想，快速在 Convex 里构建一层本地缓存或状态聚合层，放在你的组件和 Convex 函数之间。使用 Convex 时，大多数情况下你最终并不需要这样做。更多时候，你可以用相当简单的方式把组件绑定到 Convex 函数上，一切就会自然地运行良好，而且速度足够快。
+
+</Details>
+
+<Details summary="仔细考虑变更的返回值">
+  变更的返回值可以帮助触发应用中的状态变化，但用它们直接设置应用内状态以更新 UI 却很少是个好主意。让查询和同步引擎来做这件事。
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="架构" />
+
+<ZenTip type="do" title='使用「just code」创建服务端框架'>
+  <p>
+    Convex 内建的原语其实相当底层！它们只是函数而已。那认证框架呢？那对象关系映射（ORM）呢？你需要等到 Convex 提供某些内置功能才能拥有这些东西吗？不需要。一般来说，你应该在服务端 Convex 代码中，用和你在其它 TypeScript 代码库里相同的方法来解决组合和封装问题。毕竟，这就是 Convex 之所以是「just code!」的原因！
+    [Stack](https://stack.convex.dev) 上总是有
+    [很棒的](https://stack.convex.dev/functional-relationships-helpers)
+    [示例](https://stack.convex.dev/wrappers-as-middleware-authentication)
+    展示如何处理[这些需求](https://stack.convex.dev/row-level-security)。
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="不要误用操作函数" >
+
+操作函数很强大，但更重要的是要刻意设计它们如何融入你应用的数据流。
+
+<Details summary="不要直接从应用调用操作函数">
+  通常，从浏览器调用操作函数是一种反模式。一般而言，操作函数是围绕某个依赖记录运行的，而这个记录本应存储在 Convex
+  表中。所以，最好的方式是通过调用一个变更函数来触发操作函数，该变更函数既会_写入_
+  这个依赖记录，又会_调度_后续操作函数在后台运行。
+</Details>
+
+<Details summary="不要只想着『后台任务』，要想着『工作流』">
+   当涉及操作函数时，把一连串的副作用和变更函数写成链式流程会很有用，例如：
+
+action 代码 &rarr; mutation &rarr; 更多 action 代码 &rarr; mutation。
+
+然后应用或其他任务就可以通过查询跟进整个流程。
+
+</Details>
+
+<Details summary="一次记录一步进度">
+  虽然操作函数_可以_处理成千上万条记录并调用几十个 API，
+  但通常更好的做法是将工作拆分成较小的批次，和/或使用外部服务执行单独的转换。然后当然要用一个
+  变更函数来记录你的进度。使用这种模式，可以更容易地调试问题、恢复部分完成的任务，并在应用的 UI 中报告渐进式的进度。
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="开发工作流" />
+
+<ZenTip type="do" title="把仪表盘放在手边">
+  <p>
+    不使用仪表盘开发你的 Convex 项目，就像闭着眼睛开车。仪表盘可以让你查看日志，对
+    变更函数/查询/操作函数进行试运行，确保你的配置和代码库符合预期，检查你的表，生成模式等等。它是你快速开发周期中不可或缺的一部分。
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="不要单打独斗" >
+
+  <p>
+    在这些 [文档](https://docs.convex.dev)、[Stack](https://stack.convex.dev) 和[我们的社区](https://convex.dev/community)
+    之间，很_可能_已经有人遇到过你现在面临的设计或架构问题。既然可以利用整个社区的经验，为什么还要自己走弯路、靠苦思冥想来解决问题呢？
+   </p>
+  
+  <Details summary="利用 Convex 开发者搜索">
+  Convex 团队和社区提供了如此多优质的资源，有时很难知道该先从哪里下手。如果你想要一种可以
+    跨这些资源快速搜索的方法，[我们为此提供了一个入口](https://search.convex.dev)！
+  </Details>
+   
+  <Details summary="加入 Convex 社区">
+  无论你是卡在了一个棘手的用例上、对 Convex 团队有问题或功能请求，还是想分享你构建的精彩应用并帮助他人学习，Convex 社区都会在那里支持你！快来加入 [Discord](https://convex.dev/community) 上的交流吧。
+  </Details>
+</ZenTip>

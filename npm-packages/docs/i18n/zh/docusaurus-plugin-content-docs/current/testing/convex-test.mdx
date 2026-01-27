@@ -1,0 +1,307 @@
+---
+title: convex-test
+sidebar_label: convex-test
+sidebar_position: 100
+description: "用于对函数进行快速自动化测试的 Convex 后端模拟器"
+---
+
+import Demo from "!!raw-loader!@site/../demos/convex-test/convex/posts.test.ts";
+import SchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/scheduling.test.ts";
+import ChainedSchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/chainedScheduling.test.ts";
+import AuthDemo from "!!raw-loader!@site/../demos/convex-test/convex/auth.test.ts";
+import MockingFetchDemo from "!!raw-loader!@site/../demos/convex-test/convex/mockingFetch.test.ts";
+import ErrorDemo from "!!raw-loader!@site/../demos/convex-test/convex/error.test.ts";
+import HttpDemo from "!!raw-loader!@site/../demos/convex-test/convex/http.test.ts";
+import RunDemo from "!!raw-loader!@site/../demos/convex-test/convex/run.test.ts";
+
+[`convex-test`](https://www.npmjs.com/package/convex-test) 库在 JavaScript 中提供了
+Convex 后端的模拟实现。它可以让你对 [functions](/functions.mdx)
+中的逻辑进行快速的自动化测试。
+
+## 示例 \{#example\}
+
+<TSAndJSSnippet title="convex/posts.test.ts" sourceTS={Demo} sourceJS={Demo} highlightPatterns={["t.query", "t.mutation", "convexTest(schema)"]} />
+
+可以在 convex-test 库的
+[测试套件](https://github.com/get-convex/convex-test/tree/main/convex)
+中查看更多示例。
+
+## 快速开始 \{#get-started\}
+
+<StepByStep>
+  <Step title="安装测试依赖项">
+    安装 [Vitest](https://vitest.dev/) 和 [`convex-test`](https://www.npmjs.com/package/convex-test) 库。
+
+    ```sh
+    npm install --save-dev convex-test vitest @edge-runtime/vm
+    ```
+  </Step>
+
+  <Step title="设置 npm 脚本">
+    在你的 `package.json` 中添加以下脚本
+
+    ```json title="package.json"
+    "scripts": {
+      "test": "vitest",
+      "test:once": "vitest run",
+      "test:debug": "vitest --inspect-brk --no-file-parallelism",
+      "test:coverage": "vitest run --coverage --coverage.reporter=text",
+    }
+    ```
+  </Step>
+
+  <Step title="配置 Vitest">
+    Add <JSDialectFileName name="vitest.config.ts" /> 文件，用于配置测试环境，使其更好地匹配 Convex 运行时，并以内联方式处理测试库，以便更好地跟踪依赖。
+
+    <Details summary={<>If your Convex functions are in a directory other than <code>convex</code></>}>
+      如果你的项目在 `convex.json` 中为 `convex/` 文件夹配置了
+      [不同的名称或位置](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)，
+      那么你需要调用 [`import.meta.glob`](https://vitejs.dev/guide/features#glob-import)，并将其结果作为第二个参数传递给 `convexTest`。
+
+      传给 `import.meta.glob` 的参数必须是一个 glob 模式，用来匹配包含你 Convex 函数的所有文件。路径是相对于调用 `import.meta.glob` 的测试文件的。最好在你的自定义函数文件夹中的某个统一位置完成这件事：
+
+      ```ts title="src/convex/test.setup.ts"
+      /// <reference types="vite/client" />
+      export const modules = import.meta.glob(
+        "./**/!(*.*.*)*.*s"
+      );
+      ```
+
+      这个示例 glob 模式会包含 `src/convex` 文件夹及其所有子目录中，扩展名以 `s` 结尾（例如 `js` 或 `ts`）且只有一个扩展名的所有文件。
+
+      在测试中使用该结果：
+
+      ```ts title="src/convex/messages.test.ts"
+      import { convexTest } from "convex-test";
+      import { test } from "vitest";
+      import schema from "./schema";
+      import { modules } from "./test.setup";
+
+      test("some behavior", async () => {
+        const t = convexTest(schema, modules);
+        // use `t`...
+      });
+      ```
+    </Details>
+
+    <Details summary="设置多个测试环境（例如 Convex + 前端）">
+      如果你希望使用 Vitest 同时测试 Convex 函数和 React 前端，你可能希望根据测试文件的位置使用多个 Vitest 环境，可以通过
+      [environmentMatchGlobs](https://vitest.dev/config/#environmentmatchglobs) 来实现：
+
+      ```ts title="vitest.config.ts"
+      import { defineConfig } from "vitest/config";
+
+      export default defineConfig({
+        test: {
+          environmentMatchGlobs: [
+            // convex/ 中的所有测试都在 edge-runtime 中运行
+            ["convex/**", "edge-runtime"],
+            // 所有其他测试使用 jsdom
+            ["**", "jsdom"],
+          ],
+          server: { deps: { inline: ["convex-test"] } },
+        },
+      });
+      ```
+    </Details>
+
+    ```ts title="vitest.config.ts"
+    import { defineConfig } from "vitest/config";
+
+    export default defineConfig({
+      test: {
+        environment: "edge-runtime",
+        server: { deps: { inline: ["convex-test"] } },
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="新增一个测试文件">
+    在你的 `convex` 文件夹中添加一个以 <JSDialectFileName name=".test.ts" /> 结尾的文件。
+
+    示例测试会两次调用 `api.messages.send` 变更，
+    然后断言 `api.messages.list` 查询返回
+    预期结果。
+
+    ```ts title="convex/messages.test.ts"
+    import { convexTest } from "convex-test";
+    import { expect, test } from "vitest";
+    import { api } from "./_generated/api";
+    import schema from "./schema";
+
+    test("发送消息", async () => {
+      const t = convexTest(schema);
+      await t.mutation(api.messages.send, { body: "Hi!", author: "Sarah" });
+      await t.mutation(api.messages.send, { body: "Hey!", author: "Tom" });
+      const messages = await t.query(api.messages.list);
+      expect(messages).toMatchObject([
+        { body: "Hi!", author: "Sarah" },
+        { body: "Hey!", author: "Tom" }
+      ]);
+    });
+    ```
+  </Step>
+
+  <Step title="运行测试">
+    使用 `npm run test` 运行测试。每当你修改测试文件或
+    函数时，测试都会自动重新运行。
+
+    ```sh
+    npm run test
+    ```
+  </Step>
+</StepByStep>
+
+如果你还不熟悉 Vitest，请先阅读
+[Vitest 入门指南](https://vitest.dev/guide)。
+
+## 使用 convex-test \{#using-convex-test\}
+
+### 初始化 `convexTest` \{#initialize-convextest\}
+
+该库导出一个 `convexTest` 函数，你应当在每个测试开始时调用它。该函数返回一个对象，按照惯例保存在变量 `t` 中，并通过它提供方法来调用和测试你的 Convex 函数。
+
+如果你的项目使用了[模式](/database/schemas.mdx)，你应当将其传递给
+`convexTest` 函数：
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import schema from "./schema";
+
+test("some behavior", async () => {
+  const t = convexTest(schema);
+  // 使用 `t`...
+});
+```
+
+要让测试正确执行模式验证，并为
+[`t.run`](#setting-up-and-inspecting-data-and-storage-with-trun)
+提供正确的类型推断，必须传入模式。
+
+如果你还没有模式，就在不传入参数的情况下调用 `convexTest()`。
+
+### 调用函数 \{#call-functions\}
+
+你的测试可以调用你项目中的 public 和 internal Convex [函数](/functions.mdx)：
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import { api, internal } from "./_generated/api";
+
+test("functions", async () => {
+  const t = convexTest();
+  const x = await t.query(api.myFunctions.myQuery, { a: 1, b: 2 });
+  const y = await t.query(internal.myFunctions.internalQuery, { a: 1, b: 2 });
+  const z = await t.mutation(api.myFunctions.mutateSomething, { a: 1, b: 2 });
+  const w = await t.mutation(internal.myFunctions.mutateSomething, { a: 1 });
+  const u = await t.action(api.myFunctions.doSomething, { a: 1, b: 2 });
+  const v = await t.action(internal.myFunctions.internalAction, { a: 1, b: 2 });
+});
+```
+
+### 在函数之外修改数据 \{#modify-data-outside-of-functions\}
+
+有时你可能希望在测试中，直接向模拟数据库或[文件存储](/file-storage.mdx)[写入](/database/writing-data.mdx)，而不需要在项目中声明函数。你可以使用 `t.run` 方法，它接收一个处理函数，该函数会获得一个 `ctx` 参数，你可以通过它读取和写入模拟后端：
+
+<TSAndJSSnippet title="convex/tasks.test.ts" sourceTS={RunDemo} sourceJS={RunDemo} highlightPatterns={["t.run"]} />
+
+### HTTP 操作函数 \{#http-actions\}
+
+你的测试可以调用由路由注册的 [HTTP 操作函数](/functions/http-actions.mdx)：
+
+<TSAndJSSnippet title="convex/http.test.ts" sourceTS={HttpDemo} sourceJS={HttpDemo} highlightPatterns={["t.fetch"]} />
+
+模拟全局 `fetch` 函数不会影响 `t.fetch`，但你可以在对 `fetch` 的 mock 中使用
+`t.fetch`，将调用转发到你的 HTTP 操作函数。
+
+### 计划函数 \{#scheduled-functions\}
+
+在纯 JavaScript 中运行的 mock 实现的一个优势之一在于，你可以在 Vitest 测试环境中控制时间。要测试依赖
+[计划函数](/scheduling/scheduled-functions.mdx) 的实现，请配合使用
+[Vitest 的 fake timers](https://vitest.dev/guide/mocking.html#timers)
+和 `t.finishInProgressScheduledFunctions`：
+
+<TSAndJSSnippet title="convex/scheduling.test.ts" sourceTS={SchedulingDemo} sourceJS={SchedulingDemo} highlightPatterns={[]} />
+
+如果你有一系列计划函数，比如一个变更调度一个操作，而这个操作又调度另一个操作，那么你可以使用
+`t.finishAllScheduledFunctions` 来等待所有计划函数（包括递归调度的函数）执行完毕：
+
+<TSAndJSSnippet title="convex/chainedScheduling.test.ts" sourceTS={ChainedSchedulingDemo} sourceJS={ChainedSchedulingDemo} highlightPatterns={["finishAllScheduledFunctions"]} />
+
+在
+[这个文件](https://github.com/get-convex/convex-test/blob/main/convex/scheduler.test.ts)
+中查看更多示例。
+
+### 身份验证 \{#authentication\}
+
+要测试依赖当前[已认证](/auth.mdx)用户身份的函数，你可以基于给定的
+[用户身份属性](/api/interfaces/server.UserIdentity) 创建一个 `t` accessor 的版本。如果你不
+提供这些属性，`issuer`、`subject` 和 `tokenIdentifier` 会被自动生成：
+
+<TSAndJSSnippet title="convex/tasks.test.ts" sourceTS={AuthDemo} sourceJS={AuthDemo} highlightPatterns={["withIdentity"]} />
+
+## Vitest 使用技巧 \{#vitest-tips\}
+
+### 断言结果 \{#asserting-results\}
+
+参见 Vitest 的 [Expect](https://vitest.dev/api/expect.html) 参考文档。
+
+当你想断言结果的结构但又不想列出每一个对象字段时，[`toMatchObject()`](https://vitest.dev/api/expect.html#tomatchobject) 特别有用。
+
+### 断言错误 \{#asserting-errors\}
+
+要断言某个函数会抛出错误，请使用
+[`.rejects.toThrowError()`](https://vitest.dev/api/expect.html#tothrowerror)：
+
+<TSAndJSSnippet title="convex/messages.test.ts" sourceTS={ErrorDemo} sourceJS={ErrorDemo} highlightPatterns={["toThrowError"]} />
+
+### 模拟 `fetch` 调用 \{#mocking-fetch-calls\}
+
+你可以使用 Vitest 的
+[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) 方法：
+
+<TSAndJSSnippet title="convex/ai.test.ts" sourceTS={MockingFetchDemo} sourceJS={MockingFetchDemo} highlightPatterns={["stubGlobal"]} />
+
+### 测量测试覆盖率 \{#measuring-test-coverage\}
+
+你可以查看测试生成的代码覆盖率报告。除了回答“我的代码有多少被测试覆盖了”这个问题之外，它还能帮助你确认测试是否确实在执行你希望它覆盖的那部分代码。
+
+运行 <CodeWithCopyButton text="npm run test:coverage" />。第一次运行时，它会提示你安装一个所需的依赖。
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/testing_coverage.png" alt="覆盖率输出示例" width={700} />
+</p>
+
+### 调试测试 \{#debugging-tests\}
+
+你可以在测试运行时附加调试器。阅读 Vitest 的
+[调试文档](https://vitest.dev/guide/debugging.html)，然后运行
+
+<CodeWithCopyButton text="npm run test:debug" />。
+
+## 限制 \{#limitations\}
+
+由于 `convex-test` 只是一个模拟实现，它并不具备真实 Convex 后端的许多行为。尽管如此，它仍然有助于测试你函数中的逻辑，并捕获由代码变更引起的回归问题。
+
+模拟与真实后端的不同之处包括：
+
+* 错误消息的具体内容。你不应编写依赖真实后端抛出的错误消息内容的业务逻辑，因为这些错误消息随时可能发生变化。
+* 限制。该模拟不会强制执行大小和时间的
+  [限制](/production/state/limits.mdx)。
+* ID 格式。你的代码不应依赖文档或存储 ID 的格式。
+* 运行时内置功能。你的大部分函数是为
+  [Convex 默认运行时](/functions/runtimes.mdx) 编写的，而 Vitest 使用的是 Vercel 的 Edge Runtime 的一个模拟实现，它与 Convex 运行时类似，但可能存在差异。你应始终手动测试新代码，以确保它没有使用 Convex 运行时中不可用的内置功能。
+* 某些特性只提供简化后的语义，具体包括：
+  * [文本搜索](/search.mdx) 会返回所有包含这样的单词的文档：该单词是被搜索字符串中至少一个单词的前缀。它不会按相关性对结果排序。
+  * [向量搜索](/search/vector-search.mdx) 会按余弦相似度排序返回结果，但在实现中不会使用高效的向量索引。
+  * 不支持 [cron 任务](/scheduling/cron-jobs.mdx)，你需要在测试中手动触发你的函数。
+
+要在真实 Convex 后端上测试你的函数，请查看
+[测试本地后端](/testing/convex-backend.mdx)。
+
+## CI \{#ci\}
+
+请参阅[持续集成](/testing/ci.mdx)，了解如何在共享的远程机器上运行测试。

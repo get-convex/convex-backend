@@ -1,0 +1,56 @@
+---
+id: list-projects
+title: "Listar proyectos"
+description: "Lista todos los proyectos de un equipo."
+sidebar_label: "Listar proyectos"
+hide_title: true
+hide_table_of_contents: true
+api: eJzNVk2PGzcM/SsCTwmg2E5R9DC3RbYoDGybYLM5GUZAj2iPkhlJkThGjMH894Ia+Wu9aIPmUl/soTjk4xMf6QEMpTrawNY7qODBJlbYtipE/4VqTmrro0LFhN0MNPhAEcV3aaCCVryPnqAhYMSOmGKCajWAw46gAnn3szWgwUqKgNyAfpb3ibBTy3vQEOlbbyMZqDj2pCHVDXUI1QB8CBLOOqYdRdCw9bFDnky//QoaOuts13dQLTSw5ZZK5KWBcVxL7BS8S5Qk3C+LhXxd4wANtXdMjuUMQ2htneudf0niMNziwRjxIMUxdenC7jdCy1VFK8g0ZF40pLbfgc70LMVcR0KmJ9sRrDWEKFyzncBenP0QE8/YtR0lxi4o61Rn29Ymqr0zaQajFkz/md0P0+ULwaWuG0qfGlLb/txSSty0sq5ue2PdTqWANSWFzqjQu5r7TLh0W8GUOFqXqbrO+pfkGwuRL+S1SaXGRyZHRu0pJuud8lvFDWUQqk9khJJ33u3pu7rH1Gw8RqM+PT6kHwDwURKPpyv8+R69yNAiy7sl0z0x2jbBmD8aEtV9tHzIOnt/13OjsoSe/FdyUK3Wox7gbEnZtNbQETdepLsjzoLlBiqYSwFpPhSljnMR9ucLYSeK+6Oq+9hCBQ1zSNV8jsHO6kzfzNB+vn9703zHStTdhyUIhiP2j6Kkqb2nCkqtxyJObEouKJNAnjeEMZN7nej9htHKVXMTfb9rFKpVudkp/oWc16+OBRhfp8sKOnS4o44cv8FgX2eF3BL8/8H2M6je5amSJSCaMKf+752hmIe+SsRs3a4sAneYrAffqxqdmhDNcutat/UZQ2nhUt+fJ9C5A55juD7OWUL0eytilekgYyFnkYcS8rSc5NBQaP1BAmTJtrYml/IcKvvnYbI80vbN9L4Ma0OO7dZSfNFh1FDmBVTwdraYLcQUfOIO3VXo6wV4VdpwXiX/ulfLvTF953lo0TrJl5U2FJGu8pSRJNV5oV7rdK2h8YnFdxg2mOhTbMdRzN96ijIr1hr2GC1u5IJWAxib5LeBaotton8o4NVj2WKv1XlXv4j6uBadLMU9tj1Ne/UrHS7+DIzrUUNDaOQGVkM5vatrCnzx3s0Gvhpif/z+BBqwF35OvX/q9fJDor+IaRgmjyyecTxDzGIa1+M4/g3+hyC6
+sidebar_class_name: "get api-method"
+info_path: management-api/convex-management-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"Listar proyectos"} />
+
+<MethodEndpoint method={"get"} path={"/teams/{team_id}/list_projects"} context={"endpoint"} />
+
+Enumera todos los proyectos de un equipo.
+
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+  children={"Solicitud"}
+>
+</Heading>
+
+<ParamsDetails
+  parameters={[{"name":"team_id","in":"path","description":"ID del equipo","required":true,"schema":{"type":"integer","format":"int64","minimum":0,"title":"TeamId"}}]}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  title={"Cuerpo"}
+  body={undefined}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"array","items":{"type":"object","required":["id","name","slug","teamId","createTime"],"properties":{"createTime":{"type":"integer","format":"int64","description":"Marca de tiempo en milisegundos."},"id":{"type":"integer","format":"int64","minimum":0,"title":"ProjectId"},"name":{"description":"El nombre completo del proyecto, incluidos espacios y signos de puntuación.","type":"string","title":"ProjectName"},"slug":{"description":"Versión abreviada del nombre que se usa en las URL de Convex Dashboard.","type":"string","title":"ProjectSlug"},"teamId":{"type":"integer","format":"int64","minimum":0,"title":"TeamId"}},"title":"PlatformProjectDetails"}}}}}}}
+>
+  
+</StatusCodes>

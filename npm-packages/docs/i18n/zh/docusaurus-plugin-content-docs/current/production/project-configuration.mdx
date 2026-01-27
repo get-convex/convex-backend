@@ -1,0 +1,192 @@
+---
+title: "项目配置"
+sidebar_label: "项目配置"
+sidebar_position: 3
+description:
+  "使用 convex.json、环境变量和部署设置，将你的 Convex 项目配置为适用于开发环境和生产环境的部署。"
+---
+
+## 本地开发 \{#local-development\}
+
+在本地进行开发时，你需要两条信息：
+
+1. 开发环境（dev）部署的名称。你的函数会被推送到该部署并由它对外提供服务。这个名称保存在 `CONVEX_DEPLOYMENT` 环境变量中。`npx convex dev` 会将它写入 `.env.local` 文件。
+2. 开发环境（dev）部署的 URL，供客户端连接使用。变量名以及可以从哪个文件读取会因客户端框架而异。`npx convex dev` 会将该 URL 写入 `.env.local` 或 `.env` 文件。
+
+## 生产部署 \{#production-deployment\}
+
+只有在你已经在本地部署中测试过更改之后，才应该部署到生产部署。准备就绪后，你可以通过托管/CI 提供商部署，也可以从本地机器进行部署。
+
+对于 CI 环境，你可以参考
+[hosting](/production/hosting/hosting.mdx) 文档。由 CI 流水线运行的 `npx convex deploy` 会使用 `CONVEX_DEPLOY_KEY`，而前端构建命令会使用部署 URL 变量，这两者都在你的 CI 环境中进行配置。
+
+你也可以在本地机器上部署后端。`npx convex deploy`
+会要求你进行确认，然后将后端部署到与你所配置的开发环境 `CONVEX_DEPLOYMENT` 属于同一项目的生产部署中。
+
+## `convex.json` \{#convexjson\}
+
+你可以在项目根目录的 `convex.json` 文件中指定额外的项目配置
+（与 `package.json` 位于同一目录）。
+
+你可以通过添加一个 `$schema` 属性来使用 JSON 模式进行编辑器验证：
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json"
+}
+```
+
+该配置文件支持以下配置选项：
+
+### 更改 `convex/` 文件夹的名称或位置 \{#changing-the-convex-folder-name-or-location\}
+
+你可以通过 `functions` 字段为 `convex/` 文件夹指定不同的名称或位置。比如，Create React App 不允许从 `src/` 目录之外导入模块，所以如果你使用的是 Create React App，应当使用如下配置：
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "functions": "src/convex/"
+}
+```
+
+### 在服务器上安装依赖包 \{#installing-packages-on-the-server\}
+
+你可以通过 `node.externalPackages` 字段指定哪些由 Node 操作函数使用的依赖包应在服务器上安装，而不是被打包。[阅读更多](/functions/bundling.mdx#external-packages)。
+
+### 通过 `require()` 语法导入生成的函数 API \{#importing-the-generated-functions-api-via-require-syntax\}
+
+可以通过 `generateCommonJSApi` 字段配置 Convex 代码生成，以生成 `_generated/api.js` 文件的 CommonJS 版本。
+[了解更多](/client/javascript/node.mdx#javascript-with-commonjs-require-syntax)。
+
+### 配置 Node.js 版本 \{#configuring-the-nodejs-version\}
+
+你可以通过 `node.nodeVersion` 字段指定 Node 操作使用的 Node.js 版本。目前支持的值为 `"20"` 和 `"22"`。
+[了解更多](/functions/runtimes.mdx#nodejs-version-configuration)。
+
+<Admonition type="info" title="所需 Convex 版本">
+  要更改项目中使用的 Node.js 版本，你的 `convex`
+  npm 包版本必须为 1.27.0 或更高。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "node": {
+    "nodeVersion": "22"
+  }
+}
+```
+
+注意：在运行自托管的 Convex 后端时不支持此配置。将会改为使用
+[.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc)
+中指定的 Node.js 版本。
+
+### 使用静态代码生成（测试版） \{#using-static-code-generation-beta\}
+
+Convex 的代码生成在很大程度上依赖 TypeScript 的类型推断。
+这让更新非常迅速，并且对 `api` 和 `internal` 对象的跳转到定义也能正常工作，但在大型代码库中往往会变慢。
+
+如果你遇到了语言服务器的性能问题，可以让 Convex CLI（命令行接口）生成 `_generated/api.d.ts` 和 `_generated/dataModel.d.ts` 的静态版本：
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "codegen": {
+    "staticApi": true,
+    "staticDataModel": true
+  }
+}
+```
+
+这将大幅提升自动补全和增量类型检查的性能，
+但也会带来一些取舍：
+
+* 这些类型只会在 `convex dev` 运行时才会更新。
+* “跳转到定义”功能将不再可用。要查找 `api.example.f`，你需要手动打开
+  `convex/example.ts` 并找到 `f`。
+* 函数将不再具有返回类型推断，如果没有返回值验证器，则会默认使用
+  `v.any()`。
+* [TypeScript enums](https://www.typescriptlang.org/docs/handbook/enums.html) 在模式或 API 定义中将不再可用。请改用字符串字面量类型的联合类型。
+
+此功能目前处于测试（beta）阶段，我们非常希望改进这些限制带来的问题。
+如果你遇到任何问题或有任何反馈，请告诉我们！
+
+### 配置 TypeScript 编译器 \{#configuring-the-typescript-compiler\}
+
+默认情况下，Convex 会使用你项目中安装的 `tsc` 可执行文件进行类型检查。如果你想改用 TypeScript 7 的原生预览版，可以将 `typescriptCompiler` 选项设置为 `tsgo`。请注意，必须在你的项目中安装 `@typescript/native-preview` 才能使用 `tsgo`。
+
+<Admonition type="info" title="所需 Convex 版本">
+  要使用 TypeScript 7 原生预览版，你必须使用版本为 1.31.1 或更高的 `convex` npm 包。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "typescriptCompiler": "tsgo"
+}
+```
+
+### 配置打包器选项 \{#configuring-bundler-options\}
+
+Convex 在打包你的源代码时会包含 source map，以提供堆栈跟踪并在仪表盘上显示你的代码。如果你的代码包特别大，你可以通过在打包时排除源代码内容来缩短 CLI 上传时间。在 `bundler` 选项中将 `includeSourcesContent` 属性设置为 `false`。堆栈跟踪仍会照常工作，但你将无法再在仪表盘中查看源代码。
+
+<Admonition type="info" title="所需 Convex 版本">
+  此配置选项仅在 `convex` npm 包的 1.31.3 或更高版本中可用。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "bundler": {
+    "includeSourcesContent": false
+  }
+}
+```
+
+### 配置 WorkOS AuthKit 集成 \{#configuring-workos-authkit-integration\}
+
+如果你使用 [WorkOS AuthKit](/auth/authkit/index.mdx) 进行身份验证，
+可以通过 `authKit` 字段配置 WorkOS 环境在开发环境中的自动开通和相关设置。
+
+<Admonition type="info" title="所需 Convex 版本">
+  此配置选项仅在 `convex` npm 包的 1.31.6 或更高版本中可用。
+</Admonition>
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "authKit": {
+    "dev": {
+      "configure": {
+        "redirectUris": ["http://localhost:3000/callback"],
+        "appHomepageUrl": "http://localhost:3000",
+        "corsOrigins": ["http://localhost:3000"]
+      },
+      "localEnvVars": {
+        "WORKOS_CLIENT_ID": "${authEnv.WORKOS_CLIENT_ID}",
+        "WORKOS_API_KEY": "${authEnv.WORKOS_API_KEY}",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI": "http://localhost:3000/callback"
+      }
+    },
+    "preview": {
+      "configure": {
+        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
+      }
+    },
+    "prod": {
+      "environmentType": "production",
+      "configure": {
+        "redirectUris": [
+          "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}/callback"
+        ],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}"]
+      }
+    }
+  }
+}
+```
+
+此配置用于控制如何为每种部署类型（dev、preview、prod）创建和配置 WorkOS 环境。完整详情请参阅 [Automatic AuthKit Configuration](/auth/authkit/auto-provision.mdx) 指南。

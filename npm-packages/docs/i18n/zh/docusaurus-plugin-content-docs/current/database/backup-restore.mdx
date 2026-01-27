@@ -1,0 +1,91 @@
+---
+title: "备份与恢复"
+sidebar_position: 85
+description: "备份和恢复 Convex 数据和文件"
+---
+
+Convex 支持通过
+[仪表盘](https://dashboard.convex.dev/deployment/settings/backups)
+进行数据备份与恢复。
+
+![备份页面](/screenshots/backups.png)
+
+# 备份 \{#backups\}
+
+备份是在你发出请求时创建的表数据一致性快照。备份可以配置为包含文件存储。
+
+点击 “Backup Now” 按钮进行手动备份。根据部署中的数据量不同，这个过程可能从几秒到数小时不等。
+
+手动备份会保留 7 天。你可以在此页面下载或删除备份。
+
+部署配置和其他数据（代码、环境变量、定时函数等）不会包含在备份中。
+
+### 定期备份 \{#periodic-backups\}
+
+勾选「Backup automatically」复选框来安排每天或每周的定期备份。你可以选择备份执行的时间（一天中的具体时间 / 一周中的具体日期），以及是否包含文件存储。
+
+每日备份会保存 7 天。每周备份会保存 14 天。
+
+<ProFeatureUpsell feature="Periodic backups" verb="require" />
+
+### 从备份恢复 \{#restoring-from-backup\}
+
+要从备份恢复数据，在某个备份条目的子菜单中选择 &quot;Restore&quot;。你可以从同一部署的备份恢复，或者在备份页面使用部署选择器，从同一团队中的其他部署的备份进行恢复。恢复过程可能需要从几秒到几小时不等，具体取决于备份中的数据量。
+
+请注意，恢复是一个破坏性操作，它会清空你现有的数据，并用备份中的数据替换。建议在执行恢复之前先额外创建一个新的备份。
+
+从备份恢复时，部署中已有的文件不会被删除，但备份中存在而当前部署中不存在的任何文件都会被上传到该部署中。
+
+### 紧急情况下进行恢复 \{#restoring-in-an-emergency\}
+
+如果你的生产部署进入了异常状态，你可能需要考虑执行一次恢复操作，将其恢复到正常状态。请注意，仅仅让数据恢复到良好状态可能还不够。请评估你是否需要执行下列每一项操作。根据紧急情况的具体性质，这些操作可能是必需的。
+
+* 在恢复前额外创建一次备份，因为恢复会覆盖现有数据（是破坏性的）
+* 从一个良好的备份执行恢复，用于恢复数据
+* 使用 `npx convex dev` 推送一份已知的、正常工作的代码版本
+* 使用 `npx convex env` 或仪表盘恢复到一组正确的环境变量
+* 使用仪表盘对你的应用数据库进行任何需要的手动修复
+* 编写变更函数，以更程序化的方式对你的应用数据库进行所需的手动修复
+
+# 下载备份 \{#downloading-a-backup\}
+
+你可以在仪表盘中通过菜单里的下载按钮，下载手动备份和定期备份。
+
+或者，你也可以使用[命令行](/cli.md#export-data-to-a-file)生成相同格式的导出：
+
+```sh
+npx convex export --path ~/Downloads
+```
+
+备份会生成一个 ZIP 文件，包含你的部署中所有 Convex 表中的全部文档。
+
+ZIP 文件的名称格式为 `snapshot_{ts}.zip`，其中 `ts` 是该快照的 UNIX 纳秒时间戳。导出的 ZIP 文件在每个表的 `<table_name>/documents.jsonl` 中包含文档，每行一个文档。
+
+如果导出的 ZIP 文件包含 [file storage](/file-storage)，则会在 `_storage` 文件夹中包含存储数据，其中诸如 ID 和校验和等元数据保存在 `_storage/documents.jsonl` 中，每个文件为 `_storage/<id>`。
+
+### 使用已下载的备份 \{#using-the-downloaded-backup\}
+
+下载的 ZIP 文件可以通过 [CLI](/database/import-export/import.mdx#restore-data-from-a-backup-zip-file) 导入到同一部署或不同的部署中。
+
+## 常见问题解答 \{#faq\}
+
+### 有哪些限制吗？ \{#are-there-any-limitations\}
+
+每个备份最多可访问 7 天。
+
+在 Free/Starter 方案中，每个部署在同一时间最多只能保留两个备份。
+使用 Convex Professional 方案的部署可以保留多个备份，按标准用量计费。
+
+### 如何计费？ \{#how-are-they-priced\}
+
+备份会使用数据库带宽来读取所有文档，并使用文件带宽来读取用户文件。备份本身的生成和存储按与用户文件存储相同的带宽和存储价格计费。你可以在
+[usage dashboard](https://dashboard.convex.dev/team/settings/usage) 中查看这部分带宽和存储成本。有关计费详情，请查看
+[limits docs](/production/state/limits#database)。
+
+### 备份不包含哪些内容？ \{#what-does-the-backup-not-contain\}
+
+备份仅包含你各个数据表中的文档以及文件存储中的文件。具体来说，它不包含：
+
+1. 你的部署的代码和配置。Convex 函数、crons.ts、auth.config.js、schema.ts 等都是在你的源代码中配置的。
+2. 处于待执行状态的计划任务函数。你可以在 [`_scheduled_functions`](/database/advanced/system-tables.mdx) 系统表中访问这些待执行的计划任务函数。
+3. 环境变量。环境变量可以从 Convex 仪表盘中的 Settings 页面复制。

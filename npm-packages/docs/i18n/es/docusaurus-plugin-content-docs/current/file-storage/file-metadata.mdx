@@ -1,0 +1,53 @@
+---
+title: "Acceso a metadatos de archivos"
+sidebar_label: "Metadatos"
+sidebar_position: 5
+description: "Accede a los metadatos de archivos almacenados en Convex"
+---
+
+import FileMetadata from "!!raw-loader!@site/../private-demos/snippets/convex/imagesMetadata.ts";
+import FileMetadataDeprecated from "!!raw-loader!@site/../private-demos/snippets/convex/fileMetadata.ts";
+
+Cada archivo almacenado se refleja como un documento en la tabla del sistema `"_storage"`.
+Puedes acceder a los metadatos de un archivo desde
+[consultas](/functions/query-functions.mdx) y
+[mutaciones](/functions/mutation-functions.mdx) mediante `db.system.get` y
+`db.system.query`:
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={FileMetadata} sourceJS={FileMetadata} highlightPatterns={["db.system.get\\(", "db.system.query\\("]} />
+
+Este es un ejemplo del documento devuelto:
+
+```json
+{
+  "_creationTime": 1700697415295.742,
+  "_id": "3k7ty84apk2zy00ay4st1n5p9kh7tf8",
+  "contentType": "image/jpeg",
+  "sha256": "cb58f529b2ed5a1b8b6681d91126265e919ac61fff6a367b8341c0f46b06a5bd",
+  "size": 125338
+}
+```
+
+El documento devuelto tiene los siguientes campos:
+
+* `sha256`: una suma de comprobación sha256 codificada en base 16 del contenido del archivo
+* `size`: el tamaño del archivo en bytes
+* `contentType`: el `ContentType` del archivo si se especificó durante la carga
+
+Puedes comprobar los metadatos manualmente en tu
+[panel de control](/dashboard/deployments/files.md).
+
+## Acceso a metadatos desde acciones (obsoleto) \{#accessing-metadata-from-actions-deprecated\}
+
+Como alternativa, la función
+[`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)
+también está disponible para acceder a los metadatos de un archivo individual desde
+[acciones](/functions/actions.mdx) y
+[HTTP actions](/functions/http-actions.mdx):
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={FileMetadataDeprecated} sourceJS={FileMetadataDeprecated} highlightPatterns={["getMetadata\\("]} />
+
+Ten en cuenta que
+[`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)
+devuelve un [`FileMetadata`](/api/modules/server#filemetadata), que tiene una
+estructura ligeramente distinta del resultado de `db.system.get`.

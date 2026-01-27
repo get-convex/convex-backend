@@ -1,0 +1,77 @@
+---
+title: "Errores de aplicación"
+sidebar_label: "Errores de aplicación"
+description: "Maneja errores esperados en funciones de Convex"
+---
+
+import Server from "!!raw-loader!@site/../private-demos/snippets/convex/applicationErrors.ts";
+import ClientTS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrors.tsx";
+import ClientJS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrorsJS.jsx";
+
+Si prevés formas en que tus funciones puedan fallar, puedes devolver
+valores diferentes o lanzar instancias de `ConvexError`.
+
+## Devolver valores diferentes \{#returning-different-values\}
+
+Si estás usando TypeScript, distintos tipos de retorno pueden obligarte a
+manejar escenarios de error.
+
+Por ejemplo, una mutación `createUser` podría devolver
+
+```ts
+Id<"users"> | { error: "EMAIL_ADDRESS_IN_USE" };
+```
+
+para indicar que la mutación se realizó correctamente o que la dirección de correo electrónico ya estaba en uso.
+
+Esto garantiza que recuerdes manejar estos casos en tu interfaz de usuario.
+
+## Lanzar errores de aplicación \{#throwing-application-errors\}
+
+Es posible que prefieras lanzar errores por los siguientes motivos:
+
+* Puedes usar el mecanismo de propagación de excepciones para lanzar errores desde una llamada
+  de función profundamente anidada, en lugar de propagar manualmente los resultados de error por la
+  pila de llamadas. Esto también funcionará para llamadas a `runQuery`, `runMutation` y `runAction`
+  en [acciones](/functions/actions.mdx).
+* En las [mutaciones](/functions/mutation-functions.mdx), lanzar un error evitará
+  que la transacción de la mutación se confirme
+* En el cliente, puede resultarte más sencillo manejar todo tipo de errores, tanto
+  esperados como inesperados, de forma uniforme
+
+Convex proporciona una subclase de error,
+[`ConvexError`](/api/classes/values.ConvexError), que se puede usar para transmitir
+información desde el backend al cliente:
+
+<TSAndJSSnippet title="convex/myFunctions.ts" sourceTS={Server} sourceJS={Server} snippet="example" highlightPatterns={["ConvexError"]} />
+
+### Carga útil `data` de error de aplicación \{#application-error-data-payload\}
+
+Puedes pasar los mismos [tipos de datos](/database/types.md) que se admiten en los argumentos de funciones, tipos de retorno y en la base de datos, al constructor de `ConvexError`. Estos datos se almacenarán en la propiedad `data` del error:
+
+```ts
+// error.data === "My fancy error message"
+throw new ConvexError("My fancy error message");
+
+// error.data === {message: "My fancy error message", code: 123, severity: "high"}
+throw new ConvexError({
+  message: "My fancy error message",
+  code: 123,
+  severity: "high",
+});
+
+// error.data === {code: 123, severity: "high"}
+throw new ConvexError({
+  code: 123,
+  severity: "high",
+});
+```
+
+Payloads de error más complejos que una simple `string` son útiles para un registro de errores más estructurado o para manejar conjuntos de errores de forma diferente en el cliente.
+
+## Manejo de errores de aplicación en el cliente \{#handling-application-errors-on-the-client\}
+
+En el cliente, los errores de aplicación también usan la clase `ConvexError`, y los
+datos que contienen se pueden acceder mediante la propiedad `data`:
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={ClientTS} sourceJS={ClientJS} highlightPatterns={["ConvexError", ".data"]} />

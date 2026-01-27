@@ -1,0 +1,209 @@
+---
+title: "全文搜索"
+sidebar_position: 110
+description: "对 Convex 文档执行搜索查询"
+slug: "text-search"
+---
+
+全文搜索允许你找到与某个搜索查询大致匹配的 Convex 文档。
+
+与普通的
+[文档查询](/database/reading-data/reading-data.mdx#querying-documents) 不同，
+搜索查询会在字符串字段 *内部* 查找关键字。搜索查询适用于构建诸如查找包含特定单词的消息之类的功能。
+
+搜索查询天然具备响应式、一致性和事务性，并且可以与分页无缝配合使用。它们甚至会包含通过变更创建的新文档！
+
+**示例：**
+[Search App](https://github.com/get-convex/convex-demos/tree/main/search)
+
+要使用全文搜索，你需要：
+
+1. 定义一个搜索索引。
+2. 执行一次搜索查询。
+
+搜索索引是基于 Convex 的多段搜索算法构建和查询的，该算法运行在 [Tantivy](https://github.com/quickwit-oss/tantivy) 之上。Tantivy 是一个用 Rust 编写的强大开源全文搜索库。
+
+## 定义搜索索引 \{#defining-search-indexes\}
+
+与 [数据库索引](/database/reading-data/indexes/indexes.md) 类似，搜索索引是一种预先构建的数据结构，用于实现高效查询。搜索索引作为 Convex
+[模式](/database/schemas.mdx) 的一部分进行定义。
+
+每个搜索索引定义包含：
+
+1. 一个名称。
+   * 在每个表内必须唯一。
+2. 一个 `searchField`
+   * 这是将被用于全文搜索建立索引的字段。
+   * 它的类型必须是 `string`。
+3. 【可选】一个 `filterField` 列表
+   * 这些是为在搜索索引中进行快速等值过滤而建立索引的额外字段。
+4. 【可选】一个布尔类型的 `staged` 标志
+   * 如果设置为 `true`，该索引会在部署后异步回填，
+     类似于[阶段性数据库索引](/database/reading-data/indexes#staged-indexes)。
+     这对于索引回填时间较长的大表非常有用。默认值为 `false`。
+
+要在表上添加一个搜索索引，使用表模式上的
+[`searchIndex`](/api/classes/server.TableDefinition#searchindex) 方法。比如，如果你想要一个可以在某个频道中根据关键字搜索消息的索引，你的模式可以像这样：
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  messages: defineTable({
+    body: v.string(),
+    channel: v.string(),
+  }).searchIndex("search_body", {
+    searchField: "body",
+    filterFields: ["channel"],
+    staged: false,
+  }),
+});
+```
+
+你可以通过使用以点分隔的路径（例如 `properties.name`）来指定嵌套文档中的搜索和过滤字段。
+
+## 运行搜索查询 \{#running-search-queries\}
+
+一个用于“在频道 ‘#general’ 中查找正文最匹配查询 ‘hello hi’ 的 10 条消息”的查询看起来如下：
+
+```js
+const messages = await ctx.db
+  .query("messages")
+  .withSearchIndex("search_body", (q) =>
+    q.search("body", "hello hi").eq("channel", "#general"),
+  )
+  .take(10);
+```
+
+这只是一次普通的[数据库读取](/database/reading-data/reading-data.mdx)，
+只不过它是从查询搜索索引开始的！
+
+[`.withSearchIndex`](/api/interfaces/server.QueryInitializer#withsearchindex)
+方法用来定义要查询哪个搜索索引，以及 Convex 将如何使用该搜索索引来选择文档。第一个参数是索引的名称，第二个参数是*搜索过滤表达式*。搜索过滤表达式用来描述 Convex 在运行查询时应该考虑哪些文档。
+
+搜索过滤表达式始终是一个链式列表，由以下部分组成：
+
+1. 1 个针对索引搜索字段的搜索表达式，该字段是通过
+   [`.search`](/api/interfaces/server.SearchFilterBuilder#search)
+   定义的。
+2. 0 个或多个针对索引过滤字段的等值表达式，这些字段是通过
+   [`.eq`](/api/interfaces/server.SearchFilterFinalizer#eq)
+   定义的。
+
+### 搜索表达式 \{#search-expressions\}
+
+搜索表达式是针对搜索索引发出的，根据搜索表达式中的查询来过滤并排序文档，按与查询的相关性进行排名。在内部，
+Convex 会将查询拆分成若干单词（称为 *terms*），并对匹配这些 term 的文档进行近似排序。
+
+在上面的示例中，表达式 `search("body", "hello hi")`
+在内部会被拆分为 `"hi"` 和 `"hello"`，并与文档中的单词进行匹配
+（忽略大小写和标点符号）。
+
+搜索的行为还包含[前缀匹配规则](#search-behavior)。
+
+### 相等表达式 \{#equality-expressions\}
+
+与搜索表达式不同，相等表达式只会筛选在给定字段中值完全匹配的文档。在上面的示例中，
+`eq("channel", "#general")` 只会匹配那些其 `channel` 字段的值恰好为
+`"#general"` 的文档。
+
+相等表达式支持任意类型的字段（不仅限于文本）。
+
+要筛选出缺少某个字段的文档，请使用
+`q.eq("fieldName", undefined)`。
+
+### 其他筛选方式 \{#other-filtering\}
+
+因为搜索查询本质上是普通的数据库查询，所以你也可以通过
+[`.filter` 方法](/api/interfaces/server.Query#filter)来
+[过滤结果](/database/reading-data/filters.mdx)！
+
+下面是一个查询：“在过去 10 分钟内发送的、内容包含 &#39;hi&#39; 的消息”：
+
+```js
+const messages = await ctx.db
+  .query("messages")
+  .withSearchIndex("search_body", (q) => q.search("body", "hi"))
+  .filter((q) => q.gt(q.field("_creationTime", Date.now() - 10 * 60000)))
+  .take(10);
+```
+
+**出于性能考虑，请始终尽可能将更多的过滤条件放在
+`.withSearchIndex` 中。**
+
+每个搜索查询都会按以下步骤执行：
+
+1. 首先，使用 `withSearchIndex` 中的搜索过滤表达式查询搜索索引。
+2. 然后，再使用任何额外的 `filter` 表达式对结果逐条过滤。
+
+使用非常具体的搜索过滤表达式会让查询更快，也更不容易触及 Convex 的限制，因为 Convex 会使用搜索索引高效地减少需要考虑的结果数量。
+
+### 获取结果并分页 \{#retrieving-results-and-paginating\}
+
+与普通数据库查询一样，你可以
+[获取结果](/database/reading-data/reading-data.mdx#retrieving-results)，使用
+[`.collect()`](/api/interfaces/server.Query#collect)、[`.take(n)`](/api/interfaces/server.Query#take)、[`.first()`](/api/interfaces/server.Query#first) 和
+[`.unique()`](/api/interfaces/server.Query#unique)。
+
+此外，可以使用
+[`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)
+对搜索结果进行[分页](/database/pagination.mdx)。
+
+注意，如果 `collect()` 尝试收集超过 1024 个文档的上限，将会抛出异常。通常更好的做法是设置一个更小的上限，并使用 `take(n)` 或对结果进行分页。
+
+### 排序 \{#ordering\}
+
+搜索查询始终会根据文档与搜索查询的匹配程度，以[相关性顺序](#relevance-order)返回结果。不支持其他结果排序方式。
+
+## 搜索行为 \{#search-behavior\}
+
+### 联想输入搜索 \{#typeahead-search\}
+
+Convex 全文搜索专为“边输入边搜索”的实时体验而设计。在你的搜索查询中，最后一个搜索词会启用&#95;前缀搜索&#95;，匹配任何以该词为前缀的词项。比如，表达式
+`search("body", "r")` 会匹配以下文档：
+
+* `"rabbit"`
+* `"send request"`
+
+模糊搜索匹配已被弃用。自 2025 年 1 月 15 日起，搜索结果中将不会因为像 `"stake"` 这样的拼写错误而返回 `"snake"`。
+
+### 相关性排序 \{#relevance-order\}
+
+**相关性排序可能会发生变化。** 为了提升搜索结果的质量，搜索结果的相关性以及 Convex 应用的具体规则都可能会调整。
+
+搜索查询会按相关性排序返回结果。在内部实现中，Convex 会基于文档的
+[BM25 分数](https://en.wikipedia.org/wiki/Okapi_BM25) 以及其他多个
+指标来评估文档的相关性，例如匹配位置的接近程度、精确匹配的数量等。BM25 分数会考虑：
+
+* 搜索查询中的多少个词出现在该字段中？
+* 它们出现了多少次？
+* 文本字段有多长？
+
+如果多个文档的分数相同，则会优先返回最新的文档。
+
+## 限制 \{#limits\}
+
+搜索索引在英语或其他使用拉丁字母书写的语言上效果最佳。文本使用 Tantivy 的
+[`SimpleTokenizer`](https://docs.rs/tantivy/latest/tantivy/tokenizer/struct.SimpleTokenizer.html)
+进行分词，它会按照空白字符和标点进行拆分。我们还将词项长度限制为最多 32 个字符，并将其转换为小写。
+
+搜索索引必须具备：
+
+* 恰好 1 个搜索字段。
+* 最多 16 个筛选字段。
+
+搜索索引计入
+[每个表 32 个索引的上限](/database/reading-data/indexes/indexes.md#limits)。
+
+搜索查询可以包含：
+
+* 搜索表达式中最多 16 个词项（单词）。
+* 最多 8 个筛选表达式。
+
+此外，搜索查询最多可以从搜索索引中扫描 1024 条结果。
+
+这些限制的权威来源是我们的
+[源代码](https://github.com/get-convex/convex-backend/blob/main/crates/search/src/constants.rs)。
+
+关于其他限制的信息，请参见 [此处](/production/state/limits.mdx)。

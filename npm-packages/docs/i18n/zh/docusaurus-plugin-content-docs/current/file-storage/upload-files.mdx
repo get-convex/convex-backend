@@ -1,0 +1,109 @@
+---
+title: "上传和存储文件"
+sidebar_label: "上传"
+sidebar_position: 1
+description: "上传文件到 Convex 存储"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import URLUploadTS from "!!raw-loader!@site/../demos/file-storage/src/_simpleApp.tsx";
+import URLUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import HttpAction from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpUploadTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/_simpleApp.tsx";
+import HttpUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpApp.jsx";
+
+使用[生成的上传 URL](#uploading-files-via-upload-urls)或[自定义 HTTP 操作](#uploading-files-via-an-http-action)将文件上传到 Convex。
+
+## 通过上传 URL 上传文件 \{#uploading-files-via-upload-urls\}
+
+可以使用生成的上传 URL 将任意大小的文件直接上传到你的后端。这个过程需要客户端发起 3 个请求：
+
+1. 使用调用
+   [`storage.generateUploadUrl()`](/api/interfaces/server.StorageWriter#generateuploadurl)
+   的变更函数生成一个上传 URL。
+2. 向该上传 URL 发送包含文件内容的 POST 请求，并接收一个存储 ID。
+3. 通过另一个变更函数将该存储 ID 保存到你的数据模型中。
+
+在用于生成上传 URL 的第一个变更函数中，你可以控制哪些用户可以向你的 Convex 存储上传文件。
+
+**示例**：
+[使用查询和变更函数的文件存储](https://github.com/get-convex/convex-demos/tree/main/file-storage)
+
+### 在网页中调用上传 API \{#calling-the-upload-apis-from-a-web-page\}
+
+下面是一个示例，通过表单提交处理函数，将图像上传到由变更生成的上传 URL：
+
+<TSAndJSSnippet
+  title="src/App.jsx"
+  sourceTS={URLUploadTS}
+  sourceJS={URLUploadJS}
+  snippet="fileUpload"
+  highlightPatterns={[
+  "generateUploadUrl\\(",
+  "sendImage\\(",
+  "await fetch",
+  "method:",
+  "headers:",
+  "body:",
+  "}\\);",
+]}
+/>
+
+### 生成上传 URL \{#generating-the-upload-url\}
+
+可以通过 [`MutationCtx`](/api/interfaces/server.GenericMutationCtx) 对象的
+[`storage.generateUploadUrl`](/api/interfaces/server.StorageWriter#generateuploadurl)
+函数生成上传 URL：
+
+<TSAndJSSnippet title="convex/messages.js" sourceTS={Messages} sourceJS={Messages} snippet="generateUploadUrl" highlightPatterns={["storage.generateUploadUrl"]} />
+
+这个变更函数可以控制谁被允许上传文件。
+
+上传 URL 会在 1 小时后过期，所以应在执行上传前不久获取。
+
+### 将新的存储 ID 写入数据库 \{#writing-the-new-storage-id-to-the-database\}
+
+由于存储 ID 会返回给客户端，你通常会希望通过另一个变更将其
+持久化到数据库中：
+
+<TSAndJSSnippet title="convex/messages.ts" sourceTS={Messages} sourceJS={Messages} prefix={`import { mutation } from "./_generated/server";\n`} snippet="saveStorageId" highlightPatterns={["storage.generateUploadUrl"]} />
+
+### 限制 \{#limits\}
+
+文件大小本身没有限制，但上传的 POST 请求有 2 分钟的超时限制。
+
+## 通过 HTTP 操作上传文件 \{#uploading-files-via-an-http-action\}
+
+借助 [HTTP 操作](/functions/http-actions.mdx)，可以对文件上传过程进行更精细的控制，在单个请求中完成整个上传流程，但这要求正确配置 CORS 头部。
+
+自定义的上传 HTTP 操作可以控制谁可以向你的 Convex 存储上传文件。但请注意，HTTP 操作的请求大小
+[目前被限制](/functions/http-actions.mdx#limits)为 20MB。对于更大的文件，你需要按照上文
+[通过上传 URL 上传文件](#uploading-files-via-upload-urls)中的说明使用上传 URL。
+
+**示例：**
+[使用 HTTP 操作的文件存储](https://github.com/get-convex/convex-demos/tree/main/file-storage-with-http)
+
+### 从网页调用上传 HTTP 操作 \{#calling-the-upload-http-action-from-a-web-page\}
+
+下面是一个示例，通过表单提交处理函数，将图片上传到下文将要定义的
+`sendImage` HTTP 操作。
+
+高亮的代码行是真正向该 HTTP 操作发起请求的部分：
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={HttpUploadTS} sourceJS={HttpUploadJS} snippet="httpFileUpload" highlightPatterns={["fetch", "method:", "headers:", "body:", "}\\);"]} />
+
+### 定义上传 HTTP 操作 \{#defining-the-upload-http-action\}
+
+在 HTTP 请求体中发送的文件可以通过 [`ActionCtx`](/api/interfaces/server.GenericActionCtx) 对象的
+[`storage.store`](/api/interfaces/server.StorageActionWriter#store) 函数进行存储。该函数会返回一个表示已存储文件的 `Id<"_storage">`。
+
+在这个 HTTP 操作中，你可以调用一个变更，将该存储 ID 写入数据库中的文档。
+
+要向你的托管网站确认上传成功，需要设置正确的
+[CORS 头](/functions/http-actions.mdx#cors)：
+
+<TSAndJSSnippet title="convex/http.js" sourceTS={HttpAction} sourceJS={HttpAction} snippet="sendImageStore" highlightPatterns={["storage.store"]} />
+
+你还需要处理预检 `OPTIONS` 请求：
+
+<TSAndJSSnippet title="convex/http.js" sourceTS={HttpAction} sourceJS={HttpAction} snippet="preflight" highlightPatterns={["storage.store"]} />

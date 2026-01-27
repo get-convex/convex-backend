@@ -1,0 +1,44 @@
+---
+title: "Convex Auth"
+sidebar_label: "Convex Auth"
+sidebar_position: 1
+description: "Convex 应用的内置身份验证功能"
+---
+
+[Convex Auth](https://labs.convex.dev/auth) 是一个库，用于直接在你的 Convex 后端中实现身份验证。这样你就可以在没有独立身份验证服务，甚至没有托管服务器的情况下对用户进行认证。Convex Auth 目前支持通过 CDN 提供的客户端 React Web 应用，以及 React Native 移动应用。
+
+**示例：** [在线演示](https://labs.convex.dev/auth-example)
+（[源码](https://github.com/get-convex/convex-auth-example)）
+
+<BetaAdmonition feature="Convex Auth" verb="is" />
+
+对
+[Next.js 中的身份验证](https://labs.convex.dev/auth/authz/nextjs)（包括 server components、API routes、middleware、SSR 等）的支持正在积极开发中。如果你愿意参与测试这些实验性能力，请
+[在 Discord 中告诉我们你的使用体验](https://convex.dev/community)。
+
+## 入门 \{#get-started\}
+
+要从零开始使用 Convex 和 Convex Auth 创建一个新项目，请运行：
+
+```sh
+npm create convex@latest
+```
+
+并选择 `React (Vite)` 和 `Convex Auth`。
+
+***
+
+要将 Convex Auth 添加到现有项目，请按照完整的
+[设置指南](https://labs.convex.dev/auth/setup) 进行配置。
+
+## 概览 \{#overview\}
+
+Convex Auth 使你可以实现以下几种身份验证方法：
+
+1. Magic Links 和一次性验证码（OTP）——通过电子邮件发送链接或验证码
+2. OAuth —— 使用 GitHub / Google / Apple 等账号登录
+3. 密码 —— 包含重置密码流程和可选的邮箱验证
+
+该库不自带 UI 组件，但你可以从文档和示例仓库中复制代码，在 React 中快速构建 UI。
+
+前往 [Convex Auth 文档](https://labs.convex.dev/auth) 了解更多信息。

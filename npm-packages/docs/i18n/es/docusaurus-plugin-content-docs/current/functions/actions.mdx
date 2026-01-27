@@ -1,0 +1,287 @@
+---
+title: Acciones
+sidebar_position: 30
+description: "Invoca servicios de terceros y APIs externas desde Convex"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/actionsConstructor.ts";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContext.ts";
+import ContextRunQuery from "!!raw-loader!@site/../private-demos/snippets/convex/myFunctions.ts";
+import ContextRunMutation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContextRunMutation.ts";
+import CircularError from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularError.ts";
+import CircularErrorFixedResults from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedResults.ts";
+import CircularErrorFixedReturn from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedReturn.ts";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNPM.ts";
+import Node from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNode.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/actionsCall.tsx";
+import ScheduleFromMutation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsScheduleFromMutation.ts";
+
+Las acciones pueden llamar a servicios de terceros para realizar tareas como procesar un pago
+con [Stripe](https://stripe.com). Pueden ejecutarse en el entorno de JavaScript de Convex
+o en Node.js. Pueden interactuar con la base de datos indirectamente llamando a
+[consultas](/functions/query-functions.mdx) y
+[mutaciones](/functions/mutation-functions.mdx).
+
+**Ejemplo:**
+[Acción de GIPHY](https://github.com/get-convex/convex-demos/tree/main/giphy-action)
+
+## Nombres de acciones \{#action-names\}
+
+Las acciones siguen las mismas reglas de nomenclatura que las consultas, consulta
+[Query names](/functions/query-functions.mdx#query-names).
+
+## El constructor `action` \{#the-action-constructor\}
+
+Para declarar una acción en Convex, utiliza la función constructora `action`. Pásale
+un objeto con una función `handler`, que es la que ejecuta la acción:
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+A diferencia de una consulta, una acción puede devolver un valor, pero no está obligada a hacerlo.
+
+### Argumentos y respuestas de las acciones \{#action-arguments-and-responses\}
+
+Los argumentos y las respuestas de las acciones siguen las mismas reglas que las
+[mutaciones](/functions/mutation-functions.mdx#mutation-arguments):
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} title="convex/myFunctions.ts" />
+
+El primer argumento de la función `handler` está reservado para el contexto de la acción.
+
+### Contexto de las acciones \{#action-context\}
+
+El constructor `action` permite interactuar con la base de datos y otras
+funcionalidades de Convex pasando un objeto
+[ActionCtx](/api/interfaces/server.GenericActionCtx) a la función controladora
+como primer argumento:
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+Qué parte de ese contexto de acción se use depende de lo que tu acción necesite
+hacer:
+
+* Para leer datos de la base de datos, usa el campo `runQuery` y llama a una
+  consulta que realice la lectura:
+
+  <TSAndJSSnippet sourceTS={ContextRunQuery} sourceJS={ContextRunQuery} snippet="action" title="convex/myFunctions.ts" />
+
+  Aquí `readData` es una [consulta interna](/functions/internal-functions.mdx)
+  porque no queremos exponerla directamente al cliente. Las acciones,
+  mutaciones y consultas se pueden definir en el mismo archivo.
+
+* Para escribir datos en la base de datos, usa el campo `runMutation` y llama a
+  una mutación que realice la escritura:
+
+  <TSAndJSSnippet sourceTS={ContextRunMutation} sourceJS={ContextRunMutation} title="convex/myFunctions.ts" />
+
+  Usa una [mutación interna](/functions/internal-functions.mdx) cuando quieras
+  evitar que los usuarios llamen a la mutación directamente.
+
+  Al igual que con las consultas, a menudo es conveniente definir acciones y
+  mutaciones en el mismo archivo.
+
+* Para generar URLs de carga para almacenar archivos, usa el campo `storage`.
+  Sigue leyendo sobre el [almacenamiento de archivos](/file-storage.mdx).
+
+* Para comprobar la autenticación de usuarios, usa el campo `auth`. La
+  autenticación se propaga automáticamente al llamar a consultas y mutaciones
+  desde la acción. Sigue leyendo sobre la
+  [autenticación](/auth.mdx).
+
+* Para programar funciones para que se ejecuten en el futuro, usa el campo
+  `scheduler`. Sigue leyendo sobre las
+  [funciones programadas](/scheduling/scheduled-functions.mdx).
+
+* Para buscar en un índice vectorial, usa el campo `vectorSearch`. Sigue
+  leyendo sobre la [búsqueda vectorial](/search/vector-search.mdx).
+
+### Cómo manejar la inferencia de tipos circular \{#dealing-with-circular-type-inference\}
+
+<Details
+  summary={<>
+Cómo solucionar el error de TypeScript: alguna acción <code>implícitamente tiene
+el tipo 'any' porque no tiene una anotación de tipo y se
+hace referencia a ella directa o indirectamente en su propio inicializador.</code>
+</>}
+>
+  Cuando el valor de retorno de una acción depende del resultado de llamar a
+  `ctx.runQuery` o `ctx.runMutation`, TypeScript indicará que no puede
+  inferir el tipo de retorno de la acción. Este es un ejemplo mínimo del problema:
+
+  <Snippet title="convex/myFunctions.ts" source={CircularError} snippet="tsError" />
+
+  Para solucionarlo, hay dos opciones:
+
+  1. Tipar explícitamente el valor de retorno de la función *handler*:
+     <Snippet title="convex/myFunctions.ts" source={CircularErrorFixedReturn} snippet="fixed" highlightPatterns={["null"]} />
+  2. Tipar explícitamente el resultado de la llamada a `ctx.runQuery` o `ctx.runMutation`:
+     <Snippet title="convex/myFunctions.ts" source={CircularErrorFixedResults} snippet="fixed" highlightPatterns={["null"]} />
+
+  TypeScript comprobará que la anotación de tipo coincide con lo que devuelve la
+  consulta o mutación llamada, así que no pierdes ninguna seguridad de tipos.
+
+  En este ejemplo trivial, el tipo de retorno de la consulta era `null`. Consulta la
+  página de [TypeScript](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+  para ver otros tipos que pueden ser útiles al anotar el resultado.
+</Details>
+
+## Elegir el runtime (&quot;use node&quot;) \{#choosing-the-runtime-use-node\}
+
+Las acciones pueden ejecutarse en el entorno JavaScript personalizado de Convex o en Node.js.
+
+De forma predeterminada, las acciones se ejecutan en el entorno de Convex. Este entorno admite
+`fetch`, por lo que las acciones que simplemente quieran llamar a una API de terceros usando `fetch` se pueden ejecutar en este entorno:
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+Las acciones que se ejecutan en el entorno de Convex son más rápidas que en Node.js, ya que
+no requieren tiempo extra de arranque antes de ejecutar tu acción (cold starts). También se pueden definir en el
+mismo archivo que otras funciones de Convex. Al igual que las consultas y mutaciones, pueden importar paquetes de NPM,
+pero no todos están admitidos.
+
+Las acciones que necesitan paquetes de NPM no admitidos o API de Node.js se pueden configurar para ejecutarse en Node.js añadiendo la directiva `"use node"` en la parte superior del archivo. Ten en cuenta que
+otras funciones de Convex no se pueden definir en archivos con la directiva `"use node";`.
+
+<TSAndJSSnippet sourceTS={Node} sourceJS={Node} highlightPatterns={["use node"]} title="convex/myAction.ts" />
+
+Obtén más información sobre los dos [runtimes de Convex](/functions/runtimes.mdx).
+
+## Dividir el código de acciones mediante funciones auxiliares \{#splitting-up-action-code-via-helpers\}
+
+<>
+  {/* Fragment for Prettier */}
+
+  Al igual que con las [consultas](/functions/query-functions.mdx#splitting-up-query-code-via-helpers)
+  y las [mutaciones](/functions/mutation-functions.mdx#splitting-up-mutation-code-via-helpers),
+  puedes definir y llamar a funciones auxiliares con
+  <LanguageSelector verbose /> para dividir el código de tus acciones o
+  reutilizar la lógica en varias funciones de Convex.
+
+  Pero ten en cuenta que [ActionCtx](/api/interfaces/server.GenericActionCtx) solo tiene
+  el campo `auth` en común con [QueryCtx](/generated-api/server.md#queryctx)
+  y [MutationCtx](/generated-api/server.md#mutationctx).
+</>
+
+## Llamar a acciones desde los clientes \{#calling-actions-from-clients\}
+
+Para llamar a una acción desde [React](/client/react.mdx), utiliza el hook
+[`useAction`](/api/modules/react#useaction) junto con el objeto generado
+[`api`](/generated-api/api).
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
+
+A diferencia de las
+[mutaciones](/functions/mutation-functions.mdx#calling-mutations-from-clients),
+las acciones desde un único cliente se ejecutan en paralelo. Cada acción se ejecutará tan
+pronto como llegue al servidor (incluso si otras acciones y mutaciones del mismo
+cliente se están ejecutando). Si tu app depende de que unas acciones se ejecuten
+después de otras acciones o mutaciones, asegúrate de activar la acción solo
+después de que la función previa relevante haya finalizado.
+
+**Nota:** En la mayoría de los casos, llamar a una acción directamente desde un
+cliente **es un antipatrón**. En su lugar, haz que el cliente llame a una
+[mutación](/functions/mutation-functions.mdx) que capture la intención del
+usuario escribiendo en la base de datos y luego
+[programe](/scheduling/scheduled-functions.mdx) una acción:
+
+<TSAndJSSnippet sourceTS={ScheduleFromMutation} sourceJS={ScheduleFromMutation} title="convex/myFunctions.ts" />
+
+De este modo, la mutación puede garantizar invariantes, como impedir que el
+usuario ejecute la misma acción dos veces.
+
+## Límites \{#limits\}
+
+Las acciones tienen un tiempo de espera máximo de 10 minutos.
+[Node.js](/functions/runtimes.mdx#nodejs-runtime) y el
+[entorno de ejecución de Convex](/functions/runtimes.mdx#default-convex-runtime) tienen un límite
+de memoria de 512 MB y 64 MB respectivamente. [Contáctanos](/production/contact.md)
+si tienes un caso de uso que requiera configurar límites más altos.
+
+Las acciones pueden realizar hasta 1000 operaciones concurrentes, como ejecutar
+consultas, mutaciones o realizar solicitudes mediante fetch.
+
+Para obtener información sobre otros límites, consulta [aquí](/production/state/limits.mdx).
+
+## Manejo de errores \{#error-handling\}
+
+A diferencia de las consultas y las mutaciones, las acciones pueden tener efectos secundarios y, por lo tanto, Convex no puede reintentarlas automáticamente cuando se producen errores. Por ejemplo, supongamos que tu acción llama a Stripe para enviar la factura de un cliente. Si la solicitud HTTP falla, Convex no tiene forma de saber si la factura ya se envió. Como en el código de backend normal, es responsabilidad de quien invoca la acción manejar los errores generados por las acciones y volver a intentar la llamada si corresponde.
+
+## Promesas pendientes \{#dangling-promises\}
+
+Asegúrate de hacer `await` a todas las promesas creadas dentro de una acción. Las tareas asíncronas que sigan
+en ejecución cuando la función termine podrían o no completarse. Además,
+como el entorno de ejecución de Node.js puede reutilizarse entre llamadas a acciones,
+las promesas pendientes pueden provocar errores en invocaciones posteriores de la acción.
+
+## Buenas prácticas \{#best-practices\}
+
+### `await ctx.runAction` solo debe usarse para cruzar runtimes de JS \{#await-ctxrunaction-should-only-be-used-for-crossing-js-runtimes\}
+
+**¿Por qué?** `await ctx.runAction` conlleva la sobrecarga de otra función de
+servidor de Convex. Cuenta como una llamada de función adicional, asigna sus
+propios recursos del sistema y, mientras esperas (`await`) esta llamada, la
+llamada de la acción padre queda congelada, reteniendo todos sus recursos. Si
+encadenas suficientes de estas llamadas una encima de otra, tu aplicación puede
+ralentizarse significativamente.
+
+**Solución:** El motivo por el que existe esta API es para permitirte ejecutar
+código en el [entorno de Node.js](/functions/runtimes.mdx). Si quieres llamar a
+una acción desde otra acción que está en el mismo runtime, que es el caso
+normal, la mejor forma de hacerlo es extraer el código que quieres ejecutar a una
+[función auxiliar](/understanding/best-practices/best-practices.mdx#use-helper-functions-to-write-shared-code)
+de TypeScript y llamar a esa función auxiliar en su lugar.
+
+### Evita usar `await ctx.runMutation` / `await ctx.runQuery` \{#avoid-await-ctxrunmutation-await-ctxrunquery\}
+
+```ts
+// ❌
+const foo = await ctx.runQuery(...)
+const bar = await ctx.runQuery(...)
+
+// ✅
+const fooAndBar = await ctx.runQuery(...)
+```
+
+**¿Por qué?** Múltiples llamadas a runQuery / runMutations se ejecutan en
+transacciones separadas y no se garantiza que sean consistentes entre sí (por
+ejemplo, foo y bar podrían leer el mismo documento y devolver dos resultados
+diferentes), mientras que una sola llamada a runQuery / runMutation siempre será
+consistente. Además, estás pagando por varias llamadas de función cuando no es
+necesario.
+
+**Solución:** Crea una nueva `query` / `mutation` interna que haga ambas cosas.
+Refactorizar el código de las dos funciones en funciones auxiliares facilitará
+crear una nueva función interna que haga ambas cosas y, al mismo tiempo,
+conservar las funciones originales. Considera refactorizar tu código de acción
+para &quot;agrupar&quot; todo el acceso a la base de datos.
+
+Advertencias: Las llamadas separadas a runQuery / runMutation son válidas cuando
+se intenta procesar intencionalmente más datos de los que caben en una sola
+transacción (por ejemplo, ejecutar una migración o hacer un agregado en vivo).
+
+## Componentes relacionados \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Caché de acciones",
+    description:
+      "Almacena en caché acciones que requieren muchos recursos o que se ejecutan con frecuencia. Permite configurar la duración de la caché y forzar actualizaciones.",
+    href: "https://www.convex.dev/components/action-cache",
+  },
+  {
+    title: "Workpool",
+    description:
+      "Workpool prioriza las tareas críticas organizando las operaciones asíncronas en colas separadas y personalizables. Admite reintentos y límites de paralelismo.",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "Al igual que las acciones, los Workflows pueden invocar consultas, mutaciones y acciones. Sin embargo, son funciones persistentes que pueden suspenderse, sobrevivir a caídas del servidor, especificar reintentos para las llamadas a acciones y más.",
+    href: "https://www.convex.dev/components/workflow",
+  },
+]}
+/>

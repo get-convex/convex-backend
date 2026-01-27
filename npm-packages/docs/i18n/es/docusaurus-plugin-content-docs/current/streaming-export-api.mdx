@@ -1,0 +1,115 @@
+---
+title: "Exportación en streaming"
+sidebar_label: "Exportación en streaming"
+description: "Exportar datos desde Convex en streaming"
+---
+
+Convex admite la exportación en streaming. Convex proporciona implementaciones de conectores para
+[Fivetran y Airbyte](/production/integrations/streaming-import-export.md).
+Esos conectores usan las siguientes API.
+
+Regístrate en un [plan Professional](https://www.convex.dev/pricing) para obtener compatibilidad con la
+exportación en streaming. También puedes leer la
+[documentación sobre exportación en streaming](/production/integrations/streaming-import-export.md).
+
+<BetaAdmonition feature="APIs HTTP de exportación en streaming" verb="are" />
+
+Las solicitudes de exportación en streaming requieren autorización de administrador del despliegue mediante el encabezado
+HTTP `Authorization`. El valor es `Convex <access_key>`, donde la clave de acceso
+proviene de &quot;Deploy key&quot; en el panel de control de Convex y concede acceso completo de lectura y escritura
+a tus datos en Convex.
+
+### GET `/api/json_schemas` \{#get-apijson_schemas\}
+
+El endpoint JSON Schemas enumera las tablas y, para cada tabla, describe cómo
+se codifican los documentos, usando [JSON Schema](https://json-schema.org/).
+Este endpoint devuelve etiquetas `$description` en todo el esquema para describir
+codificaciones poco intuitivas y proporcionar información adicional, como la tabla referenciada por
+los campos `Id`.
+
+**Parámetros de consulta**
+
+| Nombre      | Tipo    | Obligatorio | Descripción                                                                                                      |
+| ----------- | ------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| deltaSchema | boolean | n           | Si se establece, incluye los campos de metadatos devueltos por document&#95;deltas y list&#95;snapshot (`_ts`, `_deleted` y `_table`) |
+| format      | string  | n           | Formato de salida para valores. Valores válidos: [`json`]                                                       |
+
+### GET `/api/list_snapshot` \{#get-apilist_snapshot\}
+
+El endpoint `list_snapshot` recorre una instantánea consistente de documentos. Puede
+requerir una o más llamadas a `list_snapshot` para recorrer una instantánea completa.
+
+**Parámetros de consulta**
+
+| Name      | Type   | Required | Description                                                                                                                                                                                       |
+| --------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| snapshot  | int    | n        | Marca de tiempo de la base de datos a partir de la cual continuar la instantánea. La marca de tiempo no puede ser anterior a 30 días. Si se omite, se selecciona la marca de tiempo más reciente. |
+| cursor    | string | n        | Un cursor opaco que representa el progreso al paginar por la instantánea. Si se omite, se comienza desde la primera página de la instantánea.                                                     |
+| tableName | string | n        | Si se proporciona, filtra la instantánea a una tabla. Si se omite, se obtiene una instantánea de todas las tablas.                                                                                |
+| format    | string | n        | Formato de salida para los valores. Valores válidos: [`json`]                                                                                                                                     |
+
+**JSON de resultado**
+
+| Field Name | Type              | Description                                                                                                           |
+| ---------- | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| values     | List[ConvexValue] | Lista de valores de Convex en el formato solicitado. Cada valor incluye los campos adicionales `_ts` y `_table`.      |
+| hasMore    | boolean           | `true` si hay más páginas en la instantánea.                                                                          |
+| snapshot   | int               | Un valor que representa la marca de tiempo de la base de datos en la que se tomó la instantánea.                      |
+| cursor     | string            | Un cursor opaco que representa el final del progreso en la página dada. Pasa este cursor en las llamadas posteriores. |
+
+Uso previsto de la API (pseudocódigo):
+
+```python
+def list_full_snapshot()
+    snapshot_values = []
+    snapshot = None
+    cursor = None
+    while True:
+        result = api.list_snapshot(cursor, snapshot)
+        snapshot_values.extend(result.values)
+        (cursor, snapshot) = (result.cursor, result.snapshot)
+        if !result.hasMore:
+            break
+    return (snapshot_values, result.snapshot)
+```
+
+### GET `/api/document_deltas` \{#get-apidocument_deltas\}
+
+El endpoint `document_deltas` recorre el registro de cambios de documentos para encontrar documentos nuevos,
+actualizados y eliminados en el orden de sus mutaciones. Este orden está
+determinado por un campo `_ts` en los documentos devueltos. Las eliminaciones se representan como
+objetos JSON con los campos `_id`, `_ts` y `_deleted: true`.
+
+**Parámetros de consulta**
+
+| Name      | Type   | Required | Description                                                                                                                                                                |
+| --------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| cursor    | int    | y        | Marca de tiempo de la base de datos a partir de la cual continuar transmitir deltas de documentos. El valor inicial es el campo `snapshot` devuelto por list&#95;snapshot. |
+| tableName | string | n        | Si se proporciona, limita los deltas de documentos a una tabla. Si se omite, se proporcionan deltas de todas las tablas.                                                   |
+| format    | string | n        | Formato de salida para los valores. Valores válidos: [`json`]                                                                                                              |
+
+**JSON de resultado**
+
+| Field Name | Type              | Description                                                                                                                                                       |
+| ---------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| values     | List[ConvexValue] | Lista de valores de Convex en el formato solicitado. Cada valor incluye campos adicionales para `_ts` y `_table`. Las eliminaciones incluyen un campo `_deleted`. |
+| hasMore    | boolean           | `true` si hay más páginas del snapshot.                                                                                                                           |
+| cursor     | int               | Un valor que representa la marca de tiempo de la base de datos al final de la página. Pásalo a las llamadas posteriores a document&#95;deltas.                    |
+
+Uso esperado de la API (pseudocódigo):
+
+```python
+def delta_sync(delta_cursor):
+    delta_values = []
+    while True:
+        result = api.document_deltas(cursor)
+        delta_values.extend(result.values)
+        cursor = result.cursor
+        if !hasMore:
+            break
+    return (delta_values, delta_cursor)
+
+(snapshot_values, delta_cursor) = list_full_snapshot()
+(delta_values, delta_cursor) = delta_sync(delta_cursor)
+# Guardar delta_cursor para la próxima sincronización
+```

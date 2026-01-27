@@ -1,0 +1,55 @@
+---
+title: Múltiples repositorios
+sidebar_label: Múltiples repositorios
+description: "Utiliza Convex en múltiples repositorios"
+sidebar_position: 180
+---
+
+import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/tsGeneration.ts";
+import API from "!!raw-loader!@site/../private-demos/snippets/api.ts";
+import Frontend from "!!raw-loader!@site/../private-demos/snippets/src/tsGeneration.tsx";
+
+Tus clientes de TypeScript pueden llamar a funciones de Convex de forma segura en cuanto a tipos incluso fuera del repositorio donde están definidas tus funciones de Convex. Si sigues los pasos de abajo, podrás generar un archivo similar a `convex/_generated/api.d.ts` que puedes añadir al control de versiones y usar en un repositorio independiente.
+
+<BetaAdmonition feature="TypeScript API generation" verb="is" />
+
+<StepByStep>
+  <Step title="Instala el paquete npm convex-helpers">
+    Instala el paquete `convex-helpers`, que contiene un comando de la CLI (interfaz de línea de comandos) para generar un archivo de API.
+
+    ```sh
+    npm install convex-helpers
+    ```
+  </Step>
+
+  <Step title="Ejecuta un comando para generar un archivo de API de TypeScript">
+    Al ejecutar este comando se llamará a tu despliegue de Convex configurado y se generará un archivo `api.ts`
+    basado en él. Puedes ver opciones adicionales pasando `--help` al comando.
+
+    ```sh
+    npx convex-helpers ts-api-spec
+    ```
+  </Step>
+</StepByStep>
+
+## Ejemplo \{#example\}
+
+A continuación se muestran fragmentos de código que ilustran cómo funciona este flujo de trabajo en la práctica. Estos
+fragmentos incluyen tres archivos diferentes:
+
+* `convex/messages.ts` - contiene definiciones de funciones de Convex
+* `api.ts` - un archivo generado al ejecutar el comando anterior
+* `src/App.tsx` - código de frontend en un repositorio separado donde `api.ts` se ha incluido en el control de versiones
+
+<TSAndJSSnippet title="convex/messages.ts" snippets="send" sourceTS={Functions} sourceJS={Functions} />
+
+<TSAndJSSnippet title="api.ts" sourceTS={API} sourceJS={API} />
+
+<TSAndJSSnippet title="src/App.tsx" sourceTS={Frontend} sourceJS={Frontend} highlightPatterns={["import { api } from"]} />
+
+## Límites \{#limits\}
+
+* Los validadores de argumentos y de valores de retorno no son obligatorios, pero mejoran
+  los tipos de tu API de TypeScript. Si no se definen validadores, se usa por defecto
+  `v.any()` como validador.
+* No puedes llamar a funciones internas desde fuera de tu despliegue de Convex.

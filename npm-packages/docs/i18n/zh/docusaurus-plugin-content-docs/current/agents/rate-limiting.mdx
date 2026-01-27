@@ -1,0 +1,269 @@
+---
+title: 速率限制
+sidebar_label: "速率限制"
+sidebar_position: 1200
+description: "控制发往你的 AI agent 的请求速率"
+---
+
+速率限制是一种控制发往你的 AI agent 的请求速率的方式，
+用于防止滥用并管理 API 预算。
+
+要演示如何使用
+[Rate Limiter 组件](https://www.convex.dev/components/rate-limiter)，我们提供了一个你可以自行运行的示例实现。
+
+它会对用户在给定时间段内可发送的消息数量，
+以及该用户的总代币使用量进行限流。超过限制时，客户端可以实时告诉用户需要等待多长时间（即使他们是在另一个浏览器标签页中触发了限流！）。
+
+关于通用的使用量跟踪，请参阅 [Usage Tracking](./usage-tracking.mdx)。
+
+## 概览 \{#overview\}
+
+此限流示例演示了两种类型的限流：
+
+1. **消息限流（Message Rate Limiting）**：防止用户过于频繁地发送消息
+2. **Token 使用限流（Token Usage Rate Limiting）**：控制 AI 模型在一段时间内的 token 使用量
+
+## 运行示例代码 \{#running-the-example\}
+
+```sh
+git clone https://github.com/get-convex/agent.git
+cd agent
+npm run setup
+npm run dev
+```
+
+尝试快速连续发送多个问题，观察限流是如何生效的！
+
+## 限流策略 \{#rate-limiting-strategy\}
+
+下面我们将逐一介绍每个配置项。你也可以在
+[rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts)
+中查看完整的示例实现。
+
+```ts
+import { MINUTE, RateLimiter, SECOND } from "@convex-dev/rate-limiter";
+import { components } from "./_generated/api";
+
+export const rateLimiter = new RateLimiter(components.rateLimiter, {
+  sendMessage: {
+    kind: "fixed window",
+    period: 5 * SECOND,
+    rate: 1,
+    capacity: 2,
+  },
+  globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+  tokenUsagePerUser: {
+    kind: "token bucket",
+    period: MINUTE,
+    rate: 2000,
+    capacity: 10000,
+  },
+  globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+});
+```
+
+### 1. 消息固定窗口限流 \{#1-fixed-window-rate-limiting-for-messages\}
+
+```ts
+// export const rateLimiter = new RateLimiter(components.rateLimiter, {
+sendMessage: { kind: "fixed window", period: 5 * SECOND, rate: 1, capacity: 2 }
+```
+
+* 允许每个用户每 5 秒发送 1 条消息。
+* 防止垃圾消息和快速连发请求。
+* 如果在前一个 5 秒内还有剩余额度，则通过 `capacity` 允许在 5 秒内最多突发发送 2 条消息。
+
+全局限流：
+
+```ts
+globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+```
+
+* 在全球范围内每分钟最多允许 1000 条消息，以保持在 API 限制之内。
+* 作为一个令牌桶算法，它会以每分钟 1000 个令牌的速率持续累积令牌，直到上限 1000 个为止。所有可用令牌都可以被快速连续消耗。
+
+### 2. 基于令牌桶的 Token 使用限流 \{#2-token-bucket-rate-limiting-for-token-usage\}
+
+```ts
+tokenUsage: { kind: "token bucket", period: MINUTE, rate: 1_000 }
+globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+```
+
+* 允许每个用户每分钟 1000 个 token（使用 userId 作为键），并且全局限额为每分钟 10 万个 token。
+* 在控制整体用量的同时提供突发能力。如果有一段时间没有使用，你可以一次性消耗所有 token。不过，此后你需要等待 token 逐渐累积后才能发起更多请求。
+* 设置每用户限额有助于防止单个用户独占你在 LLM provider 处可用的全部 token 带宽，而全局限额则有助于将整体用量保持在 API 限制之下，避免在可能较长的多步请求过程中途报错。
+
+## 工作原理 \{#how-it-works\}
+
+### 步骤 1：请求前限流预检 \{#step-1-pre-flight-rate-limit-checks\}
+
+在处理一个问题之前，系统会：
+
+1. 检查用户是否还能发送下一条消息（频率限制）
+2. 预估该问题的 token 使用量
+3. 校验用户的可用 token 配额是否充足
+4. 如果任一限制将被超出，则抛出错误
+5. 如果没有超出任何速率限制，则发起 LLM 请求。
+
+完整实现请参见
+[rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts)。
+
+```ts
+// In the mutation that would start generating a message.
+await rateLimiter.limit(ctx, "sendMessage", { key: userId, throws: true });
+// Also check global limit.
+await rateLimiter.limit(ctx, "globalSendMessage", { throws: true });
+
+// 基于线程中先前的令牌使用量和问题的启发式估算。
+const count = await estimateTokens(ctx, args.threadId, args.question);
+// Check token usage, but don't consume the tokens yet.
+await rateLimiter.check(ctx, "tokenUsage", {
+  key: userId,
+  count: estimateTokens(args.question),
+  throws: true,
+});
+// Also check global limit.
+await rateLimiter.check(ctx, "globalTokenUsage", {
+  count,
+  reserve: true,
+  throws: true,
+});
+```
+
+如果额度不足，限流器会抛出一个错误，客户端可以捕获该错误，并提示用户稍等片刻后再试。
+
+`limit` 和 `check` 的区别在于，`limit` 会立刻消耗令牌，而 `check` 只会检查是否会超出配额。我们实际上会在请求完成后，再根据总用量将这些令牌标记为已使用。
+
+### 步骤 2：生成后的用量跟踪 \{#step-2-post-generation-usage-tracking\}
+
+虽然对消息发送频率进行限流是防止短时间内发送大量消息的好方法，但每条消息都可能生成非常长的响应或消耗大量上下文 token。为此，我们还将 token 用量作为单独的限流指标进行跟踪。
+
+在 AI 生成响应之后，我们会根据总用量将这些 token 标记为已使用。我们使用 `reserve: true` 来允许（临时）出现负余额，以防实际生成使用的 token 多于预估值。这里的 “reservation”（预留）是指分配超出当前允许额度的 token。通常这是预先完成的，用于为可以提前调度的大请求“预留”容量。在本例中，我们则是标记已经被消耗掉的容量。这样可以阻止后续请求在这笔“债务”还清之前启动。
+
+在使用 Agent 组件时，我们可以在 &quot;usageHandler&quot; 中执行这一步，它会在 AI 生成响应之后被调用。
+
+```ts
+import { Agent, type Config } from "@convex-dev/rate-limiter";
+
+const sharedConfig = {
+  usageHandler: async (ctx, { usage, userId }) => {
+    if (!userId) {
+      return;
+    }
+    // 在这里消耗令牌使用量,此时我们已经知道完整的使用量。
+    // 对于第一次生成来说这已经太晚了,但可以阻止后续请求
+    // 直到我们偿还完这笔"债务"。
+    await rateLimiter.limit(ctx, "tokenUsage", {
+      key: userId,
+      // 你可以在这里对不同类型的令牌设置不同的权重。
+      count: usage.totalTokens,
+      // 预留令牌意味着它不会在这里失败,而是允许余额
+      // 变为负数,从而在下面的 `check` 调用中阻止后续请求。
+      reserve: true,
+    });
+  },
+} satisfies Config;
+
+// 在你的 agent 定义中使用它
+const agent = new Agent(components.agent, {
+  name,
+  languageModel,
+  ...sharedConfig,
+});
+```
+
+这里的“诀窍”在于：虽然用户可以发起一次就超过单次请求上限的请求，但之后他们必须等待更长时间来积累足够的令牌，才能再次发起请求。这样一来，从时间平均来看，他们就无法消耗超过速率限制的用量。
+
+这在通过预估提前拦截请求的务实做法，和对实际使用量进行速率限制之间取得了平衡。
+
+## 客户端处理 \{#client-side-handling\}
+
+参见
+[RateLimiting.tsx](https://github.com/get-convex/agent/blob/main/example/ui/rate_limiting/RateLimiting.tsx)
+以查看客户端代码。
+
+尽管客户端并不是决定请求是否允许的最终裁决方，但它仍然可以在检查速率限制时显示等待提示，并在超出速率限制时显示错误信息。这样可以防止用户发起大概率会失败的请求。
+
+它使用 `useRateLimit` hook 来检查速率限制。完整内容参见
+[此处的 Rate Limiting 文档](https://www.convex.dev/components/rate-limiter)。
+
+```ts
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
+//...
+const { status } = useRateLimit(api.example.getRateLimit);
+```
+
+在 `convex/example.ts` 中，我们导出 `getRateLimit`：
+
+```ts
+export const { getRateLimit, getServerTime } = rateLimiter.hookAPI<DataModel>(
+  "sendMessage",
+  { key: (ctx) => getAuthUserId(ctx) },
+);
+```
+
+在检查速率限制期间显示等待提示：
+
+```ts
+{status && !status.ok && (
+    <div className="text-xs text-gray-500 text-center">
+    <p>消息发送速率限制已超出。</p>
+    <p>
+        请在 <Countdown ts={status.retryAt} /> 后重试
+    </p>
+    </div>
+)}
+```
+
+当超过速率限制时，显示错误提示：
+
+```ts
+import { isRateLimitError } from "@convex-dev/rate-limiter";
+
+// in a button handler
+await submitQuestion({ question, threadId }).catch((e) => {
+  if (isRateLimitError(e)) {
+    toast({
+      title: "Rate limit exceeded",
+      description: `${e.data.name} 超出速率限制。
+          请在 ${getRelativeTime(Date.now() + e.data.retryAfter)} 后重试`,
+    });
+  }
+});
+```
+
+## Token 预估 \{#token-estimation\}
+
+该示例包含一个用于预估 Token 数量的简单函数：
+
+```ts
+import { QueryCtx } from "./_generated/server";
+import { fetchContextMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+// 这是对将要使用的 token 数量的粗略估算。
+// 虽然不够精确,但对于生成前检查来说已经足够了。
+export async function estimateTokens(
+  ctx: QueryCtx,
+  threadId: string | undefined,
+  question: string,
+) {
+  // 假设每个 token 大约 4 个字符
+  const promptTokens = question.length / 4;
+  // 假设会有一个较长的非零回复
+  const estimatedOutputTokens = promptTokens * 3 + 1;
+  const latestMessages = await fetchContextMessages(ctx, components.agent, {
+    threadId,
+    searchText: question,
+    contextOptions: { recentMessages: 2 },
+  });
+  // 我们的新使用量大致为之前的 token 数 + 问题的 token 数。
+  // 之前的 token 数包括完整消息历史的 token 数和
+  // 输出 token 数,这些都将成为我们新历史的一部分。
+  const lastUsageMessage = latestMessages
+    .reverse()
+    .find((message) => message.usage);
+  const lastPromptTokens = lastUsageMessage?.usage?.totalTokens ?? 1;
+  return lastPromptTokens + promptTokens + estimatedOutputTokens;
+}
+```

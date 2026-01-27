@@ -1,0 +1,124 @@
+---
+title: "TanStack Start"
+sidebar_label: "TanStack Start"
+description: "Convex が TanStack Start とどのように連携するか"
+---
+
+[TanStack Start](https://tanstack.com/start/latest) は、新しい React 製の Web フレームワークで、
+最高水準の型安全なルーティングを提供します。
+
+Convex と一緒に使うと、TanStack Start は次のような機能を提供します。
+
+* React Query（TanStack Query 用の React クライアント）によるライブ更新クエリ
+* SSR からクライアントでのライブ動作までをまたいだサブスクリプション セッションの再開
+* Loader ベースのプリロードおよびプリフェッチ
+* SSR 中の一貫した論理クエリタイムスタンプ
+* オプトインのコンポーネント単位の SSR
+
+などがあります。
+
+このページでは、React Query を通して Convex を TanStack Start と一緒に使う推奨方法を説明します。
+標準的な Convex の React フックは、React Query を使わずに TanStack Start と組み合わせても動作しますし、
+[React Query hooks](/client/tanstack/tanstack-query/index.mdx) も TanStack Start なしで動作します。
+しかし、この 3 つをすべて組み合わせて使うのがベストバランスです。
+
+<Admonition type="caution" title="TanStack Start はベータ版です">
+  TanStack Start は現在ベータ版の新しい React フレームワークです。すぐに利用できますが、
+  安定版としてリリースされるまでの間に破壊的変更が入る可能性があります。
+</Admonition>
+
+## はじめに \{#getting-started\}
+
+[TanStack Start クイックスタート](/quickstart/tanstack-start.mdx) に従って、新しい TanStack Start プロジェクトに Convex を追加します。
+
+## React Query で Convex を使う \{#using-convex-with-react-query\}
+
+[React Query hooks](/client/tanstack/tanstack-query/index.mdx) については、そちらで詳しく説明しています。ここでは TanStack Start に関連する主なポイントだけを取り上げます。
+
+### クエリの購読を維持する \{#staying-subscribed-to-queries\}
+
+React Query における Convex のクエリは、そのクエリを購読している最後のコンポーネントが
+アンマウントされた後も、アップデートを受け取り続けます。この挙動のデフォルトは 5 分で、
+この値は
+[`gcTime`](https://tanstack.com/query/latest/docs/framework/react/guides/caching)
+で設定できます。
+
+クエリ結果がすでに読み込まれている理由をデバッグするときに、この挙動を知っておくと便利です。
+クライアントサイドナビゲーションでは、購読がすでにアクティブかどうかは、そのセッション中に
+以前どのページにアクセスしていたかによって変わることがあります。
+
+### Convex React フックの使用 \{#using-convex-react-hooks\}
+
+[Convex React](/client/react.mdx) の
+[`usePaginatedQuery`](/api/modules/react#usepaginatedquery) のようなフックは、
+TanStack のフックと併用できます。これらのフックは同じ Convex Client を参照するため、
+組み合わせて使っても、アプリ内で扱われるクエリ結果は常に 1 つの一貫したセットのままです。
+
+## サーバーサイドレンダリング \{#server-side-rendering\}
+
+TanStack Start と Query を Convex と組み合わせて使うと、
+クライアント側の Convex クエリをリアルタイムに更新しつつ、
+それらを[サーバーサイドレンダリング](https://tanstack.com/query/v5/docs/framework/react/guides/ssr)
+することが非常に簡単になります。
+[`useSuspenseQuery()`](https://tanstack.com/query/latest/docs/framework/react/reference/useSuspenseQuery)
+を使うのが最も簡単な方法です。
+
+```ts
+const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+```
+
+### 一貫したクライアントビュー \{#consistent-client-views\}
+
+ブラウザ内では、すべての Convex クエリのサブスクリプションは、データベースに対して一貫性のある、
+同一の論理タイムスタンプ時点でのビューを提示します。あるクエリ結果が
+特定のミューテーショントランザクションを反映している場合、他のすべての
+クエリ結果も同様にそれを反映します。
+
+サーバーサイドレンダリングは通常は特別なケースです。状態を保持する
+WebSocket セッションを使う代わりに、サーバーではその都度クエリ結果を
+アドホックにフェッチする方が簡単です。これは、ある REST エンドポイントは
+ミューテーションが実行される前の結果を返し、別のエンドポイントはその変更の
+後の結果を返す、といった整合性のない状態を引き起こす可能性があります。
+
+TanStack Start では、各クエリと一緒にタイムスタンプを送信することでこの問題を
+回避しています。Convex はすべてのクエリに対して同じタイムスタンプを使用します。
+
+### ローダー \{#loaders\}
+
+クライアント側のナビゲーションを高速化するために、ルートに
+[loader](https://tanstack.com/router/latest/docs/framework/react/guide/external-data-loading#using-loaders-to-ensure-data-is-loaded)
+を追加できます。デフォルトでは、ローダーはそのページへのリンクにマウスオーバーしたときに実行されます。
+
+```ts
+export const Route = createFileRoute('/posts')({
+  loader: async (opts) => {
+    await opts.context.queryClient.ensureQueryData(
+      convexQuery(api.messages.list, {}),
+    );
+  };
+  component: () => {
+    const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+    return (
+      <div>
+	{data.map((message) => (
+	  <Message key={message.id} post={message} />
+	))}
+      </div>
+    );
+  },
+})
+```
+
+## 認証 \{#authentication\}
+
+Start におけるクライアントサイド認証は、
+TanStack Start がクライアントサイドフレームワークとしてうまく機能するため、
+React における
+[Convex のクライアントサイド認証](https://docs.convex.dev/auth)
+と基本的に同じように動作します。
+
+サーバー側でも Clerk 認証を使って認証済みの Convex 呼び出しを行いたい場合は、
+[TanStack Start + Clerk ガイド](/client/tanstack/tanstack-start/clerk.mdx)
+を参照してください。
+
+Clerk は TanStack の公式パートナーです。セットアップガイドを参照してください。

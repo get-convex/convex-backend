@@ -1,0 +1,20 @@
+---
+title: "ファイルの削除"
+sidebar_label: "削除"
+sidebar_position: 4
+description: "Convex に保存されているファイルを削除する"
+---
+
+import DeleteImage from "!!raw-loader!@site/../private-demos/snippets/convex/deletingFiles.ts";
+
+Convex に保存されているファイルは、
+[ミューテーション](/functions/mutation-functions.mdx)、
+[アクション](/functions/actions.mdx)、および
+[HTTP アクション](/functions/http-actions.mdx) から、
+ストレージ ID を受け取る
+[`storage.delete()`](/api/interfaces/server.StorageWriter#delete) 関数を使って削除できます。
+
+ストレージ ID は `"_storage"` システムテーブル内のドキュメントに対応します（[メタデータ](/file-storage/file-metadata.mdx) を参照）。そのため、
+`v.id("_storage")` を使って検証できます。
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={DeleteImage} sourceJS={DeleteImage} highlightPatterns={["delete\\("]} />

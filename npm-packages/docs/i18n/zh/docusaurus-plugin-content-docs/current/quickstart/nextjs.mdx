@@ -1,0 +1,177 @@
+---
+title: Next.js 快速入门
+sidebar_label: Next.js
+description: "将 Convex 添加到 Next.js 项目中"
+hide_table_of_contents: true
+sidebar_position: 200
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/sampleData.jsonl";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/app/layout.tsx";
+import ConvexClientProvider from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/app/ConvexClientProvider.tsx";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/convex/tasks.ts";
+import page from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/app/page.tsx";
+import layoutJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/app/layout.js";
+import ConvexClientProviderJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/app/ConvexClientProvider.jsx";
+import tasksJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/convex/tasks.js";
+import pageJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/app/page.js";
+
+<Admonition type="tip" title="Convex + Next.js">
+  Convex 是一个一体化的后端与数据库平台，可以快速、轻松地与 Next.js 集成。
+
+  完成入门后，查看如何设置
+  [托管](/production/hosting/hosting.mdx)、
+  [服务器端渲染](/client/nextjs/app-router/server-rendering.mdx)，以及
+  [认证](https://docs.convex.dev/client/nextjs/)。
+</Admonition>
+
+要快速完成 Convex 与 Next.js 的集成，请运行
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest" />
+  </b>
+</p>
+
+或者按照下面的指南操作。
+
+***
+
+了解如何在使用 App Router 的 Next.js 应用中从 Convex 查询数据，并使用 <LanguageSelector verbose />
+
+或者参见本快速入门的
+[Pages Router](/client/nextjs/pages-router/quickstart-nextjs-pages-router.mdx)
+版本。
+
+
+<StepByStep>
+  <Step title="创建一个 Next.js 应用">
+    使用 `npx create-next-app` 命令创建一个 Next.js 应用。
+
+    对每个提示选择默认选项（直接按 Enter）。
+
+    <JSDialectVariants>
+      ```sh
+      npx create-next-app@latest my-app
+      ```
+
+      ```sh
+      npx create-next-app@latest my-app --js
+      ```
+    </JSDialectVariants>
+
+  </Step>
+  <Step title="安装 Convex 客户端和服务端库">
+    首先，安装 `convex` 包。
+
+    进入你的应用目录并安装 `convex`。
+
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="设置一个 Convex 开发环境（dev）部署">
+    接下来运行 `npx convex dev`。该命令会提示你使用 GitHub 登录，
+    创建一个项目，并保存你的生产和部署 URL。
+
+    它还会为你创建一个 `convex/` 文件夹，
+    用来编写后端 API 函数。`dev` 命令
+    会持续运行，以将你的函数
+    同步到云端的开发环境（dev）部署中。
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    在一个新的终端窗口中，创建一个包含一些示例数据的 `sampleData.jsonl`
+    文件。
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="将示例数据添加到数据库">
+    使用 [`import`](/database/import-export/import) 命令，将包含示例数据的 `tasks` 表添加到你的 Convex 数据库中。
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="公开一个数据库查询">
+    在 `convex/` 文件夹中，添加一个新的文件 <JSDialectFileName name="tasks.ts" />，其中包含一个用于加载数据的查询函数。
+
+    从这个文件导出一个查询函数，
+    会声明一个以文件名和导出名命名的 API 函数：`api.tasks.get`。
+
+    <TSAndJSSnippet
+      sourceTS={tasks}
+      sourceJS={tasksJs}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="为 Convex provider 创建一个客户端组件">
+    要让 `<ConvexProvider>` 在客户端工作，必须给它传入 `ConvexReactClient`。
+
+    在 `app/` 文件夹中，添加一个新的文件 <JSDialectFileName name="ConvexClientProvider.tsx" />，内容如下。这样会创建一个客户端组件来包裹 `<ConvexProvider>`，并向其传递 `<ConvexReactClient>`。
+
+    <TSAndJSSnippet
+      sourceTS={ConvexClientProvider}
+      sourceJS={ConvexClientProviderJs}
+      title="app/ConvexClientProvider.tsx"
+    />
+
+  </Step>
+
+  <Step title="接入 ConvexClientProvider">
+    在 <JSDialectFileName name="app/layout.tsx" ext="js" /> 中，用 `<ConvexClientProvider>` 包裹 `body` 元素的子元素。
+
+    <TSAndJSSnippet
+      sourceTS={layout}
+      sourceJS={layoutJs}
+      title="app/layout.tsx"
+      jsExtension="js"
+      highlightPatterns={[ "Convex", ]}
+    />
+
+  </Step>
+
+  <Step title="在应用中展示数据">
+    在 <JSDialectFileName name="app/page.tsx" ext="js" /> 中，使用 `useQuery()` hook 从 `api.tasks.get`
+    API 函数中获取数据。
+
+    <TSAndJSSnippet
+      sourceTS={page}
+      sourceJS={pageJs}
+      title="app/page.tsx"
+      jsExtension="js"
+      highlightPatterns={[ "use client", "useQuery", "api", "tasks", "text", "\\)\\)\\}" ]}
+    />
+
+  </Step>
+
+  <Step title="启动应用">
+    运行你的 Next.js 开发服务器，在浏览器中打开 [http://localhost:3000](http://localhost:3000)，
+    就可以看到任务列表。
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+查看完整的 [Next.js 文档](/client/nextjs/app-router/index.mdx)。

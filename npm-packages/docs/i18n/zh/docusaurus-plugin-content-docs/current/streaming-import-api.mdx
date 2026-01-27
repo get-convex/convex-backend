@@ -1,0 +1,112 @@
+---
+title: "流式导入"
+sidebar_label: "流式导入"
+description: "以流式方式将数据导入 Convex"
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+Convex 支持流式导入。Convex 为
+[Airbyte](/production/integrations/streaming-import-export.md) 提供了连接器实现。这些连接器
+使用以下 API。
+
+所有 Convex 项目都会自动启用对流式导入的支持。
+
+流式导入请求需要通过 HTTP 头 `Authorization` 进行部署管理员级别的授权。其取值为 `Convex <access_key>`，其中 access key 来自 Convex 仪表盘上的 “Deploy key”，并对你的 Convex 数据授予完整的读写权限。
+
+### 请求头 \{#headers\}
+
+流式导入端点接受 `Convex-Client: streaming-import-<version>` 请求头，其中
+`version` 遵循 [Semver](https://semver.org/) 语义化版本规范。如果未指定该请求头，
+Convex 将默认使用最新版本。我们建议使用该请求头，以确保在 API 发生变化时，
+此 API 的使用方不会出问题。
+
+### GET `/api/streaming_import/primary_key_indexes_ready` \{#get-apistreaming_importprimary_key_indexes_ready\}
+
+`primary_key_indexes_ready` 端点接收一个表名列表，如果这些表上的所有主键索引（由 `add_primary_key_indexes` 创建）都已就绪，则返回 true。若这些表是新建的，索引应当会立即就绪；但是如果表中已经存在文档，则为主键索引回填数据可能需要一些时间。响应格式如下：
+
+```json
+{
+  "indexesReady": true
+}
+```
+
+### PUT `/api/streaming_import/add_primary_key_indexes` \{#put-apistreaming_importadd_primary_key_indexes\}
+
+`add_primary_key_indexes` 这个 endpoint 接收一个 JSON body，其中包含各个数据表的主键值，并在这些主键上创建需要回填的索引。注意，这些索引不会立即可用于查询——在使用包含需要主键索引的记录调用 `import_airbyte_records` 之前，需要轮询 `primary_key_indexes_ready` 这个 endpoint，直到它返回 True。还要注意，Convex 查询无法访问这些新增的索引，它们仅供 `import_airbyte_records` 使用。请求体的结构是一个从索引名称到要建立索引的字段路径列表的映射。每个字段路径由一个字段列表表示，可以用来表示嵌套字段路径。
+
+```json
+{
+  "indexes": {
+    "<table_name>": [["<field1>"], ["<field2>", "<nested_field>"]]
+  }
+}
+```
+
+API 的预期使用方式：
+
+1. 通过向 `add_primary_key_indexes` 发送请求，为主键添加索引。
+2. 轮询 `primary_key_indexes_ready`，直到响应为 true。
+3. 使用新增的索引执行查询。
+
+### PUT `api/streaming_import/clear_tables` \{#put-apistreaming_importclear_tables\}
+
+`clear_tables` 端点会删除指定数据表中的所有文档。
+请注意，这可能需要多个事务。如果过程中发生错误，可能只会删除部分文档。用于调用此 API 的 JSON 请求体包含一个数据表名称列表：
+
+```json
+{
+  "tableNames": ["<table_1>", "<table_2>"]
+}
+```
+
+### POST `api/streaming_import/replace_tables` \{#post-apistreaming_importreplace_tables\}
+
+此端点已不再受支持。请改用 `api/streaming_import/clear_tables`。
+
+`replace_tables` 端点会将带有临时名称的表重命名为最终名称，并删除任何已存在的同名目标表。
+
+用于此 API 请求的 JSON 请求体包含一个表名列表：
+
+```json
+{
+  "tableNames": { "<table_1_temp>": "<table_1>", "<table_2_temp>": "<table_2>" }
+}
+```
+
+### POST `api/streaming_import/import_airbyte_records` \{#post-apistreaming_importimport_airbyte_records\}
+
+`import_airbyte_records` 端点支持向 Convex 部署进行流式写入，设计为由 Airbyte 目标连接器调用。
+
+它在 JSON 请求体中接收一个流映射以及一个消息列表。每个流都有一个名称和一个 JSON 模式，对应一个 Convex 表。需要对记录进行去重的流还包含一个主键，主键表示为字符串列表的列表，这些字符串是字段路径。没有主键的流，其记录会被追加到表中；有主键的流，其记录在主键值匹配时会替换已有记录，如果没有匹配则会被追加。如果你使用主键，必须先调用 `add_primary_key_indexes` 端点，并通过轮询 `primary_key_indexes_ready` 等待其回填完成。
+
+每条消息都包含一个流名以及一个 JSON 文档，该文档将被插入到与该流名对应的表中（在去重同步的情况下会被替换）。表名与流名相同。Airbyte 记录会变成 Convex 文档。
+
+```json
+{
+   "tables": {
+      "<stream_name>": {
+         "primaryKey": [["<field1>"], ["<field2>", "<nested_field>"]],
+         "jsonSchema": // 示例请参见 https://json-schema.org/
+      }
+   },
+   "messages": [{
+      "tableName": "<table_name>",
+      "data": {} // JSON object conforming to the `json_schema` for that stream
+   }]
+}
+```
+
+与 `clear_tables` 类似，如果在某个事务提交之后发生失败，可以使用
+`import_airbyte_records` 执行部分导入。
+
+预期的 API 用法：
+
+1. 【可选】如果使用主键和
+   [去重同步](https://docs.airbyte.com/understanding-airbyte/connections/incremental-deduped-history/)
+   （参见上面的 `add_primary_key_indexes`），则添加相应索引。
+2. 【可选】如果使用
+   [覆盖同步](https://docs.airbyte.com/understanding-airbyte/connections/full-refresh-overwrite)，
+   则使用 `clear_tables` 删除指定表中的所有文档。
+3. 向 `import_airbyte_records` 发送请求，并携带要同步的新记录和流信息。

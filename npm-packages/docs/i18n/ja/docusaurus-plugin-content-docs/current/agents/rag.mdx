@@ -1,0 +1,194 @@
+---
+title: Agent コンポーネントによる RAG（Retrieval-Augmented Generation）
+sidebar_label: "RAG"
+sidebar_position: 700
+description: "Convex の Agent コンポーネントで RAG を使用する方法の例"
+---
+
+Agent コンポーネントには、テキストとベクターによるハイブリッド検索でメッセージ履歴を検索するための機能が組み込まれています。\
+また、RAG コンポーネントを使って、他のデータをコンテキストとして検索に利用することもできます。
+
+## RAG とは？ \{#what-is-rag\}
+
+Retrieval-Augmented Generation (RAG) は、LLM がカスタムのナレッジベースを検索して
+質問に回答できるようにする手法です。
+
+RAG は Large Language Models (LLMs) の能力とナレッジ検索を組み合わせたものです。
+モデルの学習データのみに依存する代わりに、RAG を使うと AI は次のことができます:
+
+* カスタムドキュメントやナレッジベースを検索する
+* 質問に答えるための関連するコンテキストを取得する
+* より正確で最新かつドメイン固有の回答を返す
+* 参照元を明示し、どの情報が利用されたかを説明する
+
+## RAG コンポーネント \{#rag-component\}
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/dGmtAmdAaFs?si=ce-M8pt6EWDZ8tfd" title="RAG コンポーネントの YouTube 動画" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+RAG コンポーネントは、検索対象のデータを追加できる Convex コンポーネントです。
+データをチャンクに分割し、ベクトル検索に使用する埋め込みベクトルを生成します。
+詳細は [RAG コンポーネントのドキュメント](https://convex.dev/components/rag) を参照してください。主な機能は次のとおりです:
+
+* **Namespaces:** ユーザー単位やチーム単位のデータごとに namespace を使って、
+  検索ドメインを分離できます。
+* **Add Content**: キーごとにテキストコンテンツを追加または置き換えできます。
+* **Semantic Search**: 設定可能な埋め込みモデルを使ったベクトルベース検索。
+* **Custom Filtering:** 各ドキュメントにフィルターを定義して、効率的なベクトル検索を実現します。
+* **Chunk Context**: 周辺のチャンクも取得して、より良いコンテキストを得られます。
+* **Importance Weighting**: 各コンテンツに 0〜1 の「importance」を与えて重み付けし、
+  ドキュメントごとのベクトル検索結果に影響を与えられます。
+* **Chunking flexibility:** 独自のドキュメントのチャンク方法を使用することも、
+  デフォルトのチャンク方法を使うこともできます。
+* **Graceful Migrations**: コンテンツや namespace 全体を、中断することなく移行できます。
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+<ComponentCardList
+  items={[
+{
+title: "RAG（Retrieval-Augmented Generation）",
+description:
+  "埋め込みを使ってドキュメント内の関連コンテンツを検索し、LLM へのプロンプトとして利用します。",
+href: "https://www.convex.dev/components/rag",
+},
+]}
+/>
+
+## RAG のアプローチ \{#rag-approaches\}
+
+このディレクトリには、RAG を実装するための 2 つの異なるアプローチが用意されています。
+
+### 1. プロンプトベースの RAG \{#1-prompt-based-rag\}
+
+システムがユーザーのクエリに対して自動的に
+関連するコンテキストを検索する、シンプルな実装です。
+
+* メッセージ履歴にはコンテキストは含まれず、
+  元のユーザープロンプトと応答だけが含まれます。
+* コンテキストを検索して、ユーザーのプロンプトに挿入します。
+* ユーザーの質問が*常に*追加のコンテキストによって
+  役立つことがわかっている場合にうまく機能します。
+
+コード例については、全体のコードは
+[ragAsPrompt.ts](https://github.com/get-convex/agent/blob/main/example/convex/rag/ragAsPrompt.ts)
+を参照してください。最も単純なバージョンは次のとおりです。
+
+```ts
+const context = await rag.search(ctx, {
+  namespace: "global",
+  query: userPrompt,
+  limit: 10,
+});
+
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  {
+    prompt: `# Context:\n\n ${context.text}\n\n---\n\n# Question:\n\n"""${userPrompt}\n"""`,
+  },
+);
+```
+
+### 2. ツールベースの RAG \{#2-tool-based-rag\}
+
+LLM は、コンテキスト検索用のツールを使って、コンテキストを検索すべきか新しい情報を追加すべきかを自律的に判断できます。
+
+* メッセージ履歴には、元のユーザーからのプロンプトと、それまでのメッセージ履歴が含まれます。
+* ツール呼び出しとそのレスポンスの後には、その呼び出し内容とレスポンスも、LLM が参照できるようにメッセージ履歴へ追加されます。
+* LLM 自身が、いつコンテキストを検索したり新しい情報を追加したりするかを判断できます。
+* Agent に動的な検索をさせたい場合に適しています。
+
+コードについては
+[ragAsTools.ts](https://github.com/get-convex/agent/blob/main/example/convex/rag/ragAsTools.ts)
+を参照してください。最もシンプルなバージョンは次のとおりです。
+
+```ts
+searchContext: createTool({
+  description: "Search for context related to this user prompt",
+  args: z.object({ query: z.string().describe("探しているコンテキストを記述してください") }),
+  handler: async (ctx, { query }) => {
+    const context = await rag.search(ctx, { namespace: userId, query });
+    return context.text;
+  },
+}),
+```
+
+## 主な違い \{#key-differences\}
+
+| 機能               | Basic RAG                 | Tool-based RAG                    |
+| ------------------ | ------------------------- | --------------------------------- |
+| **コンテキスト検索** | 常に検索を実行する          | 検索するかどうかを AI が判断する      |
+| **コンテキストの追加** | 別の関数で手動で追加する      | 会話中に AI がコンテキストを追加できる |
+| **柔軟性**         | シンプルで予測しやすい       | インテリジェントで適応的            |
+| **ユースケース**    | FAQ システム、ドキュメント検索 | 動的なナレッジ管理                 |
+| **予測可能性**      | コードによって定義される      | AI がクエリしすぎたり、しなさすぎたりすることがある |
+
+## コンテンツの取り込み \{#ingesting-content\}
+
+基本的に、RAG コンポーネントはテキストを扱います。ただし、パース用ツールを使うか、LLM に解析させることで、その他のファイル形式もテキストに変換できます。
+
+### 画像の解析 \{#parsing-images\}
+
+画像の解析は、LLM と意外と相性が良好です。`generateText` を使って
+画像を説明・文字起こしし、その説明を使って関連するコンテキストを検索できます。
+また、対応する画像を保存しておけば、検索で取得したあとに元のファイル自体を
+受け渡しすることもできます。
+
+[こちらにサンプルがあります](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L28-L42)。
+
+```ts
+const description = await thread.generateText({
+  message: {
+    role: "user",
+    content: [{ type: "image", data: url, mimeType: blob.type }],
+  },
+});
+```
+
+### PDF のパース \{#parsing-pdfs\}
+
+PDF をパースする場合は、ブラウザで Pdf.js を使うことをおすすめします。
+
+**なぜサーバー側ではないのか？**
+
+PDF を開くには数百 MB のメモリを消費する可能性があり、巨大な pdfjs バンドルをダウンロードする必要があります。このバンドルは非常に大きいため、実際には動的にフェッチされることがほとんどです。サーバー側での関数呼び出しごとにそのバンドルを読み込むのはあまり望ましくありませんし、サーバーレス環境ではメモリ使用量にも制約があります。ブラウザ側ですでにファイルを持っているのであれば、重い処理を行うにはかなり良い（しかも無料の）環境です。
+
+次のような例があります:
+[the RAG demo](https://github.com/get-convex/rag/blob/main/example/src/pdfUtils.ts#L14),
+[UI での利用例](https://github.com/get-convex/rag/blob/main/example/src/components/UploadSection.tsx#L51),
+[Pdf.js を静的配信している例](https://github.com/get-convex/rag/blob/main/example/public/pdf-worker/)。
+
+本当にサーバー側で実行したくて、コストやレイテンシを気にしないのであれば、LLM に渡すこともできますが、大きなファイルでは処理に長い時間がかかる点に注意してください。
+
+[こちらにサンプルがあります](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L50-L65)。
+
+### テキストファイルのパース \{#parsing-text-files\}
+
+一般的には、コードや Markdown など、LLM が理解できる自然な構造を持つテキストであれば、そのままテキストファイルを利用できます。
+
+ただし、良い埋め込み表現を得るには、再び LLM を使ってテキストをより構造化された形式に変換することもできます。
+
+[こちらに例があります](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L68-L89)。
+
+## 実行例 \{#examples-in-action\}
+
+これらのサンプルを実際に試すには、
+[RAG example](https://github.com/get-convex/rag/blob/main/example/convex/example.ts)
+を確認してください。
+
+* RAG コンポーネントにテキスト、PDF、画像コンテンツを追加する
+* コンテキストに基づいて検索し、テキストを生成する
+* 検索によって生成されたコンテキストを確認する
+* 生成されたドキュメントのチャンクを閲覧する
+* グローバル検索、ユーザー単位検索、カスタムフィルタ付き検索を試す
+
+このサンプルを実行するには次のコマンドを実行します:
+
+```bash
+git clone https://github.com/get-convex/rag.git
+cd rag
+npm run setup
+npm run example
+```

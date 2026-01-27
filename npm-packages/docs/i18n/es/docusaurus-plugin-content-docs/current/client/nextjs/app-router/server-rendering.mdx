@@ -1,0 +1,164 @@
+---
+title: "Renderizado en servidor con Next.js"
+sidebar_label: "Renderizado en servidor"
+sidebar_position: 10
+description:
+  "Implementa el renderizado del lado del servidor con Convex en el App Router de Next.js usando
+  preloadQuery, fetchQuery y acciones de servidor para mejorar el rendimiento."
+---
+
+import PreloadQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/TasksWrapper.tsx";
+import AuthedPreloadQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/AuthedTasksWrapper.tsx";
+import UsePreloadedQueryTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/Tasks.tsx";
+import UsePreloadedQueryJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/TasksJS.jsx";
+import FetchQuery from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/StaticTasks.tsx";
+import ServerActionTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/example/page.tsx";
+import ServerActionJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/exampleJS/page.jsx";
+import RouteHandlerTS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/api/route.ts";
+import RouteHandlerJS from "!!raw-loader!@site/../private-demos/nextjs-app-router-snippets/app/apiJS/route.js";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+Next.js renderiza automáticamente tanto Client Components como Server Components en el servidor
+durante la carga inicial de la página.
+
+De forma predeterminada, los Client Components no esperarán a que los datos de Convex se hayan cargado, por lo que
+tu interfaz de usuario (UI) se mostrará en un estado de &quot;cargando&quot;. Sigue leyendo para aprender cómo precargar datos
+durante el renderizado en el servidor y cómo interactuar con el despliegue de Convex desde
+el lado del servidor de Next.js.
+
+**Ejemplo:**
+[Next.js App Router](https://github.com/get-convex/convex-demos/tree/main/nextjs-app-router)
+
+Esta página trata la variante App Router de Next.js.
+
+<BetaAdmonition feature="Compatibilidad con el renderizado en el servidor de Next.js" verb="is" />
+
+## Precarga de datos para Client Components \{#preloading-data-for-client-components\}
+
+Si quieres precargar datos de Convex y aprovechar el
+[renderizado en el servidor](https://nextjs.org/docs/app/building-your-application/rendering/server-components#server-rendering-strategies)
+de Next.js, pero aun así mantener la reactividad después de la carga inicial de la página, usa
+[`preloadQuery`](/api/modules/nextjs#preloadquery) de
+[`convex/nextjs`](/api/modules/nextjs).
+
+En un
+[Server Component](https://nextjs.org/docs/app/building-your-application/rendering/server-components)
+llama a `preloadQuery`:
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={PreloadQuery} sourceJS={PreloadQuery} />
+
+En un
+[Client Component](https://nextjs.org/docs/app/building-your-application/rendering/client-components)
+llama a [`usePreloadedQuery`](/api/modules/react#usepreloadedquery):
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={UsePreloadedQueryTS} sourceJS={UsePreloadedQueryJS} />
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) recibe tres argumentos:
+
+1. La referencia de la consulta
+2. Opcionalmente, el objeto de argumentos pasado a la consulta
+3. Opcionalmente, un objeto [NextjsOptions](/api/modules/nextjs#nextjsoptions)
+
+`preloadQuery` usa la
+[política `cache: 'no-store'`](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching-caching-and-revalidating#opting-out-of-data-caching),
+por lo que cualquier Server Component que lo use no será apto para
+[renderizado estático](https://nextjs.org/docs/app/building-your-application/rendering/server-components#server-rendering-strategies).
+
+### Usar el resultado de la consulta \{#using-the-query-result\}
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) devuelve una carga útil opaca `Preloaded`
+que se debe pasar a `usePreloadedQuery`. Si quieres utilizar el valor devuelto por la consulta,
+por ejemplo para decidir si siquiera renderizar el Client Component, puedes pasar la carga
+útil `Preloaded` a la función
+[`preloadedQueryResult`](/api/modules/nextjs#preloadedqueryresult).
+
+## Usar Convex para renderizar Server Components \{#using-convex-to-render-server-components\}
+
+Si necesitas datos de Convex en el servidor, puedes obtener datos de Convex en tus
+[Server Components](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching),
+pero no serán reactivos. Para hacer esto, usa la función
+[`fetchQuery`](/api/modules/nextjs#fetchquery) de `convex/nextjs`:
+
+<TSAndJSSnippet title="app/StaticTasks.tsx" sourceTS={FetchQuery} sourceJS={FetchQuery} />
+
+## Server Actions y Route Handlers \{#server-actions-and-route-handlers\}
+
+Next.js admite la creación de rutas para manejar solicitudes HTTP, similares a las
+[acciones HTTP](/functions/http-actions.mdx) de Convex. Puedes usar Convex desde una
+[Server Action](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations)
+o un
+[Route Handler](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
+igual que usarías cualquier otro servicio de base de datos.
+
+Para cargar y editar datos de Convex en tu Server Action o Route Handler, puedes usar
+las funciones `fetchQuery`, `fetchMutation` y `fetchAction`.
+
+Aquí tienes un ejemplo de Server Action en línea que llama a una mutación de Convex:
+
+<TSAndJSSnippet title="app/example/page.tsx" sourceTS={ServerActionTS} sourceJS={ServerActionJS} />
+
+Aquí tienes un ejemplo de Route Handler que llama a una mutación de Convex:
+
+<TSAndJSSnippet title="app/api/route.ts" sourceTS={RouteHandlerTS} sourceJS={RouteHandlerJS} />
+
+## Autenticación del lado del servidor \{#server-side-authentication\}
+
+Para realizar solicitudes autenticadas a Convex durante el renderizado en el servidor, pasa un token JWT a [`preloadQuery`](/api/modules/nextjs#preloadquery) o
+[`fetchQuery`](/api/modules/nextjs#fetchquery) como tercer argumento de opciones:
+
+<TSAndJSSnippet title="app/TasksWrapper.tsx" sourceTS={AuthedPreloadQuery} sourceJS={AuthedPreloadQuery} snippet="example" />
+
+La implementación de `getAuthToken` depende de tu proveedor de autenticación.
+
+<Tabs>
+  <TabItem value="clerk" label="Clerk">
+    ```ts title="app/auth.ts"
+    import { auth } from "@clerk/nextjs/server";
+
+    export async function getAuthToken() {
+      return (await (await auth()).getToken({ template: "convex" })) ?? undefined;
+    }
+    ```
+  </TabItem>
+
+  <TabItem value="auth0" label="Auth0">
+    ```ts title="app/auth.ts"
+    // Necesitarás la versión v4.3 o posterior de @auth0/nextjs-auth0
+    import { getSession } from '@auth0/nextjs-auth0';
+
+    export async function getAuthToken() {
+      const session = await getSession();
+      const idToken = session.tokenSet.idToken;
+      return idToken;
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+## Configuración de la URL de implementación de Convex \{#configuring-convex-deployment-url\}
+
+Los hooks de Convex utilizados en los Client Components se configuran mediante el
+constructor de `ConvexReactClient`, como se muestra en el
+[Inicio rápido de Next.js](/quickstart/nextjs.mdx).
+
+Para usar `preloadQuery`, `fetchQuery`, `fetchMutation` y `fetchAction` en Server
+Components, Server Actions y Route Handlers debes hacer una de las siguientes cosas:
+
+1. tener la variable de entorno `NEXT_PUBLIC_CONVEX_URL` definida como la URL de implementación de Convex
+2. o pasar la opción [`url`](/api/modules/nextjs#nextjsoptions) como tercer
+   argumento a `preloadQuery`, `fetchQuery`, `fetchMutation` o `fetchAction`
+
+## Consistency \{#consistency\}
+
+[`preloadQuery`](/api/modules/nextjs#preloadquery) y
+[`fetchQuery`](/api/modules/nextjs#fetchquery) usan `ConvexHTTPClient`
+internamente. Este cliente no mantiene estado. Esto significa que dos llamadas
+a `preloadQuery` no garantizan devolver datos consistentes basados en el mismo
+estado de la base de datos. Esto es similar a las bases de datos más
+tradicionales, pero es diferente de la
+[consistencia garantizada](/client/react.mdx#consistency) proporcionada por
+`ConvexReactClient`.
+
+Para evitar renderizar una interfaz de usuario inconsistente, evita usar
+múltiples llamadas a `preloadQuery` en la misma página.

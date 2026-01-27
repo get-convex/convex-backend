@@ -1,0 +1,132 @@
+---
+title: OAuth 应用程序
+sidebar_position: 10
+---
+
+# OAuth 应用 \{#oauth-applications\}
+
+Convex 允许第三方应用开发者代表用户管理其项目，这一能力是通过 **应用令牌（Application Tokens）** 实现的。
+
+应用令牌是通过 OAuth 授权码模式获取的，下面会详细介绍这一流程。
+
+OAuth 令牌有两种类型：
+
+* 团队级令牌，获授权后可以创建新项目、在项目中创建新部署，并对团队中每个项目的数据和函数拥有读写访问权限。
+* 项目级令牌，可以在特定项目中创建新部署，并访问该项目中的数据和函数。
+
+<Admonition type="note">
+  所有应用令牌也都会受授权成员权限范围的限制。如果该成员被移出团队，或者其权限发生变化，令牌的权限也会随之改变。
+</Admonition>
+
+## 创建应用 \{#creating-an-application\}
+
+要获取应用令牌，你必须先在 Convex 中注册一个 OAuth 应用，这可以在
+[Team Settings](https://dashboard.convex.dev/team/settings/applications/oauth-apps)
+中完成。
+
+注册应用时，你需要为该应用提供一个名称，以及一组重定向 URI。重定向 URI 用于在用户授权你访问其 Convex 团队或项目后，将用户带回你的应用。你最多可以添加 20 个重定向 URI，其中可以包含用于测试的指向
+[localhost](http://localhost) 的地址。
+
+创建应用后，它将处于 &quot;Unverified&quot;（未验证）状态。在未验证状态下，你可以为自己的团队获取应用令牌，但不能为其他团队获取。我们建议你在请求验证之前，先在未验证状态下对你的应用进行测试。
+
+你可以点击应用旁边的 ⋮ 按钮，然后点击 &quot;Request Verification&quot;（请求验证）来提交验证请求。
+
+### 验证要求 \{#verification-requirements\}
+
+若要让你的应用通过验证并可供所有 Convex 用户访问，必须满足以下条件：
+
+* 应用描述需要说明你的应用当前具备的功能以及计划中的未来功能。
+* 应用名称、重定向 URI，以及重定向 URI 所指向页面的内容不得试图冒充其他组织、企业或实体。
+* 列出的重定向 URI 必须属于你的组织。
+
+如果需要更多信息，Convex 团队会通过电子邮件回复你的验证请求。
+
+## 实现 OAuth \{#implementing-oauth\}
+
+Convex 实现了 [OAuth 2.0](https://oauth.net/2/)（RFC 6749）的
+[授权码模式](https://oauth.net/2/grant-types/authorization-code/)
+流程。Convex 还可选支持
+[PKCE 扩展](https://oauth.net/2/pkce/)（RFC 7636）以提高安全性。
+
+* Convex 提供了两个 *authorization endpoint*（授权端点）URL，具体取决于你是要生成团队级还是项目级的 token：
+  * `https://dashboard.convex.dev/oauth/authorize/team`
+  * `https://dashboard.convex.dev/oauth/authorize/project`
+* Convex 的 **token endpoint** 是 `https://api.convex.dev/oauth/token`。
+
+下面我们将一步一步地演示授权流程。不过，推荐你使用 OAuth 2.0 客户端库来帮助构造所需的 URL 和 API 调用。
+
+## 步骤 1：将用户重定向到 Convex 的授权端点 \{#step-1-redirect-the-user-to-convexs-authorization-endpoint\}
+
+在你的应用中，将用户导航到：
+
+`https://dashboard.convex.dev/oauth/authorize[TOKEN_SCOPE]?client_id=[CLIENT_ID]&redirect_uri=[REDIRECT_URI]&response_type=code&state=[STATE]`
+
+* 将 `[TOKEN_SCOPE]` 替换为 &quot;team&quot; 或 &quot;project&quot;
+* 将 `[CLIENT_ID]` 替换为 Convex 分配给你的应用的客户端 ID。
+* `[REDIRECT_URI]` 是你应用域名下的一个 URL。用户在授权之后会被重定向回这个 URL。
+  * **重要说明**：你需要向我们提供你的应用可能使用的所有重定向 URI（通常只有一个）。这是为了防止恶意应用伪装成你的应用，却重定向到不同的回调地址。
+* `[STATE]` 是一个可选的任意字符串。如何编码由你决定，你的应用会用它来在收到授权 token 后决定下一步要做什么。
+
+**记得对所有参数进行 URI 编码！**
+
+用户将会看到如下页面：
+
+![OAuth authorization page](/screenshots/oauth-page.png)
+
+在这里，用户可以选择他们想要授予访问权限的 team。如果使用的是 project 授权流程，用户还可以选择一个已有的 project，或创建一个新的 project。点击 &quot;Authorize&quot; 之后，页面会重定向到你配置的重定向 URL。
+
+## 步骤 2：接收回调 \{#step-2-receive-the-callback\}
+
+授权端点会在附带好 `code` 和 `state` 查询参数后，将用户重定向到你的重定向 URI。假设你的 `redirect_uri` 是
+`https://yourapp.example.com/cb`，结果会类似于：
+
+`https://yourapp.example.com/cb?code=[CODE]&state=[STATE]`
+
+其中 `state` 与之前你提供的值相同，而 `code` 是类似 `895c59eb98504a5bbaa7ad2e49cf4817` 的随机生成字符串。这个 code **不是**
+最终的认证令牌 —— 你需要在 10 分钟内用它换取一个令牌。
+
+## 步骤 3：将授权码兑换为项目令牌 \{#step-3-exchange-the-authorization-code-for-a-project-token\}
+
+你的应用程序应向以下端点发起 HTTP POST 请求：
+
+`https://api.convex.dev/oauth/token`
+
+请求体的 `Content-Type` 应为 `application/x-www-form-urlencoded`，并且内容类似如下：
+
+`client_id=[CLIENT_ID]&client_secret=[CLIENT_SECRET]&grant_type=authorization_code&redirect_uri=[REDIRECT_URI]&code=[CODE]`
+
+* `client_id` 与用于构造授权端点 URL 的值相同。
+* `client_secret` 是 Convex 分配给你的应用的密钥。
+* `grant_type` 始终为 `authorization_code`。
+* `redirect_uri` 与用于构造授权端点 URL 的值相同。
+* `code` 是在回调中提供给你的授权码。
+  * 注意，一个 `code` 只能用于兑换访问令牌 *一次*。
+
+如果所有提供的值都正确，Convex 的 API 会返回一个包含以下内容的 JSON 响应：
+
+```jsx
+{
+	"access_token": "team:my-team|AAAAAA==",
+	"token_type": "bearer"
+}
+```
+
+`access_token` 就是应用令牌！
+
+# 使用 PKCE（RFC 7636） \{#using-pkce-rfc-7636\}
+
+Convex 支持对 Authorization Code 授权模式的这一扩展。只允许使用
+`S256` 方法。即使你的 client secret 并非保密（例如必须嵌入到客户端应用中），
+PKCE 也可以防止泄露的 authorization code 被攻击者利用。
+
+大多数 OAuth 客户端库通常已经支持 PKCE，但如果你需要手动实现：
+
+* 每次发起用户授权请求时，在重定向用户之前，构造一个随机字符串，
+  称为 `code_verifier`。推荐生成一个随机的 32 字节值，并对其进行 base64url 编码。
+* 计算 `code_challenge = base64url(sha256(code_verifier))`。这将是一个
+  长度为 43 的字符串。
+* 像之前一样将用户重定向到授权端点
+  (`/oauth/authorize/[TOKEN_SCOPE]`)，但需要额外提供参数
+  `code_challenge=[CODE_CHALLENGE]&code_challenge_method=S256`。
+* 在使用 authorization code 交换令牌时，额外提供参数
+  `code_verifier=[CODE_VERIFIER]`。

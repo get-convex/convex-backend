@@ -1,0 +1,41 @@
+---
+id: public-query-batch-post
+title: "执行查询批次"
+description: "批量执行多个查询函数。"
+sidebar_label: "执行查询批次"
+hide_title: true
+hide_table_of_contents: true
+api: eJy1VU1v2zAM/SsGz0r6cfStXTusQIdmabtLEBSKzcTqZEmVqLaB4f8+UHYaZ+nSDdhySUJS5NPjI9VAiaHwypGyBnK4fMUiEmZ11KScxuwpol9ny2gKjgiZMpnMFpKKagwCrEMv2XFVQg4uLrQqHtKRhxTz4GwgEODxKWKgc1uuIW+gsIbQEP+UzmlVpBxHj4ExNBCKCmvJv2jtEHKwi0csNnmUxxLyGXAZhQHmApxnIMT/8ubNsT0vvZdrEKAI6/BRXiepAgHSr97Jnax7CVoBS+trSVvXDAJ5ZVYgwEStYd6KLvP2cB/QtgJIkWbTfbmc2EDTji5oh75vTOs5s3rGIJJvi5t8xGQIzprQgT09Puav3Q6D+Df0ewxR0zsUbRwH6LcGb5aQzw5XeJY6IggIJCm+U0jb1bUyf9ToAdV9tj2fADSxTo2LRYEhpJZ1GDi478L3ZGDyD4NH763/iiHI1aE7pLALSfJdWpJyUqXd6oxsp8D+TcV/oycVhnnbtvMd4U576f1OtUM/R9RIlU1ro9sR3XTA0WB9MHHon9GHxEr0mgOkUyB+UfUFOm3XNRrKziZXwNBYztPt3rl8lbXTuLMgZm8DPZjg7Y17RBt2mHVllnYoh0/WPONrNkmbL/tydzfJvI2EYQ/hpSmdVYZCRpWkrNdKZmwmI1VoqB9DEKBVgUxU3oCRNZe57ixTXI4+316PTsYnozMniwpHp+NjbmjJCZYK/YfBLGr0oQN1Mj7uTNyDWppByc1L0D0Am3bs3GmwyP/24ejFRfhKR05LZRhE6m/T094t+I0Q5gIqlkk+g6ZZyID3Xrctm1MU5LM5D6tXcsF9mXGvKpQlEzJr4Aeuu2Yx2tEdF3+b7f0dyBPXnTgrCnR0MHY+UPLk5vYOBCz6Z662JZ/x8oWXg3zptq9N7HWrkm0NaGlWMY0xdDn58xPOeZ91
+sidebar_class_name: "post api-method"
+info_path: public-deployment-api/convex-public-http-routes
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+
+<Heading as={"h1"} className={"openapi__heading"} children={"执行批量查询"} />
+
+<MethodEndpoint method={"post"} path={"/query_batch"} context={"endpoint"} />
+
+一次性执行多个查询函数。
+
+<Heading id={"request"} as={"h2"} className={"openapi-tabs__heading"} children={"请求"} />
+
+<ParamsDetails parameters={undefined} />
+
+<RequestSchema title={"请求体"} body={{"content":{"application/json":{"schema":{"type":"object","required":["queries"],"properties":{"queries":{"type":"array","items":{"type":"object","required":["path","args"],"properties":{"args":{"type":"object"},"format":{"type":["string","null"]},"path":{"type":"string"}},"title":"UdfPostRequest"}}},"title":"QueryBatchArgs"}}},"required":true}} />
+
+
+<StatusCodes
+  id={undefined}
+  label={undefined}
+  responses={{"200":{"description":"","content":{"application/json":{"schema":{"type":"object","required":["results"],"properties":{"results":{"type":"array","items":{"oneOf":[{"type":"object","required":["value","status"],"properties":{"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["success"]},"value":{"title":"值"}}},{"type":"object","required":["errorMessage","status"],"properties":{"errorData":{"oneOf":[{"type":"null"},{"title":"值"}]},"errorMessage":{"type":"string"},"logLines":{"type":"array","items":{"type":"string"}},"status":{"type":"string","enum":["error"]}}}],"title":"UdfResponse"}}},"title":"QueryBatchResponse"}}}}}}
+>
+  
+</StatusCodes>

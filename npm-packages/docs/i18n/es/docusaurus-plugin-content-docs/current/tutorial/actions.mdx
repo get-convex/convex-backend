@@ -1,0 +1,261 @@
+---
+title: "Tutorial de Convex: Llamar a servicios externos"
+sidebar_label: "2. Llamar a servicios externos"
+slug: "actions"
+sidebar_position: 200
+hide_table_of_contents: true
+description:
+  "Amplía tu aplicación de chat realizando llamadas a APIs externas usando acciones de Convex y
+  el programador de tareas para integrar resúmenes de Wikipedia en tu aplicación."
+---
+
+# Tutorial de Convex: Llamar a servicios externos \{#convex-tutorial-calling-external-services\}
+
+En el [paso anterior](/tutorial/index.mdx), creaste una aplicación de chat
+totalmente autosuficiente. Datos que entran, datos que salen.
+
+Para habilitar la reactividad automática que acabamos de ver y al mismo tiempo
+proporcionar transacciones de base de datos sólidas, las funciones de consulta y
+de mutación en Convex no pueden hacer llamadas `fetch` al mundo exterior.
+
+Las aplicaciones reales no son tan simples. A menudo necesitan comunicarse con
+el resto de internet directamente desde el backend. Convex también te permite
+hacer esto mediante funciones de **acción**.
+
+Las funciones de acción permiten que el motor de sincronización acceda al mundo
+externo programando tareas que luego pueden escribir datos de vuelta mediante
+mutaciones.
+
+Hagamos que nuestra app de chat sea un poco más inteligente permitiendo que
+cualquiera en el chat obtenga el resumen de Wikipedia de un tema usando la API
+de Wikipedia.
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/0bn9RcwOwOQ?si=C5Gvz2Us2H1KIAQu" title="Reproductor de video de YouTube" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen />
+</div>
+
+## Tu primera `action` \{#your-first-action\}
+
+**Añade la siguiente acción al archivo `convex/chat.ts`.**
+
+```typescript
+// highlight-next-line
+// Actualiza la importación de tu servidor así:
+// highlight-next-line
+import { query, mutation, internalAction } from "./_generated/server";
+
+//...
+
+// highlight-next-line
+export const getWikipediaSummary = internalAction({
+  // highlight-next-line
+  args: { topic: v.string() },
+  // highlight-next-line
+  handler: async (ctx, args) => {
+    // highlight-next-line
+    const response = await fetch(
+      // highlight-next-line
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        // highlight-next-line
+        args.topic,
+      // highlight-next-line
+    );
+    // highlight-next-line
+
+    // highlight-next-line
+    return getSummaryFromJSON(await response.json());
+    // highlight-next-line
+  },
+  // highlight-next-line
+});
+// highlight-next-line
+
+// highlight-next-line
+function getSummaryFromJSON(data: any) {
+  // highlight-next-line
+  const firstPageId = Object.keys(data.query.pages)[0];
+  // highlight-next-line
+  return data.query.pages[firstPageId].extract;
+  // highlight-next-line
+}
+```
+
+Recorrámoslo:
+
+1. Primero, creamos una nueva acción de Convex llamada `getWikipediaSummary`.
+   Usamos `internalAction` porque queremos que esta función sea privada del
+   backend de Convex y que no se exponga como una API pública. Esta función hace un
+   `fetch` sencillo a la API de Wikipedia con nuestro tema.
+2. Después, tenemos una función auxiliar de TypeScript llamada `getSummaryFromJSON`
+   para extraer el texto del resumen de la respuesta JSON.
+3. La función `getWikipediaSummary` llama a nuestra función auxiliar como cualquier
+   otra función de TypeScript.
+
+Todo esto está muy bien, pero ¿cómo la uso?
+
+Para probar rápidamente esta función en el panel de control de Convex, ve a
+[https://dashboard.convex.dev](https://dashboard.convex.dev/deployment/functions)
+y navega hasta tu proyecto. Haz clic en Functions en la barra de navegación de la izquierda y luego
+haz clic en la función `getWikipediaSummary`. Haz clic en &quot;Run Function&quot;.
+
+Se abrirá la interfaz de ejecución de funciones. Prueba a hacer algunas búsquedas.
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_dashboard_action.mp4" type="video/mp4" />
+
+  Ejecutando algunas consultas de Wikipedia
+</video>
+
+## Integrarlo en tu aplicación \{#hooking-it-up-to-your-app\}
+
+Está genial poder hacer llamadas a Wikipedia, pero aún hace falta que eso se vea reflejado en nuestro
+chat. Así que vamos a conectarlo todo.
+
+**Actualiza tu mutación `sendMessage` existente de esta manera:**
+
+```typescript
+// highlight-next-line
+// Importa la referencia de la API
+// highlight-next-line
+import { api, internal } from "./_generated/api";
+
+//...
+
+export const sendMessage = mutation({
+  args: {
+    user: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("This TypeScript function is running on the server.");
+    await ctx.db.insert("messages", {
+      user: args.user,
+      body: args.body,
+    });
+
+    // highlight-next-line
+    // Agrega las siguientes líneas:
+    // highlight-next-line
+    if (args.body.startsWith("/wiki")) {
+      // highlight-next-line
+      // Obtén la cadena después del primer espacio
+      // highlight-next-line
+      const topic = args.body.slice(args.body.indexOf(" ") + 1);
+      // highlight-next-line
+      await ctx.scheduler.runAfter(0, internal.chat.getWikipediaSummary, {
+        // highlight-next-line
+        topic,
+        // highlight-next-line
+      });
+      // highlight-next-line
+    }
+  },
+});
+```
+
+¡Espera un segundo! ¿Qué pasa con esto de `ctx.scheduler`? Convex incluye un
+potente planificador de funciones persistentes. Es una parte fundamental del motor
+de sincronización y es la forma en que coordinas funciones asíncronas en Convex.
+
+En el caso de las mutaciones, es la única forma de llamar a una acción para hacer
+`fetch` desde el mundo exterior. La parte realmente interesante es que, si por alguna
+razón tu mutación lanza una excepción, entonces no se programa nada. Esto se debe
+a que las mutaciones son transacciones, y programar no es más que una escritura
+en la base de datos para decirle a Convex que ejecute esta función en el futuro.
+
+De acuerdo, podemos programar nuestra acción, pero aún necesitamos escribir el resumen
+de vuelta en el chat.
+
+**Volvamos y actualicemos nuestra acción `getWikipediaSummary`:**
+
+```typescript
+export const getWikipediaSummary = internalAction({
+  args: { topic: v.string() },
+  handler: async (ctx, args) => {
+    const response = await fetch(
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        args.topic,
+    );
+
+    // highlight-next-line
+    // Reemplaza el `return ...` por lo siguiente.
+    // highlight-next-line
+    const summary = getSummaryFromJSON(await response.json());
+    // highlight-next-line
+    await ctx.scheduler.runAfter(0, api.chat.sendMessage, {
+      // highlight-next-line
+      user: "Wikipedia",
+      // highlight-next-line
+      body: summary,
+      // highlight-next-line
+    });
+  },
+});
+```
+
+Al igual que cuando programamos la acción, ahora estamos programando nuestra mutación `sendMessage`
+para enviar el resultado de nuestra búsqueda en Wikipedia a nuestro chat.
+
+¡Ahora prueba tu aplicación!
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_wikipedia.mp4" type="video/mp4" />
+
+  Chatea con Wikipedia
+</video>
+
+## El planificador, las acciones y el motor de sincronización \{#the-scheduler-actions-and-the-sync-engine\}
+
+<div className="center-image" style={{ maxWidth: "900px" }}>
+  ![Motor de sincronización con acciones](/img/tutorial/ConvexSyncAction.png)
+</div>
+
+Las consultas y mutaciones son las únicas formas de interactuar con la base de datos y
+el planificador permite crear flujos de trabajo sofisticados con acciones entre ellas.
+
+[Acciones](/functions/actions.mdx) son funciones serverless normales, como AWS
+Lambda y Google Cloud Run. Ayudan a modelar flujos como llamar a APIs de IA y
+usar el Vector Store. Sirven como una vía de escape. Se encargan de la
+realidad del caótico mundo exterior con pocas garantías.
+
+Las acciones no forman parte del motor de sincronización. Para hablar con la base de datos tienen que
+hacerlo a través de funciones de consulta y mutación. Esta restricción permite que Convex garantice
+propiedades transaccionales en la base de datos y mantenga el motor de sincronización rápido y ágil.
+
+La mejor manera de estructurar tu aplicación para escalar es minimizar el trabajo
+que ocurre en una acción. Solo la parte que necesita el
+[no determinismo](https://en.wikipedia.org/wiki/Deterministic_algorithm), como
+hacer la llamada externa con `fetch`, debería realizarse en una acción. Mantenerlas lo más pequeñas
+posible es la forma más escalable de crear aplicaciones de Convex, lo que habilita el mayor
+rendimiento.
+
+El planificador permite que tu app mantenga la mayor parte de su lógica importante en consultas y
+mutaciones y estructure tu código como flujos de trabajo dentro y fuera de acciones.
+
+## Lo que construiste \{#what-you-built\}
+
+En esta sección del tutorial, creaste una acción para hablar con el mundo
+exterior y usaste el scheduler para programar este trabajo.
+
+Aprendiste que mantener nuestras acciones pequeñas y concentrar la mayor parte de nuestro trabajo en
+consultas y mutaciones es fundamental para crear backends escalables en Convex.
+
+## A continuación \{#next-up\}
+
+Ahora has aprendido los conceptos más importantes de Convex. Como un backend
+completo, Convex puede hacer muchas cosas, como la [autenticación](/auth.mdx),
+el [almacenamiento de archivos](/file-storage.mdx) y la [búsqueda](/search.mdx). Puedes agregar esas
+funcionalidades según sea necesario siguiendo la documentación.
+
+Ya hablamos un poco sobre cómo preparar tu aplicación para el éxito. A medida que tu aplicación
+escale, te encontrarás con nuevos desafíos. Aprendamos cómo manejar algunos de
+estos desafíos en la [siguiente sección →](/tutorial/scale.mdx).
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+  href: "/tutorial/scale",
+  docId: "tutorial/scale",
+  label: "Escalar tu aplicación",
+}}
+/>

@@ -1,0 +1,744 @@
+---
+title: "Creación de componentes"
+slug: "authoring"
+sidebar_position: 40
+description: "Creación de nuevos componentes"
+---
+
+Crear un componente de Convex te permite empaquetar funciones de Convex, esquemas y
+estado persistente en un módulo reutilizable que tú u otros desarrolladores pueden
+integrar en sus proyectos.
+
+Se diferencian de las bibliotecas convencionales en que tienen sus propias tablas de base de datos,
+subtransacciones y pueden definir funciones que se ejecutan en un entorno aislado.
+
+¿Estás intentando decidir entre escribir una biblioteca o un componente? Si lo construyes como un
+componente podrás:
+
+* Persistir datos en tablas donde controlas el esquema.
+* Aislar el acceso a los datos detrás de una frontera de API.
+* Definir consultas, mutaciones y acciones que pueden ejecutarse de forma asíncrona para gestionar
+  flujos de trabajo complejos.
+* Compartir funcionalidad entre aplicaciones de forma predecible.
+
+## Anatomía de un componente \{#anatomy-of-a-component\}
+
+En la práctica, un componente se define en una carpeta que contiene un
+`convex.config.ts`. La carpeta del componente tiene la misma estructura que una carpeta `convex/` normal:
+
+```
+ component/
+ ├── _generated/        # Código generado para la API y el modelo de datos del componente.
+ ├── convex.config.ts   # Define el componente y sus componentes hijos.
+ ├── schema.ts          # Define un esquema solo accesible por el componente.
+ └-- …folders/files.ts  # Consultas, mutaciones y acciones para el componente.
+```
+
+El archivo `convex.config.ts` del componente configura el nombre por defecto del componente
+y sus subcomponentes.
+
+```ts title="component/convex.config.ts"
+import { defineComponent } from "convex/server";
+// import workpool from "@convex-dev/workpool/convex.config.js";
+// importar localComponent desde "../localComponent/convex.config.js";
+const component = defineComponent("myComponent");
+// component.use(workpool);
+// component.use(localComponent, { name: "customName" });
+export default component;
+```
+
+Las instancias del componente se configuran cuando son usadas por la aplicación principal u otros
+componentes en sus archivos `convex.config.ts`, formando un árbol de componentes, donde
+la aplicación principal está en la raíz.
+
+## Introducción \{#getting-started\}
+
+El código fuente de los componentes puede estar en una carpeta local o venir empaquetado en un paquete de npm.
+
+### Componentes locales \{#local-components\}
+
+La manera más sencilla de empezar es creando una nueva carpeta para tu componente
+y añadiendo un archivo `convex.config.ts` en ella (como el anterior). Luego impórtalo
+en el archivo `convex/convex.config.ts` de tu aplicación:
+
+```ts title="convex/convex.config.ts"
+import { defineApp } from "convex/server";
+import myComponent from "./components/myComponent/convex.config.js";
+
+const app = defineApp();
+app.use(myComponent);
+export default app;
+```
+
+Una vez instalado, `npx convex dev` generará código en
+`./components/myComponent/_generated/` y lo volverá a generar cada vez que hagas
+cambios en el código del componente.
+
+Consejo: La convención recomendada para componentes locales es organizarlos en una
+carpeta `convex/components`, pero se pueden almacenar en cualquier lugar de tu proyecto.
+
+### Componentes empaquetados \{#packaged-components\}
+
+Los componentes se pueden distribuir e instalar como paquetes de npm, lo que te permite
+compartir soluciones a problemas comunes con una comunidad de desarrolladores más amplia a través del
+[directorio de componentes de Convex](https://convex.dev/components).
+
+Comienza con un nuevo proyecto usando la
+[plantilla de componente](https://github.com/get-convex/templates/tree/main/template-component):
+
+```bash
+npx create-convex@latest --component
+```
+
+Sigue las instrucciones de la interfaz de línea de comandos (CLI) para comenzar y mantener actualizado el código generado del componente.
+[Consulta más abajo para más información sobre cómo compilar y publicar componentes como paquetes de npm.](#building-and-publishing-npm-package-components)
+
+### Componentes híbridos \{#hybrid-components\}
+
+Los componentes híbridos definen un componente local, pero usan código de una biblioteca compartida para parte
+de la funcionalidad. Esto te permite ofrecer mayor flexibilidad cuando los usuarios
+necesitan anular o extender el esquema o las funciones.
+
+Un ejemplo de un componente híbrido es el
+[Better Auth Component](https://convex-better-auth.netlify.app/features/local-install).
+
+Nota: en general, los componentes deberían componerse o diseñarse para ser extendidos
+de forma explícita, ya que los componentes híbridos introducen mucha complejidad al mantener
+y actualizar un componente de forma compatible con versiones anteriores.
+
+## Hola mundo \{#hello-world\}
+
+Para probar a agregar una nueva función, crea un archivo `hello.ts` en la carpeta de tu componente (por ejemplo, `src/component/hello.ts` en la plantilla):
+
+```ts title="./path/to/component/hello.ts"
+import { v } from "convex/values";
+import { query } from "./_generated/server.js";
+
+export const world = query({
+  args: {},
+  returns: v.string(),
+  handler: async () => {
+    return "hello world";
+  },
+});
+```
+
+Una vez desplegado, puedes ejecutar
+`npx convex run --component myComponent hello:world`.
+
+Ahora también puedes ejecutarlo desde una función en tu aplicación:
+
+```ts title="convex/sayHi.ts"
+import { components } from "./_generated/api";
+import { query } from "./_generated/server";
+
+export default query({
+  handler: async (ctx) => {
+    return await ctx.runQuery(components.myComponent.hello.world);
+  },
+});
+```
+
+Pruébalo con: `npx convex run sayHi`.
+
+## Diferencias clave con respecto al desarrollo normal con Convex \{#key-differences-from-regular-convex-development\}
+
+El desarrollo de un componente es similar al desarrollo del resto de tu backend de Convex.
+Esta sección es una guía de los conceptos y las diferencias clave.
+
+### La API del componente \{#the-component-api\}
+
+Cuando accedes a una referencia de componente como `components.foo`, estás
+trabajando con el tipo `ComponentApi`, que tiene algunas diferencias clave con
+respecto al objeto `api` convencional:
+
+* **Solo las funciones públicas son accesibles**: Las funciones internas no se
+  exponen a la aplicación padre.
+* **Las funciones se convierten en referencias internas**: Las consultas,
+  mutaciones y acciones &quot;públicas&quot; del componente se convierten en referencias
+  con visibilidad &quot;interna&quot;. Se pueden invocar con `ctx.runQuery`,
+  `ctx.runMutation`, etc., pero **no** son accesibles directamente desde los
+  clientes mediante HTTP o WebSockets. Consulta más abajo los patrones para
+  volver a exportar funciones desde el componente.
+* **Los Id se convierten en strings**: Cualquier argumento o valor de retorno
+  `Id<"tableName">` se convierte en un string simple en `ComponentApi`. Consulta
+  la siguiente sección para más detalles.
+
+De forma similar a las funciones normales de Convex, puedes invocar tanto las
+funciones públicas como las internas mediante `npx convex run` y el panel de
+control de Convex.
+
+### Tipos y validación de `Id` \{#id-types-and-validation\}
+
+Todos los tipos `Id<"table_name">` dentro de un componente se convierten en tipos
+de cadena simples fuera del componente (en el tipo `ComponentApi`).
+
+Además, actualmente no puedes definir un validador `v.id("table_name")` que
+represente una tabla en otro componente o aplicación.
+
+¿Por qué?
+
+En Convex, un validador `v.id("table_name")` comprobará que un ID en un
+argumento, valor de retorno o documento de base de datos coincide con el formato
+de la tabla indicada por nombre. Internamente, esto se codifica actualmente como
+un número asignado a cada tabla en tu esquema.
+
+Dentro de la implementación de un componente, se aplica lo mismo a las tablas
+del componente. Sin embargo, un `v.id("users")` dentro del componente no es lo
+mismo que `v.id("users")` en otro componente o en la aplicación principal, ya
+que cada tabla &quot;users&quot; puede tener una representación numérica de tabla
+diferente.
+
+Por esta razón, todos los tipos `Id` en el `ComponentApi` se convierten en
+cadenas simples.
+
+### Código generado \{#generated-code\}
+
+Cada componente tiene su propio directorio `_generated` además del directorio
+`convex/_generated`. Son similares, pero su contenido es específico del
+componente y de su esquema. En general, el código fuera del componente no
+debería importar desde este directorio, con la excepción de
+`_generated/component`.
+
+* `component.ts` solo se genera para componentes y contiene el tipo
+  `ComponentApi` del componente.
+* `server.ts` contiene constructores de funciones como `query` y `mutation` para
+  definir la API de tu componente. Es importante que importes estos al definir
+  las funciones de tu componente, y no desde `convex/_generated/server`.
+  Consulta más abajo para obtener más información sobre la visibilidad de las
+  funciones.
+* `api.ts` contiene los objetos `api` e `internal` del componente para
+  hacer referencia a las funciones del componente. También incluye el objeto
+  `components` con referencias a sus componentes hijo, si los hay. En general,
+  ningún código fuera del componente debería importar desde este archivo.
+  En su lugar, debería usar su propio objeto `components`, que incluye este
+  componente con la clave del nombre con el que decidieron instalarlo.
+* `dataModel.ts` contiene los tipos para el modelo de datos del componente.
+  Ten en cuenta que los tipos `Id` y `Documento` aquí no son útiles fuera del
+  componente, ya que la API convierte todos los tipos de ID en cadenas de texto
+  en el límite.
+
+### Variables de entorno \{#environment-variables\}
+
+Las funciones del componente están aisladas del entorno de la aplicación, por lo que
+no pueden acceder a `process.env`. En su lugar, puedes pasar variables de entorno como
+argumentos a las funciones del componente.
+
+```ts
+return await ctx.runAction(components.sampleComponent.lib.translate, {
+  baseUrl: process.env.BASE_URL,
+  ...otherArgs,
+});
+```
+
+Consulta más abajo otras estrategias de configuración estática.
+
+### Acciones HTTP \{#http-actions\}
+
+Un componente no puede exponer directamente acciones HTTP porque las rutas podrían entrar en conflicto con las rutas de la aplicación principal. De forma similar a otras funciones (consultas, mutaciones y acciones), un componente puede definir controladores de acciones HTTP que la aplicación puede optar por montar. Hay un ejemplo en el
+[componente de Twilio](https://github.com/get-convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71).
+Todas las acciones HTTP deben montarse en el archivo `convex/http.ts` de la aplicación principal.
+
+### Autenticación mediante ctx.auth \{#authentication-via-ctxauth\}
+
+Dentro de un componente, `ctx.auth` no está disponible. Normalmente realizarás
+la autenticación en la aplicación y luego pasarás identificadores como `userId` u otra
+información identificatoria al componente.
+
+Este paso explícito deja claro qué datos fluyen entre la aplicación y el
+componente, lo que hace que tu componente sea más fácil de entender y probar.
+
+```ts title="convex/myFunctions.ts"
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+export const someMutation = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    await ctx.runMutation(components.myComponent.foo.bar, {
+      userId,
+      ...otherArgs,
+    });
+  },
+});
+```
+
+### Manejadores de funciones \{#function-handles\}
+
+A veces necesitas que la aplicación llame a un componente y que el componente vuelva
+a llamar a la aplicación.
+
+Por ejemplo, al usar el componente Migrations, la aplicación define una función
+que modifica un documento y el componente ejecuta esta función en cada
+documento. Como otro ejemplo, una aplicación que usa el componente Twilio le
+proporciona una función para ejecutar cada vez que el número de teléfono recibe
+un mensaje de texto.
+
+Estas capacidades se implementan usando manejadores de funciones.
+
+Una referencia de función es algo como api.foo.bar o `internal.foo.bar` o
+`components.counter.foo.bar`. Las referencias de función están restringidas como
+se describió anteriormente (un componente solo puede usar referencias a sus propias
+funciones o a las funciones públicas de sus hijos). Si tienes una referencia de
+función válida, puedes convertirla en algo que se pueda llamar desde cualquier
+lugar:
+
+```ts
+const handle = await createFunctionHandle(api.foo.bar);
+```
+
+Este handle es una cadena.
+
+Como es una cadena, puedes pasarla entre funciones e incluso almacenarla en una
+tabla. Usarías `v.string()` en validadores de argumentos/esquema.
+
+Cuando quieras usarla, conviértela de nuevo a FunctionHandle y úsala como usarías
+una referencia de función. Ten en cuenta que la validación de argumentos y del valor de retorno sigue ejecutándose en
+tiempo de ejecución, así que no te preocupes por perder garantías.
+
+```ts
+const handle = handleString as FunctionHandle<"mutation">;
+
+const result = await ctx.runMutation(handle, args);
+// o ejecútala de forma asíncrona a través del planificador:
+await ctx.scheduler.runAfter(0, handle, args);
+```
+
+[Aquí](https://github.com/get-convex/workpool/blob/aebe2db49fc3ec50ded6892ed27f464450b3d31e/src/component/worker.ts#L26-L28)
+tienes un ejemplo de cómo usar handles de función en el componente
+[Workpool](https://www.convex.dev/components/workpool).
+
+### Paginación \{#pagination\}
+
+El `.paginate()` incorporado no funciona en componentes, debido a cómo Convex
+gestiona la paginación reactiva. Por lo tanto, te recomendamos usar `paginator`
+de [`convex-helpers`](https://npmjs.com/package/convex-helpers) si necesitas
+paginación dentro de tu componente.
+
+Si expones una API de paginación que quieres usar con `usePaginatedQuery`,
+en un contexto de React, usa `usePaginatedQuery` de `convex-helpers` en lugar del
+predeterminado de `convex/react`. Tendrá un tamaño fijo de la primera página hasta
+que hagas clic en “load more”, momento en el cual la primera página crecerá si se agrega algo
+antes de la segunda página.
+
+[Aquí](https://github.com/get-convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
+hay un ejemplo de paginación en el componente
+[RAG](https://www.convex.dev/components/rag).
+
+## Consejos y buenas prácticas \{#tips-and-best-practices\}
+
+### Validación \{#validation\}
+
+Todas las funciones públicas de un componente deben tener validadores para sus argumentos y valores de retorno.
+De lo contrario, los argumentos y valores de retorno se tipificarán como `any`. A continuación se muestra un
+ejemplo del uso de validadores.
+
+```ts
+import schema from "./schema";
+
+const messageDoc = schema.tables.messages.validator.extend({
+  _id: v.id("messages),
+  _creationTime: v.number(),
+});
+
+export const getLatestMessage = query({
+  args: {},
+  returns: v.nullable(messageDoc),
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").order("desc).first();
+  },
+});
+```
+
+Obtén más información sobre la validación de funciones
+[aquí](/functions/validation.mdx).
+
+### Configuración estática \{#static-configuration\}
+
+Un patrón habitual para gestionar la configuración en un componente es tener una tabla llamada &quot;globals&quot;
+con un único documento que contiene la configuración. Luego puedes definir funciones para actualizar este documento desde la interfaz de línea de comandos (CLI) o desde la aplicación. Para leer los valores, puedes consultarlos con `ctx.db.query("globals").first();`.
+
+## Envolver el componente con código de cliente \{#wrapping-the-component-with-client-code\}
+
+Al crear un componente, a veces quieres proporcionar una API más simple que
+llamar directamente a `ctx.runMutation(components.foo.bar, ...)`, añadir más
+seguridad de tipos o proporcionar funcionalidad que trascienda los límites del
+componente.
+
+Puedes ocultar las llamadas a las funciones del componente detrás de una API de
+cliente más ergonómica que se ejecute dentro del entorno de la aplicación y
+invoque al componente.
+
+Esta sección cubre convenciones y enfoques para escribir código de cliente. No
+son reglas estrictas; elige el patrón que mejor se adapte a las necesidades de
+tu componente.
+
+Nota: Un aspecto importante de este patrón es que el código que se ejecuta en
+la aplicación tiene acceso a `ctx.auth`, `process.env` y otros recursos a nivel
+de aplicación. Para muchos casos de uso, esto es importante, como ejecutar
+código para definir migraciones en la aplicación, que luego se ejecutan desde
+el componente de migraciones. Por otro lado, las aplicaciones que quieran un
+control muy estricto sobre qué código se ejecuta en su aplicación pueden
+preferir llamar directamente a las funciones del componente.
+
+### Envolturas de funciones simples \{#simple-function-wrappers\}
+
+El enfoque más sencillo es definir funciones independientes que envuelvan las llamadas al
+componente. Esto funciona bien para operaciones y utilidades sencillas.
+
+```tsx
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+} from "convex/server";
+import type { ComponentApi } from "../component/_generated/component.js";
+
+export async function callMyFunction(
+  ctx: MutationCtx | ActionCtx,
+  component: ComponentApi,
+  args: ...
+) {
+  // Puedes crear manejadores de funciones, agregar utilidades compartidas,
+  // o realizar cualquier procesamiento que deba ejecutarse en el entorno de la aplicación.
+  const functionHandle = await createFunctionHandle(args.someFn);
+  const someArg = process.env.SOME_ARG;
+  await ctx.runMutation(component.call.fn, {
+    ...args,
+    someArg,
+    functionHandle,
+  });
+}
+
+// Useful types for functions that only need certain capabilities.
+type MutationCtx = Pick<GenericMutationCtx<GenericDataModel>, "runMutation">;
+type ActionCtx = Pick<
+  GenericActionCtx<GenericDataModel>,
+  "runQuery" | "runMutation" | "runAction"
+>;
+```
+
+Nota: solo usamos `ctx.runMutation`, así que podemos usar `Pick` para seleccionar un tipo que
+solo incluya esa función. Esto permite a los usuarios llamarla incluso si su `ctx` no es
+exactamente el `MutationCtx` estándar. También significa que se puede llamar desde una
+acción, ya que `ActionCtx` también incluye `ctx.runMutation`. Si tu función también
+necesita autenticación o almacenamiento, puedes ajustar qué incluyes en el `Pick`.
+
+### Reexportar funciones del componente \{#re-exporting-component-functions\}
+
+A veces necesitas proporcionar funciones listas para usar que las aplicaciones puedan
+reexportar directamente en su API pública. Esto es útil cuando quieres dar a las aplicaciones la
+capacidad de exponer la funcionalidad de tu componente a clientes de React o a la Internet
+pública.
+
+La manera más sencilla de hacer esto es pedir al usuario que defina sus propias
+funciones que llamen al componente.
+
+Esto permite que la aplicación elija añadir autenticación, limitación de tasa de peticiones, etc.
+
+```ts title="convex/counter.ts"
+export const add = mutation({
+  args: { value: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // La app puede autenticar al usuario aquí si es necesario
+    await ctx.runMutation(components.counter.add, args);
+  },
+});
+```
+
+Este es el patrón recomendado, ya que deja claro al usuario cómo se autentica
+la solicitud. Sin embargo, si necesitas reexportar muchas funciones, puedes usar el siguiente patrón.
+
+#### Volver a montar la API \{#re-mounting-an-api\}
+
+El código en tu `src/client/index.ts` puede exportar estas funciones:
+
+```tsx
+import type { Auth } from "convex/server";
+
+// In your component's src/client/index.ts
+export function makeCounterAPI(
+  component: ComponentApi,
+  options: {
+    // Importante: proporciona una manera para que el usuario autentique estas solicitudes
+    auth: (ctx: { auth: Auth }, operation: "read" | "write") => Promise<string>;
+  },
+) {
+  return {
+    add: mutation({
+      args: { value: v.number() },
+      handler: async (ctx, args) => {
+        await options.auth(ctx, "write");
+        return await ctx.runMutation(component.public.add, args);
+      },
+    }),
+
+    get: query({
+      args: {},
+      handler: async (ctx) => {
+        await options.auth(ctx, "read");
+        return await ctx.runQuery(component.public.get, {});
+      },
+    }),
+  };
+}
+```
+
+Luego, las aplicaciones pueden integrar estos en su propia API:
+
+```tsx
+// In the app's convex/counter.ts
+import { makeCounterAPI } from "@convex-dev/counter";
+import { components } from "./_generated/server.js";
+
+export const { add, get } = makeCounterAPI(components.counter, {
+  auth: async (ctx, operation) => {
+    const userId = await getAuthUserId(ctx);
+    // Verificar si el usuario tiene permiso para realizar la operación
+    if (operation === "write" && !userId) {
+      throw new Error("User not authenticated");
+    }
+    return userId;
+  },
+});
+```
+
+Este patrón también es útil para componentes que necesitan proporcionar funciones con
+firmas específicas para integraciones.
+
+Aquí tienes un
+[ejemplo real](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
+del
+[componente ProseMirror](https://www.convex.dev/components/prosemirror-sync) que
+exporta funciones listas para usar.
+
+### Clientes basados en clases \{#class-based-clients\}
+
+Para componentes más complejos, un cliente basado en clases proporciona una interfaz con estado
+que puede mantener la configuración y ofrecer varios métodos.
+
+**Patrón básico de clase:**
+
+```tsx
+import Foo from "@convex-dev/foo";
+import { components } from "./_generated/server.js";
+
+const foo = new Foo(components.foo, {
+  maxShards: 10,
+});
+```
+
+**Con opciones de configuración:**
+
+Las clases suelen aceptar la referencia del componente como su primer argumento, con
+configuración opcional como segundo argumento:
+
+```tsx
+export class Foo {
+  private apiKey: string;
+
+  constructor(
+    public component: ComponentApi,
+    options?: {
+      maxShards?: number;
+      // Nombrada según la variable de entorno que reemplaza, para mayor claridad.
+      FOO_AUTH_KEY?: string;
+    },
+  ) {
+    this.apiKey = options?.FOO_AUTH_KEY ?? process.env.FOO_AUTH_KEY!;
+  }
+
+  async count(ctx: GenericQueryCtx<GenericDataModel>) {
+    return await ctx.runQuery(this.component.public.count, {
+      API_KEY: this.apiKey,
+    });
+  }
+}
+```
+
+**Instanciación dinámica:** Ten en cuenta que no es necesario instanciar los clientes
+de forma estática. Si necesitas valores en tiempo de ejecución, puedes crear instancias dinámicamente:
+
+```tsx
+export const myQuery = query({
+  handler: async (ctx, args) => {
+    const foo = new Foo(components.foo, {
+      apiKey: args.customApiKey,
+    });
+    await foo.count(ctx);
+  },
+});
+```
+
+## Creación y publicación de componentes de paquetes npm \{#building-and-publishing-npm-package-components\}
+
+### Proceso de compilación \{#build-process\}
+
+Mientras desarrollas un componente que se va a empaquetar, la aplicación de ejemplo
+que lo instala y lo prueba importará la versión empaquetada del componente. Esto
+ayuda a garantizar que el código que estás probando coincida con el código que
+se publicará.
+
+Sin embargo, eso significa que `npx convex dev` no puede detectar dónde se
+encuentra el código fuente original del componente y no generará automáticamente
+el código para el componente. Cuando desarrolles un componente que se vaya a
+empaquetar, debes ejecutar un proceso de compilación independiente para generar
+el directorio `_generated` del componente.
+
+La plantilla para crear componentes generará automáticamente el código del
+componente al ejecutar `npm run dev`. Puedes ver la configuración en los
+[scripts de `package.json` de la plantilla](https://github.com/get-convex/templates/blob/main/template-component/package.json).
+
+Si estás configurando tu propio proceso de compilación, tendrás que ejecutar los
+siguientes comandos, cada uno con su propio watcher de archivos:
+
+1. **Codegen del componente**: Generar código para el propio componente
+
+   ```bash
+   npx convex codegen --component-dir ./path/to/component
+   ```
+
+2. **Compilar el paquete**: Compilar el paquete NPM
+
+   ```bash
+   npm run build # Tu comando de compilación (por ejemplo, tsc, esbuild, etc.)
+   ```
+
+3. **Codegen y deploy de la app de ejemplo**: Generar código para la aplicación
+   de ejemplo y desplegarla
+   ```bash
+   npx convex dev --typecheck-components # opcionalmente verifica los tipos de los componentes
+   ```
+
+**Nota sobre el orden:** El orden ideal es: codegen del componente → compilar el
+paquete → ejecutar `convex dev` en la app de ejemplo. Esta es una convención
+recomendada que sigue la plantilla para evitar que las compilaciones compitan
+entre sí, pero el requisito clave es que el componente debe estar compilado y
+disponible antes de que la app de ejemplo intente importarlo.
+
+### Puntos de entrada \{#entry-points\}
+
+Al publicar un componente en npm, tendrás que exponer todos los
+puntos de entrada relevantes que se utilizarán en tu proyecto:
+
+* `@your/package` exporta tipos, clases y constantes que se usan para interactuar
+  con el componente desde el código de la aplicación. Esto es opcional, pero común.
+* `@your/package/convex.config.js` expone la configuración del componente.
+* `@your/package/_generated/component.js` exporta el tipo `ComponentApi`, que
+  describe los tipos del componente desde el punto de vista de la aplicación en la que se utiliza.
+* `@your/package/test` para utilidades que permiten usar el componente con `convex-test`.
+
+[El package.json de la plantilla](https://github.com/get-convex/templates/blob/main/template-component/package.json)
+hace esto por ti, pero si estás configurando tu propio proceso de build, tendrás
+que configurarlo en tu package.json.
+
+### Resolución de paquetes locales para desarrollo \{#local-package-resolution-for-development\}
+
+Al desarrollar un componente, normalmente quieres importar el código del
+componente de la misma forma en que lo harán las aplicaciones, por ejemplo
+`import {} from "@your/package"`. Para lograr esto sin tener que instalar el
+paquete desde npm en la aplicación de ejemplo, sigue la estructura de proyecto
+de la plantilla:
+
+1. En la raíz del proyecto, coloca un archivo `package.json` cuyo nombre de
+   paquete coincida con `@your/package`. Esto hace que las importaciones para
+   ese nombre se resuelvan a los `exports` de ese `package.json`.
+2. En la sección `exports` de `package.json`, asigna los puntos de entrada
+   mencionados anteriormente a los archivos empaquetados, normalmente en el
+   directorio `dist`. Esto significa que las importaciones usando el nombre del
+   paquete se resolverán a los archivos empaquetados.
+3. Usa un único archivo `package.json` y un único directorio `node_modules` en
+   la raíz del proyecto, de modo que la aplicación de ejemplo resuelva el
+   nombre del paquete de forma predeterminada. Esto también evitará tener
+   múltiples versiones de `convex` referenciadas por la biblioteca frente a la
+   aplicación de ejemplo. Para agregar dependencias usadas solo por la
+   aplicación de ejemplo, agrégalas como `devDependencies` en el `package.json`.
+
+### Publicar en npm \{#publishing-to-npm\}
+
+Para publicar un componente en npm, consulta el archivo
+[PUBLISHING.md](https://github.com/get-convex/templates/blob/main/template-component/PUBLISHING.md).
+
+## Pruebas \{#testing\}
+
+### Probar implementaciones \{#testing-implementations\}
+
+Para probar componentes, puedes usar la
+[biblioteca `convex-test`](/testing/convex-test.mdx). La principal diferencia es que
+debes proporcionar el esquema y los módulos a la instancia de prueba.
+
+```ts title="component/some.test.ts"
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./schema.ts";
+const modules = import.meta.glob("./**/*.ts");
+
+export function initConvexTest() {
+  const t = convexTest(schema, modules);
+  return t;
+}
+
+test("Prueba algo con un componente local", async () => {
+  const t = initConvexTest();
+  // Prueba como lo harías normalmente.
+  await t.run(async (ctx) => {
+    await ctx.db.insert("myComponentTable", { name: "test" });
+  });
+});
+```
+
+Si tu componente tiene componentes hijos, consulta la sección
+[Pruebas de componentes](/components/using.mdx#testing-components) en la
+documentación Uso de componentes.
+
+### Probar la API y el código de cliente \{#testing-the-api-and-client-code\}
+
+Para probar las funciones que se exportan del componente para ejecutarse en
+el entorno de la aplicación, puedes seguir el mismo enfoque que en
+[Usar componentes](/components/using.mdx#testing-components) y probarlo desde una
+aplicación que use el componente.
+
+El componente de plantilla incluye una aplicación de ejemplo en parte con este propósito:
+para probar el código empaquetado del componente tal como lo usarán las
+aplicaciones que lo instalen.
+
+### Exportar helpers de prueba \{#exporting-test-helpers\}
+
+La mayoría de los componentes exportan helpers de prueba para facilitar el registro del componente
+en la instancia de pruebas. Aquí tienes un ejemplo del
+[punto de entrada `/test` del componente plantilla](https://github.com/get-convex/templates/blob/main/template-component/src/test.ts):
+
+```ts
+/// <reference types="vite/client" />
+import type { TestConvex } from "convex-test";
+import type { GenericSchema, SchemaDefinition } from "convex/server";
+import schema from "./component/schema.js";
+const modules = import.meta.glob("./component/**/*.ts");
+
+/**
+ * Registra el componente con la instancia de prueba de Convex.
+ * @param t - La instancia de prueba de Convex, por ejemplo, desde la llamada a `convexTest`.
+ * @param name - El nombre del componente, tal como está registrado en convex.config.ts.
+ */
+export function register(
+  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
+  name: string = "sampleComponent",
+) {
+  t.registerComponent(name, schema, modules);
+}
+export default { register, schema, modules };
+```
+
+Para los paquetes npm, esto se expone como `@your/package/test` en el `package.json` del paquete:
+
+```json
+{
+  ...
+  "exports": {
+    ...
+    "./test": "./src/test.ts",
+    ...
+  }
+}
+```

@@ -1,0 +1,94 @@
+---
+title: Bun クイックスタート
+sidebar_label: Bun
+description: "Bun プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 450
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/bun/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/bun/convex/tasks.js";
+import script from "!!raw-loader!@site/../private-demos/quickstarts/bun/index.ts";
+
+このセクションでは、Bun プロジェクトで Convex からデータをクエリする方法について説明します。
+
+ある時点のクエリではなくサブスクリプションの手順については
+[Bun notes](/client/javascript/bun.mdx)
+を参照してください。
+
+# Bun で Convex を使う \{#using-convex-with-bun\}
+
+<StepByStep>
+  <Step title="新しい Bun プロジェクトを作成する">
+    Bun プロジェクト用の新しいディレクトリを作成します。
+
+    ```sh
+    mkdir my-project && cd my-project && bun init -y
+    ```
+  </Step>
+
+  <Step title="Convex クライアントとサーバーライブラリをインストールする">
+    `convex` パッケージをインストールします。
+
+    ```sh
+    bun add convex
+    ```
+  </Step>
+
+  <Step title="Convex の開発用デプロイメントをセットアップする">
+    次に `bunx convex dev` を実行します。
+    GitHub でログインし、プロジェクトを作成し、本番用とデプロイメントURLを保存するよう求められます。
+
+    同時に、バックエンドの API 関数を書くための `convex/` フォルダも作成されます。
+    その後も `dev` コマンドは実行されたままになり、クラウド上の開発用デプロイメントと
+    関数を同期し続けます。
+
+    ```sh
+    bunx convex dev
+    ```
+  </Step>
+
+  <Step title="データベース用のサンプルデータを作成する">
+    新しいターミナルウィンドウで、いくつかのサンプルデータを含む
+    `sampleData.jsonl` ファイルを作成します。
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="サンプルデータをデータベースに追加する">
+    プロジェクトの準備ができたら、`import` コマンドを使って
+    `tasks` テーブルを作成し、サンプルデータを Convex データベースに追加します。
+
+    ```
+    bunx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースのクエリを公開する">
+    `convex/` フォルダに新しいファイル `tasks.js` を追加し、
+    データを読み込むクエリ関数を定義します。
+
+    このファイルからクエリ関数をエクスポートすると、
+    ファイル名とエクスポート名に基づいて `api.tasks.get`
+    という名前の API 関数が宣言されます。
+
+    <Snippet source={tasks} title="convex/tasks.js" />
+  </Step>
+
+  <Step title="スクリプトをバックエンドに接続する">
+    新しいファイル `index.ts` で、開発環境の URL を使って
+    `ConvexClient` を作成します。
+
+    <Snippet source={script} title="index.ts" />
+  </Step>
+
+  <Step title="スクリプトを実行する">
+    同じディレクトリからスクリプトを実行し、ターミナルに出力されたタスクの一覧を確認します。
+
+    ```sh
+    bun index.ts
+    ```
+  </Step>
+</StepByStep>
+
+完全な [Bun ドキュメント](/client/javascript/bun.mdx) も参照してください。

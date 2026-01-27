@@ -1,0 +1,212 @@
+---
+title: "フィルター"
+sidebar_position: 200
+description: "Convex クエリでドキュメントをフィルターする"
+---
+
+# フィルタリング \{#filtering\}
+
+[`filter`](/api/interfaces/server.Query#filter) メソッドを使うと、
+ドキュメントクエリが返すドキュメントを絞り込めます。このメソッドは
+[`FilterBuilder`](/api/interfaces/server.FilterBuilder) によって構築されたフィルタを受け取り、
+条件に一致するドキュメントだけを選択します。
+
+以下の例では、`filter` の一般的な使い方をいくつか紹介します。利用可能なすべての
+フィルタリングメソッドの一覧は
+[リファレンスドキュメント](/api/interfaces/server.FilterBuilder)を参照してください。
+
+特定のキーワードを含むドキュメントに絞り込みたい場合は、
+[検索クエリ](/search/text-search.mdx)を使用してください。
+
+<Admonition type="caution" title="代わりにインデックスを使う">
+  フィルタは、条件に一致するドキュメントを探してテーブル全体を走査するように動作します。
+  テーブルに数千行ある場合、これは処理が遅くなったり、関数が
+  [制限](/production/state/limits.mdx) に達したりする原因になります。
+  より高速かつデータベース効率の高いクエリを実行するには、
+  代わりに[インデックスを使用](/database/reading-data/indexes/indexes.md)してください。
+</Admonition>
+
+### 等価条件 \{#equality-conditions\}
+
+このドキュメントクエリは、`users` テーブルから `doc.name === "Alex"` のドキュメントを検索します。
+
+```ts
+// "Alex" という名前のすべてのユーザーを取得します。
+const usersNamedAlex = await ctx.db
+  .query("users")
+  .filter((q) => q.eq(q.field("name"), "Alex"))
+  .collect();
+```
+
+ここで `q` は [`FilterBuilder`](/api/interfaces/server.FilterBuilder) ユーティリティオブジェクトです。
+サポートされているすべてのフィルター演算子に対応するメソッドを含んでいます。
+
+このフィルターはテーブル内のすべてのドキュメントに対して実行されます。各ドキュメントについて、
+`q.field("name")` は `name` プロパティを表します。その後、`q.eq` がこの
+プロパティが `"Alex"` と等しいかどうかをチェックします。
+
+クエリが、あるドキュメントに存在しないフィールドを参照している場合、その
+フィールドは値として `undefined` を持つものと見なされます。
+
+### 比較 \{#comparisons\}
+
+フィルタを使用して、フィールドと値を比較することもできます。次のクエリは、
+`doc.age >= 18` を満たすドキュメントを検索します。
+
+```ts
+// 18歳以上のすべてのユーザーを取得します。
+const adults = await ctx.db
+  .query("users")
+  .filter((q) => q.gte(q.field("age"), 18))
+  .collect();
+```
+
+ここでは `q.gte` 演算子で、最初の引数（`doc.age`）が 2番目の引数（`18`）以上かどうかをチェックします。
+
+比較演算子の一覧は次のとおりです。
+
+| Operator      | Equivalent TypeScript |
+| ------------- | --------------------- |
+| `q.eq(l, r)`  | `l === r`             |
+| `q.neq(l, r)` | `l !== r`             |
+| `q.lt(l, r)`  | `l < r`               |
+| `q.lte(l, r)` | `l <= r`              |
+| `q.gt(l, r)`  | `l > r`               |
+| `q.gte(l, r)` | `l >= r`              |
+
+### 算術演算 \{#arithmetic\}
+
+クエリ内で基本的な算術演算も使用できます。次のドキュメントクエリは、
+`carpets` テーブルのうち `doc.height * doc.width > 100` となるドキュメントを検索します。
+
+```ts
+// 面積が100を超えるすべてのカーペットを取得します。
+const largeCarpets = await ctx.db
+  .query("carpets")
+  .filter((q) => q.gt(q.mul(q.field("height"), q.field("width")), 100))
+  .collect();
+```
+
+算術演算子の一覧は次のとおりです:
+
+| Operator      | Equivalent TypeScript |
+| ------------- | --------------------- |
+| `q.add(l, r)` | `l + r`               |
+| `q.sub(l, r)` | `l - r`               |
+| `q.mul(l, r)` | `l * r`               |
+| `q.div(l, r)` | `l / r`               |
+| `q.mod(l, r)` | `l % r`               |
+| `q.neg(x)`    | `-x`                  |
+
+### 演算子の組み合わせ \{#combining-operators\}
+
+`q.and`、`q.or`、`q.not` などのメソッドを使って、より複雑なフィルタを構築できます。次のドキュメントクエリでは、
+`doc.name === "Alex" && doc.age >= 18` を満たすドキュメントを検索します。
+
+```ts
+// 名前が "Alex" で、年齢が18歳以上のすべてのユーザーを取得します。
+const adultAlexes = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.and(q.eq(q.field("name"), "Alex"), q.gte(q.field("age"), 18)),
+  )
+  .collect();
+```
+
+次のクエリは、`doc.name === "Alex" || doc.name === "Emma"` を満たすすべてのユーザーを検索します。
+
+```ts
+// "Alex" または "Emma" という名前のすべてのユーザーを取得します。
+const usersNamedAlexOrEmma = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.or(q.eq(q.field("name"), "Alex"), q.eq(q.field("name"), "Emma")),
+  )
+  .collect();
+```
+
+## 高度なフィルタリング手法 \{#advanced-filtering-techniques\}
+
+フィルター構文だけでは表現力が足りない場合があります。たとえば、タグが付いているすべての投稿を取得したい場合などです。投稿用のスキーマは次のようになっています:
+
+```ts
+export default defineSchema({
+  posts: defineTable({
+    body: v.string(),
+    tags: v.array(v.string()),
+  }),
+});
+```
+
+解決策の一つは、`collect()` 呼び出しの結果にフィルタを適用することです。これは単に JavaScript の配列をフィルタリングしているだけです。
+
+```ts
+export const postsWithTag = query({
+  args: { tag: v.string() },
+  handler: async (ctx, args) => {
+    const allPosts = await ctx.db.query("posts").collect();
+    return allPosts.filter((post) => post.tags.includes(args.tag));
+  },
+});
+```
+
+しかし、この方法では最初にテーブル全体を読み込む必要があります。条件に一致する最初の結果だけを取得したい場合、テーブル全体を走査するのは非常に非効率になり得ます。
+代わりに、JavaScript の
+[`for await...of`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of)
+構文を使って、テーブルを 1 ドキュメントずつループ処理するとよいでしょう。
+
+```ts
+export const firstPostWithTag = query({
+  args: { tag: v.string() },
+  handler: (ctx, args) => {
+    for await (const post of db.query("posts")) {
+      if (post.tags.includes(args.tag)) {
+        return post;
+      }
+    }
+  },
+});
+```
+
+これは Convex のクエリが
+[JavaScript のイテラブル](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)
+として動作するためです。
+
+この最適化を行っても、テーブルを単に走査して最初にマッチする投稿を探しているだけなので、
+関数の制限に達してしまう可能性があります。依然としてインデックスを使うのが基本です。
+[インデックスを使ってタグを扱う方法の詳細な解説](https://stack.convex.dev/complex-filters-in-convex#optimize-with-indexes)
+を参照してください。
+
+## クエリのパフォーマンスと制限 \{#querying-performance-and-limits\}
+
+上記のドキュメントクエリのほとんどは、*フルテーブルスキャン* を引き起こす可能性があります。
+つまり、ドキュメントクエリが要求された結果を返すために、テーブル内のすべてのドキュメントを順番に走査する必要があるかもしれません。
+
+次のような簡単な例を考えてみましょう。
+
+```ts
+const tasks = await ctx.db.query("tasks").take(5);
+```
+
+このドキュメントクエリは、最大でも 5 件のドキュメントしかスキャンしません。
+
+一方、次のドキュメントクエリは:
+
+```ts
+const tasks = await ctx.db
+  .query("tasks")
+  .filter((q) => q.eq(q.field("isCompleted"), true))
+  .first();
+```
+
+`"tasks"` テーブル内のすべてのドキュメントを走査して、
+`isCompleted: true` のものを最初の 1 件見つける必要が出てくるかもしれません。
+
+テーブルに数千件以上のドキュメントがある場合は、
+ドキュメントのクエリのパフォーマンスを向上させるために
+[indexes](/database/reading-data/indexes/indexes.md) を使用してください。
+そうしないと、
+[Read/write limit errors](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)
+で詳しく説明している Convex の強制的な制限に抵触する可能性があります。
+
+その他の制限については、[Limits](/production/state/limits.mdx) を参照してください。

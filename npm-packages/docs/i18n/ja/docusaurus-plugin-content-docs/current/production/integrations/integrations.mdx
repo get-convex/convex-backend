@@ -1,0 +1,76 @@
+---
+title: "連携"
+description: "Convex をサードパーティ製サービスと連携する"
+sidebar_position: 1
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex は、ログストリーミングや例外レポートのためにサポートされているさまざまなサードパーティツールと連携します。
+
+* [Log Streams](/production/integrations/log-streams) を使用すると、Convex デプロイメントからのログイベントを、Axiom、Datadog、またはカスタム webhook などのサポートされている送信先にストリーミングできます。
+* [Exception Reporting](/production/integrations/exception-reporting) を使用すると、Convex 関数の実行時に発生するエラーを把握できるようになります。
+
+## インテグレーションの設定 \{#configuring-an-integration\}
+
+インテグレーションを設定するには、
+Convex ダッシュボードの
+[Deployment Settings](https://dashboard.convex.dev/deployment/settings) ページに移動し、
+サイドバーの「Integrations」タブを開きます。このページには、
+設定済みインテグレーションの一覧、それぞれの現在の正常性ステータス、
+および新たに設定可能なインテグレーションが表示されます。新しくインテグレーションを設定するには、
+対象のカードをクリックして、セットアップ手順に従ってください。
+
+![Integrations Page](/screenshots/integrations_page.png)
+
+## インテグレーションの削除 \{#deleting-an-integration\}
+
+インテグレーションを削除して、設定済みの送信先へのイベント送信を停止するには、
+設定済みパネルの右上隅にあるメニューアイコンを選択し、「Delete integration」を選択します。
+確認後、数秒以内にそのインテグレーションは停止します。
+
+## フィードバック \{#feedback\}
+
+ご質問・ご意見・ご要望がありましたら、
+[Discord](https://convex.dev/community) でお気軽にご連絡ください。
+
+## 統合コンポーネント \{#integration-components\}
+
+ログや例外向けの連携に加えて、[Convex Components](/components) を使うとサードパーティサービスとの連携がさらに簡単になります。利用可能なコンポーネントの一覧は
+[Convex Components Directory](https://convex.dev/components) を参照してください。
+
+<ComponentCardList
+  items={[
+  {
+    title: "Cloudflare R2",
+    description: "Cloudflare の R2 ストレージにファイルを保存し、配信します。",
+    href: "https://www.convex.dev/components/cloudflare-r2",
+  },
+  {
+    title: "共同編集テキストエディタ",
+    description:
+      "BlockNote または Tiptap を使ったリアルタイムの共同テキスト編集。",
+    href: "https://www.convex.dev/components/prosemirror-sync",
+  },
+  {
+    title: "Expo プッシュ通知",
+    description: "Expo を使ってモバイル向けプッシュ通知を送信します。",
+    href: "https://www.convex.dev/components/push-notifications",
+  },
+  {
+    title: "Twilio SMS",
+    description: "Twilio の API を使って SMS メッセージを送受信します。",
+    href: "https://www.convex.dev/components/twilio",
+  },
+  {
+    title: "LaunchDarkly フィーチャーフラグ",
+    description: "LaunchDarkly を利用してバックエンドのフィーチャーフラグを同期します。",
+    href: "https://www.convex.dev/components/launchdarkly",
+  },
+  {
+    title: "Polar",
+    description: "Polar を使ってサブスクリプションと課金機能を追加します。",
+    href: "https://www.convex.dev/components/polar",
+  },
+]}
+/>

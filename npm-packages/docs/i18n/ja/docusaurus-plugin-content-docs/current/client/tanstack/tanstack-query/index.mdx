@@ -1,0 +1,136 @@
+---
+title: "Convex と TanStack Query"
+sidebar_label: "TanStack Query"
+description:
+  "高度なデータ取得パターンを実現するために Convex を TanStack Query と統合する"
+---
+
+import Setup from "!!raw-loader!@site/../demos/react-query/src/main.tsx";
+import App from "!!raw-loader!@site/../demos/react-query/src/App.tsx";
+
+[TanStack Query](https://tanstack.com/query/latest) は、サーバーへのリクエストを管理するための優れた人気のライブラリです。
+
+[`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query)
+ライブラリは、
+TanStack Query で使用するための
+[Query Option](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
+関数を提供します。
+
+標準の [Convex React client](/client/react) のすべての機能が
+TanStack Query の API から利用できるわけではありませんが、両方を併用して、
+必要に応じて標準の Convex React フックへ切り替えることができます。
+
+<BetaAdmonition feature="TanStack Query アダプター" verb="is" />
+
+このアダプターを使うと、TanStack Query の `useQuery` フックで Convex のクエリ関数を購読するコードは次のように書けます。
+
+```ts
+const { data, isPending, error } = useQuery(convexQuery(api.messages.list, {}));
+```
+
+TanStack Query で API エンドポイントに対して一般的に使われるポーリングパターンとは異なり、
+上記のコードでは、この `api.messages.list` クエリに対する更新を Convex サーバーからリアクティブに受け取ります。
+関連するすべてのサブスクリプションに対する新しい結果はクライアント側にプッシュされ、
+同時に更新されるためデータが古くならず、クエリを手動で無効化する必要もありません。
+
+<Admonition type="note" title="他のフレームワークのサポート">
+  現在は
+  [React Query](https://tanstack.com/query/latest/docs/framework/react/overview)
+  のみが
+  [`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query)
+  経由でサポートされています。
+  vue-query、svelte-query、solid-query、または angular-query のサポートをご希望の場合は
+  [ぜひお知らせください](https://convex.dev/community)。
+</Admonition>
+
+## セットアップ \{#setup\}
+
+TanStack Query でライブ更新を受け取るには、`ConvexQueryClient` を作成し、
+それを TanStack Query の
+[QueryClient](https://tanstack.com/query/latest/docs/reference/QueryClient)
+に接続します。アダプターライブラリをインストールした後に
+
+```
+npm i @convex-dev/react-query
+```
+
+次のように Convex を TanStack Query と連携させます:
+
+<Snippet title="src/main.tsx" source={Setup} highlightPatterns={["QueryClient", "convexQuery"]} />
+
+React のコンポーネントツリーを作成するときは、次の両方を行ってください:
+
+* アプリを TanStack Query の
+  [`QueryClientProvider`](https://tanstack.com/query/latest/docs/framework/react/reference/QueryClientProvider)
+  でラップして、
+  [TanStack Query hooks](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
+  を使えるようにし、
+* アプリを [`ConvexProvider`](/api/modules/react#convexprovider) でラップして、
+  通常どおり [Convex React](/client/react) フックも使えるようにします
+
+## クエリ \{#queries\}
+
+Convex の[クエリ](/functions/query-functions.mdx)へのリアルタイムに更新されるサブスクリプションは、
+`convexQuery` を指定して TanStack の
+[`useQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
+を呼び出すだけで実現できます。
+
+```ts
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { data, isPending, error } = useQuery(
+    convexQuery(api.functions.myQuery, { id: 123 }),
+  );
+  return isPending ? "読み込み中..." : data;
+}
+```
+
+`convexQuery` が返すオブジェクトをスプレッドして、追加の
+[`useQuery` の引数](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
+を指定するオブジェクトにできます。
+
+```ts
+const { data, isPending, error } = useQuery({
+  ...convexQuery(api.functions.myQuery, { id: 123 }),
+  initialData: [], // use an empty list if no data is available yet
+  gcTime: 10000, // このコンポーネントがアンマウントされた後、10秒間サブスクライブを維持する
+});
+```
+
+## ミューテーション \{#mutations\}
+
+アプリから Convex の[ミューテーション](/functions/mutation-functions.mdx)を呼び出すには、
+TanStack の
+[`useMutation`](https://tanstack.com/query/latest/docs/framework/react/reference/useMutation)
+フックを使い、`mutationFn` プロパティに `useConvexMutation` を呼び出した結果を設定します。
+
+```ts
+import { useMutation } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { mutate, isPending } = useMutation({
+    mutationFn: useConvexMutation(api.functions.doSomething),
+  });
+  return <button onClick={() => mutate({a: "Hello"})}>Click me</button>;
+}
+```
+
+`useConvexMutation` は、
+[Convex React](/client/react) の
+[`useMutation`](/client/react#editing-data) フックを再エクスポートしただけのものです。
+
+## TanStack Query での `fetch` 使用時との違い \{#differences-from-using-fetch-with-tanstack-query\}
+
+Convex は React Query を使った他のデータ取得方法よりもより強い保証を提供するため、一部のオプションや戻り値のプロパティは不要になります。
+
+ある関数に対して `useQuery` を使用している最後のコンポーネントがアンマウントされた後も、Convex のクエリへのサブスクリプションは `gcTime` ミリ秒のあいだ有効なままです。
+この値のデフォルトは 5 分です。これによって不要な関数の実行が発生する場合は、より小さい値を使用してください。
+
+Convex が提供するデータは古くなることがないため、`useQuery` の戻り値の `isStale` プロパティは常に false になります。
+`retry` 関連のオプションは、Convex が独自のリトライ機構を WebSocket プロトコル上で提供しているため無視されます。
+同様に、Convex のクエリは常に最新であるため、`refetch` 関連のオプションも無視されます。

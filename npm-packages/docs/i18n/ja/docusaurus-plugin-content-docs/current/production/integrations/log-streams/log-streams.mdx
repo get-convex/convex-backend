@@ -1,0 +1,396 @@
+---
+title: "ログストリーム"
+sidebar_label: "ログストリーム"
+sidebar_position: 2
+description: "Convex デプロイメントのロギング連携を構成する"
+---
+
+ログストリームを使用すると、関数の実行や `console.log` などのイベントを、
+Convex デプロイメントから Axiom、Datadog、またはカスタム webhook などの
+サポートされている送信先へストリーミングできます。
+
+Convex デプロイメントによって生成された最新のログは、ダッシュボードの
+[Logs ページ](/dashboard/deployments/logs.md)、[Convex CLI](/cli.md)、またはブラウザの
+コンソールで確認でき、直近のログをすばやく簡単に閲覧できます。
+
+Axiom や Datadog のようなサードパーティ送信先へのログストリーミングを行うと、
+履歴ログの保存、より高度なクエリやデータ可視化、さらに PagerDuty、Slack などの
+他のツールとの連携が可能になります。
+
+<ProFeatureUpsell feature="ログストリーム" verb="require" />
+
+## ログストリームの設定 \{#configuring-log-streams\}
+
+現在、以下のログストリームをサポートしており、今後さらに多くのサービスに対応していく予定です。
+
+* [Axiom](https://www.axiom.co)
+* [Datadog](https://www.datadoghq.com/)
+* カスタム URL への Webhook
+
+[インテグレーションの設定](/production/integrations/integrations.mdx#configuring-an-integration)の手順を参照してください。
+各ログストリームごとに必要な具体的な情報は、以下のセクションで説明します。
+
+### Axiom \{#axiom\}
+
+Axiom のログストリームを設定するには、次の指定が必要です。
+
+* 使用する
+  [Axiom dataset](https://axiom.co/docs/reference/settings#dataset)
+  の名前
+* Axiom の [API key](https://axiom.co/docs/reference/settings#api-token)
+* Axiom に送信されるすべてのログイベントに含める、任意の属性とその値のリスト。これらは
+  [Ingest API](https://axiom.co/docs/send-data/ingest#ingest-api)
+  の `attributes` フィールド経由で送信されます。
+
+Axiom で Convex の dataset を設定すると、Axiom 内にダッシュボードが自動的に作成されます。これは *Dashboards* タブの *Integrations* セクション内で確認できます。ダッシュボードのレイアウトをカスタマイズするには、
+[フォーク](https://axiom.co/docs/dashboards/create#fork-dashboards)
+してください。
+
+![A dashboard in Axiom](/screenshots/axiom_dashboard.png)
+
+### Datadog \{#datadog\}
+
+Datadog ログストリームを設定するには、以下を指定する必要があります:
+
+* 使用している Datadog デプロイメントの
+  [サイト](https://docs.datadoghq.com/getting_started/site/)
+* Datadog の
+  [API キー](https://docs.datadoghq.com/account_management/api-app-keys/#add-an-api-key-or-client-token)
+* Datadog に送信されるすべてのペイロードで
+  [`ddtags` フィールド](https://docs.datadoghq.com/getting_started/tagging/) を使って渡される、カンマ区切りのタグのリスト。これは、Datadog デプロイメントによって取り込まれた Convex のログに対してクエリや分類を行う際に役立つ、その他のメタデータを含めるために使用できます。
+
+### Webhook \{#webhook\}
+
+Webhook ログストリームは最もシンプルで汎用的なストリームであり、設定した任意の URL へ POST リクエストでログを転送できます。\
+このストリームのセットアップに必要な唯一のパラメータは、使用したい Webhook の URL だけです。
+
+この Webhook へのリクエストのボディには、以下で定義するスキーマに従ったイベントの JSON 配列が含まれます。
+
+## Webhook ログストリームの保護 \{#securing-webhook-log-streams\}
+
+Webhook ログストリームのリクエストには署名が含まれており、そのリクエストが正当なものか検証できます。リクエストボディは HMAC-SHA256 を使って署名され、小文字の 16 進数文字列としてエンコードされ、その結果の署名が `x-webhook-signature` HTTP ヘッダーに含まれます。HMAC シークレットは Webhook を設定する際にダッシュボード上で確認できます。
+
+リクエストの真正性を検証するには、HMAC シークレットを使ってリクエストボディに署名してエンコードし、その結果をリクエストヘッダーに含まれている署名と
+[コンスタントタイムで比較](https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html)
+します（たとえば JavaScript では
+[`SubtleCrypto.verify()`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/verify)
+を使用して比較します）。署名文字列の先頭には `sha256=` が付与されている点に注意してください。
+
+追加のセキュリティとして、リプレイ攻撃を防ぐために、ログイベントボディの `timestamp` フィールドが許容される時間範囲内に収まっているか検証することを検討してください。
+
+```typescript
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.post("/webhook", async (c) => {
+  const payload = await c.req.json();
+  const log = payload[0];
+
+  // If using JSONL, parse the first line:
+  // const payload = await c.req.text();
+  // const log = JSON.parse(payload.split("\n")[0]);
+
+  // 最初のログのタイムスタンプが5分以内であることを検証します
+  if (log.timestamp < Date.now() - 5 * 60 * 1000) {
+    c.status(403);
+    return c.text("Request expired");
+  }
+
+  const signature = c.req.header("x-webhook-signature");
+  if (!signature) {
+    c.status(401);
+    return c.text("Unauthorized");
+  }
+
+  const hmacSecret = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(process.env.WEBHOOK_SECRET!),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const hashPayload = await c.req.arrayBuffer();
+
+  // Use constant-time comparison to verify the payload
+  const isValid = await crypto.subtle.verify(
+    "HMAC",
+    hmacSecret,
+    Uint8Array.fromHex(signature.replace("sha256=", "")),
+    hashPayload,
+  );
+
+  if (isValid) {
+    return c.text("Success");
+  }
+
+  c.status(401);
+  return c.text("Unauthorized");
+});
+
+export default app;
+```
+
+## ログイベントのスキーマ \{#log-event-schema\}
+
+<Admonition type="info">
+  2024年5月23日以前に設定されたログストリームは、[このページ](/production/integrations/log-streams/legacy-event-schema.mdx)で説明されているレガシー形式を使用します。ログストリームを新しい形式に更新することを推奨します。
+</Admonition>
+
+ログイベントには明確に定義された JSON スキーマがあり、ログイベントを取り込むための、複雑かつ型安全なパイプラインを構築できます。
+
+すべてのイベントには、次の 3 つのフィールドがあります:
+
+* `topic`: string。ログイベントを分類するための値で、次のいずれかです:
+  `["verification", "console", "function_execution", "audit_log", "concurrency_stats", "scheduler_stats", "current_storage_usage"]`
+* `timestamp`: number。ミリ秒単位の Unix エポックタイムスタンプ（整数）
+* `convex`: Convex デプロイメントに関連するメタデータを含むオブジェクトで、`deployment_name`、`deployment_type`、`project_name`、`project_slug` を含みます。
+
+注記: Axiom との連携では、イベント固有の情報は `data` フィールドの下に格納されます。
+
+### `verification` events \{#verification-events\}
+
+これはログストリームが正常に動作していることを確認するために送信されるイベントです。スキーマは次のとおりです:
+
+* `topic`: `"verification"`
+* `timestamp`: ミリ秒単位の Unix エポックタイムスタンプ
+* `message`: 文字列
+
+### `console` events \{#console-events\}
+
+Convex 関数のログは [`console` API](/functions/debugging.mdx) を通じて出力されます。
+
+スキーマ:
+
+* `topic`: `"console"`
+* `timestamp`: Unix エポックを基準としたミリ秒単位のタイムスタンプ
+* `function`: オブジェクト。詳細は
+  [function fields](/production/integrations/log-streams/log-streams.mdx#function-fields)
+  を参照
+* `log_level`: 文字列。`["DEBUG", "INFO", "LOG", "WARN", "ERROR"]` のいずれか
+* `message`: 文字列。
+  [`object-inspect`](https://www.npmjs.com/package/object-inspect)
+  による `console.log` ペイロードの表現
+* `is_truncated`: 真偽値。このメッセージがログ上限に収まるように切り詰められたかどうか
+* `system_code`: 省略可能な文字列。関数が
+  [limits](/production/state/limits.mdx#functions)
+  に近づいたときに自動的に追加される警告に含まれる
+
+ミューテーション内での `console.log("Sent message!")` に対応するイベントの例:
+
+```json
+{
+    "topic": "console"
+    "timestamp": 1715879172882,
+    "function": {
+      "path": "messages:send",
+      "request_id": "d064ef901f7ec0b7",
+      "type": "mutation"
+    },
+    "log_level": "LOG",
+    "message": "'Sent message!'"
+}
+```
+
+### `function_execution` events \{#function_execution-events\}
+
+これらのイベントは、関数が実行されるたびに発生します。
+
+スキーマ:
+
+* `topic`: `"function_execution"`
+* `timestamp`: ミリ秒単位の Unix エポックタイムスタンプ
+* `function`: オブジェクト。詳細は
+  [function fields](/production/integrations/log-streams/log-streams.mdx#function-fields)
+  を参照
+* `execution_time_ms`: 数値。この関数の実行にかかった時間（ミリ秒）
+* `status`: 文字列。`["success", "failure"]` のいずれか
+* `error_message`: 文字列。`status` が `failure` の関数にのみ存在し、
+  エラー内容とスタックトレースを含みます。
+* `mutation_queue_length`: 省略可能な数値（ミューテーションのみ）。ミューテーションが実行された時点での、
+  セッションごとのミューテーションキューの長さ。このフィールドは、
+  個々のセッションにおけるミューテーションキューの滞留を監視・デバッグするのに有用です。
+* `mutation_retry_count`: 数値。成功するまでに、それ以前に失敗した実行回数（ミューテーションのみ）。
+  ミューテーションとアクションにのみ適用されます。
+* `occ_info`: オブジェクト。関数呼び出しによって OCC（2 つの関数間の書き込み競合）
+  が発生した場合、このフィールドが存在し、OCC に関する情報を含みます。
+  [書き込み競合の詳細はこちら](https://docs.convex.dev/error/#1)。
+  * `table_name`: 競合が発生したテーブル
+  * `document_id`: 競合する書き込みを受けたドキュメントの Id
+  * `write_source`: `table_name` に対して書き込み競合を起こした関数名
+  * `retry_count`: 現在の関数実行に至るまでに失敗した試行回数
+* `scheduler_info`: オブジェクト。設定されている場合、
+  関数がもともと
+  [scheduler](/scheduling/scheduled-functions)
+  によって呼び出されたことを示します。
+  * `job_id`: [`_scheduled_functions`](/scheduling/scheduled-functions#retrieving-scheduled-function-status)
+    テーブル内のジョブ ID
+* `usage`:
+  * `database_read_bytes`: 数値
+  * `database_write_bytes`: 数値。これと `database_read_bytes` を合わせて、
+    関数で使用されたデータベース帯域幅を表します
+  * `database_read_documents`: 数値。関数によって読み取られたドキュメント数
+  * `file_storage_read_bytes`: 数値
+  * `file_storage_write_bytes`: 数値。これと `file_storage_read_bytes` を合わせて、
+    関数で使用されたファイル帯域幅を表します
+  * `vector_storage_read_bytes`: 数値
+  * `vector_storage_write_bytes`: 数値。これと `vector_storage_read_bytes` を合わせて、
+    関数で使用されたベクター帯域幅を表します
+  * `memory_used_mb`: 数値。クエリ、ミューテーション、アクションについて、
+    使用されたメモリ量（MiB）。これと `execution_time_ms` を組み合わせることで、
+    コンピュート量を表します。
+
+クエリのイベント例:
+
+```json
+{
+  "data": {
+    "execution_time_ms": 294,
+    "function": {
+      "cached": false,
+      "path": "message:list",
+      "request_id": "892104e63bd39d9a",
+      "type": "query"
+    },
+    "status": "success",
+    "timestamp": 1715973841548,
+    "topic": "function_execution",
+    "usage": {
+      "database_read_bytes": 1077,
+      "database_write_bytes": 0,
+      "database_read_documents": 3,
+      "file_storage_read_bytes": 0,
+      "file_storage_write_bytes": 0,
+      "vector_storage_read_bytes": 0,
+      "vector_storage_write_bytes": 0
+    }
+  }
+}
+```
+
+### Function fields \{#function-fields\}
+
+すべての `console` および `function_execution` イベントでは、`function` の下に次のフィールドが追加されます:
+
+* `type`: 文字列。`["query", "mutation", "action", "http_action"]` のいずれか
+* `path`: 文字列。例: `"myDir/myFile:myFunction"` または `"POST /my_endpoint"`
+* `cached`: 省略可能な boolean。クエリの場合、このイベントがキャッシュされた関数実行によるものかどうかを示します
+* `request_id`: 文字列。関数の
+  [request ID](/functions/debugging.mdx#finding-relevant-logs-by-request-id)
+  です。
+
+### `concurrency_stats` events \{#concurrency_stats-events\}
+
+これらのイベントは 1 分ごとに送信され、関数の同時実行に関する統計情報を報告します。
+統計値が変化した場合にのみイベントが送信されます。欠損しているデータポイントは、
+直前のデータイベントの値から補間する必要があります。
+
+スキーマ:
+
+各イベントには、関数の種類ごとの同時実行統計（例: クエリ、
+ミューテーション、アクション）が含まれます。各イベントのレコードは次のスキーマになります:
+
+* `num_running`: メトリクスが報告された 1 分間に同時に実行されていた関数の最大数
+
+* `num_queued`: メトリクスが報告された 1 分間にキューに入っていた関数の最大数。
+  同時実行制限に達した場合、関数は一時的にキューに入ることがあります。
+
+* `topic`: `"concurrency_stats"`
+
+* `timestamp`: ミリ秒単位の Unix エポックタイムスタンプ
+
+* `query`: クエリの同時実行統計
+
+* `mutation`: ミューテーションの同時実行統計
+
+* `action`: アクションの同時実行統計
+
+* `node_action`: node アクションの同時実行統計
+
+* `http_action`: HTTP アクションの同時実行統計
+
+### `scheduler_stats` イベント \{#scheduler_stats-events\}
+
+これらのイベントは、スケジューラによって定期的に送信され、スケジュールされた関数実行エンジンの統計情報を報告します。
+
+スキーマ:
+
+* `topic`: `"scheduler_stats"`
+* `timestamp`: Unixエポックタイムスタンプ（ミリ秒）
+* `lag_seconds`: `timestamp` と、最も古い期限超過スケジュールジョブの予定実行時刻との差（秒）
+* `num_running_jobs`: number、現在実行中のスケジュールジョブ数
+
+### `current_storage_usage` イベント \{#current_storage_usage-events\}
+
+これらのイベントは、デプロイメント全体の現在のストレージ使用状況のスナップショットとともに、定期的に送信されます。すべてのストレージ種別について集計された合計値が提供されます。
+
+これらのイベントは、セルフホスト型デプロイメントでは現在送信されません。
+
+課金額を計算するには次を使用します:
+
+* Database Storage Bytes: `total_document_size_bytes + total_index_size_bytes`
+* File Storage: `total_file_storage_bytes + total_backup_storage_bytes`
+* Vector Storage: `total_vector_storage_bytes`
+
+スキーマ:
+
+* `topic`: `"current_storage_usage"`
+* `timestamp`: ミリ秒単位の Unix エポックタイムスタンプ
+* `total_document_size_bytes`: number、データベーステーブルに保存されているすべてのドキュメントの合計サイズ（バイト単位）
+* `total_index_size_bytes`: number、すべてのデータベースインデックスの合計サイズ（バイト単位）
+* `total_vector_storage_bytes`: number、ベクターインデックスストレージの合計サイズ（バイト単位）
+* `total_file_storage_bytes`: number、ファイルストレージの合計サイズ（バイト単位）
+* `total_backup_storage_bytes`: number、スナップショット／バックアップストレージの合計サイズ（バイト単位）
+
+イベント例:
+
+```json
+{
+  "topic": "current_storage_usage",
+  "timestamp": 1715973841548,
+  "total_document_size_bytes": 104857600,
+  "total_index_size_bytes": 10485760,
+  "total_vector_storage_bytes": 5242880,
+  "total_file_storage_bytes": 52428800,
+  "total_backup_storage_bytes": 209715200
+}
+```
+
+### `audit_log` イベント \{#audit_log-events\}
+
+これらのイベントは、デプロイメントに対する変更を表しており、ダッシュボード内の
+[History タブ](https://dashboard.convex.dev/deployment/history) にも表示されます。
+
+スキーマ:
+
+* `topic`: `audit_log`
+* `timestamp`: Unixエポックタイムスタンプ（ミリ秒単位）
+* `audit_log_action`: 文字列。例: `"create_environment_variable"`、
+  `"push_config"`、`"change_deployment_state"`
+* `audit_log_metadata`: 文字列。イベントに関するメタデータを保持する、文字列化された JSON。
+  このイベントの正確な形式は変更される可能性があります。
+
+`push_config` の `audit_log` イベント例:
+
+```json
+{
+  "topic": "audit_log",
+  "timestamp": 1714421999886,
+  "audit_log_action": "push_config",
+  "audit_log_metadata": "{\"auth\":{\"added\":[],\"removed\":[]},\"crons\":{\"added\":[],\"deleted\":[],\"updated\":[]},..."
+}
+```
+
+## 保証 \{#guarantees\}
+
+ログイベントにはベストエフォート型の配信が保証されます。ログストリームは
+メモリ内でバッファリングされ、バッチとしてデプロイメントで設定している
+ストリームに送信されます。これは、取り込みのスループットが高くなりすぎた場合に、
+ログがドロップされる可能性があることを意味します。同様に、ネットワークリトライにより、
+1 つのログイベントがログストリーム内で重複して記録される可能性もあります。
+
+以上です！これでログのストリーミング出力が設定できました。対応してほしい
+ログストリーミング先がありましたら、
+[お知らせください](/production/contact.md)。
+
+<StackPosts query="axiom" />

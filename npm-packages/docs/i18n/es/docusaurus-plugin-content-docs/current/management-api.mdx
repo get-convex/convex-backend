@@ -1,0 +1,54 @@
+---
+title: API de administración
+hide_table_of_contents: true
+description: "Creación y gestión de despliegues de Convex mediante API"
+---
+
+<Admonition type="info">
+  La API de administración de Convex está disponible públicamente en Beta. Ponte en contacto con
+  platforms@convex.dev si tu caso de uso requiere capacidades adicionales.
+</Admonition>
+
+Con la API de administración puedes aprovisionar y gestionar proyectos y despliegues de Convex.
+
+## Autorización \{#authorization\}
+
+La API de administración usa un encabezado `Authorization` con un token Bearer.
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://api.convex.dev/v1/teams/41/list_projects",
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```
+
+[Team Access Tokens](/platform-apis#managing-your-own-projects) y
+[OAuth Application Tokens](/platform-apis/oauth-applications) pueden utilizarse en
+tokens Bearer, dependiendo de si estás usando la Management API en nombre de
+tu propio equipo o en nombre del equipo de un usuario de una integración de Convex que hayas
+creado.
+
+## Parámetros obligatorios \{#required-parameters\}
+
+La mayoría de las APIs de gestión requieren un ID de equipo o un ID de proyecto.
+
+Al crear un token de acceso de equipo (Team Access Token), el ID del equipo estará disponible en el panel de control de Convex.
+
+Las aplicaciones OAuth pueden solicitar el ID del equipo (o del proyecto, si se usan tokens con ámbito de proyecto) llamando al endpoint [Token Details](/management-api/get-token-details).
+
+Al usar un token de equipo, los proyectos recibirán un ID al crearse. El endpoint [List Projects](/management-api/list-projects) también se puede usar para obtener el ID de un proyecto.
+
+## Respuestas \{#responses\}
+
+Todas las respuestas de la API usan el formato JSON.
+
+## Endpoints \{#endpoints\}
+
+La especificación de OpenAPI para la API de administración está disponible en
+[https://api.convex.dev/v1/openapi.json](https://api.convex.dev/v1/openapi.json).

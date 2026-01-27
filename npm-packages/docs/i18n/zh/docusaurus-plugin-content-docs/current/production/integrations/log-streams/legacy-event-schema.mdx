@@ -1,0 +1,143 @@
+# （旧版）事件模式 \{#legacy-event-schema\}
+
+<Admonition type="info">
+  2024 年 5 月 23 日之前配置的日志流将使用本文档中描述的旧版格式。
+  我们建议你将日志流更新为新格式。
+</Admonition>
+
+## 更新到新格式 \{#updating-to-the-new-format\}
+
+你可以在仪表盘中，进入
+[部署的设置](https://dashboard.convex.dev/deployment/settings) &gt; Integrations
+，将现有的日志流更新到新格式。
+
+你可以创建一个全新的数据集，使用新格式来保存事件；也可以复用你现有的
+数据集，同时保存使用旧格式的历史事件，以及后续使用新格式的事件。
+
+我们建议阅读关于旧格式和
+[当前格式](/production/integrations/log-streams/log-streams.mdx#log-event-schema)
+的文档，以了解所有差异；这里先列出几个关键区别：
+
+* 许多字段被重命名，以去掉前导下划线并使用 `snake_case`
+* 新增了一些字段，例如：
+  * `function.request_id`
+  * `usage.vector_storage_read_bytes`
+  * `log_level`
+* 为了更清晰，一些字段被重命名或调整了嵌套结构，例如：
+  * `reason` -&gt; `error_message`
+  * `_functionPath` -&gt; `function.path`
+
+## （旧版）事件模式 \{#legacy-event-schema\}
+
+日志事件具有定义明确的 JSON 模式，使你可以构建复杂且类型安全的日志事件接入管道。
+
+## 系统字段 \{#system-fields\}
+
+系统字段是保留字段，会自动包含在日志事件中，并以下划线作为前缀。
+
+所有日志事件都包含以下系统字段：
+
+* `_topic`：按内部来源对日志事件进行分类的字符串
+* `_timestamp`：以毫秒为单位的 Unix 时间戳，类型为整数。
+
+## 日志来源 \{#log-sources\}
+
+本节介绍所有日志事件的来源及其数据模型。
+
+### `console` 日志 \{#console-logs\}
+
+通过 `console` API 输出的 Convex 函数日志。
+
+模式：
+
+* `_topic = "_console"`
+* `_timestamp` = 以毫秒为单位的 Unix 纪元时间戳
+* `_functionType = "query" | "mutation" | "action" | "httpAction"`
+* `_functionPath` =
+  * 如果这是一个 HTTP 操作，则为由 HTTP 方法和 URL 路径名组成的字符串，例如 `POST /my_endpoint`
+  * 否则，为 `convex/` 目录内的函数路径，可包含一个可选的模块导出标识符，例如 `myDir/myFile:myFunction`。
+* `_functionCached = true | false`。仅当 `_functionType = "query"` 时才会设置此字段，用于表示该日志事件是否来自缓存的函数执行。
+* `message` = 传递给 `console` API 的参数负载字符串
+
+示例查询日志事件：
+
+```json
+{
+  "_topic": "_console",
+  "_timestamp": 1695066350531,
+  "_functionType": "query",
+  "_functionPath": "myDir/myFile",
+  "_functionCached": true,
+  "message": "[LOG] 'My log message'"
+}
+```
+
+### 函数执行记录日志 \{#function-execution-record-logs\}
+
+记录函数执行过程及其结果的日志事件。
+
+模式：
+
+* `_topic = "_execution_record"`
+* `_timestamp` = 以毫秒为单位的 Unix 纪元时间戳
+* `_functionType = "query" | "mutation" | "action" | "httpAction"`
+* `_functionPath` = `convex/` 目录中函数的路径，包括模块导出标识符
+* `_functionCached = true | false`。仅在 `_functionType = "query"` 时设置，用于表示该日志事件是否来自一次已缓存的函数执行。
+* `status = "success" | "failure"`
+* `reason` = 来自函数的错误信息。仅在 `status = "failure"` 时设置
+* `executionTimeMs` = 此函数执行的时长，单位为毫秒
+* `databaseReadBytes` = 此函数使用的数据库读取字节数
+* `databaseWriteBytes` = 此函数使用的数据库写入字节数
+* `storageReadBytes` = 此函数使用的文件存储读取字节数
+* `storageWriteBytes` = 此函数使用的文件存储写入字节数
+
+来自 HTTP 操作的一条函数执行记录日志示例：
+
+```json
+{
+  "_topic": "_execution_record",
+  "_timestamp": 1695066350531,
+  "_functionType": "httpAction",
+  "_functionPath": "POST /sendImage",
+  "status": "failure",
+  "reason": "Unexpected Error: Some error message\n\n  at ....",
+  "executionTimeMs": 73
+}
+```
+
+### 审计轨迹日志 \{#audit-trail-logs\}
+
+部署事件的审计日志。
+
+模式：
+
+* `_topic = "_audit_log"`
+* `_timestamp` = 以毫秒为单位的 Unix 纪元时间戳
+* `action = "create_environment_variable" | "update_environment_variable" | "delete_environment_variable" | "replace_environment_variable" | "push_config" | "build_indexes" | "change_deployment_state"`
+* `actionMetadata` = 一个对象，其字段取决于 `action` 字段的值。
+
+`push_config` 审计日志示例：
+
+```json
+{
+  "_topic": "_audit_log",
+  "_timestamp": 1695066350531,
+  "action": "push_config",
+  "actionMetadata": {
+    "modules": {
+      "added": ["ffmpeg.js", "fetch.js", "test.js"],
+      "removed": ["removed.js"]
+    }
+  }
+}
+```
+
+### 验证日志 \{#verification-logs\}
+
+用于验证对日志流访问权限的内部日志事件。
+
+模式
+
+* `_topic = "_verification"`
+* `_timestamp` = 以毫秒为单位的 Unix 纪元时间戳。
+* `message = Convex connection test`

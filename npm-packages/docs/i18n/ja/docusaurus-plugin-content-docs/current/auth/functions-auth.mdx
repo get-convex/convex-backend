@@ -1,0 +1,63 @@
+---
+title: "関数内での認証"
+sidebar_label: "関数"
+sidebar_position: 100
+description: "Convex 関数内でユーザー認証情報にアクセスする"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctions.ts";
+import FieldsTS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFields.ts";
+import FieldsJS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFieldsJS.js";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+*Convex Auth を使用している場合は、
+[authorization doc](https://labs.convex.dev/auth/authz#use-authentication-state-in-backend-functions) を参照してください。*
+
+Convex の [function](/functions.mdx) 内では、
+[`QueryCtx`](/generated-api/server#queryctx)、
+[`MutationCtx`](/generated-api/server#mutationctx)、
+[`ActionCtx`](/generated-api/server#actionctx) オブジェクトの
+[`auth`](/api/interfaces/server.Auth) プロパティを使って、
+現在ログインしているユーザーに関する情報にアクセスできます。
+
+<TSAndJSSnippet sourceTS={Example} sourceJS={Example} title="convex/myFunctions.ts" />
+
+## ユーザー識別フィールド \{#user-identity-fields\}
+
+`getUserIdentity` によって返される [UserIdentity](/api/interfaces/server.UserIdentity) オブジェクトには、
+必ず `tokenIdentifier`、`subject`、`issuer` フィールドが含まれます。ほかにどのフィールドが含まれるかは、
+利用しているアイデンティティプロバイダと、JWT トークンおよび
+[OpenID スコープ](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)の設定によって変わります。
+
+`tokenIdentifier` は、複数のプロバイダを利用している場合でも一意性を保証するために、
+`subject` と `issuer` を組み合わせたものです。
+
+Clerk または Auth0 との連携ガイドのいずれかに従ってセットアップしている場合、少なくとも次のフィールドが存在します:
+`familyName`, `givenName`, `nickname`, `pictureUrl`, `updatedAt`, `email`, `emailVerified`。
+これらに対応する標準定義については
+[OpenID ドキュメント](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)
+を参照してください。
+
+<TSAndJSSnippet sourceTS={FieldsTS} sourceJS={FieldsJS} title="convex/myFunctions.ts" />
+
+### Clerk のクレーム設定 \{#clerk-claims-configuration\}
+
+Clerk を使用している場合、`getUserIdentity` によって返されるフィールドは、
+JWT テンプレートの *Claims* 設定によって決まります。カスタムクレームを設定している場合は、
+それらも `getUserIdentity` から返されます。
+
+### カスタム JWT 認証 \{#custom-jwt-auth\}
+
+OpenID の標準フィールドではなく [Custom JWT auth](/auth/advanced/custom-jwt.mdx) を使用している場合、
+ネストされた各フィールドは `identity["properties.email"]` のような、ドットを含む文字列のフィールド名で参照できます。
+
+## HTTP アクション \{#http-actions\}
+
+HTTP アクションからも、
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity) を使って
+ユーザーのアイデンティティにアクセスできます。エンドポイントを呼び出すときは、
+JWT トークンを含む `Authorization` ヘッダーを付けてください。
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />
+
+<StackPosts query="authentication functions" />

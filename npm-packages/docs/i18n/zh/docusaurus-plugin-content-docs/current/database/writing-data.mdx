@@ -1,0 +1,115 @@
+---
+title: "写入数据"
+sidebar_position: 4
+description: "在 Convex 数据库表中插入、更新和删除数据"
+---
+
+import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataInsert.ts";
+import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
+import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
+import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+[变更函数](/functions/mutation-functions.mdx) 可以向数据库表插入、更新或删除数据。
+
+## 插入新文档 \{#inserting-new-documents\}
+
+你可以使用 [`db.insert`](/api/interfaces/server.GenericDatabaseWriter#insert) 方法在数据库中创建新文档：
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={insertExample} sourceJS={insertExample} highlightPatterns={["db.insert"]} />
+
+传给 `db.insert` 的第二个参数是一个包含新文档数据的 JavaScript 对象。
+
+可以写入数据库的值类型，与
+[查询](/functions/query-functions.mdx) 和
+[变更](/functions/mutation-functions.mdx) 中可传入和返回的类型相同。
+完整的受支持类型列表，请参见 [数据类型](/database/types.md)。
+
+`insert` 方法会返回新插入文档的全局唯一 ID。
+
+## 更新已有文档 \{#updating-existing-documents\}
+
+在给定一个已有文档的 ID 时，可以使用下列方法更新该文档：
+
+1. [`db.patch`](/api/interfaces/server.GenericDatabaseWriter#patch) 方法
+   会对已有文档进行补丁更新，将其与给定的部分文档进行浅合并。新字段会被添加，已有字段会被覆盖。被设置为 `undefined` 的字段会被移除。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={patchExample} sourceJS={patchExample} highlightPatterns={["db.patch"]} />
+
+2. [`db.replace`](/api/interfaces/server.GenericDatabaseWriter#replace)
+   方法会完全替换已有文档，并可能移除已有字段：
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={replaceExample} sourceJS={replaceExample} highlightPatterns={["db.replace"]} />
+
+## 删除文档 \{#deleting-documents\}
+
+对于一个已存在的文档 ID，可以使用 [`db.delete`](/api/interfaces/server.GenericDatabaseWriter#delete) 方法将该文档从表中删除。
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={deleteExample} sourceJS={deleteExample} highlightPatterns={["db.delete"]} />
+
+## 批量插入或更新 \{#bulk-inserts-or-updates\}
+
+如果你熟悉 SQL，你可能会寻找某种批量插入或批量更新语句。在 Convex 中，整个 `mutation` 函数天然就是一个单一事务。
+
+你可以在 mutation 函数中通过循环来执行插入或更新。Convex 会在函数执行期间将所有对数据库的更改排队，并在函数结束时在单个事务中一次性提交，从而只对数据库进行一次高效的变更。
+
+````typescript
+/**
+ * 批量插入多个产品到数据库。
+ *
+ * 等效于以下 SQL:
+ * ```sql
+ * INSERT INTO products (product_id, product_name, category, price, in_stock)
+ * VALUES
+ *     ('Laptop Pro', 'Electronics', 1299.99, true),
+ *     ('Wireless Mouse', 'Electronics', 24.95, true),
+ *     ('Ergonomic Keyboard', 'Electronics', 89.50, true),
+ *     ('Ultra HD Monitor', 'Electronics', 349.99, false),
+ *     ('Wireless Headphones', 'Audio', 179.99, true);
+ * ```
+ */
+export const bulkInsertProducts = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        product_name: v.string(),
+        category: v.string(),
+        price: v.number(),
+        in_stock: v.boolean(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { products } = args;
+
+    // Insert in a loop. This is efficient because Convex queues all the changes
+    // to be executed in a single transaction when the mutation ends.
+    for (const product of products) {
+      const id = await ctx.db.insert("products", {
+        product_name: product.product_name,
+        category: product.category,
+        price: product.price,
+        in_stock: product.in_stock,
+      });
+    }
+  },
+});
+````
+
+## 迁移 \{#migrations\}
+
+数据库迁移通过迁移组件完成。该组件旨在在线运行迁移，以便在一段时间内安全地演进你的数据库模式。它支持从失败中恢复，并通过试运行来验证更改。
+
+<ComponentCardList
+  items={[
+  {
+    title: "Migrations",
+    description: "用于对线上实时数据执行长时间运行的数据迁移的框架。",
+    href: "https://www.convex.dev/components/migrations",
+  },
+]}
+/>
+
+## 写入性能和限制 \{#write-performance-and-limits\}
+
+为了防止意外大规模写入记录，查询和变更函数会强制执行[此处](/production/state/limits.mdx#transactions)详述的限制。

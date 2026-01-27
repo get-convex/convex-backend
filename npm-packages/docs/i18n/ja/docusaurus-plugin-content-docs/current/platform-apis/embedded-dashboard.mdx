@@ -1,0 +1,97 @@
+---
+title: ダッシュボードの埋め込み
+sidebar_position: 20
+---
+
+Convex は iframe 経由で埋め込み可能なホスト型のダッシュボードを提供しています。ダッシュボードを埋め込むことは、
+[Convex Chef](https://chef.convex.dev) のような AI アプリジェネレーターを構築する開発者にとって有用です。
+
+`<iframe>` を使って https://dashboard-embedded.convex.dev を読み込むことで、Convex ダッシュボードを埋め込むことができます。
+通常、埋め込みダッシュボードを利用するにはユーザーが認証情報を入力する必要がありますが、
+[`postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage) を使ってデプロイメントの認証情報を iframe に送信することで、
+ログインステップをスキップできます。
+
+`postMessage` を使用する場合、認証情報が受信されるまでに遅延が発生する可能性があります。
+認証情報が受信されるまではデフォルトのログインページが表示されるため、
+ログイン画面が一瞬表示されてしまうのを避けるために、レンダリングされた iframe を表示する前に
+遅延を入れることを推奨します。
+
+<Admonition type="caution" title="これはデプロイメントの認証情報をクライアントサイドで共有します">
+  埋め込みダッシュボードで認証を行うために `postMessage` を使用すると、
+  デプロイメントキーがエンドユーザーと共有されます。これは、ユーザーが
+  デプロイメントを完全に制御できることを意味します。ユーザーと認証情報を共有しても安全な場合にのみ、
+  この方法を使用してください。たとえば、（エンドユーザーの Convex アカウント内の Convex デプロイメント用の）
+  [OAuth Application](/platform-apis/oauth-applications) や、
+  （エンドユーザーが管理していない Convex アカウント内の Convex デプロイメント用の）
+  [Management API](/management-api/create-deploy-key) で作成されたデプロイキーなどです。
+</Admonition>
+
+`postMessage` に必要な情報:
+
+* `deploymentUrl`: デプロイメントのクラウド URL。
+  [Create project API](/management-api/create-project) でプロジェクトを作成したときに返されます。
+* `deploymentName`: デプロイメントの読みやすい識別子。
+  [Create project API](/management-api/create-project) でプロジェクトを作成したときに返されます。
+* `adminKey`: 指定された `deploymentName` にスコープされたデプロイキー。
+  [Create deploy key API](/management-api/create-deploy-key) で取得できます。
+
+任意の設定項目:
+
+* `visiblePages`: サイドバーに表示するページキーの配列。指定しない場合は、すべてのページが表示されます。
+  空の配列を指定した場合、サイドバーは非表示になります。利用可能なページキー:
+  `"health"`, `"data"`, `"functions"`, `"files"`, `"schedules"`, `"logs"`, `"history"`, `"settings"`。
+  これはクライアントサイドのユーザーインターフェースのみを変更するものであり、
+  ページから提供される機能へのユーザーのアクセスを厳密に制限するものではないことに注意してください。
+
+以下は、React アプリケーションに Convex ダッシュボードを埋め込む例です。
+
+```tsx
+import { useEffect, useRef } from "react";
+
+export function Dashboard({
+  deploymentUrl,
+  deploymentName,
+  deployKey,
+  visiblePages,
+}: {
+  deploymentUrl: string;
+  deploymentName: string;
+  deployKey: string;
+  visiblePages?: string[];
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // まず iframe が dashboard-credentials-request メッセージを送信するのを待ちます。
+      // これにより、iframe の準備が整うまで認証情報を送信しないことを保証します。
+      if (event.data?.type !== "dashboard-credentials-request") {
+        return;
+      }
+      iframeRef.current?.contentWindow?.postMessage(
+        {
+          type: "dashboard-credentials",
+          adminKey: deployKey,
+          deploymentUrl,
+          deploymentName,
+          // Optional: specify which pages to show
+          visiblePages,
+        },
+        "*",
+      );
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [deploymentUrl, adminKey, deploymentName, visiblePages]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      // You can also default on other pages, for instance /functions, /files or /logs
+      src="https://dashboard-embedded.convex.dev/data"
+      allow="clipboard-write"
+    />
+  );
+}
+```

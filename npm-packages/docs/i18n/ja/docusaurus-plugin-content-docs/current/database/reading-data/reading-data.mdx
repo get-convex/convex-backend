@@ -1,0 +1,229 @@
+---
+title: "データの読み込み"
+sidebar_position: 3
+description: "Convex データベースのテーブルにクエリを実行してデータを読み込む"
+---
+
+import getExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbGet.ts";
+import queryExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbQuery.ts";
+import averageExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataAverage.ts";
+import groupByExampleTS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByTS.ts";
+import groupByExampleJS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByJS.js";
+import joinExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataJoin.ts";
+
+[Query](/functions/query-functions.mdx) と
+[mutation](/functions/mutation-functions.mdx) 関数は、*ドキュメントID* と *ドキュメントクエリ* を使って
+データベーステーブルからデータを読み出すことができます。
+
+## 単一ドキュメントの読み取り \{#reading-a-single-document\}
+
+単一ドキュメントの id が分かっていれば、そのデータは
+[`db.get`](/api/interfaces/server.GenericDatabaseReader#get) メソッドで読み取れます:
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={getExample} sourceJS={getExample} highlightPatterns={["db.get"]} />
+
+**注意**: 上の例のように `v.id` バリデータを使用して、意図したテーブル以外の
+テーブルからのデータが公開されないようにしてください。
+
+## ドキュメントのクエリ \{#querying-documents\}
+
+ドキュメントのクエリは常に、
+[`db.query`](/api/interfaces/server.GenericDatabaseReader#query) メソッドでクエリ対象のテーブルを選択するところから始まります:
+
+<TSAndJSSnippet title="convex/tasks.ts" sourceTS={queryExample} sourceJS={queryExample} highlightPatterns={["db.query"]} />
+
+そのあと、次のことができます:
+
+1. フィルターする
+2. 並べ替える
+3. 結果を `await` する
+
+この動作については、以下の例で確認していきます。
+
+## クエリにフィルターを適用する \{#filtering-your-query\}
+
+Convex でフィルターをかける最もよい方法は、インデックスを使うことです。インデックスはデータベース内に特別な内部構造を構築して、検索を高速化します。
+
+インデックスを使うには 2 つのステップがあります。
+
+1. `convex/schema.ts` ファイルでインデックスを定義します。
+2. `withIndex()` 構文を使ってクエリを実行します。
+
+### 1. インデックスを定義する \{#1-define-the-index\}
+
+Convex のスキーマの作成方法に慣れていない場合は、
+[スキーマのドキュメント](/database/schemas.mdx) を読んでください。
+
+チャットアプリを作成していて、特定のチャンネル内のすべてのメッセージを取得したいとします。スキーマ内で `.index()` メソッドを使って、`messages` テーブルに `by_channel` という新しいインデックスを定義できます。
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// インデックス付きのmessagesテーブルを定義します。
+export default defineSchema({
+  messages: defineTable({
+    channel: v.id("channels"),
+    body: v.string(),
+    user: v.id("users"),
+    // highlight-next-line
+  }).index("by_channel", ["channel"]),
+});
+```
+
+### 2. インデックスでクエリをフィルタリングする \{#2-filter-a-query-with-an-index\}
+
+クエリ関数内で、`by_channel` インデックスを使って `messages` テーブルをフィルタリングできます。
+
+```ts
+const messages = await ctx.db
+  .query("messages")
+  // highlight-next-line
+  .withIndex("by_channel", (q) => q.eq("channel", channel))
+  .collect();
+```
+
+Convex では、データベースにインデックスを確実に使わせるために、明示的に `withIndex()` 構文を使用する必要があります。これは、ヒューリスティックに基づいて自動的にインデックスを使用するかどうかを決定する、より伝統的な SQL データベースとは異なります。Convex のアプローチは、長期的には予期しない挙動を減らします。
+
+複数のフィールドにまたがるインデックスを一度に作成したり、特定の範囲のデータをクエリしたり、クエリ結果の並び順を変更したりできます。
+詳細については [インデックスに関する詳しいドキュメントを読む](/database/reading-data/indexes/indexes.md)
+を参照してください。
+
+Convex は、テーブル全体を実質的にループしてフィルタに一致するレコードを探す、より低速なフィルタリング機構もサポートしています。これは、テーブルが小さい（数千行程度）ことが分かっている場合、プロトタイピング中の場合、またはインデックスを使ったクエリ結果に対してさらにフィルタをかけたい場合に便利です。フィルタについての詳細は
+[こちら](/database/reading-data/filters.mdx)
+を参照してください。
+
+## 並び順 \{#ordering\}
+
+デフォルトでは Convex は常にドキュメントを
+[`_creationTime`](/database/types.md#system-fields)
+で並べ替えた状態で返します。
+
+[`.order("asc" | "desc")`](/api/interfaces/server.Query#order) を使って、
+昇順か降順かを指定できます。順序が指定されていない場合は、
+デフォルトで昇順になります。
+
+```ts
+// すべてのメッセージを取得します(古い順)。
+const messages = await ctx.db.query("messages").order("asc").collect();
+```
+
+```ts
+// すべてのメッセージを新しいものから古いものの順に取得します。
+const messages = await ctx.db.query("messages").order("desc").collect();
+```
+
+`_creationTime` 以外のフィールドでソートする必要があり、ドキュメント
+クエリが返すドキュメント数が（数千ではなく）数百程度と少ない場合は、
+JavaScript でソートすることを検討してください。
+
+```ts
+// いいね数上位10件のメッセージを取得（messagesテーブルが比較的小さいと仮定）:
+const messages = await ctx.db.query("messages").collect();
+const topTenMostLikedMessages = recentMessages
+  .sort((a, b) => b.likes - a.likes)
+  .slice(0, 10);
+```
+
+多数のドキュメントを返すドキュメントクエリでは、
+パフォーマンスを向上させるために [index](/database/reading-data/indexes/indexes.md) を使用するとよいでしょう。
+インデックスを使用するドキュメントクエリは
+[インデックス内の列の順序に従って並び替えられ](/database/reading-data/indexes/indexes.md#sorting-with-indexes)、
+遅いテーブルスキャンを回避できます。
+
+```ts
+// "by_likes" インデックスを使用して、全期間で最も「いいね」されたメッセージの上位20件を取得します。
+const messages = await ctx.db
+  .query("messages")
+  .withIndex("by_likes")
+  .order("desc")
+  .take(20);
+```
+
+詳細については [Limits](/database/reading-data/indexes/indexes.md#limits) を参照してください。
+
+### 異なる型の値の並び順 \{#ordering-of-different-types-of-values\}
+
+1つのフィールドには、任意の[Convex 型](/database/types.md)の値を持たせることができます。インデックスされたフィールドに異なる型の値が含まれている場合、それらの昇順は次のとおりです。
+
+値が設定されていない状態 (`undefined`) &lt; Null (`null`) &lt; Int64 (`bigint`) &lt;
+Float64 (`number`) &lt; Boolean (`boolean`) &lt; String (`string`) &lt;
+Bytes (`ArrayBuffer`) &lt; Array (`Array`) &lt; Object (`Object`)
+
+同じ順序が、比較演算子 `q.lt()`、`q.lte()`、`q.gt()`、`q.gte()` を使ったフィルタリングでも適用されます。
+
+## 結果の取得 \{#retrieving-results\}
+
+これまでの例のほとんどは、ドキュメントクエリを
+[`.collect()`](/api/interfaces/server.Query#collect) メソッドで終わらせていました。これは、フィルター条件に一致するすべてのドキュメントを返します。ここでは、結果を取得するための他の方法を紹介します。
+
+### `n` 件の結果を取得する \{#taking-n-results\}
+
+[`.take(n)`](/api/interfaces/server.Query#take) は、クエリ条件に一致する結果のうち先頭の `n` 件だけを選択します。
+
+```ts
+const users = await ctx.db.query("users").take(5);
+```
+
+### 最初の結果を取得する \{#finding-the-first-result\}
+
+[`.first()`](/api/interfaces/server.Query#first) は、クエリ条件に一致する最初のドキュメントを選択し、ドキュメントが見つからなかった場合は `null` を返します。
+
+```ts
+// このメールアドレスを持つユーザーは1人のみを想定しています。
+const userOrNull = await ctx.db
+  .query("users")
+  .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
+  .first();
+```
+
+### 一意の結果を使用する \{#using-a-unique-result\}
+
+[`.unique()`](/api/interfaces/server.Query#unique) はクエリ結果から 1 件のドキュメントを取得し、ドキュメントが見つからなかった場合は `null` を返します。複数の結果がある場合は、例外をスローします。
+
+```ts
+// counter テーブルにはドキュメントが 1 つしかありません。
+const counterOrNull = await ctx.db.query("counter").unique();
+```
+
+### 結果ページの読み込み \{#loading-a-page-of-results\}
+
+[`.paginate(opts)`](/api/interfaces/server.OrderedQuery#paginate) は結果を
+1 ページ分読み込み、さらに結果を読み込むための [`Cursor`](/api/modules/server#cursor)
+を返します。
+
+詳細は [ページネーション付きクエリ](/database/pagination.mdx) を参照してください。
+
+## より複雑なクエリ \{#more-complex-queries\}
+
+Convex では、テーブルからドキュメントを走査して選択する方法を、いくつかのシンプルなものに絞る設計になっています。Convex には、結合や集約、GROUP BY などの複雑なロジック専用のクエリ言語はありません。
+
+その代わりに、複雑なロジックは JavaScript で記述できます。Convex は、結果の一貫性を保証します。
+
+### Join（結合） \{#join\}
+
+テーブル結合は次のように書けます:
+
+<TSAndJSSnippet title="convex/events.ts" sourceTS={joinExample} sourceJS={joinExample} />
+
+### 集約 \{#aggregation\}
+
+平均値を計算する例は次のとおりです。
+
+<TSAndJSSnippet title="convex/purchases.ts" sourceTS={averageExample} sourceJS={averageExample} />
+
+> よりスケーラブルな集約方法（頻繁な更新や大きなテーブルを扱う必要がある場合など）が必要な場合は、
+> [Sharded Counter](https://www.convex.dev/components/sharded-counter) や
+> [Aggregate](https://www.convex.dev/components/aggregate) コンポーネントの利用を検討してください。これらの
+> コンポーネントを使用すると、高スループットなカウンターや合計、その他の計算を、テーブル全体を走査することなく
+> 処理できます。
+
+### グループ化 \{#group-by\}
+
+グループ化と件数集計の例を次に示します:
+
+<TSAndJSSnippet title="convex/purchases.ts" sourceTS={groupByExampleTS} sourceJS={groupByExampleJS} />
+
+## ダッシュボードで構文を試してみる \{#explore-the-syntax-on-the-dashboard\}
+
+上で説明した構文は、ダッシュボードから直接[カスタムテストクエリを作成](/dashboard/deployments/data.md#writing-custom-queries)して試すことができます。

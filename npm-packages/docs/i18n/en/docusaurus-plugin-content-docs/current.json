@@ -1,0 +1,382 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Tutorial": {
+    "message": "Tutorial",
+    "description": "The label for category 'Tutorial' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Quickstarts": {
+    "message": "Quickstarts",
+    "description": "The label for category 'Quickstarts' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Understand Convex": {
+    "message": "Understand Convex",
+    "description": "The label for category 'Understand Convex' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Best Practices": {
+    "message": "Best Practices",
+    "description": "The label for category 'Best Practices' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Functions": {
+    "message": "Functions",
+    "description": "The label for category 'Functions' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Error Handling": {
+    "message": "Error Handling",
+    "description": "The label for category 'Error Handling' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Database": {
+    "message": "Database",
+    "description": "The label for category 'Database' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Reading Data": {
+    "message": "Reading Data",
+    "description": "The label for category 'Reading Data' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Indexes": {
+    "message": "Indexes",
+    "description": "The label for category 'Indexes' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Data Import & Export": {
+    "message": "Data Import & Export",
+    "description": "The label for category 'Data Import & Export' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.database-advanced": {
+    "message": "Advanced",
+    "description": "The label for category 'Advanced' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Authentication": {
+    "message": "Authentication",
+    "description": "The label for category 'Authentication' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.WorkOS AuthKit": {
+    "message": "WorkOS AuthKit",
+    "description": "The label for category 'WorkOS AuthKit' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.auth-advanced": {
+    "message": "Advanced",
+    "description": "The label for category 'Advanced' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Scheduling": {
+    "message": "Scheduling",
+    "description": "The label for category 'Scheduling' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.File Storage": {
+    "message": "File Storage",
+    "description": "The label for category 'File Storage' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Search": {
+    "message": "Search",
+    "description": "The label for category 'Search' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Components": {
+    "message": "Components",
+    "description": "The label for category 'Components' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.AI Code Gen": {
+    "message": "AI Code Gen",
+    "description": "The label for category 'AI Code Gen' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Agents": {
+    "message": "Agents",
+    "description": "The label for category 'Agents' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Testing": {
+    "message": "Testing",
+    "description": "The label for category 'Testing' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Production": {
+    "message": "Production",
+    "description": "The label for category 'Production' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Hosting and Deployment": {
+    "message": "Hosting and Deployment",
+    "description": "The label for category 'Hosting and Deployment' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Integrations": {
+    "message": "Integrations",
+    "description": "The label for category 'Integrations' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Log Streams": {
+    "message": "Log Streams",
+    "description": "The label for category 'Log Streams' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Status and Guarantees": {
+    "message": "Status and Guarantees",
+    "description": "The label for category 'Status and Guarantees' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Platform APIs": {
+    "message": "Platform APIs",
+    "description": "The label for category 'Platform APIs' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.React": {
+    "message": "React",
+    "description": "The label for category 'React' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Next.js": {
+    "message": "Next.js",
+    "description": "The label for category 'Next.js' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.App Router": {
+    "message": "App Router",
+    "description": "The label for category 'App Router' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Pages Router": {
+    "message": "Pages Router",
+    "description": "The label for category 'Pages Router' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.TanStack": {
+    "message": "TanStack",
+    "description": "The label for category 'TanStack' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.TanStack Start": {
+    "message": "TanStack Start",
+    "description": "The label for category 'TanStack Start' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.JavaScript": {
+    "message": "JavaScript",
+    "description": "The label for category 'JavaScript' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Vue": {
+    "message": "Vue",
+    "description": "The label for category 'Vue' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Swift": {
+    "message": "Swift",
+    "description": "The label for category 'Swift' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Android Kotlin": {
+    "message": "Android Kotlin",
+    "description": "The label for category 'Android Kotlin' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Dashboard": {
+    "message": "Dashboard",
+    "description": "The label for category 'Dashboard' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Deployments": {
+    "message": "Deployments",
+    "description": "The label for category 'Deployments' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.CLI": {
+    "message": "CLI",
+    "description": "The label for category 'CLI' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Convex API": {
+    "message": "Convex API",
+    "description": "The label for category 'Convex API' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.convex/browser": {
+    "message": "convex/browser",
+    "description": "The label for category 'convex/browser' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.convex/server": {
+    "message": "convex/server",
+    "description": "The label for category 'convex/server' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.convex/react": {
+    "message": "convex/react",
+    "description": "The label for category 'convex/react' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.convex/values": {
+    "message": "convex/values",
+    "description": "The label for category 'convex/values' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Generated Code": {
+    "message": "Generated Code",
+    "description": "The label for category 'Generated Code' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Deployment API": {
+    "message": "Deployment API",
+    "description": "The label for category 'Deployment API' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Platform": {
+    "message": "Platform",
+    "description": "The label for category 'Platform' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Management API": {
+    "message": "Management API",
+    "description": "The label for category 'Management API' in sidebar 'docs'"
+  },
+  "sidebar.docs.link.Dashboard": {
+    "message": "Dashboard",
+    "description": "The label for link 'Dashboard' in sidebar 'docs', linking to 'https://dashboard.convex.dev'"
+  },
+  "sidebar.docs.link.Blog": {
+    "message": "Blog",
+    "description": "The label for link 'Blog' in sidebar 'docs', linking to 'https://stack.convex.dev/'"
+  },
+  "sidebar.docs.link.GitHub": {
+    "message": "GitHub",
+    "description": "The label for link 'GitHub' in sidebar 'docs', linking to 'https://github.com/get-convex'"
+  },
+  "sidebar.docs.link.Discord": {
+    "message": "Discord",
+    "description": "The label for link 'Discord' in sidebar 'docs', linking to 'https://convex.dev/community'"
+  },
+  "sidebar.docs.doc.Home": {
+    "message": "Home",
+    "description": "The label for the doc item 'Home' in sidebar 'docs', linking to the doc home"
+  },
+  "sidebar.docs.doc.React Native": {
+    "message": "React Native",
+    "description": "The label for the doc item 'React Native' in sidebar 'docs', linking to the doc client/react-native"
+  },
+  "sidebar.docs.doc.Svelte": {
+    "message": "Svelte",
+    "description": "The label for the doc item 'Svelte' in sidebar 'docs', linking to the doc client/svelte"
+  },
+  "sidebar.docs.doc.Python": {
+    "message": "Python",
+    "description": "The label for the doc item 'Python' in sidebar 'docs', linking to the doc client/python"
+  },
+  "sidebar.docs.doc.Rust": {
+    "message": "Rust",
+    "description": "The label for the doc item 'Rust' in sidebar 'docs', linking to the doc client/rust"
+  },
+  "sidebar.docs.doc.Open API": {
+    "message": "Open API",
+    "description": "The label for the doc item 'Open API' in sidebar 'docs', linking to the doc client/open-api"
+  },
+  "sidebar.docs.doc.HTTP API": {
+    "message": "HTTP API",
+    "description": "The label for the doc item 'HTTP API' in sidebar 'docs', linking to the doc http-api/index"
+  },
+  "sidebar.docs.doc.Streaming Export": {
+    "message": "Streaming Export",
+    "description": "The label for the doc item 'Streaming Export' in sidebar 'docs', linking to the doc streaming-export-api"
+  },
+  "sidebar.docs.doc.Streaming Import": {
+    "message": "Streaming Import",
+    "description": "The label for the doc item 'Streaming Import' in sidebar 'docs', linking to the doc streaming-import-api"
+  },
+  "sidebar.docs.doc.Update environment variables": {
+    "message": "Update environment variables",
+    "description": "The label for the doc item 'Update environment variables' in sidebar 'docs', linking to the doc deployment-api/update-environment-variables"
+  },
+  "sidebar.docs.doc.List environment variables": {
+    "message": "List environment variables",
+    "description": "The label for the doc item 'List environment variables' in sidebar 'docs', linking to the doc deployment-api/list-environment-variables"
+  },
+  "sidebar.docs.doc.Update canonical URL": {
+    "message": "Update canonical URL",
+    "description": "The label for the doc item 'Update canonical URL' in sidebar 'docs', linking to the doc deployment-api/update-canonical-url"
+  },
+  "sidebar.docs.doc.Get canonical URLs": {
+    "message": "Get canonical URLs",
+    "description": "The label for the doc item 'Get canonical URLs' in sidebar 'docs', linking to the doc deployment-api/get-canonical-urls"
+  },
+  "sidebar.docs.doc.List log streams": {
+    "message": "List log streams",
+    "description": "The label for the doc item 'List log streams' in sidebar 'docs', linking to the doc deployment-api/list-log-streams"
+  },
+  "sidebar.docs.doc.Get log stream": {
+    "message": "Get log stream",
+    "description": "The label for the doc item 'Get log stream' in sidebar 'docs', linking to the doc deployment-api/get-log-stream"
+  },
+  "sidebar.docs.doc.Delete log stream": {
+    "message": "Delete log stream",
+    "description": "The label for the doc item 'Delete log stream' in sidebar 'docs', linking to the doc deployment-api/delete-log-stream"
+  },
+  "sidebar.docs.doc.Create log stream": {
+    "message": "Create log stream",
+    "description": "The label for the doc item 'Create log stream' in sidebar 'docs', linking to the doc deployment-api/create-log-stream"
+  },
+  "sidebar.docs.doc.Update log stream": {
+    "message": "Update log stream",
+    "description": "The label for the doc item 'Update log stream' in sidebar 'docs', linking to the doc deployment-api/update-log-stream"
+  },
+  "sidebar.docs.doc.Rotate webhook log stream secret": {
+    "message": "Rotate webhook log stream secret",
+    "description": "The label for the doc item 'Rotate webhook log stream secret' in sidebar 'docs', linking to the doc deployment-api/rotate-webhook-secret"
+  },
+  "sidebar.docs.doc.Pause deployment": {
+    "message": "Pause deployment",
+    "description": "The label for the doc item 'Pause deployment' in sidebar 'docs', linking to the doc deployment-api/pause-deployment"
+  },
+  "sidebar.docs.doc.Unpause deployment": {
+    "message": "Unpause deployment",
+    "description": "The label for the doc item 'Unpause deployment' in sidebar 'docs', linking to the doc deployment-api/unpause-deployment"
+  },
+  "sidebar.docs.doc.Create project": {
+    "message": "Create project",
+    "description": "The label for the doc item 'Create project' in sidebar 'docs', linking to the doc management-api/create-project"
+  },
+  "sidebar.docs.doc.List projects": {
+    "message": "List projects",
+    "description": "The label for the doc item 'List projects' in sidebar 'docs', linking to the doc management-api/list-projects"
+  },
+  "sidebar.docs.doc.List deployments": {
+    "message": "List deployments",
+    "description": "The label for the doc item 'List deployments' in sidebar 'docs', linking to the doc management-api/list-deployments"
+  },
+  "sidebar.docs.doc.Delete project": {
+    "message": "Delete project",
+    "description": "The label for the doc item 'Delete project' in sidebar 'docs', linking to the doc management-api/delete-project"
+  },
+  "sidebar.docs.doc.Create deploy key": {
+    "message": "Create deploy key",
+    "description": "The label for the doc item 'Create deploy key' in sidebar 'docs', linking to the doc management-api/create-deploy-key"
+  },
+  "sidebar.docs.doc.List deploy keys": {
+    "message": "List deploy keys",
+    "description": "The label for the doc item 'List deploy keys' in sidebar 'docs', linking to the doc management-api/list-deploy-keys"
+  },
+  "sidebar.docs.doc.Delete deploy key": {
+    "message": "Delete deploy key",
+    "description": "The label for the doc item 'Delete deploy key' in sidebar 'docs', linking to the doc management-api/delete-deploy-key"
+  },
+  "sidebar.docs.doc.Get token details": {
+    "message": "Get token details",
+    "description": "The label for the doc item 'Get token details' in sidebar 'docs', linking to the doc management-api/get-token-details"
+  },
+  "sidebar.docs.doc.Create custom domain": {
+    "message": "Create custom domain",
+    "description": "The label for the doc item 'Create custom domain' in sidebar 'docs', linking to the doc management-api/create-custom-domain"
+  },
+  "sidebar.docs.doc.Delete custom domain": {
+    "message": "Delete custom domain",
+    "description": "The label for the doc item 'Delete custom domain' in sidebar 'docs', linking to the doc management-api/delete-custom-domain"
+  },
+  "sidebar.docs.doc.List custom domains": {
+    "message": "List custom domains",
+    "description": "The label for the doc item 'List custom domains' in sidebar 'docs', linking to the doc management-api/list-custom-domains"
+  },
+  "sidebar.docs.doc.Delete deployment": {
+    "message": "Delete deployment",
+    "description": "The label for the doc item 'Delete deployment' in sidebar 'docs', linking to the doc management-api/delete-deployment"
+  },
+  "sidebar.docs.doc.Errors": {
+    "message": "Errors",
+    "description": "The label for the doc item 'Errors' in sidebar 'docs', linking to the doc error"
+  },
+  "sidebar.docs.doc.ESLint": {
+    "message": "ESLint",
+    "description": "The label for the doc item 'ESLint' in sidebar 'docs', linking to the doc eslint"
+  },
+  "sidebar.docs.category.Get Started": {
+    "message": "Get Started",
+    "description": "The label for category 'Get Started' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Guides": {
+    "message": "Guides",
+    "description": "The label for category 'Guides' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Client Libraries": {
+    "message": "Client Libraries",
+    "description": "The label for category 'Client Libraries' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Tools": {
+    "message": "Tools",
+    "description": "The label for category 'Tools' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.API Reference": {
+    "message": "API Reference",
+    "description": "The label for category 'API Reference' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.deployment-platform": {
+    "message": "Platform",
+    "description": "The label for category 'Platform' in sidebar 'docs'"
+  }
+}

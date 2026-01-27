@@ -1,0 +1,140 @@
+---
+title: OAuth アプリケーション
+sidebar_position: 10
+---
+
+# OAuth アプリケーション \{#oauth-applications\}
+
+Convex では、サードパーティアプリケーションの開発者が **Application Tokens** を使用して、ユーザーに代わってユーザーのプロジェクトを管理できます。
+
+Application token は OAuth の認可コードフローを通じて取得します。これについては後述で詳しく説明します。
+
+OAuth トークンには 2 種類あります。
+
+* チームスコープのトークン。新しいプロジェクトの作成、プロジェクト内での新しいデプロイメントの作成、およびチーム内のすべてのプロジェクトのデータと関数への読み書きアクセスが許可されます。
+* プロジェクトスコープのトークン。特定のプロジェクト内で新しいデプロイメントを作成し、そのプロジェクトのデータと関数にアクセスできます。
+
+<Admonition type="note">
+  すべての application token は、使用を承認したメンバーの権限範囲にも制限されます。メンバーがチームから削除されたり、その権限が変更された場合は、そのトークンの権限も同様に変更されます。
+</Admonition>
+
+## アプリケーションの作成 \{#creating-an-application\}
+
+アプリケーショントークンを取得するには、まず Convex に OAuth アプリケーションを登録する必要があります。これは
+[Team Settings](https://dashboard.convex.dev/team/settings/applications/oauth-apps)
+から行えます。
+
+アプリケーションを登録するには、アプリケーションの名前と、リダイレクト URI の一覧を指定する必要があります。リダイレクト URI は、ユーザーがあなたに自分の Convex チームまたはプロジェクトへのアクセスを許可した後に、ユーザーをあなたのアプリケーションに戻すために使用されます。リダイレクト URI は最大 20 個まで追加でき、テスト用に [localhost](http://localhost) を指すものも含められます。
+
+アプリケーションを作成すると、その状態は &quot;Unverified&quot; になります。&quot;Unverified&quot;
+状態では、自分のチーム向けのアプリケーショントークンは取得できますが、他のチーム向けには取得できません。検証をリクエストする前に、&quot;Unverified&quot; 状態でアプリケーションをテストすることを推奨します。
+
+検証をリクエストするには、アプリケーションの横にある ⋮ ボタンをクリックし、
+&quot;Request Verification&quot; をクリックします。
+
+### 検証要件 \{#verification-requirements\}
+
+あなたのアプリケーションを検証済みにし、すべての Convex ユーザーがアクセスできるようにするには、次の基準を満たす必要があります。
+
+* アプリケーションの説明に、そのアプリケーションの機能と、今後予定している機能についての説明が含まれていること。
+* アプリケーション名、リダイレクト URI、およびリダイレクト URI の内容が、他の組織、企業、または団体を偽って表現しようとするものでないこと。
+* 記載されているリダイレクト URI があなたの組織に属していること。
+
+追加情報が必要な場合、Convex チームは検証リクエストに対してメールで連絡します。
+
+## OAuth の実装 \{#implementing-oauth\}
+
+Convex は [OAuth 2.0](https://oauth.net/2/)（RFC 6749）の
+[Authorization Code Grant](https://oauth.net/2/grant-types/authorization-code/)
+フローを実装しています。さらに、セキュリティを高めるために
+[PKCE 拡張](https://oauth.net/2/pkce/)（RFC 7636）もオプションとしてサポートしています。
+
+* Convex は、チーム単位のトークンかプロジェクト単位のトークンかに応じて、2 つの *authorization endpoint* URL を提供します:
+  * `https://dashboard.convex.dev/oauth/authorize/team`
+  * `https://dashboard.convex.dev/oauth/authorize/project`
+* Convex の **token endpoint** は `https://api.convex.dev/oauth/token` です。
+
+これから認可フローをステップごとに説明します。なお、必要な URL や API 呼び出しを組み立てるために、OAuth 2.0 クライアントライブラリを使用することを推奨します。
+
+## ステップ 1: ユーザーを Convex の認可エンドポイントにリダイレクトする \{#step-1-redirect-the-user-to-convexs-authorization-endpoint\}
+
+アプリケーションで、ユーザーを次の URL に遷移させます:
+
+`https://dashboard.convex.dev/oauth/authorize[TOKEN_SCOPE]?client_id=[CLIENT_ID]&redirect_uri=[REDIRECT_URI]&response_type=code&state=[STATE]`
+
+* `[TOKEN_SCOPE]` は `"team"` または `"project"` に置き換えてください。
+* `[CLIENT_ID]` は Convex によって割り当てられたアプリケーションのクライアント ID に置き換えてください。
+* `[REDIRECT_URI]` はアプリケーションのドメイン上の URL です。ユーザーは認可後に
+  その URL にリダイレクトされます。
+  * **重要な注意**: アプリケーションが使用する可能性のあるすべてのリダイレクト URI
+    (通常は 1 つだけのはずです) を事前に Convex に共有する必要があります。これは、
+    悪意のあるアプリケーションが自分のアプリを装い、別のコールバック先へ
+    リダイレクトすることを防ぐために必要です。
+* `[STATE]` は任意の文字列をオプションで指定できます。どのようにエンコードするかは任意ですが、
+  アプリケーション側では、この値を使って認可トークンを受け取った後に
+  どのような処理を行うかを判断します。
+
+**すべてのパラメータを URI エンコードすることを忘れないでください！**
+
+この URL によって、ユーザーは次のようなページに遷移します:
+
+![OAuth authorization page](/screenshots/oauth-page.png)
+
+ここから、ユーザーはどの team へのアクセスを認可するかを選択できます。
+project フローを使用している場合、ユーザーは既存の project を選択するか、
+新しい project を作成することもできます。「Authorize」をクリックすると、
+ページはリダイレクト URL にリダイレクトされます。
+
+## ステップ 2: コールバックを受け取る \{#step-2-receive-the-callback\}
+
+認可エンドポイントは、`code` と `state` のクエリパラメータを付与して、ユーザーをあなたのリダイレクト URI にリダイレクトします。`redirect_uri` が
+`https://yourapp.example.com/cb` だった場合、結果は次のような URL になります:
+
+`https://yourapp.example.com/cb?code=[CODE]&state=[STATE]`
+
+ここで、`state` は先ほど指定した値と同じであり、`code` は `895c59eb98504a5bbaa7ad2e49cf4817` のようなランダムに生成された文字列です。このコードは **最終的な認可トークンではありません**。10 分以内にトークンと交換する必要があります。
+
+## ステップ 3: 認可コードをプロジェクトトークンに交換する \{#step-3-exchange-the-authorization-code-for-a-project-token\}
+
+アプリケーションは次のエンドポイントに HTTP POST リクエストを送信する必要があります:
+
+`https://api.convex.dev/oauth/token`
+
+ボディは Content-Type を `application/x-www-form-urlencoded` とし、次のような形式にします:
+
+`client_id=[CLIENT_ID]&client_secret=[CLIENT_SECRET]&grant_type=authorization_code&redirect_uri=[REDIRECT_URI]&code=[CODE]`
+
+* `client_id` は認可エンドポイント URL を構築する際に使用したものと同じ値です。
+* `client_secret` は Convex によって割り当てられたアプリのシークレットです。
+* `grant_type` は常に `authorization_code` です。
+* `redirect_uri` は認可エンドポイント URL を構築する際に使用したものと
+  同じ値です。
+* `code` はコールバックに渡される認可コードです。
+  * `code` はアクセストークンと *1 回だけ* 交換可能である点に注意してください。
+
+すべての値が正しければ、Convex の API は次の内容を含む JSON レスポンスを返します:
+
+```jsx
+{
+	"access_token": "team:my-team|AAAAAA==",
+	"token_type": "bearer"
+}
+```
+
+`access_token` がアプリケーショントークンです！
+
+# PKCE (RFC 7636) の利用 \{#using-pkce-rfc-7636\}
+
+Convex は Authorization Code グラントタイプに対するこの拡張をサポートしています。利用できるのは
+`S256` メソッドのみです。PKCE は、クライアントシークレットが秘密ではない状態 (たとえばクライアントサイドアプリケーションに埋め込む必要がある場合) でも、漏えいした認可コードが攻撃者に利用されることを防ぎます。
+
+多くの OAuth クライアントライブラリは既に PKCE をサポートしていますが、手動で実装する場合は次のようにします:
+
+* ユーザーに認可を要求するたびに、ユーザーをリダイレクトする前に、
+  `code_verifier` と呼ばれるランダムな文字列を生成します。ランダムな 32 バイトの値を生成して base64url エンコードすることが推奨されます。
+* `code_challenge = base64url(sha256(code_verifier))` を計算します。これは 43 文字の文字列になります。
+* 以前と同様にユーザーを認可エンドポイント
+  (`/oauth/authorize/[TOKEN_SCOPE]`) にリダイレクトしますが、これに加えて
+  `code_challenge=[CODE_CHALLENGE]&code_challenge_method=S256` というパラメータを渡します。
+* 認可コードをトークンに交換する際に、追加で
+  `code_verifier=[CODE_VERIFIER]` パラメータを渡します。

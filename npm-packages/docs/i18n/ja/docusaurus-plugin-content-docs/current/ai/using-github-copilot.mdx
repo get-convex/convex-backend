@@ -1,0 +1,72 @@
+---
+title: "Convex で GitHub Copilot を使う"
+sidebar_position: 200
+sidebar_label: GitHub Copilot の使用
+description: "Convex で GitHub Copilot を使う際のヒントとベストプラクティス"
+slug: "using-github-copilot"
+---
+
+[GitHub Copilot](https://github.com/features/copilot) は、VS Code に組み込まれた AI で、
+Convex を使って構築したアプリの作成と保守を簡単にします。ここでは、Convex で
+最良の結果を得るための GitHub Copilot のセットアップ方法を見ていきます。
+
+## Convex の Instructions を追加する \{#add-convex-instructions\}
+
+次の
+[instructions](https://code.visualstudio.com/docs/copilot/copilot-customization#_instruction-files)
+ファイルをプロジェクトの `.github/instructions` ディレクトリに追加すると、
+TypeScript または JavaScript ファイルで作業するときに自動的にコンテキストへ含められます。
+
+* [convex.instructions.md](https://convex.link/convex_github_copilot_instructions)
+
+![GitHub Copilot の Instructions を配置する場所の例](/img/showing-where-to-put-convex-instructions.png)
+
+instructions ファイルを自動的にコンテキストに取り込ませたくない場合は、
+エディタでそのファイルを開き、先頭にある `applyTo` フィールドを変更してください。
+instructions ファイルの詳細は以下を参照してください:
+https://code.visualstudio.com/docs/copilot/copilot-customization#&#95;use-instructionsmd-files
+
+Convex 向けのこれらのルールの品質は、厳密な eval を用いることで継続的に改善しています。
+ぜひ
+[evals リポジトリへのコントリビュート](https://github.com/get-convex/convex-evals)
+という形でご協力ください。
+
+## Convex MCP サーバーのセットアップ \{#setup-the-convex-mcp-server\}
+
+Convex CLI には、組み込みの
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx) (MCP) サーバーが
+含まれています。Convex MCP サーバーを使うと、AI コーディングエージェントが
+あなたの Convex デプロイメントにアクセスし、プロジェクトをクエリしたり最適化したりできるようになります。
+
+[MCP を VS Code で使う](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)には、`.vscode/mcp.json` というファイルを作成し、次の内容を追加します。
+
+```json
+{
+  "servers": {
+    "convex-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+これが完了すると、MCP サーバーの起動に数秒かかり、その後
+CodeLens に Convex ツールが表示されるはずです:
+
+![Convex Tool in Codelens](/img/convex-tool-in-codelens.png)
+
+さらに、チャットでモデルが利用できるツールの一覧にも表示されます:
+
+![Convex Tool in Chat](/img/convex-tools-in-chat.png)
+
+あとは次のような質問をどんどん投げかけてみてください:
+
+* Convex のスキーマを評価して、改善点を提案して
+* このアプリの公開エンドポイントは何ですか？
+* `my_convex_function` クエリを実行して
+
+MCP サーバーをすべてのプロジェクトで共通して使いたい場合は、
+ユーザー設定に追加できます。詳しくは次のドキュメントを参照してください:
+https://code.visualstudio.com/docs/copilot/chat/mcp-servers#&#95;add-an-mcp-server-to-your-user-settings

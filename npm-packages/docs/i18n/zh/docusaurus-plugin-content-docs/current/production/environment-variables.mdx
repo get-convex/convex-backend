@@ -1,0 +1,77 @@
+---
+title: "环境变量"
+sidebar_label: "环境变量"
+sidebar_position: 2
+description: "在 Convex 中存储和访问环境变量"
+---
+
+环境变量是键值对，用于存储你不希望放在代码或数据表中的值，例如 API 密钥。你可以通过 Convex 仪表盘设置环境变量，并在[函数](/functions.mdx)中通过 `process.env` 访问它们。
+
+## 设置环境变量 \{#setting-environment-variables\}
+
+在 Convex Dashboard 的 [Deployment Settings](/dashboard/deployments/settings.md) 页面中，你可以看到当前部署的环境变量列表。
+![Environment Variables Table](/screenshots/environment_variables_table.png)
+
+你最多可以添加 100 个环境变量。环境变量名称不能超过 40 个字符，必须以字母开头，并且只能包含字母、数字和下划线。环境变量的值不能超过 8 KB。
+
+你可以使用铅笔图标按钮修改环境变量：
+
+![Edit Environment Variable](/screenshots/edit_environment_variable.png)
+
+也可以通过[命令行](/cli.md#read-and-write-environment-variables)查看和修改环境变量。
+
+```sh
+npx convex env list
+npx convex env set API_KEY secret-api-key
+```
+
+### 在开发（dev）和生产（prod）部署中使用环境变量 \{#using-environment-variables-in-dev-and-prod-deployments\}
+
+由于环境变量是按部署单独设置的，你可以在开发（dev）和生产（prod）部署中为同一个键名使用不同的值。当你希望根据环境使用不同的外部账号时，这会很有用。例如，你可能有一个用于发送邮件的开发和生产 SendGrid 账号，而你的函数期望有一个名为 `SENDGRID_API_KEY` 的环境变量，并且它在这两个环境中都能生效。
+
+如果你期望某个环境变量在函数中始终存在，你必须在**所有**部署中都添加它。在这个例子中，你需要在开发（dev）和生产（prod）部署中都添加一个名为 `SENDGRID_API_KEY` 的环境变量，并为开发和生产分别设置不同的值。
+
+## 访问环境变量 \{#accessing-environment-variables\}
+
+你可以在 Convex 函数中通过 `process.env.KEY` 访问环境变量。如果该变量已设置，它的类型是 `string`，否则为 `undefined`。下面是一个访问键为 `GIPHY_KEY` 的环境变量的示例：
+
+```javascript
+function giphyUrl(query) {
+  return (
+    "https://api.giphy.com/v1/gifs/translate?api_key=" +
+    process.env.GIPHY_KEY +
+    "&s=" +
+    encodeURIComponent(query)
+  );
+}
+```
+
+请注意，你不应基于环境变量来决定是否导出 Convex 函数。可被调用的 Convex 函数集合是在部署时确定的，当你更改环境变量时，这个集合不会被重新计算。如果在部署之后到调用函数之前，`DEBUG` 环境变量发生变化，下面的代码将在运行时抛出错误。
+
+```javascript
+// 这样做不会生效!
+export const myFunc = process.env.DEBUG ? mutation(...) : internalMutation(...);
+```
+
+同样，在 cron 定义中使用的环境变量也只会在部署时重新读取。
+
+## 系统环境变量 \{#system-environment-variables\}
+
+以下环境变量在 Convex 函数中始终可用：
+
+* `CONVEX_CLOUD_URL` - 你的部署 URL（例如
+  `https://dusty-nightingale-847.convex.cloud`），用于 Convex 客户端。
+* `CONVEX_SITE_URL` - 你的部署站点 URL（例如
+  `https://dusty-nightingale-847.convex.site`），用于
+  [HTTP 操作函数](/functions/http-actions.mdx)。
+
+## 项目环境变量默认值 \{#project-environment-variable-defaults\}
+
+你可以在项目设置（Project Settings）中为项目的开发环境（development）和预览部署（preview deployment）配置默认的环境变量值。
+
+![Project Default Environment Variables](/screenshots/project_default_environment_variables.png)
+
+在创建新的开发或预览部署时会使用这些默认值，对现有部署则不会产生影响（不会与之保持同步）。
+
+当某个部署的环境变量与项目默认值不匹配时，你会在部署设置（Deployment Settings）中看到相应提示。
+![Environment Variable Default Mismatch](/screenshots/environment_variable_default_diff.png)

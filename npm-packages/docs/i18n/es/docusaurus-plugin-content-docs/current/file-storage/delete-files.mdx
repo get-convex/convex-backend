@@ -1,0 +1,21 @@
+---
+title: "Eliminar archivos"
+sidebar_label: "Eliminar"
+sidebar_position: 4
+description: "Eliminar archivos almacenados en Convex"
+---
+
+import DeleteImage from "!!raw-loader!@site/../private-demos/snippets/convex/deletingFiles.ts";
+
+Los archivos almacenados en Convex se pueden eliminar desde
+[mutaciones](/functions/mutation-functions.mdx),
+[acciones](/functions/actions.mdx) y
+[acciones HTTP](/functions/http-actions.mdx) mediante la función
+[`storage.delete()`](/api/interfaces/server.StorageWriter#delete),
+que acepta un ID de almacenamiento.
+
+Los ID de almacenamiento corresponden a documentos en la tabla de sistema `"_storage"` (consulta
+[Metadatos](/file-storage/file-metadata.mdx)), por lo que se pueden validar usando
+`v.id("_storage")`.
+
+<TSAndJSSnippet title="convex/images.ts" sourceTS={DeleteImage} sourceJS={DeleteImage} highlightPatterns={["delete\\("]} />

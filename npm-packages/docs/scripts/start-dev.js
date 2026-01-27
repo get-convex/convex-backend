@@ -4,6 +4,8 @@ const { execSync } = require("child_process");
 const { detect } = require("detect-port");
 
 async function startDev() {
+  const extraArgs = process.argv.slice(2).join(" ");
+
   console.log("📁 Cleaning docs/api directory...");
   execSync("npx rimraf docs/api", { stdio: "inherit" });
 
@@ -26,7 +28,9 @@ async function startDev() {
     `📖 Documentation will be available at: http://localhost:${port}\n`,
   );
 
-  execSync(`docusaurus start --port ${port}`, { stdio: "inherit" });
+  execSync(`docusaurus start --port ${port} ${extraArgs}`.trim(), {
+    stdio: "inherit",
+  });
 }
 
 startDev();

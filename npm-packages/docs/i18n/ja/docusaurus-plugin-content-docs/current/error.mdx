@@ -1,0 +1,187 @@
+---
+description: "Convex が発生させる特定のエラーを理解する"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+# エラーと警告 \{#errors-and-warnings\}
+
+このページでは、Convex がスローする特定のエラーについて説明します。
+
+エラー全般の処理方法については、[Error Handling](/functions/error-handling/error-handling.mdx) を参照してください。
+
+<div id="occ-failure" />
+
+## 書き込み競合: 楽観的同時実行制御 \{#1\}
+
+このシステムエラーは、並行して実行される複数のミューテーションによる変更が競合し、その結果としてミューテーションが繰り返し失敗するときにスローされます。
+
+### 例 A \{#example-a\}
+
+ミューテーション `updateCounter` は常に同じドキュメントを更新します。
+
+```ts
+export const updateCounter = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const doc = await ctx.db.get("counts", process.env.COUNTER_ID);
+    await ctx.db.patch("counts", doc._id, { value: doc.value + 1 });
+  },
+});
+```
+
+このミューテーションが1秒あたりに何度も呼び出されると、その多くの実行が互いに競合します。Convex は内部的にこの問題を軽減するために複数回リトライを行いますが、Convex が処理できる速度よりも速くミューテーションが呼び出される場合、一部の呼び出しは最終的に次のエラーをスローします。
+
+<ErrorExample name="updateCounter">
+  テーブル &quot;counters&quot; から読み取られた、または書き込まれたドキュメントが、この
+  ミューテーションの実行中およびその後のすべてのリトライ中に変更されました。別のこのミューテーションの呼び出しが、
+  ID &quot;123456789101112&quot; のドキュメントを変更しました。
+</ErrorExample>
+
+エラーメッセージには、テーブル名、どのミューテーションが競合を引き起こしたか（この例では同じミューテーションへの別の呼び出し）、および競合した変更に含まれていたドキュメント ID の1つが示されます。
+
+### 例B \{#example-b\}
+
+ミューテーション`writeCount`は`tasks`テーブル全体に依存しています。
+
+```ts
+export const writeCount = mutation({
+  args: {
+    target: v.id("counts"),
+  },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db.query("tasks").collect();
+    await ctx.db.patch("tasks", args.target, { value: tasks });
+  },
+});
+
+export const addTask = mutation({
+  args: {
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("tasks", { text: args.text });
+  },
+});
+```
+
+ミューテーション `writeCount` が、多数の `addTask` 呼び出しと同時に実行されると、どちらか、あるいは両方のミューテーションがこのエラーで失敗する可能性があります。これは、`"tasks"` テーブルへのあらゆる変更が `writeCount` ミューテーションと競合するためです。
+
+<ErrorExample name="writeCount">
+  テーブル &quot;tasks&quot; に対して読み取りまたは書き込みを行ったドキュメントが、この
+  ミューテーションの実行中およびその後のすべての再試行中に変更されました。&quot;addTask&quot; への呼び出しにより、
+  ID &quot;123456789101112&quot; のドキュメントが変更されました。
+</ErrorExample>
+
+### 対処方法 \{#remediation\}
+
+この問題を解決するには、次のようにしてください。
+
+1. ミューテーションが必要なデータだけを読み取るようにします。インデックス付きクエリと
+   [selective index range expressions](https://docs.convex.dev/database/indexes/) を使用して、
+   読み取るデータ量を減らすことを検討してください。
+2. ループ内のアクションから呼び出しているなどして、ミューテーションを想定外の回数
+   呼び出していないか確認します。
+3. 同じドキュメントに対して多くの書き込みを行う必要がないように、データモデルを設計します。
+
+### 参考資料 \{#resources\}
+
+* [楽観的同時実行制御](/database/advanced/occ.md)について詳しくは、こちらを参照してください。
+* ミューテーションの競合を回避するアプリの設計例については、[Stack の投稿](https://stack.convex.dev/waitlist)を参照してください。
+
+### 関連コンポーネント \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Workpool",
+    description:
+      "Workpool は非同期処理を個別のカスタマイズ可能なキューに整理することで、重要なタスクを優先的に処理します。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Sharded Counter",
+    description:
+      "高スループットなカウンターにより、書き込みを複数のドキュメントに分散させることで、書き込み競合を起こさずに非正規化されたカウントを実現できます。",
+    href: "https://www.convex.dev/components/sharded-counter",
+  },
+  {
+    title: "Action Cache",
+    description:
+      "頻繁に実行されるアクションをキャッシュします。`force` パラメータを利用してキャッシュを常に埋めておくことで、キャッシュを常に最新の状態に保ち、データレースを回避できます。",
+    href: "https://www.convex.dev/components/action-cache",
+  },
+]}
+/>
+
+## Undefined validator \{#undefined-validator\}
+
+このエラーは、Convex 関数定義またはスキーマに渡されたバリデーターが `undefined` の場合に発生します。\
+もっとも一般的な原因は、TypeScript における循環的な `import`（import cycle とも呼ばれます）です。
+
+### 例 \{#example\}
+
+互いに `import` し合っている 2 つのファイルがあるとします:
+
+```ts title="convex/validators.ts"
+import { v } from "convex/values";
+import { someUtility } from "./functions";
+
+export const myValidator = v.object({
+  name: v.string(),
+});
+
+// どこかで someUtility を使用します...
+```
+
+```ts title="convex/functions.ts"
+import { mutation } from "./_generated/server";
+// functions.ts と validators.ts の両方が相互にインポートしています。
+import { myValidator } from "./validators";
+
+export function someUtility() {
+  // ...
+}
+
+export const myMutation = mutation({
+  args: {
+    data: myValidator, // <-- インポートサイクルの影響で undefined になる可能性があります
+  },
+  handler: async (ctx, args) => {
+    // ...
+  },
+});
+```
+
+`functions.ts` が読み込まれるとき、`validators.ts` から `import` しますが、`validators.ts` はさらに
+`functions.ts` からの `import` を試みます。`functions.ts` の `import` 文の処理がまだ終わっていないため、
+`myValidator` は依然として `undefined` のままで、その結果 `mutation` ビルダーがエラーをスローします。
+
+注意: ログを出力しようとすると、実行時には値が定義されているように見える場合があります。これは TypeScript の
+インポート時の挙動によるちょっとしたクセにすぎません。
+
+### `schema.ts` が関係する循環 \{#cycles-involving-schemats\}
+
+この種の循環をうっかり生み出してしまう一般的なパターンとして、
+`schema.ts` ファイルが関わるケースがあります。大きなアプリでは、バリデーターやテーブル全体を別の
+ファイルに定義しておき、それらを `schema.ts` にインポートすることがよくあります。
+
+これらのファイルが `schema.ts` をインポートしていたり、`schema.ts` をインポートするファイルに依存している場合、循環が発生します。
+
+```text
+schema.ts → validators.ts → someFile.ts → schema.ts
+```
+
+このサイクルを断ち切るには、依存関係を最小限に抑えた「純粋な」ファイルにバリデータを定義し、必要な場所からインポートして使ってください。
+
+### 循環インポートを調査する \{#investigate-circular-imports\}
+
+循環インポートが疑われるものの場所がはっきりしない場合は、
+[madge](https://github.com/pahen/madge) のようなツールを使うと、インポートグラフを可視化し、
+循環参照を検出して一覧表示できます。
+
+```bash
+npx madge convex/ --extensions ts --exclude api.d.ts --circular
+```
+
+ここでは `api.d.ts` を除外します。型専用インポートは一般に安全だからです。

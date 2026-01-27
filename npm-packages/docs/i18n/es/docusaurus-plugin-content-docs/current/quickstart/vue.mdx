@@ -1,0 +1,110 @@
+---
+title: Guía de inicio rápido de Vue
+sidebar_label: Vue
+description: "Añade Convex a un proyecto de Vue"
+hide_table_of_contents: true
+sidebar_position: 325
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/main.ts";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/vue/convex/tasks.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/App.vue";
+
+Aprende a consultar datos de Convex desde una app de Vue.
+
+Esta guía de inicio rápido usa un cliente de Vue [mantenido por la comunidad](/client/vue.md)
+para Convex.
+
+<StepByStep>
+  <Step title="Create a Vue site">
+    Crea un sitio de Vue usando el comando `npm create vue@latest my-vue-app`.
+
+    Convex funcionará con cualquier conjunto de opciones, pero para seguir esta guía de inicio rápido lo más fielmente posible elige:
+
+    * Sí en &quot;Add TypeScript?&quot;
+    * No para todo lo demás
+
+    <br />
+
+    ```sh
+    npm create vue@latest my-vue-app
+    ```
+  </Step>
+
+  <Step title="Install the Convex library">
+    Para comenzar, instala el paquete `convex`.
+
+    ```sh
+    cd my-vue-app && npm install convex convex-vue
+    ```
+  </Step>
+
+  <Step title="Set up a Convex dev deployment">
+    A continuación, ejecuta `npx convex dev`. Esto
+    te pedirá que inicies sesión con GitHub,
+    crees un proyecto y guardes tus URL de producción y de implementación.
+
+    También creará una carpeta `convex/`
+    para que escribas en ella las funciones de backend de tu API. El comando `dev`
+    seguirá ejecutándose para sincronizar tus funciones
+    con tu despliegue dev en la nube.
+
+    ```sh
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="Create sample data for your database">
+    En una nueva ventana de terminal, crea un archivo `sampleData.jsonl`
+    con algunos datos de ejemplo.
+
+    <Snippet source={sampleData} title="sampleData.jsonl" />
+  </Step>
+
+  <Step title="Add the sample data to your database">
+    Ahora que tu proyecto está listo, añade una tabla `tasks`
+    con los datos de ejemplo a tu base de datos de Convex con
+    el comando `import`.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="Expose a database query">
+    Añade un nuevo archivo `tasks.ts` en la carpeta `convex/`
+    con una función de consulta que cargue los datos.
+
+    Exportar una función de consulta desde este archivo
+    declara una función de API con el nombre del archivo
+    y el nombre del export, `api.tasks.get`.
+
+    <Snippet source={tasks} title="convex/tasks.ts" />
+  </Step>
+
+  <Step title="Wire up the ConvexProvider">
+    En `src/main.ts` configura el cliente de Convex para que esté disponible en cada página de tu app.
+
+    <Snippet source={main} title="src/main.ts" />
+  </Step>
+
+  <Step title="Display the data in your app">
+    En `src/App.vue` usa `useQuery` para suscribirte a tu función de la API
+    `api.tasks.get`.
+
+    <Snippet source={App} title="src/App.vue" />
+  </Step>
+
+  <Step title="Start the app">
+    Inicia la app, abre [http://localhost:5173](http://localhost:5173) en un navegador
+    y ve la lista de tareas.
+
+    ```sh
+    npm run dev
+    ```
+  </Step>
+</StepByStep>
+
+Consulta la documentación completa del
+[paquete npm de Vue](https://www.npmjs.com/package/convex-vue).

@@ -1,0 +1,214 @@
+---
+title: Android Kotlin 快速入门
+sidebar_label: Android Kotlin
+description: "在 Android Kotlin 项目中集成 Convex"
+hide_table_of_contents: true
+sidebar_position: 600
+---
+
+了解如何在 Android Kotlin 项目中从 Convex 查询数据。
+
+本快速入门指南假定你已经安装了 Android Studio、Node.js 和 npm。如果
+你还没有这些工具，请先花点时间安装它们。
+
+<StepByStep>
+  <Step title="在 Android Studio 中新建一个 Android 应用">
+    在向导中选择如下选项。
+
+    ```
+    1. Choose the "Empty Activity" template
+    2. Name it "Convex Quickstart"
+    3. Choose min SDK as 26
+    4. Choose Kotlin as the Gradle DSL
+    ```
+  </Step>
+
+  <Step title="配置 AndroidManifest 文件">
+    在 `AndroidManifest.xml` 中添加如下内容。
+
+    ```xml
+    <?xml version="1.0" encoding="utf-8"?>
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools">
+        // highlight-next-line
+        <uses-permission android:name="android.permission.INTERNET"/>
+        <application>
+            <!-- ... 现有应用程序内容 -->
+        </application>
+    </manifest>
+    ```
+  </Step>
+
+  <Step title="配置依赖">
+    将以下条目添加到 `:app` 的 `build.gradle.kts` 文件中（如果 IDE 提示你将它们移动到 version catalog，暂时忽略该建议）。
+
+    完成上述所有步骤后，务必执行一次 Gradle 同步（Android Studio 应该会提示你进行同步）。
+
+    ```kotlin
+    plugins {
+        // ... existing plugins
+        // highlight-next-line
+        kotlin("plugin.serialization") version "1.9.0"
+    }
+
+    dependencies {
+        // ... 现有依赖项
+        // highlight-next-line
+        implementation("dev.convex:android-convexmobile:0.4.1@aar") {
+            // highlight-next-line
+            isTransitive = true
+        // highlight-next-line
+        }
+        // highlight-next-line
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    }
+    ```
+  </Step>
+
+  <Step title="安装 Convex 后端服务">
+    在 Android Studio 中打开终端，然后安装 Convex 客户端和服务端库。
+
+    ```bash
+    npm init -y
+    npm install convex
+    ```
+  </Step>
+
+  <Step title="开始使用 Convex">
+    启动 Convex 开发环境（dev）部署。按照命令行提示操作。
+
+    ```bash
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="为数据库创建示例数据">
+    新建一个名为 `sampleData.jsonl` 的文件，内容如下。
+
+    ```json
+    {"text": "Buy groceries", "isCompleted": true}
+    {"text": "Go for a swim", "isCompleted": true}
+    {"text": "Integrate Convex", "isCompleted": false}
+    ```
+  </Step>
+
+  <Step title="向数据库添加示例数据">
+    再打开一个终端标签页，然后运行。
+
+    ```bash
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="公开数据库查询">
+    在你的 `convex/` 目录中创建一个名为 `tasks.ts` 的文件，并填入以下内容。
+
+    ```tsx
+    import { query } from "./_generated/server";
+
+    export const get = query({
+      args: {},
+      handler: async (ctx) => {
+        return await ctx.db.query("tasks").collect();
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="创建数据类">
+    在你的 `MainActivity` 中添加一个新的 `data class`，用于支持上面定义的任务数据。按照提示导入所需的内容。
+
+    ```kotlin
+    @Serializable
+    data class Task(val text: String, val isCompleted: Boolean)
+    ```
+  </Step>
+
+  <Step title="创建你的 UI">
+    删除 Android Studio 创建的模板 `@Composable` 函数，并添加一个新的函数来显示来自你的 Convex 部署的数据。同样，按照提示导入所有需要的内容。
+
+    ```kotlin
+    @Composable
+    fun Tasks(client: ConvexClient, modifier: Modifier = Modifier) {
+        var tasks: List<Task> by remember { mutableStateOf(listOf()) }
+        LaunchedEffect(key1 = "launch") {
+            client.subscribe<List<Task>>("tasks:get").collect { result ->
+                result.onSuccess { remoteTasks ->
+                    tasks = remoteTasks
+                }
+            }
+        }
+        LazyColumn(
+            modifier = modifier
+        ) {
+            items(tasks) { task ->
+                Text(text = "Text: ${task.text}, Completed?: ${task.isCompleted}")
+            }
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="将应用连接到后端">
+    1. 通过以下命令获取开发环境（dev）服务器的部署 URL：
+       `cat .env.local | grep CONVEX_URL`
+    2. 将 `MainActivity.kt` 中的 `onCreate` 方法修改为如下所示：
+
+    ```kotlin
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            ConvexQuickstartTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    // highlight-next-line
+                    Tasks(
+                        // highlight-next-line
+                        client = ConvexClient($YOUR_CONVEX_URL),
+                        // highlight-next-line
+                        modifier = Modifier.padding(innerPadding)
+                    // highlight-next-line
+                    )
+                }
+            }
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="修复所有缺失的导入语句">
+    补全所有缺失的 import（你的 import 声明应该类似下面这样）：
+
+    ```kotlin
+    import android.os.Bundle
+    import androidx.activity.ComponentActivity
+    import androidx.activity.compose.setContent
+    import androidx.activity.enableEdgeToEdge
+    import androidx.compose.foundation.layout.fillMaxSize
+    import androidx.compose.foundation.layout.padding
+    import androidx.compose.foundation.lazy.LazyColumn
+    import androidx.compose.foundation.lazy.items
+    import androidx.compose.material3.Scaffold
+    import androidx.compose.material3.Text
+    import androidx.compose.runtime.Composable
+    import androidx.compose.runtime.LaunchedEffect
+    import androidx.compose.runtime.getValue
+    import androidx.compose.runtime.mutableStateOf
+    import androidx.compose.runtime.remember
+    import androidx.compose.runtime.setValue
+    import androidx.compose.ui.Modifier
+    import dev.convex.android.ConvexClient
+    import kotlinx.serialization.Serializable
+    ```
+  </Step>
+
+  <Step title="运行应用程序">
+    你也可以在 `dashboard.convex.dev` 的 `tasks` 表中尝试添加、更新或删除文档，应用会实时更新并反映这些更改。
+
+    ```
+    从 IDE 菜单中选择 "Run" > "Run 'app'"
+    ```
+  </Step>
+</StepByStep>
+
+请参阅 [Android Kotlin 完整文档](/client/android.md)。

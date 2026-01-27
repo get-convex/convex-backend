@@ -1,0 +1,230 @@
+---
+title: "全文検索"
+sidebar_position: 110
+description: "Convex ドキュメントに対して検索クエリを実行する"
+slug: "text-search"
+---
+
+全文検索を使うと、検索クエリにだいたい一致する Convex ドキュメントを見つけることができます。
+
+通常の
+[ドキュメントクエリ](/database/reading-data/reading-data.mdx#querying-documents)
+とは異なり、検索クエリは文字列フィールドの *内部* を見てキーワードを探します。検索クエリは、特定の単語を含むメッセージを検索するといった機能を構築するのに便利です。
+
+検索クエリは自動的にリアクティブで、一貫性があり、トランザクション性があり、ページネーションともシームレスに動作します。ミューテーションで新しく作成されたドキュメントも検索結果に含まれます。
+
+**例:**
+[Search App](https://github.com/get-convex/convex-demos/tree/main/search)
+
+全文検索を使うには次のことを行います:
+
+1. 検索インデックスを定義する。
+2. 検索クエリを実行する。
+
+検索インデックスは、Rust で書かれた強力なオープンソース全文検索ライブラリである [Tantivy](https://github.com/quickwit-oss/tantivy) の上で、Convex のマルチセグメント検索アルゴリズムを用いて構築され、クエリされます。
+
+## 検索インデックスの定義 \{#defining-search-indexes\}
+
+[データベースインデックス](/database/reading-data/indexes/indexes.md)と同様に、検索インデックスは効率的なクエリ実行を可能にするために事前に構築されるデータ構造です。
+検索インデックスは Convex の[スキーマ](/database/schemas.mdx)の一部として定義されます。
+
+すべての検索インデックス定義は次の要素から成ります:
+
+1. 名前
+   * テーブルごとに一意である必要があります。
+2. `searchField`
+   * これは全文検索のためにインデックスされるフィールドです。
+   * 型は `string` である必要があります。
+3. 【オプション】`filterField` のリスト
+   * これらは検索インデックス内での高速な等価フィルタリングのために
+     追加でインデックスされるフィールドです。
+4. 【オプション】boolean 型の `staged` フラグ
+   * `true` に設定すると、
+     [staged database indexes](/database/reading-data/indexes#staged-indexes)
+     と同様にデプロイ後に非同期でインデックスのバックフィルが行われます。
+     これはインデックスのバックフィル時間が長くなる大きなテーブルに対して有用です。
+     既定値は `false` です。
+
+テーブルに検索インデックスを追加するには、テーブルのスキーマで
+[`searchIndex`](/api/classes/server.TableDefinition#searchindex) メソッドを使用します。
+たとえば、チャネル内でキーワードにマッチするメッセージを検索できるインデックスが
+欲しい場合、スキーマは次のように定義できます:
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  messages: defineTable({
+    body: v.string(),
+    channel: v.string(),
+  }).searchIndex("search_body", {
+    searchField: "body",
+    filterFields: ["channel"],
+    staged: false,
+  }),
+});
+```
+
+ネストされたドキュメント内の検索フィールドやフィルターフィールドは、
+`properties.name` のようなドット区切りのパスで指定できます。
+
+## 検索クエリの実行 \{#running-search-queries\}
+
+「チャンネル『#general』内で、本文が検索語句『hello hi』と最もよく一致するメッセージを10件返すクエリ」は、次のようになります。
+
+```js
+const messages = await ctx.db
+  .query("messages")
+  .withSearchIndex("search_body", (q) =>
+    q.search("body", "hello hi").eq("channel", "#general"),
+  )
+  .take(10);
+```
+
+これは、検索インデックスに対するクエリから始まる、通常の
+[データベースの読み取り](/database/reading-data/reading-data.mdx)
+にすぎません。
+
+[`.withSearchIndex`](/api/interfaces/server.QueryInitializer#withsearchindex)
+メソッドは、どの検索インデックスに対してクエリを実行するかと、Convex がその検索インデックスを使ってどのようにドキュメントを選択するかを定義します。最初の引数はインデックス名で、2 つ目の引数は*検索フィルター式*です。検索フィルター式は、クエリの実行時に Convex がどのドキュメントを対象とするかを記述したものです。
+
+検索フィルター式は常に、次を連結したリストです:
+
+1. インデックスの検索フィールドに対する 1 つの検索式（
+   [`.search`](/api/interfaces/server.SearchFilterBuilder#search)
+   で定義）。
+2. インデックスのフィルターフィールドに対する 0 個以上の等値式（
+   [`.eq`](/api/interfaces/server.SearchFilterFinalizer#eq)
+   で定義）。
+
+### 検索式 \{#search-expressions\}
+
+検索式は検索インデックスに対して発行され、検索式のクエリに対する関連度に基づいて
+ドキュメントをフィルタリングし、順位付けします。内部的には、
+Convex はクエリを個々の単語（*terms* と呼びます）に分割し、
+これらの term にマッチするドキュメントのおおまかな順位付けを行います。
+
+上記の例では、式 `search("body", "hello hi")` は
+内部的に `"hi"` と `"hello"` に分割され、ドキュメント内の単語と
+（大文字小文字や句読点を無視して）照合されます。
+
+検索の挙動には [前方一致のルール](#search-behavior) が組み込まれています。
+
+### 等価式 \{#equality-expressions\}
+
+検索式とは異なり、等価式は、指定されたフィールドが指定した値と完全に一致するドキュメントだけに絞り込みます。上記の例では、
+`eq("channel", "#general")` は、`channel` フィールドに
+正確に `"#general"` が入っているドキュメントだけにマッチします。
+
+等価式は、（テキストに限らず）任意の型のフィールドで利用できます。
+
+フィールドが存在しないドキュメントを絞り込むには、
+`q.eq("fieldName", undefined)` を使用します。
+
+### その他のフィルタリング \{#other-filtering\}
+
+検索クエリは通常のデータベースクエリでもあるため、
+[結果をフィルタする](/database/reading-data/filters.mdx)ために
+[`.filter` メソッド](/api/interfaces/server.Query#filter)も使用できます。
+
+次は「直近10分間に送信された、&#39;hi&#39; を含むメッセージ」を取得するクエリの例です:
+
+```js
+const messages = await ctx.db
+  .query("messages")
+  .withSearchIndex("search_body", (q) => q.search("body", "hi"))
+  .filter((q) => q.gt(q.field("_creationTime", Date.now() - 10 * 60000)))
+  .take(10);
+```
+
+**パフォーマンスのため、可能な限り多くのフィルター条件を
+`.withSearchIndex` に含めるようにしてください。**
+
+すべての検索クエリは次の手順で実行されます。
+
+1. まず、`withSearchIndex` 内の検索フィルター式を使って検索インデックスをクエリします。
+2. 次に、追加の `filter` 式を使って、結果を 1 件ずつフィルタリングします。
+
+検索フィルター式がより限定的であるほど、クエリは高速になり、Convex の制限に達しにくくなります。これは、Convex が検索インデックスを使って、検討対象となる結果の数を効率的に絞り込めるためです。
+
+### 結果の取得とページネーション \{#retrieving-results-and-paginating\}
+
+通常のデータベース クエリと同様に、
+[結果を取得](/database/reading-data/reading-data.mdx#retrieving-results)
+するには [`.collect()`](/api/interfaces/server.Query#collect),
+[`.take(n)`](/api/interfaces/server.Query#take),
+[`.first()`](/api/interfaces/server.Query#first),
+[`.unique()`](/api/interfaces/server.Query#unique)
+を使用できます。
+
+さらに、検索結果は
+[`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)
+を使用して[ページング](/database/pagination.mdx)できます。
+
+`collect()` は、1024 ドキュメントという上限を超えて収集しようとすると例外をスローします。より小さい上限を指定し、`take(n)` を使うか、結果をページングする方がよい場合が多いです。
+
+### 並び順 \{#ordering\}
+
+検索クエリは常に、ドキュメントが検索クエリにどれだけ一致しているかに基づいて
+[関連度順](#relevance-order)で結果を返します。検索結果を別の順序で並べ替えることはできません。
+
+## 検索の挙動 \{#search-behavior\}
+
+### タイプアヘッド検索 \{#typeahead-search\}
+
+Convex の全文検索は、入力中の検索体験を実現するように設計されています。
+検索クエリでは、最後の検索語句には *プレフィックス検索* が有効になっており、元の検索語の前方一致となる任意の単語にマッチします。例えば、式
+`search("body", "r")` は次のドキュメントにマッチします：
+
+* `"rabbit"`
+* `"send request"`
+
+あいまい検索による一致は非推奨です。2025 年 1 月 15 日以降、`"stake"` のようなタイプミスに対しては `"snake"` は検索結果に含まれなくなります。
+
+### 関連度順 \{#relevance-order\}
+
+**関連度順は今後変更される可能性があります。** 検索結果の関連度や、
+Convex が適用する正確なルールは、検索結果の品質を向上させるために
+変更される可能性があります。
+
+検索クエリは関連度順に結果を返します。内部的には、Convex は
+[BM25 スコア](https://en.wikipedia.org/wiki/Okapi_BM25) と、マッチした語の近さ、
+完全一致の数など、いくつかの他の基準を組み合わせてドキュメントの関連度を
+算出し、順位付けします。BM25 スコアは次の点を考慮します:
+
+* 検索クエリ中の単語がフィールド内にいくつ含まれているか？
+* それらは何回出現するか？
+* テキストフィールドの長さはどれくらいか？
+
+複数のドキュメントが同じスコアを持つ場合は、より新しいドキュメントが
+先に返されます。
+
+## 制限事項 \{#limits\}
+
+検索インデックスは、英語やその他のラテン文字系の言語で最も効果的に機能します。テキストは
+Tantivy の
+[`SimpleTokenizer`](https://docs.rs/tantivy/latest/tantivy/tokenizer/struct.SimpleTokenizer.html)
+を使ってトークン化され、空白と句読点で分割されます。また、用語は長さ 32 文字以内に制限され、すべて小文字に変換されます。
+
+検索インデックスには次の制約があります:
+
+* 検索フィールドはちょうど 1 つ。
+* フィルターフィールドは最大 16 個。
+
+検索インデックスは、
+[テーブルごとのインデックス数 32 個の上限](/database/reading-data/indexes/indexes.md#limits)
+に含まれます。
+
+検索クエリには次の制約があります:
+
+* 検索式内の用語（単語）は最大 16 個。
+* フィルター式は最大 8 個。
+
+さらに、検索クエリは検索インデックスから最大 1024 件の結果をスキャンできます。
+
+これらの制限の正式な情報源は、
+[ソースコード](https://github.com/get-convex/convex-backend/blob/main/crates/search/src/constants.rs)
+です。
+
+その他の制限については[こちら](/production/state/limits.mdx)を参照してください。

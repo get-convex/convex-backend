@@ -1,0 +1,35 @@
+---
+title: "预览部署"
+sidebar_label: "预览部署"
+description: "在托管服务商的预览部署中使用 Convex"
+sidebar_position: 200
+---
+
+Convex 预览部署让你的团队可以在将后端变更推送到生产环境之前进行测试。
+
+配合 Vercel Preview Deployments 或 Netlify Deploy Previews，你可以同时预览前端和后端的变更。
+
+<BetaAdmonition feature="Convex preview deployments" verb="are" />
+
+## 设置 \{#setup\}
+
+按照 [Vercel](/production/hosting/vercel.mdx#preview-deployments) 或
+[Netlify](/production/hosting/netlify.mdx#deploy-previews) 的托管指南，同时配置前端和后端预览，并了解 Convex 预览部署的工作原理。
+
+运行 `npx convex deploy --help` 查看 `npx convex deploy` 的所有可用选项。
+
+## 限制 \{#limits\}
+
+Convex 预览部署会在创建后 5 天（Convex Professional 套餐为 14 天）自动清理，或者在创建了同名的新预览部署时被清理。你也可以在 Convex 仪表盘中手动删除它们。
+
+预览部署会计入你的部署数量上限。
+
+当 Convex 预览部署被删除后，Vercel/Netlify 的预览链接仍然可以打开并显示界面，但由于它指向的 Convex 部署已经不存在，将无法运行任何 Convex 函数。在这种情况下，在 Vercel/Netlify 中重新部署会生成一个指向新的 Convex 部署的链接。
+
+对于给定名称（Git 分支），Convex 同一时间只允许存在一个部署。当向已有分支推送更新时，现有部署会被删除，在它被新的 Convex 部署替换之前，预览链接会暂时无法运行 Convex 函数。
+
+可以通过运行一个函数来在 Convex 预览部署上初始化数据。目前没有其他方式在 Convex 预览部署上设置数据——不支持基于生产数据副本查看变更，也不支持从其他 Convex 部署导入数据。
+
+注意，如果函数调用失败，`deploy` 命令也会失败，但新的预览部署此时已经完成预配。最佳做法是修复函数中的问题，然后重新部署。
+
+预览部署支持目前是一个测试版功能，如果你有任何反馈，[欢迎在 Discord 上告诉我们](https://convex.dev/community)！

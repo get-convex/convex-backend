@@ -1,0 +1,69 @@
+---
+title: 平台 API
+---
+
+# 平台 API \{#platform-apis\}
+
+<Admonition type="info">
+  Convex 平台 API 现已公开提供 Beta 版本。如果你的用例需要额外的功能，请联系
+  platforms@convex.dev。
+</Admonition>
+
+本指南适用于希望在自己的账户中编排多个 Convex 项目，或在其用户账户中管理项目的产品。这些 API 最常被 AI 应用构建平台使用，例如 [Bloom](https://bloom.diy/)、[A0](https://a0.dev/) 或 [Macaly](https://www.macaly.com/)。
+
+这些指南假定你已经对 Convex 云层级结构（团队、项目和部署）以及
+[开发工作流](/understanding/workflow) 有了深入理解。
+
+## 管理你自己的项目 \{#managing-your-own-projects\}
+
+这意味着你是在自己所属团队的上下文中，以编程方式创建项目、部署并推送代码。
+
+要在自己的团队中管理项目，你需要从
+[Team Settings](https://dashboard.convex.dev/team/settings/access-tokens)
+获取一个团队范围的 token 和 ID。
+
+<Admonition type="caution">
+  这些 token 属于在检索它们时登录 Convex 仪表盘的那位团队成员。
+
+  这意味着，使用这些 token 创建的任何开发环境（dev）部署都归该用户所有。如果该用户离开团队，他/她名下的所有开发环境（dev）部署也会从团队中被删除。
+
+  我们建议创建一个单独的服务账号，并将其添加为团队成员。
+  以该服务账号登录后再检索 token。
+</Admonition>
+
+## 管理你的用户的项目 \{#managing-your-users-projects\}
+
+这意味着你的用户会授权你的产品来管理他们自己的 Convex 团队或项目。
+
+为此，你需要创建一个 OAuth 2.0 应用程序，以便用户可以向你的产品授予所需的权限。
+
+请按照 [OAuth Applications](/platform-apis/oauth-applications) 指南创建一个 OAuth 应用程序并获取相应的令牌。
+
+## 用于管理项目的 API \{#apis-to-manage-projects\}
+
+一旦你通过上述任一方法获取了令牌，就可以用它来调用相关 API，
+管理 Convex 项目和部署。
+
+[管理 API 参考](/management-api)
+
+## 将代码推送到部署 \{#pushing-code-to-a-deployment\}
+
+与部署交互时，主要应使用现有的 Convex CLI 通过脚本化方式完成。Convex CLI 会处理大量繁重工作：打包代码、正确处理响应等。
+
+这里的示例假定你在一个具有 shell 和文件系统访问权限的容器中工作，并可以在其中驱动应用的构建过程。如果你正在生成前端代码，很可能已经具备这样的环境。
+
+将 [`CONVEX_DEPLOY_KEY`](/cli/deploy-key-types.mdx) 设置为 [Create deploy key](/management-api/create-deploy-key) API 返回的值。
+
+### 将代码推送到 Convex 开发环境后端 \{#pushing-code-to-the-dev-convex-backend\}
+
+```bash
+CONVEX_DEPLOY_KEY="YOUR_DEPLOY_KEY" npx convex dev --once
+```
+
+### 将代码推送到生产环境 Convex 后端 \{#pushing-code-to-the-prod-convex-backend\}
+
+```bash
+CONVEX_DEPLOY_KEY="YOUR_DEPLOY_KEY" npx convex deploy
+```
+
+要查看全部命令，请参阅 [CLI 文档（命令行界面）](/cli)。

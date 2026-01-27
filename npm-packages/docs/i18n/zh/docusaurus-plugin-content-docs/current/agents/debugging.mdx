@@ -1,0 +1,82 @@
+---
+title: 调试
+sidebar_label: "调试"
+sidebar_position: 1100
+description: "调试 Agent 组件"
+---
+
+## 在 Playground 中调试 \{#debugging-in-the-playground\}
+
+通常，[Playground](./playground.mdx) 已经能提供大量关于当前情况的信息，但如果这些还不够，你还有其他可用的选项。
+
+## 记录来自 LLM 调用的原始请求和响应 \{#logging-the-raw-request-and-response-from-llm-calls\}
+
+你可以向 agent 提供一个 `rawRequestResponseHandler`，用于记录来自 LLM 的原始请求和响应。
+
+你可以使用它将请求和响应记录到表中，或者结合
+[Log Streaming](https://docs.convex.dev/production/integrations/log-streams/) 使用控制台日志，以便通过 Axiom 或其他日志服务进行调试和搜索。
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  rawRequestResponseHandler: async (ctx, { request, response }) => {
+    console.log("request", request);
+    console.log("response", response);
+  },
+});
+```
+
+## 通过 contextHandler 记录上下文消息 \{#logging-the-context-messages-via-the-contexthandler\}
+
+如果你想知道 LLM 实际接收到的内容，可以通过 contextHandler 记录上下文消息。
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  contextHandler: async (ctx, { allMessages }) => {
+    console.log("context", allMessages);
+    return allMessages;
+  },
+});
+```
+
+## 在仪表盘中检查数据库 \{#inspecting-the-database-in-the-dashboard\}
+
+你可以在仪表盘中进入 Data 选项卡，并在表列表上方选择 agent 组件来查看 Agent 数据。表的结构与
+[schema](https://github.com/get-convex/agent/blob/main/src/component/schema.ts)
+一致。最有用的表包括：
+
+* `threads`：每个线程占一行
+* `messages`：每条 ModelMessage 占一行，例如用户消息、assistant 工具调用、工具结果、assistant 消息等。最重要的字段包括：`agentName`（表示与哪个 agent 关联）、`status`、`order` 和 `stepOrder`（用于对消息排序），以及 `message`（大致是传递给 LLM 的内容）。
+* `streamingMessages`：每条流式消息对应一条记录，直到被清理为止。你可以使用其中的 ID 来查看关联的 `streamDeltas` 表。
+* `files`：记录 Agent 跟踪的文件，这些文件来自消息中发送的内容，并已存储到 File Storage 中。
+
+## 故障排查 \{#troubleshooting\}
+
+### `components.agent` 的类型错误 \{#type-errors-on-componentsagent\}
+
+如果你遇到 `components.agent` 的类型错误，先确认你已经运行过
+`npx convex dev` 来为该组件生成代码。该库期望的类型位于 npm 库中，而 `components.agent` 的类型目前则来自你项目中生成的代码（通过 `npx convex dev`）。
+
+### 循环依赖 \{#circular-dependencies\}
+
+当 workflow 的返回值依赖于其他 Convex 函数时，由于通过 `internal.foo.bar` 的方式来指定函数，可能会导致循环依赖。解决方法是显式为 workflow 的返回值声明类型。如果拿不准，可以像下面这样为更多的 `handler` 函数添加返回类型：
+
+```ts
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
+  // highlight-next-line
+  handler: async (step, { prompt, userId, threadId }): Promise<string> => {
+    // ...
+  },
+});
+
+// 常规函数也是如此:
+export const myFunction = action({
+  args: { prompt: v.string() },
+  // highlight-next-line
+  handler: async (ctx, { prompt }): Promise<string> => {
+    // ...
+  },
+});
+```

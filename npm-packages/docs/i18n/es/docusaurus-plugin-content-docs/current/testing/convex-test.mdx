@@ -1,0 +1,347 @@
+---
+title: convex-test
+sidebar_label: convex-test
+sidebar_position: 100
+description: "Backend de Convex simulado para pruebas automatizadas rápidas de funciones"
+---
+
+import Demo from "!!raw-loader!@site/../demos/convex-test/convex/posts.test.ts";
+import SchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/scheduling.test.ts";
+import ChainedSchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/chainedScheduling.test.ts";
+import AuthDemo from "!!raw-loader!@site/../demos/convex-test/convex/auth.test.ts";
+import MockingFetchDemo from "!!raw-loader!@site/../demos/convex-test/convex/mockingFetch.test.ts";
+import ErrorDemo from "!!raw-loader!@site/../demos/convex-test/convex/error.test.ts";
+import HttpDemo from "!!raw-loader!@site/../demos/convex-test/convex/http.test.ts";
+import RunDemo from "!!raw-loader!@site/../demos/convex-test/convex/run.test.ts";
+
+La biblioteca [`convex-test`](https://www.npmjs.com/package/convex-test) proporciona
+una implementación simulada del backend de Convex en JavaScript. Permite realizar pruebas
+automatizadas rápidas de la lógica de tus [funciones](/functions.mdx).
+
+## Ejemplo \{#example\}
+
+<TSAndJSSnippet title="convex/posts.test.ts" sourceTS={Demo} sourceJS={Demo} highlightPatterns={["t.query", "t.mutation", "convexTest(schema)"]} />
+
+Puedes ver más ejemplos en la
+[suite de pruebas](https://github.com/get-convex/convex-test/tree/main/convex) de la
+librería convex-test.
+
+## Primeros pasos \{#get-started\}
+
+<StepByStep>
+  <Step title="Instala las dependencias de prueba">
+    Instala [Vitest](https://vitest.dev/) y la librería [`convex-test`](https://www.npmjs.com/package/convex-test).
+
+    ```sh
+    npm install --save-dev convex-test vitest @edge-runtime/vm
+    ```
+  </Step>
+
+  <Step title="Configurar scripts de npm">
+    Añade estos scripts a tu `package.json`
+
+    ```json title="package.json"
+    "scripts": {
+      "test": "vitest",
+      "test:once": "vitest run",
+      "test:debug": "vitest --inspect-brk --no-file-parallelism",
+      "test:coverage": "vitest run --coverage --coverage.reporter=text",
+    }
+    ```
+  </Step>
+
+  <Step title="Configurar Vitest">
+    Add <JSDialectFileName name="vitest.config.ts" /> file to configure the test
+    environment to better match the Convex runtime, and to inline the test library
+    for better dependency tracking.
+
+    <Details summary={<>Si tus funciones de Convex están en un directorio distinto de <code>convex</code></>}>
+      Si tu proyecto tiene un
+      [nombre o una ubicación diferente configurados](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)
+      para la carpeta `convex/` en `convex.json`, necesitas llamar a
+      [`import.meta.glob`](https://vitejs.dev/guide/features#glob-import) y pasar el
+      resultado como segundo argumento a `convexTest`.
+
+      El argumento de `import.meta.glob` debe ser un patrón glob que coincida con todos los archivos
+      que contengan tus funciones de Convex. Las rutas son relativas al archivo de prueba en
+      el que se llama a `import.meta.glob`. Es mejor hacer esto en un único lugar dentro de tu
+      carpeta de funciones personalizadas:
+
+      ```ts title="src/convex/test.setup.ts"
+      /// <reference types="vite/client" />
+      export const modules = import.meta.glob(
+        "./**/!(*.*.*)*.*s"
+      );
+      ```
+
+      Este ejemplo de patrón glob incluye todos los archivos con una sola extensión que termina en
+      `s` (como `js` o `ts`) en la carpeta `src/convex` y en cualquiera de sus subcarpetas.
+
+      Usa el resultado en tus tests:
+
+      ```ts title="src/convex/messages.test.ts"
+      import { convexTest } from "convex-test";
+      import { test } from "vitest";
+      import schema from "./schema";
+      import { modules } from "./test.setup";
+
+      test("some behavior", async () => {
+        const t = convexTest(schema, modules);
+        // usa `t`...
+      });
+      ```
+    </Details>
+
+    <Details summary="Configurar múltiples entornos de prueba (por ejemplo, Convex + frontend)">
+      Si quieres usar Vitest para probar tanto tus funciones de Convex como tu frontend
+      de React, quizá quieras usar múltiples entornos de Vitest en función de la
+      ubicación del archivo de prueba mediante
+      [environmentMatchGlobs](https://vitest.dev/config/#environmentmatchglobs):
+
+      ```ts title="vitest.config.ts"
+      import { defineConfig } from "vitest/config";
+
+      export default defineConfig({
+        test: {
+          environmentMatchGlobs: [
+            // todos los tests en convex/ se ejecutarán en edge-runtime
+            ["convex/**", "edge-runtime"],
+            // todos los demás tests usan jsdom
+            ["**", "jsdom"],
+          ],
+          server: { deps: { inline: ["convex-test"] } },
+        },
+      });
+      ```
+    </Details>
+
+    ```ts title="vitest.config.ts"
+    import { defineConfig } from "vitest/config";
+
+    export default defineConfig({
+      test: {
+        environment: "edge-runtime",
+        server: { deps: { inline: ["convex-test"] } },
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="Añade un archivo de prueba">
+    En tu carpeta `convex` añade un archivo cuyo nombre termine en <JSDialectFileName name=".test.ts" />
+
+    La prueba de ejemplo llama dos veces a la mutación `api.messages.send`
+    y luego verifica que la consulta `api.messages.list` devuelve
+    los resultados esperados.
+
+    ```ts title="convex/messages.test.ts"
+    import { convexTest } from "convex-test";
+    import { expect, test } from "vitest";
+    import { api } from "./_generated/api";
+    import schema from "./schema";
+
+    test("sending messages", async () => {
+      const t = convexTest(schema);
+      await t.mutation(api.messages.send, { body: "Hi!", author: "Sarah" });
+      await t.mutation(api.messages.send, { body: "Hey!", author: "Tom" });
+      const messages = await t.query(api.messages.list);
+      expect(messages).toMatchObject([
+        { body: "Hi!", author: "Sarah" },
+        { body: "Hey!", author: "Tom" }
+      ]);
+    });
+    ```
+  </Step>
+
+  <Step title="Ejecuta las pruebas">
+    Ejecuta las pruebas con `npm run test`. Cuando cambies el archivo de prueba o tus
+    funciones, las pruebas se volverán a ejecutar automáticamente.
+
+    ```sh
+    npm run test
+    ```
+  </Step>
+</StepByStep>
+
+Si no estás familiarizado con Vitest, lee primero la
+[guía de introducción de Vitest](https://vitest.dev/guide).
+
+## Cómo usar convex-test \{#using-convex-test\}
+
+### Inicializar `convexTest` \{#initialize-convextest\}
+
+La biblioteca exporta una función `convexTest` que debe llamarse al comienzo
+de cada uno de tus tests. La función devuelve un objeto que, por convención,
+se almacena en la variable `t` y que proporciona métodos para ejecutar tus funciones de Convex.
+
+Si tu proyecto usa un [esquema](/database/schemas.mdx) debes pasarlo a la
+función `convexTest`:
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import schema from "./schema";
+
+test("algún comportamiento", async () => {
+  const t = convexTest(schema);
+  // use `t`...
+});
+```
+
+Proporcionar el esquema es obligatorio para que las pruebas implementen correctamente la validación del esquema y para el tipado correcto de
+[`t.run`](#setting-up-and-inspecting-data-and-storage-with-trun).
+
+Si no dispones de un esquema, llama a `convexTest()` sin argumentos.
+
+### Invocar funciones \{#call-functions\}
+
+Tu prueba puede invocar funciones públicas e internas de Convex [functions](/functions.mdx) en
+tu proyecto:
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import { api, internal } from "./_generated/api";
+
+test("functions", async () => {
+  const t = convexTest();
+  const x = await t.query(api.myFunctions.myQuery, { a: 1, b: 2 });
+  const y = await t.query(internal.myFunctions.internalQuery, { a: 1, b: 2 });
+  const z = await t.mutation(api.myFunctions.mutateSomething, { a: 1, b: 2 });
+  const w = await t.mutation(internal.myFunctions.mutateSomething, { a: 1 });
+  const u = await t.action(api.myFunctions.doSomething, { a: 1, b: 2 });
+  const v = await t.action(internal.myFunctions.internalAction, { a: 1, b: 2 });
+});
+```
+
+### Modificar datos fuera de las funciones \{#modify-data-outside-of-functions\}
+
+A veces es posible que quieras [escribir](/database/writing-data.mdx) directamente en la
+base de datos simulada o en el [almacenamiento de archivos](/file-storage.mdx)
+desde tu prueba, sin necesidad de declarar una función en tu proyecto. Puedes
+usar el método `t.run`, que recibe un manejador al que se le pasa un `ctx` que
+te permite leer y escribir en el backend simulado:
+
+<TSAndJSSnippet title="convex/tasks.test.ts" sourceTS={RunDemo} sourceJS={RunDemo} highlightPatterns={["t.run"]} />
+
+### Acciones HTTP \{#http-actions\}
+
+Tu prueba puede llamar a [acciones HTTP](/functions/http-actions.mdx) registradas por
+tu enrutador:
+
+<TSAndJSSnippet title="convex/http.test.ts" sourceTS={HttpDemo} sourceJS={HttpDemo} highlightPatterns={["t.fetch"]} />
+
+Hacer mock de la función global `fetch` no afecta a `t.fetch`, pero puedes usar
+`t.fetch` dentro de un mock de `fetch` para enrutar solicitudes a tus acciones HTTP.
+
+### Funciones programadas \{#scheduled-functions\}
+
+Una ventaja de usar una implementación simulada que se ejecuta completamente en JavaScript
+es que puedes controlar el tiempo en el entorno de pruebas de Vitest. Para probar
+implementaciones que dependen de
+[funciones programadas](/scheduling/scheduled-functions.mdx), usa
+[los temporizadores simulados de Vitest](https://vitest.dev/guide/mocking.html#timers) en
+combinación con `t.finishInProgressScheduledFunctions`:
+
+<TSAndJSSnippet title="convex/scheduling.test.ts" sourceTS={SchedulingDemo} sourceJS={SchedulingDemo} highlightPatterns={[]} />
+
+Si tienes una cadena de varias funciones programadas, por ejemplo una mutación que
+programa una acción que programa otra acción, puedes usar
+`t.finishAllScheduledFunctions` para esperar a que todas las funciones programadas,
+incluidas las programadas recursivamente, terminen:
+
+<TSAndJSSnippet title="convex/chainedScheduling.test.ts" sourceTS={ChainedSchedulingDemo} sourceJS={ChainedSchedulingDemo} highlightPatterns={["finishAllScheduledFunctions"]} />
+
+Consulta más ejemplos en
+[este archivo](https://github.com/get-convex/convex-test/blob/main/convex/scheduler.test.ts).
+
+### Autenticación \{#authentication\}
+
+Para probar funciones que dependen de la identidad del usuario [autenticado](/auth.mdx)
+actual, puedes crear una versión del accesor `t` con ciertos
+[atributos de identidad de usuario](/api/interfaces/server.UserIdentity). Si no los
+proporcionas, `issuer`, `subject` y `tokenIdentifier` se generarán
+automáticamente:
+
+<TSAndJSSnippet title="convex/tasks.test.ts" sourceTS={AuthDemo} sourceJS={AuthDemo} highlightPatterns={["withIdentity"]} />
+
+## Consejos para Vitest \{#vitest-tips\}
+
+### Verificar resultados \{#asserting-results\}
+
+Consulta la referencia de [Expect](https://vitest.dev/api/expect.html) de Vitest.
+
+[`toMatchObject()`](https://vitest.dev/api/expect.html#tomatchobject) es
+especialmente útil para verificar la estructura de los resultados sin tener que enumerar
+todos los campos del objeto.
+
+### Aserciones de errores \{#asserting-errors\}
+
+Para verificar que una función lanza un error, usa
+[`.rejects.toThrowError()`](https://vitest.dev/api/expect.html#tothrowerror):
+
+<TSAndJSSnippet title="convex/messages.test.ts" sourceTS={ErrorDemo} sourceJS={ErrorDemo} highlightPatterns={["toThrowError"]} />
+
+### Simular llamadas a `fetch` \{#mocking-fetch-calls\}
+
+Puedes usar el método
+[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) de Vitest:
+
+<TSAndJSSnippet title="convex/ai.test.ts" sourceTS={MockingFetchDemo} sourceJS={MockingFetchDemo} highlightPatterns={["stubGlobal"]} />
+
+### Medir la cobertura de las pruebas \{#measuring-test-coverage\}
+
+Puedes obtener un informe de la cobertura de código que proporcionan tus pruebas. Además de
+responder a la pregunta «¿qué parte de mi código está cubierta por pruebas?» también es
+útil para comprobar que la prueba realmente está ejecutando el código que quieres
+probar.
+
+Ejecuta <CodeWithCopyButton text="npm run test:coverage" />. La primera vez que lo ejecutes
+se te pedirá que instales una dependencia necesaria.
+
+<p style={{ textAlign: "center" }}>
+  <img src="/screenshots/testing_coverage.png" alt="ejemplo de informe de cobertura" width={700} />
+</p>
+
+### Depuración de pruebas \{#debugging-tests\}
+
+Puedes conectarte con un depurador a las pruebas en ejecución. Lee la
+[documentación de depuración de Vitest](https://vitest.dev/guide/debugging.html) y luego ejecuta
+
+<CodeWithCopyButton text="npm run test:debug" />.
+
+## Limitaciones \{#limitations\}
+
+Dado que `convex-test` es solo una implementación simulada (mock), no tiene muchos de los
+comportamientos del backend real de Convex. Aun así, debería ser útil para probar
+la lógica de tus funciones y detectar regresiones causadas por cambios en tu
+código.
+
+Algunas de las maneras en que el mock difiere:
+
+* Contenido de los mensajes de error. No deberías escribir lógica de producto que dependa del
+  contenido de los mensajes de error generados por el backend real, ya que siempre
+  pueden cambiar.
+* Límites. El mock no aplica los
+  [límites](/production/state/limits.mdx) de tamaño y tiempo.
+* Formato de ID. Tu código no debería depender del formato de ID de documentos o de almacenamiento.
+* Funciones integradas del runtime. La mayoría de tus funciones están escritas para el
+  [runtime predeterminado de Convex](/functions/runtimes.mdx), mientras que Vitest usa un mock de
+  Edge Runtime de Vercel, que es similar pero podría diferir del runtime de Convex. Siempre deberías
+  probar el código nuevo manualmente para asegurarte de que no use funciones integradas que no estén
+  disponibles en el runtime de Convex.
+* Algunas funcionalidades solo tienen semánticas simplificadas, concretamente:
+  * La [búsqueda de texto](/search.mdx) devuelve todos los documentos que incluyen una palabra para
+    la cual al menos una palabra en la cadena buscada es un prefijo. No ordena
+    los resultados por relevancia.
+  * La [búsqueda vectorial](/search/vector-search.mdx) devuelve resultados ordenados por similitud
+    de coseno, pero no usa un índice vectorial eficiente en su implementación.
+  * No hay compatibilidad con [tareas cron](/scheduling/cron-jobs.mdx); deberías
+    activar tus funciones manualmente desde el test.
+
+Para probar tus funciones ejecutándose en un backend real de Convex, consulta
+[Testing Local Backend](/testing/convex-backend.mdx).
+
+## CI \{#ci\}
+
+Consulta [Integración continua](/testing/ci.mdx) para ejecutar tus pruebas en una máquina remota compartida.

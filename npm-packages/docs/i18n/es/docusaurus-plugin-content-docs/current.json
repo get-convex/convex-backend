@@ -1,0 +1,382 @@
+{
+  "version.label": {
+    "message": "Siguiente",
+    "description": "Etiqueta de la versión actual"
+  },
+  "sidebar.docs.category.Tutorial": {
+    "message": "Tutorial",
+    "description": "Etiqueta de la categoría «Tutorial» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Quickstarts": {
+    "message": "Guías de inicio rápido",
+    "description": "Etiqueta de la categoría «Guías de inicio rápido» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Understand Convex": {
+    "message": "Conceptos de Convex",
+    "description": "Etiqueta de la categoría «Conceptos de Convex» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Best Practices": {
+    "message": "Mejores prácticas",
+    "description": "Etiqueta de la categoría «Mejores prácticas» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Functions": {
+    "message": "Funciones",
+    "description": "Etiqueta de la categoría \"Funciones\" en la barra lateral de \"docs\""
+  },
+  "sidebar.docs.category.Error Handling": {
+    "message": "Manejo de errores",
+    "description": "Etiqueta de la categoría \"Manejo de errores\" en la barra lateral de \"docs\""
+  },
+  "sidebar.docs.category.Database": {
+    "message": "Base de datos",
+    "description": "Etiqueta de la categoría \"Base de datos\" en la barra lateral de \"docs\""
+  },
+  "sidebar.docs.category.Reading Data": {
+    "message": "Lectura de datos",
+    "description": "Etiqueta de la categoría \"Lectura de datos\" en la barra lateral de \"docs\""
+  },
+  "sidebar.docs.category.Indexes": {
+    "message": "Índices",
+    "description": "Etiqueta de la categoría \"Índices\" en la barra lateral de \"docs\""
+  },
+  "sidebar.docs.category.Data Import & Export": {
+    "message": "Importación y exportación de datos",
+    "description": "La etiqueta de la categoría «Importación y exportación de datos» en la barra lateral de documentación"
+  },
+  "sidebar.docs.category.database-advanced": {
+    "message": "Avanzado",
+    "description": "La etiqueta de la categoría «Avanzado» en la barra lateral de documentación"
+  },
+  "sidebar.docs.category.Authentication": {
+    "message": "Autenticación",
+    "description": "La etiqueta de la categoría «Autenticación» en la barra lateral de documentación"
+  },
+  "sidebar.docs.category.WorkOS AuthKit": {
+    "message": "WorkOS AuthKit",
+    "description": "La etiqueta de la categoría «WorkOS AuthKit» en la barra lateral de documentación"
+  },
+  "sidebar.docs.category.auth-advanced": {
+    "message": "Avanzado",
+    "description": "La etiqueta de la categoría «Avanzado» en la barra lateral de documentación"
+  },
+  "sidebar.docs.category.Scheduling": {
+    "message": "Programación de tareas",
+    "description": "La etiqueta de la categoría «Scheduling» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.File Storage": {
+    "message": "Almacenamiento de archivos",
+    "description": "La etiqueta de la categoría «File Storage» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Search": {
+    "message": "Búsqueda",
+    "description": "La etiqueta de la categoría «Search» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Components": {
+    "message": "Componentes",
+    "description": "La etiqueta de la categoría «Components» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.AI Code Gen": {
+    "message": "Generación de código con IA",
+    "description": "La etiqueta de la categoría «AI Code Gen» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Agents": {
+    "message": "Agents",
+    "description": "Etiqueta de la categoría «Agents» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Testing": {
+    "message": "Pruebas",
+    "description": "Etiqueta de la categoría «Pruebas» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Production": {
+    "message": "Producción",
+    "description": "Etiqueta de la categoría «Producción» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Hosting and Deployment": {
+    "message": "Hosting y despliegue",
+    "description": "Etiqueta de la categoría «Hosting y despliegue» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Integrations": {
+    "message": "Integraciones",
+    "description": "Etiqueta de la categoría «Integraciones» en la barra lateral de la documentación"
+  },
+  "sidebar.docs.category.Log Streams": {
+    "message": "Flujos de registro",
+    "description": "La etiqueta de la categoría «Flujos de registro» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.Status and Guarantees": {
+    "message": "Estado y garantías",
+    "description": "La etiqueta de la categoría «Estado y garantías» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.Platform APIs": {
+    "message": "APIs de la plataforma",
+    "description": "La etiqueta de la categoría «APIs de la plataforma» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.React": {
+    "message": "React",
+    "description": "La etiqueta de la categoría «React» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.Next.js": {
+    "message": "Next.js",
+    "description": "La etiqueta de la categoría «Next.js» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.App Router": {
+    "message": "App Router",
+    "description": "La etiqueta de la categoría «App Router» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.Pages Router": {
+    "message": "Pages Router",
+    "description": "La etiqueta de la categoría «Pages Router» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.TanStack": {
+    "message": "TanStack",
+    "description": "La etiqueta de la categoría «TanStack» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.TanStack Start": {
+    "message": "TanStack Start",
+    "description": "La etiqueta de la categoría «TanStack Start» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.JavaScript": {
+    "message": "JavaScript",
+    "description": "La etiqueta de la categoría «JavaScript» en la barra lateral «docs»"
+  },
+  "sidebar.docs.category.Vue": {
+    "message": "Vue",
+    "description": "Etiqueta de la categoría «Vue» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Swift": {
+    "message": "Swift",
+    "description": "Etiqueta de la categoría «Swift» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Android Kotlin": {
+    "message": "Android Kotlin",
+    "description": "Etiqueta de la categoría «Android Kotlin» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Dashboard": {
+    "message": "Panel de control",
+    "description": "Etiqueta de la categoría «Panel de control» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Deployments": {
+    "message": "Despliegues",
+    "description": "Etiqueta de la categoría «Despliegues» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.CLI": {
+    "message": "CLI",
+    "description": "La etiqueta de la categoría «CLI» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Convex API": {
+    "message": "API de Convex",
+    "description": "La etiqueta de la categoría «API de Convex» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.convex/browser": {
+    "message": "convex/browser",
+    "description": "La etiqueta de la categoría «convex/browser» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.convex/server": {
+    "message": "convex/server",
+    "description": "La etiqueta de la categoría «convex/server» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.convex/react": {
+    "message": "convex/react",
+    "description": "La etiqueta de la categoría «convex/react» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.convex/values": {
+    "message": "convex/values",
+    "description": "Etiqueta de la categoría 'convex/values' en la barra lateral de 'docs'"
+  },
+  "sidebar.docs.category.Generated Code": {
+    "message": "Código generado",
+    "description": "Etiqueta de la categoría 'Generated Code' en la barra lateral de 'docs'"
+  },
+  "sidebar.docs.category.Deployment API": {
+    "message": "API de despliegue",
+    "description": "Etiqueta de la categoría 'Deployment API' en la barra lateral de 'docs'"
+  },
+  "sidebar.docs.category.Platform": {
+    "message": "Plataforma",
+    "description": "Etiqueta de la categoría 'Platform' en la barra lateral de 'docs'"
+  },
+  "sidebar.docs.category.Management API": {
+    "message": "API de administración",
+    "description": "Etiqueta de la categoría 'Management API' en la barra lateral de 'docs'"
+  },
+  "sidebar.docs.link.Dashboard": {
+    "message": "Panel de control",
+    "description": "Etiqueta del enlace «Panel de control» en la barra lateral de «docs», que apunta a «https://dashboard.convex.dev»"
+  },
+  "sidebar.docs.link.Blog": {
+    "message": "Blog",
+    "description": "Etiqueta del enlace «Blog» en la barra lateral de «docs», que apunta a «https://stack.convex.dev/»"
+  },
+  "sidebar.docs.link.GitHub": {
+    "message": "GitHub",
+    "description": "Etiqueta del enlace «GitHub» en la barra lateral de «docs», que apunta a «https://github.com/get-convex»"
+  },
+  "sidebar.docs.link.Discord": {
+    "message": "Discord",
+    "description": "Etiqueta del enlace «Discord» en la barra lateral de «docs», que apunta a «https://convex.dev/community»"
+  },
+  "sidebar.docs.doc.Home": {
+    "message": "Inicio",
+    "description": "La etiqueta del elemento «Home» en la barra lateral «docs», que enlaza a la página principal de la documentación"
+  },
+  "sidebar.docs.doc.React Native": {
+    "message": "React Native",
+    "description": "La etiqueta del elemento «React Native» en la barra lateral «docs», que enlaza a la documentación client/react-native"
+  },
+  "sidebar.docs.doc.Svelte": {
+    "message": "Svelte",
+    "description": "La etiqueta del elemento «Svelte» en la barra lateral «docs», que enlaza a la documentación client/svelte"
+  },
+  "sidebar.docs.doc.Python": {
+    "message": "Python",
+    "description": "La etiqueta del elemento «Python» en la barra lateral «docs», que enlaza a la documentación client/python"
+  },
+  "sidebar.docs.doc.Rust": {
+    "message": "Rust",
+    "description": "La etiqueta del elemento de la documentación «Rust» en la barra lateral de «docs», que enlaza al documento client/rust"
+  },
+  "sidebar.docs.doc.Open API": {
+    "message": "Open API",
+    "description": "La etiqueta del elemento de la documentación «Open API» en la barra lateral de «docs», que enlaza al documento client/open-api"
+  },
+  "sidebar.docs.doc.HTTP API": {
+    "message": "API HTTP",
+    "description": "La etiqueta del elemento de la documentación «API HTTP» en la barra lateral de «docs», que enlaza al documento http-api/index"
+  },
+  "sidebar.docs.doc.Streaming Export": {
+    "message": "Exportación en streaming",
+    "description": "La etiqueta del elemento de la documentación «Exportación en streaming» en la barra lateral de «docs», que enlaza al documento streaming-export-api"
+  },
+  "sidebar.docs.doc.Streaming Import": {
+    "message": "Importación en streaming",
+    "description": "La etiqueta del elemento de la documentación «Importación en streaming» en la barra lateral «docs», que enlaza al documento streaming-import-api"
+  },
+  "sidebar.docs.doc.Update environment variables": {
+    "message": "Actualizar variables de entorno",
+    "description": "La etiqueta del elemento de la documentación «Actualizar variables de entorno» en la barra lateral «docs», que enlaza al documento deployment-api/update-environment-variables"
+  },
+  "sidebar.docs.doc.List environment variables": {
+    "message": "Listar variables de entorno",
+    "description": "La etiqueta del elemento de la documentación «Listar variables de entorno» en la barra lateral «docs», que enlaza al documento deployment-api/list-environment-variables"
+  },
+  "sidebar.docs.doc.Update canonical URL": {
+    "message": "Actualizar la URL canónica",
+    "description": "La etiqueta del elemento de documentación «Actualizar URL canónica» en la barra lateral «docs», que enlaza al documento deployment-api/update-canonical-url"
+  },
+  "sidebar.docs.doc.Get canonical URLs": {
+    "message": "Obtener URLs canónicas",
+    "description": "La etiqueta del elemento de documentación «Obtener URLs canónicas» en la barra lateral «docs», que enlaza al documento deployment-api/get-canonical-urls"
+  },
+  "sidebar.docs.doc.List log streams": {
+    "message": "Listar flujos de registros",
+    "description": "La etiqueta del elemento de documentación «Listar flujos de registros» en la barra lateral «docs», que enlaza al documento deployment-api/list-log-streams"
+  },
+  "sidebar.docs.doc.Get log stream": {
+    "message": "Obtener flujo de registros",
+    "description": "La etiqueta del elemento de la documentación «Obtener flujo de logs» en la barra lateral «docs», que enlaza al documento deployment-api/get-log-stream"
+  },
+  "sidebar.docs.doc.Delete log stream": {
+    "message": "Eliminar flujo de logs",
+    "description": "La etiqueta del elemento de la documentación «Eliminar flujo de logs» en la barra lateral «docs», que enlaza al documento deployment-api/delete-log-stream"
+  },
+  "sidebar.docs.doc.Create log stream": {
+    "message": "Crear flujo de logs",
+    "description": "La etiqueta del elemento de la documentación «Crear flujo de logs» en la barra lateral «docs», que enlaza al documento deployment-api/create-log-stream"
+  },
+  "sidebar.docs.doc.Update log stream": {
+    "message": "Actualizar flujo de logs",
+    "description": "La etiqueta del elemento de documento «Update log stream» en la barra lateral «docs», que enlaza al documento deployment-api/update-log-stream"
+  },
+  "sidebar.docs.doc.Rotate webhook log stream secret": {
+    "message": "Rotar el secreto del flujo de registros de webhooks",
+    "description": "La etiqueta del elemento de documento «Rotate webhook log stream secret» en la barra lateral «docs», que enlaza al documento deployment-api/rotate-webhook-secret"
+  },
+  "sidebar.docs.doc.Pause deployment": {
+    "message": "Pausar el despliegue",
+    "description": "La etiqueta del elemento de documento «Pause deployment» en la barra lateral «docs», que enlaza al documento deployment-api/pause-deployment"
+  },
+  "sidebar.docs.doc.Unpause deployment": {
+    "message": "Reanudar el despliegue",
+    "description": "La etiqueta del elemento de documentación «Reanudar despliegue» en la barra lateral «docs», que enlaza al documento deployment-api/unpause-deployment"
+  },
+  "sidebar.docs.doc.Create project": {
+    "message": "Crear proyecto",
+    "description": "La etiqueta del elemento de documentación «Crear proyecto» en la barra lateral «docs», que enlaza al documento management-api/create-project"
+  },
+  "sidebar.docs.doc.List projects": {
+    "message": "Listar proyectos",
+    "description": "La etiqueta del elemento de documentación «Listar proyectos» en la barra lateral «docs», que enlaza al documento management-api/list-projects"
+  },
+  "sidebar.docs.doc.List deployments": {
+    "message": "Listar despliegues",
+    "description": "La etiqueta del elemento de documento «List deployments» en la barra lateral «docs», que enlaza al documento management-api/list-deployments"
+  },
+  "sidebar.docs.doc.Delete project": {
+    "message": "Eliminar proyecto",
+    "description": "La etiqueta del elemento de documento «Delete project» en la barra lateral «docs», que enlaza al documento management-api/delete-project"
+  },
+  "sidebar.docs.doc.Create deploy key": {
+    "message": "Crear clave de despliegue",
+    "description": "La etiqueta del elemento de documento «Create deploy key» en la barra lateral «docs», que enlaza al documento management-api/create-deploy-key"
+  },
+  "sidebar.docs.doc.List deploy keys": {
+    "message": "Listar claves de despliegue",
+    "description": "La etiqueta del elemento de documentación «List deploy keys» en la barra lateral «docs», que enlaza al documento management-api/list-deploy-keys"
+  },
+  "sidebar.docs.doc.Delete deploy key": {
+    "message": "Eliminar clave de despliegue",
+    "description": "La etiqueta del elemento de documentación «Delete deploy key» en la barra lateral «docs», que enlaza al documento management-api/delete-deploy-key"
+  },
+  "sidebar.docs.doc.Get token details": {
+    "message": "Obtener detalles del token",
+    "description": "La etiqueta del elemento de documentación «Get token details» en la barra lateral «docs», que enlaza al documento management-api/get-token-details"
+  },
+  "sidebar.docs.doc.Create custom domain": {
+    "message": "Crear dominio personalizado",
+    "description": "La etiqueta del elemento de documentación «Create custom domain» en la barra lateral «docs», que enlaza con la documentación de management-api/create-custom-domain"
+  },
+  "sidebar.docs.doc.Delete custom domain": {
+    "message": "Eliminar dominio personalizado",
+    "description": "La etiqueta del elemento de documentación «Delete custom domain» en la barra lateral «docs», que enlaza con la documentación de management-api/delete-custom-domain"
+  },
+  "sidebar.docs.doc.List custom domains": {
+    "message": "Listar dominios personalizados",
+    "description": "La etiqueta del elemento de documentación «List custom domains» en la barra lateral «docs», que enlaza con la documentación de management-api/list-custom-domains"
+  },
+  "sidebar.docs.doc.Delete deployment": {
+    "message": "Eliminar despliegue",
+    "description": "La etiqueta del elemento «Delete deployment» de la barra lateral «docs», que enlaza al documento management-api/delete-deployment"
+  },
+  "sidebar.docs.doc.Errors": {
+    "message": "Errores",
+    "description": "La etiqueta del elemento «Errors» de la barra lateral «docs», que enlaza al documento error"
+  },
+  "sidebar.docs.doc.ESLint": {
+    "message": "ESLint",
+    "description": "La etiqueta del elemento «ESLint» de la barra lateral «docs», que enlaza al documento eslint"
+  },
+  "sidebar.docs.category.Get Started": {
+    "message": "Primeros pasos",
+    "description": "Etiqueta de la categoría «Primeros pasos» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Guides": {
+    "message": "Guías",
+    "description": "Etiqueta de la categoría «Guías» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Client Libraries": {
+    "message": "Bibliotecas de cliente",
+    "description": "Etiqueta de la categoría «Bibliotecas de cliente» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.Tools": {
+    "message": "Herramientas",
+    "description": "Etiqueta de la categoría «Herramientas» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.API Reference": {
+    "message": "Referencia de la API",
+    "description": "Etiqueta de la categoría «Referencia de la API» en la barra lateral de «docs»"
+  },
+  "sidebar.docs.category.deployment-platform": {
+    "message": "Plataforma",
+    "description": "La etiqueta de la categoría «Platform» en la barra lateral «docs»"
+  }
+}

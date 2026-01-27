@@ -1,0 +1,264 @@
+---
+title: アクション
+sidebar_position: 30
+description: "Convex からサードパーティサービスや外部 API を呼び出す"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/actionsConstructor.ts";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContext.ts";
+import ContextRunQuery from "!!raw-loader!@site/../private-demos/snippets/convex/myFunctions.ts";
+import ContextRunMutation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContextRunMutation.ts";
+import CircularError from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularError.ts";
+import CircularErrorFixedResults from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedResults.ts";
+import CircularErrorFixedReturn from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedReturn.ts";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNPM.ts";
+import Node from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNode.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/actionsCall.tsx";
+import ScheduleFromMutation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsScheduleFromMutation.ts";
+
+アクションは、[Stripe](https://stripe.com) を使った支払い処理のように、サードパーティのサービスを呼び出してさまざまな処理を実行できます。Convex の JavaScript 環境または Node.js で実行できます。アクションは、[クエリ](/functions/query-functions.mdx) や
+[ミューテーション](/functions/mutation-functions.mdx) を呼び出すことで、間接的にデータベースを操作できます。
+
+**例:**
+[GIPHY アクション](https://github.com/get-convex/convex-demos/tree/main/giphy-action)
+
+## アクション名 \{#action-names\}
+
+アクションはクエリと同じ命名ルールに従います。[クエリ名](/functions/query-functions.mdx#query-names)を参照してください。
+
+## `action` コンストラクタ \{#the-action-constructor\}
+
+Convex でアクションを宣言するには、`action` コンストラクタ関数を使用します。`handler` 関数をプロパティとして持つオブジェクトを渡します。この `handler` 関数がアクションを実行します。
+
+<TSAndJSSnippet sourceTS={Constructor} sourceJS={Constructor} title="convex/myFunctions.ts" />
+
+クエリと異なり、アクションは値を返しても返さなくてもかまいません。
+
+### アクションの引数とレスポンス \{#action-arguments-and-responses\}
+
+アクションの引数とレスポンスは、
+[ミューテーション](/functions/mutation-functions.mdx#mutation-arguments)
+と同じルールに従います。
+
+<TSAndJSSnippet sourceTS={ArgsWithValidation} sourceJS={ArgsWithValidation} title="convex/myFunctions.ts" />
+
+ハンドラー関数の最初の引数は、アクションコンテキストとして予約されています。
+
+### アクションコンテキスト \{#action-context\}
+
+`action` コンストラクタは、ハンドラー関数の第 1 引数として
+[ActionCtx](/api/interfaces/server.GenericActionCtx) オブジェクトを渡すことで、
+データベースやその他の Convex の機能を操作できるようにします。
+
+<TSAndJSSnippet sourceTS={Context} sourceJS={Context} title="convex/myFunctions.ts" />
+
+アクションコンテキストのどの部分を使うかは、そのアクションで何をする必要があるかに
+よって変わります。
+
+* データベースからデータを読み取るには、`runQuery` フィールドを使い、読み取りを
+  行うクエリを呼び出します。
+
+  <TSAndJSSnippet sourceTS={ContextRunQuery} sourceJS={ContextRunQuery} snippet="action" title="convex/myFunctions.ts" />
+
+  ここでの `readData` は [internal query](/functions/internal-functions.mdx)
+  です。クエリをクライアントに直接公開したくないためです。
+  アクション、ミューテーション、クエリは同じファイル内で定義できます。
+
+* データベースにデータを書き込むには、`runMutation` フィールドを使い、書き込みを
+  行うミューテーションを呼び出します。
+
+  <TSAndJSSnippet sourceTS={ContextRunMutation} sourceJS={ContextRunMutation} title="convex/myFunctions.ts" />
+
+  ミューテーションをユーザーが直接呼び出せないようにしたい場合は、
+  [internal mutation](/functions/internal-functions.mdx) を使用してください。
+
+  クエリと同様に、アクションとミューテーションを同じファイルで定義しておくと
+  便利なことがよくあります。
+
+* ファイルを保存するためのアップロード URL を生成するには `storage` フィールドを使います。
+  詳細は [File Storage](/file-storage.mdx) を参照してください。
+
+* ユーザー認証を確認するには `auth` フィールドを使います。アクションからクエリや
+  ミューテーションを呼び出す際には、認証情報は自動的に伝播されます。詳細は
+  [Authentication](/auth.mdx) を参照してください。
+
+* 将来実行する関数をスケジュールするには `scheduler` フィールドを使います。詳細は
+  [Scheduled Functions](/scheduling/scheduled-functions.mdx) を参照してください。
+
+* ベクターインデックスを検索するには `vectorSearch` フィールドを使います。詳細は
+  [Vector Search](/search/vector-search.mdx) を参照してください。
+
+### 循環的な型推論への対処 \{#dealing-with-circular-type-inference\}
+
+<Details
+  summary={<>
+TypeScript エラーを回避する: <code>some action implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.</code>
+</>}
+>
+  アクションの戻り値が `ctx.runQuery` や `ctx.runMutation` の呼び出し結果に依存している場合、TypeScript はアクションの戻り値の型を推論できないと警告します。以下はこの問題の最小限の例です:
+
+  <Snippet title="convex/myFunctions.ts" source={CircularError} snippet="tsError" />
+
+  これを回避するには、次の 2 つの方法があります:
+
+  1. ハンドラー関数の戻り値の型を明示的に指定する:
+     <Snippet title="convex/myFunctions.ts" source={CircularErrorFixedReturn} snippet="fixed" highlightPatterns={["null"]} />
+  2. `ctx.runQuery` や `ctx.runMutation` の呼び出し結果の型を
+     明示的に指定する:
+     <Snippet title="convex/myFunctions.ts" source={CircularErrorFixedResults} snippet="fixed" highlightPatterns={["null"]} />
+
+  TypeScript は、型注釈が呼び出されるクエリまたはミューテーションの戻り値と一致していることをチェックするため、型安全性は失われません。
+
+  この単純な例では、クエリの戻り値の型は `null` でした。結果に注釈を付ける際に役立つ他の型については、
+  [TypeScript](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+  のページを参照してください。
+</Details>
+
+## ランタイムの選択 (&quot;use node&quot;) \{#choosing-the-runtime-use-node\}
+
+アクションは Convex 独自の JavaScript 環境か Node.js のいずれかで実行できます。
+
+デフォルトでは、アクションは Convex の環境で実行されます。この環境は
+`fetch` をサポートしているため、単に `fetch` を使ってサードパーティの API を呼び出したいだけのアクションはこの環境で実行できます:
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+Convex の環境で実行されるアクションは、Node.js と比較して高速です。これは、
+アクションを実行する前の起動時間（コールドスタート）が余計にかからないためです。
+また、他の Convex 関数と同じファイル内で定義することもできます。
+クエリやミューテーションと同様に NPM パッケージを import できますが、すべてが
+サポートされているわけではありません。
+
+未サポートの NPM パッケージや Node.js API を必要とするアクションは、ファイルの先頭に `"use node"` ディレクティブを追加することで Node.js で実行するように設定できます。
+なお、他の Convex 関数は `"use node";` ディレクティブがあるファイル内には定義できません。
+
+<TSAndJSSnippet sourceTS={Node} sourceJS={Node} highlightPatterns={["use node"]} title="convex/myAction.ts" />
+
+2 つの [Convex ランタイム](/functions/runtimes.mdx) の詳細については、こちらを参照してください。
+
+## ヘルパーを使ったアクションコードの分割 \{#splitting-up-action-code-via-helpers\}
+
+<>
+  {/* Fragment for Prettier */}
+
+  [クエリ](/functions/query-functions.mdx#splitting-up-query-code-via-helpers)
+  や [ミューテーション](/functions/mutation-functions.mdx#splitting-up-mutation-code-via-helpers)
+  と同様に、ヘルパー関数を定義して呼び出すことで、アクション内のコードを分割したり、
+  複数の Convex 関数間でロジックを再利用したりできます。<LanguageSelector verbose />
+
+  ただし、[ActionCtx](/api/interfaces/server.GenericActionCtx) が
+  [QueryCtx](/generated-api/server.md#queryctx) と
+  [MutationCtx](/generated-api/server.md#mutationctx) と共通で持っているのは
+  `auth` フィールドだけである点に注意してください。
+</>
+
+## クライアントからアクションを呼び出す \{#calling-actions-from-clients\}
+
+[React](/client/react.mdx) からアクションを呼び出すには、
+生成された [`api`](/generated-api/api) オブジェクトとあわせて
+[`useAction`](/api/modules/react#useaction) フックを使用します。
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
+
+[ミューテーション](/functions/mutation-functions.mdx#calling-mutations-from-clients)
+とは異なり、単一のクライアントから送られたアクションは並列に処理されます。各アクションは、
+同じクライアントから他のアクションやミューテーションが実行中であっても、
+サーバーに到達し次第すぐに実行されます。アプリが、あるアクションが他のアクションや
+ミューテーションの後に実行されることに依存している場合は、必ず、該当する前段の関数が
+完了してからアクションをトリガーするようにしてください。
+
+**注:** 多くの場合、クライアントからアクションを直接呼び出すことは
+**アンチパターン**です。代わりに、クライアントは
+[ミューテーション](/functions/mutation-functions.mdx) を呼び出して、
+データベースへの書き込みによってユーザーの意図を表現し、
+そのうえでアクションを
+[スケジュール](/scheduling/scheduled-functions.mdx) するようにします:
+
+<TSAndJSSnippet sourceTS={ScheduleFromMutation} sourceJS={ScheduleFromMutation} title="convex/myFunctions.ts" />
+
+この方法であれば、ミューテーション側で「同じアクションをユーザーが 2 回実行するのを防ぐ」
+といった整合性制約を保証できます。
+
+## 制限 \{#limits\}
+
+アクションは 10 分でタイムアウトします。
+[Node.js](/functions/runtimes.mdx#nodejs-runtime) と
+[Convex runtime](/functions/runtimes.mdx#default-convex-runtime) には、それぞれ 512MB と
+64MB のメモリ上限があります。より高い上限の設定が必要なユースケースがある場合は、
+[こちら](/production/contact.md)からお問い合わせください。
+
+アクションでは、クエリやミューテーションの実行や `fetch` リクエストの実行など、
+最大 1000 個の操作を同時に行うことができます。
+
+その他の制限については[こちら](/production/state/limits.mdx)を参照してください。
+
+## エラー処理 \{#error-handling\}
+
+クエリやミューテーションと異なり、アクションは副作用を持つ可能性があるため、
+エラーが発生しても Convex が自動的にリトライすることはできません。たとえば、
+アクション内で Stripe を呼び出して顧客に請求書を送信するケースを考えます。
+HTTP リクエストが失敗した場合、請求書がすでに送信されているかどうかを Convex が
+知る手段はありません。通常のバックエンドコードと同様に、アクションから発生した
+エラーを処理し、必要に応じてアクション呼び出しをリトライする責任は呼び出し側に
+あります。
+
+## 未解決の Promise \{#dangling-promises\}
+
+アクション内で生成したすべての Promise を必ず await してください。関数が
+返ったあとも実行中の非同期タスクは、完了する場合もあれば完了しない場合もあります。
+さらに、Node.js の実行環境はアクション呼び出し間で再利用される可能性があるため、
+未解決の Promise が後続のアクション呼び出しでエラーを引き起こす場合があります。
+
+## ベストプラクティス \{#best-practices\}
+
+### `await ctx.runAction` は JS ランタイム間をまたぐ場合にのみ使う \{#await-ctxrunaction-should-only-be-used-for-crossing-js-runtimes\}
+
+**理由:** `await ctx.runAction` を使うと、別の Convex サーバー関数のオーバーヘッドが発生します。追加の関数呼び出しとしてカウントされ、それ専用のシステムリソースが割り当てられます。また、この呼び出しを `await` している間は、親のアクション呼び出しはすべてのリソースを保持したままフリーズした状態になります。これらの呼び出しを何段にも積み重ねると、アプリケーションが著しく遅くなる可能性があります。
+
+**対処:** この API が存在する理由は、[Node.js environment](/functions/runtimes.mdx) でコードを実行できるようにするためです。同じランタイム内にある別のアクションからアクションを呼び出したい場合（通常はこちらに当てはまります）は、呼び出したいコードを TypeScript の
+[helper function](/understanding/best-practices/best-practices.mdx#use-helper-functions-to-write-shared-code)
+に切り出して、そのヘルパー関数を呼び出すのが最善です。
+
+### `await ctx.runMutation` / `await ctx.runQuery` の使用は避ける \{#avoid-await-ctxrunmutation-await-ctxrunquery\}
+
+```ts
+// ❌
+const foo = await ctx.runQuery(...)
+const bar = await ctx.runQuery(...)
+
+// ✅
+const fooAndBar = await ctx.runQuery(...)
+```
+
+**理由:** 複数の runQuery / runMutations は、それぞれ別々のトランザクションで実行されるため、互いに一貫した結果になることは保証されません（たとえば foo と bar が同じドキュメントを読んでも、異なる結果を返す可能性があります）。一方、単一の runQuery / runMutation であれば、常に一貫した結果が得られます。さらに、本来まとめられる処理を分けてしまうと、その分だけ関数呼び出しの回数が増え、余計なコストが発生します。
+
+**修正方法:** 2 つの処理をまとめて行う新しい internal query / mutation を作成してください。2 つの関数のコードをヘルパーに切り出してリファクタリングしておくと、元の関数を残したまま、両方の処理を行う新しい internal 関数を簡単に作成できます。可能であれば、アクションのコードもリファクタリングして、すべてのデータベースアクセスを「バッチ」処理することも検討してください。
+
+注意点: 1 回のトランザクションに収まりきらない量のデータを意図的に処理したい場合（たとえば、マイグレーションの実行や、ライブ集計の実行など）は、runQuery / runMutation を別々に呼び出すのが妥当なケースもあります。
+
+## 関連コンポーネント \{#related-components\}
+
+<ComponentCardList
+  items={[
+  {
+    title: "Action Cache",
+    description:
+      "コストの高い処理や頻繁に実行されるアクションをキャッシュします。キャッシュ期間の設定や、更新の強制が可能です。",
+    href: "https://www.convex.dev/components/action-cache",
+  },
+  {
+    title: "Workpool",
+    description:
+      "Workpool は非同期処理を個別のカスタマイズ可能なキューに整理することで、重要なタスクを優先的に処理します。リトライや並列実行数の制限をサポートします。",
+    href: "https://www.convex.dev/components/workpool",
+  },
+  {
+    title: "Workflow",
+    description:
+      "Actions と同様に、Workflow はクエリ、ミューテーション、アクションを呼び出せます。ただし、サスペンド可能でサーバークラッシュ後も継続し、アクション呼び出しごとのリトライ指定などができる永続性のある関数です。",
+    href: "https://www.convex.dev/components/workflow",
+  },
+]}
+/>

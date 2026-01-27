@@ -1,0 +1,109 @@
+---
+title: "ページネーション対応クエリ"
+slug: "pagination"
+sidebar_position: 60
+description: "ページネーション対応クエリを読み込む"
+---
+
+import Messages from "!!raw-loader!@site/../demos/pagination/convex/messages.ts";
+import Download from "!!raw-loader!@site/../demos/pagination/src/download.ts";
+import SimpleCall from "!!raw-loader!@site/../demos/pagination/src/_simpleListing.tsx";
+import CallWithArgs from "!!raw-loader!@site/../demos/pagination/src/_listingWithArgument.tsx";
+
+ページネーション対応クエリは、結果のリストを段階的なページとして返す
+[クエリ](/functions/query-functions.mdx)です。
+
+これは「Load More」ボタンや、ユーザーがスクロールするにつれてさらに結果が読み込まれる
+「infinite scroll」UI を持つコンポーネントを構築するのに使えます。
+
+**例:**
+[Paginated Messaging App](https://github.com/get-convex/convex-demos/tree/main/pagination)
+
+Convex でページネーションを使うのは、とても簡単です:
+
+1. [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate) を呼び出す、
+   ページネーション対応のクエリ関数を書く。
+2. [`usePaginatedQuery`](/api/modules/react#usepaginatedquery) React フックを使う。
+
+他の Convex のクエリと同様に、ページネーション対応クエリも完全にリアクティブです。
+
+## ページネーション対応のクエリ関数の作成 \{#writing-paginated-query-functions\}
+
+Convex はカーソルベースのページネーションを使用します。つまり、ページネーション付きのクエリは、現在のページがどこまでで終わったかを表す [`Cursor`](/api/modules/server#cursor) という文字列を返します。追加の結果を読み込むには、このカーソルを渡してクエリ関数をもう一度呼び出すだけです。
+
+これを Convex で実現するには、次のようなクエリ関数を定義します:
+
+1. `paginationOpts` プロパティを持つ単一の引数オブジェクトを受け取り、その型を [`PaginationOptions`](/api/interfaces/server.PaginationOptions) にする。
+   * `PaginationOptions` は、`numItems` と `cursor` フィールドを持つオブジェクトです。
+   * `"convex/server"` からエクスポートされている `paginationOptsValidator` を使用して、この引数を[検証](/functions/validation.mdx)する
+   * 引数オブジェクトには他のプロパティを含めてもかまいません。
+2. [データベースクエリ](/database/reading-data/reading-data.mdx)に対して
+   [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)
+   を呼び出し、`PaginationOptions` を渡してその戻り値を返す。
+   * [`PaginationResult`](/api/interfaces/server.PaginationResult) の中の `page` はドキュメントの配列です。返す前に
+     [`map`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map)
+     や
+     [`filter`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)
+     を適用できます。
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} title="convex/messages.ts" highlightPatterns={["paginationOpts"]} snippet="list" />
+
+### 追加の引数 \{#additional-arguments\}
+
+`paginationOpts` に加えて、さらに引数を受け取るページネーション対応のクエリ関数を定義できます。
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} snippet="listWithExtraArg" title="convex/messages.ts" />
+
+### 結果の変換 \{#transforming-results\}
+
+`paginate` の戻り値であるオブジェクトのうち、ドキュメントの配列を含む `page` プロパティには、
+任意の
+[変換](/database/reading-data/reading-data.mdx#more-complex-queries)
+を適用できます。
+
+<TSAndJSSnippet sourceTS={Messages} sourceJS={Messages} snippet="listWithTransformation" title="convex/messages.ts" />
+
+## React コンポーネント内でのページネーション \{#paginating-within-react-components\}
+
+React コンポーネント内でページネーションを行うには、
+[`usePaginatedQuery`](/api/modules/react#usepaginatedquery) フックを使用します。このフックは、
+現在のアイテムをレンダリングし、さらに読み込むためのシンプルなインターフェースを提供します。
+フック内部では継続用カーソルを管理します。
+
+このフックへの引数は次のとおりです:
+
+* ページネーション対応クエリ関数の名前。
+* クエリ関数に渡す引数オブジェクト（`paginationOpts` を除く。これはフックによって注入されます）。
+* 最初のページで読み込む `initialNumItems` を指定するオプションオブジェクト。
+
+このフックは次のプロパティを持つオブジェクトを返します:
+
+* `results`: 現在読み込まれている結果の配列。
+* `isLoading` - 現在結果を読み込み中かどうか。
+* `status`: ページネーションの status。取りうる値は次のとおりです:
+  * `"LoadingFirstPage"`: 最初のページの結果を読み込み中。
+  * `"CanLoadMore"`: さらに取得できるアイテムがある可能性があります。`loadMore` を呼び出して
+    次のページを取得します。
+  * `"LoadingMore"`: 追加のページの結果を読み込み中。
+  * `"Exhausted"`: リストの末尾までページネーションが完了しています。
+* `loadMore(n)`: 追加の結果を取得するコールバック。`status` が `"CanLoadMore"` の場合にのみ
+  追加の結果を取得します。
+
+<TSAndJSSnippet sourceTS={SimpleCall} sourceJS={SimpleCall} snippet="example" title="src/App.tsx" highlightPatterns={["usePaginatedQuery\\(", "api.", "{}", "initialNumItems"]} />
+
+関数が追加の引数を受け取る場合は、それらを引数オブジェクトに渡すこともできます:
+
+<TSAndJSSnippet sourceTS={CallWithArgs} sourceJS={CallWithArgs} snippet="example" title="src/App.tsx" highlightPatterns={["author:"]} />
+
+### リアクティビティ \{#reactivity\}
+
+他の Convex のクエリ関数と同様に、ページネーションされたクエリも **完全に
+リアクティブ** です。ページネーションされたリスト内のアイテムが追加・削除・変更されると、React コンポーネントは自動的に再レンダーされます。
+
+この性質により、**Convex ではページサイズが変化する可能性があります！** たとえば 10 個のアイテムを含むページを要求したあとで 1 つのアイテムが削除されると、そのページは「縮んで」9 個しか含まれなくなるかもしれません。逆に、新しいアイテムが追加されると、ページは初期サイズを超えて「成長」することもあります。
+
+## 手動でページネーションを行う \{#paginating-manually\}
+
+React の外でページネーションを行う場合は、ページネーション対応の関数を手動で複数回呼び出して、アイテムをまとめて取得できます:
+
+<TSAndJSSnippet title="download.ts" sourceTS={Download} sourceJS={Download} />

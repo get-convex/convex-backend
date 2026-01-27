@@ -1,0 +1,69 @@
+---
+title: Funciones internas
+sidebar_position: 40
+description: "Funciones que solo pueden ser invocadas por otras funciones de Convex"
+---
+
+import Definition from "!!raw-loader!@site/../private-demos/snippets/convex/plans.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsCall.ts";
+import DefinitionWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidation.ts";
+import DefinitionWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidationJS.js";
+
+Las funciones internas solo pueden ser llamadas por otras [funciones](/functions.mdx) y
+no pueden llamarse directamente desde un [cliente de Convex](/client/react.mdx).
+
+De forma predeterminada, tus funciones de Convex son públicas y accesibles para los clientes. Los usuarios malintencionados pueden llamar a funciones públicas de maneras que produzcan resultados inesperados. Las funciones internas te ayudan a mitigar este riesgo. Recomendamos usar funciones internas siempre que estés escribiendo lógica que no debería llamarse desde
+un cliente.
+
+Si bien las funciones internas ayudan a mitigar el riesgo al reducir la superficie pública
+expuesta de tu aplicación, aún puedes validar invariantes internas usando
+[validación de argumentos](/functions/validation.mdx) y/o
+[autenticación](/auth/functions-auth.mdx).
+
+## Casos de uso de las funciones internas \{#use-cases-for-internal-functions\}
+
+Puedes aprovechar las funciones internas de las siguientes maneras:
+
+* Llamándolas desde [acciones](/functions/actions.mdx#action-context) mediante
+  `runQuery` y `runMutation`
+* Llamándolas desde [acciones HTTP](/functions/http-actions.mdx) mediante `runQuery`,
+  `runMutation` y `runAction`
+* [Programándolas](/scheduling/scheduled-functions.mdx) desde otras funciones para
+  que se ejecuten en el futuro
+* Programándolas para que se ejecuten periódicamente desde
+  [cron jobs](/scheduling/cron-jobs.mdx)
+* Ejecutándolas usando el
+  [Dashboard](/dashboard/deployments/functions.md#running-functions)
+* Ejecutándolas desde la [CLI](/cli.md#run-convex-functions) (interfaz de línea de comandos)
+
+## Definir funciones internas \{#defining-internal-functions\}
+
+Una función interna se define usando `internalQuery`, `internalMutation` o
+`internalAction`. Por ejemplo:
+
+<TSAndJSSnippet title="convex/plans.ts" sourceTS={Definition} sourceJS={Definition} highlightPatterns={["internalMutation"]} />
+
+Si necesitas pasar objetos complejos a funciones internas, puede que prefieras
+no usar validación de argumentos. Ten en cuenta, sin embargo, que si estás usando `internalQuery`
+o `internalMutation`, es mejor pasar IDs de documentos en lugar de
+documentos para asegurarte de que la consulta o mutación opere con el estado más reciente
+de la base de datos.
+
+<Details summary="Función interna sin validación de argumentos">
+  <TSAndJSSnippet title="convex/plans.ts" sourceTS={DefinitionWithoutValidationTS} sourceJS={DefinitionWithoutValidationJS} highlightPatterns={[": {"]} />
+</Details>
+
+## Llamar a funciones internas \{#calling-internal-functions\}
+
+Las funciones internas se pueden llamar desde acciones y programar desde acciones y
+mutaciones usando el objeto [`internal`](/generated-api/api#internal).
+
+Por ejemplo, considera esta acción pública `upgrade` que llama a la mutación interna
+`plans.markPlanAsProfessional` que definimos antes:
+
+<TSAndJSSnippet title="convex/changes.ts" sourceTS={Call} sourceJS={Call} />
+
+En este ejemplo, un usuario no debería poder llamar directamente a
+`internal.plans.markPlanAsProfessional` sin pasar por la acción `upgrade` — si lo hiciera, obtendría una mejora gratuita.
+
+Puedes definir funciones públicas e internas en el mismo archivo.

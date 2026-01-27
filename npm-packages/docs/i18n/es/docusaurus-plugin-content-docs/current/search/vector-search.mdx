@@ -1,0 +1,285 @@
+---
+title: "Búsqueda vectorial"
+sidebar_position: 100
+description: "Realiza consultas de búsqueda vectorial sobre embeddings"
+slug: "vector-search"
+---
+
+import Schema from "!!raw-loader!@site/../demos/vector-search/convex/schema.ts";
+import VectorSearchSnippets from "!!raw-loader!@site/../private-demos/snippets/convex/vectorSearch.ts";
+import Foods from "!!raw-loader!@site/../private-demos/snippets/convex/foods.ts";
+import VectorSearchSnippets2 from "!!raw-loader!@site/../private-demos/snippets/convex/vectorSearch2.ts";
+import Movies from "!!raw-loader!@site/../demos/vector-search/convex/movies.ts";
+
+La búsqueda vectorial te permite encontrar documentos de Convex similares a un vector dado.
+Normalmente, los vectores serán embeddings, que son representaciones numéricas de
+texto, imágenes o audio.
+
+Los embeddings y la búsqueda vectorial te permiten proporcionar contexto útil a los LLM (modelos de lenguaje grandes) para
+aplicaciones impulsadas por IA, recomendaciones de contenido similar y más.
+
+La búsqueda vectorial es consistente y está completamente actualizada. Puedes almacenar un vector y
+leerlo inmediatamente mediante una búsqueda vectorial. Sin embargo, a diferencia de la
+[búsqueda de texto completo](/search.mdx), la búsqueda vectorial solo está disponible en
+[acciones de Convex](/functions/actions.mdx).
+
+**Ejemplo:**
+[Aplicación de búsqueda vectorial](https://github.com/get-convex/convex-demos/tree/main/vector-search)
+
+Para usar la búsqueda vectorial debes:
+
+1. Definir un índice vectorial.
+2. Ejecutar una búsqueda vectorial desde dentro de una [acción](/functions/actions.mdx).
+
+## Definir índices vectoriales \{#defining-vector-indexes\}
+
+Al igual que los [índices de base de datos](/database/reading-data/indexes/indexes.md), los
+índices vectoriales son una estructura de datos que se construye de antemano para
+habilitar consultas eficientes. Los índices vectoriales se definen como parte de tu
+[esquema](/database/schemas.mdx) de Convex.
+
+Para agregar un índice vectorial a una tabla, usa el método
+[`vectorIndex`](/api/classes/server.TableDefinition#vectorindex) en el esquema de tu
+tabla. Cada índice vectorial tiene un nombre único y una definición con:
+
+1. Cadena `vectorField`
+   * El nombre del campo indexado para la búsqueda vectorial.
+2. Número `dimensions`
+   * El tamaño fijo del índice de vectores. Si estás usando embeddings, esta
+     dimensión debe coincidir con el tamaño de tus embeddings (por ejemplo, `1536`
+     para OpenAI).
+3. [Opcional] Array `filterFields`
+   * Los nombres de campos adicionales que se indexan para filtrado rápido dentro
+     de tu índice vectorial.
+4. [Opcional] Booleano `staged`
+   * Si se establece en `true`, el índice se rellenará de forma asíncrona a partir del
+     despliegue, de forma similar a los
+     [índices de base de datos escalonados](/database/reading-data/indexes#staged-indexes).
+     Esto es útil para tablas grandes donde el tiempo de rellenado del índice es
+     significativo. El valor predeterminado es `false`.
+
+Por ejemplo, si quieres un índice que pueda buscar alimentos similares dentro de un
+tipo de cocina determinado, la definición de tu tabla podría verse así:
+
+<Snippet source={Schema} title="convex/schema.ts" snippet="schemaOneTable" highlightPatterns={["vectorIndex"]} />
+
+Puedes especificar campos vectoriales y de filtrado en documentos anidados usando
+una ruta separada por puntos como `properties.name`.
+
+## Ejecución de búsquedas vectoriales \{#running-vector-searches\}
+
+A diferencia de las consultas de base de datos o la búsqueda de texto completo, las búsquedas vectoriales solo se pueden
+realizar en una [acción de Convex](/functions/actions.mdx).
+
+Generalmente implican tres pasos:
+
+1. Generar un vector a partir de la entrada proporcionada (por ejemplo, usando OpenAI)
+2. Usar
+   [`ctx.vectorSearch`](/api/interfaces/server.GenericActionCtx#vectorsearch) para
+   obtener los ID de documentos similares
+3. Cargar la información deseada de los documentos
+
+Aquí tienes un ejemplo de los dos primeros pasos para buscar platos franceses similares
+a partir de una descripción:
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets} sourceJS={VectorSearchSnippets} title="convex/foods.ts" snippet="vectorSearchQuery" highlightPatterns={["vectorSearch"]} />
+
+Puedes encontrar un ejemplo del primer paso
+[aquí](https://github.com/get-convex/convex-demos/blob/main/vector-search/convex/foods.ts#L18)
+en la aplicación de demostración de búsqueda vectorial.
+
+Centrándonos en el segundo paso, la API `vectorSearch` acepta el nombre de la tabla, el
+nombre del índice y, finalmente, un objeto
+[`VectorSearchQuery`](/api/interfaces/server.VectorSearchQuery)
+que describe la búsqueda. Este objeto tiene los siguientes campos:
+
+1. `vector` array
+   * Un array de números (por ejemplo, un embedding) que se usará en la búsqueda.
+   * La búsqueda devolverá los ID de los documentos con los vectores almacenados
+     más similares.
+   * Debe tener la misma longitud que las `dimensions` del índice.
+2. [Opcional] `limit` number
+   * El número de resultados que se obtendrán. Si se especifica, este valor debe
+     estar entre 1 y 256.
+3. [Opcional] `filter`
+   * Una expresión que restringe el conjunto de resultados basándose en los `filterFields`
+     del `vectorIndex` en tu esquema. Consulta
+     [Expresiones de filtrado](#filter-expressions) para más detalles.
+
+Devuelve un `Array` de objetos que contienen exactamente dos campos:
+
+1. `_id`
+   * El [ID de documento](https://docs.convex.dev/database/document-ids) del
+     documento coincidente en la tabla
+2. `_score`
+   * Un indicador de cuán similar es el resultado al vector que estabas buscando,
+     que va de -1 (menos similar) a 1 (más similar)
+
+Ni el documento subyacente ni el vector se incluyen en `results`, así que
+una vez que tengas la lista de resultados, querrás cargar la información deseada
+sobre esos resultados.
+
+Hay varias estrategias para cargar esta información documentadas en la sección
+[Patrones avanzados](#advanced-patterns).
+
+Por ahora, carguemos los documentos y devolvámoslos desde la acción. Para hacerlo,
+pasaremos la lista de resultados a una consulta de Convex y la ejecutaremos dentro de nuestra
+acción, devolviendo el resultado:
+
+<TSAndJSSnippet sourceTS={Foods} sourceJS={Foods} title="convex/foods.ts" snippet="fetchResults" />
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets2} sourceJS={VectorSearchSnippets2} title="convex/foods.ts" snippet="fetchResults" />
+
+### Expresiones de filtro \{#filter-expressions\}
+
+Como se mencionó antes, las búsquedas vectoriales permiten filtrar resultados de forma eficiente en función de
+campos adicionales de tus documentos usando igualdad exacta en un solo
+campo o mediante una expresión `OR`.
+
+Por ejemplo, este es un filtro para alimentos cuya cocina es exactamente igual a &quot;French&quot;:
+
+<Snippet source={VectorSearchSnippets} snippet="filterSingleValue" />
+
+También puedes filtrar documentos por un solo campo que contenga varios
+valores usando una expresión `or`. Aquí tienes un filtro para platos franceses o indonesios:
+
+<Snippet source={VectorSearchSnippets} snippet="filterMultipleValues" />
+
+Para índices con varios campos de filtro, también puedes usar filtros `.or()`
+en campos diferentes. Aquí tienes un filtro para platos cuya cocina es francesa o cuyo
+ingrediente principal es mantequilla:
+
+<Snippet source={VectorSearchSnippets} snippet="filterMultipleFields" />
+
+**Tanto `cuisine` como `mainIngredient` deben incluirse en
+`filterFields` en la definición de `.vectorIndex`.**
+
+### Otros tipos de filtrado \{#other-filtering\}
+
+Los resultados se pueden filtrar según lo similares que sean al vector proporcionado
+usando el campo `_score` en tu acción:
+
+```ts
+const results = await ctx.vectorSearch("foods", "by_embedding", {
+  vector: embedding,
+});
+const filteredResults = results.filter((result) => result._score >= 0.9);
+```
+
+Puedes aplicar filtrado adicional pasando los resultados de la búsqueda vectorial
+a una función de consulta o mutación que cargue los documentos y aplique el filtrado
+utilizando cualquiera de los campos del documento.
+
+**Por motivos de rendimiento, coloca siempre la mayor cantidad posible de tus filtros en
+`.vectorSearch`.**
+
+### Ordenación \{#ordering\}
+
+Las consultas vectoriales siempre devuelven los resultados en orden de relevancia.
+
+Actualmente Convex busca vectores usando una
+[búsqueda aproximada de vecinos más cercanos](https://en.wikipedia.org/wiki/Nearest_neighbor_search#Approximate_nearest_neighbor)
+basada en la [similitud del coseno](https://en.wikipedia.org/wiki/Cosine_similarity).
+La compatibilidad con más métricas de similitud
+[se añadirá en el futuro](#future-development).
+
+Si varios documentos tienen la misma puntuación, los empates se desempatan usando el ID del documento.
+
+## Patrones avanzados \{#advanced-patterns\}
+
+### Uso de una tabla separada para almacenar vectores \{#using-a-separate-table-to-store-vectors\}
+
+Hay dos opciones principales para configurar un índice vectorial:
+
+1. Almacenar vectores en la misma tabla que otros metadatos
+2. Almacenar vectores en una tabla separada, con una referencia
+
+Los ejemplos anteriores muestran la primera opción, que es más sencilla y funciona bien para
+leer pequeñas cantidades de documentos. La segunda opción es más compleja, pero
+admite mejor la lectura o el retorno de grandes cantidades de documentos.
+
+Dado que los vectores suelen ser grandes y no son útiles más allá de realizar
+búsquedas vectoriales, es conveniente evitar cargarlos desde la base de datos al leer otros
+datos (por ejemplo, `db.get()`) o al devolverlos desde funciones, almacenándolos en una
+tabla separada.
+
+La definición de una tabla para películas y un índice vectorial que admita la búsqueda de
+películas similares filtrando por género se vería así:
+
+<Snippet source={Schema} title="convex/schema.ts" snippet="schemaTwoTables" />
+
+Generar un embedding y ejecutar una búsqueda vectorial es igual que al usar una
+única tabla. Cargar los documentos relevantes dado el resultado de la búsqueda vectorial es
+diferente, ya que tenemos un identificador de `movieEmbeddings` pero queremos cargar un documento de
+`movies`. Podemos hacer esto usando el índice de la base de datos `by_embedding` en la tabla
+`movies`:
+
+<TSAndJSSnippet sourceTS={VectorSearchSnippets} sourceJS={VectorSearchSnippets} title="convex/movies.ts" snippet="fetchMovies" highlightPatterns={["withIndex"]} />
+
+### Obtener resultados y agregar nuevos documentos \{#fetching-results-and-adding-new-documents\}
+
+Devolver información de una búsqueda vectorial implica una acción (ya que la
+búsqueda vectorial solo está disponible en acciones) y una consulta o mutación
+para cargar los datos.
+
+El ejemplo anterior usó una consulta para cargar datos y devolverlos desde una
+acción. Dado que se trata de una acción, los datos devueltos no son reactivos.
+Una alternativa sería devolver los resultados de la búsqueda vectorial en la
+acción y tener una consulta independiente que cargue los datos de forma
+reactiva. Los resultados de la búsqueda no se actualizarán de forma reactiva,
+pero la información asociada a cada resultado sí sería reactiva.
+
+La
+[Vector Search Demo App](https://github.com/get-convex/convex-demos/tree/main/vector-search)
+usa esta estrategia para mostrar películas similares con un contador de
+&quot;Votes&quot; reactivo.
+
+## Límites \{#limits\}
+
+Convex admite millones de vectores actualmente. Este es un proyecto en curso y
+seguiremos ampliando esta capacidad junto con el resto de Convex.
+
+Los índices vectoriales deben tener:
+
+* Exactamente un campo de índice vectorial.
+  * El campo debe ser de tipo `v.array(v.float64())` (o una unión en la que uno
+    de los tipos posibles sea `v.array(v.float64())`)
+* Exactamente un campo de dimensión con un valor entre 2 y 4096.
+* Hasta 16 campos de filtro.
+
+Los índices vectoriales cuentan para el
+[límite de 32 índices por tabla](/database/reading-data/indexes/indexes.md#limits).
+Además, puedes tener hasta 4 índices vectoriales por tabla.
+
+Las búsquedas vectoriales pueden tener:
+
+* Exactamente un vector por el que buscar en el campo `vector`
+* Hasta 64 expresiones de filtro
+* Hasta 256 resultados solicitados (con un valor predeterminado de 10).
+
+Si tu acción realiza una búsqueda vectorial y luego pasa los resultados a una
+función de consulta o mutación, es posible que uno o más resultados de la
+búsqueda vectorial hayan sido eliminados o modificados. Dado que la búsqueda
+vectorial solo está disponible en las acciones, no puedes realizar consultas o
+mutaciones transaccionales adicionales basadas en los resultados. Si esto es
+importante para tu caso de uso,
+[háznoslo saber en Discord](https://convex.dev/community).
+
+Solo los documentos que contengan un vector del tamaño y en el campo
+especificado por un índice vectorial se incluirán en el índice y se
+devolverán en la búsqueda vectorial.
+
+Para obtener información sobre los límites, consulta
+[aquí](/production/state/limits.mdx).
+
+## Desarrollo futuro \{#future-development\}
+
+Siempre estamos abiertos a comentarios y solicitudes de clientes. Algunas ideas que hemos considerado
+para mejorar la búsqueda vectorial en Convex incluyen:
+
+* Filtros más sofisticados y una sintaxis de filtrado más avanzada
+* Filtrado por puntuación en la API `vectorSearch`
+* Mejor soporte para generar embeddings
+
+Si alguna de estas funcionalidades es importante para tu aplicación,
+[háznoslo saber en Discord](https://convex.dev/community)!

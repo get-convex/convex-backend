@@ -1,0 +1,144 @@
+---
+title: "Otras recomendaciones"
+sidebar_position: 170
+sidebar_class_name: "hidden"
+pagination_next: null
+description:
+  "Recomendaciones adicionales para el desarrollo con Convex, incluyendo el uso de TypeScript,
+  funciones auxiliares, patrones de bases de datos y técnicas de optimización de la UI."
+---
+
+import UserHelpers from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpers.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+{/* Esta página solía ser la página de Mejores prácticas, que se ha reescrito */}
+
+{/* con parte de este contenido omitido. Mantenemos esto como una página oculta que */}
+
+{/* sigue siendo rastreable */}
+
+Aquí tienes una colección de nuestras recomendaciones sobre cómo aprovechar Convex de la mejor manera para crear tu aplicación. Si quieres orientación específica para las necesidades de tu aplicación o has descubierto otras formas de usar Convex, [envíanos un mensaje en Discord](https://convex.dev/community)!
+
+## Usa [TypeScript](/understanding/best-practices/typescript.mdx) \{#use-typescript\}
+
+Todas las bibliotecas de Convex tienen anotaciones de tipos completas y usar estos tipos es una
+excelente forma de aprender el framework.
+
+Aún mejor, Convex es compatible con la [generación de código](/generated-api/) para crear tipos
+específicos del [esquema](/database/schemas.mdx) de tu aplicación y de
+las [funciones de Convex](/functions.mdx).
+
+La generación de código se ejecuta automáticamente con
+[`npx convex dev`](/cli.md#run-the-convex-dev-server).
+
+## Incluye el código generado en el control de versiones \{#check-generated-code-into-version-control\}
+
+Dentro de la carpeta `convex` hay un directorio `_generated/` que contiene código
+personalizado para tus funciones de Convex. Incluye esta carpeta en tu repositorio
+de Git. De ese modo, tu código pasará la comprobación de tipos sin necesidad de ejecutar
+`npx convex codegen` o `npx convex dev` (que incluye la generación de código) primero.
+
+Esto también permite a los desarrolladores hacer cambios en un proyecto que usa Convex
+ejecutándolo contra el despliegue de producción mediante la configuración de una
+variable de entorno, sin necesidad de ejecutar nunca la herramienta Convex CLI. Para
+ejecutar contra un despliegue de producción, configura una variable de entorno como
+VITE&#95;CONVEX&#95;URL (el nombre exacto de la variable depende del framework que uses) a
+una URL de implementación de producción como
+`https://happy-otter-123.convex.cloud`, que se encuentra en la configuración del
+despliegue de producción del proyecto en el panel de control. La mayoría de los
+frameworks buscan variables como esta en un archivo llamado `.env` o `.env.production`.
+
+## Funciones \{#functions\}
+
+### Utiliza la [validación de argumentos](/functions/validation.mdx) en todas las funciones públicas. \{#use-argument-validation-in-all-public-functions\}
+
+La validación de argumentos evita que usuarios malintencionados llamen a tus funciones con tipos de argumentos incorrectos. Es aceptable omitir la validación de argumentos en las [funciones internas](/functions/internal-functions.mdx) porque no son accesibles públicamente.
+
+### Usa `console.log` para depurar tus funciones de Convex. \{#use-consolelog-to-debug-your-convex-functions\}
+
+Todos los registros del lado del servidor de las funciones de Convex se muestran en la
+[página Logs del panel de control](/dashboard/deployments/logs.md). Si se produce una excepción
+del lado del servidor, también se registrará como un evento de error.
+
+En un **despliegue de dev**, los registros también se reenviarán al cliente y aparecerán
+en la Consola de las herramientas de desarrollador del navegador para el usuario que
+invocó la llamada a la función, incluidos los mensajes completos de error del servidor y
+las trazas de pila del lado del servidor.
+
+### Usa funciones auxiliares para escribir código compartido. \{#use-helper-functions-to-write-shared-code\}
+
+Escribe funciones auxiliares en tu directorio `convex/` y úsalas dentro de tus
+funciones de Convex. Las funciones auxiliares pueden ser una forma muy eficaz de
+compartir lógica de negocio, código de autorización y más.
+
+Las funciones auxiliares permiten compartir código manteniendo la ejecución de
+toda la consulta o mutación en una sola transacción. Para las acciones, compartir
+código mediante funciones auxiliares en lugar de usar `ctx.runAction` reduce
+las llamadas a funciones y el uso de recursos.
+
+Consulta la [página de TypeScript](/understanding/best-practices/typescript.mdx)
+para tipos útiles.
+
+<TSAndJSSnippet sourceTS={Teams} sourceJS={TeamsJS} title="convex/teams.js" />
+
+<TSAndJSSnippet sourceTS={UserHelpers} sourceJS={UserHelpersJS} title="convex/userHelpers.js" snippet="userHelpers" suffix={`}`} />
+
+### Prefiere consultas y mutaciones en lugar de acciones \{#prefer-queries-and-mutations-over-actions\}
+
+En general, deberías evitar usar acciones cuando puedas lograr el mismo objetivo
+usando consultas o mutaciones. Dado que las acciones pueden tener efectos secundarios, no se pueden
+reintentar automáticamente ni almacenar en caché sus resultados. Las acciones deben usarse en
+escenarios más limitados, como para llamar a servicios de terceros.
+
+## Base de datos \{#database\}
+
+### Usa índices o pagina todas las consultas grandes de base de datos. \{#use-indexes-or-paginate-all-large-database-queries\}
+
+Los [índices de base de datos](/database/reading-data/indexes/indexes.md) con
+[expresiones de rango](/database/reading-data/indexes/indexes.md#querying-documents-using-indexes)
+te permiten escribir consultas de base de datos eficientes que solo recorren una pequeña cantidad de
+documentos de la tabla. La [paginación](/database/pagination.mdx) te permite
+mostrar rápidamente listas incrementales de resultados. Si tu tabla puede contener más
+de unos cuantos miles de documentos, deberías considerar la paginación o un índice con una
+expresión de rango para asegurarte de que tus consultas se mantengan rápidas.
+
+Para más detalles, consulta nuestro
+artículo [Introducción a los índices y al rendimiento de las consultas](/database/reading-data/indexes/indexes-and-query-perf.md).
+
+### Usa tablas para separar tipos lógicos de objetos. \{#use-tables-to-separate-logical-object-types\}
+
+Aunque Convex sí admite documentos anidados, a menudo es mejor colocar
+objetos distintos en tablas diferentes y usar identificadores `Id` para crear referencias entre
+ellos. Esto te dará más flexibilidad al cargar y
+[consultar documentos](/database/reading-data/reading-data.mdx).
+
+Puedes leer más sobre esto en [IDs de documentos](/database/document-ids.mdx).
+
+## Patrones de interfaz de usuario \{#ui-patterns\}
+
+### Comprueba si es `undefined` para determinar si una consulta se está cargando. \{#check-for-undefined-to-determine-if-a-query-is-loading\}
+
+El [hook de React `useQuery`](/api/modules/react#usequery) devolverá `undefined`
+la primera vez que se monte, antes de que la consulta se haya cargado desde Convex. Una vez que
+una consulta se haya cargado, nunca volverá a ser `undefined` (ni siquiera mientras los datos se actualizan de forma reactiva). `undefined` no es un tipo de retorno válido para las consultas (puedes ver
+los tipos que Convex admite en [Tipos de datos](/database/types.md))
+
+Puedes usar esto como señal para saber cuándo renderizar indicadores de carga y
+UI provisional.
+
+### Añade actualizaciones optimistas para las interacciones que quieras que se sientan rápidas. \{#add-optimistic-updates-for-the-interactions-you-want-to-feel-snappy\}
+
+De forma predeterminada, todos los hooks `useQuery` relevantes se actualizarán automáticamente después de que se sincronice una mutación desde Convex. Si quieres que algunas interacciones ocurran aún más rápido, puedes añadir
+[actualizaciones optimistas](/client/react/optimistic-updates.mdx) a tus llamadas a `useMutation`
+para que la interfaz de usuario se actualice al instante.
+
+### Usa un servicio de gestión de excepciones y límites de error para manejar errores. \{#use-an-exception-handling-service-and-error-boundaries-to-manage-errors\}
+
+Inevitablemente, tus funciones de Convex tendrán errores y lanzarán excepciones. Si tienes
+configurados un servicio de gestión de excepciones y límites de error, puedes asegurarte
+de enterarte de estos errores y de que tus usuarios vean una interfaz de usuario adecuada.
+
+Consulta [Manejo de errores](/functions/error-handling/error-handling.mdx) para obtener más
+información.

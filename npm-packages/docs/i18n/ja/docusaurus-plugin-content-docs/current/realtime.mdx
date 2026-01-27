@@ -1,0 +1,40 @@
+---
+title: "リアルタイム"
+sidebar_position: 100
+description: "Convex でリアルタイムアプリを構築する"
+---
+
+実は Convex は標準でリアルタイム対応です！すでにアプリで
+[query functions](./functions/query-functions)、
+[database](./database)、[client libraries](./client/react/) を使っているなら、
+特別なことをする必要はありません。
+Convex はクエリ関数の依存関係（データベースの変更も含む）を追跡し、
+クライアントライブラリのサブスクリプションを自動的に更新します。
+
+<div align="center">
+  ![Convex is automatically reactive and realtime](/img/realtime.gif)
+</div>
+
+高いインタラクティブ性を持つアプリを簡単に構築できることに加えて、
+Convex のリアルタイムアーキテクチャには他にも利点があります。
+
+## 自動キャッシュ \{#automatic-caching\}
+
+Convex はクエリ関数の結果を自動的にキャッシュし、次回以降の呼び出しでは
+キャッシュから読み取るだけになります。データが変更された場合はキャッシュも更新されます。
+キャッシュされた読み取りについてはデータベース帯域幅の料金は発生しません。
+
+このために特別な作業や管理を行う必要は一切ありません。
+
+## アプリ全体で一貫したデータ \{#consistent-data-across-your-app\}
+
+すべてのクライアントサブスクリプションは、同じ時点のデータベーススナップショットへ同時に更新されます。アプリは常に、もっとも一貫したデータの状態を表示します。
+
+これにより、「ショッピングカート内の商品の数を増やしたのに、その商品が売り切れになったことが表示されない」といったバグを防げます。
+
+## さらに詳しく \{#learn-more\}
+
+Convex でリアルタイムでリアクティブなクエリを扱う方法については、
+[Stack](https://stack.convex.dev/tag/Reactivity) を参照してください。
+
+<StackPosts query="reactivity" />

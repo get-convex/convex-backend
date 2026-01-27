@@ -1,0 +1,175 @@
+---
+title: Archivos e imágenes en mensajes de Agent
+sidebar_label: "Archivos"
+sidebar_position: 1000
+description: "Trabajar con imágenes y archivos en el componente Agent"
+---
+
+Puedes agregar imágenes y archivos para que el LLM pueda usarlos como referencia en los mensajes.
+
+NOTA: Enviar URLs a LLMs es mucho más sencillo con el backend en la nube, ya que
+tiene URLs de almacenamiento públicas. Para desarrollar en local puedes usar `ngrok` o
+algo similar para hacer de proxy del tráfico.
+
+Código de ejemplo:
+
+* [files/autoSave.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/autoSave.ts)
+  tiene un ejemplo sencillo de cómo usar el guardado automático de archivos.
+* [files/addFile.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/addFile.ts)
+  tiene un ejemplo de cómo guardar el archivo, enviar una pregunta y generar una
+  respuesta en pasos separados.
+* [files/generateImage.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/generateImage.ts)
+  tiene un ejemplo de cómo generar una imagen y guardarla en un mensaje del
+  asistente.
+* [FilesImages.tsx](https://github.com/get-convex/agent/blob/main/example/ui/files/FilesImages.tsx)
+  tiene código del lado del cliente.
+
+## Ejecutar el ejemplo \{#running-the-example\}
+
+```sh
+git clone https://github.com/get-convex/agent.git
+cd agent
+npm run setup
+npm run dev
+```
+
+## Enviar una imagen subiéndola primero y generando de forma asíncrona \{#sending-an-image-by-uploading-first-and-generating-asynchronously\}
+
+El enfoque estándar es:
+
+1. Subir el archivo a la base de datos (acción `uploadFile`). Nota: esto puede hacerse en una
+   acción normal o en un httpAction, según lo que resulte más conveniente.
+2. Enviar un mensaje al hilo (acción `submitFileQuestion`)
+3. Enviar el archivo al LLM para generar o transmitir texto de forma asíncrona
+   (acción `generateResponse`)
+4. Consultar los mensajes del hilo (consulta `listThreadMessages`)
+
+Justificación:
+
+Es mejor enviar un mensaje en una mutación en lugar de en una acción porque puedes usar
+una actualización optimista en el lado del cliente para mostrar el mensaje enviado de inmediato y
+hacer que desaparezca exactamente cuando el mensaje llegue a través de la consulta.
+
+Sin embargo, no puedes guardar en el almacenamiento de archivos desde una mutación, así que el archivo tiene que
+existir ya (de ahí el fileId).
+
+Luego puedes generar la respuesta de forma asíncrona (con reintentos, etc.) sin
+que el cliente tenga que esperar.
+
+### 1: Guardar el archivo \{#1-saving-the-file\}
+
+```ts
+import { storeFile } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+const { file } = await storeFile(
+  ctx,
+  components.agent,
+  new Blob([bytes], { type: mimeType }),
+  {
+    filename,
+    sha256,
+  },
+);
+const { fileId, url, storageId } = file;
+```
+
+### 2: Enviar el mensaje \{#2-sending-the-message\}
+
+```ts
+// in your mutation
+const { filePart, imagePart } = await getFile(ctx, components.agent, fileId);
+const { messageId } = await fileAgent.saveMessage(ctx, {
+  threadId,
+  message: {
+    role: "user",
+    content: [
+      imagePart ?? filePart, // if it's an image, prefer that kind.
+      { type: "text", text: "What is this image?" },
+    ],
+  },
+  metadata: { fileIds: [fileId] }, // IMPORTANTE: esto rastrea el uso del archivo.
+});
+```
+
+### 3: Generar la respuesta y consultar las respuestas \{#3-generating-the-response-querying-the-responses\}
+
+Se hace de la misma manera que con entradas de texto.
+
+```ts
+// en una acción
+await thread.generateText({ promptMessageId: messageId });
+```
+
+```ts
+// en una consulta
+const messages = await agent.listMessages(ctx, { threadId, paginationOpts });
+```
+
+## Enfoque de guardado en línea \{#inline-saving-approach\}
+
+También puedes pasar directamente una imagen o un archivo al generar texto, si estás
+en una acción. Cualquier imagen o archivo pasado en el argumento `message` se
+guardará automáticamente en el almacenamiento de archivos si es más grande que 64k, y se
+guardará un fileId en el mensaje.
+
+Ejemplo:
+
+```ts
+await thread.generateText({
+  message: {
+    role: "user",
+    content: [
+      { type: "image", image: imageBytes, mimeType: "image/png" },
+      { type: "text", text: "¿Qué es esta imagen?" },
+    ],
+  },
+});
+```
+
+## Bajo el capó \{#under-the-hood\}
+
+El guardado de archivos tiene 3 componentes:
+
+1. Guardar en el almacenamiento de archivos (en tu app, no en el almacenamiento del componente). Esto
+   significa que puedes acceder al archivo directamente con el `storageId` y generar URL.
+2. Guardar una referencia (el `storageId`) al archivo en el componente. Esto
+   llevará automáticamente un registro de cuántos mensajes hacen referencia al archivo, para que
+   puedas eliminar archivos que ya no se usan (ver
+   [files/vacuum.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/vacuum.ts)).
+3. Insertar una URL en lugar de los datos en el mensaje enviado al LLM, junto
+   con el `mimeType` y otros metadatos proporcionados. Se inferirá si no se
+   proporciona en
+   [`guessMimeType`](https://github.com/get-convex/agent/blob/main/src/mapping.ts#L556).
+
+### ¿Puedo simplemente guardar el archivo yo mismo y pasar una URL? \{#can-i-just-store-the-file-myself-and-pass-in-a-url\}
+
+¡Sí! Siempre puedes pasar una URL en lugar de una imagen o archivo al LLM.
+
+```ts
+const storageId = await ctx.storage.store(blob);
+const url = await ctx.storage.getUrl(storageId);
+
+await thread.generateText({
+  message: {
+    role: "user",
+    content: [
+      { type: "image", data: url, mimeType: blob.type },
+      { type: "text", text: "What is this image?" },
+    ],
+  },
+});
+```
+
+## Generación de imágenes \{#generating-images\}
+
+Hay un ejemplo en
+[files/generateImage.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/generateImage.ts)
+que recibe un prompt, genera una imagen con DALL·E 2 de OpenAI y luego guarda la
+imagen en un hilo.
+
+Puedes probarlo con:
+
+```sh
+npx convex run files:generateImage:replyWithImage '{prompt: "make a picture of a cat" }'
+```

@@ -1,0 +1,161 @@
+---
+title: iOS Swift クイックスタート
+sidebar_label: iOS Swift
+description: "iOS Swift プロジェクトに Convex を追加する"
+hide_table_of_contents: true
+sidebar_position: 600
+---
+
+Swift と SwiftUI で構築された、iOS および macOS デバイス向けアプリケーションで Convex からデータをクエリする方法を学びましょう。
+
+このクイックスタートでは、Xcode、Node.js、npm がインストールされた Mac をお使いであることを前提とします。
+これらのツールがまだない場合は、先にインストールしてください。
+
+<StepByStep>
+  <Step title="Xcode で新規 iOS アプリを作成する">
+    1. *Create New Project* をクリックします
+    2. iOS App を選択して *Next* をクリックします
+    3. プロジェクト名を “ConvexQuickstart” などにします
+    4. Language が Swift、User Interface が SwiftUI に設定されていることを確認します
+    5. *Next* をクリックします
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_step_1.png" alt="新しい iOS プロジェクトを作成" width={600} />
+    </p>
+  </Step>
+
+  <Step title="依存関係の設定">
+    1. 左側のプロジェクトナビゲーターで、最上位の ConvexQuickstart アプリコンテナをクリックします。
+    2. PROJECT 見出しの下にある ConvexQuickstart をクリックします。
+    3. Package Dependencies タブをクリックします。
+    4. 「+」ボタンをクリックします（スクリーンショット参照）。
+    5. 次の URL を検索ボックスに貼り付けて Enter キーを押します。
+       ```
+       https://github.com/get-convex/convex-swift
+       ```
+    6. `convex-swift` パッケージが読み込まれたら、*Add Package* ボタンをクリックします。
+    7. *Package Products* ダイアログで、*Add to Target* ドロップダウンから ConvexQuickstart を選択します。
+    8. 「Add Package」ボタンをクリックします。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_step_2.png" alt="パッケージに Convex の依存関係を追加する" width={600} />
+    </p>
+  </Step>
+
+  <br />
+
+  <Step title="Convex バックエンドをインストールする">
+    ターミナルを開き、作成した Xcode プロジェクトのディレクトリに `cd` で移動し、次のコマンドを実行して Convex クライアントおよびサーバーライブラリをインストールします。
+
+    ```bash
+    npm init -y
+    npm install convex
+    ```
+  </Step>
+
+  <Step title="Convex を起動">
+    Convex の dev デプロイメントを起動してください。コマンドラインの指示に従って新しいプロジェクトを作成してください。
+
+    ```bash
+    npx convex dev
+    ```
+  </Step>
+
+  <Step title="データベースのサンプルデータを作成する">
+    Swift プロジェクトのディレクトリに新しい `sampleData.jsonl` ファイルを作成し、
+    次の内容を記述してください
+
+    ```json
+    {"text": "Buy groceries", "isCompleted": true}
+    {"text": "Go for a swim", "isCompleted": true}
+    {"text": "Integrate Convex", "isCompleted": false}
+    ```
+  </Step>
+
+  <Step title="サンプルデータをデータベース内の `tasks` テーブルに追加してください">
+    ⌘+T を押して別のターミナルタブを開きます。Swift プロジェクトのディレクトリで開いているはずなので、次を実行します
+
+    ```bash
+    npx convex import --table tasks sampleData.jsonl
+    ```
+  </Step>
+
+  <Step title="データベースクエリを公開する">
+    Swift プロジェクト内の `convex/` ディレクトリに `tasks.ts` ファイルを作成し、以下の内容を記述します。
+
+    ```tsx
+    import { query } from "./_generated/server";
+
+    export const get = query({
+      args: {},
+      handler: async (ctx) => {
+        return await ctx.db.query("tasks").collect();
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="Swift 構造体を作成する">
+    Xcode に戻ったら、サンプルデータに一致するように `ContentView` ファイルの下部に `struct` を作成します
+
+    ```swift
+    // Swiftの組み込みTask型との衝突を避けるため、Taskの代わりにTodoという名前を使用しています。
+    struct Todo: Decodable {
+      let _id: String
+      let text: String
+      let isCompleted: Bool
+    }
+    ```
+  </Step>
+
+  <Step title="アプリをバックエンドと接続する">
+    1. `cat .env.local | grep CONVEX_URL` を実行して、dev サーバーのデプロイメントURLを取得します
+    2. ファイルの先頭付近、`ContentView` struct の直前に `ConvexClient` インスタンスを作成します
+
+    ```swift
+    import SwiftUI
+    import ConvexMobile
+
+    // highlight-next-line
+    let convex = ConvexClient(deploymentUrl: "YOUR_CONVEX_URL")
+
+    struct ContentView: View {
+    ...
+    ```
+  </Step>
+
+  <Step title="UI を作成する">
+    デフォルトの `ContentView` を次のコードに置き換えると、バックエンドのデータが変更されるたびに ToDo リストが自動的に更新されるようになります。
+
+    ```swift
+    struct ContentView: View {
+      @State private var todos: [Todo] = []
+
+      var body: some View {
+        List {
+          ForEach(todos, id: \._id) { todo in
+            Text(todo.text)
+          }
+        }.task {
+          for await todos: [Todo] in convex.subscribe(to: "tasks:get")
+            .replaceError(with: []).values
+          {
+            self.todos = todos
+          }
+        }.padding()
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="アプリを起動する">
+    1. ⌘+R を押すか、*Product → Run* をクリックします
+    2. `dashboard.convex.dev` の `tasks` テーブルでドキュメントを追加・更新・削除してみることもできます。アプリには変更内容がリアルタイムで反映されます。
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_final.png" alt="アプリのプレビュー" width={400} />
+    </p>
+  </Step>
+</StepByStep>
+
+詳細は、[iOS Swift ドキュメント](/client/swift.md) を参照してください。

@@ -1,0 +1,113 @@
+---
+title: "数据导入"
+sidebar_label: "数据导入"
+description: "将数据导入 Convex"
+sidebar_position: 169
+---
+
+你可以使用命令行将本地文件中的数据导入 Convex。
+
+```sh
+npx convex import
+```
+
+<BetaAdmonition feature="数据导入" verb="is" />
+
+使用 `--help` 查看所有可用选项。这里将介绍最常见的流程。
+
+## 导入单个表 \{#single-table-import\}
+
+```sh
+npx convex import --table <tableName> <path>
+```
+
+将 CSV、JSON 或 JSONLines 文件导入到 Convex 表中。
+
+* `.csv` 文件必须包含表头行，并且每一行的条目会被解释为（浮点）数值或字符串。
+* `.jsonl` 文件必须是每行一个 JSON 对象。
+* `.json` 文件必须是一个 JSON 对象数组。
+  * JSON 数组的大小上限为 8MiB。要导入更多数据，请使用 CSV 或 JSONLines。你可以使用如下命令将 json 转换为 jsonl：
+    `jq -c '.[]' data.json > data.jsonl`
+
+向已包含数据的表中导入时，默认会失败，但你可以指定 `--append` 将导入的行追加到表中，或者使用 `--replace` 用你导入的数据替换表中已有的数据。
+
+默认会导入到你的开发环境（dev）部署中。使用 `--prod` 导入到生产部署，或使用 `--preview-name` 导入到预览部署中。
+
+## 从 ZIP 备份文件恢复数据 \{#restore-data-from-a-backup-zip-file\}
+
+```sh
+npx convex import <path>.zip
+```
+
+从一个在仪表盘上下载的 ZIP 格式 [Backup](/database/backup-restore) 导入到 Convex 部署。文档会保留其 `_id` 和 `_creationTime` 字段，从而维持表与表之间的引用关系。
+
+默认情况下，如果要导入的表中已有数据，导入会失败，但你可以指定 `--replace` 来替换 ZIP 文件中所包含这些表中的现有数据。
+
+## 使用场景 \{#use-cases\}
+
+1. 为开发环境（dev）部署预置示例数据。
+
+```sh
+# 完整备份 - 从生产环境或其他开发环境（dev）部署导出。
+npx convex import seed_data.zip
+
+# Import single table from jsonl/csv
+npx convex import --table <table name> data.jsonl
+```
+
+2. 以编程方式从[备份](/database/backup-restore)恢复部署。下载备份，并在需要时从中恢复。
+
+```sh
+npx convex import --prod --replace backup.zip
+```
+
+3. 使用从 prod、开发环境（dev）或其他预览部署导出的示例数据对预览部署进行预置。例如，对于 Vercel，可从
+   提交在仓库根目录下的 `seed_data.zip` 中预置数据。
+
+```sh
+npx convex deploy --cmd 'npm run build' &&
+if [ "$VERCEL_ENV" == "preview" ]; then
+npx convex import --preview-name "$VERCEL_GIT_COMMIT_REF" seed_data.zip;
+fi
+```
+
+4. 通过空导入高效清空表。
+
+```sh
+touch empty_file.jsonl
+npx convex import --replace --table <tableNameToClear> empty_file.jsonl
+```
+
+## 功能 \{#features\}
+
+* 数据导入是创建带有预先存在的 `_id` 和 `_creationTime` 字段的文档的唯一方式。
+  * `_id` 字段必须符合 Convex 的 ID 格式。
+  * 如果未提供 `_id` 或 `_creationTime`，则会在导入期间自动生成新的值。
+* 数据导入会以原子方式创建和替换数据表（使用 `--append` 时除外）。
+  * 查询和变更函数不会看到仅导入了部分数据时的中间状态。
+  * 索引和模式会直接在新数据上生效，无需花时间重新回填或重新校验。
+* 数据导入仅影响在导入中被提及的数据表，可以通过 `--table` 指定，或作为 ZIP 文件中的条目出现。
+* 虽然 JSON 和 JSONLines 可以导入任意 JSON 值，ZIP 导入还可以额外导入其他 Convex 值：Int64、Bytes 等。这些类型会通过 `generated_schema.jsonl` 文件在 ZIP 文件中被保留。
+* 导入包含 [file storage](/file-storage) 的 ZIP 文件时，会导入这些文件并保留 [`_storage`](/database/advanced/system-tables.mdx) 文档，包括它们的 `_id`、`_creationTime` 和 `contentType` 字段。
+
+## 警告 \{#warnings\}
+
+* [Streaming Export](/production/integrations/streaming-import-export.md)
+  （Fivetran 或 Airbyte）不会处理数据导入或备份恢复，
+  类似地，它也不会处理表的删除和创建以及某些模式更改。我们建议在恢复或数据导入之后
+  重置流式导出同步。
+* 避免在从 Data Export 下载 ZIP 文件到使用 `npx convex import`
+  导入之间修改该 ZIP 文件。对 ZIP 文件进行一些手动修改可能是可行的，
+  但这些用法尚未在文档中说明。请在 [Discord](https://convex.dev/community)
+  中向 Convex 团队说明你的使用场景并进行确认。
+* 当导入到创建于 Convex 1.7 版本之前的部署时，数据导入并不总是受支持。
+  * 导入可能仍然可行，尤其是当你从一个与目标部署创建时间相近的部署
+    导入 ZIP 备份时。作为一个特殊情况，你始终可以从其自身部署的备份中恢复。
+  * 如果你遇到问题，请在
+    [Discord](https://convex.dev/community) 中联系我们，因为可能存在变通方案。
+
+数据导入会使用数据库带宽来写入所有文档，如果导出包含文件存储，还会使用
+文件带宽。你可以在
+[usage dashboard](https://dashboard.convex.dev/team/settings/usage)
+（使用情况仪表盘）中查看这些带宽消耗，对应的函数名为 `_cli/import`，以及在
+[limits docs](/production/state/limits#database) 中记录的相关费用。

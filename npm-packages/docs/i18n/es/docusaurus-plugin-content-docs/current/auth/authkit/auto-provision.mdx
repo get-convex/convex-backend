@@ -1,0 +1,159 @@
+---
+title: "Configuración automática de AuthKit"
+sidebar_label: "Configuración automática"
+sidebar_position: 20
+description:
+  "Configura la integración de WorkOS AuthKit con aprovisionamiento automático para
+  despliegues de Convex"
+---
+
+Convex puede **crear** entornos de AuthKit en una cuenta de WorkOS creada en tu
+nombre. De forma predeterminada, WorkOS solo proporciona dos entornos, pero dar
+a cada despliegue de Convex en dev su propio entorno de AuthKit es útil para
+aislar los datos de usuario de desarrollo y los cambios de configuración entre
+varios desarrolladores o agentes que trabajan en paralelo.
+
+La CLI de Convex **configurará** entornos de AuthKit, independientemente de si
+los creó Convex o tú, siempre que las variables de entorno `WORKOS_CLIENT_ID` y
+`WORKOS_API_KEY` estén presentes en el entorno de compilación o en el despliegue
+de Convex. Cuando desarrolles en local, Convex puede escribir variables de
+entorno en `.env.local` para que configurar un entorno de AuthKit sea muy
+sencillo.
+
+## Primeros pasos \{#getting-started\}
+
+Selecciona AuthKit como opción de autenticación en la herramienta `create convex`.
+
+```bash
+npm create convex@latest
+```
+
+Estas plantillas incluyen un `convex.json` que provoca la creación y configuración de un entorno de AuthKit para este despliegue. Con solo `npx convex dev` obtendrás un entorno de WorkOS ya configurado.
+
+### Pasar a producción \{#going-to-production\}
+
+En la configuración del panel de control de Convex para tu despliegue de producción, crea un
+entorno de AuthKit en la integración WorkOS Authentication, en Settings &gt; Integrations.
+Copia estas credenciales a las variables de entorno de tu proveedor de hosting
+(además de otras configuraciones, como agregar una
+`CONVEX_DEPLOY_KEY` de producción, configurar el comando de build y establecer otras
+variables de entorno específicas del framework para AuthKit).
+
+### Despliegues de vista previa \{#preview-deployments\}
+
+En la configuración del panel de control de Convex para cualquier despliegue de tu proyecto, crea un
+nuevo entorno AuthKit a nivel de proyecto en la integración WorkOS Authentication,
+en Configuración &gt; Integraciones. Copia estas credenciales a las variables de entorno
+de tu proveedor de alojamiento (además de otra configuración, como agregar una clave de vista previa
+`CONVEX_DEPLOY_KEY`, configurar el comando de compilación y establecer otras
+variables de entorno específicas del framework para AuthKit).
+
+## Cómo funciona \{#how-it-works\}
+
+El aprovisionamiento y la configuración de AuthKit se activan por la presencia
+de un archivo `convex.json` con una sección `authKit` que tenga una propiedad
+correspondiente al tipo de push de código: `dev`, `preview` o `prod`.
+
+Si esta sección está presente, se puede aprovisionar un entorno de AuthKit
+(solo para dev), definir variables de entorno locales (solo para dev) y
+configurarlo (para todos los tipos de push de código).
+
+### Encontrar el entorno de AuthKit \{#finding-the-authkit-environment\}
+
+La CLI busca las credenciales de WorkOS `WORKOS_CLIENT_ID` y `WORKOS_API_KEY` en
+el siguiente orden:
+
+1. Variables de entorno en la shell del entorno de compilación o en el archivo `.env.local`
+2. Variables de entorno del despliegue de Convex
+
+En entornos de compilación remotos (por ejemplo, al compilar un proyecto en Vercel, Netlify
+o Cloudflare), si no se encuentran estas dos variables de entorno, la compilación
+fallará.
+
+Durante el desarrollo local, las credenciales se obtienen a continuación de la API de Convex Cloud para
+un entorno AuthKit nuevo o existente. Un enlace a este despliegue en el panel de control de WorkOS
+se puede encontrar en el panel de control de Convex, en la sección de la integración de WorkOS.
+
+### Configuración del entorno de AuthKit \{#configuring-the-authkit-environment\}
+
+Una vez encontradas las credenciales, se usa `WORKOS_API_KEY` para configurar el
+entorno según la sección `configure` del objeto `authKit` correspondiente.
+Esto configura aspectos como los
+[URI de redirección](https://workos.com/docs/sso/redirect-uris) del entorno y
+los [orígenes CORS permitidos](https://workos.com/docs/authkit/client-only).
+
+### Configuración de variables de entorno locales \{#setting-local-environment-variables\}
+
+Solo para despliegues dev, las variables de entorno se escriben en `.env.local`
+según la sección `localEnvVars` de la configuración de `authKit` correspondiente.
+
+## Entornos de AuthKit a nivel de proyecto vs a nivel de despliegue \{#project-level-vs-deployment-level-authkit-environments\}
+
+En proveedores de hosting con pipelines de compilación remotos como Vercel, es
+difícil configurar variables de entorno como `WORKOS_API_KEY` en tiempo de
+compilación de una manera que estén disponibles para el código del lado del
+servidor, como el middleware de Next.js. Esto hace necesario configurar las
+variables de entorno `WORKOS_*` por adelantado para los despliegues de vista
+previa y producción compilados en estas plataformas.
+
+Después de crear los entornos de WorkOS AuthKit para los despliegues de
+producción y vista previa en el panel de control, copia las variables de entorno
+relevantes como `WORKOS_CLIENT_ID`, `WORKOS_API_KEY`, `WORKOS_REDIRECT_URI` y
+`WORKOS_COOKIE_PASSWORD` a las variables de entorno de vista previa y producción
+en tu proveedor de hosting.
+
+Se pueden crear entornos de AuthKit específicos de cada despliegue para
+cualquier despliegue, pero son difíciles de configurar automáticamente, por lo
+que los entornos compartidos a nivel de proyecto suelen ser una mejor opción.
+
+En la sección `authKit` de `convex.json`, `localEnvVars`
+`automatiza la configuración de entornos de desarrollo configurando
+automáticamente las variables de entorno adecuadas en .env.local y configurando
+automáticamente el entorno con un `redirectUri`.
+
+Los entornos para proveedores de hosting en entornos de compilación como Vercel
+(despliegues de producción y vista previa) se pueden configurar en tiempo de
+compilación, pero las variables de entorno para estos entornos de compilación se
+deben configurar manualmente en los ajustes de compilación.
+
+## Configuración recomendada \{#recommended-configuration\}
+
+Aquí tienes una configuración habitual para un proyecto donde los despliegues de producción y de vista previa se realizan desde Vercel. Revisa la documentación de tu proveedor de alojamiento para usar las variables de entorno correctas y consulta la guía sobre cómo usar AuthKit con el framework que prefieras para personalizar este ejemplo.
+
+```json title="convex.json"
+{
+  "authKit": {
+    "dev": {
+      "configure": {
+        "redirectUris": ["http://localhost:3000/callback"],
+        "appHomepageUrl": "http://localhost:3000",
+        "corsOrigins": ["http://localhost:3000"]
+      },
+      "localEnvVars": {
+        "WORKOS_CLIENT_ID": "${authEnv.WORKOS_CLIENT_ID}",
+        "WORKOS_API_KEY": "${authEnv.WORKOS_API_KEY}",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI": "http://localhost:3000/callback"
+      }
+    },
+    "preview": {
+      "configure": {
+        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
+      }
+    },
+    "prod": {
+      "environmentType": "production",
+      "configure": {
+        "redirectUris": [
+          "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}/callback"
+        ],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}"]
+      }
+    }
+  }
+}
+```
+
+Además, para el desarrollo local en **Next.js** y **TanStack Start**, Convex genera automáticamente la variable `WORKOS_COOKIE_PASSWORD` si aún no está definida en `.env.local`.

@@ -1,0 +1,278 @@
+---
+title: Streaming
+sidebar_label: "Streaming"
+sidebar_position: 340
+description: "Mensajes en streaming con un agente"
+---
+
+Hacer streaming de mensajes es una excelente manera de dar retroalimentación a un usuario y mantener la aplicación ágil y receptiva mientras usas modelos de lenguaje (LLM).
+
+Tradicionalmente, el streaming sucede mediante HTTP streaming, donde el cliente envía una solicitud y espera hasta que se transmite la respuesta completa. Esto funciona listo para usarse al usar el Agent, de la misma forma que lo harías con el AI SDK. Consulta
+[más abajo](#consuming-the-stream-yourself-with-the-agent) si eso es todo lo que necesitas.
+
+Sin embargo, con el componente Agent también puedes hacer streaming de mensajes de forma asíncrona, lo que significa que la generación no tiene que suceder en un controlador HTTP (`httpAction`), y la respuesta puede transmitirse a uno o más clientes incluso si su conexión de red se interrumpe.
+
+Funciona guardando los fragmentos transmitidos en la base de datos en grupos (deltas), y los clientes se suscriben a nuevos deltas para el hilo correspondiente, a medida que se generan. Como beneficio adicional, ni siquiera necesitas usar la versión de `streamText` del Agent para usar el enfoque de streaming por deltas (consulta
+[más abajo](#advanced-streaming-deltas-asynchronously-without-using-an-agent)).
+
+Ejemplo:
+
+* Servidor:
+  [streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+* Cliente:
+  [ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)
+
+## Transmisión de deltas de mensajes \{#streaming-message-deltas\}
+
+La forma más sencilla de transmitir en streaming es pasar `{ saveStreamDeltas: true }` a
+`agent.streamText`. Esto guardará fragmentos de la respuesta como deltas a medida que se
+vayan generando, de modo que todos los clientes puedan suscribirse al flujo y obtener texto actualizado en tiempo real
+mediante consultas normales de Convex.
+
+```ts
+agent.streamText(ctx, { threadId }, { prompt }, { saveStreamDeltas: true });
+```
+
+Esto se puede hacer en una función asíncrona, donde el streaming HTTP hacia un cliente no
+es posible. Internamente dividirá la respuesta en bloques y aplicará un debounce al guardado de los
+deltas para evitar un uso excesivo de ancho de banda. Puedes pasar más opciones a
+`saveStreamDeltas` para configurar la fragmentación y el debounce.
+
+```ts
+  { saveStreamDeltas: { chunking: "line", throttleMs: 1000 } },
+```
+
+* `chunking` puede ser &quot;word&quot;, &quot;line&quot;, una expresión regular o una función personalizada.
+* `throttleMs` define cada cuánto se guardan los deltas. Esto enviará varios
+  bloques por delta, escribirá de forma secuencial y no escribirá más rápido que
+  el valor de `throttleMs`
+  ([single-flighted](https://stack.convex.dev/throttling-requests-by-single-flighting)).
+
+## Recuperar deltas en streaming \{#retrieving-streamed-deltas\}
+
+Para que los clientes puedan recibir mensajes en streaming, necesitas exponer una consulta que devuelva los
+deltas del flujo. Esto es muy similar a
+[recuperar mensajes](./messages.mdx#retrieving-messages), con algunos pequeños cambios:
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+// highlight-next-line
+import { vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    // Opciones de paginación para los mensajes que no son de streaming.
+    paginationOpts: paginationOptsValidator,
+    // highlight-next-line
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    // Obtiene los mensajes regulares que no son de streaming.
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // highlight-next-line
+    const streams = await syncStreams(ctx, components.agent, args);
+
+    // highlight-next-line
+    return { ...paginated, streams };
+  },
+});
+```
+
+Al igual que con los [mensajes sin streaming](./messages.mdx#useuimessages-hook),
+puedes usar el hook `useUIMessages` para recuperar los mensajes, pasando
+`stream: true` para habilitar el streaming.
+
+```ts
+const { results, status, loadMore } = useUIMessages(
+  api.chat.streaming.listMessages,
+  { threadId },
+  // highlight-next-line
+  { initialNumItems: 10, stream: true },
+);
+```
+
+### Suavizado de texto con `SmoothText` y `useSmoothText` \{#text-smoothing-with-smoothtext-and-usesmoothtext\}
+
+El hook `useSmoothText` es un hook simple que suaviza el texto a medida que cambia.
+Puede usarse con cualquier texto, pero es especialmente útil para texto transmitido en streaming.
+
+```ts
+import { useSmoothText } from "@convex-dev/agent/react";
+
+// en el componente
+const [visibleText] = useSmoothText(message.text);
+```
+
+Puedes configurar los caracteres por segundo iniciales. Se adaptará con el
+tiempo para igualar la velocidad promedio del texto entrante.
+
+De forma predeterminada, no transmitirá el primer texto que reciba a menos que pases
+`startStreaming: true`. Para empezar a transmitir inmediatamente cuando tengas una mezcla de
+mensajes con y sin streaming, haz lo siguiente:
+
+```ts
+import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
+
+function Message({ message }: { message: UIMessage }) {
+  const [visibleText] = useSmoothText(message.text, {
+    startStreaming: message.status === "streaming",
+  });
+  return <div>{visibleText}</div>;
+}
+```
+
+Si no quieres utilizar el hook, puedes utilizar el componente `SmoothText`.
+
+```tsx
+import { SmoothText } from "@convex-dev/agent/react";
+
+//...
+<SmoothText text={message.text} />;
+```
+
+## Consumir el stream directamente con el Agent \{#consuming-the-stream-yourself-with-the-agent\}
+
+Puedes consumir el stream de todas las formas en que puedes hacerlo con el SDK de IA subyacente; por ejemplo, iterando sobre el contenido o usando
+[`result.toDataStreamResponse()`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#to-data-stream-response).
+
+Si además no estás guardando los deltas, podría verse así:
+
+```ts
+const result = await agent.streamText(ctx, { threadId }, { prompt });
+
+for await (const textPart of result.textStream) {
+  console.log(textPart);
+}
+```
+
+Si quieres iterar mientras se está produciendo el stream y, además, guardar los
+deltas, puedes pasar `{ saveStreamDeltas: { returnImmediately: true } }` a
+`streamText`. Esta llamada devolverá inmediatamente y luego podrás iterar sobre el
+stream en tiempo real o devolver el stream en una respuesta HTTP.
+
+```ts
+const result = await agent.streamText(
+  ctx,
+  { threadId },
+  { prompt },
+  { saveStreamDeltas: { returnImmediately: true } },
+);
+
+return result.toUIMessageStreamResponse();
+```
+
+Si no quieres usar el Agent en absoluto, la siguiente sección te mostrará
+cómo guardar tú mismo los deltas.
+
+## Avanzado: Transmitir deltas de forma asíncrona sin usar un Agent \{#advanced-streaming-deltas-asynchronously-without-using-an-agent\}
+
+Para transmitir mensajes sin usar el envoltorio `streamText` del Agent, puedes
+usar directamente la función `streamText` del SDK de IA.
+
+Esto consiste en usar la clase `DeltaStreamer` para guardar los deltas en la
+base de datos y luego usar el enfoque anterior para recuperar los mensajes, aunque
+puedes usar un hook `useStreamingUIMessages` más directo que no implique leer de
+la base de datos mensajes que no formen parte del streaming.
+
+Los requisitos para leer y escribir los streams son simplemente que usen un
+`threadId` del componente Agent y que cada stream se guarde con un
+`order` distinto, para el orden en el lado del cliente.
+
+```ts
+import { components } from "./_generated/api";
+import { type ActionCtx } from "./_generated/server";
+import { DeltaStreamer, compressUIMessageChunks } from "@convex-dev/agent";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+async function stream(ctx: ActionCtx, threadId: string, order: number) {
+  const streamer = new DeltaStreamer(
+    components.agent,
+    ctx,
+    {
+      throttleMs: 100,
+      onAsyncAbort: async () => console.error("Aborted asynchronously"),
+      // This will collapse multiple tiny deltas into one if they're being sent
+      // in quick succession.
+      compress: compressUIMessageChunks,
+      abortSignal: undefined,
+    },
+    {
+      threadId,
+      format: "UIMessageChunk",
+      order,
+      stepOrder: 0,
+      userId: undefined,
+    },
+  );
+  // Do the normal streaming with the AI SDK
+  const response = streamText({
+    model: openai.chat("gpt-4o-mini"),
+    prompt: "Tell me a joke",
+    abortSignal: streamer.abortController.signal,
+    onError: (error) => {
+      console.error(error);
+      streamer.fail(errorToString(error.error));
+    },
+  });
+
+  // Podríamos usar await aquí si quisiéramos esperar a que termine el stream,
+  // pero en su lugar lo procesamos asincrónicamente para poder devolver una
+  // Response HTTP de streaming.
+  void streamer.consumeStream(response.toUIMessageStream());
+
+  return {
+    // e.g. to do `response.toTextStreamResponse()` for HTTP streaming.
+    response,
+    // We don't need this on the client, but with it we can have some clients
+    // selectively not stream down deltas when they're using HTTP streaming
+    // already.
+    streamId: await streamer.getStreamId(),
+  };
+}
+```
+
+Para obtener los deltas para el cliente, puedes usar la función `syncStreams`,
+como lo harías con el streaming normal de un Agent. Si no necesitas obtener los
+mensajes que no son de streaming, se puede simplificar a:
+
+```ts
+import { v } from "convex/values";
+import { vStreamArgs, syncStreams } from "@convex-dev/agent";
+import { query } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const listStreams = query({
+  args: {
+    threadId: v.string(),
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    // await authorizeThreadAccess(ctx, args.threadId);
+    const streams = await syncStreams(ctx, components.agent, {
+      ...args,
+      // Por defecto, syncStreams solo devuelve mensajes en streaming. Sin embargo, si
+      // tus mensajes no se guardan en la misma transacción en la que finaliza el streaming,
+      // es posible que quieras incluirlos aquí para evitar parpadeos en la interfaz.
+      includeStatuses: ["streaming", "aborted", "finished"],
+    });
+    return { streams };
+  },
+});
+```
+
+En el cliente, puedes usar el hook `useStreamingUIMessages` para obtener
+los mensajes. Si definiste más argumentos además de `threadId`, se pasarán
+junto con `threadId` aquí.
+
+```ts
+const messages = useStreamingUIMessages(api.example.listStreams, { threadId });
+```
+
+Puedes pasar otro parámetro para omitir ciertos valores de `streamId` o para comenzar
+a partir de cierto `order` y así ignorar streams anteriores.
