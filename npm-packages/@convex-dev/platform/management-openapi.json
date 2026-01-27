@@ -903,13 +903,18 @@
           "name",
           "createTime",
           "deploymentType",
-          "projectId"
+          "projectId",
+          "deploymentRegion"
         ],
         "properties": {
           "createTime": {
             "type": "integer",
             "format": "int64",
             "description": "Timestamp in milliseconds when this deployment was created."
+          },
+          "deploymentRegion": {
+            "$ref": "#/components/schemas/RegionName",
+            "description": "The region where this deployment is hosted."
           },
           "deploymentType": {
             "$ref": "#/components/schemas/DeploymentType",

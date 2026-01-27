@@ -4379,6 +4379,7 @@
               "createTime",
               "deploymentType",
               "projectId",
+              "region",
               "kind"
             ],
             "properties": {
@@ -4424,6 +4425,9 @@
               },
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId"
+              },
+              "region": {
+                "$ref": "#/components/schemas/RegionName"
               }
             }
           },

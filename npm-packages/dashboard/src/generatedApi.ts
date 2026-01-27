@@ -2166,6 +2166,7 @@ export interface components {
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
+            region: components["schemas"]["RegionName"];
         } | {
             /** Format: int64 */
             createTime: number;

@@ -434,6 +434,8 @@ export interface components {
              * @description Timestamp in milliseconds when this deployment was created.
              */
             createTime: number;
+            /** @description The region where this deployment is hosted. */
+            deploymentRegion: components["schemas"]["RegionName"];
             /** @description Whether this is a "dev" development deployment or "prod" production
              *     deployment. */
             deploymentType: components["schemas"]["DeploymentType"];

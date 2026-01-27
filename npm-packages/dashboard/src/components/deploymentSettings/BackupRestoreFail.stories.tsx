@@ -40,6 +40,7 @@ const deployment: DeploymentResponse = {
   projectId: 1,
   creator: 1,
   previewIdentifier: null,
+  region: "us-east-2",
 };
 
 const meta = {
