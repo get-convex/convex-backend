@@ -63,7 +63,7 @@ static NAME_REGEX: LazyLock<Regex> =
 // don't reduce them since that might break existing projects.
 
 /// Maximum length of the name of an environment variable
-pub const MAX_NAME_LENGTH: usize = 40;
+pub const MAX_NAME_LENGTH: usize = 128;
 /// Maximum length of an environment variable value. 8KiB corresponds to the
 /// maximum length of an HTTP header.
 pub const MAX_VALUE_LENGTH: usize = 8 * (1 << 10);
@@ -163,7 +163,7 @@ pub fn env_var_name_forbidden(name: &EnvVarName) -> ErrorMetadata {
 
 #[cfg(any(test, feature = "testing"))]
 mod proptest {
-    const ENV_VAR_NAME_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,38}";
+    const ENV_VAR_NAME_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,126}";
     use std::str::FromStr;
 
     use proptest::prelude::*;
@@ -237,7 +237,7 @@ mod tests {
         // Invalid
         assert!(EnvVarName::from_str("1_bad_env_var_name").is_err());
         assert!(EnvVarName::from_str("bad_env_var=name").is_err());
-        assert!(EnvVarName::from_str("SUPER_LONG_NAME_____________________________________________________________________________").is_err());
+        assert!(EnvVarName::from_str("SUPER_LONG_NAME_________________________________________________________________________________________________________________").is_err());
         assert!(EnvVarName::from_str("bad_env_var-name").is_err());
     }
 
