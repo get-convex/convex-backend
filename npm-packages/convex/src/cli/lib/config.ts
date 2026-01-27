@@ -73,6 +73,9 @@ export interface AuthKitConfig {
 
 /** Type representing Convex project configuration. */
 export interface ProjectConfig {
+  // ⚠️ When updating this, please also update the file used by IDEs for autocompletion and validation:
+  // -> npm-packages/convex/schemas/convex.schema.json
+
   functions: string;
   node: {
     externalPackages: string[];
