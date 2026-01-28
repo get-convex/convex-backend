@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "${VERCEL_ENV}" == "production" ]] ; then
     # Proceed with the build
     echo "✅ - Build can proceed on production branch"

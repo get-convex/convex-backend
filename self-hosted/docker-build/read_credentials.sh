@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 DATA_DIR=${DATA_DIR:-/convex/data}
 CREDENTIALS_DIR=${CREDENTIALS_DIR:-"$DATA_DIR/credentials"}
