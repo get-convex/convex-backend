@@ -25,7 +25,6 @@ use common::{
         schema::SchemaState,
     },
     db_schema,
-    db_schema_with_indexes,
     document::{
         CreationTime,
         PackedDocument,
@@ -123,10 +122,6 @@ use crate::{
         TableSummaryWriter,
     },
     test_helpers::{
-        index_utils::{
-            assert_backfilled,
-            assert_backfilling,
-        },
         new_test_database,
         DbFixtures,
         DbFixturesArgs,
@@ -1860,111 +1855,6 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     IndexWorker::new_terminating(rt, tp, retention_validator, db.clone()).await?;
     enable_index(&db, &index_name).await?;
     check_index_is_correct(db, values, index_name).await?;
-    Ok(())
-}
-
-/// Test that indexes added to empty tables are immediately backfilled,
-/// not in backfilling state.
-#[convex_macro::test_runtime]
-async fn test_indexes_on_empty_tables_skip_backfill(rt: TestRuntime) -> anyhow::Result<()> {
-    let database = new_test_database(rt).await;
-    let namespace = TableNamespace::test_user();
-
-    // Create schema with all types of indexes on an empty table
-    let schema = db_schema_with_indexes!(
-        "empty_table" => {
-            indexes: ("db_index", vec!["field1", "field2"]),
-            staged_db_indexes: ("staged_db_index", vec!["field3"]),
-            text_indexes: ("text_index", "text_field"),
-            staged_text_indexes: ("staged_text_index", "text_field2"),
-            vector_indexes: ("vector_index", "vector_field"),
-            staged_vector_indexes: ("staged_vector_index", "vector_field2"),
-        }
-    );
-
-    // Commit the schema without adding any documents
-    let mut tx = database.begin(Identity::system()).await?;
-    IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(namespace, &schema)
-        .await?;
-    database.commit(tx).await?;
-
-    // Assert all indexes are immediately backfilled (not backfilling)
-    assert_backfilled(&database, "empty_table", "db_index").await?;
-    assert_backfilled(&database, "empty_table", "staged_db_index").await?;
-    assert_backfilled(&database, "empty_table", "text_index").await?;
-    assert_backfilled(&database, "empty_table", "staged_text_index").await?;
-    assert_backfilled(&database, "empty_table", "vector_index").await?;
-    assert_backfilled(&database, "empty_table", "staged_vector_index").await?;
-
-    Ok(())
-}
-
-/// Test that indexes added to tables with data start in backfilling state,
-/// not backfilled.
-#[convex_macro::test_runtime]
-async fn test_indexes_on_nonempty_tables_require_backfill(rt: TestRuntime) -> anyhow::Result<()> {
-    use common::db_schema_with_indexes;
-
-    let database = new_test_database(rt).await;
-    let namespace = TableNamespace::test_user();
-
-    // First, add some documents to the table
-    let mut tx = database.begin(Identity::system()).await?;
-    let table_name: TableName = str::parse("nonempty_table")?;
-    for i in 0..10 {
-        let vector1: Vec<ConvexValue> = vec![0.1f64; 1536]
-            .into_iter()
-            .map(ConvexValue::from)
-            .collect();
-        let vector2: Vec<ConvexValue> = vec![0.2f64; 1536]
-            .into_iter()
-            .map(ConvexValue::from)
-            .collect();
-        TestFacingModel::new(&mut tx)
-            .insert(
-                &table_name,
-                assert_obj!(
-                    "field1" => i,
-                    "field2" => format!("value_{}", i),
-                    "field3" => i * 2,
-                    "text_field" => format!("text {}", i),
-                    "text_field2" => format!("text2 {}", i),
-                    "vector_field" => ConvexValue::try_from(vector1)?,
-                    "vector_field2" => ConvexValue::try_from(vector2)?,
-                ),
-            )
-            .await?;
-    }
-    database.commit(tx).await?;
-
-    // Now add indexes to the table with data
-    let schema = db_schema_with_indexes!(
-        "nonempty_table" => {
-            indexes: ("db_index", vec!["field1", "field2"]),
-            staged_db_indexes: ("staged_db_index", vec!["field3"]),
-            text_indexes: ("text_index", "text_field"),
-            staged_text_indexes: ("staged_text_index", "text_field2"),
-            vector_indexes: ("vector_index", "vector_field"),
-            staged_vector_indexes: ("staged_vector_index", "vector_field2"),
-        }
-    );
-
-    let mut tx = database.begin(Identity::system()).await?;
-    IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(namespace, &schema)
-        .await?;
-    database.commit(tx).await?;
-
-    // Assert all indexes are in backfilling state (not backfilled)
-    let mut tx = database.begin_system().await?;
-    assert_backfilling(&mut tx, "nonempty_table", "db_index")?;
-    assert_backfilling(&mut tx, "nonempty_table", "staged_db_index")?;
-    assert_backfilling(&mut tx, "nonempty_table", "text_index")?;
-    assert_backfilling(&mut tx, "nonempty_table", "staged_text_index")?;
-    assert_backfilling(&mut tx, "nonempty_table", "vector_index")?;
-    assert_backfilling(&mut tx, "nonempty_table", "staged_vector_index")?;
-
     Ok(())
 }
 

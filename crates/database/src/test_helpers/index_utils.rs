@@ -76,12 +76,23 @@ fn assert_at_most_one_definition(
 }
 
 pub fn assert_backfilling(
-    tx: &mut Transaction<TestRuntime>,
+    mut tx: Transaction<TestRuntime>,
     table_name: &str,
     index_name: &str,
 ) -> anyhow::Result<()> {
-    let index_metadata = get_recent_index_metadata(tx, table_name, index_name)?;
-    assert!(index_metadata.config.is_backfilling());
+    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TabletId> =
+        get_recent_index_metadata(&mut tx, table_name, index_name)?;
+    match index_metadata.config {
+        IndexConfig::Database { on_disk_state, .. } => {
+            assert_matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
+        },
+        IndexConfig::Text { on_disk_state, .. } => {
+            assert_matches!(on_disk_state, TextIndexState::Backfilling(_))
+        },
+        IndexConfig::Vector { on_disk_state, .. } => {
+            assert_matches!(on_disk_state, VectorIndexState::Backfilling(_))
+        },
+    }
     Ok(())
 }
 
@@ -91,8 +102,19 @@ pub async fn assert_backfilled(
     index_name: &'static str,
 ) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
-    let index_metadata = get_recent_index_metadata(&mut tx, table_name, index_name)?;
-    assert!(index_metadata.config.is_backfilled());
+    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TabletId> =
+        get_recent_index_metadata(&mut tx, table_name, index_name)?;
+    match index_metadata.config {
+        IndexConfig::Database { on_disk_state, .. } => {
+            assert_matches!(on_disk_state, DatabaseIndexState::Backfilled { .. })
+        },
+        IndexConfig::Text { on_disk_state, .. } => {
+            assert_matches!(on_disk_state, TextIndexState::Backfilled { .. })
+        },
+        IndexConfig::Vector { on_disk_state, .. } => {
+            assert_matches!(on_disk_state, VectorIndexState::Backfilled { .. })
+        },
+    }
     Ok(())
 }
 

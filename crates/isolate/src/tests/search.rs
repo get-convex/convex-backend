@@ -40,7 +40,6 @@ async fn add_text_index(t: &UdfTest<TestRuntime, TestPersistence>) -> anyhow::Re
         "messages.by_body".parse()?,
         "body".parse()?,
         btreeset! { "filterField".parse()?},
-        false,
     ))
     .await
 }

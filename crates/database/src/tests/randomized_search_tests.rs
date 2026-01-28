@@ -176,7 +176,6 @@ impl Scenario {
             "test.by_text".parse()?,
             "searchField".parse()?,
             btreeset! {"filterField".parse()?},
-            false,
         );
         let index_id = IndexModel::new(&mut tx)
             .add_application_index(namespace, index)

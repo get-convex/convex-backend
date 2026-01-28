@@ -453,7 +453,6 @@ pub fn backfilling_text_index() -> anyhow::Result<IndexMetadata<TableName>> {
         index_name,
         search_field,
         btreeset![filter_field],
-        false,
     );
     Ok(metadata)
 }

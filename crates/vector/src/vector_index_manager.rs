@@ -271,28 +271,19 @@ impl VectorIndexManager {
                     ref on_disk_state, ..
                 } = metadata.config
                 {
-                    let ts = match on_disk_state {
-                        VectorIndexState::Backfilling(_) => ts,
-                        VectorIndexState::Backfilled { snapshot, .. } => {
-                            // N.B. This is only correct because we only insert search
-                            // indexes as Backfilled iff the table is empty and we subscribe
-                            // to the count, which takes a read dependency on the whole
-                            // table. If there is a write to the table, the transaction will
-                            // fail.
-                            WriteTimestamp::Committed(snapshot.ts.succ()?)
-                        },
-                        VectorIndexState::SnapshottedAt(_) => {
-                            anyhow::bail!(
-                                "Inserted new search index in unexpected state: {metadata:?}"
-                            );
-                        },
+                    let VectorIndexState::Backfilling(state) = on_disk_state else {
+                        anyhow::bail!(
+                            "Inserted new search index that wasn't backfilling: {metadata:?}"
+                        );
                     };
+                    let index = VectorIndexState::Backfilling(state.clone());
                     self.indexes.insert(
                         insertion.id().internal_id(),
-                        on_disk_state.clone(),
+                        index,
                         MemoryVectorIndex::new(ts),
                     );
-                    metrics::log_index_created();
+
+                    metrics::log_index_created()
                 }
             },
             (Some(prev_version), Some(next_version)) => {

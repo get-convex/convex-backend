@@ -39,14 +39,9 @@ use database::{
     },
     Database,
     IndexModel,
-    TestFacingModel,
-    Transaction,
 };
 use runtime::testing::TestRuntime;
-use value::{
-    assert_obj,
-    TableNamespace,
-};
+use value::TableNamespace;
 
 use crate::{
     config::index_test_utils::{
@@ -129,19 +124,6 @@ where
     test(rt.clone(), Box::new(generate_search_schema)).await
 }
 
-/// Insert a document into the test table. Mostly used in these tests to
-/// test the case where new indexes are inserted in Backfilling state. Indexes
-/// added to empty tables are inserted in Backfilled state.
-async fn insert_document(tx: &mut Transaction<TestRuntime>) -> anyhow::Result<()> {
-    TestFacingModel::new(tx)
-        .insert(
-            &TABLE_NAME.parse()?,
-            assert_obj!("a" => "hello", "b" => "world"),
-        )
-        .await?;
-    Ok(())
-}
-
 #[convex_macro::test_runtime]
 async fn prepare_new_mutated_indexes_with_new_index_marks_index_backfilling_and_returns_it(
     rt: TestRuntime,
@@ -149,13 +131,12 @@ async fn prepare_new_mutated_indexes_with_new_index_marks_index_backfilling_and_
     test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let schema: DatabaseSchema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
-        insert_document(&mut tx).await?;
         let result = IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         expect_diff!(result ; added:[(TABLE_NAME, INDEX_NAME, vec!["a"])]);
-        assert_backfilling(&mut tx, TABLE_NAME, INDEX_NAME)
+        assert_backfilling(tx, TABLE_NAME, INDEX_NAME)
     })
     .await
 }
@@ -253,9 +234,7 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_backfill
 ) -> anyhow::Result<()> {
     test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
-        let db = new_test_database(rt).await;
-        let mut tx = db.begin_system().await?;
-        insert_document(&mut tx).await?;
+        let mut tx = new_tx(rt).await?;
         IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
@@ -266,7 +245,7 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_backfill
             .await?;
 
         expect_diff!(result ; added:[(TABLE_NAME, INDEX_NAME, vec!["b"])], dropped: [(TABLE_NAME, INDEX_NAME, vec!["a"])]);
-        assert_backfilling(&mut tx, TABLE_NAME, INDEX_NAME)
+        assert_backfilling(tx, TABLE_NAME, INDEX_NAME)
     })
     .await
 }
@@ -304,7 +283,7 @@ async fn prepare_new_mutated_indexes_with_enabled_and_pending_mutated_index_remo
         assert_index_data(
             all_index_data,
             vec![
-                TestIndexConfig::new("c", TestIndexState::Backfilled),
+                TestIndexConfig::new("c", TestIndexState::Backfilling),
                 TestIndexConfig::new("a", TestIndexState::Enabled),
             ],
         );
@@ -341,7 +320,7 @@ async fn test_prepare_editing_enabled_search_index(rt: TestRuntime) -> anyhow::R
     assert_index_data(
         all_index_data,
         vec![
-            TestIndexConfig::new("b", TestIndexState::Backfilled),
+            TestIndexConfig::new("b", TestIndexState::Backfilling),
             TestIndexConfig::new("a", TestIndexState::Enabled),
         ],
     );
@@ -379,12 +358,12 @@ async fn test_prepare_stacked_search_index_edits(rt: TestRuntime) -> anyhow::Res
 
     assert_index_data(
         all_index_data,
-        vec![TestIndexConfig::new("b", TestIndexState::Backfilled)],
+        vec![TestIndexConfig::new("b", TestIndexState::Backfilling)],
     );
     Ok(())
 }
 
-// Check that that preparing a new mutated search index with an existing
+// Check that that preparing a new mutated sarch index with an existing
 // backfilled mutated search index removes and returns it.
 #[convex_macro::test_runtime]
 async fn test_editing_backfilled_mutated_search_index(rt: TestRuntime) -> anyhow::Result<()> {
@@ -416,7 +395,7 @@ async fn test_editing_backfilled_mutated_search_index(rt: TestRuntime) -> anyhow
 
     assert_index_data(
         all_index_data,
-        vec![TestIndexConfig::new("b", TestIndexState::Backfilled)],
+        vec![TestIndexConfig::new("b", TestIndexState::Backfilling)],
     );
     Ok(())
 }
@@ -446,7 +425,7 @@ async fn prepare_new_mutated_indexes_with_enabled_mutated_index_does_not_remove_
         assert_index_data(
             all_index_data,
             vec![
-                TestIndexConfig::new("b", TestIndexState::Backfilled),
+                TestIndexConfig::new("b", TestIndexState::Backfilling),
                 TestIndexConfig::new("a", TestIndexState::Enabled),
             ],
         );
@@ -466,7 +445,6 @@ async fn backfill_indexes_with_pending_and_enabled_mutated_indexes_does_not_modi
 
         let mut tx = db.begin_system().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
-        insert_document(&mut tx).await?;
         IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
@@ -565,9 +543,6 @@ async fn prepare_new_mutated_indexes_with_backfilled_identical_index_does_not_ba
     test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
-        let mut tx = db.begin_system().await?;
-        insert_document(&mut tx).await?;
-        db.commit(tx).await?;
         prepare_schema(&db, schema.clone()).await?;
         backfill_indexes(rt, db.clone(), tp).await?;
         let mut tx = db.begin_system().await?;
@@ -630,9 +605,6 @@ async fn apply_config_with_backfilling_database_index_throws(
     let schema = db_schema_with_indexes!("table" => {
         indexes: ("index", vec!["a"])
     });
-    let mut tx = db.begin_system().await?;
-    insert_document(&mut tx).await?;
-    db.commit(tx).await?;
 
     let schema_id = prepare_schema(&db, schema).await?;
 
@@ -655,9 +627,6 @@ async fn apply_config_with_backfilling_search_index_throws(rt: TestRuntime) -> a
     let schema = db_schema_with_indexes!("table" => {
         text_indexes: ("index", "a")
     });
-    let mut tx = db.begin_system().await?;
-    insert_document(&mut tx).await?;
-    db.commit(tx).await?;
 
     let schema_id = prepare_schema(&db, schema).await?;
 

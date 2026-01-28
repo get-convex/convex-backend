@@ -453,7 +453,6 @@ fn new_backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
         vector_field,
         (2u32).try_into()?,
         btreeset![filter_field],
-        false,
     );
     Ok(metadata)
 }
