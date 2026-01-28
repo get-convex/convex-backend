@@ -14,11 +14,11 @@ export function DeploymentType({
 }) {
   switch (deploymentType) {
     case "prod":
-      return <span>production</span>;
+      return <span>prod</span>;
     case "preview":
       return <span>preview</span>;
     case "dev":
-      return <span>development</span>;
+      return <span>dev</span>;
     case "custom":
       return <span>custom</span>;
     default: {
@@ -47,7 +47,7 @@ export function DeploymentUrl({ children }: { children: ReactNode }) {
         This <DeploymentType deploymentType={deployment?.deploymentType} />{" "}
         Convex deployment is hosted at the following URL.
       </p>
-      <p className="mb-2">{children}</p>
+      <p className="mb-4">{children}</p>
       <CopyTextButton text={cloudUrl} className="text-sm font-normal" />
     </div>
   );
@@ -82,7 +82,7 @@ export function HttpActionsUrl() {
         </Link>{" "}
         at the following URL.
       </p>
-      <p className="mb-2">
+      <p className="mb-4">
         In Convex functions, this is available as{" "}
         <code>process.env.CONVEX_SITE_URL</code>.
       </p>

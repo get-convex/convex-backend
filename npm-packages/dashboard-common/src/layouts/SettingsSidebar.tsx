@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import React, { useContext } from "react";
-import { ExternalLinkIcon, LockClosedIcon } from "@radix-ui/react-icons";
+import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { SidebarLink } from "@common/elements/Sidebar";
@@ -8,7 +8,7 @@ import { useNents } from "@common/lib/useNents";
 import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsCloudDeploymentInSelfHostedDashboard";
 
 export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
-  "url-and-deploy-key": "URL & Deploy Key",
+  general: "General",
   "environment-variables": "Environment Variables",
   authentication: "Authentication",
   "custom-domains": "Custom Domains",
@@ -16,7 +16,6 @@ export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
   components: "Components",
   backups: "Backup & Restore",
   integrations: "Integrations",
-  "pause-deployment": "Pause Deployment",
 };
 
 export type SettingsPageKind = keyof typeof DEPLOYMENT_SETTINGS_PAGES_AND_NAMES;
@@ -34,16 +33,13 @@ export function SettingsSidebar({
 
   const {
     isSelfHosted,
-    useCurrentTeam,
     useCurrentProject,
     useCurrentDeployment,
-    useTeamUsageState,
     teamsURI,
     projectsURI,
     deploymentsURI,
   } = useContext(DeploymentInfoContext);
 
-  const team = useCurrentTeam();
   const project = useCurrentProject();
   const deployment = useCurrentDeployment();
 
@@ -51,12 +47,6 @@ export function SettingsSidebar({
     useIsCloudDeploymentInSelfHostedDashboard();
   const isSelfHostedDeployment =
     isSelfHosted && !isCloudDeploymentInSelfHostedDashboard;
-
-  const teamUsageState = useTeamUsageState(team?.id ?? null);
-
-  const shouldLock = (page: string) =>
-    page === "pause-deployment" &&
-    (teamUsageState === "Paused" || teamUsageState === "Disabled");
 
   return (
     <>
@@ -84,15 +74,11 @@ export function SettingsSidebar({
               href={
                 showInCloudDashboard
                   ? `https://dashboard.convex.dev/d/${deploymentName}/settings/${page}`
-                  : `${deploymentsURI}/settings/${page === "url-and-deploy-key" ? "" : page}`
+                  : `${deploymentsURI}/settings/${page === "general" ? "" : page}`
               }
               isActive={page === selectedPage}
               key={page}
-              disabled={
-                shouldLock(page) ||
-                isUnavailableForSelfHosted ||
-                isUnavailableForLocal
-              }
+              disabled={isUnavailableForSelfHosted || isUnavailableForLocal}
               tip={
                 isUnavailableForLocal
                   ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not available in local deployments.`
@@ -100,7 +86,6 @@ export function SettingsSidebar({
                     ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not currently available in self-hosted deployments.`
                     : undefined
               }
-              Icon={shouldLock(page) ? LockClosedIcon : undefined}
               target={showInCloudDashboard ? "_blank" : undefined}
             >
               <div className="flex items-center justify-between gap-2">

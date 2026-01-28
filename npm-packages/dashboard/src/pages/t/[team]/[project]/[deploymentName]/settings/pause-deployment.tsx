@@ -1,18 +1,22 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { PauseDeploymentView } from "@common/features/settings/components/PauseDeploymentView";
-import { usePostHog } from "hooks/usePostHog";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
 
 export { getServerSideProps } from "lib/ssr";
 
-function PauseDeploymentWithAnalytics() {
-  const { capture } = usePostHog();
-  return (
-    <PauseDeploymentView
-      onPausedDeployment={() => {
-        capture("paused_deployment");
-      }}
-    />
-  );
+function PauseDeploymentRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const { team, project, deploymentName } = router.query;
+    if (team && project && deploymentName) {
+      void router.replace(
+        `/t/${team}/${project}/${deploymentName}/settings#pause-deployment`,
+      );
+    }
+  }, [router]);
+
+  return null;
 }
 
-export default withAuthenticatedPage(PauseDeploymentWithAnalytics);
+export default withAuthenticatedPage(PauseDeploymentRedirect);

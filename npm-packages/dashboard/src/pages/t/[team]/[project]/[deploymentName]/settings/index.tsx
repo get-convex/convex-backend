@@ -1,6 +1,5 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { Sheet } from "@ui/Sheet";
-import { NonProdDeploymentWarning } from "components/deploymentSettings/NonProdDeploymentWarning";
 import { DeployKeysForDeployment } from "components/deploymentSettings/DeployKeysForDeployment";
 import { useCurrentDeployment } from "api/deployments";
 import { useRouter } from "next/router";
@@ -11,6 +10,10 @@ import {
   DeploymentUrl,
   HttpActionsUrl,
 } from "@common/features/settings/components/DeploymentUrl";
+import { PauseDeployment } from "@common/features/settings/components/PauseDeployment";
+import { useScrollToHash } from "@common/lib/useScrollToHash";
+import { usePostHog } from "hooks/usePostHog";
+import { useRef } from "react";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -30,7 +33,7 @@ export default withAuthenticatedPage(() => {
   }
 
   return (
-    <DeploymentSettingsLayout page="url-and-deploy-key">
+    <DeploymentSettingsLayout page="general">
       <DeploymentURLAndDeployKey />
     </DeploymentSettingsLayout>
   );
@@ -39,84 +42,44 @@ export default withAuthenticatedPage(() => {
 function DeploymentURLAndDeployKey() {
   const deployment = useCurrentDeployment();
   const deploymentType = deployment?.deploymentType ?? "prod";
+  const { capture } = usePostHog();
+  const pauseDeploymentRef = useRef<HTMLDivElement | null>(null);
+  useScrollToHash("#pause-deployment", pauseDeploymentRef);
 
-  switch (deploymentType) {
-    case "prod":
-      return (
-        <>
-          <Sheet>
-            <DeploymentUrl>
-              Configure a production Convex client with this URL.
-            </DeploymentUrl>
-          </Sheet>
-          <Sheet>
-            <HttpActionsUrl />
-          </Sheet>
-          <Sheet>
-            <DeployKeysForDeployment />
-          </Sheet>
-        </>
-      );
-    case "dev":
-      return (
-        <NonProdDeploymentWarning deploymentType={deploymentType}>
-          <div className="flex flex-col gap-4 p-6 pt-0">
-            <div>
-              <DeploymentUrl>
-                Configure a Convex client with this URL while developing
-                locally.
-              </DeploymentUrl>
-            </div>
-            <div>
-              <HttpActionsUrl />
-            </div>
-            <div>
-              <DeployKeysForDeployment />
-            </div>
-          </div>
-        </NonProdDeploymentWarning>
-      );
-    case "preview":
-      return (
-        <div className="flex flex-col gap-4">
-          <NonProdDeploymentWarning deploymentType={deploymentType}>
-            <div className="flex flex-col gap-4 p-6 pt-0">
-              <div>
-                <DeploymentUrl>
-                  Configure a Convex client with this URL to preview changes on
-                  a branch.
-                </DeploymentUrl>
-              </div>
-              <div>
-                <HttpActionsUrl />
-              </div>
-              <div>
-                <DeployKeysForDeployment />
-              </div>
-            </div>
-          </NonProdDeploymentWarning>
-          <DeletePreviewDeployment />
-        </div>
-      );
-    case "custom":
-      return (
-        <>
-          <Sheet>
-            <DeploymentUrl>
-              Configure a Convex client with this URL.
-            </DeploymentUrl>
-          </Sheet>
-          <Sheet>
-            <HttpActionsUrl />
-          </Sheet>
-          <Sheet>
-            <DeployKeysForDeployment />
-          </Sheet>
-        </>
-      );
-    default: {
-      deploymentType satisfies never;
-      return null;
+  const getDeploymentUrlDescription = () => {
+    switch (deploymentType) {
+      case "prod":
+        return "Configure a production Convex client with this URL.";
+      case "dev":
+        return "Configure a Convex client with this URL while developing locally.";
+      case "preview":
+        return "Configure a Convex client with this URL to preview changes on a branch.";
+      case "custom":
+        return "Configure a Convex client with this URL.";
+      default:
+        return "Configure a Convex client with this URL.";
     }
-  }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Sheet>
+        <DeploymentUrl>{getDeploymentUrlDescription()}</DeploymentUrl>
+      </Sheet>
+      <Sheet>
+        <HttpActionsUrl />
+      </Sheet>
+      <Sheet>
+        <DeployKeysForDeployment />
+      </Sheet>
+      <div ref={pauseDeploymentRef}>
+        <PauseDeployment
+          onPausedDeployment={() => {
+            capture("paused_deployment");
+          }}
+        />
+      </div>
+      {deploymentType === "preview" && <DeletePreviewDeployment />}
+    </div>
+  );
 }

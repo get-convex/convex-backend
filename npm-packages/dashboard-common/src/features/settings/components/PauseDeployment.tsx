@@ -1,6 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import Link from "next/link";
 import { Sheet } from "@ui/Sheet";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
@@ -108,14 +107,8 @@ export function PauseDeployment({
               variant={paused ? undefined : "danger"}
             />
           )}
-          <div>
-            <h3 className="mb-4">Pause Deployment</h3>
-            <p>
-              This deployment is currently{" "}
-              <b>{paused ? "paused" : "running"}</b>.
-            </p>
-          </div>
-          <div className="flex items-center lg:row-span-2">
+          <h3>Pause Deployment</h3>
+          <div className="flex items-start lg:row-span-2">
             <Button
               className="lg:order-2"
               variant={paused ? "primary" : "danger"}
@@ -130,6 +123,10 @@ export function PauseDeployment({
               {paused ? "Resume Deployment" : "Pause Deployment"}
             </Button>
           </div>
+          <p>
+            This deployment is currently <b>{paused ? "paused" : "running"}</b>.
+          </p>
+
           <div className="lg:order-1">
             When a deployment is {`${changeVerb(paused).toLowerCase()}d`}:
             <ul className="list-outside list-disc pl-4">
@@ -137,16 +134,6 @@ export function PauseDeployment({
                 <li key={line}>{line}</li>
               ))}
             </ul>
-            <br />
-            <Link
-              passHref
-              href="https://docs.convex.dev/production/pause-deployment"
-              className="text-content-link hover:underline"
-              target="_blank"
-            >
-              Learn more
-            </Link>
-            .
           </div>
         </Sheet>
       )}

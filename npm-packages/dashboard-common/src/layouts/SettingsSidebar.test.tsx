@@ -36,14 +36,14 @@ describe("SettingsSidebar", () => {
             }),
           }}
         >
-          <SettingsSidebar selectedPage="url-and-deploy-key" />
+          <SettingsSidebar selectedPage="general" />
         </DeploymentInfoContext.Provider>,
       );
     });
 
     test("First tab has correct URL and is enabled", async () => {
       const link = await screen.findByRole("link", {
-        name: "URL & Deploy Key",
+        name: "General",
       });
 
       expect(link).toHaveAttribute(
@@ -143,14 +143,14 @@ describe("SettingsSidebar", () => {
             }),
           }}
         >
-          <SettingsSidebar selectedPage="url-and-deploy-key" />
+          <SettingsSidebar selectedPage="general" />
         </DeploymentInfoContext.Provider>,
       );
     });
 
     test("First tab has correct URL and is enabled", async () => {
       const link = await screen.findByRole("link", {
-        name: "URL & Deploy Key",
+        name: "General",
       });
 
       expect(link).toHaveAttribute("href", "/settings/");
@@ -229,14 +229,14 @@ describe("SettingsSidebar", () => {
             }),
           }}
         >
-          <SettingsSidebar selectedPage="url-and-deploy-key" />
+          <SettingsSidebar selectedPage="general" />
         </DeploymentInfoContext.Provider>,
       );
     });
 
     test("First tab has correct URL and is enabled", async () => {
       const link = await screen.findByRole("link", {
-        name: "URL & Deploy Key",
+        name: "General",
       });
 
       expect(link).toHaveAttribute("href", "/settings/");
@@ -304,28 +304,6 @@ describe("SettingsSidebar", () => {
     });
   });
 
-  describe("paused team", () => {
-    const pausedTeamContext = {
-      ...mockDeploymentInfo,
-      useTeamUsageState: jest.fn().mockReturnValue("Paused"),
-    };
-
-    beforeEach(() => {
-      render(
-        <DeploymentInfoContext.Provider value={pausedTeamContext}>
-          <SettingsSidebar selectedPage="url-and-deploy-key" />
-        </DeploymentInfoContext.Provider>,
-      );
-    });
-
-    test("Pause Deployment link is locked when team is paused", async () => {
-      const disabledLink = await screen.findByRole("button", {
-        name: "Pause Deployment",
-      });
-      expect(disabledLink).toHaveAttribute("aria-disabled", "true");
-    });
-  });
-
   describe("local deployment in cloud dashboard", () => {
     beforeEach(() => {
       render(
@@ -346,14 +324,14 @@ describe("SettingsSidebar", () => {
             }),
           }}
         >
-          <SettingsSidebar selectedPage="url-and-deploy-key" />
+          <SettingsSidebar selectedPage="general" />
         </DeploymentInfoContext.Provider>,
       );
     });
 
-    test("URL & Deploy Key has correct URL and is enabled", async () => {
+    test("General has correct URL and is enabled", async () => {
       const link = await screen.findByRole("link", {
-        name: "URL & Deploy Key",
+        name: "General",
       });
 
       expect(link).toHaveAttribute(

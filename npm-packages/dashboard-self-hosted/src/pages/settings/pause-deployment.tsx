@@ -1,3 +1,12 @@
-import { PauseDeploymentView } from "@common/features/settings/components/PauseDeploymentView";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
 
-export default PauseDeploymentView;
+export default function PauseDeploymentRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    void router.replace("/settings#pause-deployment");
+  }, [router]);
+
+  return null;
+}

@@ -17,7 +17,6 @@ import {
 } from "generatedApi";
 
 import { useAccessToken } from "hooks/useServerSideData";
-import { DeploymentType } from "@common/features/settings/components/DeploymentUrl";
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
 
 function getAdminKeyPrefix(deployment: DeploymentResponse) {
@@ -140,36 +139,30 @@ export function DeployKeysForDeployment() {
     disabledReason === null ? deployment?.name : undefined,
   );
 
-  const deployKeyDescription =
-    deploymentType === "prod" ? (
-      <p className="mb-2 text-content-primary">
-        Generate and copy this key to configure Convex integrations, such as
-        automatically deploying to a{" "}
-        <Link
-          passHref
-          href="https://docs.convex.dev/production/hosting"
-          className="text-content-link"
-          target="_blank"
-        >
-          hosting provider
-        </Link>{" "}
-        (like Netlify or Vercel) or syncing data with{" "}
-        <Link
-          passHref
-          href="https://docs.convex.dev/database/import-export/streaming"
-          className="text-content-link"
-          target="_blank"
-        >
-          Fivetran or Airbyte
-        </Link>
-        .
-      </p>
-    ) : (
-      <p className="mb-2 text-content-primary">
-        It's rare to need a <DeploymentType deploymentType={deploymentType} />{" "}
-        deploy key.
-      </p>
-    );
+  const deployKeyDescription = (
+    <p className="mb-2 max-w-prose text-content-primary">
+      Generate a deploy key to configure Convex integrations, such as
+      automatically deploying to a{" "}
+      <Link
+        passHref
+        href="https://docs.convex.dev/production/hosting"
+        className="text-content-link"
+        target="_blank"
+      >
+        hosting provider
+      </Link>{" "}
+      (like Netlify or Vercel) or syncing data with{" "}
+      <Link
+        passHref
+        href="https://docs.convex.dev/database/import-export/streaming"
+        className="text-content-link"
+        target="_blank"
+      >
+        Fivetran or Airbyte
+      </Link>
+      .
+    </p>
+  );
   return (
     <div className="w-full">
       {team && deployment && (
