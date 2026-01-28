@@ -3,13 +3,11 @@ import { PageContent } from "@common/elements/PageContent";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
-import { DeploymentType } from "@common/features/settings/components/DeploymentUrl";
 import { useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import {
   useCreateTeamAccessToken,
-  useInstanceAccessTokens,
   useProjectAccessTokens,
   useProjectAppAccessTokens,
   useDeleteAppAccessTokenByName,
@@ -25,13 +23,9 @@ import {
 } from "components/projects/modals/LostAccessModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { DefaultEnvironmentVariables } from "components/projectSettings/DefaultEnvironmentVariables";
-import {
-  getAccessTokenBasedDeployKey,
-  getAccessTokenBasedDeployKeyForPreview,
-} from "components/deploymentSettings/DeployKeysForDeployment";
+import { getAccessTokenBasedDeployKeyForPreview } from "components/deploymentSettings/DeployKeysForDeployment";
 import { ProjectDetails } from "generatedApi";
 import Link from "next/link";
-import { useDeploymentUris } from "hooks/useDeploymentUris";
 import Head from "next/head";
 import { useAccessToken } from "hooks/useServerSideData";
 import { MemberProjectRoles } from "components/projects/MemberProjectRoles";
@@ -378,10 +372,7 @@ function ProjectSettings() {
                 )}
                 {project && (
                   <div id={SECTION_IDS.productionDeployKeys}>
-                    <ProductionDeployKeys
-                      project={project}
-                      hasAdminPermissions={hasAdminPermissions}
-                    />
+                    <ProductionDeployKeys project={project} />
                   </div>
                 )}
                 {project && (
@@ -487,95 +478,33 @@ function DeleteProject() {
   );
 }
 
-function ProductionDeployKeys({
-  project,
-  hasAdminPermissions,
-}: {
-  project: ProjectDetails;
-  hasAdminPermissions: boolean;
-}) {
+function ProductionDeployKeys({ project }: { project: ProjectDetails }) {
   const team = useCurrentTeam();
-  const [accessToken] = useAccessToken();
 
   const { deployments } = useDeployments(project.id);
   const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
-  const { prodHref } = useDeploymentUris(project.id, project.slug);
-
-  const disabledReason = !hasAdminPermissions ? "CannotManageProd" : null;
-
-  const accessTokens = useInstanceAccessTokens(
-    disabledReason === null ? prodDeployment?.name : undefined,
-  );
-  const createAccessTokenMutation = useCreateTeamAccessToken({
-    deploymentName: prodDeployment?.name || "",
-    kind: "deployment",
-  });
-
-  const deployKeyDescription = (
-    <p className="mb-2 max-w-prose text-sm text-content-primary">
-      These keys are for your{" "}
-      <Link passHref href={prodHref} className="text-content-link">
-        <DeploymentType deploymentType="prod" /> deployment
-      </Link>
-      . Generate and copy this key to configure Convex integrations, such as
-      automatically deploying to a{" "}
-      <Link
-        passHref
-        href="https://docs.convex.dev/production/hosting"
-        className="text-content-link"
-        target="_blank"
-      >
-        hosting provider
-      </Link>{" "}
-      (like Netlify or Vercel) or syncing data with{" "}
-      <Link
-        passHref
-        href="https://docs.convex.dev/database/import-export/streaming"
-        className="text-content-link"
-        target="_blank"
-      >
-        Fivetran or Airbyte
-      </Link>
-      .
-    </p>
-  );
 
   return (
-    <Sheet className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        {team && prodDeployment ? (
-          <DeploymentAccessTokenList
-            header="Production Deploy Keys"
-            headingLevel="h3"
-            description={deployKeyDescription}
-            disabledReason={disabledReason}
-            buttonProps={{
-              deploymentType: "prod",
-              getAdminKey: async (name: string) =>
-                getAccessTokenBasedDeployKey(
-                  prodDeployment,
-                  project,
-                  team,
-                  `prod:${prodDeployment.name}`,
-                  accessToken,
-                  createAccessTokenMutation,
-                  name,
-                ),
-              disabledReason,
-            }}
-            identifier={prodDeployment.name}
-            tokenPrefix={`prod:${prodDeployment.name}`}
-            accessTokens={accessTokens}
-            kind="deployment"
-          />
-        ) : (
-          <>
-            <h3>Production Deploy Keys</h3>
-            <p className="text-sm text-content-primary">
-              This project does not have a Production deployment yet.
-            </p>
-          </>
-        )}
+    <Sheet>
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="mb-2">Production Deploy Keys</h3>
+          <p className="max-w-prose text-sm text-content-primary">
+            Configuration for production deploy keys has moved. You may generate
+            deploy keys in{" "}
+            {team && prodDeployment ? (
+              <Link
+                href={`/t/${team.slug}/${project.slug}/${prodDeployment.name}/settings`}
+                className="text-content-link hover:underline"
+              >
+                Deployment Settings
+              </Link>
+            ) : (
+              <span className="font-semibold">Deployment Settings</span>
+            )}
+            .
+          </p>
+        </div>
       </div>
     </Sheet>
   );

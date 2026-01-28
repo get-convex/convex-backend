@@ -35,9 +35,10 @@ you can:
   details.
 - View the amount of [usage metrics](/dashboard/teams.md#usage) your project has
   consumed.
-- Add [custom domains](/production/hosting/custom.mdx#custom-domains) for your
-  production deployment
-- Generate deploy keys for your production and preview deployments.
+- Manage [custom domains](/production/hosting/custom.mdx#custom-domains) for
+  your production deployment (in Deployment Settings).
+- Generate deploy keys for your production deployment (in Deployment Settings)
+  and preview deployments.
 - Create and edit
   [default environment variables](/production/environment-variables.mdx#project-environment-variable-defaults).
 - View instructions to regain access to your project, should you lose track of
