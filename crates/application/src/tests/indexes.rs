@@ -176,8 +176,7 @@ async fn wait_for_backfill(
 
         model.get_all_indexes().await?;
         let token = tx.into_token()?;
-        let subscription = db.subscribe(token).await?;
-        let subscription_fut = subscription.wait_for_invalidation();
+        let subscription_fut = db.subscribe_and_wait_for_invalidation(token);
         pin_mut!(subscription_fut);
         select_biased! {
             _ = subscription_fut.fuse() => {},

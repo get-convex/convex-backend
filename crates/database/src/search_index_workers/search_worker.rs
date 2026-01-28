@@ -278,8 +278,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             //    via polling
             let poll = timeout_with_jitter(rt, *DATABASE_WORKERS_POLL_INTERVAL);
             pin_mut!(poll);
-            let subscription = db.subscribe(token).await?;
-            let subscription_fut = subscription.wait_for_invalidation();
+            let subscription_fut = db.subscribe_and_wait_for_invalidation(token);
             pin_mut!(subscription_fut);
             select_biased! {
                 _ = subscription_fut.fuse() => {

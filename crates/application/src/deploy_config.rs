@@ -54,6 +54,7 @@ use fastrace::{
     future::FutureExt as _,
     Span,
 };
+use futures::FutureExt;
 use keybroker::Identity;
 use maplit::btreeset;
 use model::{
@@ -541,9 +542,9 @@ impl<RT: Runtime> Application<RT> {
             if !in_progress || now > deadline {
                 return Ok(status);
             }
-            let subscription = self.subscribe(token).await?;
+            let subscription_fut = self.subscribe_and_wait_for_invalidation(token);
             tokio::select! {
-                _ = subscription.wait_for_invalidation() => {},
+                _ = subscription_fut.fuse() => {},
                 _ = self.runtime.wait(deadline - now)
                     .in_span(fastrace::Span::enter_with_local_parent("wait_for_deadline"))
                  => {},

@@ -609,10 +609,8 @@ async fn wait_for_import_worker<RT: Runtime>(
             ImportState::Uploaded | ImportState::InProgress { .. } => {
                 let token = tx.into_token()?;
                 application
-                    .subscribe(token)
-                    .await?
-                    .wait_for_invalidation()
-                    .await;
+                    .subscribe_and_wait_for_invalidation(token)
+                    .await?;
             },
             ImportState::WaitingForConfirmation { .. }
             | ImportState::Completed { .. }
@@ -1631,8 +1629,7 @@ async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
             break;
         }
         let token = tx.into_token()?;
-        let subscription = database.subscribe(token).await?;
-        subscription.wait_for_invalidation().await;
+        database.subscribe_and_wait_for_invalidation(token).await?;
     }
     // Enable the indexes now that they are backfilled.
     database

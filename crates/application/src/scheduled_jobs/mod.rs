@@ -297,7 +297,10 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         };
 
         let token = tx.into_token()?;
-        let subscription = self.context.database.subscribe(token).await?;
+        let subscription_fut = self
+            .context
+            .database
+            .subscribe_and_wait_for_invalidation(token);
 
         let mut job_ids: Vec<_> = Vec::new();
         select_biased! {
@@ -317,7 +320,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             },
             _ = next_job_future.fuse() => {
             },
-            _ = subscription.wait_for_invalidation().fuse() => {
+            _ = subscription_fut.fuse() => {
             },
         }
         Ok(())
@@ -1079,10 +1082,10 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                     Either::Right(std::future::pending())
                 };
                 let token = tx.into_token()?;
-                let subscription = self.database.subscribe(token).await?;
+                let subscription_fut = self.database.subscribe_and_wait_for_invalidation(token);
                 select_biased! {
                     _ = next_job_future.fuse() => {},
-                    _ = subscription.wait_for_invalidation().fuse() => {},
+                    _ = subscription_fut.fuse() => {},
                 }
             }
             backoff.reset();

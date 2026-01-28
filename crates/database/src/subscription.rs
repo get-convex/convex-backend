@@ -693,6 +693,9 @@ impl Subscription {
         self.validity.invalid_ts()
     }
 
+    /// Wait for subscription invalidation. In general, prefer
+    /// `Database::subscribe_and_wait_for_subscription_invalidation` to include
+    /// metrics.
     pub fn wait_for_invalidation(&self) -> impl Future<Output = Option<Timestamp>> + use<> {
         let mut valid = self.valid.clone();
         let validity = self.validity.clone();

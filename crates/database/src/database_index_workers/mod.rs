@@ -259,7 +259,6 @@ impl<RT: Runtime> IndexWorker<RT> {
         );
 
         let token = tx.into_token()?;
-        let subscription = self.database.subscribe(token).await?;
 
         #[cfg(any(test, feature = "testing"))]
         if self.should_terminate
@@ -279,6 +278,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             );
             self.queue_index_backfill(index_id, tablet_id, backfill_cursor);
         }
+        let subscription_fut = self.database.subscribe_and_wait_for_invalidation(token);
         select! {
             biased;
             // Start by finding indexes that have finished backfilling
@@ -329,7 +329,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     .await?;
             }
             // Alternatively, wait for invalidation
-            ts = subscription.wait_for_invalidation().fuse() => {
+            ts = subscription_fut.fuse() => {
                 tracing::info!("Index backfill worker got invalidation at {ts:?}");
                 self.backoff.reset();
             }

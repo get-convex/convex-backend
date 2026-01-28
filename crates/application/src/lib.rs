@@ -152,7 +152,6 @@ use database::{
     SchemaModel,
     SearchIndexWorkers,
     Snapshot,
-    Subscription,
     TableModel,
     Token,
     Transaction,
@@ -947,8 +946,13 @@ impl<RT: Runtime> Application<RT> {
     }
 
     #[fastrace::trace]
-    pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
-        self.database.subscribe(token).await
+    pub async fn subscribe_and_wait_for_invalidation(
+        &self,
+        token: Token,
+    ) -> anyhow::Result<Option<Timestamp>> {
+        self.database
+            .subscribe_and_wait_for_invalidation(token)
+            .await
     }
 
     pub fn usage_counter(&self) -> UsageCounter {
@@ -3376,8 +3380,9 @@ impl<RT: Runtime> Application<RT> {
                 return Ok(());
             }
             let token = tx.into_token()?;
-            let subscription = self.database.subscribe(token).await?;
-            subscription.wait_for_invalidation().await;
+            self.database
+                .subscribe_and_wait_for_invalidation(token)
+                .await?;
         }
     }
 
@@ -3632,8 +3637,9 @@ impl<RT: Runtime> Application<RT> {
                 return Ok(());
             }
             let token = tx.into_token()?;
-            let subscription = self.database.subscribe(token).await?;
-            subscription.wait_for_invalidation().await;
+            self.database
+                .subscribe_and_wait_for_invalidation(token)
+                .await?;
         }
     }
 

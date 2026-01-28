@@ -145,8 +145,9 @@ impl<RT: Runtime> ExportWorker<RT> {
             },
         }
         let token = tx.into_token()?;
-        let subscription = self.database.subscribe(token).await?;
-        subscription.wait_for_invalidation().await;
+        self.database
+            .subscribe_and_wait_for_invalidation(token)
+            .await?;
         Ok(())
     }
 
@@ -310,8 +311,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         },
                     }
                     let token = tx.into_token()?;
-                    let subscription = database_.subscribe(token).await?;
-                    subscription.wait_for_invalidation().await;
+                    database_.subscribe_and_wait_for_invalidation(token).await?;
                 }
             };
             tokio::pin!(monitor_export);

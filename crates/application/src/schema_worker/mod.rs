@@ -161,8 +161,9 @@ impl<RT: Runtime> SchemaWorker<RT> {
 
         drop(status);
         tracing::debug!("SchemaWorker waiting...");
-        let subscription = self.database.subscribe(token).await?;
-        subscription.wait_for_invalidation().await;
+        self.database
+            .subscribe_and_wait_for_invalidation(token)
+            .await?;
         Ok(())
     }
 

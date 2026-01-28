@@ -175,6 +175,26 @@ pub fn subscription_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
+    DATABASE_SUBSCRIPTION_INVALIDATION_LAG_SECONDS,
+    "Time between the commit ts of the invalidating write and the ts the invalidation was sent",
+);
+register_convex_counter!(
+    DATABASE_SUBSCRIPTION_INVALIDATION_UNKNOWN_TOTAL,
+    "Count of query subscriptions invalidated where the correspoding invalidating write timestamp \
+     was unknown",
+);
+pub fn log_subscription_invalidation_lag(invalid_ts: Option<Timestamp>, current_ts: Timestamp) {
+    if let Some(invalid_ts) = invalid_ts {
+        log_distribution(
+            &DATABASE_SUBSCRIPTION_INVALIDATION_LAG_SECONDS,
+            current_ts.secs_since_f64(invalid_ts),
+        );
+    } else {
+        log_counter(&DATABASE_SUBSCRIPTION_INVALIDATION_UNKNOWN_TOTAL, 1);
+    }
+}
+
+register_convex_histogram!(
     DATABASE_REFRESH_TOKEN_SECONDS,
     "time taken to refresh a database token"
 );

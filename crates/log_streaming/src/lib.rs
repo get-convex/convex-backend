@@ -455,8 +455,7 @@ impl<RT: Runtime> LogManager<RT> {
 
             // Wait for changes to the table
             let token = tx.into_token()?;
-            let subscription = database.subscribe(token).await?;
-            subscription.wait_for_invalidation().await;
+            database.subscribe_and_wait_for_invalidation(token).await?;
         }
     }
 

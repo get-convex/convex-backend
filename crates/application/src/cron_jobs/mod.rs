@@ -187,7 +187,10 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         };
 
         let token = tx.into_token()?;
-        let subscription = self.context.database.subscribe(token).await?;
+        let subscription_fut = self
+            .context
+            .database
+            .subscribe_and_wait_for_invalidation(token);
         select_biased! {
             job_id = self.job_finished_rx.recv().fuse() => {
                 if let Some(job_id) = job_id {
@@ -198,7 +201,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             },
             _ = next_job_future.fuse() => {
             }
-            _ = subscription.wait_for_invalidation().fuse() => {
+            _ = subscription_fut.fuse() => {
             },
         }
         Ok(())

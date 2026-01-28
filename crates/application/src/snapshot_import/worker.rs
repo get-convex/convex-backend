@@ -94,8 +94,10 @@ impl SnapshotImportWorker {
             timer.finish();
         }
         drop(status);
-        let subscription = executor.database.subscribe(token).await?;
-        subscription.wait_for_invalidation().await;
+        executor
+            .database
+            .subscribe_and_wait_for_invalidation(token)
+            .await?;
         Ok(())
     }
 }
