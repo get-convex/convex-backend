@@ -194,6 +194,7 @@ async function deployToNewPreviewDeployment(
     typecheck: "enable" | "try" | "disable";
     typecheckComponents: boolean;
     codegen: "enable" | "disable";
+    pushAllModules?: boolean;
 
     debug?: boolean | undefined;
     debugBundlePath?: string | undefined;
@@ -277,6 +278,7 @@ async function deployToNewPreviewDeployment(
     codegen: options.codegen === "enable",
     url: previewUrl,
     liveComponentSources: false,
+    pushAllModules: !!options.pushAllModules,
     largeIndexDeletionCheck: "no verification", // fine for preview deployments
   };
   showSpinner(`Deploying to ${previewUrl}...`);
@@ -310,6 +312,7 @@ async function deployToExistingDeployment(
     codegen: "enable" | "disable";
     cmd?: string | undefined;
     cmdUrlEnvVarName?: string | undefined;
+    pushAllModules?: boolean;
 
     debugBundlePath?: string | undefined;
     debug?: boolean | undefined;

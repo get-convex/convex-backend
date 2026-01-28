@@ -113,9 +113,12 @@ async function pushCode(
   endpoint: "/api/deploy2/start_push" | "/api/deploy2/evaluate_push",
 ): Promise<unknown> {
   // Log a summary of the push request instead of the full object
+  const unchangedModuleCount =
+    request.appDefinition?.unchangedModuleHashes?.length ?? 0;
+  const changedModuleCount = request.appDefinition?.changedModules?.length ?? 0;
   const requestSummary = {
     hasAppDefinition: request.appDefinition !== undefined,
-    appFunctionCount: request.appDefinition?.functions?.length ?? 0,
+    appFunctionCount: unchangedModuleCount + changedModuleCount,
     hasAppSchema: request.appDefinition?.schema !== null,
     componentCount: request.componentDefinitions?.length ?? 0,
     hasDependencies: request.nodeDependencies?.length > 0,
@@ -389,6 +392,7 @@ export async function deployToDeployment(
     codegen: "enable" | "disable";
     cmd?: string | undefined;
     cmdUrlEnvVarName?: string | undefined;
+    pushAllModules?: boolean;
 
     debugBundlePath?: string | undefined;
     debug?: boolean | undefined;
@@ -437,6 +441,7 @@ export async function deployToDeployment(
     url,
     writePushRequest: options.writePushRequest,
     liveComponentSources: !!options.liveComponentSources,
+    pushAllModules: !!options.pushAllModules,
     largeIndexDeletionCheck: options.allowDeletingLargeIndexes
       ? "has confirmation"
       : "ask for confirmation",

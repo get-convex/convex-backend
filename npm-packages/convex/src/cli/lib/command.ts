@@ -227,6 +227,7 @@ export async function normalizeDevOptions(
     debugBundlePath?: string | undefined;
     debugNodeApis?: boolean;
     liveComponentSources?: boolean;
+    pushAllModules?: boolean;
     while?: string;
   },
 ): Promise<{
@@ -245,6 +246,7 @@ export async function normalizeDevOptions(
   debugBundlePath?: string | undefined;
   debugNodeApis: boolean;
   liveComponentSources: boolean;
+  pushAllModules: boolean;
 }> {
   if (cmdOptions.runComponent && !cmdOptions.run) {
     return await ctx.crash({
@@ -297,6 +299,7 @@ export async function normalizeDevOptions(
     debugBundlePath: cmdOptions.debugBundlePath,
     debugNodeApis: !!cmdOptions.debugNodeApis,
     liveComponentSources: !!cmdOptions.liveComponentSources,
+    pushAllModules: !!cmdOptions.pushAllModules,
   };
 }
 
@@ -343,7 +346,15 @@ Command.prototype.addDeployOptions = function () {
     .addOption(new Option("--debug-bundle-path <path>").hideHelp())
     .addOption(new Option("--debug").hideHelp())
     .addOption(new Option("--write-push-request <writePushRequest>").hideHelp())
-    .addOption(new Option("--live-component-sources").hideHelp());
+    .addOption(new Option("--live-component-sources").hideHelp())
+    .addOption(
+      new Option(
+        "--push-all-modules",
+        "Push all modules without checking for unchanged module hashes from the server",
+      )
+        .default(false)
+        .hideHelp(),
+    );
 };
 
 Command.prototype.addSelfHostOptions = function () {

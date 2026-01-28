@@ -359,6 +359,7 @@ fn write_start_push_request(project_directory: &Path, out_file: &Path) -> anyhow
         .args([
             CONVEX,
             "deploy",
+            "--push-all-modules",
             "--write-push-request",
             out_file.to_str().unwrap(),
             "--url",

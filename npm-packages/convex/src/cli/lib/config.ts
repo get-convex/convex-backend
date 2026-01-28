@@ -757,7 +757,7 @@ export function removedExistingConfig(
   return true;
 }
 
-/** Pull configuration from the given remote origin. */
+/** Pull configuration for the root app component from the given remote origin. */
 export async function pullConfig(
   ctx: Context,
   project: string | undefined,

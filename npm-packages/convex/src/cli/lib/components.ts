@@ -57,6 +57,9 @@ import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { formatIndex, LargeIndexDeletionCheck } from "./indexes.js";
 import { checkForLargeIndexDeletion } from "./checkForLargeIndexDeletion.js";
 import { LogManager } from "./logs.js";
+import { createHash } from "crypto";
+import { Bundle, BundleHash } from "../../bundler/index.js";
+import { ModuleHashConfig } from "./deployApi/modules.js";
 
 export type PushOptions = {
   adminKey: string;
@@ -73,6 +76,7 @@ export type PushOptions = {
   deploymentType?: DeploymentType;
   writePushRequest?: string | undefined;
   liveComponentSources: boolean;
+  pushAllModules: boolean;
   logManager?: LogManager | undefined;
   largeIndexDeletionCheck: LargeIndexDeletionCheck;
 };
@@ -152,6 +156,72 @@ export async function runPush(ctx: Context, options: PushOptions) {
   await runComponentsPush(ctx, options, configPath, projectConfig);
 }
 
+export function hash(bundle: Bundle) {
+  return createHash("sha256")
+    .update(bundle.source)
+    .update(bundle.sourceMap || "")
+    .digest("hex");
+}
+
+function isModuleTheSame(newBundle: Bundle, oldBundleHash: BundleHash) {
+  return (
+    newBundle.environment === oldBundleHash.environment &&
+    hash(newBundle) === oldBundleHash.hash
+  );
+}
+
+export function partitionModulesByChanges(
+  functions: Bundle[],
+  remoteHashesByPath: Map<string, BundleHash>,
+): {
+  unchangedModuleHashes: ModuleHashConfig[];
+  changedModules: Bundle[];
+} {
+  // Partition modules based on whether they match the existing modules
+  const unchangedModuleHashes = functions
+    .filter((newBundle) => {
+      const oldBundleHash = remoteHashesByPath.get(newBundle.path);
+      return oldBundleHash && isModuleTheSame(newBundle, oldBundleHash);
+    })
+    .map((func) => ({
+      path: func.path,
+      environment: func.environment,
+      sha256: hash(func),
+    }));
+  const changedModules = functions.filter((newBundle) => {
+    const oldBundleHash = remoteHashesByPath.get(newBundle.path);
+    return !oldBundleHash || !isModuleTheSame(newBundle, oldBundleHash);
+  });
+  return { unchangedModuleHashes, changedModules };
+}
+
+async function getUnchangedModuleHashesFromServer(
+  ctx: Context,
+  appImplementation: { functions: Bundle[] },
+  options: { url: string; adminKey: string },
+): Promise<{
+  unchangedModuleHashes: ModuleHashConfig[];
+  changedModules: Bundle[];
+}> {
+  const remoteConfigWithModuleHashes = await pullConfig(
+    ctx,
+    undefined,
+    undefined,
+    options.url,
+    options.adminKey,
+  );
+  const remoteHashesByPath = new Map(
+    remoteConfigWithModuleHashes.moduleHashes.map((moduleHash) => [
+      moduleHash.path,
+      moduleHash,
+    ]),
+  );
+  return partitionModulesByChanges(
+    appImplementation.functions,
+    remoteHashesByPath,
+  );
+}
+
 async function startComponentsPushAndCodegen(
   ctx: Context,
   parentSpan: Span,
@@ -172,6 +242,7 @@ async function startComponentsPushAndCodegen(
     writePushRequest?: string | undefined;
     codegen: boolean;
     liveComponentSources?: boolean;
+    pushAllModules?: boolean;
     debugNodeApis: boolean;
     largeIndexDeletionCheck: LargeIndexDeletionCheck;
     codegenOnlyThisComponent?: string | undefined;
@@ -335,9 +406,20 @@ async function startComponentsPushAndCodegen(
   // component, and may be different for each component.
   const udfServerVersion = version;
 
+  const { unchangedModuleHashes, changedModules } = options.pushAllModules
+    ? {
+        unchangedModuleHashes: [],
+        changedModules: appImplementation.functions,
+      }
+    : await parentSpan.enterAsync("getUnchangedModuleHashesFromServer", () =>
+        getUnchangedModuleHashesFromServer(ctx, appImplementation, options),
+      );
+
   const appDefinition: AppDefinitionConfig = {
     ...appDefinitionSpecWithoutImpls,
-    ...appImplementation,
+    schema: appImplementation.schema,
+    changedModules,
+    unchangedModuleHashes,
     udfServerVersion,
   };
 

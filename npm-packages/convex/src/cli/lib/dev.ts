@@ -55,6 +55,7 @@ export async function devAgainstDeployment(
     debugBundlePath?: string | undefined;
     debugNodeApis: boolean;
     liveComponentSources: boolean;
+    pushAllModules: boolean;
   },
 ) {
   const logManager = new LogManager(devOptions.tailLogs);
@@ -105,6 +106,7 @@ export async function devAgainstDeployment(
         debugNodeApis: devOptions.debugNodeApis,
         codegen: devOptions.codegen,
         liveComponentSources: devOptions.liveComponentSources,
+        pushAllModules: devOptions.pushAllModules,
         logManager, // Pass logManager to control logs during deploy
         largeIndexDeletionCheck: "no verification", // `convex dev` can’t push to prod
       },

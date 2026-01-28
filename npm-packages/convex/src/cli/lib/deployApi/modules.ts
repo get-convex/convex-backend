@@ -15,6 +15,13 @@ export const moduleConfig = looseObject({
 });
 export type ModuleConfig = z.infer<typeof moduleConfig>;
 
+export const moduleHashConfig = looseObject({
+  path: z.string(),
+  environment: moduleEnvironment,
+  sha256: z.string(),
+});
+export type ModuleHashConfig = z.infer<typeof moduleHashConfig>;
+
 export const nodeDependency = looseObject({
   name: z.string(),
   version: z.string(),
