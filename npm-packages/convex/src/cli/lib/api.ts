@@ -590,16 +590,7 @@ async function _loadExistingDeploymentCredentialsForProject(
   targetProject: ProjectSelection,
   deploymentSelection: DeploymentSelectionWithinProject,
   { ensureLocalRunning } = { ensureLocalRunning: true },
-): Promise<{
-  adminKey: string;
-  url: string;
-  deploymentFields: {
-    deploymentName: string;
-    deploymentType: DeploymentType;
-    projectSlug: string | null;
-    teamSlug: string | null;
-  } | null;
-}> {
+): Promise<DetailedDeploymentCredentials> {
   const accessResult = await checkAccessToSelectedProject(ctx, targetProject);
   if (accessResult.kind === "noAccess") {
     return await ctx.crash({

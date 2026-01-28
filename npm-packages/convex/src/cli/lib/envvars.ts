@@ -19,32 +19,70 @@ const _FRAMEWORKS = [
 ] as const;
 type Framework = (typeof _FRAMEWORKS)[number];
 
-type ConvexUrlWriteConfig = {
+/**
+ * A configuration for writing the actual (framework specific) `CONVEX_URL`
+ * and `CONVEX_SITE_URL` environment variables to a ".env" type file.
+ *
+ * May be `null` if there was an error determining any of the field values.
+ */
+type EnvFileUrlConfig = {
+  /** The name of the file - typically `.env.local` */
   envFile: string;
-  envVar: string;
+  /**
+   * The framework specific `CONVEX_URL`
+   *
+   * If `null`, ignore and don't update that environment variable.
+   */
+  convexUrlEnvVar: string | null;
+  /**
+   * The framework specific `CONVEX_SITE_URL`
+   *
+   * If `null`, ignore and don't update that environment variable.
+   */
+  siteUrlEnvVar: string | null;
+  /** Existing content loaded from the `envFile`, if it exists */
   existingFileContent: string | null;
 } | null;
 
-export async function writeConvexUrlToEnvFile(
+export async function writeUrlsToEnvFile(
   ctx: Context,
-  value: string,
-): Promise<ConvexUrlWriteConfig> {
-  const writeConfig = await envVarWriteConfig(ctx, value);
+  options: {
+    convexUrl: string;
+    siteUrl?: string | null | undefined;
+  },
+): Promise<EnvFileUrlConfig> {
+  const envFileConfig = await loadEnvFileUrlConfig(ctx, options);
 
-  if (writeConfig === null) {
+  if (envFileConfig === null) {
     return null;
   }
 
-  const { envFile, envVar, existingFileContent } = writeConfig;
-  const modified = changedEnvVarFile({
-    existingFileContent,
-    envVarName: envVar,
-    envVarValue: value,
-    commentAfterValue: null,
-    commentOnPreviousLine: null,
-  })!;
-  ctx.fs.writeUtf8File(envFile, modified);
-  return writeConfig;
+  const { envFile, convexUrlEnvVar, siteUrlEnvVar, existingFileContent } =
+    envFileConfig;
+  let updatedFileContent: string | null = null;
+  if (convexUrlEnvVar) {
+    updatedFileContent = changedEnvVarFile({
+      existingFileContent,
+      envVarName: convexUrlEnvVar,
+      envVarValue: options.convexUrl,
+      commentAfterValue: null,
+      commentOnPreviousLine: null,
+    })!;
+  }
+  if (siteUrlEnvVar && options.siteUrl) {
+    updatedFileContent = changedEnvVarFile({
+      existingFileContent: updatedFileContent ?? existingFileContent,
+      envVarName: siteUrlEnvVar,
+      envVarValue: options.siteUrl,
+      commentAfterValue: null,
+      commentOnPreviousLine: null,
+    })!;
+  }
+  if (updatedFileContent) {
+    ctx.fs.writeUtf8File(envFile, updatedFileContent);
+  }
+
+  return envFileConfig;
 }
 
 export function changedEnvVarFile({
@@ -94,16 +132,18 @@ export function getEnvVarRegex(envVarName: string) {
   return new RegExp(`^${envVarName}.*$`, "m");
 }
 
-export async function suggestedEnvVarName(ctx: Context): Promise<{
+export async function suggestedEnvVarNames(ctx: Context): Promise<{
   detectedFramework?: Framework;
-  envVar: string;
+  convexUrlEnvVar: ConvexUrlEnvVar;
+  convexSiteEnvVar: ConvexSiteUrlEnvVar;
   frontendDevUrl?: string;
   publicPrefix?: string;
 }> {
   // no package.json, that's fine, just guess
   if (!ctx.fs.exists("package.json")) {
     return {
-      envVar: "CONVEX_URL",
+      convexUrlEnvVar: "CONVEX_URL",
+      convexSiteEnvVar: "CONVEX_SITE_URL",
     };
   }
 
@@ -114,7 +154,8 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isCreateReactApp) {
     return {
       detectedFramework: "create-react-app",
-      envVar: "REACT_APP_CONVEX_URL",
+      convexUrlEnvVar: "REACT_APP_CONVEX_URL",
+      convexSiteEnvVar: "REACT_APP_CONVEX_SITE_URL",
       frontendDevUrl: "http://localhost:3000",
       publicPrefix: "REACT_APP_",
     };
@@ -124,7 +165,8 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isNextJs) {
     return {
       detectedFramework: "Next.js",
-      envVar: "NEXT_PUBLIC_CONVEX_URL",
+      convexUrlEnvVar: "NEXT_PUBLIC_CONVEX_URL",
+      convexSiteEnvVar: "NEXT_PUBLIC_CONVEX_SITE_URL",
       frontendDevUrl: "http://localhost:3000",
       publicPrefix: "NEXT_PUBLIC_",
     };
@@ -134,7 +176,8 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isExpo) {
     return {
       detectedFramework: "Expo",
-      envVar: "EXPO_PUBLIC_CONVEX_URL",
+      convexUrlEnvVar: "EXPO_PUBLIC_CONVEX_URL",
+      convexSiteEnvVar: "EXPO_PUBLIC_CONVEX_SITE_URL",
       publicPrefix: "EXPO_PUBLIC_",
     };
   }
@@ -143,7 +186,8 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isRemix) {
     return {
       detectedFramework: "Remix",
-      envVar: "CONVEX_URL",
+      convexUrlEnvVar: "CONVEX_URL",
+      convexSiteEnvVar: "CONVEX_SITE_URL",
       frontendDevUrl: "http://localhost:3000",
     };
   }
@@ -152,7 +196,8 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isSvelteKit) {
     return {
       detectedFramework: "SvelteKit",
-      envVar: "PUBLIC_CONVEX_URL",
+      convexUrlEnvVar: "PUBLIC_CONVEX_URL",
+      convexSiteEnvVar: "PUBLIC_CONVEX_SITE_URL",
       frontendDevUrl: "http://localhost:5173",
       publicPrefix: "PUBLIC_",
     };
@@ -165,7 +210,8 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isTanStackStart) {
     return {
       detectedFramework: "TanStackStart",
-      envVar: "VITE_CONVEX_URL",
+      convexUrlEnvVar: "VITE_CONVEX_URL",
+      convexSiteEnvVar: "VITE_CONVEX_SITE_URL",
       frontendDevUrl: "http://localhost:3000",
       publicPrefix: "VITE_",
     };
@@ -177,45 +223,99 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isVite) {
     return {
       detectedFramework: "Vite",
-      envVar: "VITE_CONVEX_URL",
+      convexUrlEnvVar: "VITE_CONVEX_URL",
+      convexSiteEnvVar: "VITE_CONVEX_SITE_URL",
       frontendDevUrl: "http://localhost:5173",
       publicPrefix: "VITE_",
     };
   }
 
   return {
-    envVar: "CONVEX_URL",
+    convexUrlEnvVar: "CONVEX_URL",
+    convexSiteEnvVar: "CONVEX_SITE_URL",
   };
 }
 
-async function envVarWriteConfig(
+async function loadEnvFileUrlConfig(
   ctx: Context,
-  value: string | null,
-): Promise<ConvexUrlWriteConfig> {
-  const { detectedFramework, envVar } = await suggestedEnvVarName(ctx);
+  options: {
+    convexUrl: string;
+    siteUrl?: string | null | undefined;
+  },
+): Promise<EnvFileUrlConfig> {
+  const { detectedFramework, convexUrlEnvVar, convexSiteEnvVar } =
+    await suggestedEnvVarNames(ctx);
 
   const { envFile, existing } = suggestedDevEnvFile(ctx, detectedFramework);
 
   if (!existing) {
-    return { envFile, envVar, existingFileContent: null };
+    return {
+      envFile,
+      convexUrlEnvVar,
+      siteUrlEnvVar: convexSiteEnvVar,
+      existingFileContent: null,
+    };
   }
 
   const existingFileContent = ctx.fs.readUtf8File(envFile);
   const config = dotenv.parse(existingFileContent);
 
-  const matching = Object.keys(config).filter((key) => EXPECTED_NAMES.has(key));
+  const resolvedConvexUrlEnvVar = resolveEnvVarName(
+    convexUrlEnvVar,
+    options.convexUrl,
+    envFile,
+    config,
+    EXPECTED_CONVEX_URL_NAMES,
+  );
+  const resolvedSiteUrlEnvVar = resolveEnvVarName(
+    convexSiteEnvVar,
+    options.siteUrl ?? "",
+    envFile,
+    config,
+    EXPECTED_SITE_URL_NAMES,
+  );
+  if (
+    resolvedConvexUrlEnvVar.kind === "invalid" ||
+    resolvedSiteUrlEnvVar.kind === "invalid"
+  ) {
+    return null;
+  }
+  return {
+    envFile,
+    convexUrlEnvVar: resolvedConvexUrlEnvVar.envVarName,
+    siteUrlEnvVar: resolvedSiteUrlEnvVar.envVarName,
+    existingFileContent,
+  };
+}
+
+function resolveEnvVarName(
+  envVarName: string,
+  envVarValue: string,
+  envFile: string,
+  config: dotenv.DotenvParseOutput,
+  expectedNames: Set<string>,
+):
+  | {
+      kind: "invalid";
+    }
+  | {
+      kind: "valid";
+      envVarName: string | null;
+    } {
+  const matching = Object.keys(config).filter((key) => expectedNames.has(key));
   if (matching.length > 1) {
     logWarning(
       chalkStderr.yellow(
-        `Found multiple CONVEX_URL environment variables in ${envFile} so cannot update automatically.`,
+        `Found multiple ${envVarName} environment variables in ${envFile} so cannot update automatically.`,
       ),
     );
-    return null;
+    return { kind: "invalid" };
   }
   if (matching.length === 1) {
-    const [existingEnvVar, oldValue] = [matching[0], config[matching[0]]];
-    if (oldValue === value) {
-      return null;
+    const [existingEnvVarName, oldValue] = [matching[0], config[matching[0]]];
+    if (oldValue === envVarValue) {
+      // Set envVarName to null to indicate that it shouldn't be updated.
+      return { kind: "valid", envVarName: null };
     }
     if (
       oldValue !== "" &&
@@ -223,14 +323,14 @@ async function envVarWriteConfig(
     ) {
       logWarning(
         chalkStderr.yellow(
-          `Can't safely modify ${envFile}, please edit manually.`,
+          `Can't safely modify ${envFile} for ${envVarName}, please edit manually.`,
         ),
       );
-      return null;
+      return { kind: "invalid" };
     }
-    return { envFile, envVar: existingEnvVar, existingFileContent };
+    return { kind: "valid", envVarName: existingEnvVarName };
   }
-  return { envFile, envVar, existingFileContent };
+  return { kind: "valid", envVarName };
 }
 
 function suggestedDevEnvFile(
@@ -263,14 +363,27 @@ function suggestedDevEnvFile(
   };
 }
 
-const EXPECTED_NAMES = new Set([
-  "CONVEX_URL",
-  "PUBLIC_CONVEX_URL",
-  "NEXT_PUBLIC_CONVEX_URL",
-  "VITE_CONVEX_URL",
-  "REACT_APP_CONVEX_URL",
-  "EXPO_PUBLIC_CONVEX_URL",
+const EXPECTED_CONVEX_URL_NAMES = new Set([
+  "CONVEX_URL" as const,
+  "PUBLIC_CONVEX_URL" as const,
+  "NEXT_PUBLIC_CONVEX_URL" as const,
+  "VITE_CONVEX_URL" as const,
+  "REACT_APP_CONVEX_URL" as const,
+  "EXPO_PUBLIC_CONVEX_URL" as const,
 ]);
+type ConvexUrlEnvVar =
+  typeof EXPECTED_CONVEX_URL_NAMES extends Set<infer T> ? T : never;
+
+const EXPECTED_SITE_URL_NAMES = new Set([
+  "CONVEX_SITE_URL" as const,
+  "PUBLIC_CONVEX_SITE_URL" as const,
+  "NEXT_PUBLIC_CONVEX_SITE_URL" as const,
+  "VITE_CONVEX_SITE_URL" as const,
+  "REACT_APP_CONVEX_SITE_URL" as const,
+  "EXPO_PUBLIC_CONVEX_SITE_URL" as const,
+]);
+type ConvexSiteUrlEnvVar =
+  typeof EXPECTED_SITE_URL_NAMES extends Set<infer T> ? T : never;
 
 // Crash or warn on
 // CONVEX_DEPLOY_KEY=project:me:new-project|eyABCD0= npx convex

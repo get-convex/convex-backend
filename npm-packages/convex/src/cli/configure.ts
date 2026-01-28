@@ -33,7 +33,7 @@ import {
   validateOrSelectProject,
   validateOrSelectTeam,
 } from "./lib/utils/utils.js";
-import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
+import { writeUrlsToEnvFile } from "./lib/envvars.js";
 import path from "path";
 import { projectDashboardUrl } from "./lib/dashboard.js";
 import { doInitConvexFolder } from "./lib/codegen.js";
@@ -52,6 +52,7 @@ import {
 } from "./lib/deploymentSelection.js";
 import { ensureLoggedIn } from "./lib/login.js";
 import { handleAnonymousDeployment } from "./lib/localDeployment/anonymous.js";
+import { fetchDeploymentCanonicalSiteUrl } from "./lib/env.js";
 type DeploymentCredentials = {
   url: string;
   adminKey: string;
@@ -112,6 +113,7 @@ export async function deploymentCredentialsOrConfigure(
       deploymentType: DeploymentType;
       projectSlug: string | null;
       teamSlug: string | null;
+      siteUrl: string | null;
     } | null;
   }
 > {
@@ -121,6 +123,10 @@ export async function deploymentCredentialsOrConfigure(
     chosenConfiguration,
     cmdOptions,
   );
+  const siteUrl = await fetchDeploymentCanonicalSiteUrl(ctx, {
+    adminKey: selectedDeployment.adminKey,
+    deploymentUrl: selectedDeployment.url,
+  });
 
   if (selectedDeployment.deploymentFields !== null) {
     // Set the `CONVEX_DEPLOYMENT` env var + the `CONVEX_URL` env var
@@ -128,6 +134,7 @@ export async function deploymentCredentialsOrConfigure(
       ctx,
       {
         url: selectedDeployment.url,
+        siteUrl,
         deploymentName: selectedDeployment.deploymentFields.deploymentName,
         teamSlug: selectedDeployment.deploymentFields.teamSlug,
         projectSlug: selectedDeployment.deploymentFields.projectSlug,
@@ -136,16 +143,21 @@ export async function deploymentCredentialsOrConfigure(
       deploymentNameFromSelection(deploymentSelection),
     );
   } else {
-    // Clear the `CONVEX_DEPLOYMENT` env var + set the `CONVEX_URL` env var
+    // Clear the `CONVEX_DEPLOYMENT` env var + set the `CONVEX_URL` and
+    // `CONVEX_SITE_URL` env vars.
     await handleManuallySetUrlAndAdminKey(ctx, {
       url: selectedDeployment.url,
+      siteUrl,
       adminKey: selectedDeployment.adminKey,
     });
   }
   return {
     url: selectedDeployment.url,
     adminKey: selectedDeployment.adminKey,
-    deploymentFields: selectedDeployment.deploymentFields,
+    deploymentFields:
+      selectedDeployment.deploymentFields === null
+        ? null
+        : { ...selectedDeployment.deploymentFields, siteUrl: siteUrl },
   };
 }
 
@@ -182,13 +194,6 @@ export async function _deploymentCredentialsOrConfigure(
         cmdOptions.selectionWithinProject,
         deploymentSelection.deploymentToActOn.source,
       );
-      if (deploymentSelection.deploymentToActOn.deploymentFields === null) {
-        // erase `CONVEX_DEPLOYMENT` from .env.local + set the url env var
-        await handleManuallySetUrlAndAdminKey(ctx, {
-          url: deploymentSelection.deploymentToActOn.url,
-          adminKey: deploymentSelection.deploymentToActOn.adminKey,
-        });
-      }
       return {
         url: deploymentSelection.deploymentToActOn.url,
         adminKey: deploymentSelection.deploymentToActOn.adminKey,
@@ -452,11 +457,11 @@ async function handleChooseProject(
   };
 }
 
-export async function handleManuallySetUrlAndAdminKey(
+async function handleManuallySetUrlAndAdminKey(
   ctx: Context,
-  cmdOptions: { url: string; adminKey: string },
+  cmdOptions: { url: string; siteUrl: string; adminKey: string },
 ) {
-  const { url, adminKey } = cmdOptions;
+  const { url, siteUrl, adminKey } = cmdOptions;
   const didErase = await eraseDeploymentEnvVar(ctx);
   if (didErase) {
     logMessage(
@@ -465,12 +470,23 @@ export async function handleManuallySetUrlAndAdminKey(
       ),
     );
   }
-  const envVarWrite = await writeConvexUrlToEnvFile(ctx, url);
-  if (envVarWrite !== null) {
+  const envFileConfig = await writeUrlsToEnvFile(ctx, {
+    convexUrl: url,
+    siteUrl,
+  });
+  if (
+    envFileConfig !== null &&
+    (envFileConfig.convexUrlEnvVar || envFileConfig.siteUrlEnvVar)
+  ) {
+    // Join both names with " and " if both exist, otherwise just use one of them.
+    const updatedVars = [
+      envFileConfig.convexUrlEnvVar,
+      envFileConfig.siteUrlEnvVar,
+    ]
+      .filter(Boolean)
+      .join(" and ");
     logMessage(
-      chalkStderr.green(
-        `Saved the given --url as ${envVarWrite.envVar} to ${envVarWrite.envFile}`,
-      ),
+      chalkStderr.green(`Saved ${updatedVars} to ${envFileConfig.envFile}`),
     );
   }
   return { url, adminKey };
@@ -725,6 +741,7 @@ export async function updateEnvAndConfigForDeploymentSelection(
   ctx: Context,
   options: {
     url: string;
+    siteUrl?: string | null;
     deploymentName: string;
     teamSlug: string | null;
     projectSlug: string | null;
@@ -750,6 +767,7 @@ export async function updateEnvAndConfigForDeploymentSelection(
     deploymentType: options.deploymentType,
     deploymentName: options.deploymentName,
     url: options.url,
+    siteUrl: options.siteUrl,
     wroteToGitIgnore,
     changedDeploymentEnvVar,
     functionsPath: functionsDir(configPath, projectConfig),

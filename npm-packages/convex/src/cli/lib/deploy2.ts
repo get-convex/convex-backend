@@ -30,7 +30,7 @@ import zlib from "node:zlib";
 import { PushOptions } from "./components.js";
 import { DeploymentType } from "./api.js";
 import { runPush } from "./components.js";
-import { suggestedEnvVarName } from "./envvars.js";
+import { suggestedEnvVarNames } from "./envvars.js";
 import { runSystemQuery } from "./run.js";
 import {
   handlePushConfigError,
@@ -40,6 +40,7 @@ import {
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { addProgressLinkIfSlow } from "./indexes.js";
 import { ensureAuthKitProvisionedBeforeBuild } from "./workos/workos.js";
+import { fetchDeploymentCanonicalSiteUrl } from "./env.js";
 
 const brotli = promisify(zlib.brotliCompress);
 
@@ -463,21 +464,31 @@ export async function runCommand(
     return;
   }
 
-  const urlVar =
-    options.cmdUrlEnvVarName ?? (await suggestedEnvVarName(ctx)).envVar;
+  const suggestedEnvVars = await suggestedEnvVarNames(ctx);
+  const urlVar = options.cmdUrlEnvVarName ?? suggestedEnvVars.convexUrlEnvVar;
+  const siteVar = suggestedEnvVars.convexSiteEnvVar;
   showSpinner(
-    `Running '${options.cmd}' with environment variable "${urlVar}" set...${
+    `Running '${options.cmd}' with environment variables "${urlVar}" and "${siteVar}" set...${
       options.dryRun ? " [dry run]" : ""
     }`,
   );
   if (!options.dryRun) {
-    const canonicalCloudUrl = await fetchDeploymentCanonicalCloudUrl(ctx, {
+    const deployment = {
       deploymentUrl: options.url,
       adminKey: options.adminKey,
-    });
+    };
+    const canonicalCloudUrl = await fetchDeploymentCanonicalCloudUrl(
+      ctx,
+      deployment,
+    );
+    const canonicalSiteUrl = await fetchDeploymentCanonicalSiteUrl(
+      ctx,
+      deployment,
+    );
 
     const env = { ...process.env };
     env[urlVar] = canonicalCloudUrl;
+    env[siteVar] = canonicalSiteUrl;
     const result = spawnSync(options.cmd, {
       env,
       stdio: "inherit",
@@ -494,7 +505,7 @@ export async function runCommand(
   logFinishedStep(
     `${options.dryRun ? "Would have run" : "Ran"} "${
       options.cmd
-    }" with environment variable "${urlVar}" set`,
+    }" with environment variables "${urlVar}" and "${siteVar}" set`,
   );
 }
 

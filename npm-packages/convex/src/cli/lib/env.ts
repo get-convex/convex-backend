@@ -165,3 +165,18 @@ export async function callUpdateEnvironmentVariables(
     return await logAndHandleFetchError(ctx, e);
   }
 }
+
+export async function fetchDeploymentCanonicalSiteUrl(
+  ctx: Context,
+  options: { deploymentUrl: string; adminKey: string },
+): Promise<string> {
+  const result = await envGetInDeployment(ctx, options, "CONVEX_SITE_URL");
+  if (typeof result !== "string") {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem or env vars",
+      printedMessage: "Invalid process.env.CONVEX_SITE_URL",
+    });
+  }
+  return result;
+}

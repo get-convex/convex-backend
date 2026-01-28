@@ -2,7 +2,7 @@ import { chalkStderr } from "chalk";
 import { Context } from "../../bundler/context.js";
 import { logFinishedStep, logMessage } from "../../bundler/log.js";
 import { DeploymentType } from "./api.js";
-import { writeConvexUrlToEnvFile } from "./envvars.js";
+import { writeUrlsToEnvFile } from "./envvars.js";
 import { getDashboardUrl } from "./dashboard.js";
 
 export async function finalizeConfiguration(
@@ -12,16 +12,24 @@ export async function finalizeConfiguration(
     deploymentType: DeploymentType;
     deploymentName: string;
     url: string;
+    siteUrl: string | null | undefined;
     wroteToGitIgnore: boolean;
     changedDeploymentEnvVar: boolean;
   },
 ) {
-  const envVarWrite = await writeConvexUrlToEnvFile(ctx, options.url);
-  if (envVarWrite !== null) {
+  const envFileConfig = await writeUrlsToEnvFile(ctx, {
+    convexUrl: options.url,
+    siteUrl: options.siteUrl,
+  });
+  if (envFileConfig !== null) {
     logFinishedStep(
       `${messageForDeploymentType(options.deploymentType, options.url)} and saved its:\n` +
-        `    name as CONVEX_DEPLOYMENT to .env.local\n` +
-        `    URL as ${envVarWrite.envVar} to ${envVarWrite.envFile}`,
+        `    name as CONVEX_DEPLOYMENT\n` +
+        `    Client URL as ${envFileConfig.convexUrlEnvVar}\n` +
+        (envFileConfig.siteUrlEnvVar
+          ? `    HTTP Actions URL as ${envFileConfig.siteUrlEnvVar}\n`
+          : "") +
+        ` to ${envFileConfig.envFile}`,
     );
   } else if (options.changedDeploymentEnvVar) {
     logFinishedStep(
@@ -40,7 +48,7 @@ export async function finalizeConfiguration(
   const anyChanges =
     options.wroteToGitIgnore ||
     options.changedDeploymentEnvVar ||
-    envVarWrite !== null;
+    envFileConfig !== null;
   if (anyChanges) {
     const dashboardUrl = await getDashboardUrl(ctx, {
       deploymentName: options.deploymentName,

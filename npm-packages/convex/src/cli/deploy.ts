@@ -9,7 +9,7 @@ import {
 import {
   gitBranchFromEnvironment,
   isNonProdBuildEnvironment,
-  suggestedEnvVarName,
+  suggestedEnvVarNames,
 } from "./lib/envvars.js";
 import { PushOptions } from "./lib/components.js";
 import {
@@ -402,7 +402,7 @@ Your ${chalkStderr.bold(deployment.requestedType)} deployment ${chalkStderr.bold
       deployment.requestedName,
     )} serves traffic at:
 
-  ${(await suggestedEnvVarName(ctx)).envVar}=${chalkStderr.bold(prodUrl)}
+  ${(await suggestedEnvVarNames(ctx)).convexUrlEnvVar}=${chalkStderr.bold(prodUrl)}
 
 Make sure that your published client is configured with this URL (for instructions see https://docs.convex.dev/hosting)\n`,
   );

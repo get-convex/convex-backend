@@ -20,7 +20,7 @@ import {
 import { getTeamAndProjectSlugForDeployment } from "../api.js";
 import { callUpdateEnvironmentVariables, envGetInDeployment } from "../env.js";
 import { deploymentDashboardUrlPage } from "../dashboard.js";
-import { changedEnvVarFile, suggestedEnvVarName } from "../envvars.js";
+import { changedEnvVarFile, suggestedEnvVarNames } from "../envvars.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import {
   createCORSOrigin,
@@ -1031,7 +1031,7 @@ async function updateEnvLocal(
     }
   > = {};
 
-  const { detectedFramework } = await suggestedEnvVarName(ctx);
+  const { detectedFramework } = await suggestedEnvVarNames(ctx);
 
   // Parse existing .env.local to check what's already there
   const existingEnvVars = existingFileContent
