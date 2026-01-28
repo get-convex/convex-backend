@@ -27,7 +27,6 @@ import {
   TeamResponse,
   TeamEntitlementsResponse,
   PlatformDeleteCustomDomainArgs,
-  VanityDomainResponse,
 } from "generatedApi";
 import {
   useListVanityDomains,
@@ -39,6 +38,7 @@ import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useUpdateCanonicalUrl } from "hooks/deploymentApi";
 import { Loading } from "@ui/Loading";
+import { PlatformCustomDomainResponse } from "@convex-dev/platform/managementApi";
 
 export function CustomDomains({
   team,
@@ -157,7 +157,7 @@ function CanonicalDomainForm({
   vanityDomains,
 }: {
   deploymentName: string;
-  vanityDomains?: VanityDomainResponse[];
+  vanityDomains?: PlatformCustomDomainResponse[];
 }) {
   const deploymentUrl = useDeploymentUrl();
   const canonicalCloudUrl = useQuery(udfs.convexCloudUrl.default);
@@ -260,7 +260,7 @@ export function CanonicalUrlCombobox({
   label: ReactNode;
   defaultUrl: DefaultUrlOption;
   canonicalUrl: CanonicalUrl;
-  vanityDomains?: VanityDomainResponse[];
+  vanityDomains?: PlatformCustomDomainResponse[];
   requestDestination: "convexCloud" | "convexSite";
 }) {
   const vanityDomainsForRequestDestination = useMemo(
@@ -483,7 +483,7 @@ function DisplayVanityDomain({
   vanityDomain,
   enabled,
 }: {
-  vanityDomain: VanityDomainResponse;
+  vanityDomain: PlatformCustomDomainResponse;
   enabled: boolean;
 }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -575,7 +575,7 @@ function DisplayVanityDomain({
                 _convex_domains.{vanityDomain.domain}
               </code>
               <code className="truncate break-words">
-                {vanityDomain.instanceName}
+                {vanityDomain.deploymentName}
               </code>
             </div>
           </div>
@@ -593,10 +593,10 @@ function DeleteDomainModal({
   domain,
   onClose,
 }: {
-  domain: VanityDomainResponse;
+  domain: PlatformCustomDomainResponse;
   onClose: () => void;
 }) {
-  const deleteVanityDomain = useDeleteVanityDomain(domain.instanceName);
+  const deleteVanityDomain = useDeleteVanityDomain(domain.deploymentName);
   const handleDelete = async () => {
     await deleteVanityDomain({
       domain: domain.domain,

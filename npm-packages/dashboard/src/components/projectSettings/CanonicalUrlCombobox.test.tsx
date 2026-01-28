@@ -23,14 +23,14 @@ const defaultProps: React.ComponentProps<typeof CanonicalUrlCombobox> = {
   vanityDomains: [
     {
       creationTime: 1741014640,
-      instanceName: "wandering-fish-513",
+      deploymentName: "wandering-fish-513",
       requestDestination: "convexCloud",
       domain: "api.chess.convex.dev",
       verificationTime: 1741726688,
     },
     {
       creationTime: 1736874886,
-      instanceName: "wandering-fish-513",
+      deploymentName: "wandering-fish-513",
       requestDestination: "convexSite",
       domain: "chess.convex.dev",
       verificationTime: 1741726560,

@@ -1,8 +1,8 @@
-import { useBBMutation, useBBQuery } from "./api";
+import { useManagementApiMutation, useManagementApiQuery } from "./api";
 
 export function useListVanityDomains(deploymentName?: string) {
-  const { data } = useBBQuery({
-    path: "/instances/{deployment_name}/domains/list",
+  const { data } = useManagementApiQuery({
+    path: "/deployments/{deployment_name}/custom_domains",
     pathParams: {
       deployment_name: deploymentName || "",
     },
@@ -14,12 +14,12 @@ export function useListVanityDomains(deploymentName?: string) {
 }
 
 export function useCreateVanityDomain(deploymentName: string) {
-  return useBBMutation({
-    path: `/instances/{deployment_name}/domains/create`,
+  return useManagementApiMutation({
+    path: `/deployments/{deployment_name}/create_custom_domain`,
     pathParams: {
       deployment_name: deploymentName,
     },
-    mutateKey: `/instances/{deployment_name}/domains/list`,
+    mutateKey: `/deployments/{deployment_name}/custom_domains`,
     mutatePathParams: {
       deployment_name: deploymentName,
     },
@@ -29,12 +29,12 @@ export function useCreateVanityDomain(deploymentName: string) {
 }
 
 export function useDeleteVanityDomain(deploymentName: string) {
-  return useBBMutation({
-    path: "/instances/{deployment_name}/domains/delete",
+  return useManagementApiMutation({
+    path: "/deployments/{deployment_name}/delete_custom_domain",
     pathParams: {
       deployment_name: deploymentName,
     },
-    mutateKey: "/instances/{deployment_name}/domains/list",
+    mutateKey: "/deployments/{deployment_name}/custom_domains",
     mutatePathParams: {
       deployment_name: deploymentName,
     },

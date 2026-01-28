@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@convex-dev/design-system": "workspace:*",
+    "@convex-dev/platform": "workspace:*",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "2.2.0",
     "@next/bundle-analyzer": "~12.3.0",
