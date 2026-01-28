@@ -147,6 +147,7 @@ export async function watchAndPush(
     const ctx = new WatchContext(
       cmdOptions.traceEvents,
       outerCtx.bigBrainAuth(),
+      isFirstPush,
     );
     options.logManager?.beginDeploy();
     showSpinner("Preparing Convex functions...");

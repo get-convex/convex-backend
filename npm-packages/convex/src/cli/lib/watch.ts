@@ -104,12 +104,18 @@ export class WatchContext implements Context {
   > = {};
   fs: RecordingFs;
   deprecationMessagePrinted: boolean;
+  isFirstPush: boolean;
   spinner: Ora | undefined;
   private _bigBrainAuth: BigBrainAuth | null;
 
-  constructor(traceEvents: boolean, bigBrainAuth: BigBrainAuth | null) {
+  constructor(
+    traceEvents: boolean,
+    bigBrainAuth: BigBrainAuth | null,
+    isFirstPush: boolean,
+  ) {
     this.fs = new RecordingFs(traceEvents);
     this.deprecationMessagePrinted = false;
+    this.isFirstPush = isFirstPush;
     this._bigBrainAuth = bigBrainAuth;
   }
 
