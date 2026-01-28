@@ -7,7 +7,7 @@ import {
 } from "./lib/api.js";
 import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
-import { deploymentDashboardUrlPage } from "./lib/dashboard.js";
+import { DASHBOARD_HOST, deploymentDashboardUrlPage } from "./lib/dashboard.js";
 import { importIntoDeployment } from "./lib/convexImport.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 
@@ -55,6 +55,6 @@ export const convexImport = new Command("import")
 
 function snapshotImportDashboardLink(deploymentName: string | null) {
   return deploymentName === null
-    ? "https://dashboard.convex.dev/deployment/settings/snapshots"
+    ? `${DASHBOARD_HOST}/deployment/settings/snapshots`
     : deploymentDashboardUrlPage(deploymentName, "/settings/snapshots");
 }

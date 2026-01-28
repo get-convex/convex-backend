@@ -10,12 +10,8 @@ import {
 import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { checkIfDashboardIsRunning } from "./lib/localDeployment/dashboard.js";
-import { getDashboardUrl } from "./lib/dashboard.js";
+import { DASHBOARD_HOST, getDashboardUrl } from "./lib/dashboard.js";
 import { isAnonymousDeployment } from "./lib/deployment.js";
-
-export const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
-  ? "http://localhost:6789"
-  : "https://dashboard.convex.dev";
 
 export const dashboard = new Command("dashboard")
   .alias("dash")

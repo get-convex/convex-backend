@@ -29,6 +29,7 @@ import { deploymentNameAndTypeFromSelection } from "./lib/deploymentSelection.js
 import { checkVersion } from "./lib/updates.js";
 import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
 import { ensureAuthKitProvisionedBeforeBuild } from "./lib/workos/workos.js";
+import { DASHBOARD_HOST } from "./lib/dashboard.js";
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
   .description(
@@ -153,10 +154,10 @@ Same format as .env.local or .env files, and overrides them.`,
         const source =
           deploymentSelection.kind === "deploymentWithinProject" &&
           deploymentSelection.targetProject.kind === "deploymentName"
-            ? `at ${chalkStderr.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.targetProject.deploymentName}/settings#preview-deploy-keys`)}`
+            ? `at ${chalkStderr.blue.underline(`${DASHBOARD_HOST}/dp/${deploymentSelection.targetProject.deploymentName}/settings#preview-deploy-keys`)}`
             : deploymentSelection.kind === "existingDeployment" &&
                 deploymentSelection.deploymentToActOn.deploymentFields !== null
-              ? `at ${chalkStderr.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.deploymentToActOn.deploymentFields.deploymentName}/settings#preview-deploy-keys`)}`
+              ? `at ${chalkStderr.blue.underline(`${DASHBOARD_HOST}/dp/${deploymentSelection.deploymentToActOn.deploymentFields.deploymentName}/settings#preview-deploy-keys`)}`
               : "on the dashboard";
         await ctx.crash({
           exitCode: 1,
