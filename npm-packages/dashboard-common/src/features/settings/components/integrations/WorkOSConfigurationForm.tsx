@@ -1442,6 +1442,7 @@ export function WorkOSConfigurationForm() {
     useCurrentDeployment,
     useCurrentTeam,
     useCurrentProject,
+    deploymentsURI,
     workOSOperations,
   } = useContext(DeploymentInfoContext);
 
@@ -1464,7 +1465,7 @@ export function WorkOSConfigurationForm() {
 
   const envVarsLink =
     team && project && deployment
-      ? `/t/${team.slug}/${project.slug}/${deployment.name}/settings/environment-variables`
+      ? `${deploymentsURI}/settings/environment-variables`
       : undefined;
 
   if (!workosData || !workosEnvVars) {
