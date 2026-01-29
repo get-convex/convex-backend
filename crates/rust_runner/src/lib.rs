@@ -9,12 +9,19 @@ pub mod host_functions;
 pub mod module;
 pub mod limits;
 pub mod determinism;
+pub mod analyze;
+pub mod source_maps;
 
 pub use runner::RustFunctionRunner;
 pub use module::{RustModule, RustFunctionMetadata};
 pub use limits::{ExecutionLimits, ResourceLimiter};
 pub use determinism::{DeterminismContext, TimeProvider, RandomProvider};
 pub use host_functions::{DatabaseClient, StorageClient};
+pub use analyze::analyze_rust_module;
+pub use source_maps::{
+    SourceMap, SourceLocation, SourceMapManager, MappedError, StackFrame,
+    SourceMapGenerator
+};
 
 use std::sync::Arc;
 use anyhow::Result;

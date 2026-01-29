@@ -130,6 +130,7 @@ impl ExecutionLimits {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasmtime::ResourceLimiter as _;
 
     #[test]
     fn test_resource_limiter_memory() {

@@ -12,9 +12,34 @@ export interface RustBuildResult {
   path: string;
   // Base64-encoded WASM binary
   wasmBinary: string;
+  // Source map for debugging (maps WASM offsets to Rust source locations)
+  sourceMap?: SourceMap;
   // JSON metadata about exported functions
   functionMetadata: RustFunctionMetadata[];
   environment: "rust";
+}
+
+/// Source location in Rust source code
+export interface SourceLocation {
+  file: string;
+  line: number;
+  column: number;
+  function?: string;
+}
+
+/// Source map mapping WASM offsets to source locations
+export interface SourceMap {
+  version: number;
+  mappings: Record<string, SourceLocation>; // WASM offset -> location
+  sources: Record<string, string>; // file path -> source content
+}
+
+/// DWARF debug info extraction options
+export interface DebugOptions {
+  // Enable DWARF debug info in compilation
+  debug?: boolean;
+  // Path to save source map file
+  sourceMapPath?: string;
 }
 
 export interface RustFunctionMetadata {
@@ -57,6 +82,7 @@ export async function findCargoToml(
 export async function buildRustModule(
   ctx: Context,
   filePath: string,
+  options?: DebugOptions,
 ): Promise<RustBuildResult> {
   logVerbose(chalkStderr.yellow(`Building Rust module: ${filePath}`));
 
@@ -91,7 +117,7 @@ export async function buildRustModule(
   // Determine the target WASM output path
   // We use wasm32-wasip1 for WASI support (enables system calls)
   const target = "wasm32-wasip1";
-  const profile = "release";
+  const profile = options?.debug ? "dev" : "release";
 
   // Run cargo build
   try {
@@ -103,6 +129,12 @@ export async function buildRustModule(
       profile,
       "--message-format=json",
     ];
+
+    // Add debug flags if enabled
+    if (options?.debug) {
+      args.push("-C", "debuginfo=2");
+      args.push("-C", "dwarf-version=5");
+    }
 
     logVerbose(chalkStderr.yellow(`Running: cargo ${args.join(" ")}`));
 
@@ -134,11 +166,25 @@ export async function buildRustModule(
     // Extract function metadata from the Rust source
     const functionMetadata = await extractFunctionMetadata(ctx, filePath);
 
+    // Generate source map if debug is enabled
+    let sourceMap: SourceMap | undefined;
+    if (options?.debug) {
+      sourceMap = await generateSourceMap(ctx, filePath, wasmPath, projectDir);
+
+      // Optionally save source map to file
+      if (options.sourceMapPath) {
+        const sourceMapJson = JSON.stringify(sourceMap, null, 2);
+        ctx.fs.writeFile(options.sourceMapPath, sourceMapJson);
+        logVerbose(chalkStderr.green(`Source map saved to: ${options.sourceMapPath}`));
+      }
+    }
+
     logVerbose(chalkStderr.green(`Successfully built Rust module: ${filePath}`));
 
     return {
       path: filePath,
       wasmBinary,
+      sourceMap,
       functionMetadata,
       environment: "rust",
     };
@@ -244,13 +290,115 @@ async function extractFunctionMetadata(
 export async function bundleRustModules(
   ctx: Context,
   entryPoints: string[],
+  options?: DebugOptions,
 ): Promise<RustBuildResult[]> {
   const results: RustBuildResult[] = [];
 
   for (const entryPoint of entryPoints) {
-    const result = await buildRustModule(ctx, entryPoint);
+    const result = await buildRustModule(ctx, entryPoint, options);
     results.push(result);
   }
 
   return results;
+}
+
+// Generate source map from Rust source and WASM binary
+async function generateSourceMap(
+  ctx: Context,
+  sourcePath: string,
+  wasmPath: string,
+  projectDir: string,
+): Promise<SourceMap> {
+  const sourceMap: SourceMap = {
+    version: 1,
+    mappings: {},
+    sources: {},
+  };
+
+  // Read the source file
+  const sourceContent = ctx.fs.readUtf8File(sourcePath);
+  const relativePath = path.relative(projectDir, sourcePath);
+  sourceMap.sources[relativePath] = sourceContent;
+
+  // Try to extract DWARF debug info using wasm-objdump or similar tool
+  // For now, generate a basic source map from function metadata
+  const functionMetadata = await extractFunctionMetadata(ctx, sourcePath);
+
+  // Create placeholder mappings based on function positions in source
+  // In a full implementation, this would parse DWARF sections from the WASM
+  let offset = 0;
+  for (const func of functionMetadata) {
+    // Find function position in source
+    const funcPattern = new RegExp(`(?:pub\\s+)?(?:async\\s+)?fn\\s+${func.name}`);
+    const match = funcPattern.exec(sourceContent);
+
+    if (match) {
+      const lines = sourceContent.substring(0, match.index).split("\n");
+      const line = lines.length;
+      const column = lines[lines.length - 1].length + 1;
+
+      sourceMap.mappings[offset.toString()] = {
+        file: relativePath,
+        line,
+        column,
+        function: func.name,
+      };
+
+      // Increment offset for next function (placeholder)
+      offset += 0x1000;
+    }
+  }
+
+  logVerbose(chalkStderr.blue(`Generated source map with ${Object.keys(sourceMap.mappings).length} mappings`));
+
+  return sourceMap;
+}
+
+// Look up a source location from a WASM offset
+export function lookupSourceLocation(
+  sourceMap: SourceMap,
+  wasmOffset: number,
+): SourceLocation | undefined {
+  // Try exact match first
+  const exact = sourceMap.mappings[wasmOffset.toString()];
+  if (exact) {
+    return exact;
+  }
+
+  // Find nearest mapping before this offset
+  const offsets = Object.keys(sourceMap.mappings)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  let nearestOffset: number | undefined;
+  for (const offset of offsets) {
+    if (offset <= wasmOffset) {
+      nearestOffset = offset;
+    } else {
+      break;
+    }
+  }
+
+  return nearestOffset !== undefined
+    ? sourceMap.mappings[nearestOffset.toString()]
+    : undefined;
+}
+
+// Format an error with source location
+export function formatErrorWithSource(
+  message: string,
+  wasmOffset: number,
+  sourceMap?: SourceMap,
+): string {
+  if (!sourceMap) {
+    return `${message} (WASM offset: 0x${wasmOffset.toString(16)})`;
+  }
+
+  const location = lookupSourceLocation(sourceMap, wasmOffset);
+  if (location) {
+    const func = location.function ? ` in ${location.function}` : "";
+    return `${message}\n  at ${location.file}:${location.line}:${location.column}${func}`;
+  }
+
+  return `${message} (WASM offset: 0x${wasmOffset.toString(16)})`;
 }

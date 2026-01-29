@@ -37,6 +37,18 @@ reqwest = { version = "0.11", default-features = false }
 # Async utilities
 futures = "0.3"
 
+# Rust parsing for module analysis
+syn = { version = "2.0", features = ["full", "visit", "parsing"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+# Source map serialization
+bincode = { version = "1.3", optional = true }
+
+# DWARF debug info parsing (optional feature)
+gimli = { version = "0.28", optional = true }
+object = { version = "0.32", optional = true }
+
 # Convex internal crates
 common = { path = "../common" }
 udf = { path = "../udf" }
@@ -44,7 +56,14 @@ runtime = { path = "../runtime" }
 database = { path = "../database" }
 errors = { path = "../errors" }
 value = { path = "../value" }
+model = { path = "../model" }
+convex_sync_types = { path = "../convex/sync_types" }
 tracing = "0.1"
+
+[features]
+default = ["bincode"]
+dwarf = ["gimli", "object", "bincode"]
 
 [dev-dependencies]
 tempfile = "3.9"
+common = { path = "../common", features = ["testing"] }

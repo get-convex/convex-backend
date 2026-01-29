@@ -5,53 +5,99 @@
 //! - Memory limits
 //! - CPU fuel metering
 //! - Deterministic random/time for queries/mutations
+//! - Database access via DatabaseClient
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use anyhow::{Context, Result};
+use anyhow::{
+    Context,
+    Result,
+};
+use common::{
+    runtime::Runtime,
+    types::UdfType,
+};
 use tokio::time::timeout;
-use wasmtime::{Instance, Module, Store};
-use wasi_common::WasiCtx;
+use wasmtime::{
+    Instance,
+    Module,
+    Store,
+};
 
-use common::runtime::Runtime;
-use common::types::UdfType;
+use crate::{
+    determinism::DeterminismContext,
+    host_functions::HostContext,
+    limits::{
+        ExecutionLimits,
+        ResourceLimiter,
+    },
+    module::RustModule,
+    source_maps::{
+        MappedError,
+        SourceMap,
+        SourceMapManager,
+    },
+    wasi::create_secure_wasi_context,
+    DatabaseClient,
+};
 
-use crate::determinism::DeterminismContext;
-use crate::limits::{ExecutionLimits, ResourceLimiter};
-use crate::module::RustModule;
-use crate::wasi::create_secure_wasi_context;
-
-/// Store state that holds both WASI context and resource limiter
-pub struct StoreState {
-    wasi: WasiCtx,
+/// Store state that holds the host context, resource limiter, and determinism
+/// context
+pub struct StoreState<RT: Runtime> {
+    host_ctx: HostContext<RT>,
     limiter: ResourceLimiter,
     determinism: DeterminismContext,
 }
 
-impl StoreState {
-    /// Create a new store state with the given limits and determinism context
-    pub fn new(wasi: WasiCtx, limiter: ResourceLimiter, determinism: DeterminismContext) -> Self {
+impl<RT: Runtime> StoreState<RT> {
+    /// Create a new store state
+    pub fn new(
+        host_ctx: HostContext<RT>,
+        limiter: ResourceLimiter,
+        determinism: DeterminismContext,
+    ) -> Self {
         Self {
-            wasi,
+            host_ctx,
             limiter,
             determinism,
         }
     }
 
-    /// Get a reference to the WASI context
-    pub fn wasi(&self) -> &WasiCtx {
-        &self.wasi
+    /// Get a reference to the host context
+    pub fn host_ctx(&self) -> &HostContext<RT> {
+        &self.host_ctx
     }
 
-    /// Get a mutable reference to the WASI context
-    pub fn wasi_mut(&mut self) -> &mut WasiCtx {
-        &mut self.wasi
+    /// Get a mutable reference to the host context
+    pub fn host_ctx_mut(&mut self) -> &mut HostContext<RT> {
+        &mut self.host_ctx
     }
 
-    /// Get a reference to the determinism context
-    pub fn determinism(&self) -> &DeterminismContext {
-        &self.determinism
+    /// Get a reference to the resource limiter
+    pub fn limiter(&self) -> &ResourceLimiter {
+        &self.limiter
+    }
+
+    /// Get a mutable reference to the resource limiter
+    pub fn limiter_mut(&mut self) -> &mut ResourceLimiter {
+        &mut self.limiter
+    }
+}
+
+impl<RT: Runtime> std::ops::Deref for StoreState<RT> {
+    type Target = HostContext<RT>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.host_ctx
+    }
+}
+
+impl<RT: Runtime> std::ops::DerefMut for StoreState<RT> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.host_ctx
     }
 }
 
@@ -60,6 +106,7 @@ pub struct RustFunctionRunner<RT: Runtime> {
     engine: Arc<wasmtime::Engine>,
     runtime: RT,
     module_cache: std::sync::Mutex<std::collections::HashMap<String, Module>>,
+    source_map_manager: SourceMapManager,
 }
 
 impl<RT: Runtime> Clone for RustFunctionRunner<RT> {
@@ -68,6 +115,7 @@ impl<RT: Runtime> Clone for RustFunctionRunner<RT> {
             engine: self.engine.clone(),
             runtime: self.runtime.clone(),
             module_cache: std::sync::Mutex::new(std::collections::HashMap::new()),
+            source_map_manager: self.source_map_manager.clone(),
         }
     }
 }
@@ -81,7 +129,43 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
             engine,
             runtime,
             module_cache: std::sync::Mutex::new(std::collections::HashMap::new()),
+            source_map_manager: SourceMapManager::new(),
         })
+    }
+
+    /// Load a source map for a module
+    pub fn load_source_map(
+        &mut self,
+        module_id: impl Into<String>,
+        source_map_json: &str,
+    ) -> Result<Arc<SourceMap>> {
+        self.source_map_manager
+            .load_from_json(module_id, source_map_json)
+    }
+
+    /// Get a cached source map
+    pub fn get_source_map(&self, module_id: &str) -> Option<Arc<SourceMap>> {
+        self.source_map_manager.get(module_id)
+    }
+
+    /// Map an error using source maps
+    fn map_error(
+        &self,
+        module_id: &str,
+        error: anyhow::Error,
+        wasm_offset: Option<u32>,
+    ) -> anyhow::Error {
+        if let Some(offset) = wasm_offset {
+            if let Some(source_map) = self.source_map_manager.get(module_id) {
+                if let Some(location) = source_map.lookup(offset) {
+                    let mapped = MappedError::new(error.to_string())
+                        .with_wasm_offset(offset)
+                        .with_source_location(location.clone());
+                    return anyhow::anyhow!(mapped.format());
+                }
+            }
+        }
+        error
     }
 
     /// Run a Rust function with full security controls
@@ -102,6 +186,38 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         seed: u64,
         timestamp_ms: i64,
     ) -> Result<serde_json::Value> {
+        self.run_function_with_db(
+            udf_type,
+            module,
+            function_name,
+            args,
+            seed,
+            timestamp_ms,
+            None,
+        )
+        .await
+    }
+
+    /// Run a Rust function with database access
+    ///
+    /// # Arguments
+    /// * `udf_type` - Type of UDF (Query, Mutation, Action, HttpAction)
+    /// * `module` - The compiled Rust module
+    /// * `function_name` - Name of the function to call
+    /// * `args` - Arguments to pass to the function
+    /// * `seed` - Random seed for deterministic execution (queries/mutations)
+    /// * `timestamp_ms` - Virtual timestamp for deterministic execution
+    /// * `database_client` - Optional database client for database operations
+    pub async fn run_function_with_db(
+        &self,
+        udf_type: UdfType,
+        module: &RustModule,
+        function_name: &str,
+        args: Vec<serde_json::Value>,
+        seed: u64,
+        timestamp_ms: i64,
+        database_client: Option<Arc<dyn DatabaseClient>>,
+    ) -> Result<serde_json::Value> {
         // Get execution limits based on UDF type
         let limits = Self::get_limits_for_udf_type(udf_type);
 
@@ -111,31 +227,41 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         // Set up secure WASI context with minimal capabilities
         let wasi_ctx = create_secure_wasi_context();
 
+        // Create host context with WASI and runtime
+        let mut host_ctx = HostContext::new(wasi_ctx, udf_type, self.runtime.clone());
+
+        // Add database client if provided
+        if let Some(db_client) = database_client {
+            host_ctx = host_ctx.with_database_client(db_client);
+        }
+
         // Create determinism context based on UDF type
         let determinism = match udf_type {
             UdfType::Query | UdfType::Mutation => {
                 DeterminismContext::deterministic(seed, timestamp_ms)
-            }
+            },
             UdfType::Action | UdfType::HttpAction => DeterminismContext::non_deterministic(),
         };
 
         // Create resource limiter
         let limiter = ResourceLimiter::new(limits.max_memory_bytes, limits.max_table_size);
 
-        // Create store state
-        let state = StoreState::new(wasi_ctx, limiter, determinism);
+        // Create store state combining host context, limiter, and determinism
+        let state = StoreState::new(host_ctx, limiter, determinism);
 
         // Create store with context and limits
         let mut store = Store::new(&self.engine, state);
 
         // Set up resource limiter
-        store.limiter(|state| &mut state.limiter);
+        store.limiter(|state| state.limiter_mut());
 
         // Set fuel for CPU limiting
-        store.set_fuel(limits.max_fuel)
+        store
+            .set_fuel(limits.max_fuel)
             .context("Failed to set fuel for store")?;
 
         // Instantiate the module
+        // Note: Host functions would be linked here in a full implementation
         let instance = Instance::new(&mut store, &wasm_module, &[])?;
 
         // Get the exported function
@@ -166,7 +292,8 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         Ok(result_value)
     }
 
-    /// Run a Rust function with simplified API (uses default seed and current time)
+    /// Run a Rust function with simplified API (uses default seed and current
+    /// time)
     pub async fn run_function_simple(
         &self,
         udf_type: UdfType,
@@ -195,13 +322,9 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
     }
 
     /// Call a WASM function with a timeout
-    async fn call_with_timeout<
-        'a,
-        Params: wasmtime::WasmParams,
-        Results: wasmtime::WasmResults,
-    >(
+    async fn call_with_timeout<'a, Params: wasmtime::WasmParams, Results: wasmtime::WasmResults>(
         &self,
-        store: &'a mut Store<StoreState>,
+        store: &'a mut Store<StoreState<RT>>,
         func: &'a wasmtime::TypedFunc<Params, Results>,
         params: Params,
         duration: Duration,
@@ -212,10 +335,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         match result {
             Ok(Ok(results)) => Ok(results),
             Ok(Err(e)) => Err(e.into()),
-            Err(_) => anyhow::bail!(
-                "Function execution timed out after {:?}",
-                duration
-            ),
+            Err(_) => anyhow::bail!("Function execution timed out after {:?}", duration),
         }
     }
 
@@ -235,7 +355,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
 
     async fn allocate_and_write(
         &self,
-        store: &mut Store<StoreState>,
+        store: &mut Store<StoreState<RT>>,
         instance: &Instance,
         data: &[u8],
     ) -> Result<(i32, i32)> {
@@ -248,7 +368,11 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         let alloc = instance
             .get_typed_func::<i32, i32>(&mut *store, "__convex_alloc")
             .ok()
-            .or_else(|| instance.get_typed_func::<i32, i32>(&mut *store, "alloc").ok())
+            .or_else(|| {
+                instance
+                    .get_typed_func::<i32, i32>(&mut *store, "alloc")
+                    .ok()
+            })
             .ok_or_else(|| anyhow::anyhow!("alloc function not found"))?;
 
         // Allocate memory
@@ -270,7 +394,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
 
     async fn read_result(
         &self,
-        store: &mut Store<StoreState>,
+        store: &mut Store<StoreState<RT>>,
         instance: &Instance,
         result_ptr: i32,
     ) -> Result<Vec<u8>> {
@@ -309,14 +433,18 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
 
 #[cfg(test)]
 mod tests {
+    use common::runtime::testing::TestRuntime;
+
     use super::*;
 
     #[test]
     fn test_limits_for_udf_types() {
-        let query_limits = RustFunctionRunner::<common::testing::TestRuntime>::get_limits_for_udf_type(UdfType::Query);
+        let query_limits =
+            RustFunctionRunner::<TestRuntime>::get_limits_for_udf_type(UdfType::Query);
         assert_eq!(query_limits.max_duration, Duration::from_secs(30));
 
-        let action_limits = RustFunctionRunner::<common::testing::TestRuntime>::get_limits_for_udf_type(UdfType::Action);
+        let action_limits =
+            RustFunctionRunner::<TestRuntime>::get_limits_for_udf_type(UdfType::Action);
         assert_eq!(action_limits.max_duration, Duration::from_secs(300));
     }
 }

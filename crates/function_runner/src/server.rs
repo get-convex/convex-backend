@@ -650,6 +650,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     ) -> anyhow::Result<FunctionOutcome> {
         use rust_runner::{module::RustModule, RustFunctionRunner};
         use udf::{UdfOutcome, FunctionResult};
+        use crate::database_client::TransactionDatabaseClient;
 
         // Extract function path and arguments
         let path = path_and_args.path();
@@ -693,9 +694,11 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             }
         };
 
-        // For now, return a not-implemented error
-        // In production, this would call rust_runner.run_function()
-        let _outcome = self.rust_runner.run_function(
+        // Create the database client from the transaction
+        let db_client = Arc::new(TransactionDatabaseClient::new(transaction));
+
+        // Call the Rust function with database access
+        let outcome = self.rust_runner.run_function_with_db(
             udf_type,
             &RustModule::new(
                 module_path.as_str().to_string(),
@@ -706,19 +709,40 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             json_args,
             seed,
             timestamp_ms,
+            Some(db_client),
         ).await;
 
-        // TODO: Convert the result to FunctionOutcome
-        // For now, return an error indicating Rust functions are not fully integrated yet
-        Ok(FunctionOutcome::Query(UdfOutcome::from_error(
-            JsError::from_message(
-                "Rust functions are initialized but database integration is pending. \
-                 The FunctionRunner integration is complete, but the database host \
-                 functions need to be connected to the actual Convex database backend.".to_string()
-            ),
-            path.clone(),
-            udf_type,
-            None,
-        )))
+        // Convert the result to FunctionOutcome
+        match outcome {
+            Ok(result) => {
+                // Convert JSON result to Convex value
+                match serde_json::from_value(result) {
+                    Ok(result_value) => {
+                        Ok(FunctionOutcome::Query(UdfOutcome::from_value(
+                            result_value,
+                            path.clone(),
+                            udf_type,
+                            None, // syscall trace
+                        )))
+                    }
+                    Err(e) => {
+                        Ok(FunctionOutcome::Query(UdfOutcome::from_error(
+                            JsError::from_message(format!("Failed to parse result: {}", e)),
+                            path.clone(),
+                            udf_type,
+                            None,
+                        )))
+                    }
+                }
+            }
+            Err(e) => {
+                Ok(FunctionOutcome::Query(UdfOutcome::from_error(
+                    JsError::from_message(format!("Rust function error: {}", e)),
+                    path.clone(),
+                    udf_type,
+                    None,
+                )))
+            }
+        }
     }
 }

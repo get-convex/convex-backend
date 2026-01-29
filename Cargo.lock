@@ -32,7 +32,7 @@ dependencies = [
  "bitflags 2.10.0",
  "bytes",
  "bytestring",
- "derive_more",
+ "derive_more 2.0.1",
  "encoding_rs",
  "foldhash 0.1.5",
  "futures-core",
@@ -127,7 +127,7 @@ dependencies = [
  "bytes",
  "bytestring",
  "cfg-if",
- "derive_more",
+ "derive_more 2.0.1",
  "encoding_rs",
  "foldhash 0.1.5",
  "futures-core",
@@ -651,7 +651,7 @@ dependencies = [
  "common",
  "convex_sync_types",
  "data-url",
- "derive_more",
+ "derive_more 2.0.1",
  "errors",
  "futures",
  "http 1.3.1",
@@ -1396,7 +1396,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common",
- "derive_more",
+ "derive_more 2.0.1",
  "enum-iterator",
  "keybroker",
  "proptest",
@@ -2163,7 +2163,7 @@ dependencies = [
  "crossbeam-channel",
  "csf",
  "cstr",
- "derive_more",
+ "derive_more 2.0.1",
  "enum-iterator",
  "errors",
  "event-listener",
@@ -2398,7 +2398,7 @@ dependencies = [
  "anyhow",
  "base64 0.13.1",
  "bytes",
- "derive_more",
+ "derive_more 2.0.1",
  "headers",
  "pretty_assertions",
  "proptest",
@@ -3007,7 +3007,7 @@ dependencies = [
  "convex_macro",
  "convex_sync_types",
  "criterion",
- "derive_more",
+ "derive_more 2.0.1",
  "errors",
  "events",
  "fastrace",
@@ -3242,6 +3242,17 @@ name = "derive_arbitrary"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30542c1ad912e0e3d22a1935c290e12e8a29d704a420177a31faad4a601a0800"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.108",
+]
+
+[[package]]
+name = "derive_more"
+version = "0.99.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6edb4b64a43d977b8e99788fe3a04d483834fba1215a7e02caa415b626497f7f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3864,7 +3875,7 @@ dependencies = [
  "cmd_util",
  "common",
  "csv-async",
- "derive_more",
+ "derive_more 2.0.1",
  "fivetran_common",
  "futures",
  "futures-async-stream",
@@ -3894,7 +3905,7 @@ dependencies = [
  "clap",
  "cmd_util",
  "convex",
- "derive_more",
+ "derive_more 2.0.1",
  "fivetran_common",
  "futures",
  "futures-async-stream",
@@ -5264,7 +5275,7 @@ dependencies = [
  "async-trait",
  "common",
  "convex_macro",
- "derive_more",
+ "derive_more 2.0.1",
  "divan",
  "errors",
  "fastrace",
@@ -5436,7 +5447,7 @@ dependencies = [
  "database",
  "deno_core",
  "deno_core_icudata",
- "derive_more",
+ "derive_more 2.0.1",
  "divan",
  "encoding_rs",
  "errors",
@@ -5653,7 +5664,7 @@ dependencies = [
  "cmd_util",
  "common",
  "convex_sync_types",
- "derive_more",
+ "derive_more 2.0.1",
  "errors",
  "hex",
  "metrics",
@@ -6314,7 +6325,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
- "derive_more",
+ "derive_more 2.0.1",
  "parking_lot",
  "paste",
  "prometheus",
@@ -6378,7 +6389,7 @@ dependencies = [
  "common",
  "convex_sync_types",
  "database",
- "derive_more",
+ "derive_more 2.0.1",
  "errors",
  "futures-async-stream",
  "proptest",
@@ -6478,7 +6489,7 @@ dependencies = [
  "convex_macro",
  "convex_sync_types",
  "database",
- "derive_more",
+ "derive_more 2.0.1",
  "errors",
  "fastrace",
  "fivetran_destination",
@@ -6654,7 +6665,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-util",
- "twox-hash",
+ "twox-hash 2.1.0",
  "url",
  "webpki-roots",
 ]
@@ -7006,9 +7017,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
  "crc32fast",
+ "flate2",
  "hashbrown 0.14.5",
  "indexmap 2.9.0",
  "memchr",
+ "ruzstd",
 ]
 
 [[package]]
@@ -8592,19 +8605,27 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bincode",
  "bytes",
  "common",
+ "convex_sync_types",
  "database",
  "errors",
  "futures",
+ "gimli",
  "http 1.3.1",
  "mime",
+ "model",
+ "object 0.32.2",
+ "proc-macro2",
+ "quote",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest 0.11.27",
  "runtime",
  "serde",
  "serde_json",
+ "syn 2.0.108",
  "tempfile",
  "thiserror 1.0.59",
  "tokio",
@@ -8758,6 +8779,17 @@ dependencies = [
  "quick-error",
  "tempfile",
  "wait-timeout",
+]
+
+[[package]]
+name = "ruzstd"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58c4eb8a81997cf040a091d1f7e1938aeab6749d3a0dfa73af43cdc32393483d"
+dependencies = [
+ "byteorder",
+ "derive_more 0.99.20",
+ "twox-hash 1.6.3",
 ]
 
 [[package]]
@@ -9741,7 +9773,7 @@ dependencies = [
  "bytes",
  "common",
  "convex_macro",
- "derive_more",
+ "derive_more 2.0.1",
  "fastrace",
  "futures",
  "futures-async-stream",
@@ -11014,6 +11046,16 @@ version = "0.1.0"
 
 [[package]]
 name = "twox-hash"
+version = "1.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
+dependencies = [
+ "cfg-if",
+ "static_assertions",
+]
+
+[[package]]
+name = "twox-hash"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7b17f197b3050ba473acf9181f7b1d3b66d1cf7356c6cc57886662276e65908"
@@ -11220,7 +11262,7 @@ dependencies = [
  "async-trait",
  "cmd_util",
  "common",
- "derive_more",
+ "derive_more 2.0.1",
  "events",
  "headers",
  "metrics",
@@ -11389,7 +11431,7 @@ dependencies = [
  "convex",
  "convex_sync_types",
  "criterion",
- "derive_more",
+ "derive_more 2.0.1",
  "errors",
  "hex",
  "humansize",
