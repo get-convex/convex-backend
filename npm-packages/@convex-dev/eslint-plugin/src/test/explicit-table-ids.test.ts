@@ -1,5 +1,5 @@
 import { RuleTester } from "@typescript-eslint/rule-tester";
-import { explicitTableIds } from "../lib/explicitTableIds.js";
+import { explicitTableIds } from "../lib/explicit-table-ids.js";
 
 const ruleTester = new RuleTester({
   languageOptions: {

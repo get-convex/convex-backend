@@ -1,7 +1,7 @@
 import { noImportUseNode } from "./lib/no-import-use-node.js";
 import { noOldRegisteredFunctionSyntax } from "./lib/no-old-registered-function-syntax.js";
 import { requireArgsValidator } from "./lib/require-args-validator.js";
-import { explicitTableIds } from "./lib/explicitTableIds.js";
+import { explicitTableIds } from "./lib/explicit-table-ids.js";
 import { noCollectInQuery } from "./lib/no-collect-in-query.js";
 import { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 import { version } from "./version.js";
