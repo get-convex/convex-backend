@@ -178,6 +178,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
     /// * `args` - Arguments to pass to the function
     /// * `seed` - Random seed for deterministic execution (queries/mutations)
     /// * `timestamp_ms` - Virtual timestamp for deterministic execution
+    /// * `identity` - Optional user identity for authentication
     pub async fn run_function(
         &self,
         udf_type: UdfType,
@@ -186,6 +187,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         args: Vec<serde_json::Value>,
         seed: u64,
         timestamp_ms: i64,
+        identity: Option<serde_json::Value>,
     ) -> Result<serde_json::Value> {
         self.run_function_with_db(
             udf_type,
@@ -195,6 +197,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
             seed,
             timestamp_ms,
             None,
+            identity,
         )
         .await
     }
@@ -209,6 +212,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
     /// * `seed` - Random seed for deterministic execution (queries/mutations)
     /// * `timestamp_ms` - Virtual timestamp for deterministic execution
     /// * `database_client` - Optional database client for database operations
+    /// * `identity` - Optional user identity for authentication
     pub async fn run_function_with_db(
         &self,
         udf_type: UdfType,
@@ -218,6 +222,7 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         seed: u64,
         timestamp_ms: i64,
         database_client: Option<Arc<dyn DatabaseClient>>,
+        identity: Option<serde_json::Value>,
     ) -> Result<serde_json::Value> {
         // Get execution limits based on UDF type
         let limits = Self::get_limits_for_udf_type(udf_type);
@@ -234,6 +239,11 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         // Add database client if provided
         if let Some(db_client) = database_client {
             host_ctx = host_ctx.with_database_client(db_client);
+        }
+
+        // Add user identity if provided
+        if let Some(id) = identity {
+            host_ctx = host_ctx.with_identity(id);
         }
 
         // Create determinism context based on UDF type
@@ -308,20 +318,31 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
 
     /// Run a Rust function with simplified API (uses default seed and current
     /// time)
+    ///
+    /// # Arguments
+    /// * `udf_type` - Type of UDF (Query, Mutation, Action, HttpAction)
+    /// * `module` - The compiled Rust module
+    /// * `function_name` - Name of the function to call
+    /// * `args` - Arguments to pass to the function
+    /// * `identity` - Optional user identity for authentication
     pub async fn run_function_simple(
         &self,
         udf_type: UdfType,
         module: &RustModule,
         function_name: &str,
         args: Vec<serde_json::Value>,
+        identity: Option<serde_json::Value>,
     ) -> Result<serde_json::Value> {
         let seed = rand::random();
-        let timestamp_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64;
+        let timestamp_ms = match std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH) {
+            Ok(duration) => duration.as_millis() as i64,
+            Err(e) => {
+                return Err(anyhow::anyhow!("System clock error: {}", e));
+            }
+        };
 
-        self.run_function(udf_type, module, function_name, args, seed, timestamp_ms)
+        self.run_function(udf_type, module, function_name, args, seed, timestamp_ms, identity)
             .await
     }
 
@@ -354,7 +375,8 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
     }
 
     async fn get_or_compile_module(&self, module: &RustModule) -> Result<Module> {
-        let mut cache = self.module_cache.lock().unwrap();
+        let mut cache = self.module_cache.lock()
+            .expect("Module cache mutex poisoned - another thread panicked while holding the lock");
 
         if let Some(cached) = cache.get(&module.id) {
             return Ok(cached.clone());
@@ -477,8 +499,8 @@ fn add_convex_host_functions<RT: Runtime>(
             };
 
             // Query the database
-            let result = if let Some(db_client) = db_client {
-                match db_client.query(table_name) {
+            let result = match db_client {
+                Some(db_client) => match db_client.query(table_name) {
                     Ok(docs) => {
                         let docs_json: Vec<serde_json::Value> = docs
                             .into_iter()
@@ -500,17 +522,22 @@ fn add_convex_host_functions<RT: Runtime>(
                         "data": None::<Vec<serde_json::Value>>,
                         "error": format!("Database query failed: {}", e)
                     }),
-                }
-            } else {
-                serde_json::json!({
-                    "success": true,
-                    "data": Vec::<serde_json::Value>::new(),
-                    "error": None::<String>
+                },
+                None => serde_json::json!({
+                    "success": false,
+                    "data": None::<Vec<serde_json::Value>>,
+                    "error": "Database client not available - database operations require a database client to be configured"
                 })
             };
 
             // Write result to memory
-            let result_bytes = serde_json::to_vec(&result).unwrap_or_default();
+            let result_bytes = match serde_json::to_vec(&result) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    eprintln!("[ERROR] Failed to serialize query result: {}", e);
+                    return -1;
+                }
+            };
             let result_len = result_bytes.len() as i32;
 
             // Allocate memory for result
@@ -531,9 +558,15 @@ fn add_convex_host_functions<RT: Runtime>(
 
             // Write length prefix
             let len_bytes = result_len.to_le_bytes();
-            let _ = mem.write(&mut caller, ptr as usize, &len_bytes);
+            if let Err(e) = mem.write(&mut caller, ptr as usize, &len_bytes) {
+                eprintln!("[ERROR] Failed to write length prefix to WASM memory: {}", e);
+                return -1;
+            }
             // Write data
-            let _ = mem.write(&mut caller, ptr as usize + 4, &result_bytes);
+            if let Err(e) = mem.write(&mut caller, ptr as usize + 4, &result_bytes) {
+                eprintln!("[ERROR] Failed to write result data to WASM memory: {}", e);
+                return -1;
+            }
 
             ptr
         },

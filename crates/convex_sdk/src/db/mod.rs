@@ -1,6 +1,13 @@
 //! Database operations for Convex
 
+pub mod filter;
+pub mod index_range;
+pub mod table;
+
 use crate::types::{ConvexError, Document, DocumentId, Result};
+pub use filter::{FilterBuilder, FilterExpression, FieldRef, FilterExpressionExt};
+pub use index_range::{IndexRange, IndexRangeBuilder, RangeBound, ScanDirection, IndexRangeQuerySpec};
+pub use table::{TableReader, TableWriter, TableQueryBuilder, IndexQueryBuilder};
 use alloc::string::String;
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
@@ -9,43 +16,97 @@ use serde::{Deserialize, Serialize};
 // These functions are provided by the Convex runtime
 extern "C" {
     /// Query documents from a table
+    ///
+    /// # Safety
+    /// - `table_ptr` must be a valid pointer to a UTF-8 encoded table name
+    /// - `table_len` must be the length of the table name in bytes
+    /// - Returns a pointer to a length-prefixed JSON result, or -1 on error
     fn __convex_db_query(table_ptr: i32, table_len: i32) -> i32;
 
     /// Get a single document by ID
+    ///
+    /// # Safety
+    /// - `id_ptr` must be a valid pointer to a UTF-8 encoded document ID
+    /// - `id_len` must be the length of the ID in bytes
+    /// - Returns a pointer to a length-prefixed JSON result, or -1 on error
     fn __convex_db_get(id_ptr: i32, id_len: i32) -> i32;
 
     /// Insert a new document into a table
+    ///
+    /// # Safety
+    /// - `table_ptr` must be a valid pointer to a UTF-8 encoded table name
+    /// - `table_len` must be the length of the table name in bytes
+    /// - `value_ptr` must be a valid pointer to a UTF-8 encoded JSON value
+    /// - `value_len` must be the length of the JSON value in bytes
+    /// - Returns a pointer to a length-prefixed JSON result containing the new ID, or -1 on error
     fn __convex_db_insert(table_ptr: i32, table_len: i32, value_ptr: i32, value_len: i32) -> i32;
 
     /// Patch an existing document
+    ///
+    /// # Safety
+    /// - `id_ptr` must be a valid pointer to a UTF-8 encoded document ID
+    /// - `id_len` must be the length of the ID in bytes
+    /// - `value_ptr` must be a valid pointer to a UTF-8 encoded JSON patch value
+    /// - `value_len` must be the length of the JSON value in bytes
     fn __convex_db_patch(id_ptr: i32, id_len: i32, value_ptr: i32, value_len: i32);
 
     /// Delete a document by ID
+    ///
+    /// # Safety
+    /// - `id_ptr` must be a valid pointer to a UTF-8 encoded document ID
+    /// - `id_len` must be the length of the ID in bytes
     fn __convex_db_delete(id_ptr: i32, id_len: i32);
 
+    /// Replace an existing document completely
+    ///
+    /// # Safety
+    /// - `id_ptr` must be a valid pointer to a UTF-8 encoded document ID
+    /// - `id_len` must be the length of the ID in bytes
+    /// - `value_ptr` must be a valid pointer to a UTF-8 encoded JSON value
+    /// - `value_len` must be the length of the JSON value in bytes
+    fn __convex_db_replace(id_ptr: i32, id_len: i32, value_ptr: i32, value_len: i32);
+
     /// Query with filters and options
+    ///
+    /// # Safety
+    /// - `query_ptr` must be a valid pointer to a UTF-8 encoded JSON query specification
+    /// - `query_len` must be the length of the query in bytes
+    /// - Returns a pointer to a length-prefixed JSON result, or -1 on error
     fn __convex_db_query_advanced(query_ptr: i32, query_len: i32) -> i32;
 
     /// Count documents matching a query
+    ///
+    /// # Safety
+    /// - `table_ptr` must be a valid pointer to a UTF-8 encoded table name
+    /// - `table_len` must be the length of the table name in bytes
+    /// - Returns a pointer to a length-prefixed JSON result, or -1 on error
     fn __convex_db_count(table_ptr: i32, table_len: i32) -> i32;
 
     /// Allocate memory in the host
+    ///
+    /// # Safety
+    /// - `size` must be a positive integer representing the number of bytes to allocate
+    /// - Returns a pointer to the allocated memory, or 0 on allocation failure
     fn __convex_alloc(size: i32) -> i32;
 
     /// Free memory allocated by __convex_alloc
+    ///
+    /// # Safety
+    /// - `ptr` must be a pointer previously returned by __convex_alloc
+    /// - `ptr` must not have been freed before
     fn __convex_free(ptr: i32);
 }
 
 /// Result from a host function call
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct HostResult {
+pub(crate) struct HostResult {
     success: bool,
     data: Option<serde_json::Value>,
     error: Option<String>,
 }
 
 /// Helper functions for WASM memory management
-mod wasm_helpers {
+pub(crate) mod wasm_helpers {
     use super::*;
 
     /// Write bytes to WASM memory at the given pointer
@@ -170,6 +231,23 @@ impl Database {
         QueryBuilder::new(table)
     }
 
+    /// Create a batch query builder for executing multiple queries in a single round-trip
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let batch = db.batch();
+    /// batch.add(BatchQuery::new("users", "users").limit(10));
+    /// batch.add(BatchQuery::new("posts", "posts").filter("author", "eq", "user123")?);
+    ///
+    /// let results = batch.execute().await?;
+    /// let users = results.results.get("users");
+    /// let posts = results.results.get("posts");
+    /// ```
+    pub fn batch(&self) -> BatchQueryBuilder {
+        BatchQueryBuilder::new()
+    }
+
     /// Get a single document by ID
     pub async fn get(&self, id: DocumentId) -> Result<Option<Document>> {
         // Serialize the document ID
@@ -273,6 +351,58 @@ impl Database {
         Ok(())
     }
 
+    /// Replace an existing document completely
+    ///
+    /// Unlike patch, replace overwrites the entire document with the new value,
+    /// preserving only the document ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The document ID to replace
+    /// * `value` - The new document value
+    ///
+    /// # Returns
+    ///
+    /// Ok(()) on success
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// #[mutation]
+    /// async fn update_user(db: Database, id: String, new_data: UserData) -> Result<()> {
+    ///     db.replace(id.into(), new_data).await
+    /// }
+    /// ```
+    pub async fn replace(
+        &self,
+        id: DocumentId,
+        value: impl serde::Serialize,
+    ) -> Result<()> {
+        use crate::db::__convex_db_replace;
+
+        // Serialize the document ID
+        let id_str = id.as_str();
+        let id_bytes = id_str.as_bytes();
+
+        // Serialize the replacement value
+        let value_json = serde_json::to_vec(&value)?;
+
+        // Allocate memory for ID and value
+        let id_ptr = wasm_helpers::alloc_and_write(id_bytes)?;
+        let value_ptr = wasm_helpers::alloc_and_write(&value_json)?;
+
+        // Call the host function (no return value for replace)
+        unsafe {
+            __convex_db_replace(id_ptr, id_bytes.len() as i32, value_ptr, value_json.len() as i32);
+        }
+
+        // Free the input memory
+        wasm_helpers::free_ptr(id_ptr);
+        wasm_helpers::free_ptr(value_ptr);
+
+        Ok(())
+    }
+
     /// Delete a document
     pub async fn delete(&self, id: DocumentId) -> Result<()> {
         // Serialize the document ID
@@ -291,6 +421,32 @@ impl Database {
         wasm_helpers::free_ptr(id_ptr);
 
         Ok(())
+    }
+
+    /// Get a table-scoped reader for database operations
+    ///
+    /// This provides a type-safe interface for operations on a specific table.
+    /// In queries, this returns a `TableReader` with read-only operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `table_name` - The name of the table
+    ///
+    /// # Returns
+    ///
+    /// A `TableReader` for the specified table
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// #[query]
+    /// async fn get_user(db: Database, id: String) -> Result<Option<Document>> {
+    ///     let users: TableReader = db.table("users");
+    ///     users.get(id.into()).await
+    /// }
+    /// ```
+    pub fn table(&self, table_name: impl Into<String>) -> TableReader {
+        TableReader::new(table_name)
     }
 }
 
@@ -316,6 +472,154 @@ struct QuerySpec {
     filters: Vec<FilterCondition>,
     orders: Vec<OrderSpec>,
     limit: Option<usize>,
+    skip: Option<usize>,
+    cursor: Option<String>,
+    /// Optional filter expression for complex queries
+    #[serde(rename = "filterExpression", skip_serializing_if = "Option::is_none")]
+    filter_expression: Option<FilterExpression>,
+    /// Maximum number of rows to read before stopping (not just returned)
+    #[serde(rename = "maximumRowsRead", skip_serializing_if = "Option::is_none")]
+    maximum_rows_read: Option<usize>,
+}
+
+/// Status of a paginated query page
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PageStatus {
+    /// There are more results available
+    HasMore,
+    /// This is the last page of results
+    LastPage,
+    /// The query was truncated due to maximumRowsRead limit
+    Truncated,
+}
+
+/// Result of a paginated query
+#[derive(Debug, Clone, Deserialize)]
+pub struct PaginatedResult {
+    /// Documents in the current page
+    pub documents: Vec<Document>,
+    /// Cursor for fetching the next page (None if no more results)
+    pub next_cursor: Option<String>,
+    /// Whether there are more results available (legacy field)
+    pub has_more: bool,
+    /// Detailed status of this page
+    #[serde(rename = "pageStatus", default)]
+    pub page_status: Option<PageStatus>,
+    /// Split cursor for parallel processing of large result sets
+    #[serde(rename = "splitCursor", default)]
+    pub split_cursor: Option<String>,
+    /// Number of rows read (scanned) to produce this result
+    #[serde(rename = "rowsRead", default)]
+    pub rows_read: Option<usize>,
+    /// Continuation cursor for resuming a truncated query
+    #[serde(rename = "continuationCursor", default)]
+    pub continuation_cursor: Option<String>,
+}
+
+/// A query to be executed as part of a batch
+#[derive(Debug, Clone, Serialize)]
+pub struct BatchQuery {
+    /// Unique identifier for this query in the batch
+    pub id: String,
+    /// Table to query
+    pub table: String,
+    /// Optional filter conditions
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<FilterCondition>,
+    /// Optional ordering
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub orders: Vec<OrderSpec>,
+    /// Pagination limit
+    pub limit: Option<usize>,
+    /// Pagination skip
+    pub skip: Option<usize>,
+}
+
+impl BatchQuery {
+    /// Create a new batch query
+    pub fn new(id: impl Into<String>, table: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            table: table.into(),
+            filters: Vec::new(),
+            orders: Vec::new(),
+            limit: None,
+            skip: None,
+        }
+    }
+
+    /// Add a filter to this batch query
+    pub fn filter(mut self, field: &str, op: &str, value: impl Serialize) -> Result<Self> {
+        let value_json = serde_json::to_value(value)?;
+        self.filters.push(FilterCondition {
+            field: field.to_string(),
+            op: op.to_string(),
+            value: value_json,
+        });
+        Ok(self)
+    }
+
+    /// Set the limit for this batch query
+    pub fn limit(mut self, n: usize) -> Self {
+        self.limit = Some(n);
+        self
+    }
+}
+
+/// Result of a single query in a batch
+#[derive(Debug, Clone, Deserialize)]
+pub struct BatchQueryItemResult {
+    /// Documents returned by this query
+    pub documents: Vec<Document>,
+    /// Cursor for the next page
+    pub next_cursor: Option<String>,
+    /// Whether there are more results
+    pub has_more: bool,
+}
+
+/// Result of a batch query operation
+#[derive(Debug, Clone, Deserialize)]
+pub struct BatchQueryResult {
+    /// Results keyed by query ID
+    #[serde(flatten)]
+    pub results: alloc::collections::BTreeMap<String, BatchQueryItemResult>,
+}
+
+/// Builder for batch queries
+#[derive(Debug)]
+pub struct BatchQueryBuilder {
+    queries: Vec<BatchQuery>,
+}
+
+impl BatchQueryBuilder {
+    /// Create a new batch query builder
+    pub fn new() -> Self {
+        Self {
+            queries: Vec::new(),
+        }
+    }
+
+    /// Add a query to the batch
+    pub fn add(&mut self, query: BatchQuery) -> &mut Self {
+        self.queries.push(query);
+        self
+    }
+
+    /// Execute the batch query
+    pub async fn execute(&self) -> Result<BatchQueryResult> {
+        // For now, this is a placeholder that would call the host function
+        // In a real implementation, this would call __convex_db_query_batch
+        Err(ConvexError::Unknown(
+            "Batch queries not yet implemented in host".into(),
+        ))
+    }
+}
+
+impl Default for BatchQueryBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Builder for database queries
@@ -325,6 +629,10 @@ pub struct QueryBuilder {
     filters: Vec<FilterCondition>,
     orders: Vec<OrderSpec>,
     limit: Option<usize>,
+    skip: Option<usize>,
+    cursor: Option<String>,
+    filter_expression: Option<FilterExpression>,
+    maximum_rows_read: Option<usize>,
 }
 
 impl QueryBuilder {
@@ -334,7 +642,57 @@ impl QueryBuilder {
             filters: Vec::new(),
             orders: Vec::new(),
             limit: None,
+            skip: None,
+            cursor: None,
+            filter_expression: None,
+            maximum_rows_read: None,
         }
+    }
+
+    /// Add a filter expression for complex queries
+    ///
+    /// This method allows building complex filter expressions using the
+    /// `FilterBuilder` API, supporting logical operators (and, or, not),
+    /// comparison operators (eq, neq, lt, lte, gt, gte), and arithmetic
+    /// operations.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use convex_sdk::FilterBuilder;
+    ///
+    /// let f = FilterBuilder::new();
+    /// let users = db.query("users")
+    ///     .filter_expr(f.and(
+    ///         f.eq("status", "active"),
+    ///         f.gt("created_at", "2024-01-01")
+    ///     ))
+    ///     .collect()
+    ///     .await?;
+    /// ```
+    pub fn filter_expr(mut self, expression: FilterExpression) -> Self {
+        self.filter_expression = Some(expression);
+        self
+    }
+
+    /// Set the maximum number of rows to read before stopping
+    ///
+    /// This limits the number of rows scanned (read) by the query, not just
+    /// the number returned. This is useful for preventing expensive queries
+    /// from scanning too much data.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let users = db.query("users")
+    ///     .filter("status", "eq", "active")?
+    ///     .maximum_rows_read(1000)
+    ///     .collect()
+    ///     .await?;
+    /// ```
+    pub fn maximum_rows_read(mut self, max: usize) -> Self {
+        self.maximum_rows_read = Some(max);
+        self
     }
 
     /// Execute the query and return all results
@@ -345,6 +703,10 @@ impl QueryBuilder {
             filters: self.filters.clone(),
             orders: self.orders.clone(),
             limit: self.limit,
+            skip: self.skip,
+            cursor: self.cursor.clone(),
+            filter_expression: self.filter_expression.clone(),
+            maximum_rows_read: self.maximum_rows_read,
         };
 
         // Serialize the query specification
@@ -431,5 +793,202 @@ impl QueryBuilder {
             value: value_json,
         });
         Ok(self)
+    }
+
+    /// Skip N results (offset-based pagination)
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Get page 2 with 10 items per page
+    /// let page = db.query("users")
+    ///     .skip(10)
+    ///     .limit(10)
+    ///     .collect()
+    ///     .await?;
+    /// ```
+    pub fn skip(mut self, n: usize) -> Self {
+        self.skip = Some(n);
+        self
+    }
+
+    /// Set cursor for cursor-based pagination
+    ///
+    /// Use the `next_cursor` from a previous paginated result.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Get first page
+    /// let result = db.query("users")
+    ///     .limit(10)
+    ///     .paginate()
+    ///     .await?;
+    ///
+    /// // Get next page using cursor
+    /// if result.has_more {
+    ///     let next_page = db.query("users")
+    ///         .cursor(result.next_cursor.unwrap())
+    ///         .limit(10)
+    ///         .paginate()
+    ///         .await?;
+    /// }
+    /// ```
+    pub fn cursor(mut self, cursor: impl Into<String>) -> Self {
+        self.cursor = Some(cursor.into());
+        self
+    }
+
+    /// Execute the query and return paginated results
+    ///
+    /// Returns a `PaginatedResult` with documents, next_cursor, and has_more flag.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let result = db.query("users")
+    ///     .limit(10)
+    ///     .paginate()
+    ///     .await?;
+    ///
+    /// for doc in result.documents {
+    ///     println!("{:?}", doc);
+    /// }
+    ///
+    /// if result.has_more {
+    ///     println!("More results available");
+    /// }
+    /// ```
+    pub async fn paginate(&self) -> Result<PaginatedResult> {
+        // Build the query specification
+        let spec = QuerySpec {
+            table: self.table.clone(),
+            filters: self.filters.clone(),
+            orders: self.orders.clone(),
+            limit: self.limit,
+            skip: self.skip,
+            cursor: self.cursor.clone(),
+            filter_expression: self.filter_expression.clone(),
+            maximum_rows_read: self.maximum_rows_read,
+        };
+
+        // Serialize the query specification
+        let spec_json = serde_json::to_vec(&spec)?;
+
+        // Allocate memory and write the query spec
+        let spec_ptr = wasm_helpers::alloc_and_write(&spec_json)?;
+
+        // Call the host function
+        let result_ptr = unsafe {
+            __convex_db_query_advanced(spec_ptr, spec_json.len() as i32)
+        };
+
+        // Free the input memory
+        wasm_helpers::free_ptr(spec_ptr);
+
+        // Parse the result
+        let host_result = unsafe { wasm_helpers::parse_host_result(result_ptr)? };
+        let data = wasm_helpers::handle_host_result(host_result)?;
+
+        // Deserialize the paginated result
+        match data {
+            Some(value) => {
+                let result: PaginatedResult =
+                    serde_json::from_value(value).map_err(ConvexError::Serialization)?;
+                Ok(result)
+            }
+            None => Ok(PaginatedResult {
+                documents: Vec::new(),
+                next_cursor: None,
+                has_more: false,
+                page_status: None,
+                split_cursor: None,
+                rows_read: None,
+                continuation_cursor: None,
+            }),
+        }
+    }
+
+    /// Take only the first N results
+    ///
+    /// This is a convenience method that sets the limit and collects results.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let users = db.query("users")
+    ///     .take(5)
+    ///     .await?;
+    /// ```
+    pub async fn take(self, n: usize) -> Result<Vec<Document>> {
+        self.limit(n).collect().await
+    }
+
+    /// Get the first result, or None if no results
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let user = db.query("users")
+    ///     .filter("email", "eq", "alice@example.com")?
+    ///     .first()
+    ///     .await?;
+    /// ```
+    pub async fn first(mut self) -> Result<Option<Document>> {
+        self.limit = Some(1);
+        let results = self.collect().await?;
+        Ok(results.into_iter().next())
+    }
+
+    /// Get exactly one result, or return an error
+    ///
+    /// Returns an error if zero or more than one result is found.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let user = db.query("users")
+    ///     .filter("email", "eq", "alice@example.com")?
+    ///     .unique()
+    ///     .await?;
+    /// ```
+    pub async fn unique(self) -> Result<Document> {
+        let results = self.collect().await?;
+        match results.len() {
+            0 => Err(ConvexError::InvalidArgument(
+                "Expected exactly one result, found none".into()
+            )),
+            1 => Ok(results.into_iter().next().unwrap()),
+            n => Err(ConvexError::InvalidArgument(
+                format!("Expected exactly one result, found {}", n)
+            )),
+        }
+    }
+
+    /// Query using a search index
+    ///
+    /// This method performs a full-text search using a defined search index.
+    ///
+    /// # Arguments
+    ///
+    /// * `index_name` - The name of the search index to use
+    /// * `search_text` - The search query text
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let posts = db.query("posts")
+    ///     .with_search_index("search_content", "rust tutorial")
+    ///     .filter("published", true)?
+    ///     .limit(10)
+    ///     .collect()
+    ///     .await?;
+    /// ```
+    pub fn with_search_index(
+        self,
+        index_name: impl Into<String>,
+        search_text: impl Into<String>,
+    ) -> crate::search::SearchQueryBuilder {
+        crate::search::SearchQueryBuilder::new(self.table, index_name, search_text)
     }
 }

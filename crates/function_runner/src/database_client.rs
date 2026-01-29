@@ -10,6 +10,7 @@ use std::{
 };
 
 use anyhow::Context;
+use base64::{Engine, engine::general_purpose::STANDARD};
 use common::query::{
     Order,
     Query,
@@ -22,7 +23,7 @@ use database::{
     },
     Transaction,
 };
-use rust_runner::DatabaseClient;
+use rust_runner::{BatchQueryResult, DatabaseClient, QueryBatch, QueryPagination, QueryStream};
 use value::{
     id_v6::DeveloperDocumentId,
     ConvexObject,
@@ -202,6 +203,168 @@ impl<RT> DatabaseClient for TransactionDatabaseClient<RT> {
             }
 
             Ok(count)
+        })
+    }
+
+    fn query_paginated(
+        &self,
+        table: String,
+        pagination: QueryPagination,
+    ) -> anyhow::Result<QueryStream> {
+        let table_name = TableName::from_str(&table)
+            .with_context(|| format!("Invalid table name: {}", table))?;
+
+        self.block_on(async {
+            let mut tx = self.transaction.borrow_mut();
+
+            // Create a full table scan query
+            let query = Query::full_table_scan(table_name.clone(), Order::Asc);
+
+            // Create a developer query
+            let mut dev_query = DeveloperQuery::new(
+                &mut *tx,
+                self.namespace,
+                query,
+                TableFilter::ExcludePrivateSystemTables,
+            )?;
+
+            // Handle skip if provided
+            if let Some(skip) = pagination.skip {
+                for _ in 0..skip {
+                    if dev_query.next(&mut *tx, None).await?.is_none() {
+                        // Not enough documents to skip
+                        return Ok(QueryStream {
+                            documents: Vec::new(),
+                            next_cursor: None,
+                            has_more: false,
+                        });
+                    }
+                }
+            }
+
+            // Collect results up to limit
+            let mut results = Vec::new();
+            let limit = pagination.limit.unwrap_or(100); // Default limit
+            let mut last_doc_id: Option<String> = None;
+
+            for _ in 0..limit {
+                match dev_query.next(&mut *tx, None).await? {
+                    Some(doc) => {
+                        let id = doc.id().encode();
+                        let value = doc.into_value().0.to_internal_json();
+                        last_doc_id = Some(id.clone());
+                        results.push((id, value));
+                    }
+                    None => break,
+                }
+            }
+
+            // Check if there are more results
+            let has_more = dev_query.next(&mut *tx, None).await?.is_some();
+
+            // Generate next cursor if there are more results
+            let next_cursor = if has_more {
+                last_doc_id.map(|id| {
+                    // Simple cursor format: base64-encoded last ID
+                    STANDARD.encode(id.as_bytes())
+                })
+            } else {
+                None
+            };
+
+            Ok(QueryStream {
+                documents: results,
+                next_cursor,
+                has_more,
+            })
+        })
+    }
+
+    fn query_batch(&self, batch: QueryBatch) -> anyhow::Result<BatchQueryResult> {
+        self.block_on(async {
+            let mut tx = self.transaction.borrow_mut();
+            let mut batch_results = Vec::new();
+
+            for query in batch.queries {
+                let table_name = TableName::from_str(&query.table)
+                    .with_context(|| format!("Invalid table name: {}", query.table))?;
+
+                // Create query
+                let db_query = Query::full_table_scan(table_name.clone(), Order::Asc);
+
+                // Create developer query
+                let mut dev_query = DeveloperQuery::new(
+                    &mut *tx,
+                    self.namespace,
+                    db_query,
+                    TableFilter::ExcludePrivateSystemTables,
+                )?;
+
+                // Handle skip
+                let mut skip_exhausted = false;
+                if let Some(skip) = query.pagination.skip {
+                    for _ in 0..skip {
+                        if dev_query.next(&mut *tx, None).await?.is_none() {
+                            // Not enough documents to skip - add empty result and move to next query
+                            batch_results.push((
+                                query.id,
+                                QueryStream {
+                                    documents: Vec::new(),
+                                    next_cursor: None,
+                                    has_more: false,
+                                },
+                            ));
+                            skip_exhausted = true;
+                            break;
+                        }
+                    }
+                }
+
+                // If skip exhausted the results, continue to next query
+                if skip_exhausted {
+                    continue;
+                }
+
+                // Collect results
+                let mut results = Vec::new();
+                let limit = query.pagination.limit.unwrap_or(100);
+                let mut last_doc_id: Option<String> = None;
+
+                for _ in 0..limit {
+                    match dev_query.next(&mut *tx, None).await? {
+                        Some(doc) => {
+                            let id = doc.id().encode();
+                            let value = doc.into_value().0.to_internal_json();
+                            last_doc_id = Some(id.clone());
+                            results.push((id, value));
+                        }
+                        None => break,
+                    }
+                }
+
+                // Check for more results
+                let has_more = dev_query.next(&mut *tx, None).await?.is_some();
+
+                // Generate next cursor
+                let next_cursor = if has_more {
+                    last_doc_id.map(|id| STANDARD.encode(id.as_bytes()))
+                } else {
+                    None
+                };
+
+                batch_results.push((
+                    query.id,
+                    QueryStream {
+                        documents: results,
+                        next_cursor,
+                        has_more,
+                    },
+                ));
+            }
+
+            Ok(BatchQueryResult {
+                results: batch_results,
+            })
         })
     }
 }

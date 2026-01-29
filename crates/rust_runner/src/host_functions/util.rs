@@ -10,7 +10,7 @@
 
 use common::runtime::Runtime;
 use common::types::UdfType;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use wasmtime::{Caller, Func, FuncType, Store, Val, ValType};
 
 use crate::host_functions::{write_json_response, HostContext};
@@ -82,6 +82,10 @@ pub fn create_util_functions<RT: Runtime>(
             create_random_bytes_function(store),
         ),
         ("__convex_now_ms".to_string(), create_now_ms_function(store)),
+        (
+            "__convex_get_user_identity".to_string(),
+            create_get_user_identity_function(store),
+        ),
     ]
 }
 
@@ -109,7 +113,8 @@ fn create_log_function<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func 
 
             // Check rate limit
             if !caller.data_mut().check_log_rate_limit() {
-                // Silently drop log messages beyond the limit
+                // Log rate limit exceeded - return error indicator
+                eprintln!("[WARN] Log rate limit exceeded (max {} lines per execution). Subsequent log messages dropped.", MAX_LOG_LINES);
                 return Ok(());
             }
 
@@ -121,12 +126,16 @@ fn create_log_function<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func 
                 Ok(s) => {
                     // Truncate if too long
                     if s.len() > MAX_LOG_MESSAGE_LENGTH {
+                        eprintln!("[WARN] Log message truncated (exceeded {} bytes)", MAX_LOG_MESSAGE_LENGTH);
                         format!("{}... (truncated)", &s[..MAX_LOG_MESSAGE_LENGTH])
                     } else {
                         s
                     }
                 },
-                Err(_) => return Ok(()), // Silently drop invalid messages
+                Err(e) => {
+                    eprintln!("[ERROR] Failed to read log message from WASM memory: {}", e);
+                    return Ok(());
+                }
             };
 
             // Output to stdout/stderr based on level
@@ -268,10 +277,15 @@ fn create_now_ms_function<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Fu
                 caller.data().deterministic_timestamp_ms()
             } else {
                 // System time for actions
-                std::time::SystemTime::now()
+                match std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_millis() as i64)
-                    .unwrap_or(0)
+                    .map(|d| d.as_millis() as i64) {
+                    Ok(ts) => ts,
+                    Err(e) => {
+                        eprintln!("[ERROR] System time is before Unix epoch: {}", e);
+                        0
+                    }
+                }
             };
 
             let time_result = TimeResult {
@@ -320,4 +334,46 @@ fn read_memory_string<RT: Runtime>(
 ) -> anyhow::Result<String> {
     let bytes = read_memory(caller, ptr, len)?;
     String::from_utf8(bytes).map_err(|e| anyhow::anyhow!("Invalid UTF-8: {}", e))
+}
+
+/// Result from the get_user_identity host function
+#[derive(Debug, Serialize, Deserialize)]
+struct UserIdentityResult {
+    success: bool,
+    identity: Option<serde_json::Value>,
+    error: Option<String>,
+}
+
+/// Create the __convex_get_user_identity host function
+///
+/// Returns the current user's identity (or null if not authenticated).
+pub fn create_get_user_identity_function<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
+    let func_type = FuncType::new(
+        vec![],           // No parameters
+        vec![ValType::I32], // result_ptr
+    );
+
+    Func::new(
+        store,
+        func_type,
+        move |mut caller: Caller<'_, HostContext<RT>>, _params: &[Val], results: &mut [Val]| {
+            let result = match caller.data().identity() {
+                Some(identity) => UserIdentityResult {
+                    success: true,
+                    identity: Some(identity.clone()),
+                    error: None,
+                },
+                None => UserIdentityResult {
+                    success: true,
+                    identity: None,
+                    error: None,
+                },
+            };
+
+            let ptr = write_json_response(&mut caller, &result).unwrap_or(-1);
+            results[0] = Val::I32(ptr);
+
+            Ok(())
+        },
+    )
 }
