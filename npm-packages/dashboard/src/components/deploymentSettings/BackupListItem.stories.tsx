@@ -35,6 +35,7 @@ const targetDeployment: DeploymentResponse = {
   creator: 1,
   previewIdentifier: null,
   region: "us-east-2",
+  isDefault: true,
 };
 
 const team: TeamResponse = {

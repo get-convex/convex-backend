@@ -2161,6 +2161,7 @@ export interface components {
             deploymentType: components["schemas"]["DeploymentType"];
             /** Format: int64 */
             id: number;
+            isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
             kind: "cloud";
             name: string;
@@ -2176,6 +2177,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             isActive: boolean;
+            isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
             kind: "local";
             /** Format: int64 */
@@ -2371,6 +2373,10 @@ export interface components {
         InvoicesResponse: {
             invoices: components["schemas"]["InvoiceResponse"][];
         };
+        /** @description Indicates whether the deployment is the default prod deployment for the
+         *     project, or the default cloud dev deployment for the member in the project.
+         *     See https://linear.app/convex/issue/ENG-10273/add-a-concept-of-default-dev-default-prod-to-the-model */
+        IsDefaultDeployment: boolean;
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
         };
@@ -2911,6 +2917,7 @@ export type InviteWorkOsTeamMemberRequest = components['schemas']['InviteWorkOST
 export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOSTeamMemberResponse'];
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
+export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListVanityDomainsResponse = components['schemas']['ListVanityDomainsResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];

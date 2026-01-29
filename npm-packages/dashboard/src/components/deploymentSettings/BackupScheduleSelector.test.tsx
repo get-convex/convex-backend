@@ -19,6 +19,7 @@ const deployment: DeploymentResponse = {
   creator: 1,
   previewIdentifier: null,
   region: "us-east-2",
+  isDefault: true,
 };
 
 jest.mock("api/profile", () => {});
