@@ -1,6 +1,6 @@
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
-export function ProductionEditsConfirmationDialog({
+export function AuthorizeEditsConfirmationDialog({
   onClose,
   onConfirm,
 }: {
@@ -17,6 +17,7 @@ export function ProductionEditsConfirmationDialog({
       dialogBody={
         <div className="flex flex-col gap-2">
           <p>
+            {/* TODO(ENG-10340) Remove prod-specific messaging and use the deployment ref instead */}
             You are about to start editing data in a production environment. If
             this is intentional, click "Confirm".
           </p>

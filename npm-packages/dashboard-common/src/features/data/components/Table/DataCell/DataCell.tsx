@@ -11,7 +11,7 @@ import { Portal } from "@headlessui/react";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 import { CopiedPopper } from "@common/elements/CopiedPopper";
 
-import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
+import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEditsConfirmationDialog";
 
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { DataDetail } from "@common/features/data/components/Table/DataCell/DataDetail";
@@ -46,7 +46,7 @@ export type DataCellProps = {
   column: ColumnInstance<GenericDocument>;
   editDocument: () => void;
   areEditsAuthorized: boolean;
-  onAuthorizeEdits?: () => void;
+  authorizeEdits?: () => void;
   rowId: GenericId<string>;
   didRowChange: boolean;
   width?: string;
@@ -65,7 +65,7 @@ export const DataCell = memo(DataCellImpl, areEqual);
 function DataCellImpl({
   value,
   column,
-  onAuthorizeEdits,
+  authorizeEdits,
   areEditsAuthorized,
   width,
   rowId,
@@ -94,8 +94,7 @@ function DataCellImpl({
   const isDateField = columnName === "_creationTime";
 
   // State for showing various modals and popovers
-  const [showEnableProdEditsModal, setShowEnableProdEditsModal] =
-    useState(false);
+  const [showAuthorizeEditsModal, setShowAuthorizeEditsModal] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [pastedValue, setPastedValue] = useState<Value>();
   const [showDetail, setShowDetail] = useState(false);
@@ -123,11 +122,11 @@ function DataCellImpl({
     value,
     document,
     areEditsAuthorized,
-    onAuthorizeEdits,
+    authorizeEdits,
     canManageTable,
     setPastedValue,
     setShowEditor,
-    setShowEnableProdEditsModal,
+    setShowAuthorizeEditsModal,
     setShowDetail,
     setShowDocumentDetail,
     editDocument,
@@ -378,14 +377,14 @@ function DataCellImpl({
         </Portal>
       )}
       {/* Show confirmation dialog in production */}
-      {showEnableProdEditsModal && (
-        <ProductionEditsConfirmationDialog
+      {showAuthorizeEditsModal && (
+        <AuthorizeEditsConfirmationDialog
           onClose={() => {
-            setShowEnableProdEditsModal(false);
+            setShowAuthorizeEditsModal(false);
           }}
           onConfirm={async () => {
-            onAuthorizeEdits?.();
-            setShowEnableProdEditsModal(false);
+            authorizeEdits?.();
+            setShowAuthorizeEditsModal(false);
             setShowEditor(true);
           }}
         />

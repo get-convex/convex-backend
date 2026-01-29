@@ -1,7 +1,6 @@
 import { PlayIcon } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
 import { useContext, useState } from "react";
-import { useSessionStorage } from "react-use";
 import { lt } from "semver";
 import udfs from "@common/udfs";
 import { UdfType } from "system-udfs/convex/_system/frontend/common";
@@ -11,20 +10,17 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useShowGlobalRunner } from "@common/features/functionRunner/lib/functionRunner";
 import { ModuleFunction } from "@common/lib/functions/types";
 import { Loading } from "@ui/Loading";
-import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
+import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEditsConfirmationDialog";
 import { Button } from "@ui/Button";
+import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
 
 export function FunctionSummary({
   currentOpenFunction,
 }: {
   currentOpenFunction: ModuleFunction;
 }) {
-  const [prodEditsEnabled, setProdEditsEnabled] = useSessionStorage(
-    "prodEditsEnabled",
-    false,
-  );
-  const [showEnableProdEditsModal, setShowEnableProdEditsModal] =
-    useState(false);
+  const { areEditsAuthorized, authorizeEdits } = useEditsAuthorization();
+  const [showAuthorizeEditsModal, setShowAuthorizeEditsModal] = useState(false);
 
   const npmPackageVersion = useQuery(udfs.getVersion.default);
   const versionTooOld = !!npmPackageVersion && lt(npmPackageVersion, "0.13.0");
@@ -36,11 +32,12 @@ export function FunctionSummary({
   } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
-  const isProd = deployment?.deploymentType === "prod";
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
+  const isProd = deployment?.deploymentType === "prod";
   const canRunFunction =
+    // TODO(ENG-10284) Make this depend on permissions, not deployment type
     currentOpenFunction.udfType === "Query" || !isProd || hasAdminPermissions;
 
   const showGlobalRunner = useShowGlobalRunner();
@@ -55,14 +52,14 @@ export function FunctionSummary({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex flex-wrap items-end justify-between gap-2 pb-2">
-        {showEnableProdEditsModal && (
-          <ProductionEditsConfirmationDialog
+        {showAuthorizeEditsModal && (
+          <AuthorizeEditsConfirmationDialog
             onClose={() => {
-              setShowEnableProdEditsModal(false);
+              setShowAuthorizeEditsModal(false);
             }}
             onConfirm={async () => {
-              setProdEditsEnabled(true);
-              setShowEnableProdEditsModal(false);
+              authorizeEdits?.();
+              setShowAuthorizeEditsModal(false);
               showFunctionRunner();
             }}
           />
@@ -107,11 +104,9 @@ export function FunctionSummary({
               }
               disabled={isPaused || versionTooOld || !canRunFunction}
               onClick={() =>
-                !isProd ||
-                prodEditsEnabled ||
-                currentOpenFunction.udfType === "Query"
+                currentOpenFunction.udfType === "Query" || areEditsAuthorized
                   ? showFunctionRunner()
-                  : setShowEnableProdEditsModal(true)
+                  : setShowAuthorizeEditsModal(true)
               }
               icon={<PlayIcon />}
               size="xs"

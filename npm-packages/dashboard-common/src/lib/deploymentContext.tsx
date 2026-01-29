@@ -95,6 +95,18 @@ export type DeploymentInfo = (
         previewIdentifier?: string | null;
       }
     | undefined;
+  /**
+   * Whether the current deployment should be treated as a "protected deployment"
+   * in the dashboard UI.
+   *
+   * A protected deployment enables safeguards against accidental edits (for
+   * example: extra confirmation dialogs, "unlock" flows before running mutations,
+   * and other protections for destructive actions).
+   *
+   * In the Convex Cloud dashboard this is currently true for production
+   * deployments. In the self-hosted dashboard this always returns false.
+   */
+  useIsProtectedDeployment(): boolean;
   useProjectEnvironmentVariables(
     projectId?: number,
     refreshInterval?: number,

@@ -27,10 +27,10 @@ export function useCellActions({
   areEditsAuthorized,
   canManageTable,
   editDocument,
-  onAuthorizeEdits,
+  authorizeEdits,
   setPastedValue,
   setShowEditor,
-  setShowEnableProdEditsModal,
+  setShowAuthorizeEditsModal,
   setShowDetail,
   setShowDocumentDetail,
 }: {
@@ -43,11 +43,11 @@ export function useCellActions({
   document: GenericDocument;
   areEditsAuthorized: boolean;
   editDocument: () => void;
-  onAuthorizeEdits?: () => void;
+  authorizeEdits?: () => void;
   canManageTable: boolean;
   setPastedValue: React.Dispatch<React.SetStateAction<Value | undefined>>;
   setShowEditor: React.Dispatch<React.SetStateAction<boolean>>;
-  setShowEnableProdEditsModal: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowAuthorizeEditsModal: React.Dispatch<React.SetStateAction<boolean>>;
   setShowDetail: React.Dispatch<React.SetStateAction<boolean>>;
   setShowDocumentDetail: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
@@ -87,17 +87,17 @@ export function useCellActions({
           setPastedValue(v);
         }
         setShowEditor(true);
-      } else if (onAuthorizeEdits) {
-        setShowEnableProdEditsModal(true);
+      } else if (authorizeEdits) {
+        setShowAuthorizeEditsModal(true);
       }
     },
     [
       areEditsAuthorized,
       disableEdit,
-      onAuthorizeEdits,
+      authorizeEdits,
       setPastedValue,
       setShowEditor,
-      setShowEnableProdEditsModal,
+      setShowAuthorizeEditsModal,
     ],
   );
 

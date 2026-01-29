@@ -149,6 +149,10 @@ export function DeploymentInfoProvider({
         useCurrentUsageBanner,
         useTeamUsageState,
         useCurrentDeployment,
+        useIsProtectedDeployment: () => {
+          const deployment = useCurrentDeployment();
+          return deployment?.deploymentType === "prod";
+        },
         useTeamMembers,
         useTeamEntitlements,
         useHasProjectAdminPermissions,

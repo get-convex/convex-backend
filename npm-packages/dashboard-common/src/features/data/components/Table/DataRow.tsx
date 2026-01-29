@@ -33,7 +33,7 @@ type DataRowProps = {
     isRowSelected(row: string): boolean;
     isSelectionAllNonExhaustive: boolean;
     resizingColumn: string | undefined;
-    onAuthorizeEdits?(): void;
+    authorizeEdits?(): void;
     patchDocument: ReturnType<typeof usePatchDocumentField>;
     prepareRow: (row: Row) => void;
     rows: Row[];
@@ -109,7 +109,7 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
     areEditsAuthorized,
     isRowSelected,
     isSelectionAllNonExhaustive,
-    onAuthorizeEdits,
+    authorizeEdits,
     patchDocument,
     prepareRow,
     rows,
@@ -220,7 +220,7 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
                   !mounting && previousRowId !== _id && !didNumberOfRowsChange
                 }
                 areEditsAuthorized={areEditsAuthorized}
-                onAuthorizeEdits={onAuthorizeEdits}
+                authorizeEdits={authorizeEdits}
                 editDocument={editDocument}
                 value={cell.value}
                 column={cell.column}

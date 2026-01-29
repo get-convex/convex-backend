@@ -6,7 +6,7 @@ import udfs from "@common/udfs";
 import { SchemaJson } from "system-udfs/convex/_system/frontend/lib/filters";
 import { useNents } from "@common/lib/useNents";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
+import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEditsConfirmationDialog";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { ClearTableConfirmation } from "@common/features/data/components/DataToolbar/ClearTableConfirmation";
 import { EditDocumentPanel } from "@common/features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
@@ -42,7 +42,7 @@ export function useToolPopup({
   numRows,
   tableName,
   areEditsAuthorized,
-  onAuthorizeEdits,
+  authorizeEdits,
   activeSchema,
 }: {
   addDocuments: (table: string, documents: GenericDocument[]) => Promise<void>;
@@ -63,7 +63,7 @@ export function useToolPopup({
   numRows?: number;
   tableName: string;
   areEditsAuthorized: boolean;
-  onAuthorizeEdits: (() => void) | undefined;
+  authorizeEdits: (() => void) | undefined;
   activeSchema: SchemaJson | null;
 }) {
   // Popover and menu state.
@@ -110,10 +110,10 @@ export function useToolPopup({
       break;
     case "editDocument":
       popupEl = !areEditsAuthorized ? (
-        <ProductionEditsConfirmationDialog
+        <AuthorizeEditsConfirmationDialog
           onClose={closePopup}
           onConfirm={async () => {
-            onAuthorizeEdits!();
+            authorizeEdits!();
           }}
         />
       ) : (
@@ -128,10 +128,10 @@ export function useToolPopup({
       break;
     case "bulkEdit":
       popupEl = !areEditsAuthorized ? (
-        <ProductionEditsConfirmationDialog
+        <AuthorizeEditsConfirmationDialog
           onClose={closePopup}
           onConfirm={async () => {
-            onAuthorizeEdits!();
+            authorizeEdits!();
           }}
         />
       ) : (

@@ -26,7 +26,7 @@ import { useSelectionState } from "@common/features/data/lib/useSelectionState";
 import { useDataToolbarActions } from "@common/features/data/lib/useDataToolbarActions";
 import { useTableFilters } from "@common/features/data/lib/useTableFilters";
 import { useToolPopup } from "@common/features/data/lib/useToolPopup";
-import { useAuthorizeProdEdits } from "@common/features/data/lib/useAuthorizeProdEdits";
+import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
 import { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
 import {
   Table,
@@ -107,10 +107,12 @@ export function DataContent({
 
   const numRowsRead = Math.min(numRowsReadEstimate, numRowsInTable || 0);
 
-  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
-
+  const { useCurrentDeployment, useIsProtectedDeployment } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const isProd = deployment?.deploymentType === "prod";
+  const isProtectedDeployment = useIsProtectedDeployment();
 
   const localStorageKey =
     router.query && `${router.query.deploymentName}/${tableName}`;
@@ -222,9 +224,7 @@ export function DataContent({
 
   const patchDocumentField = usePatchDocumentField(tableName);
 
-  const [areEditsAuthorized, onAuthorizeEdits] = useAuthorizeProdEdits({
-    isProd,
-  });
+  const { areEditsAuthorized, authorizeEdits } = useEditsAuthorization();
 
   const { addDocuments, patchFields, clearTable, deleteTable, deleteRows } =
     useDataToolbarActions({
@@ -251,7 +251,7 @@ export function DataContent({
     numRows: numRowsInTable,
     tableName,
     areEditsAuthorized,
-    onAuthorizeEdits,
+    authorizeEdits,
     activeSchema,
   });
   const { popupEl } = popupState;
@@ -338,7 +338,6 @@ export function DataContent({
           numRows={numRowsInTable}
           tableSchemaStatus={tableSchemaStatus}
           tableName={tableName}
-          isProd={isProd}
           isLoadingMore={isLoading && !isPaused}
         />
 
@@ -411,10 +410,10 @@ export function DataContent({
                     patchDocument={patchDocumentField}
                     selectedRows={selectedRows}
                     areEditsAuthorized={areEditsAuthorized}
-                    onAuthorizeEdits={onAuthorizeEdits}
+                    authorizeEdits={authorizeEdits}
                     tableName={tableName}
                     componentId={componentId}
-                    isProd={isProd}
+                    isProtectedDeployment={isProtectedDeployment}
                     data={data}
                     columns={columns}
                     localStorageKey={localStorageKey}

@@ -21,7 +21,6 @@ export type DataToolbarProps = {
   allRowsSelected: boolean;
   deleteRows: (rowIds: Set<string>) => Promise<void>;
   isLoadingMore: boolean;
-  isProd: boolean;
   tableSchemaStatus: TableSchemaStatus | undefined;
   numRows?: number;
   selectedRowsIds: Set<string>;
@@ -34,7 +33,6 @@ export function DataToolbar({
   allRowsSelected,
   deleteRows,
   isLoadingMore,
-  isProd,
   tableSchemaStatus,
   numRows,
   selectedRowsIds,
@@ -67,7 +65,9 @@ export function DataToolbar({
     useLogDeploymentEvent,
     useCurrentDeployment,
     useHasProjectAdminPermissions,
+    useIsProtectedDeployment,
   } = useContext(DeploymentInfoContext);
+  const isProtectedDeployment = useIsProtectedDeployment();
   const log = useLogDeploymentEvent();
 
   const deployment = useCurrentDeployment();
@@ -151,7 +151,7 @@ export function DataToolbar({
               allRowsSelected={allRowsSelected}
               numRowsSelected={numRowsSelected}
               selectedRowsIds={selectedRowsIds}
-              isProd={isProd}
+              isProtectedDeployment={isProtectedDeployment}
               deleteRows={deleteRows}
             />
           )}
@@ -386,7 +386,7 @@ type DeleteDocumentButtonProps = {
   allRowsSelected: boolean;
   numRowsSelected: number;
   selectedRowsIds: Set<string>;
-  isProd: boolean;
+  isProtectedDeployment: boolean;
   deleteRows: (rowIds: Set<string>) => Promise<void>;
 };
 
@@ -401,7 +401,7 @@ function DeleteDocumentButton({
   allRowsSelected,
   numRowsSelected,
   selectedRowsIds,
-  isProd,
+  isProtectedDeployment,
   deleteRows,
 }: DeleteDocumentButtonProps) {
   return (
@@ -421,7 +421,7 @@ function DeleteDocumentButton({
 
         if (isEditingAllAndMoreThanOne) {
           setPopup({ type: "clearTable", tableName });
-        } else if (isProd) {
+        } else if (isProtectedDeployment) {
           setPopup({
             type: "deleteRows",
             rowIds: selectedRowsIds,

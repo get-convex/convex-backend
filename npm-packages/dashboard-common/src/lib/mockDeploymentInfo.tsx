@@ -62,6 +62,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
     kind: "local",
     previewIdentifier: null,
   }),
+  useIsProtectedDeployment: () => false,
   useHasProjectAdminPermissions: () => true,
   useIsDeploymentPaused: () => false,
   useProjectEnvironmentVariables: () => ({ configs: [] }),

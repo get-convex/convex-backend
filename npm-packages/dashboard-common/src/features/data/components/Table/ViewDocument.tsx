@@ -1,7 +1,7 @@
 import { GenericDocument } from "convex/server";
 import { useState } from "react";
 import { TextInput } from "@ui/TextInput";
-import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
+import { AuthorizeEditsConfirmationDialog } from "@common/elements/AuthorizeEditsConfirmationDialog";
 import { EditDocumentField } from "@common/features/data/components/Table/EditDocumentField";
 import {
   documentValidatorForTable,
@@ -21,7 +21,7 @@ export function ViewDocument({
   componentId,
   canManageTable,
   areEditsAuthorized,
-  onAuthorizeEdits,
+  authorizeEdits,
   activeSchema,
 }: {
   rows: GenericDocument[];
@@ -30,11 +30,13 @@ export function ViewDocument({
   componentId: string | null;
   canManageTable: boolean;
   areEditsAuthorized: boolean;
-  onAuthorizeEdits?: () => void;
+  authorizeEdits?: () => void;
   activeSchema: SchemaJson | null;
 }) {
-  const [showEnableProdEditsModalForColumn, setShowEnableProdEditsModal] =
-    useState<string | undefined>(undefined);
+  const [showAuthorizeEditsModalColumn, setShowAuthorizeEditsModalColumn] =
+    useState<
+      string | undefined // edited column when shown, `undefined` when hidden
+    >(undefined);
   const [query, setQuery] = useState("");
   const [editingColumn, setEditingColumn] = useState<string | undefined>(
     undefined,
@@ -69,15 +71,15 @@ export function ViewDocument({
 
   return (
     <div className="flex h-full w-full min-w-[10rem] flex-col items-start overflow-y-hidden rounded-r border-l bg-background-secondary/70">
-      {showEnableProdEditsModalForColumn && (
-        <ProductionEditsConfirmationDialog
+      {showAuthorizeEditsModalColumn && (
+        <AuthorizeEditsConfirmationDialog
           onClose={() => {
-            setShowEnableProdEditsModal(undefined);
+            setShowAuthorizeEditsModalColumn(undefined);
           }}
           onConfirm={async () => {
-            onAuthorizeEdits?.();
-            setEditingColumn(showEnableProdEditsModalForColumn);
-            setShowEnableProdEditsModal(undefined);
+            authorizeEdits?.();
+            setEditingColumn(showAuthorizeEditsModalColumn);
+            setShowAuthorizeEditsModalColumn(undefined);
           }}
         />
       )}
@@ -157,8 +159,8 @@ export function ViewDocument({
                       variant="unstyled"
                       onClick={() => {
                         if (!areEditsAuthorized) {
-                          if (onAuthorizeEdits) {
-                            setShowEnableProdEditsModal(column);
+                          if (authorizeEdits) {
+                            setShowAuthorizeEditsModalColumn(column);
                           }
                           return;
                         }

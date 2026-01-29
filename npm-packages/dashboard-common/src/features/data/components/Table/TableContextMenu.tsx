@@ -65,12 +65,12 @@ export type TableContextMenuProps = {
   state: TableContextMenuState | null;
   close: () => void;
   deleteRows: (rowIds: Set<string>) => Promise<void>;
-  isProd: boolean;
   setPopup: PopupState["setPopup"];
   onAddDraftFilter: (newFilter: Filter) => void;
   defaultDocument: GenericDocument;
   resetColumns: () => void;
   canManageTable: boolean;
+  isProtectedDeployment: boolean;
 };
 
 export function TableContextMenu({
@@ -78,12 +78,12 @@ export function TableContextMenu({
   state,
   close,
   deleteRows,
-  isProd,
   setPopup,
   onAddDraftFilter,
   defaultDocument,
   resetColumns,
   canManageTable,
+  isProtectedDeployment,
 }: TableContextMenuProps) {
   const { selectedNent } = useNents();
   const isInUnmountedComponent = !!(
@@ -166,7 +166,6 @@ export function TableContextMenu({
           {/* actions you can take on a specific document */}
           <DocumentActions
             state={state}
-            isProd={isProd}
             setPopup={setPopup}
             deleteRows={deleteRows}
             disableEditDoc={disableEditDoc}
@@ -175,6 +174,7 @@ export function TableContextMenu({
             editDocCb={editDocCb}
             viewDocCb={viewDocCb}
             copyDocCb={copyDocCb}
+            isProtectedDeployment={isProtectedDeployment}
           />
 
           {/* actions you can take on the header */}
@@ -493,7 +493,6 @@ function FilterWithSubmenu({
 
 function DocumentActions({
   state,
-  isProd,
   setPopup,
   deleteRows,
   disableEditDoc,
@@ -502,9 +501,9 @@ function DocumentActions({
   editDocCb,
   viewDocCb,
   copyDocCb,
+  isProtectedDeployment,
 }: {
   state: TableContextMenuState;
-  isProd: boolean;
   setPopup: PopupState["setPopup"];
   deleteRows: (rowIds: Set<string>) => Promise<void>;
   disableEditDoc: boolean;
@@ -513,6 +512,7 @@ function DocumentActions({
   editDocCb: () => void;
   viewDocCb: () => void;
   copyDocCb: () => void;
+  isProtectedDeployment: boolean;
 }) {
   if (!state?.selectedCell?.callbacks || !state?.selectedCell.callbacks)
     return null;
@@ -554,7 +554,7 @@ function DocumentActions({
       danger: true,
       action: () => {
         if (!state.selectedCell?.rowId) return;
-        if (isProd) {
+        if (isProtectedDeployment) {
           setPopup({
             type: "deleteRows",
             rowIds: new Set([state.selectedCell.rowId]),

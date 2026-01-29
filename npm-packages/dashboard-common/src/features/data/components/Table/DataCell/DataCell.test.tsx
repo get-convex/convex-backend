@@ -32,7 +32,7 @@ const defaultProps: DataCellProps = {
   } as any,
   editDocument: jest.fn(),
   areEditsAuthorized: true,
-  onAuthorizeEdits: jest.fn(),
+  authorizeEdits: jest.fn(),
   rowId: docId as any,
   didRowChange: false,
   width: "100px",
@@ -119,9 +119,9 @@ describe("DataCell", () => {
     });
 
     it("should show confirmation modal when editing a production document", async () => {
-      const onAuthorizeEdits = jest.fn();
+      const authorizeEdits = jest.fn();
       const { getByTestId, queryByTestId } = renderWithProvider({
-        onAuthorizeEdits,
+        authorizeEdits,
         areEditsAuthorized: false,
       });
       const button = getByTestId("cell-editor-button");
@@ -131,13 +131,13 @@ describe("DataCell", () => {
       const confirmModal = getByTestId("modal");
       expect(confirmModal).toBeInTheDocument();
       await user.click(getByTestId("confirm-button"));
-      expect(onAuthorizeEdits).toHaveBeenCalled();
+      expect(authorizeEdits).toHaveBeenCalled();
     });
 
     it("should show confirmation modal when editing a production document pressing enter", async () => {
-      const onAuthorizeEdits = jest.fn();
+      const authorizeEdits = jest.fn();
       const { getByTestId, queryByTestId } = renderWithProvider({
-        onAuthorizeEdits,
+        authorizeEdits,
         areEditsAuthorized: false,
       });
       const button = getByTestId("cell-editor-button");
@@ -149,7 +149,7 @@ describe("DataCell", () => {
       const confirmModal = getByTestId("modal");
       expect(confirmModal).toBeInTheDocument();
       await user.click(getByTestId("confirm-button"));
-      expect(onAuthorizeEdits).toHaveBeenCalled();
+      expect(authorizeEdits).toHaveBeenCalled();
     });
 
     it("should close the cell editor when clicking outside", async () => {

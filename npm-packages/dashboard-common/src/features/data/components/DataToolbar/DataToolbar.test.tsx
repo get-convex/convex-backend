@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import userEvent from "@testing-library/user-event";
 import { useMemo } from "react";
 import { useToolPopup } from "@common/features/data/lib/useToolPopup";
-import { useAuthorizeProdEdits } from "@common/features/data/lib/useAuthorizeProdEdits";
+import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
 import {
   DataToolbar,
   DataToolbarProps,
@@ -72,11 +72,12 @@ describe("DataToolbar", () => {
     hookProps: Partial<Parameters<typeof useToolPopup>[0]> = {},
     componentProps: Partial<DataToolbarProps> = {},
     query: Record<string, string> = {},
+    deploymentInfo = mockDeploymentInfo,
   ) => {
     // @ts-expect-error -- assuming useRouter is mocked
     useRouter.mockReturnValue({ query, replace: jest.fn() });
     return render(
-      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+      <DeploymentInfoContext.Provider value={deploymentInfo}>
         <PanelGroup
           direction="horizontal"
           className="flex h-full grow items-stretch overflow-hidden"
@@ -95,11 +96,7 @@ describe("DataToolbar", () => {
     componentProps: Partial<DataToolbarProps>;
   }) {
     const tableName = "messages";
-    const [areEditsAuthorized, onAuthorizeEdits] = useAuthorizeProdEdits({
-      isProd: false,
-      ...componentProps,
-      ...hookProps,
-    });
+    const { areEditsAuthorized, authorizeEdits } = useEditsAuthorization();
     const popupState = useToolPopup({
       addDocuments: jest.fn(),
       patchFields: jest.fn(),
@@ -111,7 +108,7 @@ describe("DataToolbar", () => {
       numRows: undefined,
       tableName,
       areEditsAuthorized,
-      onAuthorizeEdits,
+      authorizeEdits,
       activeSchema: null,
       ...hookProps,
     });
@@ -261,16 +258,21 @@ describe("DataToolbar", () => {
     expect(deleteRows).toHaveBeenCalledTimes(1);
   });
 
-  it("should delete selected rows in prod", async () => {
+  it("should delete selected rows with a confirmation on protected deployments", async () => {
     const deleteRows = jest.fn();
     setup(
-      { isProd: true, deleteRows },
+      { deleteRows },
       {
         selectedRowsIds: new Set([
           "jd78w3vkw6w9q7cbv151qqxc3s6kkefa",
           "jd78w3vkw6w9q7cbv151qqxc3s6kkefb",
         ]),
         tableSchemaStatus: undefined,
+      },
+      {},
+      {
+        ...mockDeploymentInfo,
+        useIsProtectedDeployment: () => true,
       },
     );
 

@@ -41,12 +41,12 @@ const defaultProps: TableContextMenuProps = {
   },
   close: jest.fn(),
   deleteRows: jest.fn(),
-  isProd: false,
   setPopup: jest.fn(),
   onAddDraftFilter: jest.fn(),
   defaultDocument: { _id: "1", name: "" },
   resetColumns: jest.fn(),
   canManageTable: true,
+  isProtectedDeployment: false,
 };
 
 const mountedComponent = {
@@ -326,8 +326,8 @@ describe("TableContextMenu", () => {
     expect(defaultProps.deleteRows).toHaveBeenCalledTimes(1);
   });
 
-  it("should show confirmation for the delete document button when in prod", async () => {
-    const { getByTestId } = renderWithProvider({ isProd: true });
+  it("should show confirmation for the delete document button when in a protected deployment", async () => {
+    const { getByTestId } = renderWithProvider({ isProtectedDeployment: true });
 
     const button = getByTestId("table-context-menu").children[8];
     await user.click(button);

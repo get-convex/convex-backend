@@ -65,7 +65,7 @@ export function Table({
   data = [],
   localStorageKey = "_disabled_",
   areEditsAuthorized,
-  onAuthorizeEdits,
+  authorizeEdits,
   hasFilters,
   selectedRows,
   loadMore,
@@ -74,7 +74,7 @@ export function Table({
   patchDocument,
   tableName,
   componentId,
-  isProd,
+  isProtectedDeployment,
   hasPopup,
   setPopup,
   deleteRows,
@@ -86,13 +86,13 @@ export function Table({
 }: {
   activeSchema: SchemaJson | null;
   areEditsAuthorized: boolean;
-  onAuthorizeEdits?(): void;
+  authorizeEdits?(): void;
   columns: Column<GenericDocument>[];
   data: GenericDocument[]; // array of row data so far
   localStorageKey?: string;
   tableName: string;
   componentId: string | null;
-  isProd: boolean;
+  isProtectedDeployment: boolean;
   selectedRows: SelectionState;
   totalRowCount?: number;
   hasFilters: boolean;
@@ -344,7 +344,7 @@ export function Table({
                       isRowSelected,
                       isSelectionAllNonExhaustive:
                         !isSelectionExhaustive && allRowsSelected === true,
-                      onAuthorizeEdits,
+                      authorizeEdits,
                       patchDocument,
                       prepareRow,
                       rows,
@@ -383,7 +383,6 @@ export function Table({
                 data={data}
                 state={contextMenuState}
                 close={closeContextMenu}
-                isProd={isProd}
                 setPopup={setPopup}
                 deleteRows={deleteRows}
                 onAddDraftFilter={onAddDraftFilter}
@@ -394,6 +393,7 @@ export function Table({
                   setStoredColumnOrder(orderableColumnNames);
                   resetColumnWidths();
                 }}
+                isProtectedDeployment={isProtectedDeployment}
               />
             </div>
           </SortableContext>
@@ -466,7 +466,7 @@ export function Table({
               componentId={componentId}
               canManageTable={canManageTable}
               areEditsAuthorized={areEditsAuthorized}
-              onAuthorizeEdits={onAuthorizeEdits}
+              authorizeEdits={authorizeEdits}
               activeSchema={activeSchema}
             />
           </Panel>

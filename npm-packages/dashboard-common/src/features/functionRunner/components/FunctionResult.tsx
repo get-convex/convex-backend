@@ -2,7 +2,6 @@ import { LockOpen2Icon, PlayIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import type { FunctionResult as FunctionResultType } from "convex/browser";
 import { useContext, useEffect, useState } from "react";
-import { useSessionStorage } from "react-use";
 import { Value } from "convex/values";
 import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -16,6 +15,7 @@ import {
   useImpersonatedUser,
   useIsImpersonating,
 } from "@common/features/functionRunner/components/RunHistory";
+import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
 
 // This is a hook because we want to return composable components that can be arranged
 // vertically or horizontally.
@@ -97,11 +97,10 @@ export function useFunctionResult({
   } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
-  const isProd = deployment?.deploymentType === "prod";
-  const [prodEditsEnabled, setProdEditsEnabled] = useSessionStorage(
-    "prodEditsEnabled",
-    false,
-  );
+  const dtype = deployment?.deploymentType;
+  const isProd = dtype === "prod";
+
+  const { areEditsAuthorized, authorizeEdits } = useEditsAuthorization();
   const log = useLogDeploymentEvent();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
@@ -169,35 +168,35 @@ export function useFunctionResult({
               ? "Fix the errors above to continue."
               : !canRunFunction
                 ? "You do not have permission to run this function in production."
-                : isProd && !prodEditsEnabled
-                  ? `You are about to run a ${udfType.toLowerCase()} in Production. Unlock Production to continue.`
+                : !areEditsAuthorized
+                  ? // TODO(ENG-10340) Edit this message to use the deployment ref
+                    `You are about to run a ${udfType.toLowerCase()} in a ${`${dtype ?? ""} deployment`.trim()}. Unlock edits to continue.`
                   : undefined
           }
           size="sm"
           className="w-full max-w-[48rem] items-center justify-center"
-          disabled={
-            disabled || (isProd && !prodEditsEnabled) || !canRunFunction
-          }
+          disabled={disabled || !areEditsAuthorized || !canRunFunction}
           loading={isInFlight}
           onClick={runFunction}
           icon={<PlayIcon />}
         >
           Run {udfType.toLowerCase()}
         </Button>
-        {canRunFunction && isProd && !prodEditsEnabled && (
+        {canRunFunction && !areEditsAuthorized && (
+          // TODO(ENG-10340) Include the deployment ref in the tooltip
           <Button
-            tip="Enables changes to Production for the remainder of this dashboard session"
+            tip="Enables changes to this deployment for the remainder of this dashboard session"
             size="sm"
             onClick={() => {
-              setProdEditsEnabled(true);
+              authorizeEdits?.();
               toast(
                 "success",
-                "Production edits enabled for the remainder of this dashboard session",
+                "Edits enabled for the remainder of this dashboard session",
               );
             }}
             icon={<LockOpen2Icon />}
           >
-            Unlock Production
+            Unlock Edits
           </Button>
         )}
       </div>
