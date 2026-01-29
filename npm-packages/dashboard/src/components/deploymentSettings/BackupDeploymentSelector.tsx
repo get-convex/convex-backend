@@ -275,36 +275,50 @@ export function BackupDeploymentSelector({
                               ) : (
                                 <div className="p-0.5">
                                   {selectedProjectDeployments.map(
-                                    (deployment) => (
-                                      <Tooltip
-                                        className="w-full"
-                                        key={deployment.id}
-                                        tip={<code>{deployment.name}</code>}
-                                        side="right"
-                                      >
-                                        <ListboxOption
-                                          value={deployment.id}
-                                          className={({ focus, selected }) =>
-                                            cn(
-                                              "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
-                                              focus && "bg-background-tertiary",
-                                              selected &&
-                                                "bg-background-tertiary/60",
+                                    (deployment) => {
+                                      const isRegionDifferent =
+                                        targetDeployment.kind === "cloud" &&
+                                        deployment.region !==
+                                          targetDeployment.region;
+                                      return (
+                                        <Tooltip
+                                          className="w-full"
+                                          key={deployment.id}
+                                          tip={
+                                            isRegionDifferent ? (
+                                              "Use the CLI to restore a backup from a deployment in a different region."
+                                            ) : (
+                                              <code>{deployment.name}</code>
                                             )
                                           }
-                                          disabled={
-                                            currentPage !== "deployments"
-                                          }
+                                          side="right"
                                         >
-                                          <span className="w-full truncate">
-                                            <FullDeploymentName
-                                              deployment={deployment}
-                                              showProjectName={false}
-                                            />
-                                          </span>
-                                        </ListboxOption>
-                                      </Tooltip>
-                                    ),
+                                          <ListboxOption
+                                            value={deployment.id}
+                                            className={({ focus, selected }) =>
+                                              cn(
+                                                "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
+                                                focus &&
+                                                  "bg-background-tertiary",
+                                                selected &&
+                                                  "bg-background-tertiary/60",
+                                              )
+                                            }
+                                            disabled={
+                                              currentPage !== "deployments" ||
+                                              isRegionDifferent
+                                            }
+                                          >
+                                            <span className="w-full truncate">
+                                              <FullDeploymentName
+                                                deployment={deployment}
+                                                showProjectName={false}
+                                              />
+                                            </span>
+                                          </ListboxOption>
+                                        </Tooltip>
+                                      );
+                                    },
                                   )}
                                 </div>
                               )}
