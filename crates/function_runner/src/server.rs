@@ -411,7 +411,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
 
                 if is_rust_module {
                     // Execute using Rust runner
-                    let outcome = self
+                    let (tx, outcome) = self
                         .execute_rust_udf(
                             udf_type,
                             path_and_args,
@@ -421,7 +421,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         )
                         .await?;
                     Ok((
-                        None, // Rust runner doesn't produce a transaction yet
+                        Some(tx.try_into()?),
                         outcome,
                         usage_tracker.gather_user_stats(),
                     ))
@@ -455,7 +455,8 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
 
                 if is_rust_module {
                     // Execute using Rust runner
-                    let outcome = self
+                    // Actions don't produce transactions (they have side effects)
+                    let (_tx, outcome) = self
                         .execute_rust_udf(
                             udf_type,
                             path_and_args,
@@ -642,6 +643,9 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     }
 
     /// Execute a Rust/WASM UDF using the rust_runner
+    ///
+    /// Returns the transaction and outcome, allowing the caller to commit
+    /// the transaction for mutations.
     async fn execute_rust_udf(
         &self,
         udf_type: UdfType,
@@ -649,7 +653,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         transaction: Transaction<RT>,
         context: ExecutionContext,
         _instance_name: String,
-    ) -> anyhow::Result<FunctionOutcome> {
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         use rust_runner::{module::RustModule, RustFunctionRunner};
         use udf::{UdfOutcome, FunctionResult};
         use crate::database_client::TransactionDatabaseClient;
@@ -687,12 +691,12 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         let json_args: Vec<serde_json::Value> = match args.to_json() {
             Ok(json) => vec![json],
             Err(e) => {
-                return Ok(FunctionOutcome::Query(UdfOutcome::from_error(
+                return Ok((transaction, FunctionOutcome::Query(UdfOutcome::from_error(
                     JsError::from_message(format!("Failed to parse args: {}", e)),
                     path.clone(),
                     UdfType::Query,
                     None, // syscall trace
-                )));
+                ))));
             }
         };
 
@@ -711,40 +715,54 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             json_args,
             seed,
             timestamp_ms,
-            Some(db_client),
+            Some(db_client.clone()),
         ).await;
 
+        // Extract the transaction from the database client
+        // We need to unwrap the Arc to get ownership of the TransactionDatabaseClient
+        // This is safe because we're the only owner at this point
+        let tx = match Arc::try_unwrap(db_client) {
+            Ok(client) => client.into_transaction(),
+            Err(_) => {
+                // If we can't unwrap, there's still a reference somewhere
+                // This shouldn't happen, but we handle it gracefully
+                return Err(anyhow::anyhow!("Failed to extract transaction from database client"));
+            }
+        };
+
         // Convert the result to FunctionOutcome
-        match outcome {
+        let outcome = match outcome {
             Ok(result) => {
                 // Convert JSON result to Convex value
                 match serde_json::from_value(result) {
                     Ok(result_value) => {
-                        Ok(FunctionOutcome::Query(UdfOutcome::from_value(
+                        FunctionOutcome::Query(UdfOutcome::from_value(
                             result_value,
                             path.clone(),
                             udf_type,
                             None, // syscall trace
-                        )))
+                        ))
                     }
                     Err(e) => {
-                        Ok(FunctionOutcome::Query(UdfOutcome::from_error(
+                        FunctionOutcome::Query(UdfOutcome::from_error(
                             JsError::from_message(format!("Failed to parse result: {}", e)),
                             path.clone(),
                             udf_type,
                             None,
-                        )))
+                        ))
                     }
                 }
             }
             Err(e) => {
-                Ok(FunctionOutcome::Query(UdfOutcome::from_error(
+                FunctionOutcome::Query(UdfOutcome::from_error(
                     JsError::from_message(format!("Rust function error: {}", e)),
                     path.clone(),
                     udf_type,
                     None,
-                )))
+                ))
             }
-        }
+        };
+
+        Ok((tx, outcome))
     }
 }

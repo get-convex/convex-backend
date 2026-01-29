@@ -206,6 +206,16 @@ impl<RT> DatabaseClient for TransactionDatabaseClient<RT> {
     }
 }
 
+impl<RT> TransactionDatabaseClient<RT> {
+    /// Extract the underlying transaction.
+    ///
+    /// This consumes the client and returns the transaction, which can then
+    /// be converted to a FunctionFinalTransaction for commit.
+    pub fn into_transaction(self) -> Transaction<RT> {
+        self.transaction.into_inner()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use common::testing::TestRuntime;
