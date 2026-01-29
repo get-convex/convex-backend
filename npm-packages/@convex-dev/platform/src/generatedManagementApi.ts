@@ -328,6 +328,8 @@ export interface components {
             available: boolean;
             type: components["schemas"]["DeploymentClass"];
         };
+        /** Format: int64 */
+        DeploymentId: number;
         DeploymentRegionMetadata: {
             available: boolean;
             displayName: string;
@@ -437,6 +439,7 @@ export interface components {
             creator?: null | components["schemas"]["MemberId"];
             /** @description The type of this deployment. */
             deploymentType: components["schemas"]["DeploymentType"];
+            id: components["schemas"]["DeploymentId"];
             /** @enum {string} */
             kind: "cloud";
             /** @description The readable identifier for this deployment, something like
@@ -539,6 +542,7 @@ export type AdminKey = components['schemas']['AdminKey'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
+export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMetadata'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];

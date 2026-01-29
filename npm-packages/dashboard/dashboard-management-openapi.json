@@ -4402,8 +4402,7 @@
                 "$ref": "#/components/schemas/DeploymentType"
               },
               "id": {
-                "type": "integer",
-                "format": "int64"
+                "$ref": "#/components/schemas/DeploymentId"
               },
               "isDefault": {
                 "$ref": "#/components/schemas/IsDefaultDeployment"

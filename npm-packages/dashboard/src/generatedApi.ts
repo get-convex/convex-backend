@@ -2159,8 +2159,7 @@ export interface components {
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
             deploymentType: components["schemas"]["DeploymentType"];
-            /** Format: int64 */
-            id: number;
+            id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
             kind: "cloud";

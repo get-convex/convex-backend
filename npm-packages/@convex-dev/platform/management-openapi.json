@@ -641,6 +641,11 @@
           }
         }
       },
+      "DeploymentId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
       "DeploymentRegionMetadata": {
         "type": "object",
         "required": [
@@ -911,6 +916,7 @@
           {
             "type": "object",
             "required": [
+              "id",
               "name",
               "createTime",
               "deploymentType",
@@ -938,6 +944,9 @@
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType",
                 "description": "The type of this deployment."
+              },
+              "id": {
+                "$ref": "#/components/schemas/DeploymentId"
               },
               "kind": {
                 "type": "string",
