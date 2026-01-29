@@ -1830,17 +1830,17 @@ impl<RT: Runtime> Database<RT> {
     }
 
     // TODO: consider making this function non-async
-    /// Prefer subscribe_and_wait_for_invalidation for metrics if you'll call
-    /// `wait_for_invalidation` so that metrics are included.
+    /// N.B. Only use this function for user subscriptions. System subscriptions
+    /// should use `subscribe_and_wait_for_invalidation`.
     pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
-        self.subscriptions.subscribe(token)
+        self.subscriptions.subscribe(token, false)
     }
 
     pub async fn subscribe_and_wait_for_invalidation(
         &self,
         token: Token,
     ) -> anyhow::Result<Option<Timestamp>> {
-        let subscription = self.subscriptions.subscribe(token)?;
+        let subscription = self.subscriptions.subscribe(token, true)?;
         let invalid_ts = subscription.wait_for_invalidation().await;
         let current_ts = self.now_ts_for_reads();
         metrics::log_subscription_invalidation_lag(invalid_ts, *current_ts);

@@ -98,13 +98,17 @@ pub struct SubscriptionsClient {
 }
 
 impl SubscriptionsClient {
-    pub fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
+    pub fn subscribe(&self, token: Token, is_system: bool) -> anyhow::Result<Subscription> {
         let token = match self.log.refresh_reads_until_max_ts(token)? {
             Ok(t) => t,
             Err(invalid_ts) => return Ok(Subscription::invalid(invalid_ts)),
         };
         let (subscription, sender) = Subscription::new(&token);
-        let request = SubscriptionRequest::Subscribe { token, sender };
+        let request = SubscriptionRequest {
+            token,
+            sender,
+            is_system,
+        };
         // Increment the counter first to avoid underflow
         metrics::log_subscription_queue_length_delta(1);
 
@@ -162,11 +166,10 @@ impl SubscriptionSender {
     }
 }
 
-enum SubscriptionRequest {
-    Subscribe {
-        token: Token,
-        sender: SubscriptionSender,
-    },
+struct SubscriptionRequest {
+    token: Token,
+    sender: SubscriptionSender,
+    is_system: bool,
 }
 
 /// Tracks the minimum processed_ts across all SubscriptionManagers to
@@ -272,8 +275,8 @@ impl SubscriptionManager {
                 },
                 request = rx.recv().fuse() => {
                     match request {
-                        Some(SubscriptionRequest::Subscribe { token, sender, }) => {
-                            match self.subscribe(token, sender) {
+                        Some(SubscriptionRequest { token, sender,  is_system,}) => {
+                            match self.subscribe(token, sender, is_system) {
                                 Ok(_) => (),
                                 Err(mut e) => report_error(&mut e).await,
                             }
@@ -322,6 +325,7 @@ struct Subscriber {
     reads: Arc<ReadSet>,
     sender: SubscriptionSender,
     seq: Sequence,
+    is_system: bool,
 }
 
 impl SubscriptionManager {
@@ -358,6 +362,7 @@ impl SubscriptionManager {
         &mut self,
         mut token: Token,
         sender: SubscriptionSender,
+        is_system: bool,
     ) -> anyhow::Result<SubscriberId> {
         metrics::log_subscription_queue_lag(self.log.max_ts().secs_since_f64(token.ts()));
         // The client may not have fully refreshed their token past our
@@ -398,6 +403,7 @@ impl SubscriptionManager {
             reads: token.reads_owned(),
             sender,
             seq,
+            is_system,
         });
         self.closed_subscriptions.push(
             async move {
@@ -415,7 +421,7 @@ impl SubscriptionManager {
         token: Token,
     ) -> anyhow::Result<(Subscription, SubscriberId)> {
         let (subscription, sender) = Subscription::new(&token);
-        let id = self.subscribe(token, sender)?;
+        let id = self.subscribe(token, sender, false)?;
         Ok((subscription, id))
     }
 
@@ -521,8 +527,18 @@ impl SubscriptionManager {
                     );
                 }
                 for (subscriber_id, invalid_ts) in to_notify {
-                    let delay = should_splay_invalidations
-                        .then(|| Duration::from_millis(rand::random_range(0..=splay_amt_millis)));
+                    let delay = if should_splay_invalidations {
+                        let is_system_subscription = self
+                            .subscribers
+                            .get(subscriber_id)
+                            .context("Missing subscriber")?
+                            .is_system;
+                        (!is_system_subscription).then(|| {
+                            Duration::from_millis(rand::random_range(0..=splay_amt_millis))
+                        })
+                    } else {
+                        None
+                    };
                     self._remove(subscriber_id, delay, Some(invalid_ts));
                 }
                 log_subscriptions_invalidated(num_subscriptions_invalidated);
