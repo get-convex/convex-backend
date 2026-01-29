@@ -79,11 +79,8 @@ impl<RT: Runtime> HostContext<RT> {
     /// * `wasi` - The WASI context
     /// * `udf_type` - The type of UDF being executed
     /// * `runtime` - The runtime handle
-    pub fn new(wasi: WasiCtx, udf_type: UdfType, runtime: RT) -> Self {
-        // Generate deterministic seed based on execution context
-        // In production, this should be derived from a unique execution ID
-        let seed = 0u64; // TODO: Use actual execution ID for seed
-
+    /// * `seed` - Random seed for deterministic execution (queries/mutations)
+    pub fn new(wasi: WasiCtx, udf_type: UdfType, runtime: RT, seed: u64) -> Self {
         Self {
             wasi,
             udf_type,
@@ -155,11 +152,14 @@ impl<RT: Runtime> HostContext<RT> {
     /// Fill a buffer with deterministic random bytes
     ///
     /// This uses a seeded ChaCha12 RNG for reproducibility.
-    /// Panics if called in a non-deterministic context.
-    pub fn fill_random_bytes_deterministic(&mut self, buf: &mut [u8]) {
+    /// Returns an error if called in a non-deterministic context.
+    pub fn fill_random_bytes_deterministic(&mut self, buf: &mut [u8]) -> anyhow::Result<()> {
         match &mut self.deterministic_rng {
-            Some(rng) => rng.fill_bytes(buf),
-            None => panic!("Deterministic RNG not available in action context"),
+            Some(rng) => {
+                rng.fill_bytes(buf);
+                Ok(())
+            }
+            None => Err(anyhow::anyhow!("Deterministic RNG not available in action context")),
         }
     }
 
@@ -567,13 +567,13 @@ fn create_db_insert<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
 fn create_db_patch<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
     let func_type = FuncType::new(
         vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32], // id_ptr, id_len, value_ptr, value_len
-        vec![],                                                      // no return
+        vec![ValType::I32],                                          // result_ptr
     );
 
     Func::new(
         store,
         func_type,
-        move |mut caller: Caller<'_, HostContext<RT>>, params: &[Val], _results: &mut [Val]| {
+        move |mut caller: Caller<'_, HostContext<RT>>, params: &[Val], results: &mut [Val]| {
             let id_ptr = params[0].i32().unwrap_or(0);
             let id_len = params[1].i32().unwrap_or(0);
             let value_ptr = params[2].i32().unwrap_or(0);
@@ -582,28 +582,73 @@ fn create_db_patch<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
             // Read document ID
             let doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
                 Ok(s) => s,
-                Err(_) => return Ok(()),
+                Err(e) => {
+                    let error_result = DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Failed to read document ID: {}", e)),
+                    };
+                    let ptr = write_json_response(&mut caller, &error_result).unwrap_or(-1);
+                    results[0] = Val::I32(ptr);
+                    return Ok(());
+                },
             };
 
             // Read patch value
             let patch_json = match read_memory(&mut caller, value_ptr, value_len) {
                 Ok(data) => data,
-                Err(_) => return Ok(()),
+                Err(e) => {
+                    let error_result = DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Failed to read patch value: {}", e)),
+                    };
+                    let ptr = write_json_response(&mut caller, &error_result).unwrap_or(-1);
+                    results[0] = Val::I32(ptr);
+                    return Ok(());
+                },
             };
 
             // Parse the patch JSON
             let patch: serde_json::Value = match serde_json::from_slice(&patch_json) {
                 Ok(v) => v,
-                Err(_) => return Ok(()),
+                Err(e) => {
+                    let error_result = DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Failed to parse patch JSON: {}", e)),
+                    };
+                    let ptr = write_json_response(&mut caller, &error_result).unwrap_or(-1);
+                    results[0] = Val::I32(ptr);
+                    return Ok(());
+                },
             };
 
             // Use DatabaseClient if available
-            if let Some(ref client) = caller.data().database_client() {
-                if let Err(e) = client.patch(doc_id, patch) {
-                    tracing::error!("Database patch failed: {}", e);
+            let result = if let Some(ref client) = caller.data().database_client() {
+                match client.patch(doc_id, patch) {
+                    Ok(()) => DbResult {
+                        success: true,
+                        data: None,
+                        error: None,
+                    },
+                    Err(e) => DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Database patch failed: {}", e)),
+                    },
                 }
-            }
-            // Silently succeed if no database client (idempotent operation)
+            } else {
+                // No database client available - return error
+                DbResult {
+                    success: false,
+                    data: None,
+                    error: Some("Database client not available".to_string()),
+                }
+            };
+
+            let ptr = write_json_response(&mut caller, &result).unwrap_or(-1);
+            results[0] = Val::I32(ptr);
             Ok(())
         },
     )
@@ -613,29 +658,56 @@ fn create_db_patch<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
 fn create_db_delete<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
     let func_type = FuncType::new(
         vec![ValType::I32, ValType::I32], // id_ptr, id_len
-        vec![],                           // no return
+        vec![ValType::I32],               // result_ptr
     );
 
     Func::new(
         store,
         func_type,
-        move |mut caller: Caller<'_, HostContext<RT>>, params: &[Val], _results: &mut [Val]| {
+        move |mut caller: Caller<'_, HostContext<RT>>, params: &[Val], results: &mut [Val]| {
             let id_ptr = params[0].i32().unwrap_or(0);
             let id_len = params[1].i32().unwrap_or(0);
 
             // Read document ID
             let doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
                 Ok(s) => s,
-                Err(_) => return Ok(()),
+                Err(e) => {
+                    let error_result = DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Failed to read document ID: {}", e)),
+                    };
+                    let ptr = write_json_response(&mut caller, &error_result).unwrap_or(-1);
+                    results[0] = Val::I32(ptr);
+                    return Ok(());
+                },
             };
 
             // Use DatabaseClient if available
-            if let Some(ref client) = caller.data().database_client() {
-                if let Err(e) = client.delete(doc_id) {
-                    tracing::error!("Database delete failed: {}", e);
+            let result = if let Some(ref client) = caller.data().database_client() {
+                match client.delete(doc_id) {
+                    Ok(()) => DbResult {
+                        success: true,
+                        data: None,
+                        error: None,
+                    },
+                    Err(e) => DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Database delete failed: {}", e)),
+                    },
                 }
-            }
-            // Silently succeed if no database client (idempotent operation)
+            } else {
+                // No database client available - return error
+                DbResult {
+                    success: false,
+                    data: None,
+                    error: Some("Database client not available".to_string()),
+                }
+            };
+
+            let ptr = write_json_response(&mut caller, &result).unwrap_or(-1);
+            results[0] = Val::I32(ptr);
             Ok(())
         },
     )

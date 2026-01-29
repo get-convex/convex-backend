@@ -144,22 +144,13 @@ fn create_storage_store<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func
             let storage_client = match caller.data().storage_client() {
                 Some(client) => client,
                 None => {
-                    // No storage client available - return a mock storage ID for now
-                    // In production, this should be an error
-                    let mock_id = format!(
-                        "mock_storage_{}_{}",
-                        store_request.content_type.replace('/', "_"),
-                        store_request.data.len()
-                    );
-                    let response = StorageStoreResponse {
-                        storage_id: mock_id,
+                    // No storage client available - return an error
+                    let error_result = StorageResult {
+                        success: false,
+                        data: None,
+                        error: Some("Storage service not available".to_string()),
                     };
-                    let result = StorageResult {
-                        success: true,
-                        data: Some(serde_json::to_value(&response).unwrap_or_default()),
-                        error: None,
-                    };
-                    let ptr = write_json_response(&mut caller, &result).unwrap_or(-1);
+                    let ptr = write_json_response(&mut caller, &error_result).unwrap_or(-1);
                     results[0] = Val::I32(ptr);
                     return Ok(());
                 },

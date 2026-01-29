@@ -187,7 +187,16 @@ fn create_random_bytes_function<RT: Runtime>(store: &mut Store<HostContext<RT>>)
             let udf_type = caller.data().udf_type();
             if matches!(udf_type, UdfType::Query | UdfType::Mutation) {
                 // Deterministic random for queries/mutations
-                caller.data_mut().fill_random_bytes_deterministic(&mut buffer);
+                if let Err(e) = caller.data_mut().fill_random_bytes_deterministic(&mut buffer) {
+                    let error_result = RandomBytesResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Failed to generate deterministic random bytes: {}", e)),
+                    };
+                    let ptr = write_json_response(&mut caller, &error_result).unwrap_or(-1);
+                    results[0] = Val::I32(ptr);
+                    return Ok(());
+                }
             } else {
                 // Secure random for actions
                 caller.data_mut().fill_random_bytes_secure(&mut buffer);

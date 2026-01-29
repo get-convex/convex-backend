@@ -228,8 +228,8 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
         // Set up secure WASI context with minimal capabilities
         let wasi_ctx = create_secure_wasi_context();
 
-        // Create host context with WASI and runtime
-        let mut host_ctx = HostContext::new(wasi_ctx, udf_type, self.runtime.clone());
+        // Create host context with WASI, runtime, and seed for deterministic execution
+        let mut host_ctx = HostContext::new(wasi_ctx, udf_type, self.runtime.clone(), seed);
 
         // Add database client if provided
         if let Some(db_client) = database_client {
