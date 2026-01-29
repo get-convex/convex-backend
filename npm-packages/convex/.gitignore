@@ -10,3 +10,6 @@ tmpPackage*
 
 # used while building dist
 tmpDist*
+
+
+node-compile-cache
