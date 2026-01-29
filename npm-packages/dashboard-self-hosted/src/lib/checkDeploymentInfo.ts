@@ -1,3 +1,5 @@
+import { joinUrlPath } from "@common/lib/helpers/joinUrlPath";
+
 async function sleep(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -14,14 +16,17 @@ export async function checkDeploymentInfo(
   let retries = 0;
   while (retries < MAX_RETRIES) {
     try {
-      const resp = await fetch(new URL("/api/check_admin_key", deploymentUrl), {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Convex ${adminKey}`,
-          "Convex-Client": "dashboard-0.0.0",
+      const resp = await fetch(
+        joinUrlPath(deploymentUrl, "/api/check_admin_key"),
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Convex ${adminKey}`,
+            "Convex-Client": "dashboard-0.0.0",
+          },
         },
-      });
+      );
       if (resp.ok) {
         return true;
       }
