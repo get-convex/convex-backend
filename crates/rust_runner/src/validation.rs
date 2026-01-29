@@ -145,7 +145,17 @@ impl WasmValidator {
         let mut engine_config = Config::new();
         engine_config.wasm_bulk_memory(config.allow_bulk_memory);
         engine_config.wasm_reference_types(config.allow_reference_types);
-        engine_config.wasm_simd(config.allow_simd);
+
+        // Handle SIMD configuration - relaxed_simd is enabled by default in some wasmtime versions
+        // We need to explicitly disable relaxed_simd if we're disabling SIMD
+        if config.allow_simd {
+            engine_config.wasm_simd(true);
+            engine_config.wasm_relaxed_simd(true);
+        } else {
+            engine_config.wasm_simd(false);
+            engine_config.wasm_relaxed_simd(false);
+        }
+
         engine_config.wasm_threads(config.allow_threads);
 
         let engine = Engine::new(&engine_config)?;
@@ -398,11 +408,22 @@ mod tests {
 
     #[test]
     fn test_size_limit() {
+        // Create a WASM module that's 20 bytes (larger than default 10 byte limit)
+        let small_wasm: &[u8] = &[
+            0x00, 0x61, 0x73, 0x6d, // magic
+            0x01, 0x00, 0x00, 0x00, // version
+            0x01, 0x07, 0x01, 0x60, // type section with one type
+            0x02, 0x01, 0x01,       // function signature (param: i32, result: i32)
+            0x03, 0x02, 0x01, 0x00, // function section
+            0x0a, 0x04, 0x01, 0x02, // code section
+            0x00, 0x0b,             // function body
+        ];
+
         let mut config = ValidationConfig::default();
         config.max_module_size = 10;
 
         let validator = WasmValidator::new(config).unwrap();
-        let result = validator.validate(EMPTY_WASM);
+        let result = validator.validate(small_wasm);
 
         assert!(matches!(result, Err(ValidationError::SizeExceeded(_, _))));
     }

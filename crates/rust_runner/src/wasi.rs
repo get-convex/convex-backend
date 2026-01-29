@@ -75,6 +75,8 @@ impl SecureWasiContext {
     /// # Example
     ///
     /// ```rust
+    /// use rust_runner::wasi::SecureWasiContext;
+    ///
     /// let ctx = SecureWasiContext::new()
     ///     .with_env_var("RUST_LOG", "info")
     ///     .build();
