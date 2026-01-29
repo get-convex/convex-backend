@@ -434,14 +434,44 @@ export interface components {
              * @description Timestamp in milliseconds when this deployment was created.
              */
             createTime: number;
-            /** @description The region where this deployment is hosted. */
-            deploymentRegion: components["schemas"]["RegionName"];
-            /** @description Whether this is a "dev" development deployment or "prod" production
-             *     deployment. */
+            creator?: null | components["schemas"]["MemberId"];
+            /** @description The type of this deployment. */
             deploymentType: components["schemas"]["DeploymentType"];
+            /** @enum {string} */
+            kind: "cloud";
             /** @description The readable identifier for this deployment, something like
              *     playful-otter-123. */
             name: string;
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
+            /** @description The region where this deployment is hosted. */
+            region: components["schemas"]["RegionName"];
+        } | {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment was created.
+             */
+            createTime: number;
+            /** @description The member who created this deployment. */
+            creator: components["schemas"]["MemberId"];
+            /** @description Whether this is a "dev" development deployment or "prod" production
+             *     deployment. Note that this will always be "dev" for local
+             *     deployments. */
+            deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The device name where this local deployment is running. */
+            deviceName: components["schemas"]["DeviceName"];
+            /** @description Whether this local deployment is currently active. */
+            isActive: boolean;
+            /** @enum {string} */
+            kind: "local";
+            /** @description The readable identifier for this deployment. */
+            name: string;
+            /**
+             * Format: int32
+             * @description The port where this local deployment is running.
+             */
+            port: number;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             /** @description The project this deployment belongs to. */
             projectId: components["schemas"]["ProjectId"];
@@ -587,7 +617,11 @@ export interface operations {
     };
     "list deployments": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description If true, include local deployments in the response (filtered to only
+                 *     show local deployments created by the requesting team member). */
+                includeLocal?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Project ID */

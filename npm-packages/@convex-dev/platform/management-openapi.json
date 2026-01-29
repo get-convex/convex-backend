@@ -119,6 +119,15 @@
             "schema": {
               "$ref": "#/components/schemas/ProjectId"
             }
+          },
+          {
+            "name": "includeLocal",
+            "in": "query",
+            "description": "If true, include local deployments in the response (filtered to only\nshow local deployments created by the requesting team member).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -898,48 +907,138 @@
         }
       },
       "PlatformDeploymentResponse": {
-        "type": "object",
-        "required": [
-          "name",
-          "createTime",
-          "deploymentType",
-          "projectId",
-          "deploymentRegion"
-        ],
-        "properties": {
-          "createTime": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Timestamp in milliseconds when this deployment was created."
-          },
-          "deploymentRegion": {
-            "$ref": "#/components/schemas/RegionName",
-            "description": "The region where this deployment is hosted."
-          },
-          "deploymentType": {
-            "$ref": "#/components/schemas/DeploymentType",
-            "description": "Whether this is a \"dev\" development deployment or \"prod\" production\ndeployment."
-          },
-          "name": {
-            "type": "string",
-            "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
-          },
-          "previewIdentifier": {
-            "oneOf": [
-              {
-                "type": "null"
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "region",
+              "kind"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment was created."
               },
-              {
-                "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
-                "description": "Preview deployment identifier, if this is a preview deployment."
+              "creator": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MemberId",
+                    "description": "The member who created this deployment."
+                  }
+                ]
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType",
+                "description": "The type of this deployment."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cloud"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
+                    "description": "Preview deployment identifier, if this is a preview deployment."
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId",
+                "description": "The project this deployment belongs to."
+              },
+              "region": {
+                "$ref": "#/components/schemas/RegionName",
+                "description": "The region where this deployment is hosted."
               }
-            ]
+            }
           },
-          "projectId": {
-            "$ref": "#/components/schemas/ProjectId",
-            "description": "The project this deployment belongs to."
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "creator",
+              "port",
+              "deviceName",
+              "isActive",
+              "kind"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment was created."
+              },
+              "creator": {
+                "$ref": "#/components/schemas/MemberId",
+                "description": "The member who created this deployment."
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType",
+                "description": "Whether this is a \"dev\" development deployment or \"prod\" production\ndeployment. Note that this will always be \"dev\" for local\ndeployments."
+              },
+              "deviceName": {
+                "$ref": "#/components/schemas/DeviceName",
+                "description": "The device name where this local deployment is running."
+              },
+              "isActive": {
+                "type": "boolean",
+                "description": "Whether this local deployment is currently active."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "local"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "description": "The readable identifier for this deployment."
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "description": "The port where this local deployment is running.",
+                "minimum": 0
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
+                    "description": "Preview deployment identifier. Note that this will always be None\nfor local deployments."
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId",
+                "description": "The project this deployment belongs to."
+              }
+            }
           }
-        }
+        ]
       },
       "PlatformListCustomDomainsResponse": {
         "type": "object",
