@@ -213,7 +213,7 @@ slab = "0.4.9"
 slugify = "0.1.0"
 smallvec = "1"
 sourcemap = "9"
-spki = "0.7.3"
+spki = { version = "0.7.3", features = [ "std" ] }
 strum = { version = "0.27", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
