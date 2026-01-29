@@ -47,3 +47,4 @@ export { Base64 };
 export type { Infer } from "./validator.js";
 export * from "./errors.js";
 export { compareValues } from "./compare.js";
+export { getConvexSize, getDocumentSize } from "./size.js";

@@ -1,5 +1,5 @@
 import { mutation, query, action } from "./_generated/server";
-import { compareValues, v } from "convex/values";
+import { compareValues, getConvexSize, v } from "convex/values";
 
 export const intQuery = query({
   args: {},
@@ -40,5 +40,12 @@ export const compare = query({
   args: { values: v.array(v.any()) },
   handler: async (ctx, { values }) => {
     return values.sort((a, b) => compareValues(a, b));
+  },
+});
+
+export const size = query({
+  args: { value: v.any() },
+  handler: async (_ctx, { value }) => {
+    return BigInt(getConvexSize(value));
   },
 });

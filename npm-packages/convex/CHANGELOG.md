@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `getConvexSize` and `getDocumentSize` functions to `convex/values` for calculating the size of Convex values in bytes. This is the same size calculation used for bandwidth tracking and document size limits.
+
 ## 1.31.6
 
 - Added a new [`authKit`](https://docs.convex.dev/production/project-configuration#configuring-workos-authkit-integration) field in `convex.json` that allows you to customize the automatic provisioning and configuration of WorkOS environments.

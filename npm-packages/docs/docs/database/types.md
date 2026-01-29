@@ -26,13 +26,12 @@ Every document in Convex has two automatically-generated system fields:
 
 ## Limits
 
-Convex values must be less than 1MB in total size. This is an approximate limit
-for now, but if you're running into these limits and would like a more precise
-method to calculate a document's size,
-[reach out to us](https://convex.dev/community). Documents can have nested
-values, either objects or arrays that contain other Convex types. Convex types
-can have at most 16 levels of nesting, and the cumulative size of a nested tree
-of values must be under the 1MB limit.
+Convex values must be less than 1MB in total size. You can calculate the exact
+size of any value using [`getConvexSize`](/api/modules/values#getconvexsize)
+from `convex/values`. Documents can have nested values, either objects or arrays
+that contain other Convex types. Convex types can have at most 16 levels of
+nesting, and the cumulative size of a nested tree of values must be under the
+1MB limit.
 
 Table names may contain alphanumeric characters ("a" to "z", "A" to "Z", and "0"
 to "9") and underscores ("\_"), and they cannot start with an underscore.
