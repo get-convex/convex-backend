@@ -31,6 +31,8 @@ export const explicitTableIds = createRule({
   defaultOptions: [],
   create: (context) => {
     const filename = context.filename;
+
+    // Generated files don’t use the DB APIs, so we skip them to avoid unnecessary work
     const isGenerated = filename.includes("_generated");
     if (isGenerated) {
       return {};

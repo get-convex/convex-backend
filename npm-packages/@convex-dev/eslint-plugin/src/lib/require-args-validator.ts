@@ -126,6 +126,8 @@ export const requireArgsValidator = createRule<Options, MessageIds>({
     const { ignoreUnusedArguments } = options[0];
 
     const filename = context.getFilename();
+
+    // Generated files don’t define functions, so we skip them to avoid unnecessary work
     const isGenerated = filename.includes("_generated");
     if (isGenerated) {
       return {};

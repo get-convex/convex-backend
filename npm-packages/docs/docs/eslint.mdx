@@ -112,6 +112,7 @@ const nextConfig: NextConfig = {
 | [`@convex-dev/require-argument-validators`](#require-argument-validators)<br/>Require argument validators for Convex functions          |     ✅      |      🔧      |
 | [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br/>Require explicit table names in database operations                         |     ✅      |      🔧      |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
+| [`@convex-dev/no-collect-in-query`](#no-collect-in-query)<br/>Prefer `.take()` / `.paginate()` over `.collect()` in queries             |             |              |
 
 ### no-old-registered-function-syntax
 
@@ -275,4 +276,35 @@ import { someFunction } from "./someOtherFile"; // where someOtherFile doesn't u
 
 // ❌ Not allowed by this rule:
 import { someFunction } from "./someNodeFile"; // where someNodeFile uses `"use node"`
+```
+
+### no-collect-in-query
+
+Prefer `.take()` / `.paginate()` over `.collect()` in queries.
+
+<Admonition type="info" title="typescript-eslint required">
+
+In order for this rule to work,
+[typescript-eslint](https://typescript-eslint.io) must be set up in your ESLint
+configuration. If typescript-eslint is installed and the rule doesn’t seem to
+work, please make sure that
+[type-aware linting](https://typescript-eslint.io/troubleshooting/typed-linting/)
+is enabled.
+
+</Admonition>
+
+You should avoid using `.collect()` in queries that can return a large number of
+documents at once. In these queries, using `.collect()` can lead to excessive
+bandwidth usage and mutation conflicts, and the query can also fail if it
+reaches the [Convex query limits](/production/state/limits.mdx#transactions).
+
+Prefer `.take(N)` if you only need the first _N_ results, or `.paginate()` if
+you want to page through results.
+
+If you know the query will always return a small number of results, you can
+disable this rule for that line with:
+
+```ts
+// eslint-disable-next-line @convex-dev/no-collect-in-query
+const results = await ctx.db.query("roles").collect();
 ```
