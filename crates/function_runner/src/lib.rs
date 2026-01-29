@@ -76,6 +76,7 @@ use value::{
     TabletId,
 };
 
+pub mod database_client;
 mod in_memory_indexes;
 pub mod in_process_function_runner;
 mod metrics;

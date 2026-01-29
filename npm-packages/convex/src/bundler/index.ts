@@ -45,7 +45,7 @@ export function* walkDir(
 }
 
 // Convex specific module environment.
-type ModuleEnvironment = "node" | "isolate";
+type ModuleEnvironment = "node" | "isolate" | "rust";
 
 export interface Bundle {
   path: string;
@@ -370,6 +370,8 @@ const ENTRY_POINT_EXTENSIONS = [
   ".cts",
   // ESBuild jsx loader
   ".jsx",
+  // Rust source files
+  ".rs",
   // ESBuild supports css, text, json, and more but these file types are not
   // allowed to define entry points.
 ];
@@ -534,6 +536,11 @@ async function determineEnvironment(
 ): Promise<ModuleEnvironment> {
   const relPath = path.relative(dir, fpath);
 
+  // Rust files are always compiled to WASM and run in the Rust environment
+  if (fpath.endsWith(".rs")) {
+    return "rust";
+  }
+
   const useNodeDirectiveFound = hasUseNodeDirective(ctx, fpath);
   if (useNodeDirectiveFound) {
     if (mustBeIsolate(relPath)) {
@@ -561,14 +568,27 @@ async function determineEnvironment(
 export async function entryPointsByEnvironment(ctx: Context, dir: string) {
   const isolate = [];
   const node = [];
+  const rust = [];
   for (const entryPoint of await entryPoints(ctx, dir)) {
     const environment = await determineEnvironment(ctx, dir, entryPoint);
     if (environment === "node") {
       node.push(entryPoint);
+    } else if (environment === "rust") {
+      rust.push(entryPoint);
     } else {
       isolate.push(entryPoint);
     }
   }
 
-  return { isolate, node };
+  return { isolate, node, rust };
 }
+
+// Re-export Rust bundling functions
+export {
+  type RustBuildResult,
+  type RustFunctionMetadata,
+  buildRustModule,
+  bundleRustModules,
+  checkCargoInstalled,
+  findCargoToml,
+} from "./rust.js";

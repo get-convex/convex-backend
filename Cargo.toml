@@ -17,6 +17,8 @@ cmd_util = { path = "crates/cmd_util" }
 common = { path = "crates/common" }
 convex = { path = "crates/convex" }
 convex_macro = { path = "crates/convex_macro" }
+convex_sdk = { path = "crates/convex_sdk" }
+convex_sdk_macros = { path = "crates/convex_sdk_macros" }
 convex_sync_types = { path = "crates/convex/sync_types" }
 database = { path = "crates/database" }
 db_connection = { path = "crates/db_connection" }
@@ -45,6 +47,7 @@ mysql = { path = "crates/mysql" }
 node_executor = { path = "crates/node_executor" }
 packed_value = { path = "crates/packed_value" }
 pb = { path = "crates/pb" }
+rust_runner = { path = "crates/rust_runner" }
 pb_build = { path = "crates/pb_build" }
 pb_extras = { path = "crates/pb_extras" }
 performance_stats = { path = "crates/performance_stats" }
@@ -251,6 +254,9 @@ urlencoding = "2.1.3"
 utoipa = { version = "5.3", features = [ "axum_extras", "preserve_path_order", "openapi_extensions" ] }
 utoipa-axum = { version = "0.2" }
 uuid = { version = "1.6", features = [ "fast-rng", "serde", "v4" ] }
+wasmtime = { version = "18.0", features = [ "async", "wat" ] }
+wasmtime-wasi = "18.0"
+wasi-common = "18.0"
 vergen = { version = "8.1.0" }
 walkdir = "2"
 xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
