@@ -35,3 +35,51 @@ export const recordArg = query({
     return arg;
   },
 });
+
+export const literalIntArg = query({
+  args: {
+    value: v.literal(1),
+  },
+  returns: v.object({
+    value: v.literal(1),
+  }),
+  handler: (_, args) => {
+    return args;
+  },
+});
+
+export const literalFloatArg = query({
+  args: {
+    value: v.literal(1.5),
+  },
+  returns: v.object({
+    value: v.literal(1.5),
+  }),
+  handler: (_, args) => {
+    return args;
+  },
+});
+
+export const literalStringArg = query({
+  args: {
+    value: v.literal("test"),
+  },
+  returns: v.object({
+    value: v.literal("test"),
+  }),
+  handler: (_, args) => {
+    return args;
+  },
+});
+
+export const literalBoolArg = query({
+  args: {
+    value: v.literal(true),
+  },
+  returns: v.object({
+    value: v.literal(true),
+  }),
+  handler: (_, args) => {
+    return args;
+  },
+});
