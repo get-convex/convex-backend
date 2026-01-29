@@ -42,6 +42,9 @@ syn = { version = "2.0", features = ["full", "visit", "parsing"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 
+# Hashing for cache keys
+sha2 = "0.10"
+
 # Source map serialization
 bincode = { version = "1.3", optional = true }
 

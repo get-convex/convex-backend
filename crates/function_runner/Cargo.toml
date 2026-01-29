@@ -32,6 +32,7 @@ tracy-tracing = ["common/tracy-tracing"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
+base64 = { workspace = true }
 common = { workspace = true }
 convex_macro = { workspace = true }
 database = { workspace = true }

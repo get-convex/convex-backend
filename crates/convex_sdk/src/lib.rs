@@ -69,26 +69,58 @@
 
 extern crate alloc;
 
+pub mod auth;
+pub mod components;
+pub mod cron;
 pub mod db;
 pub mod http;
+pub mod scheduler;
+pub mod search;
 pub mod storage;
 pub mod types;
+pub mod schema;
+pub mod vector;
+
+/// Testing utilities (available with `testing` feature)
+#[cfg(any(feature = "testing", test))]
+pub mod testing;
 
 // Re-export core types
 pub use types::{ConvexError, ConvexValue, Document, DocumentId, Result};
 
+// Re-export auth types
+pub use auth::{get_identity, is_authenticated, require_auth, Identity};
+
 // Re-export database types
-pub use db::{Database, QueryBuilder};
+pub use db::{BatchQuery, BatchQueryBuilder, BatchQueryResult, Database, PaginatedResult, QueryBuilder, TableReader, TableWriter, TableQueryBuilder, IndexQueryBuilder, FilterBuilder, FilterExpression, FieldRef, FilterExpressionExt, IndexRange, IndexRangeBuilder, RangeBound, ScanDirection, PageStatus};
 
 // Re-export HTTP types
 pub use http::{fetch, FetchOptions, HttpResponse};
 
 // Re-export storage types
-pub use storage::{get as storage_get, store as storage_store, StorageFile, StorageId};
+pub use storage::{get as storage_get, get_metadata as storage_get_metadata, generate_url as storage_generate_url, store as storage_store, delete as storage_delete, generate_upload_url as storage_generate_upload_url, StorageFile, StorageId, StorageMetadata, StorageUrl, UrlOptions, UploadUrl, UploadUrlOptions};
+
+// Re-export schema types
+pub use schema::{SchemaDefinition, TableDefinition, IndexDefinition, SearchIndexDefinition, VectorIndexDefinition, SearchIndexConfig, VectorIndexConfig, validators::v};
+
+// Re-export scheduler types
+pub use scheduler::{schedule_job, cancel_job, get_job_info, list_jobs, JobId, JobInfo, JobStatus, ScheduleOptions};
+
+// Re-export search types
+pub use search::{SearchQueryBuilder, TableSearchQueryBuilder, SearchResult};
+
+// Re-export vector types
+pub use vector::{vector_search, VectorSearchQueryBuilder, VectorSearchResult};
+
+// Re-export cron types
+pub use cron::{CronJobs, CronJob, CronContext, Schedule, DayOfWeek};
+
+// Re-export component types
+pub use components::{ComponentDefinition, ComponentExports, ComponentInstance, ComponentBuilder, FunctionReference, UdfType};
 
 // Re-export macros when the feature is enabled
 #[cfg(feature = "macros")]
-pub use convex_sdk_macros::{action, mutation, query};
+pub use convex_sdk_macros::{action, mutation, query, internal_action, internal_mutation, internal_query, http_action};
 
 // Re-export serde_json for convenience
 pub use serde_json;

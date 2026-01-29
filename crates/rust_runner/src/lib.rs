@@ -11,6 +11,11 @@ pub mod limits;
 pub mod determinism;
 pub mod analyze;
 pub mod source_maps;
+pub mod scheduler;
+pub mod components;
+pub mod cache;
+pub mod pool;
+pub mod validation;
 
 pub use runner::RustFunctionRunner;
 pub use module::{RustModule, RustFunctionMetadata};
@@ -22,6 +27,15 @@ pub use source_maps::{
     SourceMap, SourceLocation, SourceMapManager, MappedError, StackFrame,
     SourceMapGenerator
 };
+pub use scheduler::{
+    JobId, JobInfo, JobScheduler, JobStatus, ScheduleOptions,
+};
+pub use components::{
+    ComponentClient, FunctionReference, UdfType, CallUdfRequest, CallUdfResponse,
+};
+pub use cache::{PersistentModuleCache, CacheStats};
+pub use pool::{ConnectionPool, PoolConfig, PoolStats, DatabaseConnectionPool};
+pub use validation::{WasmValidator, ValidationConfig, ValidationError, ModuleInfo, validate_wasm, is_valid_wasm};
 
 use std::sync::Arc;
 use anyhow::Result;

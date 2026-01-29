@@ -62,6 +62,9 @@ pub struct HostContext<RT: Runtime> {
     /// Database client for database operations
     database_client: Option<Arc<dyn DatabaseClient>>,
 
+    /// User identity for authentication
+    identity: Option<serde_json::Value>,
+
     /// Deterministic RNG for queries/mutations
     deterministic_rng: Option<ChaCha12Rng>,
 
@@ -88,6 +91,7 @@ impl<RT: Runtime> HostContext<RT> {
             fetch_client: None,
             storage_client: None,
             database_client: None,
+            identity: None,
             deterministic_rng: if Self::is_deterministic_udf_type(&udf_type) {
                 Some(ChaCha12Rng::seed_from_u64(seed))
             } else {
@@ -134,6 +138,17 @@ impl<RT: Runtime> HostContext<RT> {
     /// Get the database client if available
     pub fn database_client(&self) -> Option<Arc<dyn DatabaseClient>> {
         self.database_client.clone()
+    }
+
+    /// Create a new host context with user identity
+    pub fn with_identity(mut self, identity: serde_json::Value) -> Self {
+        self.identity = Some(identity);
+        self
+    }
+
+    /// Get the user identity if available
+    pub fn identity(&self) -> Option<&serde_json::Value> {
+        self.identity.as_ref()
     }
 
     /// Check if this execution should be deterministic
@@ -208,6 +223,66 @@ impl<RT: Runtime> std::ops::DerefMut for HostContext<RT> {
     }
 }
 
+/// Pagination options for database queries
+#[derive(Debug, Clone, Default)]
+pub struct QueryPagination {
+    /// Maximum number of documents to return
+    pub limit: Option<usize>,
+    /// Number of documents to skip
+    pub skip: Option<usize>,
+    /// Cursor for pagination (opaque token from previous query)
+    pub cursor: Option<String>,
+}
+
+/// A stream of query results
+#[derive(Debug, Clone)]
+pub struct QueryStream {
+    /// Current batch of results
+    pub documents: Vec<(String, serde_json::Value)>,
+    /// Cursor for fetching the next page (None if no more results)
+    pub next_cursor: Option<String>,
+    /// Whether there are more results available
+    pub has_more: bool,
+}
+
+impl QueryStream {
+    /// Create an empty query stream
+    pub fn empty() -> Self {
+        Self {
+            documents: Vec::new(),
+            next_cursor: None,
+            has_more: false,
+        }
+    }
+}
+
+/// A batch of queries to be executed together
+#[derive(Debug, Clone)]
+pub struct QueryBatch {
+    /// The queries to execute
+    pub queries: Vec<BatchQuery>,
+}
+
+/// A single query in a batch
+#[derive(Debug, Clone)]
+pub struct BatchQuery {
+    /// Query identifier for matching results
+    pub id: String,
+    /// The table to query
+    pub table: String,
+    /// Optional filter conditions
+    pub filters: Vec<(String, String, serde_json::Value)>, // field, op, value
+    /// Pagination options
+    pub pagination: QueryPagination,
+}
+
+/// Result of a batch query operation
+#[derive(Debug, Clone)]
+pub struct BatchQueryResult {
+    /// Results for each query, keyed by query ID
+    pub results: Vec<(String, QueryStream)>,
+}
+
 /// Database client trait for host functions
 ///
 /// This trait abstracts database operations needed by the Rust runner.
@@ -219,6 +294,16 @@ pub trait DatabaseClient: Send + Sync {
         &self,
         table: String,
     ) -> anyhow::Result<Vec<(String, serde_json::Value)>>;
+
+    /// Query documents from a table with pagination
+    fn query_paginated(
+        &self,
+        table: String,
+        pagination: QueryPagination,
+    ) -> anyhow::Result<QueryStream>;
+
+    /// Execute multiple queries in a batch (single round-trip)
+    fn query_batch(&self, batch: QueryBatch) -> anyhow::Result<BatchQueryResult>;
 
     /// Get a single document by ID
     fn get(&self, id: String) -> anyhow::Result<Option<serde_json::Value>>;

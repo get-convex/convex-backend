@@ -1,6 +1,9 @@
 //! HTTP client for Convex actions
 
+pub mod router;
+
 use crate::types::{ConvexError, Result};
+pub use router::{HttpRouter, RouteSpec, Method, Request, Response, HttpContext};
 use alloc::string::String;
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};

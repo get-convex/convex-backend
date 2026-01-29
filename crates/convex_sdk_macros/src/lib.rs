@@ -23,7 +23,7 @@ use syn::{parse_macro_input, FnArg, Ident, ItemFn, Pat, PatType, ReturnType, Typ
 #[proc_macro_attribute]
 pub fn query(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
-    generate_function_wrapper(input_fn, FunctionType::Query)
+    generate_function_wrapper(input_fn, FunctionType::Query, Visibility::Public)
 }
 
 /// Marks a function as a Convex mutation
@@ -45,7 +45,7 @@ pub fn query(_args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn mutation(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
-    generate_function_wrapper(input_fn, FunctionType::Mutation)
+    generate_function_wrapper(input_fn, FunctionType::Mutation, Visibility::Public)
 }
 
 /// Marks a function as a Convex action
@@ -74,7 +74,7 @@ pub fn mutation(_args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn action(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
-    generate_function_wrapper(input_fn, FunctionType::Action)
+    generate_function_wrapper(input_fn, FunctionType::Action, Visibility::Public)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -90,6 +90,21 @@ impl FunctionType {
             FunctionType::Query => "query",
             FunctionType::Mutation => "mutation",
             FunctionType::Action => "action",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Visibility {
+    Public,
+    Internal,
+}
+
+impl Visibility {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Visibility::Public => "public",
+            Visibility::Internal => "internal",
         }
     }
 }
@@ -171,8 +186,9 @@ fn generate_arg_names(args: &[(Ident, Box<Type>)]) -> proc_macro2::TokenStream {
     quote!(#(#idents),*)
 }
 
-/// Generates metadata JSON for the function
-fn generate_metadata_json(
+/// Generates metadata JSON for the function (kept for backward compatibility)
+#[allow(dead_code)]
+fn _generate_metadata_json(
     fn_name: &Ident,
     function_type: FunctionType,
     args: &[(Ident, Box<Type>)],
@@ -202,9 +218,45 @@ fn generate_metadata_json(
     })
 }
 
+/// Generates metadata JSON for the function with visibility
+fn generate_metadata_json_with_visibility(
+    fn_name: &Ident,
+    function_type: FunctionType,
+    visibility: Visibility,
+    args: &[(Ident, Box<Type>)],
+    return_type: &str,
+) -> proc_macro2::TokenStream {
+    let fn_name_str = fn_name.to_string();
+    let fn_type_str = function_type.as_str();
+    let visibility_str = visibility.as_str();
+
+    // Build argument metadata
+    let arg_metadata: Vec<_> = args
+        .iter()
+        .map(|(ident, ty)| {
+            let name = ident.to_string();
+            let type_str = type_to_string(ty);
+            quote!({
+                "name": #name,
+                "type": #type_str
+            })
+        })
+        .collect();
+
+    quote!({
+        "name": #fn_name_str,
+        "type": #fn_type_str,
+        "visibility": #visibility_str,
+        "args": [#(#arg_metadata),*],
+        "returns": #return_type
+    })
+}
+
+/// Generates the function wrapper with visibility support
 fn generate_function_wrapper(
     input_fn: ItemFn,
     function_type: FunctionType,
+    visibility: Visibility,
 ) -> TokenStream {
     let fn_name = &input_fn.sig.ident;
     let fn_vis = &input_fn.vis;
@@ -232,7 +284,7 @@ fn generate_function_wrapper(
     let arg_names = generate_arg_names(&args);
 
     // Generate metadata JSON
-    let metadata_json = generate_metadata_json(fn_name, function_type, &args, &return_type_str);
+    let metadata_json = generate_metadata_json_with_visibility(fn_name, function_type, visibility, &args, &return_type_str);
 
     // Generate the serialize_and_return helper function
     let serialize_helper = quote! {
@@ -548,6 +600,224 @@ fn generate_function_wrapper(
     };
 
     TokenStream::from(wrapper)
+}
+
+/// Marks a function as an internal Convex query
+///
+/// Internal queries are read-only functions that can only be called from other
+/// Convex functions (queries, mutations, actions). They cannot be called
+/// directly from the client.
+///
+/// # Example
+/// ```ignore
+/// #[internal_query]
+/// async fn get_internal_data(db: Database) -> Result<ConvexValue, ConvexError> {
+///     // This can only be called from other Convex functions
+///     db.query("internal_table").collect().await
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn internal_query(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input_fn = parse_macro_input!(input as ItemFn);
+    generate_function_wrapper(input_fn, FunctionType::Query, Visibility::Internal)
+}
+
+/// Marks a function as an internal Convex mutation
+///
+/// Internal mutations are read-write functions that can only be called from other
+/// Convex functions. They cannot be called directly from the client.
+///
+/// # Example
+/// ```ignore
+/// #[internal_mutation]
+/// async fn update_internal_state(db: Database, data: ConvexValue) -> Result<(), ConvexError> {
+///     // This can only be called from other Convex functions
+///     db.insert("internal_table", data).await?;
+///     Ok(())
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn internal_mutation(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input_fn = parse_macro_input!(input as ItemFn);
+    generate_function_wrapper(input_fn, FunctionType::Mutation, Visibility::Internal)
+}
+
+/// Marks a function as an internal Convex action
+///
+/// Internal actions are side-effect functions that can only be called from other
+/// Convex functions. They cannot be called directly from the client.
+///
+/// # Example
+/// ```ignore
+/// #[internal_action]
+/// async fn internal_webhook(url: String, payload: ConvexValue) -> Result<(), ConvexError> {
+///     // This can only be called from other Convex functions
+///     fetch(&url, FetchOptions::new()
+///         .method("POST")
+///         .body(serde_json::to_vec(&payload).unwrap())
+///     ).await?;
+///     Ok(())
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn internal_action(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input_fn = parse_macro_input!(input as ItemFn);
+    generate_function_wrapper(input_fn, FunctionType::Action, Visibility::Internal)
+}
+
+/// Generates an HTTP action wrapper
+fn generate_http_action_wrapper(input_fn: ItemFn) -> TokenStream {
+    // HTTP actions are similar to regular actions but have special metadata
+    let fn_name = &input_fn.sig.ident;
+    let fn_vis = &input_fn.vis;
+    let fn_sig = &input_fn.sig;
+    let fn_block = &input_fn.block;
+    let fn_attrs = &input_fn.attrs;
+
+    // Generate metadata function name
+    let metadata_fn_name = format_ident!("__convex_metadata_{}", fn_name);
+    let internal_fn_name = format_ident!("__convex_internal_{}", fn_name);
+
+    // Extract function arguments
+    let args = extract_arguments(fn_sig);
+    let return_type_str = extract_return_type(fn_sig);
+
+    // Generate argument deserialization (unused for HTTP actions that take Request)
+    let _arg_deserialization = generate_arg_deserialization(&args, 0);
+    let _arg_names = generate_arg_names(&args);
+
+    // Generate metadata for HTTP action
+    let fn_name_str = fn_name.to_string();
+    let metadata_json = quote!({
+        "name": #fn_name_str,
+        "type": "http_action",
+        "visibility": "public",
+        "args": [],
+        "returns": #return_type_str
+    });
+
+    // Generate the serialize_and_return helper function
+    let serialize_helper = quote! {
+        /// Helper function to serialize a JSON value and return a pointer to it
+        fn serialize_and_return(value: serde_json::Value) -> i32 {
+            let bytes = serde_json::to_vec(&value).unwrap_or_default();
+            let len = bytes.len();
+            let ptr = unsafe { __convex_alloc((len + 4) as i32) };
+            if ptr == 0 {
+                return -1;
+            }
+            unsafe {
+                // Write length prefix (little-endian u32)
+                std::ptr::copy_nonoverlapping(
+                    (len as u32).to_le_bytes().as_ptr(),
+                    ptr as *mut u8,
+                    4
+                );
+                // Write JSON data after length prefix
+                std::ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    (ptr as *mut u8).add(4),
+                    len
+                );
+            }
+            ptr
+        }
+    };
+
+    // Generate the HTTP action wrapper
+    let wrapper = quote! {
+        // Original function (kept for internal use)
+        #(#fn_attrs)*
+        #fn_vis #fn_sig #fn_block
+
+        // Host function import for memory allocation
+        extern "C" {
+            fn __convex_alloc(size: i32) -> i32;
+        }
+
+        #serialize_helper
+
+        /// Internal wrapper that handles the async execution
+        async fn #internal_fn_name(request_json: serde_json::Value) -> Result<serde_json::Value, convex_sdk::ConvexError> {
+            // Parse the request
+            let request: convex_sdk::http::Request = serde_json::from_value(request_json)
+                .map_err(|e| convex_sdk::ConvexError::InvalidArgument(format!("Invalid request: {}", e)))?;
+
+            // Call the original function
+            let result = #fn_name(request).await;
+
+            // Serialize result (Response)
+            match result {
+                Ok(response) => serde_json::to_value(response)
+                    .map_err(|e| convex_sdk::ConvexError::Serialization(e)),
+                Err(e) => Err(e),
+            }
+        }
+
+        /// WASM export for the HTTP action
+        #[no_mangle]
+        pub extern "C" fn #fn_name(args_ptr: i32, args_len: i32) -> i32 {
+            // Use catch_unwind to handle panics gracefully
+            let result = std::panic::catch_unwind(|| {
+                // Deserialize arguments from WASM memory
+                let args_bytes = unsafe {
+                    std::slice::from_raw_parts(args_ptr as *const u8, args_len as usize)
+                };
+
+                let request_json: serde_json::Value = match serde_json::from_slice(args_bytes) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let error_json = serde_json::json!({
+                            "error": format!("Failed to deserialize request: {}", e)
+                        });
+                        return serialize_and_return(error_json);
+                    }
+                };
+
+                // Execute the async function using a simple executor
+                let result = match pollster::block_on(#internal_fn_name(request_json)) {
+                    Ok(v) => v,
+                    Err(e) => serde_json::json!({"error": e.to_string()}),
+                };
+
+                serialize_and_return(result)
+            });
+
+            match result {
+                Ok(ptr) => ptr,
+                Err(_) => -1,
+            }
+        }
+
+        /// Metadata export for the function
+        #[no_mangle]
+        pub extern "C" fn #metadata_fn_name() -> i32 {
+            let metadata = serde_json::json!(#metadata_json);
+            serialize_and_return(metadata)
+        }
+    };
+
+    TokenStream::from(wrapper)
+}
+
+/// Marks a function as a Convex HTTP action
+///
+/// HTTP actions handle HTTP requests and can define custom routes.
+/// They run in an action context and can perform side effects.
+///
+/// # Example
+/// ```ignore
+/// #[http_action]
+/// pub async fn webhook_handler(request: Request) -> Result<Response, ConvexError> {
+///     let body = request.json::<serde_json::Value>().await?;
+///     // Process webhook...
+///     Ok(Response::ok("OK"))
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn http_action(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input_fn = parse_macro_input!(input as ItemFn);
+    generate_http_action_wrapper(input_fn)
 }
 
 /// Generates a complete Convex module with metadata

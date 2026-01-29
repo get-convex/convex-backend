@@ -70,8 +70,31 @@ pub enum ConvexError {
     NotFound,
     #[error("permission denied")]
     PermissionDenied,
+    #[error("unauthorized: {0}")]
+    Unauthorized(String),
+    #[error("forbidden: {0}")]
+    Forbidden(String),
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
+    #[error("internal error: {0}")]
+    Internal(String),
     #[error("unknown error: {0}")]
     Unknown(String),
+}
+
+impl ConvexError {
+    /// Create an unauthorized error
+    pub fn unauthorized(msg: impl Into<String>) -> Self {
+        Self::Unauthorized(msg.into())
+    }
+
+    /// Create a forbidden error
+    pub fn forbidden(msg: impl Into<String>) -> Self {
+        Self::Forbidden(msg.into())
+    }
+
+    /// Create an internal error
+    pub fn internal(msg: impl Into<String>) -> Self {
+        Self::Internal(msg.into())
+    }
 }

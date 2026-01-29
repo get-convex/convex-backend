@@ -703,6 +703,19 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         // Create the database client from the transaction
         let db_client = Arc::new(TransactionDatabaseClient::new(transaction));
 
+        // Convert identity to JSON for the Rust runner
+        let identity_json = match serde_json::to_value(&identity) {
+            Ok(json) => Some(json),
+            Err(e) => {
+                return Ok((transaction, FunctionOutcome::Query(UdfOutcome::from_error(
+                    JsError::from_message(format!("Failed to serialize identity: {}", e)),
+                    path.clone(),
+                    udf_type,
+                    None,
+                ))));
+            }
+        };
+
         // Call the Rust function with database access
         let outcome = self.rust_runner.run_function_with_db(
             udf_type,
@@ -716,6 +729,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             seed,
             timestamp_ms,
             Some(db_client.clone()),
+            identity_json,
         ).await;
 
         // Extract the transaction from the database client
