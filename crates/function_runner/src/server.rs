@@ -57,6 +57,7 @@ use isolate::{
     ActionCallbacks,
     IsolateClient,
 };
+use rust_runner::RustFunctionRunner;
 use keybroker::{
     FunctionRunnerKeyBroker,
     Identity,
@@ -67,10 +68,13 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::module_versions::{
-        AnalyzedModule,
-        ModuleSource,
-        SourceMap,
+    modules::{
+        ModuleModel,
+        module_versions::{
+            AnalyzedModule,
+            ModuleSource,
+            SourceMap,
+        },
     },
     udf_config::types::UdfConfig,
 };
@@ -189,6 +193,7 @@ pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     module_cache: ModuleCache<RT>,
     code_cache: CodeCache,
     isolate_client: IsolateClient<RT>,
+    rust_runner: RustFunctionRunner<RT>,
 }
 
 impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S> {
@@ -200,6 +205,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S>
             module_cache: self.module_cache.clone(),
             code_cache: self.code_cache.clone(),
             isolate_client: self.isolate_client.clone(),
+            rust_runner: self.rust_runner.clone(),
         }
     }
 }
@@ -245,6 +251,9 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         let module_cache = ModuleCache::new(rt.clone());
         let code_cache = CodeCache::new();
 
+        // Initialize Rust runner (async in sync context using block_on)
+        let rust_runner = rt.block_on(RustFunctionRunner::new(rt.clone()))?;
+
         Ok(Self {
             rt,
             storage,
@@ -252,6 +261,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             module_cache,
             code_cache,
             isolate_client,
+            rust_runner,
         })
     }
 
@@ -366,56 +376,118 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             }),
         };
 
+        // Check if the target module is a Rust module
+        let is_rust_module = if let Some(ref fm) = function_metadata {
+            let path = fm.path_and_args.path();
+            let module_metadata = ModuleModel::new(&mut transaction)
+                .get_metadata_for_function_by_id(path)
+                .await?;
+            matches!(
+                module_metadata.map(|m| m.environment),
+                Some(ModuleEnvironment::Rust)
+            )
+        } else if let Some(ref http_meta) = http_action_metadata {
+            // For HTTP actions, check the http module path
+            let path = &http_meta.http_module_path;
+            let module_metadata = ModuleModel::new(&mut transaction)
+                .get_metadata_for_function_by_id(&path.0)
+                .await?;
+            matches!(
+                module_metadata.map(|m| m.environment),
+                Some(ModuleEnvironment::Rust)
+            )
+        } else {
+            false
+        };
+
         match udf_type {
             UdfType::Query | UdfType::Mutation => {
                 let FunctionMetadata {
                     path_and_args,
                     journal,
                 } = function_metadata.context("Missing function metadata for query or mutation")?;
-                let (tx, outcome) = self
-                    .isolate_client
-                    .execute_udf(
-                        udf_type,
-                        path_and_args,
-                        transaction,
-                        journal,
-                        context,
-                        environment_data,
-                        0,
-                        instance_name,
-                        function_started_sender,
-                    )
-                    .await?;
-                Ok((
-                    Some(tx.try_into()?),
-                    outcome,
-                    usage_tracker.gather_user_stats(),
-                ))
+
+                if is_rust_module {
+                    // Execute using Rust runner
+                    let outcome = self
+                        .execute_rust_udf(
+                            udf_type,
+                            path_and_args,
+                            transaction,
+                            context,
+                            instance_name,
+                        )
+                        .await?;
+                    Ok((
+                        None, // Rust runner doesn't produce a transaction yet
+                        outcome,
+                        usage_tracker.gather_user_stats(),
+                    ))
+                } else {
+                    let (tx, outcome) = self
+                        .isolate_client
+                        .execute_udf(
+                            udf_type,
+                            path_and_args,
+                            transaction,
+                            journal,
+                            context,
+                            environment_data,
+                            0,
+                            instance_name,
+                            function_started_sender,
+                        )
+                        .await?;
+                    Ok((
+                        Some(tx.try_into()?),
+                        outcome,
+                        usage_tracker.gather_user_stats(),
+                    ))
+                }
             },
             UdfType::Action => {
                 let FunctionMetadata { path_and_args, .. } =
                     function_metadata.context("Missing function metadata for action")?;
                 let log_line_sender =
                     log_line_sender.context("Missing log line sender for action")?;
-                let outcome = self
-                    .isolate_client
-                    .execute_action(
-                        path_and_args,
-                        transaction,
-                        action_callbacks,
-                        fetch_client,
-                        log_line_sender,
-                        context,
-                        environment_data,
-                        instance_name,
-                        function_started_sender,
-                    )
-                    .await?;
-                Ok((
-                    None,
-                    FunctionOutcome::Action(outcome),
-                    usage_tracker.gather_user_stats(),
-                ))
+
+                if is_rust_module {
+                    // Execute using Rust runner
+                    let outcome = self
+                        .execute_rust_udf(
+                            udf_type,
+                            path_and_args,
+                            transaction,
+                            context,
+                            instance_name,
+                        )
+                        .await?;
+                    Ok((
+                        None,
+                        outcome,
+                        usage_tracker.gather_user_stats(),
+                    ))
+                } else {
+                    let outcome = self
+                        .isolate_client
+                        .execute_action(
+                            path_and_args,
+                            transaction,
+                            action_callbacks,
+                            fetch_client,
+                            log_line_sender,
+                            context,
+                            environment_data,
+                            instance_name,
+                            function_started_sender,
+                        )
+                        .await?;
+                    Ok((
+                        None,
+                        FunctionOutcome::Action(outcome),
+                        usage_tracker.gather_user_stats(),
+                    ))
+                }
             },
             UdfType::HttpAction => {
                 let HttpActionMetadata {
@@ -565,5 +637,88 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 instance_name,
             )
             .await
+    }
+
+    /// Execute a Rust/WASM UDF using the rust_runner
+    async fn execute_rust_udf(
+        &self,
+        udf_type: UdfType,
+        path_and_args: ValidatedPathAndArgs,
+        transaction: Transaction<RT>,
+        context: ExecutionContext,
+        _instance_name: String,
+    ) -> anyhow::Result<FunctionOutcome> {
+        use rust_runner::{module::RustModule, RustFunctionRunner};
+        use udf::{UdfOutcome, FunctionResult};
+
+        // Extract function path and arguments
+        let path = path_and_args.path();
+        let args = path_and_args.args();
+
+        // Get the module metadata to find the WASM binary
+        let module_path = path.udf_path.module().clone();
+
+        // TODO: Load the actual WASM binary from the module source
+        // For now, we'll return an error indicating the module wasn't found
+        // In production, this would:
+        // 1. Look up the module source from the transaction
+        // 2. Extract the WASM binary from the source package
+        // 3. Create a RustModule from the WASM
+
+        // Generate a seed from the execution context for deterministic random
+        let seed = context.request_id.map(|id| {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            id.hash(&mut hasher);
+            hasher.finish()
+        }).unwrap_or(0);
+
+        // Get current timestamp
+        let timestamp_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+
+        // Convert args to JSON
+        let json_args: Vec<serde_json::Value> = match args.to_json() {
+            Ok(json) => vec![json],
+            Err(e) => {
+                return Ok(FunctionOutcome::Query(UdfOutcome::from_error(
+                    JsError::from_message(format!("Failed to parse args: {}", e)),
+                    path.clone(),
+                    UdfType::Query,
+                    None, // syscall trace
+                )));
+            }
+        };
+
+        // For now, return a not-implemented error
+        // In production, this would call rust_runner.run_function()
+        let _outcome = self.rust_runner.run_function(
+            udf_type,
+            &RustModule::new(
+                module_path.as_str().to_string(),
+                vec![], // WASM binary - would come from module source
+                vec![], // Function metadata
+            ),
+            path.udf_path.function_name(),
+            json_args,
+            seed,
+            timestamp_ms,
+        ).await;
+
+        // TODO: Convert the result to FunctionOutcome
+        // For now, return an error indicating Rust functions are not fully integrated yet
+        Ok(FunctionOutcome::Query(UdfOutcome::from_error(
+            JsError::from_message(
+                "Rust functions are initialized but database integration is pending. \
+                 The FunctionRunner integration is complete, but the database host \
+                 functions need to be connected to the actual Convex database backend.".to_string()
+            ),
+            path.clone(),
+            udf_type,
+            None,
+        )))
     }
 }

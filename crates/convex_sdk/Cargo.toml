@@ -1,0 +1,36 @@
+[package]
+name = "convex_sdk"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Convex SDK for Rust - build backend functions with Rust"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["macros"]
+macros = ["convex_sdk_macros"]
+
+[dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_bytes = "0.11"
+
+# WASM target support
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+# Async support (for actions)
+futures = { version = "0.3", optional = true }
+
+# Error handling
+thiserror = "1.0"
+anyhow = { version = "1.0", optional = true }
+
+# Proc-macro re-export (will be a separate crate)
+convex_sdk_macros = { path = "../convex_sdk_macros", optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"

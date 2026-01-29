@@ -43,6 +43,7 @@ imbl = { workspace = true }
 indexing = { workspace = true }
 isolate = { workspace = true }
 keybroker = { workspace = true }
+rust_runner = { workspace = true }
 metrics = { workspace = true }
 model = { workspace = true }
 moka = { workspace = true }

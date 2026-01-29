@@ -1,0 +1,50 @@
+[package]
+name = "rust_runner"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "WASM runtime for executing Convex Rust functions"
+
+[dependencies]
+# WASM runtime
+wasmtime = { version = "18.0", features = ["async", "wat"] }
+wasmtime-wasi = "18.0"
+wasi-common = "18.0"
+
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+async-trait = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Random number generation for deterministic execution
+rand = "0.8"
+rand_chacha = "0.3"
+
+# HTTP and storage dependencies
+bytes = "1.5"
+mime = "0.3"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+http = "1.0"
+reqwest = { version = "0.11", default-features = false }
+
+# Async utilities
+futures = "0.3"
+
+# Convex internal crates
+common = { path = "../common" }
+udf = { path = "../udf" }
+runtime = { path = "../runtime" }
+database = { path = "../database" }
+errors = { path = "../errors" }
+value = { path = "../value" }
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3.9"
