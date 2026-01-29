@@ -45,7 +45,7 @@ const MAX_LOG_LINES: usize = 1000;
 /// including the WASI context, execution type, and various clients.
 pub struct HostContext<RT: Runtime> {
     /// WASI context for the guest
-    wasi: WasiCtx,
+    pub(crate) wasi: WasiCtx,
 
     /// The type of UDF being executed (Query, Mutation, Action, HttpAction)
     udf_type: UdfType,
@@ -428,7 +428,7 @@ fn create_db_get<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
             let id_len = params[1].i32().unwrap_or(0);
 
             // Read document ID from WASM memory
-            let _doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
+            let doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
                 Ok(s) => s,
                 Err(e) => {
                     let error_result = DbResult {
@@ -442,12 +442,27 @@ fn create_db_get<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
                 },
             };
 
-            // TODO: Integrate with actual Convex database backend
-            // For now, return null (document not found)
-            let result = DbResult {
-                success: true,
-                data: Some(serde_json::Value::Null),
-                error: None,
+            // Use DatabaseClient if available
+            let result = if let Some(ref client) = caller.data().database_client() {
+                match client.get(doc_id) {
+                    Ok(doc) => DbResult {
+                        success: true,
+                        data: Some(doc.unwrap_or(serde_json::Value::Null)),
+                        error: None,
+                    },
+                    Err(e) => DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Database get failed: {}", e)),
+                    },
+                }
+            } else {
+                // No database client available - return error
+                DbResult {
+                    success: false,
+                    data: None,
+                    error: Some("Database client not available".to_string()),
+                }
             };
 
             let ptr = write_json_response(&mut caller, &result).unwrap_or(-1);
@@ -489,7 +504,7 @@ fn create_db_insert<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
             };
 
             // Read value JSON
-            let _value_json = match read_memory(&mut caller, value_ptr, value_len) {
+            let value_json = match read_memory(&mut caller, value_ptr, value_len) {
                 Ok(data) => data,
                 Err(e) => {
                     let error_result = DbResult {
@@ -503,13 +518,42 @@ fn create_db_insert<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
                 },
             };
 
-            // TODO: Integrate with actual Convex database backend
-            // For now, return a fake document ID
-            let fake_id = format!("{}_fake_id_{}", table_name, caller.data().deterministic_timestamp_ms());
-            let result = DbResult {
-                success: true,
-                data: Some(serde_json::json!(fake_id)),
-                error: None,
+            // Parse the JSON value
+            let value: serde_json::Value = match serde_json::from_slice(&value_json) {
+                Ok(v) => v,
+                Err(e) => {
+                    let error_result = DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Failed to parse value JSON: {}", e)),
+                    };
+                    let ptr = write_json_response(&mut caller, &error_result).unwrap_or(-1);
+                    results[0] = Val::I32(ptr);
+                    return Ok(());
+                }
+            };
+
+            // Use DatabaseClient if available
+            let result = if let Some(ref client) = caller.data().database_client() {
+                match client.insert(table_name, value) {
+                    Ok(id) => DbResult {
+                        success: true,
+                        data: Some(serde_json::json!(id)),
+                        error: None,
+                    },
+                    Err(e) => DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Database insert failed: {}", e)),
+                    },
+                }
+            } else {
+                // No database client available - return error
+                DbResult {
+                    success: false,
+                    data: None,
+                    error: Some("Database client not available".to_string()),
+                }
             };
 
             let ptr = write_json_response(&mut caller, &result).unwrap_or(-1);
@@ -536,19 +580,30 @@ fn create_db_patch<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
             let value_len = params[3].i32().unwrap_or(0);
 
             // Read document ID
-            let _doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
+            let doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
                 Ok(s) => s,
                 Err(_) => return Ok(()),
             };
 
             // Read patch value
-            let _patch_json = match read_memory(&mut caller, value_ptr, value_len) {
+            let patch_json = match read_memory(&mut caller, value_ptr, value_len) {
                 Ok(data) => data,
                 Err(_) => return Ok(()),
             };
 
-            // TODO: Integrate with actual Convex database backend
-            // For now, just silently succeed (idempotent operation)
+            // Parse the patch JSON
+            let patch: serde_json::Value = match serde_json::from_slice(&patch_json) {
+                Ok(v) => v,
+                Err(_) => return Ok(()),
+            };
+
+            // Use DatabaseClient if available
+            if let Some(ref client) = caller.data().database_client() {
+                if let Err(e) = client.patch(doc_id, patch) {
+                    tracing::error!("Database patch failed: {}", e);
+                }
+            }
+            // Silently succeed if no database client (idempotent operation)
             Ok(())
         },
     )
@@ -569,13 +624,18 @@ fn create_db_delete<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
             let id_len = params[1].i32().unwrap_or(0);
 
             // Read document ID
-            let _doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
+            let doc_id = match read_memory_string(&mut caller, id_ptr, id_len) {
                 Ok(s) => s,
                 Err(_) => return Ok(()),
             };
 
-            // TODO: Integrate with actual Convex database backend
-            // For now, just silently succeed (idempotent operation)
+            // Use DatabaseClient if available
+            if let Some(ref client) = caller.data().database_client() {
+                if let Err(e) = client.delete(doc_id) {
+                    tracing::error!("Database delete failed: {}", e);
+                }
+            }
+            // Silently succeed if no database client (idempotent operation)
             Ok(())
         },
     )
@@ -656,7 +716,7 @@ fn create_db_count<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
             let table_len = params[1].i32().unwrap_or(0);
 
             // Read table name
-            let _table_name = match read_memory_string(&mut caller, table_ptr, table_len) {
+            let table_name = match read_memory_string(&mut caller, table_ptr, table_len) {
                 Ok(s) => s,
                 Err(e) => {
                     let error_result = DbResult {
@@ -670,12 +730,27 @@ fn create_db_count<RT: Runtime>(store: &mut Store<HostContext<RT>>) -> Func {
                 },
             };
 
-            // TODO: Integrate with actual Convex database backend
-            // For now, return 0
-            let result = DbResult {
-                success: true,
-                data: Some(serde_json::json!(0u64)),
-                error: None,
+            // Use DatabaseClient if available
+            let result = if let Some(ref client) = caller.data().database_client() {
+                match client.count(table_name) {
+                    Ok(count) => DbResult {
+                        success: true,
+                        data: Some(serde_json::json!(count)),
+                        error: None,
+                    },
+                    Err(e) => DbResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Database count failed: {}", e)),
+                    },
+                }
+            } else {
+                // No database client available - return error
+                DbResult {
+                    success: false,
+                    data: None,
+                    error: Some("Database client not available".to_string()),
+                }
             };
 
             let ptr = write_json_response(&mut caller, &result).unwrap_or(-1);

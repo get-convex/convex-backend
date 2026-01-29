@@ -223,6 +223,9 @@ fn generate_function_wrapper(
     let args = extract_arguments(fn_sig);
     let return_type_str = extract_return_type(fn_sig);
 
+    // Determine if this function needs a Database parameter (queries and mutations do)
+    let needs_db = matches!(function_type, FunctionType::Query | FunctionType::Mutation);
+
     // Generate argument deserialization (start from 1 if db is needed, since db_handle is at index 0)
     let arg_start_idx = if needs_db { 1 } else { 0 };
     let arg_deserialization = generate_arg_deserialization(&args, arg_start_idx);
@@ -230,9 +233,6 @@ fn generate_function_wrapper(
 
     // Generate metadata JSON
     let metadata_json = generate_metadata_json(fn_name, function_type, &args, &return_type_str);
-
-    // Determine if this function needs a Database parameter (queries and mutations do)
-    let needs_db = matches!(function_type, FunctionType::Query | FunctionType::Mutation);
 
     // Generate the serialize_and_return helper function
     let serialize_helper = quote! {

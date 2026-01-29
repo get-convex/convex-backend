@@ -132,7 +132,7 @@ mod wasm_helpers {
             response_len,
         );
         let json_str = String::from_utf8(response_data.to_vec())
-            .map_err(|e| ConvexError::Serialization(e.into()))?;
+            .map_err(|e| ConvexError::Unknown(format!("UTF-8 decode error: {}", e)))?;
 
         free_ptr(result_ptr);
 

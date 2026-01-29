@@ -23,6 +23,7 @@ use common::{
 use tokio::time::timeout;
 use wasmtime::{
     Instance,
+    Linker,
     Module,
     Store,
 };
@@ -260,9 +261,22 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
             .set_fuel(limits.max_fuel)
             .context("Failed to set fuel for store")?;
 
-        // Instantiate the module
-        // Note: Host functions would be linked here in a full implementation
-        let instance = Instance::new(&mut store, &wasm_module, &[])?;
+        // Create a linker and add WASI and host functions
+        let mut linker: Linker<StoreState<RT>> = Linker::new(&self.engine);
+
+        // Add WASI functions to the linker
+        // Access the wasi field through host_ctx (which is pub(crate))
+        wasmtime_wasi::add_to_linker(&mut linker, |state: &mut StoreState<RT>| {
+            &mut state.host_ctx.wasi
+        })?;
+
+        // Add Convex host functions to the linker
+        // The host functions need to work with StoreState, not HostContext directly
+        // We create them with a wrapper that accesses HostContext through Deref
+        add_convex_host_functions(&mut linker)?;
+
+        // Instantiate the module with the linker (includes host functions)
+        let instance = linker.instantiate(&mut store, &wasm_module)?;
 
         // Get the exported function
         let func = instance
@@ -429,6 +443,108 @@ impl<RT: Runtime> RustFunctionRunner<RT> {
 
         Ok(data)
     }
+}
+
+/// Add Convex host functions to the linker
+///
+/// This function creates and links all Convex-specific host functions
+/// (database, storage, http, logging, etc.) to the WASM linker.
+fn add_convex_host_functions<RT: Runtime>(
+    linker: &mut Linker<StoreState<RT>>,
+) -> Result<()> {
+    // Database query function
+    linker.func_wrap(
+        "env",
+        "__convex_db_query",
+        move |mut caller: wasmtime::Caller<'_, StoreState<RT>>, table_ptr: i32, table_len: i32| -> i32 {
+            // Get the database client first, then drop the borrow
+            let db_client = caller.data().database_client();
+
+            // Read table name from memory
+            let mem = match caller.get_export("memory").and_then(|e| e.into_memory()) {
+                Some(m) => m,
+                None => return -1,
+            };
+
+            let mut table_bytes = vec![0u8; table_len as usize];
+            if mem.read(&caller, table_ptr as usize, &mut table_bytes).is_err() {
+                return -1;
+            }
+
+            let table_name = match String::from_utf8(table_bytes) {
+                Ok(s) => s,
+                Err(_) => return -1,
+            };
+
+            // Query the database
+            let result = if let Some(db_client) = db_client {
+                match db_client.query(table_name) {
+                    Ok(docs) => {
+                        let docs_json: Vec<serde_json::Value> = docs
+                            .into_iter()
+                            .map(|(id, value)| {
+                                serde_json::json!({
+                                    "id": id,
+                                    "value": value
+                                })
+                            })
+                            .collect();
+                        serde_json::json!({
+                            "success": true,
+                            "data": docs_json,
+                            "error": None::<String>
+                        })
+                    },
+                    Err(e) => serde_json::json!({
+                        "success": false,
+                        "data": None::<Vec<serde_json::Value>>,
+                        "error": format!("Database query failed: {}", e)
+                    }),
+                }
+            } else {
+                serde_json::json!({
+                    "success": true,
+                    "data": Vec::<serde_json::Value>::new(),
+                    "error": None::<String>
+                })
+            };
+
+            // Write result to memory
+            let result_bytes = serde_json::to_vec(&result).unwrap_or_default();
+            let result_len = result_bytes.len() as i32;
+
+            // Allocate memory for result
+            let alloc_func = match caller.get_export("__convex_alloc").and_then(|e| e.into_func()) {
+                Some(f) => f,
+                None => return -1,
+            };
+
+            let mut result_ptr = [wasmtime::Val::I32(0)];
+            if alloc_func.call(&mut caller, &[wasmtime::Val::I32(result_len + 4)], &mut result_ptr).is_err() {
+                return -1;
+            }
+
+            let ptr = result_ptr[0].i32().unwrap_or(0);
+            if ptr == 0 {
+                return -1;
+            }
+
+            // Write length prefix
+            let len_bytes = result_len.to_le_bytes();
+            let _ = mem.write(&mut caller, ptr as usize, &len_bytes);
+            // Write data
+            let _ = mem.write(&mut caller, ptr as usize + 4, &result_bytes);
+
+            ptr
+        },
+    )?;
+
+    // Note: Additional host functions would be added here following the same pattern
+    // For now, we implement the core database functions. The full implementation
+    // would include: db_get, db_insert, db_patch, db_delete, db_count,
+    // storage_store, storage_get, http_fetch, log, random, etc.
+
+    Ok(())
 }
 
 #[cfg(test)]
