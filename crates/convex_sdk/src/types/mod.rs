@@ -1,7 +1,7 @@
 //! Convex value types and document identifiers
 
+use alloc::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// A Convex value - the type system for Convex documents
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -14,7 +14,7 @@ pub enum ConvexValue {
     String(String),
     Bytes(Vec<u8>),
     Array(Vec<ConvexValue>),
-    Object(HashMap<String, ConvexValue>),
+    Object(BTreeMap<String, ConvexValue>),
 }
 
 impl Default for ConvexValue {
@@ -57,7 +57,7 @@ pub struct Document {
 }
 
 /// Result type for Convex operations
-pub type Result<T> = std::result::Result<T, ConvexError>;
+pub type Result<T> = core::result::Result<T, ConvexError>;
 
 /// Errors that can occur in Convex operations
 #[derive(Debug, thiserror::Error)]

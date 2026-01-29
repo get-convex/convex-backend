@@ -16,7 +16,7 @@ macros = ["convex_sdk_macros"]
 # Serialization (no_std compatible with alloc feature)
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-serde_bytes = { version = "0.11", default-features = false }
+serde_bytes = { version = "0.11", default-features = false, features = ["alloc"] }
 
 # WASM target support
 wasm-bindgen = { version = "0.2", optional = true }
