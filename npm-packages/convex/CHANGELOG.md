@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.31.7
 
-- Added `getConvexSize` and `getDocumentSize` functions to `convex/values` for calculating the size of Convex values in bytes. This is the same size calculation used for bandwidth tracking and document size limits.
+- Add `getConvexSize` and `getDocumentSize` functions to `convex/values` for calculating the size of Convex values in bytes. This is the same size calculation used for bandwidth tracking and document size limits.
+- Optimize code push to only upload changed modules.
+- Include `CONVEX_SITE_URL` in environment variables.
 
 ## 1.31.6
 
