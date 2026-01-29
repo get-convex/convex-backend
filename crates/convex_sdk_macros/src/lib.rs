@@ -131,12 +131,12 @@ fn extract_return_type(sig: &syn::Signature) -> String {
     }
 }
 
-/// Generates argument deserialization code
-fn generate_arg_deserialization(args: &[(Ident, Box<Type>)]) -> proc_macro2::TokenStream {
+/// Generates argument deserialization code with a starting index
+fn generate_arg_deserialization(args: &[(Ident, Box<Type>)], start_idx: usize) -> proc_macro2::TokenStream {
     let mut tokens = proc_macro2::TokenStream::new();
 
     for (idx, (ident, ty)) in args.iter().enumerate() {
-        let idx_lit = syn::Index::from(idx);
+        let idx_lit = syn::Index::from(idx + start_idx);
         let deser = quote! {
             let #ident: #ty = match serde_json::from_value(args.get(#idx_lit).cloned().unwrap_or(serde_json::Value::Null)) {
                 Ok(v) => v,
@@ -223,8 +223,9 @@ fn generate_function_wrapper(
     let args = extract_arguments(fn_sig);
     let return_type_str = extract_return_type(fn_sig);
 
-    // Generate argument deserialization
-    let arg_deserialization = generate_arg_deserialization(&args);
+    // Generate argument deserialization (start from 1 if db is needed, since db_handle is at index 0)
+    let arg_start_idx = if needs_db { 1 } else { 0 };
+    let arg_deserialization = generate_arg_deserialization(&args, arg_start_idx);
     let arg_names = generate_arg_names(&args);
 
     // Generate metadata JSON
@@ -232,6 +233,34 @@ fn generate_function_wrapper(
 
     // Determine if this function needs a Database parameter (queries and mutations do)
     let needs_db = matches!(function_type, FunctionType::Query | FunctionType::Mutation);
+
+    // Generate the serialize_and_return helper function
+    let serialize_helper = quote! {
+        /// Helper function to serialize a JSON value and return a pointer to it
+        fn serialize_and_return(value: serde_json::Value) -> i32 {
+            let bytes = serde_json::to_vec(&value).unwrap_or_default();
+            let len = bytes.len();
+            let ptr = unsafe { __convex_alloc((len + 4) as i32) };
+            if ptr == 0 {
+                return -1;
+            }
+            unsafe {
+                // Write length prefix (little-endian u32)
+                std::ptr::copy_nonoverlapping(
+                    (len as u32).to_le_bytes().as_ptr(),
+                    ptr as *mut u8,
+                    4
+                );
+                // Write JSON data after length prefix
+                std::ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    (ptr as *mut u8).add(4),
+                    len
+                );
+            }
+            ptr
+        }
+    };
 
     // Generate the wrapper that handles WASM ABI
     let wrapper = if is_async {
@@ -242,6 +271,13 @@ fn generate_function_wrapper(
                 #(#fn_attrs)*
                 #fn_vis #fn_sig #fn_block
 
+                // Host function import for memory allocation
+                extern "C" {
+                    fn __convex_alloc(size: i32) -> i32;
+                }
+
+                #serialize_helper
+
                 /// Internal wrapper that handles the async execution
                 async fn #internal_fn_name(args: Vec<serde_json::Value>) -> Result<serde_json::Value, convex_sdk::ConvexError> {
                     // First argument is the database handle
@@ -249,7 +285,7 @@ fn generate_function_wrapper(
                         .map_err(|e| convex_sdk::ConvexError::InvalidArgument(format!("Invalid database handle: {}", e)))?;
                     let db = convex_sdk::Database::new(db_handle);
 
-                    // Deserialize remaining arguments
+                    // Deserialize remaining arguments (starting from index 1)
                     #arg_deserialization
 
                     // Call the original function
@@ -308,6 +344,13 @@ fn generate_function_wrapper(
                 // Original function (kept for internal use)
                 #(#fn_attrs)*
                 #fn_vis #fn_sig #fn_block
+
+                // Host function import for memory allocation
+                extern "C" {
+                    fn __convex_alloc(size: i32) -> i32;
+                }
+
+                #serialize_helper
 
                 /// Internal wrapper that handles the async execution
                 async fn #internal_fn_name(args: Vec<serde_json::Value>) -> Result<serde_json::Value, convex_sdk::ConvexError> {
@@ -373,6 +416,13 @@ fn generate_function_wrapper(
                 #(#fn_attrs)*
                 #fn_vis #fn_sig #fn_block
 
+                // Host function import for memory allocation
+                extern "C" {
+                    fn __convex_alloc(size: i32) -> i32;
+                }
+
+                #serialize_helper
+
                 /// WASM export for the function
                 #[no_mangle]
                 pub extern "C" fn #fn_name(args_ptr: i32, args_len: i32) -> i32 {
@@ -405,7 +455,7 @@ fn generate_function_wrapper(
                         };
                         let db = convex_sdk::Database::new(db_handle);
 
-                        // Deserialize remaining arguments
+                        // Deserialize remaining arguments (starting from index 1)
                         #arg_deserialization
 
                         // Call the original function
@@ -438,6 +488,13 @@ fn generate_function_wrapper(
                 // Original function (kept for internal use)
                 #(#fn_attrs)*
                 #fn_vis #fn_sig #fn_block
+
+                // Host function import for memory allocation
+                extern "C" {
+                    fn __convex_alloc(size: i32) -> i32;
+                }
+
+                #serialize_helper
 
                 /// WASM export for the function
                 #[no_mangle]

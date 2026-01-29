@@ -231,11 +231,13 @@ pub async fn validate_run_function_result(
 }
 
 impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
-    pub fn new(rt: RT, storage: S, max_percent_per_client: usize) -> anyhow::Result<Self> {
-        Self::_new(rt, storage, max_percent_per_client, MAX_ISOLATE_WORKERS)
+    /// Create a new FunctionRunnerCore instance
+    /// This is now async to avoid block_on issues when called from async contexts
+    pub async fn new(rt: RT, storage: S, max_percent_per_client: usize) -> anyhow::Result<Self> {
+        Self::_new(rt, storage, max_percent_per_client, MAX_ISOLATE_WORKERS).await
     }
 
-    fn _new(
+    async fn _new(
         rt: RT,
         storage: S,
         max_percent_per_client: usize,
@@ -251,8 +253,8 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         let module_cache = ModuleCache::new(rt.clone());
         let code_cache = CodeCache::new();
 
-        // Initialize Rust runner (async in sync context using block_on)
-        let rust_runner = rt.block_on(RustFunctionRunner::new(rt.clone()))?;
+        // Initialize Rust runner asynchronously
+        let rust_runner = RustFunctionRunner::new(rt.clone()).await?;
 
         Ok(Self {
             rt,

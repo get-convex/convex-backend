@@ -117,12 +117,25 @@ mod wasm_helpers {
     }
 
     /// Parse a host result pointer into a HostResult
+    /// The host returns length-prefixed data: 4-byte little-endian length followed by JSON data
     pub unsafe fn parse_host_result(result_ptr: i32) -> Result<HostResult> {
         if result_ptr == 0 {
             return Err(ConvexError::Unknown("Null result from host".into()));
         }
-        let json_str = read_string(result_ptr)?;
+
+        // Read the length prefix (4 bytes, little-endian)
+        let response_len = core::ptr::read_unaligned(result_ptr as *const u32) as usize;
+
+        // Read the JSON data after the length prefix
+        let response_data = core::slice::from_raw_parts(
+            (result_ptr + 4) as *const u8,
+            response_len,
+        );
+        let json_str = String::from_utf8(response_data.to_vec())
+            .map_err(|e| ConvexError::Serialization(e.into()))?;
+
         free_ptr(result_ptr);
+
         let result: HostResult =
             serde_json::from_str(&json_str).map_err(ConvexError::Serialization)?;
         Ok(result)

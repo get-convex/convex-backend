@@ -146,13 +146,8 @@ struct GetResponse {
 // Host functions provided by the Convex runtime
 extern "C" {
     /// Store a file in Convex storage
-    /// Returns a pointer to the response JSON in WASM memory
-    fn __convex_storage_store(
-        content_type_ptr: i32,
-        content_type_len: i32,
-        data_ptr: i32,
-        data_len: i32,
-    ) -> i32;
+    /// Takes a pointer to JSON request data and returns a pointer to the response JSON
+    fn __convex_storage_store(request_ptr: i32, request_len: i32) -> i32;
 
     /// Get a file from Convex storage
     /// Returns a pointer to the response JSON in WASM memory
@@ -214,7 +209,7 @@ pub async fn store(content_type: &str, data: Vec<u8>) -> Result<StorageId> {
 
     // Call host function
     let result_ptr = unsafe {
-        __convex_storage_store(ptr, request_json.len() as i32, 0, 0)
+        __convex_storage_store(ptr, request_json.len() as i32)
     };
 
     // Free the request memory
