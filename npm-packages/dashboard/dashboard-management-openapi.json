@@ -6694,6 +6694,16 @@
       "UpdateTeamArgs": {
         "type": "object",
         "properties": {
+          "defaultRegion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName"
+              }
+            ]
+          },
           "name": {
             "oneOf": [
               {

@@ -2772,6 +2772,7 @@ export interface components {
             requireSsoLogin?: boolean | null;
         };
         UpdateTeamArgs: {
+            defaultRegion?: null | components["schemas"]["RegionName"];
             name?: null | components["schemas"]["ProposedTeamName"];
             slug?: null | components["schemas"]["TeamSlug"];
         };
