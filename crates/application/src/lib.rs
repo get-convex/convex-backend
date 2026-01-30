@@ -551,6 +551,7 @@ pub struct ApplicationStorage {
     snapshot_imports_storage: Arc<dyn Storage>,
 }
 
+#[derive(Clone)]
 pub struct Application<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
@@ -580,41 +581,6 @@ pub struct Application<RT: Runtime> {
     system_env_var_names: HashSet<EnvVarName>,
     app_auth: Arc<ApplicationAuth>,
     log_manager_client: LogManagerClient,
-}
-
-impl<RT: Runtime> Clone for Application<RT> {
-    fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime.clone(),
-            database: self.database.clone(),
-            runner: self.runner.clone(),
-            function_log: self.function_log.clone(),
-            file_storage: self.file_storage.clone(),
-            application_storage: self.application_storage.clone(),
-            usage_counter: self.usage_counter.clone(),
-            usage_gauges_tracking_worker: self.usage_gauges_tracking_worker.clone(),
-            usage_event_logger: self.usage_event_logger.clone(),
-            key_broker: self.key_broker.clone(),
-            instance_name: self.instance_name.clone(),
-            scheduled_job_runner: self.scheduled_job_runner.clone(),
-            cron_job_executor: self.cron_job_executor.clone(),
-            index_worker: self.index_worker.clone(),
-            fast_forward_worker: self.fast_forward_worker.clone(),
-            search_worker: self.search_worker.clone(),
-            search_and_vector_bootstrap_worker: self.search_and_vector_bootstrap_worker.clone(),
-            table_summary_worker: self.table_summary_worker.clone(),
-            schema_worker: self.schema_worker.clone(),
-            snapshot_import_worker: self.snapshot_import_worker.clone(),
-            export_worker: self.export_worker.clone(),
-            system_table_cleanup_worker: self.system_table_cleanup_worker.clone(),
-            migration_worker: self.migration_worker.clone(),
-            log_visibility: self.log_visibility.clone(),
-            module_cache: self.module_cache.clone(),
-            system_env_var_names: self.system_env_var_names.clone(),
-            app_auth: self.app_auth.clone(),
-            log_manager_client: self.log_manager_client.clone(),
-        }
-    }
 }
 
 /// Create storage based on the storage type configuration
