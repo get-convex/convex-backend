@@ -69,20 +69,6 @@ impl PlanId {
         // Until we support referrals in plans within orb, this is the case.
         !self.is_in_orb()
     }
-
-    pub fn gets_pro_resources(&self) -> bool {
-        match self {
-            PlanId::ConvexBase | PlanId::ConvexStarterPlus => false,
-            PlanId::ConvexProfessional | PlanId::ConvexBusiness => true,
-        }
-    }
-
-    pub fn gets_biz_resources(&self) -> bool {
-        match self {
-            PlanId::ConvexBusiness => true,
-            PlanId::ConvexBase | PlanId::ConvexStarterPlus | PlanId::ConvexProfessional => false,
-        }
-    }
 }
 
 #[cfg(test)]
