@@ -468,4 +468,69 @@ describe.skip("ConvexReactClient", () => {
     expect(result5.page.length).toStrictEqual(2);
     expect(result5.pageStatus).toStrictEqual("SplitRequired");
   });
+
+  test("endCursor constrains the query range", async () => {
+    // Create 4 documents
+    await client.mutation(api.messages.sendMessage, {
+      channel: "channelA",
+      text: "message1",
+    });
+    await client.mutation(api.messages.sendMessage, {
+      channel: "channelB",
+      text: "message2",
+    });
+    await client.mutation(api.messages.sendMessage, {
+      channel: "channelC",
+      text: "message3",
+    });
+    await client.mutation(api.messages.sendMessage, {
+      channel: "channelD",
+      text: "message4",
+    });
+
+    // Get first 2 items to establish a cursor
+    const firstPage = client.watchQuery(
+      api.messages.paginatedListMessagesByCreationTime,
+      { paginationOpts: { cursor: null, numItems: 2 } },
+    );
+    const result1 = await awaitQueryResult(firstPage, () => true);
+    expect(result1.page.length).toStrictEqual(2);
+    expect(messageNamesFromResult(result1)).toStrictEqual([
+      "message1",
+      "message2",
+    ]);
+
+    // Get second page to get its continueCursor
+    const secondPage = client.watchQuery(
+      api.messages.paginatedListMessagesByCreationTime,
+      { paginationOpts: { cursor: result1.continueCursor, numItems: 2 } },
+    );
+    const result2 = await awaitQueryResult(secondPage, () => true);
+    expect(messageNamesFromResult(result2)).toStrictEqual([
+      "message3",
+      "message4",
+    ]);
+
+    // Use endCursor to query just the range of the first page
+    // This should return exactly the first 2 items, even if we ask for more
+    const constrainedPage = client.watchQuery(
+      api.messages.paginatedListMessagesByCreationTime,
+      {
+        paginationOpts: {
+          cursor: null,
+          numItems: 100, // Ask for many, but endCursor should constrain
+          endCursor: result1.continueCursor,
+        },
+      },
+    );
+    const result3 = await awaitQueryResult(constrainedPage, () => true);
+    // endCursor constrains the range - we only get items up to that cursor
+    expect(messageNamesFromResult(result3)).toStrictEqual([
+      "message1",
+      "message2",
+    ]);
+    // The continueCursor should equal the endCursor since we've reached
+    // the end of the constrained range
+    expect(result3.continueCursor).toStrictEqual(result1.continueCursor);
+  });
 });
