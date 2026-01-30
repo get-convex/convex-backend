@@ -63,6 +63,7 @@ const targetDeployment: PlatformDeploymentResponse = {
   creator: 1,
   previewIdentifier: null,
   region: "us-east-2",
+  isDefault: true,
 };
 
 const team: TeamResponse = {
@@ -85,6 +86,7 @@ jest.mock("api/deployments", () => {
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
+    isDefault: true,
   };
 
   return {

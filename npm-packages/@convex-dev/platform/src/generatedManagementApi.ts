@@ -338,6 +338,9 @@ export interface components {
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
+        /** @description Indicates whether the deployment is the default prod deployment for the
+         *     project, or the default cloud dev deployment for the member in the project. */
+        IsDefaultDeployment: boolean;
         ListDeploymentClassesResponse: {
             items: components["schemas"]["DeploymentClassMetadata"][];
         };
@@ -358,18 +361,14 @@ export interface components {
             /** @description The class to use for this deployment. If not provided, the default
              *     deployment class for your team will be used. */
             class?: string | null;
-            /** @description The hosting region to use for this deployment. If not provided, the
-             *     default deployment region for your team will be used. */
-            region?: components["schemas"]["RegionName"];
+            region?: null | components["schemas"]["RegionName"];
             type: components["schemas"]["CreateDeploymentType"];
         };
         PlatformCreateProjectArgs: {
             /** @description The class to use for this deployment. If not provided, the default
              *     deployment class for your team will be used. */
             deploymentClass?: string | null;
-            /** @description The hosting region to use for this deployment. If not provided, the
-             *     default deployment region for your team will be used. */
-            deploymentRegion?: components["schemas"]["RegionName"];
+            deploymentRegion?: null | components["schemas"]["RegionName"];
             /** @description Projects always include a deployment, so start this project off with a
              *     "dev" development deployment or a "prod" production deployment. */
             deploymentType: components["schemas"]["CreateDeploymentType"];
@@ -440,6 +439,11 @@ export interface components {
             /** @description The type of this deployment. */
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
+            /** @description For prod deployments, whether they are the default prod deployment
+             *     of the project. For dev deployments, whether they are the default
+             *     dev deployment for the member that created it.
+             *     For other deployments, set to false. */
+            isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
             kind: "cloud";
             /** @description The readable identifier for this deployment, something like
@@ -546,6 +550,7 @@ export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMetadata'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
+export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type MemberId = components['schemas']['MemberId'];

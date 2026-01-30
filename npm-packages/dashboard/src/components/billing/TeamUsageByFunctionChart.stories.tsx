@@ -54,6 +54,7 @@ const deployments: PlatformDeploymentResponse[] = [
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
+    isDefault: true,
   },
   {
     kind: "cloud",
@@ -65,6 +66,7 @@ const deployments: PlatformDeploymentResponse[] = [
     creator: 2,
     previewIdentifier: null,
     region: "us-east-2",
+    isDefault: true,
   },
   {
     kind: "cloud",
@@ -76,6 +78,7 @@ const deployments: PlatformDeploymentResponse[] = [
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
+    isDefault: true,
   },
   {
     kind: "cloud",
@@ -87,6 +90,7 @@ const deployments: PlatformDeploymentResponse[] = [
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
+    isDefault: false,
   },
 ];
 

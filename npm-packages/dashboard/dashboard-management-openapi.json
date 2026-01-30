@@ -5210,7 +5210,7 @@
       },
       "IsDefaultDeployment": {
         "type": "boolean",
-        "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project.\nSee https://linear.app/convex/issue/ENG-10273/add-a-concept-of-default-dev-default-prod-to-the-model"
+        "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project."
       },
       "ListEnvVariableResponse": {
         "type": "object",

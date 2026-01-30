@@ -677,6 +677,10 @@
       "DeviceName": {
         "type": "string"
       },
+      "IsDefaultDeployment": {
+        "type": "boolean",
+        "description": "Indicates whether the deployment is the default prod deployment for the\nproject, or the default cloud dev deployment for the member in the project."
+      },
       "ListDeploymentClassesResponse": {
         "type": "object",
         "required": [
@@ -936,6 +940,7 @@
               "deploymentType",
               "projectId",
               "region",
+              "isDefault",
               "kind"
             ],
             "properties": {
@@ -961,6 +966,10 @@
               },
               "id": {
                 "$ref": "#/components/schemas/DeploymentId"
+              },
+              "isDefault": {
+                "$ref": "#/components/schemas/IsDefaultDeployment",
+                "description": "For prod deployments, whether they are the default prod deployment\nof the project. For dev deployments, whether they are the default\ndev deployment for the member that created it.\nFor other deployments, set to false."
               },
               "kind": {
                 "type": "string",
