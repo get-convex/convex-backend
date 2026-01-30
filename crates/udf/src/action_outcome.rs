@@ -25,6 +25,7 @@ use pb::{
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use semver::Version;
+use serde_json::Value as JsonValue;
 use sync_types::types::SerializedArgs;
 use value::JsonPackedValue;
 
@@ -72,6 +73,10 @@ pub struct ActionOutcome {
     )]
     // None if node action
     pub user_execution_time: Option<Duration>,
+
+    /// Custom log attributes set by ctx.setLogAttributes()
+    #[cfg_attr(any(test, feature = "testing"), proptest(value = "None"))]
+    pub custom_log_attributes: Option<serde_json::Map<String, JsonValue>>,
 }
 
 impl ActionOutcome {
@@ -94,6 +99,7 @@ impl ActionOutcome {
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
             user_execution_time: Some(Duration::ZERO),
+            custom_log_attributes: None,
         }
     }
 
@@ -103,6 +109,7 @@ impl ActionOutcome {
             result,
             syscall_trace,
             user_execution_time,
+            custom_log_attributes_json,
         }: ActionOutcomeProto,
         path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
@@ -116,6 +123,10 @@ impl ActionOutcome {
             None => anyhow::bail!("Missing result"),
         };
         let (path, arguments, udf_server_version) = path_and_args.consume();
+        let custom_log_attributes = custom_log_attributes_json
+            .map(|s| serde_json::from_str(&s))
+            .transpose()
+            .context("Invalid custom_log_attributes_json")?;
         Ok(Self {
             path: path.for_logging(),
             arguments,
@@ -127,6 +138,7 @@ impl ActionOutcome {
             syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,
             udf_server_version,
             user_execution_time: user_execution_time.map(|d| d.try_into()).transpose()?,
+            custom_log_attributes,
         })
     }
 }
@@ -144,12 +156,16 @@ impl TryFrom<ActionOutcome> for ActionOutcomeProto {
             syscall_trace,
             udf_server_version: _,
             user_execution_time,
+            custom_log_attributes,
         }: ActionOutcome,
     ) -> anyhow::Result<Self> {
         let result = match result {
             Ok(value) => FunctionResultTypeProto::JsonPackedValue(value.as_str().to_string()),
             Err(js_error) => FunctionResultTypeProto::JsError(js_error.try_into()?),
         };
+        let custom_log_attributes_json = custom_log_attributes
+            .map(|m| serde_json::to_string(&m))
+            .transpose()?;
         Ok(Self {
             unix_timestamp: Some(unix_timestamp.into()),
             result: Some(FunctionResultProto {
@@ -157,6 +173,7 @@ impl TryFrom<ActionOutcome> for ActionOutcomeProto {
             }),
             syscall_trace: Some(syscall_trace.try_into()?),
             user_execution_time: user_execution_time.map(|t| t.try_into()).transpose()?,
+            custom_log_attributes_json,
         })
     }
 }
@@ -193,6 +210,10 @@ pub struct HttpActionOutcome {
     )]
     // TODO(ENG-10204): Make required
     pub user_execution_time: Option<Duration>,
+
+    /// Custom log attributes set by ctx.setLogAttributes()
+    #[cfg_attr(any(test, feature = "testing"), proptest(value = "None"))]
+    pub custom_log_attributes: Option<serde_json::Map<String, JsonValue>>,
 }
 
 impl HttpActionOutcome {
@@ -205,6 +226,7 @@ impl HttpActionOutcome {
         syscall_trace: Option<SyscallTrace>,
         udf_server_version: Option<semver::Version>,
         user_execution_time: Duration,
+        custom_log_attributes: Option<serde_json::Map<String, JsonValue>>,
     ) -> Self {
         Self {
             route: route.unwrap_or(http_request_head.route_for_failure()),
@@ -218,6 +240,7 @@ impl HttpActionOutcome {
                 .try_into()
                 .unwrap(),
             user_execution_time: Some(user_execution_time),
+            custom_log_attributes,
         }
     }
 
@@ -234,6 +257,7 @@ impl HttpActionOutcome {
             path,
             method,
             user_execution_time,
+            custom_log_attributes_json,
         }: HttpActionOutcomeProto,
         http_request: HttpActionRequestHead,
         udf_server_version: Option<Version>,
@@ -258,6 +282,10 @@ impl HttpActionOutcome {
             Some(p) => p,
             None => http_request.url.to_string(),
         };
+        let custom_log_attributes = custom_log_attributes_json
+            .map(|s| serde_json::from_str(&s))
+            .transpose()
+            .context("Invalid custom_log_attributes_json")?;
         Ok(Self {
             identity,
             unix_timestamp: unix_timestamp
@@ -270,6 +298,7 @@ impl HttpActionOutcome {
             udf_server_version,
             route: HttpActionRoute { method, path },
             user_execution_time: user_execution_time.map(|d| d.try_into()).transpose()?,
+            custom_log_attributes,
         })
     }
 }
@@ -288,6 +317,7 @@ impl TryFrom<HttpActionOutcome> for HttpActionOutcomeProto {
             udf_server_version: _,
             memory_in_mb,
             user_execution_time,
+            custom_log_attributes,
         }: HttpActionOutcome,
     ) -> anyhow::Result<Self> {
         let result = match result {
@@ -296,6 +326,9 @@ impl TryFrom<HttpActionOutcome> for HttpActionOutcomeProto {
                 Some(FunctionResultTypeProto::JsError(js_error.try_into()?))
             },
         };
+        let custom_log_attributes_json = custom_log_attributes
+            .map(|m| serde_json::to_string(&m))
+            .transpose()?;
         Ok(Self {
             unix_timestamp: Some(unix_timestamp.into()),
             result: Some(FunctionResultProto { result }),
@@ -304,6 +337,7 @@ impl TryFrom<HttpActionOutcome> for HttpActionOutcomeProto {
             path: Some(route.path.to_string()),
             method: Some(route.method.to_string()),
             user_execution_time: user_execution_time.map(|t| t.try_into()).transpose()?,
+            custom_log_attributes_json,
         })
     }
 }

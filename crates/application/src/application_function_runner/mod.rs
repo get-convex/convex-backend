@@ -1475,6 +1475,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         syscall_trace: node_outcome.syscall_trace,
                         udf_server_version,
                         user_execution_time: None,
+                        custom_log_attributes: None,
                     };
                     let outcome =
                         ValidatedActionOutcome::new(outcome, returns_validator, &table_mapping);

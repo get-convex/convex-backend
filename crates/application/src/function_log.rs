@@ -178,6 +178,9 @@ pub struct FunctionExecution {
 
     // If this execution resulted in an OCC error, this will be Some.
     pub occ_info: Option<OccInfo>,
+
+    /// Custom log attributes set by ctx.setLogAttributes()
+    pub custom_log_attributes: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl HeapSize for FunctionExecution {
@@ -187,6 +190,11 @@ impl HeapSize for FunctionExecution {
             + self.tables_touched.heap_size()
             + self.syscall_trace.heap_size()
             + self.context.heap_size()
+            + self
+                .custom_log_attributes
+                .as_ref()
+                .map(|m| serde_json::to_string(m).map(|s| s.len()).unwrap_or(0))
+                .unwrap_or(0)
     }
 }
 
@@ -297,6 +305,7 @@ impl FunctionExecution {
                     memory_used_mb: self.memory_used_mb,
                     return_bytes: self.return_bytes,
                 },
+                custom_log_attributes: self.custom_log_attributes.clone(),
             },
         }];
 
@@ -749,6 +758,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             mutation_retry_count: None,
             occ_info: None,
+            custom_log_attributes: outcome.custom_log_attributes.clone(),
         };
         self.log_execution(execution, true);
     }
@@ -905,6 +915,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             mutation_retry_count: Some(mutation_retry_count),
             occ_info,
+            custom_log_attributes: outcome.custom_log_attributes,
         };
         self.log_execution(execution, true);
     }
@@ -1000,6 +1011,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context: completion.context,
             mutation_retry_count: None,
             occ_info: None,
+            custom_log_attributes: outcome.custom_log_attributes,
         };
         self.log_execution(execution, /* send_console_events */ false)
     }
@@ -1074,6 +1086,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             None,
             None,
             Duration::ZERO,
+            None, // custom_log_attributes
         );
         self._log_http_action(
             outcome,
@@ -1146,6 +1159,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             mutation_retry_count: None,
             occ_info: None,
+            custom_log_attributes: outcome.custom_log_attributes,
         };
         self.log_execution(execution, /* send_console_events */ false);
     }

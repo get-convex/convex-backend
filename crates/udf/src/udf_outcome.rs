@@ -25,6 +25,7 @@ use pb::{
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use rand::Rng;
+use serde_json::Value as JsonValue;
 use sync_types::types::SerializedArgs;
 use value::{
     heap_size::HeapSize,
@@ -74,6 +75,10 @@ pub struct UdfOutcome {
     )]
     // TODO(ENG-10204): Make required
     pub user_execution_time: Option<Duration>,
+
+    /// Custom log attributes set by ctx.setLogAttributes()
+    #[cfg_attr(any(test, feature = "testing"), proptest(value = "None"))]
+    pub custom_log_attributes: Option<serde_json::Map<String, JsonValue>>,
 }
 
 impl HeapSize for UdfOutcome {
@@ -85,6 +90,11 @@ impl HeapSize for UdfOutcome {
             + self.journal.heap_size()
             + self.result.heap_size()
             + self.syscall_trace.heap_size()
+            + self
+                .custom_log_attributes
+                .as_ref()
+                .map(|m| serde_json::to_string(m).map(|s| s.len()).unwrap_or(0))
+                .unwrap_or(0)
     }
 }
 
@@ -108,12 +118,16 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             udf_server_version: _,
             memory_in_mb,
             user_execution_time,
+            custom_log_attributes,
         }: UdfOutcome,
     ) -> anyhow::Result<Self> {
         let result = match result {
             Ok(value) => FunctionResultTypeProto::JsonPackedValue(value.as_str().to_string()),
             Err(js_error) => FunctionResultTypeProto::JsError(js_error.try_into()?),
         };
+        let custom_log_attributes_json = custom_log_attributes
+            .map(|m| serde_json::to_string(&m))
+            .transpose()?;
         Ok(Self {
             rng_seed: Some(rng_seed.to_vec()),
             observed_rng: Some(observed_rng),
@@ -128,6 +142,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             observed_identity: Some(observed_identity),
             memory_in_mb,
             user_execution_time: user_execution_time.map(|t| t.try_into()).transpose()?,
+            custom_log_attributes_json,
         })
     }
 }
@@ -159,6 +174,7 @@ impl UdfOutcome {
             observed_identity: false,
             memory_in_mb: 0,
             user_execution_time: Some(Duration::ZERO),
+            custom_log_attributes: None,
         })
     }
 
@@ -175,6 +191,7 @@ impl UdfOutcome {
             observed_identity,
             memory_in_mb,
             user_execution_time,
+            custom_log_attributes_json,
         }: UdfOutcomeProto,
         path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
@@ -194,6 +211,10 @@ impl UdfOutcome {
         };
         let (path, arguments, udf_server_version) = path_and_args.consume();
         let log_lines = log_lines.into_iter().map(LogLine::try_from).try_collect()?;
+        let custom_log_attributes = custom_log_attributes_json
+            .map(|s| serde_json::from_str(&s))
+            .transpose()
+            .context("Invalid custom_log_attributes_json")?;
         Ok(Self {
             path: path.for_logging(),
             arguments,
@@ -213,6 +234,7 @@ impl UdfOutcome {
             observed_identity: observed_identity.unwrap_or(true),
             memory_in_mb,
             user_execution_time: user_execution_time.map(|d| d.try_into()).transpose()?,
+            custom_log_attributes,
         })
     }
 }

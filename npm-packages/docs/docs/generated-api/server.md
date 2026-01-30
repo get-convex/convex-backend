@@ -229,11 +229,12 @@ that is typed for your app's data model.
 
 #### Type declaration
 
-| Name      | Type                                                       |
-| :-------- | :--------------------------------------------------------- |
-| `db`      | [`DatabaseReader`](#databasereader)                        |
-| `auth`    | [`Auth`](/api/interfaces/server.Auth.md)                   |
-| `storage` | [`StorageReader`](/api/interfaces/server.StorageReader.md) |
+| Name               | Type                                                       |
+| :----------------- | :--------------------------------------------------------- |
+| `db`               | [`DatabaseReader`](#databasereader)                        |
+| `auth`             | [`Auth`](/api/interfaces/server.Auth.md)                   |
+| `storage`          | [`StorageReader`](/api/interfaces/server.StorageReader.md) |
+| `setLogAttributes` | [`setLogAttributes`](#setlogattributes)                    |
 
 ---
 
@@ -252,12 +253,13 @@ for your app's data model.
 
 #### Type declaration
 
-| Name        | Type                                                       |
-| :---------- | :--------------------------------------------------------- |
-| `db`        | [`DatabaseWriter`](#databasewriter)                        |
-| `auth`      | [`Auth`](/api/interfaces/server.Auth.md)                   |
-| `storage`   | [`StorageWriter`](/api/interfaces/server.StorageWriter.md) |
-| `scheduler` | [`Scheduler`](/api/interfaces/server.Scheduler.md)         |
+| Name               | Type                                                       |
+| :----------------- | :--------------------------------------------------------- |
+| `db`               | [`DatabaseWriter`](#databasewriter)                        |
+| `auth`             | [`Auth`](/api/interfaces/server.Auth.md)                   |
+| `storage`          | [`StorageWriter`](/api/interfaces/server.StorageWriter.md) |
+| `scheduler`        | [`Scheduler`](/api/interfaces/server.Scheduler.md)         |
+| `setLogAttributes` | [`setLogAttributes`](#setlogattributes)                    |
 
 ---
 
@@ -275,15 +277,73 @@ for your app's data model.
 
 #### Type declaration
 
-| Name           | Type                                                                                                                                                                         |
-| :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `runQuery`     | (`name`: `string`, `args`?: `Record<string, Value>`) => `Promise<Value>`                                                                                                     |
-| `runMutation`  | (`name`: `string`, `args`?: `Record<string, Value>`) => `Promise<Value>`                                                                                                     |
-| `runAction`    | (`name`: `string`, `args`?: `Record<string, Value>`) => `Promise<Value>`                                                                                                     |
-| `auth`         | [`Auth`](/api/interfaces/server.Auth.md)                                                                                                                                     |
-| `scheduler`    | [`Scheduler`](/api/interfaces/server.Scheduler.md)                                                                                                                           |
-| `storage`      | [`StorageActionWriter`](/api/interfaces/server.StorageActionWriter.md)                                                                                                       |
-| `vectorSearch` | (`tableName`: `string`, `indexName`: `string`, `query`: [`VectorSearchQuery`](/api/interfaces/server.VectorSearchQuery.md)) => `Promise<Array<{ _id: Id, _score: number }>>` |
+| Name               | Type                                                                                                                                                                         |
+| :----------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runQuery`         | (`name`: `string`, `args`?: `Record<string, Value>`) => `Promise<Value>`                                                                                                     |
+| `runMutation`      | (`name`: `string`, `args`?: `Record<string, Value>`) => `Promise<Value>`                                                                                                     |
+| `runAction`        | (`name`: `string`, `args`?: `Record<string, Value>`) => `Promise<Value>`                                                                                                     |
+| `auth`             | [`Auth`](/api/interfaces/server.Auth.md)                                                                                                                                     |
+| `scheduler`        | [`Scheduler`](/api/interfaces/server.Scheduler.md)                                                                                                                           |
+| `storage`          | [`StorageActionWriter`](/api/interfaces/server.StorageActionWriter.md)                                                                                                       |
+| `vectorSearch`     | (`tableName`: `string`, `indexName`: `string`, `query`: [`VectorSearchQuery`](/api/interfaces/server.VectorSearchQuery.md)) => `Promise<Array<{ _id: Id, _score: number }>>` |
+| `setLogAttributes` | [`setLogAttributes`](#setlogattributes)                                                                                                                                      |
+
+---
+
+### setLogAttributes
+
+▸ **setLogAttributes**(attrs: `Record<string, string | number | boolean>`):
+`void`
+
+Set custom attributes that will be included in the
+[`function_execution`](/production/integrations/log-streams/log-streams#function_execution-events)
+log event. Useful for adding context like user IDs, operation types, or request
+metadata for observability and debugging.
+
+Available on all function context types: [`QueryCtx`](#queryctx),
+[`MutationCtx`](#mutationctx), and [`ActionCtx`](#actionctx).
+
+#### Example
+
+```typescript
+export const sendMessage = mutation({
+  args: { body: v.string(), channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    ctx.setLogAttributes({
+      user_id: identity?.subject ?? "anonymous",
+      channel_id: args.channelId,
+      operation: "send_message",
+    });
+    // ... rest of function
+  },
+});
+```
+
+#### Parameters
+
+| Name    | Type                                          | Description                                  |
+| :------ | :-------------------------------------------- | :------------------------------------------- |
+| `attrs` | `Record<string, string \| number \| boolean>` | Key-value pairs to include in the log event. |
+
+#### Limits
+
+- **Maximum 10 keys** per function execution
+- **Maximum 1KB total size** for all keys and values combined
+- **Keys** must contain only alphanumeric characters, underscores, and dots
+  (`a-z`, `A-Z`, `0-9`, `_`, `.`)
+- **Values** must be strings, numbers, or booleans
+
+If limits are exceeded, attributes will be partially applied and a warning will
+be logged. The function will continue executing normally.
+
+#### Behavior
+
+- Can be called multiple times; attributes are merged with last-write-wins for
+  duplicate keys
+- Attributes appear in the `custom_attributes` field of `function_execution` log
+  events
+- Empty attribute objects are omitted from log output
 
 ---
 

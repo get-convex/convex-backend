@@ -432,3 +432,28 @@ async fn test_http_streaming(rt: TestRuntime) -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_http_action_with_log_attributes(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = http_action_udf_test(rt).await?;
+
+    // Test that HTTP action with setLogAttributes runs successfully
+    // The custom_log_attributes are captured in the HttpActionOutcome and logged
+    // via FunctionExecution events, but we can't access them directly from the
+    // HttpActionResult. This test verifies the syscall doesn't crash.
+    let response = t
+        .http_action(
+            "http_action",
+            http_request("with_log_attributes"),
+            Identity::system(),
+        )
+        .await?;
+
+    assert_eq!(response.status, StatusCode::OK);
+    must_let!(let Some(value) = response.body().clone());
+    assert_eq!(
+        std::str::from_utf8(&value)?,
+        "HTTP action with log attributes completed"
+    );
+    Ok(())
+}

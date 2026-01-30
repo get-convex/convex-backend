@@ -36,9 +36,39 @@ import {
   setupStorageWriter,
 } from "./storage_impl.js";
 import { parseArgs } from "../../common/index.js";
-import { performAsyncSyscall } from "./syscall.js";
+import { performAsyncSyscall, performSyscall } from "./syscall.js";
 import { asObjectValidator } from "../../values/validator.js";
 import { getFunctionAddress } from "../components/paths.js";
+
+/**
+ * Set custom log attributes that will be included in the function execution log.
+ * Can be called multiple times - attributes are merged with last-write-wins semantics.
+ *
+ * This function is designed to be non-crashing:
+ * - Invalid attributes are skipped (with a warning logged)
+ * - If limits are exceeded, attributes are truncated
+ * - If the backend doesn't support this feature, a warning is logged
+ *
+ * @param attrs - Key-value pairs where values must be string, number, or boolean.
+ *                Maximum 10 keys, 1KB total size, keys must be alphanumeric with underscores or dots.
+ */
+function setupSetLogAttributes(): (
+  attrs: Record<string, string | number | boolean>,
+) => void {
+  return (attrs: Record<string, string | number | boolean>) => {
+    try {
+      performSyscall("1.0/setLogAttributes", { attrs });
+    } catch (e) {
+      // Log warning but don't crash - this can happen if:
+      // 1. Running on an older backend that doesn't support this syscall
+      // 2. Some other unexpected error
+      // We don't want to crash user functions for logging attributes
+      console.warn(
+        `setLogAttributes failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  };
+}
 
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,
@@ -52,6 +82,7 @@ async function invokeMutation<
     auth: setupAuth(requestId),
     storage: setupStorageWriter(requestId),
     scheduler: setupMutationScheduler(),
+    setLogAttributes: setupSetLogAttributes(),
 
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
     runMutation: (reference: any, args?: any) =>
@@ -269,6 +300,7 @@ async function invokeQuery<
     db: setupReader(),
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
+    setLogAttributes: setupSetLogAttributes(),
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
   };
   const result = await invokeFunction(func, queryCtx, args as any);
@@ -361,6 +393,7 @@ async function invokeAction<
     scheduler: setupActionScheduler(requestId),
     storage: setupStorageActionWriter(requestId),
     vectorSearch: setupActionVectorSearch(requestId) as any,
+    setLogAttributes: setupSetLogAttributes(),
   };
   const result = await invokeFunction(func, ctx, args as any);
   return JSON.stringify(convexToJson(result === undefined ? null : result));
@@ -451,6 +484,7 @@ async function invokeHttpAction<
     storage: setupStorageActionWriter(requestId),
     scheduler: setupActionScheduler(requestId),
     vectorSearch: setupActionVectorSearch(requestId) as any,
+    setLogAttributes: setupSetLogAttributes(),
   };
   return await invokeFunction(func, ctx, [request]);
 }
