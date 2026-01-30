@@ -11,7 +11,7 @@ import {
   DeploymentType,
   DeploymentName,
   fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows,
-  createProject,
+  createProjectAndCreateDeployment,
   DeploymentSelectionWithinProject,
   loadSelectedDeploymentCredentials,
   checkAccessToSelectedProject,
@@ -571,12 +571,13 @@ async function selectNewProject(
 
   let projectSlug, teamSlug, projectsRemaining;
   try {
-    ({ projectSlug, teamSlug, projectsRemaining } = await createProject(ctx, {
-      teamSlug: selectedTeam,
-      projectName,
-      // We have to create some deployment initially for a project.
-      deploymentTypeToProvision: devDeployment === "local" ? "prod" : "dev",
-    }));
+    ({ projectSlug, teamSlug, projectsRemaining } =
+      await createProjectAndCreateDeployment(ctx, {
+        teamSlug: selectedTeam,
+        projectName,
+        // We have to create some deployment initially for a project.
+        deploymentTypeToProvision: devDeployment === "local" ? "prod" : "dev",
+      }));
   } catch (err) {
     logFailure("Unable to create project.");
     return await logAndHandleFetchError(ctx, err);

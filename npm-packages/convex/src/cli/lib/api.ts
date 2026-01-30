@@ -33,7 +33,7 @@ export type Project = {
 type AdminKey = string;
 
 // Provision a new project, creating a deployment of type `deploymentTypeToProvision`
-export async function createProject(
+export async function createProjectAndCreateDeployment(
   ctx: Context,
   {
     teamSlug: selectedTeamSlug,
@@ -52,8 +52,6 @@ export async function createProject(
   const provisioningArgs = {
     team: selectedTeamSlug,
     projectName,
-    // TODO: Consider allowing projects with no deployments, or consider switching
-    // to provisioning prod on creation.
     deploymentType: deploymentTypeToProvision,
   };
   const data = await bigBrainAPI({

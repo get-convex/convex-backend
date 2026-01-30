@@ -40,7 +40,7 @@ import crypto from "crypto";
 import { recursivelyDelete, recursivelyCopy } from "../fsUtils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
 import { isAnonymousDeployment } from "../deployment.js";
-import { createProject } from "../api.js";
+import { createProjectAndCreateDeployment } from "../api.js";
 import { removeAnonymousPrefix } from "../deployment.js";
 import { nodeFs } from "../../../bundler/fs.js";
 import { doInitConvexFolder } from "../codegen.js";
@@ -441,11 +441,12 @@ export async function handleLinkToProject(
   if (args.projectSlug !== null) {
     projectSlug = args.projectSlug;
   } else {
-    const { projectSlug: newProjectSlug } = await createProject(ctx, {
-      teamSlug: args.teamSlug,
-      projectName,
-      deploymentTypeToProvision: "prod",
-    });
+    const { projectSlug: newProjectSlug } =
+      await createProjectAndCreateDeployment(ctx, {
+        teamSlug: args.teamSlug,
+        projectName,
+        deploymentTypeToProvision: "prod",
+      });
     projectSlug = newProjectSlug;
   }
   logVerbose(`Creating local deployment in project ${projectSlug}`);

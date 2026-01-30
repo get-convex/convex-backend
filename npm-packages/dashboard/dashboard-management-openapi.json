@@ -4153,8 +4153,6 @@
           "projectId",
           "teamSlug",
           "teamId",
-          "deploymentName",
-          "prodUrl",
           "projectsRemaining"
         ],
         "properties": {
@@ -4169,7 +4167,10 @@
             ]
           },
           "deploymentName": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "deploymentsRemaining": {
             "type": [
@@ -4180,7 +4181,10 @@
             "minimum": 0
           },
           "prodUrl": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "projectId": {
             "$ref": "#/components/schemas/ProjectId"

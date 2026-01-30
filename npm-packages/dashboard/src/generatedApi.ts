@@ -2093,10 +2093,10 @@ export interface components {
         };
         CreateProjectResponse: {
             adminKey?: null | components["schemas"]["AdminKey"];
-            deploymentName: string;
+            deploymentName?: string | null;
             /** Format: int64 */
             deploymentsRemaining?: number | null;
-            prodUrl: string;
+            prodUrl?: string | null;
             projectId: components["schemas"]["ProjectId"];
             projectSlug: components["schemas"]["ProjectSlug"];
             /** Format: int64 */
