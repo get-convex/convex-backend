@@ -4,7 +4,10 @@ use criterion::{
     Criterion,
 };
 use serde_json::json;
-use value::ConvexValue;
+use value::{
+    json_deserialize,
+    ConvexValue,
+};
 
 fn simple_value() -> serde_json::Value {
     json!({
@@ -36,19 +39,21 @@ pub fn benchmark_serialize(c: &mut Criterion) {
 }
 
 pub fn benchmark_deserialize(c: &mut Criterion) {
-    let value = serde_json::to_string(&simple_value()).unwrap();
-    c.bench_function("from_json::simple", |b| {
-        b.iter(|| {
-            ConvexValue::try_from(serde_json::from_str::<serde_json::Value>(&value).unwrap())
-                .unwrap()
-        })
+    let value = simple_value();
+    c.bench_function("from_json_value::simple", |b| {
+        b.iter(|| ConvexValue::try_from(value.clone()).unwrap())
     });
-    let value = serde_json::to_string(&nested_value()).unwrap();
+    let string = serde_json::to_string(&value).unwrap();
+    c.bench_function("from_json::simple", |b| {
+        b.iter(|| json_deserialize(&string).unwrap())
+    });
+    let value = nested_value();
+    c.bench_function("from_json_value::nested", |b| {
+        b.iter(|| ConvexValue::try_from(value.clone()).unwrap())
+    });
+    let string = serde_json::to_string(&value).unwrap();
     c.bench_function("from_json::nested", |b| {
-        b.iter(|| {
-            ConvexValue::try_from(serde_json::from_str::<serde_json::Value>(&value).unwrap())
-                .unwrap()
-        })
+        b.iter(|| json_deserialize(&string).unwrap())
     });
 }
 
