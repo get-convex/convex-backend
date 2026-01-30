@@ -4,5 +4,5 @@ import { ProvisionDeploymentPage } from "components/provisionDeployment/Provisio
 export { getServerSideProps } from "lib/ssr";
 
 export default withAuthenticatedPage(() => (
-  <ProvisionDeploymentPage deploymentType="prod" />
+  <ProvisionDeploymentPage deploymentType="dev" />
 ));

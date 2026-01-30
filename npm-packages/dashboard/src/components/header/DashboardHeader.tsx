@@ -19,7 +19,10 @@ import { ProjectSelector } from "components/header/ProjectSelector/ProjectSelect
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
 import { TeamResponse } from "generatedApi";
 
-import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
+import {
+  PROVISION_PROD_PAGE_NAME,
+  PROVISION_DEV_PAGE_NAME,
+} from "@common/lib/deploymentContext";
 import { UsageBanner, useCurrentUsageBanner } from "./UsageBanner";
 import {
   FailedPaymentBanner,
@@ -110,7 +113,8 @@ function DashboardHeaderWhenLoggedIn() {
       router.route.endsWith("/[project]/settings") ||
       router.route.endsWith("/[project]") ||
       router.route.includes("/[project]/[deploymentName]") ||
-      router.route.includes(`/[project]/${PROVISION_PROD_PAGE_NAME}`)
+      router.route.includes(`/[project]/${PROVISION_PROD_PAGE_NAME}`) ||
+      router.route.includes(`/[project]/${PROVISION_DEV_PAGE_NAME}`)
     ) {
       return (
         <div className="flex items-center gap-4">

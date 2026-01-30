@@ -27,6 +27,7 @@ import { Spinner } from "@ui/Spinner";
 import { Tooltip } from "@ui/Tooltip";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
+export const PROVISION_DEV_PAGE_NAME = "development";
 
 type FallbackRender = (errorData: {
   error: Error;
@@ -380,7 +381,8 @@ const useConnectedDeployment = (
     if (
       deploymentName === undefined ||
       // TODO(ari): Refactor out of dashboard-common. This is only used in the cloud dashboard.
-      deploymentName === PROVISION_PROD_PAGE_NAME
+      deploymentName === PROVISION_PROD_PAGE_NAME ||
+      deploymentName === PROVISION_DEV_PAGE_NAME
     )
       return;
 

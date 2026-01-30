@@ -1,6 +1,9 @@
 import { useRouter } from "next/router";
 import { useCurrentTeam } from "api/teams";
-import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
+import {
+  PROVISION_PROD_PAGE_NAME,
+  PROVISION_DEV_PAGE_NAME,
+} from "@common/lib/deploymentContext";
 import { useProjectById } from "api/projects";
 
 export function useDeploymentUris(
@@ -15,17 +18,19 @@ export function useDeploymentUris(
   const selectedTeamSlug = team?.slug;
 
   const { project, isLoading } = useProjectById(projectId);
-  const prodDeploymentName = project?.prodDeploymentName;
-  const devDeploymentName = project?.devDeploymentName;
+  const prodDeploymentName = project?.prodDeploymentName ?? null;
+  const devDeploymentName = project?.devDeploymentName ?? null;
 
   const projectURI = `/t/${teamSlug || selectedTeamSlug}/${projectSlug}`;
 
-  const prodHref = prodDeploymentName
+  const hasDefaultProdDeployment = prodDeploymentName !== null;
+  const prodHref = hasDefaultProdDeployment
     ? `${projectURI}/${prodDeploymentName}${subroute}`
     : `${projectURI}/${PROVISION_PROD_PAGE_NAME}`;
-  const devHref = devDeploymentName
+  const hasDefaultDevDeployment = devDeploymentName !== null;
+  const devHref = hasDefaultDevDeployment
     ? `${projectURI}/${devDeploymentName}${subroute}`
-    : undefined;
+    : `${projectURI}/${PROVISION_DEV_PAGE_NAME}`;
 
   const isProdDefault = !devDeploymentName;
 
@@ -34,7 +39,9 @@ export function useDeploymentUris(
     isProdDefault,
     prodHref,
     devHref,
-    defaultHref: isProdDefault ? prodHref : devHref,
+    hasDefaultProdDeployment,
+    hasDefaultDevDeployment,
+    defaultHref: hasDefaultDevDeployment ? devHref : prodHref,
     generateHref: (deploymentName: string) =>
       `${projectURI}/${deploymentName}${subroute}`,
   };

@@ -26,6 +26,9 @@ export function ProjectCard({ project }: { project: ProjectDetails }) {
     prodHref,
     devHref,
     isProdDefault,
+    defaultHref,
+    hasDefaultProdDeployment,
+    hasDefaultDevDeployment,
     isLoading: isLoadingDeployments,
   } = useDeploymentUris(id, slug);
 
@@ -62,13 +65,7 @@ export function ProjectCard({ project }: { project: ProjectDetails }) {
   return (
     <Card
       cardClassName="group animate-fadeInFromLoading"
-      href={
-        deleteModal || lostAccessModal
-          ? undefined
-          : isProdDefault
-            ? prodHref
-            : devHref
-      }
+      href={deleteModal || lostAccessModal ? undefined : defaultHref}
       dropdownItems={dropdownItems}
       overlayed={
         <div className="flex gap-1">
@@ -76,8 +73,10 @@ export function ProjectCard({ project }: { project: ProjectDetails }) {
             <div className="flex flex-col items-end">
               <DeploymentLinks
                 isProdDefault={isProdDefault}
-                devHref={devHref ?? null}
+                devHref={devHref}
                 prodHref={prodHref}
+                hasDefaultDevDeployment={hasDefaultDevDeployment}
+                hasDefaultProdDeployment={hasDefaultProdDeployment}
               />
               <TimestampDistance
                 date={new Date(project.createTime)}
@@ -137,27 +136,39 @@ function DeploymentLinks({
   devHref,
   prodHref,
   isProdDefault,
+  hasDefaultDevDeployment,
+  hasDefaultProdDeployment,
 }: {
   isProdDefault: boolean;
-  devHref: string | null;
+  devHref: string;
   prodHref: string;
+  hasDefaultDevDeployment: boolean;
+  hasDefaultProdDeployment: boolean;
 }) {
   const prod = (
     <DeploymentLabel
       href={prodHref}
       isDefault={isProdDefault}
       title="Production"
+      showTip={!hasDefaultProdDeployment}
+      tip={
+        <>
+          You do not have a production deployment for this project yet. Click to
+          provision one.
+        </>
+      }
     />
   );
   const dev = (
     <DeploymentLabel
       href={devHref}
       isDefault={!isProdDefault}
+      showTip={!hasDefaultDevDeployment}
       tip={
         <>
           You do not have a personal development deployment for this project
-          yet. Run <code className="px-1">npx convex dev</code> to provision
-          one.
+          yet. Click to provision one, or run{" "}
+          <code className="px-1">npx convex dev</code>.
         </>
       }
       title="Development"
@@ -183,24 +194,15 @@ function DeploymentLabel({
   isDefault,
   title,
   tip,
-}:
-  | {
-      href: string | null;
-      isDefault: boolean;
-      tip: ReactNode;
-      title: string;
-    }
-  | {
-      href: string;
-      isDefault: boolean;
-      title: string;
-      tip?: never;
-    }) {
-  return href === null ? (
-    <Tooltip tip={tip}>
-      <div className="text-xs text-content-secondary select-none">{title}</div>
-    </Tooltip>
-  ) : (
+  showTip,
+}: {
+  href: string;
+  isDefault: boolean;
+  title: string;
+  tip?: ReactNode;
+  showTip?: boolean;
+}) {
+  const linkContent = (
     <Link
       passHref
       href={href}
@@ -211,4 +213,10 @@ function DeploymentLabel({
       {title}
     </Link>
   );
+
+  if (showTip && tip) {
+    return <Tooltip tip={tip}>{linkContent}</Tooltip>;
+  }
+
+  return linkContent;
 }

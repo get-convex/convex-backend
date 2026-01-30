@@ -5,13 +5,20 @@ import { useCurrentProject } from "api/projects";
 import { useRouter } from "next/router";
 import { useEffect, useRef } from "react";
 
-export function ProvisionProductionDeploymentPage() {
+export function ProvisionDeploymentPage({
+  deploymentType,
+}: {
+  deploymentType: "prod" | "dev";
+}) {
   const router = useRouter();
   const projectSlug = router.query.project as string;
   const team = useCurrentTeam();
   const project = useCurrentProject();
   const projectId = project?.id ?? null;
   const projectURI = `/t/${team?.slug}/${projectSlug}`;
+
+  const deploymentTypeLabel =
+    deploymentType === "prod" ? "production" : "development";
 
   return (
     <div className="h-full bg-background-primary p-6">
@@ -20,11 +27,13 @@ export function ProvisionProductionDeploymentPage() {
           <div className="flex max-w-lg animate-fadeIn flex-col items-center">
             <h1 className="mx-2 mt-10 mb-8">
               Provisioning your{" "}
-              <span className="font-semibold">production</span> deployment...
+              <span className="font-semibold">{deploymentTypeLabel}</span>{" "}
+              deployment...
               {projectId !== null ? (
                 <ProvisionDeployment
                   projectId={projectId}
                   projectURI={projectURI}
+                  deploymentType={deploymentType}
                 />
               ) : null}
             </h1>
@@ -41,9 +50,11 @@ export function ProvisionProductionDeploymentPage() {
 function ProvisionDeployment({
   projectId,
   projectURI,
+  deploymentType,
 }: {
   projectId: number;
   projectURI: string;
+  deploymentType: "prod" | "dev";
 }) {
   const router = useRouter();
   const provisionDeployment = useProvisionDeployment(projectId);
@@ -62,7 +73,7 @@ function ProvisionDeployment({
     void (async () => {
       wasCalled.current = true;
       const { name } = await provisionDeployment({
-        type: "prod",
+        type: deploymentType,
       });
       void router.replace(`${projectURI}/${name}`);
     })();
