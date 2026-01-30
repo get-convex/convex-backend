@@ -749,8 +749,15 @@
             "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
           },
           "region": {
-            "$ref": "#/components/schemas/RegionName",
-            "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName",
+                "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
+              }
+            ]
           },
           "type": {
             "$ref": "#/components/schemas/CreateDeploymentType"
@@ -773,8 +780,15 @@
             "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
           },
           "deploymentRegion": {
-            "$ref": "#/components/schemas/RegionName",
-            "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName",
+                "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
+              }
+            ]
           },
           "deploymentType": {
             "$ref": "#/components/schemas/CreateDeploymentType",

@@ -7,12 +7,6 @@ use tuple_struct::tuple_struct_string;
 
 tuple_struct_string!(RegionName);
 
-impl Default for RegionName {
-    fn default() -> RegionName {
-        default_region().clone()
-    }
-}
-
 static DEFAULT_REGION_NAME: LazyLock<RegionName> = LazyLock::new(|| "aws-us-east-1".into());
 pub static TEST_REGION_NAME: LazyLock<RegionName> = LazyLock::new(|| "local".into());
 

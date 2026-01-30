@@ -2088,7 +2088,7 @@ export interface components {
             deploymentClass?: string | null;
             deploymentType?: null | components["schemas"]["DeploymentType"];
             projectName: components["schemas"]["ProjectName"];
-            region?: components["schemas"]["RegionName"];
+            region?: null | components["schemas"]["RegionName"];
             team: components["schemas"]["TeamSlug"];
         };
         CreateProjectResponse: {
@@ -2526,7 +2526,7 @@ export interface components {
         ProvisionDeploymentDashboardArgs: {
             deploymentClass?: string | null;
             deploymentType: components["schemas"]["DeploymentType"];
-            region?: components["schemas"]["RegionName"];
+            region?: null | components["schemas"]["RegionName"];
         };
         ProvisionDeploymentDashboardResponse: {
             deploymentName: string;
