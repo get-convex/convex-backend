@@ -152,6 +152,7 @@ pub async fn make_app(
     // TODO(CX-6572) Separate `SegmentMetadataFetcher` from `SearcherImpl`
     let segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher> = in_process_searcher;
     let (deleted_tablet_sender, deleted_tablet_receiver) = tokio::sync::mpsc::channel(100);
+    let usage_event_logger = Arc::new(NoOpUsageEventLogger);
     let database = Database::load(
         persistence.clone(),
         runtime.clone(),
@@ -159,7 +160,6 @@ pub async fn make_app(
         preempt_tx.clone(),
         virtual_system_mapping().clone(),
         REFRESHABLE_APP_TABLES.clone(),
-        Arc::new(NoOpUsageEventLogger),
         Arc::new(new_rate_limiter(
             runtime.clone(),
             Quota::per_second(*DOCUMENT_RETENTION_RATE_LIMIT),
@@ -224,7 +224,7 @@ pub async fn make_app(
         database.clone(),
         file_storage.clone(),
         application_storage,
-        database.usage_counter(),
+        usage_event_logger,
         key_broker.clone(),
         config.name(),
         function_runner,

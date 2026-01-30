@@ -163,6 +163,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use events::usage::UsageEventLogger;
 use fastrace::{
     collector::SpanContext,
     func_path,
@@ -556,7 +557,8 @@ pub struct Application<RT: Runtime> {
     function_log: FunctionExecutionLog<RT>,
     file_storage: FileStorage<RT>,
     application_storage: ApplicationStorage,
-    usage_tracking: UsageCounter,
+    usage_counter: UsageCounter,
+    usage_event_logger: Arc<dyn UsageEventLogger>,
     key_broker: KeyBroker,
     instance_name: String,
     scheduled_job_runner: ScheduledJobRunner,
@@ -587,7 +589,8 @@ impl<RT: Runtime> Clone for Application<RT> {
             function_log: self.function_log.clone(),
             file_storage: self.file_storage.clone(),
             application_storage: self.application_storage.clone(),
-            usage_tracking: self.usage_tracking.clone(),
+            usage_counter: self.usage_counter.clone(),
+            usage_event_logger: self.usage_event_logger.clone(),
             key_broker: self.key_broker.clone(),
             instance_name: self.instance_name.clone(),
             scheduled_job_runner: self.scheduled_job_runner.clone(),
@@ -685,7 +688,7 @@ impl<RT: Runtime> Application<RT> {
         database: Database<RT>,
         file_storage: FileStorage<RT>,
         application_storage: ApplicationStorage,
-        usage_tracking: UsageCounter,
+        usage_event_logger: Arc<dyn UsageEventLogger>,
         key_broker: KeyBroker,
         instance_name: String,
         function_runner: Arc<dyn FunctionRunner<RT>>,
@@ -775,19 +778,20 @@ impl<RT: Runtime> Application<RT> {
             bi.is_log_streaming_allowed().await?
         };
 
+        let usage_counter = UsageCounter::new(usage_event_logger.clone());
         let log_manager_client = LogManager::start(
             runtime.clone(),
             database.clone(),
             fetch_client.clone(),
             instance_name.clone(),
             log_streaming_allowed,
-            database.usage_counter(),
+            usage_counter.clone(),
         )
         .await;
 
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
-            database.usage_counter(),
+            usage_counter.clone(),
             Arc::new(log_manager_client.clone()),
         );
         let runner = Arc::new(ApplicationFunctionRunner::new(
@@ -830,7 +834,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage.exports_storage.clone(),
             application_storage.files_storage.clone(),
             export_provider,
-            database.usage_counter(),
+            usage_counter.clone(),
             instance_name.clone(),
         );
         let export_worker = Arc::new(Mutex::new(Some(
@@ -842,7 +846,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             application_storage.snapshot_imports_storage.clone(),
             file_storage.clone(),
-            database.usage_counter(),
+            usage_counter.clone(),
         );
         let snapshot_import_worker = Arc::new(Mutex::new(Some(
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),
@@ -865,7 +869,8 @@ impl<RT: Runtime> Application<RT> {
             function_log,
             file_storage,
             application_storage,
-            usage_tracking,
+            usage_event_logger,
+            usage_counter,
             key_broker,
             scheduled_job_runner,
             cron_job_executor,
@@ -956,7 +961,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub fn usage_counter(&self) -> UsageCounter {
-        self.database.usage_counter()
+        self.usage_counter.clone()
     }
 
     pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
@@ -2742,7 +2747,7 @@ impl<RT: Runtime> Application<RT> {
                 content_type,
                 body,
                 expected_sha256,
-                &self.usage_tracking,
+                &self.usage_counter,
             )
             .await?;
         Ok(storage_id)
@@ -2755,7 +2760,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<DeveloperDocumentId> {
         let storage_id = self
             .file_storage
-            .store_entry(component.into(), entry, &self.usage_tracking)
+            .store_entry(component.into(), entry, &self.usage_counter)
             .await?;
         Ok(storage_id)
     }
@@ -2814,7 +2819,7 @@ impl<RT: Runtime> Application<RT> {
             .file_storage
             .transactional_file_storage
             // The transaction is not part of UDF so use the global usage counters.
-            .get_file_stream(component_path, file_entry, self.usage_tracking.clone())
+            .get_file_stream(component_path, file_entry, self.usage_counter.clone())
             .await
     }
 
@@ -2856,7 +2861,7 @@ impl<RT: Runtime> Application<RT> {
                 component_path,
                 file_entry,
                 bytes_range,
-                self.usage_tracking.clone(),
+                self.usage_counter.clone(),
             )
             .await
     }
@@ -3672,6 +3677,7 @@ impl<RT: Runtime> Application<RT> {
             shutdown_and_join(migration_worker).await?;
         }
         self.function_log().shutdown();
+        self.usage_event_logger.shutdown().await?;
         tracing::info!("Application shut down");
         Ok(())
     }

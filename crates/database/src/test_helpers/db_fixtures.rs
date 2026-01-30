@@ -25,6 +25,7 @@ use storage::{
     LocalDirStorage,
     Storage,
 };
+use usage_tracking::UsageCounter;
 use value::TableName;
 
 use crate::{
@@ -40,6 +41,7 @@ pub struct DbFixtures<RT: Runtime> {
     pub search_storage: Arc<dyn Storage>,
     pub build_index_args: BuildTextIndexArgs,
     pub test_usage_logger: TestUsageEventLogger,
+    pub usage_counter: UsageCounter,
 }
 
 #[derive(Clone)]
@@ -92,6 +94,7 @@ impl<RT: Runtime> DbFixtures<RT> {
         };
         let test_usage_logger = TestUsageEventLogger::new();
         let (deleted_tablet_sender, _deleted_tablet_receiver) = tokio::sync::mpsc::channel(100);
+        let usage_counter = UsageCounter::new(Arc::new(test_usage_logger.clone()));
         let db = Database::load(
             tp.clone(),
             rt.clone(),
@@ -99,7 +102,6 @@ impl<RT: Runtime> DbFixtures<RT> {
             ShutdownSignal::panic(),
             virtual_system_mapping,
             refreshable_app_tables,
-            Arc::new(test_usage_logger.clone()),
             Arc::new(new_unlimited_rate_limiter(rt.clone())),
             deleted_tablet_sender,
         )
@@ -123,6 +125,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             search_storage,
             build_index_args,
             test_usage_logger,
+            usage_counter,
         })
     }
 }

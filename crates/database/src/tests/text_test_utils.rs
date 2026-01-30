@@ -48,6 +48,7 @@ use search::{
 };
 use storage::Storage;
 use sync_types::Timestamp;
+use usage_tracking::UsageCounter;
 use value::{
     assert_obj,
     DeveloperDocumentId,
@@ -95,6 +96,7 @@ pub struct TextFixtures {
     pub db: Database<TestRuntime>,
     pub reader: Arc<dyn PersistenceReader>,
     pub test_usage_logger: TestUsageEventLogger,
+    pub usage_counter: UsageCounter,
     searcher: Arc<dyn Searcher>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     writer: TextIndexMetadataWriter<TestRuntime>,
@@ -118,6 +120,7 @@ impl TextFixtures {
             search_storage,
             searcher,
             test_usage_logger,
+            usage_counter,
             ..
         } = DbFixtures::new_with_args(
             &rt,
@@ -149,6 +152,7 @@ impl TextFixtures {
             searcher,
             config,
             test_usage_logger,
+            usage_counter,
         })
     }
 

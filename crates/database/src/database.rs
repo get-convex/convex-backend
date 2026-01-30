@@ -108,7 +108,6 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use events::usage::UsageEventLogger;
 use futures::{
     future::Either,
     pin_mut,
@@ -146,7 +145,6 @@ use tokio::{
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
-    UsageCounter,
 };
 use value::{
     id_v6::DeveloperDocumentId,
@@ -285,7 +283,6 @@ pub struct Database<RT: Runtime> {
     retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
-    usage_counter: UsageCounter,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
     // Caches of snapshot TableMapping and by_id index ids, which are used repeatedly by
@@ -966,7 +963,6 @@ impl<RT: Runtime> Database<RT> {
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
         refreshable_tables: BTreeSet<TableName>,
-        usage_events: Arc<dyn UsageEventLogger>,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
         deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<Self> {
@@ -1036,7 +1032,6 @@ impl<RT: Runtime> Database<RT> {
         let persistence_reader = persistence.reader();
         let (log_owner, log_reader, log_writer) = new_write_log(*ts);
         let subscriptions = SubscriptionsWorker::start(log_owner, runtime.clone());
-        let usage_counter = UsageCounter::new(usage_events);
         let committer = Committer::start(
             log_writer,
             snapshot_writer,
@@ -1068,7 +1063,6 @@ impl<RT: Runtime> Database<RT> {
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
             search_storage: Arc::new(OnceLock::new()),
-            usage_counter,
             virtual_system_mapping,
             bootstrap_metadata,
             table_mapping_snapshot_cache,
@@ -2311,10 +2305,6 @@ impl<RT: Runtime> Database<RT> {
             .latest_snapshot()
             .table_summaries
             .is_some()
-    }
-
-    pub fn usage_counter(&self) -> UsageCounter {
-        self.usage_counter.clone()
     }
 
     pub fn search_storage(&self) -> Arc<dyn Storage> {

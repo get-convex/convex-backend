@@ -206,6 +206,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let segment_term_metadata_fetcher = Arc::new(search::searcher::SearcherStub {});
         let persistence = args.tp.unwrap_or_else(TestPersistence::new);
         let (deleted_tablet_sender, deleted_tablet_receiver) = mpsc::channel(10);
+        let usage_event_logger = args.event_logger.unwrap_or(Arc::new(NoOpUsageEventLogger));
         let database = Database::load(
             Arc::new(persistence.clone()),
             rt.clone(),
@@ -213,7 +214,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             ShutdownSignal::panic(),
             virtual_system_mapping().clone(),
             REFRESHABLE_APP_TABLES.clone(),
-            args.event_logger.unwrap_or(Arc::new(NoOpUsageEventLogger)),
             // Essentially unlimited rate limit for testing
             Arc::new(new_unlimited_rate_limiter(rt.clone())),
             deleted_tablet_sender,
@@ -269,7 +269,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             database.clone(),
             file_storage.clone(),
             application_storage,
-            database.usage_counter(),
+            usage_event_logger,
             kb.clone(),
             DEV_INSTANCE_NAME.into(),
             function_runner,

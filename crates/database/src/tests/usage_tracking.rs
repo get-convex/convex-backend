@@ -68,8 +68,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
     add_document_vec_array(&mut tx, &table_name, [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -98,8 +97,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     let document = tx.get(doc_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -140,8 +138,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
     let document = tx.get(doc_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -174,8 +171,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -267,8 +263,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     tx_usage.add(usage_stats);
 
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -311,8 +306,7 @@ async fn text_fields_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Resul
     add_document(&mut tx, index_name.table(), "test").await?;
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -384,8 +378,7 @@ async fn text_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> anyh
     add_document(&mut tx, &table_name, "hello").await?;
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -413,8 +406,7 @@ async fn text_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> an
     let document = tx.get(document_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -448,8 +440,7 @@ async fn text_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyhow
     let document = tx.get(document_id).await?.unwrap();
     fixtures.db.commit(tx).await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -486,8 +477,7 @@ async fn text_query_counts_usage(rt: TestRuntime) -> anyhow::Result<()> {
         .search_with_tx(&mut tx, index_name.clone(), "he")
         .await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -521,8 +511,7 @@ async fn empty_text_query_does_not_count_usage(rt: TestRuntime) -> anyhow::Resul
         .search_with_tx(&mut tx, index_name.clone(), "")
         .await?;
     fixtures
-        .db
-        .usage_counter()
+        .usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -538,6 +527,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     let DbFixtures {
         db,
         test_usage_logger,
+        usage_counter,
         ..
     } = DbFixtures::new(&rt).await?;
 
@@ -551,7 +541,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .insert(&table_name, obj.clone())
         .await?;
     db.commit(tx).await?;
-    db.usage_counter()
+    usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -587,7 +577,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .get_with_ts(doc_id.developer_id, None)
         .await?;
     db.commit(tx).await?;
-    db.usage_counter()
+    usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -620,6 +610,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let DbFixtures {
         db,
         test_usage_logger,
+        usage_counter,
         ..
     } = DbFixtures::new(&rt).await?;
 
@@ -640,7 +631,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .await
         .unwrap_or_else(|e| panic!("Failed to add index for {} {:?}", "by_key", e));
     db.commit(tx).await?;
-    db.usage_counter()
+    usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -661,7 +652,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .insert(&table_name, obj3.clone())
         .await?;
     db.commit(tx).await?;
-    db.usage_counter()
+    usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -704,7 +695,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let mut query_stream = ResolvedQuery::new(&mut tx, namespace, index_query)?;
     while query_stream.next(&mut tx, None).await?.is_some() {}
     db.commit(tx).await?;
-    db.usage_counter()
+    usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
 
@@ -745,13 +736,13 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
 #[convex_macro::test_runtime]
 async fn test_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
     let DbFixtures {
-        db,
         test_usage_logger,
+        usage_counter,
         ..
     } = DbFixtures::new(&rt).await?;
 
     let tx_usage = FunctionUsageTracker::new();
-    db.usage_counter()
+    usage_counter
         .track_call_test(tx_usage.gather_user_stats())
         .await;
     let stats = test_usage_logger.collect();

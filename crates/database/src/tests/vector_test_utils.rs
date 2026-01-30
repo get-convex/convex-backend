@@ -62,6 +62,7 @@ use search::{
 use storage::Storage;
 use sync_types::Timestamp;
 use tempfile::TempDir;
+use usage_tracking::UsageCounter;
 use value::{
     assert_obj,
     ConvexValue,
@@ -118,6 +119,7 @@ pub struct VectorFixtures {
     config: CompactionConfig,
     namespace: TableNamespace,
     pub test_usage_logger: TestUsageEventLogger,
+    pub usage_counter: UsageCounter,
 }
 
 /// The size of the vectors these fixtures use [f32; 2]. We actually require f64
@@ -138,6 +140,7 @@ impl VectorFixtures {
             searcher,
             search_storage,
             test_usage_logger,
+            usage_counter,
             ..
         } = DbFixtures::new_with_args(
             &rt,
@@ -156,6 +159,7 @@ impl VectorFixtures {
             config,
             namespace: TableNamespace::test_user(),
             test_usage_logger,
+            usage_counter,
         })
     }
 
