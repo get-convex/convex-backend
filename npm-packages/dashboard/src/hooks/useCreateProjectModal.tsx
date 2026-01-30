@@ -35,7 +35,7 @@ export function useCreateProjectModal(): [
             onClose={() => setModalOpen(false)}
             team={selectedTeam}
             onSuccess={(project) => {
-              const projectUrl = `/t/${selectedTeam.slug}/${project.projectSlug}/${project.deploymentName}/data`;
+              const projectUrl = `/t/${selectedTeam.slug}/${project.projectSlug}/development`;
               window.location.href = projectUrl;
             }}
           />
@@ -87,7 +87,7 @@ export function CreateProjectForm({
       const project = await createProject({
         ...values,
         team: team.slug,
-        deploymentType: "dev",
+        deploymentType: null,
       });
       capture("created_project");
       onSuccess(project);
