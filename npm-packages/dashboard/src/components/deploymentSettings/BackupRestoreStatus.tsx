@@ -7,7 +7,8 @@ import { useQuery } from "convex/react";
 import { useConfirmImport } from "hooks/deploymentApi";
 import { useEffect, useState } from "react";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
-import { DeploymentResponse, TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { TeamResponse } from "generatedApi";
 import udfs from "@common/udfs";
 import { CheckCircledIcon, CrossCircledIcon } from "@radix-ui/react-icons";
 import { ProgressBar } from "@ui/ProgressBar";
@@ -19,7 +20,7 @@ export function BackupRestoreStatus({
   deployment,
   team,
 }: {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   team: TeamResponse;
 }) {
   const currentRestore = useLatestRestore();
@@ -99,7 +100,7 @@ export function BackupRestoreFail({
 }: {
   errorMessage: string;
   restoreStartTime: Date;
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   team: TeamResponse;
   backup: BackupResponse | null;
 }) {
@@ -166,7 +167,7 @@ export function BackupRestoreSuccess({
   // `number` is used from stories because Storybook crashes when using bigint
   restoredRowsCount: bigint | number;
 
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   team: TeamResponse;
   backup: BackupResponse | null;
   snapshotImportCheckpoints: Doc<"_snapshot_imports">["checkpoints"] | null;

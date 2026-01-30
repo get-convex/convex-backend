@@ -1,5 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { DeploymentResponse, TeamResponse } from "generatedApi";
+import { TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { Sheet } from "@ui/Sheet";
 import { useAccessToken } from "hooks/useServerSideData";
 import { Id } from "system-udfs/convex/_generated/dataModel";
@@ -25,7 +26,7 @@ const backup: BackupResponse = {
   includeStorage: true,
 };
 
-const targetDeployment: DeploymentResponse = {
+const targetDeployment: PlatformDeploymentResponse = {
   kind: "cloud",
   id: 1,
   name: "joyful-capybara-123",
@@ -35,7 +36,6 @@ const targetDeployment: DeploymentResponse = {
   creator: 1,
   previewIdentifier: null,
   region: "us-east-2",
-  isDefault: true,
 };
 
 const team: TeamResponse = {

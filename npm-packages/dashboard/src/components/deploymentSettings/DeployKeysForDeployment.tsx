@@ -8,8 +8,8 @@ import {
 } from "api/accessTokens";
 import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
-  DeploymentResponse,
   TeamResponse,
   ProjectDetails,
   AuthorizeArgs,
@@ -19,7 +19,7 @@ import {
 import { useAccessToken } from "hooks/useServerSideData";
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
 
-function getAdminKeyPrefix(deployment: DeploymentResponse) {
+function getAdminKeyPrefix(deployment: PlatformDeploymentResponse) {
   switch (deployment.deploymentType) {
     case "prod":
       return "prod";
@@ -53,7 +53,7 @@ function toDeployKeyResponse(
 }
 
 export async function getAccessTokenBasedDeployKey(
-  deployment: DeploymentResponse,
+  deployment: PlatformDeploymentResponse,
   project: ProjectDetails | undefined,
   team: TeamResponse,
   prefix: string,
@@ -79,7 +79,8 @@ export async function getAccessTokenBasedDeployKey(
     {
       name,
       teamId: team?.id || 0,
-      deploymentId: deployment?.id || 0,
+      deploymentId:
+        deployment?.kind === "cloud" ? deployment.id : deployment ? 0 : 0,
       projectId: null,
       permissions: null,
     },

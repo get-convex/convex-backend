@@ -16,8 +16,8 @@ import {
 } from "api/backups";
 import { useCurrentProject } from "api/projects";
 import { useEffect, useId, useMemo, useState } from "react";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
-  DeploymentResponse,
   PeriodicBackupConfig,
   TeamResponse,
   TeamEntitlementsResponse,
@@ -38,7 +38,7 @@ export function Backups({
   entitlements,
 }: {
   team: TeamResponse;
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   entitlements: TeamEntitlementsResponse;
 }) {
   const project = useCurrentProject();
@@ -176,12 +176,13 @@ export function AutomaticBackupSelector({
   deployment,
   canPerformActions,
 }: {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   canPerformActions: boolean;
 }) {
-  const periodicBackup = useGetPeriodicBackupConfig(deployment.id);
-  const configurePeriodicBackup = useConfigurePeriodicBackup(deployment.id);
-  const disablePeriodicBackup = useDisablePeriodicBackup(deployment.id);
+  const deploymentId = deployment.kind === "cloud" ? deployment.id : 0;
+  const periodicBackup = useGetPeriodicBackupConfig(deploymentId);
+  const configurePeriodicBackup = useConfigurePeriodicBackup(deploymentId);
+  const disablePeriodicBackup = useDisablePeriodicBackup(deploymentId);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -266,10 +267,12 @@ export function BackupIncludeStorageSelector({
   disabled,
 }: {
   periodicBackup: PeriodicBackupConfig;
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   disabled: boolean;
 }) {
-  const configurePeriodicBackup = useConfigurePeriodicBackup(deployment.id);
+  const configurePeriodicBackup = useConfigurePeriodicBackup(
+    deployment.kind === "cloud" ? deployment.id : 0,
+  );
 
   const includeStorageCheckboxId = useId();
 
@@ -332,7 +335,7 @@ export function BackupScheduleSelector({
   disabled,
 }: {
   cronspec: string;
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   disabled: boolean;
 }) {
   const parts = cronspec.split(" ");
@@ -412,9 +415,11 @@ export function BackupScheduleSelectorInner({
   defaultPeriodicity: "daily" | "weekly";
   defaultDayOfWeek: number;
   onClose: () => void;
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
 }) {
-  const configurePeriodicBackup = useConfigurePeriodicBackup(deployment.id);
+  const configurePeriodicBackup = useConfigurePeriodicBackup(
+    deployment.kind === "cloud" ? deployment.id : 0,
+  );
 
   const initialValue = `${defaultValue.getHours().toString().padStart(2, "0")}:${defaultValue.getMinutes().toString().padStart(2, "0")}`;
   const [value, setValue] = useState(initialValue);

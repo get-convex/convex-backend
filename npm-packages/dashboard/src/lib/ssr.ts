@@ -1,7 +1,8 @@
 import type { GetServerSideProps, GetServerSidePropsContext } from "next";
 import { getAccessToken, withPageAuthRequired } from "server/workos";
 import groupBy from "lodash/groupBy";
-import { DeploymentResponse, TeamResponse, ProjectDetails } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { TeamResponse, ProjectDetails } from "generatedApi";
 import fetchRetryFactory from "fetch-retry";
 import { getGoogleAnalyticsClientId } from "hooks/fetching";
 
@@ -114,7 +115,7 @@ const getProps: GetServerSideProps<{
     }: {
       teams: TeamResponse[];
       projects: ProjectDetails[];
-      deployments: DeploymentResponse[];
+      deployments: PlatformDeploymentResponse[];
       optInsToAccept?: {
         optIn: string;
         message: string;
@@ -174,11 +175,11 @@ const getProps: GetServerSideProps<{
 
     const deploymentsByProject = groupBy(
       deployments,
-      (d: DeploymentResponse) => d.projectId,
+      (d: PlatformDeploymentResponse) => d.projectId,
     );
     const initialDeployments = Object.fromEntries(
       projects.map(({ id: projectId }) => [
-        `/projects/${projectId}/instances`,
+        `/projects/${projectId}/list_deployments`,
         deploymentsByProject[projectId] ?? null,
       ]),
     );

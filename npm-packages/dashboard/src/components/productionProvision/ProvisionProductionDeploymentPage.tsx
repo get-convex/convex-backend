@@ -61,10 +61,10 @@ function ProvisionDeployment({
     }
     void (async () => {
       wasCalled.current = true;
-      const { deploymentName } = await provisionDeployment({
-        deploymentType: "prod",
+      const { name } = await provisionDeployment({
+        type: "prod",
       });
-      void router.replace(`${projectURI}/${deploymentName}`);
+      void router.replace(`${projectURI}/${name}`);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

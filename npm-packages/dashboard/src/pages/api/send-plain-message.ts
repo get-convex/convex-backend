@@ -6,7 +6,8 @@ import {
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { captureException, captureMessage } from "@sentry/nextjs";
-import { TeamResponse, ProjectDetails, DeploymentResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { TeamResponse, ProjectDetails } from "generatedApi";
 import { retryingFetch } from "lib/ssr";
 
 const apiKey = process.env.PLAIN_API_KEY;
@@ -85,7 +86,7 @@ export default async function handler(
     }: {
       teams: TeamResponse[];
       projects: ProjectDetails[];
-      deployments: DeploymentResponse[];
+      deployments: PlatformDeploymentResponse[];
     } = await memberDataResp.json();
     const { teamId, projectId, deploymentName } = body;
 

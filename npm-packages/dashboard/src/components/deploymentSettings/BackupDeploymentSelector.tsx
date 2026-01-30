@@ -14,7 +14,8 @@ import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
 import { cn } from "@ui/cn";
 import { useCallback, useMemo, useState } from "react";
-import { DeploymentResponse, TeamResponse } from "generatedApi";
+import { TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
 import { FullDeploymentName } from "./BackupListItem";
@@ -25,10 +26,10 @@ export function BackupDeploymentSelector({
   team,
   targetDeployment,
 }: {
-  selectedDeployment: DeploymentResponse;
-  onChange: (newDeployment: DeploymentResponse) => void;
+  selectedDeployment: PlatformDeploymentResponse;
+  onChange: (newDeployment: PlatformDeploymentResponse) => void;
   team: TeamResponse;
-  targetDeployment: DeploymentResponse;
+  targetDeployment: PlatformDeploymentResponse;
 }) {
   const projects = useProjects(team.id);
 
@@ -92,7 +93,9 @@ export function BackupDeploymentSelector({
           value={
             currentPage === "projects"
               ? [selectedProjectId]
-              : selectedDeployment.id
+              : selectedDeployment.kind === "cloud"
+                ? selectedDeployment.id
+                : undefined
           }
           onChange={(eventValue) => {
             if (Array.isArray(eventValue)) {
@@ -134,7 +137,9 @@ export function BackupDeploymentSelector({
                 )}
               >
                 <span className="font-semibold">Restore from:</span>
-                {selectedDeployment.id === targetDeployment.id ? (
+                {selectedDeployment.kind === "cloud" &&
+                targetDeployment.kind === "cloud" &&
+                selectedDeployment.id === targetDeployment.id ? (
                   "Current Deployment"
                 ) : (
                   <FullDeploymentName deployment={selectedDeployment} />
@@ -339,7 +344,7 @@ export function BackupDeploymentSelector({
 }
 
 function deploymentListOrder(
-  deployment: DeploymentResponse,
+  deployment: PlatformDeploymentResponse,
   isMine: boolean,
 ): number {
   const { deploymentType } = deployment;

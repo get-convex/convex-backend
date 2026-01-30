@@ -10,12 +10,8 @@ import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  DeploymentResponse,
-  DeploymentType,
-  TeamResponse,
-  ProjectDetails,
-} from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { DeploymentType, TeamResponse, ProjectDetails } from "generatedApi";
 import { PuzzlePieceIcon } from "@common/elements/icons";
 import { BANDWIDTH_CATEGORIES } from "./lib/teamUsageCategories";
 import {
@@ -90,7 +86,7 @@ export function TeamUsageByFunctionChart({
 }: {
   project: ProjectDetails | null;
   metric: FunctionBreakdownMetric;
-  deployments: DeploymentResponse[];
+  deployments: PlatformDeploymentResponse[];
   rows: AggregatedFunctionMetrics[];
   team: TeamResponse;
   maxValue: number;
@@ -402,7 +398,7 @@ function useOrderedAndGroupedRows(
   rows: AggregatedFunctionMetrics[],
   metric: FunctionBreakdownMetric,
   project: ProjectDetails | null,
-  deployments: DeploymentResponse[],
+  deployments: PlatformDeploymentResponse[],
   team: TeamResponse,
 ): DeploymentTypeRow[] {
   const fallbackDeploymentType: DeploymentType = "preview";
@@ -418,7 +414,9 @@ function useOrderedAndGroupedRows(
         const name = isSystem ? "" : row.function;
         if (project) {
           deployment = deployments.find(
-            (d) => d.id === row.deploymentId || d.name === row.deploymentName,
+            (d) =>
+              (d.kind === "cloud" && d.id === row.deploymentId) ||
+              d.name === row.deploymentName,
           );
           deploymentType = deployment
             ? deployment.deploymentType

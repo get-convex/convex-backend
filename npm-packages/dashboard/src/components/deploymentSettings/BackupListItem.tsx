@@ -20,7 +20,8 @@ import { Modal } from "@ui/Modal";
 import { Checkbox } from "@ui/Checkbox";
 import { Menu, MenuItem } from "@ui/Menu";
 import { useEffect, useId, useRef, useState } from "react";
-import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import { useDeploymentById } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProjectById } from "api/projects";
@@ -62,7 +63,7 @@ export function BackupListItem({
   someBackupInProgress: boolean;
   someRestoreInProgress: boolean;
   latestBackupInTargetDeployment: BackupResponse | null;
-  targetDeployment: DeploymentResponse;
+  targetDeployment: PlatformDeploymentResponse;
   team: TeamResponse;
   canPerformActions: boolean;
   getZipExportUrl: (snapshotId: Id<"_exports">) => string;
@@ -73,17 +74,26 @@ export function BackupListItem({
     null | "suggestBackup" | "restoreConfirmation" | "delete" | "cancel"
   >(null);
 
+  const targetDeploymentId =
+    targetDeployment.kind === "cloud" ? targetDeployment.id : null;
+
   const previousState = useRef(backup.state);
   useEffect(() => {
     if (
       previousState.current !== "complete" &&
       backup.state === "complete" &&
-      backup.sourceDeploymentId === targetDeployment.id
+      targetDeployment.kind === "cloud" &&
+      backup.sourceDeploymentId === targetDeploymentId
     ) {
       toast("success", "Backup completed successfully.");
     }
     previousState.current = backup.state;
-  }, [backup.state, backup.sourceDeploymentId, targetDeployment.id]);
+  }, [
+    backup.state,
+    backup.sourceDeploymentId,
+    targetDeployment.kind,
+    targetDeploymentId,
+  ]);
 
   let backupStateDescription;
   if (backup.state === "requested" || backup.state === "inProgress") {
@@ -186,7 +196,8 @@ export function BackupListItem({
                 <MenuItem
                   disabled={
                     backup.state !== "complete" ||
-                    backup.sourceDeploymentId !== targetDeployment.id
+                    (targetDeployment.kind === "cloud" &&
+                      backup.sourceDeploymentId !== targetDeployment.id)
                   }
                   href={
                     backup.state === "complete"
@@ -197,7 +208,8 @@ export function BackupListItem({
                   tip={
                     backup.state !== "complete"
                       ? backupStateDescription
-                      : backup.sourceDeploymentId !== targetDeployment.id
+                      : targetDeployment.kind === "cloud" &&
+                          backup.sourceDeploymentId !== targetDeployment.id
                         ? "You may download this backup from the Backup & Restore page for the deployment in which this backup was created."
                         : null
                   }
@@ -314,7 +326,7 @@ function SuggestBackup({
   canPerformActions,
 }: {
   team: TeamResponse;
-  targetDeployment: DeploymentResponse;
+  targetDeployment: PlatformDeploymentResponse;
   onClose: () => void;
   onContinue: () => void;
   latestBackupInTargetDeployment: BackupResponse | null;
@@ -356,12 +368,14 @@ function RestoreConfirmation({
   onClose,
 }: {
   backup: BackupResponse;
-  targetDeployment: DeploymentResponse;
+  targetDeployment: PlatformDeploymentResponse;
   team: TeamResponse;
   latestBackupInTargetDeployment: BackupResponse | null;
   onClose: () => void;
 }) {
-  const requestRestore = useRestoreFromCloudBackup(targetDeployment.id);
+  const requestRestore = useRestoreFromCloudBackup(
+    targetDeployment.kind === "cloud" ? targetDeployment.id : 0,
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -558,7 +572,7 @@ function BackupSummary({
 }
 
 type DeploymentSummaryProps = {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   // null = show no backup warning, undefined = show nothing
   latestBackup: BackupResponse | null | undefined;
 };
@@ -587,7 +601,7 @@ export function TransferSummary({
   team,
 }: {
   backup: BackupResponse | null;
-  targetDeployment: DeploymentResponse;
+  targetDeployment: PlatformDeploymentResponse;
   latestBackupInTargetDeployment: BackupResponse | null | undefined;
   team: TeamResponse;
 }) {
@@ -596,7 +610,9 @@ export function TransferSummary({
       <BackupSummary
         backup={backup}
         sourceDeploymentAppearance={
-          backup && backup.sourceDeploymentId !== targetDeployment.id
+          backup &&
+          targetDeployment.kind === "cloud" &&
+          backup.sourceDeploymentId !== targetDeployment.id
             ? "differentDeploymentWarning"
             : null
         }
@@ -620,7 +636,7 @@ export function FullDeploymentName({
   deployment,
   showProjectName = true,
 }: {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   showProjectName?: boolean;
 }) {
   const { project, isLoading } = useProjectById(deployment.projectId);
@@ -651,7 +667,7 @@ export function FullDeploymentName({
 
 function useMemberName(
   project: ProjectDetails | undefined,
-  deployment: DeploymentResponse | undefined,
+  deployment: PlatformDeploymentResponse | undefined,
 ) {
   const teamMembers = useTeamMembers(project?.teamId);
   const whose = teamMembers?.find((tm) => tm.id === deployment?.creator);
@@ -691,7 +707,7 @@ export function BackupNowButton({
   canPerformActions,
   onBackupRequested,
 }: {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   team: TeamResponse;
   maxCloudBackups: number;
   canPerformActions: boolean;
@@ -706,7 +722,10 @@ export function BackupNowButton({
         backup.state === "complete"),
   );
 
-  const requestBackup = useRequestCloudBackup(deployment.id, team.id);
+  const requestBackup = useRequestCloudBackup(
+    deployment.kind === "cloud" ? deployment.id : 0,
+    team.id,
+  );
   const [isOngoing, setIsOngoing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [includeStorage, setIncludeStorage] = useState(false);
@@ -803,7 +822,7 @@ function DeploymentLabel({
   whoseName,
   deployment,
 }: {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   whoseName: string | null;
 }) {
   return (

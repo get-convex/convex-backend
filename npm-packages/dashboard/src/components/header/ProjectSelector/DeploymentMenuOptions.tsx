@@ -15,7 +15,8 @@ import {
   Pencil2Icon,
   Share1Icon,
 } from "@radix-ui/react-icons";
-import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
@@ -28,7 +29,7 @@ export function DeploymentMenuOptions({
 }: {
   team: TeamResponse;
   project: ProjectDetails;
-  deployments: DeploymentResponse[];
+  deployments: PlatformDeploymentResponse[];
 }) {
   const member = useProfile();
   const router = useRouter();
@@ -234,7 +235,7 @@ function AllPersonalDeployments({
 }: {
   project: ProjectDetails;
   team: TeamResponse;
-  deployments: DeploymentResponse[];
+  deployments: PlatformDeploymentResponse[];
 }) {
   const member = useProfile();
   const dev = useDefaultDevDeployment(project.id);
@@ -249,7 +250,7 @@ function AllPersonalDeployments({
   const currentView = router.asPath.split("?")[0].split("/").slice(5).join("/");
   const allDevDeployments = sortDevDeployments(
     deployments.filter(
-      (d: DeploymentResponse) =>
+      (d: PlatformDeploymentResponse) =>
         d.deploymentType === "dev" && d.creator === member?.id,
     ),
   );
@@ -311,7 +312,7 @@ function AllPersonalDeployments({
   );
 }
 
-function sortDevDeployments(deployments: DeploymentResponse[]) {
+function sortDevDeployments(deployments: PlatformDeploymentResponse[]) {
   return deployments.sort((a, b) => {
     // Sort inactive local deployments to the end
     if (a.kind === "local" && !a.isActive) {
@@ -329,10 +330,7 @@ function sortDevDeployments(deployments: DeploymentResponse[]) {
       return 1;
     }
 
-    // Sort by last update time for local deployments
-    if (a.kind === "local" && b.kind === "local") {
-      return a.lastUpdateTime - b.lastUpdateTime;
-    }
+    // Sort by create time
     return a.createTime - b.createTime;
   });
 }

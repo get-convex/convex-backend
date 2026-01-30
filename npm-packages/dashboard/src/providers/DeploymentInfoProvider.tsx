@@ -148,7 +148,20 @@ export function DeploymentInfoProvider({
         useCurrentProject,
         useCurrentUsageBanner,
         useTeamUsageState,
-        useCurrentDeployment,
+        useCurrentDeployment: () => {
+          const deployment = useCurrentDeployment();
+          if (!deployment) return undefined;
+          // Map PlatformDeploymentResponse to the expected type
+          // Local deployments don't have an id in the API, so we use 0 as a fallback
+          return {
+            id: deployment.kind === "cloud" ? deployment.id : 0,
+            name: deployment.name,
+            projectId: deployment.projectId,
+            deploymentType: deployment.deploymentType,
+            kind: deployment.kind,
+            previewIdentifier: deployment.previewIdentifier,
+          };
+        },
         useIsProtectedDeployment: () => {
           const deployment = useCurrentDeployment();
           return deployment?.deploymentType === "prod";

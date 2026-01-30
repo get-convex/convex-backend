@@ -1,4 +1,5 @@
-import { DeploymentResponse, TeamResponse } from "generatedApi";
+import { TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { ArchiveIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
 import { useGetZipExport } from "hooks/deploymentApi";
@@ -17,7 +18,7 @@ export function BackupList({
   canPerformActions,
   maxCloudBackups,
 }: {
-  targetDeployment: DeploymentResponse; // = deployment the settings page is open for
+  targetDeployment: PlatformDeploymentResponse; // = deployment the settings page is open for
   team: TeamResponse;
   canPerformActions: boolean;
   maxCloudBackups: number;
@@ -80,8 +81,8 @@ function BackupListForDeployment({
   maxCloudBackups,
 }: {
   backups: BackupResponse[];
-  selectedDeployment: DeploymentResponse;
-  targetDeployment: DeploymentResponse;
+  selectedDeployment: PlatformDeploymentResponse;
+  targetDeployment: PlatformDeploymentResponse;
   restoringBackupId: bigint | null;
   team: TeamResponse;
   canPerformActions: boolean;
@@ -90,14 +91,21 @@ function BackupListForDeployment({
   const existingCloudBackup = useQuery(udfs.latestExport.latestCloudExport);
 
   const selectedDeploymentBackups = backups.filter(
-    (b) => b.sourceDeploymentId === selectedDeployment.id,
+    (b) =>
+      selectedDeployment.kind === "cloud" &&
+      b.sourceDeploymentId === selectedDeployment.id,
   );
 
   const latestBackupInTargetDeployment =
-    backups?.find((s) => s.sourceDeploymentId === targetDeployment.id) ?? null;
+    backups?.find(
+      (s) =>
+        targetDeployment.kind === "cloud" &&
+        s.sourceDeploymentId === targetDeployment.id,
+    ) ?? null;
 
   const someBackupInProgress = backups.some(
     (backup) =>
+      targetDeployment.kind === "cloud" &&
       backup.sourceDeploymentId === targetDeployment.id &&
       (backup.state === "requested" || backup.state === "inProgress"),
   );

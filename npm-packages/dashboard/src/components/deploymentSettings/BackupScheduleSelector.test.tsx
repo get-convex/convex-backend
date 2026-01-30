@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { DeploymentResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import userEvent from "@testing-library/user-event";
 import { useConfigurePeriodicBackup } from "api/backups";
 import {
@@ -9,7 +9,7 @@ import {
   AutomaticBackupSelector,
 } from "./Backups";
 
-const deployment: DeploymentResponse = {
+const deployment: PlatformDeploymentResponse = {
   kind: "cloud",
   id: 1,
   name: "joyful-capybara-123",
@@ -19,7 +19,6 @@ const deployment: DeploymentResponse = {
   creator: 1,
   previewIdentifier: null,
   region: "us-east-2",
-  isDefault: true,
 };
 
 jest.mock("api/profile", () => {});

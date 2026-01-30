@@ -1,5 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { DeploymentResponse, TeamResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { TeamResponse } from "generatedApi";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { BackupResponse } from "api/backups";
 import { BackupRestoreSuccess } from "./BackupRestoreStatus";
@@ -31,7 +32,7 @@ const backup: BackupResponse = {
   includeStorage: true,
 };
 
-const deployment: DeploymentResponse = {
+const deployment: PlatformDeploymentResponse = {
   kind: "cloud",
   id: 1,
   name: "joyful-capybara-123",
@@ -41,7 +42,6 @@ const deployment: DeploymentResponse = {
   creator: 1,
   previewIdentifier: null,
   region: "us-east-2",
-  isDefault: true,
 };
 
 const meta = {

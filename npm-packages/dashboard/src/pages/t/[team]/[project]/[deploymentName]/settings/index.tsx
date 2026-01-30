@@ -4,7 +4,7 @@ import { DeployKeysForDeployment } from "components/deploymentSettings/DeployKey
 import { useCurrentDeployment } from "api/deployments";
 import { useRouter } from "next/router";
 import { usePathname } from "next/navigation";
-import { DeletePreviewDeployment } from "components/deploymentSettings/DeletePreviewDeployment";
+import { DeleteDeployment } from "components/deploymentSettings/DeleteDeployment";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import {
   DeploymentUrl,
@@ -79,7 +79,7 @@ function DeploymentURLAndDeployKey() {
           }}
         />
       </div>
-      {deploymentType === "preview" && <DeletePreviewDeployment />}
+      <DeleteDeployment />
     </div>
   );
 }

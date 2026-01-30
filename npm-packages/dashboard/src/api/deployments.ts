@@ -1,15 +1,24 @@
 import { useRouter } from "next/router";
+import { useCallback } from "react";
 import { useInitialData } from "hooks/useServerSideData";
 import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
-import { useBBMutation, useBBQuery } from "./api";
+import {
+  useBBQuery,
+  useManagementApiMutation,
+  useManagementApiQuery,
+  useMutate,
+} from "./api";
 
 export function useDeployments(projectId?: number) {
   const [initialData] = useInitialData();
-  const { data, isLoading } = useBBQuery({
-    path: "/projects/{project_id}/instances",
+  const { data, isLoading } = useManagementApiQuery({
+    path: "/projects/{project_id}/list_deployments",
     pathParams: {
-      project_id: projectId?.toString() || "",
+      project_id: projectId || 0,
+    },
+    queryParams: {
+      includeLocal: true,
     },
     swrOptions: {
       revalidateOnMount: initialData === undefined,
@@ -63,14 +72,14 @@ export function useCurrentDeployment() {
 }
 
 export function useProvisionDeployment(projectId: number) {
-  return useBBMutation({
-    path: "/projects/{project_id}/provision",
+  return useManagementApiMutation({
+    path: "/projects/{project_id}/create_deployment",
     pathParams: {
-      project_id: projectId.toString(),
+      project_id: projectId,
     },
-    mutateKey: `/projects/{project_id}/instances`,
+    mutateKey: `/projects/{project_id}/list_deployments`,
     mutatePathParams: {
-      project_id: projectId.toString(),
+      project_id: projectId,
     },
   });
 }
@@ -90,12 +99,37 @@ export function useDeploymentById(
   return deployment;
 }
 
-export function useDeletePreviewDeployment(projectId?: number) {
-  return useBBMutation({
-    path: "/projects/{project_id}/delete_preview_deployment",
-    pathParams: { project_id: projectId?.toString() || "" },
-    mutateKey: `/projects/{project_id}/instances`,
-    mutatePathParams: { project_id: projectId?.toString() || "" },
-    successToast: "Deleted preview deployment.",
+export function useDeleteDeployment(
+  projectId: number,
+  deploymentName: string,
+  settingsUrl: string,
+) {
+  const deleteDeployment = useManagementApiMutation({
+    path: "/deployments/{deployment_name}/delete",
+    method: "post",
+    pathParams: { deployment_name: deploymentName || "" },
+    mutateKey: `/projects/{project_id}/list_deployments`,
+    mutatePathParams: { project_id: projectId },
+    successToast: "Deleted deployment.",
+    redirectTo: settingsUrl,
   });
+
+  const mutateBBApi = useMutate();
+
+  return useCallback(async () => {
+    await deleteDeployment();
+    // Manually revalidate the BB API instances list
+    await mutateBBApi(
+      [
+        "/projects/{project_id}/instances",
+        {
+          params: {
+            path: { project_id: projectId.toString() },
+          },
+        },
+      ],
+      undefined,
+      { revalidate: true },
+    );
+  }, [deleteDeployment, mutateBBApi, projectId]);
 }

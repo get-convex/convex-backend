@@ -15,11 +15,8 @@ import { useProfile } from "api/profile";
 import { useRememberLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
-import {
-  DeploymentResponse,
-  ProjectDetails,
-  DeploymentType,
-} from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { ProjectDetails, DeploymentType } from "generatedApi";
 import { Button } from "@ui/Button";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { DeploymentMenuOptions } from "components/header/ProjectSelector/DeploymentMenuOptions";
@@ -38,8 +35,8 @@ function DeploymentDomainInfo({
   deployments,
   whoseName,
 }: {
-  deployment: DeploymentResponse;
-  deployments: DeploymentResponse[];
+  deployment: PlatformDeploymentResponse;
+  deployments: PlatformDeploymentResponse[];
   whoseName: string | null;
 }) {
   const team = useCurrentTeam();
@@ -72,9 +69,9 @@ function DeploymentLabelWrapper({
   deployments,
   deploymentName,
 }: {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   whoseName: string | null;
-  deployments: DeploymentResponse[];
+  deployments: PlatformDeploymentResponse[];
   deploymentName: string;
 }) {
   return (
@@ -235,8 +232,8 @@ export function DeploymentLabel({
   deployments,
   vanityUrl,
 }: {
-  deployment: DeploymentResponse;
-  deployments: DeploymentResponse[];
+  deployment: PlatformDeploymentResponse;
+  deployments: PlatformDeploymentResponse[];
   whoseName: string | null;
   vanityUrl?: string;
 }) {
@@ -423,7 +420,7 @@ export function getDeploymentLabel({
   deployment,
   whoseName,
 }: {
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   whoseName: string | null; // null = mine
 }): string {
   switch (deployment.deploymentType) {

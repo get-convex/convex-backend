@@ -23,7 +23,10 @@ import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
 import { useState, useMemo, ReactNode } from "react";
 import {
-  DeploymentResponse,
+  PlatformDeploymentResponse,
+  PlatformCustomDomainResponse,
+} from "@convex-dev/platform/managementApi";
+import {
   TeamResponse,
   TeamEntitlementsResponse,
   PlatformDeleteCustomDomainArgs,
@@ -38,7 +41,6 @@ import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useUpdateCanonicalUrl } from "hooks/deploymentApi";
 import { Loading } from "@ui/Loading";
-import { PlatformCustomDomainResponse } from "@convex-dev/platform/managementApi";
 
 export function CustomDomains({
   team,
@@ -46,7 +48,7 @@ export function CustomDomains({
   entitlements,
 }: {
   team: TeamResponse;
-  deployment: DeploymentResponse;
+  deployment: PlatformDeploymentResponse;
   entitlements: TeamEntitlementsResponse;
 }) {
   const hasEntitlement = entitlements.customDomainsEnabled ?? false;

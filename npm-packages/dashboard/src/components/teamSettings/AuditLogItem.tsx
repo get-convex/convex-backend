@@ -13,11 +13,11 @@ import { Button } from "@ui/Button";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { stringifyValue } from "@common/lib/stringifyValue";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
   TeamResponse,
   MemberResponse,
   AuditLogAction,
-  DeploymentResponse,
   AuditLogEventResponse,
 } from "generatedApi";
 import { captureMessage } from "@sentry/nextjs";
@@ -782,7 +782,7 @@ function AuditLogItemActor({
   );
 }
 
-function deploymentDisplayName(deployment: DeploymentResponse) {
+function deploymentDisplayName(deployment: PlatformDeploymentResponse) {
   switch (deployment.deploymentType) {
     case "prod":
       return "the production deployment";

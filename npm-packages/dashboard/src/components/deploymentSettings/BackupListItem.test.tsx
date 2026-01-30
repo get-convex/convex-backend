@@ -1,10 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
-import {
-  DeploymentResponse,
-  ProjectDetails,
-  TeamResponse,
-  TeamMemberResponse,
-} from "generatedApi";
+import { ProjectDetails, TeamResponse, TeamMemberResponse } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import userEvent from "@testing-library/user-event";
 import {
   BackupResponse,
@@ -57,7 +53,7 @@ const existingCloudBackupInProgress: Doc<"_exports"> = {
   progress_message: "progressmsg",
 };
 
-const targetDeployment: DeploymentResponse = {
+const targetDeployment: PlatformDeploymentResponse = {
   kind: "cloud",
   id: 1,
   name: "joyful-capybara-123",
@@ -67,7 +63,6 @@ const targetDeployment: DeploymentResponse = {
   creator: 1,
   previewIdentifier: null,
   region: "us-east-2",
-  isDefault: true,
 };
 
 const team: TeamResponse = {
@@ -80,7 +75,7 @@ const team: TeamResponse = {
 };
 
 jest.mock("api/deployments", () => {
-  const deployment: DeploymentResponse = {
+  const deployment: PlatformDeploymentResponse = {
     kind: "cloud",
     id: 1,
     name: "joyful-capybara-123",
@@ -90,7 +85,6 @@ jest.mock("api/deployments", () => {
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
-    isDefault: true,
   };
 
   return {

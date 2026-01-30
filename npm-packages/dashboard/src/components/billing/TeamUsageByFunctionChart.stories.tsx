@@ -1,5 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { DeploymentResponse, ProjectDetails } from "generatedApi";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { ProjectDetails } from "generatedApi";
 import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
 import { Sheet } from "@ui/Sheet";
@@ -42,7 +43,7 @@ const project: ProjectDetails = {
   createTime: 0,
 };
 
-const deployments: DeploymentResponse[] = [
+const deployments: PlatformDeploymentResponse[] = [
   {
     kind: "cloud",
     id: 10,
@@ -53,7 +54,6 @@ const deployments: DeploymentResponse[] = [
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
-    isDefault: true,
   },
   {
     kind: "cloud",
@@ -65,7 +65,6 @@ const deployments: DeploymentResponse[] = [
     creator: 2,
     previewIdentifier: null,
     region: "us-east-2",
-    isDefault: false,
   },
   {
     kind: "cloud",
@@ -77,7 +76,6 @@ const deployments: DeploymentResponse[] = [
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
-    isDefault: true,
   },
   {
     kind: "cloud",
@@ -89,7 +87,6 @@ const deployments: DeploymentResponse[] = [
     creator: 1,
     previewIdentifier: null,
     region: "us-east-2",
-    isDefault: false,
   },
 ];
 
