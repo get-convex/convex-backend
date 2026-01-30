@@ -6407,6 +6407,16 @@
               }
             ]
           },
+          "defaultRegion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName"
+              }
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/TeamId"
           },

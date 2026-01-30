@@ -1037,6 +1037,9 @@
       "ReferralCode": {
         "type": "string"
       },
+      "RegionName": {
+        "type": "string"
+      },
       "TeamId": {
         "type": "integer",
         "format": "int64",
@@ -1062,6 +1065,16 @@
               },
               {
                 "$ref": "#/components/schemas/MemberId"
+              }
+            ]
+          },
+          "defaultRegion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName"
               }
             ]
           },

@@ -2709,6 +2709,7 @@ export interface components {
         TeamName: string;
         TeamResponse: {
             creator?: null | components["schemas"]["MemberId"];
+            defaultRegion?: null | components["schemas"]["RegionName"];
             id: components["schemas"]["TeamId"];
             managedBy?: null | components["schemas"]["ManagedBy"];
             managedByUrl?: string | null;
