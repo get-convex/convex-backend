@@ -362,6 +362,7 @@ use udf_metrics::{
     Percentile,
     Timeseries,
 };
+use usage_gauges_tracking_worker::UsageGaugesTrackingWorker;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -558,6 +559,7 @@ pub struct Application<RT: Runtime> {
     file_storage: FileStorage<RT>,
     application_storage: ApplicationStorage,
     usage_counter: UsageCounter,
+    usage_gauges_tracking_worker: UsageGaugesTrackingWorker,
     usage_event_logger: Arc<dyn UsageEventLogger>,
     key_broker: KeyBroker,
     instance_name: String,
@@ -590,6 +592,7 @@ impl<RT: Runtime> Clone for Application<RT> {
             file_storage: self.file_storage.clone(),
             application_storage: self.application_storage.clone(),
             usage_counter: self.usage_counter.clone(),
+            usage_gauges_tracking_worker: self.usage_gauges_tracking_worker.clone(),
             usage_event_logger: self.usage_event_logger.clone(),
             key_broker: self.key_broker.clone(),
             instance_name: self.instance_name.clone(),
@@ -862,6 +865,14 @@ impl<RT: Runtime> Application<RT> {
             runtime.spawn("migration_worker", migration_worker.go()),
         )));
 
+        let usage_gauges_tracking_worker = UsageGaugesTrackingWorker::start(
+            runtime.clone(),
+            database.clone(),
+            usage_event_logger.clone(),
+            Arc::new(log_manager_client.clone()),
+            instance_name.clone(),
+        );
+
         Ok(Self {
             runtime,
             database,
@@ -871,6 +882,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage,
             usage_event_logger,
             usage_counter,
+            usage_gauges_tracking_worker,
             key_broker,
             scheduled_job_runner,
             cron_job_executor,
@@ -3649,6 +3661,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
+        self.usage_gauges_tracking_worker.shutdown().await?;
         self.log_manager_client.shutdown().await?;
         self.table_summary_worker.shutdown().await?;
         self.system_table_cleanup_worker.lock().shutdown();

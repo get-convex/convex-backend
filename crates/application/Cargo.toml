@@ -108,6 +108,7 @@ tracing = { workspace = true }
 udf = { workspace = true }
 udf_metrics = { workspace = true }
 url = { workspace = true }
+usage_gauges_tracking_worker = { workspace = true }
 usage_tracking = { workspace = true }
 value = { workspace = true }
 vector = { workspace = true }

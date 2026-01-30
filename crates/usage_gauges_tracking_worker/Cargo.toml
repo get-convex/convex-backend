@@ -1,0 +1,31 @@
+[package]
+name = "usage_gauges_tracking_worker"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2024"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+cmd_util = { workspace = true }
+common = { workspace = true }
+database = { workspace = true }
+errors = { workspace = true }
+events = { workspace = true }
+fastrace = { workspace = true }
+itertools = { workspace = true }
+keybroker = { workspace = true }
+metrics = { workspace = true }
+model = { workspace = true }
+parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
+rand = { workspace = true }
+storage = { workspace = true }
+tracing = { workspace = true }
+usage_tracking = { workspace = true }
+value = { workspace = true }
+
+[lints]
+workspace = true
