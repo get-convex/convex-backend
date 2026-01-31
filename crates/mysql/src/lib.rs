@@ -140,11 +140,11 @@ fn is_message_too_large_error(error: &anyhow::Error) -> Option<&mysql_async::Ser
         .chain()
         .find_map(|e| e.downcast_ref::<mysql_async::ServerError>())
         .filter(|db_err| {
+            // matches both "trying to send message larger than max" and "received message
+            // larger than max"
             db_err.state == "HY000"
                 && db_err.code == 1105
-                && db_err
-                    .message
-                    .contains("trying to send message larger than max")
+                && db_err.message.contains("message larger than max")
         })
 }
 
