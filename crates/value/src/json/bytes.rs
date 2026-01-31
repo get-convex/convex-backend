@@ -5,8 +5,8 @@ pub enum JsonBytes {}
 
 impl JsonBytes {
     /// Encode a binary string as a string.
-    pub fn encode(bytes: &ConvexBytes) -> String {
-        base64::encode(&bytes[..])
+    pub fn encode(bytes: &[u8]) -> String {
+        base64::encode(bytes)
     }
 
     /// Decode a binary string from a string.

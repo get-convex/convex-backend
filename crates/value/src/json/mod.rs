@@ -27,10 +27,6 @@ use anyhow::{
     Error,
     Result,
 };
-use serde::{
-    Serialize,
-    Serializer,
-};
 use serde_json::Value as JsonValue;
 
 use crate::{
@@ -41,119 +37,147 @@ use crate::{
     },
     numeric::is_negative_zero,
     object::ConvexObject,
+    walk::ConvexValueType,
     ConvexArray,
     ConvexValue,
 };
 
-pub struct SerializeValue<'a>(pub &'a ConvexValue);
-impl Serialize for SerializeValue<'_> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        value::serialize(self.0, serializer)
-    }
-}
-
-pub struct SerializeArray<'a>(pub &'a ConvexArray);
-impl Serialize for SerializeArray<'_> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        array::serialize(self.0, serializer)
-    }
-}
-
-pub struct SerializeObject<'a>(pub &'a ConvexObject);
-impl Serialize for SerializeObject<'_> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        object::serialize(self.0, serializer)
-    }
-}
-
 pub mod value {
-    use std::num::FpCategory;
+    use std::{
+        cell::Cell,
+        num::FpCategory,
+    };
 
     use serde::{
-        ser::SerializeMap,
+        ser::{
+            Error,
+            SerializeMap,
+            SerializeSeq,
+        },
+        Serialize,
         Serializer,
     };
 
     use crate::{
         numeric::is_negative_zero,
-        ConvexValue,
+        walk::{
+            ConvexArrayWalker,
+            ConvexBytesWalker,
+            ConvexObjectWalker,
+            ConvexStringWalker,
+            ConvexValueType,
+            ConvexValueWalker,
+        },
         JsonBytes,
         JsonFloat,
         JsonInteger,
     };
 
-    pub fn serialize<S: Serializer>(value: &ConvexValue, serializer: S) -> Result<S::Ok, S::Error> {
-        match value {
-            ConvexValue::Null => serializer.serialize_unit(),
-            ConvexValue::Int64(n) => {
+    /// Wrapper for `ConvexValueWalker` that implements `Serialize`.
+    ///
+    /// Note that `ConvexValueWalker` can only be walked once (consuming the
+    /// walker) whereas the `serde::Serialize` trait takes `&self`; to bridge
+    /// them, we use a `Cell<Option>` and return an error if the same
+    /// `SerializeValue` is serialized more than once.
+    pub(crate) struct SerializeValue<V>(Cell<Option<V>>);
+    impl<V> SerializeValue<V> {
+        pub(crate) fn new(value: V) -> Self {
+            Self(Cell::new(Some(value)))
+        }
+    }
+    impl<V: ConvexValueWalker> Serialize for SerializeValue<V> {
+        fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            serialize(
+                self.0
+                    .take()
+                    .ok_or_else(|| Error::custom("cannot serialize value more than once"))?,
+                serializer,
+            )
+        }
+    }
+
+    pub fn serialize<V: ConvexValueWalker, S: Serializer>(
+        value: V,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        match value.walk().map_err(Error::custom)? {
+            ConvexValueType::Null => serializer.serialize_unit(),
+            ConvexValueType::Int64(n) => {
                 let mut obj = serializer.serialize_map(Some(1))?;
-                obj.serialize_entry("$integer", &JsonInteger::encode(*n))?;
+                obj.serialize_entry("$integer", &JsonInteger::encode(n))?;
                 obj.end()
             },
-            ConvexValue::Float64(n) => {
-                let mut is_special = is_negative_zero(*n);
+            ConvexValueType::Float64(n) => {
+                let mut is_special = is_negative_zero(n);
                 is_special |= match n.classify() {
                     FpCategory::Zero | FpCategory::Normal | FpCategory::Subnormal => false,
                     FpCategory::Infinite | FpCategory::Nan => true,
                 };
                 if is_special {
                     let mut obj = serializer.serialize_map(Some(1))?;
-                    obj.serialize_entry("$float", &JsonFloat::encode(*n))?;
+                    obj.serialize_entry("$float", &JsonFloat::encode(n))?;
                     obj.end()
                 } else {
-                    serializer.serialize_f64(*n)
+                    serializer.serialize_f64(n)
                 }
             },
-            ConvexValue::Boolean(b) => serializer.serialize_bool(*b),
-            ConvexValue::String(s) => serializer.serialize_str(s),
-            ConvexValue::Bytes(b) => {
+            ConvexValueType::Boolean(b) => serializer.serialize_bool(b),
+            ConvexValueType::String(s) => serializer.serialize_str(s.as_str()),
+            ConvexValueType::Bytes(b) => {
                 let mut obj = serializer.serialize_map(Some(1))?;
-                obj.serialize_entry("$bytes", &JsonBytes::encode(b))?;
+                obj.serialize_entry("$bytes", &JsonBytes::encode(b.as_bytes()))?;
                 obj.end()
             },
-            ConvexValue::Array(a) => super::array::serialize(a, serializer),
-            ConvexValue::Object(o) => super::object::serialize(o, serializer),
+            ConvexValueType::Array(a) => {
+                let iter = a.walk();
+                let mut seq = serializer.serialize_seq(size_hint(&iter))?;
+                for value in iter {
+                    let value = value.map_err(Error::custom)?;
+                    seq.serialize_element(&SerializeValue::new(value))?;
+                }
+                seq.end()
+            },
+            ConvexValueType::Object(o) => {
+                let iter = o.walk();
+                let mut map = serializer.serialize_map(size_hint(&iter))?;
+                for pair in iter {
+                    let (key, value) = pair.map_err(Error::custom)?;
+                    map.serialize_entry(key.as_str(), &SerializeValue::new(value))?;
+                }
+                map.end()
+            },
         }
     }
-}
 
-pub mod array {
-    use serde::{
-        ser::SerializeSeq,
-        Serializer,
-    };
-
-    use crate::ConvexArray;
-
-    pub fn serialize<S: Serializer>(array: &ConvexArray, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut seq = serializer.serialize_seq(Some(array.len()))?;
-        for value in array.iter() {
-            seq.serialize_element(&super::SerializeValue(value))?;
+    fn size_hint(iter: &impl Iterator) -> Option<usize> {
+        let (lo, hi) = iter.size_hint();
+        if hi == Some(lo) {
+            hi
+        } else {
+            None
         }
-        seq.end()
     }
 }
 
 pub mod object {
     use serde::{
-        ser::SerializeMap,
         Deserialize,
         Deserializer,
         Serializer,
     };
     use serde_json::Value as JsonValue;
 
-    use crate::ConvexObject;
+    use crate::{
+        walk::ConvexValueType,
+        ConvexObject,
+        ConvexValue,
+    };
 
     pub fn serialize<S: Serializer>(
         object: &ConvexObject,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        let mut map = serializer.serialize_map(Some(object.len()))?;
-        for (key, value) in object.iter() {
-            map.serialize_entry(key, &super::SerializeValue(value))?;
-        }
-        map.end()
+        super::value::serialize(ConvexValueType::<&ConvexValue>::Object(object), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<ConvexObject, D::Error>
@@ -259,7 +283,7 @@ impl ConvexValue {
     }
 
     pub fn json_serialize(&self) -> anyhow::Result<String> {
-        Ok(serde_json::to_string(&SerializeValue(self))?)
+        Ok(serde_json::to_string(&value::SerializeValue::new(self))?)
     }
 }
 
@@ -271,23 +295,33 @@ impl From<ConvexObject> for JsonValue {
 
 impl ConvexObject {
     pub fn to_internal_json(&self) -> JsonValue {
-        object::serialize(self, serde_json::value::Serializer)
-            .expect("Failed to serialize to JsonValue")
+        value::serialize(
+            ConvexValueType::<&ConvexValue>::Object(self),
+            serde_json::value::Serializer,
+        )
+        .expect("Failed to serialize to JsonValue")
     }
 
     pub fn json_serialize(&self) -> anyhow::Result<String> {
-        Ok(serde_json::to_string(&SerializeObject(self))?)
+        Ok(serde_json::to_string(&value::SerializeValue::new(
+            ConvexValueType::<&ConvexValue>::Object(self),
+        ))?)
     }
 }
 
 impl ConvexArray {
     pub fn to_internal_json(&self) -> JsonValue {
-        array::serialize(self, serde_json::value::Serializer)
-            .expect("Failed to serialize to JsonValue")
+        value::serialize(
+            ConvexValueType::<&ConvexValue>::Array(self),
+            serde_json::value::Serializer,
+        )
+        .expect("Failed to serialize to JsonValue")
     }
 
     pub fn json_serialize(&self) -> anyhow::Result<String> {
-        Ok(serde_json::to_string(&SerializeArray(self))?)
+        Ok(serde_json::to_string(&value::SerializeValue::new(
+            ConvexValueType::<&ConvexValue>::Array(self),
+        ))?)
     }
 }
 
