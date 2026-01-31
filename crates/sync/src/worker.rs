@@ -714,7 +714,13 @@ impl<RT: Runtime> SyncWorker<RT> {
                 .boxed();
                 anyhow::ensure!(
                     self.action_futures.len() <= OPERATION_QUEUE_BUFFER_SIZE,
-                    "Inflight actions overloaded, max concurrency: {OPERATION_QUEUE_BUFFER_SIZE}"
+                    ErrorMetadata::rate_limited(
+                        "TooManyInflightActionsForSingleClient",
+                        format!(
+                            "Inflight actions overloaded for a single client, max concurrency: \
+                             {OPERATION_QUEUE_BUFFER_SIZE}"
+                        )
+                    )
                 );
                 self.action_futures.push(future);
             },
