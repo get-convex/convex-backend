@@ -2,15 +2,23 @@ import classNames from "classnames";
 import { UdfLogOutput as Output } from "@common/lib/useLogs";
 import { LogLevel } from "@common/elements/LogLevel";
 
+import { HighlightedText } from "@common/elements/HighlightedText";
+
 export function LogOutput({
   output,
   wrap,
   secondary,
+  highlight,
 }: {
   output: Output;
   wrap?: boolean;
   secondary?: boolean;
+  highlight?: string;
 }) {
+  const text = output.messages
+    ? `${messagesToString(output)}${output.isTruncated ? " (truncated due to length)" : ""}`
+    : "";
+
   return (
     <div
       className={classNames(
@@ -19,11 +27,12 @@ export function LogOutput({
         secondary && "text-content-secondary",
       )}
     >
-      {output.messages &&
-        `${messagesToString(output)}${output.isTruncated ? " (truncated due to length)" : ""}`}
+      <HighlightedText text={text} highlight={highlight} />
     </div>
   );
 }
+
+
 
 // Old version of LogOutput that's still used in some places.
 // TODO: Replace with LogOutput.
