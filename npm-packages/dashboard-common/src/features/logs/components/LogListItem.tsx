@@ -9,11 +9,9 @@ import { LogOutput, messagesToString } from "@common/elements/LogOutput";
 import { msFormat } from "@common/lib/format";
 import { cn } from "@ui/cn";
 import { useHotkeys } from "react-hotkeys-hook";
-import {
-  displayName,
-  functionIdentifierFromValue,
-} from "@common/lib/functions/generateFileTree";
 import { CopiedPopper } from "@common/elements/CopiedPopper";
+import { TimestampTooltip } from "@common/features/logs/components/TimestampTooltip";
+import { formatUdfLogToString } from "@common/features/logs/lib/formatLog";
 
 type LogListItemProps = {
   log: UdfLog;
@@ -21,6 +19,7 @@ type LogListItemProps = {
   focused: boolean;
   hitBoundary?: "top" | "bottom" | null;
   logKey?: string;
+  highlight?: string;
 };
 
 export const ITEM_SIZE = 24;
@@ -31,6 +30,7 @@ export function LogListItem({
   focused,
   hitBoundary,
   logKey,
+  highlight,
 }: LogListItemProps) {
   const wrapperRef = useRef<HTMLButtonElement | HTMLSpanElement>(null);
   const [didJustCopy, setDidJustCopy] = useState(false);
@@ -55,7 +55,7 @@ export function LogListItem({
         return;
       }
       e.preventDefault();
-      const logText = formatLogToString(log);
+      const logText = formatUdfLogToString(log);
       void navigator.clipboard.writeText(logText);
       setDidJustCopy(true);
     },
@@ -87,15 +87,22 @@ export function LogListItem({
       <Wrapper setShownLog={setShownLog} logKey={logKey} ref={wrapperRef}>
         <div className={classNames("flex gap-4 items-center", "p-0.5 ml-2")}>
           <div className="min-w-[9.25rem] text-left whitespace-nowrap">
-            {log.localizedTimestamp}
-            <span
-              className={classNames(
-                isFailure ? "text-content-error" : "text-content-secondary",
-              )}
-            >
-              .
-              {new Date(log.timestamp).toISOString().split(".")[1].slice(0, -1)}
-            </span>
+            <TimestampTooltip timestamp={log.timestamp}>
+              <span>
+                {log.localizedTimestamp}
+                <span
+                  className={classNames(
+                    isFailure ? "text-content-error" : "text-content-secondary",
+                  )}
+                >
+                  .
+                  {new Date(log.timestamp)
+                    .toISOString()
+                    .split(".")[1]
+                    .slice(0, -1)}
+                </span>
+              </span>
+            </TimestampTooltip>
           </div>
           <div
             className={cn(
@@ -154,7 +161,13 @@ export function LogListItem({
         {log.kind === "log" && log.output.level && (
           <LogLevel level={log.output.level} />
         )}
-        {log.kind === "log" && <LogOutput output={log.output} secondary />}
+        {log.kind === "log" && (
+          <LogOutput
+            output={log.output}
+            secondary
+            highlight={highlight}
+          />
+        )}
         {log.kind === "outcome" && log.error && (
           <LogOutput
             output={{
@@ -163,6 +176,7 @@ export function LogListItem({
               level: "FAILURE",
             }}
             secondary
+            highlight={highlight}
           />
         )}
       </Wrapper>
@@ -214,45 +228,5 @@ const Wrapper = React.forwardRef<
   );
 });
 
-function formatLogToString(log: UdfLog): string {
-  const timestamp = log.localizedTimestamp;
-  const milliseconds = new Date(log.timestamp)
-    .toISOString()
-    .split(".")[1]
-    .slice(0, -1);
-  const fullTimestamp = `${timestamp}.${milliseconds}`;
-
-  // Parse the call field to get identifier and componentPath
-  let functionName: string;
-  if (log.kind === "log" && log.output.subfunction) {
-    const { identifier, componentPath } = functionIdentifierFromValue(
-      log.output.subfunction,
-    );
-    functionName = displayName(identifier, componentPath);
-  } else {
-    const { identifier, componentPath } = functionIdentifierFromValue(log.call);
-    functionName = displayName(identifier, componentPath);
-  }
-
-  const udfType = log.udfType.charAt(0).toUpperCase();
-
-  let content = "";
-  if (log.kind === "log") {
-    const level = log.output.level ? `[${log.output.level}] ` : "";
-    const message = messagesToString(log.output);
-    content = `${level}${message}`;
-  } else if (log.error) {
-    content = log.error;
-  } else {
-    content = log.outcome.status;
-  }
-
-  const executionTime =
-    log.kind === "outcome" &&
-    log.executionTimeMs !== null &&
-    log.executionTimeMs > 0
-      ? ` ${msFormat(log.executionTimeMs)}`
-      : "";
-
-  return `${fullTimestamp} ${udfType} ${functionName}${executionTime} ${content}`;
-}
+  );
+});
