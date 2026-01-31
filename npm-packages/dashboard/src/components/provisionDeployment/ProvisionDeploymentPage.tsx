@@ -4,6 +4,8 @@ import { useProvisionDeployment } from "api/deployments";
 import { useCurrentProject } from "api/projects";
 import { useRouter } from "next/router";
 import { useEffect, useRef } from "react";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { ProvisionDeploymentForm } from "./ProvisionDeploymentForm";
 
 export function ProvisionDeploymentPage({
   deploymentType,
@@ -16,11 +18,21 @@ export function ProvisionDeploymentPage({
   const project = useCurrentProject();
   const projectId = project?.id ?? null;
   const projectURI = `/t/${team?.slug}/${projectSlug}`;
+  const flags = useLaunchDarkly();
+  const showForm = flags.deploymentRegion;
 
   const deploymentTypeLabel =
     deploymentType === "prod" ? "production" : "development";
 
-  return (
+  return showForm ? (
+    projectId !== null ? (
+      <ProvisionDeploymentForm
+        projectId={projectId}
+        projectURI={projectURI}
+        deploymentType={deploymentType}
+      />
+    ) : null
+  ) : (
     <div className="h-full bg-background-primary p-6">
       <Sheet className="mb-2 h-full overflow-hidden">
         <div className="flex flex-1 flex-col items-center justify-center">
