@@ -143,6 +143,7 @@ pub enum StructuredLogEvent {
         usage_stats: AggregatedFunctionUsageStats,
         occ_info: Option<OccInfo>,
         scheduler_info: Option<SchedulerInfo>,
+        custom_log_attributes: Option<serde_json::Map<String, serde_json::Value>>,
     },
     /// Topic for exceptions. These happen when a UDF raises an exception from
     /// JS
@@ -320,6 +321,7 @@ impl LogEvent {
                     usage_stats,
                     occ_info: _,
                     scheduler_info: _,
+                    custom_log_attributes: _,
                 } => {
                     let (reason, status) = match error {
                         Some(err) => (Some(err.to_string()), "failure"),
@@ -455,6 +457,7 @@ impl LogEvent {
                     usage_stats,
                     occ_info,
                     scheduler_info,
+                    custom_log_attributes,
                 } => {
                     let function_source = source.to_json_map();
                     let (status, error_message) = match error {
@@ -480,27 +483,36 @@ impl LogEvent {
                     } else {
                         None
                     };
-                    serialize_map!({
-                        "timestamp": ms,
-                        "topic": "function_execution",
-                        "function": function_source,
-                        "execution_time_ms": execution_time.as_millis(),
-                        "status": status,
-                        "error_message": error_message,
-                        "occ_info": occ_info,
-                        "scheduler_info": scheduler_info,
-                        "usage": Usage {
-                            database_read_bytes: usage_stats.database_read_bytes,
-                            database_write_bytes: usage_stats.database_write_bytes,
-                            database_read_documents: usage_stats.database_read_documents,
-                            file_storage_read_bytes: usage_stats.storage_read_bytes,
-                            file_storage_write_bytes: usage_stats.storage_write_bytes,
-                            vector_storage_read_bytes: usage_stats.vector_index_read_bytes,
-                            vector_storage_write_bytes: usage_stats.vector_index_write_bytes,
-                            memory_used_mb: usage_stats.memory_used_mb,
-                            action_memory_used_mb,
-                        }
-                    })
+                    let usage = Usage {
+                        database_read_bytes: usage_stats.database_read_bytes,
+                        database_write_bytes: usage_stats.database_write_bytes,
+                        database_read_documents: usage_stats.database_read_documents,
+                        file_storage_read_bytes: usage_stats.storage_read_bytes,
+                        file_storage_write_bytes: usage_stats.storage_write_bytes,
+                        vector_storage_read_bytes: usage_stats.vector_index_read_bytes,
+                        vector_storage_write_bytes: usage_stats.vector_index_write_bytes,
+                        memory_used_mb: usage_stats.memory_used_mb,
+                        action_memory_used_mb,
+                    };
+                    // Build map manually to conditionally include custom_attributes
+                    let mut map_builder = serializer.serialize_map(None)?;
+                    map_builder.serialize_entry("timestamp", &ms)?;
+                    map_builder.serialize_entry("topic", "function_execution")?;
+                    map_builder.serialize_entry("function", &function_source)?;
+                    map_builder
+                        .serialize_entry("execution_time_ms", &execution_time.as_millis())?;
+                    map_builder.serialize_entry("status", &status)?;
+                    map_builder.serialize_entry("error_message", &error_message)?;
+                    map_builder.serialize_entry("occ_info", &occ_info)?;
+                    map_builder.serialize_entry("scheduler_info", &scheduler_info)?;
+                    map_builder.serialize_entry("usage", &usage)?;
+                    // Only include custom_attributes if non-empty
+                    if let Some(attrs) = custom_log_attributes
+                        && !attrs.is_empty()
+                    {
+                        map_builder.serialize_entry("custom_attributes", attrs)?;
+                    }
+                    map_builder.end()
                 },
                 // This codepath is unused because we filter out logs in default_log_filter and
                 // construct exception logs in the Sentry sink
@@ -1035,6 +1047,7 @@ mod tests {
                     scheduler_info: Some(SchedulerInfo {
                         job_id: "scheduled_job_456".to_string(),
                     }),
+                    custom_log_attributes: None,
                 },
             }
             .to_json_map(LogEventFormatVersion::V2)?,
@@ -1080,6 +1093,130 @@ mod tests {
             .to_json_map(LogEventFormatVersion::V2)?,
         )?;
         let _: LogStreamEvent = serde_json::from_value(job_lag_json)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_log_attributes_in_function_execution() -> anyhow::Result<()> {
+        // Test with custom_log_attributes set
+        let mut custom_attrs = serde_json::Map::new();
+        custom_attrs.insert("user_id".to_string(), serde_json::json!("user_123"));
+        custom_attrs.insert("operation".to_string(), serde_json::json!("test_op"));
+        custom_attrs.insert("count".to_string(), serde_json::json!(42));
+
+        let log_event = LogEvent {
+            timestamp: UnixTimestamp::from_millis(3000),
+            event: StructuredLogEvent::FunctionExecution {
+                source: FunctionEventSource {
+                    context: ExecutionContext::new_for_test(),
+                    component_path: ComponentPath::test_user(),
+                    udf_path: "test/path".to_string(),
+                    udf_type: UdfType::Query,
+                    module_environment: ModuleEnvironment::Isolate,
+                    cached: Some(true),
+                    mutation_queue_length: None,
+                    mutation_retry_count: None,
+                },
+                error: None,
+                execution_time: std::time::Duration::from_millis(50),
+                usage_stats: AggregatedFunctionUsageStats::default(),
+                occ_info: None,
+                scheduler_info: None,
+                custom_log_attributes: Some(custom_attrs.clone()),
+            },
+        };
+
+        let json_map = log_event.to_json_map(LogEventFormatVersion::V2)?;
+        let json_value = serde_json::to_value(&json_map)?;
+
+        // Verify custom_attributes is present and has correct values
+        let custom_attributes = json_value
+            .get("custom_attributes")
+            .expect("custom_attributes should be present in JSON output");
+        assert_eq!(
+            custom_attributes.get("user_id"),
+            Some(&serde_json::json!("user_123"))
+        );
+        assert_eq!(
+            custom_attributes.get("operation"),
+            Some(&serde_json::json!("test_op"))
+        );
+        assert_eq!(custom_attributes.get("count"), Some(&serde_json::json!(42)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_custom_log_attributes_not_in_output() -> anyhow::Result<()> {
+        // Test with empty custom_log_attributes - should NOT appear in output
+        let log_event = LogEvent {
+            timestamp: UnixTimestamp::from_millis(3000),
+            event: StructuredLogEvent::FunctionExecution {
+                source: FunctionEventSource {
+                    context: ExecutionContext::new_for_test(),
+                    component_path: ComponentPath::test_user(),
+                    udf_path: "test/path".to_string(),
+                    udf_type: UdfType::Query,
+                    module_environment: ModuleEnvironment::Isolate,
+                    cached: Some(true),
+                    mutation_queue_length: None,
+                    mutation_retry_count: None,
+                },
+                error: None,
+                execution_time: std::time::Duration::from_millis(50),
+                usage_stats: AggregatedFunctionUsageStats::default(),
+                occ_info: None,
+                scheduler_info: None,
+                custom_log_attributes: Some(serde_json::Map::new()), // Empty map
+            },
+        };
+
+        let json_map = log_event.to_json_map(LogEventFormatVersion::V2)?;
+        let json_value = serde_json::to_value(&json_map)?;
+
+        // Verify custom_attributes is NOT present when empty
+        assert!(
+            json_value.get("custom_attributes").is_none(),
+            "custom_attributes should not be present when empty"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_none_custom_log_attributes_not_in_output() -> anyhow::Result<()> {
+        // Test with None custom_log_attributes - should NOT appear in output
+        let log_event = LogEvent {
+            timestamp: UnixTimestamp::from_millis(3000),
+            event: StructuredLogEvent::FunctionExecution {
+                source: FunctionEventSource {
+                    context: ExecutionContext::new_for_test(),
+                    component_path: ComponentPath::test_user(),
+                    udf_path: "test/path".to_string(),
+                    udf_type: UdfType::Query,
+                    module_environment: ModuleEnvironment::Isolate,
+                    cached: Some(true),
+                    mutation_queue_length: None,
+                    mutation_retry_count: None,
+                },
+                error: None,
+                execution_time: std::time::Duration::from_millis(50),
+                usage_stats: AggregatedFunctionUsageStats::default(),
+                occ_info: None,
+                scheduler_info: None,
+                custom_log_attributes: None,
+            },
+        };
+
+        let json_map = log_event.to_json_map(LogEventFormatVersion::V2)?;
+        let json_value = serde_json::to_value(&json_map)?;
+
+        // Verify custom_attributes is NOT present when None
+        assert!(
+            json_value.get("custom_attributes").is_none(),
+            "custom_attributes should not be present when None"
+        );
 
         Ok(())
     }

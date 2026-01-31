@@ -590,6 +590,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             rng_seed: _,
             memory_in_mb: _,
             user_execution_time: _,
+            custom_log_attributes: _,
         } = outcome;
 
         log_run_udf(
