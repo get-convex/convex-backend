@@ -644,7 +644,7 @@ function WorkOSTeamSection({
                 <ExclamationTriangleIcon className="h-4 w-4 flex-shrink-0 text-content-warning" />
                 <span>
                   <a
-                    href={`https://dashboard.workos.com/${workosTeam.workosTeamId}/settings/billing`}
+                    href="https://dashboard.workos.com/settings/billing"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-content-link hover:underline"
