@@ -2373,8 +2373,7 @@ export interface components {
             invoices: components["schemas"]["InvoiceResponse"][];
         };
         /** @description Indicates whether the deployment is the default prod deployment for the
-         *     project, or the default cloud dev deployment for the member in the project.
-         *     See https://linear.app/convex/issue/ENG-10273/add-a-concept-of-default-dev-default-prod-to-the-model */
+         *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
