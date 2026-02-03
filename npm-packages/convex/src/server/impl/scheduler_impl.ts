@@ -63,7 +63,10 @@ export function setupActionScheduler(requestId: string): Scheduler {
     },
     cancel: async (id: Id<"_scheduled_functions">) => {
       validateArg(id, 1, "cancel", "id");
-      const syscallArgs = { id: convexToJson(id) };
+      const syscallArgs = {
+        requestId,
+        id: convexToJson(id),
+      };
       return await performAsyncSyscall("1.0/actions/cancel_job", syscallArgs);
     },
   };
