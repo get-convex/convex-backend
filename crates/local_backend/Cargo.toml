@@ -66,6 +66,7 @@ futures-async-stream = { workspace = true }
 governor = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
+http_client = { workspace = true }
 hyper-util = { workspace = true }
 isolate = { workspace = true }
 keybroker = { workspace = true }

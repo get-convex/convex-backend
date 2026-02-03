@@ -5522,6 +5522,7 @@ dependencies = [
  "governor",
  "http 1.3.1",
  "http-body-util",
+ "http_client",
  "hyper-util",
  "isolate",
  "jsonschema",

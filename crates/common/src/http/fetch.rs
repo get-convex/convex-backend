@@ -53,27 +53,37 @@ static TLS_CONNECTOR: LazyLock<native_tls::TlsConnector> = LazyLock::new(|| {
     tls.build().expect("failed to build TLS connector")
 });
 
+/// Creates a reqwest client configured with an optional proxy.
+/// The client_id is set to the instance name for logging.
+///
+/// This function is shared between `ProxiedFetchClient` (for fetch syscalls)
+/// and `CachedHttpClient` in the `http_client` crate (for OIDC
+/// discovery).
+pub fn build_proxied_reqwest_client(proxy_url: Option<Url>, client_id: String) -> reqwest::Client {
+    let mut builder = reqwest::Client::builder().redirect(redirect::Policy::none());
+    // It's okay to panic on these errors, as they indicate a serious programming
+    // error -- building the reqwest client is expected to be infallible.
+    if let Some(proxy_url) = proxy_url {
+        let proxy = Proxy::all(proxy_url)
+            .expect("Infallible conversion from URL type to URL type")
+            .custom_http_auth(
+                client_id
+                    .try_into()
+                    .expect("Backend name is not valid ASCII?"),
+            );
+        builder = builder.proxy(proxy);
+    }
+    builder = builder
+        .user_agent("Convex/1.0")
+        .use_preconfigured_tls(TLS_CONNECTOR.clone());
+    builder.build().expect("Failed to build reqwest client")
+}
+
 impl ProxiedFetchClient {
     pub fn new(proxy_url: Option<Url>, client_id: String) -> Self {
         Self {
             http_client: LazyLock::new(Box::new(move || {
-                let mut builder = reqwest::Client::builder().redirect(redirect::Policy::none());
-                // It's okay to panic on these errors, as they indicate a serious programming
-                // error -- building the reqwest client is expected to be infallible.
-                if let Some(proxy_url) = proxy_url {
-                    let proxy = Proxy::all(proxy_url)
-                        .expect("Infallible conversion from URL type to URL type")
-                        .custom_http_auth(
-                            client_id
-                                .try_into()
-                                .expect("Backend name is not valid ASCII?"),
-                        );
-                    builder = builder.proxy(proxy);
-                }
-                builder = builder
-                    .user_agent("Convex/1.0")
-                    .use_preconfigured_tls(TLS_CONNECTOR.clone());
-                builder.build().expect("Failed to build reqwest client")
+                build_proxied_reqwest_client(proxy_url, client_id)
             })),
         }
     }

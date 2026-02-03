@@ -7,8 +7,12 @@ use std::sync::{
 };
 
 use bytes::BufMut;
-use common::knobs::HTTP_CACHE_SIZE;
+use common::{
+    http::fetch::build_proxied_reqwest_client,
+    knobs::HTTP_CACHE_SIZE,
+};
 use futures::Future;
+use http::StatusCode;
 use http_body_util::BodyExt;
 use http_cache::{
     MokaCache,
@@ -26,7 +30,7 @@ use openidconnect::{
     HttpRequest,
     HttpResponse,
 };
-use reqwest::Client;
+use reqwest::Url;
 use reqwest_middleware::ClientBuilder;
 use thiserror::Error;
 
@@ -46,16 +50,6 @@ static CACHE: LazyLock<MokaManager> = LazyLock::new(|| {
             .build(),
     )
 });
-static HTTP_CLIENT: LazyLock<reqwest_middleware::ClientWithMiddleware> = LazyLock::new(|| {
-    ClientBuilder::new(Client::new())
-        .with(Cache(HttpCache {
-            mode: CacheMode::Default,
-            manager: CACHE.clone(),
-            options: Default::default(),
-        }))
-        .build()
-});
-
 /// Just for metrics labeling
 #[derive(Copy, Clone, Eq, PartialEq, Debug, strum::IntoStaticStr)]
 pub enum ClientPurpose {
@@ -65,19 +59,54 @@ pub enum ClientPurpose {
     WorkOSProvisioning,
 }
 
-pub fn cached_http_client_for(
-    purpose: ClientPurpose,
-) -> impl Fn(HttpRequest) -> (impl Future<Output = Result<HttpResponse, AsStdError>> + 'static) {
-    move |request: HttpRequest| cached_http_client_inner(request, purpose)
+/// A cached HTTP client that routes requests through a proxy for SSRF
+/// protection. All external HTTP requests should use this client.
+#[derive(Clone)]
+pub struct CachedHttpClient {
+    client: reqwest_middleware::ClientWithMiddleware,
+}
+
+impl CachedHttpClient {
+    /// Creates a new cached HTTP client with proxy support.
+    /// If proxy_url is Some, all requests will be routed through the proxy
+    /// (Smokescreen) for SSRF protection.
+    /// The client_id is used for proxy authentication.
+    pub fn new(proxy_url: Option<Url>, client_id: String) -> Self {
+        let client = build_proxied_reqwest_client(proxy_url, client_id);
+        let client_with_middleware = ClientBuilder::new(client)
+            .with(Cache(HttpCache {
+                mode: CacheMode::Default,
+                manager: CACHE.clone(),
+                options: Default::default(),
+            }))
+            .build();
+        Self {
+            client: client_with_middleware,
+        }
+    }
+
+    /// Returns a closure that can be used with openidconnect's discover_async.
+    pub fn for_purpose(
+        self,
+        purpose: ClientPurpose,
+    ) -> impl Fn(HttpRequest) -> (impl Future<Output = Result<HttpResponse, AsStdError>> + 'static)
+    {
+        move |request: HttpRequest| {
+            let client = self.client.clone();
+            cached_http_client_inner(client, request, purpose)
+        }
+    }
 }
 
 /// HTTP fetch function that caches responses in memory based on the
-/// `Cache-Control` headers in the response.
-/// Uses a static `reqwest` client so connections can be reused.
+/// `Cache-Control` headers in the response. Also checks for SSRF mitigation
+/// responses from the proxy.
 async fn cached_http_client_inner(
+    client: reqwest_middleware::ClientWithMiddleware,
     request: HttpRequest,
     purpose: ClientPurpose,
 ) -> Result<HttpResponse, AsStdError> {
+    let uri_string = request.uri().to_string();
     // Error handling shenanigans because `anyhow::Error` doesn't implement
     // `std::error::Error` (required by openidconnect), but the function body
     // returns multiple error types that are easiest to unify under
@@ -85,13 +114,18 @@ async fn cached_http_client_inner(
     // convert it to a `AsStdError` which does implement `std::error::Error
     let res: Result<HttpResponse, anyhow::Error> = try {
         let (parts, body) = request.into_parts();
-        let mut request_builder = HTTP_CLIENT
+        let mut request_builder = client
             .request(parts.method.as_str().parse()?, parts.uri.to_string())
             .body(body);
         for (name, value) in &parts.headers {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
         }
         let response = request_builder.send().await?;
+
+        // Check for SSRF mitigation response from proxy
+        if response.status() == StatusCode::PROXY_AUTHENTICATION_REQUIRED {
+            Err(anyhow::anyhow!("Request to {} forbidden", uri_string))?
+        }
 
         let cache_hit = response
             .headers()
@@ -122,7 +156,7 @@ mod tests {
     use reqwest::Url;
 
     use crate::{
-        cached_http_client_inner,
+        CachedHttpClient,
         ClientPurpose,
     };
 
@@ -137,17 +171,19 @@ mod tests {
                 HeaderValue::from_static("application/json"),
             )
             .body(vec![])?;
-        let response = cached_http_client_inner(request.clone(), ClientPurpose::ProviderMetadata)
-            .await
-            .unwrap();
+        // Create a client without proxy for testing
+        let client = CachedHttpClient::new(None, "test".to_string());
+        let http_client = client.for_purpose(ClientPurpose::ProviderMetadata);
+        let response = http_client(request.clone()).await.unwrap();
         assert_eq!(
             response.headers().get(XCACHE).unwrap().as_bytes(),
             "MISS".as_bytes()
         );
-        // Send the request again
-        let response = cached_http_client_inner(request, ClientPurpose::ProviderMetadata)
-            .await
-            .unwrap();
+        // Send the request again - need to create a new client since for_purpose takes
+        // ownership
+        let client = CachedHttpClient::new(None, "test".to_string());
+        let http_client = client.for_purpose(ClientPurpose::ProviderMetadata);
+        let response = http_client(request).await.unwrap();
         assert_eq!(
             response.headers().get(XCACHE).unwrap().as_bytes(),
             "HIT".as_bytes()

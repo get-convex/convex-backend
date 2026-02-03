@@ -56,6 +56,7 @@ use function_runner::{
     FunctionRunner,
 };
 use governor::Quota;
+use http_client::CachedHttpClient;
 use model::{
     initialize_application_system_tables,
     virtual_system_mapping,
@@ -204,6 +205,7 @@ pub async fn make_app(
         config.convex_http_proxy.clone(),
         config.name(),
     ));
+    let oidc_http_client = CachedHttpClient::new(config.convex_http_proxy.clone(), config.name());
     let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> =
         Arc::new(InProcessFunctionRunner::new(
             config.name().clone(),
@@ -245,6 +247,7 @@ pub async fn make_app(
         preempt_tx.clone(),
         Arc::new(InProcessExportProvider),
         deleted_tablet_receiver,
+        oidc_http_client,
     )
     .await?;
 

@@ -61,6 +61,7 @@ use function_runner::{
     in_process_function_runner::InProcessFunctionRunner,
     server::InstanceStorage,
 };
+use http_client::CachedHttpClient;
 use isolate::{
     bundled_js::OUT_DIR,
     test_helpers::{
@@ -264,6 +265,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             rt.clone(),
         );
 
+        let oidc_http_client = CachedHttpClient::new(None, DEV_INSTANCE_NAME.into());
         let application = Application::new(
             rt.clone(),
             database.clone(),
@@ -290,6 +292,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             ShutdownSignal::panic(),
             Arc::new(InProcessExportProvider),
             deleted_tablet_receiver,
+            oidc_http_client,
         )
         .await?;
 

@@ -193,7 +193,7 @@ use headers::{
     ContentType,
 };
 use http_client::{
-    cached_http_client_for,
+    CachedHttpClient,
     ClientPurpose,
 };
 use isolate::helpers::source_map_from_slice;
@@ -581,6 +581,7 @@ pub struct Application<RT: Runtime> {
     system_env_var_names: HashSet<EnvVarName>,
     app_auth: Arc<ApplicationAuth>,
     log_manager_client: LogManagerClient,
+    oidc_http_client: CachedHttpClient,
 }
 
 /// Create storage based on the storage type configuration
@@ -675,6 +676,7 @@ impl<RT: Runtime> Application<RT> {
         lease_lost_shutdown: ShutdownSignal,
         export_provider: Arc<dyn ExportProvider<RT>>,
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
+        oidc_http_client: CachedHttpClient,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -868,6 +870,7 @@ impl<RT: Runtime> Application<RT> {
             system_env_var_names: default_system_env_vars.into_keys().collect(),
             app_auth,
             log_manager_client,
+            oidc_http_client,
         })
     }
 
@@ -2890,7 +2893,9 @@ impl<RT: Runtime> Application<RT> {
                 let identity_result = validate_id_token(
                     // This is any JWT.
                     AuthIdToken(id_token),
-                    cached_http_client_for(ClientPurpose::ProviderMetadata),
+                    self.oidc_http_client
+                        .clone()
+                        .for_purpose(ClientPurpose::ProviderMetadata),
                     auth_info_values,
                     system_time,
                     should_redact_errors,
