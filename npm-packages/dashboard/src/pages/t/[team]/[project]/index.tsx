@@ -16,12 +16,19 @@ export default withAuthenticatedPage(function RedirectToDeployment() {
   const currentProject = useCurrentProject();
   const { deployments } = useDeployments(currentProject?.id);
   const member = useProfile();
-  const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
-  const devDeployment = deployments?.find(
-    (d) => d.deploymentType === "dev" && d.creator === member?.id,
+  const defaultProdDeployment = deployments?.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+  );
+  const myDefaultDevDeployment = deployments?.find(
+    (d) =>
+      d.kind === "cloud" &&
+      d.deploymentType === "dev" &&
+      d.creator === member?.id &&
+      d.isDefault,
   );
   const anyDeployment = deployments?.[0];
-  const shownDeployment = devDeployment ?? prodDeployment ?? anyDeployment;
+  const shownDeployment =
+    myDefaultDevDeployment ?? defaultProdDeployment ?? anyDeployment;
   const shownDeploymentName = shownDeployment?.name;
 
   useEffect(() => {

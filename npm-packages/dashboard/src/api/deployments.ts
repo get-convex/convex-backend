@@ -37,7 +37,8 @@ export function useDefaultDevDeployment(projectId: number | undefined) {
     (d) =>
       d.deploymentType === "dev" &&
       d.kind === "cloud" &&
-      d.creator === member?.id,
+      d.creator === member?.id &&
+      d.isDefault,
   );
   const localDev = deployments?.find(
     (d) =>

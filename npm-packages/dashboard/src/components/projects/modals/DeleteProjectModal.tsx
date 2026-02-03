@@ -40,13 +40,17 @@ export function DeleteProjectModal({
     onClose();
   };
   const { deployments } = useDeployments(project.id);
-  const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
+  const defaultProdDeployment = deployments?.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+  );
 
-  return deployments && prodDeployment ? (
-    <DeploymentInfoProvider deploymentOverride={prodDeployment.name}>
-      <MaybeDeploymentApiProvider deploymentOverride={prodDeployment.name}>
+  return deployments && defaultProdDeployment ? (
+    <DeploymentInfoProvider deploymentOverride={defaultProdDeployment.name}>
+      <MaybeDeploymentApiProvider
+        deploymentOverride={defaultProdDeployment.name}
+      >
         <WaitForDeploymentApi sizeClass="hidden">
-          <DeleteProjectModalContentWithProd
+          <DeleteProjectModalContentWithDefaultProd
             team={team}
             project={project}
             onClose={onClose}
@@ -70,7 +74,7 @@ export function DeleteProjectModal({
   );
 }
 
-function DeleteProjectModalContentWithProd({
+function DeleteProjectModalContentWithDefaultProd({
   team,
   project,
   onClose,
