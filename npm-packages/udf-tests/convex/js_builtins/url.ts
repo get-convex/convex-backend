@@ -148,6 +148,11 @@ function urlModifications() {
   );
   url.port = "";
   assert.strictEqual(url.href, "https://foo.bar/foo/bar%qat?foo=bar&baz=12");
+  // setting protocol with or without a trailing `:` is equivalent
+  url.protocol = "http";
+  assert.strictEqual(url.href, "http://foo.bar/foo/bar%qat?foo=bar&baz=12");
+  url.protocol = "https";
+  assert.strictEqual(url.href, "https://foo.bar/foo/bar%qat?foo=bar&baz=12");
   url.protocol = "http:";
   assert.strictEqual(url.href, "http://foo.bar/foo/bar%qat?foo=bar&baz=12");
   url.search = "?foo=bar&foo=baz";
@@ -186,6 +191,7 @@ function urlModifyHrefErroring() {
   const url = new URL("http://example.com/");
   assert.throws(
     () => (url.href = "foo"),
+    TypeError,
     /^Could not parse URL: http:\/\/example.com\/$/,
   );
 }
@@ -407,6 +413,18 @@ function urlBase() {
   assert.strictEqual(new URL("efgh:", "abcd://foo/a/b?c#d").href, "efgh:");
 
   assert.strictEqual(new URL("/foo", "abcd:/").href, "abcd:/foo");
+
+  // Error handling
+  assert.throws(
+    () => new URL("/foo", "not-a-url"),
+    TypeError,
+    "Invalid URL: 'not-a-url'",
+  );
+  assert.throws(
+    () => new URL("//:-", "abcd://foo"),
+    TypeError,
+    "Invalid URL: '//:-'",
+  );
 }
 
 function urlDriveLetterBase() {
@@ -480,6 +498,10 @@ function doNotOverridePortIfInvalid() {
   // If port is greater than 2^16 − 1, validation error, return failure.
   url.port = `${2 ** 16}`;
   assert.strictEqual(url.port, initialPort);
+  // Ignore port assignment on URLs that cannot receive them
+  const fileUrl = new URL("file:///foo");
+  fileUrl.port = "1000";
+  assert.strictEqual(fileUrl.href, "file:///foo");
 }
 
 function emptyPortForSchemeDefaultPort() {

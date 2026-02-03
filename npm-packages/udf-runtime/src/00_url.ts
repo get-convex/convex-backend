@@ -185,14 +185,6 @@ type UrlInfo = {
   password: string;
 };
 
-type URLInfoResult =
-  | { kind: "success"; urlInfo: UrlInfo }
-  | {
-      kind: "error";
-      errorType: "UnsupportedURL" | "InvalidURL";
-      message?: string;
-    };
-
 class URL {
   #urlInfo: UrlInfo;
   #searchParams: URLSearchParams;
@@ -203,20 +195,8 @@ class URL {
       baseHref = typeof base === "string" ? base : base.href;
     }
     if (typeof url === "string") {
-      const urlInfoResult: URLInfoResult = performOp(
-        "url/getUrlInfo",
-        url,
-        baseHref,
-      );
-      if (urlInfoResult.kind === "error") {
-        switch (urlInfoResult.errorType) {
-          case "InvalidURL":
-            throw new TypeError(`Invalid URL: '${url}'`);
-          case "UnsupportedURL":
-            throw new TypeError(urlInfoResult.message ?? "Unsupported URL");
-        }
-      }
-      this.#urlInfo = urlInfoResult.urlInfo;
+      const urlInfo: UrlInfo = performOp("url/getUrlInfo", url, baseHref);
+      this.#urlInfo = urlInfo;
     } else {
       this.#urlInfo = { ...url.#urlInfo };
     }
@@ -259,12 +239,6 @@ class URL {
   }
 
   set href(_href: string) {
-    const urlInfo = performOp("url/getUrlInfo", _href);
-    if (urlInfo === null) {
-      throw new TypeError(
-        "Failed to set the 'href' property on 'URL': Invalid URL",
-      );
-    }
     this.#updateUrl({
       href: _href,
     });
@@ -307,7 +281,7 @@ class URL {
 
   set port(_port: string) {
     this.#updateUrl({
-      port: _port === "" ? null : _port,
+      port: _port,
     });
   }
 
