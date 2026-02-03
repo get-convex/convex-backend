@@ -3,7 +3,6 @@ use std::{
     collections::{
         BTreeMap,
         BTreeSet,
-        BinaryHeap,
     },
     ops::{
         Add,
@@ -68,6 +67,7 @@ use text_search::tracker::StaticDeletionTracker;
 use value::InternalId;
 use vector::{
     qdrant_segments::UntarredVectorDiskSegmentPaths,
+    result_merger::merge_vector_results_stream,
     CompiledVectorSearch,
     QdrantSchema,
     VectorIndexType,
@@ -591,9 +591,10 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
             let total_segments = fragments.len();
             let query_capacity = (query.limit + overfetch_delta) as usize;
 
-            // Store results in a min-heap to avoid storing all intermediate
-            // results from parallel segment fetches in-memory
-            let results_pq = self
+            // Use shared result merger to merge results from all segments using
+            // a min-heap approach. This avoids storing all intermediate results
+            // from parallel segment fetches in-memory.
+            let results_stream = self
                 .fragmented_segment_fetcher
                 .stream_fetch_fragmented_segments(search_storage, fragments, labels)
                 .and_then(|paths| self.load_fragmented_segment(paths))
@@ -604,36 +605,9 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
                         overfetch_delta,
                         segment,
                     )
-                })
-                .try_fold(
-                    BinaryHeap::with_capacity(query_capacity + 1),
-                    |mut acc_pq, results| async {
-                        for result in results {
-                            // Store Reverse(result) in the heap so that the heap becomes a min-heap
-                            // instead of the default max-heap. This way, we can evict the smallest
-                            // element in the heap efficiently once we've
-                            // reached query_capacity, leaving us with the top K
-                            // results.
-                            acc_pq.push(std::cmp::Reverse(result));
-                            if acc_pq.len() > query_capacity {
-                                acc_pq.pop();
-                            }
-                        }
-                        Ok(acc_pq)
-                    },
-                )
-                .await?;
-
-            // BinaryHeap::into_sorted_vec returns results in ascending order of score,
-            // but this is a Vec<Reverse<_>>, so the order is already descending, as
-            // desired.
-            // Note: this already contains at most query_capacity = query.limit +
-            // overfetch_delta results, so no more filtering required.
-            let results: Vec<VectorSearchQueryResult> = results_pq
-                .into_sorted_vec()
-                .into_iter()
-                .map(|v| v.0)
-                .collect();
+                });
+            let results: Vec<VectorSearchQueryResult> =
+                merge_vector_results_stream(results_stream, query_capacity).await?;
             tracing::debug!(
                 "Finished querying {} vectors from {total_segments} segment(s) to get {} limit + \
                  overfetch results",
