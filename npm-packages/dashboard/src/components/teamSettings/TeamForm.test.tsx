@@ -2,7 +2,13 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { TeamResponse } from "generatedApi";
 import userEvent from "@testing-library/user-event";
+import * as deployments from "api/deployments";
+import * as launchDarkly from "hooks/useLaunchDarkly";
 import { TeamForm, TeamFormProps } from "./TeamForm";
+
+jest.mock("next/router", () => jest.requireActual("next-router-mock"));
+jest.mock("api/deployments");
+jest.mock("hooks/useLaunchDarkly");
 
 // Mock out location to prevent
 // Error: Not implemented: navigation (except hash changes)
@@ -45,6 +51,13 @@ describe("<TeamForm />", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(deployments, "useDeploymentRegions").mockReturnValue({
+      regions: undefined,
+      isLoading: false,
+    });
+    jest.spyOn(launchDarkly, "useLaunchDarkly").mockReturnValue({
+      deploymentRegion: false,
+    } as ReturnType<typeof launchDarkly.useLaunchDarkly>);
     team = {
       id: 1,
       creator: 1,
@@ -99,6 +112,7 @@ describe("<TeamForm />", () => {
     expect(onUpdateTeam).toHaveBeenCalledWith({
       name: updatedTeam.name,
       slug: updatedTeam.slug,
+      defaultRegion: null,
     });
   });
 
@@ -191,5 +205,46 @@ describe("<TeamForm />", () => {
     expect(nameTextBox).toBeDisabled();
     expect(slugTextBox).toBeDisabled();
     expect(screen.getByText("Save")).toBeDisabled();
+  });
+
+  test("should allow changing the default region", async () => {
+    jest.spyOn(deployments, "useDeploymentRegions").mockReturnValue({
+      regions: [
+        {
+          name: "aws-us-east-1",
+          displayName: "US East (N. Virginia)",
+          available: true,
+        },
+        {
+          name: "aws-eu-west-1",
+          displayName: "EU West (Ireland)",
+          available: true,
+        },
+      ],
+      isLoading: false,
+    });
+    jest.spyOn(launchDarkly, "useLaunchDarkly").mockReturnValue({
+      deploymentRegion: true,
+    } as ReturnType<typeof launchDarkly.useLaunchDarkly>);
+
+    setup();
+    const user = userEvent.setup();
+
+    // Verify region selector is shown
+    expect(screen.getByText("Region for New Deployments")).toBeInTheDocument();
+
+    // Select US East region
+    await user.click(screen.getByText("US East"));
+
+    expect(screen.getByText("Save")).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Save"));
+    });
+    expect(onUpdateTeam).toHaveBeenCalledWith({
+      name: team.name,
+      slug: team.slug,
+      defaultRegion: "aws-us-east-1",
+    });
   });
 });

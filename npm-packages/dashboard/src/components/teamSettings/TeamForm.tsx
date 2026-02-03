@@ -7,10 +7,17 @@ import { useFormik } from "formik";
 import { TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { useCopy } from "@common/lib/useCopy";
+import { useDeploymentRegions } from "api/deployments";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { DefaultRegionSelector } from "./DefaultRegionSelector";
 
 export type TeamFormProps = {
   team: TeamResponse;
-  onUpdateTeam: (body: { name: string; slug: string }) => void;
+  onUpdateTeam: (body: {
+    name: string;
+    slug: string;
+    defaultRegion: string | null;
+  }) => Promise<void>;
   hasAdminPermissions: boolean;
 };
 
@@ -27,16 +34,20 @@ const TeamSchema = Yup.object().shape({
       "Team slug may contain numbers, letters, underscores, and '-'.",
     )
     .required(),
+  defaultRegion: Yup.string().nullable(),
 });
 export function TeamForm({
   team,
   onUpdateTeam,
   hasAdminPermissions,
 }: TeamFormProps) {
+  const { regions } = useDeploymentRegions(team.id);
+  const flags = useLaunchDarkly();
   const formState = useFormik({
     initialValues: {
       name: team.name,
       slug: team.slug,
+      defaultRegion: team.defaultRegion ?? null,
     },
     enableReinitialize: true,
     validationSchema: TeamSchema,
@@ -95,6 +106,18 @@ export function TeamForm({
             />
           </Tooltip>
         </div>
+
+        {flags.deploymentRegion && (
+          <DefaultRegionSelector
+            value={formState.values.defaultRegion}
+            onChange={(region) =>
+              formState.setFieldValue("defaultRegion", region)
+            }
+            regions={regions}
+            teamSlug={team.slug}
+            disabledDueToPermissions={!hasAdminPermissions}
+          />
+        )}
 
         <Button
           className="float-right"

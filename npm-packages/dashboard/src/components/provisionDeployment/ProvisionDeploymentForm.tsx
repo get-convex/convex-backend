@@ -9,14 +9,11 @@ import { useProvisionDeployment } from "api/deployments";
 import { Fieldset, Legend, RadioGroup } from "@headlessui/react";
 import { cn } from "@ui/cn";
 import { Sheet } from "@ui/Sheet";
-import { Loading } from "@ui/Loading";
 import { useTheme } from "next-themes";
 import createGlobe from "cobe";
 import { SignalIcon } from "@heroicons/react/24/outline";
 import { GlobeIcon } from "@radix-ui/react-icons";
-import { Region } from "./Region";
-
-const REGION_ORDER = ["aws-us-east-1", "aws-eu-west-1"];
+import { Region, sortRegions } from "elements/Region";
 
 const REGION_COORDINATES: Record<RegionName, [number, number]> = {
   "aws-us-east-1": [38.9072, -77.0369], // Washington DC area (US East)
@@ -71,19 +68,12 @@ export function ProvisionDeploymentFormInner({
   deploymentType: "prod" | "dev";
   regions: DeploymentRegionMetadata[] | undefined;
   onCreate: (region: string) => Promise<void>;
-  teamSlug?: string;
+  teamSlug: string | undefined;
 }) {
-  const sortedRegions = useMemo(() => {
-    if (!regions) return undefined;
-    return [...regions].sort((a, b) => {
-      const aIndex = REGION_ORDER.indexOf(a.name);
-      const bIndex = REGION_ORDER.indexOf(b.name);
-      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      return 0;
-    });
-  }, [regions]);
+  const sortedRegions = useMemo(
+    () => (regions ? sortRegions(regions) : undefined),
+    [regions],
+  );
 
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -134,34 +124,32 @@ export function ProvisionDeploymentFormInner({
               </span>
             </h3>
             <Fieldset>
-              <Legend className="mb-3 text-sm font-medium">Region</Legend>
-              {sortedRegions === undefined ? (
-                <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
-                  {[1, 2].map((i) => (
-                    <Loading
-                      key={i}
-                      className="h-full min-h-[60px] rounded-xl border bg-background-secondary"
-                      fullHeight={false}
-                    />
-                  ))}
+              <Legend className="mb-1 text-sm text-content-primary">
+                Region
+              </Legend>
+              <RadioGroup
+                name="region"
+                value={selectedRegion ?? ""}
+                onChange={setSelectedRegion}
+              >
+                <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2">
+                  {sortedRegions === undefined
+                    ? [1, 2].map((i) => (
+                        <Region
+                          key={i}
+                          region={undefined}
+                          teamSlug={teamSlug}
+                        />
+                      ))
+                    : sortedRegions.map((region) => (
+                        <Region
+                          key={region.name}
+                          region={region}
+                          teamSlug={teamSlug}
+                        />
+                      ))}
                 </div>
-              ) : (
-                <RadioGroup
-                  name="region"
-                  value={selectedRegion ?? ""}
-                  onChange={setSelectedRegion}
-                >
-                  <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
-                    {sortedRegions.map((region) => (
-                      <Region
-                        key={region.name}
-                        region={region}
-                        teamSlug={teamSlug}
-                      />
-                    ))}
-                  </div>
-                </RadioGroup>
-              )}
+              </RadioGroup>
             </Fieldset>
 
             <div>

@@ -85,6 +85,17 @@ export function useProvisionDeployment(projectId: number) {
   });
 }
 
+export function useDeploymentRegions(teamId: number | undefined) {
+  const { data, isLoading } = useManagementApiQuery({
+    path: "/teams/{team_id}/list_deployment_regions",
+    pathParams: {
+      team_id: teamId?.toString() || "",
+    },
+  });
+
+  return { regions: data?.items, isLoading };
+}
+
 export function useDeploymentById(
   teamId: number,
   deploymentId?: number | string,
