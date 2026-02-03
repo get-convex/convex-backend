@@ -11,7 +11,6 @@
     "lint": "bash ../dashboard-common/scripts/checkNode20.sh && next lint --max-warnings 0 --dir src/ && tsc",
     "lint:fix": "bash ../dashboard-common/scripts/checkNode20.sh && next lint --fix --max-warnings 0 --dir src/",
     "export": "next export",
-    "storybook": "echo 'Storybook has migrated to the `dashboard-storybook` package, please run `just run-storybook`'",
     "test": "npm run checkManagementApiSpec && npm run checkDeploymentApiSpec && npm run build:generated && jest",
     "clean": "shx rm -rf .next",
     "corsAnywhere": "node cors-anywhere.js",
