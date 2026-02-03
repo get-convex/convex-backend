@@ -74,7 +74,7 @@ function DashboardHeaderWhenLoggedIn() {
   const projectSelector = (
     <ProjectSelector
       teams={teams}
-      selectedProject={selectedProject ?? undefined}
+      selectedProject={projectSlug ? (selectedProject ?? undefined) : undefined}
       selectedTeamSlug={selectedTeamSlug}
       onCreateTeamClick={() => {
         logEvent("view create team modal");
