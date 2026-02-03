@@ -11,8 +11,6 @@
   "dependencies": {
     "@convex-dev/eslint-plugin": "^1.0.0",
     "@auth0/auth0-react": "^2.0.1",
-    "@eslint/js": "~9.39.0",
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "20.1.0",
     "@types/react": "18.3.27",
