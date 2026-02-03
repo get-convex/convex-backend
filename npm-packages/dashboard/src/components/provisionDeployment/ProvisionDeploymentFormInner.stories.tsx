@@ -20,6 +20,8 @@ const meta = {
     ],
     onCreate: fn(),
     teamSlug: "example-team",
+    teamName: "Example Team",
+    isAdmin: true,
   },
 } satisfies Meta<typeof ProvisionDeploymentFormInner>;
 
@@ -68,5 +70,11 @@ export const Local: Story = {
         available: true,
       },
     ],
+  },
+};
+
+export const NotAdmin: Story = {
+  args: {
+    isAdmin: false,
   },
 };

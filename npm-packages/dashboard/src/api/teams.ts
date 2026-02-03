@@ -96,14 +96,14 @@ export function useDeleteTeam(teamId: number) {
   });
 }
 
-export function useUpdateTeam(teamId: number) {
+export function useUpdateTeam(teamId: number, toast: boolean = true) {
   return useBBMutation({
     path: `/teams/{team_id}`,
     pathParams: {
       team_id: teamId.toString(),
     },
     mutateKey: "/teams",
-    successToast: "Team settings updated.",
+    successToast: toast ? "Team settings updated." : undefined,
   });
 }
 

@@ -1,11 +1,12 @@
 import { useCurrentTeam } from "api/teams";
-import { Sheet } from "@ui/Sheet";
 import { useProvisionDeployment } from "api/deployments";
 import { useCurrentProject } from "api/projects";
 import { useRouter } from "next/router";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { useIsomorphicLayoutEffect } from "react-use";
 import { ProvisionDeploymentForm } from "./ProvisionDeploymentForm";
+import { ProvisioningLoading } from "./ProvisioningLoading";
 
 export function ProvisionDeploymentPage({
   deploymentType,
@@ -21,9 +22,6 @@ export function ProvisionDeploymentPage({
   const flags = useLaunchDarkly();
   const showForm = flags.deploymentRegion;
 
-  const deploymentTypeLabel =
-    deploymentType === "prod" ? "production" : "development";
-
   return showForm ? (
     projectId !== null ? (
       <ProvisionDeploymentForm
@@ -33,29 +31,16 @@ export function ProvisionDeploymentPage({
       />
     ) : null
   ) : (
-    <div className="h-full bg-background-primary p-6">
-      <Sheet className="mb-2 h-full overflow-hidden">
-        <div className="flex flex-1 flex-col items-center justify-center">
-          <div className="flex max-w-lg animate-fadeIn flex-col items-center">
-            <h1 className="mx-2 mt-10 mb-8">
-              Provisioning your{" "}
-              <span className="font-semibold">{deploymentTypeLabel}</span>{" "}
-              deployment...
-              {projectId !== null ? (
-                <ProvisionDeployment
-                  projectId={projectId}
-                  projectURI={projectURI}
-                  deploymentType={deploymentType}
-                />
-              ) : null}
-            </h1>
-            <div className="w-full animate-fadeIn">
-              <div className="h-4 rounded-sm bg-background-tertiary" />
-            </div>
-          </div>
-        </div>
-      </Sheet>
-    </div>
+    <>
+      {projectId !== null && (
+        <ProvisionDeployment
+          projectId={projectId}
+          projectURI={projectURI}
+          deploymentType={deploymentType}
+        />
+      )}
+      <ProvisioningLoading deploymentType={deploymentType} />
+    </>
   );
 }
 
@@ -78,12 +63,15 @@ function ProvisionDeployment({
   // This avoids calling the API twice, even in React StrictMode.
   const wasCalled = useRef(false);
 
-  useEffect(() => {
+  // Using useIsomorphicLayoutEffect instead of useEffect
+  // to avoid a weird bug where the effect would run twice
+  // when the page is accessed from a Next.js <Link />
+  useIsomorphicLayoutEffect(() => {
     if (wasCalled.current) {
       return;
     }
+    wasCalled.current = true;
     void (async () => {
-      wasCalled.current = true;
       const { name } = await provisionDeployment({
         type: deploymentType,
       });
