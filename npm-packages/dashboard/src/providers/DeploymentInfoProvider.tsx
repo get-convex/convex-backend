@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
   captureException,
@@ -122,6 +122,12 @@ export function DeploymentInfoProvider({
   >(undefined);
 
   const [accessToken] = useAccessToken();
+  // Use a ref to track the access token without triggering re-authentication
+  // when it changes
+  const accessTokenRef = useRef(accessToken);
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
   const {
     workOsEnvironmentProvisioningDashboardUi,
     connectionStateCheckIntervalMs,
@@ -136,7 +142,7 @@ export function DeploymentInfoProvider({
       setDeploymentInfo(undefined);
       const info = await deploymentAuth(
         deploymentOverride || (deploymentName as string),
-        `Bearer ${accessToken}`,
+        `Bearer ${accessTokenRef.current}`,
       );
       setDeploymentInfo({
         ...info,
@@ -202,11 +208,14 @@ export function DeploymentInfoProvider({
         connectionStateCheckIntervalMs,
       });
     };
-    if (accessToken && (deploymentOverride || deploymentName)) {
+    if (accessTokenRef.current && (deploymentOverride || deploymentName)) {
       void f();
     }
   }, [
-    accessToken,
+    // Note: accessToken is intentionally NOT in dependencies
+    // We don't want to re-authenticate to the deployment every time the dashboard
+    // access token refreshes (every 10 minutes). The deployment admin key is separate
+    // and doesn't need to be refreshed when the dashboard token changes.
     deploymentName,
     deploymentOverride,
     deploymentsURI,
