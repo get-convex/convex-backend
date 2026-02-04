@@ -84,14 +84,6 @@ export function Region({
               </div>
             </div>
             <div className="ml-4 flex items-center gap-3">
-              {disabledDueToAvailability && (
-                <span
-                  className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
-                  title="Only available on the Pro plan"
-                >
-                  Pro
-                </span>
-              )}
               <div className="flex size-3.5 items-center justify-center rounded-full border border-border-transparent bg-background-secondary group-data-checked:border-util-accent group-data-checked:bg-util-accent">
                 <span className="invisible size-1.5 rounded-full bg-white group-data-checked:visible" />
               </div>
@@ -120,7 +112,7 @@ export function Region({
         className="w-full"
         tip={
           <div className="flex flex-col gap-1">
-            <p>This region is only available on the Pro plan.</p>
+            <p>This region is not available on your current plan.</p>
             {teamSlug && (
               <p>
                 <Link
@@ -128,7 +120,7 @@ export function Region({
                   className="text-content-link hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  Upgrade to Pro
+                  Upgrade your plan
                 </Link>{" "}
                 to access this region.
               </p>
