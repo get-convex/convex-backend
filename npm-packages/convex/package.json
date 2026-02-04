@@ -276,7 +276,7 @@
     "@octokit/openapi-types": "~25.0.0",
     "@sentry/node": "^7.23.0",
     "@sentry/tracing": "^7.23.0",
-    "@swc/core": "1.15.3",
+    "@swc/core": "1.15.8",
     "@testing-library/react": "~16.3.0",
     "@types/adm-zip": "^0.5.7",
     "@types/deep-equal": "1.0.4",
