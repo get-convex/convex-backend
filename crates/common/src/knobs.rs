@@ -148,7 +148,7 @@ pub static UDF_EXECUTOR_OCC_MAX_RETRIES: LazyLock<usize> =
 
 /// Initial backoff when we encounter an OCC conflict.
 pub static UDF_EXECUTOR_OCC_INITIAL_BACKOFF: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("UDF_EXECUTOR_OCC_INITIAL_BACKOFF_MS", 10)));
+    LazyLock::new(|| Duration::from_millis(env_config("UDF_EXECUTOR_OCC_INITIAL_BACKOFF_MS", 100)));
 
 /// Maximum expontial backoff when facing repeated OCC conflicts.
 pub static UDF_EXECUTOR_OCC_MAX_BACKOFF: LazyLock<Duration> =
