@@ -126,6 +126,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get deployment
+         * @description Get details about a cloud deployment.
+         */
+        get: operations["platform_get_deployment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/list_deployment_classes": {
         parameters: {
             query?: never;
@@ -334,6 +354,39 @@ export interface components {
             available: boolean;
             displayName: string;
             name: components["schemas"]["RegionName"];
+        };
+        DeploymentResponse: {
+            /** Format: int64 */
+            createTime: number;
+            creator?: null | components["schemas"]["MemberId"];
+            deploymentType: components["schemas"]["DeploymentType"];
+            id: components["schemas"]["DeploymentId"];
+            isDefault: components["schemas"]["IsDefaultDeployment"];
+            /** @enum {string} */
+            kind: "cloud";
+            name: string;
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            projectId: components["schemas"]["ProjectId"];
+            region: components["schemas"]["RegionName"];
+        } | {
+            /** Format: int64 */
+            createTime: number;
+            creator: components["schemas"]["MemberId"];
+            deploymentType: components["schemas"]["DeploymentType"];
+            deviceName: components["schemas"]["DeviceName"];
+            /** Format: int64 */
+            id: number;
+            isActive: boolean;
+            isDefault: components["schemas"]["IsDefaultDeployment"];
+            /** @enum {string} */
+            kind: "local";
+            /** Format: int64 */
+            lastUpdateTime: number;
+            name: string;
+            /** Format: int32 */
+            port: number;
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            projectId: components["schemas"]["ProjectId"];
         };
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
@@ -548,6 +601,7 @@ export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMetadata'];
+export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
@@ -713,6 +767,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    platform_get_deployment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment Name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentResponse"];
+                };
             };
         };
     };
