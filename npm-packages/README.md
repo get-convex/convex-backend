@@ -41,3 +41,31 @@ To use a local big-brain (runs both backend and big brain locally):
 To run against prod:
 
 Just run `npx convex dev`
+
+## Updating the API spec
+
+The OpenAPI spec for the Platform APIs in `@convex-dev/platform` is
+automatically generated from the Rust code.
+
+### Management API specs (big_brain)
+
+Run `cargo test -p big_brain test_api_specs_match` to rebuild the management API
+specs, `cargo test -p local_backend test_api_specs_match` to rebuild the
+deployment API specs, and `npm run generateApiSpec` to rebuild the clients.
+
+This updates:
+
+- `management-openapi.json` - Platform management API
+- `dashboard-management-openapi.json` - Dashboard management API
+
+### Deployment API specs (local_backend)
+
+Run `cargo test -p local_backend test_api_specs_match` to rebuild the deployment
+API specs.
+
+This updates:
+
+- `deployment-openapi.json` - Public deployment API (queries, mutations,
+  actions)
+- `dashboard-deployment-openapi.json` - Dashboard deployment API (admin
+  operations)

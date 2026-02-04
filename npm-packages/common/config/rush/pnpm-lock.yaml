@@ -617,6 +617,9 @@ importers:
       '@commander-js/extra-typings':
         specifier: ^14.0.0
         version: 14.0.0(commander@14.0.2)
+      '@convex-dev/platform':
+        specifier: workspace:*
+        version: link:../@convex-dev/platform
       '@eslint/compat':
         specifier: ~2.0.0
         version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
