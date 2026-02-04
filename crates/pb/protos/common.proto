@@ -197,3 +197,10 @@ message HttpActionResponse {
     bytes body = 2;
   }
 }
+
+message ExecuteQueryTimestamp {
+  oneof ts {
+    google.protobuf.Empty latest = 1;
+    uint64 at = 2;
+  }
+}

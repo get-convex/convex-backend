@@ -410,6 +410,7 @@ mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
 pub mod deployment_state;
+mod execute_query_timestamp;
 mod exports;
 pub mod function_log;
 pub mod log_streaming;
