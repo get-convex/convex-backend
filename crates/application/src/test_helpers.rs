@@ -40,6 +40,7 @@ use common::{
     types::{
         ConvexOrigin,
         FullyQualifiedObjectKey,
+        TEST_REGION_NAME,
     },
 };
 use database::{
@@ -274,6 +275,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             usage_event_logger,
             kb.clone(),
             DEV_INSTANCE_NAME.into(),
+            Some(TEST_REGION_NAME.clone()),
             function_runner,
             convex_origin,
             convex_site,

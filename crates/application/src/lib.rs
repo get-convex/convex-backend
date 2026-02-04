@@ -131,6 +131,7 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
+        RegionName,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -662,6 +663,7 @@ impl<RT: Runtime> Application<RT> {
         usage_event_logger: Arc<dyn UsageEventLogger>,
         key_broker: KeyBroker,
         instance_name: String,
+        deployment_region: Option<RegionName>,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
@@ -756,6 +758,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             fetch_client.clone(),
             instance_name.clone(),
+            deployment_region.as_ref().map(|r| r.to_string()),
             log_streaming_allowed,
             usage_counter.clone(),
         )

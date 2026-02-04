@@ -404,6 +404,7 @@ mod tests {
             deployment_type: None,
             project_name: None,
             project_slug: None,
+            deployment_region: Some("test".to_string()),
         }));
 
         // Use BasicTestUsageEventLogger to capture usage events

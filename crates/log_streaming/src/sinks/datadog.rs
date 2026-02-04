@@ -425,6 +425,7 @@ mod tests {
             deployment_type: Some(DeploymentType::Dev),
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
+            deployment_region: Some("test".to_string()),
         }));
         // Assert that verification response succeeded
         let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
@@ -500,6 +501,7 @@ mod tests {
             deployment_type: Some(DeploymentType::Dev),
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
+            deployment_region: Some("test".to_string()),
         }));
         // Assert that verification response failed
         let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
@@ -563,6 +565,7 @@ mod tests {
             deployment_type: Some(DeploymentType::Dev),
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
+            deployment_region: Some("test".to_string()),
         }));
 
         // Use BasicTestUsageEventLogger to capture usage events

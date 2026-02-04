@@ -40,6 +40,7 @@ use common::{
     types::{
         ConvexOrigin,
         ConvexSite,
+        TEST_REGION_NAME,
     },
 };
 use config::LocalConfig;
@@ -229,6 +230,7 @@ pub async fn make_app(
         usage_event_logger,
         key_broker.clone(),
         config.name(),
+        Some(TEST_REGION_NAME.clone()),
         function_runner,
         config.convex_origin_url()?,
         config.convex_site_url()?,

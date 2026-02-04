@@ -341,6 +341,7 @@ mod tests {
                 deployment_type: Some(DeploymentType::Dev),
                 project_name: Some("test".to_string()),
                 project_slug: Some("test".to_string()),
+                deployment_region: Some("test".to_string()),
             })),
             true,
         )
