@@ -65,7 +65,7 @@ export function TeamForm({
     <Sheet className="text-sm">
       <h3 className="mb-4">Edit Team</h3>
       <form onSubmit={formState.handleSubmit} aria-label="Edit team settings">
-        <div className="mb-6 flex max-w-xs flex-col gap-4">
+        <div className="mb-6 flex flex-col gap-4">
           <Tooltip
             tip={
               !hasAdminPermissions
@@ -105,19 +105,19 @@ export function TeamForm({
               disabled={!hasAdminPermissions}
             />
           </Tooltip>
-        </div>
 
-        {flags.deploymentRegion && (
-          <DefaultRegionSelector
-            value={formState.values.defaultRegion}
-            onChange={(region) =>
-              formState.setFieldValue("defaultRegion", region)
-            }
-            regions={regions}
-            teamSlug={team.slug}
-            disabledDueToPermissions={!hasAdminPermissions}
-          />
-        )}
+          {flags.deploymentRegion && (
+            <DefaultRegionSelector
+              value={formState.values.defaultRegion}
+              onChange={(region) =>
+                formState.setFieldValue("defaultRegion", region)
+              }
+              regions={regions}
+              teamSlug={team.slug}
+              disabledDueToPermissions={!hasAdminPermissions}
+            />
+          )}
+        </div>
 
         <Button
           className="float-right"
