@@ -1782,6 +1782,10 @@ impl<RT: Runtime> Database<RT> {
         })
     }
 
+    pub fn check_write_throughput_limit(&self) -> anyhow::Result<()> {
+        self.snapshot_manager.lock().check_write_throughput_limit()
+    }
+
     #[cfg(any(test, feature = "testing"))]
     pub async fn commit(&self, transaction: Transaction<RT>) -> anyhow::Result<Timestamp> {
         self.commit_with_write_source(transaction, WriteSource::unknown())

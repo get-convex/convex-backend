@@ -834,6 +834,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 .database
                 .begin_with_usage(identity.clone(), usage_tracker.clone())
                 .await?;
+            self.database.check_write_throughput_limit()?;
             let pause_client = self.runtime.pause_client();
             pause_client.wait("retry_mutation_loop_start").await;
             let identity = tx.inert_identity();

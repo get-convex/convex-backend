@@ -868,9 +868,9 @@ impl<RT: Runtime> Committer<RT> {
             &self.refreshable_tables,
             &mut self.refreshable_tablets,
         );
-        let size = writes.heap_size();
+        let write_bytes = writes.heap_size();
         drop(timer);
-        metrics::write_log_commit_bytes(size);
+        metrics::write_log_commit_bytes(write_bytes);
 
         let timer = metrics::write_log_append_timer();
         self.log.append(commit_ts, writes, write_source);
@@ -885,7 +885,7 @@ impl<RT: Runtime> Committer<RT> {
 
         // Publish the new version of our database metadata and the index.
         let mut snapshot_manager = self.snapshot_manager.write();
-        snapshot_manager.push(commit_ts, new_snapshot);
+        snapshot_manager.push(commit_ts, new_snapshot, write_bytes as u64);
 
         apply_timer.finish();
     }

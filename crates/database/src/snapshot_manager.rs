@@ -60,6 +60,7 @@ use crate::{
     },
     transaction::TableCountSnapshot,
     write_log::PendingWrites,
+    write_throughput_limiter::WriteThroughputLimiter,
     ComponentRegistry,
     TableRegistry,
     TableSummary,
@@ -78,6 +79,7 @@ use crate::{
 pub struct SnapshotManager {
     persisted_max_repeatable_ts: Timestamp,
     versions: VecDeque<(Timestamp, Snapshot)>,
+    write_throughput_limiter: WriteThroughputLimiter,
 }
 
 #[derive(Clone)]
@@ -546,6 +548,7 @@ impl SnapshotManager {
         Self {
             versions,
             persisted_max_repeatable_ts: initial_ts,
+            write_throughput_limiter: WriteThroughputLimiter::new(),
         }
     }
 
@@ -624,7 +627,7 @@ impl SnapshotManager {
             "Timestamp {ts} is more recent than latest_ts {}",
             self.latest_ts(),
         );
-        let i = match self.versions.binary_search_by_key(&ts, |&(ts, ..)| ts) {
+        let i = match self.versions.binary_search_by_key(&ts, |(ts, ..)| *ts) {
             Ok(i) => i,
             // This is the index where insertion would preserve sorted order. That is, it's the
             // first index that has a timestamp greater than `ts`. So, we'd like the immediately
@@ -697,18 +700,25 @@ impl SnapshotManager {
         pending_writes.recompute_pending_snapshots(snapshot.clone());
     }
 
-    pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot) {
+    pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot, write_bytes: u64) {
         assert!(*self.latest_ts() < ts);
         // Note that we only drop a version if its *successor* leaves the transaction
         // window. That's because the gap between versions could be significant,
         // and we want any call to `latest_ts()` to return a timestamp that is
         // still valid for at least `MAX_TRANSACTION_WINDOW`.
-        while let Some(&(successor_ts, _)) = self.versions.get(1)
-            && (ts - successor_ts) > *MAX_TRANSACTION_WINDOW
+        while let Some((successor_ts, _)) = self.versions.get(1)
+            && (ts - *successor_ts) > *MAX_TRANSACTION_WINDOW
         {
             self.versions.pop_front();
         }
         self.versions.push_back((ts, snapshot));
+        self.write_throughput_limiter.record_write(ts, write_bytes);
+    }
+
+    pub fn check_write_throughput_limit(&self) -> anyhow::Result<()> {
+        // TODO: Return rate limited error once we are confident in knob values.
+        self.write_throughput_limiter.check_limit();
+        Ok(())
     }
 
     pub fn bump_persisted_max_repeatable_ts(&mut self, ts: Timestamp) -> anyhow::Result<bool> {
@@ -721,7 +731,7 @@ impl SnapshotManager {
         self.persisted_max_repeatable_ts = ts;
         let (latest_ts, snapshot) = self.latest();
         if ts > *latest_ts {
-            self.push(ts, snapshot);
+            self.push(ts, snapshot, 0);
             Ok(true)
         } else {
             Ok(false)
