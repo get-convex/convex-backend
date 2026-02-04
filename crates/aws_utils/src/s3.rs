@@ -43,6 +43,11 @@ impl S3Client {
         Ok(Self(s3_client))
     }
 
+    /// Create an S3 client from a pre-configured SDK config.
+    pub fn new_with_config(config: aws_config::SdkConfig) -> Self {
+        Self(Client::new(&config))
+    }
+
     /// Lists all keys in a bucket, grouped by the substring from the start of
     /// the key to the delimiter (inclusive). E.g. for a bucket with the
     /// following keys: a/1.txt
