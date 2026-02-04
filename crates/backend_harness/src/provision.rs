@@ -315,7 +315,7 @@ async fn preview_deploy_key(
     let admin_key_parts = prod_credentials.admin_key.split_once('|');
     let admin_key = match admin_key_parts {
         Some(parts) => parts.1,
-        None => &prod_credentials.admin_key,
+        None => prod_credentials.admin_key.as_str(),
     };
 
     Ok(format!(
@@ -407,7 +407,7 @@ async fn provision(
             .await?;
             tracing::info!("{deployment_name} provisioned for {opt_deployment_info:?} at {url}");
             (
-                admin_key,
+                admin_key.to_string(),
                 ProvisionHandle::BigBrain {
                     provision_host_credentials,
                     package_dir: package_dir.to_path_buf(),
