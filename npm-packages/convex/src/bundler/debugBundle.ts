@@ -21,6 +21,7 @@ export async function innerEsbuild({
   chunksFolder,
   logLevel,
   includeSourcesContent = false,
+  splitting = true,
 }: {
   entryPoints: string[];
   platform: esbuild.Platform;
@@ -31,6 +32,7 @@ export async function innerEsbuild({
   chunksFolder: string;
   logLevel?: LogLevel;
   includeSourcesContent?: boolean;
+  splitting?: boolean | undefined;
 }) {
   const result = await esbuild.build({
     entryPoints,
@@ -46,7 +48,7 @@ export async function innerEsbuild({
     write: false,
     sourcemap: generateSourceMaps,
     sourcesContent: includeSourcesContent,
-    splitting: true,
+    splitting,
     chunkNames: path.join(chunksFolder, "[hash]"),
     treeShaking: true,
     minifySyntax: true,
