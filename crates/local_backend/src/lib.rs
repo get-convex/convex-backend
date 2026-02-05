@@ -205,8 +205,13 @@ pub async fn make_app(
     let fetch_client = Arc::new(ProxiedFetchClient::new(
         config.convex_http_proxy.clone(),
         config.name(),
+        reqwest::redirect::Policy::none(),
     ));
-    let oidc_http_client = CachedHttpClient::new(config.convex_http_proxy.clone(), config.name());
+    let oidc_http_client = CachedHttpClient::new(
+        config.convex_http_proxy.clone(),
+        config.name(),
+        reqwest::redirect::Policy::default(),
+    );
     let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> =
         Arc::new(InProcessFunctionRunner::new(
             config.name().clone(),

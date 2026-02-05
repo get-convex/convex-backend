@@ -71,8 +71,12 @@ impl CachedHttpClient {
     /// If proxy_url is Some, all requests will be routed through the proxy
     /// (Smokescreen) for SSRF protection.
     /// The client_id is used for proxy authentication.
-    pub fn new(proxy_url: Option<Url>, client_id: String) -> Self {
-        let client = build_proxied_reqwest_client(proxy_url, client_id);
+    pub fn new(
+        proxy_url: Option<Url>,
+        client_id: String,
+        redirect_policy: reqwest::redirect::Policy,
+    ) -> Self {
+        let client = build_proxied_reqwest_client(proxy_url, client_id, redirect_policy);
         let client_with_middleware = ClientBuilder::new(client)
             .with(Cache(HttpCache {
                 mode: CacheMode::Default,
@@ -172,7 +176,7 @@ mod tests {
             )
             .body(vec![])?;
         // Create a client without proxy for testing
-        let client = CachedHttpClient::new(None, "test".to_string());
+        let client = CachedHttpClient::new(None, "test".to_string(), Default::default());
         let http_client = client.for_purpose(ClientPurpose::ProviderMetadata);
         let response = http_client(request.clone()).await.unwrap();
         assert_eq!(
@@ -181,7 +185,7 @@ mod tests {
         );
         // Send the request again - need to create a new client since for_purpose takes
         // ownership
-        let client = CachedHttpClient::new(None, "test".to_string());
+        let client = CachedHttpClient::new(None, "test".to_string(), Default::default());
         let http_client = client.for_purpose(ClientPurpose::ProviderMetadata);
         let response = http_client(request).await.unwrap();
         assert_eq!(

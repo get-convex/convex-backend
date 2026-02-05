@@ -266,7 +266,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             rt.clone(),
         );
 
-        let oidc_http_client = CachedHttpClient::new(None, DEV_INSTANCE_NAME.into());
+        let oidc_http_client =
+            CachedHttpClient::new(None, DEV_INSTANCE_NAME.into(), Default::default());
         let application = Application::new(
             rt.clone(),
             database.clone(),
