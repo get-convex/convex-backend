@@ -268,7 +268,6 @@
     "@babel/types": "^7.27.1",
     "@clerk/clerk-react": "^5.20.0",
     "@commander-js/extra-typings": "^14.0.0",
-    "@convex-dev/platform": "workspace:*",
     "@eslint/compat": "~2.0.0",
     "@eslint/eslintrc": "~3.3.0",
     "@eslint/js": "~9.39.0",
