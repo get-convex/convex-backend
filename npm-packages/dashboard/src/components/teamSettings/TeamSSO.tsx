@@ -222,8 +222,8 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                             const tooltipText = isVerified
                               ? "This domain has been verified and may be used with SSO"
                               : isPending
-                                ? "This domain has not yet completed verification. Check the status by clicking 'Verify domain' below."
-                                : "An error occured verifying this domain. Check the status by clicking 'Verify domain' below.";
+                                ? "This domain has not yet completed verification. Check the status by clicking 'Manage domains' below."
+                                : "An error occured verifying this domain. Check the status by clicking 'Manage domains' below.";
 
                             // Check if user has a verified email for this domain
                             const hasVerifiedEmailForDomain =
