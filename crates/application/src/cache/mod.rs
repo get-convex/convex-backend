@@ -392,6 +392,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let mut stored_key_hint = None;
 
         let mut num_attempts = 0;
+        let mut retry_description = vec![];
         'top: loop {
             num_attempts += 1;
             let now = self.rt.monotonic_now();
@@ -402,7 +403,8 @@ impl<RT: Runtime> CacheManager<RT> {
             let elapsed = now - start;
             anyhow::ensure!(
                 elapsed <= *TOTAL_QUERY_TIMEOUT,
-                "Query execution time out: {elapsed:?}",
+                "Query execution time out: {elapsed:?} after {num_attempts} attempts. Attempts: \
+                 {retry_description:?}",
             );
 
             // Step 1: Decide what we're going to do this iteration: use a cached value,
@@ -418,7 +420,10 @@ impl<RT: Runtime> CacheManager<RT> {
             );
             let (op, stored_key) = match maybe_op {
                 Some(op_key) => op_key,
-                None => continue 'top,
+                None => {
+                    retry_description.push("plan_cache_op_failed".to_string());
+                    continue 'top;
+                },
             };
             stored_key_hint = Some(stored_key.clone());
 
@@ -443,12 +448,16 @@ impl<RT: Runtime> CacheManager<RT> {
                 // We are executing ourselves.
                 CacheOp::Go { .. } => false,
             };
+            let op_type = op.to_string();
             let (result, table_stats) = match self
                 .perform_cache_op(&requested_key, &stored_key, op, usage_tracker.clone())
                 .await?
             {
                 Some(r) => r,
-                None => continue 'top,
+                None => {
+                    retry_description.push(format!("perform_op_{op_type}_failed"));
+                    continue 'top;
+                },
             };
 
             // Step 3: Validate that the cache result we got is good enough. Is our desired
@@ -456,7 +465,10 @@ impl<RT: Runtime> CacheManager<RT> {
             // too old?
             let cache_result = match self.validate_cache_result(&stored_key, ts, result).await? {
                 Some(r) => r,
-                None => continue 'top,
+                None => {
+                    retry_description.push("validate_cache_result_failed".to_string());
+                    continue 'top;
+                },
             };
 
             // Step 4: Rewrite the value into the cache. If this was a cache hit, this will
@@ -991,6 +1003,7 @@ impl Inner {
     }
 }
 
+#[derive(strum::Display)]
 enum CacheOp<'a> {
     Ready {
         result: CacheResult,
