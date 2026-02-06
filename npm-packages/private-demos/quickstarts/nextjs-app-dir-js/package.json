@@ -13,7 +13,7 @@
     "convex": "^1.27.4",
     "eslint": "8.57.1",
     "eslint-config-next": "14.2.25",
-    "next": "^14.2.33",
+    "next": "^16.0.0",
     "postcss": "^8.4.19",
     "react": "18.3.1",
     "react-dom": "18.3.1",
