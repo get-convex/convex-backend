@@ -421,7 +421,7 @@ impl<RT: Runtime> CacheManager<RT> {
             let (op, stored_key) = match maybe_op {
                 Some(op_key) => op_key,
                 None => {
-                    retry_description.push("plan_cache_op_failed".to_string());
+                    retry_description.push(format!("plan_cache_op_failed ({elapsed:?})"));
                     continue 'top;
                 },
             };
@@ -455,7 +455,7 @@ impl<RT: Runtime> CacheManager<RT> {
             {
                 Some(r) => r,
                 None => {
-                    retry_description.push(format!("perform_op_{op_type}_failed"));
+                    retry_description.push(format!("perform_op_{op_type}_failed ({elapsed:?})"));
                     continue 'top;
                 },
             };
@@ -466,7 +466,7 @@ impl<RT: Runtime> CacheManager<RT> {
             let cache_result = match self.validate_cache_result(&stored_key, ts, result).await? {
                 Some(r) => r,
                 None => {
-                    retry_description.push("validate_cache_result_failed".to_string());
+                    retry_description.push(format!("validate_cache_result_failed ({elapsed:?})"));
                     continue 'top;
                 },
             };
