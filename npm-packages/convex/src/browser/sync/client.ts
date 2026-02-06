@@ -122,7 +122,7 @@ export interface BaseConvexClientOptions {
   /**
    * If using auth, the number of seconds before a token expires that we should refresh it.
    *
-   * The default value is `2`.
+   * The default value is `10`.
    */
   authRefreshTokenLeewaySeconds?: number;
   /**
@@ -289,7 +289,7 @@ export class BaseConvexClient {
     }
     options = { ...options };
     const authRefreshTokenLeewaySeconds =
-      options.authRefreshTokenLeewaySeconds ?? 2;
+      options.authRefreshTokenLeewaySeconds ?? 10;
     let webSocketConstructor = options.webSocketConstructor;
     if (!webSocketConstructor && typeof WebSocket === "undefined") {
       throw new Error(
