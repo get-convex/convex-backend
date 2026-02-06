@@ -87,7 +87,7 @@ Exported ZIP files that include [file storage](/file-storage) will contain
 storage data in a `_storage` folder, with metadata like IDs and checksums in
 `_storage/documents.jsonl` and each file as `_storage/<id>`.
 
-### Using the downloaded backup.
+### Using the downloaded backup
 
 Downloaded ZIP files can be imported into the same deployment or a different
 deployment
