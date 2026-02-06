@@ -22,6 +22,11 @@ export function ProvisionDeploymentPage({
   const flags = useLaunchDarkly();
   const showForm = flags.deploymentRegion;
 
+  // Flag loading
+  if (showForm === undefined) {
+    return null;
+  }
+
   return showForm ? (
     projectId !== null ? (
       <ProvisionDeploymentForm
