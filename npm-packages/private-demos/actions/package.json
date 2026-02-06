@@ -14,11 +14,11 @@
     "react-dom": "^18.0.0",
     "postmark": "~4.0.0",
     "@popperjs/core": "~2.11.6",
-    "langchain": "^0.3.37",
+    "langchain": "^0.3.0",
     "chromadb": "=1.9.4",
     "prettier": "^3.8.0",
     "@langchain/openai": "^0.6.0",
-    "@langchain/core": "^0.3.80"
+    "@langchain/core": "^0.3.78"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
