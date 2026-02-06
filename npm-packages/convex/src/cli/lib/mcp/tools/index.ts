@@ -9,8 +9,8 @@ import { RunTool } from "./run.js";
 import { EnvListTool, EnvGetTool, EnvSetTool, EnvRemoveTool } from "./env.js";
 import { RunOneoffQueryTool } from "./runOneoffQuery.js";
 import { LogsTool } from "./logs.js";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { InsightsTool } from "./insights.js";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export type ConvexTool<Input extends ZodTypeAny, Output extends ZodTypeAny> = {
   name: string;

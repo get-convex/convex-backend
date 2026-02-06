@@ -5,7 +5,7 @@ import {
   fetchTeamAndProject,
 } from "../../api.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
-import { bigBrainAPI } from "../../utils/utils.js";
+import { bigBrainFetch, provisionHost } from "../../utils/utils.js";
 import { deploymentDashboardUrlPage } from "../../../lib/dashboard.js";
 
 const ROOT_COMPONENT_PATH = "-root-component-";
@@ -151,7 +151,7 @@ export const InsightsTool: ConvexTool<typeof inputSchema, typeof outputSchema> =
     inputSchema,
     outputSchema,
     handler: async (ctx, args) => {
-      const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
+      const { projectDir, deployment } = ctx.decodeDeploymentSelectorUnchecked(
         args.deploymentSelector,
       );
       process.chdir(projectDir);
@@ -203,11 +203,15 @@ export const InsightsTool: ConvexTool<typeof inputSchema, typeof outputSchema> =
         from: fromDate,
         to: toDate,
       });
-      const rawData = (await bigBrainAPI({
-        ctx,
-        method: "GET",
-        url: `dashboard/teams/${teamId}/usage/query?${queryParams.toString()}`,
-      })) as string[][];
+      const fetch = await bigBrainFetch(ctx);
+      const res = await fetch(
+        `dashboard/teams/${teamId}/usage/query?${queryParams.toString()}`,
+        {
+          method: "GET",
+          headers: { Origin: provisionHost },
+        },
+      );
+      const rawData = (await res.json()) as string[][];
 
       type Insight = z.infer<typeof insightSchema>;
       const insights: Insight[] = rawData.flatMap((row): Insight[] => {
