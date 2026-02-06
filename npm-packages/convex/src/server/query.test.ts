@@ -79,6 +79,31 @@ test("order and filter don't change the return type", () => {
   assert<Equals<Result, Expected>>();
 });
 
+test("filter can return undefined to skip filtering", () => {
+  function filterWithOptionalStatus(
+    db: DB,
+    status: "completed" | "pending" | undefined,
+  ) {
+    return db
+      .query("messages")
+      .order("desc")
+      .filter((q) => {
+        switch (status) {
+          case "completed":
+            return q.eq(q.field("body"), "done");
+          case "pending":
+            return q.eq(q.field("body"), "todo");
+          case undefined:
+            return undefined;
+        }
+      })
+      .collect();
+  }
+  type Result = ReturnType<typeof filterWithOptionalStatus>;
+  type Expected = Promise<Message[]>;
+  assert<Equals<Result, Expected>>();
+});
+
 test("can query() from system tables", () => {
   function collect(db: DB, tableName: SystemTableNames) {
     return db.system.query(tableName).collect();

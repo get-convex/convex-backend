@@ -114,7 +114,7 @@ export class QueryInitializerImpl
   filter(
     predicate: (
       q: FilterBuilder<GenericTableInfo>,
-    ) => ExpressionOrValue<boolean>,
+    ) => ExpressionOrValue<boolean> | undefined,
   ) {
     return this.fullTableScan().filter(predicate);
   }
@@ -227,7 +227,7 @@ export class QueryImpl implements Query<GenericTableInfo> {
   filter(
     predicate: (
       q: FilterBuilder<GenericTableInfo>,
-    ) => ExpressionOrValue<boolean>,
+    ) => ExpressionOrValue<boolean> | undefined,
   ): any {
     validateArg(predicate, 1, "filter", "predicate");
     const query = this.takeQuery();

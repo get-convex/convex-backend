@@ -159,11 +159,14 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
   /**
    * Filter the query output, returning only the values for which `predicate` evaluates to true.
    *
-   * @param predicate - An {@link Expression} constructed with the supplied {@link FilterBuilder} that specifies which documents to keep.
-   * @returns - A new {@link OrderedQuery} with the given filter predicate applied.
+   * Return `undefined` from the predicate to skip applying a filter (no filtering). This has
+   * minimal runtime cost as the filter is not added to the query pipeline.
+   *
+   * @param predicate - An {@link Expression} constructed with the supplied {@link FilterBuilder} that specifies which documents to keep, or `undefined` to apply no filter.
+   * @returns - A new {@link OrderedQuery} with the given filter predicate applied (or unchanged if the predicate returned `undefined`).
    */
   filter(
-    predicate: (q: FilterBuilder<TableInfo>) => ExpressionOrValue<boolean>,
+    predicate: (q: FilterBuilder<TableInfo>) => ExpressionOrValue<boolean> | undefined,
   ): this;
 
   /**

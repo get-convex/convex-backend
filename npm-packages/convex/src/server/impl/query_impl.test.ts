@@ -44,3 +44,45 @@ test("take throws a TypeError if passed a negative integer", async () => {
   await expect(t).rejects.toThrow(TypeError);
   await expect(t).rejects.toThrow(/must be a non-negative integer/);
 });
+
+test("filter(undefined) does not add a filter operator to the query", async () => {
+  let capturedQuery: { operators: unknown[] } | null = null;
+  const originalSyscall = (globalThis as any).Convex.syscall;
+  (globalThis as any).Convex.syscall = (op: string, jsonArgs: string) => {
+    if (op === "1.0/queryStream") {
+      const arg = JSON.parse(jsonArgs);
+      capturedQuery = arg.query;
+    }
+    return originalSyscall(op, jsonArgs);
+  };
+  try {
+    await newQuery().filter(() => undefined).collect();
+    expect(capturedQuery).not.toBeNull();
+    expect(capturedQuery!.operators).toHaveLength(0);
+  } finally {
+    (globalThis as any).Convex.syscall = originalSyscall;
+  }
+});
+
+test("filter(undefined) then filter(expr) adds only one filter operator", async () => {
+  let capturedQuery: { operators: unknown[] } | null = null;
+  const originalSyscall = (globalThis as any).Convex.syscall;
+  (globalThis as any).Convex.syscall = (op: string, jsonArgs: string) => {
+    if (op === "1.0/queryStream") {
+      const arg = JSON.parse(jsonArgs);
+      capturedQuery = arg.query;
+    }
+    return originalSyscall(op, jsonArgs);
+  };
+  try {
+    await newQuery()
+      .filter(() => undefined)
+      .filter((q) => q.eq(q.field("body"), "x"))
+      .collect();
+    expect(capturedQuery).not.toBeNull();
+    expect(capturedQuery!.operators).toHaveLength(1);
+    expect(capturedQuery!.operators[0]).toHaveProperty("filter");
+  } finally {
+    (globalThis as any).Convex.syscall = originalSyscall;
+  }
+});
