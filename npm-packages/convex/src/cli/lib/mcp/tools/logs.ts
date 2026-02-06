@@ -10,6 +10,13 @@ const inputSchema = z.object({
   deploymentSelector: z
     .string()
     .describe("Deployment selector (from the status tool) to read logs from."),
+  status: z
+    .enum(["all", "success", "failure"])
+    .default("all")
+    .optional()
+    .describe(
+      'Filter by execution outcome. "failure" returns only executions that threw an error. "success" returns only successful executions. Defaults to "all".',
+    ),
   cursor: z
     .number()
     .optional()
@@ -58,6 +65,10 @@ Fetch a chunk of recent log entries from your Convex deployment.
 
 Returns a batch of UDF execution log entries and a new cursor you can use to
 request the next batch. This tool does not tail; it performs a single fetch.
+
+To see only errors and exceptions, set status to "failure". This filters to
+executions where a function threw an error, which is useful for debugging
+deployment issues. Each failed entry includes the error message and stack trace.
 `.trim();
 
 export const LogsTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
@@ -95,9 +106,19 @@ export const LogsTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       });
     }
 
-    const { entries, newCursor } = await response
+    const { entries: allEntries, newCursor } = await response
       .json()
       .then(logsResponseSchema.parse);
+
+    const status = args.status ?? "all";
+    const entries =
+      status === "all"
+        ? allEntries
+        : allEntries.filter((entry: FunctionExecution) => {
+            if (entry.kind !== "Completion") return false;
+            const hasError = entry.error !== undefined && entry.error !== null;
+            return status === "failure" ? hasError : !hasError;
+          });
 
     const limitedEntries = limitLogs({
       entries,
