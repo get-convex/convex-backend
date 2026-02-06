@@ -292,14 +292,8 @@ export function deprecationCheckWarning(ctx: Context, resp: Response) {
   }
 }
 
-type Team = {
-  id: number;
-  name: string;
-  slug: string;
-};
-
 export async function hasTeam(ctx: Context, teamSlug: string) {
-  const teams: Team[] = await bigBrainAPI({ ctx, method: "GET", url: "teams" });
+  const teams = (await typedBigBrainClient(ctx).GET("/teams")).data!;
   return teams.some((team) => team.slug === teamSlug);
 }
 
@@ -308,7 +302,7 @@ export async function validateOrSelectTeam(
   teamSlug: string | undefined,
   promptMessage: string,
 ): Promise<{ teamSlug: string; chosen: boolean }> {
-  const teams: Team[] = await bigBrainAPI({ ctx, method: "GET", url: "teams" });
+  const teams = (await typedBigBrainClient(ctx).GET("/teams")).data!;
   if (teams.length === 0) {
     await ctx.crash({
       exitCode: 1,
@@ -326,7 +320,7 @@ export async function validateOrSelectTeam(
         return {
           teamSlug: await promptSearch(ctx, {
             message: promptMessage,
-            choices: teams.map((team: Team) => ({
+            choices: teams.map((team) => ({
               name: `${team.name} (${team.slug})`,
               value: team.slug,
             })),
