@@ -152,6 +152,7 @@ levenshtein_automata = "0.2.1"
 libc = "0.2"
 libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
 lru = "0.16.0"
+lz4_flex = "0.12"
 maplit = "1"
 memchr = "2.7"
 mime = "0.3"

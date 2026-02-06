@@ -8,6 +8,7 @@
 #![feature(assert_matches)]
 mod chunks;
 mod connection;
+mod document_encoding;
 mod metrics;
 mod sql;
 #[cfg(test)]
@@ -96,7 +97,6 @@ use common::{
         Timestamp,
     },
     value::{
-        ConvexValue,
         InternalDocumentId,
         TabletId,
     },
@@ -438,7 +438,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                             insert_document_chunk,
                             update.ts,
                             update.id,
-                            update.value.clone(),
+                            update.value.as_ref(),
                             update.prev_ts,
                         )?;
                     }
@@ -690,13 +690,15 @@ impl<RT: Runtime> MySqlReader<RT> {
         let ts: i64 = row.get_opt(1).context("row[1]")??;
         let ts = Timestamp::try_from(ts)?;
         let table_b = bytes_col(row, 2)?;
-        let json_value: JsonValue = serde_json::from_slice(bytes_col(row, 3)?)?;
+        let encoded_value = bytes_col(row, 3)?;
         let deleted: bool = row.get_opt(4).context("row[4]")??;
         let table = TabletId(table_b[..].try_into()?);
         let document_id = InternalDocumentId::new(table, internal_id);
         let document = if !deleted {
-            let value: ConvexValue = json_value.try_into()?;
-            Some(ResolvedDocument::from_database(table, value)?)
+            Some(
+                document_encoding::decode(encoded_value, table)?
+                    .context("deleted=false but value is empty")?,
+            )
         } else {
             None
         };
@@ -806,12 +808,12 @@ impl<RT: Runtime> MySqlReader<RT> {
                 let prev_rev_document: Option<ResolvedDocument> = if include_prev_rev {
                     maybe_bytes_col(&row, 6)?
                         .map(|v| {
-                            let json_value: JsonValue = serde_json::from_slice(v)
-                                .context("Failed to deserialize database value")?;
                             // N.B.: previous revisions should never be deleted, so we don't check
                             // that.
-                            let value: ConvexValue = json_value.try_into()?;
-                            ResolvedDocument::from_database(document_id.table(), value)
+                            anyhow::Ok(
+                                document_encoding::decode(v, document_id.table())?
+                                    .context("previous revisions should never be deleted")?,
+                            )
                         })
                         .transpose()?
                 } else {
@@ -872,8 +874,8 @@ impl<RT: Runtime> MySqlReader<RT> {
             retention_validator,
         );
         pin_mut!(scan);
-        while let Some((key, ts, value, prev_ts)) = scan.try_next().await? {
-            let document = ResolvedDocument::from_database(tablet_id, value)?;
+        while let Some((key, ts, document, prev_ts)) = scan.try_next().await? {
+            anyhow::ensure!(document.id().tablet_id == tablet_id);
             yield (
                 key,
                 LatestDocument {
@@ -887,7 +889,7 @@ impl<RT: Runtime> MySqlReader<RT> {
 
     #[allow(clippy::needless_lifetimes)]
     #[try_stream(
-        ok = (IndexKeyBytes, Timestamp, ConvexValue, Option<Timestamp>),
+        ok = (IndexKeyBytes, Timestamp, ResolvedDocument, Option<Timestamp>),
         error = anyhow::Error
     )]
     async fn _index_scan_inner(
@@ -914,8 +916,12 @@ impl<RT: Runtime> MySqlReader<RT> {
         // need them in (key_prefix, key_suffix order). key_suffix is not part of the
         // primary key so we do the sort here. If see any record with maximum length
         // prefix, we should buffer it until we reach a different prefix.
-        let mut result_buffer: Vec<(IndexKeyBytes, Timestamp, ConvexValue, Option<Timestamp>)> =
-            Vec::new();
+        let mut result_buffer: Vec<(
+            IndexKeyBytes,
+            Timestamp,
+            ResolvedDocument,
+            Option<Timestamp>,
+        )> = Vec::new();
         let mut has_more = true;
         let mut fallback = false;
         while has_more {
@@ -1034,17 +1040,16 @@ impl<RT: Runtime> MySqlReader<RT> {
 
                     // Fetch the remaining columns and construct the document
                     let table_b = maybe_bytes_col(&row, 7)?;
-                    table_b.ok_or_else(|| {
-                        anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
-                    })?;
-                    let json_value: JsonValue = serde_json::from_slice(bytes_col(&row, 8)?)?;
-                    anyhow::ensure!(
-                        json_value != serde_json::Value::Null,
-                        "Index reference to deleted document {:?} {:?}",
-                        key,
-                        ts
+                    let table = TabletId(
+                        table_b
+                            .ok_or_else(|| {
+                                anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
+                            })?
+                            .try_into()?,
                     );
-                    let value: ConvexValue = json_value.try_into()?;
+                    let doc = document_encoding::decode(bytes_col(&row, 8)?, table)?.with_context(
+                        || format!("Index reference to deleted document {key:?} {ts:?}"),
+                    )?;
 
                     let prev_ts: Option<i64> = row.get_opt(9).context("row[9]")??;
                     let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
@@ -1053,14 +1058,14 @@ impl<RT: Runtime> MySqlReader<RT> {
                         assert!(result_buffer.is_empty());
                         if interval.contains(&key) {
                             stats.rows_returned += 1;
-                            to_yield.push((IndexKeyBytes(key), ts, value, prev_ts));
+                            to_yield.push((IndexKeyBytes(key), ts, doc, prev_ts));
                         } else {
                             stats.rows_skipped_out_of_range += 1;
                         }
                     } else {
                         // There might be other records with the same key_prefix that
                         // are ordered before this result. Buffer it.
-                        result_buffer.push((IndexKeyBytes(key), ts, value, prev_ts));
+                        result_buffer.push((IndexKeyBytes(key), ts, doc, prev_ts));
                         stats.max_rows_buffered =
                             cmp::max(result_buffer.len(), stats.max_rows_buffered);
                     }
@@ -1139,19 +1144,12 @@ impl<RT: Runtime> MySqlReader<RT> {
         };
         let ts = Timestamp::try_from(row.get_opt::<i64, _>(0).context("row[0]")??)?;
         let tablet_id = TabletId(bytes_col(&row, 1)?.try_into()?);
-        let json_value = maybe_bytes_col(&row, 2)?
+        let value = maybe_bytes_col(&row, 2)?
             .ok_or_else(|| anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts))?;
         let prev_ts: Option<i64> = row.get_opt(3).context("row[3]")??;
         let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
-        let json_value: JsonValue = serde_json::from_slice(json_value)?;
-        anyhow::ensure!(
-            json_value != JsonValue::Null,
-            "Index reference to deleted document {:?} {:?}",
-            key,
-            ts
-        );
-        let value: ConvexValue = json_value.try_into()?;
-        let value = ResolvedDocument::from_database(tablet_id, value)?;
+        let value = document_encoding::decode(value, tablet_id)?
+            .with_context(|| format!("Index reference to deleted document {key:?} {ts:?}"))?;
         Ok(Some(LatestDocument { ts, value, prev_ts }))
     }
 
@@ -1727,18 +1725,16 @@ fn document_params(
     mut query: Vec<mysql_async::Value>,
     ts: Timestamp,
     id: InternalDocumentId,
-    maybe_doc: Option<ResolvedDocument>,
+    maybe_doc: Option<&ResolvedDocument>,
     prev_ts: Option<Timestamp>,
 ) -> anyhow::Result<Vec<mysql_async::Value>> {
-    let (json_str, deleted) = match maybe_doc {
-        Some(document) => (document.value().json_serialize()?, false),
-        None => (serde_json::Value::Null.to_string(), true),
-    };
+    let deleted = maybe_doc.is_none();
+    let encoded_doc = document_encoding::encode(maybe_doc)?;
 
     query.push(internal_doc_id_param(id).into());
     query.push(i64::from(ts).into());
     query.push(internal_id_param(id.table().0).into());
-    query.push(mysql_async::Value::Bytes(json_str.into_bytes()));
+    query.push(mysql_async::Value::Bytes(encoded_doc));
     query.push(deleted.into());
     query.push(prev_ts.map(i64::from).into());
     Ok(query)

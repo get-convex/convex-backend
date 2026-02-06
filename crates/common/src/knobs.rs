@@ -932,6 +932,10 @@ pub static MYSQL_MAX_CONNECTION_LIFETIME: LazyLock<Duration> =
 pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_CHUNK_SIZE", 128));
 
+/// Which encoding version to use for newly written documents
+pub static MYSQL_DOCUMENT_ENCODING: LazyLock<u8> =
+    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 0));
+
 /// Maximum number of connections to Postgres
 pub static POSTGRES_MAX_CONNECTIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("POSTGRES_MAX_CONNECTIONS", 128));

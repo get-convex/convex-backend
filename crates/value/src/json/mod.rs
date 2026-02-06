@@ -325,6 +325,11 @@ impl ConvexArray {
     }
 }
 
+pub fn json_deserialize_bytes(s: &[u8]) -> anyhow::Result<ConvexValue> {
+    let v: serde_json::Value = serde_json::from_slice(s)?;
+    v.try_into()
+}
+
 pub fn json_deserialize(s: &str) -> anyhow::Result<ConvexValue> {
     let v: serde_json::Value = serde_json::from_str(s)?;
     v.try_into()
