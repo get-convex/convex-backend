@@ -12,6 +12,9 @@ description: "Creating and managing Convex deployments by API"
 You can provision and manage Convex projects and deployments with the Management
 API.
 
+A client wrapping the Management API is available in the
+[`@convex-dev/platform` package](https://www.npmjs.com/package/@convex-dev/platform).
+
 ## Authorization
 
 The Management API uses a Bearer token Authorization header.
