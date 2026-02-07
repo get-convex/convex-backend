@@ -204,6 +204,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             None,
                             None,
                             Duration::ZERO,
+                            None,
                         );
                         let new_log_line = LogLine::new_system_log_line(
                             if is_client_disconnect {
@@ -251,6 +252,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             None,
                             None,
                             Duration::ZERO,
+                            None,
                         );
                         self.function_log
                             .log_http_action(
