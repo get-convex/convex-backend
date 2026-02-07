@@ -326,7 +326,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
         />
         <div className="min-w-0 flex-1">
           {showValue ? (
-            <pre className="animate-fadeInFromLoading rounded-md border p-1.5 px-2 break-all whitespace-pre-wrap text-content-primary">
+            <pre className="animate-fadeInFromLoading cursor-not-allowed rounded-md border bg-background-primary p-1.5 px-2 break-all whitespace-pre-wrap text-content-primary">
               {environmentVariable.value}
             </pre>
           ) : (
