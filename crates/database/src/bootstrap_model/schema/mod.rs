@@ -27,6 +27,7 @@ use common::{
 };
 use errors::ErrorMetadata;
 use value::{
+    ConvexObject,
     FieldPath,
     NamespacedTableMapping,
     ResolvedDocumentId,
@@ -119,11 +120,14 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     }
 
     #[fastrace::trace]
-    pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {
+    pub async fn enforce(
+        &mut self,
+        document: &ResolvedDocument,
+    ) -> anyhow::Result<Option<ConvexObject>> {
         let schema_table_mapping = self.tx.table_mapping().namespace(self.namespace);
         if schema_table_mapping.is_system_tablet(document.id().tablet_id) {
             // System tables are not subject to schema validation.
-            return Ok(());
+            return Ok(None);
         }
         self.enforce_with_table_mapping(document, &schema_table_mapping)
             .await
@@ -167,17 +171,23 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         &mut self,
         document: &ResolvedDocument,
         table_mapping_for_schema: &NamespacedTableMapping,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<ConvexObject>> {
         let table_name = table_mapping_for_schema.tablet_name(document.id().tablet_id)?;
-        if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await?
-            && let Err(schema_error) = active_schema.check_new_document(
+        let mut stripped_value = None;
+        if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
+            if let Err(schema_error) = active_schema.check_new_document(
                 document,
                 table_name.clone(),
                 table_mapping_for_schema,
                 self.tx.virtual_system_mapping(),
-            )
-        {
-            anyhow::bail!(schema_error.to_error_metadata());
+            ) {
+                anyhow::bail!(schema_error.to_error_metadata());
+            }
+            stripped_value = active_schema.strip_new_document(
+                document,
+                table_mapping_for_schema,
+                self.tx.virtual_system_mapping(),
+            )?;
         }
         let pending_schema = self.get_by_state(SchemaState::Pending).await?;
         let validated_schema = self.get_by_state(SchemaState::Validated).await?;
@@ -198,7 +208,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             },
         }
 
-        Ok(())
+        Ok(stripped_value)
     }
 
     pub async fn get_by_state(

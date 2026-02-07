@@ -846,7 +846,10 @@ mod tests {
         let validation_error = ValidationError::ExtraField {
             object: object.clone(),
             field_name: "field".parse()?,
-            object_validator: crate::schemas::validator::ObjectValidator(btreemap! {}),
+            object_validator: crate::schemas::validator::ObjectValidator {
+                fields: btreemap! {},
+                unknown_keys: crate::schemas::validator::UnknownKeysMode::Strict,
+            },
             context: ValidationContext::new(),
         };
         let schema_enforcement_error = SchemaEnforcementError::Document {

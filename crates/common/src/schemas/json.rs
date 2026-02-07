@@ -29,6 +29,7 @@ use super::{
         FieldValidator,
         LiteralValidator,
         ObjectValidator,
+        UnknownKeysMode,
         Validator,
     },
     DatabaseSchema,
@@ -660,6 +661,8 @@ pub enum ValidatorJson {
     },
     Object {
         value: BTreeMap<String, FieldTypeJson>,
+        #[serde(rename = "unknownKeys", skip_serializing_if = "Option::is_none")]
+        unknown_keys: Option<String>,
     },
     Union {
         value: Vec<ValidatorJson>,
@@ -716,7 +719,20 @@ impl TryFrom<ValidatorJson> for Validator {
                     Box::new(values_validator.validator),
                 ))
             },
-            ValidatorJson::Object { value } => Ok(Validator::Object(value.try_into()?)),
+            ValidatorJson::Object {
+                value,
+                unknown_keys,
+            } => {
+                let unknown_keys_mode = match unknown_keys {
+                    Some(s) => s.parse()?,
+                    None => UnknownKeysMode::default(),
+                };
+                let fields = parse_object_fields(value)?;
+                Ok(Validator::Object(ObjectValidator {
+                    fields,
+                    unknown_keys: unknown_keys_mode,
+                }))
+            },
             ValidatorJson::Union { value } => {
                 let schemas = value
                     .into_iter()
@@ -755,8 +771,15 @@ impl TryFrom<Validator> for ValidatorJson {
                     validator: *v,
                 })?),
             },
-            Validator::Object(o) => ValidatorJson::Object {
-                value: o.try_into()?,
+            Validator::Object(o) => {
+                let unknown_keys = match o.unknown_keys {
+                    UnknownKeysMode::Strict => None,
+                    other => Some(other.as_str().to_string()),
+                };
+                ValidatorJson::Object {
+                    value: o.try_into()?,
+                    unknown_keys,
+                }
             },
             Validator::Union(v) => ValidatorJson::Union {
                 value: v
@@ -799,37 +822,31 @@ impl TryFrom<LiteralValidator> for JsonValue {
     }
 }
 
-impl TryFrom<BTreeMap<String, FieldTypeJson>> for ObjectValidator {
-    type Error = anyhow::Error;
-
-    fn try_from(value: BTreeMap<String, FieldTypeJson>) -> Result<Self, Self::Error> {
-        let schema = ObjectValidator(
-            value
-                .into_iter()
-                .map(|(k, v)| {
-                    let field_name = k.parse::<IdentifierFieldName>()?;
-                    let field_value = FieldValidator::try_from(v).map_err(|e| {
-                        e.wrap_error_message(|msg| {
-                            format!("Invalid validator for key `{field_name}`: {msg}")
-                        })
-                    })?;
-                    Ok((field_name, field_value))
+fn parse_object_fields(
+    value: BTreeMap<String, FieldTypeJson>,
+) -> anyhow::Result<BTreeMap<IdentifierFieldName, FieldValidator>> {
+    value
+        .into_iter()
+        .map(|(k, v)| {
+            let field_name = k.parse::<IdentifierFieldName>()?;
+            let field_value = FieldValidator::try_from(v).map_err(|e| {
+                e.wrap_error_message(|msg| {
+                    format!("Invalid validator for key `{field_name}`: {msg}")
                 })
-                .collect::<anyhow::Result<_>>()?,
-        );
-        Ok(schema)
-    }
+            })?;
+            Ok((field_name, field_value))
+        })
+        .collect::<anyhow::Result<_>>()
 }
 
 impl TryFrom<ObjectValidator> for BTreeMap<String, FieldTypeJson> {
     type Error = anyhow::Error;
 
     fn try_from(o: ObjectValidator) -> anyhow::Result<BTreeMap<String, FieldTypeJson>> {
-        let mut map = BTreeMap::new();
-        for (field, field_type) in o.0 {
-            map.insert(field.to_string(), FieldTypeJson::try_from(field_type)?);
-        }
-        Ok(map)
+        o.fields
+            .into_iter()
+            .map(|(field, ft)| Ok((field.to_string(), FieldTypeJson::try_from(ft)?)))
+            .collect::<anyhow::Result<_>>()
     }
 }
 
