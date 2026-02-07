@@ -1,7 +1,7 @@
 // Argument-validated versions of wrappers for use in system UDFs necessary
 // because system UDFs are not analyzed.
 
-import { GenericValidator, convexToJson } from "convex/values";
+import { GenericValidator, convexToJson, jsonToConvex } from "convex/values";
 // This is where the alternatives are defined
 import {
   // eslint-disable-next-line no-restricted-imports
@@ -77,7 +77,8 @@ function withArgsValidated<T>(wrapper: T): T {
         if (!validateArgsResult.valid) {
           throw new Error(validateArgsResult.message);
         }
-        const functionResult = await functionDefinition.handler(ctx, args);
+        const validatedArgs = jsonToConvex(validateArgsResult.args[0]) as any;
+        const functionResult = await functionDefinition.handler(ctx, validatedArgs);
         const validateReturnsResult = await performOp(
           "validateReturns",
           returnsValidatorJson,

@@ -281,12 +281,8 @@ export class VObject<
   Type,
   Fields extends Record<string, GenericValidator>,
   IsOptional extends OptionalProperty = "required",
-  FieldPaths extends string = {
-    [Property in keyof Fields]:
-      | JoinFieldPaths<Property & string, Fields[Property]["fieldPaths"]>
-      | Property;
-  }[keyof Fields] &
-    string,
+  FieldPaths extends string = ObjectFieldPaths<Fields>,
+  UnknownKeys extends "strict" | "strip" = "strict",
 > extends BaseValidator<Type, IsOptional, FieldPaths> {
   /**
    * An object with the validator for each property.
@@ -299,14 +295,23 @@ export class VObject<
   readonly kind = "object" as const;
 
   /**
+   * How to handle unknown keys in the object.
+   * - "strict": (default) Reject objects with extra fields not in the validator.
+   * - "strip": Remove extra fields from the object before validation passes.
+   */
+  readonly unknownKeys: UnknownKeys;
+
+  /**
    * Usually you'd use `v.object({ ... })` instead.
    */
   constructor({
     isOptional,
     fields,
+    unknownKeys,
   }: {
     isOptional: IsOptional;
     fields: Fields;
+    unknownKeys?: UnknownKeys;
   }) {
     super({ isOptional });
     globalThis.Object.entries(fields).forEach(([fieldName, validator]) => {
@@ -318,10 +323,11 @@ export class VObject<
       }
     });
     this.fields = fields;
+    this.unknownKeys = unknownKeys ?? ("strict" as UnknownKeys);
   }
   /** @internal */
   get json(): ValidatorJSON {
-    return {
+    const result: Extract<ValidatorJSON, { type: "object" }> = {
       type: this.kind,
       value: globalThis.Object.fromEntries(
         globalThis.Object.entries(this.fields).map(([k, v]) => [
@@ -333,12 +339,23 @@ export class VObject<
         ]),
       ),
     };
+    if (this.unknownKeys !== "strict") {
+      result.unknownKeys = this.unknownKeys;
+    }
+    return result;
   }
   /** @internal */
   asOptional() {
-    return new VObject<Type | undefined, Fields, "optional", FieldPaths>({
+    return new VObject<
+      Type | undefined,
+      Fields,
+      "optional",
+      FieldPaths,
+      UnknownKeys
+    >({
       isOptional: "optional",
       fields: this.fields,
+      unknownKeys: this.unknownKeys,
     });
   }
 
@@ -348,7 +365,13 @@ export class VObject<
    */
   omit<K extends keyof Fields & string>(
     ...fields: K[]
-  ): VObject<Expand<Omit<Type, K>>, Expand<Omit<Fields, K>>, IsOptional> {
+  ): VObject<
+    Expand<Omit<Type, K>>,
+    Expand<Omit<Fields, K>>,
+    IsOptional,
+    string,
+    UnknownKeys
+  > {
     const newFields = { ...this.fields };
     for (const field of fields) {
       delete newFields[field];
@@ -356,6 +379,7 @@ export class VObject<
     return new VObject({
       isOptional: this.isOptional,
       fields: newFields as any,
+      unknownKeys: this.unknownKeys,
     });
   }
 
@@ -368,7 +392,9 @@ export class VObject<
   ): VObject<
     Expand<Pick<Type, Extract<keyof Type, K>>>,
     Expand<Pick<Fields, K>>,
-    IsOptional
+    IsOptional,
+    string,
+    UnknownKeys
   > {
     const newFields: Record<string, GenericValidator> = {};
     for (const field of fields) {
@@ -377,6 +403,7 @@ export class VObject<
     return new VObject({
       isOptional: this.isOptional,
       fields: newFields as Expand<Pick<Fields, K>>,
+      unknownKeys: this.unknownKeys,
     });
   }
 
@@ -386,7 +413,9 @@ export class VObject<
   partial(): VObject<
     { [K in keyof Type]?: Type[K] },
     { [K in keyof Fields]: VOptional<Fields[K]> },
-    IsOptional
+    IsOptional,
+    string,
+    UnknownKeys
   > {
     const newFields: Record<string, GenericValidator> = {};
     for (const [key, validator] of globalThis.Object.entries(this.fields)) {
@@ -397,6 +426,7 @@ export class VObject<
       fields: newFields as {
         [K in keyof Fields]: VOptional<Fields[K]>;
       },
+      unknownKeys: this.unknownKeys,
     });
   }
 
@@ -409,11 +439,14 @@ export class VObject<
   ): VObject<
     Expand<Type & ObjectType<NewFields>>,
     Expand<Fields & NewFields>,
-    IsOptional
+    IsOptional,
+    string,
+    UnknownKeys
   > {
     return new VObject({
       isOptional: this.isOptional,
       fields: { ...this.fields, ...fields } as Expand<Fields & NewFields>,
+      unknownKeys: this.unknownKeys,
     });
   }
 }
@@ -663,8 +696,8 @@ export type VOptional<T extends Validator<any, OptionalProperty, any>> =
     ? VLiteral<Type | undefined, "optional">
   : T extends VBytes<infer Type, OptionalProperty>
     ? VBytes<Type | undefined, "optional">
-  : T extends VObject< infer Type, infer Fields, OptionalProperty, infer FieldPaths>
-    ? VObject<Type | undefined, Fields, "optional", FieldPaths>
+  : T extends VObject< infer Type, infer Fields, OptionalProperty, infer FieldPaths, infer UnknownKeys>
+    ? VObject<Type | undefined, Fields, "optional", FieldPaths, UnknownKeys>
   : T extends VArray<infer Type, infer Element, OptionalProperty>
     ? VArray<Type | undefined, Element, "optional">
   : T extends VRecord< infer Type, infer Key, infer Value, OptionalProperty, infer FieldPaths>
@@ -721,7 +754,8 @@ export type Validator<
       Type,
       Record<string, Validator<any, OptionalProperty, any>>,
       IsOptional,
-      FieldPaths
+      FieldPaths,
+      "strict" | "strip"
     >
   | VArray<Type, Validator<any, "required", any>, IsOptional>
   | VRecord<
@@ -744,7 +778,28 @@ export type JoinFieldPaths<
   End extends string,
 > = `${Start}.${End}`;
 
+export type ObjectFieldPaths<
+  Fields extends Record<string, GenericValidator>,
+> = {
+  [Property in keyof Fields]:
+    | JoinFieldPaths<Property & string, Fields[Property]["fieldPaths"]>
+    | Property;
+}[keyof Fields] &
+  string;
+
 export type ObjectFieldType = { fieldType: ValidatorJSON; optional: boolean };
+
+/**
+ * Options for configuring object validator behavior.
+ */
+export interface ObjectValidatorOptions {
+  /**
+   * How to handle unknown keys in the object.
+   * - "strict": (default) Reject objects with extra fields not in the validator.
+   * - "strip": Remove extra fields from the object before validation passes.
+   */
+  unknownKeys?: "strict" | "strip";
+}
 
 export type ValidatorJSON =
   | { type: "null" }
@@ -762,7 +817,7 @@ export type ValidatorJSON =
       keys: RecordKeyValidatorJSON;
       values: RecordValueValidatorJSON;
     }
-  | { type: "object"; value: Record<string, ObjectFieldType> }
+  | { type: "object"; value: Record<string, ObjectFieldType>; unknownKeys?: "strict" | "strip" }
   | { type: "union"; value: ValidatorJSON[] };
 
 export type RecordKeyValidatorJSON =
