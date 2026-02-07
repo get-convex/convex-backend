@@ -19,14 +19,22 @@ export function TimestampTooltip({
   
   // Use Intl for robust formatting without extra bulky libs
   const localFormatter = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
     fractionalSecondDigits: 3,
   });
-  
+
   const utcFormatter = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
     fractionalSecondDigits: 3,
     timeZone: "UTC",
   });
@@ -42,30 +50,32 @@ export function TimestampTooltip({
   const offsetStr = `UTC${offsetSign}${offsetHours}:${offsetMins.toString().padStart(2, "0")}`;
 
   const tip = (
-    <div className="flex flex-col gap-2 p-1 text-left font-sans min-w-[20rem]">
-      <div className="grid grid-cols-[1fr_auto] items-center gap-4">
-        <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider">
-          Local ({timeZone})
-        </span>
-        <span className="text-content-primary tabular-nums whitespace-nowrap font-mono text-xs">
-          {localFormatter.format(date)}
-        </span>
+    <div className="flex flex-col gap-3 p-1 text-left font-sans w-max min-w-[14rem]">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider opacity-70">
+            Local ({timeZone})
+          </span>
+          <span className="text-content-primary tabular-nums whitespace-nowrap font-mono text-[13px]">
+            {localFormatter.format(date)}
+          </span>
+        </div>
+        
+        <div className="flex flex-col gap-1">
+          <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider opacity-70">
+            UTC ({offsetStr})
+          </span>
+          <span className="text-content-primary tabular-nums whitespace-nowrap font-mono text-[13px]">
+            {utcFormatter.format(date)}
+          </span>
+        </div>
       </div>
       
-      <div className="grid grid-cols-[1fr_auto] items-center gap-4">
-        <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider">
-          UTC ({offsetStr})
-        </span>
-        <span className="text-content-primary tabular-nums whitespace-nowrap font-mono text-xs">
-          {utcFormatter.format(date)}
-        </span>
-      </div>
-      
-      <div className="border-t border-border-secondary pt-2 mt-1 grid grid-cols-[1fr_auto] items-center gap-4">
-        <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider">
+      <div className="border-t border-border-secondary pt-3 mt-1 flex flex-col gap-1">
+        <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider opacity-70">
           Relative
         </span>
-        <span className="text-content-primary tabular-nums whitespace-nowrap font-medium text-xs">
+        <span className="text-content-primary tabular-nums whitespace-nowrap font-medium text-[13px]">
           {relativeTime}
         </span>
       </div>

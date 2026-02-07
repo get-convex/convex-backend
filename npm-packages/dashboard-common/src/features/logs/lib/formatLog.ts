@@ -63,7 +63,7 @@ export function formatInterleavedLogToString(log: InterleavedLog): string {
       return formatUdfLogToString(log.executionLog);
     case "DeploymentEvent": {
       const ts = new Date(log.deploymentEvent._creationTime).toISOString();
-      return `[${ts}] [SYSTEM] ${log.deploymentEvent.type}: ${JSON.stringify(log.deploymentEvent.metadata)}`;
+      return `[${ts}] [SYSTEM] ${log.deploymentEvent.action}: ${JSON.stringify(log.deploymentEvent.metadata)}`;
     }
     case "ClearedLogs":
       return "--- Logs Cleared ---";

@@ -228,5 +228,3 @@ const Wrapper = React.forwardRef<
   );
 });
 
-  );
-});
