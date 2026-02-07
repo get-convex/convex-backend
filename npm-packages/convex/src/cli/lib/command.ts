@@ -1,4 +1,4 @@
-import { Command, Option } from "@commander-js/extra-typings";
+import { Command, Option, OptionValues } from "@commander-js/extra-typings";
 import { OneoffCtx } from "../../bundler/context.js";
 import { LogMode } from "./logs.js";
 import {

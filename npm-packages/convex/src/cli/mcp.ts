@@ -43,8 +43,13 @@ mcp
     `Comma separated list of tool names to disable (options: ${allToolNames.join(", ")})`,
   )
   .option(
+    "--cautiously-allow-production-pii",
+    "Allow read-only tools (data, logs, queries) on production deployments. These tools may expose PII. Defaults to false.",
+    false,
+  )
+  .option(
     "--dangerously-enable-production-deployments",
-    "DANGEROUSLY allow the MCP server to access production deployments. Defaults to false.",
+    "DANGEROUSLY allow the MCP server to access production deployments, including mutating tools. Defaults to false.",
     false,
   )
   // Deprecated option, we swapped the default. no-op.

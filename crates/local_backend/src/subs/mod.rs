@@ -248,11 +248,15 @@ async fn run_sync_socket(
         }
         Ok(())
     };
+    // For segmenting metrics
+    let partition_id = st.api.partition_id(&host).await;
+    let partition_id_label = partition_id
+        .as_ref()
+        .map(|p| p.to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
         let _sync_worker_drop_token = DebugSyncSocketDropToken::new("sync_worker");
-        // For segmenting metrics
-        let partition_id = st.api.partition_id(&host).await?;
         let mut sync_worker = SyncWorker::new(
             st.api.clone(),
             st.runtime.clone(),
@@ -261,7 +265,7 @@ async fn run_sync_socket(
             client_rx,
             server_tx,
             on_connect,
-            partition_id,
+            partition_id?,
         );
         let r = sync_worker.go().await;
         identity_version = Some(sync_worker.identity_version());
@@ -317,7 +321,7 @@ async fn run_sync_socket(
                 };
                 if let Err(mut e) = r {
                     if is_connection_closed_error(&*e) {
-                        log_websocket_closed_error_not_reported()
+                        log_websocket_closed_error_not_reported(partition_id_label.clone())
                     } else {
                         report_error(&mut e).await;
                     }
@@ -325,7 +329,7 @@ async fn run_sync_socket(
             }
             sentry::with_scope(|s| *s = sentry_scope, || report_error_sync(&mut err));
             if let Some(label) = err.metric_server_error_label() {
-                log_websocket_server_error(label);
+                log_websocket_server_error(label, partition_id_label.clone());
             }
             // Convert from tungstenite::Message to axum::Message
             let close_frame = err.close_frame().map(|cf| CloseFrame {
@@ -340,7 +344,7 @@ async fn run_sync_socket(
         && let Err(e) = socket.send(close_msg).await
     {
         if is_connection_closed_error(&e) {
-            log_websocket_closed_error_not_reported()
+            log_websocket_closed_error_not_reported(partition_id_label.clone())
         } else {
             let msg = format!("Failed to gracefully close WebSocket: {e:?}");
             report_error(&mut anyhow::anyhow!(e).context(msg)).await;
@@ -357,7 +361,7 @@ async fn run_sync_socket(
         let msg = format!("Failed to flush WebSocket: {e:?}");
         report_error(&mut anyhow::anyhow!(e).context(msg)).await;
     }
-    log_websocket_closed();
+    log_websocket_closed(partition_id_label.clone());
 }
 
 fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncWorkerConfig> {

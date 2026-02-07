@@ -90,6 +90,7 @@ export function PauseDeployment({
               onClose={() => setShowConfirmation(false)}
               onConfirm={() => Promise.resolve(toggle())}
               confirmText={
+                // TODO(ENG-10340) Include the deployment ref here
                 changeVerb(paused) +
                 (deploymentType === "prod" ? " Production" : "")
               }
@@ -97,6 +98,7 @@ export function PauseDeployment({
               dialogBody={
                 <>
                   Are you sure you want to {changeVerb(paused).toLowerCase()}{" "}
+                  {/* TODO(ENG-10340) Include the deployment ref here */}
                   this{" "}
                   {deploymentType === "prod" ? (
                     <span className="font-semibold">Production</span>

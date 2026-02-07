@@ -120,11 +120,7 @@ pub fn persistence_args_from_cluster_url(
             })
         },
         DbDriverTag::MySqlMultitenant(_) => {
-            // NOTE: We do not set any database so we can reuse connections between
-            // database. The persistence layer will select the correct database.
             // always require SSL and verify CA
-            // TODO: This shouldn't be necessary anymore on multitenant databases, as all
-            // connections should be to the same database.
             if require_ssl {
                 cluster_url
                     .query_pairs_mut()
@@ -138,11 +134,7 @@ pub fn persistence_args_from_cluster_url(
             );
             Ok(PersistenceArgs::MySql {
                 db_name: path,
-                url: {
-                    // Preserves query string
-                    cluster_url.set_path("");
-                    cluster_url
-                },
+                url: cluster_url,
                 multitenant: true,
             })
         },

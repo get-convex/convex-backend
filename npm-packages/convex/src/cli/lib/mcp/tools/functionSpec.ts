@@ -35,7 +35,7 @@ export const FunctionSpecTool: ConvexTool<
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
+    const { projectDir, deployment } = ctx.decodeDeploymentSelectorUnchecked(
       args.deploymentSelector,
     );
     process.chdir(projectDir);

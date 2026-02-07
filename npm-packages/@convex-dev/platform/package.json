@@ -1,8 +1,7 @@
 {
   "name": "@convex-dev/platform",
-  "version": "0.0.1",
-  "private": true,
-  "description": "",
+  "version": "0.1.0",
+  "description": "A client for the Convex Platform APIs",
   "type": "module",
   "scripts": {
     "build": "npm run generateApiSpec && node version-check.mjs && zshy",
@@ -19,8 +18,8 @@
     "checkLogStreamApiSpec": "openapi-typescript ./log-stream-openapi.json --output ./src/generatedLogStreamApi.ts --root-types --root-types-no-schema-prefix --check || (echo 'Platform log stream API spec check failed. Run `npm run generateApiSpec` to fix.'; false)"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Convex, Inc. <no-reply@convex.dev>",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^18.17.0",
     "typescript": "^5.9.2",

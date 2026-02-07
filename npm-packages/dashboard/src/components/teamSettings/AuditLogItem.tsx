@@ -785,7 +785,7 @@ function AuditLogItemActor({
 function deploymentDisplayName(deployment: PlatformDeploymentResponse) {
   switch (deployment.deploymentType) {
     case "prod":
-      return "the production deployment";
+      return "a production deployment";
     case "dev":
       return "a development deployment";
     case "preview":

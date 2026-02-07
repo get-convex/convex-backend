@@ -6,6 +6,7 @@ import { LoadingTransition } from "@ui/Loading";
 import GoogleLogo from "logos/google.svg";
 import GithubLogo from "logos/github-logo.svg";
 import VercelLogo from "logos/vercel.svg";
+import MicrosoftLogo from "logos/microsoft.svg";
 import { Tooltip } from "@ui/Tooltip";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
@@ -163,7 +164,13 @@ function ProviderLogo({ provider }: { provider: string }) {
       case "vercel":
         return (
           <div className="flex size-10 min-w-10 items-center justify-center rounded-full border bg-white">
-            <VercelLogo className="size-6 dark:fill-black" />
+            <VercelLogo className="size-5" />
+          </div>
+        );
+      case "microsoft":
+        return (
+          <div className="flex size-10 min-w-10 items-center justify-center rounded-full border bg-white">
+            <MicrosoftLogo className="size-6" />
           </div>
         );
       default:
@@ -186,4 +193,5 @@ const providerToDisplayName: Record<string, string> = {
   google: "Google",
   github: "GitHub",
   vercel: "Vercel",
+  microsoft: "Microsoft",
 };

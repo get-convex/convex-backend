@@ -12,6 +12,7 @@ export interface McpOptions extends DeploymentSelectionOptions {
   projectDir?: string;
   disableTools?: string;
   dangerouslyEnableProductionDeployments?: boolean;
+  cautiouslyAllowProductionPii?: boolean;
 }
 
 export class RequestContext implements Context {
@@ -76,7 +77,30 @@ export class RequestContext implements Context {
         exitCode: 1,
         errorType: "fatal",
         printedMessage:
-          "Production deployments are disabled due to the --disable-production-deployments flag.",
+          "This tool cannot be used with production deployments. Use a read-only tool like `insights` instead, or enable production access with --dangerously-enable-production-deployments.",
+      });
+    }
+    return { projectDir, deployment };
+  }
+
+  /** Decode a deployment selector without checking the production guard. Use for read-only tools that don't expose PII (e.g. insights). */
+  decodeDeploymentSelectorUnchecked(encoded: string) {
+    return decodeDeploymentSelector(encoded);
+  }
+
+  /** Decode a deployment selector for read-only tools that may expose PII (e.g. data, logs, queries). Requires --cautiously-allow-production-pii. */
+  async decodeDeploymentSelectorReadOnly(encoded: string) {
+    const { projectDir, deployment } = decodeDeploymentSelector(encoded);
+    if (
+      deployment.kind === "prod" &&
+      !this.options.dangerouslyEnableProductionDeployments &&
+      !this.options.cautiouslyAllowProductionPii
+    ) {
+      return await this.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "This read-only tool may expose PII from production. Enable with --cautiously-allow-production-pii, or use --dangerously-enable-production-deployments for full access.",
       });
     }
     return { projectDir, deployment };
@@ -84,6 +108,13 @@ export class RequestContext implements Context {
 
   get productionDeploymentsDisabled() {
     return !this.options.dangerouslyEnableProductionDeployments;
+  }
+
+  get productionPiiAllowed() {
+    return (
+      this.options.dangerouslyEnableProductionDeployments ||
+      this.options.cautiouslyAllowProductionPii
+    );
   }
 }
 

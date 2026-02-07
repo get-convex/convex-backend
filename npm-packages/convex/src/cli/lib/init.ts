@@ -21,14 +21,26 @@ export async function finalizeConfiguration(
     convexUrl: options.url,
     siteUrl: options.siteUrl,
   });
-  if (envFileConfig !== null) {
+  const isEnvFileConfigChanged =
+    envFileConfig !== null &&
+    (envFileConfig.convexUrlEnvVar || envFileConfig.siteUrlEnvVar);
+
+  if (isEnvFileConfigChanged) {
+    const urlUpdateMessages = [];
+    if (envFileConfig.convexUrlEnvVar) {
+      urlUpdateMessages.push(
+        `    client URL as ${envFileConfig.convexUrlEnvVar}\n`,
+      );
+    }
+    if (envFileConfig.siteUrlEnvVar) {
+      urlUpdateMessages.push(
+        `    HTTP actions URL as ${envFileConfig.siteUrlEnvVar}\n`,
+      );
+    }
     logFinishedStep(
       `${messageForDeploymentType(options.deploymentType, options.url)} and saved its:\n` +
         `    name as CONVEX_DEPLOYMENT\n` +
-        `    Client URL as ${envFileConfig.convexUrlEnvVar}\n` +
-        (envFileConfig.siteUrlEnvVar
-          ? `    HTTP Actions URL as ${envFileConfig.siteUrlEnvVar}\n`
-          : "") +
+        urlUpdateMessages.join("") +
         ` to ${envFileConfig.envFile}`,
     );
   } else if (options.changedDeploymentEnvVar) {
@@ -48,7 +60,7 @@ export async function finalizeConfiguration(
   const anyChanges =
     options.wroteToGitIgnore ||
     options.changedDeploymentEnvVar ||
-    envFileConfig !== null;
+    isEnvFileConfigChanged;
   if (anyChanges) {
     const dashboardUrl = await getDashboardUrl(ctx, {
       deploymentName: options.deploymentName,

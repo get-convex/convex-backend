@@ -34,6 +34,18 @@ export function DeploymentMenuOptions({
   const member = useProfile();
   const router = useRouter();
 
+  const prods = deployments
+    .filter(
+      (d): d is PlatformDeploymentResponse & { kind: "cloud" } =>
+        d.deploymentType === "prod",
+    )
+    .sort((a, b) => {
+      // Default deployment comes first
+      if (a.isDefault && !b.isDefault) return -1;
+      if (!a.isDefault && b.isDefault) return 1;
+      // Then sort by createTime (newest first)
+      return b.createTime - a.createTime;
+    });
   const previews = deployments
     .filter((d) => d.deploymentType === "preview")
     .sort((a, b) => b.createTime - a.createTime);
@@ -44,7 +56,7 @@ export function DeploymentMenuOptions({
   const members = useTeamMembers(team.id);
   const teamMemberDeployments = deployments
     .filter(
-      (d) =>
+      (d): d is PlatformDeploymentResponse & { kind: "cloud" } =>
         d.kind === "cloud" &&
         d.deploymentType === "dev" &&
         d.creator !== member?.id,
@@ -54,15 +66,26 @@ export function DeploymentMenuOptions({
       return {
         name: d.name,
         creator: whose?.name || whose?.email || "Teammate",
+        isDefault: d.isDefault,
       };
     })
-    .sort((a, b) => a.creator.localeCompare(b.creator));
+    .sort((a, b) => {
+      // Non-default deployments come first
+      if (a.isDefault !== b.isDefault) {
+        return a.isDefault ? 1 : -1;
+      }
+      // Then sort by creator name
+      return a.creator.toLowerCase().localeCompare(b.creator.toLowerCase());
+    });
 
   const projectSlug = project.slug;
 
   const selectedTeamSlug = team.slug;
 
-  const prod = deployments?.find((d) => d.deploymentType === "prod");
+  // Show as single item only if there's exactly one prod deployment and it's the default
+  const showProdAsSingleItem =
+    prods.length === 1 && prods[0].kind === "cloud" && prods[0].isDefault;
+  const singleDefaultProd = showProdAsSingleItem ? prods[0] : undefined;
 
   const projectsURI = `/t/${selectedTeamSlug}/${projectSlug}`;
   // 0-4 are /t/[team]/[project]/[deploymentName].
@@ -71,22 +94,67 @@ export function DeploymentMenuOptions({
 
   return (
     <>
-      <ContextMenu.Item
-        icon={<SignalIcon className="h-4 w-4" />}
-        label={
-          <DeploymentOption
-            name={prod?.name || "Select to create a Prod deployment"}
-            identifier="Production"
-          />
-        }
-        shortcut={["Ctrl", "Alt", "1"]}
-        action={
-          prod
-            ? `${projectsURI}/${prod.name}/${currentView}`
-            : `${projectsURI}/${PROVISION_PROD_PAGE_NAME}`
-        }
-        blankTarget={false}
-      />
+      {/* No prod deployments: show option to create one */}
+      {prods.length === 0 && (
+        <ContextMenu.Item
+          icon={<SignalIcon className="h-4 w-4" />}
+          label={
+            <DeploymentOption
+              name="Select to create a Prod deployment"
+              identifier="Production"
+            />
+          }
+          shortcut={["Ctrl", "Alt", "1"]}
+          action={`${projectsURI}/${PROVISION_PROD_PAGE_NAME}`}
+          blankTarget={false}
+        />
+      )}
+      {/* Single default prod: show as single item */}
+      {singleDefaultProd && (
+        <ContextMenu.Item
+          icon={<SignalIcon className="h-4 w-4" />}
+          label={
+            <DeploymentOption
+              name={singleDefaultProd.name}
+              identifier="Production"
+            />
+          }
+          shortcut={["Ctrl", "Alt", "1"]}
+          action={`${projectsURI}/${singleDefaultProd.name}/${currentView}`}
+          blankTarget={false}
+        />
+      )}
+      {/* Multiple prods or single non-default: show as submenu */}
+      {prods.length > 0 && !showProdAsSingleItem && (
+        <ContextMenu.Submenu
+          label={
+            <p className="flex flex-col">
+              Production
+              <span className="text-xs text-content-secondary">
+                {prods.length} deployment{prods.length === 1 ? "" : "s"}
+              </span>
+            </p>
+          }
+          icon={<SignalIcon className="h-4 w-4" />}
+        >
+          {prods.map((prodDeployment) => (
+            <ContextMenu.Item
+              key={prodDeployment.name}
+              label={
+                <DeploymentOption
+                  identifier={prodDeployment.name}
+                  name={prodDeployment.name}
+                />
+              }
+              shortcut={
+                prodDeployment.isDefault ? ["Ctrl", "Alt", "1"] : undefined
+              }
+              action={`${projectsURI}/${prodDeployment.name}/${currentView}`}
+              blankTarget={false}
+            />
+          ))}
+        </ContextMenu.Submenu>
+      )}
       <AllPersonalDeployments
         team={team}
         project={project}
@@ -191,23 +259,19 @@ export function DeploymentMenuOptions({
         }
         icon={<Share1Icon />}
       >
-        {teamMemberDeployments
-          .sort((a, b) =>
-            a.creator.toLowerCase().localeCompare(b.creator.toLowerCase()),
-          )
-          .map((d) => (
-            <ContextMenu.Item
-              key={d.name}
-              label={
-                <DeploymentOption
-                  identifier={`${d.creator}'s dev`}
-                  name={d.name}
-                />
-              }
-              action={`${projectsURI}/${d.name}/${currentView}`}
-              blankTarget={false}
-            />
-          ))}
+        {teamMemberDeployments.map((d) => (
+          <ContextMenu.Item
+            key={d.name}
+            label={
+              <DeploymentOption
+                identifier={`${d.creator}'s dev`}
+                name={d.name}
+              />
+            }
+            action={`${projectsURI}/${d.name}/${currentView}`}
+            blankTarget={false}
+          />
+        ))}
       </ContextMenu.Submenu>
       <hr className="my-1 bg-border-transparent" />
       <ContextMenu.Item

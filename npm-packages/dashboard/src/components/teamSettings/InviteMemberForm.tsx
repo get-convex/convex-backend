@@ -71,7 +71,7 @@ export function InviteMemberForm({
     <Sheet className="min-w-fit text-sm">
       <h3 className="mb-4">Invite Member</h3>
       <form onSubmit={formState.handleSubmit} aria-label="Invite team member">
-        <div className="mb-4 flex w-full grow flex-wrap gap-4 sm:flex-nowrap">
+        <div className="mb-4 flex w-full grow flex-wrap items-start gap-4 sm:flex-nowrap">
           <Tooltip
             tip={
               !hasAdminPermissions

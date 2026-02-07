@@ -30,12 +30,19 @@ export function ProjectLink({
   const showSlug = projectSlug && projectName.toLowerCase() !== projectSlug;
 
   // Determine which deployment to link to
-  const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
-  const devDeployment = deployments?.find(
-    (d) => d.deploymentType === "dev" && d.creator === memberId,
+  const defaultProdDeployment = deployments?.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+  );
+  const defaultDevDeployment = deployments?.find(
+    (d) =>
+      d.kind === "cloud" &&
+      d.deploymentType === "dev" &&
+      d.creator === memberId &&
+      d.isDefault,
   );
   const anyDeployment = deployments?.[0];
-  const shownDeployment = devDeployment ?? prodDeployment ?? anyDeployment;
+  const shownDeployment =
+    defaultDevDeployment ?? defaultProdDeployment ?? anyDeployment;
 
   const href =
     team && shownDeployment

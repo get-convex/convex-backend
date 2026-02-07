@@ -22,12 +22,13 @@ jobs:
       # Label used to access service container
       postgres:
         # Docker Hub image
-        image: public.ecr.aws/bitnami/postgresql:13
+        image: public.ecr.aws/bitnami/postgresql:16
         # Provide the password for postgres
         env:
           POSTGRESQL_PASSWORD: postgres
           POSTGRESQL_MAX_CONNECTIONS: 500
           POSTGRESQL_REPLICATION_USE_PASSFILE: no
+          POSTGRESQL_FSYNC: off
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 10s

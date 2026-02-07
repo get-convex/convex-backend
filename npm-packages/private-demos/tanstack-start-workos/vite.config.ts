@@ -13,6 +13,9 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  optimizeDeps: {
+    include: ['@workos/authkit-tanstack-react-start'],
+  },
   plugins: [
     tsConfigPaths({
       projects: ['./tsconfig.json'],

@@ -44,6 +44,7 @@ mod write_limits;
 pub mod write_log;
 #[cfg(not(any(test, feature = "testing")))]
 mod write_log;
+mod write_throughput_limiter;
 mod writes;
 
 mod component_registry;

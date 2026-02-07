@@ -81,6 +81,8 @@ function SettingsMenuButton({ open }: { open: boolean }) {
 }
 
 function DeploymentSettingsText() {
+  // TODO(ENG-10340) Include the deployment ref here
+
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const ref = useRef<HTMLDivElement>(null);

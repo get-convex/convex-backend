@@ -37,7 +37,8 @@ export function useDefaultDevDeployment(projectId: number | undefined) {
     (d) =>
       d.deploymentType === "dev" &&
       d.kind === "cloud" &&
-      d.creator === member?.id,
+      d.creator === member?.id &&
+      d.isDefault,
   );
   const localDev = deployments?.find(
     (d) =>
@@ -82,6 +83,17 @@ export function useProvisionDeployment(projectId: number) {
       project_id: projectId,
     },
   });
+}
+
+export function useDeploymentRegions(teamId: number | undefined) {
+  const { data, isLoading } = useManagementApiQuery({
+    path: "/teams/{team_id}/list_deployment_regions",
+    pathParams: {
+      team_id: teamId?.toString() || "",
+    },
+  });
+
+  return { regions: data?.items, isLoading };
 }
 
 export function useDeploymentById(

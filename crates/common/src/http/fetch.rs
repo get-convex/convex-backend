@@ -23,7 +23,6 @@ use futures::{
 use futures_async_stream::try_stream;
 use http::StatusCode;
 use reqwest::{
-    redirect,
     Body,
     Proxy,
     Url,
@@ -53,27 +52,46 @@ static TLS_CONNECTOR: LazyLock<native_tls::TlsConnector> = LazyLock::new(|| {
     tls.build().expect("failed to build TLS connector")
 });
 
+/// Creates a reqwest client configured with an optional proxy.
+/// The client_id is set to the instance name for logging.
+/// The redirect_policy dictates how redirects are handled.
+///
+/// This function is shared between `ProxiedFetchClient` (for fetch syscalls)
+/// and `CachedHttpClient` in the `http_client` crate (for OIDC
+/// discovery).
+pub fn build_proxied_reqwest_client(
+    proxy_url: Option<Url>,
+    client_id: String,
+    redirect_policy: reqwest::redirect::Policy,
+) -> reqwest::Client {
+    let mut builder = reqwest::Client::builder().redirect(redirect_policy);
+    // It's okay to panic on these errors, as they indicate a serious programming
+    // error -- building the reqwest client is expected to be infallible.
+    if let Some(proxy_url) = proxy_url {
+        let proxy = Proxy::all(proxy_url)
+            .expect("Infallible conversion from URL type to URL type")
+            .custom_http_auth(
+                client_id
+                    .try_into()
+                    .expect("Backend name is not valid ASCII?"),
+            );
+        builder = builder.proxy(proxy);
+    }
+    builder = builder
+        .user_agent("Convex/1.0")
+        .use_preconfigured_tls(TLS_CONNECTOR.clone());
+    builder.build().expect("Failed to build reqwest client")
+}
+
 impl ProxiedFetchClient {
-    pub fn new(proxy_url: Option<Url>, client_id: String) -> Self {
+    pub fn new(
+        proxy_url: Option<Url>,
+        client_id: String,
+        redirect_policy: reqwest::redirect::Policy,
+    ) -> Self {
         Self {
             http_client: LazyLock::new(Box::new(move || {
-                let mut builder = reqwest::Client::builder().redirect(redirect::Policy::none());
-                // It's okay to panic on these errors, as they indicate a serious programming
-                // error -- building the reqwest client is expected to be infallible.
-                if let Some(proxy_url) = proxy_url {
-                    let proxy = Proxy::all(proxy_url)
-                        .expect("Infallible conversion from URL type to URL type")
-                        .custom_http_auth(
-                            client_id
-                                .try_into()
-                                .expect("Backend name is not valid ASCII?"),
-                        );
-                    builder = builder.proxy(proxy);
-                }
-                builder = builder
-                    .user_agent("Convex/1.0")
-                    .use_preconfigured_tls(TLS_CONNECTOR.clone());
-                builder.build().expect("Failed to build reqwest client")
+                build_proxied_reqwest_client(proxy_url, client_id, redirect_policy)
             })),
         }
     }
@@ -245,7 +263,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_bad_url() -> anyhow::Result<()> {
-        let client = ProxiedFetchClient::new(None, "".to_owned());
+        let client = ProxiedFetchClient::new(None, "".to_owned(), Default::default());
         let request = HttpRequest {
             headers: Default::default(),
             url: "http://\"".parse()?,

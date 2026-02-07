@@ -1001,7 +1001,11 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 Err(e) => return Ok((HttpActionResult::Error(e), vec![].into())),
             };
 
-        let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
+        let fetch_client = Arc::new(ProxiedFetchClient::new(
+            None,
+            DEV_INSTANCE_NAME.to_owned(),
+            reqwest::redirect::Policy::none(),
+        ));
         let (log_line_sender, mut log_line_receiver) = mpsc::unbounded_channel();
         let outcome = self
             .isolate
@@ -1141,7 +1145,11 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             },
             Ok(path_and_args) => path_and_args,
         };
-        let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
+        let fetch_client = Arc::new(ProxiedFetchClient::new(
+            None,
+            DEV_INSTANCE_NAME.to_owned(),
+            reqwest::redirect::Policy::none(),
+        ));
         let (log_line_sender, mut log_line_receiver) = mpsc::unbounded_channel();
 
         // TODO(presley): Make this also be able to use local executor.

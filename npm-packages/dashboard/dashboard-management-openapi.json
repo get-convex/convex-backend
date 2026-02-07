@@ -6728,7 +6728,8 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/RegionName"
+                "$ref": "#/components/schemas/RegionName",
+                "description": "When not present: don't change default_region\nWhen present and null: set default_region to null\nWhen present with value: set default_region to that value"
               }
             ]
           },

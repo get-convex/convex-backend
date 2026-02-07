@@ -148,7 +148,7 @@ pub static UDF_EXECUTOR_OCC_MAX_RETRIES: LazyLock<usize> =
 
 /// Initial backoff when we encounter an OCC conflict.
 pub static UDF_EXECUTOR_OCC_INITIAL_BACKOFF: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("UDF_EXECUTOR_OCC_INITIAL_BACKOFF_MS", 10)));
+    LazyLock::new(|| Duration::from_millis(env_config("UDF_EXECUTOR_OCC_INITIAL_BACKOFF_MS", 100)));
 
 /// Maximum expontial backoff when facing repeated OCC conflicts.
 pub static UDF_EXECUTOR_OCC_MAX_BACKOFF: LazyLock<Duration> =
@@ -754,6 +754,15 @@ pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
         ))
     });
 
+/// The maximum number of writes per second allowed for mutations.
+/// Default 16 MiB
+pub static MAX_BYTES_WRITTEN_PER_SECOND: LazyLock<u64> =
+    LazyLock::new(|| env_config("MAX_BYTES_WRITTEN_PER_SECOND", 16 * 1024 * 1024));
+
+/// The time window (in milliseconds) used to track write throughput.
+pub static WRITE_THROUGHPUT_WINDOW: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("WRITE_THROUGHPUT_WINDOW", 1000)));
+
 /// Default max function concurrency limit for basic plan instances.
 /// This value is used as the default for all APPLICATION_MAX_CONCURRENT
 /// constants and is also used to determine if an instance is on a pro plan.
@@ -790,12 +799,9 @@ pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> = LazyLock::new
 ///
 /// This is a higher level limit applied before FunctionRunner implementations.
 ///
-/// This does NOT apply to:
-/// 1. Http actions
-/// 2. Node actions
+/// This does apply to HTTP actions and does NOT apply to Node actions
 ///
 /// Node actions are limited by the APPLICATION_MAX_CONCURRENT_NODE_ACTIONS
-/// knob. Http actions are limited by APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS
 /// knob.
 ///
 /// The value here may be overridden by big brain.
@@ -819,24 +825,6 @@ pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> = LazyLock::
     env_config(
         "APPLICATION_MAX_CONCURRENT_NODE_ACTIONS",
         DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
-    )
-});
-
-/// Number of threads to execute V8 actions.
-///
-/// Http actions are not sent through FunctionRunner implementations. This is a
-/// maximum on the number of http actions that will be executed in process in a
-/// particular backend.
-///
-/// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS",
-        if cfg!(any(test, feature = "testing")) {
-            2
-        } else {
-            DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY
-        },
     )
 });
 
@@ -923,6 +911,10 @@ pub static MYSQL_MAX_CONNECTION_LIFETIME: LazyLock<Duration> =
 pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_CHUNK_SIZE", 128));
 
+/// Which encoding version to use for newly written documents
+pub static MYSQL_DOCUMENT_ENCODING: LazyLock<u8> =
+    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 0));
+
 /// Maximum number of connections to Postgres
 pub static POSTGRES_MAX_CONNECTIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("POSTGRES_MAX_CONNECTIONS", 128));
@@ -988,6 +980,12 @@ pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE
 /// a second backup request when running a vector search.
 pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("VECTOR_BACKUP_REQUEST_DELAY_MILLIS", 30)));
+
+/// Whether to shard vector search queries by segment for better cache locality.
+/// When enabled, each segment is routed to a searchlight node via rendezvous
+/// hashing on the segment's storage key.
+pub static VECTOR_SEARCH_SHARD_BY_SEGMENT: LazyLock<bool> =
+    LazyLock::new(|| env_config("VECTOR_SEARCH_SHARD_BY_SEGMENT", false));
 
 /// Whether to use prepared statements or not in Persistence.
 pub static DATABASE_USE_PREPARED_STATEMENTS: LazyLock<bool> =

@@ -85,6 +85,7 @@ function DeploymentLabelWrapper({
   );
 }
 
+// TODO(ENG-10340) Use references here to disambiguate non-default dev/prod deployments
 export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
   const router = useRouter();
 
@@ -124,19 +125,21 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
   const devDeployments = deployments.filter(
     (d) => d.deploymentType === "dev" && d.creator === member?.id,
   );
-  const prod = deployments.find((d) => d.deploymentType === "prod");
+  const defaultProd = deployments.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+  );
 
   // Hotkeys
   useHotkeys(
     "ctrl+alt+1",
     () => {
-      if (prod) {
-        void router.push(`${projectsURI}/${prod.name}/${currentView}`);
+      if (defaultProd) {
+        void router.push(`${projectsURI}/${defaultProd.name}/${currentView}`);
       } else {
         void router.push(`${projectsURI}/${PROVISION_PROD_PAGE_NAME}`);
       }
     },
-    [prod, projectsURI, currentView],
+    [defaultProd, projectsURI, currentView],
   );
   useHotkeys(
     Array.from({ length: devDeployments.length }, (_, idx) => [

@@ -25,6 +25,7 @@ pub mod metrics;
 mod qdrant_index;
 pub mod qdrant_segments;
 mod query;
+pub mod result_merger;
 mod searcher;
 mod vector_index_manager;
 

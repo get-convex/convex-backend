@@ -7,10 +7,17 @@ import { useFormik } from "formik";
 import { TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { useCopy } from "@common/lib/useCopy";
+import { useDeploymentRegions } from "api/deployments";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { DefaultRegionSelector } from "./DefaultRegionSelector";
 
 export type TeamFormProps = {
   team: TeamResponse;
-  onUpdateTeam: (body: { name: string; slug: string }) => void;
+  onUpdateTeam: (body: {
+    name: string;
+    slug: string;
+    defaultRegion: string | null;
+  }) => Promise<void>;
   hasAdminPermissions: boolean;
 };
 
@@ -27,16 +34,20 @@ const TeamSchema = Yup.object().shape({
       "Team slug may contain numbers, letters, underscores, and '-'.",
     )
     .required(),
+  defaultRegion: Yup.string().nullable(),
 });
 export function TeamForm({
   team,
   onUpdateTeam,
   hasAdminPermissions,
 }: TeamFormProps) {
+  const { regions } = useDeploymentRegions(team.id);
+  const flags = useLaunchDarkly();
   const formState = useFormik({
     initialValues: {
       name: team.name,
       slug: team.slug,
+      defaultRegion: team.defaultRegion ?? null,
     },
     enableReinitialize: true,
     validationSchema: TeamSchema,
@@ -54,7 +65,7 @@ export function TeamForm({
     <Sheet className="text-sm">
       <h3 className="mb-4">Edit Team</h3>
       <form onSubmit={formState.handleSubmit} aria-label="Edit team settings">
-        <div className="mb-6 flex max-w-xs flex-col gap-4">
+        <div className="mb-6 flex flex-col gap-4">
           <Tooltip
             tip={
               !hasAdminPermissions
@@ -94,6 +105,18 @@ export function TeamForm({
               disabled={!hasAdminPermissions}
             />
           </Tooltip>
+
+          {flags.deploymentRegion && (
+            <DefaultRegionSelector
+              value={formState.values.defaultRegion}
+              onChange={(region) =>
+                formState.setFieldValue("defaultRegion", region)
+              }
+              regions={regions}
+              teamSlug={team.slug}
+              disabledDueToPermissions={!hasAdminPermissions}
+            />
+          )}
         </div>
 
         <Button

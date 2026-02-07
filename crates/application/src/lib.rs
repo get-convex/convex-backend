@@ -131,6 +131,7 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
+        RegionName,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -193,7 +194,7 @@ use headers::{
     ContentType,
 };
 use http_client::{
-    cached_http_client_for,
+    CachedHttpClient,
     ClientPurpose,
 };
 use isolate::helpers::source_map_from_slice;
@@ -410,6 +411,7 @@ mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
 pub mod deployment_state;
+mod execute_query_timestamp;
 mod exports;
 pub mod function_log;
 pub mod log_streaming;
@@ -581,6 +583,7 @@ pub struct Application<RT: Runtime> {
     system_env_var_names: HashSet<EnvVarName>,
     app_auth: Arc<ApplicationAuth>,
     log_manager_client: LogManagerClient,
+    oidc_http_client: CachedHttpClient,
 }
 
 /// Create storage based on the storage type configuration
@@ -660,6 +663,7 @@ impl<RT: Runtime> Application<RT> {
         usage_event_logger: Arc<dyn UsageEventLogger>,
         key_broker: KeyBroker,
         instance_name: String,
+        deployment_region: Option<RegionName>,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
@@ -675,6 +679,7 @@ impl<RT: Runtime> Application<RT> {
         lease_lost_shutdown: ShutdownSignal,
         export_provider: Arc<dyn ExportProvider<RT>>,
         deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
+        oidc_http_client: CachedHttpClient,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -753,6 +758,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             fetch_client.clone(),
             instance_name.clone(),
+            deployment_region.as_ref().map(|r| r.to_string()),
             log_streaming_allowed,
             usage_counter.clone(),
         )
@@ -868,6 +874,7 @@ impl<RT: Runtime> Application<RT> {
             system_env_var_names: default_system_env_vars.into_keys().collect(),
             app_auth,
             log_manager_client,
+            oidc_http_client,
         })
     }
 
@@ -2890,7 +2897,9 @@ impl<RT: Runtime> Application<RT> {
                 let identity_result = validate_id_token(
                     // This is any JWT.
                     AuthIdToken(id_token),
-                    cached_http_client_for(ClientPurpose::ProviderMetadata),
+                    self.oidc_http_client
+                        .clone()
+                        .for_purpose(ClientPurpose::ProviderMetadata),
                     auth_info_values,
                     system_time,
                     should_redact_errors,

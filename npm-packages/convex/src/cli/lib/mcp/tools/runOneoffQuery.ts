@@ -58,9 +58,8 @@ export const RunOneoffQueryTool: ConvexTool<
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
-      args.deploymentSelector,
-    );
+    const { projectDir, deployment } =
+      await ctx.decodeDeploymentSelectorReadOnly(args.deploymentSelector);
     process.chdir(projectDir);
     const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
     const credentials = await loadSelectedDeploymentCredentials(

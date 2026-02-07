@@ -30,6 +30,8 @@ import { checkVersion } from "./lib/updates.js";
 import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
 import { ensureAuthKitProvisionedBeforeBuild } from "./lib/workos/workos.js";
 import { DASHBOARD_HOST } from "./lib/dashboard.js";
+import { extractDeploymentNameForWorkOS } from "./lib/extractDeploymentNameForWorkOS.js";
+
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
   .description(
@@ -243,8 +245,7 @@ async function deployToNewPreviewDeployment(
   const previewUrl = data.instanceUrl;
 
   // Extract deployment name from URL for WorkOS provisioning
-  const deploymentNameForWorkOS =
-    previewUrl.match(/https:\/\/([^.]+)\.convex\.cloud/)?.[1] ?? null;
+  const deploymentNameForWorkOS = extractDeploymentNameForWorkOS(previewUrl);
 
   // Provision WorkOS before building the client bundle (if configured)
   const { projectConfig } = await readProjectConfig(ctx);

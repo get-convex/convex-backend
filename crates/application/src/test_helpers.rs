@@ -40,6 +40,7 @@ use common::{
     types::{
         ConvexOrigin,
         FullyQualifiedObjectKey,
+        TEST_REGION_NAME,
     },
 };
 use database::{
@@ -61,6 +62,7 @@ use function_runner::{
     in_process_function_runner::InProcessFunctionRunner,
     server::InstanceStorage,
 };
+use http_client::CachedHttpClient;
 use isolate::{
     bundled_js::OUT_DIR,
     test_helpers::{
@@ -264,6 +266,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             rt.clone(),
         );
 
+        let oidc_http_client =
+            CachedHttpClient::new(None, DEV_INSTANCE_NAME.into(), Default::default());
         let application = Application::new(
             rt.clone(),
             database.clone(),
@@ -272,6 +276,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             usage_event_logger,
             kb.clone(),
             DEV_INSTANCE_NAME.into(),
+            Some(TEST_REGION_NAME.clone()),
             function_runner,
             convex_origin,
             convex_site,
@@ -290,6 +295,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             ShutdownSignal::panic(),
             Arc::new(InProcessExportProvider),
             deleted_tablet_receiver,
+            oidc_http_client,
         )
         .await?;
 

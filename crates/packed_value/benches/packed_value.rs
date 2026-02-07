@@ -297,7 +297,11 @@ pub fn benchmark_unpack(c: &mut Criterion) {
     for (name, value) in values {
         let packed = PackedValue::<ByteBuffer>::pack(&value);
         group.bench_with_input(BenchmarkId::new("flexbuffer", name), &packed, |b, v| {
-            b.iter(|| PackedValue::open(black_box(v.clone())).unwrap())
+            b.iter(|| ConvexValue::try_from(v.clone()))
+        });
+        let sort_key = value.sort_key();
+        group.bench_with_input(BenchmarkId::new("sort_key", name), &sort_key, |b, v| {
+            b.iter(|| ConvexValue::read_sort_key(&mut &v[..]))
         });
         let serialized = value.json_serialize().unwrap().into_bytes();
         group.bench_with_input(BenchmarkId::new("json", name), &serialized, |b, v| {

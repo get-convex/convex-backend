@@ -20,8 +20,8 @@ export function CustomDomains({
   hasEntitlement: boolean;
 }) {
   const project = useCurrentProject();
-  const prodDeployment = useDeployments(project?.id).deployments?.find(
-    (d) => d.deploymentType === "prod",
+  const defaultProdDeployment = useDeployments(project?.id).deployments?.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
   );
 
   return (
@@ -32,9 +32,9 @@ export function CustomDomains({
           <p className="max-w-prose">
             Configuration for Custom domains has moved. You may configure Custom
             Domains in{" "}
-            {prodDeployment && project ? (
+            {defaultProdDeployment && project ? (
               <Link
-                href={`/t/${team.slug}/${project.slug}/${prodDeployment.name}/settings/custom-domains`}
+                href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings/custom-domains`}
                 className="text-content-link hover:underline"
               >
                 Deployment Settings

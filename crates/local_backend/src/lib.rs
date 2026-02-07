@@ -40,6 +40,7 @@ use common::{
     types::{
         ConvexOrigin,
         ConvexSite,
+        TEST_REGION_NAME,
     },
 };
 use config::LocalConfig;
@@ -56,6 +57,7 @@ use function_runner::{
     FunctionRunner,
 };
 use governor::Quota;
+use http_client::CachedHttpClient;
 use model::{
     initialize_application_system_tables,
     virtual_system_mapping,
@@ -203,7 +205,13 @@ pub async fn make_app(
     let fetch_client = Arc::new(ProxiedFetchClient::new(
         config.convex_http_proxy.clone(),
         config.name(),
+        reqwest::redirect::Policy::none(),
     ));
+    let oidc_http_client = CachedHttpClient::new(
+        config.convex_http_proxy.clone(),
+        config.name(),
+        reqwest::redirect::Policy::default(),
+    );
     let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> =
         Arc::new(InProcessFunctionRunner::new(
             config.name().clone(),
@@ -227,6 +235,7 @@ pub async fn make_app(
         usage_event_logger,
         key_broker.clone(),
         config.name(),
+        Some(TEST_REGION_NAME.clone()),
         function_runner,
         config.convex_origin_url()?,
         config.convex_site_url()?,
@@ -245,6 +254,7 @@ pub async fn make_app(
         preempt_tx.clone(),
         Arc::new(InProcessExportProvider),
         deleted_tablet_receiver,
+        oidc_http_client,
     )
     .await?;
 

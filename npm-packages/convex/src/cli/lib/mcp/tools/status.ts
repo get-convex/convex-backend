@@ -26,6 +26,7 @@ const outputSchema = z.object({
       deploymentSelector: z.string(),
       url: z.string(),
       dashboardUrl: z.string().optional(),
+      readOnly: z.boolean().optional(),
     }),
   ),
 });
@@ -42,6 +43,12 @@ production ({"kind": "prod"}) deployment. Generally default to using the develop
 deployment unless you'd specifically like to debug issues in production.
 
 When running locally, there will be a single "urlWithAdminKey" deployment.
+
+If a deployment has "readOnly: true", it can only be used with read-only tools
+that don't expose PII (\`insights\`, \`functionSpec\`, \`tables\`). Tools that read
+user data (\`data\`, \`logs\`, \`runOneoffQuery\`) and mutating tools will reject it.
+
+If "readOnly" is false or absent, all tools can be used with the deployment.
 `.trim();
 
 export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
@@ -118,9 +125,12 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       }
     }
     if (ctx.productionDeploymentsDisabled) {
-      availableDeployments = availableDeployments.filter(
-        (d) => d.kind !== "prod",
-      );
+      const readOnly = ctx.productionPiiAllowed ? false : true;
+      return {
+        availableDeployments: availableDeployments.map((d) =>
+          d.kind === "prod" ? { ...d, readOnly } : d,
+        ),
+      };
     }
     return { availableDeployments };
   },

@@ -271,6 +271,36 @@
         ]
       }
     },
+    "/deployments/{deployment_name}": {
+      "get": {
+        "summary": "Get deployment",
+        "description": "Get details about a cloud deployment.",
+        "operationId": "platform_get_deployment",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/list_deployment_classes": {
       "get": {
         "summary": "List deployment classes",
@@ -664,6 +694,146 @@
             "$ref": "#/components/schemas/RegionName"
           }
         }
+      },
+      "DeploymentResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "region",
+              "isDefault",
+              "kind"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "creator": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MemberId"
+                  }
+                ]
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType"
+              },
+              "id": {
+                "$ref": "#/components/schemas/DeploymentId"
+              },
+              "isDefault": {
+                "$ref": "#/components/schemas/IsDefaultDeployment"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cloud"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId"
+              },
+              "region": {
+                "$ref": "#/components/schemas/RegionName"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "creator",
+              "port",
+              "lastUpdateTime",
+              "deviceName",
+              "isActive",
+              "isDefault",
+              "kind"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "creator": {
+                "$ref": "#/components/schemas/MemberId"
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType"
+              },
+              "deviceName": {
+                "$ref": "#/components/schemas/DeviceName"
+              },
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "isActive": {
+                "type": "boolean"
+              },
+              "isDefault": {
+                "$ref": "#/components/schemas/IsDefaultDeployment"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "local"
+                ]
+              },
+              "lastUpdateTime": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId"
+              }
+            }
+          }
+        ]
       },
       "DeploymentType": {
         "type": "string",

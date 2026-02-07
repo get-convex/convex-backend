@@ -98,27 +98,41 @@ pub fn log_websocket_message_out(message: &ServerMessage, delay: Duration) {
 
 register_convex_counter!(
     BACKEND_WS_CLOSED_TOTAL,
-    "Number of times the websocket was closed"
+    "Number of times the websocket was closed",
+    &["partition_id"],
 );
-pub fn log_websocket_closed() {
-    log_counter(&BACKEND_WS_CLOSED_TOTAL, 1);
+pub fn log_websocket_closed(partition_id: String) {
+    log_counter_with_labels(
+        &BACKEND_WS_CLOSED_TOTAL,
+        1,
+        vec![StaticMetricLabel::new("partition_id", partition_id)],
+    );
 }
 
 register_convex_counter!(
     BACKEND_WS_SERVER_ERROR_TOTAL,
     "Count of websocket server errors",
-    &["type"]
+    &["type", "partition_id"]
 );
-pub fn log_websocket_server_error(tag: StaticMetricLabel) {
-    log_counter_with_labels(&BACKEND_WS_SERVER_ERROR_TOTAL, 1, vec![tag]);
+pub fn log_websocket_server_error(tag: StaticMetricLabel, partition_id: String) {
+    log_counter_with_labels(
+        &BACKEND_WS_SERVER_ERROR_TOTAL,
+        1,
+        vec![tag, StaticMetricLabel::new("partition_id", partition_id)],
+    );
 }
 
 register_convex_counter!(
     BACKEND_WS_CONNECTION_CLOSED_ERROR_NOT_REPORTED_TOTAL,
-    "Count of connection closed errors not reported"
+    "Count of connection closed errors not reported",
+    &["partition_id"],
 );
-pub fn log_websocket_closed_error_not_reported() {
-    log_counter(&BACKEND_WS_CONNECTION_CLOSED_ERROR_NOT_REPORTED_TOTAL, 1);
+pub fn log_websocket_closed_error_not_reported(partition_id: String) {
+    log_counter_with_labels(
+        &BACKEND_WS_CONNECTION_CLOSED_ERROR_NOT_REPORTED_TOTAL,
+        1,
+        vec![StaticMetricLabel::new("partition_id", partition_id)],
+    );
 }
 
 register_convex_gauge!(

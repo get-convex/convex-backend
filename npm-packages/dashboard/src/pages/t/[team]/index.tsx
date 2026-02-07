@@ -14,7 +14,6 @@ import { useTeamOrbSubscription } from "api/billing";
 import { useReferralState } from "api/referrals";
 import { ProjectDetails, TeamResponse } from "generatedApi";
 import { ReferralsBanner } from "components/referral/ReferralsBanner";
-import { DocsGrid } from "components/projects/DocsGrid";
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import Head from "next/head";
@@ -63,7 +62,6 @@ export default withAuthenticatedPage(() => {
               </div>
             )}
           </div>
-          <DocsGrid />
         </div>
       </div>
     </>

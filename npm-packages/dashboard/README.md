@@ -97,8 +97,7 @@ belong in the `src/elements` directory.
 You can start Storybook using:
 
 ```bash
-cd ~/src/convex/npm-packages/dashboard
-npm run storybook
+just run-storybook
 ```
 
 ## Running the local dashboard against production

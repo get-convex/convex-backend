@@ -33,10 +33,12 @@ pub fn map_workos_identities_to_subjects(
             .iter()
             .map(|identity| -> anyhow::Result<String> {
                 let mapped_provider = match identity.provider.as_str() {
+                    "MicrosoftOAuth" => "microsoft",
                     "GithubOAuth" => "github",
                     "GoogleOAuth" => "google-oauth2",
                     "VercelOAuth" => "vercel",
                     "VercelMarketplaceOAuth" => "vercel",
+
                     _ => anyhow::bail!("Unsupported provider: {}", identity.provider),
                 };
 
@@ -493,6 +495,7 @@ impl WorkOSClient for MockWorkOSClient {
                 provider: match provider {
                     "google-oauth2" => "GoogleOAuth",
                     "github" => "GithubOAuth",
+                    "microsoft" => "MicrosoftOAuth",
                     _ => "Unknown",
                 }
                 .to_string(),

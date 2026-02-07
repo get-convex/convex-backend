@@ -482,7 +482,9 @@ function ProductionDeployKeys({ project }: { project: ProjectDetails }) {
   const team = useCurrentTeam();
 
   const { deployments } = useDeployments(project.id);
-  const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
+  const defaultProdDeployment = deployments?.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+  );
 
   return (
     <Sheet>
@@ -492,9 +494,9 @@ function ProductionDeployKeys({ project }: { project: ProjectDetails }) {
           <p className="max-w-prose text-sm text-content-primary">
             Configuration for production deploy keys has moved. You may generate
             deploy keys in{" "}
-            {team && prodDeployment ? (
+            {team && defaultProdDeployment ? (
               <Link
-                href={`/t/${team.slug}/${project.slug}/${prodDeployment.name}/settings`}
+                href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings`}
                 className="text-content-link hover:underline"
               >
                 Deployment Settings

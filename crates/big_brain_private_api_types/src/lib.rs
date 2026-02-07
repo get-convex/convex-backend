@@ -18,6 +18,7 @@ use serde::{
 };
 use utoipa::ToSchema;
 
+use crate::types::AccessToken;
 pub use crate::types::{
     CloudBackupId,
     PartitionId,
@@ -87,7 +88,7 @@ pub struct DeploymentAuthArgsSimple {
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentAuthResponse {
     pub deployment_name: String,
-    pub admin_key: String,
+    pub admin_key: AccessToken,
     pub url: String,
     pub deployment_type: DeploymentType,
 }

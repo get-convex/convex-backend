@@ -224,6 +224,7 @@ pub struct LogManager<RT: Runtime> {
     sinks: Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
     event_receiver: mpsc::Receiver<LogEvent>,
     instance_name: String,
+    deployment_region: Option<String>,
     /// How many sinks are active right now?
     active_sinks_count: Arc<AtomicUsize>,
     usage_counter: usage_tracking::UsageCounter,
@@ -235,6 +236,7 @@ pub struct LoggingDeploymentMetadata {
     deployment_type: Option<DeploymentType>,
     project_name: Option<String>,
     project_slug: Option<String>,
+    deployment_region: Option<String>,
 }
 
 impl<RT: Runtime> LogManager<RT> {
@@ -243,6 +245,7 @@ impl<RT: Runtime> LogManager<RT> {
         database: Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
         instance_name: String,
+        deployment_region: Option<String>,
         entitlement_enabled: bool,
         usage_counter: UsageCounter,
     ) -> LogManagerClient {
@@ -257,6 +260,7 @@ impl<RT: Runtime> LogManager<RT> {
             sinks: Arc::new(RwLock::new(BTreeMap::new())),
             event_receiver: req_rx,
             instance_name,
+            deployment_region,
             active_sinks_count: active_sinks_count.clone(),
             usage_counter,
         };
@@ -295,6 +299,7 @@ impl<RT: Runtime> LogManager<RT> {
             self.fetch_client.clone(),
             &self.sinks,
             self.instance_name.clone(),
+            self.deployment_region.clone(),
             self.active_sinks_count.clone(),
             self.usage_counter.clone(),
         )
@@ -415,6 +420,7 @@ impl<RT: Runtime> LogManager<RT> {
         fetch_client: Arc<dyn FetchClient>,
         sinks: &Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
         instance_name: String,
+        deployment_region: Option<String>,
         active_sinks_count: Arc<AtomicUsize>,
         usage_counter: usage_tracking::UsageCounter,
     ) -> anyhow::Result<!> {
@@ -427,6 +433,7 @@ impl<RT: Runtime> LogManager<RT> {
             deployment_type: None,
             project_name: None,
             project_slug: None,
+            deployment_region,
         }));
         loop {
             let mut tx = database.begin(Identity::system()).await?;
@@ -732,6 +739,7 @@ mod tests {
             deployment_type: Some(DeploymentType::Dev),
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
+            deployment_region: Some("aws-us-east-1".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
         let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
@@ -766,6 +774,7 @@ mod tests {
             deployment_type: Some(DeploymentType::Dev),
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
+            deployment_region: Some("aws-us-east-1".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
         let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
@@ -825,6 +834,7 @@ mod tests {
             deployment_type: Some(DeploymentType::Dev),
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
+            deployment_region: Some("aws-us-east-1".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
         let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));

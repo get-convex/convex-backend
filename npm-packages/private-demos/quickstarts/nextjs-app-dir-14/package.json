@@ -11,8 +11,6 @@
   "dependencies": {
     "@convex-dev/eslint-plugin": "^1.0.0",
     "@auth0/auth0-react": "^2.0.1",
-    "@eslint/js": "~9.39.0",
-    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "20.1.0",
     "@types/react": "18.3.27",
@@ -20,7 +18,7 @@
     "convex": "file:../../../convex",
     "eslint": "8.57.1",
     "eslint-config-next": "14.2.25",
-    "next": "^14.2.33",
+    "next": "^16.0.0",
     "postcss": "^8.4.19",
     "react": "18.3.1",
     "react-dom": "18.3.1",

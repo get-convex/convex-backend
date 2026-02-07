@@ -1242,3 +1242,11 @@ register_convex_gauge!(
 pub fn log_subscription_queue_length_delta(delta: i64) {
     SUBSCRIPTION_QUEUE_LENGTH_INFO.add(delta as f64);
 }
+
+register_convex_counter!(
+    WRITE_THROUGHPUT_LIMIT_EXCEEDED_TOTAL,
+    "Total number of times mutation execution was rejected due to write throughput limit"
+);
+pub fn log_write_throughput_limit_exceeded() {
+    log_counter(&WRITE_THROUGHPUT_LIMIT_EXCEEDED_TOTAL, 1);
+}

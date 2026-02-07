@@ -68,17 +68,29 @@ type EsBuildResult = esbuild.BuildResult & {
   bundledModuleNames: Set<string>;
 };
 
-async function doEsbuild(
-  ctx: Context,
-  dir: string,
-  entryPoints: string[],
-  generateSourceMaps: boolean,
-  platform: esbuild.Platform,
-  chunksFolder: string,
-  externalPackages: Map<string, ExternalPackage>,
-  extraConditions: string[],
-  includeSourcesContent: boolean,
-): Promise<EsBuildResult> {
+async function doEsbuild({
+  ctx,
+  dir,
+  entryPoints,
+  generateSourceMaps,
+  platform,
+  chunksFolder,
+  externalPackages,
+  extraConditions,
+  includeSourcesContent,
+  splitting,
+}: {
+  ctx: Context;
+  dir: string;
+  entryPoints: string[];
+  generateSourceMaps: boolean;
+  platform: esbuild.Platform;
+  chunksFolder: string;
+  externalPackages: Map<string, ExternalPackage>;
+  extraConditions: string[];
+  includeSourcesContent: boolean;
+  splitting?: boolean | undefined;
+}): Promise<EsBuildResult> {
   const external = createExternalPlugin(ctx, externalPackages);
   try {
     const result = await innerEsbuild({
@@ -91,6 +103,7 @@ async function doEsbuild(
       // The wasmPlugin should be last so it doesn't run on external modules.
       plugins: [external.plugin, wasmPlugin],
       includeSourcesContent,
+      splitting,
     });
 
     for (const [relPath, input] of Object.entries(result.metafile!.inputs)) {
@@ -171,6 +184,7 @@ export async function bundle({
   externalPackagesAllowList = [],
   extraConditions = [],
   includeSourcesContent = false,
+  splitting,
 }: {
   ctx: Context;
   dir: string;
@@ -181,6 +195,7 @@ export async function bundle({
   externalPackagesAllowList?: string[];
   extraConditions?: string[];
   includeSourcesContent?: boolean;
+  splitting?: boolean;
 }): Promise<{
   modules: Bundle[];
   externalDependencies: Map<string, string>;
@@ -190,17 +205,18 @@ export async function bundle({
     ctx,
     externalPackagesAllowList,
   );
-  const result = await doEsbuild(
+  const result = await doEsbuild({
     ctx,
     dir,
     entryPoints,
     generateSourceMaps,
     platform,
     chunksFolder,
-    availableExternalPackages,
+    externalPackages: availableExternalPackages,
     extraConditions,
     includeSourcesContent,
-  );
+    splitting,
+  });
   // Some ESBuild errors won't show up here, instead crashing in doEsbuild().
   if (result.errors.length) {
     const errorMessage = result.errors
@@ -331,6 +347,8 @@ export async function bundleAuthConfig(ctx: Context, dir: string) {
     entryPoints: [chosenPath],
     generateSourceMaps: true,
     platform: "browser",
+    // The auth config must be one module
+    splitting: false,
   });
   return result.modules;
 }

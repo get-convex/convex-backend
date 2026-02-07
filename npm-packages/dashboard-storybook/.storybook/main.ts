@@ -30,6 +30,12 @@ const config: StorybookConfig = {
           "../../dashboard/postcss.config.js",
         ),
       },
+      resolve: {
+        alias: {
+          // Match dashboard's tsconfig baseUrl: "src" for api/* imports
+          api: path.resolve(import.meta.dirname, "../../dashboard/src/api"),
+        },
+      },
       server: {
         fs: {
           allow: [

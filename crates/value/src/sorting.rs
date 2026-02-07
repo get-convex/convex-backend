@@ -41,7 +41,6 @@ const UNDEFINED_TAG: u8 = 0x1;
 // const ID_TAG: u8 = 0x2;
 const NULL_TAG: u8 = 0x3;
 
-#[cfg(any(test, feature = "testing"))]
 const NEG_INT64_8_BYTE_TAG: u8 = 0x4;
 #[allow(unused)]
 const NEG_INT64_4_BYTE_TAG: u8 = 0x5;
@@ -56,7 +55,6 @@ const POS_INT64_1_BYTE_TAG: u8 = 0x9;
 const POS_INT64_2_BYTE_TAG: u8 = 0xA;
 #[allow(unused)]
 const POS_INT64_4_BYTE_TAG: u8 = 0xB;
-#[cfg(any(test, feature = "testing"))]
 const POS_INT64_8_BYTE_TAG: u8 = 0xC;
 
 const FLOAT64_TAG: u8 = 0xD;
@@ -76,12 +74,14 @@ pub const TERMINATOR_BYTE: u8 = 0x0;
 const ESCAPE_BYTE: u8 = 0xFF;
 
 pub fn write_escaped_bytes(buf: &[u8], writer: &mut impl BufMut) {
-    for &byte in buf {
-        writer.put_u8(byte);
-        if byte == TERMINATOR_BYTE {
-            writer.put_u8(ESCAPE_BYTE);
-        }
+    let mut last = 0;
+    // Insert `ESCAPE_BYTE`s after each `TERMINATOR_BYTE`
+    for i in memchr::Memchr::new(TERMINATOR_BYTE, buf) {
+        writer.put_slice(&buf[last..=i]);
+        writer.put_u8(ESCAPE_BYTE);
+        last = i + 1;
     }
+    writer.put_slice(&buf[last..]);
     writer.put_u8(TERMINATOR_BYTE);
 }
 
@@ -122,43 +122,29 @@ pub fn values_to_bytes(values: &[Option<ConvexValue>]) -> Vec<u8> {
     out
 }
 
-/// Once a Value or IndexKey has been encoded for sorting, it should not be
-/// necessary to decode the Value or IndexKey again. Therefore this is
-/// test-only.
-#[cfg(any(test, feature = "testing"))]
 pub mod sorting_decode {
     use std::{
         cmp,
         collections::BTreeMap,
-        io::{
-            self,
-            Read,
-        },
     };
 
     use anyhow::bail;
-    use byteorder::{
-        BigEndian,
-        ReadBytesExt,
-    };
+    use bytes::Buf;
 
     use super::*;
     use crate::ConvexObject;
 
-    fn read_escaped_string<R: Read>(reader: &mut BytePeeker<R>) -> anyhow::Result<String> {
+    fn read_escaped_string<R: Buf>(reader: &mut R) -> anyhow::Result<String> {
         Ok(String::from_utf8(read_escaped_bytes(reader)?)?)
     }
 
-    fn read_terminated<R: Read, F>(
-        reader: &mut BytePeeker<R>,
-        mut read_element: F,
-    ) -> anyhow::Result<()>
+    fn read_terminated<R: Buf, F>(reader: &mut R, mut read_element: F) -> anyhow::Result<()>
     where
-        F: FnMut(&mut BytePeeker<R>) -> anyhow::Result<()>,
+        F: FnMut(&mut R) -> anyhow::Result<()>,
     {
         loop {
-            if let Some(TERMINATOR_BYTE) = reader.peek()? {
-                reader.read_u8()?;
+            if let Some(&TERMINATOR_BYTE) = reader.chunk().first() {
+                reader.get_u8();
                 break;
             }
             read_element(reader)?;
@@ -166,79 +152,43 @@ pub mod sorting_decode {
         Ok(())
     }
 
-    fn read_tagged_int<R: Read>(tag: u8, reader: &mut R) -> io::Result<i64> {
+    fn read_tagged_int<R: Buf>(tag: u8, reader: &mut R) -> i64 {
         let is_negative = tag < ZERO_INT64_TAG;
         let tag_diff = cmp::max(tag, ZERO_INT64_TAG) - cmp::min(tag, ZERO_INT64_TAG);
         let num_bytes = 1 << (tag_diff - 1);
         let mut buf = [if is_negative { 0xFF } else { 0x0 }; 8];
-        reader.read_exact(&mut buf[8 - num_bytes..])?;
-        Ok(i64::from_be_bytes(buf))
+        reader.copy_to_slice(&mut buf[8 - num_bytes..]);
+        i64::from_be_bytes(buf)
     }
 
     /// Parse a `Vec<Value>` from it respective sort keys.
-    pub fn bytes_to_values<R: Read>(reader: &mut R) -> anyhow::Result<Vec<Option<ConvexValue>>> {
-        let reader = &mut BytePeeker::new(reader);
+    pub fn bytes_to_values<R: Buf>(reader: &mut R) -> anyhow::Result<Vec<Option<ConvexValue>>> {
         let mut values = vec![];
-        while reader.peek()?.is_some() {
-            let value = ConvexValue::_read_sort_key(reader)?;
+        while reader.has_remaining() {
+            let value = ConvexValue::read_sort_key(reader)?;
             values.push(Some(value));
         }
         Ok(values)
     }
 
-    /// Reader that allow us to peak the next byte.
-    pub struct BytePeeker<R: Read> {
-        buf: Option<u8>,
-        reader: R,
-    }
-
-    impl<R: Read> BytePeeker<R> {
-        fn new(reader: R) -> Self {
-            Self { buf: None, reader }
-        }
-
-        pub fn peek(&mut self) -> io::Result<Option<u8>> {
-            if let Some(byte) = self.buf {
-                return Ok(Some(byte));
-            }
-            let mut buf = [0];
-            let n = self.reader.read(&mut buf)?;
-            if n == 0 {
-                return Ok(None);
-            }
-            let byte = buf[0];
-            self.buf = Some(byte);
-            Ok(Some(byte))
-        }
-    }
-
-    impl<R: Read> Read for BytePeeker<R> {
-        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-            if buf.is_empty() {
-                return Ok(0);
-            }
-            if let Some(byte) = self.buf.take() {
-                buf[0] = byte;
-                return Ok(1 + self.reader.read(&mut buf[1..])?);
-            }
-            self.reader.read(buf)
-        }
-    }
-
     /// Read an escaped, null-terminated byte string from the input stream.
-    pub fn read_escaped_bytes<R: Read>(reader: &mut BytePeeker<R>) -> io::Result<Vec<u8>> {
+    pub fn read_escaped_bytes<R: Buf>(reader: &mut R) -> anyhow::Result<Vec<u8>> {
         let mut out = vec![];
         loop {
-            let byte = reader.read_u8()?;
-            if byte == TERMINATOR_BYTE {
-                if let Some(ESCAPE_BYTE) = reader.peek()? {
-                    reader.read_u8()?;
+            anyhow::ensure!(reader.has_remaining(), "unexpected EOF");
+            let chunk = reader.chunk();
+            if let Some(i) = memchr::memchr(TERMINATOR_BYTE, chunk) {
+                out.extend_from_slice(&chunk[..i]);
+                reader.advance(i + 1);
+                if let Some(&ESCAPE_BYTE) = reader.chunk().first() {
+                    reader.advance(1);
                     out.push(TERMINATOR_BYTE);
                 } else {
                     break;
                 }
             } else {
-                out.push(byte);
+                out.extend_from_slice(chunk);
+                reader.advance(chunk.len());
             }
         }
         Ok(out)
@@ -246,21 +196,17 @@ pub mod sorting_decode {
 
     impl ConvexValue {
         /// Parse a `Value` from a sort key.
-        pub fn read_sort_key<R: Read>(reader: &mut R) -> anyhow::Result<Self> {
-            Self::_read_sort_key(&mut BytePeeker::new(reader))
-        }
-
-        fn _read_sort_key<R: Read>(reader: &mut BytePeeker<R>) -> anyhow::Result<Self> {
-            let tag = reader.read_u8()?;
+        pub fn read_sort_key<R: Buf>(reader: &mut R) -> anyhow::Result<Self> {
+            let tag = reader.try_get_u8()?;
             let r = match tag {
                 NULL_TAG => Self::Null,
 
                 ZERO_INT64_TAG => Self::from(0),
                 NEG_INT64_8_BYTE_TAG..=POS_INT64_8_BYTE_TAG => {
-                    ConvexValue::from(read_tagged_int(tag, reader)?)
+                    ConvexValue::from(read_tagged_int(tag, reader))
                 },
                 FLOAT64_TAG => {
-                    let mut n = reader.read_u64::<BigEndian>()?;
+                    let mut n = reader.try_get_u64()?;
                     // If the sign bit was set, just turn off the sign bit.
                     if n & (1 << 63) != 0 {
                         n &= !(1 << 63);
@@ -287,7 +233,7 @@ pub mod sorting_decode {
                 ARRAY_TAG => {
                     let mut elements = vec![];
                     read_terminated(reader, |reader| {
-                        elements.push(Self::_read_sort_key(reader)?);
+                        elements.push(Self::read_sort_key(reader)?);
                         Ok(())
                     })?;
                     ConvexValue::Array(elements.try_into()?)
@@ -296,7 +242,7 @@ pub mod sorting_decode {
                     let mut elements = BTreeMap::new();
                     read_terminated(reader, |reader| {
                         let field = read_escaped_string(reader)?.parse()?;
-                        let value = Self::_read_sort_key(reader)?;
+                        let value = Self::read_sort_key(reader)?;
                         if elements.insert(field, value).is_some() {
                             anyhow::bail!("Duplicate element in encoded object");
                         }

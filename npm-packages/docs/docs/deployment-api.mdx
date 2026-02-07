@@ -17,3 +17,6 @@ deployment:
 - [Streaming export API](/streaming-export-api.mdx)
 - [Streaming import API](/streaming-import-api.mdx)
 - [Platform APIs](/deployment-platform-api.mdx)
+
+A client wrapping the Platform APIs for deployments is available in the
+[`@convex-dev/platform` package](https://www.npmjs.com/package/@convex-dev/platform).

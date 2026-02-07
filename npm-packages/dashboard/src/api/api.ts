@@ -75,6 +75,29 @@ function useApiHeaders() {
   return { headers, accessToken, authHeader, googleAnalyticsId };
 }
 
+// Helper to create SWR middleware that injects headers at fetch time
+// This ensures headers are NOT part of the cache key
+function createHeaderInjectionMiddleware(headers: HeadersOptions) {
+  return (useSWRNext: any) => (key: any, fetcher: any, config: any) => {
+    const wrappedFetcher = fetcher
+      ? async (fetchKey: any) => {
+          // Add headers to the request options before fetching
+          // fetchKey structure: [prefix, path, requestOptions]
+          if (Array.isArray(fetchKey) && fetchKey[2]) {
+            const modifiedKey = [
+              fetchKey[0],
+              fetchKey[1],
+              { ...fetchKey[2], headers },
+            ];
+            return fetcher(modifiedKey);
+          }
+          return fetcher(fetchKey);
+        }
+      : fetcher;
+    return useSWRNext(key, wrappedFetcher, config);
+  };
+}
+
 // Helper to validate auth header in mutations
 function validateAuthHeader(authHeader: string) {
   if (!authHeader) {
@@ -182,13 +205,14 @@ export function useBBQuery<QueryPath extends Path<"get">>({
   const [ssoLoginRequired, setSSOLoginRequired] = useSSOLoginRequired();
   const { headers, accessToken } = useApiHeaders();
 
+  // Don't include headers in requestOptions - they'll be injected by middleware
+  // This ensures headers are NOT part of the SWR cache key
   // @ts-expect-error TODO: Figure out how to type this.
   const requestOptions: MaybeOptionalInit<BigBrainPaths[QueryPath], "get"> = {
     params: {
       path: pathParams,
       query: queryParams,
     },
-    headers,
   };
 
   // If any path params are falsey, pause! Paused queries return undefined.
@@ -216,6 +240,8 @@ export function useBBQuery<QueryPath extends Path<"get">>({
       }
     },
     ...swrOptions,
+    // Inject headers at fetch time via middleware, not in cache key
+    use: [createHeaderInjectionMiddleware(headers), ...(swrOptions?.use || [])],
   });
 
   handleQueryError(res, path);
@@ -337,6 +363,8 @@ export function useManagementApiQuery<QueryPath extends ManagementPath<"get">>({
   const [ssoLoginRequired, setSSOLoginRequired] = useSSOLoginRequired();
   const { headers, accessToken } = useApiHeaders();
 
+  // Don't include headers in requestOptions - they'll be injected by middleware
+  // This ensures headers are NOT part of the SWR cache key
   // @ts-expect-error TODO: Figure out how to type this.
   const requestOptions: MaybeOptionalInit<
     ManagementApiPaths[QueryPath],
@@ -346,7 +374,6 @@ export function useManagementApiQuery<QueryPath extends ManagementPath<"get">>({
       path: pathParams,
       query: queryParams,
     },
-    headers,
   };
 
   // If any path params are falsey, pause! Paused queries return undefined.
@@ -374,6 +401,8 @@ export function useManagementApiQuery<QueryPath extends ManagementPath<"get">>({
       }
     },
     ...swrOptions,
+    // Inject headers at fetch time via middleware, not in cache key
+    use: [createHeaderInjectionMiddleware(headers), ...(swrOptions?.use || [])],
   });
 
   handleQueryError(res, path);

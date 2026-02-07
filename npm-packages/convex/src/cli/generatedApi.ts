@@ -460,11 +460,13 @@ export interface components {
             workosTeamName: string;
         };
         ReferralCode: string;
+        RegionName: string;
         /** Format: int64 */
         TeamId: number;
         TeamName: string;
         TeamResponse: {
             creator?: null | components["schemas"]["MemberId"];
+            defaultRegion?: null | components["schemas"]["RegionName"];
             id: components["schemas"]["TeamId"];
             managedBy?: null | components["schemas"]["ManagedBy"];
             managedByUrl?: string | null;
@@ -529,6 +531,7 @@ export type ProvisionProjectEnvironmentResponse = components['schemas']['Provisi
 export type ProvisionWorkOsTeamRequest = components['schemas']['ProvisionWorkOSTeamRequest'];
 export type ProvisionWorkOsTeamResponse = components['schemas']['ProvisionWorkOSTeamResponse'];
 export type ReferralCode = components['schemas']['ReferralCode'];
+export type RegionName = components['schemas']['RegionName'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
