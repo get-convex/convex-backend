@@ -31,7 +31,7 @@ export interface components {
             success?: null | components["schemas"]["Value"];
             /** Format: double */
             timestamp: number;
-            udfType: components["schemas"]["UdfType"];
+            udfType: components["schemas"]["UdfTypeJson"];
             usageStats: components["schemas"]["UsageStatsJson"];
         } | {
             componentPath?: string | null;
@@ -43,7 +43,7 @@ export interface components {
             requestId: string;
             /** Format: double */
             timestamp: number;
-            udfType: components["schemas"]["UdfType"];
+            udfType: components["schemas"]["UdfTypeJson"];
         };
         /** @enum {string} */
         LogLevelJson: "DEBUG" | "ERROR" | "WARN" | "INFO" | "LOG";
@@ -84,16 +84,16 @@ export interface components {
             code: string;
         };
         /** @enum {string} */
-        UdfType: "Query" | "Mutation" | "Action" | "HttpAction";
+        UdfTypeJson: "Query" | "Mutation" | "Action" | "HttpAction";
         UsageStatsJson: {
-            /** Format: int64 */
-            actionMemoryUsedMb?: number | null;
             /** Format: int64 */
             databaseReadBytes: number;
             /** Format: int64 */
             databaseReadDocuments: number;
             /** Format: int64 */
             databaseWriteBytes: number;
+            /** Format: int64 */
+            memoryUsedMb: number;
             /** Format: int64 */
             storageReadBytes: number;
             /** Format: int64 */
@@ -119,7 +119,7 @@ export type StreamFunctionLogs = components['schemas']['StreamFunctionLogs'];
 export type StreamUdfExecutionQueryArgs = components['schemas']['StreamUdfExecutionQueryArgs'];
 export type StreamUdfExecutionResponse = components['schemas']['StreamUdfExecutionResponse'];
 export type SystemLogMetadataJson = components['schemas']['SystemLogMetadataJson'];
-export type UdfType = components['schemas']['UdfType'];
+export type UdfTypeJson = components['schemas']['UdfTypeJson'];
 export type UsageStatsJson = components['schemas']['UsageStatsJson'];
 export type Value = components['schemas']['Value'];
 export type $defs = Record<string, never>;

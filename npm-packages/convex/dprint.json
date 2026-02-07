@@ -6,7 +6,7 @@
     "api-extractor-configs/reports",
     "api-extractor-configs/temp",
     "tmpDist*",
-    "management-openapi.json",
+    "cli-management-openapi.json",
     "function-logs-openapi.json",
     "src/cli/generatedApi.ts",
     "src/cli/lib/generatedFunctionLogsApi.ts",
