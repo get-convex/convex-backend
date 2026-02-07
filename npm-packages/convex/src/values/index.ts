@@ -25,6 +25,8 @@ export type {
   RecordKeyValidatorJSON,
   RecordValueValidatorJSON,
   ObjectFieldType,
+  ObjectFieldPaths,
+  ObjectValidatorOptions,
   Validator,
   OptionalProperty,
   VId,
