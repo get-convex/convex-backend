@@ -81,7 +81,7 @@ export function FunctionNameOption({
   return (
     <div className="flex w-full items-center space-x-1" ref={ref}>
       {componentPath && (
-        <Tooltip tip={componentPath}>
+        <Tooltip tip={componentPath} asChild>
           <PuzzlePieceIcon />
         </Tooltip>
       )}

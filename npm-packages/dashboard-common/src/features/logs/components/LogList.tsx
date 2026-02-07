@@ -20,6 +20,7 @@ import {
   InterleavedLog,
   interleaveLogs,
   getLogKey,
+  getTimestamp,
 } from "@common/features/logs/lib/interleaveLogs";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { Sheet } from "@ui/Sheet";
@@ -44,6 +45,8 @@ export type LogListProps = {
   setPaused: (paused: boolean) => void;
   setManuallyPaused: (paused: boolean) => void;
   filter?: string;
+  selectedTimestamp?: number;
+  interleavedLogs: InterleavedLog[];
 };
 
 /**
@@ -99,14 +102,11 @@ export function LogList({
   setManuallyPaused,
   setFilter,
   filter,
+  selectedTimestamp,
+  interleavedLogs,
 }: LogListProps) {
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const interleavedLogs = interleaveLogs(
-    filteredLogs ?? [],
-    deploymentAuditLogs ?? [],
-    clearedLogs,
-  ).reverse();
 
   const [sheetRef, { height: heightOfListContainer }] =
     useMeasure<HTMLDivElement>();
@@ -164,6 +164,17 @@ export function LogList({
     },
     [interleavedLogs],
   );
+
+  useEffect(() => {
+    if (selectedTimestamp) {
+      const log = interleavedLogs.find(
+        (l) => getTimestamp(l) === selectedTimestamp,
+      );
+      if (log) {
+        handleSelectLog(log);
+      }
+    }
+  }, [selectedTimestamp, interleavedLogs, handleSelectLog]);
 
   // Jump to Error
   const jumpToError = useCallback(
@@ -481,6 +492,22 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
         />
       );
       break;
+    case "AggregatedLog": {
+      const firstLog = log.logs[0];
+      if (firstLog.kind !== "ExecutionLog") break;
+      item = (
+        <LogListItem
+          log={firstLog.executionLog}
+          setShownLog={() => setShownLog(log)}
+          focused={isFocused}
+          hitBoundary={hitBoundary}
+          logKey={logKey}
+          highlight={filter}
+          count={log.count}
+        />
+      );
+      break;
+    }
     default:
       item = (
         <LogListItem

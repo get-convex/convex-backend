@@ -87,6 +87,7 @@ export function TimestampTooltip({
       tip={tip} 
       side="top" 
       align="start" 
+      asChild
       delayDuration={300} // Slight delay to avoid flickering while scanning
       contentClassName="bg-background-secondary border-border-selected shadow-lg px-3 py-2"
     >

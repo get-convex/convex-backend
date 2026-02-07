@@ -13,6 +13,11 @@ export type InterleavedLog =
   | {
       kind: "ClearedLogs";
       timestamp: number;
+    }
+  | {
+      kind: "AggregatedLog";
+      logs: InterleavedLog[];
+      count: number;
     };
 
 // Helper to get timestamp from InterleavedLog
@@ -27,6 +32,8 @@ export function getTimestamp(log: InterleavedLog): number {
       return log.deploymentEvent._creationTime;
     case "ClearedLogs":
       return log.timestamp;
+    case "AggregatedLog":
+      return getTimestamp(log.logs[0]);
     default:
       log satisfies never;
       return 0;
@@ -48,6 +55,9 @@ export function getLogKey(log: InterleavedLog): string {
   if (log.kind === "DeploymentEvent") {
     return `${log.kind}-${timestamp}-${log.deploymentEvent._id}`;
   }
+  if (log.kind === "AggregatedLog") {
+    return `${log.kind}-${timestamp}-${getLogKey(log.logs[0])}`;
+  }
   return `${log.kind}-${timestamp}`;
 }
 
@@ -63,6 +73,7 @@ export function interleaveLogs(
   executionLogs: UdfLog[],
   deploymentAuditLogEvents: DeploymentAuditLogEvent[],
   clearedLogs: number[],
+  shouldAggregateLogs: boolean = true,
 ): InterleavedLog[] {
   const result: InterleavedLog[] = [];
 
@@ -103,5 +114,44 @@ export function interleaveLogs(
       deploymentEvent = deploymentEventIterator.next().value;
     }
   }
-  return result;
+  return shouldAggregateLogs ? aggregateInterleavedLogs(result) : result;
+}
+
+function aggregateInterleavedLogs(logs: InterleavedLog[]): InterleavedLog[] {
+  const aggregated: InterleavedLog[] = [];
+  for (const log of logs) {
+    const last = aggregated[aggregated.length - 1];
+    if (last && shouldAggregate(last, log)) {
+      if (last.kind === "AggregatedLog") {
+        last.logs.push(log);
+        last.count++;
+      } else {
+        const firstLog = aggregated.pop()!;
+        aggregated.push({
+          kind: "AggregatedLog",
+          logs: [firstLog, log],
+          count: 2,
+        });
+      }
+    } else {
+      aggregated.push(log);
+    }
+  }
+  return aggregated;
+}
+
+function shouldAggregate(a: InterleavedLog, b: InterleavedLog): boolean {
+  const getComparisonKey = (log: InterleavedLog): string | null => {
+    const item = log.kind === "AggregatedLog" ? log.logs[0] : log;
+    if (item.kind !== "ExecutionLog" || item.executionLog.kind !== "log") {
+      return null;
+    }
+    const { executionLog } = item;
+    return `${executionLog.call}-${executionLog.output.level}-${executionLog.output.messages.join("|")}`;
+  };
+
+  const keyA = getComparisonKey(a);
+  const keyB = getComparisonKey(b);
+
+  return keyA !== null && keyA === keyB;
 }

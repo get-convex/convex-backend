@@ -12,6 +12,8 @@ import { dismissToast, toast } from "@common/lib/utils";
 import { LogList } from "@common/features/logs/components/LogList";
 import { LogToolbar } from "@common/features/logs/components/LogToolbar";
 import { SearchLogsInput } from "@common/features/logs/components/SearchLogsInput";
+import { interleaveLogs } from "@common/features/logs/lib/interleaveLogs";
+import { LogTimeline } from "@common/features/logs/components/LogTimeline";
 import { filterLogs } from "@common/features/logs/lib/filterLogs";
 import { NENT_APP_PLACEHOLDER, Nent } from "@common/lib/useNents";
 import {
@@ -102,6 +104,11 @@ export function Logs({
       defaultSelectedFunctions,
     );
 
+  const [shouldAggregate, setShouldAggregate] = useGlobalLocalStorage(
+    `logs/${deploymentPrefix}/shouldAggregate`,
+    true,
+  );
+
   const [logs, setLogs] = useState<UdfLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<UdfLog[]>([]);
   const [pausedLogs, setPausedLogs] = useState<UdfLog[]>([]);
@@ -123,6 +130,20 @@ export function Logs({
 
   const [fromTimestamp, setFromTimestamp] = useState<number>();
   const deploymentAuditLogs = useDeploymentAuditLogs(fromTimestamp);
+
+  const interleavedLogs = useMemo(
+    () =>
+      interleaveLogs(
+        filteredLogs ?? [],
+        deploymentAuditLogs ?? [],
+        clearedLogs,
+        shouldAggregate,
+      ).reverse(),
+    [filteredLogs, deploymentAuditLogs, clearedLogs, shouldAggregate],
+  );
+
+  const [selectedTimelineTimestamp, setSelectedTimelineTimestamp] =
+    useState<number>();
 
   const receiveLogs = useCallback(
     (entries: UdfLog[], isPaused: boolean) => {
@@ -242,6 +263,8 @@ export function Logs({
           }
           selectedNents={selectedNents}
           setSelectedNents={setSelectedNents}
+          shouldAggregate={shouldAggregate}
+          setShouldAggregate={setShouldAggregate}
         />
         <div className="mb-2 flex w-full gap-2">
           <SearchLogsInput
@@ -272,6 +295,11 @@ export function Logs({
             Clear Logs
           </Button>
         </div>
+        <LogTimeline
+          logs={interleavedLogs}
+          onSelectTimestamp={setSelectedTimelineTimestamp}
+          className="mb-2"
+        />
       </div>
       <div className="flex-1 overflow-hidden">
         <LogList
@@ -289,6 +317,8 @@ export function Logs({
             setManuallyPaused(p);
           }}
           filter={filter}
+          selectedTimestamp={selectedTimelineTimestamp}
+          interleavedLogs={interleavedLogs}
         />
       </div>
     </div>

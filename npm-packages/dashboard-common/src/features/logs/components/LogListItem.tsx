@@ -20,6 +20,7 @@ type LogListItemProps = {
   hitBoundary?: "top" | "bottom" | null;
   logKey?: string;
   highlight?: string;
+  count?: number;
 };
 
 export const ITEM_SIZE = 24;
@@ -31,6 +32,7 @@ export function LogListItem({
   hitBoundary,
   logKey,
   highlight,
+  count,
 }: LogListItemProps) {
   const wrapperRef = useRef<HTMLButtonElement | HTMLSpanElement>(null);
   const [didJustCopy, setDidJustCopy] = useState(false);
@@ -146,6 +148,11 @@ export function LogListItem({
             >
               {log.udfType.charAt(0).toUpperCase()}
             </p>
+            {count && count > 1 && (
+              <span className="rounded-full bg-util-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-util-accent border border-util-accent/20 animate-in zoom-in-50 duration-300">
+                x{count}
+              </span>
+            )}
             <FunctionNameOption
               label={
                 log.kind === "log"
