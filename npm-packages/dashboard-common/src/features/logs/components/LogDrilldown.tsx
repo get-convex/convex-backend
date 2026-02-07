@@ -64,6 +64,8 @@ export function LogDrilldown({
   const rightPanelRef = useRef<HTMLDivElement>(null);
 
   const selectedLog = selectedLogProp;
+  const displayLog =
+    selectedLog.kind === "AggregatedLog" ? selectedLog.logs[0] : selectedLog;
 
   useNavigateLogs(
     selectedLog,
@@ -79,7 +81,7 @@ export function LogDrilldown({
     return null;
   }
 
-  if (selectedLog.kind === "ClearedLogs") {
+  if (displayLog.kind === "ClearedLogs") {
     return <div className="h-full w-full border-l bg-background-primary/70" />;
   }
 
@@ -90,13 +92,13 @@ export function LogDrilldown({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h4 className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              {selectedLog.kind === "ExecutionLog" ? (
+              {displayLog.kind === "ExecutionLog" ? (
                 <>
                   <span className="font-mono text-sm">
-                    {selectedLog.executionLog.localizedTimestamp}
+                    {displayLog.executionLog.localizedTimestamp}
                     <span className="text-content-secondary">
                       .
-                      {new Date(getTimestamp(selectedLog))
+                      {new Date(getTimestamp(displayLog))
                         .toISOString()
                         .split(".")[1]
                         .slice(0, -1)}
@@ -105,21 +107,21 @@ export function LogDrilldown({
                   <span className="text-xs font-normal text-nowrap text-content-secondary">
                     (
                     <LiveTimestampDistance
-                      date={new Date(getTimestamp(selectedLog))}
+                      date={new Date(getTimestamp(displayLog))}
                       className="inline"
                     />
                     )
                   </span>
                   <div className="font-mono text-xs">
-                    {selectedLog.executionLog.kind === "log" &&
-                      selectedLog.executionLog.output.level && (
+                    {displayLog.executionLog.kind === "log" &&
+                      displayLog.executionLog.output.level && (
                         <LogLevel
-                          level={selectedLog.executionLog.output.level}
+                          level={displayLog.executionLog.output.level}
                         />
                       )}
-                    {selectedLog.executionLog.kind === "outcome" && (
+                    {displayLog.executionLog.kind === "outcome" && (
                       <LogStatusLine
-                        outcome={selectedLog.executionLog.outcome}
+                        outcome={displayLog.executionLog.outcome}
                       />
                     )}
                   </div>
@@ -127,12 +129,12 @@ export function LogDrilldown({
               ) : (
                 <>
                   <span className="font-mono text-sm">
-                    {new Date(getTimestamp(selectedLog)).toLocaleString()}
+                    {new Date(getTimestamp(displayLog)).toLocaleString()}
                   </span>
                   <span className="text-xs font-normal text-nowrap text-content-secondary">
                     (
                     <LiveTimestampDistance
-                      date={new Date(getTimestamp(selectedLog))}
+                      date={new Date(getTimestamp(displayLog))}
                       className="inline"
                     />
                     )
@@ -142,7 +144,7 @@ export function LogDrilldown({
             </div>
           </h4>
           <div className="flex items-center gap-1">
-            {selectedLog.kind === "ExecutionLog" && requestId && (
+            {displayLog.kind === "ExecutionLog" && requestId && (
               <Button
                 icon={<Crosshair2Icon />}
                 variant="neutral"
@@ -165,7 +167,7 @@ export function LogDrilldown({
         className="scrollbar grow animate-fadeInFromLoading overflow-y-auto"
       >
         {/* Callout - outside of resizable panels */}
-        {selectedLog.kind === "ExecutionLog" &&
+        {displayLog.kind === "ExecutionLog" &&
           requestId &&
           allUdfLogs.length === 0 && (
             <Callout
@@ -191,7 +193,7 @@ export function LogDrilldown({
           )}
 
         <LogContentLayout
-          selectedLog={selectedLog}
+          selectedLog={displayLog}
           allUdfLogs={allUdfLogs}
           selectedTabIndex={selectedTabIndex}
           setSelectedTabIndex={setSelectedTabIndex}

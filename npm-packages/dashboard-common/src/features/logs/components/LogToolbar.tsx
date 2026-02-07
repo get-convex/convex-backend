@@ -3,6 +3,9 @@ import { NentNameOption } from "@common/elements/NentSwitcher";
 import { functionIdentifierFromValue } from "@common/lib/functions/generateFileTree";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { NENT_APP_PLACEHOLDER } from "@common/lib/useNents";
+import { Button } from "@ui/Button";
+import { LayersIcon } from "@radix-ui/react-icons";
+import { Tooltip } from "@ui/Tooltip";
 
 export function LogToolbar({
   functions,
@@ -15,6 +18,8 @@ export function LogToolbar({
   setSelectedNents,
   firstItem,
   hideFunctionFilter = false,
+  shouldAggregate,
+  setShouldAggregate,
 }: {
   functions: string[];
   selectedFunctions: MultiSelectValue;
@@ -26,6 +31,8 @@ export function LogToolbar({
   setSelectedNents(newValue: MultiSelectValue): void;
   firstItem?: React.ReactNode;
   hideFunctionFilter?: boolean;
+  shouldAggregate?: boolean;
+  setShouldAggregate?: (value: boolean) => void;
 }) {
   // Transform functions for current nents
   const functionsForCurrentNents = functionsForSelectedNents(
@@ -103,6 +110,18 @@ export function LogToolbar({
           )}
         />
       </div>
+      {setShouldAggregate && (
+        <Button
+          size="sm"
+          variant={shouldAggregate ? "primary" : "neutral"}
+          icon={<LayersIcon />}
+          onClick={() => setShouldAggregate(!shouldAggregate)}
+          className="h-9 px-3 gap-2"
+          tip={shouldAggregate ? "Disable Log Aggregation" : "Enable Log Aggregation"}
+        >
+          Aggregate Logs
+        </Button>
+      )}
     </div>
   );
 }

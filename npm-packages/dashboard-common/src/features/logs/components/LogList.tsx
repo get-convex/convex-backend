@@ -9,6 +9,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
 import { useMeasure } from "react-use";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
+import { useHotkeys } from "react-hotkeys-hook";
 import { DeploymentEventListItem } from "@common/features/logs/components/DeploymentEventListItem";
 import {
   ITEM_SIZE,
@@ -19,6 +20,7 @@ import {
   InterleavedLog,
   interleaveLogs,
   getLogKey,
+  getTimestamp,
 } from "@common/features/logs/lib/interleaveLogs";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { Sheet } from "@ui/Sheet";
@@ -29,6 +31,7 @@ import { Panel, PanelGroup } from "react-resizable-panels";
 import { cn } from "@ui/cn";
 import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
 import { LogDrilldown } from "./LogDrilldown";
+import { useLogsClipboard } from "../lib/useLogsClipboard";
 
 export type LogListProps = {
   logs?: UdfLog[];
@@ -41,6 +44,9 @@ export type LogListProps = {
   paused: boolean;
   setPaused: (paused: boolean) => void;
   setManuallyPaused: (paused: boolean) => void;
+  filter?: string;
+  selectedTimestamp?: number;
+  interleavedLogs: InterleavedLog[];
 };
 
 /**
@@ -95,14 +101,12 @@ export function LogList({
   setPaused,
   setManuallyPaused,
   setFilter,
+  filter,
+  selectedTimestamp,
+  interleavedLogs,
 }: LogListProps) {
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const interleavedLogs = interleaveLogs(
-    filteredLogs ?? [],
-    deploymentAuditLogs ?? [],
-    clearedLogs,
-  ).reverse();
 
   const [sheetRef, { height: heightOfListContainer }] =
     useMeasure<HTMLDivElement>();
@@ -148,13 +152,78 @@ export function LogList({
             ) as HTMLButtonElement;
             if (button && document.activeElement !== button) {
               button.focus();
+              // Add a visual "ping" to the focused item to make jumps obvious
+              button.classList.add("ring-2", "ring-primary", "ring-inset");
+              setTimeout(() => {
+                button.classList.remove("ring-2", "ring-primary", "ring-inset");
+              }, 1000);
             }
-          }, 50);
+          }, 100);
         }
       }
     },
     [interleavedLogs],
   );
+
+  useEffect(() => {
+    if (selectedTimestamp) {
+      const log = interleavedLogs.find(
+        (l) => getTimestamp(l) === selectedTimestamp,
+      );
+      if (log) {
+        handleSelectLog(log);
+      }
+    }
+  }, [selectedTimestamp, interleavedLogs, handleSelectLog]);
+
+  // Jump to Error
+  const jumpToError = useCallback(
+    (direction: "next" | "prev") => {
+      if (!interleavedLogs) return;
+
+      const currentIndex = shownLog
+        ? interleavedLogs.findIndex((l) => getLogKey(l) === getLogKey(shownLog))
+        : -1;
+
+      const findError = (log: InterleavedLog) => {
+        if (log.kind === "ExecutionLog") {
+          return (
+            log.executionLog.kind === "outcome"
+              ? !!log.executionLog.error
+              : log.executionLog.output.level === "ERROR"
+          );
+        }
+        return false;
+      };
+
+      let nextIndex = -1;
+      if (direction === "next") {
+        nextIndex = interleavedLogs.findIndex(
+          (l, i) => i > currentIndex && findError(l),
+        );
+      } else {
+        // Reverse search for previous
+        for (let i = currentIndex - 1; i >= 0; i--) {
+          if (findError(interleavedLogs[i])) {
+            nextIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (nextIndex !== -1) {
+        handleSelectLog(interleavedLogs[nextIndex]);
+      }
+    },
+    [interleavedLogs, shownLog, handleSelectLog],
+  );
+
+  useHotkeys("shift+j", () => jumpToError("next"), [jumpToError]);
+  useHotkeys("shift+k", () => jumpToError("prev"), [jumpToError]);
+  useHotkeys("e", () => jumpToError("next"), [jumpToError]);
+
+  // Use the sophisticated clipboard hook
+  useLogsClipboard(interleavedLogs, outerRef);
 
   const hasFilters =
     !!logs && !!filteredLogs && filteredLogs.length !== logs.length;
@@ -207,6 +276,7 @@ export function LogList({
                 shownLog,
                 listRef,
                 outerRef,
+                filter,
               }}
             />
           )}
@@ -266,6 +336,7 @@ function WindowedLogList({
   hitBoundary,
   listRef,
   outerRef,
+  filter,
 }: {
   interleavedLogs: InterleavedLog[];
   setClearedLogs: (clearedLogs: number[]) => void;
@@ -279,6 +350,7 @@ function WindowedLogList({
   hitBoundary: "top" | "bottom" | null;
   listRef: React.RefObject<FixedSizeList>;
   outerRef: React.RefObject<HTMLDivElement>;
+  filter?: string;
 }) {
   return (
     <div className="scrollbar flex h-full min-w-0 flex-col overflow-x-auto overflow-y-hidden">
@@ -330,6 +402,7 @@ configure a log stream."
                 setShownLog,
                 selectedLog: shownLog,
                 hitBoundary,
+                filter,
               }}
               RowOrLoading={LogListRow}
             />
@@ -365,6 +438,7 @@ type LogItemProps = {
     clearedLogs: number[];
     selectedLog?: InterleavedLog;
     hitBoundary?: "top" | "bottom" | null;
+    filter?: string;
   };
   index: number;
   style: any;
@@ -380,6 +454,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     setShownLog,
     selectedLog,
     hitBoundary,
+    filter,
   } = data;
   const log = interleavedLogs[index];
 
@@ -417,6 +492,22 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
         />
       );
       break;
+    case "AggregatedLog": {
+      const firstLog = log.logs[0];
+      if (firstLog.kind !== "ExecutionLog") break;
+      item = (
+        <LogListItem
+          log={firstLog.executionLog}
+          setShownLog={() => setShownLog(log)}
+          focused={isFocused}
+          hitBoundary={hitBoundary}
+          logKey={logKey}
+          highlight={filter}
+          count={log.count}
+        />
+      );
+      break;
+    }
     default:
       item = (
         <LogListItem
@@ -425,6 +516,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
           focused={isFocused}
           hitBoundary={hitBoundary}
           logKey={logKey}
+          highlight={filter}
         />
       );
       break;
