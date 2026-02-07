@@ -799,12 +799,9 @@ pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> = LazyLock::new
 ///
 /// This is a higher level limit applied before FunctionRunner implementations.
 ///
-/// This does NOT apply to:
-/// 1. Http actions
-/// 2. Node actions
+/// This does apply to HTTP actions and does NOT apply to Node actions
 ///
 /// Node actions are limited by the APPLICATION_MAX_CONCURRENT_NODE_ACTIONS
-/// knob. Http actions are limited by APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS
 /// knob.
 ///
 /// The value here may be overridden by big brain.
@@ -828,24 +825,6 @@ pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> = LazyLock::
     env_config(
         "APPLICATION_MAX_CONCURRENT_NODE_ACTIONS",
         DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
-    )
-});
-
-/// Number of threads to execute V8 actions.
-///
-/// Http actions are not sent through FunctionRunner implementations. This is a
-/// maximum on the number of http actions that will be executed in process in a
-/// particular backend.
-///
-/// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS",
-        if cfg!(any(test, feature = "testing")) {
-            2
-        } else {
-            DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY
-        },
     )
 });
 

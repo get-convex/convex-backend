@@ -37,7 +37,6 @@ use common::{
     fastrace_helpers::EncodedSpan,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
-        APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
         APPLICATION_MAX_CONCURRENT_MUTATIONS,
         APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
         APPLICATION_MAX_CONCURRENT_QUERIES,
@@ -239,7 +238,6 @@ pub struct FunctionRouter<RT: Runtime> {
     query_limiter: Arc<Limiter<RT>>,
     mutation_limiter: Arc<Limiter<RT>>,
     action_limiter: Arc<Limiter<RT>>,
-    http_action_limiter: Arc<Limiter<RT>>,
 
     rt: RT,
     database: Database<RT>,
@@ -270,15 +268,8 @@ impl<RT: Runtime> FunctionRouter<RT> {
             ModuleEnvironment::Isolate,
             UdfType::Action,
             *APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
-            function_log.clone(),
-        ));
-        let http_action_limiter = Arc::new(Limiter::new(
-            ModuleEnvironment::Isolate,
-            UdfType::HttpAction,
-            *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
             function_log,
         ));
-
         Self {
             function_runner,
             rt,
@@ -287,7 +278,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
             query_limiter,
             mutation_limiter,
             action_limiter,
-            http_action_limiter,
         }
     }
 }
@@ -400,8 +390,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         let limiter = match udf_type {
             UdfType::Query => &self.query_limiter,
             UdfType::Mutation => &self.mutation_limiter,
-            UdfType::Action => &self.action_limiter,
-            UdfType::HttpAction => &self.http_action_limiter,
+            UdfType::Action | UdfType::HttpAction => &self.action_limiter,
         };
 
         let request_guard = limiter.acquire_permit_with_timeout(&self.rt).await?;
