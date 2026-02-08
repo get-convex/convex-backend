@@ -172,7 +172,6 @@ paste = { version = "1.0.12" }
 phf = { version = "0.11.2", features = [ "macros" ] }
 pin-project = "1"
 pkcs8 = "0.10.2"
-portpicker = "0.1"
 postgres-protocol = { version = "0.6" }
 pretty_assertions = "1"
 proc-macro2 = { version = "1.0" }

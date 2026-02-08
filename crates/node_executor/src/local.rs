@@ -81,7 +81,7 @@ impl InnerLocalNodeExecutor {
         );
 
         let client = Client::new();
-        let port = portpicker::pick_unused_port().context("No ports free")?;
+        let port = common::http::pick_unused_port().context("No ports free")?;
         let server_handle =
             Self::try_start_node_executor_server(&client, port, &source_path, &source_dir).await?;
         Ok(Self {
