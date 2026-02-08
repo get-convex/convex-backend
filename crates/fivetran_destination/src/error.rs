@@ -286,7 +286,7 @@ fn display_fields(schema: &Option<DocumentSchema>) -> Option<String> {
     };
 
     let fields: Vec<_> = validator
-        .0
+        .fields
         .iter()
         .map(|(field_name, validator)| format!("{field_name}: {validator}"))
         .collect();

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use common::json::JsonForm as _;
 use model::{
     modules::function_validators::ArgsValidator,
@@ -37,15 +38,15 @@ pub fn op_validate_args<'b, P: OpProvider<'b>>(
         .map(|arg| arg.try_into())
         .collect::<anyhow::Result<Vec<_>>>()
         .and_then(ConvexArray::try_from)
-        .map_err(|err| anyhow::anyhow!(format!("{}", err)))?;
+        .with_context(|| "Failed to parse UDF args")?;
 
     let table_mapping = provider.get_all_table_mappings()?;
-    match args_validator.check_args(&args_array, &table_mapping, virtual_system_mapping())? {
-        Some(js_error) => Ok(json!({
+    match args_validator.check_args(args_array, &table_mapping, virtual_system_mapping())? {
+        Err(js_error) => Ok(json!({
             "valid": false,
             "message": format!("{}", js_error)
         })),
-        None => Ok(json!({
+        Ok(_) => Ok(json!({
             "valid": true,
         })),
     }

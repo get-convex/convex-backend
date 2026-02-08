@@ -1,6 +1,7 @@
 import { Expand } from "../type_utils.js";
 import { GenericId } from "./index.js";
 import {
+  ObjectValidatorOptions,
   OptionalProperty,
   VAny,
   VArray,
@@ -166,9 +167,17 @@ export const v = {
   /**
    * Validates that the value is an Object with the given properties.
    * @param fields An object specifying the validator for each property.
+   * @param options Optional configuration for the object validator.
    */
-  object: <T extends PropertyValidators>(fields: T) => {
-    return new VObject<ObjectType<T>, T>({ isOptional: "required", fields });
+  object: <T extends PropertyValidators>(
+    fields: T,
+    options?: ObjectValidatorOptions,
+  ) => {
+    return new VObject<ObjectType<T>, T>({
+      isOptional: "required",
+      fields,
+      unknownKeys: options?.unknownKeys ?? "strict",
+    });
   },
 
   /**

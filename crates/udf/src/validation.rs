@@ -75,6 +75,7 @@ use value::{
 use crate::{
     helpers::{
         parse_udf_args,
+        serialize_udf_args,
         validate_udf_args_size,
     },
     ActionOutcome,
@@ -522,21 +523,29 @@ impl ValidatedPathAndArgs {
         let table_mapping = &tx.table_mapping().namespace(path.component.into());
 
         // If the UDF has an args validator, check that these args match.
-        let args_validation_error = analyzed_function.args()?.check_args(
-            &udf_args,
+        let validated_args = match analyzed_function.args()?.check_args(
+            udf_args,
             table_mapping,
             virtual_system_mapping(),
-        )?;
+        )? {
+            Err(error) => {
+                return Ok(Err(JsError::from_message(format!(
+                    "ArgumentValidationError: {error}",
+                ))));
+            },
+            Ok(validated) => validated,
+        };
 
-        if let Some(error) = args_validation_error {
-            return Ok(Err(JsError::from_message(format!(
-                "ArgumentValidationError: {error}",
-            ))));
-        }
+        let final_args = if validated_args.stripped {
+            let final_args_json = serialize_udf_args(validated_args.args)?;
+            SerializedArgs::from_slice(final_args_json.as_bytes())?
+        } else {
+            args
+        };
 
         Ok(Ok(ValidatedPathAndArgs {
             path,
-            args,
+            args: final_args,
             npm_version: Some(version),
         }))
     }
