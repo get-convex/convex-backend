@@ -1285,6 +1285,17 @@ pub fn platform_api_cors() -> CorsLayer {
         .max_age(Duration::from_secs(86400))
 }
 
+/// Pick an unused ephemeral port by binding to port 0.
+/// Replaces the `portpicker` crate which fails on systems without IPv6.
+/// Binds IPv4 first (always required), then verifies on IPv6 if available.
+pub fn pick_unused_port() -> std::io::Result<u16> {
+    let ipv4 = std::net::TcpListener::bind("127.0.0.1:0")?;
+    let port = ipv4.local_addr()?.port();
+    // Also verify on IPv6 if available; ignore errors (IPv6 may not exist)
+    let _ = std::net::TcpListener::bind(format!("[::1]:{port}"));
+    Ok(port)
+}
+
 /// Collects metrics and returns them in the Prometheus exposition format.
 /// Returns an empty response if no metrics have been recorded yet.
 /// Note that registered metrics will not show here until recorded at least

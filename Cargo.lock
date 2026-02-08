@@ -379,7 +379,6 @@ dependencies = [
  "openidconnect",
  "parking_lot",
  "pb",
- "portpicker",
  "pretty_assertions",
  "proptest",
  "proptest-derive",
@@ -5534,7 +5533,6 @@ dependencies = [
  "mysql",
  "node_executor",
  "parking_lot",
- "portpicker",
  "postgres",
  "proptest",
  "rand 0.9.0",
@@ -6294,7 +6292,6 @@ dependencies = [
  "maplit",
  "metrics",
  "model",
- "portpicker",
  "reqwest",
  "runtime",
  "serde",
@@ -7089,15 +7086,6 @@ name = "portable-atomic"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "350e9b48cbc6b0e028b0473b114454c6316e57336ee184ceab6e53f72c178b3e"
-
-[[package]]
-name = "portpicker"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
-dependencies = [
- "rand 0.8.5",
-]
 
 [[package]]
 name = "postgres"
