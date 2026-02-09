@@ -10,7 +10,6 @@ const flagDefaults: {
   enableStatuspageWidget: boolean;
   connectionStateCheckIntervalMs: number;
   healthPageFunctionCallsChart: boolean;
-  deploymentRegion: boolean | undefined;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -20,7 +19,6 @@ const flagDefaults: {
   enableStatuspageWidget: true,
   connectionStateCheckIntervalMs: 2500,
   healthPageFunctionCallsChart: false,
-  deploymentRegion: undefined,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

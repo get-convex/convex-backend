@@ -8,7 +8,6 @@ import { TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { useCopy } from "@common/lib/useCopy";
 import { useDeploymentRegions } from "api/deployments";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { DefaultRegionSelector } from "./DefaultRegionSelector";
 
 export type TeamFormProps = {
@@ -42,7 +41,6 @@ export function TeamForm({
   hasAdminPermissions,
 }: TeamFormProps) {
   const { regions } = useDeploymentRegions(team.id);
-  const flags = useLaunchDarkly();
   const formState = useFormik({
     initialValues: {
       name: team.name,
@@ -106,17 +104,15 @@ export function TeamForm({
             />
           </Tooltip>
 
-          {flags.deploymentRegion && (
-            <DefaultRegionSelector
-              value={formState.values.defaultRegion}
-              onChange={(region) =>
-                formState.setFieldValue("defaultRegion", region)
-              }
-              regions={regions}
-              teamSlug={team.slug}
-              disabledDueToPermissions={!hasAdminPermissions}
-            />
-          )}
+          <DefaultRegionSelector
+            value={formState.values.defaultRegion}
+            onChange={(region) =>
+              formState.setFieldValue("defaultRegion", region)
+            }
+            regions={regions}
+            teamSlug={team.slug}
+            disabledDueToPermissions={!hasAdminPermissions}
+          />
         </div>
 
         <Button

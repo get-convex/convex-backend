@@ -3,12 +3,10 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { TeamResponse } from "generatedApi";
 import userEvent from "@testing-library/user-event";
 import * as deployments from "api/deployments";
-import * as launchDarkly from "hooks/useLaunchDarkly";
 import { TeamForm, TeamFormProps } from "./TeamForm";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 jest.mock("api/deployments");
-jest.mock("hooks/useLaunchDarkly");
 
 // Mock out location to prevent
 // Error: Not implemented: navigation (except hash changes)
@@ -55,9 +53,6 @@ describe("<TeamForm />", () => {
       regions: undefined,
       isLoading: false,
     });
-    jest.spyOn(launchDarkly, "useLaunchDarkly").mockReturnValue({
-      deploymentRegion: false,
-    } as ReturnType<typeof launchDarkly.useLaunchDarkly>);
     team = {
       id: 1,
       creator: 1,
@@ -223,10 +218,6 @@ describe("<TeamForm />", () => {
       ],
       isLoading: false,
     });
-    jest.spyOn(launchDarkly, "useLaunchDarkly").mockReturnValue({
-      deploymentRegion: true,
-    } as ReturnType<typeof launchDarkly.useLaunchDarkly>);
-
     setup();
     const user = userEvent.setup();
 
