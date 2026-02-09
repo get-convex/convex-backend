@@ -53,7 +53,10 @@ use crate::{
         ModuleCodeCacheResult,
     },
     module_cache::ModuleCache,
-    timeout::Timeout,
+    timeout::{
+        PauseReason,
+        Timeout,
+    },
 };
 
 /// UDF execution has two phases:
@@ -134,6 +137,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             Some(
                 timeout
                     .with_release_permit(
+                        PauseReason::LoadComponentArgs,
                         BootstrapComponentsModel::new(self.tx_mut()?)
                             .load_component_args(component),
                     )
@@ -145,7 +149,10 @@ impl<RT: Runtime> UdfPhase<RT> {
 
         // UdfConfig might not be defined for super old modules or system modules.
         let udf_config = timeout
-            .with_release_permit(UdfConfigModel::new(self.tx_mut()?, component.into()).get())
+            .with_release_permit(
+                PauseReason::LoadUdfConfig,
+                UdfConfigModel::new(self.tx_mut()?, component.into()).get(),
+            )
             .await?;
         let rng = udf_config
             .as_ref()
@@ -155,7 +162,10 @@ impl<RT: Runtime> UdfPhase<RT> {
         let env_vars = if component.is_root() {
             Some(
                 timeout
-                    .with_release_permit(EnvironmentVariablesModel::new(self.tx_mut()?).preload())
+                    .with_release_permit(
+                        PauseReason::LoadEnvironmentVariables,
+                        EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
+                    )
                     .await?,
             )
         } else {
@@ -163,10 +173,10 @@ impl<RT: Runtime> UdfPhase<RT> {
         };
 
         let system_env_vars = timeout
-            .with_release_permit(system_env_vars(
-                self.tx_mut()?,
-                default_system_env_vars.clone(),
-            ))
+            .with_release_permit(
+                PauseReason::LoadSystemEnvironmentVariables,
+                system_env_vars(self.tx_mut()?, default_system_env_vars.clone()),
+            )
             .await?;
 
         self.preloaded = UdfPreloaded::Ready {
@@ -234,7 +244,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             module_path: module_path.clone().canonicalize(),
         };
         let Some((module_metadata, source_package)) = timeout
-            .with_release_permit(async {
+            .with_release_permit(PauseReason::LoadModuleMetadata, async {
                 match ModuleModel::new(self.tx_mut()?)
                     .get_metadata(path.clone())
                     .await?
@@ -264,6 +274,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         let module_loader = self.module_loader.clone();
         let module_source = timeout
             .with_release_permit(
+                PauseReason::LoadModuleSource,
                 module_loader.get_module_with_metadata(module_metadata.clone(), source_package),
             )
             .await?;

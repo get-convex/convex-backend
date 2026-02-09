@@ -67,7 +67,10 @@ use crate::{
         ModuleCodeCacheResult,
     },
     module_cache::ModuleCache,
-    timeout::Timeout,
+    timeout::{
+        PauseReason,
+        Timeout,
+    },
 };
 
 /// This struct is similar to UdfPhase. Action execution also has two
@@ -146,7 +149,10 @@ impl<RT: Runtime> ActionPhase<RT> {
         let component_id = self.component;
 
         let udf_config = timeout
-            .with_release_permit(UdfConfigModel::new(&mut tx, component_id.into()).get())
+            .with_release_permit(
+                PauseReason::LoadUdfConfig,
+                UdfConfigModel::new(&mut tx, component_id.into()).get(),
+            )
             .await?;
 
         let rng = udf_config
@@ -155,7 +161,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         let import_time_unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
         let (module_metadata, source_package) = timeout
-            .with_release_permit(async {
+            .with_release_permit(PauseReason::LoadResources, async {
                 let module_metadata = ModuleModel::new(&mut tx)
                     .get_all_metadata(component_id)
                     .await?;
@@ -174,7 +180,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             .await?;
 
         let modules = timeout
-            .with_release_permit(async {
+            .with_release_permit(PauseReason::LoadModuleSource, async {
                 let mut modules = BTreeMap::new();
                 for metadata in module_metadata {
                     if metadata.path.is_system() {
@@ -194,7 +200,10 @@ impl<RT: Runtime> ActionPhase<RT> {
             .await?;
 
         let canonical_urls = timeout
-            .with_release_permit(CanonicalUrlsModel::new(&mut tx).get_canonical_urls())
+            .with_release_permit(
+                PauseReason::LoadCanonicalUrls,
+                CanonicalUrlsModel::new(&mut tx).get_canonical_urls(),
+            )
             .await?;
         if let Some(cloud_url) = canonical_urls.get(&RequestDestination::ConvexCloud) {
             *convex_origin_override.lock() = Some(ConvexOrigin::from(&cloud_url.url));
@@ -204,7 +213,10 @@ impl<RT: Runtime> ActionPhase<RT> {
             let mut env_vars = default_system_env_vars;
             env_vars.extend(parse_system_env_var_overrides(canonical_urls)?);
             let user_env_vars = timeout
-                .with_release_permit(EnvironmentVariablesModel::new(&mut tx).get_all())
+                .with_release_permit(
+                    PauseReason::LoadEnvironmentVariables,
+                    EnvironmentVariablesModel::new(&mut tx).get_all(),
+                )
                 .await?;
             env_vars.extend(user_env_vars);
             env_vars
@@ -218,6 +230,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             Some(
                 timeout
                     .with_release_permit(
+                        PauseReason::LoadComponentArgs,
                         BootstrapComponentsModel::new(&mut tx).load_component_args(component_id),
                     )
                     .await?,

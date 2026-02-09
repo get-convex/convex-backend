@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::Duration,
 };
@@ -32,6 +33,35 @@ use crate::{
     ConcurrencyPermit,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PauseReason {
+    DatabaseSyscall { name: String },
+    LoadComponentArgs,
+    LoadUdfConfig,
+    LoadEnvironmentVariables,
+    LoadSystemEnvironmentVariables,
+    LoadModuleMetadata,
+    LoadModuleSource,
+    LoadCanonicalUrls,
+    LoadResources,
+}
+
+impl PauseReason {
+    pub fn as_str(&self) -> String {
+        match self {
+            Self::DatabaseSyscall { name } => format!("database_syscall({name})"),
+            Self::LoadComponentArgs => "load_component_args".to_string(),
+            Self::LoadUdfConfig => "load_udf_config".to_string(),
+            Self::LoadEnvironmentVariables => "load_environment_variables".to_string(),
+            Self::LoadSystemEnvironmentVariables => "load_system_environment_variables".to_string(),
+            Self::LoadModuleMetadata => "load_module_metadata".to_string(),
+            Self::LoadModuleSource => "load_module_source".to_string(),
+            Self::LoadCanonicalUrls => "load_canonical_urls".to_string(),
+            Self::LoadResources => "load_resources".to_string(),
+        }
+    }
+}
+
 /// A `Timeout` is an asynchronous background job that terminates an
 /// `IsolateHandle` after some time has passed. The holder of a `Timeout` can
 /// temporarily pause the termination countdown with [`Timeout::pause`] and then
@@ -57,6 +87,7 @@ struct TimeoutInner<RT: Runtime> {
     max_time_paused: Option<Duration>,
 
     state: TimeoutState,
+    pause_breakdown: HashMap<PauseReason, (usize, Duration)>,
 }
 
 impl<RT: Runtime> TimeoutInner<RT> {
@@ -82,11 +113,31 @@ impl<RT: Runtime> TimeoutInner<RT> {
             TimeoutState::Paused {
                 ref mut pause_done,
                 ref pause_start,
+                ref reason,
             } => {
                 let expired = if let Some(max_time_paused) = self.max_time_paused {
-                    let total_pause_elapsed = self.pause_elapsed + pause_start.elapsed();
+                    let current_pause_duration = pause_start.elapsed();
+                    let total_pause_elapsed = self.pause_elapsed + current_pause_duration;
                     if total_pause_elapsed >= max_time_paused {
                         metrics::log_system_timeout();
+
+                        let mut reasons: Vec<_> = self.pause_breakdown.iter().collect();
+                        reasons.sort_by_key(|(_, (_, duration))| std::cmp::Reverse(*duration));
+                        let reasons_str = reasons
+                            .iter()
+                            .map(|(reason, (count, duration))| {
+                                format!("{}={}({:?})", reason.as_str(), count, duration)
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        tracing::warn!(
+                            "SystemTimeout: pause breakdown: {} ({:?}). Final pause {} ({:?})",
+                            reasons_str,
+                            total_pause_elapsed,
+                            reason.as_str(),
+                            current_pause_duration,
+                        );
+
                         return Ok(Some(TerminationReason::SystemTimeout(max_time_paused)));
                     }
                     Either::Left(self.rt.wait(max_time_paused - total_pause_elapsed))
@@ -109,6 +160,7 @@ enum TimeoutState {
     Paused {
         pause_start: tokio::time::Instant,
         pause_done: async_broadcast::Receiver<()>,
+        reason: PauseReason,
     },
     Finished,
 }
@@ -137,6 +189,7 @@ impl<RT: Runtime> Timeout<RT> {
             pause_elapsed: Duration::ZERO,
             max_time_paused,
             state: TimeoutState::Running,
+            pause_breakdown: HashMap::new(),
         };
         let inner = Arc::new(Mutex::new(inner));
         let (done_tx, done_rx) = broadcast(1);
@@ -179,7 +232,7 @@ impl<RT: Runtime> Timeout<RT> {
         }
     }
 
-    pub fn pause(&mut self) -> PauseGuard<'_, RT> {
+    pub fn pause(&mut self, reason: PauseReason) -> PauseGuard<'_, RT> {
         let (tx, rx) = broadcast(1);
         let pause_start = {
             let mut inner = self.inner.lock();
@@ -190,6 +243,7 @@ impl<RT: Runtime> Timeout<RT> {
             inner.state = TimeoutState::Paused {
                 pause_done: rx,
                 pause_start,
+                reason: reason.clone(),
             };
             pause_start
         };
@@ -197,6 +251,7 @@ impl<RT: Runtime> Timeout<RT> {
             timeout: self,
             pause_start,
             pause_done: Some(tx),
+            reason,
         }
     }
 
@@ -217,11 +272,12 @@ impl<RT: Runtime> Timeout<RT> {
     // user timeout.
     pub async fn with_release_permit<T>(
         &mut self,
+        reason: PauseReason,
         f: impl Future<Output = anyhow::Result<T>>,
     ) -> anyhow::Result<T> {
         let permit = self.permit.take().context("lost the permit")?;
         let f = self.with_timeout(permit.with_suspend(f));
-        let pause_guard = self.pause();
+        let pause_guard = self.pause(reason);
         let (result, permit) = f.await.context(ErrorMetadata::overloaded(
             "SystemTimeoutError",
             TIMEOUT_ERROR_MESSAGE,
@@ -271,6 +327,7 @@ pub struct PauseGuard<'a, RT: Runtime> {
     timeout: &'a mut Timeout<RT>,
     pause_start: tokio::time::Instant,
     pause_done: Option<async_broadcast::Sender<()>>,
+    reason: PauseReason,
 }
 
 impl<RT: Runtime> PauseGuard<'_, RT> {
@@ -288,7 +345,16 @@ impl<RT: Runtime> Drop for PauseGuard<'_, RT> {
             let mut inner = self.timeout.inner.lock();
             assert!(matches!(inner.state, TimeoutState::Paused { .. }));
 
-            inner.pause_elapsed += self.pause_start.elapsed();
+            let pause_duration = self.pause_start.elapsed();
+            inner.pause_elapsed += pause_duration;
+
+            let entry = inner
+                .pause_breakdown
+                .entry(self.reason.clone())
+                .or_insert((0, Duration::ZERO));
+            entry.0 += 1;
+            entry.1 += pause_duration;
+
             inner.state = TimeoutState::Running;
         }
         let _ = tx.try_broadcast(());

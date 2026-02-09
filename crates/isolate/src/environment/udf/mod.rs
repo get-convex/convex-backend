@@ -32,6 +32,8 @@ use udf::{
     FunctionOutcome,
     SyscallTrace,
 };
+
+use crate::timeout::PauseReason;
 pub mod async_syscall;
 
 mod phase;
@@ -742,6 +744,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                         anyhow::bail!("Cancelled");
                     },
                     results = timeout.with_release_permit(
+                        PauseReason::DatabaseSyscall{name: batch.name().to_string()},
                         DatabaseSyscallsV1::run_async_syscall_batch(
                             &mut state.environment, batch,
                         ).map(Ok),
