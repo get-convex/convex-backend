@@ -20,10 +20,17 @@ create and do some configuration of AuthKit environments automatically.
 
 ## Get started
 
-The quickest way to get started is with a template:
+Use the following command to start a new project. It will prompt you to select a
+framework and authentication option. Choose whichever framework you want and
+AuthKit as your authentication option:
 
 ```bash
-npm create convex@latest -- -t react-vite-authkit
+npm create convex@latest
+```
+
+After that, launch your new application in dev mode:
+
+```bash
 cd my-app  # or whatever you name the directory
 npm run dev
 ```
@@ -443,14 +450,15 @@ Next.js app with Convex. If not follow the
     ```tsx title="components/ConvexClientProvider.tsx"
     'use client';
 
-    import { ReactNode, useCallback, useRef } from 'react';
+    import { ReactNode, useCallback, useState } from 'react';
     import { ConvexReactClient } from 'convex/react';
     import { ConvexProviderWithAuth } from 'convex/react';
     import { AuthKitProvider, useAuth, useAccessToken } from '@workos-inc/authkit-nextjs/components';
 
-    const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
     export function ConvexClientProvider({ children }: { children: ReactNode }) {
+      const [convex] = useState(() => {
+        return new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+      });
       return (
         <AuthKitProvider>
           <ConvexProviderWithAuth client={convex} useAuth={useAuthFromAuthKit}>
@@ -462,25 +470,33 @@ Next.js app with Convex. If not follow the
 
     function useAuthFromAuthKit() {
       const { user, loading: isLoading } = useAuth();
-      const { accessToken, loading: tokenLoading, error: tokenError } = useAccessToken();
-      const loading = (isLoading ?? false) || (tokenLoading ?? false);
-      const authenticated = !!user && !!accessToken && !loading;
+      const { getAccessToken, refresh } = useAccessToken();
 
-      const stableAccessToken = useRef<string | null>(null);
-      if (accessToken && !tokenError) {
-        stableAccessToken.current = accessToken;
-      }
+      const isAuthenticated = !!user;
 
-      const fetchAccessToken = useCallback(async () => {
-        if (stableAccessToken.current && !tokenError) {
-          return stableAccessToken.current;
-        }
-        return null;
-      }, [tokenError]);
+      const fetchAccessToken = useCallback(
+        async ({ forceRefreshToken }: { forceRefreshToken?: boolean } = {}): Promise<string | null> => {
+          if (!user) {
+            return null;
+          }
+
+          try {
+            if (forceRefreshToken) {
+              return (await refresh()) ?? null;
+            }
+
+            return (await getAccessToken()) ?? null;
+          } catch (error) {
+            console.error('Failed to get access token:', error);
+            return null;
+          }
+        },
+        [user, refresh, getAccessToken],
+      );
 
       return {
-        isLoading: loading,
-        isAuthenticated: authenticated,
+        isLoading,
+        isAuthenticated,
         fetchAccessToken,
       };
     }
