@@ -129,10 +129,15 @@ export function DeploymentEnvironmentVariables({
         }}
         initialFormValues={initialValues}
         onEnvironmentVariablesAdded={onEnvironmentVariablesAdded}
+        initEnvVar={initEnvVarDefault}
       />
       {renderEnvironmentVariableDiffCallout()}
     </Sheet>
   );
+}
+
+function initEnvVarDefault(envVar: { name: string; value: string }) {
+  return envVar;
 }
 
 type EnvironmentVariableDiff =
