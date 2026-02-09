@@ -1,3 +1,4 @@
+import { paths as PlatformManagementPaths } from "@convex-dev/platform/managementApi";
 import { chalkStderr } from "chalk";
 import os from "os";
 import path from "path";
@@ -21,7 +22,7 @@ import {
   bigBrainEnableFeatureMetadata,
   projectHasExistingCloudDev,
 } from "../localDeployment/bigBrain.js";
-import type { paths as ManagementPaths } from "../../generatedApi.js";
+import type { paths as CliManagementPaths } from "../../generatedApi.js";
 import createClient from "openapi-fetch";
 
 const retryingFetch = fetchRetryFactory(fetch);
@@ -30,6 +31,7 @@ export const productionProvisionHost = "https://api.convex.dev";
 export const provisionHost =
   process.env.CONVEX_PROVISION_HOST || productionProvisionHost;
 const BIG_BRAIN_URL = `${provisionHost}/api/`;
+const PLATFORM_MANAGEMENT_API_URL = `${provisionHost}/v1/`;
 export const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOY_KEY_ENV_VAR_NAME = "CONVEX_DEPLOY_KEY";
 export const CONVEX_DEPLOYMENT_ENV_VAR_NAME = "CONVEX_DEPLOYMENT";
@@ -689,53 +691,64 @@ export async function bigBrainAPI<T = any>({
  *
  * Pass { throw: true } to throw ThrowingFetchErrors instead of exiting the process.
  */
-export function typedBigBrainClient(
-  ctx: Context,
-  options: { throw?: boolean } = {},
-) {
-  const bigBrainClient = createClient<ManagementPaths>({
-    baseUrl: BIG_BRAIN_URL,
-    fetch: async (
-      resource: Request,
-      options?: RequestInit,
-    ): Promise<Response> => {
-      const fetch = await bigBrainFetch(ctx);
-      return fetch(resource, options);
-    },
-  });
+function typedBigBrainClientFactory<T>(baseUrl: string) {
+  return (ctx: Context, options: { throw?: boolean } = {}) => {
+    type Paths = T extends CliManagementPaths
+      ? CliManagementPaths
+      : T extends PlatformManagementPaths
+        ? PlatformManagementPaths
+        : never;
+    const bigBrainClient = createClient<Paths>({
+      baseUrl,
+      fetch: async (
+        resource: Request,
+        options?: RequestInit,
+      ): Promise<Response> => {
+        const fetch = await bigBrainFetch(ctx);
+        return fetch(resource, options);
+      },
+    });
 
-  // Wrap the client with error handling - go back to proxy since middleware doesn't catch parsing errors
-  return new Proxy(bigBrainClient, {
-    get(target, prop) {
-      const originalMethod = target[prop as keyof typeof target];
+    // Wrap the client with error handling - go back to proxy since middleware doesn't catch parsing errors
+    return new Proxy(bigBrainClient, {
+      get(target, prop) {
+        const originalMethod = target[prop as keyof typeof target];
 
-      if (
-        prop === "GET" ||
-        prop === "POST" ||
-        prop === "HEAD" ||
-        prop === "OPTIONS" ||
-        prop === "PUT" ||
-        prop === "DELETE" ||
-        prop === "PATCH" ||
-        prop === "TRACE"
-      ) {
-        return async (...args: any[]) => {
-          try {
-            return await (originalMethod as Function).apply(target, args);
-          } catch (err: unknown) {
-            if (options.throw) {
-              // eslint-disable-next-line no-restricted-syntax
-              throw err;
+        if (
+          prop === "GET" ||
+          prop === "POST" ||
+          prop === "HEAD" ||
+          prop === "OPTIONS" ||
+          prop === "PUT" ||
+          prop === "DELETE" ||
+          prop === "PATCH" ||
+          prop === "TRACE"
+        ) {
+          return async (...args: any[]) => {
+            try {
+              return await (originalMethod as Function).apply(target, args);
+            } catch (err: unknown) {
+              if (options.throw) {
+                // eslint-disable-next-line no-restricted-syntax
+                throw err;
+              }
+              return await logAndHandleFetchError(ctx, err);
             }
-            return await logAndHandleFetchError(ctx, err);
-          }
-        };
-      }
+          };
+        }
 
-      return originalMethod;
-    },
-  });
+        return originalMethod;
+      },
+    });
+  };
 }
+
+export const typedBigBrainClient =
+  typedBigBrainClientFactory<CliManagementPaths>(BIG_BRAIN_URL);
+export const typedPlatformClient =
+  typedBigBrainClientFactory<PlatformManagementPaths>(
+    PLATFORM_MANAGEMENT_API_URL,
+  );
 
 export async function bigBrainAPIMaybeThrows({
   ctx,

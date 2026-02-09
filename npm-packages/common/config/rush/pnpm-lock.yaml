@@ -626,6 +626,9 @@ importers:
       '@commander-js/extra-typings':
         specifier: ^14.0.0
         version: 14.0.0(commander@14.0.2)
+      '@convex-dev/platform':
+        specifier: 0.1.0
+        version: 0.1.0
       '@eslint/compat':
         specifier: ~2.0.0
         version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
@@ -7046,6 +7049,9 @@ packages:
     resolution: {integrity: sha512-i3N9mkWPfOevOJhmas3CoRMEgg7O+utcFwSQIQ0neW5PeR2oe45HplpXYD8Iew9l/g5gVrec4gsdTLWss1e3dg==}
     peerDependencies:
       typedoc: '>=0.24.0'
+
+  '@convex-dev/platform@0.1.0':
+    resolution: {integrity: sha512-BRp2/O5j9DoFibDGiSSxz+41FAGifMeU6yujmBj41k9km/C9wnkFw1YhS3lVLYBIYRXHJJm95uia2i9zPziQHg==}
 
   '@convex-dev/rate-limiter@0.3.2':
     resolution: {integrity: sha512-+oBPsBfFbzdxiF/9XaaTQmVnvDlvEfg/c69/v8LxTbw4VLuiflIKlfnPQL8OS0azXQQ11hcPWHmU8ytFmHKDXA==}
@@ -26300,6 +26306,10 @@ snapshots:
   '@convex-dev/docusaurus-plugin-typedoc@0.19.2(typedoc@0.24.8(typescript@5.0.4))':
     dependencies:
       typedoc: 0.24.8(typescript@5.0.4)
+
+  '@convex-dev/platform@0.1.0':
+    dependencies:
+      openapi-fetch: 0.15.0
 
   '@convex-dev/rate-limiter@0.3.2(convex@..+convex)(react@19.2.4)':
     dependencies:

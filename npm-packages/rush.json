@@ -260,7 +260,8 @@
     {
       "packageName": "convex",
       "projectFolder": "convex",
-      "versionPolicyName": "convex"
+      "versionPolicyName": "convex",
+      "decoupledLocalDependencies": ["@convex-dev/platform"]
     },
     {
       "packageName": "@convex-dev/react-query",
