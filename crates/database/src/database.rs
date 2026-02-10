@@ -2495,10 +2495,12 @@ pub struct ConflictingReadWithWriteSource {
 
 impl ConflictingReadWithWriteSource {
     pub fn into_error(self, mapping: &TableMapping, current_writer: &WriteSource) -> anyhow::Error {
+        let write_ts_val = Some(u64::from(self.write_ts));
         let table_name = mapping.tablet_name(*self.read.index.table());
 
         let Ok(table_name) = table_name else {
-            return anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None, None));
+            let metadata = ErrorMetadata::user_occ(None, None, None, None, write_ts_val);
+            return anyhow::anyhow!(metadata);
         };
 
         // We want to show the document's ID only if we know which mutation changed it,
@@ -2512,12 +2514,14 @@ impl ConflictingReadWithWriteSource {
         });
 
         if !table_name.is_system() {
-            return anyhow::anyhow!(ErrorMetadata::user_occ(
+            let metadata = ErrorMetadata::user_occ(
                 Some(table_name.into()),
                 Some(self.read.id.developer_id.encode()),
                 self.write_source.0.as_ref().map(|s| s.to_string()),
                 occ_msg,
-            ));
+                write_ts_val,
+            );
+            return anyhow::anyhow!(metadata);
         }
 
         let msg = occ_msg
@@ -2546,7 +2550,8 @@ impl ConflictingReadWithWriteSource {
                 tracing::error!("Read of {index} occurred at {stack_trace}");
             }
         };
-        anyhow::anyhow!(formatted).context(ErrorMetadata::system_occ())
+        let metadata = ErrorMetadata::system_occ(write_ts_val);
+        anyhow::anyhow!(formatted).context(metadata)
     }
 }
 
