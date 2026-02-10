@@ -32,8 +32,10 @@ export type Project = {
 
 type AdminKey = string;
 
-// Provision a new project, creating a deployment of type `deploymentTypeToProvision`
-export async function createProjectAndCreateDeployment(
+/**
+ * Create a new project. If `deploymentTypeToProvision` is specified, also provision a deployment for the project.
+ */
+export async function createProject(
   ctx: Context,
   {
     teamSlug: selectedTeamSlug,
@@ -42,7 +44,7 @@ export async function createProjectAndCreateDeployment(
   }: {
     teamSlug: string;
     projectName: string;
-    deploymentTypeToProvision: "prod" | "dev";
+    deploymentTypeToProvision: "prod" | "dev" | null;
   },
 ): Promise<{
   projectSlug: string;
