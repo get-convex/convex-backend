@@ -324,9 +324,14 @@ export function configToUrl(config: IntegrationConfig): string {
       return `https://app.axiom.co`;
     case "webhook":
       return config.url;
-    case "postHogLogs":
-    case "postHogErrorTracking":
-      return config.host ?? "https://us.i.posthog.com";
+    case "postHogLogs": {
+      const logsHost = (config.host ?? "https://us.i.posthog.com").replace(".i.", ".");
+      return `${logsHost}/logs`;
+    }
+    case "postHogErrorTracking": {
+      const etHost = (config.host ?? "https://us.i.posthog.com").replace(".i.", ".");
+      return `${etHost}/error_tracking`;
+    }
     default:
       // eslint-disable-next-line no-case-declarations
       kind satisfies never;

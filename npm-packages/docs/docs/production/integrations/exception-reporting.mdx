@@ -8,7 +8,8 @@ description:
 
 Configure exception reporting to gain visibility into errors from your Convex
 function executions. Convex supports integration with
-[Sentry](https://sentry.io/) and with
+[Sentry](https://sentry.io/),
+[PostHog Error Tracking](https://posthog.com/docs/error-tracking), and
 [Datadog Error Tracking](https://www.datadoghq.com/product/error-tracking/).
 
 Currently, exception reporting is only available to Pro users.
@@ -54,6 +55,45 @@ following tags. These tags cannot be overridden.
   customization provided by the sentry SDK.
 - Please reach out with any questions, comments, or suggestions
   [on Discord](https://convex.dev/community).
+
+## Configuring PostHog Error Tracking
+
+To configure PostHog Error Tracking, navigate to the
+[Deployment Settings](/dashboard/deployments/settings.md) in the Dashboard, and
+the "Integrations" tab in the sidebar.
+
+Click on the PostHog Error Tracking card and follow the setup directions. You
+will need your
+[PostHog project API key](https://us.posthog.com/settings/project#variables),
+found in PostHog under Settings > Project > Project API Key.
+
+You may optionally specify a custom host URL. Defaults to US Cloud
+(`https://us.i.posthog.com`). Use `https://eu.i.posthog.com` for EU Cloud, or
+your self-hosted URL. The endpoint path is added automatically.
+
+### Supported Properties
+
+Convex automatically includes the following properties on each `$exception`
+event sent to PostHog:
+
+- `convex_function`: The name of the running function in
+  [string format](/functions/query-functions#query-names)
+- `convex_function_type`: One of `["query", "mutation", "action", "http_action"]`
+- `convex_function_runtime`: One of the [function runtimes](/functions/runtimes.mdx) -
+  `["default", "node"]`
+- `convex_deployment`: The name of the deployment, e.g. `happy-animal-123`
+- `convex_deployment_type`: One of `["prod", "dev", "preview"]`
+- `convex_request_id`: The
+  [request ID](/functions/debugging.mdx#finding-relevant-logs-by-request-id) of
+  the function that errored
+- `distinct_id`: If the function is [authenticated](/auth.mdx), the
+  [tokenIdentifier](/api/interfaces/server.UserIdentity#tokenidentifier) is used.
+  Otherwise, the deployment name is used as a fallback.
+
+### PostHog Error Tracking Notes
+
+- Exceptions may take a minute or two to appear in PostHog.
+- Stack traces from your Convex functions are included automatically.
 
 ## Configuring Datadog Error Tracking
 
