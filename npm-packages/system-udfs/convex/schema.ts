@@ -230,11 +230,26 @@ export const sentryConfig = v.object({
   version: v.optional(v.union(v.literal("1"), v.literal("2"))),
 });
 
+export const posthogLogsConfig = v.object({
+  type: v.literal("posthogLogs"),
+  apiKey: v.string(),
+  host: v.optional(v.string()),
+  serviceName: v.optional(v.string()),
+});
+
+export const posthogErrorTrackingConfig = v.object({
+  type: v.literal("posthogErrorTracking"),
+  apiKey: v.string(),
+  host: v.optional(v.string()),
+});
+
 export const sinkConfig = v.union(
   datadogConfig,
   webhookConfig,
   axiomConfig,
   sentryConfig,
+  posthogLogsConfig,
+  posthogErrorTrackingConfig,
 );
 
 const logSinksTable = defineTable({

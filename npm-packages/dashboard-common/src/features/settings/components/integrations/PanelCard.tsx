@@ -23,6 +23,8 @@ import { AxiomConfigurationForm } from "./AxiomConfigurationForm";
 import { DatadogConfigurationForm } from "./DatadogConfigurationForm";
 import { SentryConfigurationForm } from "./SentryConfigurationForm";
 import { WebhookConfigurationForm } from "./WebhookConfigurationForm";
+import { PostHogLogsConfigurationForm } from "./PostHogLogsConfigurationForm";
+import { PostHogErrorTrackingConfigurationForm } from "./PostHogErrorTrackingConfigurationForm";
 import { WorkOSConfigurationForm } from "./WorkOSConfigurationForm";
 import { WorkOSIntegrationStatus } from "./WorkOSIntegrationStatus";
 import { WorkOSIntegrationOverflowMenu } from "./WorkOSIntegrationOverflowMenu";
@@ -125,7 +127,9 @@ export function PanelCard({
       {(integration.kind === "sentry" ||
         integration.kind === "axiom" ||
         integration.kind === "datadog" ||
-        integration.kind === "webhook") && (
+        integration.kind === "webhook" ||
+        integration.kind === "posthogLogs" ||
+        integration.kind === "posthogErrorTracking") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {isModalOpen &&
             renderModal(integration, closeModal, onAddedIntegration)}
@@ -229,6 +233,36 @@ function renderModal(
               exceptions to Sentry for visibility.
             </div>
             <SentryConfigurationForm
+              integration={integration}
+              onClose={closeModal}
+              {...addedIntegrationProp}
+            />
+          </div>
+        </Modal>
+      );
+    case "posthogLogs":
+      return (
+        <LogIntegrationModal
+          closeModal={closeModal}
+          title="Configure PostHog Logs"
+          description="Configure your Convex deployment to stream function logs to PostHog for querying and analysis."
+        >
+          <PostHogLogsConfigurationForm
+            integration={integration}
+            onClose={closeModal}
+            {...addedIntegrationProp}
+          />
+        </LogIntegrationModal>
+      );
+    case "posthogErrorTracking":
+      return (
+        <Modal onClose={closeModal} title="Configure PostHog Error Tracking">
+          <div className="flex flex-col gap-4">
+            <div className="max-w-prose text-xs text-pretty text-content-secondary">
+              Configure your Convex deployment to route function execution
+              exceptions to PostHog Error Tracking for visibility and analysis.
+            </div>
+            <PostHogErrorTrackingConfigurationForm
               integration={integration}
               onClose={closeModal}
               {...addedIntegrationProp}

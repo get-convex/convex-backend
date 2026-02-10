@@ -10,6 +10,8 @@ import {
 import {
   axiomConfig,
   datadogConfig,
+  posthogErrorTrackingConfig,
+  posthogLogsConfig,
   sentryConfig,
   webhookConfig,
 } from "system-udfs/convex/schema";
@@ -19,14 +21,20 @@ import { WebhookIcon } from "@common/elements/icons";
 import { DatadogLogo } from "@common/lib/logos/DatadogLogo";
 import { AxiomLogo } from "@common/lib/logos/AxiomLogo";
 import { SentryLogo } from "@common/lib/logos/SentryLogo";
+import { PostHogLogo } from "@common/lib/logos/PostHogLogo";
 import { AirbyteLogo } from "@common/lib/logos/AirbyteLogo";
 import { FivetranLogo } from "@common/lib/logos/FivetranLogo";
 import { WorkosLogo } from "./logos/WorkosLogo";
 
 export type SinkStatus = Doc<"_log_sinks">["status"];
 
-export const LOG_INTEGRATIONS = ["axiom", "datadog", "webhook"] as const;
-export const EXC_INTEGRATIONS = ["sentry"] as const;
+export const LOG_INTEGRATIONS = [
+  "axiom",
+  "datadog",
+  "webhook",
+  "posthogLogs",
+] as const;
+export const EXC_INTEGRATIONS = ["sentry", "posthogErrorTracking"] as const;
 export const AUTH_INTEGRATIONS = ["workos"] as const;
 export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = [
   "fivetran",
@@ -36,7 +44,8 @@ export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = [
 export type LogIntegrationConfig =
   | Infer<typeof axiomConfig>
   | Infer<typeof datadogConfig>
-  | Infer<typeof webhookConfig>;
+  | Infer<typeof webhookConfig>
+  | Infer<typeof posthogLogsConfig>;
 
 export type LogIntegration =
   | {
@@ -65,19 +74,40 @@ export type LogIntegration =
         status: SinkStatus;
         config: Infer<typeof webhookConfig>;
       } | null;
+    }
+  | {
+      kind: "posthogLogs";
+      existing: {
+        _id: Id<"_log_sinks">;
+        _creationTime: number;
+        status: SinkStatus;
+        config: Infer<typeof posthogLogsConfig>;
+      } | null;
     };
 
-export type ExceptionReportingIntegration = {
-  kind: "sentry";
-  existing: {
-    _id: Id<"_log_sinks">;
-    _creationTime: number;
-    status: SinkStatus;
-    config: Infer<typeof sentryConfig>;
-  } | null;
-};
+export type ExceptionReportingIntegration =
+  | {
+      kind: "sentry";
+      existing: {
+        _id: Id<"_log_sinks">;
+        _creationTime: number;
+        status: SinkStatus;
+        config: Infer<typeof sentryConfig>;
+      } | null;
+    }
+  | {
+      kind: "posthogErrorTracking";
+      existing: {
+        _id: Id<"_log_sinks">;
+        _creationTime: number;
+        status: SinkStatus;
+        config: Infer<typeof posthogErrorTrackingConfig>;
+      } | null;
+    };
 
-export type ExceptionReportingIntegrationConfig = Infer<typeof sentryConfig>;
+export type ExceptionReportingIntegrationConfig =
+  | Infer<typeof sentryConfig>
+  | Infer<typeof posthogErrorTrackingConfig>;
 
 export type AuthIntegration = {
   kind: "workos";
@@ -133,6 +163,16 @@ export function integrationToLogo(
       return {
         logo: (
           <SentryLogo
+            className={classNames("rounded-sm border", sizeClass)}
+            size={size}
+          />
+        ),
+      };
+    case "posthogLogs":
+    case "posthogErrorTracking":
+      return {
+        logo: (
+          <PostHogLogo
             className={classNames("rounded-sm border", sizeClass)}
             size={size}
           />
@@ -194,6 +234,9 @@ export function integrationUsingLegacyFormat(
       return false;
     case "sentry":
       return config.version !== "2";
+    case "posthogLogs":
+    case "posthogErrorTracking":
+      return false;
     default: {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       config satisfies never;
@@ -281,6 +324,9 @@ export function configToUrl(config: IntegrationConfig): string {
       return `https://app.axiom.co`;
     case "webhook":
       return config.url;
+    case "posthogLogs":
+    case "posthogErrorTracking":
+      return config.host ?? "https://us.i.posthog.com";
     default:
       // eslint-disable-next-line no-case-declarations
       kind satisfies never;
@@ -309,5 +355,15 @@ function datadogSiteLocationToUrl(siteLocation: DatadogSiteLocation): string {
   }
 }
 
-export const integrationName = (kind: IntegrationType) =>
-  kind === "workos" ? "WorkOS" : kind.charAt(0).toUpperCase() + kind.slice(1);
+export const integrationName = (kind: IntegrationType) => {
+  switch (kind) {
+    case "workos":
+      return "WorkOS";
+    case "posthogLogs":
+      return "PostHog Logs";
+    case "posthogErrorTracking":
+      return "PostHog Error Tracking";
+    default:
+      return kind.charAt(0).toUpperCase() + kind.slice(1);
+  }
+};

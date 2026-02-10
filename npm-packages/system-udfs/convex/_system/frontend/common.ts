@@ -2,6 +2,8 @@ import { Infer } from "convex/values";
 import {
   axiomConfig,
   datadogConfig,
+  posthogErrorTrackingConfig,
+  posthogLogsConfig,
   udfType,
   udfVisibility,
   webhookConfig,
@@ -152,3 +154,9 @@ export type DatadogSiteLocation = DatadogConfig["siteLocation"];
 export type WebhookConfig = Infer<typeof webhookConfig>;
 
 export type AxiomConfig = Infer<typeof axiomConfig>;
+
+export type PostHogLogsConfig = Infer<typeof posthogLogsConfig>;
+
+export type PostHogErrorTrackingConfig = Infer<
+  typeof posthogErrorTrackingConfig
+>;

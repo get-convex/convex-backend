@@ -1,6 +1,7 @@
 import { Tooltip } from "@ui/Tooltip";
 import { ReactNode } from "react";
 import { IntegrationType } from "system-udfs/convex/_system/frontend/common";
+import { integrationName } from "@common/lib/integrationHelpers";
 
 export function IntegrationTitle({
   logo,
@@ -16,13 +17,12 @@ export function IntegrationTitle({
       {logo}
 
       <p className="text-sm font-semibold">
-        {integrationKind === "workos"
-          ? "WorkOS"
-          : integrationKind.charAt(0).toUpperCase() + integrationKind.slice(1)}
+        {integrationName(integrationKind)}
       </p>
       <Tooltip tip={description}>
         <p className="max-w-fit rounded-sm border p-1 text-xs">
-          {integrationKind === "sentry"
+          {integrationKind === "sentry" ||
+          integrationKind === "posthogErrorTracking"
             ? "Exception Reporting"
             : integrationKind === "airbyte" || integrationKind === "fivetran"
               ? "Streaming Export"
