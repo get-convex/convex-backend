@@ -33,6 +33,8 @@ use model::log_sinks::types::{
         DatadogConfig,
         DatadogSiteLocation,
     },
+    posthog_error_tracking::PostHogErrorTrackingConfig,
+    posthog_logs::PostHogLogsConfig,
     sentry::{
         ExceptionFormatVersion,
         SentryConfig,
@@ -362,6 +364,8 @@ enum LogStreamType {
     Webhook,
     Axiom,
     Sentry,
+    PostHogLogs,
+    PostHogErrorTracking,
 }
 
 impl From<LogStreamType> for SinkType {
@@ -371,6 +375,8 @@ impl From<LogStreamType> for SinkType {
             LogStreamType::Webhook => SinkType::Webhook,
             LogStreamType::Axiom => SinkType::Axiom,
             LogStreamType::Sentry => SinkType::Sentry,
+            LogStreamType::PostHogLogs => SinkType::PostHogLogs,
+            LogStreamType::PostHogErrorTracking => SinkType::PostHogErrorTracking,
         }
     }
 }
@@ -503,6 +509,63 @@ impl TryFrom<CreateSentryLogStreamArgs> for SentryConfig {
     }
 }
 
+fn validate_posthog_host(host: Option<&String>) -> anyhow::Result<()> {
+    if let Some(url) = host {
+        url.parse::<reqwest::Url>().map_err(|_| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidPostHogHost",
+                format!("Invalid PostHog host URL: {url}"),
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePostHogLogsLogStreamArgs {
+    /// PostHog project API key.
+    api_key: String,
+    /// PostHog host URL. Defaults to https://us.i.posthog.com.
+    host: Option<String>,
+    /// OTLP service.name attribute. Defaults to the deployment name.
+    service_name: Option<String>,
+}
+
+impl TryFrom<CreatePostHogLogsLogStreamArgs> for PostHogLogsConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: CreatePostHogLogsLogStreamArgs) -> Result<Self, Self::Error> {
+        validate_posthog_host(value.host.as_ref())?;
+        Ok(Self {
+            api_key: value.api_key.into(),
+            host: value.host,
+            service_name: value.service_name,
+        })
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePostHogErrorTrackingLogStreamArgs {
+    /// PostHog project API key.
+    api_key: String,
+    /// PostHog host URL. Defaults to https://us.i.posthog.com.
+    host: Option<String>,
+}
+
+impl TryFrom<CreatePostHogErrorTrackingLogStreamArgs> for PostHogErrorTrackingConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: CreatePostHogErrorTrackingLogStreamArgs) -> Result<Self, Self::Error> {
+        validate_posthog_host(value.host.as_ref())?;
+        Ok(Self {
+            api_key: value.api_key.into(),
+            host: value.host,
+        })
+    }
+}
+
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", tag = "logStreamType")]
 pub enum CreateLogStreamArgs {
@@ -514,6 +577,10 @@ pub enum CreateLogStreamArgs {
     Axiom(CreateAxiomLogStreamArgs),
     #[schema(title = "Sentry")]
     Sentry(CreateSentryLogStreamArgs),
+    #[schema(title = "PostHogLogs")]
+    PostHogLogs(CreatePostHogLogsLogStreamArgs),
+    #[schema(title = "PostHogErrorTracking")]
+    PostHogErrorTracking(CreatePostHogErrorTrackingLogStreamArgs),
 }
 
 #[derive(Serialize, ToSchema)]
@@ -535,6 +602,10 @@ pub enum CreateLogStreamResponse {
     Axiom { id: String },
     #[schema(title = "Sentry")]
     Sentry { id: String },
+    #[schema(title = "PostHogLogs")]
+    PostHogLogs { id: String },
+    #[schema(title = "PostHogErrorTracking")]
+    PostHogErrorTracking { id: String },
 }
 
 async fn ensure_log_sink_does_not_exist(
@@ -647,6 +718,31 @@ pub async fn create_log_stream(
                 .await?;
             Ok(Json(CreateLogStreamResponse::Sentry { id: id.to_string() }))
         },
+        CreateLogStreamArgs::PostHogLogs(args) => {
+            ensure_log_sink_does_not_exist(&st.application, &SinkType::PostHogLogs).await?;
+
+            let config: PostHogLogsConfig = args.try_into()?;
+            let id = st
+                .application
+                .add_log_sink(SinkConfig::PostHogLogs(config))
+                .await?;
+            Ok(Json(CreateLogStreamResponse::PostHogLogs {
+                id: id.to_string(),
+            }))
+        },
+        CreateLogStreamArgs::PostHogErrorTracking(args) => {
+            ensure_log_sink_does_not_exist(&st.application, &SinkType::PostHogErrorTracking)
+                .await?;
+
+            let config: PostHogErrorTrackingConfig = args.try_into()?;
+            let id = st
+                .application
+                .add_log_sink(SinkConfig::PostHogErrorTracking(config))
+                .await?;
+            Ok(Json(CreateLogStreamResponse::PostHogErrorTracking {
+                id: id.to_string(),
+            }))
+        },
     }
 }
 
@@ -737,6 +833,10 @@ enum LogStreamConfig {
     Axiom(AxiomLogStreamConfig),
     #[schema(title = "Sentry")]
     Sentry(SentryLogStreamConfig),
+    #[schema(title = "PostHogLogs")]
+    PostHogLogs(PostHogLogsLogStreamConfig),
+    #[schema(title = "PostHogErrorTracking")]
+    PostHogErrorTracking(PostHogErrorTrackingLogStreamConfig),
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -801,6 +901,33 @@ pub struct SentryLogStreamConfig {
     pub tags: Option<BTreeMap<String, String>>,
 }
 
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(title = "PostHogLogsConfig")]
+pub struct PostHogLogsLogStreamConfig {
+    pub id: String,
+    /// Status of the log stream
+    pub status: LogStreamStatus,
+    /// PostHog host URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    /// OTLP service.name attribute.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_name: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(title = "PostHogErrorTrackingConfig")]
+pub struct PostHogErrorTrackingLogStreamConfig {
+    pub id: String,
+    /// Status of the log stream
+    pub status: LogStreamStatus,
+    /// PostHog host URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+}
+
 fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig> {
     let status: LogStreamStatus =
         Into::<model::log_sinks::types::SerializedSinkState>::into(sink.status).into();
@@ -833,6 +960,21 @@ fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig>
                 .tags
                 .map(|tags| tags.into_iter().map(|(k, v)| (k.into(), v)).collect()),
         })),
+        SinkConfig::PostHogLogs(config) => {
+            Some(LogStreamConfig::PostHogLogs(PostHogLogsLogStreamConfig {
+                id: sink.id.to_string(),
+                status,
+                host: config.host,
+                service_name: config.service_name,
+            }))
+        },
+        SinkConfig::PostHogErrorTracking(config) => Some(LogStreamConfig::PostHogErrorTracking(
+            PostHogErrorTrackingLogStreamConfig {
+                id: sink.id.to_string(),
+                status,
+                host: config.host,
+            },
+        )),
         _ => None,
     }
 }
@@ -970,6 +1112,31 @@ pub struct UpdateSentrySinkArgs {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePostHogLogsSinkArgs {
+    /// PostHog project API key.
+    #[serde(default)]
+    api_key: Option<String>,
+    /// PostHog host URL.
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    host: Option<Option<String>>,
+    /// OTLP service.name attribute.
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    service_name: Option<Option<String>>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePostHogErrorTrackingSinkArgs {
+    /// PostHog project API key.
+    #[serde(default)]
+    api_key: Option<String>,
+    /// PostHog host URL.
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    host: Option<Option<String>>,
+}
+
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", tag = "logStreamType")]
 pub enum UpdateLogStreamArgs {
     #[schema(title = "Datadog")]
@@ -980,6 +1147,10 @@ pub enum UpdateLogStreamArgs {
     Axiom(UpdateAxiomSinkArgs),
     #[schema(title = "Sentry")]
     Sentry(UpdateSentrySinkArgs),
+    #[schema(title = "PostHogLogs")]
+    PostHogLogs(UpdatePostHogLogsSinkArgs),
+    #[schema(title = "PostHogErrorTracking")]
+    PostHogErrorTracking(UpdatePostHogErrorTrackingSinkArgs),
 }
 
 /// Update log stream
@@ -1153,6 +1324,63 @@ pub async fn update_log_stream(
 
             st.application
                 .patch_log_sink_config(&id, SinkConfig::Sentry(config))
+                .await?;
+        },
+        SinkConfig::PostHogLogs(existing_config) => {
+            let UpdateLogStreamArgs::PostHogLogs(update_args) = args else {
+                return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                    "LogStreamTypeMismatch",
+                    "Cannot update a PostHog Logs log stream with arguments for a different log \
+                     stream type",
+                ))
+                .into());
+            };
+
+            let host = update_args.host.unwrap_or(existing_config.host);
+            if host.is_some() {
+                validate_posthog_host(host.as_ref())?;
+            }
+
+            let config = PostHogLogsConfig {
+                api_key: update_args
+                    .api_key
+                    .map(|k| k.into())
+                    .unwrap_or(existing_config.api_key),
+                host,
+                service_name: update_args
+                    .service_name
+                    .unwrap_or(existing_config.service_name),
+            };
+
+            st.application
+                .patch_log_sink_config(&id, SinkConfig::PostHogLogs(config))
+                .await?;
+        },
+        SinkConfig::PostHogErrorTracking(existing_config) => {
+            let UpdateLogStreamArgs::PostHogErrorTracking(update_args) = args else {
+                return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                    "LogStreamTypeMismatch",
+                    "Cannot update a PostHog Error Tracking log stream with arguments for a \
+                     different log stream type",
+                ))
+                .into());
+            };
+
+            let host = update_args.host.unwrap_or(existing_config.host);
+            if host.is_some() {
+                validate_posthog_host(host.as_ref())?;
+            }
+
+            let config = PostHogErrorTrackingConfig {
+                api_key: update_args
+                    .api_key
+                    .map(|k| k.into())
+                    .unwrap_or(existing_config.api_key),
+                host,
+            };
+
+            st.application
+                .patch_log_sink_config(&id, SinkConfig::PostHogErrorTracking(config))
                 .await?;
         },
         _ => {

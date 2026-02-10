@@ -671,6 +671,50 @@
               }
             ],
             "title": "Sentry"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreatePostHogLogsLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "postHogLogs"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "PostHogLogs"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreatePostHogErrorTrackingLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "postHogErrorTracking"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "PostHogErrorTracking"
           }
         ]
       },
@@ -754,8 +798,91 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "title": "PostHogLogs",
+            "required": [
+              "id",
+              "logStreamType"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "postHogLogs"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "PostHogErrorTracking",
+            "required": [
+              "id",
+              "logStreamType"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "postHogErrorTracking"
+                ]
+              }
+            }
           }
         ]
+      },
+      "CreatePostHogErrorTrackingLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "apiKey"
+        ],
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "PostHog project API key."
+          },
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog host URL. Defaults to https://us.i.posthog.com."
+          }
+        }
+      },
+      "CreatePostHogLogsLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "apiKey"
+        ],
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "PostHog project API key."
+          },
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog host URL. Defaults to https://us.i.posthog.com."
+          },
+          "serviceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "OTLP service.name attribute. Defaults to the deployment name."
+          }
+        }
       },
       "CreateSentryLogStreamArgs": {
         "type": "object",
@@ -985,6 +1112,50 @@
               }
             ],
             "title": "Sentry"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PostHogLogsLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "postHogLogs"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "PostHogLogs"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PostHogErrorTrackingLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "postHogErrorTracking"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "PostHogErrorTracking"
           }
         ]
       },
@@ -1066,6 +1237,61 @@
           }
         ],
         "description": "Status of a log stream"
+      },
+      "PostHogErrorTrackingLogStreamConfig": {
+        "type": "object",
+        "title": "PostHogErrorTrackingConfig",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog host URL."
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
+          }
+        }
+      },
+      "PostHogLogsLogStreamConfig": {
+        "type": "object",
+        "title": "PostHogLogsConfig",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog host URL."
+          },
+          "id": {
+            "type": "string"
+          },
+          "serviceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "OTLP service.name attribute."
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the log stream"
+          }
+        }
       },
       "RequestDestination": {
         "type": "string",
@@ -1342,8 +1568,97 @@
               }
             ],
             "title": "Sentry"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdatePostHogLogsSinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "postHogLogs"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "PostHogLogs"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdatePostHogErrorTrackingSinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "postHogErrorTracking"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "PostHogErrorTracking"
           }
         ]
+      },
+      "UpdatePostHogErrorTrackingSinkArgs": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog project API key."
+          },
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog host URL."
+          }
+        }
+      },
+      "UpdatePostHogLogsSinkArgs": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog project API key."
+          },
+          "host": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "PostHog host URL."
+          },
+          "serviceName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "OTLP service.name attribute."
+          }
+        }
       },
       "UpdateSentrySinkArgs": {
         "type": "object",
