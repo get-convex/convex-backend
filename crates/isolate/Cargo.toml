@@ -142,6 +142,7 @@ pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 proptest-http = { workspace = true }
+reqwest = { workspace = true }
 runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }

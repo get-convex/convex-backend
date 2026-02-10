@@ -67,6 +67,8 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 environment_data,
                 mut response,
                 queue_timer,
+                rng_seed,
+                unix_timestamp,
                 reactor_depth,
                 udf_callback,
                 function_started_sender,
@@ -92,6 +94,8 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         v8_context,
                         isolate_clean,
                         response.closed().boxed(),
+                        rng_seed,
+                        unix_timestamp,
                         function_started_sender,
                     )
                     .await;

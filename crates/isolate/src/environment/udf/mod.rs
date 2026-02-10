@@ -97,7 +97,6 @@ use deno_core::{
 use errors::ErrorMetadata;
 use file_storage::TransactionalFileStorage;
 use keybroker::FunctionRunnerKeyBroker;
-use rand::Rng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use udf::UdfOutcome;
@@ -381,13 +380,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         v8_context: v8::Global<v8::Context>,
         isolate_clean: &mut bool,
         cancellation: BoxFuture<'_, ()>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
         function_started: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        // Initialize the UDF's RNG from some high-quality entropy. As with
-        // `unix_timestamp` below, the UDF is only deterministic modulo this
-        // system-generated input.
-        let rng_seed = self.rt.rng().random();
-        let unix_timestamp = self.rt.unix_timestamp();
         let heap_stats = self.heap_stats.clone();
 
         let client_id = Arc::new(client_id);

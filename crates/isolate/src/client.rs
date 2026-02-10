@@ -381,6 +381,8 @@ pub enum RequestType<RT: Runtime> {
         environment_data: EnvironmentData<RT>,
         response: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
         queue_timer: Timer<VMHistogram>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
         reactor_depth: usize,
         udf_callback: Box<dyn UdfCallback<RT>>,
         function_started_sender: Option<oneshot::Sender<()>>,
@@ -456,6 +458,8 @@ pub trait UdfCallback<RT: Runtime>: Send + Sync {
         transaction: Transaction<RT>,
         journal: QueryJournal,
         context: ExecutionContext,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)>;
 }
@@ -690,6 +694,8 @@ impl<RT: Runtime> IsolateClient<RT> {
         journal: QueryJournal,
         context: ExecutionContext,
         environment_data: EnvironmentData<RT>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
         reactor_depth: usize,
         instance_name: String,
         function_started_sender: Option<oneshot::Sender<()>>,
@@ -706,6 +712,8 @@ impl<RT: Runtime> IsolateClient<RT> {
             environment_data,
             response: tx,
             queue_timer: queue_timer(),
+            rng_seed,
+            unix_timestamp,
             reactor_depth,
             udf_callback: Box::new(self.clone()),
             function_started_sender,
@@ -1040,6 +1048,8 @@ impl<RT: Runtime> UdfCallback<RT> for IsolateClient<RT> {
         transaction: Transaction<RT>,
         journal: QueryJournal,
         context: ExecutionContext,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         self.execute_udf(
@@ -1049,6 +1059,8 @@ impl<RT: Runtime> UdfCallback<RT> for IsolateClient<RT> {
             journal,
             context,
             environment_data,
+            rng_seed,
+            unix_timestamp,
             reactor_depth,
             client_id,
             None, /* function_started_sender */

@@ -38,7 +38,10 @@ use model::{
     source_packages::SourcePackageModel,
     udf_config::UdfConfigModel,
 };
-use rand::SeedableRng;
+use rand::{
+    Rng as _,
+    SeedableRng,
+};
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
 use udf::environment::system_env_vars;
@@ -292,10 +295,30 @@ impl<RT: Runtime> UdfPhase<RT> {
         self.tx_mut()
     }
 
-    pub fn take_tx(&mut self) -> anyhow::Result<Transaction<RT>> {
-        self.tx
+    pub fn start_nested_udf(
+        &mut self,
+    ) -> anyhow::Result<(Transaction<RT>, [u8; 32], UnixTimestamp)> {
+        let tx = self
+            .tx
             .take()
-            .context("Transaction missing due to concurrent component call")
+            .context("Transaction missing due to concurrent component call")?;
+        let UdfPreloaded::Ready {
+            ref mut rng,
+            unix_timestamp,
+            ..
+        } = self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        let (rng, unix_timestamp) =
+            (rng.as_mut().zip(unix_timestamp)).context(ErrorMetadata::bad_request(
+                "NoCallsDuringImport",
+                "Cannot call another function at import time",
+            ))?;
+        // Note: it's up to the caller to update observed_rng / observed_time after the
+        // nested UDF returns
+        let rng_seed = rng.random();
+        Ok((tx, rng_seed, unix_timestamp))
     }
 
     pub fn put_tx(&mut self, tx: Transaction<RT>) -> anyhow::Result<()> {
@@ -418,6 +441,16 @@ impl<RT: Runtime> UdfPhase<RT> {
             ));
         };
         Ok(unix_timestamp)
+    }
+
+    pub fn observe_rng(&mut self) {
+        if let UdfPreloaded::Ready {
+            observed_rng_during_execution,
+            ..
+        } = &mut self.preloaded
+        {
+            *observed_rng_during_execution = true;
+        }
     }
 
     pub fn observe_identity(&mut self) -> anyhow::Result<()> {

@@ -50,6 +50,7 @@ parking_lot = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
+rand = { workspace = true }
 runtime = { workspace = true }
 storage = { workspace = true }
 sync_types = { workspace = true }
