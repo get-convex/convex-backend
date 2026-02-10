@@ -80,7 +80,7 @@ export function PostHogLogsConfigurationForm({
         placeholder="https://us.i.posthog.com"
         id="host"
         error={formState.errors.host}
-        description="PostHog instance URL. Defaults to US Cloud. Use https://eu.i.posthog.com for EU Cloud, or your self-hosted URL."
+        description="PostHog host URL (the endpoint path is added automatically). Defaults to US Cloud. Use https://eu.i.posthog.com for EU Cloud, or your self-hosted URL."
       />
       <TextInput
         value={formState.values.serviceName}

@@ -78,7 +78,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
         let (tx, rx) = mpsc::channel(consts::POSTHOG_ET_SINK_EVENTS_BUFFER_SIZE);
 
         let host = config.host.as_deref().unwrap_or(DEFAULT_POSTHOG_HOST);
-        let capture_url = format!("{host}/capture");
+        let capture_url = format!("{host}/i/v0/e/");
 
         let mut sink = Self {
             runtime: runtime.clone(),
@@ -108,10 +108,22 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
     }
 
     async fn verify_creds(&mut self) -> anyhow::Result<()> {
-        // Send a minimal capture request with an empty batch
+        // Send a minimal $exception event to verify the API key is valid.
+        // PostHog rejects empty batches, so we send a single verification event.
         let payload = json!({
             "api_key": self.api_key,
-            "batch": []
+            "batch": [{
+                "event": "$exception",
+                "distinct_id": "convex-verification",
+                "properties": {
+                    "$exception_list": [{
+                        "type": "ConvexVerification",
+                        "value": "Verifying PostHog Error Tracking integration",
+                        "mechanism": { "handled": true, "type": "generic" },
+                    }],
+                    "$lib": "convex",
+                }
+            }]
         });
         self.send_batch(serde_json::to_vec(&payload)?, true).await?;
         Ok(())
@@ -191,7 +203,8 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                                 .or(frame.method_name.as_deref())
                                 .unwrap_or("<anonymous>");
                             json!({
-                                "platform": "node:javascript",
+                                "platform": "custom",
+                                "lang": "javascript",
                                 "filename": frame.file_name,
                                 "function": function,
                                 "lineno": frame.line_number,
@@ -401,7 +414,7 @@ mod tests {
         let mut fetch_client = StaticFetchClient::new();
         {
             let events = Arc::clone(&captured_events);
-            let url: reqwest::Url = "https://us.i.posthog.com/capture".parse()?;
+            let url: reqwest::Url = "https://us.i.posthog.com/i/v0/e/".parse()?;
             let handler = move |request: HttpRequestStream| {
                 let events = Arc::clone(&events);
                 async move {
@@ -453,8 +466,22 @@ mod tests {
             .await?;
         rt.wait(Duration::from_secs(1)).await;
 
-        let events = captured_events.lock().clone();
-        // Only the exception should be captured (verification is filtered out)
+        let all_events = captured_events.lock().clone();
+        // Filter out the verification event sent during startup
+        let events: Vec<_> = all_events
+            .iter()
+            .filter(|e| {
+                e.get("properties")
+                    .and_then(|p| p.get("$exception_list"))
+                    .and_then(|l| l.as_array())
+                    .and_then(|a| a.first())
+                    .and_then(|e| e.get("type"))
+                    .and_then(|t| t.as_str())
+                    != Some("ConvexVerification")
+            })
+            .collect();
+        // Only the exception should be captured (verification event is filtered
+        // out, and the non-exception LogEvent is dropped by the filter)
         assert_eq!(events.len(), 1);
 
         let exception_event = &events[0];
@@ -500,7 +527,7 @@ mod tests {
         };
 
         let mut fetch_client = StaticFetchClient::new();
-        let url: reqwest::Url = "https://us.i.posthog.com/capture".parse()?;
+        let url: reqwest::Url = "https://us.i.posthog.com/i/v0/e/".parse()?;
         let handler = |request: HttpRequestStream| {
             async move {
                 let request = request.into_http_request().await.unwrap();
@@ -554,7 +581,7 @@ mod tests {
         let actual_request_size = Arc::new(Mutex::new(0u64));
 
         let mut fetch_client = StaticFetchClient::new();
-        let url: reqwest::Url = "https://us.i.posthog.com/capture".parse()?;
+        let url: reqwest::Url = "https://us.i.posthog.com/i/v0/e/".parse()?;
         let size_tracker = actual_request_size.clone();
         let handler = move |request: HttpRequestStream| {
             let size_tracker = size_tracker.clone();

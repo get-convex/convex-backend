@@ -84,7 +84,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
         let (tx, rx) = mpsc::channel(consts::POSTHOG_LOGS_SINK_EVENTS_BUFFER_SIZE);
 
         let host = config.host.as_deref().unwrap_or(DEFAULT_POSTHOG_HOST);
-        let endpoint_url = format!("{host}/v1/logs");
+        let endpoint_url = format!("{host}/i/v1/logs");
 
         let service_name = config
             .service_name
@@ -404,7 +404,7 @@ mod tests {
         let mut fetch_client = StaticFetchClient::new();
         {
             let buffer = Arc::clone(&topic_buffer);
-            let url: reqwest::Url = "https://us.i.posthog.com/v1/logs".parse()?;
+            let url: reqwest::Url = "https://us.i.posthog.com/i/v1/logs".parse()?;
             let handler = move |request: HttpRequestStream| {
                 let buffer = Arc::clone(&buffer);
                 async move {
@@ -517,7 +517,7 @@ mod tests {
         };
 
         let mut fetch_client = StaticFetchClient::new();
-        let url: reqwest::Url = "https://us.i.posthog.com/v1/logs".parse()?;
+        let url: reqwest::Url = "https://us.i.posthog.com/i/v1/logs".parse()?;
         let handler = |request: HttpRequestStream| {
             async move {
                 let Some(true) = request
@@ -574,7 +574,7 @@ mod tests {
         let actual_request_size = Arc::new(Mutex::new(0u64));
 
         let mut fetch_client = StaticFetchClient::new();
-        let url: reqwest::Url = "https://us.i.posthog.com/v1/logs".parse()?;
+        let url: reqwest::Url = "https://us.i.posthog.com/i/v1/logs".parse()?;
         let size_tracker = actual_request_size.clone();
         let handler = move |request: HttpRequestStream| {
             let size_tracker = size_tracker.clone();
