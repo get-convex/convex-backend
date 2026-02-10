@@ -9,13 +9,15 @@ export function useTeams(): {
   teams?: TeamResponse[];
 } {
   const [initialData] = useInitialData();
-  const { data: teams, isValidating } = useBBQuery({
+  const { data, isValidating } = useBBQuery({
     path: "/teams",
     pathParams: undefined,
     swrOptions: {
       revalidateOnMount: !initialData,
     },
   });
+
+  const teams = data ?? (initialData?.["/teams"] as TeamResponse[] | undefined);
   const [lastViewedTeam] = useLastViewedTeam();
   const router = useRouter();
 
