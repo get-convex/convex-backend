@@ -5,7 +5,7 @@
   "scripts": {
     "storybook": "storybook dev -p 6006 --no-open",
     "build": "storybook build",
-    "test-storybook": "test-storybook --failOnConsole"
+    "test-storybook": "vitest --project=storybook"
   },
   "dependencies": {
     "@convex-dev/design-system": "workspace:*",
@@ -24,15 +24,14 @@
     "@storybook/cli": "^10.0.8",
     "@storybook/nextjs": "^10.0.8",
     "@storybook/nextjs-vite": "^10.0.8",
-    "@storybook/test-runner": "0.24.2",
+    "@storybook/addon-vitest": "10.0.8",
+    "@vitest/browser-playwright": "4.0.18",
     "@tailwindcss/forms": "^0.5.10",
     "eslint-plugin-better-tailwindcss": "^3.8.0",
     "playwright": "^1.56.1",
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4.1.11",
     "storybook": "^10.0.8",
-    "concurrently": "~8.2.2",
-    "wait-on": "^9.0.0",
-    "http-server": "^14.1.1"
+    "vitest": "4.0.18"
   }
 }

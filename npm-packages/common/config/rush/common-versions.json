@@ -119,6 +119,11 @@
     "eslint": ["^8.29.0", "^9"],
     "eslint-plugin-react-hooks": ["^4.6.2"],
 
-    "zod": ["^3.25.0"]
+    "zod": ["^3.25.0"],
+
+    /**
+     * Vitest 4 is needed for @storybook/addon-vitest's @vitest/browser-playwright peer dep.
+     */
+    "vitest": ["4.0.18"]
   }
 }
