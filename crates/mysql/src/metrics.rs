@@ -391,6 +391,14 @@ pub fn log_write_bytes(size: usize) {
 }
 
 register_convex_histogram!(
+    MYSQL_INDEX_WRITE_BYTES,
+    "Number of bytes written in MySQL index writes"
+);
+pub fn log_index_write_bytes(size: usize) {
+    log_distribution(&MYSQL_INDEX_WRITE_BYTES, size as f64);
+}
+
+register_convex_histogram!(
     MYSQL_WRITE_DOCUMENTS,
     "Number of documents written in MySQL writes",
 );

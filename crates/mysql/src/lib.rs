@@ -400,6 +400,8 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             }
         }
         metrics::log_write_bytes(write_size);
+        let index_write_size = indexes.iter().map(|entry| entry.approx_size()).sum();
+        metrics::log_index_write_bytes(index_write_size);
         metrics::log_write_documents(documents.len());
         LocalSpan::add_properties(|| {
             [
