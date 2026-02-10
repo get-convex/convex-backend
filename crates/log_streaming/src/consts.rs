@@ -53,3 +53,18 @@ pub const SENTRY_SINK_EVENTS_BUFFER_SIZE: usize = 8;
 pub const SENTRY_SINK_INITIAL_BACKOFF: Duration = Duration::from_millis(500);
 pub const SENTRY_SINK_MAX_BACKOFF: Duration = Duration::from_secs(60);
 pub const SENTRY_SINK_MAX_LOGS_PER_BATCH: usize = 100;
+
+// PostHog Logs
+pub const POSTHOG_LOGS_SINK_EVENTS_BUFFER_SIZE: usize = 8;
+pub const POSTHOG_LOGS_SINK_INITIAL_BACKOFF: Duration = Duration::from_millis(500);
+pub const POSTHOG_LOGS_SINK_MAX_BACKOFF: Duration = Duration::from_secs(60);
+pub const POSTHOG_LOGS_SINK_MAX_REQUEST_ATTEMPTS: usize = 6;
+/// ~1.6MB at 4KB/log, under OTLP 2MB limit
+pub const POSTHOG_LOGS_SINK_MAX_LOGS_PER_BATCH: usize = 400;
+
+// PostHog Error Tracking
+pub const POSTHOG_ET_SINK_EVENTS_BUFFER_SIZE: usize = 8;
+pub const POSTHOG_ET_SINK_INITIAL_BACKOFF: Duration = Duration::from_millis(500);
+pub const POSTHOG_ET_SINK_MAX_BACKOFF: Duration = Duration::from_secs(60);
+pub const POSTHOG_ET_SINK_MAX_REQUEST_ATTEMPTS: usize = 6;
+pub const POSTHOG_ET_SINK_MAX_LOGS_PER_BATCH: usize = 100;

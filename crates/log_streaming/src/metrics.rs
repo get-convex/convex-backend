@@ -144,3 +144,51 @@ register_convex_counter!(
 pub fn webhook_sink_network_egress_bytes(bytes: u64) {
     log_counter(&WEBHOOK_SINK_NETWORK_EGRESS_BYTES_TOTAL, bytes);
 }
+
+register_convex_counter!(
+    POSTHOG_LOGS_SINK_LOGS_RECEIVED_TOTAL,
+    "Number of received logs by the PostHog Logs sink",
+);
+pub fn posthog_logs_sink_logs_received(count: usize) {
+    log_counter(&POSTHOG_LOGS_SINK_LOGS_RECEIVED_TOTAL, count as u64);
+}
+
+register_convex_counter!(
+    POSTHOG_LOGS_SINK_LOGS_SENT_TOTAL,
+    "Number of logs sent out successfully by PostHog Logs sink",
+);
+pub fn posthog_logs_sink_logs_sent(count: usize) {
+    log_counter(&POSTHOG_LOGS_SINK_LOGS_SENT_TOTAL, count as u64);
+}
+
+register_convex_counter!(
+    POSTHOG_LOGS_SINK_NETWORK_EGRESS_BYTES_TOTAL,
+    "Number of bytes sent by PostHog Logs sink",
+);
+pub fn posthog_logs_sink_network_egress_bytes(bytes: u64) {
+    log_counter(&POSTHOG_LOGS_SINK_NETWORK_EGRESS_BYTES_TOTAL, bytes);
+}
+
+register_convex_counter!(
+    POSTHOG_ET_SINK_LOGS_RECEIVED_TOTAL,
+    "Number of received logs by the PostHog Error Tracking sink",
+);
+pub fn posthog_et_sink_logs_received(count: usize) {
+    log_counter(&POSTHOG_ET_SINK_LOGS_RECEIVED_TOTAL, count as u64);
+}
+
+register_convex_counter!(
+    POSTHOG_ET_SINK_LOGS_SENT_TOTAL,
+    "Number of logs sent out successfully by PostHog Error Tracking sink",
+);
+pub fn posthog_et_sink_logs_sent(count: usize) {
+    log_counter(&POSTHOG_ET_SINK_LOGS_SENT_TOTAL, count as u64);
+}
+
+register_convex_counter!(
+    POSTHOG_ET_SINK_NETWORK_EGRESS_BYTES_TOTAL,
+    "Number of bytes sent by PostHog Error Tracking sink",
+);
+pub fn posthog_et_sink_network_egress_bytes(bytes: u64) {
+    log_counter(&POSTHOG_ET_SINK_NETWORK_EGRESS_BYTES_TOTAL, bytes);
+}

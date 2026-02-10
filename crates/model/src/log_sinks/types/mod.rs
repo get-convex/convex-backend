@@ -9,6 +9,8 @@ use value::codegen_convex_serialization;
 pub mod axiom;
 pub mod datadog;
 pub mod mock_sink;
+pub mod posthog_error_tracking;
+pub mod posthog_logs;
 pub mod sentry;
 pub mod webhook;
 
@@ -146,6 +148,8 @@ pub enum SinkType {
     Axiom,
     AxiomV2,
     Sentry,
+    PostHogLogs,
+    PostHogErrorTracking,
     #[cfg(any(test, feature = "testing"))]
     Mock,
     #[cfg(any(test, feature = "testing"))]
@@ -162,6 +166,8 @@ pub enum SinkConfig {
     Webhook(webhook::WebhookConfig),
     Axiom(axiom::AxiomConfig),
     Sentry(sentry::SentryConfig),
+    PostHogLogs(posthog_logs::PostHogLogsConfig),
+    PostHogErrorTracking(posthog_error_tracking::PostHogErrorTrackingConfig),
     #[cfg(any(test, feature = "testing"))]
     Mock,
     #[cfg(any(test, feature = "testing"))]
@@ -179,6 +185,8 @@ pub enum SerializedSinkConfig {
     Webhook(webhook::SerializedWebhookConfig),
     Axiom(axiom::SerializedAxiomConfig),
     Sentry(sentry::SerializedSentryConfig),
+    PostHogLogs(posthog_logs::SerializedPostHogLogsConfig),
+    PostHogErrorTracking(posthog_error_tracking::SerializedPostHogErrorTrackingConfig),
     #[cfg(any(test, feature = "testing"))]
     Mock,
     #[cfg(any(test, feature = "testing"))]
@@ -202,6 +210,10 @@ impl TryFrom<SerializedSinkConfig> for SinkConfig {
             },
             SerializedSinkConfig::Sentry(config) => {
                 Ok(SinkConfig::Sentry(sentry::SentryConfig::try_from(config)?))
+            },
+            SerializedSinkConfig::PostHogLogs(config) => Ok(SinkConfig::PostHogLogs(config.into())),
+            SerializedSinkConfig::PostHogErrorTracking(config) => {
+                Ok(SinkConfig::PostHogErrorTracking(config.into()))
             },
             #[cfg(any(test, feature = "testing"))]
             SerializedSinkConfig::Mock => Ok(SinkConfig::Mock),
@@ -229,6 +241,10 @@ impl TryFrom<SinkConfig> for SerializedSinkConfig {
             SinkConfig::Sentry(config) => Ok(SerializedSinkConfig::Sentry(
                 sentry::SerializedSentryConfig::try_from(config)?,
             )),
+            SinkConfig::PostHogLogs(config) => Ok(SerializedSinkConfig::PostHogLogs(config.into())),
+            SinkConfig::PostHogErrorTracking(config) => {
+                Ok(SerializedSinkConfig::PostHogErrorTracking(config.into()))
+            },
             #[cfg(any(test, feature = "testing"))]
             SinkConfig::Mock => Ok(SerializedSinkConfig::Mock),
             #[cfg(any(test, feature = "testing"))]
@@ -247,6 +263,8 @@ impl fmt::Display for SinkConfig {
             Self::Webhook(config) => write!(f, "Webhook({config})"),
             Self::Axiom(config) => write!(f, "Axiom({config})"),
             Self::Sentry(config) => write!(f, "Sentry({config})"),
+            Self::PostHogLogs(config) => write!(f, "PostHogLogs({config})"),
+            Self::PostHogErrorTracking(config) => write!(f, "PostHogErrorTracking({config})"),
             #[cfg(any(test, feature = "testing"))]
             Self::Mock => write!(f, "Mock"),
             #[cfg(any(test, feature = "testing"))]
@@ -263,6 +281,8 @@ impl SinkConfig {
             Self::Webhook(_) => SinkType::Webhook,
             Self::Axiom(_) => SinkType::Axiom,
             Self::Sentry(_) => SinkType::Sentry,
+            Self::PostHogLogs(_) => SinkType::PostHogLogs,
+            Self::PostHogErrorTracking(_) => SinkType::PostHogErrorTracking,
             #[cfg(any(test, feature = "testing"))]
             Self::Mock => SinkType::Mock,
             #[cfg(any(test, feature = "testing"))]
