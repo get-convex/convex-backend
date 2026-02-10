@@ -985,7 +985,7 @@ pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =
 /// When enabled, each segment is routed to a searchlight node via rendezvous
 /// hashing on the segment's storage key.
 pub static VECTOR_SEARCH_SHARD_BY_SEGMENT: LazyLock<bool> =
-    LazyLock::new(|| env_config("VECTOR_SEARCH_SHARD_BY_SEGMENT", false));
+    LazyLock::new(|| env_config("VECTOR_SEARCH_SHARD_BY_SEGMENT", true));
 
 /// Whether to use prepared statements or not in Persistence.
 pub static DATABASE_USE_PREPARED_STATEMENTS: LazyLock<bool> =
