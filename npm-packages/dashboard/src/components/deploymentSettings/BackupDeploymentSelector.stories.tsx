@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, fn } from "storybook/test";
-import { TeamResponse, ProjectDetails, TeamMemberResponse } from "generatedApi";
+import { TeamResponse, ProjectDetails, TeamMember } from "generatedApi";
 import { useProfile } from "api/profile";
 import { useProjects, useProjectById } from "api/projects";
 import { useDeployments } from "api/deployments";
@@ -37,7 +37,7 @@ const mockProjects: ProjectDetails[] = [
   },
 ];
 
-const mockTeamMembers: TeamMemberResponse[] = [
+const mockTeamMembers: TeamMember[] = [
   {
     id: 1,
     email: "test@example.com",

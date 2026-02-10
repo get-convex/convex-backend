@@ -2699,10 +2699,13 @@ export interface components {
         };
         /** Format: int64 */
         TeamId: number;
-        TeamMemberResponse: {
+        TeamMember: {
+            /** @description The email of the team member */
             email: string;
             id: components["schemas"]["MemberId"];
+            /** @description The name of the team member */
             name?: string | null;
+            /** @description The role of the team member */
             role: components["schemas"]["Role"];
         };
         TeamName: string;
@@ -2980,7 +2983,7 @@ export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResp
 export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurrentBillingPeriodResponse'];
 export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsResponse'];
 export type TeamId = components['schemas']['TeamId'];
-export type TeamMemberResponse = components['schemas']['TeamMemberResponse'];
+export type TeamMember = components['schemas']['TeamMember'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
@@ -3310,7 +3313,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeamMemberResponse"][];
+                    "application/json": components["schemas"]["TeamMember"][];
                 };
             };
         };

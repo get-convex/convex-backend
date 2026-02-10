@@ -1,5 +1,5 @@
 import { cleanup, render } from "@testing-library/react";
-import { ProjectDetails, TeamResponse, TeamMemberResponse } from "generatedApi";
+import { ProjectDetails, TeamResponse, TeamMember } from "generatedApi";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import userEvent from "@testing-library/user-event";
 import {
@@ -130,7 +130,7 @@ jest.mock("api/teams", () => {
     suspended: false,
     referralCode: "CODE123",
   };
-  const profile: TeamMemberResponse = {
+  const profile: TeamMember = {
     id: 1,
     email: "nicolas@convex.dev",
     name: "Nicolas Ettlin",
@@ -150,7 +150,7 @@ jest.mock("api/backups", () => ({
 }));
 
 jest.mock("api/profile", () => {
-  const profile: TeamMemberResponse = {
+  const profile: TeamMember = {
     id: 1,
     email: "nicolas@convex.dev",
     name: "Nicolas Ettlin",

@@ -11,7 +11,7 @@ import type {
   ProjectMemberRoleResponse,
   ProjectDetails,
   UpdateProjectRolesArgs,
-  TeamMemberResponse,
+  TeamMember,
 } from "generatedApi";
 import Link from "next/link";
 import { useHasProjectAdminPermissions } from "api/roles";
@@ -31,7 +31,7 @@ export function MemberProjectRolesModal({
   onClose,
 }: {
   team: TeamResponse;
-  member: TeamMemberResponse;
+  member: TeamMember;
   projectRoles: ProjectMemberRoleResponse[];
   onUpdateProjectRoles: (body: UpdateProjectRolesArgs) => Promise<undefined>;
   onClose: () => void;

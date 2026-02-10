@@ -9,7 +9,7 @@ import {
   useUpdateProjectRoles,
   useCurrentProjectRoles,
 } from "api/roles";
-import { TeamMemberResponse } from "generatedApi";
+import { TeamMember } from "generatedApi";
 import Link from "next/link";
 import { useState } from "react";
 import sortBy from "lodash/sortBy";
@@ -31,7 +31,7 @@ export function MemberProjectRoles() {
       };
     })
     .filter(
-      (member): member is TeamMemberResponse & { isProjectAdmin: boolean } =>
+      (member): member is TeamMember & { isProjectAdmin: boolean } =>
         member.isProjectAdmin || member.role === "admin",
     );
 

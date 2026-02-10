@@ -633,6 +633,33 @@
           }
         ]
       }
+    },
+    "/teams/{team_id}/list_members": {
+      "get": {
+        "summary": "List team members",
+        "description": "List the members of the given team.",
+        "operationId": "list team members",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListTeamMembersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1257,6 +1284,20 @@
           }
         }
       },
+      "PlatformListTeamMembersResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMember"
+            }
+          }
+        }
+      },
       "PlatformProjectDetails": {
         "type": "object",
         "required": [
@@ -1376,10 +1417,45 @@
           "convexSite"
         ]
       },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "developer"
+        ]
+      },
       "TeamId": {
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "TeamMember": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The email of the team member"
+          },
+          "id": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name of the team member"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "The role of the team member"
+          }
+        }
       }
     },
     "securitySchemes": {

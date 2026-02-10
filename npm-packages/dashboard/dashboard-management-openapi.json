@@ -297,7 +297,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/TeamMemberResponse"
+                    "$ref": "#/components/schemas/TeamMember"
                   }
                 }
               }
@@ -6377,7 +6377,7 @@
         "format": "int64",
         "minimum": 0
       },
-      "TeamMemberResponse": {
+      "TeamMember": {
         "type": "object",
         "required": [
           "id",
@@ -6386,7 +6386,8 @@
         ],
         "properties": {
           "email": {
-            "type": "string"
+            "type": "string",
+            "description": "The email of the team member"
           },
           "id": {
             "$ref": "#/components/schemas/MemberId"
@@ -6395,10 +6396,12 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The name of the team member"
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "$ref": "#/components/schemas/Role",
+            "description": "The role of the team member"
           }
         }
       },

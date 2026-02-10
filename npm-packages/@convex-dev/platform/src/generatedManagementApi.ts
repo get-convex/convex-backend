@@ -334,6 +334,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/list_members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List team members
+         * @description List the members of the given team.
+         */
+        get: operations["list team members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -540,6 +560,9 @@ export interface components {
             /** @description List of custom domains configured for this deployment. */
             domains: components["schemas"]["PlatformCustomDomainResponse"][];
         };
+        PlatformListTeamMembersResponse: {
+            items: components["schemas"]["TeamMember"][];
+        };
         PlatformProjectDetails: {
             /**
              * Format: int64
@@ -586,8 +609,19 @@ export interface components {
         RegionName: string;
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
+        /** @enum {string} */
+        Role: "admin" | "developer";
         /** Format: int64 */
         TeamId: number;
+        TeamMember: {
+            /** @description The email of the team member */
+            email: string;
+            id: components["schemas"]["MemberId"];
+            /** @description The name of the team member */
+            name?: string | null;
+            /** @description The role of the team member */
+            role: components["schemas"]["Role"];
+        };
     };
     responses: never;
     parameters: never;
@@ -619,6 +653,7 @@ export type PlatformDeleteDeployKeyArgs = components['schemas']['PlatformDeleteD
 export type PlatformDeployKeyResponse = components['schemas']['PlatformDeployKeyResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
+export type PlatformListTeamMembersResponse = components['schemas']['PlatformListTeamMembersResponse'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
@@ -627,7 +662,9 @@ export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
 export type RegionName = components['schemas']['RegionName'];
 export type RequestDestination = components['schemas']['RequestDestination'];
+export type Role = components['schemas']['Role'];
 export type TeamId = components['schemas']['TeamId'];
+export type TeamMember = components['schemas']['TeamMember'];
 export type $defs = Record<string, never>;
 export interface operations {
     "create project": {
@@ -993,6 +1030,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformListCustomDomainsResponse"];
+                };
+            };
+        };
+    };
+    "list team members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformListTeamMembersResponse"];
                 };
             };
         };

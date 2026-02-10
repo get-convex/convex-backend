@@ -3,7 +3,7 @@ import type {
   ProjectMemberRoleResponse,
   UpdateProjectRolesArgs,
   TeamResponse,
-  TeamMemberResponse,
+  TeamMember,
 } from "generatedApi";
 import { useRouter } from "next/router";
 import { useRef, useState } from "react";
@@ -27,8 +27,8 @@ export const roleOptions: Option<"admin" | "developer">[] = [
 type TeamMemberListItemProps = {
   team: TeamResponse;
   myProfile: MemberResponse;
-  member: TeamMemberResponse;
-  members: TeamMemberResponse[];
+  member: TeamMember;
+  members: TeamMember[];
   canChangeRole: boolean;
   onChangeRole: (body: {
     memberId: number;

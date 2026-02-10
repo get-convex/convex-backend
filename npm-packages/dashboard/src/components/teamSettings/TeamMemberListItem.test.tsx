@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TeamResponse, MemberResponse, TeamMemberResponse } from "generatedApi";
+import { TeamResponse, MemberResponse, TeamMember } from "generatedApi";
 import { TeamMemberListItem } from "./TeamMemberListItem";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
@@ -35,13 +35,13 @@ describe("TeamMemberListItem", () => {
     name: "John Doe",
     email: "",
   };
-  const member: TeamMemberResponse = {
+  const member: TeamMember = {
     id: 2,
     name: "Jane Smith",
     email: "",
     role: "developer",
   };
-  const admin: TeamMemberResponse = {
+  const admin: TeamMember = {
     id: 3,
     name: "Admin User",
     email: "",
