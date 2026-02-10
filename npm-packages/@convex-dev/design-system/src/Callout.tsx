@@ -9,8 +9,8 @@ type CalloutVariant =
   | "success";
 
 const classes: Record<CalloutVariant, string> = {
-  error: "bg-background-error text-content-error",
-  instructions: "bg-background-warning text-content-warning",
+  error: "bg-background-error",
+  instructions: "bg-background-warning",
   hint: "bg-util-accent/10 dark:bg-util-accent/30",
   upsell: "bg-util-accent/10 dark:bg-util-accent/30",
   localDev:
@@ -30,7 +30,7 @@ export function Callout({
   return (
     <div
       className={cn(
-        `mt-2 flex rounded-lg p-3 text-sm ${classes[variant]}`,
+        `mt-2 flex rounded-lg border p-3 text-sm ${classes[variant]}`,
         className,
       )}
       role="alert"

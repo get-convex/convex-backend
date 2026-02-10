@@ -25,6 +25,7 @@ import {
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Tooltip } from "@ui/Tooltip";
+import { Callout } from "@ui/Callout";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 export const PROVISION_DEV_PAGE_NAME = "development";
@@ -960,20 +961,29 @@ Please help me troubleshoot this connection issue.`;
 
         <div>
           <h4 className="mb-2">Troubleshooting</h4>
-          <p className="mb-2 text-sm">
-            {isReachable ? (
-              <>
-                <div>This deployment appears to be online.</div>
-                <div>
-                  Some networks may experience instability when connecting over
-                  WebSockets.
+          {isReachable ? (
+            <>
+              <Callout className="mb-3" variant="hint">
+                <div className="flex flex-col gap-2">
+                  <h5 className="flex items-center gap-1">
+                    <InfoCircledIcon />
+                    Your deployment is online
+                  </h5>
+                  <p>
+                    This connection issue is likely due to a problem with your
+                    browser or network connection.
+                  </p>
                 </div>
-                <div>Please try the following steps to troubleshoot:</div>
-              </>
-            ) : (
-              "There may be a client-side network issue. Try:"
-            )}
-          </p>
+              </Callout>
+              <p className="mb-2">
+                Please try the following troubleshooting steps:
+              </p>
+            </>
+          ) : (
+            <p className="mb-2 text-sm">
+              There may be a client-side network issue. Try:
+            </p>
+          )}
           <ul className="ml-2 list-inside list-disc space-y-1 text-sm">
             <li>
               Switching to a different network. (i.e. WiFi, ethernet, or
@@ -999,7 +1009,7 @@ Please help me troubleshoot this connection issue.`;
           </div>
         )}
 
-        {openSupportForm && (
+        {isReachable === false && openSupportForm && (
           <div className="border-t pt-2">
             <p className="text-sm text-content-secondary">
               <Button inline onClick={handleContactSupport}>
