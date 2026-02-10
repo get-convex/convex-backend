@@ -230,15 +230,15 @@ export const sentryConfig = v.object({
   version: v.optional(v.union(v.literal("1"), v.literal("2"))),
 });
 
-export const posthogLogsConfig = v.object({
-  type: v.literal("posthogLogs"),
+export const postHogLogsConfig = v.object({
+  type: v.literal("postHogLogs"),
   apiKey: v.string(),
   host: v.optional(v.string()),
   serviceName: v.optional(v.string()),
 });
 
-export const posthogErrorTrackingConfig = v.object({
-  type: v.literal("posthogErrorTracking"),
+export const postHogErrorTrackingConfig = v.object({
+  type: v.literal("postHogErrorTracking"),
   apiKey: v.string(),
   host: v.optional(v.string()),
 });
@@ -248,8 +248,8 @@ export const sinkConfig = v.union(
   webhookConfig,
   axiomConfig,
   sentryConfig,
-  posthogLogsConfig,
-  posthogErrorTrackingConfig,
+  postHogLogsConfig,
+  postHogErrorTrackingConfig,
 );
 
 const logSinksTable = defineTable({

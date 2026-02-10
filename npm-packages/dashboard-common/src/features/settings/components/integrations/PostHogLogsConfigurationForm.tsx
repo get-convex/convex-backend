@@ -21,7 +21,7 @@ export function PostHogLogsConfigurationForm({
   onAddedIntegration,
 }: {
   onClose: () => void;
-  integration: Extract<LogIntegration, { kind: "posthogLogs" }>;
+  integration: Extract<LogIntegration, { kind: "postHogLogs" }>;
   onAddedIntegration?: () => void;
 }) {
   const createLogStream = useCreateLogStream();
@@ -43,7 +43,7 @@ export function PostHogLogsConfigurationForm({
     },
     onSubmit: async (values) => {
       const args = {
-        logStreamType: "posthogLogs" as const,
+        logStreamType: "postHogLogs" as const,
         apiKey: values.apiKey,
         host: values.host || undefined,
         serviceName: values.serviceName || undefined,

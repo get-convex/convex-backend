@@ -22,7 +22,7 @@ export function PostHogErrorTrackingConfigurationForm({
   onClose: () => void;
   integration: Extract<
     ExceptionReportingIntegration,
-    { kind: "posthogErrorTracking" }
+    { kind: "postHogErrorTracking" }
   >;
   onAddedIntegration?: () => void;
 }) {
@@ -43,7 +43,7 @@ export function PostHogErrorTrackingConfigurationForm({
     },
     onSubmit: async (values) => {
       const args = {
-        logStreamType: "posthogErrorTracking" as const,
+        logStreamType: "postHogErrorTracking" as const,
         apiKey: values.apiKey,
         host: values.host || undefined,
       };

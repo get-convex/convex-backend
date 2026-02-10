@@ -128,8 +128,8 @@ export function PanelCard({
         integration.kind === "axiom" ||
         integration.kind === "datadog" ||
         integration.kind === "webhook" ||
-        integration.kind === "posthogLogs" ||
-        integration.kind === "posthogErrorTracking") && (
+        integration.kind === "postHogLogs" ||
+        integration.kind === "postHogErrorTracking") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {isModalOpen &&
             renderModal(integration, closeModal, onAddedIntegration)}
@@ -240,7 +240,7 @@ function renderModal(
           </div>
         </Modal>
       );
-    case "posthogLogs":
+    case "postHogLogs":
       return (
         <LogIntegrationModal
           closeModal={closeModal}
@@ -254,7 +254,7 @@ function renderModal(
           />
         </LogIntegrationModal>
       );
-    case "posthogErrorTracking":
+    case "postHogErrorTracking":
       return (
         <Modal onClose={closeModal} title="Configure PostHog Error Tracking">
           <div className="flex flex-col gap-4">

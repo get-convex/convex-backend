@@ -10,8 +10,8 @@ import {
 import {
   axiomConfig,
   datadogConfig,
-  posthogErrorTrackingConfig,
-  posthogLogsConfig,
+  postHogErrorTrackingConfig,
+  postHogLogsConfig,
   sentryConfig,
   webhookConfig,
 } from "system-udfs/convex/schema";
@@ -32,9 +32,9 @@ export const LOG_INTEGRATIONS = [
   "axiom",
   "datadog",
   "webhook",
-  "posthogLogs",
+  "postHogLogs",
 ] as const;
-export const EXC_INTEGRATIONS = ["sentry", "posthogErrorTracking"] as const;
+export const EXC_INTEGRATIONS = ["sentry", "postHogErrorTracking"] as const;
 export const AUTH_INTEGRATIONS = ["workos"] as const;
 export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = [
   "fivetran",
@@ -45,7 +45,7 @@ export type LogIntegrationConfig =
   | Infer<typeof axiomConfig>
   | Infer<typeof datadogConfig>
   | Infer<typeof webhookConfig>
-  | Infer<typeof posthogLogsConfig>;
+  | Infer<typeof postHogLogsConfig>;
 
 export type LogIntegration =
   | {
@@ -76,12 +76,12 @@ export type LogIntegration =
       } | null;
     }
   | {
-      kind: "posthogLogs";
+      kind: "postHogLogs";
       existing: {
         _id: Id<"_log_sinks">;
         _creationTime: number;
         status: SinkStatus;
-        config: Infer<typeof posthogLogsConfig>;
+        config: Infer<typeof postHogLogsConfig>;
       } | null;
     };
 
@@ -96,18 +96,18 @@ export type ExceptionReportingIntegration =
       } | null;
     }
   | {
-      kind: "posthogErrorTracking";
+      kind: "postHogErrorTracking";
       existing: {
         _id: Id<"_log_sinks">;
         _creationTime: number;
         status: SinkStatus;
-        config: Infer<typeof posthogErrorTrackingConfig>;
+        config: Infer<typeof postHogErrorTrackingConfig>;
       } | null;
     };
 
 export type ExceptionReportingIntegrationConfig =
   | Infer<typeof sentryConfig>
-  | Infer<typeof posthogErrorTrackingConfig>;
+  | Infer<typeof postHogErrorTrackingConfig>;
 
 export type AuthIntegration = {
   kind: "workos";
@@ -168,8 +168,8 @@ export function integrationToLogo(
           />
         ),
       };
-    case "posthogLogs":
-    case "posthogErrorTracking":
+    case "postHogLogs":
+    case "postHogErrorTracking":
       return {
         logo: (
           <PostHogLogo
@@ -234,8 +234,8 @@ export function integrationUsingLegacyFormat(
       return false;
     case "sentry":
       return config.version !== "2";
-    case "posthogLogs":
-    case "posthogErrorTracking":
+    case "postHogLogs":
+    case "postHogErrorTracking":
       return false;
     default: {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -324,8 +324,8 @@ export function configToUrl(config: IntegrationConfig): string {
       return `https://app.axiom.co`;
     case "webhook":
       return config.url;
-    case "posthogLogs":
-    case "posthogErrorTracking":
+    case "postHogLogs":
+    case "postHogErrorTracking":
       return config.host ?? "https://us.i.posthog.com";
     default:
       // eslint-disable-next-line no-case-declarations
@@ -359,9 +359,9 @@ export const integrationName = (kind: IntegrationType) => {
   switch (kind) {
     case "workos":
       return "WorkOS";
-    case "posthogLogs":
+    case "postHogLogs":
       return "PostHog Logs";
-    case "posthogErrorTracking":
+    case "postHogErrorTracking":
       return "PostHog Error Tracking";
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);

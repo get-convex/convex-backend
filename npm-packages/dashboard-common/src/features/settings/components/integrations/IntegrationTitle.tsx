@@ -22,7 +22,7 @@ export function IntegrationTitle({
       <Tooltip tip={description}>
         <p className="max-w-fit rounded-sm border p-1 text-xs">
           {integrationKind === "sentry" ||
-          integrationKind === "posthogErrorTracking"
+          integrationKind === "postHogErrorTracking"
             ? "Exception Reporting"
             : integrationKind === "airbyte" || integrationKind === "fivetran"
               ? "Streaming Export"
