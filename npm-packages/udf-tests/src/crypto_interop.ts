@@ -96,9 +96,22 @@ const exportKey = async (key: CryptoKey): Promise<any> => {
             ) &&
               ["spki", "pkcs8"].includes(format))
           ) {
-            // Node.js throws InvalidAccessError here, contrary to the WebCrypto spec
+            // Node.js before 24 throws InvalidAccessError here, contrary to the WebCrypto spec
             if (exception === "InvalidAccessError")
               exception = "NotSupportedError";
+          }
+          if (
+            (format === "spki" && key.type === "private") ||
+            (format === "pkcs8" && key.type === "public") ||
+            (["ECDSA", "ECDH", "Ed25519", "X25519"].includes(
+              key.algorithm.name,
+            ) &&
+              format === "raw" &&
+              key.type === "private")
+          ) {
+            // Node.js 24+ throws NotSupportedError here, contrary to the WebCrypto spec
+            if (exception === "NotSupportedError")
+              exception = "InvalidAccessError";
           }
         }
         r[format] = { exception };
