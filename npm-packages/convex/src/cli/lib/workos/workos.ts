@@ -77,7 +77,6 @@ async function resolveWorkOSCredentials(
 }> {
   // 1. Check build environment
   let clientId = process.env.WORKOS_CLIENT_ID || null;
-  let apiKey = process.env.WORKOS_API_KEY || null;
   let environmentId = process.env.WORKOS_ENVIRONMENT_ID || null;
 
   // 2. Check deployment environment as fallback
@@ -86,8 +85,8 @@ async function resolveWorkOSCredentials(
     deployment,
   );
 
+  let apiKey = deploymentEnvVars.apiKey || null;
   clientId = clientId || deploymentEnvVars.clientId;
-  apiKey = apiKey || deploymentEnvVars.apiKey;
   environmentId = environmentId || deploymentEnvVars.environmentId;
 
   // 3. If still no credentials, try provisioning (if we have appropriate auth)
