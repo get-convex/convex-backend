@@ -14,7 +14,7 @@ export function TimestampDistance({
   className?: string;
 }) {
   return (
-    <Tooltip tip={date.toLocaleString()}>
+    <Tooltip tip={date.toLocaleString(undefined, { timeZoneName: "short" })}>
       <div className={cn("text-xs text-content-secondary", className)}>
         {`${prefix} ${formatDistanceToNow(date, {
           addSuffix: true,
@@ -34,7 +34,10 @@ export function LiveTimestampDistance({
   className?: string;
 }) {
   return (
-    <Tooltip tip={date.toLocaleString()} className="truncate">
+    <Tooltip
+      tip={date.toLocaleString(undefined, { timeZoneName: "short" })}
+      className="truncate"
+    >
       <div className={cn("truncate text-xs text-content-secondary", className)}>
         {prefix} <LiveTimestampDistanceInner date={date} />
       </div>
