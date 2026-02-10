@@ -215,15 +215,19 @@ const getProps: GetServerSideProps<{
             }
           : undefined,
     };
-  } catch (e: any) {
-    const isTimeout = e.name === "AbortError";
+  } catch (e: unknown) {
+    const isFetchError = e instanceof FetchError;
+    const isTimeout = isFetchError && e.isTimeout;
+
     return {
       props: {
         accessToken: token.accessToken,
         error: {
           message: isTimeout
             ? "Request timed out connecting to Convex dashboard"
-            : e.message,
+            : isFetchError
+              ? e.message
+              : "Failed to connect to Convex dashboard",
           code: "FailedToConnect",
         },
       },
@@ -382,7 +386,19 @@ function pageNotFound(res: GetServerSidePropsContext["res"]) {
   return { props: {} };
 }
 
-export const retryingFetch = fetchRetryFactory(fetch, {
+// Custom error type for fetch failures
+class FetchError extends Error {
+  constructor(
+    message: string,
+    public readonly isTimeout: boolean = false,
+    public readonly originalError?: unknown,
+  ) {
+    super(message);
+    this.name = "FetchError";
+  }
+}
+
+const baseFetch = fetchRetryFactory(fetch, {
   retries: 2,
   retryDelay: (attempt: number, _error: any, _response: any) => {
     // immediate, 1s delay, 2s delay, 4s delay, etc.
@@ -412,3 +428,22 @@ export const retryingFetch = fetchRetryFactory(fetch, {
     return false;
   },
 });
+
+// Wrapper that ensures all errors are typed as FetchError
+export async function retryingFetch(
+  url: string,
+  options?: RequestInit,
+): Promise<Response> {
+  try {
+    return await baseFetch(url, options);
+  } catch (error) {
+    // Check if it's an abort error (timeout)
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+
+    // Get error message safely
+    const message =
+      error instanceof Error ? error.message : "Unknown error during fetch";
+
+    throw new FetchError(message, isTimeout, error);
+  }
+}
