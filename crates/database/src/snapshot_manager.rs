@@ -1,6 +1,9 @@
-use std::collections::{
-    BTreeMap,
-    VecDeque,
+use std::{
+    collections::{
+        BTreeMap,
+        VecDeque,
+    },
+    future::Future,
 };
 
 use anyhow::Context;
@@ -32,10 +35,12 @@ use indexing::{
     backend_in_memory_indexes::BackendInMemoryIndexes,
     index_registry::IndexRegistry,
 };
+use parking_lot::Mutex;
 use search::{
     TextIndexManager,
     TextIndexWriteSize,
 };
+use tokio::sync::oneshot;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -80,6 +85,7 @@ pub struct SnapshotManager {
     persisted_max_repeatable_ts: Timestamp,
     versions: VecDeque<(Timestamp, Snapshot)>,
     write_throughput_limiter: WriteThroughputLimiter,
+    waiters: Mutex<VecDeque<(Timestamp, oneshot::Sender<()>)>>,
 }
 
 #[derive(Clone)]
@@ -549,6 +555,7 @@ impl SnapshotManager {
             versions,
             persisted_max_repeatable_ts: initial_ts,
             write_throughput_limiter: WriteThroughputLimiter::new(),
+            waiters: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -586,6 +593,41 @@ impl SnapshotManager {
             .map(|(ts, ..)| *ts)
             .expect("snapshot versions empty");
         RepeatableTimestamp::new_validated(ts, RepeatableReason::SnapshotManagerLatest)
+    }
+
+    fn notify_waiters(&self) {
+        let ts = *self.latest_ts();
+        let mut waiters = self.waiters.lock();
+        let mut i = 0;
+        while i < waiters.len() {
+            if ts > waiters[i].0 || waiters[i].1.is_closed() {
+                let w = waiters.swap_remove_back(i).expect("checked above");
+                let _ = w.1.send(());
+                continue;
+            }
+            i += 1;
+        }
+    }
+
+    /// Returns a future that blocks until the snapshot manager has advanced
+    /// past the given timestamp.
+    pub fn wait_for_higher_ts(&self, target_ts: Timestamp) -> impl Future<Output = ()> + use<> {
+        // Clean up waiters that are canceled.
+        self.notify_waiters();
+
+        let receiver = if *self.latest_ts() <= target_ts {
+            let (sender, receiver) = oneshot::channel();
+            self.waiters.lock().push_back((target_ts, sender));
+            Some(receiver)
+        } else {
+            None
+        };
+
+        async move {
+            if let Some(receiver) = receiver {
+                _ = receiver.await;
+            }
+        }
     }
 
     /// While latest_ts has been part of some commit and the backend process is
@@ -712,6 +754,7 @@ impl SnapshotManager {
             self.versions.pop_front();
         }
         self.versions.push_back((ts, snapshot));
+        self.notify_waiters();
         self.write_throughput_limiter.record_write(ts, write_bytes);
     }
 

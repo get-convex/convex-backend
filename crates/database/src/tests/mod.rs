@@ -65,6 +65,7 @@ use common::{
         IndexName,
         RepeatableTimestamp,
         TableName,
+        Timestamp,
         WriteTimestamp,
     },
     value::{
@@ -106,6 +107,7 @@ use crate::{
         types::BackfillCursor,
         IndexBackfillModel,
     },
+    committer::AFTER_PENDING_WRITE_SNAPSHOT,
     database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
@@ -2567,5 +2569,213 @@ async fn test_schema_registry_takes_read_dependency(rt: TestRuntime) -> anyhow::
             .await?,
         Err(Some(validated_ts))
     );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_occ_error_includes_write_ts(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = new_test_database(rt).await;
+    let table_name: TableName = "test_table".parse()?;
+
+    // Insert a document and commit.
+    let mut tx = db.begin(Identity::system()).await?;
+    let doc_id = TestFacingModel::new(&mut tx)
+        .insert(&table_name, assert_obj!("value" => 1))
+        .await?;
+    db.commit(tx).await?;
+
+    // tx1 reads the document and writes to another table.
+    let mut tx1 = db.begin(Identity::system()).await?;
+    tx1.get(doc_id).await?;
+    TestFacingModel::new(&mut tx1)
+        .insert(&"other_table".parse()?, assert_obj!())
+        .await?;
+
+    // tx2 modifies the same document and commits, creating a conflict.
+    let mut tx2 = db.begin(Identity::system()).await?;
+    UserFacingModel::new_root_for_test(&mut tx2)
+        .replace(doc_id.into(), assert_obj!("value" => 2))
+        .await?;
+    let conflict_ts = db.commit(tx2).await?;
+
+    // tx1 should fail with an OCC error that includes the conflicting write_ts.
+    let err = db.commit(tx1).await.unwrap_err();
+    assert!(err.is_occ());
+    assert_eq!(err.occ_write_ts(), Some(u64::from(conflict_ts)));
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_wait_for_write_ts_with_pending_write(
+    rt: TestRuntime,
+    pause: PauseController,
+) -> anyhow::Result<()> {
+    let db = new_test_database(rt).await;
+    let table_name: TableName = "test_table".parse()?;
+
+    // Insert a document.
+    let mut tx = db.begin(Identity::system()).await?;
+    let doc_id = TestFacingModel::new(&mut tx)
+        .insert(&table_name, assert_obj!("value" => 1))
+        .await?;
+    db.commit(tx).await?;
+
+    // tx1 reads the document and writes.
+    let mut tx1 = db.begin(Identity::system()).await?;
+    tx1.get(doc_id).await?;
+    TestFacingModel::new(&mut tx1)
+        .insert(&"other_table".parse()?, assert_obj!())
+        .await?;
+
+    // tx2 modifies the same document.
+    let mut tx2 = db.begin(Identity::system()).await?;
+    UserFacingModel::new_root_for_test(&mut tx2)
+        .replace(doc_id.into(), assert_obj!("value" => 2))
+        .await?;
+
+    // Hold tx2's commit after persistence write but before publish.
+    let hold_guard = pause.hold(AFTER_PENDING_WRITE_SNAPSHOT);
+
+    let db_clone = db.clone();
+    let commit_fut = async move { db_clone.commit(tx2).await };
+
+    let orchestration_fut = async {
+        // Wait for tx2 to be paused at AFTER_PENDING_WRITE_SNAPSHOT.
+        let pause_guard = hold_guard.wait_for_blocked().await;
+
+        // tx1 should OCC against tx2's pending write.
+        let err = db.commit(tx1).await.unwrap_err();
+        assert!(err.is_occ());
+        let write_ts_raw = err
+            .occ_write_ts()
+            .expect("OCC error should include write_ts");
+        let write_ts = Timestamp::try_from(write_ts_raw)?;
+
+        // The write is not yet visible because tx2 hasn't published.
+        assert!(
+            *db.now_ts_for_reads() < write_ts,
+            "write_ts should not yet be observable"
+        );
+
+        // Unpause tx2 to let it publish.
+        if let Some(guard) = pause_guard {
+            guard.unpause();
+        }
+
+        // wait_for_write_ts should return once the write is published.
+        db.wait_for_write_ts(write_ts).await;
+        assert!(
+            *db.now_ts_for_reads() >= write_ts,
+            "write_ts should be observable after wait_for_write_ts"
+        );
+
+        anyhow::Ok(())
+    };
+
+    let (..) = futures::try_join!(commit_fut, orchestration_fut)?;
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_execute_with_retries_observes_write_ts(
+    rt: TestRuntime,
+    pause: PauseController,
+) -> anyhow::Result<()> {
+    let db = new_test_database(rt).await;
+    let table_name: TableName = "test_table".parse()?;
+
+    // Insert a document.
+    let mut tx = db.begin(Identity::system()).await?;
+    let doc_id = TestFacingModel::new(&mut tx)
+        .insert(&table_name, assert_obj!("value" => 1))
+        .await?;
+    db.commit(tx).await?;
+
+    // Track the begin_timestamp of the retry attempt.
+    let retry_begin_ts = Arc::new(parking_lot::Mutex::new(None));
+    let retry_begin_ts_clone = retry_begin_ts.clone();
+    let attempt_count = Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let attempt_count_clone = attempt_count.clone();
+
+    // Hold at retry_tx_loop_start to control timing.
+    let hold_guard = pause.hold("retry_tx_loop_start");
+
+    let db_clone = db.clone();
+    let retry_fut = async move {
+        db_clone
+            .execute_with_occ_retries(
+                Identity::system(),
+                FunctionUsageTracker::new(),
+                WriteSource::unknown(),
+                |tx| {
+                    let attempt_count = attempt_count_clone.clone();
+                    let retry_begin_ts = retry_begin_ts_clone.clone();
+                    async move {
+                        let attempt =
+                            attempt_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        // Read the document to create a conflict surface.
+                        tx.get(doc_id).await?;
+                        // Write to make this a mutation.
+                        TestFacingModel::new(tx)
+                            .insert(&"other_table".parse()?, assert_obj!())
+                            .await?;
+                        if attempt > 0 {
+                            *retry_begin_ts.lock() = Some(*tx.begin_timestamp());
+                        }
+                        Ok(())
+                    }
+                    .into()
+                },
+            )
+            .await
+    };
+
+    let orchestration_fut = async {
+        // Wait for the first attempt to pause at retry_tx_loop_start.
+        let first_pause_guard = hold_guard.wait_for_blocked().await;
+
+        // While the first attempt is paused, commit a conflicting write.
+        let mut tx_conflict = db.begin(Identity::system()).await?;
+        UserFacingModel::new_root_for_test(&mut tx_conflict)
+            .replace(doc_id.into(), assert_obj!("value" => 2))
+            .await?;
+        let conflict_ts = db.commit(tx_conflict).await?;
+
+        // Set up a hold for the second attempt.
+        let hold_guard2 = pause.hold("retry_tx_loop_start");
+
+        // Unpause the first attempt — it will read, commit, get OCC, wait for
+        // write_ts, then retry.
+        if let Some(guard) = first_pause_guard {
+            guard.unpause();
+        }
+
+        // Wait for the second attempt to hit the pause point.
+        let second_pause_guard = hold_guard2.wait_for_blocked().await;
+
+        // Unpause the second attempt — no more conflicts, it will succeed.
+        if let Some(guard) = second_pause_guard {
+            guard.unpause();
+        }
+
+        anyhow::Ok(conflict_ts)
+    };
+
+    let (retry_result, conflict_ts) = futures::try_join!(retry_fut, orchestration_fut)?;
+    let (_ts, _val, stats) = retry_result;
+    assert!(stats.retries >= 1, "should have retried at least once");
+
+    // The retry's begin_timestamp should be >= the conflict timestamp,
+    // meaning the retry observed the conflicting write.
+    let retry_ts = retry_begin_ts
+        .lock()
+        .expect("retry should have recorded begin_ts");
+    assert!(
+        retry_ts >= conflict_ts,
+        "retry begin_ts ({retry_ts:?}) should be >= conflict_ts ({conflict_ts:?})"
+    );
+
     Ok(())
 }

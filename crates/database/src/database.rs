@@ -1538,6 +1538,17 @@ impl<RT: Runtime> Database<RT> {
         snapshot_manager.latest_ts()
     }
 
+    /// Waits until the given write timestamp is observable for new
+    /// transactions. Used by retry loops to ensure they observe the write.
+    pub async fn wait_for_write_ts(&self, write_ts: Timestamp) {
+        // Wait for the snapshot manager to advance past write_ts, so that writes
+        // at the given timestamp are observable via now_ts_for_reads().
+        if let Ok(pred) = write_ts.pred() {
+            let fut = self.snapshot_manager.lock().wait_for_higher_ts(pred);
+            fut.await;
+        }
+    }
+
     pub async fn begin_system(&self) -> anyhow::Result<Transaction<RT>> {
         self.begin(Identity::system()).await
     }
@@ -1585,6 +1596,11 @@ impl<RT: Runtime> Database<RT> {
                             "Retrying transaction `{write_source:?}` after error: {e:#}"
                         );
                         self.runtime.wait(delay).await;
+                        if let Some(write_ts_raw) = e.occ_write_ts()
+                            && let Ok(write_ts) = Timestamp::try_from(write_ts_raw)
+                        {
+                            self.wait_for_write_ts(write_ts).await;
+                        }
                         error = Some(e);
                         continue;
                     } else {
