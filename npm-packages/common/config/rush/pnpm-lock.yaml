@@ -565,7 +565,7 @@ importers:
     dependencies:
       convex:
         specifier: workspace:*
-        version: file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
+        version: file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
     dependenciesMeta:
       convex:
         injected: true
@@ -575,7 +575,7 @@ importers:
         version: 18.19.130
       convex-test:
         specifier: ^0.0.41
-        version: 0.0.41(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4))
+        version: 0.0.41(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4))
       prettier:
         specifier: ^3.8.0
         version: 3.8.0
@@ -610,6 +610,9 @@ importers:
       prettier:
         specifier: ^3.0.0
         version: 3.6.2
+      ws:
+        specifier: 8.18.0
+        version: 8.18.0(bufferutil@4.0.9)
     devDependencies:
       '@auth0/auth0-react':
         specifier: 2.4.0
@@ -821,9 +824,6 @@ importers:
       wait-for-expect:
         specifier: ~4.0.0
         version: 4.0.0
-      ws:
-        specifier: 8.18.0
-        version: 8.18.0(bufferutil@4.0.9)
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -36251,9 +36251,9 @@ snapshots:
     dependencies:
       convex: link:../../convex
 
-  convex-test@0.0.41(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)):
+  convex-test@0.0.41(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)):
     dependencies:
-      convex: file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
+      convex: file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
 
   convex@1.16.0-alpha.2(@auth0/auth0-react@2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
@@ -36278,14 +36278,18 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4):
+  convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.8.0
+      ws: 8.18.0(bufferutil@4.0.9)
     optionalDependencies:
       '@auth0/auth0-react': 2.4.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@clerk/clerk-react': 5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   cookie-es@1.2.2: {}
 

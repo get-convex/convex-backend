@@ -242,7 +242,8 @@
   ],
   "dependencies": {
     "esbuild": "0.27.0",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "ws": "8.18.0"
   },
   "peerDependencies": {
     "@auth0/auth0-react": "^2.0.1",
@@ -337,7 +338,6 @@
     "vitest": "^3.2.4",
     "undici": "7.18.2",
     "wait-for-expect": "~4.0.0",
-    "ws": "8.18.0",
     "zod": "^3.24.0",
     "zod-to-json-schema": "^3.24.0"
   },
