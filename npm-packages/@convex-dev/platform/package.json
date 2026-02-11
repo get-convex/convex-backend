@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "npm run generateApiSpec && node version-check.mjs && zshy",
+    "prepare": "npm run build",
     "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs",
     "test": "echo 0",
     "typecheck": "tsc --noEmit",
