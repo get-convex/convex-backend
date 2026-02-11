@@ -12,6 +12,14 @@ export const stringArg = query({
   },
 });
 
+export const objectArgStrip = query({
+  args: v.object({ arg: v.string() }, { unknownKeys: "strip" }),
+
+  handler: (_, args) => {
+    return args;
+  },
+});
+
 export const returnRecord = mutation({
   args: {},
   handler: async (ctx) => {

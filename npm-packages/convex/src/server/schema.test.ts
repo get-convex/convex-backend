@@ -728,6 +728,22 @@ test("Experimental API table.[' indexes']() returns indexes", () => {
 });
 
 describe("JsonTypesFromSchema", () => {
+  test("TableDefinition includes unknownKeys for strip-mode objects", () => {
+    const table = defineTable(
+      v.object({ a: v.string() }, { unknownKeys: "strip" }),
+    ).export();
+    expect(table.documentType).toEqual({
+      type: "object",
+      value: {
+        a: {
+          fieldType: { type: "string" },
+          optional: false,
+        },
+      },
+      unknownKeys: "strip",
+    });
+  });
+
   test("TableDefinition includes field types", () => {
     const table = defineTable({
       ref: v.id("reference"),
