@@ -1865,11 +1865,12 @@ impl<RT: Runtime> Database<RT> {
         let (table_namespace, _, table_name) = table_mapping
             .get_table_metadata(tablet_id)
             .with_context(|| format!("Can’t find the table entry for the tablet id {tablet_id}"))?;
-        let component_path = component_paths
-            .get(&ComponentId::from(*table_namespace))
-            .with_context(|| {
-                format!("Can’t find the component path for table namespace {table_namespace:?}")
-            })?;
+
+        let Some(component_path) = component_paths.get(&ComponentId::from(*table_namespace)) else {
+            tracing::warn!("Ignoring orphaned table in streaming export: {table_namespace:?}");
+            return Ok(false);
+        };
+
         Ok(filter
             .selection
             .is_table_included(component_path, table_name))
