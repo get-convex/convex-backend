@@ -5,7 +5,7 @@ import { LogStatusLine } from "@common/features/logs/components/LogStatusLine";
 import { UdfLog } from "@common/lib/useLogs";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { LogLevel } from "@common/elements/LogLevel";
-import { LogOutput, messagesToString } from "@common/elements/LogOutput";
+import { LogOutput } from "@common/elements/LogOutput";
 import { msFormat } from "@common/lib/format";
 import { cn } from "@ui/cn";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -162,11 +162,7 @@ export function LogListItem({
           <LogLevel level={log.output.level} />
         )}
         {log.kind === "log" && (
-          <LogOutput
-            output={log.output}
-            secondary
-            highlight={highlight}
-          />
+          <LogOutput output={log.output} secondary highlight={highlight} />
         )}
         {log.kind === "outcome" && log.error && (
           <LogOutput
@@ -225,8 +221,5 @@ const Wrapper = React.forwardRef<
     >
       {children}
     </button>
-  );
-});
-
   );
 });

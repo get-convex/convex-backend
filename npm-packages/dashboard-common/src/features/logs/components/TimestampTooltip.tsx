@@ -18,18 +18,30 @@ export function TimestampTooltip({
   const date = new Date(timestamp);
   
   // Use Intl for robust formatting without extra bulky libs
-  const localFormatter = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
-    fractionalSecondDigits: 3,
-  });
-  
-  const utcFormatter = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
-    fractionalSecondDigits: 3,
-    timeZone: "UTC",
-  });
+  const makeFormatter = (timeZone?: string) => {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "medium",
+        fractionalSecondDigits: 3,
+        ...(timeZone ? { timeZone } : {}),
+      });
+    } catch {
+      // Fallback for browsers that don't support fractionalSecondDigits with dateStyle/timeStyle.
+      return new Intl.DateTimeFormat(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        ...(timeZone ? { timeZone } : {}),
+      });
+    }
+  };
+
+  const localFormatter = makeFormatter();
+  const utcFormatter = makeFormatter("UTC");
   
   const relativeTime = formatDistanceToNow(date, { addSuffix: true });
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
