@@ -79,6 +79,9 @@ pub fn persistence_args_from_cluster_url(
             } else {
                 cluster_url
                     .query_pairs_mut()
+                    // Remove any existing sslmode before adding disable
+                    .query_pairs_mut()
+                    .remove_matching(|(key, _)| key == "sslmode")
                     .append_pair("sslmode", "disable");
             }
             if require_leader {
