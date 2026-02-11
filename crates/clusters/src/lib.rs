@@ -76,6 +76,10 @@ pub fn persistence_args_from_cluster_url(
                 cluster_url
                     .query_pairs_mut()
                     .append_pair("sslmode", "require");
+            } else {
+                cluster_url
+                    .query_pairs_mut()
+                    .append_pair("sslmode", "disable");
             }
             if require_leader {
                 cluster_url
