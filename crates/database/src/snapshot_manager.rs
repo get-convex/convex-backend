@@ -18,7 +18,11 @@ use common::{
         DocumentUpdateRef,
         ResolvedDocument,
     },
-    knobs::MAX_TRANSACTION_WINDOW,
+    knobs::{
+        MAX_BYTES_WRITTEN_PER_SECOND,
+        MAX_TRANSACTION_WINDOW,
+        WRITE_THROUGHPUT_WINDOW,
+    },
     runtime::block_in_place,
     types::{
         DatabaseIndexUpdate,
@@ -759,8 +763,17 @@ impl SnapshotManager {
     }
 
     pub fn check_write_throughput_limit(&self) -> anyhow::Result<()> {
-        // TODO: Return rate limited error once we are confident in knob values.
-        self.write_throughput_limiter.check_limit();
+        if !self.write_throughput_limiter.check_limit() {
+            anyhow::bail!(ErrorMetadata::rate_limited(
+                "TooManyWrites",
+                format!(
+                    "Too many writes per second. Your deployment is limited to {} writes per \
+                     {}ms. Reduce your write rate.",
+                    *MAX_BYTES_WRITTEN_PER_SECOND,
+                    WRITE_THROUGHPUT_WINDOW.as_millis(),
+                )
+            ));
+        }
         Ok(())
     }
 

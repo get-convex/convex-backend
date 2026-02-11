@@ -12,7 +12,10 @@ use common::{
     types::FunctionCaller,
     RequestId,
 };
-use errors::ErrorMetadataAnyhowExt;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use events::{
     testing::BasicTestUsageEventLogger,
     usage::{
@@ -290,5 +293,21 @@ async fn test_multiple_inserts_dont_occ(
     };
     let (result, ()) = futures::try_join!(fut1, fut2)?;
     assert_eq!(result["an"], "object");
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_mutation_write_throughput_limit_exceeded(rt: TestRuntime) -> anyhow::Result<()> {
+    unsafe { std::env::set_var("MAX_BYTES_WRITTEN_PER_SECOND", "0") };
+
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+
+    let err = insert_object(&application).await.unwrap_err();
+    assert!(err.is_rate_limited());
+    assert_eq!(
+        err.downcast::<ErrorMetadata>().unwrap().short_msg,
+        "TooManyWrites"
+    );
     Ok(())
 }

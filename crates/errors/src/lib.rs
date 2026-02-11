@@ -453,6 +453,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::Overloaded
     }
 
+    pub fn is_rate_limited(&self) -> bool {
+        self.code == ErrorCode::RateLimited
+    }
+
     pub fn is_operational_internal_server_error(&self) -> bool {
         self.code == ErrorCode::OperationalInternalServerError
     }
@@ -701,6 +705,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_bad_request(&self) -> bool;
     fn is_not_found(&self) -> bool;
     fn is_overloaded(&self) -> bool;
+    fn is_rate_limited(&self) -> bool;
     fn is_operational_internal_server_error(&self) -> bool;
     fn is_rejected_before_execution(&self) -> bool;
     fn is_forbidden(&self) -> bool;
@@ -811,6 +816,13 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_overloaded(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_overloaded();
+        }
+        false
+    }
+
+    fn is_rate_limited(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_rate_limited();
         }
         false
     }
