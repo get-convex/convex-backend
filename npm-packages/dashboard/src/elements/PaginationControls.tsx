@@ -26,6 +26,7 @@ interface CursorPaginationControlsProps {
   canGoPrevious: boolean;
   className?: string;
   showPageSize?: boolean;
+  pageSizeOptions?: readonly Option<number>[];
 }
 
 interface CursorPaginationControlsPropsWithDiscriminator
@@ -60,6 +61,7 @@ export function PaginationControls(props: PaginationControlsProps) {
       canGoPrevious,
       className,
       showPageSize,
+      pageSizeOptions,
     } = props as CursorPaginationControlsPropsWithDiscriminator;
     return (
       <CursorPaginationControls
@@ -72,6 +74,7 @@ export function PaginationControls(props: PaginationControlsProps) {
         canGoPrevious={canGoPrevious}
         className={className}
         showPageSize={showPageSize}
+        pageSizeOptions={pageSizeOptions}
       />
     );
   }
@@ -161,7 +164,19 @@ function CursorPaginationControls({
   canGoPrevious,
   className = "",
   showPageSize = true,
+  pageSizeOptions,
 }: CursorPaginationControlsProps) {
+  // Use provided options or default to PAGE_SIZE_OPTIONS
+  let options = pageSizeOptions || PAGE_SIZE_OPTIONS;
+
+  // If current pageSize isn't in the options list, insert it in sorted order
+  if (!options.some((opt) => opt.value === pageSize)) {
+    options = [
+      ...options,
+      { label: pageSize.toString(), value: pageSize },
+    ].sort((a, b) => a.value - b.value);
+  }
+
   return (
     <div className={cn("flex items-center justify-center gap-2", className)}>
       {/* Page size selector - only show if showPageSize is true */}
@@ -173,7 +188,7 @@ function CursorPaginationControls({
           <Combobox
             label="Page size"
             labelHidden
-            options={PAGE_SIZE_OPTIONS}
+            options={options}
             selectedOption={pageSize}
             setSelectedOption={(newValue) => {
               if (newValue) {

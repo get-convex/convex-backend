@@ -6,8 +6,8 @@ import {
   ProjectDetails,
   operations,
 } from "generatedApi";
-import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useDebounce } from "react-use";
+import { useProjectsPageSize } from "hooks/useProjectsPageSize";
 import { createInfiniteHook } from "swr-openapi";
 import { useAuthHeader } from "hooks/fetching";
 import flatMap from "lodash/flatMap";
@@ -59,7 +59,7 @@ export function usePaginatedProjects(
   },
   refreshInterval?: SWRConfiguration["refreshInterval"],
 ): (PaginatedProjectsResponse & { isLoading: boolean }) | undefined {
-  const [pageSize] = useGlobalLocalStorage("projectsPageSize", 25);
+  const { pageSize } = useProjectsPageSize();
 
   const queryParams = useMemo(
     () =>
@@ -128,7 +128,7 @@ export function useProjects(
  */
 export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
   const authHeader = useAuthHeader();
-  const [pageSize] = useGlobalLocalStorage("projectsPageSize", 25);
+  const { pageSize } = useProjectsPageSize();
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   // Debounce search query (300ms delay)

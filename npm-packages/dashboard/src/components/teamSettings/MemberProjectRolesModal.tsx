@@ -20,7 +20,10 @@ import sortBy from "lodash/sortBy";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { PaginationControls } from "elements/PaginationControls";
 import { useDebounce } from "react-use";
-import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
+import {
+  useProjectsPageSize,
+  PROJECT_PAGE_SIZES,
+} from "hooks/useProjectsPageSize";
 import { ProjectLink } from "./AuditLogItem";
 
 export function MemberProjectRolesModal({
@@ -55,7 +58,7 @@ export function MemberProjectRolesModal({
   const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
     undefined,
   ]);
-  const [pageSize, setPageSize] = useGlobalLocalStorage("projectsPageSize", 25);
+  const { pageSize, setPageSize } = useProjectsPageSize();
 
   // Debounce search query (300ms delay)
   useDebounce(
@@ -233,6 +236,7 @@ export function MemberProjectRolesModal({
             onPreviousPage={handlePrevPage}
             onNextPage={handleNextPage}
             canGoPrevious={cursorHistory.length > 1}
+            pageSizeOptions={PROJECT_PAGE_SIZES}
           />
         )}
         <p className="mt-1 text-xs text-content-secondary">
