@@ -470,10 +470,12 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
         let constraints = PoolConstraints::new(0, *MYSQL_MAX_CONNECTIONS).unwrap();
         let pool_opts = PoolOpts::new()
             .with_constraints(constraints)
+            // Jitter max connection lifetime with 20%. This is split between
+            // the ttl_check_interval and the per-connection jitter.
+            .with_ttl_check_interval(*MYSQL_MAX_CONNECTION_LIFETIME / 10)
             .with_inactive_connection_ttl(*MYSQL_INACTIVE_CONNECTION_LIFETIME)
             .with_abs_conn_ttl(Some(*MYSQL_MAX_CONNECTION_LIFETIME))
-            // Jitter max connection lifetime with 20%.
-            .with_abs_conn_ttl_jitter(Some(*MYSQL_MAX_CONNECTION_LIFETIME / 5))
+            .with_abs_conn_ttl_jitter(Some(*MYSQL_MAX_CONNECTION_LIFETIME / 10))
             .with_reset_connection(false); // persist prepared statements
         let opts = OptsBuilder::from_opts(Opts::from_str(url.as_ref())?).pool_opts(pool_opts);
         Ok(Self {
