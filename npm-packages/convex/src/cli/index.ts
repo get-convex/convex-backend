@@ -27,6 +27,7 @@ import inquirer from "inquirer";
 import inquirerSearchList from "inquirer-search-list";
 import { format } from "util";
 import { functionSpec } from "./functionSpec.js";
+import { insights } from "./insights.js";
 import { disableLocalDeployments } from "./disableLocalDev.js";
 import { mcp } from "./mcp.js";
 import dns from "node:dns";
@@ -159,6 +160,7 @@ async function main() {
     .addCommand(networkTest, { hidden: true })
     .addCommand(integration, { hidden: true })
     .addCommand(functionSpec)
+    .addCommand(insights)
     .addCommand(disableLocalDeployments)
     .addCommand(mcp)
     .addHelpCommand("help <command>", "Show help for given <command>")

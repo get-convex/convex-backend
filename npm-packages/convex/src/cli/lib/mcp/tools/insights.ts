@@ -1,17 +1,9 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
-import {
-  loadSelectedDeploymentCredentials,
-  fetchTeamAndProject,
-} from "../../api.js";
+import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
-import { bigBrainFetch, provisionHost } from "../../utils/utils.js";
 import { deploymentDashboardUrlPage } from "../../../lib/dashboard.js";
-
-const ROOT_COMPONENT_PATH = "-root-component-";
-// Query ID for the insights dataset (shared with dashboard/src/api/insights.ts).
-const INSIGHTS_QUERY_ID = "9ab3b74e-a725-480b-88a6-43e6bd70bd82";
-const MAX_RECENT_EVENTS = 5;
+import { fetchInsights } from "../../insights.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -103,24 +95,6 @@ const outputSchema = z.object({
   dashboardUrl: z.string(),
 });
 
-// Single source of truth: sorted from most to least severe.
-const insightKinds: { kind: string; severity: "error" | "warning" }[] = [
-  { kind: "documentsReadLimit", severity: "error" },
-  { kind: "bytesReadLimit", severity: "error" },
-  { kind: "occFailedPermanently", severity: "error" },
-  { kind: "documentsReadThreshold", severity: "warning" },
-  { kind: "bytesReadThreshold", severity: "warning" },
-  { kind: "occRetried", severity: "warning" },
-];
-
-const insightKindMap = new Map(
-  insightKinds.map((ik, i) => [ik.kind, { severity: ik.severity, order: i }]),
-);
-
-function orderForKind(kind: string): number {
-  return insightKindMap.get(kind)?.order ?? insightKinds.length;
-}
-
 const description = `
 Fetch health insights for a Convex deployment over the last 72 hours.
 
@@ -190,111 +164,9 @@ export const InsightsTool: ConvexTool<typeof inputSchema, typeof outputSchema> =
         });
       }
 
-      const { teamId } = await fetchTeamAndProject(ctx, deploymentName);
-
-      const now = new Date();
-      const hoursAgo72 = new Date(now.getTime() - 72 * 60 * 60 * 1000);
-      const fromDate = hoursAgo72.toISOString().split("T")[0];
-      const toDate = now.toISOString().split("T")[0];
-
-      const queryParams = new URLSearchParams({
-        queryId: INSIGHTS_QUERY_ID,
-        deploymentName,
-        from: fromDate,
-        to: toDate,
+      const insights = await fetchInsights(ctx, deploymentName, {
+        includeRecentEvents: true,
       });
-      const fetch = await bigBrainFetch(ctx);
-      const res = await fetch(
-        `dashboard/teams/${teamId}/usage/query?${queryParams.toString()}`,
-        {
-          method: "GET",
-          headers: { Origin: provisionHost },
-        },
-      );
-      const rawData = (await res.json()) as string[][];
-
-      type Insight = z.infer<typeof insightSchema>;
-      const insights: Insight[] = rawData.flatMap((row): Insight[] => {
-        const kind = row[0];
-        const functionId = row[1];
-        const componentPath = row[2] === ROOT_COMPONENT_PATH ? null : row[2];
-        const details = JSON.parse(row[3]);
-        const recentEvents = (details.recentEvents as any[]).slice(
-          0,
-          MAX_RECENT_EVENTS,
-        );
-        const common = { functionId, componentPath };
-
-        switch (kind) {
-          case "occRetried":
-            return [
-              {
-                kind,
-                severity: "warning" as const,
-                ...common,
-                occCalls: details.occCalls,
-                occTableName: details.occTableName,
-                recentEvents,
-              },
-            ];
-          case "occFailedPermanently":
-            return [
-              {
-                kind,
-                severity: "error" as const,
-                ...common,
-                occCalls: details.occCalls,
-                occTableName: details.occTableName,
-                recentEvents,
-              },
-            ];
-          case "bytesReadLimit":
-            return [
-              {
-                kind,
-                severity: "error" as const,
-                ...common,
-                count: details.count,
-                recentEvents,
-              },
-            ];
-          case "bytesReadThreshold":
-            return [
-              {
-                kind,
-                severity: "warning" as const,
-                ...common,
-                count: details.count,
-                recentEvents,
-              },
-            ];
-          case "documentsReadLimit":
-            return [
-              {
-                kind,
-                severity: "error" as const,
-                ...common,
-                count: details.count,
-                recentEvents,
-              },
-            ];
-          case "documentsReadThreshold":
-            return [
-              {
-                kind,
-                severity: "warning" as const,
-                ...common,
-                count: details.count,
-                recentEvents,
-              },
-            ];
-          default:
-            // Unknown insight kind — skip silently
-            return [];
-        }
-      });
-
-      insights.sort((a, b) => orderForKind(a.kind) - orderForKind(b.kind));
 
       const errorCount = insights.filter((i) => i.severity === "error").length;
       const warningCount = insights.filter(
@@ -319,6 +191,13 @@ export const InsightsTool: ConvexTool<typeof inputSchema, typeof outputSchema> =
         "/insights",
       );
 
-      return { insights, summary, dashboardUrl };
+      // Cast needed: fetchInsights returns Insight[] with optional recentEvents,
+      // but the zod schema requires them. They're always present when
+      // includeRecentEvents is true.
+      return {
+        insights: insights as z.infer<typeof insightSchema>[],
+        summary,
+        dashboardUrl,
+      };
     },
   };
