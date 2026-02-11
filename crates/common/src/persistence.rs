@@ -58,6 +58,19 @@ pub struct DocumentLogEntry {
     pub prev_ts: Option<Timestamp>,
 }
 
+impl DocumentLogEntry {
+    pub fn size(&self) -> u64 {
+        let mut size = self.ts.size() + self.id.size();
+        if let Some(ref value) = self.value {
+            size += value.size();
+        }
+        if let Some(prev_ts) = self.prev_ts {
+            size += prev_ts.size();
+        }
+        size as u64
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PersistenceIndexEntry {
     pub ts: Timestamp,
@@ -79,6 +92,14 @@ impl PersistenceIndexEntry {
                 },
             },
         }
+    }
+
+    pub fn size(&self) -> u64 {
+        let mut size = self.ts.size() + self.index_id.size() + self.key.0.len();
+        if let Some(value) = self.value {
+            size += value.size();
+        }
+        size as u64
     }
 }
 

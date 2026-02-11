@@ -88,6 +88,10 @@ impl Timestamp {
         }
     }
 
+    pub fn size(&self) -> usize {
+        8
+    }
+
     #[cfg(any(test, feature = "testing"))]
     pub fn must(value: i32) -> Self {
         if value < Self::MIN.0 as i32 || value as u64 > Self::MAX.0 {
