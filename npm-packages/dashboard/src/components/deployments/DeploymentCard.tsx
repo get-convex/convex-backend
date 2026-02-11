@@ -13,7 +13,7 @@ import {
   SignalIcon,
   WrenchIcon,
 } from "@heroicons/react/24/outline";
-import { GlobeIcon, Pencil2Icon } from "@radix-ui/react-icons";
+import { Pencil2Icon } from "@radix-ui/react-icons";
 
 export function DeploymentCard({
   deployment,
@@ -111,11 +111,7 @@ function DeploymentIcon({
   deployment: PlatformDeploymentResponse;
 }) {
   if (deployment.deploymentType === "dev") {
-    return deployment.kind === "local" ? (
-      <CommandLineIcon className="size-3.5" />
-    ) : (
-      <GlobeIcon className="size-3.5" />
-    );
+    return <CommandLineIcon className="size-3.5" />;
   }
   if (deployment.deploymentType === "prod") {
     return <SignalIcon className="size-3.5" />;

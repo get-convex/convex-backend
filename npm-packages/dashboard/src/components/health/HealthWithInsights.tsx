@@ -18,6 +18,10 @@ import {
   useInsightsPeriod,
   getInsightPageIdentifier,
 } from "api/insights";
+import { useCurrentDeployment, useDeploymentRegions } from "api/deployments";
+import { useCurrentTeam, useTeamMembers } from "api/teams";
+import { useCurrentProject } from "api/projects";
+import { useListCloudBackups } from "api/backups";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
@@ -65,6 +69,32 @@ export function HealthWithInsights() {
 
   const insights = useInsights();
   const { from } = useInsightsPeriod();
+
+  // Get deployment info for summary
+  const deployment = useCurrentDeployment();
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
+  const backups = useListCloudBackups(team?.id || 0);
+  const teamMembers = useTeamMembers(team?.id);
+  const { regions } = useDeploymentRegions(team?.id);
+
+  // Get the most recent backup for this deployment
+  const lastBackupTime = useMemo(() => {
+    if (!backups || !deployment || deployment.kind !== "cloud") {
+      return undefined;
+    }
+    const deploymentsBackups = backups.filter(
+      (b) => b.sourceDeploymentId === deployment.id && b.state === "complete",
+    );
+    return deploymentsBackups.length > 0
+      ? deploymentsBackups[0].requestedTime
+      : null;
+  }, [backups, deployment]);
+
+  // Get creator info
+  const creator = teamMembers?.find((tm) => tm.id === deployment?.creator);
+  const creatorId = deployment?.creator || undefined;
+  const creatorName = creator?.name || creator?.email || undefined;
 
   const selectedInsight = insights?.find(
     (insight) => getInsightPageIdentifier(insight) === page,
@@ -207,7 +237,15 @@ export function HealthWithInsights() {
         PageWrapper={PageWrapper}
         flags={{
           healthPageFunctionCallsChart: flags.healthPageFunctionCallsChart,
+          healthSummaryLineItems: flags.healthSummaryLineItems,
         }}
+        deployment={deployment}
+        teamSlug={team?.slug}
+        projectSlug={project?.slug}
+        lastBackupTime={lastBackupTime}
+        creatorId={creatorId}
+        creatorName={creatorName}
+        regions={regions}
       />
     </InsightsContext.Provider>
   );

@@ -3,12 +3,7 @@ import {
   SignalIcon,
   WrenchIcon,
 } from "@heroicons/react/24/outline";
-import {
-  CaretSortIcon,
-  GearIcon,
-  GlobeIcon,
-  Pencil2Icon,
-} from "@radix-ui/react-icons";
+import { CaretSortIcon, GearIcon, Pencil2Icon } from "@radix-ui/react-icons";
 import { useCurrentDeployment, useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useProfile } from "api/profile";
@@ -320,11 +315,7 @@ export function DeploymentLabel({
           {showType && (
             <>
               {deployment.deploymentType === "dev" ? (
-                deployment.kind === "local" ? (
-                  <CommandLineIcon className="size-4 min-w-4" />
-                ) : (
-                  <GlobeIcon className="size-4 min-w-4" />
-                )
+                <CommandLineIcon className="size-4 min-w-4" />
               ) : deployment.deploymentType === "prod" ? (
                 <SignalIcon className="size-4 min-w-4" />
               ) : deployment.deploymentType === "preview" ? (
