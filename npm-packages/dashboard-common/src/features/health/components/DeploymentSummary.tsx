@@ -250,42 +250,44 @@ export function DeploymentSummary({
             )}
 
             {/* Convex Version */}
-            <div className="flex items-center gap-2">
-              <Tooltip tip="Convex package version">
-                <CubeIcon
-                  className="size-4 shrink-0 text-content-secondary"
-                  aria-label="Convex package version"
-                />
-              </Tooltip>
-              <div className="flex items-center">
-                <span className="text-sm text-content-primary">
-                  Convex {serverVersion}
-                </span>
-                {!hasUpdate && (
-                  <Button
-                    tip={`A ${
-                      serverVersion && latestVersion
-                        ? latestVersion.split(".")[0] !==
-                          serverVersion.split(".")[0]
-                          ? "major"
-                          : latestVersion.split(".")[1] !==
-                              serverVersion.split(".")[1]
-                            ? "minor"
-                            : "patch"
-                        : ""
-                    } update is available for Convex (${serverVersion} → ${latestVersion})`}
-                    size="xs"
-                    inline
-                    aria-label="Convex NPM Package Upgrade Available"
-                    href="https://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog"
-                    target="_blank"
-                    className="h-[1.25rem] text-content-link"
-                  >
-                    <div>({latestVersion} available)</div>
-                  </Button>
-                )}
+            {lastPushEvent && (
+              <div className="flex items-center gap-2">
+                <Tooltip tip="Convex package version">
+                  <CubeIcon
+                    className="size-4 shrink-0 text-content-secondary"
+                    aria-label="Convex package version"
+                  />
+                </Tooltip>
+                <div className="flex items-center">
+                  <span className="text-sm text-content-primary">
+                    Convex {serverVersion}
+                  </span>
+                  {hasUpdate && (
+                    <Button
+                      tip={`A ${
+                        serverVersion && latestVersion
+                          ? latestVersion.split(".")[0] !==
+                            serverVersion.split(".")[0]
+                            ? "major"
+                            : latestVersion.split(".")[1] !==
+                                serverVersion.split(".")[1]
+                              ? "minor"
+                              : "patch"
+                          : ""
+                      } update is available for Convex (${serverVersion} → ${latestVersion})`}
+                      size="xs"
+                      inline
+                      aria-label="Convex NPM Package Upgrade Available"
+                      href="https://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog"
+                      target="_blank"
+                      className="h-[1.25rem] text-content-link"
+                    >
+                      <div>({latestVersion} available)</div>
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Row 3: Last Deployed + Last Backup */}
