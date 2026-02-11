@@ -22,7 +22,10 @@ import {
   bigBrainEnableFeatureMetadata,
   projectHasExistingCloudDev,
 } from "../localDeployment/bigBrain.js";
-import type { paths as CliManagementPaths } from "../../generatedApi.js";
+import type {
+  paths as CliManagementPaths,
+  TeamResponse,
+} from "../../generatedApi.js";
 import createClient from "openapi-fetch";
 
 const retryingFetch = fetchRetryFactory(fetch);
@@ -303,7 +306,7 @@ export async function validateOrSelectTeam(
   ctx: Context,
   teamSlug: string | undefined,
   promptMessage: string,
-): Promise<{ teamSlug: string; chosen: boolean }> {
+): Promise<{ team: TeamResponse; chosen: boolean }> {
   const teams = (await typedBigBrainClient(ctx).GET("/teams")).data!;
   if (teams.length === 0) {
     await ctx.crash({
@@ -317,29 +320,37 @@ export async function validateOrSelectTeam(
     // Prompt the user to select if they belong to more than one team.
     switch (teams.length) {
       case 1:
-        return { teamSlug: teams[0].slug, chosen: false };
-      default:
-        return {
-          teamSlug: await promptSearch(ctx, {
-            message: promptMessage,
-            choices: teams.map((team) => ({
-              name: `${team.name} (${team.slug})`,
-              value: team.slug,
-            })),
-          }),
-          chosen: true,
-        };
+        return { team: teams[0], chosen: false };
+      default: {
+        const teamSlug = await promptSearch(ctx, {
+          message: promptMessage,
+          choices: teams.map((team) => ({
+            name: `${team.name} (${team.slug})`,
+            value: team.slug,
+          })),
+        });
+        const team = teams.find((team) => team.slug === teamSlug);
+        if (!team) {
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `Error: Failed to select team`,
+          });
+        }
+        return { team, chosen: true };
+      }
     }
   } else {
     // Validate the chosen team.
-    if (!teams.find((team) => team.slug === teamSlug)) {
-      await ctx.crash({
+    const team = teams.find((team) => team.slug === teamSlug);
+    if (!team) {
+      return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
         printedMessage: `Error: Team ${teamSlug} not found, fix the --team option or remove it`,
       });
     }
-    return { teamSlug, chosen: false };
+    return { team, chosen: false };
   }
 }
 
@@ -413,6 +424,43 @@ export async function selectDevDeploymentType(
     ],
   });
   return { devDeployment };
+}
+
+export async function selectRegionOrUseDefault(
+  ctx: Context,
+  selectedTeam: TeamResponse,
+): Promise<string | null> {
+  if (!process.stdin.isTTY) {
+    // Use the team default in non-interactive terminals
+    return selectedTeam.defaultRegion ?? null;
+  }
+  const regionsResponse = (
+    await typedPlatformClient(ctx).GET(
+      "/teams/{team_id}/list_deployment_regions",
+      {
+        params: {
+          path: { team_id: `${selectedTeam.id}` },
+        },
+      },
+    )
+  ).data!;
+  const selectedRegionName =
+    selectedTeam.defaultRegion ??
+    (await promptOptions(ctx, {
+      message: "Dev deployment region:",
+      choices: regionsResponse.items
+        .filter((item) => Boolean(item.available))
+        .map((item) => ({
+          name: item.displayName,
+          value: item.name,
+        })),
+    }));
+  if (!selectedTeam.defaultRegion) {
+    logMessage(
+      `Configure a default region for your team at ${chalkStderr.bold(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`,
+    );
+  }
+  return selectedRegionName;
 }
 
 export async function hasProject(

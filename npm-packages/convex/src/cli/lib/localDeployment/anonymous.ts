@@ -444,7 +444,7 @@ export async function handleLinkToProject(
     const { projectSlug: newProjectSlug } = await createProject(ctx, {
       teamSlug: args.teamSlug,
       projectName,
-      deploymentTypeToProvision: null,
+      deploymentToProvision: null,
     });
     projectSlug = newProjectSlug;
   }

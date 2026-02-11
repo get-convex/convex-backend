@@ -30,6 +30,7 @@ import {
   hasProjects,
   logAndHandleFetchError,
   selectDevDeploymentType,
+  selectRegionOrUseDefault,
   validateOrSelectProject,
   validateOrSelectTeam,
 } from "./lib/utils/utils.js";
@@ -540,7 +541,7 @@ async function selectNewProject(
     defaultProjectName?: string | undefined;
   },
 ) {
-  const { teamSlug: selectedTeam, chosen: didChooseBetweenTeams } =
+  const { team: selectedTeam, chosen: didChooseBetweenTeams } =
     await validateOrSelectTeam(ctx, config.team, "Team:");
   let projectName: string = config.project || cwd;
   let choseProjectInteractively = false;
@@ -555,7 +556,7 @@ async function selectNewProject(
   const { devDeployment } = await selectDevDeploymentType(ctx, {
     chosenConfiguration,
     newOrExisting: "new",
-    teamSlug: selectedTeam,
+    teamSlug: selectedTeam.slug,
     userHasChosenSomethingInteractively:
       didChooseBetweenTeams || choseProjectInteractively,
     projectSlug: undefined,
@@ -567,14 +568,27 @@ async function selectNewProject(
         : undefined,
   });
 
+  const region =
+    devDeployment === "cloud"
+      ? await selectRegionOrUseDefault(ctx, selectedTeam)
+      : null;
+
   showSpinner("Creating new Convex project...");
+
+  const deploymentToProvision =
+    devDeployment === "cloud"
+      ? {
+          deploymentType: "dev" as const,
+          region,
+        }
+      : null;
 
   let projectSlug, teamSlug, projectsRemaining;
   try {
     ({ projectSlug, teamSlug, projectsRemaining } = await createProject(ctx, {
-      teamSlug: selectedTeam,
+      teamSlug: selectedTeam.slug,
       projectName,
-      deploymentTypeToProvision: devDeployment === "local" ? "prod" : "dev",
+      deploymentToProvision,
     }));
   } catch (err) {
     logFailure("Unable to create project.");
@@ -620,11 +634,10 @@ async function selectExistingProject(
   projectSlug: string;
   devDeployment: "cloud" | "local";
 }> {
-  const { teamSlug, chosen } = await validateOrSelectTeam(
-    ctx,
-    config.team,
-    "Team:",
-  );
+  const {
+    team: { slug: teamSlug },
+    chosen,
+  } = await validateOrSelectTeam(ctx, config.team, "Team:");
 
   const projectSlug = await validateOrSelectProject(
     ctx,

@@ -33,18 +33,21 @@ export type Project = {
 type AdminKey = string;
 
 /**
- * Create a new project. If `deploymentTypeToProvision` is specified, also provision a deployment for the project.
+ * Create a new project. If `deploymentToProvision` is specified, also provision a deployment for the project.
  */
 export async function createProject(
   ctx: Context,
   {
     teamSlug: selectedTeamSlug,
     projectName,
-    deploymentTypeToProvision,
+    deploymentToProvision,
   }: {
     teamSlug: string;
     projectName: string;
-    deploymentTypeToProvision: "prod" | "dev" | null;
+    deploymentToProvision: {
+      deploymentType: "prod" | "dev";
+      region: string | null;
+    } | null;
   },
 ): Promise<{
   projectSlug: string;
@@ -54,7 +57,7 @@ export async function createProject(
   const provisioningArgs = {
     team: selectedTeamSlug,
     projectName,
-    deploymentType: deploymentTypeToProvision,
+    ...deploymentToProvision,
   };
   const data = await bigBrainAPI({
     ctx,

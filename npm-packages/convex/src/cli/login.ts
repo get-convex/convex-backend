@@ -200,7 +200,9 @@ async function handleLinkingDeployments(
       return;
     }
 
-    const { teamSlug } = await validateOrSelectTeam(
+    const {
+      team: { slug: teamSlug },
+    } = await validateOrSelectTeam(
       ctx,
       undefined,
       "Choose a team for your deployments:",
@@ -284,7 +286,9 @@ async function handleLinkingDeployments(
         value: d.deploymentName,
       })),
     });
-    const { teamSlug } = await validateOrSelectTeam(
+    const {
+      team: { slug: teamSlug },
+    } = await validateOrSelectTeam(
       ctx,
       undefined,
       "Choose a team for your deployment:",
