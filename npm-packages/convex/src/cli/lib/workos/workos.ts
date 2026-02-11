@@ -75,19 +75,37 @@ async function resolveWorkOSCredentials(
     environmentId: string | null;
   };
 }> {
-  // 1. Check build environment
-  let clientId = process.env.WORKOS_CLIENT_ID || null;
-  let environmentId = process.env.WORKOS_ENVIRONMENT_ID || null;
-
-  // 2. Check deployment environment as fallback
   const deploymentEnvVars = await getWorkOSEnvVarsFromDeployment(
     ctx,
     deployment,
   );
 
-  let apiKey = deploymentEnvVars.apiKey || null;
-  clientId = clientId || deploymentEnvVars.clientId;
-  environmentId = environmentId || deploymentEnvVars.environmentId;
+  let clientId: string | null;
+  let apiKey: string | null;
+  let environmentId: string | null;
+
+  if (workosDeploymentType === "dev") {
+    // For dev: build environment (.env.local) takes precedence so mismatches
+    // with the deployment are caught by ensureDeploymentHasWorkOSCredentials.
+    clientId =
+      process.env.WORKOS_CLIENT_ID || deploymentEnvVars.clientId || null;
+    apiKey = deploymentEnvVars.apiKey || null;
+    environmentId =
+      process.env.WORKOS_ENVIRONMENT_ID ||
+      deploymentEnvVars.environmentId ||
+      null;
+  } else {
+    // For prod/preview: deployment credentials are authoritative. This avoids
+    // .env.local dev values overriding prod credentials and triggering a
+    // spurious mismatch error during `npx convex deploy`.
+    clientId =
+      deploymentEnvVars.clientId || process.env.WORKOS_CLIENT_ID || null;
+    apiKey = deploymentEnvVars.apiKey || null;
+    environmentId =
+      deploymentEnvVars.environmentId ||
+      process.env.WORKOS_ENVIRONMENT_ID ||
+      null;
+  }
 
   // 3. If still no credentials, try provisioning (if we have appropriate auth)
   if (!clientId || !apiKey) {
