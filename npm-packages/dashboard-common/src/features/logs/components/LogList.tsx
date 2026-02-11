@@ -119,8 +119,8 @@ export function LogList({
     undefined,
   );
   const [selectedRange, setSelectedRange] = useState<{
-    startIndex: number;
-    endIndex: number;
+    startKey: string;
+    endKey: string;
   } | null>(null);
 
   // Ref to the virtualized list for programmatic scrolling
@@ -219,13 +219,17 @@ export function LogList({
 
   const normalizedSelectedRange = useMemo(() => {
     if (!selectedRange) return null;
-    const startIndex = Math.min(
-      selectedRange.startIndex,
-      selectedRange.endIndex,
+    const startIndex = interleavedLogs.findIndex(
+      (log) => getLogKey(log) === selectedRange.startKey,
     );
-    const endIndex = Math.max(selectedRange.startIndex, selectedRange.endIndex);
-    return { startIndex, endIndex };
-  }, [selectedRange]);
+    const endIndex = interleavedLogs.findIndex(
+      (log) => getLogKey(log) === selectedRange.endKey,
+    );
+    if (startIndex === -1 || endIndex === -1) return null;
+    const normalizedStart = Math.min(startIndex, endIndex);
+    const normalizedEnd = Math.max(startIndex, endIndex);
+    return { startIndex: normalizedStart, endIndex: normalizedEnd };
+  }, [interleavedLogs, selectedRange]);
 
   const selectedLogsForCopy = useMemo(() => {
     if (!normalizedSelectedRange) return [];
@@ -234,6 +238,12 @@ export function LogList({
       normalizedSelectedRange.endIndex + 1,
     );
   }, [interleavedLogs, normalizedSelectedRange]);
+
+  useEffect(() => {
+    if (selectedRange && !normalizedSelectedRange) {
+      setSelectedRange(null);
+    }
+  }, [normalizedSelectedRange, selectedRange]);
 
   // Use the sophisticated clipboard hook
   useLogsClipboard(interleavedLogs, outerRef, selectedLogsForCopy);
@@ -361,9 +371,9 @@ function WindowedLogList({
   onScroll: (e: ListOnScrollProps) => void;
   setShownLog(shown: InterleavedLog | undefined): void;
   setSelectedRange: React.Dispatch<
-    React.SetStateAction<{ startIndex: number; endIndex: number } | null>
+    React.SetStateAction<{ startKey: string; endKey: string } | null>
   >;
-  selectedRange: { startIndex: number; endIndex: number } | null;
+  selectedRange: { startKey: string; endKey: string } | null;
   hasFilters: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
@@ -459,9 +469,9 @@ type LogItemProps = {
     setClearedLogs: (clearedLogs: number[]) => void;
     setShownLog(shown: InterleavedLog | undefined): void;
     setSelectedRange: React.Dispatch<
-      React.SetStateAction<{ startIndex: number; endIndex: number } | null>
+      React.SetStateAction<{ startKey: string; endKey: string } | null>
     >;
-    selectedRange: { startIndex: number; endIndex: number } | null;
+    selectedRange: { startKey: string; endKey: string } | null;
     clearedLogs: number[];
     selectedLog?: InterleavedLog;
     hitBoundary?: "top" | "bottom" | null;
@@ -494,31 +504,41 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
   const logKey = getLogKey(log);
   const normalizedRange =
     selectedRange !== null
-      ? {
-          startIndex: Math.min(
-            selectedRange.startIndex,
-            selectedRange.endIndex,
-          ),
-          endIndex: Math.max(selectedRange.startIndex, selectedRange.endIndex),
-        }
+      ? (() => {
+          const startIndex = interleavedLogs.findIndex(
+            (item) => getLogKey(item) === selectedRange.startKey,
+          );
+          const endIndex = interleavedLogs.findIndex(
+            (item) => getLogKey(item) === selectedRange.endKey,
+          );
+          if (startIndex === -1 || endIndex === -1) return null;
+          return {
+            startIndex: Math.min(startIndex, endIndex),
+            endIndex: Math.max(startIndex, endIndex),
+          };
+        })()
       : null;
 
   const isSelected =
     normalizedRange !== null &&
+    normalizedRange.startIndex !== -1 &&
+    normalizedRange.endIndex !== -1 &&
     index >= normalizedRange.startIndex &&
     index <= normalizedRange.endIndex;
   const hasRowSelection =
-    selectedRange !== null &&
-    selectedRange.startIndex !== selectedRange.endIndex;
+    normalizedRange !== null &&
+    normalizedRange.startIndex !== -1 &&
+    normalizedRange.endIndex !== -1 &&
+    normalizedRange.startIndex !== normalizedRange.endIndex;
 
   const handleRowClick = (e: React.MouseEvent) => {
     if (e.shiftKey && selectedRange) {
       setSelectedRange({
-        startIndex: selectedRange.startIndex,
-        endIndex: index,
+        startKey: selectedRange.startKey,
+        endKey: logKey,
       });
     } else {
-      setSelectedRange({ startIndex: index, endIndex: index });
+      setSelectedRange({ startKey: logKey, endKey: logKey });
     }
     setShownLog(log);
   };

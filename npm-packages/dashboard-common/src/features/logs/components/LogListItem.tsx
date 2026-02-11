@@ -65,13 +65,13 @@ export function LogListItem({
         // Let the global copy handler use the selected rows.
         return;
       }
-      e.preventDefault();
       const logText = formatUdfLogToString(log);
       setCopyMessage("Copied log line");
       void (async () => {
         if (!navigator.clipboard?.writeText) {
           return;
         }
+        e.preventDefault();
         try {
           await navigator.clipboard.writeText(logText);
           setDidJustCopy(true);
