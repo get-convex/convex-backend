@@ -17,9 +17,12 @@ type LogListItemProps = {
   log: UdfLog;
   setShownLog: () => void;
   focused: boolean;
+  selected?: boolean;
   hitBoundary?: "top" | "bottom" | null;
   logKey?: string;
   highlight?: string;
+  onClick?: (e: React.MouseEvent) => void;
+  hasRowSelection?: boolean;
 };
 
 export const ITEM_SIZE = 24;
@@ -28,14 +31,18 @@ export function LogListItem({
   log,
   setShownLog,
   focused,
+  selected = false,
   hitBoundary,
   logKey,
   highlight,
+  onClick,
+  hasRowSelection = false,
 }: LogListItemProps) {
   const wrapperRef = useRef<HTMLButtonElement | HTMLSpanElement>(null);
   const [didJustCopy, setDidJustCopy] = useState(false);
   const [copiedPopperElement, setCopiedPopperElement] =
     useState<HTMLDivElement | null>(null);
+  const [copyMessage, setCopyMessage] = useState("Copied log line");
 
   // Reset copied state after 800ms
   useEffect(() => {
@@ -54,15 +61,29 @@ export function LogListItem({
         // The user has selected some text, so let them copy the text they selected.
         return;
       }
+      if (hasRowSelection) {
+        // Let the global copy handler use the selected rows.
+        return;
+      }
       e.preventDefault();
       const logText = formatUdfLogToString(log);
-      void navigator.clipboard.writeText(logText);
-      setDidJustCopy(true);
+      setCopyMessage("Copied log line");
+      void (async () => {
+        if (!navigator.clipboard?.writeText) {
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(logText);
+          setDidJustCopy(true);
+        } catch {
+          // Ignore clipboard errors (permissions/unsupported).
+        }
+      })();
     },
     {
       enabled: focused,
     },
-    [log, focused],
+    [log, focused, hasRowSelection],
   );
 
   const isFailure =
@@ -76,6 +97,8 @@ export function LogListItem({
       className={classNames(
         "relative flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
+        selected && !focused && !isFailure && "bg-background-tertiary/50",
+        selected && !focused && isFailure && "bg-background-error/60",
         focused && "bg-background-highlight",
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
         showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
@@ -84,7 +107,12 @@ export function LogListItem({
         height: ITEM_SIZE,
       }}
     >
-      <Wrapper setShownLog={setShownLog} logKey={logKey} ref={wrapperRef}>
+      <Wrapper
+        setShownLog={setShownLog}
+        logKey={logKey}
+        onClick={onClick}
+        ref={wrapperRef}
+      >
         <div className={classNames("flex gap-4 items-center", "p-0.5 ml-2")}>
           <div className="min-w-[9.25rem] text-left whitespace-nowrap">
             <TimestampTooltip timestamp={log.timestamp}>
@@ -182,7 +210,7 @@ export function LogListItem({
           copiedPopperElement={copiedPopperElement}
           setCopiedPopperElement={setCopiedPopperElement}
           show={didJustCopy}
-          message="Copied log line"
+          message={copyMessage}
           placement="bottom"
         />
       </Portal>
@@ -196,8 +224,9 @@ const Wrapper = React.forwardRef<
     children: React.ReactNode;
     setShownLog: () => void;
     logKey?: string;
+    onClick?: (e: React.MouseEvent) => void;
   }
->(function Wrapper({ children, setShownLog, logKey }, ref) {
+>(function Wrapper({ children, setShownLog, logKey, onClick }, ref) {
   return (
     // We do not use Button here because it's expensive and this table needs to be fast
     // eslint-disable-next-line react/forbid-elements
@@ -215,7 +244,13 @@ const Wrapper = React.forwardRef<
         "h-[calc(100%-1px)]",
         "select-text",
       )}
-      onClick={setShownLog}
+      onClick={(e) => {
+        if (onClick) {
+          onClick(e);
+        } else {
+          setShownLog();
+        }
+      }}
       onFocus={setShownLog}
       tabIndex={0}
     >

@@ -32,16 +32,17 @@ export function formatUdfLogToString(log: UdfLog): string {
 
   let content = "";
   let level = "";
+  let statusCode = "";
 
   if (log.kind === "log") {
     level = log.output.level ? `[${log.output.level}] ` : "";
     content = messagesToString(log.output);
-  } else if (log.error) {
-    level = "[ERROR] ";
-    content = log.error;
   } else {
     level = "[OUTCOME] ";
-    content = log.outcome.status;
+    statusCode = log.outcome.statusCode ? `${log.outcome.statusCode} ` : "";
+    content = log.error
+      ? `${log.outcome.status} - ${log.error}`
+      : log.outcome.status;
   }
 
   const executionTime =
@@ -51,7 +52,7 @@ export function formatUdfLogToString(log: UdfLog): string {
       ? ` (${msFormat(log.executionTimeMs)})`
       : "";
 
-  return `[${formattedTimestamp}] [${udfType}] ${level}${functionName}${executionTime}: ${content}`;
+  return `[${formattedTimestamp}] [${udfType}] ${level}${statusCode}${functionName}${executionTime}: ${content}`;
 }
 
 /**
@@ -63,7 +64,7 @@ export function formatInterleavedLogToString(log: InterleavedLog): string {
       return formatUdfLogToString(log.executionLog);
     case "DeploymentEvent": {
       const ts = new Date(log.deploymentEvent._creationTime).toISOString();
-      return `[${ts}] [SYSTEM] ${log.deploymentEvent.type}: ${JSON.stringify(log.deploymentEvent.metadata)}`;
+      return `[${ts}] [SYSTEM] ${log.deploymentEvent.action}: ${JSON.stringify(log.deploymentEvent.metadata)}`;
     }
     case "ClearedLogs":
       return "--- Logs Cleared ---";

@@ -5,7 +5,7 @@ import {
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
 import { useMeasure } from "react-use";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
@@ -118,6 +118,10 @@ export function LogList({
   const [shownLog, setShownLog] = useState<InterleavedLog | undefined>(
     undefined,
   );
+  const [selectedRange, setSelectedRange] = useState<{
+    startIndex: number;
+    endIndex: number;
+  } | null>(null);
 
   // Ref to the virtualized list for programmatic scrolling
   const listRef = useRef<FixedSizeList>(null);
@@ -147,8 +151,12 @@ export function LogList({
           // Use a short timeout to allow the scroll to complete
           focusTimeoutRef.current = setTimeout(() => {
             const logKey = getLogKey(log);
+            const safeLogKey =
+              typeof CSS !== "undefined" && CSS.escape
+                ? CSS.escape(logKey)
+                : logKey.replace(/["\\]/g, "\\$&");
             const button = document.querySelector(
-              `[data-log-key="${logKey}"]`,
+              `[data-log-key="${safeLogKey}"]`,
             ) as HTMLButtonElement;
             if (button && document.activeElement !== button) {
               button.focus();
@@ -176,11 +184,9 @@ export function LogList({
 
       const findError = (log: InterleavedLog) => {
         if (log.kind === "ExecutionLog") {
-          return (
-            log.executionLog.kind === "outcome"
-              ? !!log.executionLog.error
-              : log.executionLog.output.level === "ERROR"
-          );
+          return log.executionLog.kind === "outcome"
+            ? !!log.executionLog.error
+            : log.executionLog.output.level === "ERROR";
         }
         return false;
       };
@@ -211,8 +217,26 @@ export function LogList({
   useHotkeys("shift+k", () => jumpToError("prev"), [jumpToError]);
   useHotkeys("e", () => jumpToError("next"), [jumpToError]);
 
+  const normalizedSelectedRange = useMemo(() => {
+    if (!selectedRange) return null;
+    const startIndex = Math.min(
+      selectedRange.startIndex,
+      selectedRange.endIndex,
+    );
+    const endIndex = Math.max(selectedRange.startIndex, selectedRange.endIndex);
+    return { startIndex, endIndex };
+  }, [selectedRange]);
+
+  const selectedLogsForCopy = useMemo(() => {
+    if (!normalizedSelectedRange) return [];
+    return interleavedLogs.slice(
+      normalizedSelectedRange.startIndex,
+      normalizedSelectedRange.endIndex + 1,
+    );
+  }, [interleavedLogs, normalizedSelectedRange]);
+
   // Use the sophisticated clipboard hook
-  useLogsClipboard(interleavedLogs, outerRef);
+  useLogsClipboard(interleavedLogs, outerRef, selectedLogsForCopy);
 
   const hasFilters =
     !!logs && !!filteredLogs && filteredLogs.length !== logs.length;
@@ -258,6 +282,8 @@ export function LogList({
                 setClearedLogs,
                 clearedLogs,
                 setShownLog: handleSelectLog,
+                setSelectedRange,
+                selectedRange,
                 hasFilters,
                 paused,
                 setManuallyPaused,
@@ -318,6 +344,8 @@ function WindowedLogList({
   clearedLogs,
   onScroll,
   setShownLog,
+  setSelectedRange,
+  selectedRange,
   hasFilters,
   paused,
   setManuallyPaused,
@@ -332,6 +360,10 @@ function WindowedLogList({
   clearedLogs: number[];
   onScroll: (e: ListOnScrollProps) => void;
   setShownLog(shown: InterleavedLog | undefined): void;
+  setSelectedRange: React.Dispatch<
+    React.SetStateAction<{ startIndex: number; endIndex: number } | null>
+  >;
+  selectedRange: { startIndex: number; endIndex: number } | null;
   hasFilters: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
@@ -389,6 +421,8 @@ configure a log stream."
                 setClearedLogs,
                 clearedLogs,
                 setShownLog,
+                setSelectedRange,
+                selectedRange,
                 selectedLog: shownLog,
                 hitBoundary,
                 filter,
@@ -424,6 +458,10 @@ type LogItemProps = {
     interleavedLogs: InterleavedLog[];
     setClearedLogs: (clearedLogs: number[]) => void;
     setShownLog(shown: InterleavedLog | undefined): void;
+    setSelectedRange: React.Dispatch<
+      React.SetStateAction<{ startIndex: number; endIndex: number } | null>
+    >;
+    selectedRange: { startIndex: number; endIndex: number } | null;
     clearedLogs: number[];
     selectedLog?: InterleavedLog;
     hitBoundary?: "top" | "bottom" | null;
@@ -441,6 +479,8 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     clearedLogs,
     interleavedLogs,
     setShownLog,
+    setSelectedRange,
+    selectedRange,
     selectedLog,
     hitBoundary,
     filter,
@@ -452,6 +492,36 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     : false;
 
   const logKey = getLogKey(log);
+  const normalizedRange =
+    selectedRange !== null
+      ? {
+          startIndex: Math.min(
+            selectedRange.startIndex,
+            selectedRange.endIndex,
+          ),
+          endIndex: Math.max(selectedRange.startIndex, selectedRange.endIndex),
+        }
+      : null;
+
+  const isSelected =
+    normalizedRange !== null &&
+    index >= normalizedRange.startIndex &&
+    index <= normalizedRange.endIndex;
+  const hasRowSelection =
+    selectedRange !== null &&
+    selectedRange.startIndex !== selectedRange.endIndex;
+
+  const handleRowClick = (e: React.MouseEvent) => {
+    if (e.shiftKey && selectedRange) {
+      setSelectedRange({
+        startIndex: selectedRange.startIndex,
+        endIndex: index,
+      });
+    } else {
+      setSelectedRange({ startIndex: index, endIndex: index });
+    }
+    setShownLog(log);
+  };
 
   let item: React.ReactNode = null;
 
@@ -460,8 +530,10 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
       item = (
         <ClearedLogsButton
           focused={isFocused}
+          selected={isSelected}
           hitBoundary={hitBoundary}
-          onClick={() => {
+          onClick={(e) => {
+            handleRowClick(e);
             setClearedLogs(clearedLogs.slice(0, clearedLogs.length - 1));
             setShownLog(undefined);
           }}
@@ -475,8 +547,10 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
         <DeploymentEventListItem
           event={log.deploymentEvent}
           focused={isFocused}
+          selected={isSelected}
           hitBoundary={hitBoundary}
           setShownLog={() => setShownLog(log)}
+          onClick={handleRowClick}
           logKey={logKey}
         />
       );
@@ -487,9 +561,12 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
           log={log.executionLog}
           setShownLog={() => setShownLog(log)}
           focused={isFocused}
+          selected={isSelected}
           hitBoundary={hitBoundary}
           logKey={logKey}
           highlight={filter}
+          onClick={handleRowClick}
+          hasRowSelection={hasRowSelection}
         />
       );
       break;
@@ -512,20 +589,21 @@ const CLEARED_LOGS_BUTTON_HEIGHT = 24;
 
 function ClearedLogsButton({
   focused,
+  selected,
   hitBoundary,
   onClick,
   onFocus,
   logKey,
 }: {
   focused: boolean;
+  selected: boolean;
   hitBoundary?: "top" | "bottom" | null;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   onFocus: () => void;
   logKey?: string;
 }) {
   const handleClick = () => {
     onFocus();
-    onClick();
   };
 
   // Only show boundary animation on the focused item
@@ -544,9 +622,15 @@ function ClearedLogsButton({
         icon={<ArrowDownIcon />}
         inline
         size="xs"
-        className="w-full rounded-none pl-2"
+        className={cn(
+          "w-full rounded-none pl-2",
+          selected && "bg-background-tertiary/50",
+        )}
         style={{ height: ITEM_SIZE }}
-        onClick={handleClick}
+        onClick={(e) => {
+          handleClick();
+          onClick(e);
+        }}
         tabIndex={0}
       >
         Show previous logs

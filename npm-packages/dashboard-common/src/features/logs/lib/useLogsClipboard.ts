@@ -9,14 +9,43 @@ import { formatInterleavedLogToString } from "@common/features/logs/lib/formatLo
 export function useLogsClipboard(
   interleavedLogs: InterleavedLog[],
   containerRef: React.RefObject<HTMLDivElement>,
+  selectedLogs: InterleavedLog[] = [],
 ) {
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
       const selection = window.getSelection();
-      if (!selection || selection.isCollapsed) return;
+      if (!selection) return;
+
+      // If we have an explicit selection of log rows (shift-click),
+      // prefer that when there's no text selection.
+      if (selection.isCollapsed && selectedLogs.length > 0) {
+        if (!containerRef.current?.contains(document.activeElement)) {
+          return;
+        }
+        e.preventDefault();
+        const selectedLogsText = selectedLogs
+          .map((log) => formatInterleavedLogToString(log))
+          .filter(Boolean)
+          .join("\n");
+        if (selectedLogsText) {
+          if (e.clipboardData) {
+            e.clipboardData.setData("text/plain", selectedLogsText);
+          } else {
+            void navigator.clipboard?.writeText(selectedLogsText);
+          }
+        }
+        return;
+      }
+
+      if (selection.isCollapsed) return;
 
       // Ensure the selection started inside our logs container
-      if (!containerRef.current?.contains(selection.anchorNode)) return;
+      if (
+        !containerRef.current?.contains(selection.anchorNode) ||
+        !containerRef.current?.contains(selection.focusNode)
+      ) {
+        return;
+      }
 
       // Extract the range to find which log items are selected
       const range = selection.getRangeAt(0);
@@ -25,6 +54,7 @@ export function useLogsClipboard(
 
       // Find all log items in the selection using the data-log-key attribute
       const logElements = Array.from(container.querySelectorAll("[data-log-key]"));
+      const logByKey = new Map(interleavedLogs.map((log) => [getLogKey(log), log]));
       
       // If the user selected multiple logs, we provide a structured format.
       // If it's just one log or fragments of text, we let the default browser behavior handle it.
@@ -34,19 +64,23 @@ export function useLogsClipboard(
         const selectedLogsText = logElements
           .map((el) => {
             const key = el.getAttribute("data-log-key");
-            const log = interleavedLogs.find((l) => getLogKey(l) === key);
+            const log = key ? logByKey.get(key) : undefined;
             return log ? formatInterleavedLogToString(log) : el.textContent;
           })
           .filter(Boolean)
           .join("\n");
 
         if (selectedLogsText) {
-          e.clipboardData?.setData("text/plain", selectedLogsText);
+          if (e.clipboardData) {
+            e.clipboardData.setData("text/plain", selectedLogsText);
+          } else {
+            void navigator.clipboard?.writeText(selectedLogsText);
+          }
         }
       }
     };
 
     document.addEventListener("copy", handleCopy);
     return () => document.removeEventListener("copy", handleCopy);
-  }, [interleavedLogs, containerRef]);
+  }, [interleavedLogs, containerRef, selectedLogs]);
 }

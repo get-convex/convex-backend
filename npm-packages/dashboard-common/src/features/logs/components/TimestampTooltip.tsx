@@ -16,7 +16,7 @@ export function TimestampTooltip({
   children,
 }: TimestampTooltipProps) {
   const date = new Date(timestamp);
-  
+
   // Use Intl for robust formatting without extra bulky libs
   const makeFormatter = (timeZone?: string) => {
     try {
@@ -42,10 +42,10 @@ export function TimestampTooltip({
 
   const localFormatter = makeFormatter();
   const utcFormatter = makeFormatter("UTC");
-  
+
   const relativeTime = formatDistanceToNow(date, { addSuffix: true });
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  
+  const { timeZone } = Intl.DateTimeFormat().resolvedOptions();
+
   // Calculate UTC offset (e.g., UTC+5:30)
   const offsetMinutes = -date.getTimezoneOffset();
   const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
@@ -54,8 +54,8 @@ export function TimestampTooltip({
   const offsetStr = `UTC${offsetSign}${offsetHours}:${offsetMins.toString().padStart(2, "0")}`;
 
   const tip = (
-    <div className="flex flex-col gap-2 p-1 text-left font-sans min-w-[20rem]">
-      <div className="grid grid-cols-[1fr_auto] items-center gap-4">
+    <div className="flex flex-col gap-2 p-1 text-left font-sans w-max max-w-none">
+      <div className="flex flex-col gap-1 items-start">
         <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider">
           Local ({timeZone})
         </span>
@@ -63,8 +63,8 @@ export function TimestampTooltip({
           {localFormatter.format(date)}
         </span>
       </div>
-      
-      <div className="grid grid-cols-[1fr_auto] items-center gap-4">
+
+      <div className="flex flex-col gap-1 items-start">
         <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider">
           UTC ({offsetStr})
         </span>
@@ -72,8 +72,8 @@ export function TimestampTooltip({
           {utcFormatter.format(date)}
         </span>
       </div>
-      
-      <div className="border-t border-border-secondary pt-2 mt-1 grid grid-cols-[1fr_auto] items-center gap-4">
+
+      <div className="border-t border-border-secondary pt-2 mt-1 flex flex-col gap-1 items-start">
         <span className="text-content-secondary uppercase text-[10px] font-bold tracking-wider">
           Relative
         </span>
@@ -85,12 +85,12 @@ export function TimestampTooltip({
   );
 
   return (
-    <Tooltip 
-      tip={tip} 
-      side="top" 
-      align="start" 
+    <Tooltip
+      tip={tip}
+      side="top"
+      align="start"
       delayDuration={300} // Slight delay to avoid flickering while scanning
-      contentClassName="bg-background-secondary border-border-selected shadow-lg px-3 py-2"
+      contentClassName="bg-background-secondary border-border-selected shadow-lg px-3 py-2 w-max max-w-none"
     >
       {children}
     </Tooltip>
