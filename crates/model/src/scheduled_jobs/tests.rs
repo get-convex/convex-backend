@@ -12,7 +12,6 @@ use database::{
     SystemMetadataModel,
     Transaction,
     UserFacingModel,
-    VirtualTable,
 };
 use keybroker::Identity;
 use runtime::testing::TestRuntime;
@@ -39,7 +38,6 @@ use crate::{
             insert_object_path,
         },
         types::ScheduledJobMetadata,
-        virtual_table::MIN_NPM_VERSION_SCHEDULED_JOBS_V1,
         SchedulerModel,
         SCHEDULED_JOBS_TABLE,
         SCHEDULED_JOBS_VIRTUAL_TABLE,
@@ -122,7 +120,10 @@ async fn scheduled_job_arg_reads_counted_in_db_bandwidth(rt: TestRuntime) -> any
     let stats = tx_usage.gather_user_stats();
     let (_, scheduled_job_args_size) =
         get_scheduled_job_metadata_and_args_docs_sizes(&mut tx, id).await?;
-    assert_eq!(stats.database_egress.values().sum::<u64>(), 0);
+    assert_eq!(
+        stats.database_egress.values().sum::<u64>(),
+        scheduled_job_args_size
+    );
     assert!(!stats
         .database_egress_v2
         .contains_key(&(ComponentPath::root(), "_scheduled_job_args".to_string())));
@@ -153,26 +154,21 @@ async fn scheduled_functions_reads_count_args_in_db_bandwidth(
         .read_virtual_table()
         .await?;
     let stats = tx_usage.gather_user_stats();
-    let (doc, _ts) = VirtualTable::new(&mut tx)
-        .get(
-            TableNamespace::Global,
-            id.developer_id,
-            Some(MIN_NPM_VERSION_SCHEDULED_JOBS_V1.clone()),
-        )
-        .await?
-        .unwrap();
-    assert_eq!(
-        stats.database_egress.values().sum::<u64>(),
-        doc.size() as u64
-    );
-    // TODO(ENG-10309): Fix virtual table index read tracking to make this test
-    // pass.
-    // let (scheduled_job_metadata_size, scheduled_job_args_size) =
-    //     get_scheduled_job_metadata_and_args_docs_sizes(&mut tx, id).await?;
-    // assert_eq!(
-    //     stats.database_egress_v2.values().sum::<u64>(),
-    //     scheduled_job_metadata_size + scheduled_job_args_size
-    // );
+
+    // Fetch the two system tables separately - as that's what we charge
+    let (scheduled_job_metadata_size, scheduled_job_args_size) =
+        get_scheduled_job_metadata_and_args_docs_sizes(&mut tx, id).await?;
+
+    // Assert we charge the sum of the tables - attributed to the virtual table
+    for egress in [stats.database_egress, stats.database_egress_v2] {
+        assert_eq!(
+            egress.values().sum::<u64>(),
+            scheduled_job_metadata_size + scheduled_job_args_size
+        );
+        assert!(egress
+            .keys()
+            .all(|(_, t)| *t == SCHEDULED_JOBS_VIRTUAL_TABLE.to_string()));
+    }
     Ok(())
 }
 

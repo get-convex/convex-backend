@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     components::ComponentId,
-    document::DeveloperDocument,
+    document::ResolvedDocument,
     index::IndexKeyBytes,
     interval::Interval,
     knobs::{
@@ -34,16 +34,17 @@ use value::TableNamespace;
 use super::{
     query_scanned_too_many_documents_error,
     query_scanned_too_much_data,
-    DeveloperIndexRangeResponse,
     QueryStream,
     QueryStreamNext,
     MAX_QUERY_FETCH,
 };
 use crate::{
     metrics,
+    query::IndexRangeResponse,
     transaction::IndexRangeRequest,
     Transaction,
     UserFacingModel,
+    VirtualTable,
 };
 
 /// A `QueryStream` that scans a range of an index.
@@ -66,7 +67,7 @@ pub struct IndexRange {
     /// `cursor_interval` must always be a subset of `interval`.
     cursor_interval: CursorInterval,
     intermediate_cursors: Option<Vec<CursorPosition>>,
-    page: VecDeque<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
+    page: VecDeque<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
     /// The interval which we have yet to fetch.
     /// This starts as an intersection of the IndexRange's `interval` and
     /// `cursor_interval`, and gets smaller as results are fetched into `page`.
@@ -159,7 +160,7 @@ impl IndexRange {
         }
     }
 
-    fn start_next<RT: Runtime>(
+    async fn start_next<RT: Runtime>(
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
@@ -194,6 +195,19 @@ impl IndexRange {
         };
 
         if let Some((index_position, v, timestamp)) = self.page.pop_front() {
+            // Charge for document read based on the size of the system table, rather than
+            // virtual table.
+            UserFacingModel::new(tx, self.namespace)
+                .record_read_document(&v, self.printable_index_name.table())?;
+
+            let v = if matches!(self.stable_index_name, StableIndexName::Virtual(_, _)) {
+                VirtualTable::new(tx)
+                    .system_to_virtual_doc(v, self.version.clone())
+                    .await?
+            } else {
+                v.to_developer()
+            };
+
             let index_bytes = index_position.len();
             if let Some(intermediate_cursors) = &mut self.intermediate_cursors {
                 intermediate_cursors.push(CursorPosition::After(index_position.clone()));
@@ -210,8 +224,6 @@ impl IndexRange {
                 self.indexed_fields.clone(),
                 used_interval,
             )?;
-            UserFacingModel::new(tx, self.namespace)
-                .record_read_document(&v, self.printable_index_name.table())?;
 
             // Database bandwidth for index reads
             let component_path = tx.must_component_path(ComponentId::from(self.namespace))?;
@@ -271,13 +283,12 @@ impl IndexRange {
             interval: self.unfetched_interval.clone(),
             order: self.order,
             max_rows,
-            version: self.version.clone(),
         }))
     }
 
     fn process_fetch(
         &mut self,
-        page: Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
+        page: Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
         fetch_cursor: CursorPosition,
     ) -> anyhow::Result<()> {
         let (_, new_unfetched_interval) = self.unfetched_interval.split(fetch_cursor, self.order);
@@ -320,10 +331,10 @@ impl QueryStream for IndexRange {
         prefetch_hint: Option<usize>,
     ) -> anyhow::Result<QueryStreamNext> {
         task::consume_budget().await;
-        self.start_next(tx, prefetch_hint)
+        self.start_next(tx, prefetch_hint).await
     }
 
-    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
+    fn feed(&mut self, index_range_response: IndexRangeResponse) -> anyhow::Result<()> {
         self.process_fetch(index_range_response.page, index_range_response.cursor)
     }
 

@@ -72,7 +72,6 @@ use common::{
         Size,
         TableMapping,
     },
-    version::Version,
     virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
@@ -1151,7 +1150,6 @@ pub struct IndexRangeRequest {
     pub interval: Interval,
     pub order: Order,
     pub max_rows: usize,
-    pub version: Option<Version>,
 }
 
 /// FinalTransaction is a finalized Transaction.
