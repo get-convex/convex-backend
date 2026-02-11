@@ -19,7 +19,7 @@
     "/teams/{team_id}/create_project": {
       "post": {
         "summary": "Create project",
-        "description": "Create a new project on a team and provision a dev or prod deployment.",
+        "description": "Create a new project on a team, optionally provisioning a dev or prod\ndeployment.",
         "operationId": "create project",
         "parameters": [
           {
@@ -969,8 +969,7 @@
       "PlatformCreateProjectArgs": {
         "type": "object",
         "required": [
-          "projectName",
-          "deploymentType"
+          "projectName"
         ],
         "properties": {
           "deploymentClass": {
@@ -978,7 +977,7 @@
               "string",
               "null"
             ],
-            "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
+            "description": "When creating a deployment, the class to use for the deployment.\nIf not provided, the default deployment class for your team will be\nused."
           },
           "deploymentRegion": {
             "oneOf": [
@@ -987,13 +986,20 @@
               },
               {
                 "$ref": "#/components/schemas/RegionName",
-                "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
+                "description": "When creating a deployment, the hosting region to use for the\ndeployment. If not provided, the default deployment region for your\nteam will be used."
               }
             ]
           },
           "deploymentType": {
-            "$ref": "#/components/schemas/CreateDeploymentType",
-            "description": "Projects always include a deployment, so start this project off with a\n\"dev\" development deployment or a \"prod\" production deployment."
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreateDeploymentType",
+                "description": "Optionally provision a \"dev\" development deployment or \"prod\" production\ndeployment alongside the project. If omitted, a project is created\nwithout a deployment."
+              }
+            ]
           },
           "projectName": {
             "$ref": "#/components/schemas/ProjectName",
@@ -1005,18 +1011,22 @@
       "PlatformCreateProjectResponse": {
         "type": "object",
         "required": [
-          "projectId",
-          "deploymentName",
-          "deploymentUrl"
+          "projectId"
         ],
         "properties": {
           "deploymentName": {
-            "type": "string",
-            "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The readable identifier for this deployment, something like\nplayful-otter-123. Only present when a deployment was requested."
           },
           "deploymentUrl": {
-            "type": "string",
-            "description": "Deployment cloud URL, where this deployment lives."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Deployment cloud URL, where this deployment lives. Only present when a\ndeployment was requested."
           },
           "projectId": {
             "$ref": "#/components/schemas/ProjectId"

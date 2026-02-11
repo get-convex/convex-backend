@@ -15,7 +15,8 @@ export interface paths {
         put?: never;
         /**
          * Create project
-         * @description Create a new project on a team and provision a dev or prod deployment.
+         * @description Create a new project on a team, optionally provisioning a dev or prod
+         *     deployment.
          */
         post: operations["create project"];
         delete?: never;
@@ -438,23 +439,23 @@ export interface components {
             type: components["schemas"]["CreateDeploymentType"];
         };
         PlatformCreateProjectArgs: {
-            /** @description The class to use for this deployment. If not provided, the default
-             *     deployment class for your team will be used. */
+            /** @description When creating a deployment, the class to use for the deployment.
+             *     If not provided, the default deployment class for your team will be
+             *     used. */
             deploymentClass?: string | null;
             deploymentRegion?: null | components["schemas"]["RegionName"];
-            /** @description Projects always include a deployment, so start this project off with a
-             *     "dev" development deployment or a "prod" production deployment. */
-            deploymentType: components["schemas"]["CreateDeploymentType"];
+            deploymentType?: null | components["schemas"]["CreateDeploymentType"];
             /** @description The full name of the project as it will appear in the dashboard. Spaces
              *     and punctuations allowed. */
             projectName: components["schemas"]["ProjectName"];
         };
         PlatformCreateProjectResponse: {
             /** @description The readable identifier for this deployment, something like
-             *     playful-otter-123. */
-            deploymentName: string;
-            /** @description Deployment cloud URL, where this deployment lives. */
-            deploymentUrl: string;
+             *     playful-otter-123. Only present when a deployment was requested. */
+            deploymentName?: string | null;
+            /** @description Deployment cloud URL, where this deployment lives. Only present when a
+             *     deployment was requested. */
+            deploymentUrl?: string | null;
             projectId: components["schemas"]["ProjectId"];
         };
         PlatformCustomDomainResponse: {
