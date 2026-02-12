@@ -640,10 +640,14 @@ export function useUsageTeamDeploymentCountByType(
     return { data: undefined, error };
   }
 
+  if (data === undefined) {
+    return { data: undefined, error: undefined };
+  }
+
   // Group by date since each row is [teamId, deploymentType, ds, count]
   const groupedByDate = new Map<string, Map<string, number>>();
 
-  data?.forEach(([_teamId, deploymentType, ds, count]) => {
+  data.forEach(([_teamId, deploymentType, ds, count]) => {
     if (!groupedByDate.has(ds)) {
       groupedByDate.set(ds, new Map());
     }

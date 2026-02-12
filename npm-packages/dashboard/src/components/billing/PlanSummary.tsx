@@ -1,3 +1,4 @@
+import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
 import { Tooltip } from "@ui/Tooltip";
 import { Loading } from "@ui/Loading";
@@ -9,10 +10,23 @@ import { GetTokenInfoResponse, TeamEntitlementsResponse } from "generatedApi";
 import {
   QuestionMarkCircledIcon,
   CrossCircledIcon,
+  ChevronRightIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
-import Link from "next/link";
+import { useRouter } from "next/router";
 import { Donut } from "@ui/Donut";
+
+const METRIC_TO_SECTION: Record<string, { section: string; tab?: number }> = {
+  functionCalls: { section: "functionCalls" },
+  actionCompute: { section: "actionCompute" },
+  databaseStorage: { section: "database", tab: 0 },
+  databaseBandwidth: { section: "database", tab: 1 },
+  fileStorage: { section: "files", tab: 0 },
+  fileBandwidth: { section: "files", tab: 1 },
+  vectorStorage: { section: "vectors", tab: 0 },
+  vectorBandwidth: { section: "vectors", tab: 1 },
+  deploymentCount: { section: "deployments" },
+};
 
 export function PlanSummary({
   chefTokenUsage,
@@ -197,13 +211,13 @@ export function PlanSummaryForTeam({
       className="animate-fadeInFromLoading overflow-hidden"
       padding={false}
     >
-      <div className="flex flex-col gap-1 overflow-x-auto">
+      <div className="flex flex-col gap-1 overflow-x-clip">
         <div
           className={cn(
             "grid items-center gap-2 rounded-t border-b px-4 py-2 text-sm text-content-secondary",
             hasSubscription
-              ? "grid-cols-[4fr_3fr_2fr] sm:grid-cols-[4fr_3fr_3fr]"
-              : "grid-cols-[5fr_4fr]",
+              ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
+              : "grid-cols-[5fr_4fr_auto]",
           )}
         >
           <div>Resource</div>
@@ -235,6 +249,12 @@ export function PlanSummaryForTeam({
               </Tooltip>
             </div>
           )}
+          <span className="invisible flex items-center gap-1 text-xs">
+            <span className="hidden whitespace-nowrap sm:inline">
+              View breakdown
+            </span>
+            <ChevronRightIcon className="size-4" />
+          </span>
         </div>
         {error ? (
           <PlanSummaryError />
@@ -451,12 +471,15 @@ function UsageSection({
   isNotSubjectToFilter: boolean;
   noOnDemand?: boolean;
 }) {
+  const router = useRouter();
   const className = cn(
-    "group grid min-h-10 items-center gap-2 rounded-sm px-4 py-2 transition-colors",
+    "group grid min-h-10 items-center gap-2 rounded-sm px-4 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-border-selected",
     hasSubscription
-      ? "grid-cols-[4fr_3fr_2fr] sm:grid-cols-[4fr_3fr_3fr]"
-      : "grid-cols-[5fr_4fr]",
-    isNotSubjectToFilter ? "bg-stripes" : "hover:bg-background-primary",
+      ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
+      : "grid-cols-[5fr_4fr_auto]",
+    isNotSubjectToFilter
+      ? "bg-stripes"
+      : "hover:bg-background-primary focus-visible:bg-background-primary",
   );
 
   if (metricName === "chefTokens") {
@@ -476,6 +499,12 @@ function UsageSection({
             noOnDemand,
           }}
         />
+        <span className="invisible flex items-center gap-1 text-xs">
+          <span className="hidden whitespace-nowrap sm:inline">
+            View breakdown
+          </span>
+          <ChevronRightIcon className="size-4" />
+        </span>
       </div>
     );
     if (isNotSubjectToFilter) {
@@ -492,8 +521,28 @@ function UsageSection({
     return content;
   }
 
+  const sectionInfo = METRIC_TO_SECTION[metricName];
+  const { section: _s, tab: _t, ...restQuery } = router.query;
+  const linkQuery = sectionInfo
+    ? {
+        ...restQuery,
+        section: sectionInfo.section,
+        ...(sectionInfo.tab !== undefined
+          ? { tab: sectionInfo.tab.toString() }
+          : {}),
+      }
+    : restQuery;
+
+  const linkHref = { pathname: router.pathname, query: linkQuery };
+
   return (
-    <Link href={`#${metricName}`} className={className}>
+    <Button
+      variant="unstyled"
+      onClick={() => {
+        void router.push(linkHref, undefined, { shallow: true });
+      }}
+      className={className}
+    >
       <UsageAmount
         {...{
           metric,
@@ -508,7 +557,13 @@ function UsageSection({
           noOnDemand,
         }}
       />
-    </Link>
+      <span className="flex items-center gap-1 text-xs text-content-secondary">
+        <span className="hidden whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:inline">
+          View breakdown
+        </span>
+        <ChevronRightIcon className="size-4" />
+      </span>
+    </Button>
   );
 }
 

@@ -26,15 +26,7 @@ import {
   DailyPerTagMetricsByProject,
 } from "hooks/usageMetrics";
 import { TeamResponse } from "generatedApi";
-import {
-  forwardRef,
-  Fragment,
-  ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
@@ -46,7 +38,11 @@ import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 import classNames from "classnames";
 import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
-import { ExternalLinkIcon } from "@radix-ui/react-icons";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+} from "@radix-ui/react-icons";
 import { DateRange, useCurrentBillingPeriod } from "api/usage";
 import { cn } from "@ui/cn";
 import { usePagination } from "hooks/usePagination";
@@ -101,12 +97,64 @@ function aggregateMetric(
   return teamSummary.reduce((sum, s) => sum + s[metricKey], 0);
 }
 
+export type UsageSectionId =
+  | "functionCalls"
+  | "actionCompute"
+  | "database"
+  | "files"
+  | "vectors"
+  | "deployments"
+  | "functionBreakdown";
+
+function FunctionBreakdownLink() {
+  const router = useRouter();
+  const { section: _s, tab: _t, ...restQuery } = router.query;
+  const linkHref = {
+    pathname: router.pathname,
+    query: { ...restQuery, section: "functionBreakdown" },
+  };
+
+  return (
+    <Button
+      variant="unstyled"
+      onClick={() => {
+        void router.push(linkHref, undefined, { shallow: true });
+      }}
+      className="group w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-border-selected"
+    >
+      <Sheet className="flex items-center justify-between transition-colors group-hover:bg-background-tertiary group-focus-visible:bg-background-tertiary">
+        <div>
+          <h3>Functions breakdown by project</h3>
+          <p className="text-xs text-content-secondary">
+            See function call and bandwidth usage broken down by project and
+            function
+          </p>
+        </div>
+        <ChevronRightIcon className="size-5 text-content-secondary" />
+      </Sheet>
+    </Button>
+  );
+}
+
 export function TeamUsage({ team }: { team: TeamResponse }) {
-  const { query } = useRouter();
+  const router = useRouter();
+  const { query } = router;
   const project = useProjectBySlug(team.id, query.projectSlug as string);
   const projectId = project?.id ?? null;
 
   const componentPrefix = (query.componentPrefix ?? null) as string | null;
+
+  const section = (query.section as UsageSectionId) || null;
+  const initialTab = query.tab ? parseInt(query.tab as string, 10) : 0;
+
+  const navigateBack = () => {
+    const { section: _s, tab: _t, ...restQuery } = query;
+    void router.push(
+      { pathname: router.pathname, query: restQuery },
+      undefined,
+      { shallow: true },
+    );
+  };
 
   const [selectedBillingPeriod, setSelectedBillingPeriod] =
     useState<Period | null>(null);
@@ -188,9 +236,23 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
     !isBusinessPlan;
 
   return (
-    <div className="[--team-usage-toolbar-height:--spacing(32)] md:[--team-usage-toolbar-height:--spacing(28)] lg:[--team-usage-toolbar-height:--spacing(20)]">
+    <div className="flex flex-col gap-2 [--team-usage-toolbar-height:--spacing(32)] md:[--team-usage-toolbar-height:--spacing(28)] lg:[--team-usage-toolbar-height:--spacing(20)]">
       <div className="flex justify-between">
-        <h2>Usage</h2>
+        <h2 className="flex items-center gap-2">
+          {section && (
+            <Button
+              variant="neutral"
+              size="xs"
+              inline
+              icon={<ChevronLeftIcon />}
+              onClick={navigateBack}
+              aria-label="Back to usage overview"
+            >
+              Back to summary
+            </Button>
+          )}
+          Usage
+        </h2>
         {subscription !== undefined && (
           <Button
             href={`/t/${team?.slug}/settings/billing`}
@@ -220,91 +282,155 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
             }}
           />
 
-          <div className="flex flex-col gap-6">
-            <PlanSummary
-              hasFilter={projectId !== null || !!componentPrefix}
-              chefTokenUsage={chefTokenUsage}
-              teamSummary={teamSummary}
-              deploymentCount={latestDeploymentCount}
-              entitlements={entitlements}
-              hasSubscription={hasSubscription}
-              showEntitlements={showEntitlements}
-              error={teamSummaryError}
-            />
+          <div className="overflow-x-hidden">
+            <div
+              className={cn(
+                "flex gap-6 transition-transform duration-500 motion-reduce:transition-none",
+                section ? "-translate-x-[calc(100%+1.5rem)]" : "translate-x-0",
+              )}
+            >
+              {/* Overview pane */}
+              <div
+                className={cn(
+                  "flex w-full shrink-0 flex-col gap-6",
+                  section && "pointer-events-none select-none",
+                )}
+                // @ts-expect-error https://github.com/facebook/react/issues/17157
+                inert={section ? "inert" : undefined}
+              >
+                <PlanSummary
+                  hasFilter={projectId !== null || !!componentPrefix}
+                  chefTokenUsage={chefTokenUsage}
+                  teamSummary={teamSummary}
+                  deploymentCount={latestDeploymentCount}
+                  entitlements={entitlements}
+                  hasSubscription={hasSubscription}
+                  showEntitlements={showEntitlements}
+                  error={teamSummaryError}
+                />
 
-            <FunctionCallsUsage
-              team={team}
-              dateRange={dateRange}
-              projectId={projectId}
-              componentPrefix={componentPrefix}
-              _functionCalls={aggregateMetric(teamSummary, "functionCalls")}
-              _functionCallsEntitlement={entitlements?.teamMaxFunctionCalls}
-              _showEntitlements={showEntitlements}
-            />
+                <FunctionBreakdownLink />
+              </div>
 
-            <ActionComputeUsage
-              team={team}
-              dateRange={dateRange}
-              projectId={projectId}
-              componentPrefix={componentPrefix}
-              _actionCompute={aggregateMetric(teamSummary, "actionCompute")}
-              _actionComputeEntitlement={entitlements?.teamMaxActionCompute}
-              _showEntitlements={showEntitlements}
-            />
+              {/* Detail pane */}
+              <div
+                className={cn(
+                  "flex w-full shrink-0 flex-col gap-6",
+                  !section && "pointer-events-none select-none",
+                )}
+                // @ts-expect-error https://github.com/facebook/react/issues/17157
+                inert={!section ? "inert" : undefined}
+              >
+                {section === "functionCalls" && (
+                  <FunctionCallsUsage
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                    _functionCalls={aggregateMetric(
+                      teamSummary,
+                      "functionCalls",
+                    )}
+                    _functionCallsEntitlement={
+                      entitlements?.teamMaxFunctionCalls
+                    }
+                    _showEntitlements={showEntitlements}
+                  />
+                )}
 
-            <DatabaseUsage
-              team={team}
-              dateRange={dateRange}
-              projectId={projectId}
-              componentPrefix={componentPrefix}
-              _storage={aggregateMetric(teamSummary, "databaseStorage")}
-              _storageEntitlement={entitlements?.teamMaxDatabaseStorage}
-              _bandwidth={aggregateMetric(teamSummary, "databaseBandwidth")}
-              _bandwidthEntitlement={entitlements?.teamMaxDatabaseBandwidth}
-              _showEntitlements={showEntitlements}
-            />
+                {section === "actionCompute" && (
+                  <ActionComputeUsage
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                    _actionCompute={aggregateMetric(
+                      teamSummary,
+                      "actionCompute",
+                    )}
+                    _actionComputeEntitlement={
+                      entitlements?.teamMaxActionCompute
+                    }
+                    _showEntitlements={showEntitlements}
+                  />
+                )}
 
-            <FilesUsage
-              team={team}
-              dateRange={dateRange}
-              projectId={projectId}
-              componentPrefix={componentPrefix}
-              _storage={aggregateMetric(teamSummary, "fileStorage")}
-              _storageEntitlement={entitlements?.teamMaxFileStorage}
-              _bandwidth={aggregateMetric(teamSummary, "fileBandwidth")}
-              _bandwidthEntitlement={entitlements?.teamMaxFileBandwidth}
-              _showEntitlements={showEntitlements}
-            />
+                {section === "database" && (
+                  <DatabaseUsage
+                    key={`database-${initialTab}`}
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                    initialTab={initialTab}
+                    _storage={aggregateMetric(teamSummary, "databaseStorage")}
+                    _storageEntitlement={entitlements?.teamMaxDatabaseStorage}
+                    _bandwidth={aggregateMetric(
+                      teamSummary,
+                      "databaseBandwidth",
+                    )}
+                    _bandwidthEntitlement={
+                      entitlements?.teamMaxDatabaseBandwidth
+                    }
+                    _showEntitlements={showEntitlements}
+                  />
+                )}
 
-            <VectorUsage
-              team={team}
-              dateRange={dateRange}
-              projectId={projectId}
-              componentPrefix={componentPrefix}
-              _storage={aggregateMetric(teamSummary, "vectorStorage")}
-              _storageEntitlement={entitlements?.teamMaxVectorStorage}
-              _bandwidth={aggregateMetric(teamSummary, "vectorBandwidth")}
-              _bandwidthEntitlement={entitlements?.teamMaxVectorBandwidth}
-              _showEntitlements={showEntitlements}
-            />
+                {section === "files" && (
+                  <FilesUsage
+                    key={`files-${initialTab}`}
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                    initialTab={initialTab}
+                    _storage={aggregateMetric(teamSummary, "fileStorage")}
+                    _storageEntitlement={entitlements?.teamMaxFileStorage}
+                    _bandwidth={aggregateMetric(teamSummary, "fileBandwidth")}
+                    _bandwidthEntitlement={entitlements?.teamMaxFileBandwidth}
+                    _showEntitlements={showEntitlements}
+                  />
+                )}
 
-            <DeploymentCountUsage
-              team={team}
-              dateRange={dateRange}
-              projectId={projectId}
-              componentPrefix={componentPrefix}
-              _deploymentCount={latestDeploymentCount}
-              _deploymentCountEntitlement={entitlements?.maxDeployments}
-              _showEntitlements={showEntitlements}
-            />
+                {section === "vectors" && (
+                  <VectorUsage
+                    key={`vectors-${initialTab}`}
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                    initialTab={initialTab}
+                    _storage={aggregateMetric(teamSummary, "vectorStorage")}
+                    _storageEntitlement={entitlements?.teamMaxVectorStorage}
+                    _bandwidth={aggregateMetric(teamSummary, "vectorBandwidth")}
+                    _bandwidthEntitlement={entitlements?.teamMaxVectorBandwidth}
+                    _showEntitlements={showEntitlements}
+                  />
+                )}
 
-            <FunctionBreakdownSection
-              team={team}
-              dateRange={dateRange}
-              projectId={projectId}
-              componentPrefix={componentPrefix}
-              shownBillingPeriod={shownBillingPeriod}
-            />
+                {section === "deployments" && (
+                  <DeploymentCountUsage
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                    _deploymentCount={latestDeploymentCount}
+                    _deploymentCountEntitlement={entitlements?.maxDeployments}
+                    _showEntitlements={showEntitlements}
+                  />
+                )}
+
+                {section === "functionBreakdown" && (
+                  <FunctionBreakdownSection
+                    team={team}
+                    dateRange={dateRange}
+                    projectId={projectId}
+                    componentPrefix={componentPrefix}
+                    shownBillingPeriod={shownBillingPeriod}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}
@@ -580,11 +706,13 @@ function DatabaseUsage({
   _bandwidthEntitlement,
   _showEntitlements,
   componentPrefix,
+  initialTab = 0,
 }: {
   team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
+  initialTab?: number;
   _storage?: number;
   _bandwidth?: number;
   _storageEntitlement?: number | null;
@@ -635,34 +763,7 @@ function DatabaseUsage({
       ? aggregateByProjectToByType(databaseBandwidthByProject, projectId)
       : null;
 
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-
-  const [selectedTab, setSelectedTab] = useState(0);
-
-  useEffect(() => {
-    const onHashChangeStart = (url: string) => {
-      const hash = url.split("#")[1];
-      if (hash === "databaseStorage" || hash === "databaseBandwidth") {
-        ref.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-      if (hash === "databaseStorage") {
-        setSelectedTab(0);
-      }
-      if (hash === "databaseBandwidth") {
-        setSelectedTab(1);
-      }
-    };
-
-    router.events.on("hashChangeStart", onHashChangeStart);
-
-    return () => {
-      router.events.off("hashChangeStart", onHashChangeStart);
-    };
-  }, [router.events]);
+  const [selectedTab, setSelectedTab] = useState(initialTab);
 
   return (
     <TabGroup
@@ -671,7 +772,6 @@ function DatabaseUsage({
       onChange={setSelectedTab}
     >
       <TeamUsageSection
-        ref={ref}
         header={
           <>
             <h3>Database</h3>
@@ -819,30 +919,8 @@ function FunctionCallsUsage({
       ? aggregateByProjectToByType(callsByTagByProject, projectId)
       : null;
 
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onHashChangeStart = (url: string) => {
-      const hash = url.split("#")[1];
-      if (hash === "functionCalls") {
-        ref.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-    };
-
-    router.events.on("hashChangeStart", onHashChangeStart);
-
-    return () => {
-      router.events.off("hashChangeStart", onHashChangeStart);
-    };
-  }, [router.events]);
-
   return (
     <TeamUsageSection
-      ref={ref}
       header={
         <>
           <h3 className="py-2">Daily function calls</h3>
@@ -929,30 +1007,8 @@ function ActionComputeUsage({
       ? aggregateSimpleByProjectToByType(actionComputeDailyByProject, projectId)
       : null;
 
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onHashChangeStart = (url: string) => {
-      const hash = url.split("#")[1];
-      if (hash === "actionCompute") {
-        ref.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-    };
-
-    router.events.on("hashChangeStart", onHashChangeStart);
-
-    return () => {
-      router.events.off("hashChangeStart", onHashChangeStart);
-    };
-  }, [router.events]);
-
   return (
     <TeamUsageSection
-      ref={ref}
       header={
         <>
           <h3 className="py-2">Action Compute</h3>
@@ -1004,6 +1060,7 @@ function FilesUsage({
   dateRange,
   projectId,
   componentPrefix,
+  initialTab = 0,
   _storage,
   _storageEntitlement,
   _bandwidth,
@@ -1014,6 +1071,7 @@ function FilesUsage({
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
+  initialTab?: number;
   _showEntitlements: boolean;
   _storage?: number;
   _storageEntitlement?: number | null;
@@ -1048,34 +1106,7 @@ function FilesUsage({
       ? aggregateByProjectToByType(fileStorageByProject, projectId)
       : null;
 
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-
-  const [selectedTab, setSelectedTab] = useState(0);
-
-  useEffect(() => {
-    const onHashChangeStart = (url: string) => {
-      const hash = url.split("#")[1];
-      if (hash === "fileStorage" || hash === "fileBandwidth") {
-        ref.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-      if (hash === "fileStorage") {
-        setSelectedTab(0);
-      }
-      if (hash === "fileBandwidth") {
-        setSelectedTab(1);
-      }
-    };
-
-    router.events.on("hashChangeStart", onHashChangeStart);
-
-    return () => {
-      router.events.off("hashChangeStart", onHashChangeStart);
-    };
-  }, [router.events]);
+  const [selectedTab, setSelectedTab] = useState(initialTab);
 
   return (
     <TabGroup
@@ -1084,7 +1115,6 @@ function FilesUsage({
       onChange={setSelectedTab}
     >
       <TeamUsageSection
-        ref={ref}
         header={
           <>
             <h3>Files</h3>
@@ -1217,27 +1247,6 @@ function DeploymentCountUsage({
       componentPrefix,
     );
 
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onHashChangeStart = (url: string) => {
-      const hash = url.split("#")[1];
-      if (hash === "deploymentCount") {
-        ref.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-    };
-
-    router.events.on("hashChangeStart", onHashChangeStart);
-
-    return () => {
-      router.events.off("hashChangeStart", onHashChangeStart);
-    };
-  }, [router.events]);
-
   const deploymentTypeCategories = {
     prod: {
       name: "Production",
@@ -1259,7 +1268,6 @@ function DeploymentCountUsage({
 
   return (
     <TeamUsageSection
-      ref={ref}
       header={
         <>
           <h3 className="py-2">Deployments</h3>
@@ -1310,6 +1318,7 @@ function VectorUsage({
   dateRange,
   projectId,
   componentPrefix,
+  initialTab = 0,
   _storage,
   _storageEntitlement,
   _bandwidth,
@@ -1320,6 +1329,7 @@ function VectorUsage({
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
+  initialTab?: number;
   _storage?: number;
   _storageEntitlement?: number | null;
   _bandwidth?: number;
@@ -1360,34 +1370,7 @@ function VectorUsage({
       ? aggregateByProjectToByType(vectorBandwidthByProject, projectId)
       : null;
 
-  const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
-
-  const [selectedTab, setSelectedTab] = useState(0);
-
-  useEffect(() => {
-    const onHashChangeStart = (url: string) => {
-      const hash = url.split("#")[1];
-      if (hash === "vectorStorage" || hash === "vectorBandwidth") {
-        ref.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-      if (hash === "vectorStorage") {
-        setSelectedTab(0);
-      }
-      if (hash === "vectorBandwidth") {
-        setSelectedTab(1);
-      }
-    };
-
-    router.events.on("hashChangeStart", onHashChangeStart);
-
-    return () => {
-      router.events.off("hashChangeStart", onHashChangeStart);
-    };
-  }, [router.events]);
+  const [selectedTab, setSelectedTab] = useState(initialTab);
 
   return (
     <TabGroup
@@ -1396,7 +1379,6 @@ function VectorUsage({
       onChange={setSelectedTab}
     >
       <TeamUsageSection
-        ref={ref}
         header={
           <>
             <h3>Vector Indexes</h3>
@@ -1490,24 +1472,14 @@ function useHasSubscription(teamId?: number): boolean | undefined {
   return orbSub === undefined ? undefined : orbSub !== null;
 }
 
-const TeamUsageSection = forwardRef<
-  HTMLDivElement,
-  React.PropsWithChildren<{ header: React.ReactNode }>
->(function TeamUsageSection({ header, children }, ref) {
+function TeamUsageSection({
+  header,
+  children,
+}: React.PropsWithChildren<{ header: React.ReactNode }>) {
   return (
-    <section
-      className="scroll-mt-(--section-sticky-top) [--section-sticky-top:calc(var(--team-usage-toolbar-height)_+_--spacing(3))]"
-      ref={ref}
-    >
-      <header
-        className={cn(
-          "sticky top-(--section-sticky-top) z-10",
-
-          // This pseudo-element makes sure that the contents of the elements aren’t visible above the section header when it is sticky
-          "before:absolute before:inset-x-0 before:-top-4 before:h-12 before:bg-background-primary",
-        )}
-      >
-        <div className="relative flex w-full flex-wrap items-center justify-between gap-4 rounded-t-lg border bg-background-secondary p-4 py-2">
+    <section>
+      <header>
+        <div className="flex w-full flex-wrap items-center justify-between gap-4 rounded-t-lg border bg-background-secondary p-4 py-2">
           {header}
         </div>
       </header>
@@ -1516,7 +1488,7 @@ const TeamUsageSection = forwardRef<
       </Sheet>
     </section>
   );
-});
+}
 
 // Aggregate by-project data to by-type view by summing across all projects
 function aggregateByProjectToByType(
