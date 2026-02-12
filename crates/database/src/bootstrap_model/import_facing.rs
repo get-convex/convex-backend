@@ -113,13 +113,16 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             self.tx.next_creation_time.increment()?
         };
 
-        let document = ResolvedDocument::new(id, creation_time, value)?;
+        let mut document = ResolvedDocument::new(id, creation_time, value)?;
         if !table_name.is_system() {
             document.check_user_size()?;
         }
-        SchemaModel::new(self.tx, namespace)
+        if let Some(stripped_value) = SchemaModel::new(self.tx, namespace)
             .enforce_with_table_mapping(&document, &table_mapping_for_schema.namespace(namespace))
-            .await?;
+            .await?
+        {
+            document = document.replace_value(stripped_value)?;
+        }
         self.tx.apply_validated_write(id, None, Some(document))?;
 
         Ok(id.into())
@@ -191,13 +194,16 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             self.tx.next_creation_time.increment()?
         };
 
-        let document = ResolvedDocument::new(id, creation_time, value)?;
+        let mut document = ResolvedDocument::new(id, creation_time, value)?;
         if !table_name.is_system() {
             document.check_user_size()?;
         }
-        SchemaModel::new(self.tx, namespace)
+        if let Some(stripped_value) = SchemaModel::new(self.tx, namespace)
             .enforce_with_table_mapping(&document, &table_mapping_for_schema.namespace(namespace))
-            .await?;
+            .await?
+        {
+            document = document.replace_value(stripped_value)?;
+        }
         self.tx
             .apply_validated_write(id, existing_doc, Some(document))?;
 

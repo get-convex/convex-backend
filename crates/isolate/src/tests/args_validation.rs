@@ -60,6 +60,38 @@ async fn test_extra_arg(rt: TestRuntime) -> anyhow::Result<()> {
     .await
 }
 
+#[convex_macro::test_runtime]
+async fn test_extra_arg_strip_mode(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        must_let!(
+            let ConvexValue::Object(result) = t
+                .query(
+                    "args_validation:objectArgStrip",
+                    assert_obj!(
+                        "arg" => "argValue",
+                        "extraArg" => "extraValue"
+                    ),
+                )
+                .await?
+        );
+        assert_eq!(result, assert_obj!("arg" => "argValue"));
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_strip_mode_still_validates_types(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let e = t
+            .query_js_error("args_validation:objectArgStrip", assert_obj!("arg" => 123))
+            .await?;
+        assert_contains(&e, "ArgumentValidationError");
+        Ok(())
+    })
+    .await
+}
+
 async fn query_js_error_args_array(
     t: UdfTest<TestRuntime, TestPersistence>,
     udf_path: &str,

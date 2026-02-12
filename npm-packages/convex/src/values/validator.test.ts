@@ -203,6 +203,44 @@ describe("invalid validators fail when constructed obviously wrongly", () => {
   });
 });
 
+describe("v.object with unknownKeys option", () => {
+  test("constructor and default", () => {
+    const defaultObj = v.object({ a: v.string() });
+    expect(defaultObj.unknownKeys).toBe("strict");
+
+    const explicitStrict = v.object({ a: v.string() }, { unknownKeys: "strict" });
+    expect(explicitStrict.unknownKeys).toBe("strict");
+
+    const strip = v.object({ a: v.string() }, { unknownKeys: "strip" });
+    expect(strip.unknownKeys).toBe("strip");
+  });
+
+  test("JSON serialization", () => {
+    const strip = v.object({ a: v.string() }, { unknownKeys: "strip" });
+    expect(strip.json).toEqual({
+      type: "object",
+      value: { a: { fieldType: { type: "string" }, optional: false } },
+      unknownKeys: "strip",
+    });
+
+    const defaultObj = v.object({ a: v.string() });
+    expect((defaultObj.json as any).unknownKeys).toBeUndefined();
+
+    const explicitStrict = v.object({ a: v.string() }, { unknownKeys: "strict" });
+    expect((explicitStrict.json as any).unknownKeys).toBeUndefined();
+  });
+
+  test("propagates through combinators", () => {
+    const obj = v.object({ a: v.string(), b: v.number() }, { unknownKeys: "strip" });
+
+    expect(obj.asOptional().unknownKeys).toBe("strip");
+    expect(obj.omit("b").unknownKeys).toBe("strip");
+    expect(obj.pick("a").unknownKeys).toBe("strip");
+    expect(obj.extend({ c: v.boolean() }).unknownKeys).toBe("strip");
+    expect(obj.partial().unknownKeys).toBe("strip");
+  });
+});
+
 describe("v.object utility methods", () => {
   describe("omit", () => {
     test("omits specified fields from VObject", () => {
