@@ -691,6 +691,14 @@ impl BaseConvexClient {
     /// Resend all subscribed queries and ongoing mutations. Should be used once
     /// the websocket closes and reconnects.
     pub fn resend_ongoing_queries_mutations(&mut self) {
+        // Clear any stale messages from the queue. During reconnection
+        // retries, messages can accumulate from previous failed attempts
+        // or from subscription changes made while disconnected. Since
+        // restart() rebuilds the full query set and resets version
+        // numbers, any pre-existing messages would have stale versions
+        // that conflict with the fresh restart messages.
+        self.outgoing_message_queue.clear();
+
         let state_restart_messages = self.state.restart();
         let mut ongoing_mutation_messages = self.request_manager.restart();
 
@@ -749,4 +757,93 @@ macro_rules! convex_logs {
         tracing::event!(target: "convex_logs", tracing::Level::DEBUG, $($arg)+);
         // Additional custom behavior can be added here
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use convex_sync_types::{
+        AuthenticationToken,
+        ClientMessage,
+        QuerySetVersion,
+        UdfPath,
+    };
+    use maplit::btreemap;
+
+    use super::BaseConvexClient;
+
+    /// Simulates the server-side version tracking from
+    /// `sync::state::SyncState::modify_query_set`. Returns Err with the
+    /// same message the server produces when versions don't match.
+    fn simulate_server_version_check(messages: &[ClientMessage]) -> Result<(), String> {
+        let mut query_set_version: QuerySetVersion = 0;
+        for msg in messages {
+            if let ClientMessage::ModifyQuerySet {
+                base_version,
+                new_version,
+                ..
+            } = msg
+            {
+                if *base_version != query_set_version {
+                    return Err(format!(
+                        "Base version {base_version} passed up doesn't match the current version \
+                         {query_set_version}"
+                    ));
+                }
+                query_set_version = *new_version;
+            }
+        }
+        Ok(())
+    }
+
+    /// Reproduces the bug where repeated reconnection attempts accumulate
+    /// stale messages in the outgoing queue, causing the server to reject
+    /// messages with "Base version 0 passed up doesn't match the current
+    /// version 1".
+    ///
+    /// In the real client, this happens when `communicate()` is interrupted
+    /// by a `ProtocolResponse::Failure` mid-drain (e.g. the WebSocket
+    /// connection attempt fails). The first message is popped and sent to
+    /// the WebSocket worker channel, but remaining messages stay in the
+    /// queue. When `resend_ongoing_queries_mutations()` appends fresh
+    /// restart messages, the stale leftovers cause version conflicts.
+    #[test]
+    fn test_reconnect_does_not_send_duplicate_version_messages() {
+        let mut client = BaseConvexClient::new();
+
+        // Authenticated client with one active subscription.
+        client.set_auth(AuthenticationToken::User("test-token".into()));
+        let udf = UdfPath::from_str("workouts:getInRange").unwrap();
+        client.subscribe(udf, btreemap! {});
+
+        // Drain initial messages (successfully sent while connected).
+        while client.pop_next_message().is_some() {}
+
+        // --- Connection drops, first reconnect attempt ---
+        client.resend_ongoing_queries_mutations();
+
+        // Simulate partial drain: the first message (Authenticate) was
+        // popped and handed to the WebSocket layer, but the connection
+        // failed before the second message (ModifyQuerySet) could be sent.
+        let _ = client.pop_next_message();
+
+        // --- Connection still down, second reconnect attempt ---
+        client.resend_ongoing_queries_mutations();
+
+        // Connection finally succeeds — all queued messages are flushed.
+        let mut messages = vec![];
+        while let Some(msg) = client.pop_next_message() {
+            messages.push(msg);
+        }
+
+        // The server tracks query set versions sequentially and rejects
+        // any message whose base_version doesn't match its current state
+        // (sync::state::SyncState::modify_query_set). Without the fix,
+        // the stale ModifyQuerySet{base_version:0} from the first attempt
+        // is still in the queue, followed by the second attempt's
+        // ModifyQuerySet{base_version:0}.
+        simulate_server_version_check(&messages)
+            .expect("Server would reject these messages with a FatalError");
+    }
 }
