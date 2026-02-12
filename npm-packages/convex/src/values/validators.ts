@@ -299,14 +299,21 @@ export class VObject<
   readonly kind = "object" as const;
 
   /**
+   * A name for this object.
+   */
+  readonly name: string|undefined;
+
+  /**
    * Usually you'd use `v.object({ ... })` instead.
    */
   constructor({
     isOptional,
     fields,
+    name,
   }: {
     isOptional: IsOptional;
     fields: Fields;
+    name: string|undefined;
   }) {
     super({ isOptional });
     globalThis.Object.entries(fields).forEach(([fieldName, validator]) => {
@@ -318,6 +325,7 @@ export class VObject<
       }
     });
     this.fields = fields;
+    this.name = name;
   }
   /** @internal */
   get json(): ValidatorJSON {
@@ -332,6 +340,7 @@ export class VObject<
           },
         ]),
       ),
+      name: this.name,
     };
   }
   /** @internal */
@@ -339,6 +348,7 @@ export class VObject<
     return new VObject<Type | undefined, Fields, "optional", FieldPaths>({
       isOptional: "optional",
       fields: this.fields,
+      name: this.name,
     });
   }
 
@@ -762,7 +772,7 @@ export type ValidatorJSON =
       keys: RecordKeyValidatorJSON;
       values: RecordValueValidatorJSON;
     }
-  | { type: "object"; value: Record<string, ObjectFieldType> }
+  | { type: "object"; value: Record<string, ObjectFieldType>, name: string|undefined }
   | { type: "union"; value: ValidatorJSON[] };
 
 export type RecordKeyValidatorJSON =
