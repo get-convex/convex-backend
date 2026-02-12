@@ -518,6 +518,9 @@ impl ErrorMetadata {
         match self.code {
             ErrorCode::ClientDisconnect => None,
             ErrorCode::BadRequest if self.short_msg == "BackendIsNotRunning" => None,
+            ErrorCode::BadRequest if self.short_msg == "WSMessageInvalidJson" => {
+                Some((sentry::Level::Info, Some(0.001)))
+            },
             ErrorCode::BadRequest
             | ErrorCode::Conflict
             | ErrorCode::NotFound
