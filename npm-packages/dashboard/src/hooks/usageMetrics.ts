@@ -9,11 +9,11 @@ import {
 
 const DATABRICKS_QUERY_IDS: {
   teamFunctionBreakdown: DatabricksQueryId;
-  teamSummary: DatabricksQueryId;
+  teamSummaryByRegion: DatabricksQueryId;
   teamDeploymentCountByType: DatabricksQueryId;
 } = {
   teamFunctionBreakdown: "8e6592dd-12a0-4ddf-bc79-7498e07352d4",
-  teamSummary: "15fbb132-6641-4f17-9156-b05e9ee966d9",
+  teamSummaryByRegion: "36fc7cf3-a675-49f2-b1ce-23be09a712a2",
   teamDeploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
 };
 
@@ -62,7 +62,7 @@ export function useUsageTeamSummary(
   componentPrefix: string | null,
 ) {
   const { data, error } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamSummary,
+    queryId: DATABRICKS_QUERY_IDS.teamSummaryByRegion,
     teamId,
     projectId,
     period,
@@ -78,7 +78,7 @@ export function useUsageTeamSummary(
   }
 
   // Report to sentry if this query returns the incorrect number of rows
-  if (data.length !== 1) {
+  if (data.length < 1) {
     captureMessage(
       `Unexpected number of rows in usage summary query: ${data.length}`,
       "error",
@@ -89,6 +89,7 @@ export function useUsageTeamSummary(
     data: data?.map(
       ([
         _teamId,
+        region,
         databaseStorage,
         databaseBandwidth,
         functionCalls,
@@ -98,6 +99,7 @@ export function useUsageTeamSummary(
         vectorStorage,
         vectorBandwidth,
       ]) => ({
+        region,
         databaseStorage: Number(databaseStorage),
         databaseBandwidth: Number(databaseBandwidth),
         fileStorage: Number(fileStorage),
@@ -107,12 +109,13 @@ export function useUsageTeamSummary(
         vectorStorage: Number(vectorStorage),
         vectorBandwidth: Number(vectorBandwidth),
       }),
-    )[0],
+    ),
     error: undefined,
   };
 }
 
 export type UsageSummary = {
+  region: string;
   databaseStorage: number;
   databaseBandwidth: number;
   fileStorage: number;

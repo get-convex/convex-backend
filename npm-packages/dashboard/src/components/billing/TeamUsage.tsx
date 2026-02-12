@@ -1,8 +1,7 @@
-import { PlanSummary, UsageOverview } from "components/billing/PlanSummary";
+import { PlanSummary } from "components/billing/PlanSummary";
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
-import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { sidebarLinkClassNames } from "@common/elements/Sidebar";
 import {
   AggregatedFunctionMetrics,
@@ -20,6 +19,7 @@ import {
   useTokenUsage,
   useUsageTeamDeploymentCountPerDayByProject,
   useUsageTeamDeploymentCountByType,
+  UsageSummary,
   DailyMetric,
   DailyMetricByProject,
   DailyPerTagMetrics,
@@ -88,6 +88,18 @@ const FUNCTION_BREAKDOWN_TABS = [
   FunctionBreakdownMetricActionCompute,
   FunctionBreakdownMetricVectorBandwidth,
 ];
+
+// Helper to aggregate usage metrics across regions
+// aws-us-east-1 counts towards "Included", other regions go to "On-demand"
+function aggregateMetric(
+  teamSummary: UsageSummary[] | undefined,
+  metricKey: keyof Omit<UsageSummary, "region">,
+): number | undefined {
+  if (!teamSummary || teamSummary.length === 0) {
+    return undefined;
+  }
+  return teamSummary.reduce((sum, s) => sum + s[metricKey], 0);
+}
 
 export function TeamUsage({ team }: { team: TeamResponse }) {
   const { query } = useRouter();
@@ -225,9 +237,9 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               dateRange={dateRange}
               projectId={projectId}
               componentPrefix={componentPrefix}
-              functionCalls={teamSummary?.functionCalls}
-              functionCallsEntitlement={entitlements?.teamMaxFunctionCalls}
-              showEntitlements={showEntitlements}
+              _functionCalls={aggregateMetric(teamSummary, "functionCalls")}
+              _functionCallsEntitlement={entitlements?.teamMaxFunctionCalls}
+              _showEntitlements={showEntitlements}
             />
 
             <ActionComputeUsage
@@ -235,9 +247,9 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               dateRange={dateRange}
               projectId={projectId}
               componentPrefix={componentPrefix}
-              actionCompute={teamSummary?.actionCompute}
-              actionComputeEntitlement={entitlements?.teamMaxActionCompute}
-              showEntitlements={showEntitlements}
+              _actionCompute={aggregateMetric(teamSummary, "actionCompute")}
+              _actionComputeEntitlement={entitlements?.teamMaxActionCompute}
+              _showEntitlements={showEntitlements}
             />
 
             <DatabaseUsage
@@ -245,11 +257,11 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               dateRange={dateRange}
               projectId={projectId}
               componentPrefix={componentPrefix}
-              storage={teamSummary?.databaseStorage}
-              storageEntitlement={entitlements?.teamMaxDatabaseStorage}
-              bandwidth={teamSummary?.databaseBandwidth}
-              bandwidthEntitlement={entitlements?.teamMaxDatabaseBandwidth}
-              showEntitlements={showEntitlements}
+              _storage={aggregateMetric(teamSummary, "databaseStorage")}
+              _storageEntitlement={entitlements?.teamMaxDatabaseStorage}
+              _bandwidth={aggregateMetric(teamSummary, "databaseBandwidth")}
+              _bandwidthEntitlement={entitlements?.teamMaxDatabaseBandwidth}
+              _showEntitlements={showEntitlements}
             />
 
             <FilesUsage
@@ -257,11 +269,11 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               dateRange={dateRange}
               projectId={projectId}
               componentPrefix={componentPrefix}
-              storage={teamSummary?.fileStorage}
-              storageEntitlement={entitlements?.teamMaxFileStorage}
-              bandwidth={teamSummary?.fileBandwidth}
-              bandwidthEntitlement={entitlements?.teamMaxFileBandwidth}
-              showEntitlements={showEntitlements}
+              _storage={aggregateMetric(teamSummary, "fileStorage")}
+              _storageEntitlement={entitlements?.teamMaxFileStorage}
+              _bandwidth={aggregateMetric(teamSummary, "fileBandwidth")}
+              _bandwidthEntitlement={entitlements?.teamMaxFileBandwidth}
+              _showEntitlements={showEntitlements}
             />
 
             <VectorUsage
@@ -269,11 +281,11 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               dateRange={dateRange}
               projectId={projectId}
               componentPrefix={componentPrefix}
-              storage={teamSummary?.vectorStorage}
-              storageEntitlement={entitlements?.teamMaxVectorStorage}
-              bandwidth={teamSummary?.vectorBandwidth}
-              bandwidthEntitlement={entitlements?.teamMaxVectorBandwidth}
-              showEntitlements={showEntitlements}
+              _storage={aggregateMetric(teamSummary, "vectorStorage")}
+              _storageEntitlement={entitlements?.teamMaxVectorStorage}
+              _bandwidth={aggregateMetric(teamSummary, "vectorBandwidth")}
+              _bandwidthEntitlement={entitlements?.teamMaxVectorBandwidth}
+              _showEntitlements={showEntitlements}
             />
 
             <DeploymentCountUsage
@@ -281,9 +293,9 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
               dateRange={dateRange}
               projectId={projectId}
               componentPrefix={componentPrefix}
-              deploymentCount={latestDeploymentCount}
-              deploymentCountEntitlement={entitlements?.maxDeployments}
-              showEntitlements={showEntitlements}
+              _deploymentCount={latestDeploymentCount}
+              _deploymentCountEntitlement={entitlements?.maxDeployments}
+              _showEntitlements={showEntitlements}
             />
 
             <FunctionBreakdownSection
@@ -562,22 +574,22 @@ function DatabaseUsage({
   team,
   dateRange,
   projectId,
-  storage,
-  bandwidth,
-  storageEntitlement,
-  bandwidthEntitlement,
-  showEntitlements,
+  _storage,
+  _bandwidth,
+  _storageEntitlement,
+  _bandwidthEntitlement,
+  _showEntitlements,
   componentPrefix,
 }: {
   team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
-  storage?: number;
-  bandwidth?: number;
-  storageEntitlement?: number | null;
-  bandwidthEntitlement?: number | null;
-  showEntitlements: boolean;
+  _storage?: number;
+  _bandwidth?: number;
+  _storageEntitlement?: number | null;
+  _bandwidthEntitlement?: number | null;
+  _showEntitlements: boolean;
 }) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_database",
@@ -684,14 +696,6 @@ function DatabaseUsage({
               <UsageDataError entity="Database storage" />
             ) : (
               <>
-                {showEntitlements && selectedDate === null && (
-                  <UsageOverview
-                    metric={storage}
-                    entitlement={storageEntitlement ?? 0}
-                    format={formatBytes}
-                    showEntitlements={showEntitlements}
-                  />
-                )}
                 {viewMode === "byType" ? (
                   databaseStorage === undefined ? (
                     <ChartLoading />
@@ -726,14 +730,6 @@ function DatabaseUsage({
               <UsageDataError entity="Database bandwidth" />
             ) : (
               <>
-                {showEntitlements && selectedDate === null && (
-                  <UsageOverview
-                    metric={bandwidth}
-                    entitlement={bandwidthEntitlement ?? 0}
-                    format={formatBytes}
-                    showEntitlements={showEntitlements}
-                  />
-                )}
                 {viewMode === "byType" ? (
                   databaseBandwidth === undefined ? (
                     <ChartLoading />
@@ -795,17 +791,17 @@ function FunctionCallsUsage({
   dateRange,
   projectId,
   componentPrefix,
-  functionCalls,
-  functionCallsEntitlement,
-  showEntitlements,
+  _functionCalls,
+  _functionCallsEntitlement,
+  _showEntitlements,
 }: {
   team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
-  functionCalls?: number;
-  functionCallsEntitlement?: number | null;
-  showEntitlements: boolean;
+  _functionCalls?: number;
+  _functionCallsEntitlement?: number | null;
+  _showEntitlements: boolean;
 }) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_functionCalls",
@@ -863,14 +859,6 @@ function FunctionCallsUsage({
           <UsageDataError entity="Function calls" />
         ) : (
           <>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={functionCalls}
-                entitlement={functionCallsEntitlement ?? 0}
-                format={formatNumberCompact}
-                showEntitlements={showEntitlements}
-              />
-            )}
             {viewMode === "byType" ? (
               callsByTag === undefined ? (
                 <ChartLoading />
@@ -907,17 +895,17 @@ function ActionComputeUsage({
   dateRange,
   projectId,
   componentPrefix,
-  actionCompute,
-  actionComputeEntitlement,
-  showEntitlements,
+  _actionCompute,
+  _actionComputeEntitlement,
+  _showEntitlements,
 }: {
   team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
-  actionCompute?: number;
-  actionComputeEntitlement?: number | null;
-  showEntitlements: boolean;
+  _actionCompute?: number;
+  _actionComputeEntitlement?: number | null;
+  _showEntitlements: boolean;
 }) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_actionCompute",
@@ -981,15 +969,6 @@ function ActionComputeUsage({
           <UsageDataError entity="Action compute" />
         ) : (
           <>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={actionCompute}
-                entitlement={actionComputeEntitlement ?? 0}
-                format={formatNumberCompact}
-                showEntitlements={showEntitlements}
-                suffix="GB-hours"
-              />
-            )}
             {viewMode === "byType" ? (
               actionComputeDaily === undefined ? (
                 <ChartLoading />
@@ -1025,21 +1004,21 @@ function FilesUsage({
   dateRange,
   projectId,
   componentPrefix,
-  storage,
-  storageEntitlement,
-  bandwidth,
-  bandwidthEntitlement,
-  showEntitlements,
+  _storage,
+  _storageEntitlement,
+  _bandwidth,
+  _bandwidthEntitlement,
+  _showEntitlements,
 }: {
   team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
-  showEntitlements: boolean;
-  storage?: number;
-  storageEntitlement?: number | null;
-  bandwidth?: number;
-  bandwidthEntitlement?: number | null;
+  _showEntitlements: boolean;
+  _storage?: number;
+  _storageEntitlement?: number | null;
+  _bandwidth?: number;
+  _bandwidthEntitlement?: number | null;
 }) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_files",
@@ -1129,14 +1108,6 @@ function FilesUsage({
               <UsageDataError entity="File storage" />
             ) : (
               <>
-                {showEntitlements && selectedDate === null && (
-                  <UsageOverview
-                    metric={storage}
-                    entitlement={storageEntitlement ?? 0}
-                    format={formatBytes}
-                    showEntitlements={showEntitlements}
-                  />
-                )}
                 {viewMode === "byType" ? (
                   fileStorage === undefined ? (
                     <ChartLoading />
@@ -1171,14 +1142,6 @@ function FilesUsage({
               <UsageDataError entity="File bandwidth" />
             ) : (
               <>
-                {showEntitlements && selectedDate === null && (
-                  <UsageOverview
-                    metric={bandwidth}
-                    entitlement={bandwidthEntitlement ?? 0}
-                    format={formatBytes}
-                    showEntitlements={showEntitlements}
-                  />
-                )}
                 {viewMode === "byType" ? (
                   filesBandwidth === undefined ? (
                     <ChartLoading />
@@ -1217,17 +1180,17 @@ function DeploymentCountUsage({
   dateRange,
   projectId,
   componentPrefix,
-  deploymentCount,
-  deploymentCountEntitlement,
-  showEntitlements,
+  _deploymentCount,
+  _deploymentCountEntitlement,
+  _showEntitlements,
 }: {
   team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
-  deploymentCount?: number;
-  deploymentCountEntitlement?: number | null;
-  showEntitlements: boolean;
+  _deploymentCount?: number;
+  _deploymentCountEntitlement?: number | null;
+  _showEntitlements: boolean;
 }) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_deploymentCount",
@@ -1309,15 +1272,6 @@ function DeploymentCountUsage({
       }
     >
       <div className="px-4">
-        {showEntitlements && selectedDate === null && (
-          <UsageOverview
-            metric={deploymentCount}
-            entitlement={deploymentCountEntitlement ?? 0}
-            format={formatNumberCompact}
-            showEntitlements={showEntitlements}
-            noOnDemand
-          />
-        )}
         {viewMode === "byType" ? (
           // Show deployment type breakdown (prod/dev/preview/deleted)
           deploymentCountByTypeError ? (
@@ -1356,21 +1310,21 @@ function VectorUsage({
   dateRange,
   projectId,
   componentPrefix,
-  storage,
-  storageEntitlement,
-  bandwidth,
-  bandwidthEntitlement,
-  showEntitlements,
+  _storage,
+  _storageEntitlement,
+  _bandwidth,
+  _bandwidthEntitlement,
+  _showEntitlements,
 }: {
   team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
-  storage?: number;
-  storageEntitlement?: number | null;
-  bandwidth?: number;
-  bandwidthEntitlement?: number | null;
-  showEntitlements: boolean;
+  _storage?: number;
+  _storageEntitlement?: number | null;
+  _bandwidth?: number;
+  _bandwidthEntitlement?: number | null;
+  _showEntitlements: boolean;
 }) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_vector",
@@ -1466,14 +1420,6 @@ function VectorUsage({
               <UsageDataError entity="Vector storage" />
             ) : (
               <>
-                {showEntitlements && selectedDate === null && (
-                  <UsageOverview
-                    metric={storage}
-                    entitlement={storageEntitlement ?? 0}
-                    format={formatBytes}
-                    showEntitlements={showEntitlements}
-                  />
-                )}
                 {viewMode === "byType" ? (
                   vectorStorage === undefined ? (
                     <ChartLoading />
@@ -1505,14 +1451,6 @@ function VectorUsage({
               <UsageDataError entity="Vector bandwidth" />
             ) : (
               <>
-                {showEntitlements && selectedDate === null && (
-                  <UsageOverview
-                    metric={bandwidth}
-                    entitlement={bandwidthEntitlement ?? 0}
-                    format={formatBytes}
-                    showEntitlements={showEntitlements}
-                  />
-                )}
                 {viewMode === "byType" ? (
                   vectorBandwidth === undefined ? (
                     <ChartLoading />
