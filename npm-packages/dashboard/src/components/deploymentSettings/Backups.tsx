@@ -78,11 +78,13 @@ export function Backups({
           ) : (
             <Tooltip
               tip="Automatic backups are only available on the Pro plan."
-              className="flex gap-1"
+              className="flex items-center gap-3"
             >
-              <label className="flex cursor-not-allowed items-center gap-2 text-sm">
-                <Checkbox disabled checked={false} onChange={() => {}} />
-                Backup automatically
+              <label className="flex cursor-not-allowed items-start gap-2 text-start text-sm">
+                <div className="flex min-h-[1lh] items-center">
+                  <Checkbox disabled checked={false} onChange={() => {}} />
+                </div>
+                <span>Backup automatically</span>
               </label>
               <span
                 className="h-fit rounded-sm bg-util-accent px-1.5 py-1 text-xs font-semibold tracking-wider text-white uppercase"
