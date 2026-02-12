@@ -32,6 +32,7 @@ pub struct AwsLambdaConfig {
     pub timeout_sec: i32,
     pub vpc_subnet_ids: Vec<String>,
     pub vpc_security_group_ids: Vec<String>,
+    pub ipv6_enabled: bool,
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -195,6 +196,7 @@ impl TryFrom<AwsLambdaConfig> for ConvexObject {
             timeout_sec,
             vpc_subnet_ids,
             vpc_security_group_ids,
+            ipv6_enabled,
         }: AwsLambdaConfig,
     ) -> Result<Self, Self::Error> {
         let env: anyhow::Result<BTreeMap<FieldName, ConvexValue>> = env
@@ -217,7 +219,8 @@ impl TryFrom<AwsLambdaConfig> for ConvexObject {
             "diskSizeMb" => (disk_size_mb as i64),
             "timeoutSec" => (timeout_sec as i64),
             "subnetIds" => vpc_subnet_ids,
-            "securityGroupIds" => vpc_security_group_ids
+            "securityGroupIds" => vpc_security_group_ids,
+            "ipv6Enabled" => ipv6_enabled,
         )
     }
 }
@@ -301,6 +304,11 @@ impl TryFrom<ConvexObject> for AwsLambdaConfig {
             None => vec![],
             _ => anyhow::bail!("Invalid 'securityGroupIds' in {object_fields:?}"),
         };
+        let ipv6_enabled = match object_fields.remove("ipv6Enabled") {
+            Some(ConvexValue::Boolean(b)) => b,
+            None => false,
+            r => anyhow::bail!("Invalid 'ipv6Enabled': {r:?}"),
+        };
         Ok(Self {
             env: env?,
             runtime,
@@ -310,6 +318,7 @@ impl TryFrom<ConvexObject> for AwsLambdaConfig {
             timeout_sec,
             vpc_subnet_ids,
             vpc_security_group_ids,
+            ipv6_enabled,
         })
     }
 }
