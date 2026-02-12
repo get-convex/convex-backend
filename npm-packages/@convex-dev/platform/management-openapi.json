@@ -189,6 +189,94 @@
         ]
       }
     },
+    "/projects/{project_id}": {
+      "get": {
+        "summary": "Get project by ID",
+        "description": "Get a project by its ID.",
+        "operationId": "get project by id",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id_or_slug}/projects/{project_slug}": {
+      "get": {
+        "summary": "Get project by slug",
+        "description": "Get a project by its slug.",
+        "operationId": "get project by slug",
+        "parameters": [
+          {
+            "name": "team_id_or_slug",
+            "in": "path",
+            "description": "Team ID or slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project_slug",
+            "in": "path",
+            "description": "Project slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/projects/{project_id}/create_deployment": {
       "post": {
         "summary": "Create deployment",
