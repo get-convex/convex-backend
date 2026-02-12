@@ -1682,6 +1682,37 @@ impl<RT: Runtime> Database<RT> {
         .await
     }
 
+    /// Like `execute_with_overloaded_retries`, but also checks the write
+    /// throughput limit before each attempt. If the limit is exceeded, retries
+    /// indefinitely with exponential backoff.
+    pub async fn execute_with_overloaded_and_ratelimited_retries<'a, T, F>(
+        &'a self,
+        identity: Identity,
+        usage: FunctionUsageTracker,
+        write_source: impl Into<WriteSource>,
+        f: F,
+    ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
+    where
+        T: Send,
+        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
+    {
+        let mut rate_limit_backoff =
+            Backoff::new(INITIAL_OVERLOADED_BACKOFF, MAX_OVERLOADED_BACKOFF);
+        loop {
+            match self.check_write_throughput_limit() {
+                Ok(()) => break,
+                Err(e) if e.is_rate_limited() => {
+                    let delay = rate_limit_backoff.fail(&mut self.runtime.rng());
+                    tracing::warn!("Write throughput limit exceeded, retrying after {delay:?}",);
+                    self.runtime.wait(delay).await;
+                },
+                Err(e) => return Err(e),
+            }
+        }
+        self.execute_with_overloaded_retries(identity, usage, write_source, f)
+            .await
+    }
+
     pub async fn begin(&self, identity: Identity) -> anyhow::Result<Transaction<RT>> {
         self.begin_with_usage(identity, FunctionUsageTracker::new())
             .await

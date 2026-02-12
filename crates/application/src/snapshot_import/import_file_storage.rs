@@ -154,7 +154,7 @@ pub async fn import_storage_table<RT: Runtime>(
         }
         let file_size = entry.size as u64;
         database
-            .execute_with_overloaded_retries(
+            .execute_with_overloaded_and_ratelimited_retries(
                 identity.clone(),
                 FunctionUsageTracker::new(),
                 "snapshot_import_storage_table",
