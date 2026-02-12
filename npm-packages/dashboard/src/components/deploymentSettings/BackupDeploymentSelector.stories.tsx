@@ -2,10 +2,11 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, fn } from "storybook/test";
 import { TeamResponse, ProjectDetails, TeamMember } from "generatedApi";
 import { useProfile } from "api/profile";
-import { useProjects, useProjectById } from "api/projects";
+import { useInfiniteProjects, useProjectById } from "api/projects";
 import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { BackupDeploymentSelector } from "./BackupDeploymentSelector";
 
 const team: TeamResponse = {
@@ -125,17 +126,24 @@ const meta = {
       name: "Test User",
       email: "test@example.com",
     });
-    mocked(useProjects).mockReturnValue(mockProjects);
+    mocked(useInfiniteProjects).mockReturnValue({
+      projects: mockProjects,
+      isLoading: false,
+      hasMore: false,
+      loadMore: fn(),
+      debouncedQuery: "",
+      pageSize: 25,
+    });
     mocked(useDeployments).mockReturnValue({
       deployments: mockDeployments,
       isLoading: false,
     });
+    mocked(useTeamMembers).mockReturnValue(mockTeamMembers);
     mocked(useProjectById).mockReturnValue({
       project: mockProjects[0],
       isLoading: false,
       error: undefined,
     });
-    mocked(useTeamMembers).mockReturnValue(mockTeamMembers);
   },
 } satisfies Meta<typeof BackupDeploymentSelector>;
 
@@ -154,6 +162,117 @@ export const Default: Story = {
 export const DifferentDeploymentSelected: Story = {
   args: {
     selectedDeployment: mockDeployments[4], // Jane's dev deployment
+    targetDeployment: mockDeployments[0],
+    team,
+    onChange: fn(),
+  },
+};
+
+// Generate many projects to test infinite scroll behavior
+let lastId = 0;
+const generateManyProjects = (
+  count: number,
+  startOffset: number = 0,
+): ProjectDetails[] => {
+  const projectNames = [
+    "Analytics Dashboard",
+    "User Authentication",
+    "Payment Processing",
+    "Inventory Management",
+    "Customer Portal",
+    "Admin Console",
+    "Marketing Site",
+    "Mobile Backend",
+    "Email Service",
+    "Notification System",
+    "Search Engine",
+    "Content Management",
+    "Reporting Tool",
+    "Data Pipeline",
+    "API Gateway",
+  ];
+
+  return Array.from({ length: count }, (_, i) => {
+    const index = startOffset + i;
+    return {
+      id: lastId++,
+      name: `${projectNames[index % projectNames.length]} ${Math.floor(index / projectNames.length) + 1}`,
+      slug: `project-${lastId}`,
+      teamId: 1,
+      createTime: Date.now() - index * 24 * 60 * 60 * 1000,
+      isDemo: index % 10 === 0, // Every 10th project is a demo
+    };
+  });
+};
+
+export const ManyProjects: Story = {
+  beforeEach: () => {
+    mocked(useProfile).mockReturnValue({
+      id: 1,
+      name: "Test User",
+      email: "test@example.com",
+    });
+    mocked(useDeployments).mockReturnValue({
+      deployments: mockDeployments,
+      isLoading: false,
+    });
+    mocked(useTeamMembers).mockReturnValue(mockTeamMembers);
+    mocked(useProjectById).mockReturnValue({
+      project: mockProjects[0],
+      isLoading: false,
+      error: undefined,
+    });
+  },
+  decorators: [
+    (Story) => {
+      const PAGE_SIZE = 25;
+      const TOTAL_AVAILABLE = 200;
+      const LOAD_DELAY_MS = 500;
+
+      const [data, setData] = useState<ProjectDetails[][]>(() => [
+        [
+          // Include the project with the default deployment as the first item.
+          mockProjects[0],
+          // Then load the first page of generated projects.
+          ...generateManyProjects(PAGE_SIZE - 1, 0),
+        ],
+      ]);
+      const loadedProjects = useMemo(() => data.flat(), [data]);
+
+      const hasMore = loadedProjects.length < TOTAL_AVAILABLE;
+      const isLoadingMore = useRef(false);
+
+      const loadMore = useCallback(() => {
+        if (!hasMore || isLoadingMore.current) {
+          return;
+        }
+        isLoadingMore.current = true;
+        setTimeout(() => {
+          setData((prev) => [
+            ...prev,
+            generateManyProjects(PAGE_SIZE, loadedProjects.length - 1),
+          ]);
+          isLoadingMore.current = false;
+        }, LOAD_DELAY_MS);
+      }, [hasMore, isLoadingMore, loadedProjects.length]);
+
+      // Update mock on every render with current state
+      useEffect(() => {
+        mocked(useInfiniteProjects).mockReturnValue({
+          projects: loadedProjects,
+          isLoading: false,
+          hasMore,
+          loadMore,
+          debouncedQuery: "",
+          pageSize: PAGE_SIZE,
+        });
+      });
+
+      return <Story />;
+    },
+  ],
+  args: {
+    selectedDeployment: mockDeployments[0],
     targetDeployment: mockDeployments[0],
     team,
     onChange: fn(),

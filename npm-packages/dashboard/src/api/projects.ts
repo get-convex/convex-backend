@@ -140,7 +140,7 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
     [searchQuery],
   );
 
-  const { data, isLoading, setSize } = useInfinite(
+  const { data, isLoading, size, setSize } = useInfinite(
     "/teams/{team_id}/projects",
     (
       pageIndex: number,
@@ -193,11 +193,16 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
 
   const hasMore = data?.[data.length - 1]?.pagination.hasMore ?? false;
 
+  // isLoading is only true when the first page is loading
+  // (see https://swr.vercel.app/examples/infinite-loading)
+  const isLoadingMore =
+    isLoading || (size > 0 && data && typeof data[size - 1] === "undefined");
+
   const loadMore = useCallback(() => {
-    if (hasMore && !isLoading) {
+    if (hasMore && !isLoadingMore) {
       void setSize((prevSize) => prevSize + 1);
     }
-  }, [hasMore, isLoading, setSize]);
+  }, [hasMore, isLoadingMore, setSize]);
 
   return {
     projects,

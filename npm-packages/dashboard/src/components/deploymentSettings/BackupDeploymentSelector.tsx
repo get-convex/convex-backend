@@ -5,12 +5,16 @@ import {
   ListboxOption,
   Transition,
 } from "@headlessui/react";
-import { CaretSortIcon, ChevronLeftIcon } from "@radix-ui/react-icons";
+import {
+  CaretSortIcon,
+  ChevronLeftIcon,
+  SewingPinFilledIcon,
+} from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Loading } from "@ui/Loading";
 import { Tooltip } from "@ui/Tooltip";
 import { useDeployments } from "api/deployments";
-import { useProjects } from "api/projects";
+import { useInfiniteProjects, useProjectById } from "api/projects";
 import { useProfile } from "api/profile";
 import { cn } from "@ui/cn";
 import { useCallback, useMemo, useState } from "react";
@@ -19,6 +23,9 @@ import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
 import { FullDeploymentName } from "./BackupListItem";
+
+/** How many placeholder rows we show when loading more projects */
+const LOADING_ROW_COUNT = 9;
 
 export function BackupDeploymentSelector({
   selectedDeployment,
@@ -31,12 +38,30 @@ export function BackupDeploymentSelector({
   team: TeamResponse;
   targetDeployment: PlatformDeploymentResponse;
 }) {
-  const projects = useProjects(team.id);
+  const {
+    projects,
+    isLoading: isLoadingProjects,
+    hasMore,
+    loadMore,
+  } = useInfiniteProjects(team.id);
+
+  const currentProjectId =
+    targetDeployment.kind === "cloud" ? targetDeployment.projectId : undefined;
+  const { project: currentProject } = useProjectById(currentProjectId);
+
+  // Filter out the current project from the paginated list because we display it at the top
+  const paginatedProjects = useMemo(
+    () => projects.filter((p) => p.id !== currentProjectId),
+    [projects, currentProjectId],
+  );
 
   const [selectedProjectId, setSelectedProjectId] = useState(
     selectedDeployment.projectId,
   );
-  const selectedProject = projects?.find((p) => p.id === selectedProjectId);
+  const selectedProject =
+    currentProject?.id === selectedProjectId
+      ? currentProject
+      : paginatedProjects.find((p) => p.id === selectedProjectId);
   const { deployments } = useDeployments(selectedProjectId);
 
   const myProfile = useProfile();
@@ -65,11 +90,30 @@ export function BackupDeploymentSelector({
     setSelectedProjectId(selectedDeployment.projectId);
   }, [selectedDeployment.projectId]);
 
+  const showLoadingRows =
+    hasMore || (isLoadingProjects && projects.length === 0);
+  const projectRowCount =
+    (currentProject ? 1 : 0) +
+    paginatedProjects.length +
+    (showLoadingRows ? LOADING_ROW_COUNT : 0);
   const rowCount =
     (currentPage === "projects"
-      ? projects?.length
+      ? projectRowCount || 5
       : selectedProjectDeployments?.length) ?? 5;
   const heightRem = 3.5 + 2.25 * Math.min(rowCount, 9.5);
+
+  const handleProjectsScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const el = e.currentTarget;
+      if (
+        el.scrollHeight - el.scrollTop - el.clientHeight <
+        (LOADING_ROW_COUNT + 5) * 36
+      ) {
+        loadMore();
+      }
+    },
+    [loadMore],
+  );
 
   const [referenceElement, setReferenceElement] =
     useState<HTMLButtonElement | null>(null);
@@ -207,32 +251,69 @@ export function BackupDeploymentSelector({
                               </span>
                             </header>
 
-                            <div className="grow overflow-x-hidden overflow-y-auto">
-                              {projects === undefined ? (
-                                <Loading />
-                              ) : (
-                                <ul className="p-0.5">
-                                  {projects.map((project) => (
-                                    <ListboxOption
-                                      key={project.id}
-                                      value={project.id}
-                                      className={({ focus, selected }) =>
-                                        cn(
-                                          "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
-                                          focus && "bg-background-tertiary",
-                                          selected &&
-                                            "bg-background-tertiary/60",
-                                        )
-                                      }
-                                      disabled={currentPage !== "projects"}
+                            <div
+                              className="grow overflow-x-hidden overflow-y-auto"
+                              onScroll={handleProjectsScroll}
+                            >
+                              <ul className="p-0.5">
+                                {currentProject && (
+                                  <ListboxOption
+                                    key={currentProject.id}
+                                    value={currentProject.id}
+                                    className={({ focus, selected }) =>
+                                      cn(
+                                        "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
+                                        focus && "bg-background-tertiary",
+                                        selected && "bg-background-tertiary/60",
+                                      )
+                                    }
+                                    disabled={currentPage !== "projects"}
+                                  >
+                                    <span className="w-full truncate">
+                                      {currentProject.name}
+                                    </span>
+                                    <Tooltip
+                                      tip="This project"
+                                      side="right"
+                                      className="ml-auto"
                                     >
-                                      <span className="w-full truncate">
-                                        {project.name}
-                                      </span>
-                                    </ListboxOption>
-                                  ))}
-                                </ul>
-                              )}
+                                      <SewingPinFilledIcon className="min-h-[1rem] min-w-[1rem]" />
+                                    </Tooltip>
+                                  </ListboxOption>
+                                )}
+                                {paginatedProjects.map((project) => (
+                                  <ListboxOption
+                                    key={project.id}
+                                    value={project.id}
+                                    className={({ focus, selected }) =>
+                                      cn(
+                                        "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
+                                        focus && "bg-background-tertiary",
+                                        selected && "bg-background-tertiary/60",
+                                      )
+                                    }
+                                    disabled={currentPage !== "projects"}
+                                  >
+                                    <span className="w-full truncate">
+                                      {project.name}
+                                    </span>
+                                  </ListboxOption>
+                                ))}
+                                <div aria-label="Loading more projects">
+                                  {showLoadingRows &&
+                                    Array.from(
+                                      { length: LOADING_ROW_COUNT },
+                                      (_, i) => (
+                                        <div
+                                          key={`loading-${i}`}
+                                          className="p-2 text-sm"
+                                        >
+                                          <Loading className="h-[1lh]" />
+                                        </div>
+                                      ),
+                                    )}
+                                </div>
+                              </ul>
                             </div>
                           </div>
                         </div>
