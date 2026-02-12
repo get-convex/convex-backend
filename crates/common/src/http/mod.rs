@@ -123,6 +123,7 @@ use crate::{
 pub mod extract;
 pub mod fetch;
 pub mod fork_of_axum_serve;
+pub mod websocket;
 
 const MAX_HTTP2_STREAMS: u32 = 1024;
 

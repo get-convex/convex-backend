@@ -10,15 +10,7 @@ use ::errors::{
 use anyhow::Context as _;
 use axum::{
     body::Bytes,
-    extract::{
-        ws::{
-            CloseFrame,
-            Message,
-            WebSocket,
-            WebSocketUpgrade,
-        },
-        State,
-    },
+    extract::State,
     response::IntoResponse,
 };
 use common::{
@@ -27,6 +19,12 @@ use common::{
         report_error_sync,
     },
     http::{
+        websocket::{
+            CloseFrame,
+            Message,
+            WebSocket,
+            WebSocketUpgrade,
+        },
         ExtractClientVersion,
         ExtractResolvedHostname,
         HttpResponseError,
@@ -465,18 +463,18 @@ pub async fn sync(
 #[cfg(test)]
 mod tests {
     use axum::{
-        extract::{
-            ws::{
-                Message,
-                WebSocket,
-            },
-            State,
-            WebSocketUpgrade,
-        },
+        extract::State,
         routing::get,
         Router,
     };
-    use common::http::ConvexHttpService;
+    use common::http::{
+        websocket::{
+            Message,
+            WebSocket,
+            WebSocketUpgrade,
+        },
+        ConvexHttpService,
+    };
     use tokio::sync::{
         mpsc,
         oneshot,

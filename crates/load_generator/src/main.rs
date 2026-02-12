@@ -21,14 +21,7 @@ use ::metrics::{
 };
 use anyhow::Context;
 use axum::{
-    extract::{
-        ws::{
-            Message,
-            WebSocket,
-        },
-        State,
-        WebSocketUpgrade,
-    },
+    extract::State,
     response::IntoResponse,
     routing::get,
     Router,
@@ -47,6 +40,11 @@ use common::{
         MainError,
     },
     http::{
+        websocket::{
+            Message,
+            WebSocket,
+            WebSocketUpgrade,
+        },
         ConvexHttpService,
         HttpResponseError,
         NoopRouteMapper,
