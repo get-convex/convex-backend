@@ -18,7 +18,12 @@ use common::{
         IndexConfig,
         TabletIndexMetadata,
     },
+    components::{
+        ComponentId,
+        ComponentPath,
+    },
     errors::report_error,
+    execution_context::ExecutionId,
     fastrace_helpers::get_sampled_span,
     knobs::{
         INDEX_BACKFILL_CONCURRENCY,
@@ -37,8 +42,12 @@ use common::{
         IndexId,
         RepeatableTimestamp,
         TabletIndexName,
+        UdfIdentifier,
     },
+    RequestId,
 };
+#[cfg(any(test, feature = "testing"))]
+use events::usage::NoOpUsageEventLogger;
 use fastrace::future::FutureExt as _;
 use futures::FutureExt as _;
 use hashlink::LinkedHashSet;
@@ -46,6 +55,11 @@ use keybroker::Identity;
 use tokio::{
     select,
     sync::mpsc,
+};
+use usage_tracking::{
+    CallType,
+    FunctionUsageTracker,
+    UsageCounter,
 };
 use value::{
     DeveloperDocumentId,
@@ -94,6 +108,7 @@ pub struct IndexWorker<RT: Runtime> {
     metadata_mutex: Arc<tokio::sync::Mutex<()>>,
     database: Database<RT>,
     index_writer: IndexWriter<RT>,
+    usage_tracking: UsageCounter,
     backoff: Backoff,
     runtime: RT,
     #[cfg(any(test, feature = "testing"))]
@@ -108,6 +123,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         database: Database<RT>,
         instance_name: String,
+        usage_tracking: UsageCounter,
     ) -> impl Future<Output = ()> + Send {
         let reader = persistence.reader();
         let (progress_tx, progress_rx) = mpsc::channel(100);
@@ -127,6 +143,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             metadata_mutex: Default::default(),
             database,
             index_writer,
+            usage_tracking,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
             runtime,
             #[cfg(any(test, feature = "testing"))]
@@ -164,7 +181,10 @@ impl<RT: Runtime> IndexWorker<RT> {
         persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
         database: Database<RT>,
+        usage_tracking: Option<UsageCounter>,
     ) -> impl Future<Output = anyhow::Result<u64>> + Send {
+        let usage_tracking =
+            usage_tracking.unwrap_or_else(|| UsageCounter::new(Arc::new(NoOpUsageEventLogger)));
         let mut total_docs_indexed = 0;
         let reader = persistence.reader();
         let (progress_tx, progress_rx) = mpsc::channel(10);
@@ -184,6 +204,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             metadata_mutex: Default::default(),
             database,
             index_writer,
+            usage_tracking,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
             runtime,
             should_terminate: true,
@@ -300,11 +321,20 @@ impl<RT: Runtime> IndexWorker<RT> {
                         index_ids,
                         cursor,
                         num_docs_indexed,
+                        backfill_bytes_read,
+                        backfill_bytes_written,
                     }) = maybe_progress else {
                     anyhow::bail!("Database index backfill progress channel closed");
                 };
                 let mut tx = self.database.begin_system().await?;
-                let table_number = tx.table_mapping().tablet_number(tablet_id)?;
+                let table_mapping = tx.table_mapping();
+                let table_number = table_mapping.tablet_number(tablet_id)?;
+                let table_name = table_mapping.tablet_name(tablet_id)?;
+                let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
+                let component_id = ComponentId::from(table_namespace);
+                let component_path = tx
+                    .get_component_path(component_id)
+                    .unwrap_or(ComponentPath::root());
                 let mut model = IndexBackfillModel::new(&mut tx);
                 let cursor = ResolvedDocumentId::new(
                     tablet_id,
@@ -327,6 +357,35 @@ impl<RT: Runtime> IndexWorker<RT> {
                 }
                 self.database.commit_with_write_source(tx, "index_worker_backfill_progress")
                     .await?;
+                if backfill_bytes_written > 0 || backfill_bytes_read > 0 {
+                    let usage = FunctionUsageTracker::new();
+                    if backfill_bytes_read > 0 {
+                        usage.track_database_egress_v2(
+                            component_path.clone(),
+                            table_name.to_string(),
+                            backfill_bytes_read,
+                            table_name.is_system(),
+                        );
+                    }
+                    if backfill_bytes_written > 0 {
+                        usage.track_database_ingress_v2(
+                            component_path,
+                            table_name.to_string(),
+                            backfill_bytes_written,
+                            table_name.is_system(),
+                        );
+                    }
+                    self.usage_tracking
+                        .track_call(
+                            UdfIdentifier::SystemJob("database_index_backfill".to_string()),
+                            ExecutionId::new(),
+                            RequestId::new(),
+                            CallType::IndexBackfill,
+                            true,
+                            usage.gather_user_stats(),
+                        )
+                        .await;
+                }
             }
             // Alternatively, wait for invalidation
             ts = subscription_fut.fuse() => {

@@ -465,6 +465,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             self.persistence.clone(),
             Arc::new(retention_manager),
             self.database.clone(),
+            None,
         )
         .await?;
         Ok(())
@@ -872,6 +873,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             self.persistence.clone(),
             retention_validator,
             self.database.clone(),
+            None,
         )
         .await?;
 

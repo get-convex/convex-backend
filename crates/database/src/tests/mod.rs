@@ -9,7 +9,10 @@ use std::{
     time::Duration,
 };
 
-use ::usage_tracking::FunctionUsageTracker;
+use ::usage_tracking::{
+    FunctionUsageTracker,
+    UsageCounter,
+};
 use cmd_util::env::env_config;
 use common::{
     assert_obj,
@@ -82,6 +85,10 @@ use common::{
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
+};
+use events::{
+    testing::TestUsageEventLogger,
+    usage::NoOpUsageEventLogger,
 };
 use imbl::OrdSet;
 use keybroker::Identity;
@@ -750,7 +757,7 @@ where
 
     // Backfill the index.
     let index_backfill_fut =
-        IndexWorker::new_terminating(rt, tp, retention_validator, database.clone());
+        IndexWorker::new_terminating(rt, tp, retention_validator, database.clone(), None);
     index_backfill_fut.await?;
 
     let mut tx = database.begin_system().await?;
@@ -1593,7 +1600,7 @@ async fn add_indexes_at_limit_with_backfilling_index_adds_index(
     }
     db.commit(tx).await?;
     let retention_validator = Arc::new(NoopRetentionValidator);
-    IndexWorker::new_terminating(rt, tp, retention_validator, db.clone()).await?;
+    IndexWorker::new_terminating(rt, tp, retention_validator, db.clone(), None).await?;
 
     let mut tx = db.begin_system().await?;
     let begin_ts = tx.begin_timestamp();
@@ -1854,7 +1861,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     let (index_name, _index_id, values) = add_documents_and_index(db.clone()).await?;
     let retention_validator = Arc::new(NoopRetentionValidator);
 
-    IndexWorker::new_terminating(rt, tp, retention_validator, db.clone()).await?;
+    IndexWorker::new_terminating(rt, tp, retention_validator, db.clone(), None).await?;
     enable_index(&db, &index_name).await?;
     check_index_is_correct(db, values, index_name).await?;
     Ok(())
@@ -1881,6 +1888,7 @@ async fn test_db_index_backfill_progress(
             retention_validator,
             db_clone,
             "carnitas".into(),
+            UsageCounter::new(Arc::new(NoOpUsageEventLogger)),
         )
         .await
     });
@@ -1896,6 +1904,60 @@ async fn test_db_index_backfill_progress(
         .unwrap();
     assert_eq!(backfill_progress.num_docs_indexed, 10);
     assert_eq!(backfill_progress.total_docs, Some(200));
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_db_index_backfill_tracks_usage(rt: TestRuntime) -> anyhow::Result<()> {
+    use indexing::index_registry::IndexedDocument;
+
+    unsafe { std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10") };
+    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+
+    let (_index_name, _index_id, values) = add_documents_and_index(db.clone()).await?;
+    let retention_validator = Arc::new(NoopRetentionValidator);
+
+    let fields: Vec<FieldPath> = vec![str::parse("a")?, str::parse("b")?];
+    let expected_bytes: u64 = values
+        .iter()
+        .map(|doc| doc.index_key_bytes(&fields).size() as u64)
+        .sum();
+
+    let usage_logger = TestUsageEventLogger::new();
+
+    let state = usage_logger.collect();
+    assert_eq!(
+        state.recent_database_ingress_size_v2.values().sum::<u64>(),
+        0,
+        "Expected zero database ingress before backfill"
+    );
+
+    let usage_counter = UsageCounter::new(Arc::new(usage_logger.clone()));
+    IndexWorker::new_terminating(rt, tp, retention_validator, db.clone(), Some(usage_counter))
+        .await?;
+
+    let state = usage_logger.collect();
+    let table_ingress = state
+        .recent_database_ingress_size_v2
+        .get("table")
+        .copied()
+        .unwrap_or(0);
+    assert_eq!(
+        table_ingress, expected_bytes,
+        "Database ingress from index backfill should match expected index key bytes"
+    );
+
+    let expected_egress_bytes: u64 = values.iter().map(|doc| doc.size() as u64).sum();
+    let table_egress = state
+        .recent_database_egress_size_v2
+        .get("table")
+        .copied()
+        .unwrap_or(0);
+    assert_eq!(
+        table_egress, expected_egress_bytes,
+        "Database egress from index backfill should match expected document sizes"
+    );
 
     Ok(())
 }
@@ -1918,9 +1980,15 @@ async fn test_db_index_backfill_resumable(
     let tp_clone = tp.clone();
     let retention_validator_clone = retention_validator.clone();
     let index_backfill_handle = rt.spawn("index_worker", async move {
-        IndexWorker::new_terminating(rt_clone, tp_clone, retention_validator_clone, db_clone)
-            .await
-            .unwrap();
+        IndexWorker::new_terminating(
+            rt_clone,
+            tp_clone,
+            retention_validator_clone,
+            db_clone,
+            None,
+        )
+        .await
+        .unwrap();
     });
     // Wait for IndexWriter to send progress and pause
     let pause_guard = hold_guard.wait_for_blocked().await.unwrap();
@@ -1947,9 +2015,10 @@ async fn test_db_index_backfill_resumable(
     // documents
     let rt_clone = rt.clone();
     let db_clone = db.clone();
-    let docs_indexed = IndexWorker::new_terminating(rt_clone, tp, retention_validator, db_clone)
-        .await
-        .unwrap();
+    let docs_indexed =
+        IndexWorker::new_terminating(rt_clone, tp, retention_validator, db_clone, None)
+            .await
+            .unwrap();
     assert_eq!(docs_indexed, 190);
 
     let mut tx = db.begin_system().await?;
@@ -2223,7 +2292,7 @@ async fn add_and_enable_index(
 
     // Backfill the index.
     let index_backfill_fut =
-        IndexWorker::new_terminating(rt, tp, retention_validator, database.clone());
+        IndexWorker::new_terminating(rt, tp, retention_validator, database.clone(), None);
     index_backfill_fut.await?;
 
     let mut tx = database.begin_system().await?;
