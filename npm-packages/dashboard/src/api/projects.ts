@@ -1,11 +1,7 @@
 import { useRouter } from "next/router";
 import { SWRConfiguration } from "swr";
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
-import {
-  PaginatedProjectsResponse,
-  ProjectDetails,
-  operations,
-} from "generatedApi";
+import { PaginatedProjectsResponse, operations } from "generatedApi";
 import { useDebounce } from "react-use";
 import { useProjectsPageSize } from "hooks/useProjectsPageSize";
 import { createInfiniteHook } from "swr-openapi";
@@ -96,30 +92,6 @@ export function usePaginatedProjects(
   }
 
   return { ...data, isLoading };
-}
-
-// Returns all projects (unpaginated) - for backward compatibility
-export function useProjects(
-  teamId: number | undefined,
-  refreshInterval?: SWRConfiguration["refreshInterval"],
-): ProjectDetails[] | undefined {
-  const { data: allProjects } = useBBQuery({
-    path: "/teams/{team_id}/projects",
-    pathParams: {
-      team_id: teamId?.toString() || "",
-    },
-    swrOptions: { refreshInterval },
-  });
-
-  if (allProjects === undefined) {
-    return undefined;
-  }
-
-  if (!Array.isArray(allProjects)) {
-    throw new Error("Expected array of projects");
-  }
-
-  return allProjects;
 }
 
 /**
