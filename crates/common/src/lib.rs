@@ -71,6 +71,7 @@ pub mod sync;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod tracing;
+pub mod tracing_util;
 pub mod types;
 pub mod utils;
 pub mod virtual_system_mapping;
