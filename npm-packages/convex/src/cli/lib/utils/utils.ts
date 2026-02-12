@@ -425,42 +425,49 @@ export async function selectDevDeploymentType(
   });
   return { devDeployment };
 }
-
 export async function selectRegionOrUseDefault(
   ctx: Context,
   selectedTeam: TeamResponse,
-): Promise<string | null> {
+) {
+  const noDefaultRegionMessage = `Configure a default region for your team at ${chalkStderr.bold(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`;
   if (!process.stdin.isTTY) {
     // Use the team default in non-interactive terminals
+    if (!selectedTeam.defaultRegion) {
+      logMessage(noDefaultRegionMessage);
+    }
     return selectedTeam.defaultRegion ?? null;
   }
+  const selectedRegionName =
+    selectedTeam.defaultRegion ?? (await selectRegion(ctx, selectedTeam.id));
+  if (!selectedTeam.defaultRegion) {
+    logMessage(noDefaultRegionMessage);
+  }
+  return selectedRegionName;
+}
+
+export async function selectRegion(
+  ctx: Context,
+  teamId: number,
+): Promise<string | null> {
   const regionsResponse = (
     await typedPlatformClient(ctx).GET(
       "/teams/{team_id}/list_deployment_regions",
       {
         params: {
-          path: { team_id: `${selectedTeam.id}` },
+          path: { team_id: `${teamId}` },
         },
       },
     )
   ).data!;
-  const selectedRegionName =
-    selectedTeam.defaultRegion ??
-    (await promptOptions(ctx, {
-      message: "Dev deployment region:",
-      choices: regionsResponse.items
-        .filter((item) => Boolean(item.available))
-        .map((item) => ({
-          name: item.displayName,
-          value: item.name,
-        })),
-    }));
-  if (!selectedTeam.defaultRegion) {
-    logMessage(
-      `Configure a default region for your team at ${chalkStderr.bold(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`,
-    );
-  }
-  return selectedRegionName;
+  return await promptOptions(ctx, {
+    message: "Dev deployment region:",
+    choices: regionsResponse.items
+      .filter((item) => Boolean(item.available))
+      .map((item) => ({
+        name: item.displayName,
+        value: item.name,
+      })),
+  });
 }
 
 export async function hasProject(
