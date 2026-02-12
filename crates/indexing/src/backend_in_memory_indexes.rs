@@ -1005,104 +1005,136 @@ mod cache_tests {
             PackedDocument,
             ResolvedDocument,
         },
+        index::IndexKeyBytes,
         interval::{
             BinaryKey,
             End,
             Interval,
             StartIncluded,
         },
+        paths::FieldPath,
         query::Order,
         testing::TestIdGenerator,
-        types::Timestamp,
+        types::{
+            IndexId,
+            Timestamp,
+        },
     };
     use value::{
         assert_obj,
         val,
         values_to_bytes,
+        ConvexObject,
     };
 
     use super::DatabaseIndexSnapshotCache;
     use crate::backend_in_memory_indexes::DatabaseIndexSnapshotCacheResult;
 
+    struct CacheTestFixture {
+        cache: DatabaseIndexSnapshotCache,
+        id_generator: TestIdGenerator,
+    }
+
+    impl CacheTestFixture {
+        fn new() -> Self {
+            Self {
+                cache: DatabaseIndexSnapshotCache::new(),
+                id_generator: TestIdGenerator::new(),
+            }
+        }
+
+        fn new_index(&mut self) -> IndexId {
+            self.id_generator.generate_internal()
+        }
+
+        fn make_doc(
+            &mut self,
+            fields: &[FieldPath],
+            obj: ConvexObject,
+        ) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
+            let id = self.id_generator.user_generate(&"users".parse()?);
+            let doc = ResolvedDocument::new(id, CreationTime::ONE, obj)?;
+            let key = doc.index_key(fields).to_bytes();
+            let packed = PackedDocument::pack(&doc);
+            Ok((key, packed))
+        }
+
+        fn populate_doc(
+            &mut self,
+            index_id: IndexId,
+            fields: &[FieldPath],
+            obj: ConvexObject,
+            ts: Timestamp,
+        ) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
+            let (key, doc) = self.make_doc(fields, obj)?;
+            self.cache
+                .populate([(index_id, key.clone())], ts, doc.clone());
+            Ok((key, doc))
+        }
+
+        fn populate_by_id_doc(
+            &mut self,
+            index_id: IndexId,
+            ts: Timestamp,
+        ) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
+            self.populate_doc(index_id, &IndexedFields::by_id(), assert_obj!(), ts)
+        }
+    }
+
+    fn interval_gte(value: f64) -> anyhow::Result<Interval> {
+        Ok(Interval {
+            start: StartIncluded(values_to_bytes(&[Some(val!(value))]).into()),
+            end: End::Unbounded,
+        })
+    }
+
     #[test]
     fn cache_point_lookup() -> anyhow::Result<()> {
-        let mut cache = DatabaseIndexSnapshotCache::new();
-        let mut id_generator = TestIdGenerator::new();
-        let index_id = id_generator.generate_internal();
-        let id = id_generator.user_generate(&"users".parse()?);
-        let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!())?;
-        let index_key_bytes = doc.index_key(&IndexedFields::by_id()).to_bytes();
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
         let ts = Timestamp::must(100);
-        let doc = PackedDocument::pack(&doc);
-        cache.populate([(index_id, index_key_bytes.clone())], ts, doc.clone());
+        let (key, doc) = f.populate_by_id_doc(index_id, ts)?;
 
-        let cached_result = cache.get(
-            index_id,
-            &Interval::prefix(values_to_bytes(&[Some(id.into())]).into()),
-            Order::Asc,
-        );
+        let cached_result =
+            f.cache
+                .get(index_id, &Interval::prefix(key.clone().into()), Order::Asc);
         assert_eq!(
             cached_result,
-            vec![DatabaseIndexSnapshotCacheResult::Document(
-                index_key_bytes,
-                ts,
-                doc
-            )]
+            vec![DatabaseIndexSnapshotCacheResult::Document(key, ts, doc)]
         );
         Ok(())
     }
 
     #[test]
     fn cache_full_interval() -> anyhow::Result<()> {
-        let mut cache = DatabaseIndexSnapshotCache::new();
-        let mut id_generator = TestIdGenerator::new();
-        let index_id = id_generator.generate_internal();
-        let id1 = id_generator.user_generate(&"users".parse()?);
-        let doc1 = ResolvedDocument::new(id1, CreationTime::ONE, assert_obj!("age" => 30.0))?;
-        let fields = vec!["age".parse()?];
-        let index_key_bytes1 = doc1.index_key(&fields).to_bytes();
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
+        let fields: Vec<FieldPath> = vec!["age".parse()?];
         let ts1 = Timestamp::must(100);
-        let doc1 = PackedDocument::pack(&doc1);
-        cache.populate([(index_id, index_key_bytes1.clone())], ts1, doc1.clone());
-
-        let id2 = id_generator.user_generate(&"users".parse()?);
-        let doc2 = ResolvedDocument::new(id2, CreationTime::ONE, assert_obj!("age" => 40.0))?;
-        let index_key_bytes2 = doc2.index_key(&fields).to_bytes();
         let ts2 = Timestamp::must(150);
-        let doc2 = PackedDocument::pack(&doc2);
-        cache.populate([(index_id, index_key_bytes2.clone())], ts2, doc2.clone());
+        let (key1, doc1) = f.populate_doc(index_id, &fields, assert_obj!("age" => 30.0), ts1)?;
+        let (key2, doc2) = f.populate_doc(index_id, &fields, assert_obj!("age" => 40.0), ts2)?;
 
-        let interval_gt_18 = Interval {
-            start: StartIncluded(values_to_bytes(&[Some(val!(18.0))]).into()),
-            end: End::Unbounded,
-        };
+        let interval_gt_18 = interval_gte(18.0)?;
 
         let d = DatabaseIndexSnapshotCacheResult::Document;
         let cache_miss = DatabaseIndexSnapshotCacheResult::CacheMiss;
         // All documents populated but we don't know what the queried interval is.
         assert_eq!(
-            cache.get(index_id, &interval_gt_18, Order::Asc),
+            f.cache.get(index_id, &interval_gt_18, Order::Asc),
             vec![
                 cache_miss(Interval {
                     start: interval_gt_18.start.clone(),
-                    end: End::Excluded(index_key_bytes1.clone().into()),
+                    end: End::Excluded(key1.clone().into()),
                 }),
-                d(index_key_bytes1.clone(), ts1, doc1.clone()),
+                d(key1.clone(), ts1, doc1.clone()),
                 cache_miss(Interval {
-                    start: StartIncluded(
-                        BinaryKey::from(index_key_bytes1.clone())
-                            .increment()
-                            .unwrap()
-                    ),
-                    end: End::Excluded(index_key_bytes2.clone().into()),
+                    start: StartIncluded(BinaryKey::from(key1.clone()).increment().unwrap()),
+                    end: End::Excluded(key2.clone().into()),
                 }),
-                d(index_key_bytes2.clone(), ts2, doc2.clone()),
+                d(key2.clone(), ts2, doc2.clone()),
                 cache_miss(Interval {
-                    start: StartIncluded(
-                        BinaryKey::from(index_key_bytes2.clone())
-                            .increment()
-                            .unwrap()
-                    ),
+                    start: StartIncluded(BinaryKey::from(key2.clone()).increment().unwrap()),
                     end: End::Unbounded,
                 }),
             ]
@@ -1113,61 +1145,56 @@ mod cache_tests {
             end: End::Excluded(BinaryKey::min()),
         };
         assert_eq!(
-            cache.get(index_id, &interval_impossible, Order::Asc),
+            f.cache.get(index_id, &interval_impossible, Order::Asc),
             vec![]
         );
 
-        cache.record_interval_populated(index_id, interval_gt_18.clone());
+        f.cache
+            .record_interval_populated(index_id, interval_gt_18.clone());
 
         assert_eq!(
-            cache.get(index_id, &interval_gt_18, Order::Asc),
+            f.cache.get(index_id, &interval_gt_18, Order::Asc),
             vec![
-                d(index_key_bytes1.clone(), ts1, doc1.clone()),
-                d(index_key_bytes2.clone(), ts2, doc2.clone()),
+                d(key1.clone(), ts1, doc1.clone()),
+                d(key2.clone(), ts2, doc2.clone()),
             ]
         );
         // Reverse order also cached.
         assert_eq!(
-            cache.get(index_id, &interval_gt_18, Order::Desc),
+            f.cache.get(index_id, &interval_gt_18, Order::Desc),
             vec![
-                d(index_key_bytes2.clone(), ts2, doc2.clone()),
-                d(index_key_bytes1.clone(), ts1, doc1.clone()),
+                d(key2.clone(), ts2, doc2.clone()),
+                d(key1.clone(), ts1, doc1.clone()),
             ]
         );
         // Sub-interval also cached.
-        let interval_gt_35 = Interval {
-            start: StartIncluded(values_to_bytes(&[Some(val!(35.0))]).into()),
-            end: End::Unbounded,
-        };
+        let interval_gt_35 = interval_gte(35.0)?;
         assert_eq!(
-            cache.get(index_id, &interval_gt_35, Order::Asc),
-            vec![d(index_key_bytes2.clone(), ts2, doc2.clone())]
+            f.cache.get(index_id, &interval_gt_35, Order::Asc),
+            vec![d(key2.clone(), ts2, doc2.clone())]
         );
         // Empty sub-interval also cached.
         let interval_eq_35 = Interval::prefix(values_to_bytes(&[Some(val!(35.0))]).into());
-        assert_eq!(cache.get(index_id, &interval_eq_35, Order::Asc), vec![]);
+        assert_eq!(f.cache.get(index_id, &interval_eq_35, Order::Asc), vec![]);
         // Super-interval partially cached.
-        let interval_gt_16 = Interval {
-            start: StartIncluded(values_to_bytes(&[Some(val!(16.0))]).into()),
-            end: End::Unbounded,
-        };
+        let interval_gt_16 = interval_gte(16.0)?;
         assert_eq!(
-            cache.get(index_id, &interval_gt_16, Order::Asc),
+            f.cache.get(index_id, &interval_gt_16, Order::Asc),
             vec![
                 cache_miss(Interval {
                     start: interval_gt_16.start.clone(),
                     end: End::Excluded(values_to_bytes(&[Some(val!(18.0))]).into())
                 }),
-                d(index_key_bytes1.clone(), ts1, doc1.clone()),
-                d(index_key_bytes2.clone(), ts2, doc2.clone()),
+                d(key1.clone(), ts1, doc1.clone()),
+                d(key2.clone(), ts2, doc2.clone()),
             ]
         );
         // Super-interval in reverse partially cached.
         assert_eq!(
-            cache.get(index_id, &interval_gt_16, Order::Desc),
+            f.cache.get(index_id, &interval_gt_16, Order::Desc),
             vec![
-                d(index_key_bytes2, ts2, doc2),
-                d(index_key_bytes1, ts1, doc1),
+                d(key2, ts2, doc2),
+                d(key1, ts1, doc1),
                 cache_miss(Interval {
                     start: interval_gt_16.start.clone(),
                     end: End::Excluded(values_to_bytes(&[Some(val!(18.0))]).into())
@@ -1182,51 +1209,38 @@ mod cache_tests {
     /// persistence queries.
     #[test]
     fn sparse_cache() -> anyhow::Result<()> {
-        let mut cache = DatabaseIndexSnapshotCache::new();
-        let mut id_generator = TestIdGenerator::new();
-        let index_id = id_generator.generate_internal();
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
         let ts = Timestamp::must(100);
-        let mut make_doc = |age: f64| {
-            let id = id_generator.user_generate(&"users".parse().unwrap());
-            let doc =
-                ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("age" => age)).unwrap();
-            let fields = vec!["age".parse().unwrap()];
-            let index_key_bytes = doc.index_key(&fields).to_bytes();
-            let doc = PackedDocument::pack(&doc);
-            cache.populate([(index_id, index_key_bytes.clone())], ts, doc.clone());
-            (index_key_bytes, doc)
-        };
-        let (index_key1, doc1) = make_doc(30.0);
-        let (index_key2, doc2) = make_doc(35.0);
-        let (index_key3, doc3) = make_doc(40.0);
-        let _ = make_doc(45.0);
-        let _ = make_doc(50.0);
-        let interval_gt_18 = Interval {
-            start: StartIncluded(values_to_bytes(&[Some(val!(18.0))]).into()),
-            end: End::Unbounded,
-        };
+        let fields: Vec<FieldPath> = vec!["age".parse()?];
+        let (key1, doc1) = f.populate_doc(index_id, &fields, assert_obj!("age" => 30.0), ts)?;
+        let (key2, doc2) = f.populate_doc(index_id, &fields, assert_obj!("age" => 35.0), ts)?;
+        let (key3, doc3) = f.populate_doc(index_id, &fields, assert_obj!("age" => 40.0), ts)?;
+        let _ = f.populate_doc(index_id, &fields, assert_obj!("age" => 45.0), ts)?;
+        let _ = f.populate_doc(index_id, &fields, assert_obj!("age" => 50.0), ts)?;
+        let interval_gt_18 = interval_gte(18.0)?;
         let d = DatabaseIndexSnapshotCacheResult::Document;
         let cache_miss = DatabaseIndexSnapshotCacheResult::CacheMiss;
         assert_eq!(
-            cache.get(index_id, &interval_gt_18, Order::Asc),
+            f.cache.get(index_id, &interval_gt_18, Order::Asc),
             vec![
                 cache_miss(Interval {
                     start: interval_gt_18.start.clone(),
-                    end: End::Excluded(index_key1.clone().into()),
+                    end: End::Excluded(key1.clone().into()),
                 }),
-                d(index_key1.clone(), ts, doc1),
+                d(key1.clone(), ts, doc1),
                 cache_miss(Interval {
-                    start: StartIncluded(BinaryKey::from(index_key1).increment().unwrap()),
-                    end: End::Excluded(index_key2.clone().into()),
+                    start: StartIncluded(BinaryKey::from(key1).increment().unwrap()),
+                    end: End::Excluded(key2.clone().into()),
                 }),
-                d(index_key2.clone(), ts, doc2),
+                d(key2.clone(), ts, doc2),
                 cache_miss(Interval {
-                    start: StartIncluded(BinaryKey::from(index_key2).increment().unwrap()),
-                    end: End::Excluded(index_key3.clone().into()),
+                    start: StartIncluded(BinaryKey::from(key2).increment().unwrap()),
+                    end: End::Excluded(key3.clone().into()),
                 }),
-                d(index_key3.clone(), ts, doc3),
+                d(key3.clone(), ts, doc3),
                 cache_miss(Interval {
-                    start: StartIncluded(BinaryKey::from(index_key3).increment().unwrap()),
+                    start: StartIncluded(BinaryKey::from(key3).increment().unwrap()),
                     end: End::Unbounded,
                 }),
             ]
