@@ -103,25 +103,49 @@ export interface BaseTableReader<
 /**
  * An interface to read from the database within Convex query functions.
  *
+ * Available as `ctx.db` in queries (read-only) and mutations (read-write).
+ * You should generally use the `DatabaseReader` type from
+ * `"./_generated/server"`.
+ *
  * The two entry points are:
  *   - {@link GenericDatabaseReader.get}, which fetches a single document
  *     by its {@link values.GenericId}.
  *   - {@link GenericDatabaseReader.query}, which starts building a query.
  *
- * If you're using code generation, use the `DatabaseReader` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
+ * @example
+ * ```typescript
+ * // Fetch a single document by ID:
+ * const user = await ctx.db.get("users", userId);
  *
+ * // Query documents with an index:
+ * const messages = await ctx.db
+ *   .query("messages")
+ *   .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+ *   .order("desc")
+ *   .take(50);
+ * ```
+ *
+ * **Best practice:** Use `.withIndex()` instead of `.filter()` for efficient
+ * queries. Define indexes in your schema for fields you query frequently.
+ *
+ * @see https://docs.convex.dev/database/reading-data
  * @public
  */
 export interface GenericDatabaseReader<DataModel extends GenericDataModel>
   extends BaseDatabaseReader<DataModel> {
   /**
-   * An interface to read from the system tables within Convex query functions
+   * An interface to read from the system tables within Convex query functions.
    *
-   * The two entry points are:
-   *   - {@link GenericDatabaseReader.get}, which fetches a single document
-   *     by its {@link values.GenericId}.
-   *   - {@link GenericDatabaseReader.query}, which starts building a query.
+   * System tables include `_storage` (file metadata) and
+   * `_scheduled_functions` (scheduled function state). Use `ctx.db.system.get()`
+   * and `ctx.db.system.query()` just like regular tables.
+   *
+   * @example
+   * ```typescript
+   * // Get file metadata from the _storage system table:
+   * const metadata = await ctx.db.system.get("_storage", storageId);
+   * // metadata has: _id, _creationTime, contentType, sha256, size
+   * ```
    *
    * @public
    */
@@ -148,14 +172,39 @@ export interface GenericDatabaseReaderWithTable<
  * An interface to read from and write to the database within Convex mutation
  * functions.
  *
- * Convex guarantees that all writes within a single mutation are
- * executed atomically, so you never have to worry about partial writes leaving
- * your data in an inconsistent state. See [the Convex Guide](https://docs.convex.dev/understanding/convex-fundamentals/functions#atomicity-and-optimistic-concurrency-control)
- * for the guarantees Convex provides your functions.
+ * Available as `ctx.db` in mutations. You should generally use the
+ * `DatabaseWriter` type from `"./_generated/server"`.
  *
- *  If you're using code generation, use the `DatabaseReader` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
+ * Extends {@link GenericDatabaseReader}
+ * with write operations. All reads and writes within a single mutation are
+ * executed **atomically**, you never have to worry about partial writes
+ * leaving your data in an inconsistent state.
  *
+ * @example
+ * ```typescript
+ * // Insert a new document:
+ * const userId = await ctx.db.insert("users", { name: "Alice", email: "alice@example.com" });
+ *
+ * // Update specific fields (shallow merge):
+ * await ctx.db.patch("users", userId, { name: "Alice Smith" });
+ *
+ * // Replace entire document (all non-system fields):
+ * await ctx.db.replace("users", userId, { name: "Bob", email: "bob@example.com" });
+ *
+ * // Delete a document:
+ * await ctx.db.delete("users", userId);
+ *
+ * // Delete multiple documents (collect first, then delete each):
+ * const oldTasks = await ctx.db
+ *   .query("tasks")
+ *   .withIndex("by_completed", (q) => q.eq("completed", true))
+ *   .collect();
+ * for (const task of oldTasks) {
+ *   await ctx.db.delete("tasks", task._id);
+ * }
+ * ```
+ *
+ * @see https://docs.convex.dev/database/writing-data
  * @public
  */
 export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
@@ -163,9 +212,18 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   /**
    * Insert a new document into a table.
    *
+   * @example
+   * ```typescript
+   * const taskId = await ctx.db.insert("tasks", {
+   *   text: "Buy groceries",
+   *   completed: false,
+   * });
+   * ```
+   *
    * @param table - The name of the table to insert a new document into.
-   * @param value - The {@link values.Value} to insert into the given table.
-   * @returns - {@link values.GenericId} of the new document.
+   * @param value - The document to insert. System fields (`_id`, `_creationTime`)
+   * are added automatically and should not be included.
+   * @returns The {@link values.GenericId} of the new document.
    */
   insert<TableName extends TableNamesInDataModel<DataModel>>(
     table: TableName,
@@ -177,12 +235,26 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * document.
    *
    * New fields are added. Existing fields are overwritten. Fields set to
-   * `undefined` are removed.
+   * `undefined` are removed. Fields not specified in the patch are left
+   * unchanged.
+   *
+   * This method will throw if the document does not exist.
+   *
+   * @example
+   * ```typescript
+   * // Update only the "completed" field, leaving other fields unchanged:
+   * await ctx.db.patch("tasks", taskId, { completed: true });
+   *
+   * // Remove an optional field by setting it to undefined:
+   * await ctx.db.patch("tasks", taskId, { assignee: undefined });
+   * ```
+   *
+   * **Tip:** Use `patch` for partial updates. Use `replace` when you want to
+   * overwrite the entire document.
    *
    * @param table - The name of the table the document is in.
    * @param id - The {@link values.GenericId} of the document to patch.
-   * @param value - The partial {@link GenericDocument} to merge into the specified document. If this new value
-   * specifies system fields like `_id`, they must match the document's existing field values.
+   * @param value - The partial document to merge into the existing document.
    */
   patch<TableName extends TableNamesInDataModel<DataModel>>(
     table: TableName,
@@ -195,11 +267,13 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * document.
    *
    * New fields are added. Existing fields are overwritten. Fields set to
-   * `undefined` are removed.
+   * `undefined` are removed. Fields not specified in the patch are left
+   * unchanged.
+   *
+   * This method will throw if the document does not exist.
    *
    * @param id - The {@link values.GenericId} of the document to patch.
-   * @param value - The partial {@link GenericDocument} to merge into the specified document. If this new value
-   * specifies system fields like `_id`, they must match the document's existing field values.
+   * @param value - The partial document to merge into the existing document.
    */
   patch<TableName extends TableNamesInDataModel<DataModel>>(
     id: GenericId<TableName>,
@@ -207,12 +281,27 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   ): Promise<void>;
 
   /**
-   * Replace the value of an existing document, overwriting its old value.
+   * Replace the value of an existing document, overwriting its old value
+   * completely.
+   *
+   * Unlike `patch`, which does a shallow merge, `replace` overwrites the
+   * entire document. Any fields not included in the new value will be removed
+   * (except system fields `_id` and `_creationTime`).
+   *
+   * This method will throw if the document does not exist.
+   *
+   * @example
+   * ```typescript
+   * // Replace the entire document:
+   * await ctx.db.replace("users", userId, {
+   *   name: "New Name",
+   *   email: "new@example.com",
+   * });
+   * ```
    *
    * @param table - The name of the table the document is in.
    * @param id - The {@link values.GenericId} of the document to replace.
-   * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
-   * and the database will fill them in.
+   * @param value - The new document. System fields can be omitted.
    */
   replace<TableName extends TableNamesInDataModel<DataModel>>(
     table: TableName,
@@ -221,11 +310,14 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   ): Promise<void>;
 
   /**
-   * Replace the value of an existing document, overwriting its old value.
+   * Replace the value of an existing document, overwriting its old value
+   * completely.
+   *
+   * Unlike `patch`, which does a shallow merge, `replace` overwrites the
+   * entire document.
    *
    * @param id - The {@link values.GenericId} of the document to replace.
-   * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
-   * and the database will fill them in.
+   * @param value - The new document. System fields can be omitted.
    */
   replace<TableName extends TableNamesInDataModel<DataModel>>(
     id: GenericId<TableName>,
@@ -234,6 +326,11 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
 
   /**
    * Delete an existing document.
+   *
+   * @example
+   * ```typescript
+   * await ctx.db.delete("tasks", taskId);
+   * ```
    *
    * @param table - The name of the table the document is in.
    * @param id - The {@link values.GenericId} of the document to remove.
@@ -246,6 +343,10 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   /**
    * Delete an existing document.
    *
+   * **Note:** Convex queries do not support `.delete()` directly on query
+   * results. To delete multiple documents, `.collect()` them first, then
+   * delete each one individually.
+   *
    * @param id - The {@link values.GenericId} of the document to remove.
    */
   delete(id: GenericId<TableNamesInDataModel<DataModel>>): Promise<void>;
@@ -255,13 +356,13 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
  * An interface to read from and write to the database within Convex mutation
  * functions.
  *
+ * You should generally use the `DatabaseWriter` type from
+ * `"./_generated/server"`.
+ *
  * Convex guarantees that all writes within a single mutation are
  * executed atomically, so you never have to worry about partial writes leaving
  * your data in an inconsistent state. See [the Convex Guide](https://docs.convex.dev/understanding/convex-fundamentals/functions#atomicity-and-optimistic-concurrency-control)
  * for the guarantees Convex provides your functions.
- *
- *  If you're using code generation, use the `DatabaseReader` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
  *
  * @public
  */

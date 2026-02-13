@@ -124,9 +124,40 @@ export interface PaginationOptions {
 /**
  * A {@link values.Validator} for {@link PaginationOptions}.
  *
- * This includes the standard {@link PaginationOptions} properties along with
- * an optional cache-busting `id` property used by {@link react.usePaginatedQuery}.
+ * Use this as the args validator in paginated query functions so that clients
+ * can pass pagination options.
  *
+ * @example
+ * ```typescript
+ * import { query } from "./_generated/server";
+ * import { paginationOptsValidator } from "convex/server";
+ * import { v } from "convex/values";
+ *
+ * export const listMessages = query({
+ *   args: {
+ *     channelId: v.id("channels"),
+ *     paginationOpts: paginationOptsValidator,
+ *   },
+ *   handler: async (ctx, args) => {
+ *     return await ctx.db
+ *       .query("messages")
+ *       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+ *       .order("desc")
+ *       .paginate(args.paginationOpts);
+ *   },
+ * });
+ * ```
+ *
+ * On the client, use `usePaginatedQuery` from `"convex/react"`:
+ * ```tsx
+ * const { results, status, loadMore } = usePaginatedQuery(
+ *   api.messages.listMessages,
+ *   { channelId },
+ *   { initialNumItems: 25 },
+ * );
+ * ```
+ *
+ * @see https://docs.convex.dev/database/pagination
  * @public
  */
 export const paginationOptsValidator = v.object({

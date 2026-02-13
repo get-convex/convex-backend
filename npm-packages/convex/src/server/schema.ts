@@ -226,11 +226,33 @@ export class TableDefinition<
   /**
    * Define an index on this table.
    *
-   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
+   * Indexes speed up queries by allowing efficient lookups on specific fields.
+   * Use `.withIndex()` in your queries to leverage them.
+   *
+   * Index fields must be queried in the same order they are defined. If you
+   * need to query by `field2` then `field1`, create a separate index with
+   * that field order.
+   *
+   * @example
+   * ```ts
+   * defineTable({
+   *   userId: v.id("users"),
+   *   status: v.string(),
+   *   updatedAt: v.number(),
+   * })
+   *   // Name indexes after their fields:
+   *   .index("by_userId", ["userId"])
+   *   .index("by_status_updatedAt", ["status", "updatedAt"])
+   * ```
+   *
+   * **Best practice:** Always include all index fields in the index name
+   * (e.g., `"by_field1_and_field2"`).
    *
    * @param name - The name of the index.
    * @param indexConfig - The index configuration object.
    * @returns A {@link TableDefinition} with this index included.
+   *
+   * @see https://docs.convex.dev/database/reading-data/indexes
    */
   index<
     IndexName extends string,
@@ -258,7 +280,7 @@ export class TableDefinition<
   /**
    * Define an index on this table.
    *
-   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
+   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/database/reading-data/indexes).
    *
    * @param name - The name of the index.
    * @param fields - The fields to index, in order. Must specify at least one
@@ -749,14 +771,52 @@ export interface DefineSchemaOptions<StrictTableNameTypes extends boolean> {
 /**
  * Define the schema of this Convex project.
  *
- * This should be exported from a `schema.ts` file in your `convex/` directory
- * like:
+ * This should be exported as the default export from a `schema.ts` file in
+ * your `convex/` directory. The schema enables runtime validation of documents
+ * and provides end-to-end TypeScript type safety.
  *
+ * Every document in Convex automatically has two system fields:
+ * - `_id` - a unique document ID with validator `v.id("tableName")`
+ * - `_creationTime` - a creation timestamp with validator `v.number()`
+ *
+ * You do not need to include these in your schema definition, they are added
+ * automatically.
+ *
+ * @example
  * ```ts
+ * // convex/schema.ts
+ * import { defineSchema, defineTable } from "convex/server";
+ * import { v } from "convex/values";
+ *
  * export default defineSchema({
- *   ...
+ *   users: defineTable({
+ *     name: v.string(),
+ *     email: v.string(),
+ *   }).index("by_email", ["email"]),
+ *
+ *   messages: defineTable({
+ *     body: v.string(),
+ *     userId: v.id("users"),
+ *     channelId: v.id("channels"),
+ *   }).index("by_channel", ["channelId"]),
+ *
+ *   channels: defineTable({
+ *     name: v.string(),
+ *   }),
+ *
+ *   // Discriminated union table:
+ *   results: defineTable(
+ *     v.union(
+ *       v.object({ kind: v.literal("error"), message: v.string() }),
+ *       v.object({ kind: v.literal("success"), value: v.number() }),
+ *     )
+ *   ),
  * });
  * ```
+ *
+ * **Best practice:** Always include all index fields in the index name. For
+ * example, an index on `["field1", "field2"]` should be named
+ * `"by_field1_field2"`.
  *
  * @param schema - A map from table name to {@link TableDefinition} for all of
  * the tables in this project.
@@ -764,6 +824,7 @@ export interface DefineSchemaOptions<StrictTableNameTypes extends boolean> {
  * a full description.
  * @returns The schema.
  *
+ * @see https://docs.convex.dev/database/schemas
  * @public
  */
 export function defineSchema<

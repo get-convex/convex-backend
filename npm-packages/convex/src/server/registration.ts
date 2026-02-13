@@ -36,40 +36,95 @@ import { Validator } from "../values/validators.js";
  * A set of services for use within Convex mutation functions.
  *
  * The mutation context is passed as the first argument to any Convex mutation
- * function run on the server.
+ * function run on the server. Mutations run **transactionally**, all reads
+ * and writes within a single mutation are atomic and isolated.
  *
- * If you're using code generation, use the `MutationCtx` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
+ * You should generally use the `MutationCtx` type from
+ * `"./_generated/server"`.
+ *
+ * @example
+ * ```typescript
+ * import { mutation } from "./_generated/server";
+ * import { internal } from "./_generated/api";
+ * import { v } from "convex/values";
+ *
+ * export const createTask = mutation({
+ *   args: { text: v.string() },
+ *   returns: v.id("tasks"),
+ *   handler: async (ctx, args) => {
+ *     // ctx.db: read and write documents
+ *     const taskId = await ctx.db.insert("tasks", { text: args.text, completed: false });
+ *
+ *     // ctx.auth: check the authenticated user
+ *     const identity = await ctx.auth.getUserIdentity();
+ *
+ *     // ctx.scheduler: schedule functions for later
+ *     await ctx.scheduler.runAfter(0, internal.notifications.send, { taskId });
+ *
+ *     return taskId;
+ *   },
+ * });
+ * ```
  *
  * @public
  */
 export interface GenericMutationCtx<DataModel extends GenericDataModel> {
   /**
    * A utility for reading and writing data in the database.
+   *
+   * Use `ctx.db.insert()`, `ctx.db.patch()`, `ctx.db.replace()`, and
+   * `ctx.db.delete()` to write data. Use `ctx.db.get()` and `ctx.db.query()`
+   * to read data. All operations within a mutation are atomic.
    */
   db: GenericDatabaseWriter<DataModel>;
 
   /**
    * Information about the currently authenticated user.
+   *
+   * Call `await ctx.auth.getUserIdentity()` to get the current user's identity,
+   * or `null` if the user is not authenticated.
    */
   auth: Auth;
 
   /**
    * A utility for reading and writing files in storage.
+   *
+   * Use `ctx.storage.generateUploadUrl()` to create an upload URL for clients,
+   * `ctx.storage.getUrl(storageId)` to get a URL for a stored file,
+   * or `ctx.storage.delete(storageId)` to remove one.
    */
   storage: StorageWriter;
 
   /**
    * A utility for scheduling Convex functions to run in the future.
+   *
+   * @example
+   * ```typescript
+   * // Schedule an action to run immediately after this mutation commits:
+   * await ctx.scheduler.runAfter(0, internal.emails.sendWelcome, { userId });
+   *
+   * // Schedule a cleanup to run in 24 hours:
+   * await ctx.scheduler.runAfter(24 * 60 * 60 * 1000, internal.tasks.cleanup, {});
+   * ```
    */
   scheduler: Scheduler;
 
   /**
    * Call a query function within the same transaction.
    *
-   * NOTE: often you can call the query's function directly instead of using this.
+   * The query runs within the same transaction as the calling mutation,
+   * seeing a consistent snapshot of the database. Requires a
+   * {@link FunctionReference} (e.g., `api.myModule.myQuery` or
+   * `internal.myModule.myQuery`).
+   *
+   * NOTE: Often you can extract shared logic into a helper function instead.
    * `runQuery` incurs overhead of running argument and return value validation,
    * and creating a new isolated JS context.
+   *
+   * @example
+   * ```typescript
+   * const user = await ctx.runQuery(internal.users.getUser, { userId });
+   * ```
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
@@ -79,13 +134,12 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
   /**
    * Call a mutation function within the same transaction.
    *
-   * NOTE: often you can call the mutation's function directly instead of using this.
-   * `runMutation` incurs overhead of running argument and return value validation,
-   * and creating a new isolated JS context.
+   * The mutation runs in a sub-transaction, so if it throws an error, all of
+   * its writes will be rolled back. Requires a {@link FunctionReference}.
    *
-   * The mutation runs in a sub-transaction, so if the mutation throws an error,
-   * all of its writes will be rolled back. Additionally, a successful mutation's
-   * writes will be serializable with other writes in the transaction.
+   * NOTE: Often you can extract shared logic into a helper function instead.
+   * `runMutation` incurs overhead of running argument and return value
+   * validation, and creating a new isolated JS context.
    */
   runMutation: <
     Mutation extends FunctionReference<"mutation", "public" | "internal">,
@@ -101,8 +155,8 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
  * The mutation context is passed as the first argument to any Convex mutation
  * function run on the server.
  *
- * If you're using code generation, use the `MutationCtx` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
+ * You should generally use the `MutationCtx` type from
+ * `"./_generated/server"`.
  *
  * @public
  */
@@ -115,34 +169,68 @@ export type GenericMutationCtxWithTable<DataModel extends GenericDataModel> =
  * A set of services for use within Convex query functions.
  *
  * The query context is passed as the first argument to any Convex query
- * function run on the server.
+ * function run on the server. Queries are **read-only**, they can read from
+ * the database but cannot write. They are also **reactive**, when used with
+ * `useQuery` on the client, the result automatically updates when data changes.
  *
- * This differs from the {@link MutationCtx} because all of the services are
- * read-only.
+ * You should generally use the `QueryCtx` type from
+ * `"./_generated/server"`.
  *
+ * @example
+ * ```typescript
+ * import { query } from "./_generated/server";
+ * import { v } from "convex/values";
+ *
+ * export const listTasks = query({
+ *   args: {},
+ *   returns: v.array(v.object({
+ *     _id: v.id("tasks"),
+ *     _creationTime: v.number(),
+ *     text: v.string(),
+ *     completed: v.boolean(),
+ *   })),
+ *   handler: async (ctx, args) => {
+ *     // ctx.db: read-only database access
+ *     return await ctx.db.query("tasks").order("desc").take(100);
+ *   },
+ * });
+ * ```
  *
  * @public
  */
 export interface GenericQueryCtx<DataModel extends GenericDataModel> {
   /**
    * A utility for reading data in the database.
+   *
+   * Use `ctx.db.get(table, id)` to fetch a single document by ID, or
+   * `ctx.db.query("tableName")` to query multiple documents with filtering
+   * and ordering. Queries are read-only, no write methods are available.
    */
   db: GenericDatabaseReader<DataModel>;
 
   /**
    * Information about the currently authenticated user.
+   *
+   * Call `await ctx.auth.getUserIdentity()` to get the current user's identity,
+   * or `null` if the user is not authenticated.
    */
   auth: Auth;
 
   /**
    * A utility for reading files in storage.
+   *
+   * Use `ctx.storage.getUrl(storageId)` to get a URL for a stored file.
    */
   storage: StorageReader;
 
   /**
    * Call a query function within the same transaction.
    *
-   * NOTE: often you can call the query's function directly instead of using this.
+   * The query runs within the same read snapshot. Requires a
+   * {@link FunctionReference} (e.g., `api.myModule.myQuery` or
+   * `internal.myModule.myQuery`).
+   *
+   * NOTE: Often you can extract shared logic into a helper function instead.
    * `runQuery` incurs overhead of running argument and return value validation,
    * and creating a new isolated JS context.
    */
@@ -174,11 +262,40 @@ export type GenericQueryCtxWithTable<DataModel extends GenericDataModel> = Omit<
 /**
  * A set of services for use within Convex action functions.
  *
- * The context is passed as the first argument to any Convex action
- * run on the server.
+ * The action context is passed as the first argument to any Convex action
+ * run on the server. Actions can call external APIs and use Node.js libraries,
+ * but do **not** have direct database access (`ctx.db` is not available).
+ * Use `ctx.runQuery` and `ctx.runMutation` to interact with the database.
  *
- * If you're using code generation, use the `ActionCtx` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
+ * You should generally use the `ActionCtx` type from
+ * `"./_generated/server"`.
+ *
+ * @example
+ * ```typescript
+ * import { action } from "./_generated/server";
+ * import { internal } from "./_generated/api";
+ * import { v } from "convex/values";
+ *
+ * export const processPayment = action({
+ *   args: { orderId: v.id("orders"), amount: v.number() },
+ *   returns: v.null(),
+ *   handler: async (ctx, args) => {
+ *     // Read data via ctx.runQuery:
+ *     const order = await ctx.runQuery(internal.orders.get, { id: args.orderId });
+ *
+ *     // Call external API:
+ *     const result = await fetch("https://api.stripe.com/v1/charges", { ... });
+ *
+ *     // Write results back via ctx.runMutation:
+ *     await ctx.runMutation(internal.orders.markPaid, { id: args.orderId });
+ *
+ *     return null;
+ *   },
+ * });
+ * ```
+ *
+ * **Common mistake:** `ctx.db` is not available in actions. Do not try to
+ * access it, use `ctx.runQuery` and `ctx.runMutation` instead.
  *
  * @public
  */
@@ -186,8 +303,13 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
   /**
    * Run the Convex query with the given name and arguments.
    *
-   * Consider using an {@link internalQuery} to prevent users from calling the
-   * query directly.
+   * Each `runQuery` call is a separate read transaction. Consider using an
+   * {@link internalQuery} to prevent users from calling the query directly.
+   *
+   * @example
+   * ```typescript
+   * const user = await ctx.runQuery(internal.users.get, { userId });
+   * ```
    *
    * @param query - A {@link FunctionReference} for the query to run.
    * @param args - The arguments to the query function.
@@ -201,8 +323,13 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
   /**
    * Run the Convex mutation with the given name and arguments.
    *
-   * Consider using an {@link internalMutation} to prevent users from calling
-   * the mutation directly.
+   * Each `runMutation` call is a separate write transaction. Consider using
+   * an {@link internalMutation} to prevent users from calling it directly.
+   *
+   * @example
+   * ```typescript
+   * await ctx.runMutation(internal.orders.markPaid, { id: orderId });
+   * ```
    *
    * @param mutation - A {@link FunctionReference} for the mutation to run.
    * @param args - The arguments to the mutation function.
@@ -217,6 +344,12 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
 
   /**
    * Run the Convex action with the given name and arguments.
+   *
+   * **Important:** Only use `runAction` when you need to cross runtimes
+   * (e.g., calling a `"use node"` action from the default Convex runtime).
+   * For code in the same runtime, extract shared logic into a plain
+   * TypeScript helper function instead, `runAction` has significant
+   * overhead (separate function call, separate resource allocation).
    *
    * Consider using an {@link internalAction} to prevent users from calling the
    * action directly.

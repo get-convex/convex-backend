@@ -117,7 +117,32 @@ export interface QueryInitializer<TableInfo extends GenericTableInfo>
  * extending a query is free. The query is executed incrementally as the results are iterated over,
  * so early terminating also reduces the cost of the query.
  *
- * It is more efficient to use `filter` expression rather than executing JavaScript to filter.
+ * @example
+ * ```typescript
+ * // Use .withIndex() for efficient queries (preferred over .filter()):
+ * const messages = await ctx.db
+ *   .query("messages")
+ *   .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+ *   .order("desc")
+ *   .take(10);
+ *
+ * // Async iteration for processing large result sets:
+ * for await (const task of ctx.db.query("tasks")) {
+ *   // Process each task without loading all into memory
+ * }
+ *
+ * // Get a single unique result (throws if multiple match):
+ * const user = await ctx.db
+ *   .query("users")
+ *   .withIndex("by_email", (q) => q.eq("email", email))
+ *   .unique();
+ * ```
+ *
+ * **Common mistake:** `.collect()` loads **all** matching documents into memory.
+ * If the result set can grow unbounded as your database grows, this will
+ * eventually cause problems. Prefer `.first()`, `.unique()`, `.take(n)`, or
+ * pagination instead. Only use `.collect()` on queries with a tightly bounded
+ * result set (e.g., items belonging to a single user with a known small limit).
  *
  * |                                              | |
  * |----------------------------------------------|-|
@@ -134,7 +159,7 @@ export interface QueryInitializer<TableInfo extends GenericTableInfo>
  * | [`first()`](#first)                          | Return the first result. |
  * | [`unique()`](#unique)                        | Return the only result, and throw if there is more than one result. |
  *
- * To learn more about how to write queries, see [Querying the Database](https://docs.convex.dev/using/database-queries).
+ * To learn more about how to write queries, see [Querying the Database](https://docs.convex.dev/database/reading-data).
  *
  * @public
  */
@@ -158,6 +183,11 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
   extends AsyncIterable<DocumentByInfo<TableInfo>> {
   /**
    * Filter the query output, returning only the values for which `predicate` evaluates to true.
+   *
+   * **Important:** Prefer using `.withIndex()` over `.filter()` whenever
+   * possible. Filters scan all documents matched so far and discard non-matches,
+   * while indexes efficiently skip non-matching documents. Define an index in
+   * your schema for fields you filter on frequently.
    *
    * @param predicate - An {@link Expression} constructed with the supplied {@link FilterBuilder} that specifies which documents to keep.
    * @returns - A new {@link OrderedQuery} with the given filter predicate applied.
@@ -198,8 +228,15 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
   /**
    * Execute the query and return all of the results as an array.
    *
-   * Note: when processing a query with a lot of results, it's often better to use the `Query` as an
-   * `AsyncIterable` instead.
+   * **Warning:** This loads every matching document into memory. If the result
+   * set can grow unbounded as your database grows, `.collect()` will eventually
+   * cause performance problems or hit limits. Only use `.collect()` when the
+   * result set is tightly bounded (e.g., a known small number of items).
+   *
+   * Prefer `.first()`, `.unique()`, `.take(n)`, or `.paginate()` when the
+   * result set may be large or unbounded. For processing many results without
+   * loading all into memory, use the `Query` as an `AsyncIterable` with
+   * `for await...of`.
    *
    * @returns - An array of all of the query's results.
    */
@@ -224,8 +261,20 @@ export interface OrderedQuery<TableInfo extends GenericTableInfo>
   /**
    * Execute the query and return the singular result if there is one.
    *
+   * Use this when you expect exactly zero or one result, for example when
+   * querying by a unique field. If the query matches more than one document,
+   * this will throw an error.
+   *
+   * @example
+   * ```typescript
+   * const user = await ctx.db
+   *   .query("users")
+   *   .withIndex("by_email", (q) => q.eq("email", "alice@example.com"))
+   *   .unique();
+   * ```
+   *
    * @returns - The single result returned from the query or null if none exists.
-   * @throws  Will throw an error if the query returns more than one result.
+   * @throws Will throw an error if the query returns more than one result.
    */
   unique(): Promise<DocumentByInfo<TableInfo> | null>;
 }
