@@ -1,3 +1,9 @@
+# 0.10.3
+
+- Fix for incorrect client state on WebSocket reconnect
+- New `set_auth_callback` method on `ConvexClient` to allow token refresh on
+  WebSocket reconnect
+
 # 0.10.2
 
 - Fix for deadlock between client and websocket worker tasks
