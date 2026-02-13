@@ -109,6 +109,48 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/v1/local_backend_version",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    const localBackendVersionData = await getCachedAndScheduleRefresh(
+      ctx,
+      internal.localBackend,
+    );
+
+    if (!localBackendVersionData) {
+      return new Response("Failed to get local backend version", {
+        status: 500,
+        headers: COMMON_HEADERS,
+      });
+    }
+
+    return new Response(
+      JSON.stringify({
+        version: localBackendVersionData.version,
+      }),
+      {
+        status: 200,
+        headers: {
+          ...COMMON_HEADERS,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  }),
+});
+
+http.route({
+  path: "/v1/local_backend_version",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 200,
+      headers: COMMON_HEADERS,
+    });
+  }),
+});
+
 /**
  * Get the latest cached value. If it’s stale, return it and schedule a refresh.
  *

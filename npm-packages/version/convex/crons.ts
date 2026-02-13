@@ -17,5 +17,12 @@ crons.interval(
   },
   internal.cursorRules.refresh,
 );
+crons.interval(
+  "update local backend version",
+  {
+    hours: 1,
+  },
+  internal.localBackend.refresh,
+);
 
 export default crons;

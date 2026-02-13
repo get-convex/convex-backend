@@ -10,4 +10,7 @@ export default defineSchema({
     version: v.string(),
     content: v.string(),
   }),
+  localBackendVersion: defineTable({
+    version: v.string(),
+  }),
 });

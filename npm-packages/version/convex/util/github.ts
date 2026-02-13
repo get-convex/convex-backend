@@ -1,4 +1,4 @@
-type GitHubRelease = {
+export type GitHubRelease = {
   tag_name: string;
   prerelease: boolean;
   draft: boolean;
@@ -101,6 +101,24 @@ export function findReleaseWithAsset(
     }
   }
 
+  return null;
+}
+
+/**
+ * Find the first stable release that contains all specified assets
+ */
+export function findReleaseWithAllAssets(
+  releases: GitHubRelease[],
+  assetNames: string[],
+): GitHubRelease | null {
+  for (const release of releases) {
+    if (release.prerelease || release.draft) continue;
+    const releaseAssetNames = new Set(release.assets.map((a) => a.name));
+    const matching = assetNames.filter((name) => releaseAssetNames.has(name));
+    if (matching.length === assetNames.length) {
+      return release;
+    }
+  }
   return null;
 }
 
