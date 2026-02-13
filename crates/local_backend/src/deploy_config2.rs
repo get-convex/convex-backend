@@ -287,15 +287,16 @@ pub async fn wait_for_schema(
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FinishPushRequest {
-    admin_key: String,
+    pub admin_key: String,
     start_push: SerializedStartPushResponse,
-    dry_run: bool,
+    pub dry_run: bool,
 }
 
-pub async fn finish_push(
-    MtState(st): MtState<LocalAppState>,
-    Json(req): Json<FinishPushRequest>,
-) -> Result<impl IntoResponse, HttpResponseError> {
+/// Internal version that returns the commit timestamp for use by conductor
+pub async fn finish_push_internal(
+    st: &LocalAppState,
+    req: FinishPushRequest,
+) -> anyhow::Result<(SerializedFinishPushDiff, Option<common::types::Timestamp>)> {
     let identity = must_be_admin_from_key_with_write_access(
         st.application.app_auth(),
         st.instance_name.clone(),
@@ -310,15 +311,23 @@ pub async fn finish_push(
     if req.dry_run {
         tracing::info!("Skipping finish_push in dry run");
         let empty_diff = FinishPushDiff::default();
-        return Ok(Json(SerializedFinishPushDiff::try_from(empty_diff)?));
+        return Ok((SerializedFinishPushDiff::try_from(empty_diff)?, None));
     }
 
-    let resp = st
+    let (resp, ts) = st
         .application
         .finish_push(identity, start_push)
         .await
         .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
-    Ok(Json(SerializedFinishPushDiff::try_from(resp)?))
+    Ok((SerializedFinishPushDiff::try_from(resp)?, Some(ts)))
+}
+
+pub async fn finish_push(
+    MtState(st): MtState<LocalAppState>,
+    Json(req): Json<FinishPushRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let (diff, _ts) = finish_push_internal(&st, req).await?;
+    Ok(Json(diff))
 }
 
 #[derive(Deserialize)]
@@ -358,7 +367,7 @@ pub async fn report_push_completed_handler(
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedFinishPushDiff {
+pub struct SerializedFinishPushDiff {
     auth_diff: AuthDiff,
     definition_diffs: BTreeMap<String, SerializedComponentDefinitionDiff>,
     component_diffs: BTreeMap<String, SerializedComponentDiff>,
