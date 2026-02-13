@@ -38,7 +38,16 @@ export function UsageChartUnavailable() {
   return (
     <TeamUsageError
       title="Chart not available"
-      description="This chart isn’t available when filtering on a particular project."
+      description="This chart isn't available when filtering on a particular project."
+    />
+  );
+}
+
+export function UsageTableBreakdownUnavailable() {
+  return (
+    <TeamUsageError
+      title="Table breakdown not available"
+      description="Bandwidth breakdown by table is not currently supported. Try viewing by type or by project."
     />
   );
 }

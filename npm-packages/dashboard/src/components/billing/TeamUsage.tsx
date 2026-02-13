@@ -20,6 +20,8 @@ import {
   useUsageTeamDeploymentCountPerDayByProject,
   useUsageTeamDeploymentCountByType,
   UsageSummary,
+  useUsageTeamDatabaseStoragePerDayByTable,
+  useUsageTeamDocumentCountPerDayByTable,
   DailyMetric,
   DailyMetricByProject,
   DailyPerTagMetrics,
@@ -68,14 +70,22 @@ import {
 } from "./TeamUsageByFunctionChart";
 import { UsageBarChart, UsageStackedBarChart } from "./UsageBarChart";
 import { UsageByProjectChart } from "./UsageByProjectChart";
+import { UsageByTableChart } from "./UsageByTableChart";
 import {
   UsageChartUnavailable,
   UsageDataNotAvailable,
   UsageNoDataError,
   UsageDataError,
+  UsageTableBreakdownUnavailable,
 } from "./TeamUsageError";
 import { TeamUsageToolbar } from "./TeamUsageToolbar";
-import { GroupBy, GroupBySelector } from "./GroupBySelector";
+import {
+  GroupBy,
+  DatabaseGroupBy,
+  GroupBySelector,
+  GROUP_BY_OPTIONS,
+  DATABASE_GROUP_BY_OPTIONS,
+} from "./GroupBySelector";
 import { ProjectLink } from "./ProjectLink";
 
 const FUNCTION_BREAKDOWN_TABS = [
@@ -719,11 +729,11 @@ function DatabaseUsage({
   _bandwidthEntitlement?: number | null;
   _showEntitlements: boolean;
 }) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
+  const [storedViewMode, setViewMode] = useGlobalLocalStorage<DatabaseGroupBy>(
     "usageViewMode_database",
-    "byType",
+    "byTable",
   );
-  const viewMode = projectId !== null ? "byType" : storedViewMode;
+  const viewMode = storedViewMode;
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
@@ -747,6 +757,22 @@ function DatabaseUsage({
     dateRange,
     componentPrefix,
   );
+
+  const { data: databaseStorageByTable, error: databaseStorageByTableError } =
+    useUsageTeamDatabaseStoragePerDayByTable(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
+
+  const { data: documentsCountByTable, error: documentsCountByTableError } =
+    useUsageTeamDocumentCountPerDayByTable(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
 
   const databaseStorage =
     viewMode === "byType"
@@ -784,7 +810,8 @@ function DatabaseUsage({
               <GroupBySelector
                 value={viewMode}
                 onChange={setViewMode}
-                disabled={projectId !== null}
+                disabled={false}
+                options={DATABASE_GROUP_BY_OPTIONS}
               />
             </div>
           </>
@@ -792,7 +819,7 @@ function DatabaseUsage({
       >
         <TabPanels className="px-4">
           <TabPanel>
-            {databaseStorageByProjectError ? (
+            {databaseStorageByProjectError || databaseStorageByTableError ? (
               <UsageDataError entity="Database storage" />
             ) : (
               <>
@@ -807,6 +834,19 @@ function DatabaseUsage({
                       categories={DATABASE_STORAGE_CATEGORIES}
                       quantityType="storage"
                       showCategoryTotals={false}
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                    />
+                  )
+                ) : viewMode === "byTable" ? (
+                  databaseStorageByTable === undefined ? (
+                    <ChartLoading />
+                  ) : databaseStorageByTable === null ? (
+                    <UsageChartUnavailable />
+                  ) : (
+                    <UsageByTableChart
+                      rows={databaseStorageByTable}
+                      quantityType="storage"
                       selectedDate={selectedDate}
                       setSelectedDate={setSelectedDate}
                     />
@@ -844,6 +884,8 @@ function DatabaseUsage({
                       setSelectedDate={setSelectedDate}
                     />
                   )
+                ) : viewMode === "byTable" ? (
+                  <UsageTableBreakdownUnavailable />
                 ) : databaseBandwidthByProject === undefined ? (
                   <ChartLoading />
                 ) : (
@@ -859,7 +901,7 @@ function DatabaseUsage({
             )}
           </TabPanel>
           <TabPanel>
-            {documentsCountByProjectError ? (
+            {documentsCountByProjectError || documentsCountByTableError ? (
               <UsageDataError entity="Document count" />
             ) : viewMode === "byType" ? (
               documentsCount === undefined ? (
@@ -868,6 +910,18 @@ function DatabaseUsage({
                 <UsageChartUnavailable />
               ) : (
                 <UsageBarChart rows={documentsCount} entity="documents" />
+              )
+            ) : viewMode === "byTable" ? (
+              documentsCountByTable === undefined ? (
+                <ChartLoading />
+              ) : documentsCountByTable === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageByTableChart
+                  rows={documentsCountByTable}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                />
               )
             ) : documentsCountByProject === undefined ? (
               <ChartLoading />
@@ -928,6 +982,7 @@ function FunctionCallsUsage({
             value={viewMode}
             onChange={setViewMode}
             disabled={projectId !== null}
+            options={GROUP_BY_OPTIONS}
           />
         </>
       }
@@ -1016,6 +1071,7 @@ function ActionComputeUsage({
             value={viewMode}
             onChange={setViewMode}
             disabled={projectId !== null}
+            options={GROUP_BY_OPTIONS}
           />
         </>
       }
@@ -1127,6 +1183,7 @@ function FilesUsage({
                 value={viewMode}
                 onChange={setViewMode}
                 disabled={projectId !== null}
+                options={GROUP_BY_OPTIONS}
               />
             </div>
           </>
@@ -1275,6 +1332,7 @@ function DeploymentCountUsage({
             value={viewMode}
             onChange={setViewMode}
             disabled={projectId !== null}
+            options={GROUP_BY_OPTIONS}
           />
         </>
       }
@@ -1391,6 +1449,7 @@ function VectorUsage({
                 value={viewMode}
                 onChange={setViewMode}
                 disabled={projectId !== null}
+                options={GROUP_BY_OPTIONS}
               />
             </div>
           </>

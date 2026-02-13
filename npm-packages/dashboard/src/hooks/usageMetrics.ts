@@ -43,6 +43,14 @@ const DATABRICKS_BY_PROJECT_QUERY_IDS: {
   teamDeploymentCountByProject: "0b6c9ab3-c17c-4ad5-bfca-8f0300e494f6",
 };
 
+const DATABRICKS_BY_TABLE_QUERY_IDS: {
+  teamDatabaseStorageByTable: DatabricksQueryId;
+  teamDocumentCountByTable: DatabricksQueryId;
+} = {
+  teamDatabaseStorageByTable: "9cb8c431-6fa7-40cc-8f00-8aad358b4043",
+  teamDocumentCountByTable: "1e265821-c0b9-4c66-9a1f-a5eef70e4d6f",
+};
+
 export function useTokenUsage(teamSlug: string, period: DateRange | null) {
   return useBBQuery({
     path: "/teams/{team_slug}/usage/get_token_info",
@@ -201,14 +209,21 @@ export interface DailyPerTagMetrics {
 
 // By-project query hooks
 export interface DailyMetricByProject extends DailyMetric {
-  projectId: number | string; // Can be a number or "_rest"
+  projectId: number | "_rest";
 }
 
 export interface DailyPerTagMetricsByProject extends DailyPerTagMetrics {
-  projectId: number | string; // Can be a number or "_rest"
+  projectId: number | "_rest";
 }
 
-function parseProjectId(projectId: string | number): number | string {
+export type DailyMetricByTable = {
+  ds: string;
+  projectId: number | "_rest";
+  tableName: string;
+  value: number;
+};
+
+function parseProjectId(projectId: string | number): number | "_rest" {
   if (projectId === "_rest") {
     return "_rest";
   }
@@ -663,6 +678,76 @@ export function useUsageTeamDeploymentCountByType(
         value,
       })),
     })),
+    error: undefined,
+  };
+}
+
+// By-table query hooks
+export function useUsageTeamDatabaseStoragePerDayByTable(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByTable[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: DATABRICKS_BY_TABLE_QUERY_IDS.teamDatabaseStorageByTable,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([
+        _teamId,
+        rowProjectId,
+        tableName,
+        ds,
+        documentStorage,
+        indexStorage,
+      ]) => ({
+        ds,
+        projectId: parseProjectId(rowProjectId),
+        tableName,
+        value: Number(documentStorage) + Number(indexStorage),
+      }),
+    ),
+    error: undefined,
+  };
+}
+
+export function useUsageTeamDocumentCountPerDayByTable(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByTable[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: DATABRICKS_BY_TABLE_QUERY_IDS.teamDocumentCountByTable,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([_teamId, rowProjectId, tableName, ds, documentCount]) => ({
+        ds,
+        projectId: parseProjectId(rowProjectId),
+        tableName,
+        value: Number(documentCount),
+      }),
+    ),
     error: undefined,
   };
 }
