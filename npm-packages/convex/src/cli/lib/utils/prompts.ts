@@ -1,6 +1,31 @@
-import inquirer from "inquirer";
+import input from "@inquirer/input";
+import select from "@inquirer/select";
+import search from "@inquirer/search";
+import confirm from "@inquirer/confirm";
 import { Context } from "../../../bundler/context.js";
 import { logOutput } from "../../../bundler/log.js";
+
+/**
+ * Handle ExitPromptError thrown by @inquirer/* packages when the user
+ * presses Ctrl+C. Instead of printing an ugly stack trace, exit cleanly.
+ * For unexpected errors, use ctx.crash to report to Sentry.
+ */
+function handlePromptError(ctx: Context) {
+  return async (error: unknown): Promise<never> => {
+    if (error instanceof Error && error.name === "ExitPromptError") {
+      // User pressed Ctrl+C — exit silently with code 130 (standard for SIGINT)
+      // eslint-disable-next-line no-process-exit
+      process.exit(130);
+    }
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Unexpected prompt error: ${String(error)}`,
+      errForSentry: error instanceof Error ? error : undefined,
+    });
+  };
+}
+
 export const promptString = async (
   ctx: Context,
   options: {
@@ -9,17 +34,10 @@ export const promptString = async (
   },
 ): Promise<string> => {
   if (process.stdin.isTTY) {
-    const result = (
-      await inquirer.prompt([
-        {
-          type: "input",
-          name: "result",
-          message: options.message,
-          default: options.default,
-        },
-      ])
-    ).result;
-    return result;
+    return input({
+      message: options.message,
+      ...(options.default !== undefined ? { default: options.default } : {}),
+    }).catch(handlePromptError(ctx));
   } else {
     return ctx.crash({
       exitCode: 1,
@@ -40,24 +58,14 @@ export const promptOptions = async <V>(
   },
 ): Promise<V> => {
   if (process.stdin.isTTY) {
-    const result = (
-      await inquirer.prompt([
-        {
-          // In the Convex mono-repo, `list` seems to cause the command to not
-          // respond to CTRL+C while `search-list` does not.
-          type: process.env.CONVEX_RUNNING_LIVE_IN_MONOREPO
-            ? "search-list"
-            : "list",
-          name: "result",
-          message: options.message,
-          ...(options.prefix ? { prefix: options.prefix } : {}),
-          ...(options.suffix ? { suffix: options.suffix } : {}),
-          choices: options.choices,
-          default: options.default,
-        },
-      ])
-    ).result;
-    return result;
+    return select<V>({
+      message: options.message + (options.suffix ?? ""),
+      choices: options.choices,
+      ...(options.default !== undefined ? { default: options.default } : {}),
+      ...(options.prefix !== undefined
+        ? { theme: { prefix: options.prefix } }
+        : {}),
+    }).catch(handlePromptError(ctx));
   } else {
     return ctx.crash({
       exitCode: 1,
@@ -76,18 +84,17 @@ export const promptSearch = async <V>(
   },
 ): Promise<V> => {
   if (process.stdin.isTTY) {
-    const result = (
-      await inquirer.prompt([
-        {
-          type: "search-list",
-          name: "result",
-          message: options.message,
-          choices: options.choices,
-          default: options.default,
-        },
-      ])
-    ).result;
-    return result;
+    return search<V>({
+      message: options.message,
+      ...(options.default !== undefined ? { default: options.default } : {}),
+      source: (input: string | undefined) => {
+        if (!input) return options.choices;
+        const term = input.toLowerCase();
+        return options.choices.filter((c) =>
+          c.name.toLowerCase().includes(term),
+        );
+      },
+    }).catch(handlePromptError(ctx));
   } else {
     return ctx.crash({
       exitCode: 1,
@@ -107,16 +114,13 @@ export const promptYesNo = async (
   },
 ): Promise<boolean> => {
   if (process.stdin.isTTY) {
-    const { result } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "result",
-        message: options.message,
-        default: options.default,
-        ...(options.prefix ? { prefix: options.prefix } : {}),
-      },
-    ]);
-    return result;
+    return confirm({
+      message: options.message,
+      ...(options.default !== undefined ? { default: options.default } : {}),
+      ...(options.prefix !== undefined
+        ? { theme: { prefix: options.prefix } }
+        : {}),
+    }).catch(handlePromptError(ctx));
   } else {
     logOutput(options.message);
     return ctx.crash({
