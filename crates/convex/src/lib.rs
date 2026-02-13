@@ -63,9 +63,11 @@ pub use sync::WebSocketState;
 pub mod base_client;
 #[doc(inline)]
 pub use base_client::{
+    AuthTokenFetcher,
     FunctionResult,
     QueryResults,
     SubscriberId,
 };
+pub use convex_sync_types::AuthenticationToken;
 
 mod sync;

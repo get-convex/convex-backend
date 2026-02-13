@@ -1,6 +1,8 @@
 use std::{
     collections::BTreeMap,
     convert::Infallible,
+    future::Future,
+    pin::Pin,
     sync::Arc,
 };
 
@@ -23,7 +25,7 @@ use tokio::{
 use tokio_stream::wrappers::BroadcastStream;
 use url::Url;
 
-use self::worker::AuthenticateRequest;
+pub use crate::base_client::AuthTokenFetcher;
 #[cfg(doc)]
 use crate::SubscriberId;
 use crate::{
@@ -349,15 +351,42 @@ impl ConvexClient {
     /// Set it with a token that you get from your auth provider via their login
     /// flow. If `None` is passed as the token, then auth is unset (logging
     /// out).
+    ///
+    /// Internally this wraps the static token in a trivial callback and the
+    /// same token is re-sent on websocket reconnect.
+    ///
+    /// <div class="warning">
+    ///
+    /// Prefer [`ConvexClient::set_auth_callback``] - it will allow fetching a
+    /// fresh token after a websocket reconnect. That's important because
+    /// the original token might have expired while the socket was
+    /// disconnected.
+    ///
+    /// </div>
     pub async fn set_auth(&mut self, token: Option<String>) {
-        let req = AuthenticateRequest {
-            token: match token {
-                None => AuthenticationToken::None,
-                Some(token) => AuthenticationToken::User(token),
-            },
-        };
+        let fetcher: Option<AuthTokenFetcher> = token.map(|t| {
+            Box::new(move |_force_refresh: bool| {
+                let t = t.clone();
+                Box::pin(async move { Ok(AuthenticationToken::User(t)) })
+                    as Pin<Box<dyn Future<Output = anyhow::Result<AuthenticationToken>> + Send>>
+            }) as AuthTokenFetcher
+        });
         self.request_sender
-            .send(ClientRequest::Authenticate(req))
+            .send(ClientRequest::Authenticate(fetcher))
+            .expect("INTERNAL BUG: Worker has gone away");
+    }
+
+    /// Set an auth token fetcher callback for use when calling Convex
+    /// functions.
+    ///
+    /// The callback is invoked immediately (with `force_refresh=false`) and
+    /// again on every websocket reconnect (with `force_refresh=true`),
+    /// allowing dynamic token refresh.
+    ///
+    /// Pass `None` to clear the callback and log out.
+    pub async fn set_auth_callback(&mut self, fetcher: Option<AuthTokenFetcher>) {
+        self.request_sender
+            .send(ClientRequest::Authenticate(fetcher))
             .expect("INTERNAL BUG: Worker has gone away");
     }
 
@@ -373,11 +402,13 @@ impl ConvexClient {
         deploy_key: String,
         acting_as: Option<UserIdentityAttributes>,
     ) {
-        let req = AuthenticateRequest {
-            token: AuthenticationToken::Admin(deploy_key, acting_as),
-        };
+        let fetcher: AuthTokenFetcher = Box::new(move |_force_refresh: bool| {
+            let deploy_key = deploy_key.clone();
+            let acting_as = acting_as.clone();
+            Box::pin(async move { Ok(AuthenticationToken::Admin(deploy_key, acting_as)) })
+        });
         self.request_sender
-            .send(ClientRequest::Authenticate(req))
+            .send(ClientRequest::Authenticate(Some(fetcher)))
             .expect("INTERNAL BUG: Worker has gone away");
     }
 }
@@ -704,6 +735,87 @@ pub mod tests {
             vec![ClientMessage::Authenticate {
                 base_version: 3,
                 token: AuthenticationToken::Admin("myadminauth".into(), Some(acting_as)),
+            }]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_auth_callback() -> anyhow::Result<()> {
+        let (mut client, test_protocol) = ConvexClient::with_test_protocol().await?;
+        test_protocol.take_sent().await;
+
+        // Set auth via callback
+        let fetcher: crate::client::AuthTokenFetcher = Box::new(|_force_refresh| {
+            Box::pin(async { Ok(AuthenticationToken::User("callback_token".into())) })
+        });
+        client.set_auth_callback(Some(fetcher)).await;
+        test_protocol.wait_until_n_messages_sent(1).await;
+        assert_eq!(
+            test_protocol.take_sent().await,
+            vec![ClientMessage::Authenticate {
+                base_version: 0,
+                token: AuthenticationToken::User("callback_token".into()),
+            }]
+        );
+
+        // Clear auth via callback
+        client.set_auth_callback(None).await;
+        test_protocol.wait_until_n_messages_sent(1).await;
+        assert_eq!(
+            test_protocol.take_sent().await,
+            vec![ClientMessage::Authenticate {
+                base_version: 1,
+                token: AuthenticationToken::None,
+            }]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_auth_callback_returning_none() -> anyhow::Result<()> {
+        let (mut client, test_protocol) = ConvexClient::with_test_protocol().await?;
+        test_protocol.take_sent().await;
+
+        // Callback that returns None (no token)
+        let fetcher: crate::client::AuthTokenFetcher =
+            Box::new(|_force_refresh| Box::pin(async { Ok(AuthenticationToken::None) }));
+        client.set_auth_callback(Some(fetcher)).await;
+        test_protocol.wait_until_n_messages_sent(1).await;
+        assert_eq!(
+            test_protocol.take_sent().await,
+            vec![ClientMessage::Authenticate {
+                base_version: 0,
+                token: AuthenticationToken::None,
+            }]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_set_auth_uses_callback_path() -> anyhow::Result<()> {
+        let (mut client, test_protocol) = ConvexClient::with_test_protocol().await?;
+        test_protocol.take_sent().await;
+
+        // set_auth with a token should send the same Authenticate message as before
+        client.set_auth(Some("static_token".into())).await;
+        test_protocol.wait_until_n_messages_sent(1).await;
+        assert_eq!(
+            test_protocol.take_sent().await,
+            vec![ClientMessage::Authenticate {
+                base_version: 0,
+                token: AuthenticationToken::User("static_token".into()),
+            }]
+        );
+
+        // set_auth(None) clears auth
+        client.set_auth(None).await;
+        test_protocol.wait_until_n_messages_sent(1).await;
+        assert_eq!(
+            test_protocol.take_sent().await,
+            vec![ClientMessage::Authenticate {
+                base_version: 1,
+                token: AuthenticationToken::None,
             }]
         );
         Ok(())

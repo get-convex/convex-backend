@@ -6,7 +6,6 @@ use std::{
 
 use convex_sync_types::{
     backoff::Backoff,
-    AuthenticationToken,
     UdfPath,
 };
 use tokio::sync::{
@@ -18,6 +17,7 @@ use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
     base_client::{
+        AuthTokenFetcher,
         BaseConvexClient,
         SubscriberId,
     },
@@ -53,7 +53,7 @@ pub enum ClientRequest {
         mpsc::UnboundedSender<ClientRequest>,
     ),
     Unsubscribe(UnsubscribeRequest),
-    Authenticate(AuthenticateRequest),
+    Authenticate(Option<AuthTokenFetcher>),
 }
 
 pub struct MutationRequest {
@@ -69,10 +69,6 @@ pub struct ActionRequest {
 pub struct SubscribeRequest {
     pub udf_path: UdfPath,
     pub args: BTreeMap<String, Value>,
-}
-
-pub struct AuthenticateRequest {
-    pub token: AuthenticationToken,
 }
 
 #[derive(Debug)]
@@ -112,14 +108,15 @@ pub async fn worker<T: SyncProtocol>(
 
         // Tell the sync protocol to reconnect followed by an immediate resend of
         // ongoing queries/mutations. It's important these happen together to
-        // ensure mutation ordering.
+        // ensure mutation ordering. If an auth token fetcher is stored,
+        // resend_ongoing_queries_mutations will refresh the token first.
         protocol_manager
             .reconnect(ReconnectRequest {
                 reason: e,
                 max_observed_timestamp: base_client.max_observed_timestamp(),
             })
             .await;
-        base_client.resend_ongoing_queries_mutations();
+        base_client.resend_ongoing_queries_mutations().await;
         // We'll flush messages from base_client inside the next call to
         // `_worker_once`.
     }
@@ -215,8 +212,8 @@ async fn _worker_once<T: SyncProtocol>(
                     )
                     .await?;
                 },
-                ClientRequest::Authenticate(authenticate) => {
-                    base_client.set_auth(authenticate.token);
+                ClientRequest::Authenticate(fetcher) => {
+                    base_client.set_auth_fetcher(fetcher).await;
                     communicate(
                         base_client,
                         protocol_response_receiver,
