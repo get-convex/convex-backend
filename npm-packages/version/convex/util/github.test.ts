@@ -11,9 +11,17 @@ import {
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+const expectedGithubHeaders = {
+  Authorization: `Bearer placeholder-token`,
+  Accept: "application/vnd.github+json",
+};
+
 describe("GitHub Helper Functions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    if (!process.env.GITHUB_TOKEN) {
+      process.env.GITHUB_TOKEN = "placeholder-token";
+    }
   });
 
   afterEach(() => {
@@ -102,10 +110,12 @@ describe("GitHub Helper Functions", () => {
       expect(mockFetch).toHaveBeenNthCalledWith(
         1,
         "https://api.github.com/repos/test/repo/releases?per_page=30",
+        { headers: expectedGithubHeaders },
       );
       expect(mockFetch).toHaveBeenNthCalledWith(
         2,
         "https://api.github.com/repos/test/repo/releases?page=2",
+        { headers: expectedGithubHeaders },
       );
     });
 
@@ -164,6 +174,7 @@ describe("GitHub Helper Functions", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.github.com/repos/test/repo/releases?per_page=50",
+        { headers: expectedGithubHeaders },
       );
     });
   });
@@ -428,6 +439,7 @@ describe("GitHub Helper Functions", () => {
       expect(result).toBe(mockContent);
       expect(mockFetch).toHaveBeenCalledWith(
         "https://github.com/test/repo/releases/download/v1.0.0/convex_rules.mdc",
+        { headers: expectedGithubHeaders },
       );
     });
 

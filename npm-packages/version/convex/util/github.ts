@@ -13,6 +13,27 @@ type LinkHeader = {
 };
 
 /**
+ * Get headers for GitHub API requests with authentication if available
+ */
+function getGitHubHeaders(): HeadersInit {
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (!githubToken) {
+    console.warn(
+      "GITHUB_TOKEN environment variable not set. GitHub API requests will have lower rate limits.",
+    );
+  }
+
+  return githubToken
+    ? {
+        Authorization: `Bearer ${githubToken}`,
+        Accept: "application/vnd.github+json",
+      }
+    : {
+        Accept: "application/vnd.github+json",
+      };
+}
+
+/**
  * Parse the HTTP Link header for pagination
  * https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2022-11-28#using-link-headers
  */
@@ -42,7 +63,7 @@ export async function fetchAllGitHubReleases(
   let nextUrl = `https://api.github.com/repos/${repoPath}/releases?per_page=${perPage}`;
 
   while (nextUrl) {
-    const response = await fetch(nextUrl);
+    const response = await fetch(nextUrl, { headers: getGitHubHeaders() });
 
     if (!response.ok) {
       const text = await response.text();
@@ -131,7 +152,8 @@ export async function downloadAssetFromRelease(
   assetName: string,
 ): Promise<string> {
   const downloadUrl = `https://github.com/${repoPath}/releases/download/${version}/${assetName}`;
-  const response = await fetch(downloadUrl);
+
+  const response = await fetch(downloadUrl, { headers: getGitHubHeaders() });
 
   if (!response.ok) {
     throw new Error(`Failed to download ${assetName} from ${downloadUrl}`);
