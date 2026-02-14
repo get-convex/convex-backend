@@ -17,7 +17,10 @@ import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { DeploymentMenuOptions } from "components/header/ProjectSelector/DeploymentMenuOptions";
 import { useCurrentProject } from "api/projects";
 import { useRef, useState, useEffect } from "react";
-import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
+import {
+  PROVISION_DEV_PAGE_NAME,
+  PROVISION_PROD_PAGE_NAME,
+} from "@common/lib/deploymentContext";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useListVanityDomains } from "api/vanityDomains";
 import { useQuery } from "convex/react";
@@ -135,6 +138,13 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
       }
     },
     [defaultProd, projectsURI, currentView],
+  );
+  useHotkeys(
+    devDeployments.length === 0 ? [`ctrl+alt+2`] : [],
+    () => {
+      void router.push(`${projectsURI}/${PROVISION_DEV_PAGE_NAME}`);
+    },
+    [devDeployments, projectsURI],
   );
   useHotkeys(
     Array.from({ length: devDeployments.length }, (_, idx) => [
