@@ -32,6 +32,7 @@ use common::{
     errors::{
         recapture_stacktrace,
         report_error,
+        DatabaseOperationalError,
         DatabaseTimeoutError,
     },
     fastrace_helpers::{
@@ -996,7 +997,7 @@ impl<RT: Runtime> Committer<RT> {
                         .in_span(Span::enter_with_local_parent(name)),
                     ));
                     if let Err(mut e) = handle.await? {
-                        if e.is::<DatabaseTimeoutError>() {
+                        if e.is::<DatabaseTimeoutError>() || e.is::<DatabaseOperationalError>() {
                             let delay = backoff.fail(&mut rt.rng());
                             tracing::error!(
                                 "Failed to write to persistence because database timed out"

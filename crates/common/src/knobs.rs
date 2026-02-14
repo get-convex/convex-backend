@@ -915,6 +915,10 @@ pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
 pub static MYSQL_DOCUMENT_ENCODING: LazyLock<u8> =
     LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 0));
 
+/// How many times to retry MySQL queries that fail with operational errors.
+pub static MYSQL_MAX_QUERY_RETRIES: LazyLock<u32> =
+    LazyLock::new(|| env_config("MYSQL_MAX_QUERY_RETRIES", 1));
+
 /// Maximum number of connections to Postgres
 pub static POSTGRES_MAX_CONNECTIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("POSTGRES_MAX_CONNECTIONS", 128));

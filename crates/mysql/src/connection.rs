@@ -1,23 +1,32 @@
 use std::{
+    mem,
     str::FromStr,
     time::Duration,
 };
 
 use ::metrics::StaticMetricLabel;
 use common::{
-    errors::database_timeout_error,
+    errors::{
+        database_operational_error,
+        database_timeout_error,
+        DatabaseOperationalError,
+    },
     fastrace_helpers::FutureExt as _,
     knobs::{
         MYSQL_INACTIVE_CONNECTION_LIFETIME,
         MYSQL_MAX_CONNECTIONS,
         MYSQL_MAX_CONNECTION_LIFETIME,
+        MYSQL_MAX_QUERY_RETRIES,
         MYSQL_TIMEOUT,
     },
     pool_stats::{
         ConnectionPoolStats,
         ConnectionTracker,
     },
-    runtime::Runtime,
+    runtime::{
+        assert_send,
+        Runtime,
+    },
 };
 use dynfmt::{
     ArgumentSpec,
@@ -26,7 +35,6 @@ use dynfmt::{
     FormatArgs,
     Position,
 };
-use errors::ErrorMetadata;
 use fastrace::func_path;
 use futures::{
     pin_mut,
@@ -34,16 +42,15 @@ use futures::{
     Future,
     FutureExt as _,
     Stream,
-    StreamExt,
     TryStreamExt,
 };
-use futures_async_stream::try_stream;
 use metrics::{
     ProgressCounter,
     Timer,
 };
 use mysql_async::{
     prelude::Queryable,
+    Conn,
     DriverError,
     Opts,
     OptsBuilder,
@@ -73,6 +80,37 @@ use crate::metrics::{
     LARGE_STATEMENT_THRESHOLD,
 };
 
+fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
+    match e {
+        mysql_async::Error::Driver(
+            DriverError::PoolDisconnected | DriverError::ConnectionClosed,
+        )
+        | mysql_async::Error::Io(_)
+        | mysql_async::Error::Server(mysql_async::ServerError {
+            // Expected operational Vitess errors:
+            code:
+            | 1290 // EROptionPreventsStatement "The MySQL server is running with the --read-only option so it cannot execute this statement"
+            | 2013 // CRServerLost
+            | 1053 // ERServerShutdown
+            , ..
+        }) => {
+            database_operational_error(e.into())
+        },
+        mysql_async::Error::Server(mysql_async::ServerError {
+            // ERUnknownError
+            code: 1105,
+            ref message,
+            ..
+        }) if message.contains("primary is not serving")
+            || message.contains("for tx killer rollback")
+            || message.contains("connection pool timed out") =>
+        {
+            database_operational_error(e.into())
+        },
+        _ => e.into(),
+    }
+}
+
 // Guard against connections hanging during bootstrapping -- which means
 // instances can't start -- and during commit -- which means all future commits
 // fail with OCC errors.
@@ -80,31 +118,12 @@ use crate::metrics::{
 // To avoid these problems, wrap anything that talks to mysql in with_timeout
 // which will panic, cleaning up all broken connections,
 // if the future takes more than `MYSQL_TIMEOUT` to complete.
-pub(crate) async fn with_timeout<R, E, Fut: Future<Output = Result<R, E>>>(
+pub(crate) async fn with_timeout<R, Fut: Future<Output = Result<R, mysql_async::Error>>>(
     f: Fut,
-) -> anyhow::Result<R>
-where
-    E: Into<anyhow::Error>,
-{
+) -> anyhow::Result<R> {
     select_biased! {
         r = f.fuse() => {
-            match r {
-                Ok(r) => Ok(r),
-                Err(e) => {
-                    let e = e.into();
-                    if e.chain().any(|cause| matches!(
-                        cause.downcast_ref(),
-                        Some(
-                            mysql_async::Error::Driver(DriverError::PoolDisconnected)
-                            | mysql_async::Error::Io(_)
-                        )
-                    )) {
-                        Err(e.context(ErrorMetadata::operational_internal_server_error()))
-                    } else {
-                        Err(e)
-                    }
-                }
-            }
+            r.map_err(classify_mysql_error)
         },
         _ = sleep(Duration::from_secs(*MYSQL_TIMEOUT)).fuse() => Err(
             anyhow::anyhow!(database_timeout_error("MySQL"))),
@@ -223,16 +242,37 @@ fn format_mysql_binary_protocol(db_name: &str, statement: &'static str) -> anyho
         .to_string())
 }
 
-pub(crate) struct MySqlConnection<'a> {
-    conn: mysql_async::Conn,
+pub(crate) struct MySqlConnection<'a, RT: Runtime> {
+    conn: Conn,
     labels: Vec<StaticMetricLabel>,
-    use_prepared_statements: bool,
+    pool: &'a ConvexMySqlPool<RT>,
     db_name: &'a str,
     _tracker: ConnectionTracker,
     _timer: Timer<VMHistogramVec>,
 }
 
-impl MySqlConnection<'_> {
+async fn with_retries<R, RT: Runtime>(
+    conn: &mut Conn,
+    pool: &ConvexMySqlPool<RT>,
+    f: impl AsyncFn(&mut Conn) -> anyhow::Result<R>,
+) -> anyhow::Result<R> {
+    for _ in 0..*MYSQL_MAX_QUERY_RETRIES {
+        match f(conn).await {
+            Err(e) if e.is::<DatabaseOperationalError>() => {
+                tracing::warn!("Retrying after MySQL error: {e:#}");
+            },
+            r => return r,
+        }
+        let old_conn = mem::replace(conn, pool.acquire_internal().await?);
+        if let Err(e) = old_conn.disconnect().await {
+            tracing::warn!("Error disconnecting MySQL connection: {e}");
+        }
+        // retry
+    }
+    f(conn).await
+}
+
+impl<RT: Runtime> MySqlConnection<'_, RT> {
     /// Executes multiple statements, separated by semicolons.
     #[fastrace::trace]
     pub async fn execute_many(&mut self, query: &'static str) -> anyhow::Result<()> {
@@ -250,73 +290,93 @@ impl MySqlConnection<'_> {
         params: Vec<MySqlValue>,
     ) -> anyhow::Result<Option<Row>> {
         log_query(self.labels.clone());
-        let future = if self.use_prepared_statements {
+        let row = if self.pool.use_prepared_statements {
             let statement = format_mysql_binary_protocol(self.db_name, statement)?;
-            self.conn.exec_first(statement, params)
+            with_retries(&mut self.conn, self.pool, async move |conn| {
+                with_timeout(conn.exec_first(&statement, params.clone())).await
+            })
+            .await?
         } else {
             let statement =
                 format_mysql_text_protocol(self.db_name, statement, params, &self.labels)?;
-            self.conn.query_first(statement)
+            with_retries(&mut self.conn, self.pool, async move |conn| {
+                with_timeout(conn.query_first(&statement)).await
+            })
+            .await?
         };
-        let row = with_timeout(future).await?;
         if let Some(row) = &row {
             log_query_result(row, self.labels.clone());
         }
         Ok(row)
     }
 
-    /// Run a readonly query that returns a stream of results.
+    /// Run a readonly query and collect the results, mapping them with `f`
     #[fastrace::trace]
-    pub async fn query_stream(
+    pub async fn query_collect<R: Send>(
         &mut self,
         statement: &'static str,
         params: Vec<MySqlValue>,
         size_hint: usize,
-    ) -> anyhow::Result<impl Stream<Item = anyhow::Result<Row>> + use<'_>> {
+        f: impl Fn(Row) -> anyhow::Result<R> + Send + Sync + 'static,
+    ) -> anyhow::Result<Vec<R>> {
         let labels = self.labels.clone();
-        // Any error or dropped stream after this point leaves the connection
-        // open with MySQL sending data into it. In the worst case, the data
-        // will be consumed & dropped by the *next* client.acquire(), which can
-        // make it hard to attribute latency. Therefore we start a progress
-        // counter that will log if the stream is dropped before being consumed.
-        let progress_counter = query_progress_counter(size_hint, labels.clone());
         log_query(labels.clone());
-        let stream = if self.use_prepared_statements {
+        if self.pool.use_prepared_statements {
             let statement = format_mysql_binary_protocol(self.db_name, statement)?;
-            with_timeout(self.conn.exec_stream(statement, Params::Positional(params)))
-                .await?
-                .boxed()
+            assert_send(with_retries(&mut self.conn, self.pool, async move |conn| {
+                // Any error or dropped stream after this point leaves the connection
+                // open with MySQL sending data into it. In the worst case, the data
+                // will be consumed & dropped by the *next* client.acquire(), which can
+                // make it hard to attribute latency. Therefore we start a progress
+                // counter that will log if the stream is dropped before being consumed.
+                let progress_counter = query_progress_counter(size_hint, labels.clone());
+                Self::collect_query_stream(
+                    with_timeout(conn.exec_stream(&statement, Params::Positional(params.clone())))
+                        .await?,
+                    progress_counter,
+                    labels.clone(),
+                    &f,
+                )
+                .await
+            }))
+            .await
         } else {
             let statement =
                 format_mysql_text_protocol(self.db_name, statement, params, &self.labels)?;
-            with_timeout(self.conn.query_stream(statement))
-                .await?
-                .boxed()
-        };
-        Ok(Self::wrap_query_stream(stream, progress_counter, labels))
+            assert_send(with_retries(&mut self.conn, self.pool, async move |conn| {
+                let progress_counter = query_progress_counter(size_hint, labels.clone());
+                Self::collect_query_stream(
+                    with_timeout(conn.query_stream(&statement)).await?,
+                    progress_counter,
+                    labels.clone(),
+                    &f,
+                )
+                .await
+            }))
+            .await
+        }
     }
 
-    #[allow(clippy::needless_lifetimes)]
-    #[try_stream(ok = Row, error = anyhow::Error)]
-    async fn wrap_query_stream(
+    async fn collect_query_stream<R>(
         stream: impl Stream<Item = mysql_async::Result<Row>>,
         mut progress_counter: ProgressCounter,
         labels: Vec<StaticMetricLabel>,
-    ) {
+        f: impl Fn(Row) -> anyhow::Result<R>,
+    ) -> anyhow::Result<Vec<R>> {
+        let mut result = vec![];
         pin_mut!(stream);
         while let Some(row) = with_timeout(stream.try_next()).await? {
             progress_counter.add_processed(1);
             log_query_result(&row, labels.clone());
-
-            // The caller will likely consume this stream in a CPU-intensive
-            // loop, to parse the rows. And `stream.try_next().await`
-            // might not yield to tokio if the rows are all available at once.
-            // Avoid long poll times by intentionally yielding.
+            // `f` may be computationally intensive, and
+            // `stream.try_next().await` might not yield to tokio if the rows
+            // are all available at once. Avoid long poll times by intentionally
+            // yielding.
             tokio::task::consume_budget().await;
-
-            yield row;
+            result.push(f(row)?);
         }
         progress_counter.complete();
+        Ok(result)
     }
 
     /// Execute a SQL statement, returning the number of rows affected.
@@ -327,7 +387,7 @@ impl MySqlConnection<'_> {
         params: Vec<MySqlValue>,
     ) -> anyhow::Result<u64> {
         log_execute(self.labels.clone());
-        let affected_rows = if self.use_prepared_statements {
+        let affected_rows = if self.pool.use_prepared_statements {
             let statement = format_mysql_binary_protocol(self.db_name, statement)?;
             with_timeout(self.conn.exec_iter(statement, Params::Positional(params)))
                 .await?
@@ -353,7 +413,7 @@ impl MySqlConnection<'_> {
         timer.finish();
         Ok(MySqlTransaction {
             inner,
-            use_prepared_statements: self.use_prepared_statements,
+            use_prepared_statements: self.pool.use_prepared_statements,
             db_name: self.db_name,
             labels: &self.labels,
         })
@@ -487,23 +547,28 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
         })
     }
 
-    pub(crate) async fn acquire<'a>(
-        &self,
-        name: &'static str,
-        db_name: &'a str,
-    ) -> anyhow::Result<MySqlConnection<'a>> {
+    pub(crate) async fn acquire_internal(&self) -> anyhow::Result<Conn> {
         let pool_get_timer = get_connection_timer(&self.cluster_name);
         let conn = with_timeout(self.pool.get_conn())
             .trace_if_pending(func_path!()) // only trace if slow
             .await;
         pool_get_timer.finish(conn.is_ok());
+        conn
+    }
+
+    pub(crate) async fn acquire<'a>(
+        &'a self,
+        name: &'static str,
+        db_name: &'a str,
+    ) -> anyhow::Result<MySqlConnection<'a, RT>> {
+        let conn = self.acquire_internal().await?;
         Ok(MySqlConnection {
-            conn: conn?,
+            conn,
             labels: vec![
                 StaticMetricLabel::new("name", name),
                 StaticMetricLabel::new("cluster_name", self.cluster_name.clone()),
             ],
-            use_prepared_statements: self.use_prepared_statements,
+            pool: self,
             db_name,
             _tracker: ConnectionTracker::new(&self.stats),
             _timer: connection_lifetime_timer(name, &self.cluster_name),
