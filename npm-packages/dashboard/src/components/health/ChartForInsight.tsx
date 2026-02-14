@@ -107,14 +107,9 @@ function InsightsLineChart<T extends Record<string, any>>({
               ))}
 
               <CartesianGrid
-                className="stroke-content-tertiary/40"
+                className="stroke-content-tertiary/30"
                 horizontal
                 strokeWidth={1}
-                vertical={false}
-                verticalFill={[]}
-                horizontalFill={[
-                  "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
-                ]}
                 syncWithTicks
               />
 
@@ -123,12 +118,8 @@ function InsightsLineChart<T extends Record<string, any>>({
                 domain={["auto", "auto"]}
                 tickFormatter={dateLabel}
                 strokeWidth={1}
-                axisLine={{
-                  stroke: "var(--content-secondary)",
-                }}
-                tickLine={{
-                  stroke: "var(--content-secondary)",
-                }}
+                axisLine={{ className: "stroke-content-tertiary/30" }}
+                tickLine={false}
                 tick={{
                   fontSize: 12,
                   fill: "var(--content-secondary)",
@@ -139,11 +130,9 @@ function InsightsLineChart<T extends Record<string, any>>({
               <YAxis
                 tick={{
                   fontSize: 12,
-                  fill: "var(--content-secondary)",
+                  fill: "currentColor",
                 }}
-                axisLine={{
-                  stroke: "var(--content-secondary)",
-                }}
+                axisLine={{ className: "stroke-content-tertiary/30" }}
                 tickLine={false}
                 tickFormatter={formatY}
                 width={48}

@@ -134,10 +134,9 @@ function FunctionBreakdownLink() {
     >
       <Sheet className="flex items-center justify-between transition-colors group-hover:bg-background-tertiary group-focus-visible:bg-background-tertiary">
         <div>
-          <h3>Functions breakdown by project</h3>
+          <h3>Breakdown by function</h3>
           <p className="text-xs text-content-secondary">
-            See function call and bandwidth usage broken down by project and
-            function
+            See usage broken down by project and function
           </p>
         </div>
         <ChevronRightIcon className="size-5 text-content-secondary" />
@@ -506,7 +505,7 @@ function FunctionBreakdownSection({
     <TeamUsageSection
       header={
         <>
-          <h3>Functions breakdown by project</h3>
+          <h3>Breakdown by function</h3>
 
           <div className="flex flex-wrap items-center gap-4">
             <FunctionBreakdownSelector

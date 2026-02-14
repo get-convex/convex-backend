@@ -161,7 +161,7 @@ export function DisclosureSection({
     <div>
       <h4
         className={cn(
-          "sticky top-0 z-10 bg-background-primary",
+          "sticky top-0 z-10 bg-background-primary/70 backdrop-blur-[2px]",
           !isOpen && "border-b",
         )}
       >

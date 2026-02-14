@@ -88,36 +88,23 @@ export function BigChart({
                     >
                       <XAxis
                         dataKey={chart.xAxisKey}
-                        axisLine={{
-                          stroke: "currentColor",
-                        }}
-                        tickLine={{
-                          stroke: "currentColor",
-                        }}
+                        axisLine={{ className: "stroke-content-tertiary/30" }}
+                        tickLine={false}
                         domain={["auto", "auto"]}
-                        className="text-content-secondary"
                         strokeWidth={1}
                         minTickGap={100}
                         tick={{ fontSize: 12, fill: "currentColor" }}
                       />
                       <YAxis
-                        axisLine={{
-                          stroke: "currentColor",
-                        }}
+                        axisLine={{ className: "stroke-content-tertiary/30" }}
                         tickLine={false}
-                        className="text-content-secondary"
                         tick={{ fontSize: 12, fill: "currentColor" }}
                         width={60}
                       />
                       <CartesianGrid
-                        className="stroke-content-tertiary/40"
+                        className="stroke-content-tertiary/30"
                         horizontal
                         strokeWidth={1}
-                        vertical={false}
-                        verticalFill={[]}
-                        horizontalFill={[
-                          "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
-                        ]}
                         syncWithTicks
                       />
                       <Tooltip

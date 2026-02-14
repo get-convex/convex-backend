@@ -143,6 +143,7 @@ export function UsageStackedBarChart({
           showCategoryInTooltip
           colorMap={colorMap}
           yAxisWidth={quantityType === "actionCompute" ? 80 : 60}
+          hideTooltip={selectedDate !== null}
         >
           {Object.entries(categories).map(([tag, { name, color }]) => (
             <Bar

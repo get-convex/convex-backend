@@ -375,6 +375,7 @@ export function UsageByProjectChart({
           showCategoryInTooltip
           colorMap={colorMap}
           yAxisWidth={quantityType === "actionCompute" ? 80 : 60}
+          hideTooltip={selectedDate !== null}
           customTooltip={(props) => (
             <ProjectChartTooltip
               {...props}

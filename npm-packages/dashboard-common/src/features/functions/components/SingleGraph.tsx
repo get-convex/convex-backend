@@ -52,7 +52,7 @@ export function SingleGraph({
           }}
         >
           {chartData && (
-            <ResponsiveContainer width="95%" height="100%">
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 syncId={syncId}
                 key={force}
@@ -64,16 +64,15 @@ export function SingleGraph({
               >
                 <XAxis
                   dataKey="time"
+                  axisLine={{ className: "stroke-content-tertiary/30" }}
                   tickLine={false}
-                  axisLine={false}
                   strokeWidth={1}
                   domain={["auto", "auto"]}
                   minTickGap={25}
-                  className="stroke-content-secondary"
                   tick={{ fontSize: 11, fill: "currentColor" }}
                 />
                 <YAxis
-                  axisLine={false}
+                  axisLine={{ className: "stroke-content-tertiary/30" }}
                   tickLine={false}
                   ticks={
                     title === "Cache Hit Rate"
@@ -86,7 +85,6 @@ export function SingleGraph({
                       compactDisplay: "short",
                     }).format(value) + (title === "Cache Hit Rate" ? "%" : "")
                   }
-                  className="stroke-content-secondary"
                   tick={{ fontSize: 11, fill: "currentColor" }}
                   width={60}
                 />
@@ -102,14 +100,9 @@ export function SingleGraph({
                   animationDuration={100}
                 />
                 <CartesianGrid
-                  className="stroke-content-tertiary/40"
+                  className="stroke-content-tertiary/30"
                   horizontal
                   strokeWidth={1}
-                  vertical={false}
-                  horizontalFill={[
-                    "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
-                  ]}
-                  verticalFill={[]}
                   syncWithTicks
                 />
                 {chartData.lineKeys.map((line) => {
