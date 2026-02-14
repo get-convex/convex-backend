@@ -459,14 +459,21 @@ export async function selectRegion(
       },
     )
   ).data!;
+  const choices = regionsResponse.items
+    .filter((item) => Boolean(item.available))
+    .map((item) => ({
+      name: item.displayName,
+      value: item.name,
+    }))
+    .sort((a, b) => {
+      // Show US region first if it exists
+      if (a.value === "aws-us-east-1") return -1;
+      if (b.value === "aws-us-east-1") return 1;
+      return 0;
+    });
   return await promptOptions(ctx, {
     message: "Dev deployment region:",
-    choices: regionsResponse.items
-      .filter((item) => Boolean(item.available))
-      .map((item) => ({
-        name: item.displayName,
-        value: item.name,
-      })),
+    choices,
   });
 }
 
