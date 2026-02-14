@@ -51,7 +51,7 @@ export function ChartForFunctionRate({
     {} as Record<string, { hour: string; timestamp: number }[]>,
   );
   return (
-    <div className="h-full min-h-52 w-full">
+    <div className="h-full min-h-52 w-full [&_*]:!outline-none">
       <LoadingTransition
         loadingProps={{
           fullHeight: false,
@@ -74,6 +74,7 @@ export function ChartForFunctionRate({
               data={chartData.data}
               style={{
                 fontSize: 11,
+                outline: "none",
               }}
             >
               {/* Show a reference line for each time bucket that had a deployment */}
@@ -133,52 +134,49 @@ export function ChartForFunctionRate({
                 tick={{ fontSize: 11, fill: "currentColor" }}
               />
               <Legend
-                content={({ payload }) => (
-                  <div className="flex max-h-12 max-w-full flex-wrap items-start gap-2 px-2 text-[11px]">
-                    {payload?.map((entry, idx) => {
-                      const { dataKey, color } = entry;
-                      return (
-                        <Button
-                          variant="unstyled"
-                          key={idx}
-                          className={classNames(
-                            "flex items-center gap-1 transition-opacity",
-                            shown === dataKey || shown === null
-                              ? "opacity-100"
-                              : "opacity-50",
-                          )}
-                          onClick={() =>
-                            shown === dataKey
-                              ? setShown(null)
-                              : setShown(dataKey as string)
-                          }
-                        >
-                          <div
-                            className="h-0.5 w-2.5 shrink-0"
-                            style={{ backgroundColor: color }}
-                          />
-                          {dataKey === "_rest" ? (
-                            `All${payload.length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
-                          ) : kind === "schedulerStatus" ? (
-                            "Lag Time (minutes)"
-                          ) : kind === "functionConcurrency" ? (
-                            (dataKey as string)
-                          ) : kind === "functionCalls" ? (
-                            <FunctionNameOption
-                              maxChars={24}
-                              label={dataKey as string}
-                            />
-                          ) : (
-                            <FunctionNameOption
-                              maxChars={24}
-                              label={dataKey as string}
-                            />
-                          )}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                )}
+                align="left"
+                verticalAlign="bottom"
+                iconType="plainline"
+                iconSize={12}
+                layout="horizontal"
+                formatter={(_value, entry, idx) => {
+                  const { dataKey } = entry;
+                  return (
+                    <Button
+                      variant="unstyled"
+                      key={idx}
+                      className={classNames(
+                        "span items-center gap-1 transition-opacity text-content-primary",
+                        shown === dataKey || shown === null
+                          ? "opacity-100"
+                          : "opacity-50",
+                      )}
+                      onClick={() =>
+                        shown === dataKey
+                          ? setShown(null)
+                          : setShown(dataKey as string)
+                      }
+                    >
+                      {dataKey === "_rest" ? (
+                        `All${[].length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
+                      ) : kind === "schedulerStatus" ? (
+                        "Lag Time (minutes)"
+                      ) : kind === "functionConcurrency" ? (
+                        (dataKey as string)
+                      ) : kind === "functionCalls" ? (
+                        <FunctionNameOption
+                          maxChars={24}
+                          label={dataKey as string}
+                        />
+                      ) : (
+                        <FunctionNameOption
+                          maxChars={24}
+                          label={dataKey as string}
+                        />
+                      )}
+                    </Button>
+                  );
+                }}
               />
 
               <Tooltip
@@ -247,9 +245,6 @@ export function ChartForFunctionRate({
                 strokeWidth={1}
                 vertical={false}
                 verticalFill={[]}
-                horizontalFill={[
-                  "color-mix(in srgb, var(--background-tertiary) 20%, transparent)",
-                ]}
                 syncWithTicks
                 horizontalValues={
                   kind !== "schedulerStatus" &&

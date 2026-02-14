@@ -536,7 +536,12 @@ describe("timeLabel", () => {
   test("returns empty string for empty input", () => {
     expect(timeLabelForMinute("")).toBe("");
     expect(timeLabelForMinute(null as any)).toBe("");
-    expect(timeLabelForMinute(undefined as any)).toBe("");
+    expect(timeLabelForMinute(undefined)).toBe("");
+  });
+
+  test("handles number inputs", () => {
+    expect(timeLabelForMinute(123)).toBe("123");
+    expect(timeLabelForMinute(2023)).toBe("2023");
   });
 
   test("returns original value for non-time formats", () => {

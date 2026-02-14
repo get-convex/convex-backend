@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { useMeasure } from "react-use";
 import { ChartTooltip } from "@common/elements/ChartTooltip";
 import {
@@ -28,11 +29,9 @@ export function DailyChart({
   quantityType: QuantityType;
   colorMap?: Map<string, string>;
   yAxisWidth?: number;
-  customTooltip?: (props: {
-    active?: boolean;
-    payload?: any[];
-    label?: any;
-  }) => React.ReactElement | null;
+  customTooltip?: (
+    props: TooltipContentProps<any, any>,
+  ) => React.ReactElement | null;
 }>) {
   const { daysWithValues, minDate, daysCount } = useMemo(() => {
     const values = new Set(data.map(({ dateNumeric }) => dateNumeric));
@@ -142,12 +141,16 @@ export function DailyChart({
                       };
                     })
                     .reverse()}
-                  label={new Date(label).toLocaleDateString("en-us", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    timeZone: "UTC",
-                  })}
+                  label={
+                    label !== null && label !== undefined
+                      ? new Date(label).toLocaleDateString("en-us", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          timeZone: "UTC",
+                        })
+                      : ""
+                  }
                   showLegend={showCategoryInTooltip}
                 />
               ))

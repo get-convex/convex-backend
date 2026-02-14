@@ -1,7 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -131,39 +130,6 @@ export function BigChart({
                         )}
                         animationDuration={100}
                       />
-                      {chart.lineKeys.length! > 1 ? (
-                        <Legend
-                          iconType="circle"
-                          iconSize={10}
-                          content={(props) => {
-                            // eslint-disable-next-line react/prop-types
-                            const { payload } = props;
-                            if (!payload) {
-                              return null;
-                            }
-
-                            return (
-                              <ul className="flex w-full justify-center gap-2">
-                                {/* eslint-disable-next-line react/prop-types */}
-                                {payload.map((entry, index) => (
-                                  <li
-                                    key={`item-${index}`}
-                                    className="flex items-center gap-1 text-content-primary"
-                                  >
-                                    <span
-                                      style={{ backgroundColor: entry.color }}
-                                      className="h-2 w-2 rounded-full"
-                                    />
-                                    {entry.value}
-                                  </li>
-                                ))}
-                              </ul>
-                            );
-                          }}
-                        />
-                      ) : (
-                        <div />
-                      )}
                       {chart.lineKeys.map((line) => {
                         const dataKey = line.key;
                         const { name } = line;

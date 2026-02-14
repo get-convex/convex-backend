@@ -93,8 +93,8 @@ function ProjectChartTooltip({
   colorMap,
 }: {
   active?: boolean;
-  payload?: any[];
-  label?: any;
+  payload?: readonly any[];
+  label?: string | number;
   quantityType: QuantityType;
   colorMap: Map<string, string>;
 }) {
@@ -114,15 +114,18 @@ function ProjectChartTooltip({
     return null;
   }
 
-  const formattedDate = new Date(label).toLocaleDateString("en-us", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  const formattedDate =
+    label !== null && label !== undefined
+      ? new Date(label).toLocaleDateString("en-us", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          timeZone: "UTC",
+        })
+      : "";
 
   return (
-    <div className="rounded-lg border bg-background-primary p-3 shadow-lg">
+    <div className="rounded-sm border bg-background-secondary/70 p-3 backdrop-blur-[2px]">
       <div className="mb-2 font-semibold">{formattedDate}</div>
       <div className="space-y-1">
         {items.map((entry, index) => {
@@ -394,15 +397,15 @@ export function UsageByProjectChart({
                 stackId="stack"
                 style={{ cursor: "pointer" }}
                 tabIndex={0}
-                onClick={(data: any) => {
-                  if (data?.dateNumeric) {
-                    setSelectedDate(data.dateNumeric);
+                onClick={(data) => {
+                  if (typeof data.payload?.dateNumeric === "number") {
+                    setSelectedDate(data.payload.dateNumeric);
                   }
                 }}
                 onKeyDown={(data, _idx, event) => {
-                  if (event.key === "Enter") {
-                    if (data?.dateNumeric) {
-                      setSelectedDate(data.dateNumeric);
+                  if (event?.key === "Enter") {
+                    if (typeof data.payload?.dateNumeric === "number") {
+                      setSelectedDate(data.payload.dateNumeric);
                     }
                   }
                 }}
