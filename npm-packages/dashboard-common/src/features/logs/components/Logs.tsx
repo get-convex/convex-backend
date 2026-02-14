@@ -288,6 +288,7 @@ export function Logs({
             onPause(p);
             setManuallyPaused(p);
           }}
+          filter={filter}
         />
       </div>
     </div>

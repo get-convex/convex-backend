@@ -5,22 +5,24 @@ import { LogStatusLine } from "@common/features/logs/components/LogStatusLine";
 import { UdfLog } from "@common/lib/useLogs";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { LogLevel } from "@common/elements/LogLevel";
-import { LogOutput, messagesToString } from "@common/elements/LogOutput";
+import { LogOutput } from "@common/elements/LogOutput";
 import { msFormat } from "@common/lib/format";
 import { cn } from "@ui/cn";
 import { useHotkeys } from "react-hotkeys-hook";
-import {
-  displayName,
-  functionIdentifierFromValue,
-} from "@common/lib/functions/generateFileTree";
 import { CopiedPopper } from "@common/elements/CopiedPopper";
+import { TimestampTooltip } from "@common/features/logs/components/TimestampTooltip";
+import { formatUdfLogToString } from "@common/features/logs/lib/formatLog";
 
 type LogListItemProps = {
   log: UdfLog;
   setShownLog: () => void;
   focused: boolean;
+  selected?: boolean;
   hitBoundary?: "top" | "bottom" | null;
   logKey?: string;
+  highlight?: string;
+  onClick?: (e: React.MouseEvent) => void;
+  hasRowSelection?: boolean;
 };
 
 export const ITEM_SIZE = 24;
@@ -29,13 +31,18 @@ export function LogListItem({
   log,
   setShownLog,
   focused,
+  selected = false,
   hitBoundary,
   logKey,
+  highlight,
+  onClick,
+  hasRowSelection = false,
 }: LogListItemProps) {
   const wrapperRef = useRef<HTMLButtonElement | HTMLSpanElement>(null);
   const [didJustCopy, setDidJustCopy] = useState(false);
   const [copiedPopperElement, setCopiedPopperElement] =
     useState<HTMLDivElement | null>(null);
+  const [copyMessage, setCopyMessage] = useState("Copied log line");
 
   // Reset copied state after 800ms
   useEffect(() => {
@@ -54,15 +61,29 @@ export function LogListItem({
         // The user has selected some text, so let them copy the text they selected.
         return;
       }
-      e.preventDefault();
-      const logText = formatLogToString(log);
-      void navigator.clipboard.writeText(logText);
-      setDidJustCopy(true);
+      if (hasRowSelection) {
+        // Let the global copy handler use the selected rows.
+        return;
+      }
+      const logText = formatUdfLogToString(log);
+      setCopyMessage("Copied log line");
+      void (async () => {
+        if (!navigator.clipboard?.writeText) {
+          return;
+        }
+        e.preventDefault();
+        try {
+          await navigator.clipboard.writeText(logText);
+          setDidJustCopy(true);
+        } catch {
+          // Ignore clipboard errors (permissions/unsupported).
+        }
+      })();
     },
     {
       enabled: focused,
     },
-    [log, focused],
+    [log, focused, hasRowSelection],
   );
 
   const isFailure =
@@ -76,6 +97,8 @@ export function LogListItem({
       className={classNames(
         "relative flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
+        selected && !focused && !isFailure && "bg-background-tertiary/50",
+        selected && !focused && isFailure && "bg-background-error/60",
         focused && "bg-background-highlight",
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
         showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
@@ -84,18 +107,30 @@ export function LogListItem({
         height: ITEM_SIZE,
       }}
     >
-      <Wrapper setShownLog={setShownLog} logKey={logKey} ref={wrapperRef}>
+      <Wrapper
+        setShownLog={setShownLog}
+        logKey={logKey}
+        onClick={onClick}
+        ref={wrapperRef}
+      >
         <div className={classNames("flex gap-4 items-center", "p-0.5 ml-2")}>
           <div className="min-w-[9.25rem] text-left whitespace-nowrap">
-            {log.localizedTimestamp}
-            <span
-              className={classNames(
-                isFailure ? "text-content-error" : "text-content-secondary",
-              )}
-            >
-              .
-              {new Date(log.timestamp).toISOString().split(".")[1].slice(0, -1)}
-            </span>
+            <TimestampTooltip timestamp={log.timestamp}>
+              <span>
+                {log.localizedTimestamp}
+                <span
+                  className={classNames(
+                    isFailure ? "text-content-error" : "text-content-secondary",
+                  )}
+                >
+                  .
+                  {new Date(log.timestamp)
+                    .toISOString()
+                    .split(".")[1]
+                    .slice(0, -1)}
+                </span>
+              </span>
+            </TimestampTooltip>
           </div>
           <div
             className={cn(
@@ -154,7 +189,9 @@ export function LogListItem({
         {log.kind === "log" && log.output.level && (
           <LogLevel level={log.output.level} />
         )}
-        {log.kind === "log" && <LogOutput output={log.output} secondary />}
+        {log.kind === "log" && (
+          <LogOutput output={log.output} secondary highlight={highlight} />
+        )}
         {log.kind === "outcome" && log.error && (
           <LogOutput
             output={{
@@ -163,6 +200,7 @@ export function LogListItem({
               level: "FAILURE",
             }}
             secondary
+            highlight={highlight}
           />
         )}
       </Wrapper>
@@ -172,7 +210,7 @@ export function LogListItem({
           copiedPopperElement={copiedPopperElement}
           setCopiedPopperElement={setCopiedPopperElement}
           show={didJustCopy}
-          message="Copied log line"
+          message={copyMessage}
           placement="bottom"
         />
       </Portal>
@@ -186,8 +224,9 @@ const Wrapper = React.forwardRef<
     children: React.ReactNode;
     setShownLog: () => void;
     logKey?: string;
+    onClick?: (e: React.MouseEvent) => void;
   }
->(function Wrapper({ children, setShownLog, logKey }, ref) {
+>(function Wrapper({ children, setShownLog, logKey, onClick }, ref) {
   return (
     // We do not use Button here because it's expensive and this table needs to be fast
     // eslint-disable-next-line react/forbid-elements
@@ -205,7 +244,13 @@ const Wrapper = React.forwardRef<
         "h-[calc(100%-1px)]",
         "select-text",
       )}
-      onClick={setShownLog}
+      onClick={(e) => {
+        if (onClick) {
+          onClick(e);
+        } else {
+          setShownLog();
+        }
+      }}
       onFocus={setShownLog}
       tabIndex={0}
     >
@@ -213,46 +258,3 @@ const Wrapper = React.forwardRef<
     </button>
   );
 });
-
-function formatLogToString(log: UdfLog): string {
-  const timestamp = log.localizedTimestamp;
-  const milliseconds = new Date(log.timestamp)
-    .toISOString()
-    .split(".")[1]
-    .slice(0, -1);
-  const fullTimestamp = `${timestamp}.${milliseconds}`;
-
-  // Parse the call field to get identifier and componentPath
-  let functionName: string;
-  if (log.kind === "log" && log.output.subfunction) {
-    const { identifier, componentPath } = functionIdentifierFromValue(
-      log.output.subfunction,
-    );
-    functionName = displayName(identifier, componentPath);
-  } else {
-    const { identifier, componentPath } = functionIdentifierFromValue(log.call);
-    functionName = displayName(identifier, componentPath);
-  }
-
-  const udfType = log.udfType.charAt(0).toUpperCase();
-
-  let content = "";
-  if (log.kind === "log") {
-    const level = log.output.level ? `[${log.output.level}] ` : "";
-    const message = messagesToString(log.output);
-    content = `${level}${message}`;
-  } else if (log.error) {
-    content = log.error;
-  } else {
-    content = log.outcome.status;
-  }
-
-  const executionTime =
-    log.kind === "outcome" &&
-    log.executionTimeMs !== null &&
-    log.executionTimeMs > 0
-      ? ` ${msFormat(log.executionTimeMs)}`
-      : "";
-
-  return `${fullTimestamp} ${udfType} ${functionName}${executionTime} ${content}`;
-}

@@ -5,10 +5,11 @@ import {
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
 import { useMeasure } from "react-use";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
+import { useHotkeys } from "react-hotkeys-hook";
 import { DeploymentEventListItem } from "@common/features/logs/components/DeploymentEventListItem";
 import {
   ITEM_SIZE,
@@ -29,6 +30,7 @@ import { Panel, PanelGroup } from "react-resizable-panels";
 import { cn } from "@ui/cn";
 import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
 import { LogDrilldown } from "./LogDrilldown";
+import { useLogsClipboard } from "../lib/useLogsClipboard";
 
 export type LogListProps = {
   logs?: UdfLog[];
@@ -41,6 +43,7 @@ export type LogListProps = {
   paused: boolean;
   setPaused: (paused: boolean) => void;
   setManuallyPaused: (paused: boolean) => void;
+  filter?: string;
 };
 
 /**
@@ -95,6 +98,7 @@ export function LogList({
   setPaused,
   setManuallyPaused,
   setFilter,
+  filter,
 }: LogListProps) {
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -114,6 +118,10 @@ export function LogList({
   const [shownLog, setShownLog] = useState<InterleavedLog | undefined>(
     undefined,
   );
+  const [selectedRange, setSelectedRange] = useState<{
+    startKey: string;
+    endKey: string;
+  } | null>(null);
 
   // Ref to the virtualized list for programmatic scrolling
   const listRef = useRef<FixedSizeList>(null);
@@ -143,18 +151,102 @@ export function LogList({
           // Use a short timeout to allow the scroll to complete
           focusTimeoutRef.current = setTimeout(() => {
             const logKey = getLogKey(log);
+            const safeLogKey =
+              typeof CSS !== "undefined" && CSS.escape
+                ? CSS.escape(logKey)
+                : logKey.replace(/["\\]/g, "\\$&");
             const button = document.querySelector(
-              `[data-log-key="${logKey}"]`,
+              `[data-log-key="${safeLogKey}"]`,
             ) as HTMLButtonElement;
             if (button && document.activeElement !== button) {
               button.focus();
+              // Add a visual "ping" to the focused item to make jumps obvious
+              button.classList.add("ring-2", "ring-primary", "ring-inset");
+              setTimeout(() => {
+                button.classList.remove("ring-2", "ring-primary", "ring-inset");
+              }, 1000);
             }
-          }, 50);
+          }, 100);
         }
       }
     },
     [interleavedLogs],
   );
+
+  // Jump to Error
+  const jumpToError = useCallback(
+    (direction: "next" | "prev") => {
+      if (!interleavedLogs) return;
+
+      const currentIndex = shownLog
+        ? interleavedLogs.findIndex((l) => getLogKey(l) === getLogKey(shownLog))
+        : -1;
+
+      const findError = (log: InterleavedLog) => {
+        if (log.kind === "ExecutionLog") {
+          return log.executionLog.kind === "outcome"
+            ? !!log.executionLog.error
+            : log.executionLog.output.level === "ERROR";
+        }
+        return false;
+      };
+
+      let nextIndex = -1;
+      if (direction === "next") {
+        nextIndex = interleavedLogs.findIndex(
+          (l, i) => i > currentIndex && findError(l),
+        );
+      } else {
+        // Reverse search for previous
+        for (let i = currentIndex - 1; i >= 0; i--) {
+          if (findError(interleavedLogs[i])) {
+            nextIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (nextIndex !== -1) {
+        handleSelectLog(interleavedLogs[nextIndex]);
+      }
+    },
+    [interleavedLogs, shownLog, handleSelectLog],
+  );
+
+  useHotkeys("shift+j", () => jumpToError("next"), [jumpToError]);
+  useHotkeys("shift+k", () => jumpToError("prev"), [jumpToError]);
+  useHotkeys("e", () => jumpToError("next"), [jumpToError]);
+
+  const normalizedSelectedRange = useMemo(() => {
+    if (!selectedRange) return null;
+    const startIndex = interleavedLogs.findIndex(
+      (log) => getLogKey(log) === selectedRange.startKey,
+    );
+    const endIndex = interleavedLogs.findIndex(
+      (log) => getLogKey(log) === selectedRange.endKey,
+    );
+    if (startIndex === -1 || endIndex === -1) return null;
+    const normalizedStart = Math.min(startIndex, endIndex);
+    const normalizedEnd = Math.max(startIndex, endIndex);
+    return { startIndex: normalizedStart, endIndex: normalizedEnd };
+  }, [interleavedLogs, selectedRange]);
+
+  const selectedLogsForCopy = useMemo(() => {
+    if (!normalizedSelectedRange) return [];
+    return interleavedLogs.slice(
+      normalizedSelectedRange.startIndex,
+      normalizedSelectedRange.endIndex + 1,
+    );
+  }, [interleavedLogs, normalizedSelectedRange]);
+
+  useEffect(() => {
+    if (selectedRange && !normalizedSelectedRange) {
+      setSelectedRange(null);
+    }
+  }, [normalizedSelectedRange, selectedRange]);
+
+  // Use the sophisticated clipboard hook
+  useLogsClipboard(interleavedLogs, outerRef, selectedLogsForCopy);
 
   const hasFilters =
     !!logs && !!filteredLogs && filteredLogs.length !== logs.length;
@@ -200,6 +292,8 @@ export function LogList({
                 setClearedLogs,
                 clearedLogs,
                 setShownLog: handleSelectLog,
+                setSelectedRange,
+                selectedRange,
                 hasFilters,
                 paused,
                 setManuallyPaused,
@@ -207,6 +301,7 @@ export function LogList({
                 shownLog,
                 listRef,
                 outerRef,
+                filter,
               }}
             />
           )}
@@ -259,6 +354,8 @@ function WindowedLogList({
   clearedLogs,
   onScroll,
   setShownLog,
+  setSelectedRange,
+  selectedRange,
   hasFilters,
   paused,
   setManuallyPaused,
@@ -266,12 +363,17 @@ function WindowedLogList({
   hitBoundary,
   listRef,
   outerRef,
+  filter,
 }: {
   interleavedLogs: InterleavedLog[];
   setClearedLogs: (clearedLogs: number[]) => void;
   clearedLogs: number[];
   onScroll: (e: ListOnScrollProps) => void;
   setShownLog(shown: InterleavedLog | undefined): void;
+  setSelectedRange: React.Dispatch<
+    React.SetStateAction<{ startKey: string; endKey: string } | null>
+  >;
+  selectedRange: { startKey: string; endKey: string } | null;
   hasFilters: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
@@ -279,6 +381,7 @@ function WindowedLogList({
   hitBoundary: "top" | "bottom" | null;
   listRef: React.RefObject<FixedSizeList>;
   outerRef: React.RefObject<HTMLDivElement>;
+  filter?: string;
 }) {
   return (
     <div className="scrollbar flex h-full min-w-0 flex-col overflow-x-auto overflow-y-hidden">
@@ -328,8 +431,11 @@ configure a log stream."
                 setClearedLogs,
                 clearedLogs,
                 setShownLog,
+                setSelectedRange,
+                selectedRange,
                 selectedLog: shownLog,
                 hitBoundary,
+                filter,
               }}
               RowOrLoading={LogListRow}
             />
@@ -362,9 +468,14 @@ type LogItemProps = {
     interleavedLogs: InterleavedLog[];
     setClearedLogs: (clearedLogs: number[]) => void;
     setShownLog(shown: InterleavedLog | undefined): void;
+    setSelectedRange: React.Dispatch<
+      React.SetStateAction<{ startKey: string; endKey: string } | null>
+    >;
+    selectedRange: { startKey: string; endKey: string } | null;
     clearedLogs: number[];
     selectedLog?: InterleavedLog;
     hitBoundary?: "top" | "bottom" | null;
+    filter?: string;
   };
   index: number;
   style: any;
@@ -378,8 +489,11 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     clearedLogs,
     interleavedLogs,
     setShownLog,
+    setSelectedRange,
+    selectedRange,
     selectedLog,
     hitBoundary,
+    filter,
   } = data;
   const log = interleavedLogs[index];
 
@@ -388,6 +502,46 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     : false;
 
   const logKey = getLogKey(log);
+  const normalizedRange =
+    selectedRange !== null
+      ? (() => {
+          const startIndex = interleavedLogs.findIndex(
+            (item) => getLogKey(item) === selectedRange.startKey,
+          );
+          const endIndex = interleavedLogs.findIndex(
+            (item) => getLogKey(item) === selectedRange.endKey,
+          );
+          if (startIndex === -1 || endIndex === -1) return null;
+          return {
+            startIndex: Math.min(startIndex, endIndex),
+            endIndex: Math.max(startIndex, endIndex),
+          };
+        })()
+      : null;
+
+  const isSelected =
+    normalizedRange !== null &&
+    normalizedRange.startIndex !== -1 &&
+    normalizedRange.endIndex !== -1 &&
+    index >= normalizedRange.startIndex &&
+    index <= normalizedRange.endIndex;
+  const hasRowSelection =
+    normalizedRange !== null &&
+    normalizedRange.startIndex !== -1 &&
+    normalizedRange.endIndex !== -1 &&
+    normalizedRange.startIndex !== normalizedRange.endIndex;
+
+  const handleRowClick = (e: React.MouseEvent) => {
+    if (e.shiftKey && selectedRange) {
+      setSelectedRange({
+        startKey: selectedRange.startKey,
+        endKey: logKey,
+      });
+    } else {
+      setSelectedRange({ startKey: logKey, endKey: logKey });
+    }
+    setShownLog(log);
+  };
 
   let item: React.ReactNode = null;
 
@@ -396,8 +550,10 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
       item = (
         <ClearedLogsButton
           focused={isFocused}
+          selected={isSelected}
           hitBoundary={hitBoundary}
-          onClick={() => {
+          onClick={(e) => {
+            handleRowClick(e);
             setClearedLogs(clearedLogs.slice(0, clearedLogs.length - 1));
             setShownLog(undefined);
           }}
@@ -411,8 +567,10 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
         <DeploymentEventListItem
           event={log.deploymentEvent}
           focused={isFocused}
+          selected={isSelected}
           hitBoundary={hitBoundary}
           setShownLog={() => setShownLog(log)}
+          onClick={handleRowClick}
           logKey={logKey}
         />
       );
@@ -423,8 +581,12 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
           log={log.executionLog}
           setShownLog={() => setShownLog(log)}
           focused={isFocused}
+          selected={isSelected}
           hitBoundary={hitBoundary}
           logKey={logKey}
+          highlight={filter}
+          onClick={handleRowClick}
+          hasRowSelection={hasRowSelection}
         />
       );
       break;
@@ -447,20 +609,21 @@ const CLEARED_LOGS_BUTTON_HEIGHT = 24;
 
 function ClearedLogsButton({
   focused,
+  selected,
   hitBoundary,
   onClick,
   onFocus,
   logKey,
 }: {
   focused: boolean;
+  selected: boolean;
   hitBoundary?: "top" | "bottom" | null;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   onFocus: () => void;
   logKey?: string;
 }) {
   const handleClick = () => {
     onFocus();
-    onClick();
   };
 
   // Only show boundary animation on the focused item
@@ -479,9 +642,15 @@ function ClearedLogsButton({
         icon={<ArrowDownIcon />}
         inline
         size="xs"
-        className="w-full rounded-none pl-2"
+        className={cn(
+          "w-full rounded-none pl-2",
+          selected && "bg-background-tertiary/50",
+        )}
         style={{ height: ITEM_SIZE }}
-        onClick={handleClick}
+        onClick={(e) => {
+          handleClick();
+          onClick(e);
+        }}
         tabIndex={0}
       >
         Show previous logs
