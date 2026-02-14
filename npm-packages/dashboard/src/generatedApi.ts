@@ -2154,6 +2154,8 @@ export interface components {
         };
         /** Format: int64 */
         DeploymentId: number;
+        /** @description An identifier that uniquely identifies this deployment within the project. */
+        DeploymentReference: string;
         DeploymentResponse: {
             /** Format: int64 */
             createTime: number;
@@ -2166,6 +2168,7 @@ export interface components {
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
+            reference?: null | components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
         } | {
             /** Format: int64 */
@@ -2885,6 +2888,7 @@ export type DeleteProjectsArgs = components['schemas']['DeleteProjectsArgs'];
 export type DeleteWorkOsEnvironmentRequest = components['schemas']['DeleteWorkOSEnvironmentRequest'];
 export type DeleteWorkOsEnvironmentResponse = components['schemas']['DeleteWorkOSEnvironmentResponse'];
 export type DeploymentId = components['schemas']['DeploymentId'];
+export type DeploymentReference = components['schemas']['DeploymentReference'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeploymentWorkOsEnvironmentInfo = components['schemas']['DeploymentWorkOSEnvironmentInfo'];

@@ -791,6 +791,10 @@
         "format": "int64",
         "minimum": 0
       },
+      "DeploymentReference": {
+        "type": "string",
+        "description": "An identifier that uniquely identifies this deployment within the project."
+      },
       "DeploymentRegionMetadata": {
         "type": "object",
         "required": [
@@ -869,6 +873,16 @@
               },
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId"
+              },
+              "reference": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeploymentReference"
+                  }
+                ]
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName"
@@ -1036,6 +1050,13 @@
               "null"
             ],
             "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An identifier that uniquely identifies this deployment within the\nproject. By providing a reference, you can create multiple dev and prod\ndeployments in the project. If you don’t provide a reference, the\nendpoint will create the default production deployment for the project,\nor the default development deployment for the member that creates it\n(i.e. the deployment used by default when running `npx convex deploy`\nor `npx convex dev` respectively). When not providing a reference,\na reference will be automatically generated."
           },
           "region": {
             "oneOf": [
@@ -1290,6 +1311,17 @@
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId",
                 "description": "The project this deployment belongs to."
+              },
+              "reference": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeploymentReference",
+                    "description": "An identifier that uniquely identifies this deployment within the\nproject."
+                  }
+                ]
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName",

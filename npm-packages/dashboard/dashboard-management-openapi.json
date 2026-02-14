@@ -4380,6 +4380,10 @@
         "format": "int64",
         "minimum": 0
       },
+      "DeploymentReference": {
+        "type": "string",
+        "description": "An identifier that uniquely identifies this deployment within the project."
+      },
       "DeploymentResponse": {
         "oneOf": [
           {
@@ -4439,6 +4443,16 @@
               },
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId"
+              },
+              "reference": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeploymentReference"
+                  }
+                ]
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName"
