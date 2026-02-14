@@ -112,7 +112,10 @@ use crate::{
         HTTP_SERVER_TCP_BACKLOG,
         PROPAGATE_UPSTREAM_TRACES,
     },
-    metrics::log_client_version_unsupported,
+    metrics::{
+        log_client_version_unsupported,
+        log_http_service_max_concurrent_requests,
+    },
     runtime::TaskManager,
     version::{
         ClientVersion,
@@ -623,6 +626,7 @@ impl ConvexHttpService {
         let sentry_layer = ServiceBuilder::new()
             .layer(sentry_tower::NewSentryLayer::<_>::new_from_top())
             .layer(sentry_tower::SentryHttpLayer::new());
+        log_http_service_max_concurrent_requests(service_name, max_concurrency);
         let semaphore = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
         let semaphore_ = semaphore.clone();
         let concurrency_gauge = PullingGauge::new(
