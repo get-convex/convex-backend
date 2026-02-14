@@ -43,6 +43,7 @@ const deployment: PlatformDeploymentResponse = {
   previewIdentifier: null,
   region: "us-east-2",
   isDefault: true,
+  reference: "production",
 };
 
 const meta = {

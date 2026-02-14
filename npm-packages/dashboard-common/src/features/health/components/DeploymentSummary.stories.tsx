@@ -44,11 +44,12 @@ const prodDeployment: PlatformDeploymentResponse = {
   isDefault: true,
   creator: null,
   previewIdentifier: null,
+  reference: "production",
 };
 
 const devCloudDeployment: PlatformDeploymentResponse = {
   id: 2,
-  name: "dev-deployment-456",
+  name: "joyful-capybara-123",
   deploymentType: "dev",
   projectId: 1,
   kind: "cloud",
@@ -57,6 +58,7 @@ const devCloudDeployment: PlatformDeploymentResponse = {
   isDefault: false,
   creator: 123,
   previewIdentifier: null,
+  reference: "dev/nicolas",
 };
 
 const devLocalDeployment: PlatformDeploymentResponse = {
@@ -74,7 +76,7 @@ const devLocalDeployment: PlatformDeploymentResponse = {
 
 const previewDeployment: PlatformDeploymentResponse = {
   id: 4,
-  name: "preview-deployment-101",
+  name: "musical-dog-123",
   deploymentType: "preview",
   projectId: 1,
   kind: "cloud",
@@ -83,11 +85,12 @@ const previewDeployment: PlatformDeploymentResponse = {
   isDefault: false,
   creator: 456,
   previewIdentifier: "pr-42",
+  reference: "preview/my-feature",
 };
 
 const customDeployment: PlatformDeploymentResponse = {
   id: 5,
-  name: "custom-deployment-202",
+  name: "wandering-fish-513",
   deploymentType: "custom",
   projectId: 1,
   kind: "cloud",
@@ -96,6 +99,7 @@ const customDeployment: PlatformDeploymentResponse = {
   isDefault: false,
   creator: 789,
   previewIdentifier: null,
+  reference: "staging",
 };
 
 const mockRegions = [

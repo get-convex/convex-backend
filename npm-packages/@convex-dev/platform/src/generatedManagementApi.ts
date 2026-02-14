@@ -430,7 +430,7 @@ export interface components {
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
-            reference?: null | components["schemas"]["DeploymentReference"];
+            reference: components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
         } | {
             /** Format: int64 */
@@ -578,7 +578,9 @@ export interface components {
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             /** @description The project this deployment belongs to. */
             projectId: components["schemas"]["ProjectId"];
-            reference?: null | components["schemas"]["DeploymentReference"];
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. */
+            reference: components["schemas"]["DeploymentReference"];
             /** @description The region where this deployment is hosted. */
             region: components["schemas"]["RegionName"];
         } | {

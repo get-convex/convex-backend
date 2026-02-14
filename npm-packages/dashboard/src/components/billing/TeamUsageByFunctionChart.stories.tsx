@@ -55,6 +55,7 @@ const deployments: PlatformDeploymentResponse[] = [
     previewIdentifier: null,
     region: "us-east-2",
     isDefault: true,
+    reference: "dev/nicolas",
   },
   {
     kind: "cloud",
@@ -67,6 +68,7 @@ const deployments: PlatformDeploymentResponse[] = [
     previewIdentifier: null,
     region: "us-east-2",
     isDefault: true,
+    reference: "dev/ari",
   },
   {
     kind: "cloud",
@@ -79,6 +81,7 @@ const deployments: PlatformDeploymentResponse[] = [
     previewIdentifier: null,
     region: "us-east-2",
     isDefault: true,
+    reference: "production",
   },
   {
     kind: "cloud",
@@ -91,6 +94,7 @@ const deployments: PlatformDeploymentResponse[] = [
     previewIdentifier: null,
     region: "us-east-2",
     isDefault: false,
+    reference: "staging",
   },
 ];
 
