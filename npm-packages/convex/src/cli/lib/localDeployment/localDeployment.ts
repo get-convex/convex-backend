@@ -23,6 +23,7 @@ import { promptSearch } from "../utils/prompts.js";
 import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
 import {
   choosePorts,
+  getPortsFromEnvFile,
   printLocalDeploymentWelcomeMessage,
   isOffline,
   LOCAL_BACKEND_INSTANCE_SECRET,
@@ -90,10 +91,17 @@ export async function handleLocalDeployment(
         }
       : { kind: "version", version: options.backendVersion },
   );
+  
+  // Read port settings from .env.local if not explicitly provided via CLI options
+  const portsFromEnv = options.ports ? { cloud: null, site: null } : await getPortsFromEnvFile(ctx);
+  
   const [cloudPort, sitePort] = await choosePorts(ctx, {
     count: 2,
     startPort: 3210,
-    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
+    requestedPorts: [
+      options.ports?.cloud ?? portsFromEnv.cloud ?? null,
+      options.ports?.site ?? portsFromEnv.site ?? null,
+    ],
   });
   const { deploymentName, adminKey } = await bigBrainStart(ctx, {
     port: cloudPort,
@@ -183,10 +191,17 @@ async function handleOffline(
     kind: "version",
     version: config.backendVersion,
   });
+  
+  // Read port settings from .env.local if not explicitly provided via CLI options
+  const portsFromEnv = options.ports ? { cloud: null, site: null } : await getPortsFromEnvFile(ctx);
+  
   const [cloudPort, sitePort] = await choosePorts(ctx, {
     count: 2,
     startPort: 3210,
-    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
+    requestedPorts: [
+      options.ports?.cloud ?? portsFromEnv.cloud ?? null,
+      options.ports?.site ?? portsFromEnv.site ?? null,
+    ],
   });
   saveDeploymentConfig(ctx, "local", deploymentName, config);
   await runLocalBackend(ctx, {
