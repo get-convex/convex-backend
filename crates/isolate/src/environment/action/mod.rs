@@ -234,6 +234,9 @@ pub struct ActionEnvironment<RT: Runtime> {
     phase: ActionPhase<RT>,
     syscall_trace: Arc<Mutex<SyscallTrace>>,
     heap_stats: SharedIsolateHeapStats,
+
+    /// Custom log attributes set by the function via ctx.setLogAttributes()
+    custom_log_attributes: Arc<Mutex<Option<serde_json::Map<String, JsonValue>>>>,
 }
 
 impl<RT: Runtime> Drop for ActionEnvironment<RT> {
@@ -310,7 +313,65 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             ),
             syscall_trace,
             heap_stats,
+            custom_log_attributes: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Merge custom log attributes set by ctx.setLogAttributes()
+    /// Get the custom log attributes
+    pub fn custom_log_attributes(&self) -> Option<serde_json::Map<String, JsonValue>> {
+        self.custom_log_attributes.lock().clone()
+    }
+
+    /// Handle the setLogAttributes syscall
+    /// This is lenient - invalid attributes are skipped with a warning, and if
+    /// limits are exceeded, attributes are truncated rather than throwing
+    /// an error.
+    fn syscall_set_log_attributes(&mut self, args: JsonValue) -> anyhow::Result<JsonValue> {
+        use errors::ErrorMetadata;
+        use serde::Deserialize;
+
+        #[derive(Deserialize)]
+        struct SetLogAttributesArgs {
+            attrs: serde_json::Map<String, JsonValue>,
+        }
+
+        let SetLogAttributesArgs { attrs } = serde_json::from_value(args).map_err(|e| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidArguments",
+                format!("Invalid arguments to setLogAttributes: {e}")
+            ))
+        })?;
+
+        // Filter and merge attributes leniently, collecting warnings
+        let warnings = self.merge_custom_log_attributes_lenient(attrs);
+
+        // Emit any warnings as log lines
+        for warning in warnings {
+            let _ = self.log_line_sender.send(LogLine::new_system_log_line(
+                LogLevel::Warn,
+                vec![warning],
+                self.rt.unix_timestamp(),
+                SystemLogMetadata {
+                    code: "setLogAttributes".to_string(),
+                },
+            ));
+        }
+
+        Ok(JsonValue::Null)
+    }
+
+    /// Merge attributes leniently using the shared utility.
+    /// Returns a list of warning messages for skipped attributes.
+    fn merge_custom_log_attributes_lenient(
+        &self,
+        attrs: serde_json::Map<String, JsonValue>,
+    ) -> Vec<String> {
+        use crate::environment::log_attributes::merge_custom_log_attributes_lenient;
+
+        let mut guard = self.custom_log_attributes.lock();
+        let existing = guard.get_or_insert_with(serde_json::Map::new);
+        merge_custom_log_attributes_lenient(existing, attrs)
     }
 
     #[fastrace::trace]
@@ -397,6 +458,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             Some(self.syscall_trace.lock().clone()),
             http_module_path.npm_version().clone(),
             user_execution_time,
+            self.custom_log_attributes(),
         );
         Ok(outcome)
     }
@@ -726,6 +788,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             syscall_trace: self.syscall_trace.lock().clone(),
             udf_server_version,
             user_execution_time: Some(user_execution_time),
+            custom_log_attributes: self.custom_log_attributes(),
         };
         Ok(outcome)
     }
@@ -1394,6 +1457,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
     }
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue> {
+        // Handle setLogAttributes directly since it needs to modify self
+        if name == "1.0/setLogAttributes" {
+            return self.syscall_set_log_attributes(args);
+        }
         self.syscall_impl(name, args)
     }
 
@@ -1428,3 +1495,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         *V8_ACTION_SYSTEM_TIMEOUT
     }
 }
+
+// Note: Unit tests for log attribute validation are in
+// crate::environment::log_attributes::tests

@@ -108,6 +108,18 @@ const slowResponse = httpAction(async (_ctx, _request) => {
   return new Response("slow");
 });
 
+// Test custom log attributes in HTTP action
+const withLogAttributes = httpAction(async (ctx, request) => {
+  ctx.setLogAttributes({
+    http_method: request.method,
+    endpoint: "/with_log_attributes",
+    status_code: 200,
+  });
+  return new Response("HTTP action with log attributes completed", {
+    status: 200,
+  });
+});
+
 const http = httpRouter();
 http.route({
   method: "POST",
@@ -163,6 +175,11 @@ http.route({
   method: "GET",
   path: "/slow",
   handler: slowResponse,
+});
+http.route({
+  method: "GET",
+  path: "/with_log_attributes",
+  handler: withLogAttributes,
 });
 http.route({
   method: "GET",
