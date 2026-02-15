@@ -7,14 +7,14 @@ description: "Configure logging integrations for your Convex deployment"
 
 Log streams enable streaming of events such as function executions and
 `console.log`s from your Convex deployment to supported destinations, such as
-Axiom, Datadog, or a custom webhook.
+Axiom, Datadog, PostHog, or a custom webhook.
 
 The most recent logs produced by your Convex deployment can be viewed in the
 Dashboard [Logs page](/dashboard/deployments/logs.md), the
 [Convex CLI](/cli.md), or in the browser console, providing a quick and easy way
 to view recent logs.
 
-Log streaming to a third-party destination like Axiom or Datadog enables storing
+Log streaming to a third-party destination like Axiom, Datadog, or PostHog enables storing
 historical logs, more powerful querying and data visualization, and integrations
 with other tools (e.g. PagerDuty, Slack).
 
@@ -26,6 +26,7 @@ We currently support the following log streams, with plans to support many more:
 
 - [Axiom](https://www.axiom.co)
 - [Datadog](https://www.datadoghq.com/)
+- [PostHog](https://posthog.com/)
 - Webhook to a custom URL
 
 See the instructions for
@@ -63,6 +64,23 @@ Configuring a Datadog log stream requires specifying:
   payloads sent to Datadog. This can be used to include any other metadata that
   can be useful for querying or categorizing your Convex logs ingested by your
   Datadog deployment.
+
+### PostHog
+
+Configuring a PostHog log stream requires specifying:
+
+- A PostHog [project API key](https://us.posthog.com/settings/project#variables),
+  found in PostHog under Settings > Project > Project API Key
+- An optional host URL. Defaults to US Cloud (`https://us.i.posthog.com`). Use
+  `https://eu.i.posthog.com` for EU Cloud, or your self-hosted URL. The endpoint
+  path is added automatically.
+- An optional service name for log attribution via the OTLP `service.name`
+  resource attribute. Defaults to your deployment name.
+
+Logs are sent to PostHog using the
+[OpenTelemetry (OTLP)](https://posthog.com/docs/logs) log ingestion format.
+Each log event includes deployment metadata as resource attributes and the full
+event data as the log record body.
 
 ### Webhook
 
