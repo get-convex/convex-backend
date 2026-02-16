@@ -16,16 +16,16 @@ import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 import { Donut } from "@ui/Donut";
 
-const METRIC_TO_SECTION: Record<string, { section: string; tab?: number }> = {
-  functionCalls: { section: "functionCalls" },
-  actionCompute: { section: "actionCompute" },
-  databaseStorage: { section: "database", tab: 0 },
-  databaseBandwidth: { section: "database", tab: 1 },
-  fileStorage: { section: "files", tab: 0 },
-  fileBandwidth: { section: "files", tab: 1 },
-  vectorStorage: { section: "vectors", tab: 0 },
-  vectorBandwidth: { section: "vectors", tab: 1 },
-  deploymentCount: { section: "deployments" },
+const METRIC_TO_SECTION: Record<string, string> = {
+  functionCalls: "functionCalls",
+  actionCompute: "actionCompute",
+  databaseStorage: "databaseStorage",
+  databaseBandwidth: "databaseBandwidth",
+  fileStorage: "filesStorage",
+  fileBandwidth: "filesBandwidth",
+  vectorStorage: "vectorsStorage",
+  vectorBandwidth: "vectorsBandwidth",
+  deploymentCount: "deployments",
 };
 
 export function PlanSummary({
@@ -521,15 +521,12 @@ function UsageSection({
     return content;
   }
 
-  const sectionInfo = METRIC_TO_SECTION[metricName];
+  const section = METRIC_TO_SECTION[metricName];
   const { section: _s, tab: _t, ...restQuery } = router.query;
-  const linkQuery = sectionInfo
+  const linkQuery = section
     ? {
         ...restQuery,
-        section: sectionInfo.section,
-        ...(sectionInfo.tab !== undefined
-          ? { tab: sectionInfo.tab.toString() }
-          : {}),
+        section,
       }
     : restQuery;
 
