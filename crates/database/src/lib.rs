@@ -15,6 +15,7 @@ mod committer;
 mod database;
 mod database_index_workers;
 mod execution_size;
+pub mod flow_fields;
 mod metrics;
 pub mod patch;
 pub mod persistence_helpers;

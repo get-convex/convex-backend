@@ -1255,7 +1255,21 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
                 let done = maybe_next.is_none();
                 let value = match maybe_next {
-                    Some((doc, _)) => doc.into_value().0.into(),
+                    Some((doc, _)) => {
+                        let namespace: value::TableNamespace =
+                            provider.component()?.into();
+                        let table_number = doc.table();
+                        let tx = provider.tx()?;
+                        let extra = database::flow_fields::resolve_document_fields(
+                            tx, namespace, &doc, table_number,
+                        )
+                        .await?;
+                        let mut obj = doc.into_value().0;
+                        if let Some(extra) = extra {
+                            obj = obj.shallow_merge(extra.try_into()?)?;
+                        }
+                        ConvexValue::from(obj)
+                    },
                     None => ConvexValue::Null,
                 };
 
@@ -1609,8 +1623,23 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 table_filter,
             )?;
             let (page, metadata) = Self::read_page_from_query(query, tx, page_size).await?;
-            let page = page.into_iter().map(|doc| doc.to_internal_json()).collect();
-            (page, metadata)
+            let namespace: value::TableNamespace = component.into();
+            let mut json_page = Vec::with_capacity(page.len());
+            for doc in page {
+                let table_number = doc.table();
+                let extra = database::flow_fields::resolve_document_fields(
+                    tx, namespace, &doc, table_number,
+                )
+                .await?;
+                if let Some(extra) = extra {
+                    let mut obj = doc.into_value().0;
+                    obj = obj.shallow_merge(extra.try_into()?)?;
+                    json_page.push(obj.to_internal_json());
+                } else {
+                    json_page.push(doc.to_internal_json());
+                }
+            }
+            (json_page, metadata)
         };
 
         let page_status = page_status.map(|s| s.as_str());

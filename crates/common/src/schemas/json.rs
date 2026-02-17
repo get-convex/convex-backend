@@ -31,8 +31,12 @@ use super::{
         ObjectValidator,
         Validator,
     },
+    ComputedFieldSchema,
     DatabaseSchema,
     DocumentSchema,
+    FlowFieldAggregation,
+    FlowFieldSchema,
+    FlowFilterSchema,
     IndexSchema,
     VectorIndexSchema,
 };
@@ -122,6 +126,9 @@ pub struct TableDefinitionJson {
     vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
     staged_vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
     document_type: Option<ValidatorJson>,
+    flow_fields: Option<Vec<FlowFieldSchemaJson>>,
+    computed_fields: Option<Vec<ComputedFieldSchemaJson>>,
+    flow_filters: Option<Vec<FlowFilterSchemaJson>>,
 }
 
 impl JsonForm for TableDefinition {
@@ -287,6 +294,25 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             }
         }
 
+        let flow_fields = j
+            .flow_fields
+            .unwrap_or_default()
+            .into_iter()
+            .map(FlowFieldSchema::try_from)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let computed_fields = j
+            .computed_fields
+            .unwrap_or_default()
+            .into_iter()
+            .map(ComputedFieldSchema::try_from)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let flow_filters = j
+            .flow_filters
+            .unwrap_or_default()
+            .into_iter()
+            .map(FlowFilterSchema::try_from)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
         Ok(Self {
             table_name,
             indexes,
@@ -296,6 +322,9 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             vector_indexes,
             staged_vector_indexes,
             document_type,
+            flow_fields,
+            computed_fields,
+            flow_filters,
         })
     }
 }
@@ -313,6 +342,9 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
             vector_indexes,
             staged_vector_indexes,
             document_type,
+            flow_fields,
+            computed_fields,
+            flow_filters,
         }: TableDefinition,
     ) -> anyhow::Result<Self> {
         let table_name = String::from(table_name);
@@ -351,6 +383,24 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
                 .map(VectorIndexSchemaJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
+        let flow_fields_json = Some(
+            flow_fields
+                .into_iter()
+                .map(FlowFieldSchemaJson::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        );
+        let computed_fields_json = Some(
+            computed_fields
+                .into_iter()
+                .map(ComputedFieldSchemaJson::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        );
+        let flow_filters_json = Some(
+            flow_filters
+                .into_iter()
+                .map(FlowFilterSchemaJson::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        );
         Ok(TableDefinitionJson {
             table_name,
             indexes,
@@ -360,6 +410,9 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
             vector_indexes,
             staged_vector_indexes,
             document_type,
+            flow_fields: flow_fields_json,
+            computed_fields: computed_fields_json,
+            flow_filters: flow_filters_json,
         })
     }
 }
@@ -830,6 +883,121 @@ impl TryFrom<ObjectValidator> for BTreeMap<String, FieldTypeJson> {
             map.insert(field.to_string(), FieldTypeJson::try_from(field_type)?);
         }
         Ok(map)
+    }
+}
+
+// ── FlowField / ComputedField / FlowFilter JSON types ───────────────────────
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowFieldSchemaJson {
+    pub field_name: String,
+    pub returns: ValidatorJson,
+    pub aggregation: String,
+    pub source: String,
+    pub key: String,
+    pub field: Option<String>,
+    pub filter: Option<JsonValue>,
+}
+
+impl TryFrom<FlowFieldSchemaJson> for FlowFieldSchema {
+    type Error = anyhow::Error;
+
+    fn try_from(j: FlowFieldSchemaJson) -> Result<Self, Self::Error> {
+        let field_name = j.field_name.parse::<IdentifierFieldName>()?;
+        let returns = Validator::try_from(j.returns)?;
+        let aggregation: FlowFieldAggregation = j.aggregation.parse()?;
+        let source: TableName = j.source.parse()?;
+        Ok(Self {
+            field_name,
+            returns,
+            aggregation,
+            source,
+            key: j.key,
+            field: j.field,
+            filter: j.filter,
+        })
+    }
+}
+
+impl TryFrom<FlowFieldSchema> for FlowFieldSchemaJson {
+    type Error = anyhow::Error;
+
+    fn try_from(s: FlowFieldSchema) -> anyhow::Result<Self> {
+        Ok(FlowFieldSchemaJson {
+            field_name: s.field_name.to_string(),
+            returns: ValidatorJson::try_from(s.returns)?,
+            aggregation: s.aggregation.to_string(),
+            source: s.source.to_string(),
+            key: s.key,
+            field: s.field,
+            filter: s.filter,
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputedFieldSchemaJson {
+    pub field_name: String,
+    pub returns: ValidatorJson,
+    pub expr: JsonValue,
+}
+
+impl TryFrom<ComputedFieldSchemaJson> for ComputedFieldSchema {
+    type Error = anyhow::Error;
+
+    fn try_from(j: ComputedFieldSchemaJson) -> Result<Self, Self::Error> {
+        let field_name = j.field_name.parse::<IdentifierFieldName>()?;
+        let returns = Validator::try_from(j.returns)?;
+        Ok(Self {
+            field_name,
+            returns,
+            expr: j.expr,
+        })
+    }
+}
+
+impl TryFrom<ComputedFieldSchema> for ComputedFieldSchemaJson {
+    type Error = anyhow::Error;
+
+    fn try_from(s: ComputedFieldSchema) -> anyhow::Result<Self> {
+        Ok(ComputedFieldSchemaJson {
+            field_name: s.field_name.to_string(),
+            returns: ValidatorJson::try_from(s.returns)?,
+            expr: s.expr,
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowFilterSchemaJson {
+    pub field_name: String,
+    pub filter_type: ValidatorJson,
+}
+
+impl TryFrom<FlowFilterSchemaJson> for FlowFilterSchema {
+    type Error = anyhow::Error;
+
+    fn try_from(j: FlowFilterSchemaJson) -> Result<Self, Self::Error> {
+        let field_name = j.field_name.parse::<IdentifierFieldName>()?;
+        let filter_type = Validator::try_from(j.filter_type)?;
+        Ok(Self {
+            field_name,
+            filter_type,
+        })
+    }
+}
+
+impl TryFrom<FlowFilterSchema> for FlowFilterSchemaJson {
+    type Error = anyhow::Error;
+
+    fn try_from(s: FlowFilterSchema) -> anyhow::Result<Self> {
+        Ok(FlowFilterSchemaJson {
+            field_name: s.field_name.to_string(),
+            filter_type: ValidatorJson::try_from(s.filter_type)?,
+        })
     }
 }
 

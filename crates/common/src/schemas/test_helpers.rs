@@ -146,6 +146,9 @@ macro_rules! db_schema_with_indexes {
                         vector_indexes,
                         staged_vector_indexes,
                         document_type,
+                        flow_fields: Default::default(),
+                        computed_fields: Default::default(),
+                        flow_filters: Default::default(),
                     };
                     tables.insert(table_name, table_def);
                 )*

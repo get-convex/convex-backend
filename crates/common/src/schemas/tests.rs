@@ -1576,3 +1576,243 @@ mod can_contain_field {
         Ok(())
     }
 }
+
+mod flow_fields {
+    use json_trait::JsonForm;
+    use serde_json::json;
+
+    use crate::{
+        schemas::{
+            json::DatabaseSchemaJson,
+            DatabaseSchema,
+            FlowFieldAggregation,
+        },
+        testing::assert_roundtrips,
+    };
+
+    #[test]
+    fn test_flow_field_aggregation_parsing() -> anyhow::Result<()> {
+        assert_eq!(
+            "count".parse::<FlowFieldAggregation>()?,
+            FlowFieldAggregation::Count
+        );
+        assert_eq!(
+            "sum".parse::<FlowFieldAggregation>()?,
+            FlowFieldAggregation::Sum
+        );
+        assert_eq!(
+            "avg".parse::<FlowFieldAggregation>()?,
+            FlowFieldAggregation::Avg
+        );
+        assert_eq!(
+            "min".parse::<FlowFieldAggregation>()?,
+            FlowFieldAggregation::Min
+        );
+        assert_eq!(
+            "max".parse::<FlowFieldAggregation>()?,
+            FlowFieldAggregation::Max
+        );
+        assert_eq!(
+            "lookup".parse::<FlowFieldAggregation>()?,
+            FlowFieldAggregation::Lookup
+        );
+        assert_eq!(
+            "exist".parse::<FlowFieldAggregation>()?,
+            FlowFieldAggregation::Exist
+        );
+        assert!("invalid".parse::<FlowFieldAggregation>().is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_flow_field_aggregation_display() {
+        assert_eq!(FlowFieldAggregation::Count.to_string(), "count");
+        assert_eq!(FlowFieldAggregation::Sum.to_string(), "sum");
+        assert_eq!(FlowFieldAggregation::Avg.to_string(), "avg");
+        assert_eq!(FlowFieldAggregation::Min.to_string(), "min");
+        assert_eq!(FlowFieldAggregation::Max.to_string(), "max");
+        assert_eq!(FlowFieldAggregation::Lookup.to_string(), "lookup");
+        assert_eq!(FlowFieldAggregation::Exist.to_string(), "exist");
+    }
+
+    #[test]
+    fn test_schema_with_flow_fields_roundtrip() -> anyhow::Result<()> {
+        let schema_json: serde_json::Value = json!({
+            "tables": [
+                {
+                    "tableName": "customers",
+                    "indexes": [],
+                    "documentType": {
+                        "type": "object",
+                        "value": {
+                            "name": {
+                                "fieldType": { "type": "string" },
+                                "optional": false
+                            }
+                        }
+                    },
+                    "flowFields": [
+                        {
+                            "fieldName": "orderCount",
+                            "returns": { "type": "number" },
+                            "aggregation": "count",
+                            "source": "orders",
+                            "key": "customerId"
+                        },
+                        {
+                            "fieldName": "totalSpent",
+                            "returns": { "type": "number" },
+                            "aggregation": "sum",
+                            "source": "orders",
+                            "key": "customerId",
+                            "field": "amount",
+                            "filter": { "status": "completed" }
+                        }
+                    ],
+                    "computedFields": [
+                        {
+                            "fieldName": "tier",
+                            "returns": { "type": "string" },
+                            "expr": {
+                                "$cond": { "$gt": ["$totalSpent", 1000] },
+                                "then": "VIP",
+                                "else": "STANDARD"
+                            }
+                        }
+                    ],
+                    "flowFilters": [
+                        {
+                            "fieldName": "dateFilter",
+                            "filterType": {
+                                "type": "object",
+                                "value": {
+                                    "from": {
+                                        "fieldType": { "type": "number" },
+                                        "optional": false
+                                    },
+                                    "to": {
+                                        "fieldType": { "type": "number" },
+                                        "optional": false
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            ],
+            "schemaValidation": true
+        });
+
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+
+        // Verify the parsed schema has the right structure
+        let customers = schema.tables.get(&"customers".parse()?).unwrap();
+        assert_eq!(customers.flow_fields.len(), 2);
+        assert_eq!(
+            customers.flow_fields[0].field_name.to_string(),
+            "orderCount"
+        );
+        assert_eq!(
+            customers.flow_fields[0].aggregation,
+            FlowFieldAggregation::Count
+        );
+        assert_eq!(customers.flow_fields[0].source.to_string(), "orders");
+        assert_eq!(customers.flow_fields[0].key, "customerId");
+        assert!(customers.flow_fields[0].field.is_none());
+        assert!(customers.flow_fields[0].filter.is_none());
+
+        assert_eq!(
+            customers.flow_fields[1].field_name.to_string(),
+            "totalSpent"
+        );
+        assert_eq!(
+            customers.flow_fields[1].aggregation,
+            FlowFieldAggregation::Sum
+        );
+        assert_eq!(customers.flow_fields[1].field.as_deref(), Some("amount"));
+        assert!(customers.flow_fields[1].filter.is_some());
+
+        assert_eq!(customers.computed_fields.len(), 1);
+        assert_eq!(customers.computed_fields[0].field_name.to_string(), "tier");
+
+        assert_eq!(customers.flow_filters.len(), 1);
+        assert_eq!(
+            customers.flow_filters[0].field_name.to_string(),
+            "dateFilter"
+        );
+
+        // Roundtrip test
+        assert_roundtrips::<DatabaseSchema, DatabaseSchemaJson>(schema);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_schema_without_flow_fields_is_backwards_compatible() -> anyhow::Result<()> {
+        // Schemas from before FlowFields was added should still parse
+        let schema_json: serde_json::Value = json!({
+            "tables": [
+                {
+                    "tableName": "users",
+                    "indexes": [],
+                    "documentType": {
+                        "type": "object",
+                        "value": {
+                            "name": {
+                                "fieldType": { "type": "string" },
+                                "optional": false
+                            }
+                        }
+                    }
+                }
+            ],
+            "schemaValidation": true
+        });
+
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let users = schema.tables.get(&"users".parse()?).unwrap();
+        assert!(users.flow_fields.is_empty());
+        assert!(users.computed_fields.is_empty());
+        assert!(users.flow_filters.is_empty());
+
+        // Roundtrip
+        assert_roundtrips::<DatabaseSchema, DatabaseSchemaJson>(schema);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_schema_with_empty_flow_fields() -> anyhow::Result<()> {
+        let schema_json: serde_json::Value = json!({
+            "tables": [
+                {
+                    "tableName": "users",
+                    "indexes": [],
+                    "documentType": {
+                        "type": "object",
+                        "value": {
+                            "name": {
+                                "fieldType": { "type": "string" },
+                                "optional": false
+                            }
+                        }
+                    },
+                    "flowFields": [],
+                    "computedFields": [],
+                    "flowFilters": []
+                }
+            ],
+            "schemaValidation": true
+        });
+
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let users = schema.tables.get(&"users".parse()?).unwrap();
+        assert!(users.flow_fields.is_empty());
+        assert!(users.computed_fields.is_empty());
+        assert!(users.flow_filters.is_empty());
+
+        assert_roundtrips::<DatabaseSchema, DatabaseSchemaJson>(schema);
+
+        Ok(())
+    }
+}

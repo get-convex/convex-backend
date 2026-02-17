@@ -890,7 +890,7 @@ describe("defineSchema/defineTable expose table validators", () => {
   });
 });
 
-test("defineTable fails if it can’t export the validator", () => {
+test("defineTable fails if it can't export the validator", () => {
   const table = defineTable(
     // @ts-expect-error
     { ...v.object({}) }, // This will clone `isConvexValidator` but not the `json` getter used by `export`
@@ -898,4 +898,310 @@ test("defineTable fails if it can’t export the validator", () => {
   expect(() => table.export()).toThrow(
     "Invalid validator: please make sure that the parameter of `defineTable` is valid (see https://docs.convex.dev/database/schemas)",
   );
+});
+
+describe("FlowFields, ComputedFields, and FlowFilters", () => {
+  test("flowField chaining works and export includes definitions", () => {
+    const table = defineTable({
+      name: v.string(),
+    })
+      .flowField("orderCount", {
+        returns: v.float64(),
+        type: "count",
+        source: "orders",
+        key: "customerId",
+      })
+      .flowField("totalSpent", {
+        returns: v.float64(),
+        type: "sum",
+        source: "orders",
+        key: "customerId",
+        field: "amount",
+        filter: { status: "completed" },
+      });
+
+    const exported = table.export();
+    expect(exported.flowFields).toEqual([
+      {
+        fieldName: "orderCount",
+        returns: { type: "number" },
+        aggregation: "count",
+        source: "orders",
+        key: "customerId",
+        field: undefined,
+        filter: undefined,
+      },
+      {
+        fieldName: "totalSpent",
+        returns: { type: "number" },
+        aggregation: "sum",
+        source: "orders",
+        key: "customerId",
+        field: "amount",
+        filter: { status: "completed" },
+      },
+    ]);
+  });
+
+  test("computed chaining works and export includes definitions", () => {
+    const table = defineTable({
+      name: v.string(),
+    }).computed("displayName", {
+      returns: v.string(),
+      expr: { $concat: ["$name", " (user)"] },
+    });
+
+    const exported = table.export();
+    expect(exported.computedFields).toEqual([
+      {
+        fieldName: "displayName",
+        returns: { type: "string" },
+        expr: { $concat: ["$name", " (user)"] },
+      },
+    ]);
+  });
+
+  test("flowFilter chaining works and export includes definitions", () => {
+    const table = defineTable({
+      name: v.string(),
+    }).flowFilter("dateFilter", {
+      type: v.object({ from: v.float64(), to: v.float64() }),
+    });
+
+    const exported = table.export();
+    expect(exported.flowFilters).toEqual([
+      {
+        fieldName: "dateFilter",
+        filterType: {
+          type: "object",
+          value: {
+            from: { fieldType: { type: "number" }, optional: false },
+            to: { fieldType: { type: "number" }, optional: false },
+          },
+        },
+      },
+    ]);
+  });
+
+  test("mixed chaining: flowFilter, flowField, computed", () => {
+    const table = defineTable({
+      name: v.string(),
+    })
+      .flowFilter("dateFilter", {
+        type: v.object({ from: v.float64(), to: v.float64() }),
+      })
+      .flowField("orderCount", {
+        returns: v.float64(),
+        type: "count",
+        source: "orders",
+        key: "customerId",
+      })
+      .computed("tier", {
+        returns: v.string(),
+        expr: {
+          $cond: { $gt: ["$orderCount", 10] },
+          then: "VIP",
+          else: "STANDARD",
+        },
+      });
+
+    const exported = table.export();
+    expect(exported.flowFilters).toHaveLength(1);
+    expect(exported.flowFields).toHaveLength(1);
+    expect(exported.computedFields).toHaveLength(1);
+  });
+
+  test("chaining with indexes still works", () => {
+    const table = defineTable({
+      name: v.string(),
+    })
+      .index("by_name", ["name"])
+      .flowField("orderCount", {
+        returns: v.float64(),
+        type: "count",
+        source: "orders",
+        key: "customerId",
+      });
+
+    const exported = table.export();
+    expect(exported.indexes).toEqual([
+      { indexDescriptor: "by_name", fields: ["name"] },
+    ]);
+    expect(exported.flowFields).toHaveLength(1);
+  });
+
+  test("empty tables have empty flow/computed/filter arrays", () => {
+    const table = defineTable({
+      name: v.string(),
+    });
+
+    const exported = table.export();
+    expect(exported.flowFields).toEqual([]);
+    expect(exported.computedFields).toEqual([]);
+    expect(exported.flowFilters).toEqual([]);
+  });
+
+  test("SchemaDefinition.export() includes flow/computed/filter definitions", () => {
+    const schema = defineSchema({
+      customers: defineTable({
+        name: v.string(),
+      })
+        .flowField("orderCount", {
+          returns: v.float64(),
+          type: "count",
+          source: "orders",
+          key: "customerId",
+        })
+        .computed("tier", {
+          returns: v.string(),
+          expr: {
+            $cond: { $gt: ["$orderCount", 10] },
+            then: "VIP",
+            else: "STANDARD",
+          },
+        }),
+      orders: defineTable({
+        customerId: v.id("customers"),
+        amount: v.float64(),
+      }),
+    });
+
+    const exported = JSON.parse(schema.export());
+    const customersTable = exported.tables.find(
+      (t: { tableName: string }) => t.tableName === "customers",
+    );
+    expect(customersTable.flowFields).toHaveLength(1);
+    expect(customersTable.flowFields[0].fieldName).toBe("orderCount");
+    expect(customersTable.computedFields).toHaveLength(1);
+    expect(customersTable.computedFields[0].fieldName).toBe("tier");
+    expect(customersTable.flowFilters).toEqual([]);
+
+    const ordersTable = exported.tables.find(
+      (t: { tableName: string }) => t.tableName === "orders",
+    );
+    expect(ordersTable.flowFields).toEqual([]);
+    expect(ordersTable.computedFields).toEqual([]);
+    expect(ordersTable.flowFilters).toEqual([]);
+  });
+
+  test("type-level: document includes FlowField and ComputedField types", () => {
+    const schema = defineSchema({
+      customers: defineTable({
+        name: v.string(),
+      })
+        .flowField("orderCount", {
+          returns: v.float64(),
+          type: "count",
+          source: "orders",
+          key: "customerId",
+        })
+        .computed("tier", {
+          returns: v.string(),
+          expr: {
+            $cond: { $gt: ["$orderCount", 10] },
+            then: "VIP",
+            else: "STANDARD",
+          },
+        }),
+    });
+
+    type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+    type CustomerDoc = DataModel["customers"]["document"];
+
+    // The document type should include stored fields, system fields,
+    // FlowFields, and ComputedFields.
+    type ExpectedDocument = {
+      _id: GenericId<"customers">;
+      _creationTime: number;
+      name: string;
+      orderCount: number;
+      tier: string;
+    };
+
+    assert<Equals<CustomerDoc, ExpectedDocument>>();
+  });
+
+  test("type-level: FlowFilter types are tracked but not in document", () => {
+    const schema = defineSchema({
+      customers: defineTable({
+        name: v.string(),
+      }).flowFilter("dateFilter", {
+        type: v.object({ from: v.float64(), to: v.float64() }),
+      }),
+    });
+
+    type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+    type CustomerDoc = DataModel["customers"]["document"];
+
+    // FlowFilters should NOT appear in the document type.
+    type ExpectedDocument = {
+      _id: GenericId<"customers">;
+      _creationTime: number;
+      name: string;
+    };
+
+    assert<Equals<CustomerDoc, ExpectedDocument>>();
+  });
+
+  test("type-level: full schema with all features", () => {
+    const schema = defineSchema({
+      customers: defineTable({
+        name: v.string(),
+      })
+        .index("by_name", ["name"])
+        .flowFilter("dateFilter", {
+          type: v.object({ from: v.float64(), to: v.float64() }),
+        })
+        .flowField("orderCount", {
+          returns: v.float64(),
+          type: "count",
+          source: "orders",
+          key: "customerId",
+        })
+        .flowField("totalSpent", {
+          returns: v.float64(),
+          type: "sum",
+          source: "orders",
+          key: "customerId",
+          field: "amount",
+        })
+        .computed("tier", {
+          returns: v.string(),
+          expr: {
+            $cond: { $gt: ["$totalSpent", 1000] },
+            then: "VIP",
+            else: "STANDARD",
+          },
+        }),
+    });
+
+    type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+
+    type ExpectedDocument = {
+      _id: GenericId<"customers">;
+      _creationTime: number;
+      name: string;
+      orderCount: number;
+      totalSpent: number;
+      tier: string;
+    };
+
+    type ExpectedIndexes = {
+      by_name: ["name", "_creationTime"];
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+    };
+
+    type ExpectedDataModel = {
+      customers: {
+        document: ExpectedDocument;
+        fieldPaths: "_id" | "_creationTime" | "name";
+        indexes: ExpectedIndexes;
+        searchIndexes: {};
+        vectorIndexes: {};
+      };
+    };
+
+    assert<Equals<DataModel, ExpectedDataModel>>();
+  });
 });

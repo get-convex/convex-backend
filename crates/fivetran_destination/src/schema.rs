@@ -212,6 +212,9 @@ impl FivetranTableSchema {
             staged_text_indexes: Default::default(),
             vector_indexes: Default::default(),
             staged_vector_indexes: Default::default(),
+            flow_fields: Default::default(),
+            computed_fields: Default::default(),
+            flow_filters: Default::default(),
         })
     }
 
@@ -670,6 +673,9 @@ impl FivetranTableSchema {
             vector_indexes: BTreeMap::new(),
             staged_vector_indexes: BTreeMap::new(),
             document_type: Some(document_schema),
+            flow_fields: Vec::new(),
+            computed_fields: Vec::new(),
+            flow_filters: Vec::new(),
         })
     }
 }
@@ -1090,6 +1096,9 @@ mod tests {
                     .collect(),
             )])),
             indexes: convex_indexes(indexes),
+            flow_fields: Default::default(),
+            computed_fields: Default::default(),
+            flow_filters: Default::default(),
         }
     }
 
@@ -1930,6 +1939,9 @@ mod tests {
                 )])),
                 text_indexes: Default::default(),
                 vector_indexes: Default::default(),
+                flow_fields: Default::default(),
+                computed_fields: Default::default(),
+                flow_filters: Default::default(),
             },
         );
         Ok(())

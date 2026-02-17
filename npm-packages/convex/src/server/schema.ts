@@ -159,6 +159,97 @@ export type SearchIndex = {
 };
 
 /**
+ * The aggregation types supported by FlowFields.
+ * @public
+ */
+export type FlowFieldAggregationType =
+  | "count"
+  | "sum"
+  | "avg"
+  | "min"
+  | "max"
+  | "lookup"
+  | "exist";
+
+/**
+ * The configuration for a FlowField — a cross-table aggregation resolved at read time.
+ *
+ * @public
+ */
+export interface FlowFieldConfig<
+  Returns extends Validator<any, any, any> = Validator<any, any, any>,
+> {
+  /** The validator describing the return type of this FlowField. */
+  returns: Returns;
+  /** The aggregation type. */
+  type: FlowFieldAggregationType;
+  /** The source table to aggregate from. */
+  source: string;
+  /** The field on the source table that references this table's `_id`. */
+  key: string;
+  /** The field on the source table to aggregate (required for sum/avg/min/max). */
+  field?: string;
+  /** Static filter conditions and `{ $field: "flowFilterName" }` references. */
+  filter?: Record<string, unknown>;
+}
+
+/**
+ * The configuration for a ComputedField — a row-level expression evaluated from stored + FlowField values.
+ *
+ * @public
+ */
+export interface ComputedFieldConfig<
+  Returns extends Validator<any, any, any> = Validator<any, any, any>,
+> {
+  /** The validator describing the return type of this ComputedField. */
+  returns: Returns;
+  /** The expression DSL (JSON-serializable). */
+  expr: unknown;
+}
+
+/**
+ * The configuration for a FlowFilter — a runtime parameter that parameterizes FlowField aggregations.
+ *
+ * @public
+ */
+export interface FlowFilterConfig<
+  FilterType extends Validator<any, any, any> = Validator<any, any, any>,
+> {
+  /** The validator describing the type of this FlowFilter parameter. */
+  type: FilterType;
+}
+
+/**
+ * @internal
+ */
+export type SerializedFlowField = {
+  fieldName: string;
+  returns: object;
+  aggregation: FlowFieldAggregationType;
+  source: string;
+  key: string;
+  field: string | undefined;
+  filter: Record<string, unknown> | undefined;
+};
+
+/**
+ * @internal
+ */
+export type SerializedComputedField = {
+  fieldName: string;
+  returns: object;
+  expr: unknown;
+};
+
+/**
+ * @internal
+ */
+export type SerializedFlowFilter = {
+  fieldName: string;
+  filterType: object;
+};
+
+/**
  * Options for defining an index.
  *
  * @public
@@ -188,6 +279,9 @@ export class TableDefinition<
   Indexes extends GenericTableIndexes = {},
   SearchIndexes extends GenericTableSearchIndexes = {},
   VectorIndexes extends GenericTableVectorIndexes = {},
+  FlowFields extends Record<string, any> = {},
+  ComputedFields extends Record<string, any> = {},
+  FlowFilters extends Record<string, any> = {},
 > {
   private indexes: Index[];
   private stagedDbIndexes: Index[];
@@ -195,6 +289,9 @@ export class TableDefinition<
   private stagedSearchIndexes: SearchIndex[];
   private vectorIndexes: VectorIndex[];
   private stagedVectorIndexes: VectorIndex[];
+  private flowFieldDefs: SerializedFlowField[];
+  private computedFieldDefs: SerializedComputedField[];
+  private flowFilterDefs: SerializedFlowFilter[];
   // The type of documents stored in this table.
   validator: DocumentType;
 
@@ -208,6 +305,9 @@ export class TableDefinition<
     this.stagedSearchIndexes = [];
     this.vectorIndexes = [];
     this.stagedVectorIndexes = [];
+    this.flowFieldDefs = [];
+    this.computedFieldDefs = [];
+    this.flowFilterDefs = [];
     this.validator = documentType;
   }
 
@@ -274,7 +374,10 @@ export class TableDefinition<
         >
     >,
     SearchIndexes,
-    VectorIndexes
+    VectorIndexes,
+    FlowFields,
+    ComputedFields,
+    FlowFilters
   >;
 
   /**
@@ -304,7 +407,10 @@ export class TableDefinition<
         >
     >,
     SearchIndexes,
-    VectorIndexes
+    VectorIndexes,
+    FlowFields,
+    ComputedFields,
+    FlowFilters
   >;
 
   /**
@@ -333,7 +439,7 @@ export class TableDefinition<
       DbIndexConfig<FirstFieldPath, RestFieldPaths> &
         IndexOptions & { staged: true }
     >,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters>;
 
   index<
     IndexName extends string,
@@ -401,7 +507,10 @@ export class TableDefinition<
           }
         >
     >,
-    VectorIndexes
+    VectorIndexes,
+    FlowFields,
+    ComputedFields,
+    FlowFilters
   >;
 
   /**
@@ -430,7 +539,7 @@ export class TableDefinition<
       SearchIndexConfig<SearchField, FilterFields> &
         IndexOptions & { staged: true }
     >,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters>;
 
   searchIndex<
     IndexName extends string,
@@ -491,7 +600,10 @@ export class TableDefinition<
             filterFields: FilterFields;
           }
         >
-    >
+    >,
+    FlowFields,
+    ComputedFields,
+    FlowFilters
   >;
 
   /**
@@ -520,7 +632,7 @@ export class TableDefinition<
       VectorIndexConfig<VectorField, FilterFields> &
         IndexOptions & { staged: true }
     >,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters>;
 
   vectorIndex<
     IndexName extends string,
@@ -551,13 +663,121 @@ export class TableDefinition<
   }
 
   /**
+   * Define a FlowField on this table.
+   *
+   * FlowFields are cross-table aggregations (sum, count, avg, min, max)
+   * resolved via SQL at read time. They are read-only and not stored.
+   *
+   * @param name - The name of the FlowField.
+   * @param config - The FlowField configuration.
+   * @returns A {@link TableDefinition} with this FlowField included.
+   */
+  flowField<
+    Name extends string,
+    Returns extends Validator<any, any, any>,
+  >(
+    name: Name,
+    config: FlowFieldConfig<Returns>,
+  ): TableDefinition<
+    DocumentType,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Expand<FlowFields & Record<Name, Returns["type"]>>,
+    ComputedFields,
+    FlowFilters
+  >;
+  flowField(name: string, config: FlowFieldConfig) {
+    this.flowFieldDefs.push({
+      fieldName: name,
+      returns: config.returns.json,
+      aggregation: config.type,
+      source: config.source,
+      key: config.key,
+      field: config.field,
+      filter: config.filter,
+    });
+    return this;
+  }
+
+  /**
+   * Define a ComputedField on this table.
+   *
+   * ComputedFields are row-level expressions evaluated from stored fields
+   * and FlowField values. They are read-only and not stored.
+   *
+   * @param name - The name of the ComputedField.
+   * @param config - The ComputedField configuration.
+   * @returns A {@link TableDefinition} with this ComputedField included.
+   */
+  computed<
+    Name extends string,
+    Returns extends Validator<any, any, any>,
+  >(
+    name: Name,
+    config: ComputedFieldConfig<Returns>,
+  ): TableDefinition<
+    DocumentType,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    FlowFields,
+    Expand<ComputedFields & Record<Name, Returns["type"]>>,
+    FlowFilters
+  >;
+  computed(name: string, config: ComputedFieldConfig) {
+    this.computedFieldDefs.push({
+      fieldName: name,
+      returns: config.returns.json,
+      expr: config.expr,
+    });
+    return this;
+  }
+
+  /**
+   * Define a FlowFilter on this table.
+   *
+   * FlowFilters are runtime parameters that parameterize FlowField
+   * aggregations. They are not stored and do not appear in documents.
+   *
+   * @param name - The name of the FlowFilter.
+   * @param config - The FlowFilter configuration.
+   * @returns A {@link TableDefinition} with this FlowFilter included.
+   */
+  flowFilter<
+    Name extends string,
+    FilterType extends Validator<any, any, any>,
+  >(
+    name: Name,
+    config: FlowFilterConfig<FilterType>,
+  ): TableDefinition<
+    DocumentType,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    FlowFields,
+    ComputedFields,
+    Expand<FlowFilters & Record<Name, FilterType["type"]>>
+  >;
+  flowFilter(name: string, config: FlowFilterConfig) {
+    this.flowFilterDefs.push({
+      fieldName: name,
+      filterType: config.type.json,
+    });
+    return this;
+  }
+
+  /**
    * Work around for https://github.com/microsoft/TypeScript/issues/57035
    */
   protected self(): TableDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
-    VectorIndexes
+    VectorIndexes,
+    FlowFields,
+    ComputedFields,
+    FlowFilters
   > {
     return this;
   }
@@ -583,6 +803,9 @@ export class TableDefinition<
       vectorIndexes: this.vectorIndexes,
       stagedVectorIndexes: this.stagedVectorIndexes,
       documentType,
+      flowFields: this.flowFieldDefs,
+      computedFields: this.computedFieldDefs,
+      flowFilters: this.flowFilterDefs,
     };
   }
 }
@@ -707,6 +930,9 @@ export class SchemaDefinition<
           vectorIndexes,
           stagedVectorIndexes,
           documentType,
+          flowFields,
+          computedFields,
+          flowFilters,
         } = definition.export();
         return {
           tableName,
@@ -717,6 +943,9 @@ export class SchemaDefinition<
           vectorIndexes,
           stagedVectorIndexes,
           documentType,
+          flowFields,
+          computedFields,
+          flowFilters,
         };
       }),
       schemaValidation: this.schemaValidation,
@@ -853,12 +1082,21 @@ export type DataModelFromSchemaDefinition<
       infer DocumentType,
       infer Indexes,
       infer SearchIndexes,
-      infer VectorIndexes
+      infer VectorIndexes,
+      infer FlowFields,
+      infer ComputedFields,
+      infer _FlowFilters
     >
       ? {
           // We've already added all of the system fields except for `_id`.
-          // Add that here.
-          document: Expand<IdField<TableName> & ExtractDocument<DocumentType>>;
+          // Add that here. FlowFields and ComputedFields are merged into
+          // the read-side document type.
+          document: Expand<
+            IdField<TableName> &
+              ExtractDocument<DocumentType> &
+              FlowFields &
+              ComputedFields
+          >;
           fieldPaths:
             | keyof IdField<TableName>
             | ExtractFieldPaths<DocumentType>;

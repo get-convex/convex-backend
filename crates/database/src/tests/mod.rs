@@ -301,6 +301,9 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
             vector_indexes: BTreeMap::new(),
             staged_vector_indexes: BTreeMap::new(),
             document_type: None,
+            flow_fields: Vec::new(),
+            computed_fields: Vec::new(),
+            flow_filters: Vec::new(),
         },
     );
     let schema = DatabaseSchema {
@@ -360,6 +363,9 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
             vector_indexes: BTreeMap::new(),
             staged_vector_indexes: BTreeMap::new(),
             document_type: None,
+            flow_fields: Vec::new(),
+            computed_fields: Vec::new(),
+            flow_filters: Vec::new(),
         },
     );
     let schema = DatabaseSchema {

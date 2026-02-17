@@ -447,10 +447,12 @@ fn bounds_on_multiple_fields_error(
 ) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "BoundsOnMultipleFields",
-        format!("Upper and lower bounds in `range` can only be applied to a single index \
+        format!(
+            "Upper and lower bounds in `range` can only be applied to a single index \
     field. This query against index {index_name} attempted to set a range \
     bound on both {first_field_path:?} and {second_field_path:?}. Consider using \
-    `filter` instead. See https://docs.convex.dev/using/indexes for more info."),
+    `filter` instead. See https://docs.convex.dev/using/indexes for more info."
+        ),
     )
 }
 

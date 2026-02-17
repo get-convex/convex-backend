@@ -382,6 +382,9 @@ mod tests {
             staged_text_indexes: Default::default(),
             vector_indexes: Default::default(),
             staged_vector_indexes: Default::default(),
+            flow_fields: Default::default(),
+            computed_fields: Default::default(),
+            flow_filters: Default::default(),
         };
 
         assert_eq!(

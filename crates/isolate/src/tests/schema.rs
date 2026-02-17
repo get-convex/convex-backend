@@ -250,7 +250,10 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                     "union" => FieldValidator::required_field_type(Validator::Union(vec![Validator::String, Validator::Float64])),
                     "object" => FieldValidator::required_field_type(Validator::Object(object_validator!("a" => FieldValidator::optional_field_type(Validator::Any))))
                   )
-                ]))
+                ])),
+                flow_fields: vec![],
+                computed_fields: vec![],
+                flow_filters: vec![],
             },
             name2.clone() => TableDefinition {
                 table_name: name2,
@@ -270,6 +273,9 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                 vector_indexes: btreemap!(),
                 staged_vector_indexes: btreemap!(),
                 document_type: None,
+                flow_fields: vec![],
+                computed_fields: vec![],
+                flow_filters: vec![],
             },
             name3.clone() => TableDefinition {
               table_name: name3,
@@ -286,6 +292,9 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                vector_indexes: btreemap!(),
                staged_vector_indexes: btreemap!(),
                document_type: None,
+               flow_fields: vec![],
+               computed_fields: vec![],
+               flow_filters: vec![],
 
           }
         ),
