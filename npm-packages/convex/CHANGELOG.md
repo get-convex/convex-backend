@@ -6,6 +6,8 @@
   on cloud deployments.
 - The `insights` tool works on production deployments without requiring
   `--dangerously-enable-production-deployments`.
+- The CLI now uses `VITE_CONVEX_*` environment variables when using Remix
+  alongside of Vite, instead of `CONVEX_*`.
 
 ## 1.31.7
 

@@ -182,16 +182,6 @@ export async function suggestedEnvVarNames(ctx: Context): Promise<{
     };
   }
 
-  const isRemix = "@remix-run/dev" in packages;
-  if (isRemix) {
-    return {
-      detectedFramework: "Remix",
-      convexUrlEnvVar: "CONVEX_URL",
-      convexSiteEnvVar: "CONVEX_SITE_URL",
-      frontendDevUrl: "http://localhost:3000",
-    };
-  }
-
   const isSvelteKit = "@sveltejs/kit" in packages;
   if (isSvelteKit) {
     return {
@@ -227,6 +217,18 @@ export async function suggestedEnvVarNames(ctx: Context): Promise<{
       convexSiteEnvVar: "VITE_CONVEX_SITE_URL",
       frontendDevUrl: "http://localhost:5173",
       publicPrefix: "VITE_",
+    };
+  }
+
+  // We detect Remix after Vite because when using Remix as a plugin of Vite
+  // (Remix Vite), we want to use Vite-style environment variables.
+  const isRemix = "@remix-run/dev" in packages;
+  if (isRemix) {
+    return {
+      detectedFramework: "Remix",
+      convexUrlEnvVar: "CONVEX_URL",
+      convexSiteEnvVar: "CONVEX_SITE_URL",
+      frontendDevUrl: "http://localhost:3000",
     };
   }
 
