@@ -913,7 +913,7 @@ pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
 
 /// Which encoding version to use for newly written documents
 pub static MYSQL_DOCUMENT_ENCODING: LazyLock<u8> =
-    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 0));
+    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 1));
 
 /// How many times to retry MySQL queries that fail with operational errors.
 pub static MYSQL_MAX_QUERY_RETRIES: LazyLock<u32> =
