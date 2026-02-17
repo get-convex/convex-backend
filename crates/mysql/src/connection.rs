@@ -103,7 +103,8 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
             ..
         }) if message.contains("primary is not serving")
             || message.contains("for tx killer rollback")
-            || message.contains("connection pool timed out") =>
+            || message.contains("connection pool timed out")
+            || message.contains("connection timed out") =>
         {
             database_operational_error(e.into())
         },
