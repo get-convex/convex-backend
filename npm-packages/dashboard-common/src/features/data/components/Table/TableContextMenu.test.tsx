@@ -278,7 +278,7 @@ describe("TableContextMenu", () => {
       await user.click(button);
 
       expect(
-        // @ts-ignore
+        // @ts-expect-error We assume that `callbackName` is a valid key of the `callbacks` object
         defaultProps.state?.selectedCell?.callbacks?.[callbackName],
       ).toHaveBeenCalledTimes(1);
     },

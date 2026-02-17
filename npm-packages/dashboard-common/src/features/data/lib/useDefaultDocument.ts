@@ -12,7 +12,7 @@ import { defaultValueForValidator } from "@common/lib/defaultValueForValidator";
 
 export const useDefaultDocument = (tableName: string): GenericDocument => {
   const { tables } = useTableShapes();
-  const shape = tables?.get(tableName)!;
+  const shape = tables?.get(tableName);
   validateDocumentShape(shape);
 
   const schemas = useQuery(udfs.getSchemas.default, {

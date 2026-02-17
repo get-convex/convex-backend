@@ -5,17 +5,16 @@ module.exports = {
     tsconfigRootDir: __dirname,
   },
   extends: [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
     "next/core-web-vitals",
-    "airbnb",
-    "airbnb/hooks",
-    "airbnb-typescript",
+    "plugin:jsx-a11y/recommended",
     "prettier",
     "plugin:better-tailwindcss/recommended-warn",
     "plugin:better-tailwindcss/recommended-error",
     "plugin:jest/recommended",
     "plugin:storybook/recommended",
   ],
-  plugins: ["prettier"],
   settings: {
     "better-tailwindcss": {
       entryPoint: "../@convex-dev/design-system/src/styles/shared.css",
@@ -28,46 +27,24 @@ module.exports = {
     // because default exports with different
     // name from import site can be confusing.
     "import/no-default-export": "error",
-    "import/prefer-default-export": "off",
 
     // We want to allow named `function`s used as arguments to
     // HoCs, see https://react.dev/reference/react/memo#reference
     // as an example.
     "prefer-arrow-callback": ["error", { allowNamedFunctions: true }],
 
-    // This rule is not smart enough to allow referencing components
-    // wrapped in HoCs from other components, so we disable it
-    // altogether.
-    "@typescript-eslint/no-use-before-define": "off",
+    // Relax @typescript-eslint/recommended defaults
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-unused-expressions": "off",
+    "@typescript-eslint/no-empty-object-type": "off",
+    "@typescript-eslint/no-non-null-asserted-optional-chain": "off",
+    "@typescript-eslint/no-require-imports": "off",
 
-    // Turn a bunch of Airbnb preset defaults off because
-    // they are a little too strict or do not match our style.
-    "no-bitwise": "off",
-    "import/no-extraneous-dependencies": "off",
-    "no-underscore-dangle": "off",
-    "react/no-unstable-nested-components": "off",
     "jsx-a11y/no-autofocus": "off",
     "react/react-in-jsx-scope": "off",
-    quotes: "off",
-    "@typescript-eslint/quotes": "off",
-    "arrow-parens": "off",
-    "@typescript-eslint/comma-dangle": "off",
-    "implicit-arrow-linebreak": "off",
-    "operator-linebreak": "off",
-    "react/jsx-props-no-spreading": "off",
-    "react/require-default-props": "off",
-    "@typescript-eslint/no-unused-expressions": "off",
-    "no-nested-ternary": "off",
     "react/no-unescaped-entities": "off",
-    "max-len": "off",
-    "consistent-return": "off",
-    "no-continue": "off",
-    "no-plusplus": "off",
-    radix: "off",
-    "react/no-array-index-key": "off",
     "no-console": ["error", { allow: ["warn", "error"] }],
-    "no-await-in-loop": "off",
-    "@typescript-eslint/naming-convention": "off",
     "jsx-a11y/label-has-associated-control": [
       "error",
       {
@@ -176,23 +153,12 @@ module.exports = {
       },
     ],
 
-    // These Airbnb presets conflict with NextJS paradigms.
     "jsx-a11y/anchor-is-valid": "off",
 
-    // Turn off formatting rules that conflict with Prettier.
-    "@typescript-eslint/indent": "off",
-    "import/no-named-as-default": "off",
-    "prettier/prettier": "off",
-    "react/jsx-closing-tag-location": "off",
-    "react/jsx-curly-newline": "off",
-    "react/jsx-indent": "off",
-    "react/jsx-one-expression-per-line": "off",
-    "react/jsx-wrap-multilines": "off",
     // https://stackoverflow.com/a/73967427/1526986
     "react/jsx-no-useless-fragment": ["error", { allowExpressions: true }],
     // Makes it harder to accidentally fire off a promise without waiting for it.
     "@typescript-eslint/no-floating-promises": "error",
-    "no-void": "off",
     // Disable enforce-consistent-line-wrapping temporarily (will enable later + blame-ignore diff)
     "better-tailwindcss/enforce-consistent-line-wrapping": "off",
     "better-tailwindcss/no-unregistered-classes": [

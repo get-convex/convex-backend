@@ -171,7 +171,7 @@ export function useListPlans(teamId?: number) {
   });
 
   if (error) {
-    // eslint-disable-next-line @typescript-eslint/no-throw-literal
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw error;
   }
 
