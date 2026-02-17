@@ -4,7 +4,7 @@
 
 Add three new field types to Convex schemas that compute values dynamically rather than storing them:
 
-- **FlowFields** — Cross-table aggregations (sum, count, avg, min, max) resolved via SQL at read time
+- **FlowFields** — Cross-table aggregations (sum, count, avg, min, max, lookup, exist) resolved via SQL at read time
 - **ComputedFields** — Row-level expressions evaluated from stored + FlowField values
 - **FlowFilters** — Runtime parameters that parameterize FlowField aggregations (inspired by Microsoft Dynamics Business Central)
 
