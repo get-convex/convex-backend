@@ -686,6 +686,7 @@ function DatabaseStorageUsage({
   );
   const viewMode = storedViewMode;
 
+  const [activeTab, setActiveTab] = useState<"size" | "count">("size");
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
   const {
@@ -705,29 +706,84 @@ function DatabaseStorageUsage({
       componentPrefix,
     );
 
+  const { data: documentsCountByProject, error: documentsCountByProjectError } =
+    useUsageTeamDocumentsPerDayByProject(team.id, dateRange, componentPrefix);
+
+  const { data: documentsCountByTable, error: documentsCountByTableError } =
+    useUsageTeamDocumentCountPerDayByTable(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
+
   const databaseStorage =
     viewMode === "byType"
       ? aggregateByProjectToByType(databaseStorageByProject, projectId)
       : null;
+
+  const documentsCount =
+    viewMode === "byType"
+      ? aggregateSimpleByProjectToByType(documentsCountByProject, projectId)
+      : null;
+
+  const hasError =
+    activeTab === "size"
+      ? databaseStorageByProjectError || databaseStorageByTableError
+      : documentsCountByProjectError || documentsCountByTableError;
 
   return (
     <TeamUsageSection
       header={
         <>
           <h3 className="py-2">Database Storage</h3>
-          <GroupBySelector
-            value={viewMode}
-            onChange={setViewMode}
-            disabled={false}
-            options={DATABASE_GROUP_BY_OPTIONS}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex overflow-hidden rounded border">
+              <Button
+                variant="unstyled"
+                className={cn(
+                  "px-3 py-1 text-sm",
+                  activeTab === "size"
+                    ? "bg-background-tertiary font-medium"
+                    : "text-content-secondary hover:bg-background-tertiary/50",
+                )}
+                onClick={() => {
+                  setActiveTab("size");
+                  setSelectedDate(null);
+                }}
+              >
+                Document Size
+              </Button>
+              <Button
+                variant="unstyled"
+                className={cn(
+                  "border-l px-3 py-1 text-sm",
+                  activeTab === "count"
+                    ? "bg-background-tertiary font-medium"
+                    : "text-content-secondary hover:bg-background-tertiary/50",
+                )}
+                onClick={() => {
+                  setActiveTab("count");
+                  setSelectedDate(null);
+                }}
+              >
+                Document Count
+              </Button>
+            </div>
+            <GroupBySelector
+              value={viewMode}
+              onChange={setViewMode}
+              disabled={false}
+              options={DATABASE_GROUP_BY_OPTIONS}
+            />
+          </div>
         </>
       }
     >
       <div className="px-4">
-        {databaseStorageByProjectError || databaseStorageByTableError ? (
+        {hasError ? (
           <UsageDataError entity="Database storage" />
-        ) : (
+        ) : activeTab === "size" ? (
           <>
             {viewMode === "byType" ? (
               databaseStorage === undefined ? (
@@ -763,6 +819,39 @@ function DatabaseStorageUsage({
               <UsageByProjectChart
                 rows={databaseStorageByProject}
                 quantityType="storage"
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {viewMode === "byType" ? (
+              documentsCount === undefined ? (
+                <ChartLoading />
+              ) : documentsCount === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageBarChart rows={documentsCount} entity="documents" />
+              )
+            ) : viewMode === "byTable" ? (
+              documentsCountByTable === undefined ? (
+                <ChartLoading />
+              ) : documentsCountByTable === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageByTableChart
+                  rows={documentsCountByTable}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                />
+              )
+            ) : documentsCountByProject === undefined ? (
+              <ChartLoading />
+            ) : (
+              <UsageByProjectChart
+                rows={documentsCountByProject}
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
