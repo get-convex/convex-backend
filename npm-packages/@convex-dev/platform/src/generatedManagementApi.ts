@@ -422,6 +422,7 @@ export interface components {
             /** Format: int64 */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            dashboardEditConfirmation?: boolean | null;
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
@@ -562,6 +563,11 @@ export interface components {
              */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            /** @description Controls whether the dashboard requires a confirmation before
+             *     allowing edits during a browser session for this deployment.
+             *     If not set, defaults to true for prod deployments and false
+             *     for dev and preview deployments. */
+            dashboardEditConfirmation?: boolean | null;
             /** @description The type of this deployment. */
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
@@ -778,7 +784,8 @@ export interface operations {
                 /** @description If true, include local deployments in the response (filtered to only
                  *     show local deployments created by the requesting team member). */
                 includeLocal?: boolean;
-                /** @description If true, only include default deployments. If false, only include non-default deployments. */
+                /** @description If true, only include default deployments. If false, only include
+                 *     non-default deployments. */
                 isDefault?: boolean | null;
                 /** @description Only include deployments of the given deployment type. */
                 deploymentType?: null | components["schemas"]["DeploymentType"];

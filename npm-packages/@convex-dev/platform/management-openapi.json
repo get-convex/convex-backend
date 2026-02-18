@@ -872,6 +872,12 @@
                   }
                 ]
               },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType"
               },
@@ -1298,6 +1304,13 @@
                     "description": "The member who created this deployment."
                   }
                 ]
+              },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Controls whether the dashboard requires a confirmation before\nallowing edits during a browser session for this deployment.\nIf not set, defaults to true for prod deployments and false\nfor dev and preview deployments."
               },
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType",

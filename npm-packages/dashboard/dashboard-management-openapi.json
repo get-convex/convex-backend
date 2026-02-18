@@ -4414,6 +4414,12 @@
                   }
                 ]
               },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType"
               },
