@@ -129,37 +129,6 @@ fn test_search_index_fields_not_unique() {
 }
 
 #[test]
-fn test_search_index_fields_not_unique_but_filter_fields_are_unique_fails() {
-    let value = json!({
-        "tables": [
-            {
-                "tableName": "test",
-                "indexes": [],
-                "searchIndexes": [
-                    {
-                        "indexDescriptor": "firstIndex",
-                        "searchField": "text",
-                        "filterFields": ["first"]
-                    },
-                    {
-                        "indexDescriptor": "secondIndex",
-                        "searchField": "text",
-                        "filterFields": ["second"]
-                    }
-                ],
-
-            },
-        ],
-        "schemaValidation": true,
-    });
-    let err = index_validation_test(value);
-    assert_eq!(
-        err.short_msg, "SearchIndexFieldNotUnique",
-        "<{err}> does not match expected error type"
-    );
-}
-
-#[test]
 fn test_vector_indexes_not_unique() {
     let value = json!({
         "tables": [

@@ -240,7 +240,7 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             })?;
         validate_unique_index_fields(
             text_indexes.iter().chain(staged_text_indexes.iter()),
-            |idx: &TextIndexSchema| idx.search_field.clone(),
+            |idx: &TextIndexSchema| (idx.search_field.clone(), idx.filter_fields.clone()),
             |index1, index2| search_field_not_unique(&table_name, index1, index2),
         )?;
 
@@ -842,8 +842,12 @@ mod tests {
     };
 
     use crate::schemas::{
-        json::ValidatorJson,
+        json::{
+            TableDefinitionJson,
+            ValidatorJson,
+        },
         validator::LiteralValidator,
+        TableDefinition,
     };
 
     #[test]
@@ -860,6 +864,55 @@ mod tests {
         let error = JsonValue::try_from(validator).unwrap_err();
         assert!(error.is_bad_request());
         Ok(())
+    }
+
+    #[test]
+    fn test_search_indexes_same_field_different_filters_allowed() -> anyhow::Result<()> {
+        let table_def: TableDefinitionJson = serde_json::from_value(json!({
+            "tableName": "my_table",
+            "indexes": [],
+            "searchIndexes": [
+                {
+                    "indexDescriptor": "search_by_title",
+                    "searchField": "title",
+                    "filterFields": ["author"]
+                },
+                {
+                    "indexDescriptor": "search_by_title_with_status",
+                    "searchField": "title",
+                    "filterFields": ["status"]
+                }
+            ]
+        }))?;
+        TableDefinition::try_from(table_def)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_search_indexes_same_field_same_filters_rejected() {
+        let table_def: TableDefinitionJson = serde_json::from_value(json!({
+            "tableName": "my_table",
+            "indexes": [],
+            "searchIndexes": [
+                {
+                    "indexDescriptor": "search_idx_1",
+                    "searchField": "title",
+                    "filterFields": ["author"]
+                },
+                {
+                    "indexDescriptor": "search_idx_2",
+                    "searchField": "title",
+                    "filterFields": ["author"]
+                }
+            ]
+        }))
+        .unwrap();
+        let err = TableDefinition::try_from(table_def).unwrap_err();
+        assert!(
+            err.is_bad_request(),
+            "Expected bad request error, got: {err}"
+        );
+        assert_eq!(err.short_msg(), "SearchIndexFieldNotUnique");
     }
 
     #[test]
