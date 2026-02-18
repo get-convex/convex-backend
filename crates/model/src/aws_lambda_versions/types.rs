@@ -78,11 +78,10 @@ impl AwsLambdaType {
                 Ok(AwsLambdaPackageDesc::Static { source_package_id })
             },
             Self::Dynamic => {
-                let external_deps_package_id = deployed_code
-                    .map(|source_package| source_package.external_deps_package_id.clone())
-                    .unwrap_or(None);
+                // Dynamic lambdas always download packages at invocation time,
+                // so keep this descriptor constant to avoid unnecessary redeploys.
                 Ok(AwsLambdaPackageDesc::Dynamic {
-                    external_deps_package_id,
+                    external_deps_package_id: None,
                 })
             },
         }
