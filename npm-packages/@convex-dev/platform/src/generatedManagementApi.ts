@@ -778,6 +778,10 @@ export interface operations {
                 /** @description If true, include local deployments in the response (filtered to only
                  *     show local deployments created by the requesting team member). */
                 includeLocal?: boolean;
+                /** @description If true, only include default deployments. If false, only include non-default deployments. */
+                isDefault?: boolean | null;
+                /** @description Only include deployments of the given deployment type. */
+                deploymentType?: null | components["schemas"]["DeploymentType"];
             };
             header?: never;
             path: {
