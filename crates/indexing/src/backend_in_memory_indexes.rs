@@ -14,6 +14,7 @@ use std::{
     },
     fmt::Debug,
     iter,
+    ops::RangeBounds,
     sync::{
         Arc,
         LazyLock,
@@ -769,7 +770,9 @@ impl DatabaseIndexSnapshot {
                 let index_keys = self
                     .index_registry
                     .index_keys(&doc)
-                    .map(|(index, index_key)| (index.id(), index_key));
+                    .map(|(index, index_key)| {
+                        (index.id(), index.metadata.name.is_by_id(), index_key)
+                    });
                 self.cache.populate(index_keys, ts, doc.clone());
             }
             let (interval_read, _) = range_request
@@ -876,9 +879,48 @@ struct DatabaseIndexSnapshotCache {
     /// After the cache has been fully populated, `db.get`s which do point
     /// queries against by_id will be cached, and any indexed query against
     /// by_age that is a subset of (<age:18>, Unbounded) will be cached.
-    documents: OrdMap<(IndexId, IndexKeyBytes), (Timestamp, PackedDocument)>,
-    intervals: OrdMap<IndexId, IntervalSet>,
+    documents: OrdMap<IndexId, IndexDocuments>,
     cache_size: usize,
+}
+
+#[derive(Clone, Default)]
+struct IndexDocuments {
+    docs: OrdMap<IndexKeyBytes, (Timestamp, PackedDocument)>,
+    interval_set: IntervalSet,
+    /// Only tracked for by_id indexes.
+    total_size: Option<usize>,
+}
+
+impl IndexDocuments {
+    fn insert(&mut self, key: IndexKeyBytes, ts: Timestamp, doc: PackedDocument) {
+        if let Some(ref mut size) = self.total_size {
+            *size += doc.value().size();
+        }
+        self.docs.insert(key, (ts, doc));
+    }
+
+    #[allow(dead_code)]
+    fn remove(&mut self, key: &IndexKeyBytes) -> Option<(Timestamp, PackedDocument)> {
+        let removed = self.docs.remove(key);
+        if let Some((_, ref doc)) = removed
+            && let Some(ref mut size) = self.total_size
+        {
+            *size = size.saturating_sub(doc.value().size());
+        }
+        removed
+    }
+
+    #[allow(dead_code)]
+    fn total_size(&self) -> Option<usize> {
+        self.total_size
+    }
+
+    fn range(
+        &self,
+        range: impl RangeBounds<IndexKeyBytes>,
+    ) -> impl DoubleEndedIterator<Item = (&IndexKeyBytes, &(Timestamp, PackedDocument))> {
+        self.docs.range(range)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -898,7 +940,6 @@ impl DatabaseIndexSnapshotCache {
     fn new() -> Self {
         Self {
             documents: OrdMap::new(),
-            intervals: OrdMap::new(),
             cache_size: 0,
         }
     }
@@ -906,29 +947,42 @@ impl DatabaseIndexSnapshotCache {
     fn populate(
         &mut self,
         index_keys: impl IntoIterator<
-            Item = (InternalId, <PackedDocument as IndexedDocument>::IndexKey),
+            Item = (
+                InternalId,
+                bool,
+                <PackedDocument as IndexedDocument>::IndexKey,
+            ),
         >,
         ts: Timestamp,
         doc: PackedDocument,
     ) {
         if self.cache_size <= *MAX_TRANSACTION_CACHE_SIZE {
-            for (index_id, index_key_bytes) in index_keys {
+            self.cache_size += doc.value().size();
+            for (index_id, is_by_id, index_key_bytes) in index_keys {
                 let _s = static_span!();
                 // Allow cache to exceed max size by one document, so we can detect that
                 // the cache has maxed out.
                 let interval = Interval::prefix(index_key_bytes.clone().into());
-                self.documents
-                    .insert((index_id, index_key_bytes), (ts, doc.clone()));
-                self.intervals.entry(index_id).or_default().add(interval);
+                let index_docs = self
+                    .documents
+                    .entry(index_id)
+                    .or_insert_with(|| IndexDocuments {
+                        total_size: if is_by_id { Some(0) } else { None },
+                        ..Default::default()
+                    });
+                index_docs.insert(index_key_bytes, ts, doc.clone());
+                index_docs.interval_set.add(interval);
             }
-            let result_size: usize = doc.value().size();
-            self.cache_size += result_size;
         }
     }
 
     fn record_interval_populated(&mut self, index_id: IndexId, interval: Interval) {
         if self.cache_size <= *MAX_TRANSACTION_CACHE_SIZE {
-            self.intervals.entry(index_id).or_default().add(interval);
+            self.documents
+                .entry(index_id)
+                .or_default()
+                .interval_set
+                .add(interval);
         }
     }
 
@@ -938,14 +992,17 @@ impl DatabaseIndexSnapshotCache {
         interval: &Interval,
         order: Order,
     ) -> Vec<DatabaseIndexSnapshotCacheResult> {
-        let components = match self.intervals.get(&index_id) {
+        let index_docs = match self.documents.get(&index_id) {
             None => {
                 return vec![DatabaseIndexSnapshotCacheResult::CacheMiss(
                     interval.clone(),
                 )]
             },
-            Some(interval_set) => interval_set.split_interval_components(interval.as_ref()),
+            Some(index_docs) => index_docs,
         };
+        let components = index_docs
+            .interval_set
+            .split_interval_components(interval.as_ref());
         let mut results = vec![];
         let mut cache_hit_count = 0;
         for (in_set, component_interval) in components {
@@ -963,20 +1020,16 @@ impl DatabaseIndexSnapshotCache {
             }
             if in_set {
                 cache_hit_count += 1;
-                let range = self
-                    .documents
+                let range = index_docs
                     .range(
                         // TODO: `to_vec()` is not necessary
-                        (index_id, IndexKeyBytes(component_interval.start.to_vec()))..,
+                        IndexKeyBytes(component_interval.start.to_vec())..,
                     )
-                    .take_while(|&((index, key), _)| {
-                        *index == index_id
-                            && match &component_interval.end {
-                                EndRef::Excluded(end) => key[..] < end[..],
-                                EndRef::Unbounded => true,
-                            }
+                    .take_while(|&(key, _)| match &component_interval.end {
+                        EndRef::Excluded(end) => key[..] < end[..],
+                        EndRef::Unbounded => true,
                     });
-                results.extend(range.map(|((_, index_key), (ts, doc))| {
+                results.extend(range.map(|(index_key, (ts, doc))| {
                     DatabaseIndexSnapshotCacheResult::Document(index_key.clone(), *ts, doc.clone())
                 }));
             } else {
@@ -1062,13 +1115,14 @@ mod cache_tests {
         fn populate_doc(
             &mut self,
             index_id: IndexId,
+            is_by_id: bool,
             fields: &[FieldPath],
             obj: ConvexObject,
             ts: Timestamp,
         ) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
             let (key, doc) = self.make_doc(fields, obj)?;
             self.cache
-                .populate([(index_id, key.clone())], ts, doc.clone());
+                .populate([(index_id, is_by_id, key.clone())], ts, doc.clone());
             Ok((key, doc))
         }
 
@@ -1077,7 +1131,7 @@ mod cache_tests {
             index_id: IndexId,
             ts: Timestamp,
         ) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
-            self.populate_doc(index_id, &IndexedFields::by_id(), assert_obj!(), ts)
+            self.populate_doc(index_id, true, &IndexedFields::by_id(), assert_obj!(), ts)
         }
     }
 
@@ -1112,8 +1166,10 @@ mod cache_tests {
         let fields: Vec<FieldPath> = vec!["age".parse()?];
         let ts1 = Timestamp::must(100);
         let ts2 = Timestamp::must(150);
-        let (key1, doc1) = f.populate_doc(index_id, &fields, assert_obj!("age" => 30.0), ts1)?;
-        let (key2, doc2) = f.populate_doc(index_id, &fields, assert_obj!("age" => 40.0), ts2)?;
+        let (key1, doc1) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 30.0), ts1)?;
+        let (key2, doc2) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 40.0), ts2)?;
 
         let interval_gt_18 = interval_gte(18.0)?;
 
@@ -1204,6 +1260,41 @@ mod cache_tests {
         Ok(())
     }
 
+    #[test]
+    fn cache_size_tracking() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let by_id = f.new_index();
+        let by_age = f.new_index();
+        let ts = Timestamp::must(100);
+
+        assert_eq!(f.cache.cache_size, 0);
+
+        // Populate a document into two indexes (by_id and by_age).
+        let id = f.id_generator.user_generate(&"users".parse()?);
+        let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("age" => 30.0))?;
+        let by_id_key = doc.index_key(&IndexedFields::by_id()).to_bytes();
+        let fields: Vec<FieldPath> = vec!["age".parse()?];
+        let by_age_key = doc.index_key(&fields).to_bytes();
+        let doc = PackedDocument::pack(&doc);
+        let doc_size = doc.value().size();
+        f.cache.populate(
+            [(by_id, true, by_id_key), (by_age, false, by_age_key)],
+            ts,
+            doc.clone(),
+        );
+
+        // total_size is only tracked for by_id indexes.
+        assert_eq!(
+            f.cache.documents.get(&by_id).unwrap().total_size(),
+            Some(doc_size)
+        );
+        assert_eq!(f.cache.documents.get(&by_age).unwrap().total_size(), None);
+        // cache_size is the sum of by_id total_sizes only.
+        assert_eq!(f.cache.cache_size, doc_size);
+
+        Ok(())
+    }
+
     /// If the cache has a lot of points, we don't want to have a ton of small
     /// cache misses that require persistence queries. We restrict the number of
     /// persistence queries.
@@ -1213,11 +1304,14 @@ mod cache_tests {
         let index_id = f.new_index();
         let ts = Timestamp::must(100);
         let fields: Vec<FieldPath> = vec!["age".parse()?];
-        let (key1, doc1) = f.populate_doc(index_id, &fields, assert_obj!("age" => 30.0), ts)?;
-        let (key2, doc2) = f.populate_doc(index_id, &fields, assert_obj!("age" => 35.0), ts)?;
-        let (key3, doc3) = f.populate_doc(index_id, &fields, assert_obj!("age" => 40.0), ts)?;
-        let _ = f.populate_doc(index_id, &fields, assert_obj!("age" => 45.0), ts)?;
-        let _ = f.populate_doc(index_id, &fields, assert_obj!("age" => 50.0), ts)?;
+        let (key1, doc1) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 30.0), ts)?;
+        let (key2, doc2) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 35.0), ts)?;
+        let (key3, doc3) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 40.0), ts)?;
+        let _ = f.populate_doc(index_id, false, &fields, assert_obj!("age" => 45.0), ts)?;
+        let _ = f.populate_doc(index_id, false, &fields, assert_obj!("age" => 50.0), ts)?;
         let interval_gt_18 = interval_gte(18.0)?;
         let d = DatabaseIndexSnapshotCacheResult::Document;
         let cache_miss = DatabaseIndexSnapshotCacheResult::CacheMiss;
