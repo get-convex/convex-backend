@@ -755,9 +755,9 @@ pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
     });
 
 /// The maximum number of writes per second allowed for mutations.
-/// Default 64 MiB
+/// Default 16 MiB
 pub static MAX_BYTES_WRITTEN_PER_SECOND: LazyLock<u64> =
-    LazyLock::new(|| env_config("MAX_BYTES_WRITTEN_PER_SECOND", 64 * 1024 * 1024));
+    LazyLock::new(|| env_config("MAX_BYTES_WRITTEN_PER_SECOND", 16 * 1024 * 1024));
 
 /// The time window (in milliseconds) used to track write throughput.
 pub static WRITE_THROUGHPUT_WINDOW: LazyLock<Duration> =
