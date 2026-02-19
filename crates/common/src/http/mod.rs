@@ -1235,6 +1235,7 @@ async fn log_middleware(
         || path == "/api/actions/mutation"
         || path == "/api/actions/action"
         || path == "/api/stream_function_logs"
+        || path == "/api/app_metrics/stream_function_logs"
         || path == "/";
 
     let level = if high_volume {
