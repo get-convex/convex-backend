@@ -901,15 +901,30 @@ impl DocumentSchema {
             DocumentSchema::Any => Ok(None),
             DocumentSchema::Union(validators) => {
                 let user_fields = value.clone().filter_system_fields();
+
+                // Prefer the first strict validator that matches.
                 for obj_validator in validators {
+                    if obj_validator.unknown_keys.strips_unknown_fields() {
+                        continue;
+                    }
+                    if obj_validator
+                        .check_value(&user_fields, table_mapping, virtual_system_mapping)
+                        .is_ok()
+                    {
+                        return Ok(None);
+                    }
+                }
+
+                // Otherwise use the first strip validator that matches.
+                for obj_validator in validators {
+                    if !obj_validator.unknown_keys.strips_unknown_fields() {
+                        continue;
+                    }
                     if obj_validator
                         .check_value(&user_fields, table_mapping, virtual_system_mapping)
                         .is_err()
                     {
                         continue;
-                    }
-                    if !obj_validator.unknown_keys.strips_unknown_fields() {
-                        return Ok(None);
                     }
                     let stripped = obj_validator.strip_unknown_fields(user_fields)?;
                     let mut fields: BTreeMap<FieldName, ConvexValue> =
