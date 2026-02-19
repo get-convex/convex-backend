@@ -19,7 +19,6 @@ use axum::response::IntoResponse;
 use common::{
     self,
     components::ComponentPath,
-    execution_context::ExecutionId,
     http::{
         extract::{
             Json,
@@ -28,8 +27,6 @@ use common::{
         HttpResponseError,
     },
     schemas::json::DatabaseSchemaJson,
-    types::UdfIdentifier,
-    RequestId,
 };
 use errors::ErrorMetadata;
 use fivetran_destination::api_types::{
@@ -44,7 +41,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use usage_tracking::CallType;
+use usage_tracking::FunctionUsageTracker;
 use value::{
     identifier::IDENTIFIER_REQUIREMENTS,
     TableName,
@@ -74,7 +71,7 @@ pub async fn import_airbyte_records(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
 
-    let usage = usage_tracking::FunctionUsageTracker::new();
+    let usage = FunctionUsageTracker::new();
 
     let records = messages
         .into_iter()
@@ -89,17 +86,8 @@ pub async fn import_airbyte_records(
         .import_airbyte_records(&identity, records, tables, usage.clone())
         .await?;
 
-    st.application
-        .usage_counter()
-        .track_call(
-            UdfIdentifier::SystemJob("streaming_import".to_string()),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Import,
-            true,
-            usage.gather_user_stats(),
-        )
-        .await;
+    // Not tracking streaming_import
+    drop(usage);
 
     Ok(StatusCode::OK)
 }
@@ -111,23 +99,14 @@ pub async fn apply_fivetran_operations(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
 
-    let usage = usage_tracking::FunctionUsageTracker::new();
+    let usage = FunctionUsageTracker::new();
 
     st.application
         .apply_fivetran_operations(&identity, rows, usage.clone())
         .await?;
 
-    st.application
-        .usage_counter()
-        .track_call(
-            UdfIdentifier::SystemJob("streaming_import".to_string()),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Import,
-            true,
-            usage.gather_user_stats(),
-        )
-        .await;
+    // Not tracking streaming_import
+    drop(usage);
 
     Ok(StatusCode::OK)
 }
@@ -174,7 +153,7 @@ pub async fn clear_tables(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
 
-    let usage = usage_tracking::FunctionUsageTracker::new();
+    let usage = FunctionUsageTracker::new();
 
     let table_names = table_names
         .into_iter()
@@ -196,17 +175,8 @@ pub async fn clear_tables(
         )
         .await?;
 
-    st.application
-        .usage_counter()
-        .track_call(
-            UdfIdentifier::SystemJob("streaming_import".to_string()),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Import,
-            true,
-            usage.gather_user_stats(),
-        )
-        .await;
+    // Not tracking streaming_import
+    drop(usage);
 
     Ok(StatusCode::OK)
 }
@@ -235,7 +205,7 @@ pub async fn fivetran_truncate_table(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
 
-    let usage = usage_tracking::FunctionUsageTracker::new();
+    let usage = FunctionUsageTracker::new();
 
     let table_name = table_name.parse::<ValidIdentifier<TableName>>()?;
 
@@ -250,17 +220,8 @@ pub async fn fivetran_truncate_table(
             )
             .await?;
 
-        st.application
-            .usage_counter()
-            .track_call(
-                UdfIdentifier::SystemJob("streaming_import".to_string()),
-                ExecutionId::new(),
-                RequestId::new(),
-                CallType::Import,
-                true,
-                usage.gather_user_stats(),
-            )
-            .await;
+        // Not tracking streaming_import
+        drop(usage);
 
         return Ok(StatusCode::OK);
     }
@@ -275,17 +236,8 @@ pub async fn fivetran_truncate_table(
         )
         .await?;
 
-    st.application
-        .usage_counter()
-        .track_call(
-            UdfIdentifier::SystemJob("streaming_import".to_string()),
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Import,
-            true,
-            usage.gather_user_stats(),
-        )
-        .await;
+    // Not tracking streaming_import
+    drop(usage);
 
     Ok(StatusCode::OK)
 }
