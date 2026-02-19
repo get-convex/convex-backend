@@ -18,7 +18,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity).await?;
         let mut model = BackendStateModel::new(&mut tx);
-        let old_state = model.get_backend_state().await?;
+        let old_state = model.get_backend_state().await?.into_value();
         model.toggle_backend_state(new_state).await?;
         let deployment_audit_log_event = DeploymentAuditLogEvent::ChangeDeploymentState {
             old_state,
