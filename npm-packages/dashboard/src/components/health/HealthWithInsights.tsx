@@ -35,7 +35,6 @@ import {
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";
-import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 // We need a context here so the insights components can have data provided to them without rerendering the Health page.
 const InsightsContext = createContext<
@@ -49,7 +48,6 @@ const InsightsContext = createContext<
 >(undefined);
 
 export function HealthWithInsights() {
-  const flags = useLaunchDarkly();
   const { query, push } = useRouter();
   const page = (query.view as string)?.startsWith("insight:")
     ? (query.view as string)
@@ -235,10 +233,6 @@ export function HealthWithInsights() {
         header={header}
         PagesWrapper={InsightsWrapper}
         PageWrapper={PageWrapper}
-        flags={{
-          healthPageFunctionCallsChart: flags.healthPageFunctionCallsChart,
-          healthSummaryLineItems: flags.healthSummaryLineItems,
-        }}
         deployment={deployment}
         teamSlug={team?.slug}
         projectSlug={project?.slug}

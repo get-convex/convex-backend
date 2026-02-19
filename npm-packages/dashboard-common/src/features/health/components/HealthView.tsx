@@ -5,9 +5,6 @@ import { SchedulerStatus } from "@common/elements/SchedulerStatus";
 import { FunctionCalls } from "@common/features/health/components/FunctionCalls";
 import { FailureRate } from "@common/features/health/components/FailureRate";
 import { CacheHitRate } from "@common/features/health/components/CacheHitRate";
-import { ExceptionReporting } from "@common/features/health/components/ExceptionReporting";
-import { LogStreams } from "@common/features/health/components/LogStreams";
-import { LastDeployed } from "@common/features/health/components/LastDeployed";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { PageContent } from "@common/elements/PageContent";
 import { useConcurrencyStatus } from "@common/features/health/components/ConcurrencyStatus";
@@ -21,7 +18,6 @@ export function HealthView({
   header,
   PageWrapper,
   PagesWrapper,
-  flags,
   deployment,
   teamSlug,
   projectSlug,
@@ -33,10 +29,6 @@ export function HealthView({
   header: JSX.Element;
   PageWrapper: React.FC<{ children: React.ReactNode }>;
   PagesWrapper: React.FC<{ children: React.ReactNode }>;
-  flags?: {
-    healthPageFunctionCallsChart?: boolean;
-    healthSummaryLineItems?: boolean;
-  };
   deployment?: PlatformDeploymentResponse;
   teamSlug?: string;
   projectSlug?: string;
@@ -50,7 +42,7 @@ export function HealthView({
     lag,
     running,
     queued,
-  } = useConcurrencyStatus(flags?.healthPageFunctionCallsChart ?? false);
+  } = useConcurrencyStatus();
 
   return (
     <PageContent>
@@ -60,29 +52,17 @@ export function HealthView({
         <PagesWrapper>
           <PageWrapper>
             <div>
-              {flags?.healthSummaryLineItems ? (
-                deployment &&
-                teamSlug &&
-                projectSlug && (
-                  <DisclosureSection id="summary" title="Summary" defaultOpen>
-                    <DeploymentSummary
-                      deployment={deployment}
-                      teamSlug={teamSlug}
-                      projectSlug={projectSlug}
-                      lastBackupTime={lastBackupTime}
-                      creatorId={creatorId}
-                      creatorName={creatorName}
-                      regions={regions}
-                    />
-                  </DisclosureSection>
-                )
-              ) : (
+              {deployment && teamSlug && projectSlug && (
                 <DisclosureSection id="summary" title="Summary" defaultOpen>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <LastDeployed />
-                    <ExceptionReporting />
-                    <LogStreams />
-                  </div>
+                  <DeploymentSummary
+                    deployment={deployment}
+                    teamSlug={teamSlug}
+                    projectSlug={projectSlug}
+                    lastBackupTime={lastBackupTime}
+                    creatorId={creatorId}
+                    creatorName={creatorName}
+                    regions={regions}
+                  />
                 </DisclosureSection>
               )}
 
@@ -92,14 +72,12 @@ export function HealthView({
                 defaultOpen
                 closedDescription={
                   <span className="text-xs text-content-secondary">
-                    {flags?.healthPageFunctionCallsChart
-                      ? "3 charts"
-                      : "2 charts"}
+                    3 charts
                   </span>
                 }
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {flags?.healthPageFunctionCallsChart && <FunctionCalls />}
+                  <FunctionCalls />
                   <FailureRate />
                   <CacheHitRate />
                 </div>
