@@ -714,7 +714,7 @@ where
     let validation_options = ValidationOptions {
         claim_presence_options: ClaimPresenceOptions {
             issuer: Presence::Required,
-            audience: Presence::Optional, // WorkOS may not include audience
+            audience: Presence::Required,
             subject: Presence::Required,
             expiry: Presence::Required,
             ..Default::default()
@@ -782,33 +782,23 @@ where
         },
     }
 
-    match &claims.registered.audience {
-        None => {
-            tracing::info!(
-                audience = ?Option::<String>::None,
-                issuer = %issuer,
-                subject = ?claims.registered.subject,
-                "WorkOS access token has no audience"
-            );
-        },
-        Some(audiences) => {
-            if !audiences.iter().any(|a| a == workos_client_id) {
-                tracing::info!(
-                    audience = ?audiences,
-                    expected_audience = %workos_client_id,
-                    issuer = %issuer,
-                    subject = ?claims.registered.subject,
-                    "WorkOS access token does not have valid audience"
-                );
-                // Temporarily disable this forbidden error, while we audit
-                // existing usage anyhow::bail!
-                // (ErrorMetadata::forbidden(
-                //     "AccessTokenForbidden",
-                //     format!("Audience does not contain WorkOS client ID
-                // {workos_client_id}"), ));
-            }
-        },
-    }
+    let audiences = claims.registered.audience.as_ref().ok_or_else(|| {
+        ErrorMetadata::unauthenticated("AccessTokenInvalid", "Access Token missing audience claim")
+    })?;
+    if !audiences.iter().any(|a| a == workos_client_id) {
+        tracing::info!(
+            audience = ?audiences,
+            expected_audience = %workos_client_id,
+            issuer = %issuer,
+            subject = ?claims.registered.subject,
+            "WorkOS access token does not have valid audience"
+        );
+        anyhow::bail!(ErrorMetadata::forbidden(
+            "AccessTokenForbidden",
+            format!("Audience does not contain WorkOS client ID {workos_client_id}"),
+        ));
+    };
+
     let full_name = names_to_full_name(
         claims.private.first_name.clone(),
         claims.private.last_name.clone(),
