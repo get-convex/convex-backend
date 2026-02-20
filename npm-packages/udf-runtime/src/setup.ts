@@ -5,6 +5,7 @@ import { setupConsole } from "./02_console";
 import { setupEvent } from "./02_event";
 import { setupTimers } from "./02_timers.js";
 import { setupAbortSignal } from "./03_abort_signal.js";
+import { setupAsyncHooks } from "./04_async_hooks.js";
 import { setupStreams } from "./06_streams.js";
 import { setupTextEncoding } from "./08_text_encoding.js";
 import { setupBlob } from "./09_file.js";
@@ -43,6 +44,7 @@ export function setup(global: any) {
   setupStructuredClone(global);
   setupTimers(global);
   setupAbortSignal(global);
+  setupAsyncHooks(global);
   setupStreams(global);
   setupTextEncoding(global);
   setupBlob(global);

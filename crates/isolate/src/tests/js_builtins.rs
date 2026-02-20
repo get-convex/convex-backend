@@ -268,3 +268,15 @@ async fn test_structured_clone(rt: TestRuntime) -> anyhow::Result<()> {
     })
     .await
 }
+
+#[convex_macro::test_runtime]
+async fn test_async_hooks(rt: TestRuntime) -> anyhow::Result<()> {
+    // AsyncLocalStorage tests require actions since they involve async/await and
+    // setTimeout
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+        must_let!(let ConvexValue::String(r) = t.action("js_builtins/async_hooks", assert_obj!()).await?);
+        assert_eq!(String::from(r), "success".to_string());
+        Ok(())
+    })
+    .await
+}

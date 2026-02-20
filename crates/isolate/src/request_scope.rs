@@ -275,6 +275,20 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
             .get_function(scope)
             .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
 
+        let get_continuation_preserved_embedder_data_template =
+            v8::FunctionTemplate::new(scope, Self::get_continuation_preserved_embedder_data);
+        let get_continuation_preserved_embedder_data_value =
+            get_continuation_preserved_embedder_data_template
+                .get_function(scope)
+                .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
+
+        let set_continuation_preserved_embedder_data_template =
+            v8::FunctionTemplate::new(scope, Self::set_continuation_preserved_embedder_data);
+        let set_continuation_preserved_embedder_data_value =
+            set_continuation_preserved_embedder_data_template
+                .get_function(scope)
+                .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
+
         let convex_key = strings::Convex.create(scope)?;
         let convex_value: v8::Local<v8::Object> = global
             .get(scope, convex_key.into())
@@ -293,6 +307,25 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
 
         let async_op_key = strings::asyncOp.create(scope)?;
         convex_value.set(scope, async_op_key.into(), async_op_value.into());
+
+        let get_continuation_preserved_embedder_data_key =
+            strings::getContinuationPreservedEmbedderData.create(scope)?;
+        convex_value.set(
+            scope,
+            get_continuation_preserved_embedder_data_key.into(),
+            get_continuation_preserved_embedder_data_value.into(),
+        );
+
+        let set_continuation_preserved_embedder_data_key =
+            strings::setContinuationPreservedEmbedderData.create(scope)?;
+        convex_value.set(
+            scope,
+            set_continuation_preserved_embedder_data_key.into(),
+            set_continuation_preserved_embedder_data_value.into(),
+        );
+
+        // Clear continuation-preserved data at the start of every request.
+        scope.set_continuation_preserved_embedder_data(v8::undefined(scope).into());
 
         Ok(())
     }
@@ -321,6 +354,28 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         if let Err(e) = start_async_op(&mut scope, args, rv) {
             Self::handle_syscall_or_op_error(&mut scope, e)
         }
+    }
+
+    pub(crate) fn get_continuation_preserved_embedder_data(
+        scope: &mut v8::PinScope,
+        _args: v8::FunctionCallbackArguments,
+        mut rv: v8::ReturnValue,
+    ) {
+        let value = scope.get_continuation_preserved_embedder_data();
+        rv.set(value);
+    }
+
+    pub(crate) fn set_continuation_preserved_embedder_data(
+        scope: &mut v8::PinScope,
+        args: v8::FunctionCallbackArguments,
+        _rv: v8::ReturnValue,
+    ) {
+        let value = if args.length() > 0 {
+            args.get(0)
+        } else {
+            v8::undefined(scope).into()
+        };
+        scope.set_continuation_preserved_embedder_data(value);
     }
 
     pub(crate) fn syscall(
@@ -567,6 +622,10 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Drop
     for RequestScope<'a, 's, 'i, RT, E>
 {
     fn drop(&mut self) {
+        let undefined = v8::undefined(self.scope);
+        self.scope
+            .set_continuation_preserved_embedder_data(undefined.into());
+
         // Remove state from slot to stop Timeouts.
         self.take_state();
         // Remove module map from slot to avoid memory leak.
