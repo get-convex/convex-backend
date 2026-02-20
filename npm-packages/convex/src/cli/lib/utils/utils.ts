@@ -429,7 +429,9 @@ export async function selectRegionOrUseDefault(
   ctx: Context,
   selectedTeam: TeamResponse,
 ) {
-  const noDefaultRegionMessage = `Configure a default region for your team at ${chalkStderr.bold(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`;
+  const noDefaultRegionMessage = chalkStderr.gray(
+    `Tip: you can configure a default region for your team at ${chalkStderr.underline(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`,
+  );
   if (!process.stdin.isTTY) {
     // Use the team default in non-interactive terminals
     if (!selectedTeam.defaultRegion) {
@@ -472,7 +474,10 @@ export async function selectRegion(
       return 0;
     });
   return await promptOptions(ctx, {
-    message: "Dev deployment region:",
+    message: "Where should this dev deployment run?",
+    suffix: `\n${chalkStderr.gray(
+      "See https://www.convex.dev/pricing for pricing",
+    )}`,
     choices,
   });
 }
