@@ -32,6 +32,7 @@ use common::{
     },
     fastrace_helpers::get_sampled_span,
     knobs::{
+        MAX_TRANSACTION_WINDOW,
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE,
         SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY,
@@ -62,6 +63,7 @@ use common::{
 use database::{
     Database,
     ResolvedQuery,
+    TimestampedIndexCache,
     Transaction,
 };
 use errors::{
@@ -167,6 +169,9 @@ pub struct ScheduledJobExecutor<RT: Runtime> {
     last_stats_log: SystemTime,
     /// The last logged value of `next_job_ready_time`
     last_logged_ready_time: Option<SystemTime>,
+    /// Index cache from the previous loop that can be fast-forwarded and reused
+    /// in the next transaction to query scheduled jobs to run.
+    index_cache: Option<TimestampedIndexCache>,
 }
 
 #[derive(Clone)]
@@ -219,6 +224,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             last_stats_log: rt.system_time(),
             // This value will force the first call to `run_once` to log
             last_logged_ready_time: Some(SystemTime::UNIX_EPOCH),
+            index_cache: None,
         };
         let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
         tracing::info!("Starting scheduled job executor");
@@ -240,7 +246,24 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         pause_client.wait(SCHEDULER_STARTED).await;
         let _timer = metrics::run_scheduled_jobs_loop();
 
-        let mut tx = self.context.database.begin(Identity::Unknown(None)).await?;
+        let maybe_index_cache = if let Some(index_cache) = self.index_cache.take() {
+            let (end_ts, snapshot) = self.context.database.latest_ts_and_snapshot()?;
+            self.context
+                .database
+                .log()
+                .fast_forward_index_cache(index_cache, &snapshot.index_registry, end_ts)
+                .await?
+        } else {
+            None
+        };
+        let mut tx = if let Some(fast_forwarded_index_cache) = maybe_index_cache {
+            self.context
+                .database
+                .begin_with_index_cache(Identity::Unknown(None), fast_forwarded_index_cache)
+                .await?
+        } else {
+            self.context.database.begin(Identity::Unknown(None)).await?
+        };
         let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
         let is_backend_stopped = backend_state.is_stopped();
 
@@ -296,13 +319,19 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             Either::Right(std::future::pending())
         };
 
-        let token = tx.into_token()?;
+        let (token, index_cache) = tx.into_token_and_index_cache()?;
+        self.index_cache = Some(index_cache);
         let subscription_fut = self
             .context
             .database
             .subscribe_and_wait_for_invalidation(token);
 
         let mut job_ids: Vec<_> = Vec::new();
+        let drop_index_cache = async {
+            self.context.rt.wait(*MAX_TRANSACTION_WINDOW).await;
+            self.index_cache.take();
+            std::future::pending::<()>().await
+        };
         select_biased! {
             num_jobs = self.job_finished_rx
                 .recv_many(&mut job_ids, *SCHEDULED_JOB_EXECUTION_PARALLELISM)
@@ -321,6 +350,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             _ = next_job_future.fuse() => {
             },
             _ = subscription_fut.fuse() => {
+            },
+            _ = drop_index_cache.fuse() => {
             },
         }
         Ok(())
