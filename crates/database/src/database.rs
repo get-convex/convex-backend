@@ -122,6 +122,7 @@ use indexing::{
         BackendInMemoryIndexes,
         DatabaseIndexSnapshot,
         NoInMemoryIndexes,
+        TimestampedIndexCache,
     },
     index_registry::IndexRegistry,
 };
@@ -906,6 +907,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             Arc::new(NoInMemoryIndexes),
             self.snapshot.table_registry.table_mapping().clone(),
             self.persistence_snapshot.clone(),
+            None,
         );
 
         let id_generator = TransactionIdGenerator::new(&self.runtime.clone())?;
@@ -1724,7 +1726,8 @@ impl<RT: Runtime> Database<RT> {
         usage: FunctionUsageTracker,
     ) -> anyhow::Result<Transaction<RT>> {
         let ts = self.now_ts_for_reads();
-        self.begin_with_repeatable_ts(identity, ts, usage).await
+        self.begin_with_repeatable_ts(identity, ts, usage, None)
+            .await
     }
 
     pub async fn begin_with_ts(
@@ -1737,7 +1740,7 @@ impl<RT: Runtime> Database<RT> {
             let snapshot_manager = self.snapshot_manager.lock();
             snapshot_manager.latest_ts().prior_ts(ts)?
         };
-        self.begin_with_repeatable_ts(identity, ts, usage_tracker)
+        self.begin_with_repeatable_ts(identity, ts, usage_tracker, None)
             .await
     }
 
@@ -1746,6 +1749,7 @@ impl<RT: Runtime> Database<RT> {
         identity: Identity,
         repeatable_ts: RepeatableTimestamp,
         usage_tracker: FunctionUsageTracker,
+        index_cache: Option<TimestampedIndexCache>,
     ) -> anyhow::Result<Transaction<RT>> {
         task::consume_budget().await;
 
@@ -1775,6 +1779,7 @@ impl<RT: Runtime> Database<RT> {
                     self.retention_manager.clone(),
                 )
                 .read_snapshot(repeatable_ts)?,
+                index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
                 snapshot.index_registry,
@@ -1799,6 +1804,20 @@ impl<RT: Runtime> Database<RT> {
             self.virtual_system_mapping.clone(),
         );
         Ok(tx)
+    }
+
+    pub async fn begin_with_index_cache(
+        &self,
+        identity: Identity,
+        index_cache: TimestampedIndexCache,
+    ) -> anyhow::Result<Transaction<RT>> {
+        self.begin_with_repeatable_ts(
+            identity,
+            index_cache.ts,
+            FunctionUsageTracker::new(),
+            Some(index_cache),
+        )
+        .await
     }
 
     pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
