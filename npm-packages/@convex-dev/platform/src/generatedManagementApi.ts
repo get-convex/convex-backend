@@ -637,6 +637,8 @@ export interface components {
             /** @description This shortened version of the name used in Convex Dashboard URLs. */
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
+            /** @description The slug of the team that owns this project. */
+            teamSlug: components["schemas"]["TeamSlug"];
         };
         PlatformTokenDetailsResponse: {
             /**
@@ -684,6 +686,7 @@ export interface components {
             /** @description The role of the team member */
             role: components["schemas"]["Role"];
         };
+        TeamSlug: string;
     };
     responses: never;
     parameters: never;
@@ -728,6 +731,7 @@ export type RequestDestination = components['schemas']['RequestDestination'];
 export type Role = components['schemas']['Role'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMember = components['schemas']['TeamMember'];
+export type TeamSlug = components['schemas']['TeamSlug'];
 export type $defs = Record<string, never>;
 export interface operations {
     "create project": {

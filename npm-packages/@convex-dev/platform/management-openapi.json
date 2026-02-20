@@ -1464,6 +1464,7 @@
           "name",
           "slug",
           "teamId",
+          "teamSlug",
           "createTime"
         ],
         "properties": {
@@ -1485,6 +1486,10 @@
           },
           "teamId": {
             "$ref": "#/components/schemas/TeamId"
+          },
+          "teamSlug": {
+            "$ref": "#/components/schemas/TeamSlug",
+            "description": "The slug of the team that owns this project."
           }
         }
       },
@@ -1615,6 +1620,9 @@
             "description": "The role of the team member"
           }
         }
+      },
+      "TeamSlug": {
+        "type": "string"
       }
     },
     "securitySchemes": {
