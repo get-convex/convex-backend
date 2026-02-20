@@ -18,6 +18,7 @@ type DataModel = {
     indexes: {};
     searchIndexes: {};
     vectorIndexes: {};
+    computedFields: never;
   };
 };
 type DB = GenericDatabaseReader<DataModel>;

@@ -444,6 +444,218 @@ impl DatabaseSchema {
         Ok(())
     }
 
+    /// Checks whether FlowField and ComputedField references are valid.
+    ///
+    /// Validates:
+    /// 1. FlowField source tables exist in the schema.
+    /// 2. FlowField key fields exist on the source table.
+    /// 3. FlowField aggregation fields exist on the source table (for
+    ///    sum/avg/min/max/lookup).
+    /// 4. FlowFilter `$field` references in filters point to declared
+    ///    FlowFilters.
+    /// 5. ComputedField `$field` references point to existing stored or
+    ///    flow/computed fields.
+    /// 6. No circular dependencies among computed fields.
+    pub fn check_flow_field_references(&self) -> anyhow::Result<()> {
+        if !self.schema_validation {
+            return Ok(());
+        }
+
+        for (table_name, table_def) in &self.tables {
+            // Collect declared FlowFilter names for this table.
+            let flow_filter_names: BTreeSet<&str> = table_def
+                .flow_filters
+                .iter()
+                .map(|ff| ff.field_name.as_ref())
+                .collect();
+
+            // Validate each FlowField.
+            for flow_field in &table_def.flow_fields {
+                // 1. Source table must exist.
+                let source_def = self.tables.get(&flow_field.source).ok_or_else(|| {
+                    anyhow::anyhow!(ErrorMetadata::bad_request(
+                        "SchemaDefinitionError",
+                        format!(
+                            "In table \"{table_name}\" the flow field \"{}\" references source \
+                             table \"{}\" which does not exist in the schema.",
+                            flow_field.field_name, flow_field.source
+                        ),
+                    ))
+                })?;
+
+                // 2. Key field must exist on the source table's schema.
+                if let Some(doc_schema) = &source_def.document_type {
+                    let key_path: FieldPath = flow_field.key.parse().map_err(|_| {
+                        anyhow::anyhow!(ErrorMetadata::bad_request(
+                            "SchemaDefinitionError",
+                            format!(
+                                "In table \"{table_name}\" the flow field \"{}\" has an invalid \
+                                 key field path \"{}\".",
+                                flow_field.field_name, flow_field.key
+                            ),
+                        ))
+                    })?;
+                    if !doc_schema.can_contain_field(&key_path) {
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "SchemaDefinitionError",
+                            format!(
+                                "In table \"{table_name}\" the flow field \"{}\" references key \
+                                 field \"{}\" which does not exist on source table \"{}\".",
+                                flow_field.field_name, flow_field.key, flow_field.source
+                            ),
+                        ));
+                    }
+
+                    // 3. Aggregation field must exist (for field-based aggregations).
+                    if let Some(agg_field) = &flow_field.field {
+                        let agg_path: FieldPath = agg_field.parse().map_err(|_| {
+                            anyhow::anyhow!(ErrorMetadata::bad_request(
+                                "SchemaDefinitionError",
+                                format!(
+                                    "In table \"{table_name}\" the flow field \"{}\" has an \
+                                     invalid aggregation field path \"{}\".",
+                                    flow_field.field_name, agg_field
+                                ),
+                            ))
+                        })?;
+                        if !doc_schema.can_contain_field(&agg_path) {
+                            anyhow::bail!(ErrorMetadata::bad_request(
+                                "SchemaDefinitionError",
+                                format!(
+                                    "In table \"{table_name}\" the flow field \"{}\" references \
+                                     aggregation field \"{}\" which does not exist on source \
+                                     table \"{}\".",
+                                    flow_field.field_name, agg_field, flow_field.source
+                                ),
+                            ));
+                        }
+                    }
+                }
+
+                // 4. Validate $field references in filters point to declared FlowFilters.
+                if let Some(filter) = &flow_field.filter {
+                    Self::check_filter_field_references(
+                        table_name,
+                        &flow_field.field_name,
+                        filter,
+                        &flow_filter_names,
+                    )?;
+                }
+            }
+
+            // 5. Validate ComputedField $field references.
+            // Collect all known field names: stored fields + flow fields + earlier computed
+            // fields.
+            let mut known_fields: BTreeSet<String> = BTreeSet::new();
+
+            // Add stored fields from the document schema.
+            if let Some(DocumentSchema::Union(validators)) = &table_def.document_type {
+                for obj_validator in validators {
+                    for (field_name, _) in &obj_validator.0 {
+                        known_fields.insert(field_name.to_string());
+                    }
+                }
+            }
+
+            // Add flow field names.
+            for ff in &table_def.flow_fields {
+                known_fields.insert(ff.field_name.to_string());
+            }
+
+            // Evaluate computed fields in order, checking references as we go.
+            for computed in &table_def.computed_fields {
+                Self::check_expr_field_references(
+                    table_name,
+                    &computed.field_name,
+                    &computed.expr,
+                    &known_fields,
+                )?;
+                // This computed field is now available for subsequent computed fields.
+                known_fields.insert(computed.field_name.to_string());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check that `$field` references in a FlowField filter point to declared
+    /// FlowFilters.
+    fn check_filter_field_references(
+        table_name: &TableName,
+        flow_field_name: &IdentifierFieldName,
+        filter: &serde_json::Value,
+        flow_filter_names: &BTreeSet<&str>,
+    ) -> anyhow::Result<()> {
+        if let Some(obj) = filter.as_object() {
+            for (_key, value) in obj {
+                if let Some(inner_obj) = value.as_object() {
+                    if let Some(serde_json::Value::String(ref_name)) = inner_obj.get("$field") {
+                        if !flow_filter_names.contains(ref_name.as_str()) {
+                            anyhow::bail!(ErrorMetadata::bad_request(
+                                "SchemaDefinitionError",
+                                format!(
+                                    "In table \"{table_name}\" the flow field \
+                                     \"{flow_field_name}\" filter references flow filter \
+                                     \"{ref_name}\" which is not declared as a flowFilter on this \
+                                     table.",
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Check that `$fieldName` references in a ComputedField expression point
+    /// to known fields.
+    fn check_expr_field_references(
+        table_name: &TableName,
+        computed_field_name: &IdentifierFieldName,
+        expr: &serde_json::Value,
+        known_fields: &BTreeSet<String>,
+    ) -> anyhow::Result<()> {
+        match expr {
+            serde_json::Value::String(s) => {
+                if let Some(field_ref) = s.strip_prefix('$') {
+                    if !known_fields.contains(field_ref) {
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "SchemaDefinitionError",
+                            format!(
+                                "In table \"{table_name}\" the computed field \
+                                 \"{computed_field_name}\" references field \"${field_ref}\" \
+                                 which does not exist on this table.",
+                            ),
+                        ));
+                    }
+                }
+            },
+            serde_json::Value::Object(obj) => {
+                for (_key, value) in obj {
+                    Self::check_expr_field_references(
+                        table_name,
+                        computed_field_name,
+                        value,
+                        known_fields,
+                    )?;
+                }
+            },
+            serde_json::Value::Array(arr) => {
+                for item in arr {
+                    Self::check_expr_field_references(
+                        table_name,
+                        computed_field_name,
+                        item,
+                        known_fields,
+                    )?;
+                }
+            },
+            _ => {},
+        }
+        Ok(())
+    }
+
     fn is_vector_index_eligible(
         document_schema: &Option<DocumentSchema>,
         vector_field: &FieldPath,

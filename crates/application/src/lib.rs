@@ -1810,6 +1810,7 @@ impl<RT: Runtime> Application<RT> {
         }
 
         schema.check_index_references()?;
+        schema.check_flow_field_references()?;
 
         Ok(schema)
     }

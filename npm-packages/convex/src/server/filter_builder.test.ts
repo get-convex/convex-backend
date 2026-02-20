@@ -24,6 +24,7 @@ type TableInfo = {
   indexes: {};
   searchIndexes: {};
   vectorIndexes: {};
+  computedFields: never;
 };
 
 type FB = FilterBuilder<TableInfo>;

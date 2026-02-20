@@ -7,6 +7,8 @@ import {
   defineSchema,
   defineTable,
   DataModelFromSchemaDefinition,
+  type FlowExpr,
+  type FlowFieldFilter,
 } from "./schema.js";
 import { v, Infer } from "../values/validator.js";
 
@@ -63,6 +65,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
 
@@ -94,6 +97,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
 
@@ -132,6 +136,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -177,6 +182,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -215,6 +221,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -246,6 +253,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -271,6 +279,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -300,6 +309,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -329,6 +339,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -372,6 +383,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -401,6 +413,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
       [tableName: string]: {
         document: any;
@@ -408,6 +421,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: {};
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: string;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -449,6 +463,7 @@ describe("DataModelFromSchemaDefinition", () => {
         indexes: ExpectedIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: never;
       };
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
@@ -628,6 +643,7 @@ test("defineSchema generates search index types", () => {
       indexes: SystemIndexes;
       searchIndexes: ExpectedSearchIndexes;
       vectorIndexes: {};
+      computedFields: never;
     };
   };
   assert<Equals<DataModel, ExpectedDataModel>>();
@@ -694,6 +710,7 @@ test("defineSchema generates vector search index types", () => {
       indexes: SystemIndexes;
       searchIndexes: {};
       vectorIndexes: ExpectedVectorSearchIndexes;
+      computedFields: never;
     };
   };
   assert<Equals<DataModel, ExpectedDataModel>>();
@@ -1000,8 +1017,8 @@ describe("FlowFields, ComputedFields, and FlowFilters", () => {
         returns: v.string(),
         expr: {
           $cond: { $gt: ["$orderCount", 10] },
-          then: "VIP",
-          else: "STANDARD",
+          $then: "VIP",
+          $else: "STANDARD",
         },
       });
 
@@ -1056,8 +1073,8 @@ describe("FlowFields, ComputedFields, and FlowFilters", () => {
           returns: v.string(),
           expr: {
             $cond: { $gt: ["$orderCount", 10] },
-            then: "VIP",
-            else: "STANDARD",
+            $then: "VIP",
+            $else: "STANDARD",
           },
         }),
       orders: defineTable({
@@ -1099,10 +1116,13 @@ describe("FlowFields, ComputedFields, and FlowFilters", () => {
           returns: v.string(),
           expr: {
             $cond: { $gt: ["$orderCount", 10] },
-            then: "VIP",
-            else: "STANDARD",
+            $then: "VIP",
+            $else: "STANDARD",
           },
         }),
+      orders: defineTable({
+        customerId: v.id("customers"),
+      }),
     });
 
     type DataModel = DataModelFromSchemaDefinition<typeof schema>;
@@ -1169,10 +1189,14 @@ describe("FlowFields, ComputedFields, and FlowFilters", () => {
           returns: v.string(),
           expr: {
             $cond: { $gt: ["$totalSpent", 1000] },
-            then: "VIP",
-            else: "STANDARD",
+            $then: "VIP",
+            $else: "STANDARD",
           },
         }),
+      orders: defineTable({
+        customerId: v.id("customers"),
+        amount: v.float64(),
+      }),
     });
 
     type DataModel = DataModelFromSchemaDefinition<typeof schema>;
@@ -1199,9 +1223,157 @@ describe("FlowFields, ComputedFields, and FlowFilters", () => {
         indexes: ExpectedIndexes;
         searchIndexes: {};
         vectorIndexes: {};
+        computedFields: "orderCount" | "totalSpent" | "tier";
+      };
+      orders: {
+        document: {
+          _id: GenericId<"orders">;
+          _creationTime: number;
+          customerId: GenericId<"customers">;
+          amount: number;
+        };
+        fieldPaths: "_id" | "_creationTime" | "customerId" | "amount";
+        indexes: {
+          by_id: ["_id"];
+          by_creation_time: ["_creationTime"];
+        };
+        searchIndexes: {};
+        vectorIndexes: {};
+        computedFields: never;
       };
     };
 
     assert<Equals<DataModel, ExpectedDataModel>>();
+  });
+
+  test("type-level: FlowFields and ComputedFields excluded from WritableFields", () => {
+    const schema = defineSchema({
+      customers: defineTable({
+        name: v.string(),
+        email: v.string(),
+      })
+        .flowField("orderCount", {
+          returns: v.float64(),
+          type: "count",
+          source: "orders",
+          key: "customerId",
+        })
+        .computed("label", {
+          returns: v.string(),
+          expr: { $concat: ["$name", " (", "$email", ")"] },
+        }),
+      orders: defineTable({
+        customerId: v.id("customers"),
+      }),
+    });
+
+    type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+
+    // WritableFields should exclude flow/computed fields and system fields.
+    type Writable = import("./system_fields.js").WritableFields<
+      DataModel["customers"]
+    >;
+
+    type ExpectedWritable = {
+      name: string;
+      email: string;
+    };
+
+    assert<Equals<Writable, ExpectedWritable>>();
+  });
+
+  test("type-level: ReplaceValue excludes FlowFields/ComputedFields, makes system fields optional", () => {
+    const schema = defineSchema({
+      customers: defineTable({
+        name: v.string(),
+      })
+        .flowField("orderCount", {
+          returns: v.float64(),
+          type: "count",
+          source: "orders",
+          key: "customerId",
+        }),
+      orders: defineTable({
+        customerId: v.id("customers"),
+      }),
+    });
+
+    type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+
+    type Replace = import("./system_fields.js").ReplaceValue<
+      DataModel["customers"]
+    >;
+
+    type ExpectedReplace = {
+      name: string;
+      _id?: GenericId<"customers">;
+      _creationTime?: number;
+    };
+
+    assert<Equals<Replace, ExpectedReplace>>();
+  });
+
+  test("type-level: FlowExpr provides autocomplete for field references", () => {
+    // FlowExpr<"name" | "totalSpent"> should accept $-prefixed field names
+    const fieldRef: FlowExpr<"name" | "totalSpent"> = "$name";
+    const fieldRef2: FlowExpr<"name" | "totalSpent"> = "$totalSpent";
+    const literal: FlowExpr<"name" | "totalSpent"> = "VIP";
+    const num: FlowExpr<"name" | "totalSpent"> = 42;
+    const bool: FlowExpr<"name" | "totalSpent"> = true;
+    const nil: FlowExpr<"name" | "totalSpent"> = null;
+    void fieldRef;
+    void fieldRef2;
+    void literal;
+    void num;
+    void bool;
+    void nil;
+
+    // Nested expressions maintain field name generics
+    const cond: FlowExpr<"name" | "totalSpent"> = {
+      $cond: { $gt: ["$totalSpent", 1000] },
+      $then: "VIP",
+      $else: "STANDARD",
+    };
+    void cond;
+
+    const concat: FlowExpr<"name" | "totalSpent"> = {
+      $concat: ["$name", " (", "$totalSpent", ")"],
+    };
+    void concat;
+  });
+
+  test("type-level: FlowFieldFilter provides autocomplete for $field refs", () => {
+    // FlowFieldFilter<"dateFilter"> should accept { $field: "dateFilter" }
+    const filter: FlowFieldFilter<"dateFilter" | "dimFilter"> = {
+      postingDate: { $field: "dateFilter" },
+      dimension: { $field: "dimFilter" },
+      status: "completed",
+      count: 5,
+      active: true,
+    };
+    void filter;
+  });
+
+  test("type-level: tables without flow fields have computedFields: never", () => {
+    const schema = defineSchema({
+      simple: defineTable({
+        value: v.string(),
+      }),
+    });
+
+    type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+
+    // computedFields should be never for tables without flow/computed fields.
+    type CF = DataModel["simple"]["computedFields"];
+    assert<Equals<CF, never>>();
+
+    // WritableFields should include all user fields.
+    type Writable = import("./system_fields.js").WritableFields<
+      DataModel["simple"]
+    >;
+    type ExpectedWritable = {
+      value: string;
+    };
+    assert<Equals<Writable, ExpectedWritable>>();
   });
 });

@@ -253,8 +253,6 @@ fn matches_filter(doc: &ResolvedDocument, filter: &serde_json::Value) -> bool {
         None => return true,
     };
 
-    let doc_fields: BTreeMap<FieldName, ConvexValue> = doc.value().0.clone().into();
-
     for (key, expected_value) in filter_obj {
         // Skip $field references (FlowFilter parameters — Phase 4).
         if let Some(obj) = expected_value.as_object() {
@@ -268,7 +266,7 @@ fn matches_filter(doc: &ResolvedDocument, filter: &serde_json::Value) -> bool {
             Err(_) => return false,
         };
 
-        let actual = match doc_fields.get(&field_name) {
+        let actual = match doc.value().0.get(&field_name) {
             Some(v) => v,
             None => return false,
         };
@@ -360,9 +358,8 @@ fn aggregate(
             // Lookup returns the first matching document's field value, or default.
             let field = field.context("lookup aggregation requires a 'field'")?;
             let value = docs.first().and_then(|doc| {
-                let fields: BTreeMap<FieldName, ConvexValue> = doc.value().0.clone().into();
                 let field_name: FieldName = field.parse().ok()?;
-                fields.get(&field_name).cloned()
+                doc.value().0.get(&field_name).cloned()
             });
             Ok(value.unwrap_or_else(|| default_for_validator(returns)))
         },
@@ -371,9 +368,8 @@ fn aggregate(
 
 /// Extract a numeric value from a document's field.
 fn extract_numeric(doc: &ResolvedDocument, field: &str) -> Option<f64> {
-    let fields: BTreeMap<FieldName, ConvexValue> = doc.value().0.clone().into();
     let field_name: FieldName = field.parse().ok()?;
-    match fields.get(&field_name) {
+    match doc.value().0.get(&field_name) {
         Some(ConvexValue::Float64(f)) => Some(*f),
         Some(ConvexValue::Int64(i)) => Some(*i as f64),
         _ => None,
@@ -389,7 +385,7 @@ fn extract_numeric(doc: &ResolvedDocument, field: &str) -> Option<f64> {
 /// - Literals: number, string, bool, null
 /// - `{ "$add": [a, b] }`, `$sub`, `$mul`, `$div` — arithmetic
 /// - `{ "$gt": [a, b] }`, `$gte`, `$lt`, `$lte`, `$eq`, `$ne` — comparisons
-/// - `{ "$cond": <bool_expr>, "then": <expr>, "else": <expr> }` — conditional
+/// - `{ "$cond": <bool_expr>, "$then": <expr>, "$else": <expr> }` — conditional
 /// - `{ "$concat": [a, b, ...] }` — string concatenation
 /// - `{ "$ifNull": [a, b] }` — null coalescing
 pub fn evaluate_expr(
@@ -470,13 +466,18 @@ pub fn evaluate_expr(
                 return eval_eq(args, fields, true);
             }
 
-            // Conditional: { "$cond": <bool_expr>, "then"|"if": <expr>, "else": <expr> }
+            // Conditional: { "$cond": <bool_expr>, "$then": <expr>, "$else": <expr> }
             if let Some(cond) = obj.get("$cond") {
                 let then_expr = obj
-                    .get("then")
-                    .or_else(|| obj.get("if"))
-                    .context("$cond missing 'then' (or 'if') branch")?;
-                let else_expr = obj.get("else").context("$cond missing 'else' branch")?;
+                    .get("$then")
+                    .or_else(|| obj.get("then")) // backward compat
+                    .or_else(|| obj.get("$if"))
+                    .or_else(|| obj.get("if")) // backward compat
+                    .context("$cond missing '$then' branch")?;
+                let else_expr = obj
+                    .get("$else")
+                    .or_else(|| obj.get("else")) // backward compat
+                    .context("$cond missing '$else' branch")?;
                 let cond_value = evaluate_expr(cond, fields)?;
                 return if is_truthy(&cond_value) {
                     evaluate_expr(then_expr, fields)
@@ -624,11 +625,7 @@ mod tests {
 
     use common::schemas::{
         default_for_validator,
-        validator::{
-            FieldValidator,
-            ObjectValidator,
-            Validator,
-        },
+        validator::Validator,
     };
     use serde_json::json;
     use value::ConvexValue;
@@ -863,8 +860,8 @@ mod tests {
         let f = fields(vec![("totalSpent", ConvexValue::Float64(1500.0))]);
         let expr = json!({
             "$cond": {"$gt": ["$totalSpent", 1000]},
-            "then": "VIP",
-            "else": "STANDARD"
+            "$then": "VIP",
+            "$else": "STANDARD"
         });
         assert_eq!(
             evaluate_expr(&expr, &f)?,
@@ -875,6 +872,22 @@ mod tests {
         assert_eq!(
             evaluate_expr(&expr, &f2)?,
             ConvexValue::String("STANDARD".try_into()?)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_cond_backward_compat() -> anyhow::Result<()> {
+        let f = fields(vec![("totalSpent", ConvexValue::Float64(1500.0))]);
+        // Old syntax with "then"/"else" (no $ prefix) should still work.
+        let expr = json!({
+            "$cond": {"$gt": ["$totalSpent", 1000]},
+            "then": "VIP",
+            "else": "STANDARD"
+        });
+        assert_eq!(
+            evaluate_expr(&expr, &f)?,
+            ConvexValue::String("VIP".try_into()?)
         );
         Ok(())
     }

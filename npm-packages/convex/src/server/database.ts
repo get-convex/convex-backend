@@ -1,16 +1,15 @@
 import { GenericId } from "../values/index.js";
+import { BetterOmit } from "../type_utils.js";
 import {
   DocumentByName,
   GenericDataModel,
+  GenericTableInfo,
   NamedTableInfo,
   TableNamesInDataModel,
 } from "./data_model.js";
 import { QueryInitializer } from "./query.js";
 import { SystemDataModel } from "./schema.js";
-import {
-  WithOptionalSystemFields,
-  WithoutSystemFields,
-} from "./system_fields.js";
+import { ReplaceValue, WritableFields } from "./system_fields.js";
 
 interface BaseDatabaseReader<DataModel extends GenericDataModel> {
   /**
@@ -227,7 +226,7 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    */
   insert<TableName extends TableNamesInDataModel<DataModel>>(
     table: TableName,
-    value: WithoutSystemFields<DocumentByName<DataModel, TableName>>,
+    value: WritableFields<NamedTableInfo<DataModel, TableName>>,
   ): Promise<GenericId<TableName>>;
 
   /**
@@ -259,7 +258,7 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   patch<TableName extends TableNamesInDataModel<DataModel>>(
     table: TableName,
     id: GenericId<NonUnion<TableName>>,
-    value: PatchValue<DocumentByName<DataModel, TableName>>,
+    value: WritablePatchValue<NamedTableInfo<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -277,7 +276,7 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    */
   patch<TableName extends TableNamesInDataModel<DataModel>>(
     id: GenericId<TableName>,
-    value: PatchValue<DocumentByName<DataModel, TableName>>,
+    value: WritablePatchValue<NamedTableInfo<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -306,7 +305,7 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   replace<TableName extends TableNamesInDataModel<DataModel>>(
     table: TableName,
     id: GenericId<NonUnion<TableName>>,
-    value: WithOptionalSystemFields<DocumentByName<DataModel, TableName>>,
+    value: ReplaceValue<NamedTableInfo<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -321,7 +320,7 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    */
   replace<TableName extends TableNamesInDataModel<DataModel>>(
     id: GenericId<TableName>,
-    value: WithOptionalSystemFields<DocumentByName<DataModel, TableName>>,
+    value: ReplaceValue<NamedTableInfo<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -388,7 +387,7 @@ export interface BaseTableWriter<
    * @returns - {@link values.GenericId} of the new document.
    */
   insert(
-    value: WithoutSystemFields<DocumentByName<DataModel, TableName>>,
+    value: WritableFields<NamedTableInfo<DataModel, TableName>>,
   ): Promise<GenericId<TableName>>;
 
   /**
@@ -404,7 +403,7 @@ export interface BaseTableWriter<
    */
   patch(
     id: GenericId<TableName>,
-    value: PatchValue<DocumentByName<DataModel, TableName>>,
+    value: WritablePatchValue<NamedTableInfo<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -416,7 +415,7 @@ export interface BaseTableWriter<
    */
   replace(
     id: GenericId<TableName>,
-    value: WithOptionalSystemFields<DocumentByName<DataModel, TableName>>,
+    value: ReplaceValue<NamedTableInfo<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -442,3 +441,11 @@ type NonUnion<T> = T extends never // `never` is the bottom type for TypeScript 
 type PatchValue<T> = {
   [P in keyof T]?: undefined extends T[P] ? T[P] | undefined : T[P];
 };
+
+/**
+ * Patch value that excludes read-only computed fields (FlowFields and
+ * ComputedFields) but allows system fields.
+ */
+type WritablePatchValue<TableInfo extends GenericTableInfo> = PatchValue<
+  BetterOmit<TableInfo["document"], TableInfo["computedFields"]>
+>;

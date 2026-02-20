@@ -172,25 +172,128 @@ export type FlowFieldAggregationType =
   | "exist";
 
 /**
+ * A FlowField expression — recursive type for ComputedField `expr` values.
+ * Generic over `Fields` to provide autocomplete for field references.
+ * @public
+ */
+export type FlowExpr<Fields extends string = string> =
+  | `$${Fields}` // field references — IDE suggests $name, $totalSpent, etc.
+  | (string & {}) // string literals like "VIP" — allows any string without killing autocomplete
+  | number
+  | boolean
+  | null
+  | FlowExprAdd<Fields>
+  | FlowExprSub<Fields>
+  | FlowExprMul<Fields>
+  | FlowExprDiv<Fields>
+  | FlowExprGt<Fields>
+  | FlowExprGte<Fields>
+  | FlowExprLt<Fields>
+  | FlowExprLte<Fields>
+  | FlowExprEq<Fields>
+  | FlowExprNe<Fields>
+  | FlowExprCond<Fields>
+  | FlowExprConcat<Fields>
+  | FlowExprIfNull<Fields>;
+
+/** @public */
+export interface FlowExprAdd<F extends string = string> {
+  $add: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprSub<F extends string = string> {
+  $sub: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprMul<F extends string = string> {
+  $mul: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprDiv<F extends string = string> {
+  $div: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprGt<F extends string = string> {
+  $gt: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprGte<F extends string = string> {
+  $gte: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprLt<F extends string = string> {
+  $lt: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprLte<F extends string = string> {
+  $lte: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprEq<F extends string = string> {
+  $eq: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprNe<F extends string = string> {
+  $ne: [FlowExpr<F>, FlowExpr<F>];
+}
+/** @public */
+export interface FlowExprCond<F extends string = string> {
+  $cond: FlowExpr<F>;
+  $then: FlowExpr<F>;
+  $else: FlowExpr<F>;
+}
+/** @public */
+export interface FlowExprConcat<F extends string = string> {
+  $concat: FlowExpr<F>[];
+}
+/** @public */
+export interface FlowExprIfNull<F extends string = string> {
+  $ifNull: [FlowExpr<F>, FlowExpr<F>];
+}
+
+/** @public */
+export type FlowFieldFilterRef<FilterNames extends string = string> = {
+  $field: FilterNames;
+};
+/** @public */
+export type FlowFieldFilterValue<FilterNames extends string = string> =
+  | string
+  | number
+  | boolean
+  | null
+  | FlowFieldFilterRef<FilterNames>;
+/** @public */
+export type FlowFieldFilter<FilterNames extends string = string> = Record<
+  string,
+  FlowFieldFilterValue<FilterNames>
+>;
+
+type StringKeysOf<T> = Extract<keyof T, string>;
+
+/**
  * The configuration for a FlowField — a cross-table aggregation resolved at read time.
  *
  * @public
  */
 export interface FlowFieldConfig<
   Returns extends Validator<any, any, any> = Validator<any, any, any>,
+  FilterNames extends string = string,
+  Source extends string = string,
+  Key extends string = string,
+  Field extends string = string,
 > {
   /** The validator describing the return type of this FlowField. */
   returns: Returns;
   /** The aggregation type. */
   type: FlowFieldAggregationType;
   /** The source table to aggregate from. */
-  source: string;
+  source: Source;
   /** The field on the source table that references this table's `_id`. */
-  key: string;
+  key: Key;
   /** The field on the source table to aggregate (required for sum/avg/min/max). */
-  field?: string;
+  field?: Field;
   /** Static filter conditions and `{ $field: "flowFilterName" }` references. */
-  filter?: Record<string, unknown>;
+  filter?: FlowFieldFilter<FilterNames>;
 }
 
 /**
@@ -200,11 +303,12 @@ export interface FlowFieldConfig<
  */
 export interface ComputedFieldConfig<
   Returns extends Validator<any, any, any> = Validator<any, any, any>,
+  Fields extends string = string,
 > {
   /** The validator describing the return type of this ComputedField. */
   returns: Returns;
   /** The expression DSL (JSON-serializable). */
-  expr: unknown;
+  expr: FlowExpr<Fields>;
 }
 
 /**
@@ -229,7 +333,7 @@ export type SerializedFlowField = {
   source: string;
   key: string;
   field: string | undefined;
-  filter: Record<string, unknown> | undefined;
+  filter: FlowFieldFilter | undefined;
 };
 
 /**
@@ -238,7 +342,7 @@ export type SerializedFlowField = {
 export type SerializedComputedField = {
   fieldName: string;
   returns: object;
-  expr: unknown;
+  expr: FlowExpr;
 };
 
 /**
@@ -282,6 +386,10 @@ export class TableDefinition<
   FlowFields extends Record<string, any> = {},
   ComputedFields extends Record<string, any> = {},
   FlowFilters extends Record<string, any> = {},
+  FlowFieldRefs extends Record<
+    string,
+    { source: string; key: string; field: string }
+  > = {},
 > {
   private indexes: Index[];
   private stagedDbIndexes: Index[];
@@ -377,7 +485,8 @@ export class TableDefinition<
     VectorIndexes,
     FlowFields,
     ComputedFields,
-    FlowFilters
+    FlowFilters,
+    FlowFieldRefs
   >;
 
   /**
@@ -410,7 +519,8 @@ export class TableDefinition<
     VectorIndexes,
     FlowFields,
     ComputedFields,
-    FlowFilters
+    FlowFilters,
+    FlowFieldRefs
   >;
 
   /**
@@ -439,7 +549,7 @@ export class TableDefinition<
       DbIndexConfig<FirstFieldPath, RestFieldPaths> &
         IndexOptions & { staged: true }
     >,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters>;
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters, FlowFieldRefs>;
 
   index<
     IndexName extends string,
@@ -510,7 +620,8 @@ export class TableDefinition<
     VectorIndexes,
     FlowFields,
     ComputedFields,
-    FlowFilters
+    FlowFilters,
+    FlowFieldRefs
   >;
 
   /**
@@ -539,7 +650,7 @@ export class TableDefinition<
       SearchIndexConfig<SearchField, FilterFields> &
         IndexOptions & { staged: true }
     >,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters>;
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters, FlowFieldRefs>;
 
   searchIndex<
     IndexName extends string,
@@ -603,7 +714,8 @@ export class TableDefinition<
     >,
     FlowFields,
     ComputedFields,
-    FlowFilters
+    FlowFilters,
+    FlowFieldRefs
   >;
 
   /**
@@ -632,7 +744,7 @@ export class TableDefinition<
       VectorIndexConfig<VectorField, FilterFields> &
         IndexOptions & { staged: true }
     >,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters>;
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes, FlowFields, ComputedFields, FlowFilters, FlowFieldRefs>;
 
   vectorIndex<
     IndexName extends string,
@@ -675,9 +787,18 @@ export class TableDefinition<
   flowField<
     Name extends string,
     Returns extends Validator<any, any, any>,
+    Source extends string = string,
+    Key extends string = string,
+    Field extends string = never,
   >(
     name: Name,
-    config: FlowFieldConfig<Returns>,
+    config: FlowFieldConfig<
+      Returns,
+      StringKeysOf<FlowFilters>,
+      Source,
+      Key,
+      Field
+    >,
   ): TableDefinition<
     DocumentType,
     Indexes,
@@ -685,7 +806,11 @@ export class TableDefinition<
     VectorIndexes,
     Expand<FlowFields & Record<Name, Returns["type"]>>,
     ComputedFields,
-    FlowFilters
+    FlowFilters,
+    Expand<
+      FlowFieldRefs &
+        Record<Name, { source: Source; key: Key; field: Field }>
+    >
   >;
   flowField(name: string, config: FlowFieldConfig) {
     this.flowFieldDefs.push({
@@ -715,7 +840,13 @@ export class TableDefinition<
     Returns extends Validator<any, any, any>,
   >(
     name: Name,
-    config: ComputedFieldConfig<Returns>,
+    config: ComputedFieldConfig<
+      Returns,
+      | StringKeysOf<ExtractDocument<DocumentType>>
+      | "_id"
+      | StringKeysOf<FlowFields>
+      | StringKeysOf<ComputedFields>
+    >,
   ): TableDefinition<
     DocumentType,
     Indexes,
@@ -723,7 +854,8 @@ export class TableDefinition<
     VectorIndexes,
     FlowFields,
     Expand<ComputedFields & Record<Name, Returns["type"]>>,
-    FlowFilters
+    FlowFilters,
+    FlowFieldRefs
   >;
   computed(name: string, config: ComputedFieldConfig) {
     this.computedFieldDefs.push({
@@ -757,7 +889,8 @@ export class TableDefinition<
     VectorIndexes,
     FlowFields,
     ComputedFields,
-    Expand<FlowFilters & Record<Name, FilterType["type"]>>
+    Expand<FlowFilters & Record<Name, FilterType["type"]>>,
+    FlowFieldRefs
   >;
   flowFilter(name: string, config: FlowFilterConfig) {
     this.flowFilterDefs.push({
@@ -777,7 +910,8 @@ export class TableDefinition<
     VectorIndexes,
     FlowFields,
     ComputedFields,
-    FlowFilters
+    FlowFilters,
+    FlowFieldRefs
   > {
     return this;
   }
@@ -896,6 +1030,175 @@ export type GenericSchema = Record<string, TableDefinition>;
  * This should be produced by using {@link defineSchema}.
  * @public
  */
+/**
+ * Extract field paths from a table in the schema (stored + system fields).
+ */
+type FieldPathsOfTable<
+  Schema extends GenericSchema,
+  TableName extends keyof Schema & string,
+> = Schema[TableName] extends TableDefinition<
+  infer DocType,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any
+>
+  ? ExtractFieldPaths<DocType> | "_id" | "_creationTime"
+  : string;
+
+/**
+ * Extract flow filter names from a table in the schema.
+ */
+type FlowFilterNamesOfTable<
+  Schema extends GenericSchema,
+  TableName extends keyof Schema & string,
+> = Schema[TableName] extends TableDefinition<
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  infer FFL,
+  any
+>
+  ? StringKeysOf<FFL>
+  : string;
+
+/**
+ * Extract all available fields for computed expressions from a table.
+ */
+type ComputedExprFieldsOfTable<
+  Schema extends GenericSchema,
+  TableName extends keyof Schema & string,
+> = Schema[TableName] extends TableDefinition<
+  infer DocType,
+  any,
+  any,
+  any,
+  infer FF,
+  infer CF,
+  any,
+  any
+>
+  ?
+      | StringKeysOf<ExtractDocument<DocType>>
+      | "_id"
+      | StringKeysOf<FF>
+      | StringKeysOf<CF>
+  : string;
+
+/**
+ * Update a table's FlowFields in the schema type.
+ */
+type SchemaWithFlowField<
+  Schema extends GenericSchema,
+  TableName extends keyof Schema & string,
+  Name extends string,
+  ReturnType,
+  Source extends string,
+  Key extends string,
+  Field extends string,
+> = {
+  [K in keyof Schema]: K extends TableName
+    ? Schema[K] extends TableDefinition<
+        infer D,
+        infer I,
+        infer SI,
+        infer VI,
+        infer FF,
+        infer CF,
+        infer FFL,
+        infer Refs
+      >
+      ? TableDefinition<
+          D,
+          I,
+          SI,
+          VI,
+          Expand<FF & Record<Name, ReturnType>>,
+          CF,
+          FFL,
+          Expand<
+            Refs &
+              Record<Name, { source: Source; key: Key; field: Field }>
+          >
+        >
+      : Schema[K]
+    : Schema[K];
+};
+
+/**
+ * Update a table's ComputedFields in the schema type.
+ */
+type SchemaWithComputedField<
+  Schema extends GenericSchema,
+  TableName extends keyof Schema & string,
+  Name extends string,
+  ReturnType,
+> = {
+  [K in keyof Schema]: K extends TableName
+    ? Schema[K] extends TableDefinition<
+        infer D,
+        infer I,
+        infer SI,
+        infer VI,
+        infer FF,
+        infer CF,
+        infer FFL,
+        infer Refs
+      >
+      ? TableDefinition<
+          D,
+          I,
+          SI,
+          VI,
+          FF,
+          Expand<CF & Record<Name, ReturnType>>,
+          FFL,
+          Refs
+        >
+      : Schema[K]
+    : Schema[K];
+};
+
+/**
+ * Update a table's FlowFilters in the schema type.
+ */
+type SchemaWithFlowFilter<
+  Schema extends GenericSchema,
+  TableName extends keyof Schema & string,
+  Name extends string,
+  FilterType,
+> = {
+  [K in keyof Schema]: K extends TableName
+    ? Schema[K] extends TableDefinition<
+        infer D,
+        infer I,
+        infer SI,
+        infer VI,
+        infer FF,
+        infer CF,
+        infer FFL,
+        infer Refs
+      >
+      ? TableDefinition<
+          D,
+          I,
+          SI,
+          VI,
+          FF,
+          CF,
+          Expand<FFL & Record<Name, FilterType>>,
+          Refs
+        >
+      : Schema[K]
+    : Schema[K];
+};
+
 export class SchemaDefinition<
   Schema extends GenericSchema,
   StrictTableTypes extends boolean,
@@ -903,6 +1206,9 @@ export class SchemaDefinition<
   public tables: Schema;
   public strictTableNameTypes!: StrictTableTypes;
   public readonly schemaValidation: boolean;
+  private additionalFlowFields: Record<string, SerializedFlowField[]>;
+  private additionalComputedFields: Record<string, SerializedComputedField[]>;
+  private additionalFlowFilters: Record<string, SerializedFlowFilter[]>;
 
   /**
    * @internal
@@ -911,6 +1217,145 @@ export class SchemaDefinition<
     this.tables = tables;
     this.schemaValidation =
       options?.schemaValidation === undefined ? true : options.schemaValidation;
+    this.additionalFlowFields = {};
+    this.additionalComputedFields = {};
+    this.additionalFlowFilters = {};
+  }
+
+  /**
+   * Define a FlowField on a table in this schema.
+   *
+   * This schema-level method provides full autocomplete for `source` (table names),
+   * `key` and `field` (field paths of the source table), and `filter.$field`
+   * (FlowFilter names).
+   *
+   * @param tableName - The table to add the FlowField to.
+   * @param name - The name of the FlowField.
+   * @param config - The FlowField configuration.
+   * @returns This {@link SchemaDefinition} with the FlowField included.
+   * @public
+   */
+  flowField<
+    TableName extends keyof Schema & string,
+    Name extends string,
+    Returns extends Validator<any, any, any>,
+    Source extends keyof Schema & string,
+    Key extends FieldPathsOfTable<Schema, Source>,
+    Field extends FieldPathsOfTable<Schema, Source> = never,
+  >(
+    tableName: TableName,
+    name: Name,
+    config: {
+      returns: Returns;
+      type: FlowFieldAggregationType;
+      source: Source;
+      key: Key;
+      field?: Field;
+      filter?: FlowFieldFilter<
+        FlowFilterNamesOfTable<Schema, TableName>
+      >;
+    },
+  ): SchemaDefinition<
+    SchemaWithFlowField<
+      Schema,
+      TableName,
+      Name,
+      Returns["type"],
+      Source,
+      Key,
+      Field
+    >,
+    StrictTableTypes
+  > {
+    const defs = this.additionalFlowFields[tableName] ?? [];
+    defs.push({
+      fieldName: name,
+      returns: config.returns.json,
+      aggregation: config.type,
+      source: config.source,
+      key: config.key,
+      field: config.field,
+      filter: config.filter,
+    });
+    this.additionalFlowFields[tableName] = defs;
+    return this as any;
+  }
+
+  /**
+   * Define a ComputedField on a table in this schema.
+   *
+   * This schema-level method provides autocomplete for `$fieldName`
+   * references including FlowFields added via prior `.flowField()` calls.
+   *
+   * @param tableName - The table to add the ComputedField to.
+   * @param name - The name of the ComputedField.
+   * @param config - The ComputedField configuration.
+   * @returns This {@link SchemaDefinition} with the ComputedField included.
+   * @public
+   */
+  computed<
+    TableName extends keyof Schema & string,
+    Name extends string,
+    Returns extends Validator<any, any, any>,
+  >(
+    tableName: TableName,
+    name: Name,
+    config: ComputedFieldConfig<
+      Returns,
+      ComputedExprFieldsOfTable<Schema, TableName>
+    >,
+  ): SchemaDefinition<
+    SchemaWithComputedField<
+      Schema,
+      TableName,
+      Name,
+      Returns["type"]
+    >,
+    StrictTableTypes
+  > {
+    const defs = this.additionalComputedFields[tableName] ?? [];
+    defs.push({
+      fieldName: name,
+      returns: config.returns.json,
+      expr: config.expr,
+    });
+    this.additionalComputedFields[tableName] = defs;
+    return this as any;
+  }
+
+  /**
+   * Define a FlowFilter on a table in this schema.
+   *
+   * @param tableName - The table to add the FlowFilter to.
+   * @param name - The name of the FlowFilter.
+   * @param config - The FlowFilter configuration.
+   * @returns This {@link SchemaDefinition} with the FlowFilter included.
+   * @public
+   */
+  flowFilter<
+    TableName extends keyof Schema & string,
+    Name extends string,
+    FilterType extends Validator<any, any, any>,
+  >(
+    tableName: TableName,
+    name: Name,
+    config: FlowFilterConfig<FilterType>,
+  ): SchemaDefinition<
+    SchemaWithFlowFilter<
+      Schema,
+      TableName,
+      Name,
+      FilterType["type"]
+    >,
+    StrictTableTypes
+  > {
+    const defs = this.additionalFlowFilters[tableName] ?? [];
+    defs.push({
+      fieldName: name,
+      filterType: config.type.json,
+    });
+    this.additionalFlowFilters[tableName] = defs;
+    return this as any;
   }
 
   /**
@@ -934,6 +1379,9 @@ export class SchemaDefinition<
           computedFields,
           flowFilters,
         } = definition.export();
+        const extraFF = this.additionalFlowFields[tableName] ?? [];
+        const extraCF = this.additionalComputedFields[tableName] ?? [];
+        const extraFFL = this.additionalFlowFilters[tableName] ?? [];
         return {
           tableName,
           indexes,
@@ -943,9 +1391,9 @@ export class SchemaDefinition<
           vectorIndexes,
           stagedVectorIndexes,
           documentType,
-          flowFields,
-          computedFields,
-          flowFilters,
+          flowFields: [...flowFields, ...extraFF],
+          computedFields: [...computedFields, ...extraCF],
+          flowFilters: [...flowFilters, ...extraFFL],
         };
       }),
       schemaValidation: this.schemaValidation,
@@ -1056,11 +1504,66 @@ export interface DefineSchemaOptions<StrictTableNameTypes extends boolean> {
  * @see https://docs.convex.dev/database/schemas
  * @public
  */
+/**
+ * Validates that all FlowField `source`/`key`/`field` references point to
+ * existing tables and fields.  Resolves to `never` when valid, or a union
+ * of human-readable error strings when invalid.
+ */
+type FlowFieldRefErrors<Schema extends GenericSchema> = {
+  [Table in keyof Schema & string]: Schema[Table] extends TableDefinition<
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    infer Refs
+  >
+    ? {
+        [FF in keyof Refs & string]: Refs[FF] extends {
+          source: infer S extends string;
+          key: infer K extends string;
+          field: infer F;
+        }
+          ? S extends keyof Schema & string
+            ? Schema[S] extends TableDefinition<
+                infer SourceDoc,
+                any,
+                any,
+                any,
+                any,
+                any,
+                any,
+                any
+              >
+              ? K extends
+                  | ExtractFieldPaths<SourceDoc>
+                  | keyof SystemFields
+                  | "_id"
+                ? [F] extends [never]
+                  ? never // field omitted — valid
+                  : F extends
+                        | ExtractFieldPaths<SourceDoc>
+                        | keyof SystemFields
+                        | "_id"
+                    ? never // field valid
+                    : `FlowField "${FF}" on "${Table}": field "${F & string}" not found on source table "${S}"`
+                : `FlowField "${FF}" on "${Table}": key "${K}" not found on source table "${S}"`
+              : never
+            : `FlowField "${FF}" on "${Table}": source table "${S}" does not exist in the schema`
+          : never;
+      }[keyof Refs & string]
+    : never;
+}[keyof Schema & string];
+
 export function defineSchema<
   Schema extends GenericSchema,
   StrictTableNameTypes extends boolean = true,
 >(
-  schema: Schema,
+  schema: FlowFieldRefErrors<Schema> extends never
+    ? Schema
+    : Schema & FlowFieldRefErrors<Schema>,
   options?: DefineSchemaOptions<StrictTableNameTypes>,
 ): SchemaDefinition<Schema, StrictTableNameTypes> {
   return new SchemaDefinition(schema, options);
@@ -1085,7 +1588,8 @@ export type DataModelFromSchemaDefinition<
       infer VectorIndexes,
       infer FlowFields,
       infer ComputedFields,
-      infer _FlowFilters
+      infer _FlowFilters,
+      infer _FlowFieldRefs
     >
       ? {
           // We've already added all of the system fields except for `_id`.
@@ -1103,6 +1607,8 @@ export type DataModelFromSchemaDefinition<
           indexes: Expand<Indexes & SystemIndexes>;
           searchIndexes: SearchIndexes;
           vectorIndexes: VectorIndexes;
+          // Track read-only field names so write operations can exclude them.
+          computedFields: keyof FlowFields | keyof ComputedFields;
         }
       : never;
   },

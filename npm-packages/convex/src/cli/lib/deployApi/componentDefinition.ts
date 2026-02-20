@@ -78,11 +78,21 @@ export const searchIndexSchema = looseObject({
   filterFields: z.array(z.string()),
 });
 
+const flowFieldSchema = looseObject({
+  fieldName: z.string(),
+});
+
+const computedFieldSchema = looseObject({
+  fieldName: z.string(),
+});
+
 export const tableDefinition = looseObject({
   tableName: z.string(),
   indexes: z.array(indexSchema),
   searchIndexes: z.array(searchIndexSchema).optional().nullable(),
   vectorIndexes: z.array(vectorIndexSchema).optional().nullable(),
+  flowFields: z.array(flowFieldSchema).optional().nullable(),
+  computedFields: z.array(computedFieldSchema).optional().nullable(),
   // We don't validate validators because of performance issues and since this
   // is a server returned value.
   documentType: z.custom<ConvexValidator>(),

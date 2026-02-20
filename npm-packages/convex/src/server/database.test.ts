@@ -11,6 +11,7 @@ type CreateDataModel<Document> = {
     indexes: {};
     searchIndexes: {};
     vectorIndexes: {};
+    computedFields: never;
   };
 };
 

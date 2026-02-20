@@ -1675,8 +1675,8 @@ mod flow_fields {
                             "returns": { "type": "string" },
                             "expr": {
                                 "$cond": { "$gt": ["$totalSpent", 1000] },
-                                "then": "VIP",
-                                "else": "STANDARD"
+                                "$then": "VIP",
+                                "$else": "STANDARD"
                             }
                         }
                     ],
@@ -1813,6 +1813,383 @@ mod flow_fields {
 
         assert_roundtrips::<DatabaseSchema, DatabaseSchemaJson>(schema);
 
+        Ok(())
+    }
+
+    // ── FlowField reference validation tests ────────────────────────────
+
+    /// Helper to build a two-table schema (customers + orders) with flow
+    /// fields, suitable for validation tests.
+    fn two_table_schema(overrides: serde_json::Value) -> serde_json::Value {
+        let mut base = json!({
+            "tables": [
+                {
+                    "tableName": "customers",
+                    "indexes": [],
+                    "documentType": {
+                        "type": "object",
+                        "value": {
+                            "name": {
+                                "fieldType": { "type": "string" },
+                                "optional": false
+                            }
+                        }
+                    },
+                    "flowFields": [],
+                    "computedFields": [],
+                    "flowFilters": []
+                },
+                {
+                    "tableName": "orders",
+                    "indexes": [],
+                    "documentType": {
+                        "type": "object",
+                        "value": {
+                            "customerId": {
+                                "fieldType": { "type": "id", "tableName": "customers" },
+                                "optional": false
+                            },
+                            "amount": {
+                                "fieldType": { "type": "number" },
+                                "optional": false
+                            },
+                            "status": {
+                                "fieldType": { "type": "string" },
+                                "optional": false
+                            }
+                        }
+                    }
+                }
+            ],
+            "schemaValidation": true
+        });
+        // Merge overrides into the customers table (first table).
+        if let Some(flow_fields) = overrides.get("flowFields") {
+            base["tables"][0]["flowFields"] = flow_fields.clone();
+        }
+        if let Some(computed_fields) = overrides.get("computedFields") {
+            base["tables"][0]["computedFields"] = computed_fields.clone();
+        }
+        if let Some(flow_filters) = overrides.get("flowFilters") {
+            base["tables"][0]["flowFilters"] = flow_filters.clone();
+        }
+        base
+    }
+
+    #[test]
+    fn test_valid_flow_field_references_pass() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "orderCount",
+                    "returns": { "type": "number" },
+                    "aggregation": "count",
+                    "source": "orders",
+                    "key": "customerId"
+                },
+                {
+                    "fieldName": "totalSpent",
+                    "returns": { "type": "number" },
+                    "aggregation": "sum",
+                    "source": "orders",
+                    "key": "customerId",
+                    "field": "amount",
+                    "filter": { "status": "completed" }
+                }
+            ],
+            "computedFields": [
+                {
+                    "fieldName": "tier",
+                    "returns": { "type": "string" },
+                    "expr": {
+                        "$cond": { "$gt": ["$totalSpent", 1000] },
+                        "$then": "VIP",
+                        "$else": "STANDARD"
+                    }
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        // Should not error.
+        schema.check_flow_field_references()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_flow_field_invalid_source_table() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "count",
+                    "returns": { "type": "number" },
+                    "aggregation": "count",
+                    "source": "nonexistent",
+                    "key": "customerId"
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let err = schema.check_flow_field_references().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("nonexistent") && msg.contains("does not exist"),
+            "Expected error about nonexistent source table, got: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_flow_field_invalid_key_field() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "count",
+                    "returns": { "type": "number" },
+                    "aggregation": "count",
+                    "source": "orders",
+                    "key": "nonexistentField"
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let err = schema.check_flow_field_references().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("nonexistentField") && msg.contains("does not exist on source table"),
+            "Expected error about missing key field, got: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_flow_field_invalid_aggregation_field() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "total",
+                    "returns": { "type": "number" },
+                    "aggregation": "sum",
+                    "source": "orders",
+                    "key": "customerId",
+                    "field": "nonexistentField"
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let err = schema.check_flow_field_references().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("nonexistentField")
+                && msg.contains("aggregation field")
+                && msg.contains("does not exist"),
+            "Expected error about missing aggregation field, got: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_flow_field_invalid_filter_field_reference() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "count",
+                    "returns": { "type": "number" },
+                    "aggregation": "count",
+                    "source": "orders",
+                    "key": "customerId",
+                    "filter": { "status": { "$field": "undeclaredFilter" } }
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let err = schema.check_flow_field_references().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("undeclaredFilter") && msg.contains("not declared"),
+            "Expected error about undeclared flow filter, got: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_flow_field_valid_filter_field_reference() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "count",
+                    "returns": { "type": "number" },
+                    "aggregation": "count",
+                    "source": "orders",
+                    "key": "customerId",
+                    "filter": { "status": { "$field": "statusFilter" } }
+                }
+            ],
+            "flowFilters": [
+                {
+                    "fieldName": "statusFilter",
+                    "filterType": { "type": "string" }
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        schema.check_flow_field_references()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_computed_field_invalid_field_reference() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "computedFields": [
+                {
+                    "fieldName": "bad",
+                    "returns": { "type": "number" },
+                    "expr": { "$add": ["$nonexistentField", 1] }
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let err = schema.check_flow_field_references().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("nonexistentField") && msg.contains("does not exist"),
+            "Expected error about missing field reference in computed field, got: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_computed_field_can_reference_flow_field() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "orderCount",
+                    "returns": { "type": "number" },
+                    "aggregation": "count",
+                    "source": "orders",
+                    "key": "customerId"
+                }
+            ],
+            "computedFields": [
+                {
+                    "fieldName": "hasOrders",
+                    "returns": { "type": "boolean" },
+                    "expr": { "$gt": ["$orderCount", 0] }
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        schema.check_flow_field_references()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_computed_field_can_reference_earlier_computed_field() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "totalSpent",
+                    "returns": { "type": "number" },
+                    "aggregation": "sum",
+                    "source": "orders",
+                    "key": "customerId",
+                    "field": "amount"
+                }
+            ],
+            "computedFields": [
+                {
+                    "fieldName": "tier",
+                    "returns": { "type": "string" },
+                    "expr": {
+                        "$cond": { "$gt": ["$totalSpent", 1000] },
+                        "$then": "VIP",
+                        "$else": "STANDARD"
+                    }
+                },
+                {
+                    "fieldName": "label",
+                    "returns": { "type": "string" },
+                    "expr": { "$concat": ["$name", " (", "$tier", ")"] }
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        schema.check_flow_field_references()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_computed_field_cannot_reference_later_computed_field() -> anyhow::Result<()> {
+        let schema_json = two_table_schema(json!({
+            "computedFields": [
+                {
+                    "fieldName": "first",
+                    "returns": { "type": "number" },
+                    "expr": { "$add": ["$second", 1] }
+                },
+                {
+                    "fieldName": "second",
+                    "returns": { "type": "number" },
+                    "expr": 42
+                }
+            ]
+        }));
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        let err = schema.check_flow_field_references().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("second") && msg.contains("does not exist"),
+            "Expected error about forward reference to later computed field, got: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_validation_skipped_when_schema_validation_disabled() -> anyhow::Result<()> {
+        // Even with invalid references, schema_validation: false should skip checks.
+        let mut schema_json = two_table_schema(json!({
+            "flowFields": [
+                {
+                    "fieldName": "count",
+                    "returns": { "type": "number" },
+                    "aggregation": "count",
+                    "source": "nonexistent",
+                    "key": "customerId"
+                }
+            ]
+        }));
+        schema_json["schemaValidation"] = json!(false);
+        let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+        // Should not error because validation is disabled.
+        schema.check_flow_field_references()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_all_seven_aggregation_types_validate() -> anyhow::Result<()> {
+        for agg_type in &["count", "sum", "avg", "min", "max", "lookup", "exist"] {
+            let mut flow_field = json!({
+                "fieldName": "agg",
+                "returns": { "type": "number" },
+                "aggregation": *agg_type,
+                "source": "orders",
+                "key": "customerId"
+            });
+            // Field-based aggregations need a "field".
+            if matches!(*agg_type, "sum" | "avg" | "min" | "max" | "lookup") {
+                flow_field["field"] = json!("amount");
+            }
+            // "exist" returns boolean.
+            if *agg_type == "exist" {
+                flow_field["returns"] = json!({ "type": "boolean" });
+            }
+            let schema_json = two_table_schema(json!({
+                "flowFields": [flow_field]
+            }));
+            let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
+            schema.check_flow_field_references().map_err(|e| {
+                anyhow::anyhow!("Validation failed for aggregation type {agg_type}: {e}")
+            })?;
+        }
         Ok(())
     }
 }

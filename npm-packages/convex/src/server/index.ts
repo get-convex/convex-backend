@@ -142,6 +142,8 @@ export type {
   IdField,
   WithoutSystemFields,
   WithOptionalSystemFields,
+  WritableFields,
+  ReplaceValue,
   SystemIndexes,
   IndexTiebreakerField,
 } from "./system_fields.js";
@@ -203,6 +205,17 @@ export type {
   DataModelFromSchemaDefinition,
   SystemDataModel,
   SystemTableNames,
+  FlowExpr,
+  FlowExprCond,
+  FlowExprConcat,
+  FlowExprIfNull,
+  FlowFieldFilter,
+  FlowFieldFilterValue,
+  FlowFieldFilterRef,
+  FlowFieldAggregationType,
+  FlowFieldConfig,
+  ComputedFieldConfig,
+  FlowFilterConfig,
 } from "./schema.js";
 export { defineTable, defineSchema } from "./schema.js";
 

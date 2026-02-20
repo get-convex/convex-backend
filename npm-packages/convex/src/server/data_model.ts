@@ -148,6 +148,8 @@ export type GenericTableInfo = {
   indexes: GenericTableIndexes;
   searchIndexes: GenericTableSearchIndexes;
   vectorIndexes: GenericTableVectorIndexes;
+  /** Union of field names that are read-only (FlowFields and ComputedFields). */
+  computedFields: string;
 };
 
 /**
@@ -265,6 +267,7 @@ export type AnyDataModel = {
     indexes: {};
     searchIndexes: {};
     vectorIndexes: {};
+    computedFields: string;
   };
 };
 

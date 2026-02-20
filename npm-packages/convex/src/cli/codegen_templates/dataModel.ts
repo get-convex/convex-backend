@@ -310,6 +310,21 @@ async function* codegenTable(ctx: Context, table: TableDefinition) {
     yield `    },`;
   }
   yield `  },`;
+
+  // Collect flow field and computed field names for the computedFields type.
+  const computedFieldNames: string[] = [];
+  for (const ff of table.flowFields ?? []) {
+    computedFieldNames.push(ff.fieldName);
+  }
+  for (const cf of table.computedFields ?? []) {
+    computedFieldNames.push(cf.fieldName);
+  }
+  if (computedFieldNames.length > 0) {
+    yield `  computedFields: ${computedFieldNames.map((n) => `"${n}"`).join(" | ")},`;
+  } else {
+    yield `  computedFields: never,`;
+  }
+
   yield `}`;
 }
 
