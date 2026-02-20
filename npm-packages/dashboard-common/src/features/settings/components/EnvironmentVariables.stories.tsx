@@ -11,6 +11,7 @@ const meta = {
   args: {
     updateEnvironmentVariables: fn(),
     hasAdminPermissions: true,
+    initEnvVar: (envVar) => envVar,
     environmentVariables: [
       { name: "API_KEY", value: "sk_test_1234567890abcdef" },
       { name: "STRIPE_SECRET_KEY", value: "sk_test_abcdefghijklmnop" },

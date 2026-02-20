@@ -83,7 +83,7 @@ impl BaseClientThread {
         'connect_loop: loop {
             // First, try to connect to the server.
             let (client_tx, mut server_rx) = server_thread.connect()?;
-            client.resend_ongoing_queries_mutations();
+            client.resend_ongoing_queries_mutations().await;
 
             let mut listeners = vec![];
             loop {

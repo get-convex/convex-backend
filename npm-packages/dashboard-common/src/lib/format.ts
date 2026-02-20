@@ -431,16 +431,21 @@ export function toNumericUTC(dateString: string) {
   return Date.UTC(Number(year), Number(month) - 1, Number(day));
 }
 
-export const timeLabelForMinute = (value: string) => {
-  if (!value) {
+export const timeLabelForMinute = (value: string | number | undefined) => {
+  // Handle undefined, null, or empty values
+  if (value === undefined || value === null || value === "") {
     return "";
   }
+
+  // Convert number to string
+  const stringValue = typeof value === "number" ? String(value) : value;
+
   // TODO(ari): Consolidate all the time rendering logic - this is a hack
   // for now
-  if (value.includes("-") || !value.includes(":")) {
-    return value;
+  if (stringValue.includes("-") || !stringValue.includes(":")) {
+    return stringValue;
   }
-  const [time, modifier] = value.split(" ");
+  const [time, modifier] = stringValue.split(" ");
   const [hours, minutes] = time.split(":");
   const date = new Date();
   const hourValue = parseInt(hours);

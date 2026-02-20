@@ -2154,10 +2154,13 @@ export interface components {
         };
         /** Format: int64 */
         DeploymentId: number;
+        /** @description An identifier that uniquely identifies this deployment within the project. */
+        DeploymentReference: string;
         DeploymentResponse: {
             /** Format: int64 */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            dashboardEditConfirmation?: boolean | null;
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
@@ -2166,6 +2169,7 @@ export interface components {
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
+            reference: components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
         } | {
             /** Format: int64 */
@@ -2699,10 +2703,13 @@ export interface components {
         };
         /** Format: int64 */
         TeamId: number;
-        TeamMemberResponse: {
+        TeamMember: {
+            /** @description The email of the team member */
             email: string;
             id: components["schemas"]["MemberId"];
+            /** @description The name of the team member */
             name?: string | null;
+            /** @description The role of the team member */
             role: components["schemas"]["Role"];
         };
         TeamName: string;
@@ -2882,6 +2889,7 @@ export type DeleteProjectsArgs = components['schemas']['DeleteProjectsArgs'];
 export type DeleteWorkOsEnvironmentRequest = components['schemas']['DeleteWorkOSEnvironmentRequest'];
 export type DeleteWorkOsEnvironmentResponse = components['schemas']['DeleteWorkOSEnvironmentResponse'];
 export type DeploymentId = components['schemas']['DeploymentId'];
+export type DeploymentReference = components['schemas']['DeploymentReference'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeploymentWorkOsEnvironmentInfo = components['schemas']['DeploymentWorkOSEnvironmentInfo'];
@@ -2980,7 +2988,7 @@ export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResp
 export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurrentBillingPeriodResponse'];
 export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsResponse'];
 export type TeamId = components['schemas']['TeamId'];
-export type TeamMemberResponse = components['schemas']['TeamMemberResponse'];
+export type TeamMember = components['schemas']['TeamMember'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
@@ -3310,7 +3318,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeamMemberResponse"][];
+                    "application/json": components["schemas"]["TeamMember"][];
                 };
             };
         };

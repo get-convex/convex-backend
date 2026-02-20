@@ -32,6 +32,7 @@ use common::{
     errors::{
         recapture_stacktrace,
         report_error,
+        DatabaseOperationalError,
         DatabaseTimeoutError,
     },
     fastrace_helpers::{
@@ -105,10 +106,7 @@ use tokio::sync::{
 use tokio_util::task::AbortOnDropHandle;
 use usage_tracking::FunctionUsageTracker;
 use value::{
-    heap_size::{
-        HeapSize,
-        WithHeapSize,
-    },
+    heap_size::WithHeapSize,
     id_v6::DeveloperDocumentId,
     InternalDocumentId,
     TableMapping,
@@ -162,6 +160,7 @@ enum PersistenceWrite {
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         parent_trace: EncodedSpan,
         commit_id: usize,
+        write_bytes: u64,
     },
     MaxRepeatableTimestamp {
         new_max_repeatable: Timestamp,
@@ -306,13 +305,14 @@ impl<RT: Runtime> Committer<RT> {
                             commit_timer,
                             result,
                             parent_trace,
+                            write_bytes,
                             ..
                         } => {
                             let parent_span = initialize_root_from_parent("Committer::publish_commit", parent_trace);
                             let publish_commit_span = committer_span.as_ref().map(|root| Span::enter_with_parents("publish_commit", [root, &parent_span])).unwrap_or_else(|| parent_span);
                             let _guard = publish_commit_span.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
-                            self.publish_commit(pending_write);
+                            self.publish_commit(pending_write, write_bytes);
                             let _ = result.send(Ok(commit_ts));
 
                             // When we next get free cycles and there is no ongoing bump,
@@ -840,7 +840,7 @@ impl<RT: Runtime> Committer<RT> {
     /// After writing the new rows to persistence, mark the commit as complete
     /// and allow the updated rows to be read by other transactions.
     #[fastrace::trace]
-    fn publish_commit(&mut self, pending_write: PendingWriteHandle) {
+    fn publish_commit(&mut self, pending_write: PendingWriteHandle, write_bytes: u64) {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
 
@@ -868,9 +868,8 @@ impl<RT: Runtime> Committer<RT> {
             &self.refreshable_tables,
             &mut self.refreshable_tablets,
         );
-        let write_bytes = writes.heap_size();
         drop(timer);
-        metrics::write_log_commit_bytes(write_bytes);
+        metrics::write_log_commit_bytes(write_bytes as usize);
 
         let timer = metrics::write_log_append_timer();
         self.log.append(commit_ts, writes, write_source);
@@ -885,7 +884,7 @@ impl<RT: Runtime> Committer<RT> {
 
         // Publish the new version of our database metadata and the index.
         let mut snapshot_manager = self.snapshot_manager.write();
-        snapshot_manager.push(commit_ts, new_snapshot, write_bytes as u64);
+        snapshot_manager.push(commit_ts, new_snapshot, write_bytes);
 
         apply_timer.finish();
     }
@@ -958,21 +957,30 @@ impl<RT: Runtime> Committer<RT> {
                     INITIAL_PERSISTENCE_WRITES_BACKOFF,
                     MAX_PERSISTENCE_WRITES_BACKOFF,
                 );
+                let mut write_bytes: u64 = 0;
                 let document_writes = Arc::new(
                     document_writes
                         .into_iter()
-                        .map(|write| DocumentLogEntry {
-                            ts: write.commit_ts,
-                            id: write.id,
-                            value: write.write,
-                            prev_ts: write.prev_ts,
+                        .map(|write| {
+                            let entry = DocumentLogEntry {
+                                ts: write.commit_ts,
+                                id: write.id,
+                                value: write.write,
+                                prev_ts: write.prev_ts,
+                            };
+                            write_bytes += entry.size();
+                            entry
                         })
                         .collect_vec(),
                 );
                 let index_writes = Arc::new(
                     index_writes
                         .into_iter()
-                        .map(|(ts, update)| PersistenceIndexEntry::from_index_update(ts, &update))
+                        .map(|(ts, update)| {
+                            let entry = PersistenceIndexEntry::from_index_update(ts, &update);
+                            write_bytes += entry.size();
+                            entry
+                        })
                         .collect_vec(),
                 );
                 loop {
@@ -989,7 +997,7 @@ impl<RT: Runtime> Committer<RT> {
                         .in_span(Span::enter_with_local_parent(name)),
                     ));
                     if let Err(mut e) = handle.await? {
-                        if e.is::<DatabaseTimeoutError>() {
+                        if e.is::<DatabaseTimeoutError>() || e.is::<DatabaseOperationalError>() {
                             let delay = backoff.fail(&mut rt.rng());
                             tracing::error!(
                                 "Failed to write to persistence because database timed out"
@@ -1007,6 +1015,7 @@ impl<RT: Runtime> Committer<RT> {
                             result,
                             parent_trace: parent_trace_copy,
                             commit_id,
+                            write_bytes,
                         });
                     }
                 }

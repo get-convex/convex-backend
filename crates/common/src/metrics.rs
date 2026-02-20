@@ -8,6 +8,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
+    register_convex_int_gauge,
     StaticMetricLabel,
     Timer,
 };
@@ -81,4 +82,19 @@ pub fn load_id_tracker_timer() -> Timer<VMHistogram> {
 register_convex_histogram!(ID_TRACKER_SIZE_BYTES, "IdTracker file size");
 pub fn log_id_tracker_size(size: usize) {
     log_distribution(&ID_TRACKER_SIZE_BYTES, size as f64);
+}
+
+register_convex_int_gauge!(
+    HTTP_SERVICE_MAX_CONCURRENT_REQUESTS,
+    "Maximum number of concurrent requests for an HTTP service",
+    &["service_name"]
+);
+
+pub fn log_http_service_max_concurrent_requests(
+    service_name: &'static str,
+    max_concurrent_requests: usize,
+) {
+    HTTP_SERVICE_MAX_CONCURRENT_REQUESTS
+        .with_label_values(&[service_name])
+        .set(max_concurrent_requests as i64);
 }

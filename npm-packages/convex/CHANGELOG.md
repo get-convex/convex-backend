@@ -1,11 +1,41 @@
 # Changelog
 
-## Unreleased
+## 1.32.0
 
-- Add `insights` MCP tool for diagnosing OCC conflicts and resource limit issues
+- Improved the API documentation with more examples to help AI agents.
+
+- Added a new `npx convex insights` CLI command to show the insights
+  for a deployment.
+- Added `insights` MCP tool for diagnosing OCC conflicts and resource limit issues
   on cloud deployments.
-- The `insights` tool works on production deployments without requiring
+- The `insights` MCP tool works on production deployments without requiring
   `--dangerously-enable-production-deployments`.
+- When using a local Convex backend (local dev deployment, agent mode or
+  anonymous mode), the deployment’s data is now stored in a `.convex`
+  directory in the project root (instead of `~/.convex`). This change
+  is helpful when using multiple worktrees, since each worktree can get
+  its own isolated storage. Existing local deployments are not affected.
+- Added new options `maximumRowsRead` and `maximumBytesRead`
+  to `PaginationOptions` to get more fine-grained control over
+  the number of rows read when using pagination.
+- When creating a new dev deployment, the Convex CLI now asks you which
+  deployment region you want to use if you haven’t set a team default.
+- Increased the default value for `authRefreshTokenLeewaySeconds`
+  to 10 seconds.
+- The CLI now uses `VITE_CONVEX_*` environment variables when using Remix
+  alongside Vite, instead of `CONVEX_*`.
+- Fixed an issue where the CLI would sometimes be affected by GitHub API
+  rate limits when downloading the local deployment binary.
+- Fixed an issue where websockets would disconnect when using Bun.
+- Fixed an issue with the WorkOS integration that caused crashes
+  when running `npx convex deploy` with a deployment that has
+  its own WorkOS credentials.
+- Fixed an issue with the WorkOS integration where the
+  `WORKOS_API_KEY` environment variable from the shell
+  would incorrectly be used.
+- Fixed an issue where some modifications to `auth.config.ts`
+  would cause the push process to fail.
+- Fixed an issue on Windows that caused arrow key presses to be ignored when the “cloud or local deployment” prompt is shown.
 
 ## 1.31.7
 

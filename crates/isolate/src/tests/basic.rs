@@ -427,3 +427,11 @@ async fn test_time_constructor_args(rt: TestRuntime) -> anyhow::Result<()> {
         Ok(())
     }).await
 }
+
+#[convex_macro::test_runtime]
+async fn test_time_in_subquery(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+        must_let!(let ConvexValue::Null = t.query("basic:readTimeInSubquery", assert_obj!()).await?);
+        Ok(())
+    }).await
+}

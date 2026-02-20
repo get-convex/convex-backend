@@ -530,7 +530,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             0
         };
 
-        let mut tx = self.phase.take_tx()?;
+        let (mut tx, rng_seed, unix_timestamp) = self.phase.start_nested_udf()?;
         let tokens = tx.begin_subtransaction();
 
         let query_journal = if self.is_system() && udf_type == UdfType::Query {
@@ -553,6 +553,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 tx,
                 query_journal,
                 self.context.clone(),
+                rng_seed,
+                unix_timestamp,
                 new_reactor_depth,
             )
             .await
@@ -574,10 +576,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let UdfOutcome {
             result,
             observed_identity,
-            // TODO: initialize the inner UDF's seed from the outer RNG seed
-            observed_rng: _,
-            // TODO: use the same timestamp for the inner UDF as the outer
-            observed_time: _,
+            observed_rng,
+            observed_time,
             // TODO: consider propagating syscall traces
             syscall_trace: _,
             log_lines,
@@ -601,6 +601,14 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
         if observed_identity {
             self.observe_identity()?;
+        }
+
+        if observed_rng {
+            self.phase.observe_rng();
+        }
+
+        if observed_time {
+            self.phase.unix_timestamp()?;
         }
 
         if self.is_system() && udf_type == UdfType::Query && result.is_ok() {
@@ -720,12 +728,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
                     #[cfg(test)]
                     "slowSyscall" => {
-                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        provider.rt().wait(std::time::Duration::from_secs(1)).await;
                         Ok(JsonValue::Number(1017.into()))
                     },
                     #[cfg(test)]
                     "reallySlowSyscall" => {
-                        std::thread::sleep(std::time::Duration::from_secs(3));
+                        provider.rt().wait(std::time::Duration::from_secs(3)).await;
                         Ok(JsonValue::Number(1017.into()))
                     },
                     _ => Err(ErrorMetadata::bad_request(

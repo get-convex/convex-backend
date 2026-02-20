@@ -1,7 +1,7 @@
 {
   "name": "convex",
   "description": "Client for the Convex Cloud",
-  "version": "1.31.7",
+  "version": "1.32.0",
   "author": "Convex, Inc. <no-reply@convex.dev>",
   "homepage": "https://convex.dev",
   "repository": {
@@ -242,7 +242,8 @@
   ],
   "dependencies": {
     "esbuild": "0.27.0",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "ws": "8.18.0"
   },
   "peerDependencies": {
     "@auth0/auth0-react": "^2.0.1",
@@ -270,6 +271,7 @@
     "@babel/types": "^7.27.1",
     "@clerk/clerk-react": "^5.20.0",
     "@commander-js/extra-typings": "^14.0.0",
+    "@convex-dev/platform": "0.1.0",
     "@eslint/compat": "~2.0.0",
     "@eslint/eslintrc": "~3.3.0",
     "@eslint/js": "~9.39.0",
@@ -281,7 +283,10 @@
     "@testing-library/react": "~16.3.0",
     "@types/adm-zip": "^0.5.7",
     "@types/deep-equal": "1.0.4",
-    "@types/inquirer": "^9.0.0",
+    "@inquirer/confirm": "^6.0.4",
+    "@inquirer/input": "^5.0.4",
+    "@inquirer/search": "^4.1.0",
+    "@inquirer/select": "^5.0.4",
     "@types/node": "^18.17.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
@@ -309,8 +314,6 @@
     "find-up": "^7.0.0",
     "globals": "~16.5.0",
     "happy-dom": "~20.0.7",
-    "inquirer": "^9.1.4",
-    "inquirer-search-list": "~1.2.6",
     "jsdom": "~27.4.0",
     "json5": "~2.2.3",
     "knip": "~5.79.0",
@@ -336,7 +339,6 @@
     "vitest": "^3.2.4",
     "undici": "7.18.2",
     "wait-for-expect": "~4.0.0",
-    "ws": "8.18.0",
     "zod": "^3.24.0",
     "zod-to-json-schema": "^3.24.0"
   },

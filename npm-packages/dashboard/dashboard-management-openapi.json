@@ -297,7 +297,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/TeamMemberResponse"
+                    "$ref": "#/components/schemas/TeamMember"
                   }
                 }
               }
@@ -4380,6 +4380,10 @@
         "format": "int64",
         "minimum": 0
       },
+      "DeploymentReference": {
+        "type": "string",
+        "description": "An identifier that uniquely identifies this deployment within the project."
+      },
       "DeploymentResponse": {
         "oneOf": [
           {
@@ -4392,6 +4396,7 @@
               "projectId",
               "region",
               "isDefault",
+              "reference",
               "kind"
             ],
             "properties": {
@@ -4407,6 +4412,12 @@
                   {
                     "$ref": "#/components/schemas/MemberId"
                   }
+                ]
+              },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
                 ]
               },
               "deploymentType": {
@@ -4439,6 +4450,9 @@
               },
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId"
+              },
+              "reference": {
+                "$ref": "#/components/schemas/DeploymentReference"
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName"
@@ -6377,7 +6391,7 @@
         "format": "int64",
         "minimum": 0
       },
-      "TeamMemberResponse": {
+      "TeamMember": {
         "type": "object",
         "required": [
           "id",
@@ -6386,7 +6400,8 @@
         ],
         "properties": {
           "email": {
-            "type": "string"
+            "type": "string",
+            "description": "The email of the team member"
           },
           "id": {
             "$ref": "#/components/schemas/MemberId"
@@ -6395,10 +6410,12 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The name of the team member"
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "$ref": "#/components/schemas/Role",
+            "description": "The role of the team member"
           }
         }
       },

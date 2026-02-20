@@ -84,7 +84,7 @@ aws-sdk-s3 = { version = "1.83", default-features = false, features = [ "default
 aws-smithy-http = "0.62.0"
 aws-smithy-types-convert = { version = "0.60", features = [ "convert-streams" ] }
 aws-types = "1"
-axum = { version = "0.8", features = [ "ws", "original-uri", "macros", "multipart" ] }
+axum = { version = "0.8.3", features = [ "ws", "original-uri", "macros", "multipart" ] }
 axum-extra = { version = "0.10", features = [ "typed-header", "cookie" ] }
 backoff = { version = "0.4", features = [ "tokio" ] }
 base-62 = { rev = "6f91a3da4b83f20379469835f64195bd52d7b9dd", git = "https://github.com/kryptco/base62.rs" }
@@ -210,6 +210,7 @@ serde = { version = "1", features = [ "derive" ] }
 serde_bytes = "0.11.14"
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth" ] }
 serde_with = "3.16.1"
+sha1 = { version = "0.10.5", features = [ "oid" ] }
 sha2 = { version = "0.10.8" }
 short_future = { version = "0.1.1" }
 slab = "0.4.9"
@@ -235,7 +236,7 @@ tokio-metrics-collector = { version = "0.3.1" }
 tokio-postgres = { version = "0.7.13", features = [ "with-serde_json-1" ] }
 tokio-postgres-rustls = { version = "0.13" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
-tokio-tungstenite = { version = "0.26.2", features = [ "native-tls-vendored" ] }
+tokio-tungstenite = { version = "0.28.0", features = [ "native-tls-vendored" ] }
 tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util" ] }
 tonic = { package = "tonic", version = "0.13", features = [ "gzip", "tls-aws-lc", "tls-native-roots" ] }
 tonic-build = "0.13"
@@ -248,7 +249,7 @@ tracing = "0.1"
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
 tracy-client = { version = "0.18.0", default-features = false, features = [ "fibers" ] }
-tungstenite = { version = "0.26.2", features = [ "url", "native-tls-vendored" ] }
+tungstenite = { version = "0.28.0", features = [ "url", "native-tls-vendored", "deflate" ], git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
 url = "2.5.4"
 urlencoding = "2.1.3"
 utoipa = { version = "5.3", features = [ "axum_extras", "preserve_path_order", "openapi_extensions" ] }
@@ -271,6 +272,7 @@ strip = "debuginfo"
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "8794d2bbf2a5a9adc501067ee4440dde6b5e6e25" }
 tokio-postgres = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
 postgres-protocol = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
+tungstenite = { git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
 
 [workspace.lints.rust]
 unused_extern_crates = "warn"

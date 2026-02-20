@@ -71,16 +71,79 @@ export type AsObjectValidator<
 /**
  * The validator builder.
  *
- * This builder allows you to build validators for Convex values.
+ * This builder allows you to build validators for Convex values. Validators
+ * are used in two places:
  *
- * Validators can be used in [schema definitions](https://docs.convex.dev/database/schemas)
- * and as input validators for Convex functions.
+ * 1. **Schema definitions** - to define the shape of documents in your tables.
+ * 2. **Function arguments and return values** - to validate inputs and outputs
+ *    of your Convex queries, mutations, and actions.
  *
+ * Always include `args` and `returns` validators on all Convex functions. If a
+ * function doesn't return a value, use `returns: v.null()`.
+ *
+ * **Convex type reference:**
+ *
+ * | Convex Type | JS/TS Type    | Validator                      |
+ * |-------------|---------------|--------------------------------|
+ * | Id          | `string`      | `v.id("tableName")`            |
+ * | Null        | `null`        | `v.null()`                     |
+ * | Float64     | `number`      | `v.number()`                   |
+ * | Int64       | `bigint`      | `v.int64()`                    |
+ * | Boolean     | `boolean`     | `v.boolean()`                  |
+ * | String      | `string`      | `v.string()`                   |
+ * | Bytes       | `ArrayBuffer` | `v.bytes()`                    |
+ * | Array       | `Array`       | `v.array(element)`             |
+ * | Object      | `Object`      | `v.object({ field: value })`   |
+ * | Record      | `Record`      | `v.record(keys, values)`       |
+ *
+ * **Modifiers and meta-types:**
+ * - `v.union(member1, member2)` - a value matching at least one validator
+ * - `v.literal("value")` - a specific literal string, number, bigint, or boolean
+ * - `v.optional(validator)` - makes a property optional in an object (`T | undefined`)
+ *
+ * **Important notes:**
+ * - JavaScript's `undefined` is **not** a valid Convex value. Functions that
+ *   return `undefined` or have no return will return `null` to the client.
+ *   Objects with `undefined` values will strip those keys during serialization.
+ *   For arrays, use an explicit `null` instead.
+ * - `v.bigint()` is deprecated, use `v.int64()` instead.
+ * - `v.map()` and `v.set()` are not supported. Use `v.array()` of tuples or
+ *   `v.record()` as alternatives.
+ *
+ * @example
+ * ```typescript
+ * import { v } from "convex/values";
+ *
+ * // Use in function definition:
+ * export const createUser = mutation({
+ *   args: {
+ *     name: v.string(),
+ *     email: v.string(),
+ *     age: v.optional(v.number()),
+ *   },
+ *   returns: v.id("users"),
+ *   handler: async (ctx, args) => {
+ *     return await ctx.db.insert("users", args);
+ *   },
+ * });
+ * ```
+ *
+ * @see https://docs.convex.dev/database/types
+ * @see https://docs.convex.dev/functions/validation
  * @public
  */
 export const v = {
   /**
-   * Validates that the value corresponds to an ID of a document in given table.
+   * Validates that the value is a document ID for the given table.
+   *
+   * IDs are strings at runtime but are typed as `Id<"tableName">` in
+   * TypeScript for type safety.
+   *
+   * @example
+   * ```typescript
+   * args: { userId: v.id("users") }
+   * ```
+   *
    * @param tableName The name of the table.
    */
   id: <TableName extends string>(tableName: TableName) => {
@@ -91,65 +154,99 @@ export const v = {
   },
 
   /**
-   * Validates that the value is of type Null.
+   * Validates that the value is `null`.
+   *
+   * Use `returns: v.null()` for functions that don't return a meaningful value.
+   * JavaScript `undefined` is not a valid Convex value, it is automatically
+   * converted to `null`.
    */
   null: () => {
     return new VNull({ isOptional: "required" });
   },
 
   /**
-   * Validates that the value is of Convex type Float64 (Number in JS).
+   * Validates that the value is a JavaScript `number` (Convex Float64).
    *
-   * Alias for `v.float64()`
+   * Supports all IEEE-754 double-precision floating point numbers including
+   * NaN and Infinity.
+   *
+   * Alias for `v.float64()`.
    */
   number: () => {
     return new VFloat64({ isOptional: "required" });
   },
 
   /**
-   * Validates that the value is of Convex type Float64 (Number in JS).
+   * Validates that the value is a JavaScript `number` (Convex Float64).
+   *
+   * Supports all IEEE-754 double-precision floating point numbers.
    */
   float64: () => {
     return new VFloat64({ isOptional: "required" });
   },
 
   /**
-   * @deprecated Use `v.int64()` instead
+   * @deprecated Use `v.int64()` instead.
    */
   bigint: () => {
     return new VInt64({ isOptional: "required" });
   },
 
   /**
-   * Validates that the value is of Convex type Int64 (BigInt in JS).
+   * Validates that the value is a JavaScript `bigint` (Convex Int64).
+   *
+   * Supports BigInts between -2^63 and 2^63-1.
+   *
+   * @example
+   * ```typescript
+   * args: { timestamp: v.int64() }
+   * // Usage: createDoc({ timestamp: 1234567890n })
+   * ```
    */
   int64: () => {
     return new VInt64({ isOptional: "required" });
   },
 
   /**
-   * Validates that the value is of type Boolean.
+   * Validates that the value is a `boolean`.
    */
   boolean: () => {
     return new VBoolean({ isOptional: "required" });
   },
 
   /**
-   * Validates that the value is of type String.
+   * Validates that the value is a `string`.
+   *
+   * Strings are stored as UTF-8 and their storage size is calculated as their
+   * UTF-8 encoded size.
    */
   string: () => {
     return new VString({ isOptional: "required" });
   },
 
   /**
-   * Validates that the value is of Convex type Bytes (constructed in JS via `ArrayBuffer`).
+   * Validates that the value is an `ArrayBuffer` (Convex Bytes).
+   *
+   * Use for binary data.
    */
   bytes: () => {
     return new VBytes({ isOptional: "required" });
   },
 
   /**
-   * Validates that the value is equal to the given literal value.
+   * Validates that the value is exactly equal to the given literal.
+   *
+   * Useful for discriminated unions and enum-like patterns.
+   *
+   * @example
+   * ```typescript
+   * // Discriminated union pattern:
+   * v.union(
+   *   v.object({ kind: v.literal("error"), message: v.string() }),
+   *   v.object({ kind: v.literal("success"), value: v.number() }),
+   * )
+   * ```
+   *
    * @param literal The literal value to compare against.
    */
   literal: <T extends string | number | bigint | boolean>(literal: T) => {
@@ -157,7 +254,18 @@ export const v = {
   },
 
   /**
-   * Validates that the value is an Array of the given element type.
+   * Validates that the value is an `Array` where every element matches the
+   * given validator.
+   *
+   * Arrays can have at most 8192 elements.
+   *
+   * @example
+   * ```typescript
+   * args: { tags: v.array(v.string()) }
+   * args: { coordinates: v.array(v.number()) }
+   * args: { items: v.array(v.object({ name: v.string(), qty: v.number() })) }
+   * ```
+   *
    * @param element The validator for the elements of the array.
    */
   array: <T extends Validator<any, "required", any>>(element: T) => {
@@ -165,9 +273,25 @@ export const v = {
   },
 
   /**
-   * Validates that the value is an Object with the given properties.
-   * @param fields An object specifying the validator for each property.
-   * @param options Optional configuration for the object validator.
+   * Validates that the value is an `Object` with the specified properties.
+   *
+   * Objects can have at most 1024 entries. Field names must be non-empty and
+   * must not start with `"$"` or `"_"` (`_` is reserved for system fields
+   * like `_id` and `_creationTime`; `$` is reserved for Convex internal use).
+   *
+   * @example
+   * ```typescript
+   * args: {
+   *   user: v.object({
+   *     name: v.string(),
+   *     email: v.string(),
+   *     age: v.optional(v.number()),
+   *   })
+   * }
+   * ```
+   *
+   * @param fields An object mapping property names to their validators.
+   * @param options Optional configuration for unknown key handling.
    */
   object: <T extends PropertyValidators>(
     fields: T,
@@ -181,8 +305,22 @@ export const v = {
   },
 
   /**
-   * Validates that the value is a Record with keys and values that match the given types.
-   * @param keys The validator for the keys of the record. This cannot contain string literals.
+   * Validates that the value is a `Record` (object with dynamic keys).
+   *
+   * Records are objects at runtime but allow dynamic keys, unlike `v.object()`
+   * which requires known property names. Keys must be ASCII characters only,
+   * non-empty, and not start with `"$"` or `"_"`.
+   *
+   * @example
+   * ```typescript
+   * // Map of user IDs to scores:
+   * args: { scores: v.record(v.id("users"), v.number()) }
+   *
+   * // Map of string keys to string values:
+   * args: { metadata: v.record(v.string(), v.string()) }
+   * ```
+   *
+   * @param keys The validator for the keys of the record.
    * @param values The validator for the values of the record.
    */
   record: <
@@ -200,7 +338,23 @@ export const v = {
   },
 
   /**
-   * Validates that the value matches one of the given validators.
+   * Validates that the value matches at least one of the given validators.
+   *
+   * @example
+   * ```typescript
+   * // Allow string or number:
+   * args: { value: v.union(v.string(), v.number()) }
+   *
+   * // Discriminated union (recommended pattern):
+   * v.union(
+   *   v.object({ kind: v.literal("text"), body: v.string() }),
+   *   v.object({ kind: v.literal("image"), url: v.string() }),
+   * )
+   *
+   * // Nullable value:
+   * returns: v.union(v.object({ ... }), v.null())
+   * ```
+   *
    * @param members The validators to match against.
    */
   union: <T extends Validator<any, "required", any>[]>(...members: T) => {
@@ -211,29 +365,57 @@ export const v = {
   },
 
   /**
-   * Does not validate the value.
+   * A validator that accepts any Convex value without validation.
+   *
+   * Prefer using specific validators when possible for better type safety
+   * and runtime validation.
    */
   any: () => {
     return new VAny({ isOptional: "required" });
   },
 
   /**
-   * Allows not specifying a value for a property in an Object.
-   * @param value The property value validator to make optional.
+   * Makes a property optional in an object validator.
    *
+   * An optional property can be omitted entirely when creating a document or
+   * calling a function. This is different from `v.nullable()` which requires
+   * the property to be present but allows `null`.
+   *
+   * @example
    * ```typescript
-   * const objectWithOptionalFields = v.object({
-   *   requiredField: v.string(),
-   *   optionalField: v.optional(v.string()),
-   * });
+   * v.object({
+   *   name: v.string(),              // required
+   *   nickname: v.optional(v.string()), // can be omitted
+   * })
+   *
+   * // Valid: { name: "Alice" }
+   * // Valid: { name: "Alice", nickname: "Ali" }
+   * // Invalid: { name: "Alice", nickname: null }  - use v.nullable() for this
    * ```
+   *
+   * @param value The property value validator to make optional.
    */
   optional: <T extends GenericValidator>(value: T) => {
     return value.asOptional() as VOptional<T>;
   },
 
   /**
-   * Allows specifying a value or null.
+   * Allows a value to be either the given type or `null`.
+   *
+   * This is shorthand for `v.union(value, v.null())`. Unlike `v.optional()`,
+   * the property must still be present, but may be `null`.
+   *
+   * @example
+   * ```typescript
+   * v.object({
+   *   name: v.string(),
+   *   deletedAt: v.nullable(v.number()), // must be present, can be null
+   * })
+   *
+   * // Valid: { name: "Alice", deletedAt: null }
+   * // Valid: { name: "Alice", deletedAt: 1234567890 }
+   * // Invalid: { name: "Alice" }  - deletedAt is required
+   * ```
    */
   nullable: <T extends Validator<any, "required", any>>(value: T) => {
     return v.union(value, v.null());

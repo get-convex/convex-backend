@@ -9,6 +9,10 @@ import { TextInput } from "@ui/TextInput";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { ProjectCard } from "components/projects/ProjectCard";
 import { usePaginatedProjects } from "api/projects";
+import {
+  useProjectsPageSize,
+  PROJECT_PAGE_SIZES,
+} from "hooks/useProjectsPageSize";
 import { useCurrentTeam } from "api/teams";
 import { useTeamOrbSubscription } from "api/billing";
 import { useReferralState } from "api/referrals";
@@ -86,7 +90,7 @@ function ProjectGrid({
     "showProjectsAsList",
     false,
   );
-  const [pageSize, setPageSize] = useGlobalLocalStorage("projectsPageSize", 25);
+  const { pageSize, setPageSize } = useProjectsPageSize();
 
   const [projectQuery, setProjectQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -282,6 +286,7 @@ function ProjectGrid({
             onPreviousPage={handlePrevPage}
             onNextPage={handleNextPage}
             canGoPrevious={cursorHistory.length > 1}
+            pageSizeOptions={PROJECT_PAGE_SIZES}
           />
         </div>
       )}

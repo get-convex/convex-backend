@@ -11,7 +11,7 @@ import {
   DeploymentType,
   DeploymentName,
   fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows,
-  createProjectAndCreateDeployment,
+  createProject,
   DeploymentSelectionWithinProject,
   loadSelectedDeploymentCredentials,
   checkAccessToSelectedProject,
@@ -30,6 +30,7 @@ import {
   hasProjects,
   logAndHandleFetchError,
   selectDevDeploymentType,
+  selectRegionOrUseDefault,
   validateOrSelectProject,
   validateOrSelectTeam,
 } from "./lib/utils/utils.js";
@@ -241,7 +242,7 @@ export async function _deploymentCredentialsOrConfigure(
         const shouldConfigure =
           chosenConfiguration !== null ||
           (await promptYesNo(ctx, {
-            message: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is configured with deployment ${deploymentSelection.deploymentName}, which is not linked with your account. Would you like to choose a different project instead?`,
+            message: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is configured with deployment ${deploymentSelection.deploymentName}, which is not linked with your account. Would you like to link it now?`,
           }));
         if (!shouldConfigure) {
           return await ctx.crash({
@@ -333,7 +334,8 @@ async function handleDeploymentWithinProject(
   const loginMessage =
     hasAuth && shouldAllowAnonymousDevelopment()
       ? undefined
-      : `Tip: You can try out Convex without creating an account by clearing the ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable.`;
+      : "Tip: You can try out Convex without creating an account by clearing the " +
+        `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable (often in .env.local).`;
   await ensureLoggedIn(ctx, {
     message: loginMessage,
     overrideAuthUrl: cmdOptions.overrideAuthUrl,
@@ -540,7 +542,7 @@ async function selectNewProject(
     defaultProjectName?: string | undefined;
   },
 ) {
-  const { teamSlug: selectedTeam, chosen: didChooseBetweenTeams } =
+  const { team: selectedTeam, chosen: didChooseBetweenTeams } =
     await validateOrSelectTeam(ctx, config.team, "Team:");
   let projectName: string = config.project || cwd;
   let choseProjectInteractively = false;
@@ -555,7 +557,7 @@ async function selectNewProject(
   const { devDeployment } = await selectDevDeploymentType(ctx, {
     chosenConfiguration,
     newOrExisting: "new",
-    teamSlug: selectedTeam,
+    teamSlug: selectedTeam.slug,
     userHasChosenSomethingInteractively:
       didChooseBetweenTeams || choseProjectInteractively,
     projectSlug: undefined,
@@ -567,17 +569,28 @@ async function selectNewProject(
         : undefined,
   });
 
+  const region =
+    devDeployment === "cloud"
+      ? await selectRegionOrUseDefault(ctx, selectedTeam)
+      : null;
+
   showSpinner("Creating new Convex project...");
+
+  const deploymentToProvision =
+    devDeployment === "cloud"
+      ? {
+          deploymentType: "dev" as const,
+          region,
+        }
+      : null;
 
   let projectSlug, teamSlug, projectsRemaining;
   try {
-    ({ projectSlug, teamSlug, projectsRemaining } =
-      await createProjectAndCreateDeployment(ctx, {
-        teamSlug: selectedTeam,
-        projectName,
-        // We have to create some deployment initially for a project.
-        deploymentTypeToProvision: devDeployment === "local" ? "prod" : "dev",
-      }));
+    ({ projectSlug, teamSlug, projectsRemaining } = await createProject(ctx, {
+      teamSlug: selectedTeam.slug,
+      projectName,
+      deploymentToProvision,
+    }));
   } catch (err) {
     logFailure("Unable to create project.");
     return await logAndHandleFetchError(ctx, err);
@@ -622,11 +635,10 @@ async function selectExistingProject(
   projectSlug: string;
   devDeployment: "cloud" | "local";
 }> {
-  const { teamSlug, chosen } = await validateOrSelectTeam(
-    ctx,
-    config.team,
-    "Team:",
-  );
+  const {
+    team: { slug: teamSlug },
+    chosen,
+  } = await validateOrSelectTeam(ctx, config.team, "Team:");
 
   const projectSlug = await validateOrSelectProject(
     ctx,

@@ -38,7 +38,10 @@ use model::{
     source_packages::SourcePackageModel,
     udf_config::UdfConfigModel,
 };
-use rand::SeedableRng;
+use rand::{
+    Rng as _,
+    SeedableRng,
+};
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
 use udf::environment::system_env_vars;
@@ -53,7 +56,10 @@ use crate::{
         ModuleCodeCacheResult,
     },
     module_cache::ModuleCache,
-    timeout::Timeout,
+    timeout::{
+        PauseReason,
+        Timeout,
+    },
 };
 
 /// UDF execution has two phases:
@@ -134,6 +140,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             Some(
                 timeout
                     .with_release_permit(
+                        PauseReason::LoadComponentArgs,
                         BootstrapComponentsModel::new(self.tx_mut()?)
                             .load_component_args(component),
                     )
@@ -145,7 +152,10 @@ impl<RT: Runtime> UdfPhase<RT> {
 
         // UdfConfig might not be defined for super old modules or system modules.
         let udf_config = timeout
-            .with_release_permit(UdfConfigModel::new(self.tx_mut()?, component.into()).get())
+            .with_release_permit(
+                PauseReason::LoadUdfConfig,
+                UdfConfigModel::new(self.tx_mut()?, component.into()).get(),
+            )
             .await?;
         let rng = udf_config
             .as_ref()
@@ -155,7 +165,10 @@ impl<RT: Runtime> UdfPhase<RT> {
         let env_vars = if component.is_root() {
             Some(
                 timeout
-                    .with_release_permit(EnvironmentVariablesModel::new(self.tx_mut()?).preload())
+                    .with_release_permit(
+                        PauseReason::LoadEnvironmentVariables,
+                        EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
+                    )
                     .await?,
             )
         } else {
@@ -163,10 +176,10 @@ impl<RT: Runtime> UdfPhase<RT> {
         };
 
         let system_env_vars = timeout
-            .with_release_permit(system_env_vars(
-                self.tx_mut()?,
-                default_system_env_vars.clone(),
-            ))
+            .with_release_permit(
+                PauseReason::LoadSystemEnvironmentVariables,
+                system_env_vars(self.tx_mut()?, default_system_env_vars.clone()),
+            )
             .await?;
 
         self.preloaded = UdfPreloaded::Ready {
@@ -234,7 +247,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             module_path: module_path.clone().canonicalize(),
         };
         let Some((module_metadata, source_package)) = timeout
-            .with_release_permit(async {
+            .with_release_permit(PauseReason::LoadModuleMetadata, async {
                 match ModuleModel::new(self.tx_mut()?)
                     .get_metadata(path.clone())
                     .await?
@@ -264,6 +277,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         let module_loader = self.module_loader.clone();
         let module_source = timeout
             .with_release_permit(
+                PauseReason::LoadModuleSource,
                 module_loader.get_module_with_metadata(module_metadata.clone(), source_package),
             )
             .await?;
@@ -281,10 +295,30 @@ impl<RT: Runtime> UdfPhase<RT> {
         self.tx_mut()
     }
 
-    pub fn take_tx(&mut self) -> anyhow::Result<Transaction<RT>> {
-        self.tx
+    pub fn start_nested_udf(
+        &mut self,
+    ) -> anyhow::Result<(Transaction<RT>, [u8; 32], UnixTimestamp)> {
+        let tx = self
+            .tx
             .take()
-            .context("Transaction missing due to concurrent component call")
+            .context("Transaction missing due to concurrent component call")?;
+        let UdfPreloaded::Ready {
+            ref mut rng,
+            unix_timestamp,
+            ..
+        } = self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        let (rng, unix_timestamp) =
+            (rng.as_mut().zip(unix_timestamp)).context(ErrorMetadata::bad_request(
+                "NoCallsDuringImport",
+                "Cannot call another function at import time",
+            ))?;
+        // Note: it's up to the caller to update observed_rng / observed_time after the
+        // nested UDF returns
+        let rng_seed = rng.random();
+        Ok((tx, rng_seed, unix_timestamp))
     }
 
     pub fn put_tx(&mut self, tx: Transaction<RT>) -> anyhow::Result<()> {
@@ -407,6 +441,16 @@ impl<RT: Runtime> UdfPhase<RT> {
             ));
         };
         Ok(unix_timestamp)
+    }
+
+    pub fn observe_rng(&mut self) {
+        if let UdfPreloaded::Ready {
+            observed_rng_during_execution,
+            ..
+        } = &mut self.preloaded
+        {
+            *observed_rng_during_execution = true;
+        }
     }
 
     pub fn observe_identity(&mut self) -> anyhow::Result<()> {

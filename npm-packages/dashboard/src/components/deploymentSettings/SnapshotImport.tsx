@@ -117,8 +117,8 @@ function ImportStateBody({
         <div>
           <CancelImportButton importId={snapshotImport._id} />
           <div className="flex flex-col">
-            {snapshotImport.state.checkpoint_messages.map((message: string) => (
-              <div className="flex items-center gap-2">
+            {snapshotImport.state.checkpoint_messages.map((message, index) => (
+              <div key={index} className="flex items-center gap-2">
                 <CheckIcon /> {message}
               </div>
             ))}

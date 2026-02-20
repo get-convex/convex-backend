@@ -19,7 +19,7 @@
     "/teams/{team_id}/create_project": {
       "post": {
         "summary": "Create project",
-        "description": "Create a new project on a team and provision a dev or prod deployment.",
+        "description": "Create a new project on a team, optionally provisioning a dev or prod\ndeployment.",
         "operationId": "create project",
         "parameters": [
           {
@@ -128,6 +128,34 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "isDefault",
+            "in": "query",
+            "description": "If true, only include default deployments. If false, only include\nnon-default deployments.",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "deploymentType",
+            "in": "query",
+            "description": "Only include deployments of the given deployment type.",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/DeploymentType"
+                }
+              ]
+            }
           }
         ],
         "responses": {
@@ -177,6 +205,94 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/projects/{project_id}": {
+      "get": {
+        "summary": "Get project by ID",
+        "description": "Get a project by its ID.",
+        "operationId": "get project by id",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id_or_slug}/projects/{project_slug}": {
+      "get": {
+        "summary": "Get project by slug",
+        "description": "Get a project by its slug.",
+        "operationId": "get project by slug",
+        "parameters": [
+          {
+            "name": "team_id_or_slug",
+            "in": "path",
+            "description": "Team ID or slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project_slug",
+            "in": "path",
+            "description": "Project slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformProjectDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -633,6 +749,33 @@
           }
         ]
       }
+    },
+    "/teams/{team_id}/list_members": {
+      "get": {
+        "summary": "List team members",
+        "description": "List the members of the given team.",
+        "operationId": "list team members",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListTeamMembersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -676,6 +819,10 @@
         "format": "int64",
         "minimum": 0
       },
+      "DeploymentReference": {
+        "type": "string",
+        "description": "An identifier that uniquely identifies this deployment within the project."
+      },
       "DeploymentRegionMetadata": {
         "type": "object",
         "required": [
@@ -707,6 +854,7 @@
               "projectId",
               "region",
               "isDefault",
+              "reference",
               "kind"
             ],
             "properties": {
@@ -722,6 +870,12 @@
                   {
                     "$ref": "#/components/schemas/MemberId"
                   }
+                ]
+              },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
                 ]
               },
               "deploymentType": {
@@ -754,6 +908,9 @@
               },
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId"
+              },
+              "reference": {
+                "$ref": "#/components/schemas/DeploymentReference"
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName"
@@ -922,6 +1079,13 @@
             ],
             "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
           },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An identifier that uniquely identifies this deployment within the\nproject. By providing a reference, you can create multiple dev and prod\ndeployments in the project. If you don’t provide a reference, the\nendpoint will create the default production deployment for the project,\nor the default development deployment for the member that creates it\n(i.e. the deployment used by default when running `npx convex deploy`\nor `npx convex dev` respectively). When not providing a reference,\na reference will be automatically generated."
+          },
           "region": {
             "oneOf": [
               {
@@ -942,8 +1106,7 @@
       "PlatformCreateProjectArgs": {
         "type": "object",
         "required": [
-          "projectName",
-          "deploymentType"
+          "projectName"
         ],
         "properties": {
           "deploymentClass": {
@@ -951,7 +1114,7 @@
               "string",
               "null"
             ],
-            "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
+            "description": "When creating a deployment, the class to use for the deployment.\nIf not provided, the default deployment class for your team will be\nused."
           },
           "deploymentRegion": {
             "oneOf": [
@@ -960,13 +1123,20 @@
               },
               {
                 "$ref": "#/components/schemas/RegionName",
-                "description": "The hosting region to use for this deployment. If not provided, the\ndefault deployment region for your team will be used."
+                "description": "When creating a deployment, the hosting region to use for the\ndeployment. If not provided, the default deployment region for your\nteam will be used."
               }
             ]
           },
           "deploymentType": {
-            "$ref": "#/components/schemas/CreateDeploymentType",
-            "description": "Projects always include a deployment, so start this project off with a\n\"dev\" development deployment or a \"prod\" production deployment."
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreateDeploymentType",
+                "description": "Optionally provision a \"dev\" development deployment or \"prod\" production\ndeployment alongside the project. If omitted, a project is created\nwithout a deployment."
+              }
+            ]
           },
           "projectName": {
             "$ref": "#/components/schemas/ProjectName",
@@ -978,18 +1148,22 @@
       "PlatformCreateProjectResponse": {
         "type": "object",
         "required": [
-          "projectId",
-          "deploymentName",
-          "deploymentUrl"
+          "projectId"
         ],
         "properties": {
           "deploymentName": {
-            "type": "string",
-            "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The readable identifier for this deployment, something like\nplayful-otter-123. Only present when a deployment was requested."
           },
           "deploymentUrl": {
-            "type": "string",
-            "description": "Deployment cloud URL, where this deployment lives."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Deployment cloud URL, where this deployment lives. Only present when a\ndeployment was requested."
           },
           "projectId": {
             "$ref": "#/components/schemas/ProjectId"
@@ -1111,6 +1285,7 @@
               "projectId",
               "region",
               "isDefault",
+              "reference",
               "kind"
             ],
             "properties": {
@@ -1129,6 +1304,13 @@
                     "description": "The member who created this deployment."
                   }
                 ]
+              },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Controls whether the dashboard requires a confirmation before\nallowing edits during a browser session for this deployment.\nIf not set, defaults to true for prod deployments and false\nfor dev and preview deployments."
               },
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType",
@@ -1165,6 +1347,10 @@
               "projectId": {
                 "$ref": "#/components/schemas/ProjectId",
                 "description": "The project this deployment belongs to."
+              },
+              "reference": {
+                "$ref": "#/components/schemas/DeploymentReference",
+                "description": "An identifier that uniquely identifies this deployment within the\nproject."
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName",
@@ -1257,6 +1443,20 @@
           }
         }
       },
+      "PlatformListTeamMembersResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMember"
+            }
+          }
+        }
+      },
       "PlatformProjectDetails": {
         "type": "object",
         "required": [
@@ -1264,6 +1464,7 @@
           "name",
           "slug",
           "teamId",
+          "teamSlug",
           "createTime"
         ],
         "properties": {
@@ -1285,6 +1486,10 @@
           },
           "teamId": {
             "$ref": "#/components/schemas/TeamId"
+          },
+          "teamSlug": {
+            "$ref": "#/components/schemas/TeamSlug",
+            "description": "The slug of the team that owns this project."
           }
         }
       },
@@ -1376,10 +1581,48 @@
           "convexSite"
         ]
       },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "developer"
+        ]
+      },
       "TeamId": {
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "TeamMember": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The email of the team member"
+          },
+          "id": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name of the team member"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "The role of the team member"
+          }
+        }
+      },
+      "TeamSlug": {
+        "type": "string"
       }
     },
     "securitySchemes": {

@@ -222,6 +222,7 @@ impl<RT: Runtime> Database<RT> {
             tp,
             retention_validator,
             self.clone(),
+            None,
         );
         index_backfill_fut.await?;
 

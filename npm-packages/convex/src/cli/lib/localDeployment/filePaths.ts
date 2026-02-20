@@ -13,6 +13,18 @@
     index.html
 
 
+Deployment state storage locations:
+
+New default (project-local): .convex/local/default/
+  - Used for both "local" (linked to Convex project) and "anonymous" deployments
+  - One deployment per project/worktree/clone
+  - This allows worktrees/clones to have isolated storage without conflicts
+
+Legacy (home directory) - used for backward compatibility if data already exists:
+  - For "local" deployments: ~/.convex/convex-backend-state/local-{team}-{project}/
+  - For "anonymous" deployments: ~/.convex/anonymous-convex-backend-state/{anonymous-deployment-name}/
+
+
 ~/.convex
   convex-backend-state
     local-my_team-chess
@@ -23,12 +35,12 @@
       config.json
       convex_local_storage
       convex_local_backend.sqlite3
-    anonymous-convex-backend-state
-      config.json // contains { uuid: <uuid> }, used to identify the anonymous user
-      anonymous-chess
-        config.json
-        convex_local_storage
-        convex_local_backend.sqlite3
+  anonymous-convex-backend-state
+    config.json // contains { uuid: <uuid> }, used to identify the anonymous user
+    anonymous-chess
+      config.json
+      convex_local_storage
+      convex_local_backend.sqlite3
 */
 
 import path from "path";
@@ -37,6 +49,25 @@ import { Context } from "../../../bundler/context.js";
 import { logVerbose } from "../../../bundler/log.js";
 import { recursivelyDelete } from "../fsUtils.js";
 import crypto from "crypto";
+
+/**
+ * Ensure the `.convex/.gitignore` file exists with the right content.
+ * This prevents local deployment state from being committed to git.
+ */
+export function ensureDotConvexGitignore(
+  ctx: Context,
+  projectDir?: string,
+): void {
+  const baseDir = projectDir ?? process.cwd();
+  const dotConvexDir = path.join(baseDir, ".convex");
+  const gitignorePath = path.join(dotConvexDir, ".gitignore");
+
+  // Only create if .convex directory exists but .gitignore doesn't
+  if (ctx.fs.exists(dotConvexDir) && !ctx.fs.exists(gitignorePath)) {
+    ctx.fs.writeUtf8File(gitignorePath, "/*\n");
+    logVerbose(`Created .convex/.gitignore to ignore local/`);
+  }
+}
 
 // Naming is hard, but "local" refers to deployments linked to a Convex project
 // and "anonymous" refers to deployments that are not linked to a Convex project
@@ -52,11 +83,76 @@ export function rootDeploymentStateDir(kind: LocalDeploymentKind) {
   );
 }
 
-export function deploymentStateDir(
+/**
+ * Get the project-local state directory for a deployment.
+ * Always returns `.convex/local/default/` - one deployment per project.
+ */
+export function projectLocalStateDir(projectDir?: string): string {
+  const baseDir = projectDir ?? process.cwd();
+  return path.join(baseDir, ".convex", "local", "default");
+}
+
+/**
+ * Get the legacy home directory state path for a deployment.
+ */
+export function legacyDeploymentStateDir(
   deploymentKind: LocalDeploymentKind,
   deploymentName: string,
-) {
+): string {
   return path.join(rootDeploymentStateDir(deploymentKind), deploymentName);
+}
+
+/**
+ * Get the state directory for a deployment.
+ *
+ * Priority order:
+ * 1. Project-local directory if it has data (config.json exists)
+ * 2. Legacy home directory if it exists (backward compatibility)
+ * 3. Project-local directory for new deployments
+ *
+ * This ensures that when project-local storage is in use, it takes precedence
+ * over any legacy directories that might exist with the same deployment name.
+ */
+export function deploymentStateDir(
+  ctx: Context,
+  deploymentKind: LocalDeploymentKind,
+  deploymentName: string,
+  projectDir?: string,
+): string {
+  // Check if project-local has data - if so, use it
+  // This takes precedence over legacy to support switching deployment types
+  // within the same project directory
+  const localDir = projectLocalStateDir(projectDir);
+  const localConfigFile = path.join(localDir, "config.json");
+  if (ctx.fs.exists(localConfigFile)) {
+    logVerbose(
+      `Using project-local state for deployment ${deploymentName}: ${localDir}`,
+    );
+    return localDir;
+  }
+
+  // Check if legacy data exists in home directory
+  const legacyDir = legacyDeploymentStateDir(deploymentKind, deploymentName);
+  if (ctx.fs.exists(legacyDir) && ctx.fs.stat(legacyDir).isDirectory()) {
+    logVerbose(
+      `Using legacy home directory state for deployment ${deploymentName}: ${legacyDir}`,
+    );
+    return legacyDir;
+  }
+
+  // Default to project-local for new deployments
+  logVerbose(
+    `Using project-local state for new deployment ${deploymentName}: ${localDir}`,
+  );
+  return localDir;
+}
+
+/**
+ * Get the state directory for a deployment without checking for legacy data.
+ * This always returns the project-local path.
+ */
+export function deploymentStateDirUnchecked(projectDir?: string): string {
+  return projectLocalStateDir(projectDir);
 }
 
 export type LocalDeploymentConfig = {
@@ -68,42 +164,130 @@ export type LocalDeploymentConfig = {
   adminKey: string;
   // If not present, use the default instance secret for local backends
   instanceSecret?: string;
+  // The deployment name (e.g., "local-my_team-my_project" or "anonymous-chess")
+  // This is stored in the config for project-local storage where the directory
+  // name is always "default" rather than the deployment name.
+  deploymentName?: string;
 };
-export function loadDeploymentConfig(
+
+/**
+ * Load deployment config from a specific directory.
+ * This is used when we already know the directory path.
+ */
+export function loadDeploymentConfigFromDir(
   ctx: Context,
-  deploymentKind: LocalDeploymentKind,
-  deploymentName: string,
+  dir: string,
 ): LocalDeploymentConfig | null {
-  const dir = deploymentStateDir(deploymentKind, deploymentName);
   const configFile = path.join(dir, "config.json");
-  if (!ctx.fs.exists(dir) || !ctx.fs.stat(dir).isDirectory()) {
-    logVerbose(`Deployment ${deploymentName} not found`);
+  if (!ctx.fs.exists(configFile)) {
     return null;
   }
-  if (ctx.fs.exists(configFile)) {
-    const content = ctx.fs.readUtf8File(configFile);
-    try {
-      return JSON.parse(content);
-    } catch (e) {
-      logVerbose(`Failed to parse local deployment config: ${e as any}`);
-      return null;
-    }
+  const content = ctx.fs.readUtf8File(configFile);
+  try {
+    return JSON.parse(content);
+  } catch (e) {
+    logVerbose(
+      `Failed to parse local deployment config at ${dir}: ${e as any}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Load the project-local deployment config.
+ * This returns the config from `.convex/local/default/` if it exists.
+ * Returns both the config and the deployment name stored in it.
+ */
+export function loadProjectLocalConfig(
+  ctx: Context,
+  projectDir?: string,
+): { deploymentName: string; config: LocalDeploymentConfig } | null {
+  const localDir = projectLocalStateDir(projectDir);
+  const config = loadDeploymentConfigFromDir(ctx, localDir);
+  if (config !== null && config.deploymentName) {
+    logVerbose(
+      `Found project-local deployment config for ${config.deploymentName}`,
+    );
+    return { deploymentName: config.deploymentName, config };
   }
   return null;
 }
 
+/**
+ * Load deployment config for a deployment.
+ *
+ * Priority order (matching deploymentStateDir):
+ * 1. Project-local directory if it has a matching config
+ * 2. Legacy home directory
+ */
+export function loadDeploymentConfig(
+  ctx: Context,
+  deploymentKind: LocalDeploymentKind,
+  deploymentName: string,
+  projectDir?: string,
+): LocalDeploymentConfig | null {
+  // Check project-local location first - matches deploymentStateDir priority
+  const localDir = projectLocalStateDir(projectDir);
+  const localConfig = loadDeploymentConfigFromDir(ctx, localDir);
+  if (localConfig !== null) {
+    // Only use if config matches the requested deployment name
+    // (project-local can hold different deployments at different times)
+    if (
+      !localConfig.deploymentName ||
+      localConfig.deploymentName === deploymentName
+    ) {
+      logVerbose(
+        `Found deployment config in project-local location for ${deploymentName}`,
+      );
+      return localConfig;
+    }
+    logVerbose(
+      `Project-local config is for ${localConfig.deploymentName}, not ${deploymentName}`,
+    );
+  }
+
+  // Check legacy location
+  const legacyDir = legacyDeploymentStateDir(deploymentKind, deploymentName);
+  const legacyConfig = loadDeploymentConfigFromDir(ctx, legacyDir);
+  if (legacyConfig !== null) {
+    logVerbose(
+      `Found deployment config in legacy location for ${deploymentName}`,
+    );
+    return legacyConfig;
+  }
+
+  return null;
+}
+
+/**
+ * Save deployment config.
+ *
+ * If data already exists in the legacy home directory, continue using that
+ * location. Otherwise, use the project-local directory. The deployment name
+ * is always stored in the config for project-local storage.
+ */
 export function saveDeploymentConfig(
   ctx: Context,
   deploymentKind: LocalDeploymentKind,
   deploymentName: string,
   config: LocalDeploymentConfig,
+  projectDir?: string,
 ) {
-  const dir = deploymentStateDir(deploymentKind, deploymentName);
+  const dir = deploymentStateDir(
+    ctx,
+    deploymentKind,
+    deploymentName,
+    projectDir,
+  );
   const configFile = path.join(dir, "config.json");
   if (!ctx.fs.exists(dir)) {
     ctx.fs.mkdir(dir, { recursive: true });
   }
-  ctx.fs.writeUtf8File(configFile, JSON.stringify(config));
+  // Ensure .gitignore exists to prevent local state from being committed
+  ensureDotConvexGitignore(ctx, projectDir);
+  // Always include the deployment name in the config for project-local storage
+  const configWithName = { ...config, deploymentName };
+  ctx.fs.writeUtf8File(configFile, JSON.stringify(configWithName));
 }
 
 export function binariesDir() {

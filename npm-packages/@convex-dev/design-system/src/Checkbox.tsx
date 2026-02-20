@@ -1,5 +1,5 @@
-import classNames from "classnames";
 import { useEffect, useRef } from "react";
+import { cn } from "./cn";
 
 export function Checkbox({
   checked,
@@ -30,10 +30,10 @@ export function Checkbox({
       ref={inputRef}
       tabIndex={0}
       type="checkbox"
-      className={classNames(
-        "size-3.5 form-checkbox enabled:cursor-pointer rounded-sm disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:text-content-link enabled:hover:outline enabled:hover:outline-content-primary",
-        "focus:outline-0 focus:ring-0",
-        "bg-background-secondary ring-offset-background-secondary checked:bg-util-accent text-util-accent",
+      className={cn(
+        "form-checkbox size-3.5 rounded-sm enabled:cursor-pointer enabled:hover:text-content-link enabled:hover:outline enabled:hover:outline-content-primary disabled:cursor-not-allowed disabled:opacity-50",
+        "focus:ring-0 focus:outline-0",
+        "bg-background-secondary text-util-accent ring-offset-background-secondary checked:bg-util-accent",
         className,
       )}
       onChange={onChange}

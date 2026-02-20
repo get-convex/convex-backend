@@ -21,6 +21,7 @@ import {
 } from "./lib/formatQuantity";
 
 const ITEMS_SHOWN_INITIALLY = 6;
+const ITEMS_SHOW_MORE_INCREMENT = 20;
 
 type DeploymentTypeRow = {
   key: string;
@@ -91,7 +92,7 @@ export function TeamUsageByFunctionChart({
   team: TeamResponse;
   maxValue: number;
 }) {
-  const [showAll, setShowAll] = useState(false);
+  const [numShown, setNumShown] = useState(ITEMS_SHOWN_INITIALLY);
 
   const orderedAndGroupedRows = useOrderedAndGroupedRows(
     rows,
@@ -115,30 +116,30 @@ export function TeamUsageByFunctionChart({
       </div>
 
       <div className="relative" role="rowgroup">
-        {nonZeroRows
-          .slice(0, showAll ? undefined : ITEMS_SHOWN_INITIALLY)
-          .map((row) => (
-            <ChartRow
-              key={row.key}
-              row={row}
-              maxValue={maxValue}
-              quantityType={metric.quantityType}
-              categories={metric.categories}
-            />
-          ))}
+        {nonZeroRows.slice(0, numShown).map((row) => (
+          <ChartRow
+            key={row.key}
+            row={row}
+            maxValue={maxValue}
+            quantityType={metric.quantityType}
+            categories={metric.categories}
+          />
+        ))}
 
-        {!showAll && nonZeroRows.length > ITEMS_SHOWN_INITIALLY && (
+        {numShown < nonZeroRows.length && (
           <div className="h-4">
             <div className="bottom-four pointer-events-none absolute h-24 w-full bg-gradient-to-b from-transparent to-background-secondary" />
             <div className="absolute bottom-0 left-[50%]">
               <Button
                 className="-translate-x-1/2"
                 variant="neutral"
-                onClick={() => setShowAll(true)}
+                onClick={() =>
+                  setNumShown((n) => n + ITEMS_SHOW_MORE_INCREMENT)
+                }
                 icon={<ChevronDownIcon />}
                 inline
               >
-                Show All
+                Show more
               </Button>
             </div>
           </div>

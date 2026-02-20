@@ -1431,7 +1431,7 @@ async fn insert_import_objects<RT: Runtime>(
         ));
     }
     database
-        .execute_with_overloaded_retries(
+        .execute_with_overloaded_and_ratelimited_retries(
             identity.clone(),
             usage,
             "snapshot_import_insert_objects",

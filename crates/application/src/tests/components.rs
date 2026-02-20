@@ -268,12 +268,7 @@ async fn test_date_now_within_component(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(dates.len(), 2);
     must_let!(let ConvexValue::Float64(parent_date) = dates[0].clone());
     must_let!(let ConvexValue::Float64(child_date) = dates[1].clone());
-    // Today these are equal because we're using TestRuntime.
-    // We want the guarantee that child_date <= parent_date for queries (because
-    // the child might be cached), and child_date == parent_date for mutations.
-    // But right now we actually have the opposite guarantee.
-    // TODO: Fix this.
-    assert!(child_date >= parent_date);
+    assert_eq!(child_date, parent_date);
     Ok(())
 }
 
@@ -293,9 +288,7 @@ async fn test_math_random_within_component(rt: TestRuntime) -> anyhow::Result<()
     must_let!(let ConvexValue::Float64(parent_random) = randoms[0].clone());
     must_let!(let ConvexValue::Float64(child_random) = randoms[1].clone());
     // Ensure that a child component has a different random seed from the parent.
-    // TODO: the child's random seed should depend on the parent's, so the
-    // entire query can be deterministic.
-    assert!(parent_random != child_random);
+    assert_ne!(parent_random, child_random);
     Ok(())
 }
 

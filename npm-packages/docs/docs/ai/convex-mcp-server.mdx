@@ -85,7 +85,8 @@ npx -y convex@latest mcp start --disable-tools data,run,envSet
 ```
 
 Available tools that can be disabled: `data`, `envGet`, `envList`, `envRemove`,
-`envSet`, `functionSpec`, `logs`, `run`, `runOneoffQuery`, `status`, `tables`
+`envSet`, `functionSpec`, `insights`, `logs`, `run`, `runOneoffQuery`, `status`,
+`tables`
 
 ## Available Tools
 
@@ -121,6 +122,14 @@ Available tools that can be disabled: `data`, `envGet`, `envList`, `envRemove`,
 
 - **`logs`**: Fetches a chunk of recent function execution log entries, similar
   to `npx convex logs` but as structured objects.
+
+### Insights Tools
+
+- **`insights`**: Fetches health insights for a deployment over the last 72
+  hours. Reports OCC (Optimistic Concurrency Control) conflicts and resource
+  limit issues (bytes read, documents read) that may indicate performance
+  problems or failing functions. Includes recent events with request IDs for
+  debugging.
 
 ### Environment Variable Tools
 

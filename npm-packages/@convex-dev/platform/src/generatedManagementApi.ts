@@ -15,7 +15,8 @@ export interface paths {
         put?: never;
         /**
          * Create project
-         * @description Create a new project on a team and provision a dev or prod deployment.
+         * @description Create a new project on a team, optionally provisioning a dev or prod
+         *     deployment.
          */
         post: operations["create project"];
         delete?: never;
@@ -78,6 +79,46 @@ export interface paths {
          * @description Delete a project. Deletes all deployments in the project as well.
          */
         post: operations["delete project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get project by ID
+         * @description Get a project by its ID.
+         */
+        get: operations["get project by id"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id_or_slug}/projects/{project_slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get project by slug
+         * @description Get a project by its slug.
+         */
+        get: operations["get project by slug"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -334,6 +375,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/list_members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List team members
+         * @description List the members of the given team.
+         */
+        get: operations["list team members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -350,6 +411,8 @@ export interface components {
         };
         /** Format: int64 */
         DeploymentId: number;
+        /** @description An identifier that uniquely identifies this deployment within the project. */
+        DeploymentReference: string;
         DeploymentRegionMetadata: {
             available: boolean;
             displayName: string;
@@ -359,6 +422,7 @@ export interface components {
             /** Format: int64 */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            dashboardEditConfirmation?: boolean | null;
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
@@ -367,6 +431,7 @@ export interface components {
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
+            reference: components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
         } | {
             /** Format: int64 */
@@ -414,27 +479,36 @@ export interface components {
             /** @description The class to use for this deployment. If not provided, the default
              *     deployment class for your team will be used. */
             class?: string | null;
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. By providing a reference, you can create multiple dev and prod
+             *     deployments in the project. If you don’t provide a reference, the
+             *     endpoint will create the default production deployment for the project,
+             *     or the default development deployment for the member that creates it
+             *     (i.e. the deployment used by default when running `npx convex deploy`
+             *     or `npx convex dev` respectively). When not providing a reference,
+             *     a reference will be automatically generated. */
+            reference?: string | null;
             region?: null | components["schemas"]["RegionName"];
             type: components["schemas"]["CreateDeploymentType"];
         };
         PlatformCreateProjectArgs: {
-            /** @description The class to use for this deployment. If not provided, the default
-             *     deployment class for your team will be used. */
+            /** @description When creating a deployment, the class to use for the deployment.
+             *     If not provided, the default deployment class for your team will be
+             *     used. */
             deploymentClass?: string | null;
             deploymentRegion?: null | components["schemas"]["RegionName"];
-            /** @description Projects always include a deployment, so start this project off with a
-             *     "dev" development deployment or a "prod" production deployment. */
-            deploymentType: components["schemas"]["CreateDeploymentType"];
+            deploymentType?: null | components["schemas"]["CreateDeploymentType"];
             /** @description The full name of the project as it will appear in the dashboard. Spaces
              *     and punctuations allowed. */
             projectName: components["schemas"]["ProjectName"];
         };
         PlatformCreateProjectResponse: {
             /** @description The readable identifier for this deployment, something like
-             *     playful-otter-123. */
-            deploymentName: string;
-            /** @description Deployment cloud URL, where this deployment lives. */
-            deploymentUrl: string;
+             *     playful-otter-123. Only present when a deployment was requested. */
+            deploymentName?: string | null;
+            /** @description Deployment cloud URL, where this deployment lives. Only present when a
+             *     deployment was requested. */
+            deploymentUrl?: string | null;
             projectId: components["schemas"]["ProjectId"];
         };
         PlatformCustomDomainResponse: {
@@ -489,6 +563,11 @@ export interface components {
              */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            /** @description Controls whether the dashboard requires a confirmation before
+             *     allowing edits during a browser session for this deployment.
+             *     If not set, defaults to true for prod deployments and false
+             *     for dev and preview deployments. */
+            dashboardEditConfirmation?: boolean | null;
             /** @description The type of this deployment. */
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
@@ -505,6 +584,9 @@ export interface components {
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             /** @description The project this deployment belongs to. */
             projectId: components["schemas"]["ProjectId"];
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. */
+            reference: components["schemas"]["DeploymentReference"];
             /** @description The region where this deployment is hosted. */
             region: components["schemas"]["RegionName"];
         } | {
@@ -540,6 +622,9 @@ export interface components {
             /** @description List of custom domains configured for this deployment. */
             domains: components["schemas"]["PlatformCustomDomainResponse"][];
         };
+        PlatformListTeamMembersResponse: {
+            items: components["schemas"]["TeamMember"][];
+        };
         PlatformProjectDetails: {
             /**
              * Format: int64
@@ -552,6 +637,8 @@ export interface components {
             /** @description This shortened version of the name used in Convex Dashboard URLs. */
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
+            /** @description The slug of the team that owns this project. */
+            teamSlug: components["schemas"]["TeamSlug"];
         };
         PlatformTokenDetailsResponse: {
             /**
@@ -586,8 +673,20 @@ export interface components {
         RegionName: string;
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
+        /** @enum {string} */
+        Role: "admin" | "developer";
         /** Format: int64 */
         TeamId: number;
+        TeamMember: {
+            /** @description The email of the team member */
+            email: string;
+            id: components["schemas"]["MemberId"];
+            /** @description The name of the team member */
+            name?: string | null;
+            /** @description The role of the team member */
+            role: components["schemas"]["Role"];
+        };
+        TeamSlug: string;
     };
     responses: never;
     parameters: never;
@@ -600,6 +699,7 @@ export type CreateDeploymentType = components['schemas']['CreateDeploymentType']
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
 export type DeploymentId = components['schemas']['DeploymentId'];
+export type DeploymentReference = components['schemas']['DeploymentReference'];
 export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMetadata'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
@@ -619,6 +719,7 @@ export type PlatformDeleteDeployKeyArgs = components['schemas']['PlatformDeleteD
 export type PlatformDeployKeyResponse = components['schemas']['PlatformDeployKeyResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
+export type PlatformListTeamMembersResponse = components['schemas']['PlatformListTeamMembersResponse'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
@@ -627,7 +728,10 @@ export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
 export type RegionName = components['schemas']['RegionName'];
 export type RequestDestination = components['schemas']['RequestDestination'];
+export type Role = components['schemas']['Role'];
 export type TeamId = components['schemas']['TeamId'];
+export type TeamMember = components['schemas']['TeamMember'];
+export type TeamSlug = components['schemas']['TeamSlug'];
 export type $defs = Record<string, never>;
 export interface operations {
     "create project": {
@@ -684,6 +788,11 @@ export interface operations {
                 /** @description If true, include local deployments in the response (filtered to only
                  *     show local deployments created by the requesting team member). */
                 includeLocal?: boolean;
+                /** @description If true, only include default deployments. If false, only include
+                 *     non-default deployments. */
+                isDefault?: boolean | null;
+                /** @description Only include deployments of the given deployment type. */
+                deploymentType?: null | components["schemas"]["DeploymentType"];
             };
             header?: never;
             path: {
@@ -721,6 +830,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    "get project by id": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformProjectDetails"];
+                };
+            };
+        };
+    };
+    "get project by slug": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID or slug */
+                team_id_or_slug: string;
+                /** @description Project slug */
+                project_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformProjectDetails"];
+                };
             };
         };
     };
@@ -993,6 +1148,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformListCustomDomainsResponse"];
+                };
+            };
+        };
+    };
+    "list team members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformListTeamMembersResponse"];
                 };
             };
         };

@@ -79,6 +79,10 @@ function InsightsLineChart<T extends Record<string, any>>({
     {} as Record<string, { hour: string; timestamp: number }[]>,
   );
 
+  const midnightTicks = (data ?? [])
+    .filter((d) => new Date(toNumericUTCWithHour(d.hour)).getHours() === 0)
+    .map((d) => d.hour);
+
   return (
     <div>
       <LoadingTransition
@@ -103,14 +107,9 @@ function InsightsLineChart<T extends Record<string, any>>({
               ))}
 
               <CartesianGrid
-                className="stroke-content-tertiary/40"
+                className="stroke-content-tertiary/30"
                 horizontal
                 strokeWidth={1}
-                vertical={false}
-                verticalFill={[]}
-                horizontalFill={[
-                  "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
-                ]}
                 syncWithTicks
               />
 
@@ -119,35 +118,21 @@ function InsightsLineChart<T extends Record<string, any>>({
                 domain={["auto", "auto"]}
                 tickFormatter={dateLabel}
                 strokeWidth={1}
-                className="text-content-secondary"
-                axisLine={{
-                  stroke: "currentColor",
-                }}
-                tickLine={{
-                  stroke: "currentColor",
-                }}
+                axisLine={{ className: "stroke-content-tertiary/30" }}
+                tickLine={false}
                 tick={{
                   fontSize: 12,
-                  fill: "currentColor",
+                  fill: "var(--content-secondary)",
                 }}
                 max={max}
-                ticks={data
-                  .filter(
-                    (d) =>
-                      new Date(toNumericUTCWithHour(d.hour)).getHours() === 0,
-                  )
-                  .map((d) => d.hour)}
+                {...(midnightTicks.length > 0 ? { ticks: midnightTicks } : {})}
               />
               <YAxis
                 tick={{
                   fontSize: 12,
-                  className: "",
                   fill: "currentColor",
                 }}
-                className="text-content-secondary"
-                axisLine={{
-                  stroke: "currentColor",
-                }}
+                axisLine={{ className: "stroke-content-tertiary/30" }}
                 tickLine={false}
                 tickFormatter={formatY}
                 width={48}
@@ -300,15 +285,16 @@ const dateLabel = (value: string) => {
   }
 };
 
-const timeLabel = (value: string) => {
+const timeLabel = (value: string | number | undefined) => {
   if (!value) {
     return "";
   }
+  const stringValue = typeof value === "number" ? String(value) : value;
 
   try {
-    const timestamp = toNumericUTCWithHour(value);
+    const timestamp = toNumericUTCWithHour(stringValue);
     if (Number.isNaN(timestamp)) {
-      console.warn("Invalid date for timeLabel:", value);
+      console.warn("Invalid date for timeLabel:", stringValue);
       return "Invalid date";
     }
 
@@ -317,7 +303,7 @@ const timeLabel = (value: string) => {
 
     return `${format(date, "P")} ${format(date, "h a")} – ${format(oneHourLater, "h a")}`;
   } catch (error) {
-    console.error("Error formatting date:", error, value);
+    console.error("Error formatting date:", error, stringValue);
     return "Invalid date format";
   }
 };

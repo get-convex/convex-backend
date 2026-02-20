@@ -53,6 +53,10 @@ const getProps: GetServerSideProps<{
     };
   }
 
+  // Create abort controller with 30 second timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30 * 1000);
+
   try {
     const headers: Record<string, string> = {
       authorization: `Bearer ${token.accessToken}`,
@@ -62,6 +66,7 @@ const getProps: GetServerSideProps<{
       `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/member_data`,
       {
         headers,
+        signal: controller.signal,
       },
     );
     if (!resp.ok) {
@@ -210,13 +215,25 @@ const getProps: GetServerSideProps<{
             }
           : undefined,
     };
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const isFetchError = e instanceof FetchError;
+    const isTimeout = isFetchError && e.isTimeout;
+
     return {
       props: {
         accessToken: token.accessToken,
-        error: { message: e.message, code: "FailedToConnect" },
+        error: {
+          message: isTimeout
+            ? "Request timed out connecting to Convex dashboard"
+            : isFetchError
+              ? e.message
+              : "Failed to connect to Convex dashboard",
+          code: "FailedToConnect",
+        },
       },
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
@@ -369,7 +386,19 @@ function pageNotFound(res: GetServerSidePropsContext["res"]) {
   return { props: {} };
 }
 
-export const retryingFetch = fetchRetryFactory(fetch, {
+// Custom error type for fetch failures
+class FetchError extends Error {
+  constructor(
+    message: string,
+    public readonly isTimeout: boolean = false,
+    public readonly originalError?: unknown,
+  ) {
+    super(message);
+    this.name = "FetchError";
+  }
+}
+
+const baseFetch = fetchRetryFactory(fetch, {
   retries: 2,
   retryDelay: (attempt: number, _error: any, _response: any) => {
     // immediate, 1s delay, 2s delay, 4s delay, etc.
@@ -382,8 +411,12 @@ export const retryingFetch = fetchRetryFactory(fetch, {
     if (response && response.status >= 400 && response.status < 500) {
       return false;
     }
-    // Retry on network errors.
+    // Retry on network errors, but not on aborted requests
     if (error) {
+      // Don't retry if the request was aborted (timeout or manual abort)
+      if (error.name === "AbortError") {
+        return false;
+      }
       // TODO filter out all SSL errors
       // https://github.com/nodejs/node/blob/8a41d9b636be86350cd32847c3f89d327c4f6ff7/src/crypto/crypto_common.cc#L218-L245
       return true;
@@ -395,3 +428,22 @@ export const retryingFetch = fetchRetryFactory(fetch, {
     return false;
   },
 });
+
+// Wrapper that ensures all errors are typed as FetchError
+export async function retryingFetch(
+  url: string,
+  options?: RequestInit,
+): Promise<Response> {
+  try {
+    return await baseFetch(url, options);
+  } catch (error) {
+    // Check if it's an abort error (timeout)
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+
+    // Get error message safely
+    const message =
+      error instanceof Error ? error.message : "Unknown error during fetch";
+
+    throw new FetchError(message, isTimeout, error);
+  }
+}

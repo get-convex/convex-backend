@@ -9,7 +9,7 @@ export function ChartTooltip({
 }: {
   active?: boolean;
   label: string;
-  payload?: any[];
+  payload?: readonly any[];
   extraContent?: React.ReactNode;
   showLegend?: boolean;
 }) {

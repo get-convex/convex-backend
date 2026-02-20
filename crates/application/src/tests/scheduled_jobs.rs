@@ -439,7 +439,7 @@ async fn test_scheduled_job_retry(
     // Simulate a failure in the scheduled job
     let mut pause_guard = attempt_commit.wait_for_blocked().await.unwrap();
     pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(
-        None, None, None, None
+        None, None, None, None, None
     )));
     // Pause the next attempt as well.
     let second_attempt_commit = pause_controller.hold(SCHEDULED_JOB_COMMITTING);

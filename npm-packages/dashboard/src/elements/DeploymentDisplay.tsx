@@ -3,12 +3,7 @@ import {
   SignalIcon,
   WrenchIcon,
 } from "@heroicons/react/24/outline";
-import {
-  CaretSortIcon,
-  GearIcon,
-  GlobeIcon,
-  Pencil2Icon,
-} from "@radix-ui/react-icons";
+import { CaretSortIcon, GearIcon, Pencil2Icon } from "@radix-ui/react-icons";
 import { useCurrentDeployment, useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useProfile } from "api/profile";
@@ -22,7 +17,10 @@ import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { DeploymentMenuOptions } from "components/header/ProjectSelector/DeploymentMenuOptions";
 import { useCurrentProject } from "api/projects";
 import { useRef, useState, useEffect } from "react";
-import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
+import {
+  PROVISION_DEV_PAGE_NAME,
+  PROVISION_PROD_PAGE_NAME,
+} from "@common/lib/deploymentContext";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useListVanityDomains } from "api/vanityDomains";
 import { useQuery } from "convex/react";
@@ -140,6 +138,13 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
       }
     },
     [defaultProd, projectsURI, currentView],
+  );
+  useHotkeys(
+    devDeployments.length === 0 ? [`ctrl+alt+2`] : [],
+    () => {
+      void router.push(`${projectsURI}/${PROVISION_DEV_PAGE_NAME}`);
+    },
+    [devDeployments, projectsURI],
   );
   useHotkeys(
     Array.from({ length: devDeployments.length }, (_, idx) => [
@@ -320,11 +325,7 @@ export function DeploymentLabel({
           {showType && (
             <>
               {deployment.deploymentType === "dev" ? (
-                deployment.kind === "local" ? (
-                  <CommandLineIcon className="size-4 min-w-4" />
-                ) : (
-                  <GlobeIcon className="size-4 min-w-4" />
-                )
+                <CommandLineIcon className="size-4 min-w-4" />
               ) : deployment.deploymentType === "prod" ? (
                 <SignalIcon className="size-4 min-w-4" />
               ) : deployment.deploymentType === "preview" ? (

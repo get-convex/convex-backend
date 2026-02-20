@@ -72,11 +72,13 @@ use common::{
         Size,
         TableMapping,
     },
-    version::Version,
     virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
-use indexing::backend_in_memory_indexes::RangeRequest;
+use indexing::backend_in_memory_indexes::{
+    RangeRequest,
+    TimestampedIndexCache,
+};
 use keybroker::{
     Identity,
     UserIdentityAttributes,
@@ -676,12 +678,19 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     pub fn into_token(self) -> anyhow::Result<Token> {
-        if !self.is_readonly() {
-            anyhow::bail!("Transaction isn't readonly");
-        }
+        anyhow::ensure!(self.is_readonly(), "Transaction isn't readonly");
         metrics::log_read_tx(&self);
         let ts = *self.begin_timestamp();
         Ok(Token::new(Arc::new(self.reads.into_read_set()), ts))
+    }
+
+    pub fn into_token_and_index_cache(self) -> anyhow::Result<(Token, TimestampedIndexCache)> {
+        anyhow::ensure!(self.is_readonly(), "Transaction isn't readonly");
+        metrics::log_read_tx(&self);
+        let ts = self.begin_timestamp();
+        let token = Token::new(Arc::new(self.reads.into_read_set()), *ts);
+        let cache = self.index.into_flat()?.into_cache();
+        Ok((token, TimestampedIndexCache { cache, ts }))
     }
 
     pub fn take_stats(&mut self) -> BTreeMap<TableName, TableStats> {
@@ -1160,7 +1169,6 @@ pub struct IndexRangeRequest {
     pub interval: Interval,
     pub order: Order,
     pub max_rows: usize,
-    pub version: Option<Version>,
 }
 
 /// FinalTransaction is a finalized Transaction.

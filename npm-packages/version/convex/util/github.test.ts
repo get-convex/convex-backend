@@ -3,6 +3,7 @@ import {
   parseLinkHeader,
   fetchAllGitHubReleases,
   findReleaseWithAsset,
+  findReleaseWithAllAssets,
   downloadAssetFromRelease,
 } from "./github";
 
@@ -10,9 +11,17 @@ import {
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+const expectedGithubHeaders = {
+  Authorization: `Bearer placeholder-token`,
+  Accept: "application/vnd.github+json",
+};
+
 describe("GitHub Helper Functions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    if (!process.env.GITHUB_TOKEN) {
+      process.env.GITHUB_TOKEN = "placeholder-token";
+    }
   });
 
   afterEach(() => {
@@ -101,10 +110,12 @@ describe("GitHub Helper Functions", () => {
       expect(mockFetch).toHaveBeenNthCalledWith(
         1,
         "https://api.github.com/repos/test/repo/releases?per_page=30",
+        { headers: expectedGithubHeaders },
       );
       expect(mockFetch).toHaveBeenNthCalledWith(
         2,
         "https://api.github.com/repos/test/repo/releases?page=2",
+        { headers: expectedGithubHeaders },
       );
     });
 
@@ -163,6 +174,7 @@ describe("GitHub Helper Functions", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.github.com/repos/test/repo/releases?per_page=50",
+        { headers: expectedGithubHeaders },
       );
     });
   });
@@ -260,6 +272,155 @@ describe("GitHub Helper Functions", () => {
     });
   });
 
+  describe("findReleaseWithAllAssets", () => {
+    it("should find the first stable release with all assets", () => {
+      const mockReleases = [
+        {
+          tag_name: "v1.0.0",
+          prerelease: false,
+          draft: false,
+          assets: [
+            { name: "binary-linux.zip" },
+            { name: "binary-mac.zip" },
+            { name: "binary-windows.zip" },
+          ],
+        },
+        {
+          tag_name: "v0.9.0",
+          prerelease: false,
+          draft: false,
+          assets: [{ name: "binary-linux.zip" }, { name: "binary-mac.zip" }],
+        },
+      ];
+
+      const result = findReleaseWithAllAssets(mockReleases, [
+        "binary-linux.zip",
+        "binary-mac.zip",
+        "binary-windows.zip",
+      ]);
+
+      expect(result?.tag_name).toBe("v1.0.0");
+    });
+
+    it("should skip prereleases and drafts", () => {
+      const mockReleases = [
+        {
+          tag_name: "v1.0.0-beta",
+          prerelease: true,
+          draft: false,
+          assets: [
+            { name: "binary-linux.zip" },
+            { name: "binary-mac.zip" },
+            { name: "binary-windows.zip" },
+          ],
+        },
+        {
+          tag_name: "v0.9.0",
+          prerelease: false,
+          draft: true,
+          assets: [
+            { name: "binary-linux.zip" },
+            { name: "binary-mac.zip" },
+            { name: "binary-windows.zip" },
+          ],
+        },
+        {
+          tag_name: "v0.8.0",
+          prerelease: false,
+          draft: false,
+          assets: [
+            { name: "binary-linux.zip" },
+            { name: "binary-mac.zip" },
+            { name: "binary-windows.zip" },
+          ],
+        },
+      ];
+
+      const result = findReleaseWithAllAssets(mockReleases, [
+        "binary-linux.zip",
+        "binary-mac.zip",
+        "binary-windows.zip",
+      ]);
+
+      expect(result?.tag_name).toBe("v0.8.0");
+    });
+
+    it("should skip releases missing some binaries and take the first complete one", () => {
+      const mockReleases = [
+        {
+          tag_name: "v1.0.0",
+          prerelease: false,
+          draft: false,
+          assets: [{ name: "binary-linux.zip" }, { name: "binary-mac.zip" }],
+        },
+        {
+          tag_name: "v0.9.0",
+          prerelease: false,
+          draft: false,
+          assets: [
+            { name: "binary-linux.zip" },
+            { name: "binary-mac.zip" },
+            { name: "binary-windows.zip" },
+          ],
+        },
+      ];
+
+      const result = findReleaseWithAllAssets(mockReleases, [
+        "binary-linux.zip",
+        "binary-mac.zip",
+        "binary-windows.zip",
+      ]);
+
+      expect(result?.tag_name).toBe("v0.9.0");
+    });
+
+    it("should return null when no release has all assets", () => {
+      const mockReleases = [
+        {
+          tag_name: "v1.0.0",
+          prerelease: false,
+          draft: false,
+          assets: [{ name: "binary-linux.zip" }],
+        },
+        {
+          tag_name: "v0.9.0",
+          prerelease: false,
+          draft: false,
+          assets: [{ name: "binary-mac.zip" }],
+        },
+      ];
+
+      const result = findReleaseWithAllAssets(mockReleases, [
+        "binary-linux.zip",
+        "binary-mac.zip",
+        "binary-windows.zip",
+      ]);
+
+      expect(result).toBeNull();
+    });
+
+    it("should handle empty releases array", () => {
+      const result = findReleaseWithAllAssets([], ["binary-linux.zip"]);
+
+      expect(result).toBeNull();
+    });
+
+    it("should handle empty asset names array", () => {
+      const mockReleases = [
+        {
+          tag_name: "v1.0.0",
+          prerelease: false,
+          draft: false,
+          assets: [{ name: "binary-linux.zip" }],
+        },
+      ];
+
+      const result = findReleaseWithAllAssets(mockReleases, []);
+
+      expect(result?.tag_name).toBe("v1.0.0");
+    });
+  });
+
   describe("downloadAssetFromRelease", () => {
     it("should successfully download an asset", async () => {
       const mockContent = "Mock file content";
@@ -278,6 +439,7 @@ describe("GitHub Helper Functions", () => {
       expect(result).toBe(mockContent);
       expect(mockFetch).toHaveBeenCalledWith(
         "https://github.com/test/repo/releases/download/v1.0.0/convex_rules.mdc",
+        { headers: expectedGithubHeaders },
       );
     });
 

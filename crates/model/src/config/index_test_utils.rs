@@ -172,6 +172,6 @@ pub async fn backfill_indexes(
     // probably just mutate the index state. But running the whole IndexWorker
     // is easy and is a bit more robust to changes, so why not...
     let retention_validator = Arc::new(NoopRetentionValidator);
-    IndexWorker::new_terminating(rt, tp, retention_validator, db).await?;
+    IndexWorker::new_terminating(rt, tp, retention_validator, db, None).await?;
     Ok(())
 }

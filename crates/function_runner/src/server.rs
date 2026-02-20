@@ -74,6 +74,7 @@ use model::{
     },
     udf_config::types::UdfConfig,
 };
+use rand::Rng;
 use storage::{
     Storage,
     StorageUseCase,
@@ -372,6 +373,11 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                     path_and_args,
                     journal,
                 } = function_metadata.context("Missing function metadata for query or mutation")?;
+                // Initialize the UDF's RNG from some high-quality entropy. As with
+                // `unix_timestamp` below, the UDF is only deterministic modulo this
+                // system-generated input.
+                let rng_seed = self.rt.rng().random();
+                let unix_timestamp = self.rt.unix_timestamp();
                 let (tx, outcome) = self
                     .isolate_client
                     .execute_udf(
@@ -381,6 +387,8 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         journal,
                         context,
                         environment_data,
+                        rng_seed,
+                        unix_timestamp,
                         0,
                         instance_name,
                         function_started_sender,

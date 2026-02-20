@@ -122,6 +122,7 @@ use indexing::{
         BackendInMemoryIndexes,
         DatabaseIndexSnapshot,
         NoInMemoryIndexes,
+        TimestampedIndexCache,
     },
     index_registry::IndexRegistry,
 };
@@ -906,6 +907,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             Arc::new(NoInMemoryIndexes),
             self.snapshot.table_registry.table_mapping().clone(),
             self.persistence_snapshot.clone(),
+            None,
         );
 
         let id_generator = TransactionIdGenerator::new(&self.runtime.clone())?;
@@ -1538,6 +1540,17 @@ impl<RT: Runtime> Database<RT> {
         snapshot_manager.latest_ts()
     }
 
+    /// Waits until the given write timestamp is observable for new
+    /// transactions. Used by retry loops to ensure they observe the write.
+    pub async fn wait_for_write_ts(&self, write_ts: Timestamp) {
+        // Wait for the snapshot manager to advance past write_ts, so that writes
+        // at the given timestamp are observable via now_ts_for_reads().
+        if let Ok(pred) = write_ts.pred() {
+            let fut = self.snapshot_manager.lock().wait_for_higher_ts(pred);
+            fut.await;
+        }
+    }
+
     pub async fn begin_system(&self) -> anyhow::Result<Transaction<RT>> {
         self.begin(Identity::system()).await
     }
@@ -1585,6 +1598,11 @@ impl<RT: Runtime> Database<RT> {
                             "Retrying transaction `{write_source:?}` after error: {e:#}"
                         );
                         self.runtime.wait(delay).await;
+                        if let Some(write_ts_raw) = e.occ_write_ts()
+                            && let Ok(write_ts) = Timestamp::try_from(write_ts_raw)
+                        {
+                            self.wait_for_write_ts(write_ts).await;
+                        }
                         error = Some(e);
                         continue;
                     } else {
@@ -1666,6 +1684,37 @@ impl<RT: Runtime> Database<RT> {
         .await
     }
 
+    /// Like `execute_with_overloaded_retries`, but also checks the write
+    /// throughput limit before each attempt. If the limit is exceeded, retries
+    /// indefinitely with exponential backoff.
+    pub async fn execute_with_overloaded_and_ratelimited_retries<'a, T, F>(
+        &'a self,
+        identity: Identity,
+        usage: FunctionUsageTracker,
+        write_source: impl Into<WriteSource>,
+        f: F,
+    ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
+    where
+        T: Send,
+        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
+    {
+        let mut rate_limit_backoff =
+            Backoff::new(INITIAL_OVERLOADED_BACKOFF, MAX_OVERLOADED_BACKOFF);
+        loop {
+            match self.check_write_throughput_limit() {
+                Ok(()) => break,
+                Err(e) if e.is_rate_limited() => {
+                    let delay = rate_limit_backoff.fail(&mut self.runtime.rng());
+                    tracing::warn!("Write throughput limit exceeded, retrying after {delay:?}",);
+                    self.runtime.wait(delay).await;
+                },
+                Err(e) => return Err(e),
+            }
+        }
+        self.execute_with_overloaded_retries(identity, usage, write_source, f)
+            .await
+    }
+
     pub async fn begin(&self, identity: Identity) -> anyhow::Result<Transaction<RT>> {
         self.begin_with_usage(identity, FunctionUsageTracker::new())
             .await
@@ -1677,7 +1726,8 @@ impl<RT: Runtime> Database<RT> {
         usage: FunctionUsageTracker,
     ) -> anyhow::Result<Transaction<RT>> {
         let ts = self.now_ts_for_reads();
-        self.begin_with_repeatable_ts(identity, ts, usage).await
+        self.begin_with_repeatable_ts(identity, ts, usage, None)
+            .await
     }
 
     pub async fn begin_with_ts(
@@ -1690,7 +1740,7 @@ impl<RT: Runtime> Database<RT> {
             let snapshot_manager = self.snapshot_manager.lock();
             snapshot_manager.latest_ts().prior_ts(ts)?
         };
-        self.begin_with_repeatable_ts(identity, ts, usage_tracker)
+        self.begin_with_repeatable_ts(identity, ts, usage_tracker, None)
             .await
     }
 
@@ -1699,6 +1749,7 @@ impl<RT: Runtime> Database<RT> {
         identity: Identity,
         repeatable_ts: RepeatableTimestamp,
         usage_tracker: FunctionUsageTracker,
+        index_cache: Option<TimestampedIndexCache>,
     ) -> anyhow::Result<Transaction<RT>> {
         task::consume_budget().await;
 
@@ -1728,6 +1779,7 @@ impl<RT: Runtime> Database<RT> {
                     self.retention_manager.clone(),
                 )
                 .read_snapshot(repeatable_ts)?,
+                index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
                 snapshot.index_registry,
@@ -1752,6 +1804,20 @@ impl<RT: Runtime> Database<RT> {
             self.virtual_system_mapping.clone(),
         );
         Ok(tx)
+    }
+
+    pub async fn begin_with_index_cache(
+        &self,
+        identity: Identity,
+        index_cache: TimestampedIndexCache,
+    ) -> anyhow::Result<Transaction<RT>> {
+        self.begin_with_repeatable_ts(
+            identity,
+            index_cache.ts,
+            FunctionUsageTracker::new(),
+            Some(index_cache),
+        )
+        .await
     }
 
     pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
@@ -1865,11 +1931,12 @@ impl<RT: Runtime> Database<RT> {
         let (table_namespace, _, table_name) = table_mapping
             .get_table_metadata(tablet_id)
             .with_context(|| format!("Can’t find the table entry for the tablet id {tablet_id}"))?;
-        let component_path = component_paths
-            .get(&ComponentId::from(*table_namespace))
-            .with_context(|| {
-                format!("Can’t find the component path for table namespace {table_namespace:?}")
-            })?;
+
+        let Some(component_path) = component_paths.get(&ComponentId::from(*table_namespace)) else {
+            tracing::warn!("Ignoring orphaned table in streaming export: {table_namespace:?}");
+            return Ok(false);
+        };
+
         Ok(filter
             .selection
             .is_table_included(component_path, table_name))
@@ -2495,10 +2562,12 @@ pub struct ConflictingReadWithWriteSource {
 
 impl ConflictingReadWithWriteSource {
     pub fn into_error(self, mapping: &TableMapping, current_writer: &WriteSource) -> anyhow::Error {
+        let write_ts_val = Some(u64::from(self.write_ts));
         let table_name = mapping.tablet_name(*self.read.index.table());
 
         let Ok(table_name) = table_name else {
-            return anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None, None));
+            let metadata = ErrorMetadata::user_occ(None, None, None, None, write_ts_val);
+            return anyhow::anyhow!(metadata);
         };
 
         // We want to show the document's ID only if we know which mutation changed it,
@@ -2512,12 +2581,14 @@ impl ConflictingReadWithWriteSource {
         });
 
         if !table_name.is_system() {
-            return anyhow::anyhow!(ErrorMetadata::user_occ(
+            let metadata = ErrorMetadata::user_occ(
                 Some(table_name.into()),
                 Some(self.read.id.developer_id.encode()),
                 self.write_source.0.as_ref().map(|s| s.to_string()),
                 occ_msg,
-            ));
+                write_ts_val,
+            );
+            return anyhow::anyhow!(metadata);
         }
 
         let msg = occ_msg
@@ -2546,7 +2617,8 @@ impl ConflictingReadWithWriteSource {
                 tracing::error!("Read of {index} occurred at {stack_trace}");
             }
         };
-        anyhow::anyhow!(formatted).context(ErrorMetadata::system_occ())
+        let metadata = ErrorMetadata::system_occ(write_ts_val);
+        anyhow::anyhow!(formatted).context(metadata)
     }
 }
 

@@ -698,6 +698,7 @@ impl<RT: Runtime> Application<RT> {
                 database.retention_validator(),
                 database.clone(),
                 instance_name.clone(),
+                UsageCounter::new(usage_event_logger.clone()),
             );
             index_worker = Arc::new(Mutex::new(Some(
                 runtime.spawn("index_worker", index_worker_fut),
@@ -3230,6 +3231,38 @@ impl<RT: Runtime> Application<RT> {
             f,
         )
         .await
+    }
+
+    pub async fn execute_with_audit_log_events_and_occ_retries_with_timestamp<'a, F, T>(
+        &self,
+        identity: Identity,
+        write_source: impl Into<WriteSource>,
+        f: F,
+    ) -> anyhow::Result<(T, Timestamp)>
+    where
+        F: Send + Sync,
+        T: Send + 'static,
+        F: for<'b> Fn(
+            &'b mut Transaction<RT>,
+        )
+            -> ShortBoxFuture<'b, 'a, anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>>,
+    {
+        let db = self.database.clone();
+        let (ts, (t, events), _stats) = db
+            .execute_with_occ_retries(identity, FunctionUsageTracker::new(), write_source, |tx| {
+                Self::insert_deployment_audit_log_events(tx, &f).into()
+            })
+            .await?;
+        // Send deployment audit logs
+        let logs = events
+            .into_iter()
+            .map(|event| {
+                DeploymentAuditLogEvent::to_log_event(event, UnixTimestamp::from_nanos(ts.into()))
+            })
+            .try_collect()?;
+
+        self.log_manager_client.send_logs(logs);
+        Ok((t, ts))
     }
 
     pub async fn execute_with_audit_log_events_and_occ_retries_with_pause_client<'a, F, T>(

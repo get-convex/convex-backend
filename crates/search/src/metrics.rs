@@ -260,17 +260,6 @@ pub fn num_documents_with_term_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
-    SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS,
-    "Time to execute a query against Searchlight",
-    &[STATUS_LABEL[0], CLUSTER_LABEL]
-);
-pub fn searchlight_client_execute_timer(cluster: &'static str) -> StatusTimer {
-    let mut timer = StatusTimer::new(&SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS);
-    timer.add_label(cluster_label(cluster));
-    timer
-}
-
-register_convex_histogram!(
     SEARCH_SEARCHLIGHT_OVERFETCH_DELTA_TOTAL,
     "Size of the searchlight overfetch delta"
 );

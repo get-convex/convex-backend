@@ -1,7 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -89,36 +88,23 @@ export function BigChart({
                     >
                       <XAxis
                         dataKey={chart.xAxisKey}
-                        axisLine={{
-                          stroke: "currentColor",
-                        }}
-                        tickLine={{
-                          stroke: "currentColor",
-                        }}
+                        axisLine={{ className: "stroke-content-tertiary/30" }}
+                        tickLine={false}
                         domain={["auto", "auto"]}
-                        className="text-content-secondary"
                         strokeWidth={1}
                         minTickGap={100}
                         tick={{ fontSize: 12, fill: "currentColor" }}
                       />
                       <YAxis
-                        axisLine={{
-                          stroke: "currentColor",
-                        }}
+                        axisLine={{ className: "stroke-content-tertiary/30" }}
                         tickLine={false}
-                        className="text-content-secondary"
                         tick={{ fontSize: 12, fill: "currentColor" }}
                         width={60}
                       />
                       <CartesianGrid
-                        className="stroke-content-tertiary/40"
+                        className="stroke-content-tertiary/30"
                         horizontal
                         strokeWidth={1}
-                        vertical={false}
-                        verticalFill={[]}
-                        horizontalFill={[
-                          "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
-                        ]}
                         syncWithTicks
                       />
                       <Tooltip
@@ -131,39 +117,6 @@ export function BigChart({
                         )}
                         animationDuration={100}
                       />
-                      {chart.lineKeys.length! > 1 ? (
-                        <Legend
-                          iconType="circle"
-                          iconSize={10}
-                          content={(props) => {
-                            // eslint-disable-next-line react/prop-types
-                            const { payload } = props;
-                            if (!payload) {
-                              return null;
-                            }
-
-                            return (
-                              <ul className="flex w-full justify-center gap-2">
-                                {/* eslint-disable-next-line react/prop-types */}
-                                {payload.map((entry, index) => (
-                                  <li
-                                    key={`item-${index}`}
-                                    className="flex items-center gap-1 text-content-primary"
-                                  >
-                                    <span
-                                      style={{ backgroundColor: entry.color }}
-                                      className="h-2 w-2 rounded-full"
-                                    />
-                                    {entry.value}
-                                  </li>
-                                ))}
-                              </ul>
-                            );
-                          }}
-                        />
-                      ) : (
-                        <div />
-                      )}
                       {chart.lineKeys.map((line) => {
                         const dataKey = line.key;
                         const { name } = line;

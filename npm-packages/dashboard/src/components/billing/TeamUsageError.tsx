@@ -38,7 +38,7 @@ export function UsageChartUnavailable() {
   return (
     <TeamUsageError
       title="Chart not available"
-      description="This chart isn’t available when filtering on a particular project."
+      description="This chart isn't available when filtering on a particular project."
     />
   );
 }

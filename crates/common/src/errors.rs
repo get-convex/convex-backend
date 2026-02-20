@@ -795,6 +795,14 @@ pub fn database_timeout_error(db_type: &'static str) -> anyhow::Error {
         .context(ErrorMetadata::operational_internal_server_error())
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+pub struct DatabaseOperationalError(anyhow::Error);
+pub fn database_operational_error(error: anyhow::Error) -> anyhow::Error {
+    anyhow::anyhow!(DatabaseOperationalError(error))
+        .context(ErrorMetadata::operational_internal_server_error())
+}
+
 pub const AUTH_ERROR: &str = "AuthError";
 pub const TIMEOUT_ERROR_MESSAGE: &str = "Your request timed out.";
 

@@ -106,12 +106,16 @@ use utoipa::ToSchema;
 
 use self::metrics::log_http_request;
 use crate::{
+    dyn_event,
     errors::report_error_sync,
     knobs::{
         HTTP_SERVER_TCP_BACKLOG,
         PROPAGATE_UPSTREAM_TRACES,
     },
-    metrics::log_client_version_unsupported,
+    metrics::{
+        log_client_version_unsupported,
+        log_http_service_max_concurrent_requests,
+    },
     runtime::TaskManager,
     version::{
         ClientVersion,
@@ -123,6 +127,7 @@ use crate::{
 pub mod extract;
 pub mod fetch;
 pub mod fork_of_axum_serve;
+pub mod websocket;
 
 const MAX_HTTP2_STREAMS: u32 = 1024;
 
@@ -621,6 +626,7 @@ impl ConvexHttpService {
         let sentry_layer = ServiceBuilder::new()
             .layer(sentry_tower::NewSentryLayer::<_>::new_from_top())
             .layer(sentry_tower::SentryHttpLayer::new());
+        log_http_service_max_concurrent_requests(service_name, max_concurrency);
         let semaphore = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
         let semaphore_ = semaphore.clone();
         let concurrency_gauge = PullingGauge::new(
@@ -1198,15 +1204,6 @@ async fn log_middleware(
     let content_type = get_header(resp.headers(), http::header::CONTENT_TYPE);
 
     let path = uri.path();
-    if path == "/instance_version"
-        || path == "/instance_name"
-        || path == "/get_backend_info"
-        || path == "/get_deployment_state"
-        || path == "/"
-    {
-        // Skip logging for these high volume, less useful endpoints
-        return Ok(resp);
-    }
 
     let path_and_query_str = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or(path);
 
@@ -1227,7 +1224,27 @@ async fn log_middleware(
     } else {
         uri_for_logging
     };
-    tracing::info!(
+
+    // Reduce to debug for these high volume, less useful endpoints
+    let high_volume = path == "/instance_version"
+        || path == "/instance_name"
+        || path == "/get_backend_info"
+        || path == "/get_deployment_state"
+        || path == "/api/shapes2"
+        || path == "/api/actions/query"
+        || path == "/api/actions/mutation"
+        || path == "/api/actions/action"
+        || path == "/api/stream_function_logs"
+        || path == "/api/app_metrics/stream_function_logs"
+        || path == "/";
+
+    let level = if high_volume {
+        tracing::Level::DEBUG
+    } else {
+        tracing::Level::INFO
+    };
+    dyn_event!(
+        level,
         target: "convex-cloud-http",
         "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:.3}ms",
         site_id,

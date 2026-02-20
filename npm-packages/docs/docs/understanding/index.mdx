@@ -46,7 +46,7 @@ nested objects into your database. "Relational" means you have tables with
 relations, like `tasks` assigned to a `user` using IDs to reference documents in
 other tables.
 
-The Convex cloud offering runs on top of Amazon RDS using MySQL as its
+The Convex cloud offering runs on top of PlanetScale using MySQL as its
 persistence layer. The Open Source version uses SQLite, Postgres and MySQL. The
 database is ACID-compliant and uses
 [serializable isolation and optimistic concurrency control](/database/advanced/occ.md).

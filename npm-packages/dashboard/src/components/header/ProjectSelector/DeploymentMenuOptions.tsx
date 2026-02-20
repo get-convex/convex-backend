@@ -1,4 +1,3 @@
-import { useDefaultDevDeployment } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
@@ -17,7 +16,10 @@ import {
 } from "@radix-ui/react-icons";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { ProjectDetails, TeamResponse } from "generatedApi";
-import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
+import {
+  PROVISION_DEV_PAGE_NAME,
+  PROVISION_PROD_PAGE_NAME,
+} from "@common/lib/deploymentContext";
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { Key } from "@ui/KeyboardShortcut";
@@ -302,7 +304,6 @@ function AllPersonalDeployments({
   deployments: PlatformDeploymentResponse[];
 }) {
   const member = useProfile();
-  const dev = useDefaultDevDeployment(project.id);
   const router = useRouter();
   const projectSlug = project.slug;
 
@@ -323,23 +324,15 @@ function AllPersonalDeployments({
     return (
       <ContextMenu.Item
         icon={<CommandLineIcon className="h-4 w-4" />}
-        tip={
-          <>
-            You do not have a personal development deployment for this project
-            yet. Run <code className="px-0.5">npx convex dev</code> to provision
-            one.
-          </>
-        }
-        tipSide="right"
         label={
           <DeploymentOption
+            name="Select to create a Dev deployment."
             identifier="Development"
-            name="You don't have a dev deployment yet"
           />
         }
-        action={`${projectsURI}/${dev?.name}/${currentView}`}
+        shortcut={["Ctrl", "Alt", "2"]}
+        action={`${projectsURI}/${PROVISION_DEV_PAGE_NAME}`}
         blankTarget={false}
-        disabled
       />
     );
   }

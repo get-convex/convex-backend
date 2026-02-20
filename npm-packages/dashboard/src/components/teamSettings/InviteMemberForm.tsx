@@ -8,18 +8,14 @@ import { toast } from "@common/lib/utils";
 import { useFormik } from "formik";
 import { useCreateInvite } from "api/invitations";
 import { useTeamOrbSubscription } from "api/billing";
-import {
-  TeamResponse,
-  CreateInvitationArgs,
-  TeamMemberResponse,
-} from "generatedApi";
+import { TeamResponse, CreateInvitationArgs, TeamMember } from "generatedApi";
 import * as Yup from "yup";
 import Link from "next/link";
 import { roleOptions } from "./TeamMemberListItem";
 
 export type InviteMemberFormProps = {
   team: TeamResponse;
-  members: TeamMemberResponse[];
+  members: TeamMember[];
   hasAdminPermissions: boolean;
 };
 

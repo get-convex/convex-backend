@@ -111,6 +111,14 @@ export function UsageStackedBarChart({
     }));
   }, [selectedDate, chartData, categories]);
 
+  const colorMap = useMemo(
+    () =>
+      new Map(
+        Object.entries(categories).map(([tag, { color }]) => [tag, color]),
+      ),
+    [categories],
+  );
+
   if (!rows.some(({ metrics }) => metrics.some(({ value }) => value > 0))) {
     return <UsageNoDataError />;
   }
@@ -133,7 +141,9 @@ export function UsageStackedBarChart({
           data={chartData}
           quantityType={quantityType}
           showCategoryInTooltip
+          colorMap={colorMap}
           yAxisWidth={quantityType === "actionCompute" ? 80 : 60}
+          hideTooltip={selectedDate !== null}
         >
           {Object.entries(categories).map(([tag, { name, color }]) => (
             <Bar
@@ -175,7 +185,7 @@ export function UsageStackedBarChart({
                   {Object.entries(categories).map(([tag, { name, color }]) =>
                     Object.hasOwn(totalByTag, tag) ? (
                       <span key={tag} className="mr-3 flex items-center gap-2">
-                        <svg className="w-4" viewBox="0 0 50 50" aria-hidden>
+                        <svg className="w-3" viewBox="0 0 50 50" aria-hidden>
                           <circle cx="25" cy="25" r="25" className={color} />
                         </svg>
                         <span>

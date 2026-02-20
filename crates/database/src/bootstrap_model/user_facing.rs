@@ -38,10 +38,7 @@ use crate::{
         log_virtual_table_get,
         log_virtual_table_query,
     },
-    query::{
-        DeveloperIndexRangeResponse,
-        IndexRangeResponse,
-    },
+    query::IndexRangeResponse,
     transaction::{
         IndexRangeRequest,
         MAX_PAGE_SIZE,
@@ -316,12 +313,9 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 fn start_index_range<RT: Runtime>(
     tx: &mut Transaction<RT>,
     request: IndexRangeRequest,
-) -> anyhow::Result<Result<DeveloperIndexRangeResponse, RangeRequest>> {
+) -> anyhow::Result<Result<(), RangeRequest>> {
     if request.interval.is_empty() {
-        return Ok(Ok(DeveloperIndexRangeResponse {
-            page: vec![],
-            cursor: CursorPosition::End,
-        }));
+        return Ok(Ok(()));
     }
 
     let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
@@ -349,10 +343,7 @@ fn start_index_range<RT: Runtime>(
                 max_size: max_rows,
             }))
         },
-        StableIndexName::Missing(_) => Ok(Ok(DeveloperIndexRangeResponse {
-            page: vec![],
-            cursor: CursorPosition::End,
-        })),
+        StableIndexName::Missing(_) => Ok(Ok(())),
     }
 }
 
@@ -363,21 +354,23 @@ fn start_index_range<RT: Runtime>(
 pub async fn index_range_batch<RT: Runtime>(
     tx: &mut Transaction<RT>,
     requests: BTreeMap<BatchKey, IndexRangeRequest>,
-) -> BTreeMap<BatchKey, anyhow::Result<DeveloperIndexRangeResponse>> {
+) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse>> {
     let batch_size = requests.len();
     let mut results = BTreeMap::new();
     let mut fetch_requests = BTreeMap::new();
-    let mut virtual_table_versions = BTreeMap::new();
     for (batch_key, request) in requests {
-        if matches!(request.stable_index_name, StableIndexName::Virtual(_, _)) {
-            virtual_table_versions.insert(batch_key, request.version.clone());
-        }
         match start_index_range(tx, request) {
             Err(e) => {
                 results.insert(batch_key, Err(e));
             },
-            Ok(Ok(result)) => {
-                results.insert(batch_key, Ok(result));
+            Ok(Ok(())) => {
+                results.insert(
+                    batch_key,
+                    Ok(IndexRangeResponse {
+                        page: vec![],
+                        cursor: CursorPosition::End,
+                    }),
+                );
             },
             Ok(Err(request)) => {
                 fetch_requests.insert(batch_key, request);
@@ -391,32 +384,9 @@ pub async fn index_range_batch<RT: Runtime>(
         .await;
 
     for (&batch_key, fetch_result) in fetch_requests.keys().zip(fetch_results) {
-        let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();
-        let result = try {
-            let IndexRangeResponse { page, cursor } = fetch_result?;
-            let developer_results = match virtual_table_version {
-                Some(version) => {
-                    let mut converted_documents = vec![];
-                    for (key, doc, ts) in page {
-                        let doc = VirtualTable::new(tx)
-                            .system_to_virtual_doc(doc, version.clone())
-                            .await?;
-                        converted_documents.push((key, doc, ts));
-                    }
-                    converted_documents
-                },
-                None => page
-                    .into_iter()
-                    .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
-                    .collect(),
-            };
-            DeveloperIndexRangeResponse {
-                page: developer_results,
-                cursor,
-            }
-        };
-        results.insert(batch_key, result);
+        results.insert(batch_key, fetch_result);
     }
+
     assert_eq!(results.len(), batch_size);
     results
 }

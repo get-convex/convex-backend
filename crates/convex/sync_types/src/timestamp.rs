@@ -12,13 +12,12 @@ use anyhow::{
     Context,
 };
 use derive_more::FromStr;
-use serde::Serialize;
 use serde_json::json;
 
 /// Database transaction timestamp.
 /// This is unique across all transactions.
 /// Units are nanoseconds since epoch.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq, FromStr, Hash, Serialize, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq, FromStr, Hash, Default)]
 pub struct Timestamp(u64);
 
 impl Timestamp {
@@ -86,6 +85,10 @@ impl Timestamp {
         } else {
             -(base - self).as_secs_f64()
         }
+    }
+
+    pub fn size(&self) -> usize {
+        8
     }
 
     #[cfg(any(test, feature = "testing"))]

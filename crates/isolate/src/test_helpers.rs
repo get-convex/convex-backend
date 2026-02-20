@@ -465,6 +465,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             self.persistence.clone(),
             Arc::new(retention_manager),
             self.database.clone(),
+            None,
         )
         .await?;
         Ok(())
@@ -604,6 +605,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 .await?;
             Ok(outcome)
         } else {
+            let rng_seed = self.rt.rng().random();
+            let unix_timestamp = self.rt.unix_timestamp();
             let (tx, outcome) = self
                 .isolate
                 .execute_udf(
@@ -613,6 +616,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
                     self.environment_data.clone(),
+                    rng_seed,
+                    unix_timestamp,
                     0,
                     DEV_INSTANCE_NAME.to_string(),
                     None,
@@ -754,6 +759,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             let token = tx.into_token()?;
             Ok((outcome, token))
         } else {
+            let rng_seed = self.rt.rng().random();
+            let unix_timestamp = self.rt.unix_timestamp();
             let (tx, outcome) = self
                 .isolate
                 .execute_udf(
@@ -763,6 +770,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     journal.unwrap_or_else(QueryJournal::new),
                     ExecutionContext::new_for_test(),
                     self.environment_data.clone(),
+                    rng_seed,
+                    unix_timestamp,
                     0,
                     DEV_INSTANCE_NAME.to_string(),
                     None,
@@ -819,6 +828,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             .await?;
             Ok(outcome.result.unwrap_err())
         } else {
+            let rng_seed = self.rt.rng().random();
+            let unix_timestamp = self.rt.unix_timestamp();
             let (_, outcome) = self
                 .isolate
                 .execute_udf(
@@ -828,6 +839,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
                     self.environment_data.clone(),
+                    rng_seed,
+                    unix_timestamp,
                     0,
                     DEV_INSTANCE_NAME.to_string(),
                     None,
@@ -860,6 +873,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             self.persistence.clone(),
             retention_validator,
             self.database.clone(),
+            None,
         )
         .await?;
 
@@ -1496,6 +1510,8 @@ pub async fn bogus_udf_request<RT: Runtime>(
         response: sender,
         queue_timer: queue_timer(),
         udf_callback: Box::new(BogusUdfCallback),
+        rng_seed: [0; 32],
+        unix_timestamp: UnixTimestamp::from_millis(1),
         reactor_depth: 0,
         function_started_sender: None,
     };
@@ -1519,6 +1535,8 @@ impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
         _transaction: Transaction<RT>,
         _journal: QueryJournal,
         _context: ExecutionContext,
+        _rng_seed: [u8; 32],
+        _unix_timestamp: UnixTimestamp,
         _reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         anyhow::bail!("BogusUdfCallback called")

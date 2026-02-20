@@ -12,7 +12,7 @@ use common::{
 };
 
 use super::{
-    DeveloperIndexRangeResponse,
+    IndexRangeResponse,
     QueryNode,
     QueryStream,
     QueryStreamNext,
@@ -71,7 +71,7 @@ impl QueryStream for Filter {
         }
     }
 
-    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
+    fn feed(&mut self, index_range_response: IndexRangeResponse) -> anyhow::Result<()> {
         self.inner.feed(index_range_response)
     }
 

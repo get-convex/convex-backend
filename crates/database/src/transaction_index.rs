@@ -47,6 +47,7 @@ use imbl::OrdMap;
 use indexing::{
     backend_in_memory_indexes::{
         DatabaseIndexSnapshot,
+        DatabaseIndexSnapshotCache,
         LazyDocument,
         RangeRequest,
     },
@@ -584,6 +585,10 @@ impl TransactionIndex {
     pub fn base_snapshot_mut(&mut self) -> &mut DatabaseIndexSnapshot {
         &mut self.database_index_snapshot
     }
+
+    pub fn into_cache(self) -> DatabaseIndexSnapshotCache {
+        self.database_index_snapshot.into_cache()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -947,6 +952,7 @@ mod tests {
                 Arc::new(inner),
                 id_generator.clone(),
                 ps,
+                None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
                 index_registry.clone(),
@@ -1045,6 +1051,7 @@ mod tests {
                 Arc::new(inner),
                 id_generator.clone(),
                 ps,
+                None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
                 index_registry.clone(),
@@ -1245,6 +1252,7 @@ mod tests {
                 Arc::new(index),
                 id_generator.clone(),
                 ps,
+                None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
                 index_registry.clone(),

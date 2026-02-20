@@ -62,6 +62,9 @@ pub enum ErrorCode {
         document_id: Option<String>,
         write_source: Option<String>,
         is_system: bool,
+        /// The timestamp of the conflicting write, if known.
+        /// Used by retry loops to wait until the write is observable.
+        write_ts: Option<u64>,
     },
     PaginationLimit,
     OutOfRetention,
@@ -315,13 +318,14 @@ impl ErrorMetadata {
     /// Internal Optimistic Concurrency Control / Commit Race Error.
     ///
     /// These come from sqlx, or are caused by OCCs on system tables.
-    pub fn system_occ() -> Self {
+    pub fn system_occ(write_ts: Option<u64>) -> Self {
         Self {
             code: ErrorCode::OCC {
                 table_name: None,
                 document_id: None,
                 write_source: None,
                 is_system: true,
+                write_ts,
             },
             short_msg: OCC_ERROR.into(),
             msg: OCC_ERROR_MSG.into(),
@@ -335,6 +339,7 @@ impl ErrorMetadata {
         document_id: Option<String>,
         write_source: Option<String>,
         description: Option<String>,
+        write_ts: Option<u64>,
     ) -> Self {
         let table_description = table_name
             .clone()
@@ -349,6 +354,7 @@ impl ErrorMetadata {
                 document_id,
                 write_source,
                 is_system: false,
+                write_ts,
             },
             short_msg: OCC_ERROR.into(),
             msg: format!(
@@ -447,6 +453,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::Overloaded
     }
 
+    pub fn is_rate_limited(&self) -> bool {
+        self.code == ErrorCode::RateLimited
+    }
+
     pub fn is_operational_internal_server_error(&self) -> bool {
         self.code == ErrorCode::OperationalInternalServerError
     }
@@ -508,6 +518,12 @@ impl ErrorMetadata {
         match self.code {
             ErrorCode::ClientDisconnect => None,
             ErrorCode::BadRequest if self.short_msg == "BackendIsNotRunning" => None,
+            ErrorCode::BadRequest
+                if ["WSMessageInvalidJson", "InvalidConnectionHeader"]
+                    .contains(&&*self.short_msg) =>
+            {
+                Some((sentry::Level::Info, Some(0.001)))
+            },
             ErrorCode::BadRequest
             | ErrorCode::Conflict
             | ErrorCode::NotFound
@@ -687,6 +703,7 @@ impl ErrorCode {
 pub trait ErrorMetadataAnyhowExt {
     fn is_occ(&self) -> bool;
     fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)>;
+    fn occ_write_ts(&self) -> Option<u64>;
     fn is_pagination_limit(&self) -> bool;
     fn is_unauthenticated(&self) -> bool;
     fn is_auth_update_failed(&self) -> bool;
@@ -694,6 +711,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_bad_request(&self) -> bool;
     fn is_not_found(&self) -> bool;
     fn is_overloaded(&self) -> bool;
+    fn is_rate_limited(&self) -> bool;
     fn is_operational_internal_server_error(&self) -> bool;
     fn is_rejected_before_execution(&self) -> bool;
     fn is_forbidden(&self) -> bool;
@@ -732,6 +750,7 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
                     document_id,
                     write_source,
                     is_system: _,
+                    write_ts: _,
                 } => Some((
                     table_name.clone(),
                     document_id.clone(),
@@ -741,6 +760,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
             };
         }
         None
+    }
+
+    fn occ_write_ts(&self) -> Option<u64> {
+        self.downcast_ref::<ErrorMetadata>()
+            .and_then(|e| match &e.code {
+                ErrorCode::OCC { write_ts, .. } => *write_ts,
+                _ => None,
+            })
     }
 
     /// Returns true if error is tagged as PaginationLimit
@@ -795,6 +822,13 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_overloaded(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_overloaded();
+        }
+        false
+    }
+
+    fn is_rate_limited(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_rate_limited();
         }
         false
     }
@@ -996,17 +1030,19 @@ mod proptest {
                 },
                 ErrorCode::OCC {
                     is_system: true, ..
-                } => ErrorMetadata::system_occ(),
+                } => ErrorMetadata::system_occ(None),
                 ErrorCode::OCC {
                     is_system: false,
                     table_name,
                     document_id,
                     write_source,
+                    ..
                 } => ErrorMetadata::user_occ(
                     table_name,
                     document_id,
                     write_source,
                     Some("description".to_string()),
+                    None,
                 ),
                 ErrorCode::OutOfRetention => ErrorMetadata::out_of_retention(),
                 ErrorCode::Unauthenticated => ErrorMetadata::unauthenticated("un", "auth"),

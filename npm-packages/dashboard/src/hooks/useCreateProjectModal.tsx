@@ -2,6 +2,7 @@ import { Modal } from "@ui/Modal";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 import { Loading } from "@ui/Loading";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
 import { ReactElement, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -25,10 +26,17 @@ export function useCreateProjectModal(): [
     <Modal title="Create Project" onClose={() => setModalOpen(false)}>
       <>
         {selectedTeam && (
-          <p className="mb-5">
-            Create a project in{" "}
-            <span className="font-semibold">{selectedTeam?.name}</span>.
-          </p>
+          <>
+            <p className="mb-5">
+              Create a project in{" "}
+              <span className="font-semibold">{selectedTeam?.name}</span>.
+            </p>
+            <LocalDevCallout
+              className="mb-5"
+              tipText="Tip: Run this to increase the number of projects you can create:"
+              command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement max_projects --team-id ${selectedTeam.id} --reason "local" 500 --for-real`}
+            />
+          </>
         )}
         {selectedTeam ? (
           <CreateProjectForm

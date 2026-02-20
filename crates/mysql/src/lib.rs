@@ -320,7 +320,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
     }
 
     async fn is_read_only(
-        client: &mut MySqlConnection<'_>,
+        client: &mut MySqlConnection<'_, RT>,
         multitenant: bool,
         instance_name: &MySqlInstanceName,
     ) -> anyhow::Result<bool> {
@@ -335,7 +335,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
     }
 
     async fn check_newly_created(
-        client: &mut MySqlConnection<'_>,
+        client: &mut MySqlConnection<'_, RT>,
         multitenant: bool,
         instance_name: &MySqlInstanceName,
     ) -> anyhow::Result<bool> {
@@ -400,6 +400,8 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             }
         }
         metrics::log_write_bytes(write_size);
+        let index_write_size = indexes.iter().map(|entry| entry.approx_size()).sum();
+        metrics::log_index_write_bytes(index_write_size);
         metrics::log_write_documents(documents.len());
         LocalSpan::add_properties(|| {
             [
@@ -551,10 +553,9 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             params.push(self.instance_name.to_string().into());
         }
         params.push((chunk_size as i64).into());
-        let row_stream = client.query_stream(stmt, params, chunk_size).await?;
-
-        let parsed = row_stream.map(|row| parse_row(&mut row?));
-        parsed.try_collect().await
+        client
+            .query_collect(stmt, params, chunk_size, |mut row| parse_row(&mut row))
+            .await
     }
 
     async fn delete_index_entries(
@@ -678,7 +679,6 @@ impl<RT: Runtime> MySqlReader<RT> {
     }
 
     fn row_to_document(
-        &self,
         row: &Row,
     ) -> anyhow::Result<(
         Timestamp,
@@ -768,8 +768,11 @@ impl<RT: Runtime> MySqlReader<RT> {
                 params.push(self.instance_name.to_string().into());
             }
             params.push((page_size as i64).into());
-            let stream_result = match client.query_stream(query, params, page_size as usize).await {
-                Ok(stream) => Ok(stream),
+            let rows = match client
+                .query_collect(query, params, page_size as usize, Ok)
+                .await
+            {
+                Ok(rows) => Ok(rows),
                 Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
                     if page_size == 1 {
                         anyhow::bail!(
@@ -795,7 +798,6 @@ impl<RT: Runtime> MySqlReader<RT> {
                 },
                 Err(e) => Err(e),
             }?;
-            let rows: Vec<_> = stream_result.try_collect().await?;
             drop(client);
 
             retention_validator
@@ -804,7 +806,7 @@ impl<RT: Runtime> MySqlReader<RT> {
 
             let rows_loaded = rows.len();
             for row in rows {
-                let (ts, document_id, document, prev_ts) = self.row_to_document(&row)?;
+                let (ts, document_id, document, prev_ts) = Self::row_to_document(&row)?;
                 let prev_rev_document: Option<ResolvedDocument> = if include_prev_rev {
                     maybe_bytes_col(&row, 6)?
                         .map(|v| {
@@ -925,171 +927,163 @@ impl<RT: Runtime> MySqlReader<RT> {
         let mut has_more = true;
         let mut fallback = false;
         while has_more {
-            let page = {
-                let mut to_yield = vec![];
-                // Avoid holding connections across yield points, to limit lifetime
-                // and improve fairness.
-                let mut client = self.read_pool.acquire("index_scan", &self.db_name).await?;
-                stats.sql_statements += 1;
-                let (query, params) = sql::index_query(
-                    index_id,
-                    read_timestamp,
-                    lower.clone(),
-                    upper.clone(),
-                    order,
-                    batch_size as usize,
-                    self.multitenant,
-                    &self.instance_name,
-                );
+            // Avoid holding connections across yield points, to limit lifetime
+            // and improve fairness.
+            let mut client = self.read_pool.acquire("index_scan", &self.db_name).await?;
+            stats.sql_statements += 1;
+            let (query, params) = sql::index_query(
+                index_id,
+                read_timestamp,
+                lower.clone(),
+                upper.clone(),
+                order,
+                batch_size as usize,
+                self.multitenant,
+                &self.instance_name,
+            );
 
-                let prepare_timer =
-                    metrics::query_index_sql_prepare_timer(self.read_pool.cluster_name());
-                prepare_timer.finish();
+            let prepare_timer =
+                metrics::query_index_sql_prepare_timer(self.read_pool.cluster_name());
+            prepare_timer.finish();
 
-                let execute_timer =
-                    metrics::query_index_sql_execute_timer(self.read_pool.cluster_name());
-                let row_stream = match client
-                    .query_stream(query, params, batch_size as usize)
-                    .await
-                {
-                    Ok(stream) => Ok(stream),
-                    Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
-                        if batch_size == 1 {
-                            anyhow::bail!(
-                                "Failed to load index rows with minimum page size `1`: {}",
-                                db_err.message
-                            );
-                        }
-                        if batch_size == *MYSQL_FALLBACK_PAGE_SIZE {
-                            tracing::warn!(
-                                "Falling back to page size `1` due to repeated server error: {}",
-                                db_err.message
-                            );
-                            batch_size = 1;
-                        } else {
-                            tracing::warn!(
-                                "Falling back to page size `{}` due to server error: {}",
-                                *MYSQL_FALLBACK_PAGE_SIZE,
-                                db_err.message
-                            );
-                            batch_size = *MYSQL_FALLBACK_PAGE_SIZE;
-                        }
-                        fallback = true;
-                        continue;
-                    },
-                    Err(e) => Err(e),
-                }?;
-                execute_timer.finish();
-
-                let retention_validate_timer =
-                    metrics::retention_validate_timer(self.read_pool.cluster_name());
-                retention_validator
-                    .validate_snapshot(read_timestamp)
-                    .await?;
-                retention_validate_timer.finish();
-
-                futures::pin_mut!(row_stream);
-
-                let mut batch_rows = 0;
-                while let Some(mut row) = row_stream.try_next().await? {
-                    batch_rows += 1;
-                    stats.rows_read += 1;
-
-                    // Fetch
-                    let internal_row = parse_row(&mut row)?;
-
-                    // Yield buffered results if applicable.
-                    if let Some((buffer_key, ..)) = result_buffer.first()
-                        && buffer_key[..MAX_INDEX_KEY_PREFIX_LEN] != internal_row.key_prefix
-                    {
-                        // We have exhausted all results that share the same key prefix
-                        // we can sort and yield the buffered results.
-                        result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-                        for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
-                            if interval.contains(&key) {
-                                stats.rows_returned += 1;
-                                to_yield.push((key, ts, doc, prev_ts));
-                            } else {
-                                stats.rows_skipped_out_of_range += 1;
-                            }
-                        }
+            let execute_timer =
+                metrics::query_index_sql_execute_timer(self.read_pool.cluster_name());
+            let rows = match client
+                .query_collect(query, params, batch_size as usize, Ok)
+                .await
+            {
+                Ok(rows) => Ok(rows),
+                Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
+                    if batch_size == 1 {
+                        anyhow::bail!(
+                            "Failed to load index rows with minimum page size `1`: {}",
+                            db_err.message
+                        );
                     }
-
-                    // Update the bounds for future queries.
-                    let bound = Bound::Excluded(sql::SqlKey {
-                        prefix: internal_row.key_prefix.clone(),
-                        sha256: internal_row.key_sha256.clone(),
-                    });
-                    match order {
-                        Order::Asc => lower = bound,
-                        Order::Desc => upper = bound,
-                    }
-
-                    // Filter if needed.
-                    if internal_row.deleted {
-                        stats.rows_skipped_deleted += 1;
-                        continue;
-                    }
-
-                    // Construct key.
-                    let mut key = internal_row.key_prefix;
-                    if let Some(key_suffix) = internal_row.key_suffix {
-                        key.extend(key_suffix);
-                    };
-                    let ts = internal_row.ts;
-
-                    // Fetch the remaining columns and construct the document
-                    let table_b = maybe_bytes_col(&row, 7)?;
-                    let table = TabletId(
-                        table_b
-                            .ok_or_else(|| {
-                                anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
-                            })?
-                            .try_into()?,
-                    );
-                    let doc = document_encoding::decode(bytes_col(&row, 8)?, table)?.with_context(
-                        || format!("Index reference to deleted document {key:?} {ts:?}"),
-                    )?;
-
-                    let prev_ts: Option<i64> = row.get_opt(9).context("row[9]")??;
-                    let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
-
-                    if key.len() < MAX_INDEX_KEY_PREFIX_LEN {
-                        assert!(result_buffer.is_empty());
-                        if interval.contains(&key) {
-                            stats.rows_returned += 1;
-                            to_yield.push((IndexKeyBytes(key), ts, doc, prev_ts));
-                        } else {
-                            stats.rows_skipped_out_of_range += 1;
-                        }
+                    if batch_size == *MYSQL_FALLBACK_PAGE_SIZE {
+                        tracing::warn!(
+                            "Falling back to page size `1` due to repeated server error: {}",
+                            db_err.message
+                        );
+                        batch_size = 1;
                     } else {
-                        // There might be other records with the same key_prefix that
-                        // are ordered before this result. Buffer it.
-                        result_buffer.push((IndexKeyBytes(key), ts, doc, prev_ts));
-                        stats.max_rows_buffered =
-                            cmp::max(result_buffer.len(), stats.max_rows_buffered);
+                        tracing::warn!(
+                            "Falling back to page size `{}` due to server error: {}",
+                            *MYSQL_FALLBACK_PAGE_SIZE,
+                            db_err.message
+                        );
+                        batch_size = *MYSQL_FALLBACK_PAGE_SIZE;
                     }
-                }
+                    fallback = true;
+                    continue;
+                },
+                Err(e) => Err(e),
+            }?;
+            execute_timer.finish();
+            drop(client);
 
-                if batch_rows < batch_size {
-                    // Yield any remaining values.
+            let retention_validate_timer =
+                metrics::retention_validate_timer(self.read_pool.cluster_name());
+            retention_validator
+                .validate_snapshot(read_timestamp)
+                .await?;
+            retention_validate_timer.finish();
+
+            let batch_rows = rows.len();
+            for mut row in rows {
+                stats.rows_read += 1;
+
+                // Fetch
+                let internal_row = parse_row(&mut row)?;
+
+                // Yield buffered results if applicable.
+                if let Some((buffer_key, ..)) = result_buffer.first()
+                    && buffer_key[..MAX_INDEX_KEY_PREFIX_LEN] != internal_row.key_prefix
+                {
+                    // We have exhausted all results that share the same key prefix
+                    // we can sort and yield the buffered results.
                     result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
                     for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
                         if interval.contains(&key) {
                             stats.rows_returned += 1;
-                            to_yield.push((key, ts, doc, prev_ts));
+                            yield (key, ts, doc, prev_ts);
                         } else {
                             stats.rows_skipped_out_of_range += 1;
                         }
                     }
-                    has_more = false;
                 }
 
-                to_yield
-            };
-            for document in page {
-                yield document;
+                // Update the bounds for future queries.
+                let bound = Bound::Excluded(sql::SqlKey {
+                    prefix: internal_row.key_prefix.clone(),
+                    sha256: internal_row.key_sha256.clone(),
+                });
+                match order {
+                    Order::Asc => lower = bound,
+                    Order::Desc => upper = bound,
+                }
+
+                // Filter if needed.
+                if internal_row.deleted {
+                    stats.rows_skipped_deleted += 1;
+                    continue;
+                }
+
+                // Construct key.
+                let mut key = internal_row.key_prefix;
+                if let Some(key_suffix) = internal_row.key_suffix {
+                    key.extend(key_suffix);
+                };
+                let ts = internal_row.ts;
+
+                // Fetch the remaining columns and construct the document
+                let table_b = maybe_bytes_col(&row, 7)?;
+                let table = TabletId(
+                    table_b
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
+                        })?
+                        .try_into()?,
+                );
+                let doc =
+                    document_encoding::decode(bytes_col(&row, 8)?, table)?.with_context(|| {
+                        format!("Index reference to deleted document {key:?} {ts:?}")
+                    })?;
+
+                let prev_ts: Option<i64> = row.get_opt(9).context("row[9]")??;
+                let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
+
+                if key.len() < MAX_INDEX_KEY_PREFIX_LEN {
+                    assert!(result_buffer.is_empty());
+                    if interval.contains(&key) {
+                        stats.rows_returned += 1;
+                        yield (IndexKeyBytes(key), ts, doc, prev_ts);
+                    } else {
+                        stats.rows_skipped_out_of_range += 1;
+                    }
+                } else {
+                    // There might be other records with the same key_prefix that
+                    // are ordered before this result. Buffer it.
+                    result_buffer.push((IndexKeyBytes(key), ts, doc, prev_ts));
+                    stats.max_rows_buffered =
+                        cmp::max(result_buffer.len(), stats.max_rows_buffered);
+                }
             }
+
+            if batch_rows < batch_size as usize {
+                // Yield any remaining values.
+                result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
+                for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
+                    if interval.contains(&key) {
+                        stats.rows_returned += 1;
+                        yield (key, ts, doc, prev_ts);
+                    } else {
+                        stats.rows_skipped_out_of_range += 1;
+                    }
+                }
+                has_more = false;
+            }
+
             // Double the batch size every iteration until we max dynamic batch size. This
             // helps correct for tombstones, long prefixes and wrong client
             // size estimates.
@@ -1339,15 +1333,16 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 // deduplicate, so create a map from DB results back to queries
                 id_ts_to_query.entry((id, prev_ts)).or_default().push(*q);
             }
-            let result_stream = match client
-                .query_stream(
+            let results = match client
+                .query_collect(
                     sql::exact_rev_chunk(chunk.len(), multitenant),
                     params,
                     chunk.len(),
+                    |row| Self::row_to_document(&row),
                 )
                 .await
             {
-                Ok(stream) => Ok(stream),
+                Ok(r) => Ok(r),
                 Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
                     let current_size = fallback_chunk_size.unwrap_or(chunk.len());
                     if current_size == 1 {
@@ -1375,9 +1370,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 },
                 Err(e) => Err(e),
             }?;
-            pin_mut!(result_stream);
-            while let Some(row) = result_stream.try_next().await? {
-                let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(&row)?;
+            for (prev_ts, id, maybe_doc, prev_prev_ts) in results {
                 let entry = DocumentLogEntry {
                     ts: prev_ts,
                     id,
@@ -1460,15 +1453,16 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 }
                 min_ts = cmp::min(*ts, min_ts);
             }
-            let result_stream = match client
-                .query_stream(
+            let rows = match client
+                .query_collect(
                     sql::prev_rev_chunk(chunk.len(), multitenant),
                     params,
                     chunk.len(),
+                    Ok,
                 )
                 .await
             {
-                Ok(stream) => Ok(stream),
+                Ok(r) => Ok(r),
                 Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
                     let current_size = fallback_chunk_size.unwrap_or(chunk.len());
                     if current_size == 1 {
@@ -1495,10 +1489,8 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 },
                 Err(e) => Err(e),
             }?;
-            pin_mut!(result_stream);
-            while let Some(row) = result_stream.try_next().await? {
-                results.push(row);
-            }
+
+            results.extend(rows);
 
             // Advance past the processed chunk
             remaining = &remaining[chunk.len()..];
@@ -1506,7 +1498,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         for row in results.into_iter() {
             let ts: i64 = row.get_opt(6).context("row[6]")??;
             let ts = Timestamp::try_from(ts)?;
-            let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(&row)?;
+            let (prev_ts, id, maybe_doc, prev_prev_ts) = Self::row_to_document(&row)?;
             anyhow::ensure!(result
                 .insert(
                     (id, ts),
@@ -1563,12 +1555,10 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         if self.multitenant {
             params.push(self.instance_name.to_string().into());
         }
-        let row_stream = client
-            .query_stream(sql::get_persistence_global(self.multitenant), params, 1)
+        let rows = client
+            .query_collect(sql::get_persistence_global(self.multitenant), params, 1, Ok)
             .await?;
-        futures::pin_mut!(row_stream);
-
-        let row = row_stream.try_next().await?;
+        let row = rows.into_iter().next();
         let value = row.map(|r| -> anyhow::Result<JsonValue> {
             let binary_value = bytes_col(&r, 0)?;
             let mut json_deserializer = serde_json::Deserializer::from_slice(binary_value);
@@ -1592,18 +1582,19 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             .acquire("table_size_stats", &self.db_name)
             .await?;
         let stats = client
-            .query_stream(sql::TABLE_SIZE_QUERY, vec![self.db_name.clone().into()], 5)
-            .await?
-            .map(|row| {
-                let row = row?;
-                anyhow::Ok(PersistenceTableSize {
-                    table_name: row.get_opt(0).context("row[0]")??,
-                    data_bytes: row.get_opt(1).context("row[1]")??,
-                    index_bytes: row.get_opt(2).context("row[2]")??,
-                    row_count: row.get_opt(3).context("row[3]")??,
-                })
-            })
-            .try_collect()
+            .query_collect(
+                sql::TABLE_SIZE_QUERY,
+                vec![self.db_name.clone().into()],
+                5,
+                |row| {
+                    anyhow::Ok(PersistenceTableSize {
+                        table_name: row.get_opt(0).context("row[0]")??,
+                        data_bytes: row.get_opt(1).context("row[1]")??,
+                        index_bytes: row.get_opt(2).context("row[2]")??,
+                        row_count: row.get_opt(3).context("row[3]")??,
+                    })
+                },
+            )
             .await?;
         Ok(stats)
     }
@@ -1730,6 +1721,10 @@ fn document_params(
 ) -> anyhow::Result<Vec<mysql_async::Value>> {
     let deleted = maybe_doc.is_none();
     let encoded_doc = document_encoding::encode(maybe_doc)?;
+    anyhow::ensure!(
+        document_encoding::decode(&encoded_doc, id.table())?.as_ref() == maybe_doc,
+        "failed to roundtrip document encoding"
+    );
 
     query.push(internal_doc_id_param(id).into());
     query.push(i64::from(ts).into());

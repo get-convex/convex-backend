@@ -17,14 +17,22 @@ use common::{
         ParseDocument,
         ParsedDocument,
     },
-    document_index_keys::DocumentIndexKeys,
+    document_index_keys::{
+        DocumentIndexKeyValue,
+        DocumentIndexKeys,
+    },
+    index::IndexKeyBytes,
     knobs::{
         WRITE_LOG_MAX_RETENTION_SECS,
         WRITE_LOG_MIN_RETENTION_SECS,
         WRITE_LOG_SOFT_MAX_SIZE_BYTES,
     },
     runtime::block_in_place,
-    types::Timestamp,
+    types::{
+        IndexId,
+        RepeatableTimestamp,
+        Timestamp,
+    },
     value::ResolvedDocumentId,
 };
 use errors::{
@@ -33,7 +41,13 @@ use errors::{
 };
 use futures::Future;
 use imbl::Vector;
-use indexing::index_registry::IndexRegistry;
+use indexing::{
+    backend_in_memory_indexes::{
+        DatabaseIndexSnapshotCache,
+        TimestampedIndexCache,
+    },
+    index_registry::IndexRegistry,
+};
 use parking_lot::Mutex;
 use search::query::tokenize;
 use tokio::sync::oneshot;
@@ -140,6 +154,12 @@ type OrderedIndexKeyWrites = WithHeapSize<
 
 /// None if the update was a delete.
 pub struct RefreshableTabletUpdate(Option<PackedDocument>);
+
+impl RefreshableTabletUpdate {
+    pub fn document(&self) -> Option<&PackedDocument> {
+        self.0.as_ref()
+    }
+}
 
 impl HeapSize for RefreshableTabletUpdate {
     fn heap_size(&self) -> usize {
@@ -501,6 +521,123 @@ impl LogReader {
             Ok(())
         })
     }
+
+    /// Walks the write log and updates the index cache with documents in
+    /// RefreshableTablets with index updates the cache is already tracking.
+    ///
+    /// Returns None if the begin_ts is out of the retention window.
+    pub async fn fast_forward_index_cache(
+        &self,
+        cache: TimestampedIndexCache,
+        index_registry: &IndexRegistry, // Must be from the snapshot at end_ts
+        end_ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Option<TimestampedIndexCache>> {
+        let TimestampedIndexCache {
+            mut cache,
+            ts: begin_ts,
+        } = cache;
+        anyhow::ensure!(*begin_ts <= *end_ts);
+        // Drop any cached indexes that are no longer in the registry (e.g.
+        // deleted or no longer enabled).
+        let unknown_indexes: Vec<_> = cache
+            .tracked_index_ids()
+            .filter(|id| index_registry.enabled_index_by_index_id(id).is_none())
+            .collect();
+        for index_id in unknown_indexes {
+            cache.remove_index(index_id);
+        }
+        if *begin_ts != *end_ts {
+            let from = (*begin_ts).succ()?;
+            let result = self.for_each(from, *end_ts, |ts, writes| {
+                for (_doc_id, index_keys_update, refreshable_update) in writes {
+                    if let Some(refreshable_update) = refreshable_update {
+                        let old_keys = resolve_db_index_keys(
+                            index_registry,
+                            index_keys_update.old_document_keys.as_ref(),
+                            &cache,
+                        );
+                        let new_keys = resolve_db_index_keys(
+                            index_registry,
+                            index_keys_update.new_document_keys.as_ref(),
+                            &cache,
+                        );
+                        if !cache.apply_write(
+                            ts,
+                            old_keys.unwrap_or_default(),
+                            new_keys.unwrap_or_default(),
+                            refreshable_update.document().cloned(),
+                        ) {
+                            return;
+                        }
+                    } else {
+                        remove_non_refreshable_indexes(
+                            index_keys_update,
+                            index_registry,
+                            &mut cache,
+                        );
+                    }
+                }
+            });
+            match result {
+                Ok(()) => {},
+                Err(e) if e.is_out_of_retention() => return Ok(None),
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(Some(TimestampedIndexCache { cache, ts: end_ts }))
+    }
+}
+
+fn remove_non_refreshable_indexes(
+    index_keys_update: &DocumentIndexKeysUpdate,
+    index_registry: &IndexRegistry,
+    index_cache: &mut DatabaseIndexSnapshotCache,
+) {
+    for doc_keys in [
+        &index_keys_update.old_document_keys,
+        &index_keys_update.new_document_keys,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        for (index_name, key_value) in doc_keys.iter() {
+            if matches!(key_value, DocumentIndexKeyValue::Standard(_))
+                && let Some(index) = index_registry.get_enabled(index_name)
+            {
+                index_cache.remove_index(index.id());
+            }
+        }
+    }
+}
+
+/// Only resolve keys for db indexes already tracked in the cache and in enabled
+/// indexes
+fn resolve_db_index_keys(
+    index_registry: &IndexRegistry,
+    doc_keys: Option<&DocumentIndexKeys>,
+    index_cache: &DatabaseIndexSnapshotCache,
+) -> Option<Vec<(IndexId, bool, IndexKeyBytes)>> {
+    doc_keys.map(|keys| {
+        keys.iter()
+            .filter_map(|(index_name, key_value)| {
+                if let DocumentIndexKeyValue::Standard(index_key) = key_value {
+                    index_registry
+                        .get_enabled(index_name)
+                        .filter(|index| index_cache.is_index_tracked(&index.id()))
+                        .map(|index| {
+                            (
+                                index.id(),
+                                index.metadata.name.is_by_id(),
+                                index_key.clone(),
+                            )
+                        })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    })
 }
 
 /// LogWriter can append to the log.
@@ -639,8 +776,20 @@ impl PendingWriteHandle {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use common::{
         self,
+        bootstrap_model::index::{
+            database_index::IndexedFields,
+            IndexMetadata,
+            INDEX_TABLE,
+        },
+        document::{
+            CreationTime,
+            PackedDocument,
+            ResolvedDocument,
+        },
         document_index_keys::DocumentIndexKeys,
         index::IndexKey,
         interval::{
@@ -652,15 +801,32 @@ mod tests {
         knobs::WRITE_LOG_MAX_RETENTION_SECS,
         testing::TestIdGenerator,
         types::{
+            unchecked_repeatable_ts,
+            GenericIndexName,
             IndexDescriptor,
+            IndexId,
+            PersistenceVersion,
             TabletIndexName,
             Timestamp,
         },
-        value::FieldPath,
+        value::{
+            FieldPath,
+            ResolvedDocumentId,
+        },
     };
     use convex_macro::test_runtime;
+    use indexing::{
+        backend_in_memory_indexes::{
+            DatabaseIndexSnapshotCache,
+            TimestampedIndexCache,
+        },
+        index_registry::IndexRegistry,
+    };
     use runtime::testing::TestRuntime;
-    use value::val;
+    use value::{
+        assert_obj,
+        val,
+    };
 
     use crate::{
         reads::{
@@ -668,7 +834,11 @@ mod tests {
             TransactionReadSet,
         },
         write_log::{
+            new_write_log,
+            remove_non_refreshable_indexes,
+            resolve_db_index_keys,
             DocumentIndexKeysUpdate,
+            RefreshableTabletUpdate,
             WriteLogManager,
             WriteSource,
         },
@@ -916,6 +1086,328 @@ mod tests {
             )?,
             None
         );
+        Ok(())
+    }
+
+    struct FastForwardIndexCacheFixture {
+        id_generator: TestIdGenerator,
+        index_registry: IndexRegistry,
+        table_index_name: TabletIndexName,
+        index_id: IndexId,
+    }
+
+    impl FastForwardIndexCacheFixture {
+        fn new() -> anyhow::Result<Self> {
+            let mut id_generator = TestIdGenerator::new();
+            let table_name = "users".parse()?;
+            let table_id = id_generator.user_table_id(&table_name);
+
+            let by_id = GenericIndexName::by_id(table_id.tablet_id);
+            let by_name =
+                GenericIndexName::new(table_id.tablet_id, IndexDescriptor::new("by_name")?)?;
+
+            let indexes = vec![
+                IndexMetadata::new_enabled(by_id, IndexedFields::by_id()),
+                IndexMetadata::new_enabled(by_name.clone(), vec!["name".parse()?].try_into()?),
+            ];
+
+            let index_documents = gen_index_documents(&mut id_generator, indexes)?;
+            let index_registry = IndexRegistry::bootstrap(
+                &id_generator,
+                index_documents.values(),
+                PersistenceVersion::default(),
+            )?;
+
+            let index_id = index_registry.get_enabled(&by_name).unwrap().id();
+
+            Ok(Self {
+                id_generator,
+                index_registry,
+                table_index_name: by_name,
+                index_id,
+            })
+        }
+
+        fn cache_tracking_index(&self) -> DatabaseIndexSnapshotCache {
+            let mut cache = DatabaseIndexSnapshotCache::new();
+            cache.track_index_for_testing(self.index_id);
+            cache
+        }
+
+        fn make_doc(
+            &mut self,
+            obj: common::value::ConvexObject,
+        ) -> anyhow::Result<(ResolvedDocumentId, IndexKey, PackedDocument)> {
+            let id = self.id_generator.user_generate(&"users".parse()?);
+            let doc = ResolvedDocument::new(id, CreationTime::ONE, obj)?;
+            let fields: Vec<FieldPath> = vec!["name".parse()?];
+            let key = doc.index_key(&fields);
+            let packed = PackedDocument::pack(&doc);
+            Ok((id, key, packed))
+        }
+    }
+
+    fn gen_index_documents(
+        id_generator: &mut TestIdGenerator,
+        mut indexes: Vec<common::bootstrap_model::index::TabletIndexMetadata>,
+    ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, ResolvedDocument>> {
+        let mut index_documents = BTreeMap::new();
+        let index_table = id_generator.system_table_id(&INDEX_TABLE);
+        indexes.push(IndexMetadata::new_enabled(
+            GenericIndexName::by_id(index_table.tablet_id),
+            IndexedFields::by_id(),
+        ));
+        for metadata in indexes {
+            let id = id_generator.system_generate(&INDEX_TABLE);
+            let doc = ResolvedDocument::new(id, CreationTime::ONE, metadata.try_into()?)?;
+            index_documents.insert(doc.id(), doc);
+        }
+        Ok(index_documents)
+    }
+
+    #[test]
+    fn resolve_db_index_keys_insert() -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+        let (_id, key, _doc) = f.make_doc(assert_obj!("name" => "alice"))?;
+
+        let doc_keys = DocumentIndexKeys::with_standard_index_for_test(
+            f.table_index_name.clone(),
+            key.clone(),
+        );
+
+        let cache = f.cache_tracking_index();
+        let old_keys = resolve_db_index_keys(&f.index_registry, None, &cache);
+        let new_keys = resolve_db_index_keys(&f.index_registry, Some(&doc_keys), &cache);
+        assert!(old_keys.is_none());
+        assert_eq!(new_keys.unwrap(), vec![(f.index_id, false, key.to_bytes())]);
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_db_index_keys_update() -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+        let (_id, old_key, _old_doc) = f.make_doc(assert_obj!("name" => "alice"))?;
+        let (_id2, new_key, _new_doc) = f.make_doc(assert_obj!("name" => "bob"))?;
+
+        let old_doc_keys = DocumentIndexKeys::with_standard_index_for_test(
+            f.table_index_name.clone(),
+            old_key.clone(),
+        );
+        let new_doc_keys = DocumentIndexKeys::with_standard_index_for_test(
+            f.table_index_name.clone(),
+            new_key.clone(),
+        );
+
+        let cache = f.cache_tracking_index();
+        let old_keys = resolve_db_index_keys(&f.index_registry, Some(&old_doc_keys), &cache);
+        let new_keys = resolve_db_index_keys(&f.index_registry, Some(&new_doc_keys), &cache);
+        assert_eq!(
+            old_keys.unwrap(),
+            vec![(f.index_id, false, old_key.to_bytes())]
+        );
+        assert_eq!(
+            new_keys.unwrap(),
+            vec![(f.index_id, false, new_key.to_bytes())]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_db_index_keys_delete() -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+        let (_id, key, _doc) = f.make_doc(assert_obj!("name" => "alice"))?;
+
+        let doc_keys = DocumentIndexKeys::with_standard_index_for_test(
+            f.table_index_name.clone(),
+            key.clone(),
+        );
+
+        let cache = f.cache_tracking_index();
+        let old_keys = resolve_db_index_keys(&f.index_registry, Some(&doc_keys), &cache);
+        let new_keys = resolve_db_index_keys(&f.index_registry, None, &cache);
+        assert_eq!(old_keys.unwrap(), vec![(f.index_id, false, key.to_bytes())]);
+        assert!(new_keys.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_db_index_keys_skips_untracked_indexes() -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+        let (_id, key, _doc) = f.make_doc(assert_obj!("name" => "alice"))?;
+
+        let doc_keys = DocumentIndexKeys::with_standard_index_for_test(
+            f.table_index_name.clone(),
+            key.clone(),
+        );
+
+        // Use an empty cache — no indexes are tracked.
+        let empty_cache = DatabaseIndexSnapshotCache::new();
+        let keys = resolve_db_index_keys(&f.index_registry, Some(&doc_keys), &empty_cache);
+        assert_eq!(keys.unwrap(), vec![]);
+        Ok(())
+    }
+
+    #[test]
+    fn non_refreshable_insert() -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+        let (_id, key, _doc) = f.make_doc(assert_obj!("name" => "alice"))?;
+
+        let update = DocumentIndexKeysUpdate {
+            id: _id,
+            old_document_keys: None,
+            new_document_keys: Some(DocumentIndexKeys::with_standard_index_for_test(
+                f.table_index_name.clone(),
+                key,
+            )),
+        };
+
+        let mut cache = f.cache_tracking_index();
+        assert!(cache.is_index_tracked(&f.index_id));
+        remove_non_refreshable_indexes(&update, &f.index_registry, &mut cache);
+        assert!(!cache.is_index_tracked(&f.index_id));
+        Ok(())
+    }
+
+    #[test]
+    fn non_refreshable_delete() -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+        let (id, key, _doc) = f.make_doc(assert_obj!("name" => "alice"))?;
+
+        let update = DocumentIndexKeysUpdate {
+            id,
+            old_document_keys: Some(DocumentIndexKeys::with_standard_index_for_test(
+                f.table_index_name.clone(),
+                key,
+            )),
+            new_document_keys: None,
+        };
+
+        let mut cache = f.cache_tracking_index();
+        assert!(cache.is_index_tracked(&f.index_id));
+        remove_non_refreshable_indexes(&update, &f.index_registry, &mut cache);
+        assert!(!cache.is_index_tracked(&f.index_id));
+        Ok(())
+    }
+
+    #[test]
+    fn non_refreshable_search_index_filtered() -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+
+        // Use a search index key value (not Standard) — should be filtered out.
+        let search_keys = DocumentIndexKeys::with_search_index_for_test(
+            f.table_index_name.clone(),
+            "name".parse()?,
+            common::document_index_keys::SearchValueTokens::from_iter_for_test(vec![
+                "hello".to_string()
+            ]),
+        );
+
+        let update = DocumentIndexKeysUpdate {
+            id: f.id_generator.user_generate(&"users".parse()?),
+            old_document_keys: None,
+            new_document_keys: Some(search_keys),
+        };
+
+        let mut cache = f.cache_tracking_index();
+        remove_non_refreshable_indexes(&update, &f.index_registry, &mut cache);
+        // Index should still be tracked since search indexes are filtered out.
+        assert!(cache.is_index_tracked(&f.index_id));
+        Ok(())
+    }
+
+    #[test_runtime]
+    async fn test_fast_forward_index_cache_same_ts(_rt: TestRuntime) -> anyhow::Result<()> {
+        let f = FastForwardIndexCacheFixture::new()?;
+        let (_owner, reader, _writer) = new_write_log(Timestamp::must(1000));
+
+        let ts = unchecked_repeatable_ts(Timestamp::must(1000));
+        let cache = TimestampedIndexCache {
+            cache: f.cache_tracking_index(),
+            ts,
+        };
+        let result = reader
+            .fast_forward_index_cache(cache, &f.index_registry, ts)
+            .await?;
+        assert!(result.is_some());
+        assert_eq!(*result.unwrap().ts, *ts);
+        Ok(())
+    }
+
+    #[test_runtime]
+    async fn test_fast_forward_index_cache_with_writes(_rt: TestRuntime) -> anyhow::Result<()> {
+        let mut f = FastForwardIndexCacheFixture::new()?;
+        let (_owner, reader, mut writer) = new_write_log(Timestamp::must(1000));
+
+        let (id, key, doc) = f.make_doc(assert_obj!("name" => "alice"))?;
+        let expected_key_bytes = key.to_bytes();
+        writer.append(
+            Timestamp::must(1002),
+            vec![(
+                id,
+                DocumentIndexKeysUpdate {
+                    id,
+                    old_document_keys: None,
+                    new_document_keys: Some(DocumentIndexKeys::with_standard_index_for_test(
+                        f.table_index_name.clone(),
+                        key,
+                    )),
+                },
+                Some(RefreshableTabletUpdate(Some(doc))),
+            )]
+            .into(),
+            WriteSource::unknown(),
+        );
+
+        let index_cache = f.cache_tracking_index();
+        assert!(index_cache.documents_for_index(&f.index_id).is_empty());
+
+        let begin_ts = unchecked_repeatable_ts(Timestamp::must(1000));
+        let end_ts = unchecked_repeatable_ts(Timestamp::must(1002));
+        let cache = TimestampedIndexCache {
+            cache: index_cache,
+            ts: begin_ts,
+        };
+        let result = reader
+            .fast_forward_index_cache(cache, &f.index_registry, end_ts)
+            .await?;
+        let ff_cache = result.unwrap();
+        assert_eq!(*ff_cache.ts, *end_ts);
+        let cached_docs = ff_cache.cache.documents_for_index(&f.index_id);
+        assert_eq!(cached_docs.len(), 1);
+        let (cached_key, cached_ts, cached_doc) = &cached_docs[0];
+        assert_eq!(*cached_key, expected_key_bytes);
+        assert_eq!(*cached_ts, Timestamp::must(1002));
+        assert_eq!(cached_doc.id(), id);
+        Ok(())
+    }
+
+    #[test_runtime]
+    async fn test_fast_forward_index_cache_out_of_retention(
+        _rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let f = FastForwardIndexCacheFixture::new()?;
+        let (mut owner, reader, mut writer) = new_write_log(Timestamp::must(1000));
+
+        writer.append(Timestamp::must(1001), vec![].into(), WriteSource::unknown());
+
+        // Enforce retention far in the future so ts=1001 gets purged.
+        owner.enforce_retention_policy(
+            Timestamp::must(1001)
+                .add(*WRITE_LOG_MAX_RETENTION_SECS)
+                .unwrap()
+                .succ()?,
+        );
+
+        let begin_ts = unchecked_repeatable_ts(Timestamp::must(1000));
+        let end_ts = unchecked_repeatable_ts(Timestamp::must(1001));
+        let cache = TimestampedIndexCache {
+            cache: f.cache_tracking_index(),
+            ts: begin_ts,
+        };
+        let result = reader
+            .fast_forward_index_cache(cache, &f.index_registry, end_ts)
+            .await?;
+        assert!(result.is_none());
         Ok(())
     }
 }

@@ -823,7 +823,22 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 .database
                 .begin_with_usage(identity.clone(), usage_tracker.clone())
                 .await?;
-            self.database.check_write_throughput_limit()?;
+            match self.database.check_write_throughput_limit() {
+                Ok(()) => {},
+                Err(e)
+                    if e.is_rate_limited()
+                        && (backoff.failures() as usize) < *UDF_EXECUTOR_OCC_MAX_RETRIES =>
+                {
+                    let sleep = backoff.fail(&mut self.runtime.rng());
+                    tracing::warn!(
+                        "Write throughput limit exceeded, retrying {udf_path_string:?} after \
+                         {sleep:?}",
+                    );
+                    self.runtime.wait(sleep).await;
+                    continue;
+                },
+                Err(e) => return Err(e),
+            }
             let pause_client = self.runtime.pause_client();
             pause_client.wait("retry_mutation_loop_start").await;
             let identity = tx.inert_identity();
@@ -930,6 +945,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                  {udf_path_string:?} after {sleep:?}",
                             );
                             self.runtime.wait(sleep).await;
+                            if let Some(write_ts_raw) = e.occ_write_ts()
+                                && let Ok(write_ts) = Timestamp::try_from(write_ts_raw)
+                            {
+                                self.database.wait_for_write_ts(write_ts).await;
+                            }
                             let (table_name, document_id, write_source) =
                                 e.occ_info().unwrap_or((None, None, None));
                             self.function_log

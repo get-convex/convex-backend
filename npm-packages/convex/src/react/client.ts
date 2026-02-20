@@ -804,17 +804,44 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
 /**
  * Load a reactive query within a React component.
  *
- * This React hook contains internal state that will cause a rerender
- * whenever the query result changes.
+ * This React hook subscribes to a Convex query and causes a rerender whenever
+ * the query result changes. The subscription is managed automatically --
+ * it starts when the component mounts and stops when it unmounts.
  *
  * Throws an error if not used under {@link ConvexProvider}.
  *
+ * @example
+ * ```tsx
+ * import { useQuery } from "convex/react";
+ * import { api } from "../convex/_generated/api";
+ *
+ * function TaskList() {
+ *   // Reactively loads tasks, re-renders when data changes:
+ *   const tasks = useQuery(api.tasks.list, { completed: false });
+ *
+ *   // Returns `undefined` while loading:
+ *   if (tasks === undefined) return <div>Loading...</div>;
+ *
+ *   return tasks.map((task) => <div key={task._id}>{task.text}</div>);
+ * }
+ *
+ * // Pass "skip" to conditionally disable the query:
+ * function MaybeProfile({ userId }: { userId?: Id<"users"> }) {
+ *   const profile = useQuery(
+ *     api.users.get,
+ *     userId ? { userId } : "skip",
+ *   );
+ *   // ...
+ * }
+ * ```
+ *
  * @param query - a {@link server.FunctionReference} for the public query to run
  * like `api.dir1.dir2.filename.func`.
- * @param args - The arguments to the query function or the string "skip" if the
+ * @param args - The arguments to the query function or the string `"skip"` if the
  * query should not be loaded.
- * @returns the result of the query. If the query is loading returns `undefined`.
+ * @returns the result of the query. Returns `undefined` while loading.
  *
+ * @see https://docs.convex.dev/client/react#fetching-data
  * @public
  */
 export function useQuery<Query extends FunctionReference<"query">>(
@@ -853,20 +880,37 @@ export function useQuery<Query extends FunctionReference<"query">>(
 /**
  * Construct a new {@link ReactMutation}.
  *
- * Mutation objects can be called like functions to request execution of the
- * corresponding Convex function, or further configured with
- * [optimistic updates](https://docs.convex.dev/using/optimistic-updates).
+ * Returns a function that you can call to execute a Convex mutation. The
+ * returned function is stable across renders (same reference identity), so
+ * it can be safely used in dependency arrays and memoization.
  *
- * The value returned by this hook is stable across renders, so it can be used
- * by React dependency arrays and memoization logic relying on object identity
- * without causing rerenders.
+ * Mutations can optionally be configured with
+ * [optimistic updates](https://docs.convex.dev/client/react/optimistic-updates)
+ * for instant UI feedback.
  *
  * Throws an error if not used under {@link ConvexProvider}.
+ *
+ * @example
+ * ```tsx
+ * import { useMutation } from "convex/react";
+ * import { api } from "../convex/_generated/api";
+ *
+ * function CreateTask() {
+ *   const createTask = useMutation(api.tasks.create);
+ *
+ *   const handleClick = async () => {
+ *     await createTask({ text: "New task" });
+ *   };
+ *
+ *   return <button onClick={handleClick}>Add Task</button>;
+ * }
+ * ```
  *
  * @param mutation - A {@link server.FunctionReference} for the public mutation
  * to run like `api.dir1.dir2.filename.func`.
  * @returns The {@link ReactMutation} object with that name.
  *
+ * @see https://docs.convex.dev/client/react#editing-data
  * @public
  */
 export function useMutation<Mutation extends FunctionReference<"mutation">>(
@@ -895,19 +939,47 @@ export function useMutation<Mutation extends FunctionReference<"mutation">>(
 /**
  * Construct a new {@link ReactAction}.
  *
- * Action objects can be called like functions to request execution of the
- * corresponding Convex function.
+ * Returns a function that you can call to execute a Convex action. Actions
+ * can call third-party APIs and perform side effects. The returned function
+ * is stable across renders (same reference identity).
  *
- * The value returned by this hook is stable across renders, so it can be used
- * by React dependency arrays and memoization logic relying on object identity
- * without causing rerenders.
+ * **Error handling:** Actions can fail (e.g., if an external API is down).
+ * Always wrap action calls in try/catch or handle the rejected promise.
+ *
+ * **Note:** In most cases, calling an action directly from a client is an
+ * anti-pattern. Prefer having the client call a mutation that captures the
+ * user's intent (by writing to the database) and then schedules the action
+ * via `ctx.scheduler.runAfter`. This ensures the intent is durably recorded
+ * even if the client disconnects.
  *
  * Throws an error if not used under {@link ConvexProvider}.
+ *
+ * @example
+ * ```tsx
+ * import { useAction } from "convex/react";
+ * import { api } from "../convex/_generated/api";
+ *
+ * function GenerateSummary() {
+ *   const generate = useAction(api.ai.generateSummary);
+ *
+ *   const handleClick = async () => {
+ *     try {
+ *       const summary = await generate({ text: "Some long text..." });
+ *       console.log(summary);
+ *     } catch (error) {
+ *       console.error("Action failed:", error);
+ *     }
+ *   };
+ *
+ *   return <button onClick={handleClick}>Generate</button>;
+ * }
+ * ```
  *
  * @param action - A {@link server.FunctionReference} for the public action
  * to run like `api.dir1.dir2.filename.func`.
  * @returns The {@link ReactAction} object with that name.
  *
+ * @see https://docs.convex.dev/functions/actions#calling-actions-from-clients
  * @public
  */
 export function useAction<Action extends FunctionReference<"action">>(

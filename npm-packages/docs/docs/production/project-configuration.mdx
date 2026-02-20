@@ -99,9 +99,12 @@ NPM package version 1.27.0 or later.
 ```
 
 Note: This configuration is not supported when running the self-hosted Convex
-backend. The node version that is specified in the
+backend. The Node version that is specified in the
 [.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc) will be
 used instead.
+
+When pushing a new Node.js version to the server, the new code for your
+functions may be executed in the old Node.js version for up a few minutes.
 
 ### Using static code generation (beta)
 

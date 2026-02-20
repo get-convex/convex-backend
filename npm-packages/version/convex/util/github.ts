@@ -1,4 +1,4 @@
-type GitHubRelease = {
+export type GitHubRelease = {
   tag_name: string;
   prerelease: boolean;
   draft: boolean;
@@ -11,6 +11,27 @@ type LinkHeader = {
   first?: string;
   last?: string;
 };
+
+/**
+ * Get headers for GitHub API requests with authentication if available
+ */
+function getGitHubHeaders(): HeadersInit {
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (!githubToken) {
+    console.warn(
+      "GITHUB_TOKEN environment variable not set. GitHub API requests will have lower rate limits.",
+    );
+  }
+
+  return githubToken
+    ? {
+        Authorization: `Bearer ${githubToken}`,
+        Accept: "application/vnd.github+json",
+      }
+    : {
+        Accept: "application/vnd.github+json",
+      };
+}
 
 /**
  * Parse the HTTP Link header for pagination
@@ -42,7 +63,7 @@ export async function fetchAllGitHubReleases(
   let nextUrl = `https://api.github.com/repos/${repoPath}/releases?per_page=${perPage}`;
 
   while (nextUrl) {
-    const response = await fetch(nextUrl);
+    const response = await fetch(nextUrl, { headers: getGitHubHeaders() });
 
     if (!response.ok) {
       const text = await response.text();
@@ -105,6 +126,24 @@ export function findReleaseWithAsset(
 }
 
 /**
+ * Find the first stable release that contains all specified assets
+ */
+export function findReleaseWithAllAssets(
+  releases: GitHubRelease[],
+  assetNames: string[],
+): GitHubRelease | null {
+  for (const release of releases) {
+    if (release.prerelease || release.draft) continue;
+    const releaseAssetNames = new Set(release.assets.map((a) => a.name));
+    const matching = assetNames.filter((name) => releaseAssetNames.has(name));
+    if (matching.length === assetNames.length) {
+      return release;
+    }
+  }
+  return null;
+}
+
+/**
  * Download an asset from a GitHub release
  */
 export async function downloadAssetFromRelease(
@@ -113,7 +152,8 @@ export async function downloadAssetFromRelease(
   assetName: string,
 ): Promise<string> {
   const downloadUrl = `https://github.com/${repoPath}/releases/download/${version}/${assetName}`;
-  const response = await fetch(downloadUrl);
+
+  const response = await fetch(downloadUrl, { headers: getGitHubHeaders() });
 
   if (!response.ok) {
     throw new Error(`Failed to download ${assetName} from ${downloadUrl}`);

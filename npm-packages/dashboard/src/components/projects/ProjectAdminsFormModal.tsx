@@ -2,7 +2,7 @@ import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
 import { Modal } from "@ui/Modal";
 import { TeamMemberLink } from "elements/TeamMemberLink";
-import { ProjectMemberRoleResponse, TeamMemberResponse } from "generatedApi";
+import { ProjectMemberRoleResponse, TeamMember } from "generatedApi";
 import difference from "lodash/difference";
 import sortBy from "lodash/sortBy";
 import Link from "next/link";
@@ -17,7 +17,7 @@ export function ProjectAdminFormModal({
   onClose,
 }: {
   project: ProjectDetails;
-  members: TeamMemberResponse[];
+  members: TeamMember[];
   projectRoles: ProjectMemberRoleResponse[];
   onUpdateProjectRoles: (body: {
     updates: {

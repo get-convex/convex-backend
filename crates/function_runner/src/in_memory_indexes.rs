@@ -628,6 +628,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             Arc::new(in_memory_indexes),
             table_registry.table_mapping().clone(),
             persistence_snapshot,
+            None,
         );
 
         let mut tx = make_transaction(

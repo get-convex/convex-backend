@@ -10,6 +10,8 @@ use std::{
         BTreeSet,
         VecDeque,
     },
+    future::Future,
+    pin::Pin,
 };
 
 use convex_sync_types::{
@@ -54,6 +56,14 @@ pub use query_result::{
 };
 
 use self::request_manager::RequestType;
+
+/// A callback that fetches an auth token. The `bool` parameter indicates
+/// whether a forced refresh is requested (e.g. on websocket reconnect).
+pub type AuthTokenFetcher = Box<
+    dyn Fn(bool) -> Pin<Box<dyn Future<Output = anyhow::Result<AuthenticationToken>> + Send>>
+        + Send
+        + Sync,
+>;
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 struct QueryToken(String);
@@ -100,15 +110,15 @@ fn serialize_path_and_args(udf_path: UdfPath, args: BTreeMap<String, Value>) -> 
     QueryToken(json.to_string())
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 struct LocalSyncState {
     next_query_id: QueryId,
     query_set_version: QuerySetVersion,
     query_set: BTreeMap<QueryToken, LocalQuery>,
     query_id_to_token: BTreeMap<QueryId, QueryToken>,
     latest_results: QueryResults,
-    auth_token: AuthenticationToken,
     identity_version: IdentityVersion,
+    auth_fetcher: Option<AuthTokenFetcher>,
 }
 
 impl LocalSyncState {
@@ -225,8 +235,7 @@ impl LocalSyncState {
         )
     }
 
-    fn set_auth(&mut self, token: AuthenticationToken) -> ClientMessage {
-        self.auth_token = token.clone();
+    fn authenticate(&mut self, token: AuthenticationToken) -> ClientMessage {
         let base_version = self.identity_version;
         self.identity_version += 1;
         ClientMessage::Authenticate {
@@ -235,7 +244,30 @@ impl LocalSyncState {
         }
     }
 
-    fn restart(&mut self) -> Vec<ClientMessage> {
+    async fn restart(&mut self) -> Vec<ClientMessage> {
+        self.identity_version = 0;
+        let mut messages = Vec::new();
+
+        // If we have a fetcher, get a fresh token for the new connection.
+        if let Some(ref fetcher) = self.auth_fetcher {
+            match fetcher(true).await {
+                Ok(token) if token != AuthenticationToken::None => {
+                    messages.push(ClientMessage::Authenticate {
+                        base_version: 0,
+                        token,
+                    });
+                    self.identity_version += 1;
+                },
+                Ok(_) => {},
+                Err(e) => {
+                    tracing::error!(
+                        "Auth fetcher failed during reconnect: {e:?}. Skipping auth for this \
+                         reconnect attempt."
+                    );
+                },
+            }
+        }
+
         let mut modifications = Vec::new();
         for local_query in self.query_set.values() {
             let add = QuerySetModification::Add(convex_sync_types::Query {
@@ -252,22 +284,13 @@ impl LocalSyncState {
         }
         self.query_set_version = 1;
 
-        let query_set = ClientMessage::ModifyQuerySet {
+        messages.push(ClientMessage::ModifyQuerySet {
             base_version: 0,
             new_version: 1,
             modifications,
-        };
+        });
 
-        self.identity_version = 0;
-        if self.auth_token == AuthenticationToken::None {
-            return vec![query_set];
-        };
-        let authenticate = ClientMessage::Authenticate {
-            base_version: 0,
-            token: self.auth_token.clone(),
-        };
-        self.identity_version += 1;
-        vec![authenticate, query_set]
+        messages
     }
 }
 
@@ -571,10 +594,34 @@ impl BaseConvexClient {
         result_receiver
     }
 
-    /// Set auth on the sync protocol.
-    pub fn set_auth(&mut self, token: AuthenticationToken) {
-        let message = self.state.set_auth(token);
-        self.outgoing_message_queue.push_back(message);
+    /// Store (or clear) an auth token fetcher callback and update auth state.
+    ///
+    /// When a fetcher is provided it is invoked immediately (with
+    /// `force_refresh=false`) and stored for future reconnects — on each
+    /// websocket reconnect the fetcher is called again with
+    /// `force_refresh=true`.
+    ///
+    /// When `None` is passed the stored fetcher is cleared and auth is unset.
+    pub async fn set_auth_fetcher(&mut self, fetcher: Option<AuthTokenFetcher>) {
+        match fetcher {
+            Some(fetcher) => {
+                match fetcher(false).await {
+                    Ok(token) => {
+                        let message = self.state.authenticate(token);
+                        self.outgoing_message_queue.push_back(message);
+                    },
+                    Err(e) => {
+                        tracing::error!("Auth token fetcher failed: {e:?}");
+                    },
+                }
+                self.state.auth_fetcher = Some(fetcher);
+            },
+            None => {
+                self.state.auth_fetcher = None;
+                let message = self.state.authenticate(AuthenticationToken::None);
+                self.outgoing_message_queue.push_back(message);
+            },
+        }
     }
 
     /// Pop the next message from the outgoing message queue.
@@ -690,8 +737,16 @@ impl BaseConvexClient {
 
     /// Resend all subscribed queries and ongoing mutations. Should be used once
     /// the websocket closes and reconnects.
-    pub fn resend_ongoing_queries_mutations(&mut self) {
-        let state_restart_messages = self.state.restart();
+    pub async fn resend_ongoing_queries_mutations(&mut self) {
+        // Clear any stale messages from the queue. During reconnection
+        // retries, messages can accumulate from previous failed attempts
+        // or from subscription changes made while disconnected. Since
+        // restart() rebuilds the full query set and resets version
+        // numbers, any pre-existing messages would have stale versions
+        // that conflict with the fresh restart messages.
+        self.outgoing_message_queue.clear();
+
+        let state_restart_messages = self.state.restart().await;
         let mut ongoing_mutation_messages = self.request_manager.restart();
 
         self.remote_query_set = RemoteQuerySet::new();
@@ -749,4 +804,135 @@ macro_rules! convex_logs {
         tracing::event!(target: "convex_logs", tracing::Level::DEBUG, $($arg)+);
         // Additional custom behavior can be added here
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use convex_sync_types::{
+        AuthenticationToken,
+        ClientMessage,
+        QuerySetVersion,
+        UdfPath,
+    };
+    use maplit::btreemap;
+
+    use super::BaseConvexClient;
+
+    /// Simulates the server-side version tracking from
+    /// `sync::state::SyncState::modify_query_set`. Returns Err with the
+    /// same message the server produces when versions don't match.
+    fn simulate_server_version_check(messages: &[ClientMessage]) -> Result<(), String> {
+        let mut query_set_version: QuerySetVersion = 0;
+        for msg in messages {
+            if let ClientMessage::ModifyQuerySet {
+                base_version,
+                new_version,
+                ..
+            } = msg
+            {
+                if *base_version != query_set_version {
+                    return Err(format!(
+                        "Base version {base_version} passed up doesn't match the current version \
+                         {query_set_version}"
+                    ));
+                }
+                query_set_version = *new_version;
+            }
+        }
+        Ok(())
+    }
+
+    /// Reproduces the bug where repeated reconnection attempts accumulate
+    /// stale messages in the outgoing queue, causing the server to reject
+    /// messages with "Base version 0 passed up doesn't match the current
+    /// version 1".
+    ///
+    /// In the real client, this happens when `communicate()` is interrupted
+    /// by a `ProtocolResponse::Failure` mid-drain (e.g. the WebSocket
+    /// connection attempt fails). The first message is popped and sent to
+    /// the WebSocket worker channel, but remaining messages stay in the
+    /// queue. When `resend_ongoing_queries_mutations()` appends fresh
+    /// restart messages, the stale leftovers cause version conflicts.
+    #[tokio::test]
+    async fn test_reconnect_does_not_send_duplicate_version_messages() {
+        let mut client = BaseConvexClient::new();
+
+        // Authenticated client with one active subscription.
+        client
+            .set_auth_fetcher(Some(Box::new(|_force_refetch| {
+                Box::pin(async { Ok(AuthenticationToken::User("test-token".into())) })
+            })))
+            .await;
+        let udf = UdfPath::from_str("some:query").unwrap();
+        client.subscribe(udf, btreemap! {});
+
+        // Drain initial messages (successfully sent while connected).
+        while client.pop_next_message().is_some() {}
+
+        // --- Connection drops, first reconnect attempt ---
+        client.resend_ongoing_queries_mutations().await;
+
+        // Simulate partial drain: the first message (Authenticate) was
+        // popped and handed to the WebSocket layer, but the connection
+        // failed before the second message (ModifyQuerySet) could be sent.
+        let _ = client.pop_next_message();
+
+        // --- Connection still down, second reconnect attempt ---
+        client.resend_ongoing_queries_mutations().await;
+
+        // Connection finally succeeds — all queued messages are flushed.
+        let mut messages = vec![];
+        while let Some(msg) = client.pop_next_message() {
+            messages.push(msg);
+        }
+
+        // The server tracks query set versions sequentially and rejects
+        // any message whose base_version doesn't match its current state
+        // (sync::state::SyncState::modify_query_set). Without the fix,
+        // the stale ModifyQuerySet{base_version:0} from the first attempt
+        // is still in the queue, followed by the second attempt's
+        // ModifyQuerySet{base_version:0}.
+        simulate_server_version_check(&messages)
+            .expect("Server would reject these messages with a FatalError");
+    }
+
+    #[tokio::test]
+    async fn test_reconnect_path_requests_refreshed_token() {
+        let mut client = BaseConvexClient::new();
+
+        // Authenticated client with one active subscription.
+        client
+            .set_auth_fetcher(Some(Box::new(|force_refetch| {
+                Box::pin(async move {
+                    if force_refetch {
+                        // A fake refreshed token.
+                        Ok(AuthenticationToken::User("refetched-token".into()))
+                    } else {
+                        Ok(AuthenticationToken::User("original-token".into()))
+                    }
+                })
+            })))
+            .await;
+        let udf = UdfPath::from_str("some:query").unwrap();
+        client.subscribe(udf, btreemap! {});
+
+        // Drain initial messages (successfully sent while connected).
+        while client.pop_next_message().is_some() {}
+
+        // --- Connection drops, reconnect attempt ---
+        client.resend_ongoing_queries_mutations().await;
+
+        // A fresh authentication attempt should have been initiated, with a new token.
+        assert_eq!(
+            client
+                .pop_next_message()
+                .expect("Expected an authentication message."),
+            ClientMessage::Authenticate {
+                base_version: 0,
+                token: AuthenticationToken::User("refetched-token".into()),
+            }
+        );
+    }
 }

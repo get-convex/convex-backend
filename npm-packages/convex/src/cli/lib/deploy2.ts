@@ -398,30 +398,33 @@ export async function deployToDeployment(
     debug?: boolean | undefined;
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
+    skipWorkosCheck?: boolean | undefined;
     allowDeletingLargeIndexes: boolean;
   },
 ) {
   const { url, adminKey } = credentials;
 
   // Pre-flight check: Ensure AuthKit is provisioned before building client bundle
-  const { projectConfig } = await readProjectConfig(ctx);
-  const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+  if (!options.skipWorkosCheck) {
+    const { projectConfig } = await readProjectConfig(ctx);
+    const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
 
-  if (authKitConfig && credentials.deploymentName) {
-    // Only provision for cloud deployments (dev/preview/prod)
-    // Skip for local and anonymous deployments
-    const deploymentType = credentials.deploymentType;
-    if (
-      deploymentType === "dev" ||
-      deploymentType === "preview" ||
-      deploymentType === "prod"
-    ) {
-      await ensureAuthKitProvisionedBeforeBuild(
-        ctx,
-        credentials.deploymentName,
-        { deploymentUrl: url, adminKey },
-        deploymentType,
-      );
+    if (authKitConfig && credentials.deploymentName) {
+      // Only provision for cloud deployments (dev/preview/prod)
+      // Skip for local and anonymous deployments
+      const deploymentType = credentials.deploymentType;
+      if (
+        deploymentType === "dev" ||
+        deploymentType === "preview" ||
+        deploymentType === "prod"
+      ) {
+        await ensureAuthKitProvisionedBeforeBuild(
+          ctx,
+          credentials.deploymentName,
+          { deploymentUrl: url, adminKey },
+          deploymentType,
+        );
+      }
     }
   }
 

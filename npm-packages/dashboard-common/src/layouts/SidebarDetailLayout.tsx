@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { ReactNode, useContext, useRef, useState } from "react";
 import { useLocalStorage } from "react-use";
 import { gt } from "semver";
 import udfs from "@common/udfs";
@@ -37,11 +37,6 @@ export function SidebarDetailLayout({
   const cleanPath = router.asPath.split("?")[0];
 
   const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    if (window.innerWidth < 768) {
-      panelRef.current?.collapse();
-    }
-  }, []);
   const panelRef = useRef<ImperativePanelHandle>(null);
 
   const { ErrorBoundary } = useContext(DeploymentInfoContext);

@@ -1,3 +1,4 @@
+import { paths as PlatformManagementPaths } from "@convex-dev/platform/managementApi";
 import { chalkStderr } from "chalk";
 import os from "os";
 import path from "path";
@@ -21,7 +22,10 @@ import {
   bigBrainEnableFeatureMetadata,
   projectHasExistingCloudDev,
 } from "../localDeployment/bigBrain.js";
-import type { paths as ManagementPaths } from "../../generatedApi.js";
+import type {
+  paths as CliManagementPaths,
+  TeamResponse,
+} from "../../generatedApi.js";
 import createClient from "openapi-fetch";
 
 const retryingFetch = fetchRetryFactory(fetch);
@@ -30,6 +34,7 @@ export const productionProvisionHost = "https://api.convex.dev";
 export const provisionHost =
   process.env.CONVEX_PROVISION_HOST || productionProvisionHost;
 const BIG_BRAIN_URL = `${provisionHost}/api/`;
+const PLATFORM_MANAGEMENT_API_URL = `${provisionHost}/v1/`;
 export const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOY_KEY_ENV_VAR_NAME = "CONVEX_DEPLOY_KEY";
 export const CONVEX_DEPLOYMENT_ENV_VAR_NAME = "CONVEX_DEPLOYMENT";
@@ -301,7 +306,7 @@ export async function validateOrSelectTeam(
   ctx: Context,
   teamSlug: string | undefined,
   promptMessage: string,
-): Promise<{ teamSlug: string; chosen: boolean }> {
+): Promise<{ team: TeamResponse; chosen: boolean }> {
   const teams = (await typedBigBrainClient(ctx).GET("/teams")).data!;
   if (teams.length === 0) {
     await ctx.crash({
@@ -315,29 +320,37 @@ export async function validateOrSelectTeam(
     // Prompt the user to select if they belong to more than one team.
     switch (teams.length) {
       case 1:
-        return { teamSlug: teams[0].slug, chosen: false };
-      default:
-        return {
-          teamSlug: await promptSearch(ctx, {
-            message: promptMessage,
-            choices: teams.map((team) => ({
-              name: `${team.name} (${team.slug})`,
-              value: team.slug,
-            })),
-          }),
-          chosen: true,
-        };
+        return { team: teams[0], chosen: false };
+      default: {
+        const teamSlug = await promptSearch(ctx, {
+          message: promptMessage,
+          choices: teams.map((team) => ({
+            name: `${team.name} (${team.slug})`,
+            value: team.slug,
+          })),
+        });
+        const team = teams.find((team) => team.slug === teamSlug);
+        if (!team) {
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `Error: Failed to select team`,
+          });
+        }
+        return { team, chosen: true };
+      }
     }
   } else {
     // Validate the chosen team.
-    if (!teams.find((team) => team.slug === teamSlug)) {
-      await ctx.crash({
+    const team = teams.find((team) => team.slug === teamSlug);
+    if (!team) {
+      return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
         printedMessage: `Error: Team ${teamSlug} not found, fix the --team option or remove it`,
       });
     }
-    return { teamSlug, chosen: false };
+    return { team, chosen: false };
   }
 }
 
@@ -411,6 +424,62 @@ export async function selectDevDeploymentType(
     ],
   });
   return { devDeployment };
+}
+export async function selectRegionOrUseDefault(
+  ctx: Context,
+  selectedTeam: TeamResponse,
+) {
+  const noDefaultRegionMessage = chalkStderr.gray(
+    `Tip: you can configure a default region for your team at ${chalkStderr.underline(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`,
+  );
+  if (!process.stdin.isTTY) {
+    // Use the team default in non-interactive terminals
+    if (!selectedTeam.defaultRegion) {
+      logMessage(noDefaultRegionMessage);
+    }
+    return selectedTeam.defaultRegion ?? null;
+  }
+  const selectedRegionName =
+    selectedTeam.defaultRegion ?? (await selectRegion(ctx, selectedTeam.id));
+  if (!selectedTeam.defaultRegion) {
+    logMessage(noDefaultRegionMessage);
+  }
+  return selectedRegionName;
+}
+
+export async function selectRegion(
+  ctx: Context,
+  teamId: number,
+): Promise<string | null> {
+  const regionsResponse = (
+    await typedPlatformClient(ctx).GET(
+      "/teams/{team_id}/list_deployment_regions",
+      {
+        params: {
+          path: { team_id: `${teamId}` },
+        },
+      },
+    )
+  ).data!;
+  const choices = regionsResponse.items
+    .filter((item) => Boolean(item.available))
+    .map((item) => ({
+      name: item.displayName,
+      value: item.name,
+    }))
+    .sort((a, b) => {
+      // Show US region first if it exists
+      if (a.value === "aws-us-east-1") return -1;
+      if (b.value === "aws-us-east-1") return 1;
+      return 0;
+    });
+  return await promptOptions(ctx, {
+    message: "Where should this dev deployment run?",
+    suffix: `\n${chalkStderr.gray(
+      "See https://www.convex.dev/pricing for pricing",
+    )}`,
+    choices,
+  });
 }
 
 export async function hasProject(
@@ -689,53 +758,64 @@ export async function bigBrainAPI<T = any>({
  *
  * Pass { throw: true } to throw ThrowingFetchErrors instead of exiting the process.
  */
-export function typedBigBrainClient(
-  ctx: Context,
-  options: { throw?: boolean } = {},
-) {
-  const bigBrainClient = createClient<ManagementPaths>({
-    baseUrl: BIG_BRAIN_URL,
-    fetch: async (
-      resource: Request,
-      options?: RequestInit,
-    ): Promise<Response> => {
-      const fetch = await bigBrainFetch(ctx);
-      return fetch(resource, options);
-    },
-  });
+function typedBigBrainClientFactory<T>(baseUrl: string) {
+  return (ctx: Context, options: { throw?: boolean } = {}) => {
+    type Paths = T extends CliManagementPaths
+      ? CliManagementPaths
+      : T extends PlatformManagementPaths
+        ? PlatformManagementPaths
+        : never;
+    const bigBrainClient = createClient<Paths>({
+      baseUrl,
+      fetch: async (
+        resource: Request,
+        options?: RequestInit,
+      ): Promise<Response> => {
+        const fetch = await bigBrainFetch(ctx);
+        return fetch(resource, options);
+      },
+    });
 
-  // Wrap the client with error handling - go back to proxy since middleware doesn't catch parsing errors
-  return new Proxy(bigBrainClient, {
-    get(target, prop) {
-      const originalMethod = target[prop as keyof typeof target];
+    // Wrap the client with error handling - go back to proxy since middleware doesn't catch parsing errors
+    return new Proxy(bigBrainClient, {
+      get(target, prop) {
+        const originalMethod = target[prop as keyof typeof target];
 
-      if (
-        prop === "GET" ||
-        prop === "POST" ||
-        prop === "HEAD" ||
-        prop === "OPTIONS" ||
-        prop === "PUT" ||
-        prop === "DELETE" ||
-        prop === "PATCH" ||
-        prop === "TRACE"
-      ) {
-        return async (...args: any[]) => {
-          try {
-            return await (originalMethod as Function).apply(target, args);
-          } catch (err: unknown) {
-            if (options.throw) {
-              // eslint-disable-next-line no-restricted-syntax
-              throw err;
+        if (
+          prop === "GET" ||
+          prop === "POST" ||
+          prop === "HEAD" ||
+          prop === "OPTIONS" ||
+          prop === "PUT" ||
+          prop === "DELETE" ||
+          prop === "PATCH" ||
+          prop === "TRACE"
+        ) {
+          return async (...args: any[]) => {
+            try {
+              return await (originalMethod as Function).apply(target, args);
+            } catch (err: unknown) {
+              if (options.throw) {
+                // eslint-disable-next-line no-restricted-syntax
+                throw err;
+              }
+              return await logAndHandleFetchError(ctx, err);
             }
-            return await logAndHandleFetchError(ctx, err);
-          }
-        };
-      }
+          };
+        }
 
-      return originalMethod;
-    },
-  });
+        return originalMethod;
+      },
+    });
+  };
 }
+
+export const typedBigBrainClient =
+  typedBigBrainClientFactory<CliManagementPaths>(BIG_BRAIN_URL);
+export const typedPlatformClient =
+  typedBigBrainClientFactory<PlatformManagementPaths>(
+    PLATFORM_MANAGEMENT_API_URL,
+  );
 
 export async function bigBrainAPIMaybeThrows({
   ctx,

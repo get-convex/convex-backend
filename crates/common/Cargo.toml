@@ -33,6 +33,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true }
 axum-extra = { workspace = true }
+base64 = { workspace = true }
 biscuit = { workspace = true }
 bitvec = { workspace = true }
 byteorder = { workspace = true }
@@ -87,6 +88,7 @@ semver = { workspace = true }
 sentry = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha1 = { workspace = true }
 sha2 = { workspace = true }
 shape_inference = { workspace = true }
 sourcemap = { workspace = true }
@@ -98,6 +100,7 @@ tokio = { workspace = true }
 tokio-metrics = { workspace = true }
 tokio-metrics-collector = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }

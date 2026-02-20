@@ -9,7 +9,7 @@ import {
   logVerbose,
   logWarning,
 } from "../../../bundler/log.js";
-import { promptSearch, promptString, promptYesNo } from "../utils/prompts.js";
+import { promptSearch, promptYesNo } from "../utils/prompts.js";
 import {
   bigBrainGenerateAdminKeyForAnonymousDeployment,
   bigBrainPause,
@@ -20,7 +20,10 @@ import {
   LocalDeploymentKind,
   deploymentStateDir,
   ensureUuidForAnonymousUser,
+  legacyDeploymentStateDir,
   loadDeploymentConfig,
+  loadDeploymentConfigFromDir,
+  loadProjectLocalConfig,
   saveDeploymentConfig,
 } from "./filePaths.js";
 import { rootDeploymentStateDir } from "./filePaths.js";
@@ -36,11 +39,10 @@ import {
   LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./utils.js";
 import { handleDashboard } from "./dashboard.js";
-import crypto from "crypto";
 import { recursivelyDelete, recursivelyCopy } from "../fsUtils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
 import { isAnonymousDeployment } from "../deployment.js";
-import { createProjectAndCreateDeployment } from "../api.js";
+import { createProject } from "../api.js";
 import { removeAnonymousPrefix } from "../deployment.js";
 import { nodeFs } from "../../../bundler/fs.js";
 import { doInitConvexFolder } from "../codegen.js";
@@ -203,27 +205,65 @@ export async function loadAnonymousDeployment(
   return config;
 }
 
+/**
+ * List legacy anonymous deployments from the home directory.
+ * These are deployments stored in ~/.convex/anonymous-convex-backend-state/
+ */
+export function listLegacyAnonymousDeployments(ctx: Context): Array<{
+  deploymentName: string;
+  config: LocalDeploymentConfig;
+}> {
+  const deployments: Array<{
+    deploymentName: string;
+    config: LocalDeploymentConfig;
+  }> = [];
+
+  const dir = rootDeploymentStateDir("anonymous");
+  if (ctx.fs.exists(dir)) {
+    const deploymentNames = ctx.fs
+      .listDir(dir)
+      .map((d) => d.name)
+      .filter((d) => isAnonymousDeployment(d));
+    for (const deploymentName of deploymentNames) {
+      const legacyDir = legacyDeploymentStateDir("anonymous", deploymentName);
+      const config = loadDeploymentConfigFromDir(ctx, legacyDir);
+      if (config !== null) {
+        deployments.push({ deploymentName, config });
+      }
+    }
+  }
+
+  return deployments;
+}
+
 export async function listExistingAnonymousDeployments(ctx: Context): Promise<
   Array<{
     deploymentName: string;
     config: LocalDeploymentConfig;
   }>
 > {
-  const dir = rootDeploymentStateDir("anonymous");
-  if (!ctx.fs.exists(dir)) {
-    return [];
+  const deployments: Array<{
+    deploymentName: string;
+    config: LocalDeploymentConfig;
+  }> = [];
+
+  // Check project-local storage first
+  const projectLocal = loadProjectLocalConfig(ctx);
+  if (
+    projectLocal !== null &&
+    isAnonymousDeployment(projectLocal.deploymentName)
+  ) {
+    deployments.push(projectLocal);
   }
-  const deploymentNames = ctx.fs
-    .listDir(dir)
-    .map((d) => d.name)
-    .filter((d) => isAnonymousDeployment(d));
-  return deploymentNames.flatMap((deploymentName) => {
-    const config = loadDeploymentConfig(ctx, "anonymous", deploymentName);
-    if (config !== null) {
-      return [{ deploymentName, config }];
+
+  // Check legacy home directory, avoiding duplicates
+  for (const legacy of listLegacyAnonymousDeployments(ctx)) {
+    if (!deployments.some((d) => d.deploymentName === legacy.deploymentName)) {
+      deployments.push(legacy);
     }
-    return [];
-  });
+  }
+
+  return deployments;
 }
 
 async function chooseDeployment(
@@ -247,8 +287,28 @@ async function chooseDeployment(
       deploymentName: string;
     }
 > {
-  const deployments = await listExistingAnonymousDeployments(ctx);
+  // Check for existing project-local deployment first - use it if it exists
+  const projectLocal = loadProjectLocalConfig(ctx);
+  if (projectLocal !== null) {
+    if (isAnonymousDeployment(projectLocal.deploymentName)) {
+      // Already an anonymous deployment - use it as-is
+      return {
+        kind: "existing",
+        deploymentName: projectLocal.deploymentName,
+        config: projectLocal.config,
+      };
+    }
+    // Project-local has data from a different deployment type (e.g., "local-*")
+    // Create a new anonymous deployment that will reuse this data and update the config
+    logVerbose(
+      `Project-local has ${projectLocal.deploymentName}, switching to anonymous`,
+    );
+    return { deploymentName: generateDeploymentName(), kind: "new" };
+  }
+
+  // Check if a specific deployment name was requested (legacy support)
   if (options.deploymentName !== null && options.chosenConfiguration === null) {
+    const deployments = await listExistingAnonymousDeployments(ctx);
     const existing = deployments.find(
       (d) => d.deploymentName === options.deploymentName,
     );
@@ -262,42 +322,32 @@ async function chooseDeployment(
       };
     }
   }
+
+  // Handle agent mode - use fixed name since there's one deployment per project
   if (process.env.CONVEX_AGENT_MODE === "anonymous") {
     const deploymentName = "anonymous-agent";
-    const uniqueName = await getUniqueName(
-      ctx,
-      deploymentName,
-      deployments.map((d) => d.deploymentName),
-    );
-    logVerbose(`Deployment name: ${uniqueName}`);
+    logVerbose(`Deployment name: ${deploymentName}`);
     return {
       kind: "new",
-      deploymentName: uniqueName,
+      deploymentName,
     };
   }
 
-  if (deployments.length === 0) {
-    logMessage("Let's set up your first project.");
-    return await promptForNewDeployment(ctx, []);
+  // No project-local data - check for legacy deployments in home directory
+  const legacyDeployments = listLegacyAnonymousDeployments(ctx);
+
+  // No legacy deployments - auto-create a new project without prompting
+  if (legacyDeployments.length === 0) {
+    logMessage("Setting up a new project...");
+    return { deploymentName: generateDeploymentName(), kind: "first" };
   }
 
+  // User explicitly wants a new deployment - create without prompting for name
   if (options.chosenConfiguration === "new") {
-    const deploymentName = await promptString(ctx, {
-      message: "Choose a name for your new project:",
-      default: path.basename(process.cwd()),
-    });
-    const uniqueName = await getUniqueName(
-      ctx,
-      deploymentName,
-      deployments.map((d) => d.deploymentName),
-    );
-    logVerbose(`Deployment name: ${uniqueName}`);
-    return {
-      kind: "new",
-      deploymentName: uniqueName,
-    };
+    return { deploymentName: generateDeploymentName(), kind: "new" };
   }
 
+  // Legacy deployments exist - prompt user to choose
   const newOrExisting = await promptSearch(ctx, {
     message: "Which project would you like to use?",
     choices: [
@@ -309,7 +359,7 @@ async function chooseDeployment(
               value: "new",
             },
           ]),
-      ...deployments.map((d) => ({
+      ...legacyDeployments.map((d) => ({
         name: d.deploymentName,
         value: d.deploymentName,
       })),
@@ -317,7 +367,7 @@ async function chooseDeployment(
   });
 
   if (newOrExisting !== "new") {
-    const existingDeployment = deployments.find(
+    const existingDeployment = legacyDeployments.find(
       (d) => d.deploymentName === newOrExisting,
     );
     if (existingDeployment === undefined) {
@@ -333,74 +383,21 @@ async function chooseDeployment(
       config: existingDeployment.config,
     };
   }
-  return await promptForNewDeployment(
-    ctx,
-    deployments.map((d) => d.deploymentName),
-  );
+
+  // User chose to create a new one - no name prompt needed
+  return { deploymentName: generateDeploymentName(), kind: "new" };
 }
 
-async function promptForNewDeployment(
-  ctx: Context,
-  existingNames: string[],
-): Promise<
-  | {
-      kind: "first";
-      deploymentName: string;
-    }
-  | {
-      kind: "new";
-      deploymentName: string;
-    }
-> {
-  const isFirstDeployment = existingNames.length === 0;
-  const deploymentName = await promptString(ctx, {
-    message: "Choose a name:",
-    default: path.basename(process.cwd()),
-  });
-
-  const uniqueName = await getUniqueName(
-    ctx,
-    `anonymous-${deploymentName}`,
-    existingNames,
-  );
-  logVerbose(`Deployment name: ${uniqueName}`);
-  return isFirstDeployment
-    ? {
-        kind: "first",
-        deploymentName: uniqueName,
-      }
-    : {
-        kind: "new",
-        deploymentName: uniqueName,
-      };
+/**
+ * Returns a name for a new anonymous deployment.
+ */
+function generateDeploymentName() {
+  const baseName = path.basename(process.cwd());
+  const deploymentName = `anonymous-${baseName}`;
+  logVerbose(`Deployment name: ${deploymentName}`);
+  return deploymentName;
 }
 
-async function getUniqueName(
-  ctx: Context,
-  name: string,
-  existingNames: string[],
-) {
-  if (!existingNames.includes(name)) {
-    return name;
-  }
-  for (let i = 1; i <= 5; i++) {
-    const uniqueName = `${name}-${i}`;
-    if (!existingNames.includes(uniqueName)) {
-      return uniqueName;
-    }
-  }
-  const randomSuffix = crypto.randomBytes(4).toString("hex");
-
-  const uniqueName = `${name}-${randomSuffix}`;
-  if (!existingNames.includes(uniqueName)) {
-    return uniqueName;
-  }
-  return ctx.crash({
-    exitCode: 1,
-    errorType: "fatal",
-    printedMessage: `Could not generate a unique name for your project, please choose a different name`,
-  });
-}
 /**
  * This takes an "anonymous" deployment and makes it a "local" deployment
  * that is associated with a project in the given team.
@@ -425,7 +422,8 @@ export async function handleLinkToProject(
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Failed to load deployment config",
+      printedMessage:
+        "Failed to load deployment config - try running `npx convex dev --configure`",
     });
   }
   await ensureBackendStopped(ctx, {
@@ -441,12 +439,11 @@ export async function handleLinkToProject(
   if (args.projectSlug !== null) {
     projectSlug = args.projectSlug;
   } else {
-    const { projectSlug: newProjectSlug } =
-      await createProjectAndCreateDeployment(ctx, {
-        teamSlug: args.teamSlug,
-        projectName,
-        deploymentTypeToProvision: "prod",
-      });
+    const { projectSlug: newProjectSlug } = await createProject(ctx, {
+      teamSlug: args.teamSlug,
+      projectName,
+      deploymentToProvision: null,
+    });
     projectSlug = newProjectSlug;
   }
   logVerbose(`Creating local deployment in project ${projectSlug}`);
@@ -510,13 +507,25 @@ export async function moveDeployment(
   },
 ) {
   const oldPath = deploymentStateDir(
+    ctx,
     oldDeployment.deploymentKind,
     oldDeployment.deploymentName,
   );
   const newPath = deploymentStateDir(
+    ctx,
     newDeployment.deploymentKind,
     newDeployment.deploymentName,
   );
+
+  // If both paths are the same (project-local storage), no file movement needed.
+  // The config will be updated separately by saveDeploymentConfig.
+  if (oldPath === newPath) {
+    logVerbose(
+      `Source and destination are the same (${oldPath}), skipping file copy`,
+    );
+    return;
+  }
+
   await recursivelyCopy(ctx, nodeFs, oldPath, newPath);
   recursivelyDelete(ctx, oldPath);
 }

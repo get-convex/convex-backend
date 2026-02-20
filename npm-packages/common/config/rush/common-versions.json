@@ -104,21 +104,20 @@
     "@types/react": ["^18", "^18.3.17", "^18.2.65", "^19.2.4"],
     "@types/react-dom": ["^18", "^18.3.1", "^18.2.21", "^19.2.3"],
     "typescript-eslint": ["^8.45.0"],
-    "@typescript-eslint/eslint-plugin": ["^6.7.4"], // TODO(nicolas) Update the dashboard ESLint config
-    "@typescript-eslint/parser": ["^6.7.4"], // TODO(nicolas) Update the dashboard ESLint config
     //"eslint": ["^8"],
     "@eslint/eslintrc": ["^3"],
     "eslint-config-next": ["~13.4.16", "15.2.3"],
 
-    // Keep the TanStack Start + Clerk demo on a pre-RC version since Clerk doesn’t support RC yet
+    // Keep the TanStack Start + Clerk demo on a pre-RC version since Clerk doesn't support RC yet
     "@tanstack/react-start": ["1.120.11"],
 
-    /**
-     * Until an upgrade to ESLint 9 is done
-     */
     "eslint": ["^8.29.0", "^9"],
-    "eslint-plugin-react-hooks": ["^4.6.2"],
 
-    "zod": ["^3.25.0"]
+    "zod": ["^3.25.0"],
+
+    /**
+     * Vitest 4 is needed for @storybook/addon-vitest's @vitest/browser-playwright peer dep.
+     */
+    "vitest": ["4.0.18"]
   }
 }

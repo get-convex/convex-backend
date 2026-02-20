@@ -1,5 +1,5 @@
 import { cleanup, render } from "@testing-library/react";
-import { ProjectDetails, TeamResponse, TeamMemberResponse } from "generatedApi";
+import { ProjectDetails, TeamResponse, TeamMember } from "generatedApi";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import userEvent from "@testing-library/user-event";
 import {
@@ -64,6 +64,7 @@ const targetDeployment: PlatformDeploymentResponse = {
   previewIdentifier: null,
   region: "us-east-2",
   isDefault: true,
+  reference: "production",
 };
 
 const team: TeamResponse = {
@@ -87,6 +88,7 @@ jest.mock("api/deployments", () => {
     previewIdentifier: null,
     region: "us-east-2",
     isDefault: true,
+    reference: "production",
   };
 
   return {
@@ -130,7 +132,7 @@ jest.mock("api/teams", () => {
     suspended: false,
     referralCode: "CODE123",
   };
-  const profile: TeamMemberResponse = {
+  const profile: TeamMember = {
     id: 1,
     email: "nicolas@convex.dev",
     name: "Nicolas Ettlin",
@@ -150,7 +152,7 @@ jest.mock("api/backups", () => ({
 }));
 
 jest.mock("api/profile", () => {
-  const profile: TeamMemberResponse = {
+  const profile: TeamMember = {
     id: 1,
     email: "nicolas@convex.dev",
     name: "Nicolas Ettlin",

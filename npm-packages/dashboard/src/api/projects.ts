@@ -1,13 +1,9 @@
 import { useRouter } from "next/router";
 import { SWRConfiguration } from "swr";
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
-import {
-  PaginatedProjectsResponse,
-  ProjectDetails,
-  operations,
-} from "generatedApi";
-import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
+import { PaginatedProjectsResponse, operations } from "generatedApi";
 import { useDebounce } from "react-use";
+import { useProjectsPageSize } from "hooks/useProjectsPageSize";
 import { createInfiniteHook } from "swr-openapi";
 import { useAuthHeader } from "hooks/fetching";
 import flatMap from "lodash/flatMap";
@@ -59,7 +55,7 @@ export function usePaginatedProjects(
   },
   refreshInterval?: SWRConfiguration["refreshInterval"],
 ): (PaginatedProjectsResponse & { isLoading: boolean }) | undefined {
-  const [pageSize] = useGlobalLocalStorage("projectsPageSize", 25);
+  const { pageSize } = useProjectsPageSize();
 
   const queryParams = useMemo(
     () =>
@@ -98,37 +94,13 @@ export function usePaginatedProjects(
   return { ...data, isLoading };
 }
 
-// Returns all projects (unpaginated) - for backward compatibility
-export function useProjects(
-  teamId: number | undefined,
-  refreshInterval?: SWRConfiguration["refreshInterval"],
-): ProjectDetails[] | undefined {
-  const { data: allProjects } = useBBQuery({
-    path: "/teams/{team_id}/projects",
-    pathParams: {
-      team_id: teamId?.toString() || "",
-    },
-    swrOptions: { refreshInterval },
-  });
-
-  if (allProjects === undefined) {
-    return undefined;
-  }
-
-  if (!Array.isArray(allProjects)) {
-    throw new Error("Expected array of projects");
-  }
-
-  return allProjects;
-}
-
 /**
  * Hook for infinite scroll pagination of projects with search support
  * Returns paginated projects data with loading state and pagination controls
  */
 export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
   const authHeader = useAuthHeader();
-  const [pageSize] = useGlobalLocalStorage("projectsPageSize", 25);
+  const { pageSize } = useProjectsPageSize();
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   // Debounce search query (300ms delay)
@@ -140,7 +112,7 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
     [searchQuery],
   );
 
-  const { data, isLoading, setSize } = useInfinite(
+  const { data, isLoading, size, setSize } = useInfinite(
     "/teams/{team_id}/projects",
     (
       pageIndex: number,
@@ -193,11 +165,16 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
 
   const hasMore = data?.[data.length - 1]?.pagination.hasMore ?? false;
 
+  // isLoading is only true when the first page is loading
+  // (see https://swr.vercel.app/examples/infinite-loading)
+  const isLoadingMore =
+    isLoading || (size > 0 && data && typeof data[size - 1] === "undefined");
+
   const loadMore = useCallback(() => {
-    if (hasMore && !isLoading) {
+    if (hasMore && !isLoadingMore) {
       void setSize((prevSize) => prevSize + 1);
     }
-  }, [hasMore, isLoading, setSize]);
+  }, [hasMore, isLoadingMore, setSize]);
 
   return {
     projects,

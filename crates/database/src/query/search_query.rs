@@ -38,7 +38,7 @@ use super::{
         soft_data_limit,
         CursorInterval,
     },
-    DeveloperIndexRangeResponse,
+    IndexRangeResponse,
     QueryStream,
     QueryStreamNext,
 };
@@ -177,7 +177,7 @@ impl QueryStream for SearchQuery {
         self._next(tx).await.map(QueryStreamNext::Ready)
     }
 
-    fn feed(&mut self, _index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
+    fn feed(&mut self, _index_range_response: IndexRangeResponse) -> anyhow::Result<()> {
         anyhow::bail!("cannot feed an index range response into a search query");
     }
 

@@ -913,7 +913,11 @@ pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
 
 /// Which encoding version to use for newly written documents
 pub static MYSQL_DOCUMENT_ENCODING: LazyLock<u8> =
-    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 0));
+    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 1));
+
+/// How many times to retry MySQL queries that fail with operational errors.
+pub static MYSQL_MAX_QUERY_RETRIES: LazyLock<u32> =
+    LazyLock::new(|| env_config("MYSQL_MAX_QUERY_RETRIES", 1));
 
 /// Maximum number of connections to Postgres
 pub static POSTGRES_MAX_CONNECTIONS: LazyLock<usize> =
@@ -985,7 +989,7 @@ pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =
 /// When enabled, each segment is routed to a searchlight node via rendezvous
 /// hashing on the segment's storage key.
 pub static VECTOR_SEARCH_SHARD_BY_SEGMENT: LazyLock<bool> =
-    LazyLock::new(|| env_config("VECTOR_SEARCH_SHARD_BY_SEGMENT", false));
+    LazyLock::new(|| env_config("VECTOR_SEARCH_SHARD_BY_SEGMENT", true));
 
 /// Whether to use prepared statements or not in Persistence.
 pub static DATABASE_USE_PREPARED_STATEMENTS: LazyLock<bool> =
@@ -1092,7 +1096,7 @@ pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
 ///
 /// You can check go/num-instances-with-lambdas
 pub static AWS_LAMBDA_DEPLOY_SPLAY: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 20000)));
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 86400)));
 
 /// How long of a window to debounce static lambda deployments. Don't allow too
 /// many static deploys in a small window to protect the infrastructure.

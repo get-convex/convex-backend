@@ -498,21 +498,20 @@ impl TransactionReadSet {
         // Database bandwidth for document reads
         // TODO: Remove when we switch over to using egress_v2
         let skip_logging_usage =
-            table_name.is_system() && !virtual_system_mapping.is_virtual_table(&table_name);
+            table_name.is_system() && !virtual_system_mapping.has_virtual_table(&table_name);
+        let virtual_table_name = virtual_system_mapping
+            .associated_virtual_table_name(&table_name)
+            .unwrap_or(&table_name)
+            .to_string();
         usage_tracker.track_database_egress(
             component_path.clone(),
-            table_name.to_string(),
+            virtual_table_name.clone(),
             document_size as u64,
             skip_logging_usage,
         );
-        let skip_logging_usage =
-            table_name.is_system() && !virtual_system_mapping.has_virtual_table(&table_name);
         usage_tracker.track_database_egress_v2(
             component_path.clone(),
-            virtual_system_mapping
-                .associated_virtual_table_name(&table_name)
-                .unwrap_or(&table_name)
-                .to_string(),
+            virtual_table_name,
             document_size as u64,
             skip_logging_usage,
         );

@@ -23,10 +23,9 @@ import { convexExport } from "./convexExport.js";
 import { convexImport } from "./convexImport.js";
 import { env } from "./env.js";
 import { data } from "./data.js";
-import inquirer from "inquirer";
-import inquirerSearchList from "inquirer-search-list";
 import { format } from "util";
 import { functionSpec } from "./functionSpec.js";
+import { insights } from "./insights.js";
 import { disableLocalDeployments } from "./disableLocalDev.js";
 import { mcp } from "./mcp.js";
 import dns from "node:dns";
@@ -66,7 +65,6 @@ async function main() {
   }
 
   initSentry();
-  inquirer.registerPrompt("search-list", inquirerSearchList);
 
   if (
     majorVersion < HARD_MINIMUM_NODE_MAJOR_VERSION ||
@@ -159,6 +157,7 @@ async function main() {
     .addCommand(networkTest, { hidden: true })
     .addCommand(integration, { hidden: true })
     .addCommand(functionSpec)
+    .addCommand(insights)
     .addCommand(disableLocalDeployments)
     .addCommand(mcp)
     .addHelpCommand("help <command>", "Show help for given <command>")

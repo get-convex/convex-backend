@@ -172,6 +172,22 @@ The `npx convex data <table>` command works with
 [system tables](/database/advanced/system-tables.mdx), such as `_storage`, in
 addition to your own tables.
 
+### Show deployment health insights
+
+```sh
+npx convex insights
+npx convex insights --details
+npx convex insights --prod
+```
+
+Show health insights for a Convex deployment over the last 72 hours. Reports
+[OCC (Optimistic Concurrency Control)](/error#optimistic-concurrency-control)
+conflicts and resource limit issues that may indicate performance problems.
+
+Add `--details` to include recent events for each insight. Use `--prod` to check
+the production deployment, `--preview-name <name>` for a preview deployment, or
+`--deployment-name <name>` for a specific deployment.
+
 ### Read and write environment variables
 
 ```sh

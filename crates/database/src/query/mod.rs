@@ -113,7 +113,7 @@ trait QueryStream: Send {
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
     ) -> anyhow::Result<QueryStreamNext>;
-    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()>;
+    fn feed(&mut self, index_range_response: IndexRangeResponse) -> anyhow::Result<()>;
 
     /// All queries walk an index of some kind, as long as the table exists.
     /// This is that index name, tied to a tablet.
@@ -121,11 +121,6 @@ trait QueryStream: Send {
 
     /// For logging. All queries have an index name.
     fn printable_index_name(&self) -> &IndexName;
-}
-
-pub struct DeveloperIndexRangeResponse {
-    pub page: Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-    pub cursor: CursorPosition,
 }
 
 pub struct IndexRangeResponse {
@@ -742,7 +737,7 @@ impl QueryStream for QueryNode {
         }
     }
 
-    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
+    fn feed(&mut self, index_range_response: IndexRangeResponse) -> anyhow::Result<()> {
         match self {
             QueryNode::IndexRange(r) => r.feed(index_range_response),
             QueryNode::Search(r) => r.feed(index_range_response),

@@ -9,11 +9,11 @@ import {
 
 const DATABRICKS_QUERY_IDS: {
   teamFunctionBreakdown: DatabricksQueryId;
-  teamSummary: DatabricksQueryId;
+  teamSummaryByRegion: DatabricksQueryId;
   teamDeploymentCountByType: DatabricksQueryId;
 } = {
   teamFunctionBreakdown: "8e6592dd-12a0-4ddf-bc79-7498e07352d4",
-  teamSummary: "15fbb132-6641-4f17-9156-b05e9ee966d9",
+  teamSummaryByRegion: "36fc7cf3-a675-49f2-b1ce-23be09a712a2",
   teamDeploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
 };
 
@@ -43,6 +43,14 @@ const DATABRICKS_BY_PROJECT_QUERY_IDS: {
   teamDeploymentCountByProject: "0b6c9ab3-c17c-4ad5-bfca-8f0300e494f6",
 };
 
+const DATABRICKS_BY_TABLE_QUERY_IDS: {
+  teamDatabaseStorageByTable: DatabricksQueryId;
+  teamDocumentCountByTable: DatabricksQueryId;
+} = {
+  teamDatabaseStorageByTable: "9cb8c431-6fa7-40cc-8f00-8aad358b4043",
+  teamDocumentCountByTable: "1e265821-c0b9-4c66-9a1f-a5eef70e4d6f",
+};
+
 export function useTokenUsage(teamSlug: string, period: DateRange | null) {
   return useBBQuery({
     path: "/teams/{team_slug}/usage/get_token_info",
@@ -62,7 +70,7 @@ export function useUsageTeamSummary(
   componentPrefix: string | null,
 ) {
   const { data, error } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamSummary,
+    queryId: DATABRICKS_QUERY_IDS.teamSummaryByRegion,
     teamId,
     projectId,
     period,
@@ -78,7 +86,7 @@ export function useUsageTeamSummary(
   }
 
   // Report to sentry if this query returns the incorrect number of rows
-  if (data.length !== 1) {
+  if (data.length < 1) {
     captureMessage(
       `Unexpected number of rows in usage summary query: ${data.length}`,
       "error",
@@ -89,6 +97,7 @@ export function useUsageTeamSummary(
     data: data?.map(
       ([
         _teamId,
+        region,
         databaseStorage,
         databaseBandwidth,
         functionCalls,
@@ -98,6 +107,7 @@ export function useUsageTeamSummary(
         vectorStorage,
         vectorBandwidth,
       ]) => ({
+        region,
         databaseStorage: Number(databaseStorage),
         databaseBandwidth: Number(databaseBandwidth),
         fileStorage: Number(fileStorage),
@@ -107,12 +117,13 @@ export function useUsageTeamSummary(
         vectorStorage: Number(vectorStorage),
         vectorBandwidth: Number(vectorBandwidth),
       }),
-    )[0],
+    ),
     error: undefined,
   };
 }
 
 export type UsageSummary = {
+  region: string;
   databaseStorage: number;
   databaseBandwidth: number;
   fileStorage: number;
@@ -198,14 +209,21 @@ export interface DailyPerTagMetrics {
 
 // By-project query hooks
 export interface DailyMetricByProject extends DailyMetric {
-  projectId: number | string; // Can be a number or "_rest"
+  projectId: number | "_rest";
 }
 
 export interface DailyPerTagMetricsByProject extends DailyPerTagMetrics {
-  projectId: number | string; // Can be a number or "_rest"
+  projectId: number | "_rest";
 }
 
-function parseProjectId(projectId: string | number): number | string {
+export type DailyMetricByTable = {
+  ds: string;
+  projectId: number | "_rest";
+  tableName: string;
+  value: number;
+};
+
+function parseProjectId(projectId: string | number): number | "_rest" {
   if (projectId === "_rest") {
     return "_rest";
   }
@@ -637,10 +655,14 @@ export function useUsageTeamDeploymentCountByType(
     return { data: undefined, error };
   }
 
+  if (data === undefined) {
+    return { data: undefined, error: undefined };
+  }
+
   // Group by date since each row is [teamId, deploymentType, ds, count]
   const groupedByDate = new Map<string, Map<string, number>>();
 
-  data?.forEach(([_teamId, deploymentType, ds, count]) => {
+  data.forEach(([_teamId, deploymentType, ds, count]) => {
     if (!groupedByDate.has(ds)) {
       groupedByDate.set(ds, new Map());
     }
@@ -656,6 +678,76 @@ export function useUsageTeamDeploymentCountByType(
         value,
       })),
     })),
+    error: undefined,
+  };
+}
+
+// By-table query hooks
+export function useUsageTeamDatabaseStoragePerDayByTable(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByTable[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: DATABRICKS_BY_TABLE_QUERY_IDS.teamDatabaseStorageByTable,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([
+        _teamId,
+        rowProjectId,
+        tableName,
+        ds,
+        documentStorage,
+        indexStorage,
+      ]) => ({
+        ds,
+        projectId: parseProjectId(rowProjectId),
+        tableName,
+        value: Number(documentStorage) + Number(indexStorage),
+      }),
+    ),
+    error: undefined,
+  };
+}
+
+export function useUsageTeamDocumentCountPerDayByTable(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByTable[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: DATABRICKS_BY_TABLE_QUERY_IDS.teamDocumentCountByTable,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([_teamId, rowProjectId, tableName, ds, documentCount]) => ({
+        ds,
+        projectId: parseProjectId(rowProjectId),
+        tableName,
+        value: Number(documentCount),
+      }),
+    ),
     error: undefined,
   };
 }

@@ -1,3 +1,4 @@
+import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { mutation, query, action } from "./_generated/server";
 
@@ -141,4 +142,18 @@ export const simpleMutation = mutation(async () => {
 
 export const simpleAction = action(async () => {
   return 2;
+});
+
+declare const Convex: {
+  asyncSyscall: (op: string, jsonArgs: string) => Promise<string>;
+};
+
+export const readTimeInSubquery = query(async (ctx) => {
+  const now = Date.now();
+  // make time advance
+  await Convex.asyncSyscall("slowSyscall", "{}");
+  const time = await ctx.runQuery(api.basic.readTimeMs, {});
+  if (time !== now) {
+    throw new Error("time should match");
+  }
 });

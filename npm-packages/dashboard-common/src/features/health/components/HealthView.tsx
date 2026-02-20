@@ -5,35 +5,44 @@ import { SchedulerStatus } from "@common/elements/SchedulerStatus";
 import { FunctionCalls } from "@common/features/health/components/FunctionCalls";
 import { FailureRate } from "@common/features/health/components/FailureRate";
 import { CacheHitRate } from "@common/features/health/components/CacheHitRate";
-import { ExceptionReporting } from "@common/features/health/components/ExceptionReporting";
-import { LogStreams } from "@common/features/health/components/LogStreams";
-import { LastDeployed } from "@common/features/health/components/LastDeployed";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { PageContent } from "@common/elements/PageContent";
 import { useConcurrencyStatus } from "@common/features/health/components/ConcurrencyStatus";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { HealthCard } from "@common/elements/HealthCard";
 import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
+import { DeploymentSummary } from "@common/features/health/components/DeploymentSummary";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 
 export function HealthView({
   header,
   PageWrapper,
   PagesWrapper,
-  flags,
+  deployment,
+  teamSlug,
+  projectSlug,
+  lastBackupTime,
+  creatorId,
+  creatorName,
+  regions,
 }: {
   header: JSX.Element;
   PageWrapper: React.FC<{ children: React.ReactNode }>;
   PagesWrapper: React.FC<{ children: React.ReactNode }>;
-  flags?: {
-    healthPageFunctionCallsChart?: boolean;
-  };
+  deployment?: PlatformDeploymentResponse;
+  teamSlug?: string;
+  projectSlug?: string;
+  lastBackupTime?: number | null;
+  creatorId?: number;
+  creatorName?: string;
+  regions?: Array<{ name: string; displayName: string }>;
 }) {
   const {
     closedDescription: concurrencyClosedDescription,
     lag,
     running,
     queued,
-  } = useConcurrencyStatus(flags?.healthPageFunctionCallsChart ?? false);
+  } = useConcurrencyStatus();
 
   return (
     <PageContent>
@@ -43,13 +52,19 @@ export function HealthView({
         <PagesWrapper>
           <PageWrapper>
             <div>
-              <DisclosureSection id="summary" title="Summary" defaultOpen>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <LastDeployed />
-                  <ExceptionReporting />
-                  <LogStreams />
-                </div>
-              </DisclosureSection>
+              {deployment && teamSlug && projectSlug && (
+                <DisclosureSection id="summary" title="Summary" defaultOpen>
+                  <DeploymentSummary
+                    deployment={deployment}
+                    teamSlug={teamSlug}
+                    projectSlug={projectSlug}
+                    lastBackupTime={lastBackupTime}
+                    creatorId={creatorId}
+                    creatorName={creatorName}
+                    regions={regions}
+                  />
+                </DisclosureSection>
+              )}
 
               <DisclosureSection
                 id="function-calls"
@@ -57,14 +72,12 @@ export function HealthView({
                 defaultOpen
                 closedDescription={
                   <span className="text-xs text-content-secondary">
-                    {flags?.healthPageFunctionCallsChart
-                      ? "3 charts"
-                      : "2 charts"}
+                    3 charts
                   </span>
                 }
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {flags?.healthPageFunctionCallsChart && <FunctionCalls />}
+                  <FunctionCalls />
                   <FailureRate />
                   <CacheHitRate />
                 </div>
@@ -126,7 +139,7 @@ export function DisclosureSection({
     <div>
       <h4
         className={cn(
-          "sticky top-0 z-10 bg-background-primary",
+          "sticky top-0 z-10 bg-background-primary/70 backdrop-blur-[2px]",
           !isOpen && "border-b",
         )}
       >

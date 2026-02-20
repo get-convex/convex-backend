@@ -81,6 +81,12 @@ Same format as .env.local or .env files, and overrides them.`,
     ),
   )
   .addOption(
+    new Option(
+      "--skip-workos-check",
+      "Skip WorkOS AuthKit provisioning and credential checks during deploy.",
+    ).hideHelp(),
+  )
+  .addOption(
     new Option("--allow-deleting-large-indexes")
       .hideHelp()
       .conflicts("preview-create")
@@ -170,6 +176,7 @@ Same format as .env.local or .env files, and overrides them.`,
 
       await deployToExistingDeployment(ctx, {
         ...cmdOptions,
+        skipWorkosCheck: cmdOptions.skipWorkosCheck ?? false,
         allowDeletingLargeIndexes:
           cmdOptions.allowDeletingLargeIndexes ?? false,
       });
@@ -200,6 +207,7 @@ async function deployToNewPreviewDeployment(
 
     debug?: boolean | undefined;
     debugBundlePath?: string | undefined;
+    skipWorkosCheck?: boolean | undefined;
   },
 ) {
   const previewName = options.previewCreate ?? gitBranchFromEnvironment();
@@ -251,7 +259,7 @@ async function deployToNewPreviewDeployment(
   const { projectConfig } = await readProjectConfig(ctx);
   const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
 
-  if (authKitConfig && deploymentNameForWorkOS) {
+  if (authKitConfig && deploymentNameForWorkOS && !options.skipWorkosCheck) {
     await ensureAuthKitProvisionedBeforeBuild(
       ctx,
       deploymentNameForWorkOS,
@@ -322,6 +330,7 @@ async function deployToExistingDeployment(
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
     envFile?: string | undefined;
+    skipWorkosCheck?: boolean | undefined;
     allowDeletingLargeIndexes: boolean;
   },
 ) {
@@ -374,7 +383,7 @@ async function deployToExistingDeployment(
           ? { deploymentType: deploymentFields.deploymentType }
           : {}),
       },
-      options,
+      { ...options, skipWorkosCheck: options.skipWorkosCheck },
     ),
     ...(isCloudDeployment
       ? [
