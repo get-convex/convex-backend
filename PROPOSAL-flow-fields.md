@@ -6,7 +6,7 @@ Add three new field types to Convex schemas that compute values dynamically rath
 
 - **FlowFields** — Cross-table aggregations (sum, count, avg, min, max, lookup, exist) resolved via SQL at read time
 - **ComputedFields** — Row-level expressions evaluated from stored + FlowField values
-- **FlowFilters** — Runtime parameters that parameterize FlowField aggregations (inspired by Microsoft Dynamics Business Central)
+- **FlowFilters** — Runtime parameters that parameterize FlowField aggregations
 
 These fields are **read-only**, **not stored**, and have **type-appropriate defaults** (0, "", false, [], {}).
 
@@ -62,7 +62,7 @@ export default defineSchema({
     // ComputedFields — row-level expressions
     .computed("tier", {
       returns: v.string(),
-      expr: { $cond: { $gt: ["$totalSpent", 1000] }, then: "VIP", else: "STANDARD" },
+      expr: { $cond: { $gt: ["$totalSpent", 1000] }, $then: "VIP", $else: "STANDARD" },
     })
     .computed("displayName", {
       returns: v.string(),
@@ -156,7 +156,7 @@ A minimal, serializable expression language that maps to SQL and works across al
 | | `{ $div: ["$total", "$count"] }` | `total / count` |
 | **Comparison** | `{ $gt: ["$amount", 1000] }` | `amount > 1000` |
 | | `{ $gte: [...] }`, `{ $lt: [...] }`, `{ $lte: [...] }`, `{ $eq: [...] }`, `{ $ne: [...] }` | Standard comparisons |
-| **Conditional** | `{ $cond: <bool_expr>, then: <expr>, else: <expr> }` | `CASE WHEN ... THEN ... ELSE ... END` |
+| **Conditional** | `{ $cond: <bool_expr>, $then: <expr>, $else: <expr> }` | `CASE WHEN ... THEN ... ELSE ... END` |
 | **String** | `{ $concat: ["$first", " ", "$last"] }` | `CONCAT(...)` or `\|\|` |
 | **Null handling** | `{ $ifNull: ["$nickname", "$name"] }` | `COALESCE(nickname, name)` |
 | **References** | `"$fieldName"` | Column reference (stored, flow, or computed field) |
@@ -419,7 +419,6 @@ For FlowFields with FlowFilters: if no FlowFilter value is provided at query tim
 
 ## Prior Art
 
-- **Microsoft Dynamics Business Central** — FlowFields, FlowFilters, CalcFormula (primary inspiration)
 - **PostgreSQL Materialized Views** — Similar concept at SQL level
 - **Drizzle ORM `.computed()`** — Row-level computed columns
 - **Prisma `@computed`** — Proposed but not implemented
