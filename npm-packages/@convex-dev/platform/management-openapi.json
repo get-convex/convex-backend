@@ -415,6 +415,48 @@
             }
           }
         }
+      },
+      "patch": {
+        "summary": "Update deployment settings",
+        "description": "Modifies settings for an existing deployment. Fields that are not\nprovided will be left unchanged.\n\nThe following fields can be modified through this API:\n\n- `reference`: the reference of the deployment. When provided, must match\n  the following rules:\n  - be unique across deployment references in the project\n  - 3 to 100 characters (included)\n  - only lowercase letters, numbers, \"-\"\" and \"/\"\n  - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.\n    \"happy-capybara-123\")\n  - not start with \"local-\"\"\n  - not be one of the following reserved keywords: \"prod\", \"dev\", \"cloud\",\n    \"local\", \"default\", \"name\", \"new\", \"existing\", \"deployment\", \"preview\"",
+        "operationId": "update deployment settings",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifyDeploymentSettingsArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       }
     },
     "/teams/{team_id}/list_deployment_classes": {
@@ -1040,6 +1082,18 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "ModifyDeploymentSettingsArgs": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "PlatformCreateDeployKeyArgs": {
         "type": "object",

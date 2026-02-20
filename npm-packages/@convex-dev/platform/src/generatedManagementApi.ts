@@ -184,7 +184,25 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update deployment settings
+         * @description Modifies settings for an existing deployment. Fields that are not
+         *     provided will be left unchanged.
+         *
+         *     The following fields can be modified through this API:
+         *
+         *     - `reference`: the reference of the deployment. When provided, must match
+         *       the following rules:
+         *       - be unique across deployment references in the project
+         *       - 3 to 100 characters (included)
+         *       - only lowercase letters, numbers, "-"" and "/"
+         *       - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.
+         *         "happy-capybara-123")
+         *       - not start with "local-""
+         *       - not be one of the following reserved keywords: "prod", "dev", "cloud",
+         *         "local", "default", "name", "new", "existing", "deployment", "preview"
+         */
+        patch: operations["update deployment settings"];
         trace?: never;
     };
     "/teams/{team_id}/list_deployment_classes": {
@@ -467,6 +485,9 @@ export interface components {
         };
         /** Format: int64 */
         MemberId: number;
+        ModifyDeploymentSettingsArgs: {
+            reference?: string | null;
+        };
         PlatformCreateDeployKeyArgs: {
             /** @description Name for the deploy key. */
             name: string;
@@ -708,6 +729,7 @@ export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type MemberId = components['schemas']['MemberId'];
+export type ModifyDeploymentSettingsArgs = components['schemas']['ModifyDeploymentSettingsArgs'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateDeploymentArgs = components['schemas']['PlatformCreateDeploymentArgs'];
@@ -944,6 +966,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DeploymentResponse"];
                 };
+            };
+        };
+    };
+    "update deployment settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment Name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifyDeploymentSettingsArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
