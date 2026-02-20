@@ -980,8 +980,8 @@ importers:
         specifier: ~5.11.0
         version: 5.11.0
       '@workos-inc/authkit-nextjs':
-        specifier: ~2.11.1
-        version: 2.11.1(express@5.2.1)(next@15.5.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ~2.13.0
+        version: 2.13.0(express@5.2.1)(next@15.5.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@workos-inc/node':
         specifier: ~7.69.0
         version: 7.69.2(express@5.2.1)(next@15.5.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))
@@ -12642,8 +12642,8 @@ packages:
   '@workos-inc/authkit-js@0.13.0':
     resolution: {integrity: sha512-iA0Dt7D1BmY2/1s4oeA36W/aRt8/b5iyH6rP4AlgnjrcH2lUGkBgDXL76NXc0M7repkDQTMcJJ2NhCSo2rcWmg==}
 
-  '@workos-inc/authkit-nextjs@2.11.1':
-    resolution: {integrity: sha512-ygRWMKwcEmc6oK3iKsGG3xpQdA7Phf0LYPFTA/6Z+B78nTApzXiYfahoI+k+qpU08zdcteOd5fqOiol9deH4jg==}
+  '@workos-inc/authkit-nextjs@2.13.0':
+    resolution: {integrity: sha512-ppxzhfakPumHPPggYSROaAlgxfS7viFMPmWPG76Tp6Rh9G7YqkBSp7xtvMtM6gXOFFMvvEJRcKEta6YHeercTQ==}
     peerDependencies:
       next: ^13.5.9 || ^14.2.26 || ^15.2.3 || ^16
       react: ^18.0 || ^19.0.0
@@ -34306,7 +34306,7 @@ snapshots:
 
   '@workos-inc/authkit-js@0.13.0': {}
 
-  '@workos-inc/authkit-nextjs@2.11.1(express@5.2.1)(next@15.5.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@workos-inc/authkit-nextjs@2.13.0(express@5.2.1)(next@15.5.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@workos-inc/node': 7.74.2(express@5.2.1)(next@15.5.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0))
       iron-session: 8.0.4
@@ -34350,7 +34350,7 @@ snapshots:
   '@workos-inc/node@8.0.0-rc.3':
     dependencies:
       iron-session: 8.0.4
-      jose: 6.1.2
+      jose: 6.1.3
 
   '@workos/authkit-session@0.1.3':
     dependencies:
