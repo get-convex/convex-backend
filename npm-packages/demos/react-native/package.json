@@ -16,7 +16,7 @@
     "react-dom": "^19.2.4",
     "react-native": "0.81.5",
     "react-native-dotenv": "^3.4.11",
-    "react-native-get-random-values": "~1.11.0"
+    "react-native-get-random-values": "~2.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.27.1"
