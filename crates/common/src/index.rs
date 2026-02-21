@@ -98,6 +98,10 @@ impl IndexKey {
         &self.values_with_id[..self.values_with_id.len() - 1]
     }
 
+    pub fn indexed_values_with_id(&self) -> &[Option<ConvexValue>] {
+        &self.values_with_id
+    }
+
     pub fn to_bytes(&self) -> IndexKeyBytes {
         IndexKeyBytes(values_to_bytes(&self.values_with_id))
     }
