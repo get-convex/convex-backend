@@ -188,7 +188,7 @@ export const InsightsTool: ConvexTool<typeof inputSchema, typeof outputSchema> =
 
       const dashboardUrl = deploymentDashboardUrlPage(
         deploymentName,
-        "/insights",
+        "?view=insights",
       );
 
       // Cast needed: fetchInsights returns Insight[] with optional recentEvents,

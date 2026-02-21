@@ -141,7 +141,7 @@ export const insights = new Command("insights")
 
     const dashboardUrl = deploymentDashboardUrlPage(
       deploymentName,
-      "/insights",
+      "?view=insights",
     );
 
     if (insightsList.length === 0) {
