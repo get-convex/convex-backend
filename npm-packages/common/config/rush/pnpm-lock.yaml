@@ -305,8 +305,8 @@ importers:
         specifier: ^9.37.0
         version: 9.39.1(jiti@2.6.1)
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       tshy:
         specifier: ^3.0.0
         version: 3.0.3
@@ -746,8 +746,8 @@ importers:
         specifier: ^8.0.0
         version: 8.0.0
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       happy-dom:
         specifier: ~20.0.7
         version: 20.0.10
@@ -1809,8 +1809,8 @@ importers:
         specifier: ^0.0.41
         version: 0.0.41(convex@..+convex)
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
@@ -3419,8 +3419,8 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0(eslint@9.39.1(jiti@2.6.1))
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       prettier:
         specifier: ^3.8.0
         version: 3.8.0
@@ -4461,8 +4461,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       typescript:
         specifier: ~5.6.2
         version: 5.6.3
@@ -4629,8 +4629,8 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0(eslint@9.39.1(jiti@2.6.1))
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       openai:
         specifier: ^6.0.0
         version: 6.10.0(ws@8.18.3(bufferutil@4.0.9))(zod@4.1.12)
@@ -4702,8 +4702,8 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0(eslint@9.39.1(jiti@2.6.1))
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       openai:
         specifier: ^6.0.0
         version: 6.10.0(ws@8.18.3(bufferutil@4.0.9))(zod@4.1.12)
@@ -4778,8 +4778,8 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0(eslint@9.39.1(jiti@2.6.1))
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       openai:
         specifier: ^6.0.0
         version: 6.10.0(ws@8.18.3(bufferutil@4.0.9))(zod@4.1.12)
@@ -5077,8 +5077,8 @@ importers:
         specifier: ^16.4.7
         version: 16.6.1
       globals:
-        specifier: ~16.5.0
-        version: 16.5.0
+        specifier: ~17.0.0
+        version: 17.0.0
       npm-run-all2:
         specifier: ^8.0.0
         version: 8.0.4
@@ -15979,6 +15979,10 @@ packages:
 
   globals@16.5.0:
     resolution: {integrity: sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ==}
+    engines: {node: '>=18'}
+
+  globals@17.0.0:
+    resolution: {integrity: sha512-gv5BeD2EssA793rlFWVPMMCqefTlpusw6/2TbAVMy0FzcG8wKJn4O+NqJ4+XWmmwrayJgw5TzrmWjFgmz1XPqw==}
     engines: {node: '>=18'}
 
   globalthis@1.0.4:
@@ -38886,6 +38890,8 @@ snapshots:
   globals@15.9.0: {}
 
   globals@16.5.0: {}
+
+  globals@17.0.0: {}
 
   globalthis@1.0.4:
     dependencies:
