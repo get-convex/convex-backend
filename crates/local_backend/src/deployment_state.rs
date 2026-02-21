@@ -46,7 +46,10 @@ pub async fn pause_deployment(
     must_be_admin_with_write_access(&identity)?;
 
     let mut tx = st.application.begin(identity.clone()).await?;
-    let current_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
+    let current_state = BackendStateModel::new(&mut tx)
+        .get_backend_state()
+        .await?
+        .into_value();
     if current_state == BackendState::Disabled || current_state == BackendState::Suspended {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
             "PauseDeploymentFailed",
@@ -85,7 +88,10 @@ pub async fn unpause_deployment(
     must_be_admin_with_write_access(&identity)?;
 
     let mut tx = st.application.begin(identity.clone()).await?;
-    let current_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
+    let current_state = BackendStateModel::new(&mut tx)
+        .get_backend_state()
+        .await?
+        .into_value();
     if current_state != BackendState::Paused {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
             "UnpauseDeploymentFailed",

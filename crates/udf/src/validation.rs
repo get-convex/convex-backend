@@ -113,7 +113,10 @@ pub async fn fail_while_not_running<RT: Runtime>(
         .map(|info| info.streaming_export_enabled)
         .unwrap_or(false);
 
-    let backend_state = BackendStateModel::new(tx).get_backend_state().await?;
+    let backend_state = BackendStateModel::new(tx)
+        .get_backend_state()
+        .await?
+        .into_value();
     match backend_state {
         BackendState::Running => {},
         BackendState::Paused => {

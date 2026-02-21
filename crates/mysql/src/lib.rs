@@ -1721,6 +1721,10 @@ fn document_params(
 ) -> anyhow::Result<Vec<mysql_async::Value>> {
     let deleted = maybe_doc.is_none();
     let encoded_doc = document_encoding::encode(maybe_doc)?;
+    anyhow::ensure!(
+        document_encoding::decode(&encoded_doc, id.table())?.as_ref() == maybe_doc,
+        "failed to roundtrip document encoding"
+    );
 
     query.push(internal_doc_id_param(id).into());
     query.push(i64::from(ts).into());

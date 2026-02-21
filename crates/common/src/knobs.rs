@@ -755,9 +755,9 @@ pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
     });
 
 /// The maximum number of writes per second allowed for mutations.
-/// Default 64 MiB
+/// Default 16 MiB
 pub static MAX_BYTES_WRITTEN_PER_SECOND: LazyLock<u64> =
-    LazyLock::new(|| env_config("MAX_BYTES_WRITTEN_PER_SECOND", 64 * 1024 * 1024));
+    LazyLock::new(|| env_config("MAX_BYTES_WRITTEN_PER_SECOND", 16 * 1024 * 1024));
 
 /// The time window (in milliseconds) used to track write throughput.
 pub static WRITE_THROUGHPUT_WINDOW: LazyLock<Duration> =
@@ -913,7 +913,7 @@ pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
 
 /// Which encoding version to use for newly written documents
 pub static MYSQL_DOCUMENT_ENCODING: LazyLock<u8> =
-    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 0));
+    LazyLock::new(|| env_config("MYSQL_DOCUMENT_ENCODING", 1));
 
 /// How many times to retry MySQL queries that fail with operational errors.
 pub static MYSQL_MAX_QUERY_RETRIES: LazyLock<u32> =
@@ -984,12 +984,6 @@ pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE
 /// a second backup request when running a vector search.
 pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("VECTOR_BACKUP_REQUEST_DELAY_MILLIS", 30)));
-
-/// Whether to shard vector search queries by segment for better cache locality.
-/// When enabled, each segment is routed to a searchlight node via rendezvous
-/// hashing on the segment's storage key.
-pub static VECTOR_SEARCH_SHARD_BY_SEGMENT: LazyLock<bool> =
-    LazyLock::new(|| env_config("VECTOR_SEARCH_SHARD_BY_SEGMENT", true));
 
 /// Whether to use prepared statements or not in Persistence.
 pub static DATABASE_USE_PREPARED_STATEMENTS: LazyLock<bool> =
@@ -1096,12 +1090,27 @@ pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
 ///
 /// You can check go/num-instances-with-lambdas
 pub static AWS_LAMBDA_DEPLOY_SPLAY: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 240000)));
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 86400)));
 
 /// How long of a window to debounce static lambda deployments. Don't allow too
 /// many static deploys in a small window to protect the infrastructure.
 pub static AWS_LAMBDA_STATIC_DEBOUNCE_DELAY: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("AWS_LAMBDA_STATIC_DEBOUNCE_DELAY_SECONDS", 30))
+});
+
+/// Whether instances should self-manage cleanup of their old Lambda versions in
+/// a background worker.
+pub static AWS_LAMBDA_SELF_CLEANUP_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env_config("AWS_LAMBDA_SELF_CLEANUP_ENABLED", true));
+
+/// Maximum initial startup jitter for the per-instance Lambda version cleanup
+/// worker. The worker will wait up to this long before starting the first
+/// cleanup pass, or will start whenever a new lambda version is deployed.
+pub static AWS_LAMBDA_CLEANUP_INITIAL_JITTER_MAX_SECS: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config(
+        "AWS_LAMBDA_CLEANUP_INITIAL_JITTER_MAX_SECS",
+        86400,
+    ))
 });
 
 /// The maximum number of requests to send using a single AWS Lambda client.

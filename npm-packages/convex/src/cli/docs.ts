@@ -3,7 +3,11 @@ import { chalkStderr } from "chalk";
 import open from "open";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logMessage } from "../bundler/log.js";
-import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils/utils.js";
+import {
+  BIG_BRAIN_URL,
+  bigBrainFetch,
+  deprecationCheckWarning,
+} from "./lib/utils/utils.js";
 import {
   getDeploymentSelection,
   deploymentNameFromSelection,
@@ -30,7 +34,10 @@ export const docs = new Command("docs")
       await openDocs(ctx, options.open);
       return;
     }
-    const getCookieUrl = `get_cookie/${configuredDeployment}`;
+    const getCookieUrl = new URL(
+      `get_cookie/${configuredDeployment}`,
+      BIG_BRAIN_URL,
+    );
     const fetch = await bigBrainFetch(ctx);
     try {
       const res = await fetch(getCookieUrl);

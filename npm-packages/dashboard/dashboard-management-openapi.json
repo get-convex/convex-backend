@@ -4396,6 +4396,7 @@
               "projectId",
               "region",
               "isDefault",
+              "reference",
               "kind"
             ],
             "properties": {
@@ -4411,6 +4412,12 @@
                   {
                     "$ref": "#/components/schemas/MemberId"
                   }
+                ]
+              },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
                 ]
               },
               "deploymentType": {
@@ -4445,14 +4452,7 @@
                 "$ref": "#/components/schemas/ProjectId"
               },
               "reference": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/DeploymentReference"
-                  }
-                ]
+                "$ref": "#/components/schemas/DeploymentReference"
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName"

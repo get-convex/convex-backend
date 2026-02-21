@@ -66,6 +66,10 @@ pub use database_index_workers::{
     IndexWorker,
 };
 pub use execution_size::FunctionExecutionSize;
+pub use indexing::backend_in_memory_indexes::{
+    DatabaseIndexSnapshotCache,
+    TimestampedIndexCache,
+};
 pub use patch::PatchValue;
 pub use preloaded::PreloadedIndexRange;
 pub use reads::{

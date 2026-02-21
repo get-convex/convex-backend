@@ -43,15 +43,6 @@ export function UsageChartUnavailable() {
   );
 }
 
-export function UsageTableBreakdownUnavailable() {
-  return (
-    <TeamUsageError
-      title="Table breakdown not available"
-      description="Bandwidth breakdown by table is not currently supported. Try viewing by type or by project."
-    />
-  );
-}
-
 export function TeamUsageError({
   title,
   description,

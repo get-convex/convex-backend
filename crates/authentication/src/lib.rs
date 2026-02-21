@@ -714,7 +714,7 @@ where
     let validation_options = ValidationOptions {
         claim_presence_options: ClaimPresenceOptions {
             issuer: Presence::Required,
-            audience: Presence::Optional, // WorkOS may not include audience
+            audience: Presence::Required,
             subject: Presence::Required,
             expiry: Presence::Required,
             ..Default::default()
@@ -781,6 +781,23 @@ where
             );
         },
     }
+
+    let audiences = claims.registered.audience.as_ref().ok_or_else(|| {
+        ErrorMetadata::unauthenticated("AccessTokenInvalid", "Access Token missing audience claim")
+    })?;
+    if !audiences.iter().any(|a| a == workos_client_id) {
+        tracing::info!(
+            audience = ?audiences,
+            expected_audience = %workos_client_id,
+            issuer = %issuer,
+            subject = ?claims.registered.subject,
+            "WorkOS access token does not have valid audience"
+        );
+        anyhow::bail!(ErrorMetadata::forbidden(
+            "AccessTokenForbidden",
+            format!("Audience does not contain WorkOS client ID {workos_client_id}"),
+        ));
+    };
 
     let full_name = names_to_full_name(
         claims.private.first_name.clone(),
@@ -1049,7 +1066,7 @@ mod tests {
         >::new(
             IdTokenClaims::new(
                 workos_issuer.clone(),
-                vec![], // WorkOS doesn't require audience
+                vec![Audience::new(workos_client_id.to_string())],
                 Utc::now() + Duration::seconds(120),
                 Utc::now(),
                 StandardClaims::new(SubjectIdentifier::new("user_123".to_string())),
@@ -1103,7 +1120,7 @@ mod tests {
         >::new(
             IdTokenClaims::new(
                 workos_issuer.clone(),
-                vec![], // WorkOS doesn't require audience
+                vec![Audience::new(workos_client_id.to_string())],
                 Utc::now() + Duration::seconds(120),
                 Utc::now(),
                 StandardClaims::new(SubjectIdentifier::new("user_456".to_string())),

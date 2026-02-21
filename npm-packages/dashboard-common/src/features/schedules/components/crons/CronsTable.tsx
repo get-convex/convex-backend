@@ -257,11 +257,13 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
           {rows.map((row) => {
             prepareRow(row);
             return (
+              // eslint-disable-next-line react/jsx-key -- `key` from `row.getRowProps()`
               <div
                 {...row.getRowProps()}
                 className="flex items-stretch justify-start gap-2 py-3 text-xs text-content-primary"
               >
                 {row.cells.map((cell, i) => (
+                  // eslint-disable-next-line react/jsx-key -- `key` from `cell.getCellProps()`
                   <div
                     {...cell.getCellProps()}
                     style={COLUMN_STYLES[i]}

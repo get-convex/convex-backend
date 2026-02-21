@@ -1235,6 +1235,7 @@ async fn log_middleware(
         || path == "/api/actions/mutation"
         || path == "/api/actions/action"
         || path == "/api/stream_function_logs"
+        || path == "/api/app_metrics/stream_function_logs"
         || path == "/";
 
     let level = if high_volume {
@@ -1296,7 +1297,12 @@ pub fn platform_api_cors() -> CorsLayer {
     CorsLayer::new()
         .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true)
-        .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS])
+        .allow_methods(vec![
+            Method::GET,
+            Method::POST,
+            Method::PATCH,
+            Method::OPTIONS,
+        ])
         .allow_origin(AllowOrigin::mirror_request())
         .max_age(Duration::from_secs(86400))
 }

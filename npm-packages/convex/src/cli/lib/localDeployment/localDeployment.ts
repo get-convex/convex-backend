@@ -8,6 +8,9 @@ import {
 import {
   LocalDeploymentConfig,
   loadDeploymentConfig,
+  loadDeploymentConfigFromDir,
+  loadProjectLocalConfig,
+  legacyDeploymentStateDir,
   rootDeploymentStateDir,
   saveDeploymentConfig,
 } from "./filePaths.js";
@@ -159,7 +162,8 @@ export async function loadLocalDeploymentCredentials(
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Failed to load deployment config",
+      printedMessage:
+        "Failed to load deployment config - try running `npx convex dev --configure`",
     });
   }
   return {
@@ -233,9 +237,24 @@ async function getExistingDeployment(
   },
 ): Promise<{ deploymentName: string; config: LocalDeploymentConfig } | null> {
   const { projectSlug, teamSlug } = options;
+
+  // Check project-local storage first - this is the new default location
+  const projectLocal = loadProjectLocalConfig(ctx);
+  if (projectLocal !== null) {
+    // Verify this deployment is for the expected project (matches the naming pattern)
+    const expectedPrefix = `local-${teamSlug.replace(/-/g, "_")}-${projectSlug.replace(/-/g, "_")}`;
+    if (projectLocal.deploymentName.startsWith(expectedPrefix)) {
+      return projectLocal;
+    }
+    logVerbose(
+      `Project-local deployment ${projectLocal.deploymentName} doesn't match expected prefix ${expectedPrefix}`,
+    );
+  }
+
+  // Fall back to checking legacy home directory
   const prefix = `local-${teamSlug.replace(/-/g, "_")}-${projectSlug.replace(/-/g, "_")}`;
-  const localDeployments = await getLocalDeployments(ctx);
-  const existingDeploymentForProject = localDeployments.find((d) =>
+  const legacyDeployments = await getLegacyLocalDeployments(ctx);
+  const existingDeploymentForProject = legacyDeployments.find((d) =>
     d.deploymentName.startsWith(prefix),
   );
   if (existingDeploymentForProject === undefined) {
@@ -247,7 +266,11 @@ async function getExistingDeployment(
   };
 }
 
-async function getLocalDeployments(ctx: Context): Promise<
+/**
+ * Get local deployments from the legacy home directory location.
+ * This is used for backward compatibility and for listing deployments in offline mode.
+ */
+async function getLegacyLocalDeployments(ctx: Context): Promise<
   Array<{
     deploymentName: string;
     config: LocalDeploymentConfig;
@@ -262,7 +285,8 @@ async function getLocalDeployments(ctx: Context): Promise<
     .map((d) => d.name)
     .filter((d) => d.startsWith("local-"));
   return deploymentNames.flatMap((deploymentName) => {
-    const config = loadDeploymentConfig(ctx, "local", deploymentName);
+    const legacyDir = legacyDeploymentStateDir("local", deploymentName);
+    const config = loadDeploymentConfigFromDir(ctx, legacyDir);
     if (config !== null) {
       return [{ deploymentName, config }];
     }
@@ -270,13 +294,66 @@ async function getLocalDeployments(ctx: Context): Promise<
   });
 }
 
+/**
+ * Get all local deployments from both project-local and legacy locations.
+ */
+async function getLocalDeployments(ctx: Context): Promise<
+  Array<{
+    deploymentName: string;
+    config: LocalDeploymentConfig;
+  }>
+> {
+  const deployments: Array<{
+    deploymentName: string;
+    config: LocalDeploymentConfig;
+  }> = [];
+
+  // Check project-local storage
+  const projectLocal = loadProjectLocalConfig(ctx);
+  if (
+    projectLocal !== null &&
+    projectLocal.deploymentName.startsWith("local-")
+  ) {
+    deployments.push(projectLocal);
+  }
+
+  // Also include legacy deployments (but avoid duplicates)
+  const legacyDeployments = await getLegacyLocalDeployments(ctx);
+  for (const legacy of legacyDeployments) {
+    if (!deployments.some((d) => d.deploymentName === legacy.deploymentName)) {
+      deployments.push(legacy);
+    }
+  }
+
+  return deployments;
+}
+
 async function chooseFromExistingLocalDeployments(ctx: Context): Promise<{
   deploymentName: string;
   config: LocalDeploymentConfig;
 }> {
   const localDeployments = await getLocalDeployments(ctx);
+
+  if (localDeployments.length === 0) {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "No local deployments found. Please run `npx convex dev` while online first.",
+    });
+  }
+
+  // Auto-select if there's only one deployment
+  if (localDeployments.length === 1) {
+    logVerbose(
+      `Auto-selecting the only local deployment: ${localDeployments[0].deploymentName}`,
+    );
+    return localDeployments[0];
+  }
+
+  // Multiple deployments (legacy) - prompt user to choose
   return promptSearch(ctx, {
-    message: "Choose from an existing local deployment?",
+    message: "Choose from an existing local deployment:",
     choices: localDeployments.map((d) => ({
       name: d.deploymentName,
       value: d,

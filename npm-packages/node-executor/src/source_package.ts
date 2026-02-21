@@ -6,7 +6,6 @@ import path from "node:path";
 import AdmZip from "adm-zip";
 import concat from "concat-stream";
 
-import fetch from "node-fetch";
 import { createHash } from "node:crypto";
 import { logDebug, logDurationMs } from "./log";
 import { performance } from "node:perf_hooks";
@@ -36,9 +35,7 @@ type MetadataJson = {
   externalDepsStorageKey?: string;
 };
 
-async function download(
-  uri: string,
-): Promise<fs.ReadStream | NodeJS.ReadableStream> {
+async function download(uri: string): Promise<stream.Readable> {
   const url = new URL(uri);
   if (url.protocol === "file:") {
     return fs.createReadStream(fileURLToPath(uri));
@@ -47,7 +44,8 @@ async function download(
     if (!response.ok) {
       throw new Error(`Failed to fetch ${uri}: ${response.statusText}`);
     }
-    return response.body;
+    // incompatible ReadableStream definitions
+    return stream.Readable.fromWeb(response.body! as any);
   }
 }
 
@@ -217,7 +215,7 @@ async function createFreshDir(dir: string) {
 }
 
 async function streamToBuffer(
-  readableStream: fs.ReadStream | NodeJS.ReadableStream,
+  readableStream: stream.Readable,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     // Use concat-stream to collect the stream data into a single buffer
@@ -232,7 +230,7 @@ async function streamToBuffer(
 
 async function processPackageStream(
   sha256Digest: string,
-  packageStream: fs.ReadStream | NodeJS.ReadableStream,
+  packageStream: stream.Readable,
 ): Promise<Buffer> {
   // Create hashing stream
   const hash = createHash("sha256");
@@ -282,7 +280,7 @@ async function unzipFile(
 async function processExternalPackageStream(
   dir: string,
   externalPackage: Package,
-  externalStream: fs.ReadStream | NodeJS.ReadableStream,
+  externalStream: stream.Readable,
 ): Promise<void> {
   const entryValidator = (entry: AdmZip.IZipEntry) => {
     if (!entry.entryName.startsWith("node_modules/")) {
@@ -320,7 +318,7 @@ type ExternalDepsPackage = {
 async function processSourcePackageStream(
   dir: string,
   sourcePackage: Package,
-  sourceStream: fs.ReadStream | NodeJS.ReadableStream,
+  sourceStream: stream.Readable,
 ): Promise<LocalSourcePackage> {
   const startUnzip = performance.now();
   const zipBuffer = await processPackageStream(

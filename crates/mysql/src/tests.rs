@@ -21,7 +21,6 @@ use common::{
     shutdown::ShutdownSignal,
     testing::{
         self,
-        assert_contains,
         persistence_test_suite,
         TestIdGenerator,
     },
@@ -390,13 +389,9 @@ async fn test_max_system_size_value() -> anyhow::Result<()> {
         value: Some(doc),
         prev_ts: None,
     };
-    let err = persistence
+    persistence
         .write(&[r], &[], ConflictStrategy::Error)
-        .await
-        .unwrap_err();
-    // TODO(ENG-8900): this is arguably a bug - MySQL persistence can't accept a
-    // max-size system document
-    assert_contains(&format!("{err:#}"), "packet too large");
+        .await?;
     Ok(())
 }
 

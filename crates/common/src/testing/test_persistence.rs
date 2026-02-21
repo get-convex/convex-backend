@@ -61,6 +61,7 @@ use crate::{
 #[derive(Clone)]
 pub struct TestPersistence {
     inner: Arc<Mutex<Inner>>,
+    fails_index_scans: bool,
 }
 
 impl TestPersistence {
@@ -75,9 +76,16 @@ impl TestPersistence {
         Self::new_inner(Arc::new(Mutex::new(inner))).unwrap()
     }
 
+    pub fn set_fails_index_scans(&mut self, fails: bool) {
+        self.fails_index_scans = fails;
+    }
+
     /// Pass in an Inner to store state across TestPersistence instances.
     fn new_inner(inner: Arc<Mutex<Inner>>) -> anyhow::Result<Self> {
-        Ok(Self { inner })
+        Ok(Self {
+            inner,
+            fails_index_scans: false,
+        })
     }
 }
 
@@ -335,6 +343,12 @@ impl PersistenceReader for TestPersistence {
         _size_hint: usize,
         _retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
+        if self.fails_index_scans {
+            return Box::pin(futures::stream::once(async move {
+                Err(anyhow::anyhow!("Index scans are disabled"))
+            }));
+        }
+
         let interval = interval.clone();
         // Add timestamp.
         let lower = match interval.start {

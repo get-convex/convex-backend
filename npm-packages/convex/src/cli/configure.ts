@@ -242,7 +242,7 @@ export async function _deploymentCredentialsOrConfigure(
         const shouldConfigure =
           chosenConfiguration !== null ||
           (await promptYesNo(ctx, {
-            message: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is configured with deployment ${deploymentSelection.deploymentName}, which is not linked with your account. Would you like to choose a different project instead?`,
+            message: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is configured with deployment ${deploymentSelection.deploymentName}, which is not linked with your account. Would you like to link it now?`,
           }));
         if (!shouldConfigure) {
           return await ctx.crash({
@@ -334,7 +334,8 @@ async function handleDeploymentWithinProject(
   const loginMessage =
     hasAuth && shouldAllowAnonymousDevelopment()
       ? undefined
-      : `Tip: You can try out Convex without creating an account by clearing the ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable.`;
+      : "Tip: You can try out Convex without creating an account by clearing the " +
+        `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable (often in .env.local).`;
   await ensureLoggedIn(ctx, {
     message: loginMessage,
     overrideAuthUrl: cmdOptions.overrideAuthUrl,

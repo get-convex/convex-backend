@@ -14,6 +14,7 @@ use std::{
     },
     fmt::Debug,
     iter,
+    ops::RangeBounds,
     sync::{
         Arc,
         LazyLock,
@@ -94,7 +95,10 @@ use crate::{
         IndexRegistry,
         IndexedDocument,
     },
-    metrics::log_transaction_cache_query,
+    metrics::{
+        log_index_cache_cleared,
+        log_transaction_cache_query,
+    },
 };
 
 #[async_trait]
@@ -544,14 +548,22 @@ impl DatabaseIndexSnapshot {
         in_memory_indexes: Arc<dyn InMemoryIndexes>,
         table_mapping: TableMapping,
         persistence_snapshot: PersistenceSnapshot,
+        cache: Option<TimestampedIndexCache>,
     ) -> Self {
+        let cache = cache
+            .map(|c| c.cache)
+            .unwrap_or(DatabaseIndexSnapshotCache::new());
         Self {
             index_registry: ReadOnly::new(index_registry),
             in_memory_indexes,
             table_mapping: ReadOnly::new(table_mapping),
             persistence: persistence_snapshot,
-            cache: DatabaseIndexSnapshotCache::new(),
+            cache,
         }
+    }
+
+    pub fn into_cache(self) -> DatabaseIndexSnapshotCache {
+        self.cache
     }
 
     async fn start_range_fetch(
@@ -769,7 +781,9 @@ impl DatabaseIndexSnapshot {
                 let index_keys = self
                     .index_registry
                     .index_keys(&doc)
-                    .map(|(index, index_key)| (index.id(), index_key));
+                    .map(|(index, index_key)| {
+                        (index.id(), index.metadata.name.is_by_id(), index_key)
+                    });
                 self.cache.populate(index_keys, ts, doc.clone());
             }
             let (interval_read, _) = range_request
@@ -853,7 +867,7 @@ static MAX_TRANSACTION_CACHE_SIZE: LazyLock<usize> =
     LazyLock::new(|| *TRANSACTION_MAX_READ_SIZE_BYTES);
 
 #[derive(Clone)]
-struct DatabaseIndexSnapshotCache {
+pub struct DatabaseIndexSnapshotCache {
     /// Cache structure:
     /// Each document is stored, keyed by its index key for each index.
     /// Then for each index we have a set of intervals that are fully populated.
@@ -876,9 +890,46 @@ struct DatabaseIndexSnapshotCache {
     /// After the cache has been fully populated, `db.get`s which do point
     /// queries against by_id will be cached, and any indexed query against
     /// by_age that is a subset of (<age:18>, Unbounded) will be cached.
-    documents: OrdMap<(IndexId, IndexKeyBytes), (Timestamp, PackedDocument)>,
-    intervals: OrdMap<IndexId, IntervalSet>,
+    documents: OrdMap<IndexId, IndexDocuments>,
     cache_size: usize,
+}
+
+#[derive(Clone, Default)]
+struct IndexDocuments {
+    docs: OrdMap<IndexKeyBytes, (Timestamp, PackedDocument)>,
+    interval_set: IntervalSet,
+    /// Only tracked for by_id indexes.
+    total_size: Option<usize>,
+}
+
+impl IndexDocuments {
+    fn insert(&mut self, key: IndexKeyBytes, ts: Timestamp, doc: PackedDocument) {
+        if let Some(ref mut size) = self.total_size {
+            *size += doc.value().size();
+        }
+        self.docs.insert(key, (ts, doc));
+    }
+
+    fn remove(&mut self, key: &IndexKeyBytes) -> Option<(Timestamp, PackedDocument)> {
+        let removed = self.docs.remove(key);
+        if let Some((_, ref doc)) = removed
+            && let Some(ref mut size) = self.total_size
+        {
+            *size = size.saturating_sub(doc.value().size());
+        }
+        removed
+    }
+
+    fn total_size(&self) -> Option<usize> {
+        self.total_size
+    }
+
+    fn range(
+        &self,
+        range: impl RangeBounds<IndexKeyBytes>,
+    ) -> impl DoubleEndedIterator<Item = (&IndexKeyBytes, &(Timestamp, PackedDocument))> {
+        self.docs.range(range)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -895,40 +946,86 @@ enum DatabaseIndexSnapshotCacheResult {
 const MAX_CACHED_RANGES_PER_INTERVAL: usize = 3;
 
 impl DatabaseIndexSnapshotCache {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             documents: OrdMap::new(),
-            intervals: OrdMap::new(),
             cache_size: 0,
         }
     }
 
+    pub fn is_index_tracked(&self, index_id: &IndexId) -> bool {
+        self.documents.contains_key(index_id)
+    }
+
+    pub fn tracked_index_ids(&self) -> impl Iterator<Item = IndexId> + '_ {
+        self.documents.keys().copied()
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn track_index_for_testing(&mut self, index_id: IndexId) {
+        let index_docs = self.documents.entry(index_id).or_default();
+        index_docs.interval_set.add(Interval::all());
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn documents_for_index(
+        &self,
+        index_id: &IndexId,
+    ) -> Vec<(IndexKeyBytes, Timestamp, PackedDocument)> {
+        self.documents
+            .get(index_id)
+            .map(|d| {
+                d.docs
+                    .iter()
+                    .map(|(k, (ts, doc))| (k.clone(), *ts, doc.clone()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Returns false if the cache is over the max size so the cache didn't
+    /// populate.
     fn populate(
         &mut self,
         index_keys: impl IntoIterator<
-            Item = (InternalId, <PackedDocument as IndexedDocument>::IndexKey),
+            Item = (
+                InternalId,
+                bool,
+                <PackedDocument as IndexedDocument>::IndexKey,
+            ),
         >,
         ts: Timestamp,
         doc: PackedDocument,
-    ) {
-        if self.cache_size <= *MAX_TRANSACTION_CACHE_SIZE {
-            for (index_id, index_key_bytes) in index_keys {
-                let _s = static_span!();
-                // Allow cache to exceed max size by one document, so we can detect that
-                // the cache has maxed out.
-                let interval = Interval::prefix(index_key_bytes.clone().into());
-                self.documents
-                    .insert((index_id, index_key_bytes), (ts, doc.clone()));
-                self.intervals.entry(index_id).or_default().add(interval);
-            }
-            let result_size: usize = doc.value().size();
-            self.cache_size += result_size;
+    ) -> bool {
+        if self.cache_size > *MAX_TRANSACTION_CACHE_SIZE {
+            return false;
         }
+        self.cache_size += doc.value().size();
+        for (index_id, is_by_id, index_key_bytes) in index_keys {
+            let _s = static_span!();
+            // Allow cache to exceed max size by one document, so we can detect that
+            // the cache has maxed out.
+            let interval = Interval::prefix(index_key_bytes.clone().into());
+            let index_docs = self
+                .documents
+                .entry(index_id)
+                .or_insert_with(|| IndexDocuments {
+                    total_size: if is_by_id { Some(0) } else { None },
+                    ..Default::default()
+                });
+            index_docs.insert(index_key_bytes, ts, doc.clone());
+            index_docs.interval_set.add(interval);
+        }
+        true
     }
 
     fn record_interval_populated(&mut self, index_id: IndexId, interval: Interval) {
         if self.cache_size <= *MAX_TRANSACTION_CACHE_SIZE {
-            self.intervals.entry(index_id).or_default().add(interval);
+            self.documents
+                .entry(index_id)
+                .or_default()
+                .interval_set
+                .add(interval);
         }
     }
 
@@ -938,14 +1035,17 @@ impl DatabaseIndexSnapshotCache {
         interval: &Interval,
         order: Order,
     ) -> Vec<DatabaseIndexSnapshotCacheResult> {
-        let components = match self.intervals.get(&index_id) {
+        let index_docs = match self.documents.get(&index_id) {
             None => {
                 return vec![DatabaseIndexSnapshotCacheResult::CacheMiss(
                     interval.clone(),
                 )]
             },
-            Some(interval_set) => interval_set.split_interval_components(interval.as_ref()),
+            Some(index_docs) => index_docs,
         };
+        let components = index_docs
+            .interval_set
+            .split_interval_components(interval.as_ref());
         let mut results = vec![];
         let mut cache_hit_count = 0;
         for (in_set, component_interval) in components {
@@ -963,20 +1063,16 @@ impl DatabaseIndexSnapshotCache {
             }
             if in_set {
                 cache_hit_count += 1;
-                let range = self
-                    .documents
+                let range = index_docs
                     .range(
                         // TODO: `to_vec()` is not necessary
-                        (index_id, IndexKeyBytes(component_interval.start.to_vec()))..,
+                        IndexKeyBytes(component_interval.start.to_vec())..,
                     )
-                    .take_while(|&((index, key), _)| {
-                        *index == index_id
-                            && match &component_interval.end {
-                                EndRef::Excluded(end) => key[..] < end[..],
-                                EndRef::Unbounded => true,
-                            }
+                    .take_while(|&(key, _)| match &component_interval.end {
+                        EndRef::Excluded(end) => key[..] < end[..],
+                        EndRef::Unbounded => true,
                     });
-                results.extend(range.map(|((_, index_key), (ts, doc))| {
+                results.extend(range.map(|(index_key, (ts, doc))| {
                     DatabaseIndexSnapshotCacheResult::Document(index_key.clone(), *ts, doc.clone())
                 }));
             } else {
@@ -987,6 +1083,61 @@ impl DatabaseIndexSnapshotCache {
         }
         order.apply(results.into_iter()).collect_vec()
     }
+
+    /// Remove all documents for a single index from the cache.
+    pub fn remove_index(&mut self, index_id: IndexId) {
+        if let Some(index_docs) = self.documents.remove(&index_id)
+            && let Some(size) = index_docs.total_size()
+        {
+            self.cache_size = self.cache_size.saturating_sub(size);
+        }
+    }
+
+    /// Apply a single write to the cache. Returns `false` if the cache was
+    /// cleared due to exceeding the size limit (caller should stop).
+    pub fn apply_write(
+        &mut self,
+        ts: Timestamp,
+        old_index_keys: Vec<(IndexId, bool, IndexKeyBytes)>,
+        new_index_keys: Vec<(IndexId, bool, IndexKeyBytes)>,
+        new_document: Option<PackedDocument>,
+    ) -> bool {
+        // Remove old entries from cache.
+        for (index_id, is_by_id, index_key) in old_index_keys {
+            if let Some(index_docs) = self.documents.get_mut(&index_id)
+                && let Some((_, old_doc)) = index_docs.remove(&index_key)
+                && is_by_id
+            {
+                self.cache_size = self.cache_size.saturating_sub(old_doc.value().size());
+            }
+        }
+        // Insert new entries if not a delete, but only for indexes where the
+        // key falls within the range the cache is already tracking.
+        if let Some(doc) = new_document {
+            let tracked_keys: Vec<_> = new_index_keys
+                .into_iter()
+                .filter(|(index_id, _, key)| {
+                    self.documents
+                        .get(index_id)
+                        .is_some_and(|index_docs| index_docs.interval_set.contains(key))
+                })
+                .collect();
+            // If the cache is too big, empty the cache
+            if !self.populate(tracked_keys.into_iter(), ts, doc) {
+                log_index_cache_cleared();
+                *self = Self::new();
+                return false;
+            }
+        }
+        true
+    }
+}
+
+/// [`DatabaseIndexSnapshotCache`] paired with the [`RepeatableTimestamp`] it
+/// is valid at.
+pub struct TimestampedIndexCache {
+    pub cache: DatabaseIndexSnapshotCache,
+    pub ts: RepeatableTimestamp,
 }
 
 pub fn index_not_a_database_index_error(name: &IndexName) -> ErrorMetadata {
@@ -1059,16 +1210,21 @@ mod cache_tests {
             Ok((key, packed))
         }
 
+        fn make_by_id_doc(&mut self) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
+            self.make_doc(&IndexedFields::by_id(), assert_obj!())
+        }
+
         fn populate_doc(
             &mut self,
             index_id: IndexId,
+            is_by_id: bool,
             fields: &[FieldPath],
             obj: ConvexObject,
             ts: Timestamp,
         ) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
             let (key, doc) = self.make_doc(fields, obj)?;
             self.cache
-                .populate([(index_id, key.clone())], ts, doc.clone());
+                .populate([(index_id, is_by_id, key.clone())], ts, doc.clone());
             Ok((key, doc))
         }
 
@@ -1077,7 +1233,7 @@ mod cache_tests {
             index_id: IndexId,
             ts: Timestamp,
         ) -> anyhow::Result<(IndexKeyBytes, PackedDocument)> {
-            self.populate_doc(index_id, &IndexedFields::by_id(), assert_obj!(), ts)
+            self.populate_doc(index_id, true, &IndexedFields::by_id(), assert_obj!(), ts)
         }
     }
 
@@ -1112,8 +1268,10 @@ mod cache_tests {
         let fields: Vec<FieldPath> = vec!["age".parse()?];
         let ts1 = Timestamp::must(100);
         let ts2 = Timestamp::must(150);
-        let (key1, doc1) = f.populate_doc(index_id, &fields, assert_obj!("age" => 30.0), ts1)?;
-        let (key2, doc2) = f.populate_doc(index_id, &fields, assert_obj!("age" => 40.0), ts2)?;
+        let (key1, doc1) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 30.0), ts1)?;
+        let (key2, doc2) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 40.0), ts2)?;
 
         let interval_gt_18 = interval_gte(18.0)?;
 
@@ -1204,6 +1362,41 @@ mod cache_tests {
         Ok(())
     }
 
+    #[test]
+    fn cache_size_tracking() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let by_id = f.new_index();
+        let by_age = f.new_index();
+        let ts = Timestamp::must(100);
+
+        assert_eq!(f.cache.cache_size, 0);
+
+        // Populate a document into two indexes (by_id and by_age).
+        let id = f.id_generator.user_generate(&"users".parse()?);
+        let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("age" => 30.0))?;
+        let by_id_key = doc.index_key(&IndexedFields::by_id()).to_bytes();
+        let fields: Vec<FieldPath> = vec!["age".parse()?];
+        let by_age_key = doc.index_key(&fields).to_bytes();
+        let doc = PackedDocument::pack(&doc);
+        let doc_size = doc.value().size();
+        f.cache.populate(
+            [(by_id, true, by_id_key), (by_age, false, by_age_key)],
+            ts,
+            doc.clone(),
+        );
+
+        // total_size is only tracked for by_id indexes.
+        assert_eq!(
+            f.cache.documents.get(&by_id).unwrap().total_size(),
+            Some(doc_size)
+        );
+        assert_eq!(f.cache.documents.get(&by_age).unwrap().total_size(), None);
+        // cache_size is the sum of by_id total_sizes only.
+        assert_eq!(f.cache.cache_size, doc_size);
+
+        Ok(())
+    }
+
     /// If the cache has a lot of points, we don't want to have a ton of small
     /// cache misses that require persistence queries. We restrict the number of
     /// persistence queries.
@@ -1213,11 +1406,14 @@ mod cache_tests {
         let index_id = f.new_index();
         let ts = Timestamp::must(100);
         let fields: Vec<FieldPath> = vec!["age".parse()?];
-        let (key1, doc1) = f.populate_doc(index_id, &fields, assert_obj!("age" => 30.0), ts)?;
-        let (key2, doc2) = f.populate_doc(index_id, &fields, assert_obj!("age" => 35.0), ts)?;
-        let (key3, doc3) = f.populate_doc(index_id, &fields, assert_obj!("age" => 40.0), ts)?;
-        let _ = f.populate_doc(index_id, &fields, assert_obj!("age" => 45.0), ts)?;
-        let _ = f.populate_doc(index_id, &fields, assert_obj!("age" => 50.0), ts)?;
+        let (key1, doc1) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 30.0), ts)?;
+        let (key2, doc2) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 35.0), ts)?;
+        let (key3, doc3) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 40.0), ts)?;
+        let _ = f.populate_doc(index_id, false, &fields, assert_obj!("age" => 45.0), ts)?;
+        let _ = f.populate_doc(index_id, false, &fields, assert_obj!("age" => 50.0), ts)?;
         let interval_gt_18 = interval_gte(18.0)?;
         let d = DatabaseIndexSnapshotCacheResult::Document;
         let cache_miss = DatabaseIndexSnapshotCacheResult::CacheMiss;
@@ -1245,6 +1441,294 @@ mod cache_tests {
                 }),
             ]
         );
+        Ok(())
+    }
+
+    #[test]
+    fn apply_write_refreshable_update() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
+        let fields: Vec<FieldPath> = vec!["age".parse()?];
+        let ts1 = Timestamp::must(100);
+        let (key1, _doc1) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 30.0), ts1)?;
+
+        let interval_gt_18 = interval_gte(18.0)?;
+        f.cache
+            .record_interval_populated(index_id, interval_gt_18.clone());
+
+        // apply_write: update doc from age=30 to age=35.
+        let (new_key, new_doc) = f.make_doc(&fields, assert_obj!("age" => 35.0))?;
+        let ts2 = Timestamp::must(200);
+        assert!(f.cache.apply_write(
+            ts2,
+            vec![(index_id, false, key1.clone())],
+            vec![(index_id, false, new_key.clone())],
+            Some(new_doc.clone()),
+        ));
+
+        // Old key should be gone, new key should be present.
+        let d = DatabaseIndexSnapshotCacheResult::Document;
+        let result = f.cache.get(index_id, &interval_gt_18, Order::Asc);
+        assert_eq!(result, vec![d(new_key, ts2, new_doc)]);
+
+        // Old point query should return empty (interval is still populated).
+        let old_point = Interval::prefix(key1.into());
+        assert_eq!(f.cache.get(index_id, &old_point, Order::Asc), vec![]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_write_refreshable_delete() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
+        let ts1 = Timestamp::must(100);
+        let (key1, _doc1) = f.populate_by_id_doc(index_id, ts1)?;
+
+        let point_interval = Interval::prefix(key1.clone().into());
+        f.cache
+            .record_interval_populated(index_id, point_interval.clone());
+
+        // apply_write: delete the document.
+        assert!(f.cache.apply_write(
+            Timestamp::must(200),
+            vec![(index_id, true, key1)],
+            vec![],
+            None,
+        ));
+
+        // Point query should return empty (interval still valid, doc gone).
+        assert_eq!(f.cache.get(index_id, &point_interval, Order::Asc), vec![]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn remove_index_evicts() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let index_a = f.new_index();
+        let index_b = f.new_index();
+        let ts = Timestamp::must(100);
+
+        let (key, doc) = f.populate_by_id_doc(index_a, ts)?;
+        f.cache
+            .populate([(index_b, true, key.clone())], ts, doc.clone());
+
+        let interval = Interval::prefix(key.clone().into());
+        f.cache.record_interval_populated(index_a, interval.clone());
+        f.cache.record_interval_populated(index_b, interval.clone());
+
+        // remove_index affects index_a only.
+        f.cache.remove_index(index_a);
+
+        // index_a should be fully evicted (cache miss).
+        assert_eq!(
+            f.cache.get(index_a, &interval, Order::Asc),
+            vec![DatabaseIndexSnapshotCacheResult::CacheMiss(
+                interval.clone()
+            )]
+        );
+
+        // index_b should be intact.
+        let d = DatabaseIndexSnapshotCacheResult::Document;
+        assert_eq!(
+            f.cache.get(index_b, &interval, Order::Asc),
+            vec![d(key, ts, doc)]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_write_preserves_unrelated() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let index_a = f.new_index();
+        let index_b = f.new_index();
+        let ts = Timestamp::must(100);
+
+        let (key1, _doc1) = f.populate_by_id_doc(index_a, ts)?;
+        let (key2, doc2) = f.populate_by_id_doc(index_b, ts)?;
+
+        let interval_b = Interval::prefix(key2.clone().into());
+        f.cache
+            .record_interval_populated(index_b, interval_b.clone());
+
+        // apply_write only affects index_a.
+        let (key3, doc3) = f.make_by_id_doc()?;
+        let ts2 = Timestamp::must(200);
+        assert!(f.cache.apply_write(
+            ts2,
+            vec![(index_a, true, key1)],
+            vec![(index_a, true, key3)],
+            Some(doc3),
+        ));
+
+        // index_b should be completely untouched.
+        let d = DatabaseIndexSnapshotCacheResult::Document;
+        assert_eq!(
+            f.cache.get(index_b, &interval_b, Order::Asc),
+            vec![d(key2, ts, doc2)]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_write_clears_cache_when_over_size_limit() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
+        let ts1 = Timestamp::must(100);
+
+        // Populate a document and record a broad interval so that the new key
+        // written below falls within the tracked range.
+        let (key1, doc1) = f.populate_by_id_doc(index_id, ts1)?;
+        let doc1_size = doc1.value().size();
+        f.cache.record_interval_populated(index_id, Interval::all());
+
+        // Artificially inflate cache_size well past the limit so it remains
+        // over even after removing the old document.
+        f.cache.cache_size = *super::MAX_TRANSACTION_CACHE_SIZE + doc1_size + 1;
+
+        // apply_write with a refreshable insert. After removing the old key,
+        // cache_size is still over the limit, so populate() returns false and
+        // the entire cache is cleared.
+        let (new_key, new_doc) = f.make_by_id_doc()?;
+        let ts2 = Timestamp::must(200);
+        assert!(!f.cache.apply_write(
+            ts2,
+            vec![(index_id, true, key1)],
+            vec![(index_id, true, new_key.clone())],
+            Some(new_doc),
+        ));
+
+        // Cache should be completely empty.
+        assert_eq!(f.cache.cache_size, 0);
+        assert!(f.cache.documents.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_write_delete_does_not_clear_oversized_cache() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
+        let ts1 = Timestamp::must(100);
+
+        // Populate a document and record the interval.
+        let (key1, _doc1) = f.populate_by_id_doc(index_id, ts1)?;
+        let interval = Interval::prefix(key1.clone().into());
+        f.cache
+            .record_interval_populated(index_id, interval.clone());
+
+        // Artificially inflate cache_size past the limit.
+        f.cache.cache_size = *super::MAX_TRANSACTION_CACHE_SIZE + 1;
+
+        // apply_write with a refreshable delete. Deletes don't call populate,
+        // so the cache should NOT be cleared — only the deleted entry removed.
+        assert!(f.cache.apply_write(
+            Timestamp::must(200),
+            vec![(index_id, true, key1)],
+            vec![],
+            None,
+        ));
+
+        // Cache should still exist (not cleared), just with the document removed.
+        // The interval is still recorded.
+        assert!(!f
+            .cache
+            .documents
+            .get(&index_id)
+            .unwrap()
+            .interval_set
+            .is_empty());
+        assert_eq!(f.cache.get(index_id, &interval, Order::Asc), vec![]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_write_skips_untracked_index() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let tracked_index = f.new_index();
+        let untracked_index = f.new_index();
+        let ts = Timestamp::must(100);
+
+        // Populate and track only tracked_index.
+        let (key1, _doc1) = f.populate_by_id_doc(tracked_index, ts)?;
+        f.cache
+            .record_interval_populated(tracked_index, Interval::all());
+
+        // apply_write inserts into both indexes, but only tracked_index should
+        // receive the new document.
+        let (new_key, new_doc) = f.make_by_id_doc()?;
+        let ts2 = Timestamp::must(200);
+        assert!(f.cache.apply_write(
+            ts2,
+            vec![(tracked_index, true, key1)],
+            vec![
+                (tracked_index, true, new_key.clone()),
+                (untracked_index, true, new_key.clone()),
+            ],
+            Some(new_doc.clone()),
+        ));
+
+        // tracked_index should have the new document.
+        let point = Interval::prefix(new_key.clone().into());
+        let d = DatabaseIndexSnapshotCacheResult::Document;
+        assert_eq!(
+            f.cache.get(tracked_index, &point, Order::Asc),
+            vec![d(new_key.clone(), ts2, new_doc)]
+        );
+
+        // untracked_index should not exist in the cache at all.
+        assert!(!f.cache.is_index_tracked(&untracked_index));
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_write_skips_key_outside_tracked_interval() -> anyhow::Result<()> {
+        let mut f = CacheTestFixture::new();
+        let index_id = f.new_index();
+        let fields: Vec<FieldPath> = vec!["age".parse()?];
+        let ts = Timestamp::must(100);
+
+        // Populate a doc with age=30 and track only the interval age >= 25.
+        let (_key1, _doc1) =
+            f.populate_doc(index_id, false, &fields, assert_obj!("age" => 30.0), ts)?;
+        let interval_gte_25 = interval_gte(25.0)?;
+        f.cache
+            .record_interval_populated(index_id, interval_gte_25.clone());
+
+        // apply_write inserts a doc with age=10, which is outside the tracked
+        // interval [25, +inf).
+        let (outside_key, outside_doc) = f.make_doc(&fields, assert_obj!("age" => 10.0))?;
+        let ts2 = Timestamp::must(200);
+        assert!(f.cache.apply_write(
+            ts2,
+            vec![],
+            vec![(index_id, false, outside_key.clone())],
+            Some(outside_doc),
+        ));
+
+        // The outside key should NOT have been inserted. A point query for it
+        // should be a cache miss (not an empty hit).
+        let outside_point = Interval::prefix(outside_key.into());
+        assert_eq!(
+            f.cache.get(index_id, &outside_point, Order::Asc),
+            vec![DatabaseIndexSnapshotCacheResult::CacheMiss(outside_point)]
+        );
+
+        // The existing tracked interval should still be intact with the
+        // original document.
+        let result = f.cache.get(index_id, &interval_gte_25, Order::Asc);
+        assert_eq!(result.len(), 1);
+        assert!(matches!(
+            &result[0],
+            DatabaseIndexSnapshotCacheResult::Document(..)
+        ));
+
         Ok(())
     }
 }

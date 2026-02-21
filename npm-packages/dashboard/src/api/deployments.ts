@@ -55,7 +55,11 @@ export function useCurrentDeployment() {
   const project = useCurrentProject();
   const { deployments, isLoading } = useDeployments(project?.id);
   const { push, query } = useRouter();
-  const deployment = deployments?.find((d) => d.name === query?.deploymentName);
+  const deploymentName =
+    typeof query.deploymentName === "string" ? query.deploymentName : undefined;
+  const deployment = deployments?.find((d) => d.name === deploymentName);
+  const projectSlug =
+    typeof query.project === "string" ? query.project : undefined;
 
   // The deployment doesn't exist.
   if (
@@ -64,8 +68,15 @@ export function useCurrentDeployment() {
     deployments &&
     deployments.length > 0 &&
     !deployment &&
-    !!query.deploymentName
+    deploymentName
   ) {
+    if (projectSlug && typeof window !== "undefined") {
+      const key = `/lastViewedDeploymentForProject/${projectSlug}`;
+      const lastViewedDeploymentForProject = window.localStorage.getItem(key);
+      if (lastViewedDeploymentForProject === deploymentName) {
+        window.localStorage.removeItem(key);
+      }
+    }
     void push("/404");
   }
 

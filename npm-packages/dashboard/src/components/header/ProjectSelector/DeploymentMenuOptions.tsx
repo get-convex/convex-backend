@@ -144,7 +144,7 @@ export function DeploymentMenuOptions({
               key={prodDeployment.name}
               label={
                 <DeploymentOption
-                  identifier={prodDeployment.name}
+                  identifier={prodDeployment.reference}
                   name={prodDeployment.name}
                 />
               }
@@ -231,7 +231,11 @@ export function DeploymentMenuOptions({
               key={customDeployment.name}
               label={
                 <DeploymentOption
-                  identifier={customDeployment.name}
+                  identifier={
+                    customDeployment.kind === "cloud"
+                      ? customDeployment.reference
+                      : "" // should never happen
+                  }
                   name={customDeployment.name}
                 />
               }

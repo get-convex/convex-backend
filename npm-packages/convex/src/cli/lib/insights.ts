@@ -1,6 +1,6 @@
 import { Context } from "../../bundler/context.js";
 import { fetchTeamAndProject } from "./api.js";
-import { bigBrainFetch, provisionHost } from "./utils/utils.js";
+import { BIG_BRAIN_URL, bigBrainFetch, provisionHost } from "./utils/utils.js";
 
 export const ROOT_COMPONENT_PATH = "-root-component-";
 // Query ID for the insights dataset (shared with dashboard/src/api/insights.ts).
@@ -165,7 +165,10 @@ export async function fetchRawInsightsData(
   });
   const bbFetch = await bigBrainFetch(ctx);
   const res = await bbFetch(
-    `dashboard/teams/${teamId}/usage/query?${queryParams.toString()}`,
+    new URL(
+      `dashboard/teams/${teamId}/usage/query?${queryParams.toString()}`,
+      BIG_BRAIN_URL,
+    ),
     {
       method: "GET",
       headers: { Origin: provisionHost },

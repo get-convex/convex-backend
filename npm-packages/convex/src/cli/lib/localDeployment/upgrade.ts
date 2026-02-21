@@ -113,6 +113,7 @@ export async function handlePotentialUpgrade(
         ],
       });
   const deploymentStatePath = deploymentStateDir(
+    ctx,
     args.deploymentKind,
     args.deploymentName,
   );
@@ -203,7 +204,7 @@ async function handleUpgrade(
 
   logVerbose("Doing a snapshot export");
   const exportPath = path.join(
-    deploymentStateDir(args.deploymentKind, args.deploymentName),
+    deploymentStateDir(ctx, args.deploymentKind, args.deploymentName),
     "export.zip",
   );
   if (ctx.fs.exists(exportPath)) {

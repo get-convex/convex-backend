@@ -184,7 +184,25 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update deployment settings
+         * @description Modifies settings for an existing deployment. Fields that are not
+         *     provided will be left unchanged.
+         *
+         *     The following fields can be modified through this API:
+         *
+         *     - `reference`: the reference of the deployment. When provided, must match
+         *       the following rules:
+         *       - be unique across deployment references in the project
+         *       - 3 to 100 characters (included)
+         *       - only lowercase letters, numbers, "-"" and "/"
+         *       - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.
+         *         "happy-capybara-123")
+         *       - not start with "local-""
+         *       - not be one of the following reserved keywords: "prod", "dev", "cloud",
+         *         "local", "default", "name", "new", "existing", "deployment", "preview"
+         */
+        patch: operations["update deployment settings"];
         trace?: never;
     };
     "/teams/{team_id}/list_deployment_classes": {
@@ -422,6 +440,7 @@ export interface components {
             /** Format: int64 */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            dashboardEditConfirmation?: boolean | null;
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
@@ -430,7 +449,7 @@ export interface components {
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
-            reference?: null | components["schemas"]["DeploymentReference"];
+            reference: components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
         } | {
             /** Format: int64 */
@@ -466,6 +485,9 @@ export interface components {
         };
         /** Format: int64 */
         MemberId: number;
+        ModifyDeploymentSettingsArgs: {
+            reference?: string | null;
+        };
         PlatformCreateDeployKeyArgs: {
             /** @description Name for the deploy key. */
             name: string;
@@ -562,6 +584,11 @@ export interface components {
              */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            /** @description Controls whether the dashboard requires a confirmation before
+             *     allowing edits during a browser session for this deployment.
+             *     If not set, defaults to true for prod deployments and false
+             *     for dev and preview deployments. */
+            dashboardEditConfirmation?: boolean | null;
             /** @description The type of this deployment. */
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
@@ -578,7 +605,9 @@ export interface components {
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             /** @description The project this deployment belongs to. */
             projectId: components["schemas"]["ProjectId"];
-            reference?: null | components["schemas"]["DeploymentReference"];
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. */
+            reference: components["schemas"]["DeploymentReference"];
             /** @description The region where this deployment is hosted. */
             region: components["schemas"]["RegionName"];
         } | {
@@ -629,6 +658,8 @@ export interface components {
             /** @description This shortened version of the name used in Convex Dashboard URLs. */
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
+            /** @description The slug of the team that owns this project. */
+            teamSlug: components["schemas"]["TeamSlug"];
         };
         PlatformTokenDetailsResponse: {
             /**
@@ -676,6 +707,7 @@ export interface components {
             /** @description The role of the team member */
             role: components["schemas"]["Role"];
         };
+        TeamSlug: string;
     };
     responses: never;
     parameters: never;
@@ -697,6 +729,7 @@ export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type MemberId = components['schemas']['MemberId'];
+export type ModifyDeploymentSettingsArgs = components['schemas']['ModifyDeploymentSettingsArgs'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateDeploymentArgs = components['schemas']['PlatformCreateDeploymentArgs'];
@@ -720,6 +753,7 @@ export type RequestDestination = components['schemas']['RequestDestination'];
 export type Role = components['schemas']['Role'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMember = components['schemas']['TeamMember'];
+export type TeamSlug = components['schemas']['TeamSlug'];
 export type $defs = Record<string, never>;
 export interface operations {
     "create project": {
@@ -776,6 +810,11 @@ export interface operations {
                 /** @description If true, include local deployments in the response (filtered to only
                  *     show local deployments created by the requesting team member). */
                 includeLocal?: boolean;
+                /** @description If true, only include default deployments. If false, only include
+                 *     non-default deployments. */
+                isDefault?: boolean | null;
+                /** @description Only include deployments of the given deployment type. */
+                deploymentType?: null | components["schemas"]["DeploymentType"];
             };
             header?: never;
             path: {
@@ -927,6 +966,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DeploymentResponse"];
                 };
+            };
+        };
+    };
+    "update deployment settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment Name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifyDeploymentSettingsArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

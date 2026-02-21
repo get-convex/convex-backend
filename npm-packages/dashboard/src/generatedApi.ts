@@ -2160,6 +2160,7 @@ export interface components {
             /** Format: int64 */
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
+            dashboardEditConfirmation?: boolean | null;
             deploymentType: components["schemas"]["DeploymentType"];
             id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
@@ -2168,7 +2169,7 @@ export interface components {
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
-            reference?: null | components["schemas"]["DeploymentReference"];
+            reference: components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
         } | {
             /** Format: int64 */

@@ -66,6 +66,7 @@ const createDeployment = (overrides: {
   creator?: number | null;
   isDefault?: boolean;
   previewIdentifier?: string | null;
+  reference: string;
 }): PlatformDeploymentResponse => ({
   kind: "cloud",
   projectId: 1,
@@ -84,37 +85,43 @@ const mockDeployments: PlatformDeploymentResponse[] = [
     deploymentType: "prod",
     isDefault: true,
     creator: 1,
+    reference: "production",
   }),
   createDeployment({
     id: 2,
     name: "happy-zebra-456",
     deploymentType: "dev",
     creator: 1, // Current user's dev deployment
+    reference: "dev/test-user",
   }),
   createDeployment({
     id: 3,
-    name: "preview-feature-789",
+    name: "musical-bird-918",
     deploymentType: "preview",
     previewIdentifier: "feature/new-ui",
     creator: 1,
+    reference: "preview/feature/new-ui",
   }),
   createDeployment({
     id: 4,
-    name: "custom-staging-321",
+    name: "peaceful-cow-184",
     deploymentType: "custom",
     creator: 1,
+    reference: "staging",
   }),
   createDeployment({
     id: 5,
-    name: "jane-dev-deployment",
+    name: "active-cat-205",
     deploymentType: "dev",
-    creator: 2, // Jane's dev deployment
+    creator: 2,
+    reference: "dev/jane-doe",
   }),
   createDeployment({
     id: 6,
-    name: "bob-dev-deployment",
+    name: "friendly-dog-321",
     deploymentType: "dev",
-    creator: 3, // Bob's dev deployment
+    creator: 3,
+    reference: "dev/bob-smith",
   }),
 ];
 

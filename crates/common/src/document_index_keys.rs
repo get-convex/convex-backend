@@ -42,6 +42,10 @@ impl DocumentIndexKeys {
         self.0.get(index_name)
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = (&TabletIndexName, &DocumentIndexKeyValue)> {
+        self.0.iter()
+    }
+
     #[cfg(any(test, feature = "testing"))]
     pub fn empty_for_test() -> Self {
         Self(Default::default())

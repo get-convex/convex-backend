@@ -270,6 +270,14 @@ type ApiFromModulesAllowEmptyNodes<AllModules extends Record<string, object>> =
     >
   >;
 
+type FilterKeysInApi<key, API, Predicate> = API extends Predicate
+  ? key
+  : API extends FunctionReference<any, any, any, any>
+    ? never
+    : FilterApi<API, Predicate> extends Record<string, never>
+      ? never
+      : key;
+
 /**
  * @public
  *
@@ -277,15 +285,11 @@ type ApiFromModulesAllowEmptyNodes<AllModules extends Record<string, object>> =
  * for example all public queries.
  */
 export type FilterApi<API, Predicate> = Expand<{
-  [mod in keyof API as API[mod] extends Predicate
-    ? mod
-    : API[mod] extends FunctionReference<any, any, any, any>
-      ? never
-      : FilterApi<API[mod], Predicate> extends Record<string, never>
-        ? never
-        : mod]: API[mod] extends Predicate
-    ? API[mod]
-    : FilterApi<API[mod], Predicate>;
+  [mod in keyof API as FilterKeysInApi<
+    mod,
+    API[mod],
+    Predicate
+  >]: API[mod] extends Predicate ? API[mod] : FilterApi<API[mod], Predicate>;
 }>;
 
 /**

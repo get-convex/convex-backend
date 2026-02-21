@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/platform",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A client for the Convex Platform APIs",
   "type": "module",
   "scripts": {
@@ -27,7 +27,7 @@
     "openapi-typescript": "~7.8.0",
     "openapi-typescript-helpers": "~0.0.15",
     "tsx": "^4.19.4",
-    "zshy": "0.6.0"
+    "zshy": "0.7.0"
   },
   "dependencies": {
     "openapi-fetch": "~0.15.0"

@@ -1,3 +1,5 @@
+/* eslint-disable react/jsx-key */
+
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { BreadcrumbLink } from "../BreadcrumbLink/BreadcrumbLink";
 import { Breadcrumbs } from "./Breadcrumbs";

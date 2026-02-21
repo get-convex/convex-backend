@@ -30,6 +30,7 @@ export async function runLocalBackend(
 }> {
   const { ports } = args;
   const deploymentDir = deploymentStateDir(
+    ctx,
     args.deploymentKind,
     args.deploymentName,
   );

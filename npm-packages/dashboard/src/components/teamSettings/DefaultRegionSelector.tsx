@@ -56,6 +56,11 @@ export function DefaultRegionSelector({
           )}
         </div>
       </RadioGroup>
+      <p className="mt-2 max-w-prose text-xs text-content-secondary">
+        Usage on EU-hosted deployments is subject to a 30% pass-through
+        surcharge. On paid subscriptions, built-in resources are only applicable
+        to the US region.
+      </p>
     </Fieldset>
   );
 }

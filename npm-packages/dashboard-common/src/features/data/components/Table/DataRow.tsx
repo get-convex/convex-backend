@@ -66,6 +66,7 @@ function DataRowImpl(props: DataRowProps) {
     >
       {firstRow ? (
         firstRow.cells.map((cell, idx) => (
+          // eslint-disable-next-line react/jsx-key -- `key` from `cell.getCellProps()`
           <div
             {...cell.getCellProps()}
             className={classNames("h-full flex items-center justify-center", {

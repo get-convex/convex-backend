@@ -64,14 +64,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn get_backend_state(&mut self) -> anyhow::Result<BackendState> {
-        let backend_state = self.get_backend_state_inner().await?;
-        Ok(backend_state.into_value().0)
-    }
-
-    async fn get_backend_state_inner(
-        &mut self,
-    ) -> anyhow::Result<ParsedDocument<PersistedBackendState>> {
+    pub async fn get_backend_state(&mut self) -> anyhow::Result<ParsedDocument<BackendState>> {
         let backend_state = self
             .tx
             .query_system(
@@ -81,13 +74,13 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             .unique()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Backend must have a state."))?;
-        Ok((*backend_state).clone())
+        (*backend_state).clone().map(|bs| Ok(bs.0))
     }
 
     pub async fn toggle_backend_state(&mut self, new_state: BackendState) -> anyhow::Result<()> {
-        let (id, current_state) = self.get_backend_state_inner().await?.into_id_and_value();
+        let (id, current_state) = self.get_backend_state().await?.into_id_and_value();
         anyhow::ensure!(
-            current_state.0 != new_state,
+            current_state != new_state,
             ErrorMetadata::bad_request(
                 "DeploymentAlreadyInState",
                 format!("Deployment is already {new_state}")
@@ -122,10 +115,10 @@ mod tests {
         let db = DbFixtures::new_with_model(&rt).await?.db;
         let mut tx = db.begin_system().await?;
         let mut model = BackendStateModel::new(&mut tx);
-        let starting_state = model.get_backend_state().await?;
+        let starting_state = model.get_backend_state().await?.into_value();
         assert_eq!(starting_state, BackendState::Running);
         model.toggle_backend_state(BackendState::Paused).await?;
-        let new_state = model.get_backend_state().await?;
+        let new_state = model.get_backend_state().await?.into_value();
         assert_eq!(new_state, BackendState::Paused);
 
         // Fail to toggle to the same state
