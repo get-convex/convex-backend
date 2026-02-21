@@ -33,7 +33,7 @@ const retryingFetch = fetchRetryFactory(fetch);
 export const productionProvisionHost = "https://api.convex.dev";
 export const provisionHost =
   process.env.CONVEX_PROVISION_HOST || productionProvisionHost;
-const BIG_BRAIN_URL = `${provisionHost}/api/`;
+export const BIG_BRAIN_URL = `${provisionHost}/api/`;
 const PLATFORM_MANAGEMENT_API_URL = `${provisionHost}/v1/`;
 export const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOY_KEY_ENV_VAR_NAME = "CONVEX_DEPLOY_KEY";
@@ -185,13 +185,6 @@ export async function throwingFetch(
   resource: RequestInfo | URL,
   options: (RequestInit & RequestInitRetryParams<typeof fetch>) | undefined,
 ): Promise<Response> {
-  const Headers = globalThis.Headers;
-  const headers = new Headers((options || {})["headers"]);
-  if (options?.body) {
-    if (!headers.has("Content-Type")) {
-      headers.set("Content-Type", "application/json");
-    }
-  }
   const response = await retryingFetch(resource, options);
   if (!response.ok) {
     // This error must always be handled manually.
@@ -702,9 +695,13 @@ export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
       };
   return (resource: RequestInfo | URL, options: RequestInit | undefined) => {
     const { headers: optionsHeaders, ...rest } = options || {};
+    // Use the options headers if they exist. Otherwise, use the request headers
     const headers = {
       ...bigBrainHeaders,
-      ...(optionsHeaders || {}),
+      ...(optionsHeaders ??
+        (resource instanceof Request
+          ? Object.fromEntries(resource.headers.entries())
+          : {})),
     };
     const opts = {
       retries: MAX_RETRIES,
@@ -713,13 +710,7 @@ export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
       ...rest,
     };
 
-    const url =
-      resource instanceof URL
-        ? resource.pathname
-        : typeof resource === "string"
-          ? new URL(resource, BIG_BRAIN_URL)
-          : new URL(resource.url, BIG_BRAIN_URL);
-    return throwingFetch(url, opts);
+    return throwingFetch(resource, opts);
   };
 }
 
@@ -837,7 +828,7 @@ export async function bigBrainAPIMaybeThrows({
       : typeof data === "string"
         ? data
         : JSON.stringify(data);
-  const res = await fetch(url, {
+  const res = await fetch(new URL(url, BIG_BRAIN_URL), {
     method,
     ...(dataString ? { body: dataString } : {}),
     headers:
