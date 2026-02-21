@@ -125,6 +125,28 @@ impl TransactionIndex {
         &self.index_registry
     }
 
+    fn pending_iter_for_request<'a>(
+        index_registry: &IndexRegistry,
+        database_index_updates: &'a OrdMap<IndexId, TransactionIndexMap>,
+        range_request: &'a RangeRequest,
+    ) -> anyhow::Result<
+        impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<ResolvedDocument>)> + 'a,
+    > {
+        let iter = match index_registry.require_enabled(
+            &range_request.index_name,
+            &range_request.printable_index_name,
+        ) {
+            Ok(index) => database_index_updates.get(&index.id()),
+            // Range queries on missing tables are allowed for system provided indexes.
+            Err(_) if range_request.index_name.is_by_id_or_creation_time() => None,
+            Err(e) => return Err(e),
+        }
+        .map(|pending| pending.range(&range_request.interval))
+        .into_iter()
+        .flatten();
+        Ok(iter)
+    }
+
     /// Range over a index including pending updates.
     /// `max_size` provides an estimate of the number of rows to be
     /// streamed from the database.
@@ -139,27 +161,76 @@ impl TransactionIndex {
             CursorPosition,
         )>,
     > {
-        let snapshot_results = self.database_index_snapshot.range_batch(ranges).await;
         let batch_size = ranges.len();
+
+        // Resolve singleton ranges that have pending writes without
+        // hitting persistence.
+        let mut pre_resolved = Vec::with_capacity(batch_size);
+        let mut persistence_ranges: Vec<&RangeRequest> = Vec::new();
+
+        for &range_request in ranges.iter() {
+            if range_request.interval.is_singleton().is_some() {
+                let pending_result = Self::pending_iter_for_request(
+                    &self.index_registry,
+                    &self.database_index_updates,
+                    range_request,
+                );
+                match pending_result {
+                    Ok(mut pending_it) => {
+                        if let Some((key, maybe_doc)) = pending_it.next() {
+                            if pending_it.next().is_some() {
+                                pre_resolved.push(Some(Err(anyhow::anyhow!(
+                                    "Expected singleton range to have at most one result"
+                                ))));
+                                continue;
+                            }
+                            let mut range_results = Vec::new();
+                            if let Some(doc) = maybe_doc {
+                                range_results.push((key, doc.into(), WriteTimestamp::Pending));
+                            }
+                            pre_resolved.push(Some(Ok((range_results, CursorPosition::End))));
+                            continue;
+                        }
+                    },
+                    Err(e) => {
+                        pre_resolved.push(Some(Err(e)));
+                        continue;
+                    },
+                }
+            }
+
+            pre_resolved.push(None);
+            persistence_ranges.push(range_request);
+        }
+
+        // Fetch only the ranges that weren't resolved from pending writes.
+        let snapshot_results = self
+            .database_index_snapshot
+            .range_batch(&persistence_ranges)
+            .await;
+
+        let mut persistence_iter = snapshot_results.into_iter();
+
         let mut results = Vec::with_capacity(batch_size);
-        for (&range_request, snapshot_result) in ranges.iter().zip(snapshot_results) {
+        for (&range_request, resolved) in ranges.iter().zip(pre_resolved) {
+            // We need to preserve the order of the ranges.
+            if let Some(resolved) = resolved {
+                results.push(resolved);
+                continue;
+            }
+
+            let snapshot_result = persistence_iter
+                .next()
+                .unwrap_or_else(|| Err(anyhow::anyhow!("fewer persistence results than expected")));
+
             let result = try {
                 let (snapshot_result_vec, cursor) = snapshot_result?;
                 let mut snapshot_it = snapshot_result_vec.into_iter();
-                let index_registry = &self.index_registry;
-                let database_index_updates = &self.database_index_updates;
-                let pending_it = match index_registry.require_enabled(
-                    &range_request.index_name,
-                    &range_request.printable_index_name,
-                ) {
-                    Ok(index) => database_index_updates.get(&index.id()),
-                    // Range queries on missing tables are allowed for system provided indexes.
-                    Err(_) if range_request.index_name.is_by_id_or_creation_time() => None,
-                    Err(e) => Err(e)?,
-                }
-                .map(|pending| pending.range(&range_request.interval))
-                .into_iter()
-                .flatten();
+                let pending_it = Self::pending_iter_for_request(
+                    &self.index_registry,
+                    &self.database_index_updates,
+                    range_request,
+                )?;
                 let mut pending_it = range_request.order.apply(pending_it);
 
                 let mut snapshot_next = snapshot_it.next();
@@ -1405,6 +1476,249 @@ mod tests {
                 ),
             ]
         );
+
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_after_write_skips_index_scan(rt: ProdRuntime) -> anyhow::Result<()> {
+        let mut id_generator = TestIdGenerator::new();
+        let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
+        let by_id = TabletIndexName::by_id(table_id);
+        let printable_by_id = IndexName::by_id("messages".parse()?);
+
+        let mut persistence = TestPersistence::new();
+        persistence.set_fails_index_scans(true);
+        let persistence = Arc::new(persistence);
+        let retention_manager =
+            Arc::new(FollowerRetentionManager::new(rt.clone(), persistence.clone()).await?);
+        let rp = RepeatablePersistence::new(
+            persistence,
+            unchecked_repeatable_ts(Timestamp::must(1000)),
+            retention_manager,
+        );
+        let ps = rp.read_snapshot(unchecked_repeatable_ts(Timestamp::must(1000)))?;
+
+        let (index_registry, inner, search, _) = bootstrap_index(
+            &mut id_generator,
+            vec![IndexMetadata::new_enabled(
+                TabletIndexName::by_id(table_id),
+                IndexedFields::by_id(),
+            )],
+            rp,
+        )
+        .await?;
+
+        let searcher = Arc::new(InProcessSearcher::new(rt.clone())?);
+        let search_storage = Arc::new(LocalDirStorage::new(rt)?);
+        let mut index = TransactionIndex::new(
+            index_registry.clone(),
+            DatabaseIndexSnapshot::new(
+                index_registry.clone(),
+                Arc::new(inner),
+                id_generator.clone(),
+                ps,
+                None,
+            ),
+            Arc::new(TextIndexManagerSnapshot::new(
+                index_registry.clone(),
+                search,
+                searcher.clone(),
+                Arc::new(OnceLock::from(search_storage as Arc<dyn Storage>)),
+            )),
+        );
+
+        // Insert a doc, then singleton get should return it without
+        // hitting persistence.
+        let doc = ResolvedDocument::new(
+            next_document_id(&mut id_generator, "messages")?,
+            CreationTime::ONE,
+            assert_obj!(
+                "content" => "hello",
+            ),
+        )?;
+        index.begin_update(None, Some(doc.clone()))?.apply();
+
+        let singleton_interval =
+            Interval::singleton(doc.index_key(&IndexedFields::by_id()[..]).to_bytes().into());
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
+            .range(RangeRequest {
+                index_name: by_id.clone(),
+                printable_index_name: printable_by_id.clone(),
+                interval: singleton_interval.clone(),
+                order: Order::Asc,
+                max_size: 100,
+            })
+            .await?;
+        assert!(matches!(cursor, CursorPosition::End));
+        assert_eq!(
+            results,
+            vec![(
+                doc.index_key(&IndexedFields::by_id()[..]).to_bytes(),
+                doc.clone(),
+                WriteTimestamp::Pending,
+            )],
+        );
+
+        // Update the doc, then singleton get should return the updated version.
+        let updated_doc = ResolvedDocument::new(
+            doc.id(),
+            CreationTime::ONE,
+            assert_obj!(
+                "content" => "updated",
+            ),
+        )?;
+        index
+            .begin_update(Some(doc.clone()), Some(updated_doc.clone()))?
+            .apply();
+
+        let singleton_interval = Interval::singleton(
+            updated_doc
+                .index_key(&IndexedFields::by_id()[..])
+                .to_bytes()
+                .into(),
+        );
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
+            .range(RangeRequest {
+                index_name: by_id.clone(),
+                printable_index_name: printable_by_id.clone(),
+                interval: singleton_interval,
+                order: Order::Asc,
+                max_size: 100,
+            })
+            .await?;
+        assert!(matches!(cursor, CursorPosition::End));
+        assert_eq!(
+            results,
+            vec![(
+                updated_doc
+                    .index_key(&IndexedFields::by_id()[..])
+                    .to_bytes(),
+                updated_doc.clone(),
+                WriteTimestamp::Pending,
+            )],
+        );
+
+        // Delete the doc, then singleton get should return empty.
+        index.begin_update(Some(updated_doc.clone()), None)?.apply();
+
+        let singleton_interval = Interval::singleton(
+            updated_doc
+                .index_key(&IndexedFields::by_id()[..])
+                .to_bytes()
+                .into(),
+        );
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
+            .range(RangeRequest {
+                index_name: by_id,
+                printable_index_name: printable_by_id,
+                interval: singleton_interval,
+                order: Order::Asc,
+                max_size: 100,
+            })
+            .await?;
+        assert!(matches!(cursor, CursorPosition::End));
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_after_write_hits_persistence_without_pending_write(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let mut id_generator = TestIdGenerator::new();
+        let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
+        let by_id = TabletIndexName::by_id(table_id);
+        let printable_by_id = IndexName::by_id("messages".parse()?);
+
+        let mut persistence = TestPersistence::new();
+        persistence.set_fails_index_scans(true);
+        let persistence = Arc::new(persistence);
+        let retention_manager =
+            Arc::new(FollowerRetentionManager::new(rt.clone(), persistence.clone()).await?);
+        let rp = RepeatablePersistence::new(
+            persistence,
+            unchecked_repeatable_ts(Timestamp::must(1000)),
+            retention_manager,
+        );
+        let ps = rp.read_snapshot(unchecked_repeatable_ts(Timestamp::must(1000)))?;
+
+        let (index_registry, inner, search, _) = bootstrap_index(
+            &mut id_generator,
+            vec![IndexMetadata::new_enabled(
+                TabletIndexName::by_id(table_id),
+                IndexedFields::by_id(),
+            )],
+            rp,
+        )
+        .await?;
+
+        let searcher = Arc::new(InProcessSearcher::new(rt.clone())?);
+        let search_storage = Arc::new(LocalDirStorage::new(rt)?);
+        let mut index = TransactionIndex::new(
+            index_registry.clone(),
+            DatabaseIndexSnapshot::new(
+                index_registry.clone(),
+                Arc::new(inner),
+                id_generator.clone(),
+                ps,
+                None,
+            ),
+            Arc::new(TextIndexManagerSnapshot::new(
+                index_registry.clone(),
+                search,
+                searcher.clone(),
+                Arc::new(OnceLock::from(search_storage as Arc<dyn Storage>)),
+            )),
+        );
+
+        // A singleton range that does NOT hit a pending write
+        // should fall through to persistence and error.
+        let other_doc = ResolvedDocument::new(
+            next_document_id(&mut id_generator, "messages")?,
+            CreationTime::ONE,
+            assert_obj!("content" => "other"),
+        )?;
+        let other_singleton_interval = Interval::singleton(
+            other_doc
+                .index_key(&IndexedFields::by_id()[..])
+                .to_bytes()
+                .into(),
+        );
+        let result = index
+            .range(RangeRequest {
+                index_name: by_id.clone(),
+                printable_index_name: printable_by_id.clone(),
+                interval: other_singleton_interval,
+                order: Order::Asc,
+                max_size: 100,
+            })
+            .await
+            .err();
+        assert!(format!("{:?}", result.unwrap()).contains("Index scans are disabled"));
+
+        // A non-singleton range should also hit persistence and error.
+        let result = index
+            .range(RangeRequest {
+                index_name: by_id,
+                printable_index_name: printable_by_id,
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 100,
+            })
+            .await
+            .err();
+        assert!(format!("{:?}", result.unwrap()).contains("Index scans are disabled"));
 
         Ok(())
     }
