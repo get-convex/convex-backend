@@ -170,17 +170,19 @@ describe("DeploymentMenuOptions", () => {
       const deployments: DeploymentResponse[] = [
         // Non-default created later (would normally sort first by createTime)
         createDeployment({
-          name: "prod-non-default",
+          name: "wandering-fish-513",
           deploymentType: "prod",
           isDefault: false,
           createTime: now + 1000,
+          reference: "staging",
         }),
         // Default created earlier
         createDeployment({
-          name: "prod-default",
+          name: "knowing-antelope-914",
           deploymentType: "prod",
           isDefault: true,
           createTime: now,
+          reference: "production",
         }),
       ];
 
@@ -198,11 +200,11 @@ describe("DeploymentMenuOptions", () => {
       // Verify the default deployment appears first by checking order of menu items
       // Each deployment name appears twice (as identifier and name in DeploymentOption)
       // so we look for the first occurrence of each
-      const allText = screen.getAllByText(/prod-(default|non-default)/);
-      // First two should be prod-default (identifier and name)
-      expect(allText[0]).toHaveTextContent("prod-default");
-      // Next two should be prod-non-default
-      expect(allText[2]).toHaveTextContent("prod-non-default");
+      const allText = screen.getAllByText(/(production|staging)/);
+      // First two should be default
+      expect(allText[0]).toHaveTextContent("production");
+      // Next should be non-default
+      expect(allText[1]).toHaveTextContent("staging");
     });
 
     test("when there is a single non-default prod deployment, it appears in a submenu", async () => {
