@@ -42,18 +42,12 @@ const UNDEFINED_TAG: u8 = 0x1;
 const NULL_TAG: u8 = 0x3;
 
 const NEG_INT64_8_BYTE_TAG: u8 = 0x4;
-#[allow(unused)]
 const NEG_INT64_4_BYTE_TAG: u8 = 0x5;
-#[allow(unused)]
 const NEG_INT64_2_BYTE_TAG: u8 = 0x6;
-#[allow(unused)]
 const NEG_INT64_1_BYTE_TAG: u8 = 0x7;
 const ZERO_INT64_TAG: u8 = 0x8;
-#[allow(unused)]
 const POS_INT64_1_BYTE_TAG: u8 = 0x9;
-#[allow(unused)]
 const POS_INT64_2_BYTE_TAG: u8 = 0xA;
-#[allow(unused)]
 const POS_INT64_4_BYTE_TAG: u8 = 0xB;
 const POS_INT64_8_BYTE_TAG: u8 = 0xC;
 
@@ -123,10 +117,7 @@ pub fn values_to_bytes(values: &[Option<ConvexValue>]) -> Vec<u8> {
 }
 
 pub mod sorting_decode {
-    use std::{
-        cmp,
-        collections::BTreeMap,
-    };
+    use std::collections::BTreeMap;
 
     use anyhow::bail;
     use bytes::Buf;
@@ -152,13 +143,33 @@ pub mod sorting_decode {
         Ok(())
     }
 
-    fn read_tagged_int<R: Buf>(tag: u8, reader: &mut R) -> i64 {
-        let is_negative = tag < ZERO_INT64_TAG;
-        let tag_diff = cmp::max(tag, ZERO_INT64_TAG) - cmp::min(tag, ZERO_INT64_TAG);
-        let num_bytes = 1 << (tag_diff - 1);
-        let mut buf = [if is_negative { 0xFF } else { 0x0 }; 8];
-        reader.copy_to_slice(&mut buf[8 - num_bytes..]);
-        i64::from_be_bytes(buf)
+    fn read_tagged_int<R: Buf>(tag: u8, reader: &mut R) -> anyhow::Result<i64> {
+        let val = match tag {
+            NEG_INT64_1_BYTE_TAG => reader.try_get_i8()? as i64,
+            NEG_INT64_2_BYTE_TAG => reader.try_get_i16()? as i64,
+            NEG_INT64_4_BYTE_TAG => reader.try_get_i32()? as i64,
+            NEG_INT64_8_BYTE_TAG => reader.try_get_i64()?,
+            ZERO_INT64_TAG => return Ok(0),
+            POS_INT64_1_BYTE_TAG => reader.try_get_i8()? as i64,
+            POS_INT64_2_BYTE_TAG => reader.try_get_i16()? as i64,
+            POS_INT64_4_BYTE_TAG => reader.try_get_i32()? as i64,
+            POS_INT64_8_BYTE_TAG => reader.try_get_i64()?,
+            _ => panic!("not a tagged int"),
+        };
+        // Check that the decoded value is in the expected range for `tag`
+        let in_range = match tag {
+            NEG_INT64_1_BYTE_TAG => val < 0,
+            NEG_INT64_2_BYTE_TAG => val < i8::MIN as i64,
+            NEG_INT64_4_BYTE_TAG => val < i16::MIN as i64,
+            NEG_INT64_8_BYTE_TAG => val < i32::MIN as i64,
+            POS_INT64_1_BYTE_TAG => val > 0,
+            POS_INT64_2_BYTE_TAG => val > i8::MAX as i64,
+            POS_INT64_4_BYTE_TAG => val > i16::MAX as i64,
+            POS_INT64_8_BYTE_TAG => val > i32::MAX as i64,
+            _ => unreachable!(),
+        };
+        anyhow::ensure!(in_range, "non-canonical tagged int {val} with tag {tag}");
+        Ok(val)
     }
 
     /// Parse a `Vec<Value>` from it respective sort keys.
@@ -201,9 +212,8 @@ pub mod sorting_decode {
             let r = match tag {
                 NULL_TAG => Self::Null,
 
-                ZERO_INT64_TAG => Self::from(0),
                 NEG_INT64_8_BYTE_TAG..=POS_INT64_8_BYTE_TAG => {
-                    ConvexValue::from(read_tagged_int(tag, reader))
+                    ConvexValue::from(read_tagged_int(tag, reader)?)
                 },
                 FLOAT64_TAG => {
                     let mut n = reader.try_get_u64()?;
