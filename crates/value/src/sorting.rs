@@ -172,12 +172,17 @@ pub mod sorting_decode {
         Ok(val)
     }
 
-    /// Parse a `Vec<Value>` from it respective sort keys.
+    /// Parse a `Vec<Option<ConvexValue>>` from its respective sort keys.
     pub fn bytes_to_values<R: Buf>(reader: &mut R) -> anyhow::Result<Vec<Option<ConvexValue>>> {
         let mut values = vec![];
         while reader.has_remaining() {
-            let value = ConvexValue::read_sort_key(reader)?;
-            values.push(Some(value));
+            if reader.chunk()[0] == UNDEFINED_TAG {
+                reader.get_u8();
+                values.push(None);
+            } else {
+                let value = ConvexValue::read_sort_key(reader)?;
+                values.push(Some(value));
+            }
         }
         Ok(values)
     }
@@ -551,12 +556,11 @@ mod tests {
         }
 
         #[test]
-        fn test_vector_roundtrips(v in any::<Vec<ConvexValue>>()) {
-            let values: Vec<_> = v.clone().into_iter().map(Some).collect();
-            let bytes = values_to_bytes(&values);
+        fn test_vector_roundtrips(v in any::<Vec<Option<ConvexValue>>>()) {
+            let bytes = values_to_bytes(&v);
             assert_eq!(
                 bytes_to_values(&mut &bytes[..]).unwrap(),
-                v.into_iter().map(Some).collect::<Vec<_>>(),
+                v,
             );
         }
 
