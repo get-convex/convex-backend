@@ -1104,6 +1104,21 @@ pub static AWS_LAMBDA_STATIC_DEBOUNCE_DELAY: LazyLock<Duration> = LazyLock::new(
     Duration::from_secs(env_config("AWS_LAMBDA_STATIC_DEBOUNCE_DELAY_SECONDS", 30))
 });
 
+/// Whether instances should self-manage cleanup of their old Lambda versions in
+/// a background worker.
+pub static AWS_LAMBDA_SELF_CLEANUP_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env_config("AWS_LAMBDA_SELF_CLEANUP_ENABLED", true));
+
+/// Maximum initial startup jitter for the per-instance Lambda version cleanup
+/// worker. The worker will wait up to this long before starting the first
+/// cleanup pass, or will start whenever a new lambda version is deployed.
+pub static AWS_LAMBDA_CLEANUP_INITIAL_JITTER_MAX_SECS: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config(
+        "AWS_LAMBDA_CLEANUP_INITIAL_JITTER_MAX_SECS",
+        86400,
+    ))
+});
+
 /// The maximum number of requests to send using a single AWS Lambda client.
 /// Empirical tests have shown that AWS servers allows up to 128 concurrent
 /// streams over a single http2 connection.
