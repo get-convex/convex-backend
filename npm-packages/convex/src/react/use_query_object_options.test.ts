@@ -7,7 +7,7 @@ import { test, describe, expectTypeOf } from "vitest";
 import { anyApi, makeFunctionReference } from "../server/api.js";
 
 import type { ApiFromModules, QueryBuilder } from "../server/index.js";
-import { useQuery as useQueryReal } from "./client.js";
+import { useQuery as useQueryReal, type UseQueryResult } from "./client.js";
 
 const useQuery = (() => {}) as unknown as typeof useQueryReal;
 const query: QueryBuilder<any, "public"> = (() => {}) as any;
@@ -45,7 +45,7 @@ describe("useQuery object options types", () => {
       query: api.module.args,
       args: { _arg: "asdf" },
     });
-    expectTypeOf(result).toEqualTypeOf<string | undefined>();
+    expectTypeOf(result).toEqualTypeOf<UseQueryResult<string>>();
 
     useQuery("skip");
   });
