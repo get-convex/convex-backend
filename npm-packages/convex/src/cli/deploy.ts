@@ -242,7 +242,7 @@ async function deployToNewPreviewDeployment(
   const data = await bigBrainAPI({
     ctx,
     method: "POST",
-    url: "claim_preview_deployment",
+    path: "claim_preview_deployment",
     data: {
       projectSelection: deploymentSelection.projectSelection,
       identifier: previewName,

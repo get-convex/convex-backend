@@ -171,7 +171,7 @@ describe("bigBrainAPIMaybeThrows", () => {
     const mockFetch = stubFetch();
     const ctx = makeContext(null);
 
-    await bigBrainAPIMaybeThrows({ ctx, method: "GET", url: "has_projects" });
+    await bigBrainAPIMaybeThrows({ ctx, method: "GET", path: "has_projects" });
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const { resource } = capturedArgs(mockFetch);
@@ -184,7 +184,7 @@ describe("bigBrainAPIMaybeThrows", () => {
     const mockFetch = stubFetch();
     const ctx = makeContext(null);
 
-    await bigBrainAPIMaybeThrows({ ctx, method: "GET", url: "test" });
+    await bigBrainAPIMaybeThrows({ ctx, method: "GET", path: "test" });
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const { options } = capturedArgs(mockFetch);
@@ -196,7 +196,7 @@ describe("bigBrainAPIMaybeThrows", () => {
     const mockFetch = stubFetch();
     const ctx = makeContext(null);
 
-    await bigBrainAPIMaybeThrows({ ctx, method: "POST", url: "test" });
+    await bigBrainAPIMaybeThrows({ ctx, method: "POST", path: "test" });
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const { options, headers } = capturedArgs(mockFetch);
@@ -210,7 +210,7 @@ describe("bigBrainAPIMaybeThrows", () => {
     const ctx = makeContext(null);
     const data = { name: "test", value: 42 };
 
-    await bigBrainAPIMaybeThrows({ ctx, method: "POST", url: "test", data });
+    await bigBrainAPIMaybeThrows({ ctx, method: "POST", path: "test", data });
 
     expect(mockFetch).toHaveBeenCalledOnce();
     const { options } = capturedArgs(mockFetch);
@@ -224,7 +224,7 @@ describe("bigBrainAPIMaybeThrows", () => {
     await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
-      url: "test",
+      path: "test",
       data: '{"raw":true}',
     });
 

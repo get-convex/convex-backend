@@ -377,7 +377,7 @@ async function getProjectsRemaining(ctx: Context, teamSlug: string) {
   const response = await bigBrainAPI<{ projectsRemaining: number }>({
     ctx,
     method: "GET",
-    url: `teams/${teamSlug}/projects_remaining`,
+    path: `teams/${teamSlug}/projects_remaining`,
   });
 
   return response.projectsRemaining;

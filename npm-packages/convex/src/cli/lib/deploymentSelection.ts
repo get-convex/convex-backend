@@ -468,7 +468,7 @@ async function getDeploymentSelectionFromEnv(
         const url = await bigBrainAPI({
           ctx,
           method: "POST",
-          url: "deployment/url_for_key",
+          path: "deployment/url_for_key",
           data: {
             deployKey: deployKey,
           },

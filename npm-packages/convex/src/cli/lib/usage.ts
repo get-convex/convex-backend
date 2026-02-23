@@ -21,7 +21,7 @@ async function teamUsageState(ctx: Context, teamId: number) {
   const { usageState } = (await bigBrainAPI({
     ctx,
     method: "GET",
-    url: "dashboard/teams/" + teamId + "/usage/team_usage_state",
+    path: "dashboard/teams/" + teamId + "/usage/team_usage_state",
   })) as {
     usageState: "Default" | "Approaching" | "Exceeded" | "Disabled" | "Paused";
   };
@@ -33,7 +33,7 @@ async function teamSpendingLimitsState(ctx: Context, teamId: number) {
   const response = (await bigBrainAPI({
     ctx,
     method: "GET",
-    url: "dashboard/teams/" + teamId + "/get_spending_limits",
+    path: "dashboard/teams/" + teamId + "/get_spending_limits",
   })) as {
     disableThresholdCents: number | null;
     state: null | "Running" | "Disabled" | "Warning";

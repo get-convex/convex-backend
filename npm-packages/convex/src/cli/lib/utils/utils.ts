@@ -497,7 +497,7 @@ export async function hasProject(
 }
 
 export async function hasProjects(ctx: Context) {
-  return !!(await bigBrainAPI({ ctx, method: "GET", url: `has_projects` }));
+  return !!(await bigBrainAPI({ ctx, method: "GET", path: `has_projects` }));
 }
 
 export async function validateOrSelectProject(
@@ -717,12 +717,12 @@ export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
 export async function bigBrainAPI<T = any>({
   ctx,
   method,
-  url,
+  path,
   data,
 }: {
   ctx: Context;
   method: "GET" | "POST" | "HEAD";
-  url: string;
+  path: string;
   data?: any;
 }): Promise<T> {
   const dataString =
@@ -735,7 +735,7 @@ export async function bigBrainAPI<T = any>({
     return await bigBrainAPIMaybeThrows({
       ctx,
       method,
-      url,
+      path,
       data: dataString,
     });
   } catch (err: unknown) {
@@ -811,12 +811,12 @@ export const typedPlatformClient =
 export async function bigBrainAPIMaybeThrows({
   ctx,
   method,
-  url,
+  path,
   data,
 }: {
   ctx: Context;
   method: "GET" | "POST" | "HEAD";
-  url: string;
+  path: string;
   data?: any;
 }): Promise<any> {
   const fetch = await bigBrainFetch(ctx);
@@ -828,7 +828,7 @@ export async function bigBrainAPIMaybeThrows({
       : typeof data === "string"
         ? data
         : JSON.stringify(data);
-  const res = await fetch(new URL(url, BIG_BRAIN_URL), {
+  const res = await fetch(new URL(path, BIG_BRAIN_URL), {
     method,
     ...(dataString ? { body: dataString } : {}),
     headers:

@@ -397,7 +397,7 @@ export async function performLogin(
   const data = await bigBrainAPI({
     ctx,
     method: "POST",
-    url: "authorize",
+    path: "authorize",
     data: authorizeArgs,
   });
   const globalConfig = { accessToken: data.accessToken };
@@ -469,7 +469,7 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
   const data = await bigBrainAPI({
     ctx,
     method: "POST",
-    url: "check_opt_ins",
+    path: "check_opt_ins",
   });
   if (data.optInsToAccept.length === 0) {
     return true;
@@ -488,7 +488,12 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
 
   const optInsAccepted = data.optInsToAccept.map((o: OptInToAccept) => o.optIn);
   const args: AcceptOptInsArgs = { optInsAccepted };
-  await bigBrainAPI({ ctx, method: "POST", url: "accept_opt_ins", data: args });
+  await bigBrainAPI({
+    ctx,
+    method: "POST",
+    path: "accept_opt_ins",
+    data: args,
+  });
   return true;
 }
 

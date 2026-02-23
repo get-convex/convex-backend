@@ -30,7 +30,7 @@ export async function getCandidateEmailsForWorkIntegration(
   >({
     ctx,
     method: "GET",
-    url: "workos/available_workos_team_emails",
+    path: "workos/available_workos_team_emails",
   });
 }
 
@@ -44,7 +44,7 @@ export async function getInvitationEligibleEmails(
   return bigBrainAPI<{ eligibleEmails: string[]; adminEmail?: string }>({
     ctx,
     method: "GET",
-    url: `teams/${teamId}/workos_invitation_eligible_emails`,
+    path: `teams/${teamId}/workos_invitation_eligible_emails`,
   });
 }
 
@@ -58,7 +58,7 @@ export async function getDeploymentCanProvisionWorkOSEnvironments(
   return bigBrainAPI<components["schemas"]["HasAssociatedWorkOSTeamResponse"]>({
     ctx,
     method: "POST",
-    url: "workos/has_associated_workos_team",
+    path: "workos/has_associated_workos_team",
     data: request,
   });
 }
@@ -84,7 +84,7 @@ export async function createEnvironmentAndAPIKey(
     >({
       ctx,
       method: "POST",
-      url: "workos/get_or_provision_workos_environment",
+      path: "workos/get_or_provision_workos_environment",
       data: {
         deploymentName,
         environmentType,
@@ -134,7 +134,7 @@ export async function createAssociatedWorkosTeam(
     const result = (await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
-      url: "workos/provision_associated_workos_team",
+      path: "workos/provision_associated_workos_team",
       data: JSON.stringify(request),
     })) as components["schemas"]["ProvisionWorkOSTeamResponse"];
     return {
@@ -168,7 +168,7 @@ export async function getWorkosTeamHealth(
   >({
     ctx,
     method: "GET",
-    url: `teams/${teamId}/workos_team_health`,
+    path: `teams/${teamId}/workos_team_health`,
   });
 
   // Return the team info if provisioned, otherwise null
@@ -187,7 +187,7 @@ export async function getWorkosEnvironmentHealth(
     return (await bigBrainAPIMaybeThrows({
       ctx,
       method: "GET",
-      url: `deployments/${deploymentName}/workos_environment_health`,
+      path: `deployments/${deploymentName}/workos_environment_health`,
     })) as components["schemas"]["WorkOSEnvironmentHealthResponse"];
   } catch (error: any) {
     if (error?.serverErrorData?.code === "WorkOSEnvironmentNotProvisioned") {
@@ -219,7 +219,7 @@ export async function disconnectWorkOSTeam(
     const result = (await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
-      url: "workos/disconnect_workos_team",
+      path: "workos/disconnect_workos_team",
       data: JSON.stringify(request),
     })) as components["schemas"]["DisconnectWorkOSTeamResponse"];
     return {
@@ -269,7 +269,7 @@ export async function inviteToWorkosTeam(
     const result = await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
-      url: "workos/invite_team_member",
+      path: "workos/invite_team_member",
       data: JSON.stringify({ teamId, email }),
     });
     return { result: "success", ...result };
@@ -319,7 +319,7 @@ export async function listProjectWorkOSEnvironments(
   >({
     ctx,
     method: "GET",
-    url: `projects/${projectId}/workos_environments`,
+    path: `projects/${projectId}/workos_environments`,
   });
   return response.environments;
 }
@@ -333,7 +333,7 @@ export async function createProjectWorkOSEnvironment(
   return bigBrainAPI<ProvisionProjectEnvironmentResponse>({
     ctx,
     method: "POST",
-    url: `projects/${projectId}/workos_environments`,
+    path: `projects/${projectId}/workos_environments`,
     data: { environmentName, isProduction },
   });
 }
@@ -346,7 +346,7 @@ export async function getProjectWorkOSEnvironment(
   return bigBrainAPI<GetProjectEnvironmentResponse>({
     ctx,
     method: "GET",
-    url: `projects/${projectId}/workos_environments/${clientId}`,
+    path: `projects/${projectId}/workos_environments/${clientId}`,
   });
 }
 
@@ -358,7 +358,7 @@ export async function deleteProjectWorkOSEnvironment(
   return bigBrainAPI<DeleteProjectEnvironmentResponse>({
     ctx,
     method: "POST",
-    url: "workos/delete_project_environment",
+    path: "workos/delete_project_environment",
     data: { projectId, clientId },
   });
 }
