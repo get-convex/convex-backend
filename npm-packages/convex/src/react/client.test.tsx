@@ -113,6 +113,41 @@ describe("useQuery", () => {
     expect(result.current).toStrictEqual(undefined);
   });
 
+  test("object form returns success result", () => {
+    const client = createClientWithQuery();
+    const wrapper = ({ children }: any) => (
+      <ConvexProvider client={client}>{children}</ConvexProvider>
+    );
+    const { result } = renderHook(
+      () =>
+        useQuery({
+          query: anyApi.myQuery.default,
+          args: {},
+        }),
+      { wrapper },
+    );
+    expect(result.current).toStrictEqual({
+      data: "queryResult",
+      error: undefined,
+      status: "success",
+    });
+  });
+
+  test("object form returns pending when skipped", () => {
+    const client = createClientWithQuery();
+    const wrapper = ({ children }: any) => (
+      <ConvexProvider client={client}>{children}</ConvexProvider>
+    );
+    const { result } = renderHook(() => useQuery("skip"), {
+      wrapper,
+    });
+    expect(result.current).toStrictEqual({
+      data: undefined,
+      error: undefined,
+      status: "pending",
+    });
+  });
+
   test("Optimistic update handlers can’t be async", () => {
     const client = testConvexReactClient();
     const mutation = createMutation(

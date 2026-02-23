@@ -802,6 +802,33 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
     : [args: FuncRef["_args"] | "skip"];
 
 /**
+ * Result returned by object-form {@link useQuery}.
+ *
+ * @public
+ */
+export type UseQueryResult<QueryResult> =
+  | {
+      data: QueryResult;
+      error: undefined;
+      status: "success";
+    }
+  | {
+      data: undefined;
+      error: Error;
+      status: "error";
+    }
+  | {
+      data: undefined;
+      error: undefined;
+      status: "pending";
+    };
+
+type UseQueryObjectOptions<Query extends FunctionReference<"query">> =
+  QueryOptions<Query> & {
+    throwOnError?: boolean;
+  };
+
+/**
  * Load a reactive query within a React component.
  *
  * This React hook subscribes to a Convex query and causes a rerender whenever
@@ -853,22 +880,26 @@ export function useQuery<Query extends FunctionReference<"query">>(
  * Load a reactive query within a React component using an options object.
  *
  * @param options - Query options or the string `"skip"`.
- * @returns the result of the query. Returns `undefined` while loading.
+ * @returns the current query state.
  *
  * @public
  */
 export function useQuery<Query extends FunctionReference<"query">>(
-  options: QueryOptions<Query> | "skip",
-): Query["_returnType"] | undefined;
+  options: UseQueryObjectOptions<Query> | "skip",
+): UseQueryResult<Query["_returnType"]>;
 
 export function useQuery<Query extends FunctionReference<"query">>(
-  queryOrOptions: Query | QueryOptions<Query> | "skip",
+  queryOrOptions: Query | UseQueryObjectOptions<Query> | "skip",
   ...args: OptionalRestArgsOrSkip<Query>
-): Query["_returnType"] | undefined {
+): Query["_returnType"] | undefined | UseQueryResult<Query["_returnType"]> {
   const isObjectOptions =
     typeof queryOrOptions === "object" &&
     queryOrOptions !== null &&
     "query" in queryOrOptions;
+  const isObjectOverload = isObjectOptions || queryOrOptions === "skip";
+  const throwOnError = isObjectOptions
+    ? (queryOrOptions.throwOnError ?? false)
+    : true;
   const skip =
     queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
 
@@ -906,6 +937,34 @@ export function useQuery<Query extends FunctionReference<"query">>(
 
   const results = useQueries(queries);
   const result = results["query"];
+
+  if (isObjectOverload) {
+    if (result instanceof Error) {
+      if (throwOnError) {
+        throw result;
+      }
+      return {
+        data: undefined,
+        error: result,
+        status: "error",
+      };
+    }
+
+    if (result === undefined) {
+      return {
+        data: undefined,
+        error: undefined,
+        status: "pending",
+      };
+    }
+
+    return {
+      data: result,
+      error: undefined,
+      status: "success",
+    };
+  }
+
   if (result instanceof Error) {
     throw result;
   }
