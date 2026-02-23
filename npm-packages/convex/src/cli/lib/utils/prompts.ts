@@ -47,6 +47,27 @@ export const promptString = async (
   }
 };
 
+export const promptSecret = async (
+  ctx: Context,
+  options: {
+    message: string;
+  },
+): Promise<string> => {
+  if (process.stdin.isTTY) {
+    return input({
+      message: options.message,
+      transformer: (val, { isFinal }) =>
+        isFinal ? "*".repeat(val.length) : val,
+    }).catch(handlePromptError(ctx));
+  } else {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Cannot prompt for input in non-interactive terminals. (${options.message})`,
+    });
+  }
+};
+
 export const promptOptions = async <V>(
   ctx: Context,
   options: {

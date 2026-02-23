@@ -8,6 +8,7 @@ import {
 } from "../../bundler/log.js";
 import { runSystemQuery } from "./run.js";
 import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
+import { promptSecret } from "./utils/prompts.js";
 import { readFromStdin } from "./utils/stdin.js";
 
 export async function envSetInDeployment(
@@ -56,11 +57,10 @@ async function allowEqualsSyntax(
         });
       }
     } else {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: "error: missing required argument 'value'",
+      const value = await promptSecret(ctx, {
+        message: `Enter value for ${name}:`,
       });
+      return [name, value];
     }
   }
   return [name, value];
