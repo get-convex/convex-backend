@@ -35,6 +35,17 @@ export type PaginatedQueryReference = FunctionReference<
   PaginationResult<any>
 >;
 
+/**
+ * Options for object-form {@link usePaginatedQuery}.
+ *
+ * @public
+ */
+export type UsePaginatedQueryOptions<Query extends PaginatedQueryReference> = {
+  query: Query;
+  args: PaginatedQueryArgs<Query> | "skip";
+  initialNumItems: number;
+};
+
 // Incrementing integer for each page queried in the usePaginatedQuery hook.
 type QueryPageKey = number;
 
@@ -163,8 +174,42 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   query: Query,
   args: PaginatedQueryArgs<Query> | "skip",
   options: { initialNumItems: number },
+): UsePaginatedQueryReturnType<Query>;
+
+/**
+ * Load data reactively from a paginated query using an options object.
+ *
+ * @param options - Object-form options for the paginated query.
+ * @returns A {@link UsePaginatedQueryResult} that includes the currently loaded
+ * items, the status of the pagination, and a `loadMore` function.
+ *
+ * @public
+ */
+export function usePaginatedQuery<Query extends PaginatedQueryReference>(
+  options: UsePaginatedQueryOptions<Query>,
+): UsePaginatedQueryReturnType<Query>;
+
+export function usePaginatedQuery<Query extends PaginatedQueryReference>(
+  queryOrOptions: Query | UsePaginatedQueryOptions<Query>,
+  args?: PaginatedQueryArgs<Query> | "skip",
+  options?: { initialNumItems: number },
 ): UsePaginatedQueryReturnType<Query> {
-  const { user } = usePaginatedQueryInternal(query, args, options);
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    "query" in queryOrOptions;
+
+  const query = isObjectOptions ? queryOrOptions.query : queryOrOptions;
+  const queryArgs = isObjectOptions ? queryOrOptions.args : args;
+  const initialOptions = isObjectOptions
+    ? { initialNumItems: queryOrOptions.initialNumItems }
+    : options;
+
+  const { user } = usePaginatedQueryInternal(
+    query,
+    queryArgs as PaginatedQueryArgs<Query> | "skip",
+    initialOptions as { initialNumItems: number },
+  );
   return user;
 }
 

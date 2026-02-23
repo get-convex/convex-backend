@@ -159,6 +159,71 @@ describe.each([
       });
     });
 
+    test("Returns nothing when object-form args are 'skip'", () => {
+      const convexClient = new ConvexReactClient(address);
+      const watchQuerySpy =
+        version === "hook-based logic"
+          ? vi.spyOn(convexClient, "watchQuery")
+          : vi.spyOn(convexClient, "watchPaginatedQuery");
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+      );
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedQuery({
+            query: makeFunctionReference<"query">("myQuery"),
+            args: "skip",
+            initialNumItems: 10,
+          }),
+        { wrapper },
+      );
+
+      expect(watchQuerySpy.mock.calls).toEqual([]);
+      expect(result.current).toMatchObject({
+        isLoading: true,
+        results: [],
+        status: "LoadingFirstPage",
+      });
+    });
+
+    test("Initially returns LoadingFirstPage for object options", () => {
+      const convexClient = new ConvexReactClient(address);
+      const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+      );
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedQuery({
+            query: makeFunctionReference<"query">("myQuery"),
+            args: {},
+            initialNumItems: 10,
+          }),
+        { wrapper },
+      );
+
+      if (version === "hook-based logic") {
+        expect(watchQuerySpy.mock.calls[1]).toEqual([
+          makeFunctionReference("myQuery"),
+          {
+            paginationOpts: {
+              cursor: null,
+              id: expect.anything(),
+              numItems: 10,
+            },
+          },
+          { journal: undefined },
+        ]);
+      }
+      expect(result.current).toMatchObject({
+        isLoading: true,
+        results: [],
+        status: "LoadingFirstPage",
+      });
+    });
+
     test("Initially returns LoadingFirstPage", () => {
       const convexClient = new ConvexReactClient(address);
       const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
