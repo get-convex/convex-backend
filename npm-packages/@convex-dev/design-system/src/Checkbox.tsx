@@ -32,7 +32,7 @@ export function Checkbox({
       type="checkbox"
       className={cn(
         "form-checkbox size-3.5 rounded-sm enabled:cursor-pointer enabled:hover:text-content-link enabled:hover:outline enabled:hover:outline-content-primary disabled:cursor-not-allowed disabled:opacity-50",
-        "focus:ring-0 focus:outline-0",
+        "focus:ring-0 focus:ring-offset-0 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-selected focus-visible:outline-solid",
         "bg-background-secondary text-util-accent ring-offset-background-secondary checked:bg-util-accent",
         className,
       )}
