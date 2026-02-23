@@ -10,6 +10,7 @@ use utoipa::ToSchema;
     Debug,
     PartialEq,
     Eq,
+    Hash,
     strum::EnumString,
     strum::Display,
     strum::VariantArray,
