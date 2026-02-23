@@ -972,6 +972,57 @@ export function useQuery<Query extends FunctionReference<"query">>(
 }
 
 /**
+ * Load a reactive query within a React component and suspend while loading.
+ *
+ * This is a thin wrapper around {@link useQuery} that throws a promise while
+ * the query is loading.
+ *
+ * @public
+ */
+export function useSuspenseQuery<Query extends FunctionReference<"query">>(
+  query: Query,
+  ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined;
+export function useSuspenseQuery<Query extends FunctionReference<"query">>(
+  options: QueryOptions<Query> | "skip",
+): Query["_returnType"] | undefined;
+
+export function useSuspenseQuery<Query extends FunctionReference<"query">>(
+  queryOrOptions: Query | QueryOptions<Query> | "skip",
+  ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined {
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    "query" in queryOrOptions;
+  const isObjectOverload = isObjectOptions || queryOrOptions === "skip";
+  const skip =
+    queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
+  const result = useQuery(queryOrOptions as Query | UseQueryObjectOptions<Query>, ...args);
+  const suspensePromise = useMemo(() => new Promise<never>(() => {}), []);
+
+  if (isObjectOverload) {
+    const objectResult = result as UseQueryResult<Query["_returnType"]>;
+    if (objectResult.status === "error") {
+      throw objectResult.error;
+    }
+    if (objectResult.status === "pending") {
+      if (!skip) {
+        throw suspensePromise;
+      }
+      return undefined;
+    }
+    return objectResult.data;
+  }
+
+  if (result === undefined && !skip) {
+    throw suspensePromise;
+  }
+
+  return result;
+}
+
+/**
  * Construct a new {@link ReactMutation}.
  *
  * Returns a function that you can call to execute a Convex mutation. The
