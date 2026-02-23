@@ -96,6 +96,27 @@ export function useProvisionDeployment(projectId: number) {
   });
 }
 
+export function useModifyDeploymentSettings({
+  deploymentName,
+  projectId,
+}: {
+  deploymentName: string | undefined;
+  projectId: number | undefined;
+}) {
+  return useManagementApiMutation({
+    path: "/deployments/{deployment_name}",
+    pathParams: {
+      deployment_name: deploymentName ?? "",
+    },
+    method: "patch",
+    mutateKey: `/projects/{project_id}/list_deployments`,
+    mutatePathParams: {
+      project_id: projectId ?? 0,
+    },
+    successToast: "Deployment reference updated successfully",
+  });
+}
+
 export function useDeploymentRegions(teamId: number | undefined) {
   const { data, isLoading } = useManagementApiQuery({
     path: "/teams/{team_id}/list_deployment_regions",

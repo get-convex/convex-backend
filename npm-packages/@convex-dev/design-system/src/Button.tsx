@@ -11,7 +11,7 @@ export type ButtonProps = {
   children?: React.ReactNode;
   variant?: "primary" | "danger" | "neutral" | "unstyled";
   inline?: boolean;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: ButtonSize;
   focused?: boolean;
   icon?: React.ReactNode;
   className?: string;
@@ -49,6 +49,8 @@ export type ButtonProps = {
         target?: React.AnchorHTMLAttributes<HTMLAnchorElement>["target"];
       }
   );
+
+export type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
   {

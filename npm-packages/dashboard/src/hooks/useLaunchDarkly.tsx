@@ -9,6 +9,7 @@ const flagDefaults: {
   enableNewDashboardVersionNotification: boolean;
   enableStatuspageWidget: boolean;
   connectionStateCheckIntervalMs: number;
+  showReferences: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -17,6 +18,7 @@ const flagDefaults: {
   enableNewDashboardVersionNotification: false,
   enableStatuspageWidget: true,
   connectionStateCheckIntervalMs: 2500,
+  showReferences: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

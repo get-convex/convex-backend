@@ -53,7 +53,7 @@ export const useMutateManagementApi = createMutateHook(
 );
 
 type Path<M extends "post" | "put" | "get"> = PathsWithMethod<BigBrainPaths, M>;
-type ManagementPath<M extends "post" | "put" | "get" | "delete"> =
+type ManagementPath<M extends "post" | "put" | "get" | "delete" | "patch"> =
   PathsWithMethod<ManagementApiPaths, M>;
 
 export const useSSOLoginRequired = createGlobalState<string>();
@@ -413,7 +413,7 @@ export function useManagementApiQuery<QueryPath extends ManagementPath<"get">>({
 export function useManagementApiMutation<
   T extends ManagementPath<Method>,
   M extends ManagementPath<"get">,
-  Method extends "post" | "put" | "delete" = "post",
+  Method extends "post" | "put" | "delete" | "patch" = "post",
 >({
   path,
   pathParams,
@@ -464,7 +464,9 @@ export function useManagementApiMutation<
           ? managementApiClient.PUT
           : method === "delete"
             ? managementApiClient.DELETE
-            : managementApiClient.POST;
+            : method === "patch"
+              ? managementApiClient.PATCH
+              : managementApiClient.POST;
 
       const {
         error,

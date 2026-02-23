@@ -10,9 +10,11 @@ import {
   DeploymentUrl,
   HttpActionsUrl,
 } from "@common/features/settings/components/DeploymentUrl";
+import { DeploymentReference } from "components/deploymentSettings/DeploymentReference";
 import { PauseDeployment } from "@common/features/settings/components/PauseDeployment";
 import { useScrollToHash } from "@common/lib/useScrollToHash";
 import { usePostHog } from "hooks/usePostHog";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useRef } from "react";
 
 export { getServerSideProps } from "lib/ssr";
@@ -45,6 +47,7 @@ function DeploymentURLAndDeployKey() {
   const { capture } = usePostHog();
   const pauseDeploymentRef = useRef<HTMLDivElement | null>(null);
   useScrollToHash("#pause-deployment", pauseDeploymentRef);
+  const { showReferences } = useLaunchDarkly();
 
   const getDeploymentUrlDescription = () => {
     switch (deploymentType) {
@@ -69,6 +72,7 @@ function DeploymentURLAndDeployKey() {
       <Sheet>
         <HttpActionsUrl />
       </Sheet>
+      {showReferences && <DeploymentReference />}
       <Sheet>
         <DeployKeysForDeployment />
       </Sheet>
