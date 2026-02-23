@@ -83,6 +83,7 @@ export {
   useConvex,
   ConvexProvider,
   useQuery,
+  useSuspenseQuery,
   useMutation,
   useAction,
   useConvexConnectionState,
