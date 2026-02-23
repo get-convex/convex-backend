@@ -96,7 +96,7 @@ export function DefaultEnvironmentVariablesInner({
                 newConfig: {
                   name: newEnvVar.name,
                   value: newEnvVar.value,
-                  deploymentTypes: newEnvVar.deploymentTypes,
+                  deploymentTypes: [...newEnvVar.deploymentTypes],
                 },
               })),
               ...modifications.map(({ oldEnvVar, newEnvVar }) => ({
@@ -104,7 +104,7 @@ export function DefaultEnvironmentVariablesInner({
                 newConfig: {
                   name: newEnvVar.name,
                   value: newEnvVar.value,
-                  deploymentTypes: newEnvVar.deploymentTypes,
+                  deploymentTypes: [...newEnvVar.deploymentTypes],
                 },
               })),
               ...deletions.map((oldVariable) => ({
@@ -153,7 +153,7 @@ export function validateProjectEnvVarUniqueness(
   // Group by name
   const byName = new Map<
     string,
-    Array<{ formKey: string; deploymentTypes: DeploymentTypeType[] }>
+    Array<{ formKey: string; deploymentTypes: readonly DeploymentTypeType[] }>
   >();
 
   allVariables.forEach(({ name, formKey, envVar }) => {

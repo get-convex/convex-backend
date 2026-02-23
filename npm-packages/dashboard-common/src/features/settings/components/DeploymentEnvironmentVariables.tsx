@@ -161,13 +161,17 @@ export const diffEnvironmentVariables = (
       .filter((config) => config.deploymentTypes.includes(deploymentType))
       .map((config) => [config.name, config.value]);
   const projectEnvVariableMap = new Map(projectEnvVariableArray);
+  const missingOrDifferent = new Map<string, string>();
   for (const [name, value] of projectEnvVariableMap) {
     if (deploymentEnvVarMap.get(name) !== value) {
-      return {
-        status: "different",
-        projectEnvVariables: projectEnvVariableMap,
-      };
+      missingOrDifferent.set(name, value);
     }
+  }
+  if (missingOrDifferent.size > 0) {
+    return {
+      status: "different",
+      projectEnvVariables: missingOrDifferent,
+    };
   }
   return {
     status: "same",
