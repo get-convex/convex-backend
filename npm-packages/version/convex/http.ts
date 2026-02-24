@@ -26,6 +26,8 @@ const COMMON_HEADERS = {
 type VersionResponse = {
   message: string | null;
   cursorRulesHash: string | null;
+  guidelinesHash: string | null;
+  agentSkillsSha: string | null;
 };
 
 http.route({
@@ -35,10 +37,13 @@ http.route({
     const convexClientHeader = req.headers.get("Convex-Client");
     const clientVersion = extractVersionFromHeader(convexClientHeader);
 
-    const [npmVersionData, cursorRulesData] = await Promise.all([
-      getCachedAndScheduleRefresh(ctx, internal.npm),
-      getCursorRulesForVersion(ctx, clientVersion),
-    ]);
+    const [npmVersionData, cursorRulesData, guidelinesData, agentSkillsData] =
+      await Promise.all([
+        getCachedOrRefresh(ctx, internal.npm),
+        getCursorRulesForVersion(ctx, clientVersion),
+        getCachedOrRefresh(ctx, internal.guidelines),
+        getCachedOrRefresh(ctx, internal.agentSkills),
+      ]);
 
     const message = npmVersionData
       ? generateMessage(npmVersionData, convexClientHeader)
@@ -48,6 +53,8 @@ http.route({
       JSON.stringify({
         message,
         cursorRulesHash: cursorRulesData?.hash ?? null,
+        guidelinesHash: guidelinesData?.hash ?? null,
+        agentSkillsSha: agentSkillsData?.sha ?? null,
       } satisfies VersionResponse),
       {
         status: 200,
@@ -70,7 +77,7 @@ http.route({
     const cursorRulesData = await getCursorRulesForVersion(ctx, clientVersion);
 
     if (!cursorRulesData) {
-      return new Response("Can’t get the Cursor rules", {
+      return new Response("Can't get the Cursor rules", {
         status: 500,
         headers: COMMON_HEADERS,
       });
@@ -86,7 +93,41 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/v1/guidelines",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    const guidelinesData = await getCachedOrRefresh(ctx, internal.guidelines);
+
+    if (!guidelinesData) {
+      return new Response("Can't get guidelines", {
+        status: 500,
+        headers: COMMON_HEADERS,
+      });
+    }
+
+    return new Response(guidelinesData.content, {
+      status: 200,
+      headers: {
+        ...COMMON_HEADERS,
+        "Content-Type": "text/plain",
+      },
+    });
+  }),
+});
+
 // Handle CORS preflight requests
+http.route({
+  path: "/v1/guidelines",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 200,
+      headers: COMMON_HEADERS,
+    });
+  }),
+});
+
 http.route({
   path: "/v1/version",
   method: "OPTIONS",
@@ -113,7 +154,7 @@ http.route({
   path: "/v1/local_backend_version",
   method: "GET",
   handler: httpAction(async (ctx) => {
-    const localBackendVersionData = await getCachedAndScheduleRefresh(
+    const localBackendVersionData = await getCachedOrRefresh(
       ctx,
       internal.localBackend,
     );
@@ -152,13 +193,10 @@ http.route({
 });
 
 /**
- * Get the latest cached value. If it’s stale, return it and schedule a refresh.
- *
- * If we have no current cached version, get the latest version and cache it.
+ * Return the cached value if one exists, otherwise fetch and cache a fresh one.
+ * Periodic background refreshes are handled by the cron jobs in `crons.ts`.
  */
-export async function getCachedAndScheduleRefresh<
-  Doc extends { _creationTime: number },
->(
+export async function getCachedOrRefresh<Doc extends { _creationTime: number }>(
   ctx: ActionCtx,
   module: {
     getCached: FunctionReference<
@@ -197,7 +235,7 @@ async function getCursorRulesForVersion(
     };
   }
 
-  return await getCachedAndScheduleRefresh(ctx, internal.cursorRules);
+  return await getCachedOrRefresh(ctx, internal.cursorRules);
 }
 
 export default http;

@@ -10,7 +10,15 @@ export default defineSchema({
     version: v.string(),
     content: v.string(),
   }),
+  guidelines: defineTable({
+    hash: v.string(),
+    version: v.string(),
+    content: v.string(),
+  }),
   localBackendVersion: defineTable({
     version: v.string(),
+  }),
+  agentSkills: defineTable({
+    sha: v.string(),
   }),
 });

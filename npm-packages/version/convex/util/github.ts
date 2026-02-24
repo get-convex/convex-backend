@@ -15,7 +15,7 @@ type LinkHeader = {
 /**
  * Get headers for GitHub API requests with authentication if available
  */
-function getGitHubHeaders(): HeadersInit {
+export function getGitHubHeaders(): HeadersInit {
   const githubToken = process.env.GITHUB_TOKEN;
   if (!githubToken) {
     console.warn(
