@@ -420,7 +420,7 @@ export interface components {
         /** @description Encrypted admin key */
         AdminKey: string;
         /** @enum {string} */
-        CreateDeploymentType: "dev" | "prod";
+        CreateDeploymentType: "dev" | "prod" | "custom";
         /** @enum {string} */
         DeploymentClass: "s16" | "s256" | "d1024";
         DeploymentClassMetadata: {

@@ -830,7 +830,8 @@
         "type": "string",
         "enum": [
           "dev",
-          "prod"
+          "prod",
+          "custom"
         ]
       },
       "DeploymentClass": {
