@@ -36,6 +36,7 @@ const deployment: PlatformDeploymentResponse = {
   kind: "cloud",
   id: 1,
   name: "joyful-capybara-123",
+  deploymentUrl: "https://joyful-capybara-123.convex.cloud",
   deploymentType: "prod",
   createTime: +oneDayAgo,
   projectId: 1,

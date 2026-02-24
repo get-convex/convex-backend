@@ -15,7 +15,7 @@ import {
   Share1Icon,
 } from "@radix-ui/react-icons";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { ProjectDetails, TeamResponse } from "generatedApi";
+import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
 import {
   PROVISION_DEV_PAGE_NAME,
   PROVISION_PROD_PAGE_NAME,
@@ -31,7 +31,7 @@ export function DeploymentMenuOptions({
 }: {
   team: TeamResponse;
   project: ProjectDetails;
-  deployments: PlatformDeploymentResponse[];
+  deployments: (PlatformDeploymentResponse | DeploymentResponse)[];
 }) {
   const member = useProfile();
   const router = useRouter();
@@ -305,7 +305,7 @@ function AllPersonalDeployments({
 }: {
   project: ProjectDetails;
   team: TeamResponse;
-  deployments: PlatformDeploymentResponse[];
+  deployments: (PlatformDeploymentResponse | DeploymentResponse)[];
 }) {
   const member = useProfile();
   const router = useRouter();
@@ -319,7 +319,7 @@ function AllPersonalDeployments({
   const currentView = router.asPath.split("?")[0].split("/").slice(5).join("/");
   const allDevDeployments = sortDevDeployments(
     deployments.filter(
-      (d: PlatformDeploymentResponse) =>
+      (d: PlatformDeploymentResponse | DeploymentResponse) =>
         d.deploymentType === "dev" && d.creator === member?.id,
     ),
   );
@@ -373,7 +373,9 @@ function AllPersonalDeployments({
   );
 }
 
-function sortDevDeployments(deployments: PlatformDeploymentResponse[]) {
+function sortDevDeployments(
+  deployments: (PlatformDeploymentResponse | DeploymentResponse)[],
+) {
   return deployments.sort((a, b) => {
     // Sort inactive local deployments to the end
     if (a.kind === "local" && !a.isActive) {

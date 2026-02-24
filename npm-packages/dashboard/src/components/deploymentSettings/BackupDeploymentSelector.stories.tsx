@@ -75,6 +75,7 @@ const createDeployment = (overrides: {
   region: "us-east-1",
   isDefault: false,
   previewIdentifier: null,
+  deploymentUrl: `https://${overrides.name}.convex.cloud`,
   ...overrides,
 });
 

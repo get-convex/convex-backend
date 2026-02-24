@@ -591,6 +591,8 @@ export interface components {
             dashboardEditConfirmation?: boolean | null;
             /** @description The type of this deployment. */
             deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The full backend URL for this deployment (e.g. "https://joyful-capybara-123.convex.cloud" or "https://calm-cow-456.eu-west-1.convex.cloud"). This is always a `.convex.cloud` URL, even when the deployment is using custom domains. To get the canonical URL, use [`/get_canonical_urls`](https://docs.convex.dev/deployment-api/get-canonical-urls). */
+            deploymentUrl: string;
             id: components["schemas"]["DeploymentId"];
             /** @description For prod deployments, whether they are the default prod deployment
              *     of the project. For dev deployments, whether they are the default

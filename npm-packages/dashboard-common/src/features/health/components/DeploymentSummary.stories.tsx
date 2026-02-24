@@ -45,6 +45,7 @@ const prodDeployment: PlatformDeploymentResponse = {
   creator: null,
   previewIdentifier: null,
   reference: "production",
+  deploymentUrl: "https://happy-animal-123.convex.cloud",
 };
 
 const devCloudDeployment: PlatformDeploymentResponse = {
@@ -59,6 +60,7 @@ const devCloudDeployment: PlatformDeploymentResponse = {
   creator: 123,
   previewIdentifier: null,
   reference: "dev/nicolas",
+  deploymentUrl: "https://joyful-capybara-123.convex.cloud",
 };
 
 const devLocalDeployment: PlatformDeploymentResponse = {
@@ -86,6 +88,7 @@ const previewDeployment: PlatformDeploymentResponse = {
   creator: 456,
   previewIdentifier: "pr-42",
   reference: "preview/my-feature",
+  deploymentUrl: "https://musical-dog-123.convex.cloud",
 };
 
 const customDeployment: PlatformDeploymentResponse = {
@@ -100,6 +103,7 @@ const customDeployment: PlatformDeploymentResponse = {
   creator: 789,
   previewIdentifier: null,
   reference: "staging",
+  deploymentUrl: "https://wandering-fish-513.convex.cloud",
 };
 
 const mockRegions = [

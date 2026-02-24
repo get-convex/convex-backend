@@ -21,7 +21,7 @@ import { Checkbox } from "@ui/Checkbox";
 import { Menu, MenuItem } from "@ui/Menu";
 import { useEffect, useId, useRef, useState } from "react";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { ProjectDetails, TeamResponse } from "generatedApi";
+import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
 import { useDeploymentById } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProjectById } from "api/projects";
@@ -636,7 +636,7 @@ export function FullDeploymentName({
   deployment,
   showProjectName = true,
 }: {
-  deployment: PlatformDeploymentResponse;
+  deployment: PlatformDeploymentResponse | DeploymentResponse;
   showProjectName?: boolean;
 }) {
   const { project, isLoading } = useProjectById(deployment.projectId);
@@ -667,7 +667,7 @@ export function FullDeploymentName({
 
 function useMemberName(
   project: ProjectDetails | undefined,
-  deployment: PlatformDeploymentResponse | undefined,
+  deployment: PlatformDeploymentResponse | DeploymentResponse | undefined,
 ) {
   const teamMembers = useTeamMembers(project?.teamId);
   const whose = teamMembers?.find((tm) => tm.id === deployment?.creator);
@@ -822,7 +822,7 @@ function DeploymentLabel({
   whoseName,
   deployment,
 }: {
-  deployment: PlatformDeploymentResponse;
+  deployment: PlatformDeploymentResponse | DeploymentResponse;
   whoseName: string | null;
 }) {
   return (

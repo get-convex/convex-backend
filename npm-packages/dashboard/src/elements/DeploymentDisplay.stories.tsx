@@ -1,9 +1,10 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked } from "storybook/test";
-import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { DeploymentLabel } from "./DeploymentDisplay";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 
 // Mock data
 const mockTeam: TeamResponse = {
@@ -25,11 +26,11 @@ const mockProject: ProjectDetails = {
 };
 
 function createCloudDeployment(
-  overrides: Partial<Extract<DeploymentResponse, { kind: "cloud" }>> & {
+  overrides: Partial<Extract<PlatformDeploymentResponse, { kind: "cloud" }>> & {
     name: string;
-    deploymentType: DeploymentResponse["deploymentType"];
+    deploymentType: PlatformDeploymentResponse["deploymentType"];
   },
-): DeploymentResponse {
+): PlatformDeploymentResponse {
   return {
     id: Math.floor(Math.random() * 1000),
     createTime: Date.now(),
@@ -37,15 +38,16 @@ function createCloudDeployment(
     kind: "cloud",
     region: "us-east-1",
     isDefault: true,
+    deploymentUrl: `https://${overrides.name}.convex.cloud`,
     ...overrides,
-  } as DeploymentResponse;
+  } as PlatformDeploymentResponse;
 }
 
 function createLocalDeployment(
-  overrides: Partial<Extract<DeploymentResponse, { kind: "local" }>> & {
+  overrides: Partial<Extract<PlatformDeploymentResponse, { kind: "local" }>> & {
     name: string;
   },
-): DeploymentResponse {
+): PlatformDeploymentResponse {
   return {
     id: Math.floor(Math.random() * 1000),
     createTime: Date.now(),
@@ -59,7 +61,7 @@ function createLocalDeployment(
     creator: 1,
     isDefault: false,
     ...overrides,
-  } as DeploymentResponse;
+  } as PlatformDeploymentResponse;
 }
 
 const prodDeployment = createCloudDeployment({
