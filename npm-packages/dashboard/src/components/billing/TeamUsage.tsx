@@ -37,11 +37,7 @@ import sumBy from "lodash/sumBy";
 import classNames from "classnames";
 import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ExternalLinkIcon,
-} from "@radix-ui/react-icons";
+import { ChevronLeftIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { DateRange, useCurrentBillingPeriod } from "api/usage";
 import { cn } from "@ui/cn";
 import { usePagination } from "hooks/usePagination";
@@ -56,7 +52,6 @@ import {
   FILE_BANDWIDTH_CATEGORIES,
   FILE_STORAGE_CATEGORIES,
 } from "./lib/teamUsageCategories";
-import { FunctionBreakdownSelector } from "./FunctionBreakdownSelector";
 import {
   FunctionBreakdownMetric,
   FunctionBreakdownMetricActionCompute,
@@ -101,37 +96,7 @@ export type UsageSectionId =
   | "filesBandwidth"
   | "vectorsStorage"
   | "vectorsBandwidth"
-  | "deployments"
-  | "functionBreakdown";
-
-function FunctionBreakdownLink() {
-  const router = useRouter();
-  const { section: _s, tab: _t, ...restQuery } = router.query;
-  const linkHref = {
-    pathname: router.pathname,
-    query: { ...restQuery, section: "functionBreakdown" },
-  };
-
-  return (
-    <Button
-      variant="unstyled"
-      onClick={() => {
-        void router.push(linkHref, undefined, { shallow: true });
-      }}
-      className="group w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-border-selected"
-    >
-      <Sheet className="flex items-center justify-between transition-colors group-hover:bg-background-tertiary group-focus-visible:bg-background-tertiary">
-        <div>
-          <h3>Breakdown by function</h3>
-          <p className="text-xs text-content-secondary">
-            See usage broken down by project and function
-          </p>
-        </div>
-        <ChevronRightIcon className="size-5 text-content-secondary" />
-      </Sheet>
-    </Button>
-  );
-}
+  | "deployments";
 
 export function TeamUsage({ team }: { team: TeamResponse }) {
   const router = useRouter();
@@ -278,7 +243,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
             }}
           />
 
-          <div className="overflow-x-hidden">
+          <div className="overflow-x-clip">
             <div
               className={cn(
                 "flex gap-6 transition-transform duration-500 motion-reduce:transition-none",
@@ -305,7 +270,13 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                   error={teamSummaryError}
                 />
 
-                <FunctionBreakdownLink />
+                <FunctionBreakdownSection
+                  team={team}
+                  dateRange={dateRange}
+                  projectId={projectId}
+                  componentPrefix={componentPrefix}
+                  shownBillingPeriod={shownBillingPeriod}
+                />
               </div>
 
               {/* Detail pane */}
@@ -406,16 +377,6 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                     componentPrefix={componentPrefix}
                   />
                 )}
-
-                {section === "functionBreakdown" && (
-                  <FunctionBreakdownSection
-                    team={team}
-                    dateRange={dateRange}
-                    projectId={projectId}
-                    componentPrefix={componentPrefix}
-                    shownBillingPeriod={shownBillingPeriod}
-                  />
-                )}
               </div>
             </div>
           </div>
@@ -481,22 +442,37 @@ function FunctionBreakdownSection({
 
   return (
     <TeamUsageSection
+      stickyHeader
       header={
         <>
           <h3>Breakdown by function</h3>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <FunctionBreakdownSelector
-              value={functionBreakdownTabIndex}
-              onChange={setFunctionBreakdownTabIndex}
-            />
-
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
+          <div className="flex overflow-hidden rounded border">
+            {FUNCTION_BREAKDOWN_TABS.map((tab, index) => (
+              <Button
+                key={tab.name}
+                variant="unstyled"
+                className={cn(
+                  "px-3 py-1 text-sm capitalize",
+                  index > 0 && "border-l",
+                  functionBreakdownTabIndex === index
+                    ? "bg-background-tertiary font-medium"
+                    : "text-content-secondary hover:bg-background-tertiary/50",
+                )}
+                onClick={() => {
+                  setFunctionBreakdownTabIndex(index);
+                }}
+              >
+                {tab.name}
+              </Button>
+            ))}
           </div>
+
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </>
       }
     >
@@ -590,19 +566,8 @@ function FunctionUsageBreakdown({
 
   return (
     <div className="scrollbar animate-fadeInFromLoading overflow-y-auto">
-      {usageByProject.map(({ key, projectId, rows, total }) => (
-        <FunctionUsageBreakdownByProject
-          key={key}
-          projectId={projectId}
-          metric={metric}
-          rows={rows}
-          projectTotal={total}
-          maxValue={maxValue}
-          team={team}
-        />
-      ))}
       {metric.categories !== undefined ? (
-        <div className="flex items-center gap-6">
+        <div className="mb-4 flex items-center gap-6">
           {metric.categories.map((category, index) => (
             <div key={index} className="flex items-center gap-2">
               <div
@@ -616,6 +581,17 @@ function FunctionUsageBreakdown({
           ))}
         </div>
       ) : null}
+      {usageByProject.map(({ key, projectId, rows, total }) => (
+        <FunctionUsageBreakdownByProject
+          key={key}
+          projectId={projectId}
+          metric={metric}
+          rows={rows}
+          projectTotal={total}
+          maxValue={maxValue}
+          team={team}
+        />
+      ))}
     </div>
   );
 }
@@ -1629,10 +1605,20 @@ function useHasSubscription(teamId?: number): boolean | undefined {
 function TeamUsageSection({
   header,
   children,
-}: React.PropsWithChildren<{ header: React.ReactNode }>) {
+  stickyHeader,
+}: React.PropsWithChildren<{
+  header: React.ReactNode;
+  stickyHeader?: boolean;
+}>) {
   return (
     <section>
-      <header>
+      <header
+        className={
+          stickyHeader
+            ? "sticky top-(--team-usage-toolbar-height) z-10 bg-background-primary pt-2"
+            : undefined
+        }
+      >
         <div className="flex w-full flex-wrap items-center justify-between gap-4 rounded-t-lg border bg-background-secondary p-4 py-2">
           {header}
         </div>

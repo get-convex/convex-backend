@@ -2,6 +2,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DoubleArrowLeftIcon,
+  DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Combobox, Option } from "@ui/Combobox";
@@ -145,7 +146,7 @@ function OffsetPaginationControls({
         variant="neutral"
         inline
         size="sm"
-        icon={<ChevronRightIcon />}
+        icon={<DoubleArrowRightIcon />}
         onClick={() => onPageChange(totalPages)}
         disabled={currentPage === totalPages}
         aria-label="Go to last page"

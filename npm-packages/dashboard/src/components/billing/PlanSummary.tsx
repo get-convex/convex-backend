@@ -251,7 +251,7 @@ export function PlanSummaryForTeam({
           )}
           <span className="invisible flex items-center gap-1 text-xs">
             <span className="hidden whitespace-nowrap sm:inline">
-              View breakdown
+              View breakdown by day
             </span>
             <ChevronRightIcon className="size-4" />
           </span>
@@ -501,7 +501,7 @@ function UsageSection({
         />
         <span className="invisible flex items-center gap-1 text-xs">
           <span className="hidden whitespace-nowrap sm:inline">
-            View breakdown
+            View breakdown by day
           </span>
           <ChevronRightIcon className="size-4" />
         </span>
@@ -556,7 +556,7 @@ function UsageSection({
       />
       <span className="flex items-center gap-1 text-xs text-content-secondary">
         <span className="hidden whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:inline">
-          View breakdown
+          View breakdown by day
         </span>
         <ChevronRightIcon className="size-4" />
       </span>
