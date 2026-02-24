@@ -252,7 +252,6 @@ impl Writes {
         }
         Self::record_reads_for_write(bootstrap_tables, reads, document_id.tablet_id)?;
 
-        let id_size = document_id.size();
         let value_size = new_document.as_ref().map(|d| d.value().size()).unwrap_or(0);
 
         let tx_size = if is_system_document {
@@ -265,7 +264,7 @@ impl Writes {
         // we want the size to reflect the write, so that
         // we can tell that we threw and not issue a warning.
         tx_size.num_writes += 1;
-        tx_size.size += id_size + value_size;
+        tx_size.size += value_size;
 
         if is_system_document {
             let tx_size = &self.system_tx_size;
