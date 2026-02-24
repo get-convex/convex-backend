@@ -12,6 +12,10 @@ import {
  * crates/isolate/src/tests/values.rs which call the JS implementation.
  */
 describe("getConvexSize", () => {
+  test("undefined returns 0", () => {
+    expect(getConvexSize(undefined)).toBe(0);
+  });
+
   test("long strings use TextEncoder path (>500 chars)", () => {
     // This tests the JS-specific optimization for long strings
     const longAscii = "a".repeat(1000);

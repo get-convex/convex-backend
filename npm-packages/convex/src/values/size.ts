@@ -5,6 +5,7 @@
  * to compute bandwidth and document size limits.
  *
  * Size formula by type:
+ * - Undefined: 0 bytes (not a valid Convex value, but returns 0 for convenience)
  * - Null: 1 byte (type marker)
  * - Boolean: 1 byte (type marker, value stored in marker)
  * - Int64 (bigint): 9 bytes (1 type marker + 8 bytes for 64-bit value)
@@ -36,7 +37,10 @@ import { isSimpleObject } from "../common/index.js";
  *
  * @public
  */
-export function getConvexSize(value: Value): number {
+export function getConvexSize(value: Value | undefined): number {
+  if (value === undefined) {
+    return 0;
+  }
   if (value === null) {
     return 1;
   }
