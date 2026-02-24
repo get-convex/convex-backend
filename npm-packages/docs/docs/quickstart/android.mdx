@@ -58,7 +58,7 @@ you don’t have those tools, take time to install them first.
     dependencies {
         // ... existing dependencies
         // highlight-next-line
-        implementation("dev.convex:android-convexmobile:0.4.1@aar") {
+        implementation("dev.convex:android-convexmobile:0.8.0@aar") {
             // highlight-next-line
             isTransitive = true
         // highlight-next-line
@@ -145,19 +145,13 @@ you don’t have those tools, take time to install them first.
 
     ```kotlin
     @Composable
-    fun Tasks(client: ConvexClient, modifier: Modifier = Modifier) {
-        var tasks: List<Task> by remember { mutableStateOf(listOf()) }
-        LaunchedEffect(key1 = "launch") {
-            client.subscribe<List<Task>>("tasks:get").collect { result ->
-                result.onSuccess { remoteTasks ->
-                    tasks = remoteTasks
-                }
-            }
-        }
+    fun Tasks(modifier: Modifier = Modifier) {
+        val tasks: Result<List<Task>> by client.subscribe<List<Task>>("tasks:get")
+            .collectAsState(Result.success(listOf()))
         LazyColumn(
             modifier = modifier
         ) {
-            items(tasks) { task ->
+            items(tasks.getOrElse { emptyList() }) { task ->
                 Text(text = "Text: ${task.text}, Completed?: ${task.isCompleted}")
             }
         }
@@ -169,26 +163,29 @@ you don’t have those tools, take time to install them first.
   <Step title="Connect the app to your backend">
     1. Get the deployment URL of your dev server with
         `cat .env.local | grep CONVEX_URL`
-    2. Update the `onCreate` method in your `MainActivity.kt` to look like
+    2. Add a `client: ConvexClient` val and update `MainActivity.onCreate` to use the `@Composable` you just created.
 
     ```kotlin
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            ConvexQuickstartTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // highlight-next-line
-                    Tasks(
-                        // highlight-next-line
-                        client = ConvexClient($YOUR_CONVEX_URL),
-                        // highlight-next-line
-                        modifier = Modifier.padding(innerPadding)
-                    // highlight-next-line
-                    )
-                }
-            }
-        }
+    // highlight-next-line
+    val client: ConvexClient by lazy { ConvexClient($YOUR_CONVEX_URL) }
+
+    class MainActivity : ComponentActivity() {
+      override fun onCreate(savedInstanceState: Bundle?) {
+          super.onCreate(savedInstanceState)
+          enableEdgeToEdge()
+          setContent {
+              ConvexQuickstartTheme {
+                  Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                      // highlight-next-line
+                      Tasks(
+                          // highlight-next-line
+                          modifier = Modifier.padding(innerPadding)
+                      // highlight-next-line
+                      )
+                  }
+              }
+          }
+      }
     }
     ```
 

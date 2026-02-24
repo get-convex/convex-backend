@@ -37,6 +37,10 @@ to add a dependency on the `ConvexMobile` library.
    Target_ dropdown
 8. Click _Add Package_
 
+The latest release and
+[release history](https://github.com/get-convex/convex-swift/releases) is
+available on GitHub.
+
 ## Connecting to a backend
 
 The `ConvexClient` is used to establish and maintain a connection between your
@@ -181,23 +185,42 @@ Even though you can call actions from your client code, it's not always the
 right choice. See the action docs for tips
 on [calling actions from clients](/functions/actions.mdx#calling-actions-from-clients).
 
-## Authentication with Auth0
+## Authentication
 
-You can use `ConvexClientWithAuth` in place of `ConvexClient` to configure
-authentication with [Auth0](https://auth0.com/). You'll need
-the `convex-swift-auth0` library to do that, as well as an Auth0 account and
+You can use `ConvexClientWithAuth` in place of `ConvexClient` to use an
+authentication provider. You'll need to choose an existing `AuthProvider`
+implementation or possibly create your own. See the `AuthProvider` options below
+and consult the overall [Convex authentication docs](/auth.mdx) as needed.
+
+### Auth0 {#authentication-with-auth0}
+
+To use Auth0, you'll need to add a dependency on
+the `convex-swift-auth0` library as well as have an Auth0 account and
 application configuration.
 
 See
 the [README](https://github.com/get-convex/convex-swift-auth0/blob/main/README.md) in
 the `convex-swift-auth0` repo for more detailed setup instructions, and
 the [Workout example app](https://github.com/get-convex/ios-convex-workout) which
-is configured for Auth0. The overall [Convex authentication docs](/auth.mdx) are
-a good resource as well.
+is configured for Auth0.
+
+### Clerk {#authentication-with-clerk}
+
+To use Clerk, you'll need to add a dependency on the `clerk-convex-swift`
+library as well as have a Clerk account and application configured to use
+Convex.
+
+See the
+[README](https://github.com/clerk/clerk-convex-swift/blob/main/README.md) in the
+`clerk-convex-swift` repo for detailed setup instructions. Clerk also has
+[a version of the Workout example app](https://github.com/clerk/clerk-convex-swift/tree/main/Example)
+available so you can see a real-world integration.
+
+### Custom auth providers
 
 It should also be possible to integrate other similar OpenID Connect
 authentication providers. See
-the [`AuthProvider`](https://github.com/get-convex/convex-swift/blob/c47aea414c92db2ccf3a0fa4f9db8caf2029b032/Sources/ConvexMobile/ConvexMobile.swift#L188) protocol
+the [`AuthProvider`](https://github.com/get-convex/convex-swift/blob/125b71b2f8725931a5b0e8252f0799ef2adad120/Sources/ConvexMobile/ConvexMobile.swift#L177) protocol
 in the `convex-swift` repo for more info.
 
 ## Production and dev deployments
@@ -288,3 +311,29 @@ protocol.
 
 All method calls on `ConvexClient` are handled via a Tokio async runtime on the
 Rust side and are safe to call from the application's main actor.
+
+### Observing WebSocket state
+
+You can call the `watchWebSocketState()` method on a client to get a `Publisher`
+that will keep you up to date on the status of the Convex WebSocket connection.
+The connection is either in `.connected` or `.connecting` state, as Convex
+always tries to maintain a connection to the backend.
+
+_Available since
+[version 0.7.0](https://github.com/get-convex/convex-swift/releases/tag/0.7.0)._
+
+### Debug logging
+
+While developing your application, it can be useful to see the underlying state
+of the Convex client. Calling the `initConvexLogging()` function in your
+`App.init` method will cause Convex to output log messages to the OSLog where
+they can easily be viewed in XCode.
+
+<Admonition type="caution">
+The debug logs can contain sensitive data that your application sends to/from your
+Convex backend. Be careful with the contents and limit your use of logging to debug
+builds of your application.
+</Admonition>
+
+_Available since
+[version 0.6.0](https://github.com/get-convex/convex-swift/releases/tag/0.6.0)._

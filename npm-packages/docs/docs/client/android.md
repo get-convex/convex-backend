@@ -31,7 +31,7 @@ plugins {
 
 dependencies {
     // ... existing dependencies
-    implementation("dev.convex:android-convexmobile:0.4.1@aar") {
+    implementation("dev.convex:android-convexmobile:0.8.0@aar") {
         isTransitive = true
     }
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
@@ -195,24 +195,41 @@ Even though you can call actions from Android, it's not always the right choice.
 See the action docs for tips on
 [calling actions from clients](https://docs.convex.dev/functions/actions#calling-actions-from-clients).
 
-## Authentication with Auth0
+## Authentication
 
-You can use `ConvexClientWithAuth` in place of `ConvexClient` to configure
-authentication with [Auth0](https://auth0.com/). You'll need the
-`convex-android-auth0` library to do that, as well as an Auth0 account and
-application configuration.
+You can use `ConvexClientWithAuth` in place of `ConvexClient` to use an
+authentication provider. You'll need to choose an existing `AuthProvider`
+implementation or possibly create your own. See the `AuthProvider` options below
+and consult the overall [Convex authentication docs](/auth.mdx) as needed.
+
+### Auth0 {#authentication-with-auth0}
+
+To use Auth0, you'll need the `convex-android-auth0` library as well as an Auth0
+account and application configuration.
 
 See the
 [README](https://github.com/get-convex/convex-android-auth0/blob/main/README.md)
 in the `convex-android-auth0` repo for more detailed setup instructions, and the
 [Workout example app](https://github.com/get-convex/android-convex-workout)
-which is configured for Auth0. The overall
-[Convex authentication docs](https://docs.convex.dev/auth) are a good resource
-as well.
+which is configured for Auth0.
+
+### Clerk {#authentication-with-clerk}
+
+To use Clerk, you'll need to add a dependency on the `clerk-convex-kotlin`
+library as well as have a Clerk account and application configured to use
+Convex.
+
+See the
+[README](https://github.com/clerk/clerk-convex-kotlin/blob/main/README.md) in
+the `clerk-convex-kotlin` repo for detailed setup instructions. Clerk also has
+[a version of the Workout example app](https://github.com/clerk/clerk-convex-kotlin/tree/main/samples/workout-tracker)
+available so you can see a real-world integration.
+
+### Custom auth providers
 
 It should also be possible to integrate other similar OpenID Connect
 authentication providers. See the
-[`AuthProvider`](https://github.com/get-convex/convex-mobile/blob/5babd583631a7ff6d739e1a2ab542039fd532548/android/convexmobile/src/main/java/dev/convex/android/ConvexClient.kt#L291)
+[`AuthProvider`](https://github.com/get-convex/convex-mobile/blob/720a79a752e76297cc8c905d4f6e2dfbbc82bae7/android/convexmobile/src/main/java/dev/convex/android/ConvexClient.kt#L376)
 interface in the `convex-mobile` repo for more info.
 
 ## Production and dev deployments
@@ -308,3 +325,29 @@ your applications. Internally, `ConvexClient` enables the JSON
 and
 [`allowSpecialFloatingPointValues`](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/json.md#allowing-special-floating-point-values)
 features.
+
+### Observing WebSocket state
+
+You can use the `webSocketStateFlow` attribute on a client to get a `StateFlow`
+that will keep you up to date on the status of the Convex WebSocket connection.
+The connection is either in `CONNECTED` or `CONNECTING` state, as Convex always
+tries to maintain a connection to the backend.
+
+_Available since
+[version 0.7.0](https://github.com/get-convex/convex-mobile/releases/tag/kotlin%400.7.0)._
+
+### Debug logging
+
+While developing your application, it can be useful to see the underlying state
+of the Convex client. Calling the `initConvexLogging()` function in your
+`Application` `onCreate` method will cause Convex to output log messages to
+`logcat` where they can easily be viewed in during development.
+
+<Admonition type="caution">
+The debug logs can contain sensitive data that your application sends to/from your
+Convex backend. Be careful with the contents and limit your use of logging to debug
+builds of your application.
+</Admonition>
+
+_Available since
+[version 0.6.1](https://github.com/get-convex/convex-mobile/releases/tag/kotlin%400.6.1)._
