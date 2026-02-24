@@ -51,7 +51,8 @@
     "degit": "^2.8.4",
     "docusaurus-plugin-openapi-docs": "~4.5.1",
     "docusaurus-theme-openapi-docs": "~4.5.1",
-    "sonner": "^2.0.0"
+    "sonner": "^2.0.0",
+    "negotiator": "^1.0.0"
   },
   "devDependencies": {
     "docusaurus-plugin-typedoc": "npm:@convex-dev/docusaurus-plugin-typedoc@0.19.2",
