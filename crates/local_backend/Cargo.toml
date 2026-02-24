@@ -130,7 +130,6 @@ metrics = { workspace = true, features = ["testing"] }
 model = { workspace = true, features = ["testing"] }
 mysql = { workspace = true, features = ["testing"] }
 node_executor = { workspace = true, features = ["testing"] }
-portpicker = { workspace = true }
 postgres = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 runtime = { workspace = true, features = ["testing"] }

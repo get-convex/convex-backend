@@ -520,7 +520,7 @@ mod tests {
                 .route("/test", get(ws_handler))
                 .with_state(ws_shutdown_tx),
         );
-        let port = portpicker::pick_unused_port().expect("No ports free");
+        let port = common::http::pick_unused_port().expect("No ports free");
         let addr = format!("127.0.0.1:{port}").parse()?;
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let proxy_server = tokio::spawn(app.serve(addr, async move {
