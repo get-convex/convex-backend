@@ -170,7 +170,7 @@ pub mod arbitrary_regexes {
     pub const SYSTEM_IDENTIFIER_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,62}";
     // ' ' through ~ is all non-control ASCII. First character cannot be `$` or
     // `_`. These can be longer, but keep them shorter for the sake of tests.
-    pub const USER_FIELD_NAME_REGEX: &str = "[ -#%-^`-~][ -~]{0,63}";
+    pub const USER_FIELD_NAME_REGEX: &str = "([ -#%-^`-~][ -~]{0,63})?";
     // Technically this can be broader, but system fields are usually valid
     // identifiers
     pub const SYSTEM_FIELD_NAME_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,62}";
