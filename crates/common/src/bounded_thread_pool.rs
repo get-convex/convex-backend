@@ -8,10 +8,12 @@ use futures::{
     StreamExt,
 };
 use parking_lot::Mutex;
+use sentry::SentryFutureExt as _;
 use tokio::sync::{
     mpsc,
     oneshot,
 };
+use tracing::Instrument as _;
 
 use crate::{
     codel_queue::{
@@ -93,6 +95,8 @@ impl<RT: Runtime> BoundedThreadPool<RT> {
         T: FnOnce() -> Fut + Send + 'static,
     {
         let (tx, rx) = oneshot::channel();
+        let sentry_hub = sentry::Hub::current();
+        let tracing_span = tracing::Span::current();
         let function = move |maybe_expired: Option<ExpiredInQueue>| {
             async {
                 if let Some(expired) = maybe_expired {
@@ -103,6 +107,8 @@ impl<RT: Runtime> BoundedThreadPool<RT> {
                     let _ = tx.send(Ok(result));
                 }
             }
+            .bind_hub(sentry_hub)
+            .instrument(tracing_span)
             .boxed()
         };
         let request = Request {
