@@ -278,7 +278,7 @@ pub async fn load_metadata_fast_forward_ts(
     let metadata_index_internal_id = registry.get_enabled(&metadata_index_id).unwrap().id();
 
     let id_value = ConvexValue::String(index.internal_id().to_string().try_into()?);
-    let id_value_bytes = values_to_bytes(&[Some(id_value)]);
+    let id_value_bytes = values_to_bytes::<false>(&[Some(id_value)]);
     let interval = Interval::prefix(BinaryKey::from(id_value_bytes));
 
     let stream = snapshot.index_scan(

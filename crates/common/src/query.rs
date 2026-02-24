@@ -270,23 +270,23 @@ impl IndexRange {
         };
 
         let start = match start {
-            Bound::Unbounded => BinaryKey::from(values_to_bytes(&prefix)),
+            Bound::Unbounded => BinaryKey::from(values_to_bytes::<false>(&prefix)),
             Bound::Included(value) => {
                 let mut bound = prefix.clone();
                 bound.push(value.0);
-                BinaryKey::from(values_to_bytes(&bound))
+                BinaryKey::from(values_to_bytes::<false>(&bound))
             },
             Bound::Excluded(value) => {
                 let mut bound = prefix.clone();
                 bound.push(value.0);
-                BinaryKey::from(values_to_bytes(&bound))
+                BinaryKey::from(values_to_bytes::<false>(&bound))
                     .increment()
                     .ok_or_else(|| anyhow::anyhow!("{bound:?} should have an increment"))?
             },
         };
         let end = match end {
             Bound::Unbounded => {
-                let key = BinaryKey::from(values_to_bytes(&prefix));
+                let key = BinaryKey::from(values_to_bytes::<false>(&prefix));
                 if prefix.len() == indexed_fields.iter_with_id().count() {
                     // Special case: if all fields including the implicit _id field are specified,
                     // we can use a tighter bound
@@ -298,7 +298,7 @@ impl IndexRange {
             Bound::Included(value) => {
                 let mut bound = prefix;
                 bound.push(value.0);
-                let key = BinaryKey::from(values_to_bytes(&bound));
+                let key = BinaryKey::from(values_to_bytes::<false>(&bound));
                 if bound.len() == indexed_fields.iter_with_id().count() {
                     End::included(&key)
                 } else {
@@ -308,7 +308,7 @@ impl IndexRange {
             Bound::Excluded(value) => {
                 let mut bound = prefix;
                 bound.push(value.0);
-                End::Excluded(BinaryKey::from(values_to_bytes(&bound)))
+                End::Excluded(BinaryKey::from(values_to_bytes::<false>(&bound)))
             },
         };
         Ok(Interval {
@@ -606,7 +606,7 @@ pub struct FilterValue(Vec<u8>);
 impl FilterValue {
     pub fn from_search_value(value: Option<&ConvexValue>) -> Self {
         let sort_key = match value {
-            Some(value) => value.sort_key(),
+            Some(value) => value.sort_key::<false>(),
             None => vec![UNDEFINED_TAG],
         };
         if sort_key.len() < MAX_FILTER_FIELD_LENGTH {

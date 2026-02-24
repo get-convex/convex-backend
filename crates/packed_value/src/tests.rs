@@ -58,7 +58,7 @@ proptest! {
     fn test_sort_key_roundtrips(v in any::<ConvexValue>()) {
         let packed_value = PackedValue::pack(&v);
         let mut sort_key = vec![];
-        write_sort_key(packed_value.as_ref().open().unwrap(), &mut sort_key).unwrap();
+        write_sort_key::<_, true>(packed_value.as_ref().open().unwrap(), &mut sort_key).unwrap();
         assert_eq!(ConvexValue::read_sort_key(&mut &sort_key[..], ).unwrap(), v);
     }
 }

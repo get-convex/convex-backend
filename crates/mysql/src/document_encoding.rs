@@ -71,7 +71,7 @@ mod v1 {
             None => return Ok(vec![]),
         };
         let mut sort_key = Vec::with_capacity(value.size());
-        let Ok(()) = write_sort_key(
+        let Ok(()) = write_sort_key::<_, true>(
             ConvexValueType::<&ConvexValue>::Object(value),
             &mut sort_key,
         );

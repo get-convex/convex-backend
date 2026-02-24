@@ -193,7 +193,7 @@ pub fn benchmark_pack(c: &mut Criterion) {
             b.iter(|| PackedValue::<ByteBuffer>::pack(black_box(v)))
         });
         group.bench_with_input(BenchmarkId::new("sort_key", name), &value, |b, v| {
-            b.iter(|| v.sort_key())
+            b.iter(|| v.sort_key::<true>())
         });
         group.bench_with_input(BenchmarkId::new("json", name), &value, |b, v| {
             b.iter(|| black_box(&v).json_serialize())
@@ -299,7 +299,7 @@ pub fn benchmark_unpack(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("flexbuffer", name), &packed, |b, v| {
             b.iter(|| ConvexValue::try_from(v.clone()))
         });
-        let sort_key = value.sort_key();
+        let sort_key = value.sort_key::<true>();
         group.bench_with_input(BenchmarkId::new("sort_key", name), &sort_key, |b, v| {
             b.iter(|| ConvexValue::read_sort_key(&mut &v[..]))
         });

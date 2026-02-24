@@ -51,7 +51,9 @@ impl PreloadedIndexRange {
         tx.reads.record_indexed_directly(
             self.tablet_index_name.clone(),
             vec![self.indexed_field.clone()].try_into()?,
-            Interval::prefix(BinaryKey::from(values_to_bytes(slice::from_ref(key)))),
+            Interval::prefix(BinaryKey::from(values_to_bytes::<false>(slice::from_ref(
+                key,
+            )))),
         )?;
         let result = self.range.get(key);
         if let Some(document) = result {

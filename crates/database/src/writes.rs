@@ -395,7 +395,7 @@ impl Writes {
             // need to read the index. We only care about the name always mapping
             // to the same fields.
             let tablet_id_bytes =
-                values_to_bytes(&[Some(index_metadata_serialize_tablet_id(&tablet_id)?)]);
+                values_to_bytes::<false>(&[Some(index_metadata_serialize_tablet_id(&tablet_id)?)]);
             reads.record_indexed_derived(
                 TabletIndexName::new(
                     table_mapping.index_id.tablet_id,

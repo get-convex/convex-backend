@@ -103,7 +103,7 @@ impl IndexKey {
     }
 
     pub fn to_bytes(&self) -> IndexKeyBytes {
-        IndexKeyBytes(values_to_bytes(&self.values_with_id))
+        IndexKeyBytes(values_to_bytes::<false>(&self.values_with_id))
     }
 
     pub fn size(&self) -> usize {

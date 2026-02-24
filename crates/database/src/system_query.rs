@@ -344,7 +344,7 @@ impl EqFields {
         indexed_fields_len: usize,
     ) -> anyhow::Result<()> {
         for &value in fields {
-            write_sort_key(value, &mut self.prefix).map_err(Into::into)?;
+            write_sort_key::<_, false>(value, &mut self.prefix).map_err(Into::into)?;
             self.fields += 1;
         }
         // Sanity checks against developer errors
@@ -380,7 +380,7 @@ impl EqFields {
             bound @ (Bound::Included(fields) | Bound::Excluded(fields)) => {
                 let mut start = self.prefix.clone();
                 for &value in fields {
-                    write_sort_key(value, &mut start).map_err(Into::into)?;
+                    write_sort_key::<_, false>(value, &mut start).map_err(Into::into)?;
                 }
                 if let Bound::Excluded(_) = bound {
                     let Some(key) = BinaryKey::from(start).increment() else {
@@ -398,7 +398,7 @@ impl EqFields {
             bound @ (Bound::Included(fields) | Bound::Excluded(fields)) => {
                 let mut end = self.prefix;
                 for &value in fields {
-                    write_sort_key(value, &mut end).map_err(Into::into)?;
+                    write_sort_key::<_, false>(value, &mut end).map_err(Into::into)?;
                 }
                 if let Bound::Included(_) = bound {
                     End::after_prefix(&end.into())
@@ -543,7 +543,7 @@ mod tests {
     }
 
     fn k<T: TryInto<ConvexValue, Error: Debug>, const N: usize>(values: [T; N]) -> BinaryKey {
-        BinaryKey::from(values_to_bytes(
+        BinaryKey::from(values_to_bytes::<false>(
             &values
                 .into_iter()
                 .map(|v| Some(v.try_into().unwrap()))

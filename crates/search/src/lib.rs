@@ -665,7 +665,7 @@ impl TantivySearchIndexSchema {
                             .expect("Could not convert internal ID to value"),
                     )),
                 ];
-                let bytes = values_to_bytes(&index_fields);
+                let bytes = values_to_bytes::<false>(&index_fields);
                 let index_key_bytes = IndexKeyBytes(bytes);
                 result.push((candidate, index_key_bytes));
             }
