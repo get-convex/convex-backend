@@ -1,4 +1,5 @@
 .docusaurus/
+.netlify
 typedoc-sidebar.js
 build/
 yarn.lock
