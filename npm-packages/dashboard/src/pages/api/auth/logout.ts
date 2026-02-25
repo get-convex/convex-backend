@@ -15,8 +15,10 @@ export default async function handler(
   try {
     const session = loadSealedSessionFromRequest(req);
 
+    res.setHeader("Set-Cookie", deleteSessionCookie());
+
     if (!session) {
-      return res.status(401).json({ error: "No session found" });
+      return res.redirect("/login");
     }
 
     const logoutUrl = await session.getLogoutUrl({
@@ -26,10 +28,9 @@ export default async function handler(
       }/login`,
     });
 
-    res.setHeader("Set-Cookie", deleteSessionCookie());
     res.redirect(logoutUrl);
   } catch (error) {
     console.error("Error during logout:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.redirect("/login");
   }
 }
