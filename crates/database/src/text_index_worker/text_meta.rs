@@ -28,9 +28,19 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    persistence::{
+        DocumentRevisionStream,
+        DocumentStream,
+        TimestampRange,
+    },
+    persistence_helpers::{
+        DocumentRevision,
+        RevisionPair,
+    },
     query::Order,
     runtime::{
         try_join_buffer_unordered,
+        RateLimiter,
         Runtime,
     },
     types::{
@@ -38,7 +48,10 @@ use common::{
         SearchIndexMetricLabels,
     },
 };
-use futures::TryStreamExt;
+use futures::{
+    StreamExt as _,
+    TryStreamExt,
+};
 use search::{
     build_new_segment,
     disk_index::upload_text_segment,
@@ -57,11 +70,11 @@ use search::{
 };
 use storage::Storage;
 use sync_types::Timestamp;
+use value::TabletId;
 
 use crate::{
     search_index_workers::index_meta::{
         BackfillState,
-        MakeDocumentStream,
         SearchIndex,
         SearchIndexConfig,
         SearchOnDiskState,
@@ -70,6 +83,7 @@ use crate::{
         SegmentType,
         SnapshotData,
     },
+    Database,
     Snapshot,
 };
 
@@ -105,6 +119,7 @@ pub struct BuildTextIndexArgs {
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
     type BuildIndexArgs = BuildTextIndexArgs;
+    type DocStream<'a> = DocumentRevisionStream<'a>;
     type NewSegment = NewTextSegment;
     type PreviousSegments = PreviousTextSegments;
     type Schema = TantivySearchIndexSchema;
@@ -197,10 +212,39 @@ impl SearchIndex for TextSearchIndex {
         schema.estimate_size(doc)
     }
 
+    fn load_doc_stream<'a, RT: Runtime>(
+        database: &'a Database<RT>,
+        tablet_id: TabletId,
+        range: TimestampRange,
+        order: Order,
+        rate_limiter: &'a RateLimiter<RT>,
+    ) -> DocumentRevisionStream<'a> {
+        database.load_revision_pairs_in_table(tablet_id, range, order, rate_limiter)
+    }
+
+    fn table_scan_stream_to_doc_stream<'a>(
+        documents: DocumentStream<'a>,
+    ) -> DocumentRevisionStream<'a> {
+        documents
+            .map(|result| {
+                let entry = result?;
+                anyhow::ensure!(entry.value.is_some(), "Document must exist");
+                Ok(RevisionPair {
+                    id: entry.id,
+                    rev: DocumentRevision {
+                        ts: entry.ts,
+                        document: entry.value,
+                    },
+                    prev_rev: None,
+                })
+            })
+            .boxed()
+    }
+
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
-        documents: MakeDocumentStream<'_>,
+        documents: DocumentRevisionStream<'_>,
         previous_segments: &mut Self::PreviousSegments,
         lower_bound_ts: Option<Timestamp>,
         BuildTextIndexArgs {
@@ -209,7 +253,7 @@ impl SearchIndex for TextSearchIndex {
         }: BuildTextIndexArgs,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
         build_new_segment(
-            documents.into_revision_stream(),
+            documents,
             schema.clone(),
             index_path,
             previous_segments,
@@ -278,12 +322,11 @@ impl SearchIndex for TextSearchIndex {
 
     async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
-        documents: MakeDocumentStream<'_>,
+        revision_stream: DocumentRevisionStream<'_>,
         build_index_args: Self::BuildIndexArgs,
         schema: Self::Schema,
         document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()> {
-        let revision_stream = documents.into_revision_stream();
         // Keep track of the document IDs we've either added to our new segment or
         // deleted from a previous segment. Because we process in reverse order, we
         // may encounter each document id multiple times, but we only want to add or

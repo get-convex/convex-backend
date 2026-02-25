@@ -22,8 +22,14 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    persistence::{
+        DocumentStream,
+        TimestampRange,
+    },
+    query::Order,
     runtime::{
         try_join_buffer_unordered,
+        RateLimiter,
         Runtime,
     },
     types::{
@@ -43,6 +49,7 @@ use search::{
 };
 use storage::Storage;
 use sync_types::Timestamp;
+use value::TabletId;
 use vector::{
     qdrant_segments::VectorDiskSegmentValues,
     QdrantSchema,
@@ -51,7 +58,6 @@ use vector::{
 use crate::{
     search_index_workers::index_meta::{
         BackfillState,
-        MakeDocumentStream,
         SearchIndex,
         SearchIndexConfig,
         SearchOnDiskState,
@@ -60,6 +66,7 @@ use crate::{
         SegmentType,
         SnapshotData,
     },
+    Database,
     Snapshot,
 };
 
@@ -135,6 +142,7 @@ pub struct BuildVectorIndexArgs {
 #[async_trait]
 impl SearchIndex for VectorSearchIndex {
     type BuildIndexArgs = BuildVectorIndexArgs;
+    type DocStream<'a> = DocumentStream<'a>;
     type NewSegment = VectorDiskSegmentValues;
     type PreviousSegments = PreviousVectorSegments;
     type Schema = QdrantSchema;
@@ -203,10 +211,24 @@ impl SearchIndex for VectorSearchIndex {
         schema.estimate_vector_size() as u64
     }
 
+    fn load_doc_stream<'a, RT: Runtime>(
+        database: &'a Database<RT>,
+        tablet_id: TabletId,
+        range: TimestampRange,
+        order: Order,
+        rate_limiter: &'a RateLimiter<RT>,
+    ) -> DocumentStream<'a> {
+        database.load_documents_in_table(tablet_id, range, order, rate_limiter)
+    }
+
+    fn table_scan_stream_to_doc_stream<'a>(documents: DocumentStream<'a>) -> DocumentStream<'a> {
+        documents
+    }
+
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
-        documents: MakeDocumentStream<'_>,
+        documents: DocumentStream<'_>,
         previous_segments: &mut Self::PreviousSegments,
         _document_log_lower_bound: Option<Timestamp>,
         BuildVectorIndexArgs {
@@ -216,7 +238,7 @@ impl SearchIndex for VectorSearchIndex {
         schema
             .build_disk_index(
                 index_path,
-                documents.into_document_stream(),
+                documents,
                 full_scan_threshold_bytes,
                 previous_segments,
             )
@@ -284,12 +306,11 @@ impl SearchIndex for VectorSearchIndex {
 
     async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
-        documents: MakeDocumentStream<'_>,
+        mut documents: DocumentStream<'_>,
         _build_index_args: Self::BuildIndexArgs,
         _schema: Self::Schema,
         _document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()> {
-        let mut documents = documents.into_document_stream();
         while let Some(entry) = documents.try_next().await? {
             if entry.value.is_none() {
                 previous_segments.maybe_delete_convex(entry.id.internal_id())?;

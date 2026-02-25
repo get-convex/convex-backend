@@ -38,7 +38,6 @@ use storage::Storage;
 use sync_types::Timestamp;
 use value::ResolvedDocumentId;
 
-use super::index_meta::MakeDocumentStream;
 use crate::{
     bootstrap_model::index_backfills::IndexBackfillModel,
     metrics::{
@@ -625,19 +624,12 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let mut previous_segments =
             T::download_previous_segments(storage.clone(), segments_to_update).await?;
         let range = TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(*current_ts)));
-        let documents = MakeDocumentStream::Partial(
-            database.load_documents_in_table(
-                *index_name.table(),
-                range,
-                Order::Asc,
-                &row_rate_limiter,
-            ),
-            database.load_revision_pairs_in_table(
-                *index_name.table(),
-                range,
-                Order::Asc,
-                &row_rate_limiter,
-            ),
+        let documents = T::load_doc_stream(
+            &database,
+            *index_name.table(),
+            range,
+            Order::Asc,
+            &row_rate_limiter,
         );
 
         T::merge_deletes(

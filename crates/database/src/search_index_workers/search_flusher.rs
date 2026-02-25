@@ -69,7 +69,6 @@ use crate::{
     search_index_workers::{
         index_meta::{
             BackfillState,
-            MakeDocumentStream,
             SearchIndex,
             SearchIndexConfig,
             SearchOnDiskState,
@@ -596,23 +595,14 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                 lower_bound_ts = Some(*last_ts);
                 let range =
                     TimestampRange::new((Bound::Excluded(*last_ts), Bound::Included(*snapshot_ts)));
-                (
-                    MakeDocumentStream::Partial(
-                        params.database.load_documents_in_table(
-                            *index_name.table(),
-                            range,
-                            T::partial_document_order(),
-                            &row_rate_limiter,
-                        ),
-                        params.database.load_revision_pairs_in_table(
-                            *index_name.table(),
-                            range,
-                            T::partial_document_order(),
-                            &row_rate_limiter,
-                        ),
-                    ),
-                    previous_segments,
-                )
+                let documents = T::load_doc_stream(
+                    &params.database,
+                    *index_name.table(),
+                    range,
+                    T::partial_document_order(),
+                    &row_rate_limiter,
+                );
+                (documents, previous_segments)
             },
             MultipartBuildType::IncrementalComplete {
                 cursor,
@@ -659,7 +649,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         prev_ts: rev.prev_ts,
                     })
                     .boxed();
-                (MakeDocumentStream::Complete(documents), previous_segments)
+                (
+                    T::table_scan_stream_to_doc_stream(documents),
+                    previous_segments,
+                )
             },
         };
 

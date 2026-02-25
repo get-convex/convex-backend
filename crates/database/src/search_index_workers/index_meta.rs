@@ -16,18 +16,16 @@ use common::{
         ResolvedDocument,
     },
     persistence::{
-        DocumentRevisionStream,
         DocumentStream,
-    },
-    persistence_helpers::{
-        DocumentRevision,
-        RevisionPair,
+        TimestampRange,
     },
     query::Order,
-    runtime::Runtime,
+    runtime::{
+        RateLimiter,
+        Runtime,
+    },
     types::IndexId,
 };
-use futures::StreamExt as _;
 use search::{
     metrics::SearchType,
     Searcher,
@@ -37,9 +35,13 @@ use sync_types::Timestamp;
 use value::{
     ConvexObject,
     InternalId,
+    TabletId,
 };
 
-use crate::Snapshot;
+use crate::{
+    Database,
+    Snapshot,
+};
 
 pub trait SegmentType<T: SearchIndex> {
     fn id(&self) -> &str;
@@ -62,6 +64,9 @@ pub trait SearchIndex: Clone + Debug {
     type BuildIndexArgs: Clone + Send + 'static;
 
     type Schema: Send + Sync + 'static;
+
+    /// Document stream format for building and updating indexes.
+    type DocStream<'a>: Send + 'a;
 
     /// Returns the generalized `SearchIndexConfig` if it matches the type of
     /// the parser (e.g. Text vs Vector) and `None` otherwise.
@@ -98,10 +103,24 @@ pub trait SearchIndex: Clone + Debug {
 
     fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64;
 
+    /// Load documents from the document log in this search type's `DocStream`
+    /// format.
+    fn load_doc_stream<'a, RT: Runtime>(
+        database: &'a Database<RT>,
+        tablet_id: TabletId,
+        range: TimestampRange,
+        order: Order,
+        rate_limiter: &'a RateLimiter<RT>,
+    ) -> Self::DocStream<'a>;
+
+    /// Convert a table scan document stream (DocumentLogEntry, no deletes)
+    /// into this search type's `DocStream` format.
+    fn table_scan_stream_to_doc_stream<'a>(documents: DocumentStream<'a>) -> Self::DocStream<'a>;
+
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
-        documents: MakeDocumentStream<'_>,
+        documents: Self::DocStream<'_>,
         previous_segments: &mut Self::PreviousSegments,
         document_log_lower_bound: Option<Timestamp>,
         build_index_args: Self::BuildIndexArgs,
@@ -134,48 +153,11 @@ pub trait SearchIndex: Clone + Debug {
 
     async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
-        document_stream: MakeDocumentStream<'_>,
+        document_stream: Self::DocStream<'_>,
         build_index_args: Self::BuildIndexArgs,
         schema: Self::Schema,
         document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()>;
-}
-
-pub enum MakeDocumentStream<'a> {
-    Partial(DocumentStream<'a>, DocumentRevisionStream<'a>),
-    /// A stream that visits each document in a table once
-    Complete(DocumentStream<'a>),
-}
-impl<'a> MakeDocumentStream<'a> {
-    pub fn into_document_stream(self) -> DocumentStream<'a> {
-        match self {
-            MakeDocumentStream::Partial(documents, _) => documents,
-            MakeDocumentStream::Complete(documents) => documents,
-        }
-    }
-
-    pub fn into_revision_stream(self) -> DocumentRevisionStream<'a> {
-        match self {
-            MakeDocumentStream::Partial(_, revisions) => revisions,
-            // Create a fake revision stream for complete builds because we are
-            // building from scratch so we don't need to look up previous
-            // revisions. We know there are no deletes.
-            MakeDocumentStream::Complete(documents) => documents
-                .map(|result| {
-                    let entry = result?;
-                    anyhow::ensure!(entry.value.is_some(), "Document must exist");
-                    Ok(RevisionPair {
-                        id: entry.id,
-                        rev: DocumentRevision {
-                            ts: entry.ts,
-                            document: entry.value,
-                        },
-                        prev_rev: None,
-                    })
-                })
-                .boxed(),
-        }
-    }
 }
 
 pub trait SegmentStatistics: Default + Debug {
