@@ -327,13 +327,14 @@ impl TextFixtures {
     ) -> anyhow::Result<Vec<FragmentedTextSegment>> {
         let metadata = self.get_index_metadata(index_name).await?;
         must_let!(let IndexConfig::Text { on_disk_state, .. } = &metadata.config);
-        let snapshot = match on_disk_state {
-            TextIndexState::Backfilling(_) => anyhow::bail!("Still backfilling!"),
+        match on_disk_state {
+            TextIndexState::Backfilling(state) => Ok(state.segments.clone()),
             TextIndexState::Backfilled { snapshot, .. }
-            | TextIndexState::SnapshottedAt(snapshot) => snapshot,
-        };
-        must_let!(let TextIndexSnapshotData::MultiSegment(segments) = &snapshot.data);
-        Ok(segments.clone())
+            | TextIndexState::SnapshottedAt(snapshot) => {
+                must_let!(let TextIndexSnapshotData::MultiSegment(segments) = &snapshot.data);
+                Ok(segments.clone())
+            },
+        }
     }
 
     pub async fn replace_document(
