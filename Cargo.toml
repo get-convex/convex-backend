@@ -4,79 +4,20 @@ resolver = "2"
 exclude = [ "crates/py_client", "crates/python_client_tests" ]
 
 [workspace.dependencies]
-application = { path = "crates/application" }
-async_lru = { path = "crates/async_lru" }
-authentication = { path = "crates/authentication" }
-aws_s3 = { path = "crates/aws_s3" }
-aws_utils = { path = "crates/aws_utils" }
-backend_harness = { path = "crates/backend_harness" }
-big_brain_client = { path = "crates/big_brain_client" }
-big_brain_private_api_types = { path = "crates/big_brain_private_api_types" }
-clusters = { path = "crates/clusters" }
-cmd_util = { path = "crates/cmd_util" }
-common = { path = "crates/common" }
-convex = { path = "crates/convex" }
-convex_macro = { path = "crates/convex_macro" }
-convex_sync_types = { path = "crates/convex/sync_types" }
-database = { path = "crates/database" }
-db_connection = { path = "crates/db_connection" }
-errors = { path = "crates/errors" }
-events = { path = "crates/events" }
-exports = { path = "crates/exports" }
-file_storage = { path = "crates/file_storage" }
-fivetran_common = { path = "crates/fivetran_common" }
-fivetran_destination = { path = "crates/fivetran_destination" }
-fivetran_source = { path = "crates/fivetran_source" }
-function_runner = { path = "crates/function_runner" }
-health_check = { path = "crates/health_check" }
-http_client = { path = "crates/http_client" }
-imbl_slab = { path = "crates/imbl_slab" }
-indexing = { path = "crates/indexing" }
-interval_map = { path = "crates/interval_map" }
-isolate = { path = "crates/isolate" }
-json_trait = { path = "crates/json_trait" }
-keybroker = { path = "crates/keybroker" }
-log_interleaver = { path = "crates/log_interleaver" }
-log_streaming = { path = "crates/log_streaming" }
-metrics = { path = "crates/metrics" }
-migrations_model = { path = "crates/migrations_model" }
-model = { path = "crates/model" }
-mysql = { path = "crates/mysql" }
-node_executor = { path = "crates/node_executor" }
-packed_value = { path = "crates/packed_value" }
-pb = { path = "crates/pb" }
-pb_build = { path = "crates/pb_build" }
-pb_extras = { path = "crates/pb_extras" }
-performance_stats = { path = "crates/performance_stats" }
-postgres = { path = "crates/postgres" }
-runtime = { path = "crates/runtime" }
-search = { path = "crates/search" }
-shape_inference = { path = "crates/shape_inference" }
-sodium_secretbox = { path = "crates/sodium_secretbox" }
-sqlite = { path = "crates/sqlite" }
-storage = { path = "crates/storage" }
-storage_zip_reader = { path = "crates/storage_zip_reader" }
-sync = { path = "crates/sync" }
-sync_types = { package = "convex_sync_types", path = "crates/convex/sync_types" }
-text_search = { path = "crates/text_search" }
-tuple_struct = { path = "crates/tuple_struct" }
-udf = { path = "crates/udf" }
-udf_metrics = { path = "crates/udf_metrics" }
-usage_gauges_tracking_worker = { path = "crates/usage_gauges_tracking_worker" }
-usage_tracking = { path = "crates/usage_tracking" }
-value = { path = "crates/value" }
-vector = { path = "crates/vector" }
 aes = { version = "0.8.4" }
 ahash = "0.8"
 anyhow = "1"
+application = { path = "crates/application" }
 async-broadcast = "0.7.0"
 async-channel = "2.3.1"
 async-compression = { version = "0.4.11", features = [ "tokio", "zstd", "gzip" ] }
 async-recursion = "1.1.1"
 async-trait = "0.1"
+async_lru = { path = "crates/async_lru" }
 async_zip = { version = "0.0.18", default-features = false, features = [ "deflate", "tokio", "zstd" ] }
 async_zip_0_0_9 = { package = "async_zip", version = "0.0.9", default-features = false, features = [ "zstd", "deflate" ] }
 atomic_refcell = "0.1.13"
+authentication = { path = "crates/authentication" }
 aws-config = { version = "1.6", default-features = false, features = [ "client-hyper", "default-https-client", "rustls", "rt-tokio", "sso" ] }
 aws-credential-types = "1"
 aws-lc-rs = { version = "1.13", default-features = false, features = [ "aws-lc-sys", "prebuilt-nasm" ] }
@@ -84,12 +25,17 @@ aws-sdk-s3 = { version = "1.83", default-features = false, features = [ "default
 aws-smithy-http = "0.62.0"
 aws-smithy-types-convert = { version = "0.60", features = [ "convert-streams" ] }
 aws-types = "1"
+aws_s3 = { path = "crates/aws_s3" }
+aws_utils = { path = "crates/aws_utils" }
 axum = { version = "0.8.3", features = [ "ws", "original-uri", "macros", "multipart" ] }
 axum-extra = { version = "0.10", features = [ "typed-header", "cookie" ] }
+backend_harness = { path = "crates/backend_harness" }
 backoff = { version = "0.4", features = [ "tokio" ] }
 base-62 = { rev = "6f91a3da4b83f20379469835f64195bd52d7b9dd", git = "https://github.com/kryptco/base62.rs" }
 base32 = "0.5.0"
 base64 = "0.13"
+big_brain_client = { path = "crates/big_brain_client" }
+big_brain_private_api_types = { path = "crates/big_brain_private_api_types" }
 biscuit = { rev = "05bdaab2f43d144aedc9ef2dfcdb87d304540afd", git = "https://github.com/get-convex/biscuit" }
 bitvec = "1.0.1"
 byteorder = "1.5.0"
@@ -99,10 +45,16 @@ cbc = { version = "0.1.2" }
 cfg-if = "1.0"
 chrono = "0.4.38"
 clap = { version = "^4.1.8", features = [ "derive", "env" ] }
+clusters = { path = "crates/clusters" }
+cmd_util = { path = "crates/cmd_util" }
 colored = "3"
+common = { path = "crates/common" }
 compact_str = "0.9.0"
 const-oid = "0.9.6"
 const_format = { version = "0.2.34", features = [ "fmt" ] }
+convex = { path = "crates/convex" }
+convex_macro = { path = "crates/convex_macro" }
+convex_sync_types = { path = "crates/convex/sync_types" }
 criterion = "0.8"
 crossbeam-channel = "0.5.15"
 csf = "0.1.11"
@@ -110,6 +62,8 @@ cstr = "0.2.11"
 csv-async = "1.2"
 ctrlc = "3.4"
 data-url = "0.3.1"
+database = { path = "crates/database" }
+db_connection = { path = "crates/db_connection" }
 deno_core = "0.366.0"
 deno_core_icudata = "0.74.0"
 derive_more = { version = "2", features = [ "full" ] }
@@ -119,13 +73,21 @@ dynfmt = "0.1.5"
 either = "1.9.0"
 encoding_rs = "0.8.32"
 enum-iterator = "2.1.0"
+errors = { path = "crates/errors" }
 event-listener = "5.3.1"
+events = { path = "crates/events" }
+exports = { path = "crates/exports" }
 fastrace = { git = "https://github.com/get-convex/fastrace", rev = "8ceac57a6371c96db3778827e31ec0b3ac760075", version = "0.7", features = [ "enable" ] }
 fastrand = "2.3.0"
+file_storage = { path = "crates/file_storage" }
+fivetran_common = { path = "crates/fivetran_common" }
+fivetran_destination = { path = "crates/fivetran_destination" }
+fivetran_source = { path = "crates/fivetran_source" }
 flate2 = { version = "1.1", features = [ "zlib-rs" ] }
 flexbuffers = "25"
 float_next_after = "1.0.0"
 fnv = "1.0.7"
+function_runner = { path = "crates/function_runner" }
 futures = "0.3"
 futures-async-stream = "0.2.11"
 futures-util = "0.3.30"
@@ -134,45 +96,66 @@ governor = "0.10.0"
 hashlink = "0.11"
 hdrhistogram = "7.5.4"
 headers = "0.4"
+health_check = { path = "crates/health_check" }
 hex = "0.4"
 home = "0.5"
 http = "1.0.0"
 http-body-util = "0.1.2"
 http-cache = { version = "0.20.1", default-features = false }
 http-cache-reqwest = { version = "0.15.1", features = [ "manager-moka" ] }
+http_client = { path = "crates/http_client" }
 humansize = { version = "2.1.3", features = [ "impl_style" ] }
 hyper = "1.3.1"
 hyper-util = { version = "0.1.5", features = [ "server-graceful", "tokio" ] }
 imbl = "5.0.0"
+imbl_slab = { path = "crates/imbl_slab" }
+indexing = { path = "crates/indexing" }
 indexmap = "2"
+interval_map = { path = "crates/interval_map" }
+isolate = { path = "crates/isolate" }
 itertools = "0.14"
 jemalloc_pprof = "0.8"
+json_trait = { path = "crates/json_trait" }
 jsonschema = "0.33"
+keybroker = { path = "crates/keybroker" }
 levenshtein_automata = "0.2.1"
 libc = "0.2"
 libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
+log_interleaver = { path = "crates/log_interleaver" }
+log_streaming = { path = "crates/log_streaming" }
 lru = "0.16.0"
 lz4_flex = "0.12"
 maplit = "1"
 memchr = "2.7"
+metrics = { path = "crates/metrics" }
+migrations_model = { path = "crates/migrations_model" }
 mime = "0.3"
 mime2ext = "0.1.52"
+model = { path = "crates/model" }
 moka = { version = "0.12", features = [ "future", "sync" ] }
 multer = "3.1.0"
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
+mysql = { path = "crates/mysql" }
 mysql_async = { git = "https://github.com/goffrie/mysql_async", rev = "90ff86d613d8c466baa4da7b0c49c148bc14a019", default-features = false, features = [ "default-rustls" ] }
 native-tls = { version = "0.2", features = [ "alpn", "vendored" ] }
+node_executor = { path = "crates/node_executor" }
 num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
 once_cell = "1.19"
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
 openssl = { version = "0.10.75", features = [ "aws-lc" ] }
+packed_value = { path = "crates/packed_value" }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }
+pb = { path = "crates/pb" }
+pb_build = { path = "crates/pb_build" }
+pb_extras = { path = "crates/pb_extras" }
+performance_stats = { path = "crates/performance_stats" }
 phf = { version = "0.11.2", features = [ "macros" ] }
 pin-project = "1"
 pkcs8 = "0.10.2"
 portpicker = "0.1"
+postgres = { path = "crates/postgres" }
 postgres-protocol = { version = "0.6" }
 pretty_assertions = "1"
 proc-macro2 = { version = "1.0" }
@@ -198,11 +181,13 @@ regex = "1"
 reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-alpn", "native-tls-vendored" ] }
 reqwest-middleware = "0.4.1"
 rsa = "0.9.6"
+runtime = { path = "crates/runtime" }
 rusqlite = { version = "0.32", features = [ "bundled" ] }
 rustls = { version = "0.23", default-features = false }
 rustls-native-certs = { version = "0.8" }
 rustls-pki-types = { version = "1" }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
+search = { path = "crates/search" }
 semver = { version = "1", features = [ "serde" ] }
 sentry = { version = "0.46", features = [ "anyhow", "tower", "tower-http" ] }
 sentry-tracing = "0.46"
@@ -212,18 +197,26 @@ serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", 
 serde_with = "3.16.1"
 sha1 = { version = "0.10.5", features = [ "oid" ] }
 sha2 = { version = "0.10.8" }
+shape_inference = { path = "crates/shape_inference" }
 short_future = { version = "0.1.1" }
 slab = "0.4.9"
 slugify = "0.1.0"
 smallvec = "1"
+sodium_secretbox = { path = "crates/sodium_secretbox" }
 sourcemap = "9"
 spki = { version = "0.7.3", features = [ "std" ] }
+sqlite = { path = "crates/sqlite" }
+storage = { path = "crates/storage" }
+storage_zip_reader = { path = "crates/storage_zip_reader" }
 strum = { version = "0.27", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
+sync = { path = "crates/sync" }
+sync_types = { package = "convex_sync_types", path = "crates/convex/sync_types" }
 tantivy = { git = "https://github.com/get-convex/tantivy", rev = "2bb95afa29cc2ac94e303ea68ca4e16222d8e777" }
 tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "2bb95afa29cc2ac94e303ea68ca4e16222d8e777" }
 tempfile = "3"
+text_search = { path = "crates/text_search" }
 textplots = "0.8"
 thiserror = "2"
 thousands = "0.2.0"
@@ -250,11 +243,18 @@ tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
 tracy-client = { version = "0.18.0", default-features = false, features = [ "fibers" ] }
 tungstenite = { version = "0.28.0", features = [ "url", "native-tls-vendored", "deflate" ], git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
+tuple_struct = { path = "crates/tuple_struct" }
+udf = { path = "crates/udf" }
+udf_metrics = { path = "crates/udf_metrics" }
 url = "2.5.4"
 urlencoding = "2.1.3"
+usage_gauges_tracking_worker = { path = "crates/usage_gauges_tracking_worker" }
+usage_tracking = { path = "crates/usage_tracking" }
 utoipa = { version = "5.3", features = [ "axum_extras", "preserve_path_order", "openapi_extensions" ] }
 utoipa-axum = { version = "0.2" }
 uuid = { version = "1.6", features = [ "fast-rng", "serde", "v4" ] }
+value = { path = "crates/value" }
+vector = { path = "crates/vector" }
 vergen = { version = "8.1.0" }
 walkdir = "2"
 xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
