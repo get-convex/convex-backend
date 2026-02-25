@@ -95,18 +95,13 @@ export function DeploymentEventContent({
   return (
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center justify-between">
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-1",
-            inPanel ? "" : "h-6",
-          )}
-        >
+        <span className={cn(!inPanel && "leading-6")}>
           <TeamMemberLink
             memberId={Number(event.member_id)}
             name={event.memberName}
-          />
+          />{" "}
           <ActionText event={event} />
-        </div>
+        </span>
         {!inPanel && <TimestampDistance date={new Date(event._creationTime)} />}
       </div>
       {body && <div className="ml-4 rounded-md border px-3 py-2.5">{body}</div>}
