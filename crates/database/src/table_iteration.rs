@@ -64,7 +64,7 @@ use value::{
 /// A cursor for use while scanning a table by ID.
 ///
 /// The key is the last element processed thus far.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TableScanCursor {
     pub index_key: Option<CursorPosition>,
 }
@@ -171,6 +171,15 @@ impl<RT: Runtime> TableIterator<RT> {
                 .collect(),
             inner: self.inner,
         }
+    }
+
+    pub async fn fetch_page(
+        &self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        cursor: &mut TableScanCursor,
+    ) -> anyhow::Result<(Vec<(IndexKeyBytes, LatestDocument)>, RepeatableTimestamp)> {
+        self.inner.fetch_page(index_id, tablet_id, cursor).await
     }
 
     #[try_stream(ok = LatestDocument, error = anyhow::Error)]
