@@ -319,7 +319,7 @@ pub fn merge_disk_segments(
     // Sanity check that we included all of the points.
     anyhow::ensure!(memory_tracker.total_point_count() == borrowed_tracker.total_point_count());
 
-    // Sanity check that we didn't insert multile vectors for any given id.
+    // Sanity check that we didn't insert multiple vectors for any given id.
     let total_point_count = memory_tracker.total_point_count();
     let vector_data = disk_segment.vector_data.get(DEFAULT_VECTOR_NAME).unwrap();
     let vector_count = vector_data.vector_storage.borrow().total_vector_count();
