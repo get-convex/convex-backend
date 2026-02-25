@@ -14,13 +14,14 @@ export function DeploymentPageTitle({
   );
   const project = useCurrentProject();
   const deployment = useCurrentDeployment();
+  const deploymentId = deployment && "id" in deployment ? deployment.id : null;
 
   return (
     <Head>
       {project && deployment && (
         <title>
           {title} {subtitle && `| ${subtitle} `}
-          {deployment.id === 0
+          {deploymentId === 0
             ? null
             : `| ${capitalize(deployment.deploymentType)}`}{" "}
           {project.id === 0 ? null : `| ${project.name}`} | Convex Dashboard

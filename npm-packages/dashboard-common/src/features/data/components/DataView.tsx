@@ -34,10 +34,13 @@ export function DataView({
   const { useCurrentDeployment, ErrorBoundary } = useContext(
     DeploymentInfoContext,
   );
-  const { id: deploymentId } = useCurrentDeployment() ?? {
+  const deployment = useCurrentDeployment() ?? {
     id: undefined,
     kind: undefined,
   };
+
+  const deploymentId = deployment && "id" in deployment ? deployment.id : null;
+
   const router = useRouter();
   const tableMetadata = useTableMetadataAndUpdateURL();
 

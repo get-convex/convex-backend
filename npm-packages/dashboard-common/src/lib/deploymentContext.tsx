@@ -26,6 +26,7 @@ import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Tooltip } from "@ui/Tooltip";
 import { Callout } from "@ui/Callout";
+import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 export const PROVISION_DEV_PAGE_NAME = "development";
@@ -87,16 +88,7 @@ export type DeploymentInfo = (
         slug: string;
       }
     | undefined;
-  useCurrentDeployment():
-    | {
-        id: number;
-        name: string;
-        projectId: number;
-        deploymentType: "prod" | "dev" | "preview" | "custom";
-        kind: "local" | "cloud";
-        previewIdentifier?: string | null;
-      }
-    | undefined;
+  useCurrentDeployment(): PlatformDeploymentResponse | undefined;
   /**
    * Whether the current deployment should be treated as a "protected deployment"
    * in the dashboard UI.

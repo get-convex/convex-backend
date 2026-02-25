@@ -32,7 +32,8 @@ export function FunctionsView() {
 }
 function Functions() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
-  const deploymentId = useCurrentDeployment()?.id;
+  const deployment = useCurrentDeployment();
+  const deploymentId = deployment && "id" in deployment ? deployment.id : null;
   const currentOpenFunction = useCurrentOpenFunction();
   const modules = useModuleFunctions();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);

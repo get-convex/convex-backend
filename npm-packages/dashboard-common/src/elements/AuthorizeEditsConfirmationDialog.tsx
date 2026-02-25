@@ -1,4 +1,6 @@
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { useContext } from "react";
 
 export function AuthorizeEditsConfirmationDialog({
   onClose,
@@ -7,6 +9,8 @@ export function AuthorizeEditsConfirmationDialog({
   onClose(): void;
   onConfirm(): Promise<void>;
 }) {
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
   return (
     <ConfirmationDialog
       onClose={onClose}
@@ -17,9 +21,13 @@ export function AuthorizeEditsConfirmationDialog({
       dialogBody={
         <div className="flex flex-col gap-2">
           <p>
-            {/* TODO(ENG-10340) Remove prod-specific messaging and use the deployment ref instead */}
-            You are about to start editing data in a production environment. If
-            this is intentional, click "Confirm".
+            You are about to start editing data in{" "}
+            <span className="font-semibold">
+              {deployment?.kind === "cloud"
+                ? deployment.reference
+                : deployment?.name}
+            </span>
+            .
           </p>
           <p>
             Once confirmed, you will not be asked to confirm again for the

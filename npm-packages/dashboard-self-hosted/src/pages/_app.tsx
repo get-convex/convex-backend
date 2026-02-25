@@ -233,6 +233,11 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
       projectId: 0,
       kind: "local",
       previewIdentifier: null,
+      creator: 0,
+      createTime: 0,
+      port: 0,
+      deviceName: "local",
+      isActive: true,
     };
   },
   useIsProtectedDeployment: () => false,

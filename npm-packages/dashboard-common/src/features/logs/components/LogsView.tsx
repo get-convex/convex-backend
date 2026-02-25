@@ -10,8 +10,9 @@ export function LogsView() {
   const { nents, selectedNent } = useNents();
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
+  const deploymentId = deployment && "id" in deployment ? deployment.id : null;
   return (
-    <PageContent key={deployment?.id}>
+    <PageContent key={deploymentId}>
       <DeploymentPageTitle title="Logs" />
       <LoadingTransition>
         {nents && <Logs nents={nents} selectedNent={selectedNent} />}
