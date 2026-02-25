@@ -1909,6 +1909,65 @@ async fn test_db_index_backfill_progress(
 }
 
 #[convex_macro::test_runtime]
+async fn test_db_index_multi_index_backfill_progress_multiple_indexes_same_table(
+    rt: TestRuntime,
+    pause: PauseController,
+) -> anyhow::Result<()> {
+    // Small chunk size so we get an intermediate progress update
+    unsafe { std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10") };
+    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+
+    let (index_name, index_id1, _values) = add_documents_and_index(db.clone()).await?;
+
+    // Add second indexes on the same table to trigger the multi-index batch
+    let mut tx = db.begin_system().await?;
+    let begin_ts = tx.begin_timestamp();
+    let index_id2 = IndexModel::new(&mut tx)
+        .add_application_index(
+            TableNamespace::test_user(),
+            IndexMetadata::new_backfilling(
+                *begin_ts,
+                IndexName::new(index_name.table().clone(), IndexDescriptor::new("by_b")?)?,
+                vec![str::parse("b")?].try_into()?,
+            ),
+        )
+        .await?;
+    db.commit(tx).await?;
+
+    let retention_validator = Arc::new(NoopRetentionValidator);
+    let hold_guard = pause.hold(UPDATE_BACKFILL_PROGRESS_LABEL);
+    let rt_clone = rt.clone();
+    let db_clone = db.clone();
+    let _index_backfill_handle = rt.spawn("index_worker", async move {
+        IndexWorker::new(
+            rt_clone,
+            tp,
+            retention_validator,
+            db_clone,
+            "carnitas".into(),
+            UsageCounter::new(Arc::new(NoOpUsageEventLogger)),
+        )
+        .await
+    });
+    let _pause_guard = hold_guard.wait_for_blocked().await.unwrap();
+
+    let mut tx = db.begin_system().await?;
+    let mut model = IndexBackfillModel::new(&mut tx);
+
+    for index in [index_id1, index_id2] {
+        let progress = model
+            .existing_backfill_metadata(index.developer_id)
+            .await?
+            .unwrap();
+        // With CHUNK_SIZE=10 and 2 indexes, expecting 5 docs
+        assert_eq!(progress.num_docs_indexed, 5,);
+        assert_eq!(progress.total_docs, Some(200));
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_db_index_backfill_tracks_usage(rt: TestRuntime) -> anyhow::Result<()> {
     use indexing::index_registry::IndexedDocument;
 
