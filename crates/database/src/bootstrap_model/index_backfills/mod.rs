@@ -157,7 +157,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         index_id: IndexId,
         tablet_id: TabletId,
         num_docs_indexed: u64,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<IndexBackfillMetadata>> {
         self.update_index_backfill_progress(index_id, tablet_id, num_docs_indexed, None)
             .await
     }
@@ -169,7 +169,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         tablet_id: TabletId,
         num_docs_indexed: u64,
         cursor: ResolvedDocumentId,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<IndexBackfillMetadata>> {
         self.update_index_backfill_progress(
             index_id,
             tablet_id,
@@ -191,7 +191,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         tablet_id: TabletId,
         num_docs_indexed: u64,
         cursor: Option<DeveloperDocumentId>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<IndexBackfillMetadata>> {
         let index_id = self.index_id_as_developer_id(index_id);
         let maybe_existing_backfill_metadata = self.existing_backfill_metadata(index_id).await?;
         let Some(existing_backfill_metadata) = maybe_existing_backfill_metadata else {
@@ -214,9 +214,10 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
             SystemMetadataModel::new_global(self.tx)
                 .replace(
                     existing_backfill_metadata.id(),
-                    new_backfill_metadata.try_into()?,
+                    new_backfill_metadata.clone().try_into()?,
                 )
                 .await?;
+            Ok(Some(new_backfill_metadata))
         } else {
             // If there is no total_docs, we will approximate it from the current snapshot.
             let table_namespace = self.tx.table_mapping().tablet_namespace(tablet_id)?;
@@ -234,19 +235,19 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
                 SystemMetadataModel::new_global(self.tx)
                     .replace(
                         existing_backfill_metadata.id(),
-                        new_backfill_metadata.try_into()?,
+                        new_backfill_metadata.clone().try_into()?,
                     )
                     .await?;
+                Ok(Some(new_backfill_metadata))
             } else {
                 // Return early without updating if table summaries are still bootstrapping.
                 tracing::info!(
                     "Table summaries are still bootstrapping, skipping index backfill metadata \
                      update."
                 );
-                return Ok(());
+                Ok(None)
             }
         }
-        Ok(())
     }
 
     pub async fn delete_index_backfill(
