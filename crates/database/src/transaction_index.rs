@@ -1022,7 +1022,7 @@ mod tests {
                 index_registry.clone(),
                 Arc::new(inner),
                 id_generator.clone(),
-                ps,
+                Arc::new(ps),
                 None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -1121,7 +1121,7 @@ mod tests {
                 index_registry.clone(),
                 Arc::new(inner),
                 id_generator.clone(),
-                ps,
+                Arc::new(ps),
                 None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -1322,7 +1322,7 @@ mod tests {
                 index_registry.clone(),
                 Arc::new(index),
                 id_generator.clone(),
-                ps,
+                Arc::new(ps),
                 None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -1517,7 +1517,7 @@ mod tests {
                 index_registry.clone(),
                 Arc::new(inner),
                 id_generator.clone(),
-                ps,
+                Arc::new(ps),
                 None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -1671,7 +1671,7 @@ mod tests {
                 index_registry.clone(),
                 Arc::new(inner),
                 id_generator.clone(),
-                ps,
+                Arc::new(ps),
                 None,
             ),
             Arc::new(TextIndexManagerSnapshot::new(

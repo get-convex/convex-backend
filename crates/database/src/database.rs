@@ -906,7 +906,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             self.snapshot.index_registry.clone(),
             Arc::new(NoInMemoryIndexes),
             self.snapshot.table_registry.table_mapping().clone(),
-            self.persistence_snapshot.clone(),
+            Arc::new(self.persistence_snapshot.clone()),
             None,
         );
 
@@ -1773,12 +1773,14 @@ impl<RT: Runtime> Database<RT> {
                 snapshot.index_registry.clone(),
                 Arc::new(snapshot.in_memory_indexes),
                 snapshot.table_registry.table_mapping().clone(),
-                RepeatablePersistence::new(
-                    self.reader.clone(),
-                    repeatable_ts,
-                    self.retention_manager.clone(),
-                )
-                .read_snapshot(repeatable_ts)?,
+                Arc::new(
+                    RepeatablePersistence::new(
+                        self.reader.clone(),
+                        repeatable_ts,
+                        self.retention_manager.clone(),
+                    )
+                    .read_snapshot(repeatable_ts)?,
+                ),
                 index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(

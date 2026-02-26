@@ -627,7 +627,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             index_registry.clone(),
             Arc::new(in_memory_indexes),
             table_registry.table_mapping().clone(),
-            persistence_snapshot,
+            Arc::new(persistence_snapshot),
             None,
         );
 

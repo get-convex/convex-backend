@@ -48,7 +48,10 @@ use common::{
         StartIncluded,
     },
     knobs::TRANSACTION_MAX_READ_SIZE_BYTES,
-    persistence::PersistenceSnapshot,
+    persistence::{
+        IndexStream,
+        PersistenceSnapshot,
+    },
     query::{
         CursorPosition,
         Order,
@@ -114,6 +117,36 @@ pub trait InMemoryIndexes: Send + Sync {
         tablet_id: TabletId,
         table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>>;
+}
+
+pub trait IndexReader: Send + Sync {
+    fn index_scan(
+        &self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        interval: &Interval,
+        order: Order,
+        size_hint: usize,
+    ) -> IndexStream<'_>;
+
+    fn timestamp(&self) -> RepeatableTimestamp;
+}
+
+impl IndexReader for PersistenceSnapshot {
+    fn index_scan(
+        &self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        interval: &Interval,
+        order: Order,
+        size_hint: usize,
+    ) -> IndexStream<'_> {
+        PersistenceSnapshot::index_scan(self, index_id, tablet_id, interval, order, size_hint)
+    }
+
+    fn timestamp(&self) -> RepeatableTimestamp {
+        PersistenceSnapshot::timestamp(self)
+    }
 }
 
 /// [`BackendInMemoryIndexes`] maintains in-memory database indexes. With the
@@ -518,7 +551,7 @@ pub struct DatabaseIndexSnapshot {
     in_memory_indexes: Arc<dyn InMemoryIndexes>,
     table_mapping: ReadOnly<TableMapping>,
 
-    persistence: PersistenceSnapshot,
+    reader: Arc<dyn IndexReader>,
 
     // Cache results reads from the snapshot. The snapshot is immutable and thus
     // we don't have to do any invalidation.
@@ -547,7 +580,7 @@ impl DatabaseIndexSnapshot {
         index_registry: IndexRegistry,
         in_memory_indexes: Arc<dyn InMemoryIndexes>,
         table_mapping: TableMapping,
-        persistence_snapshot: PersistenceSnapshot,
+        reader: Arc<dyn IndexReader>,
         cache: Option<TimestampedIndexCache>,
     ) -> Self {
         let cache = cache
@@ -557,7 +590,7 @@ impl DatabaseIndexSnapshot {
             index_registry: ReadOnly::new(index_registry),
             in_memory_indexes,
             table_mapping: ReadOnly::new(table_mapping),
-            persistence: persistence_snapshot,
+            reader,
             cache,
         }
     }
@@ -736,7 +769,7 @@ impl DatabaseIndexSnapshot {
                             matches!(result, DatabaseIndexSnapshotCacheResult::CacheMiss(_))
                         });
                         let fut = Self::fetch_cache_misses(
-                            self.persistence.clone(),
+                            self.reader.clone(),
                             index_id,
                             (*range_request).clone(),
                             cache_results,
@@ -800,7 +833,7 @@ impl DatabaseIndexSnapshot {
     }
 
     async fn fetch_cache_misses(
-        persistence: PersistenceSnapshot,
+        reader: Arc<dyn IndexReader>,
         index_id: IndexId,
         range_request: RangeRequest,
         cache_results: Vec<DatabaseIndexSnapshotCacheResult>,
@@ -828,7 +861,7 @@ impl DatabaseIndexSnapshot {
                         traced = true;
                     }
                     // Query persistence.
-                    let mut stream = persistence.index_scan(
+                    let mut stream = reader.index_scan(
                         index_id,
                         *range_request.index_name.table(),
                         &interval,
@@ -859,7 +892,7 @@ impl DatabaseIndexSnapshot {
     }
 
     pub fn timestamp(&self) -> RepeatableTimestamp {
-        self.persistence.timestamp()
+        self.reader.timestamp()
     }
 }
 
