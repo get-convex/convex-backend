@@ -5,6 +5,7 @@ import { test, expect, describe, vi } from "vitest";
 import ws from "ws";
 
 import { ConvexReactClient, createMutation, useQuery } from "./client.js";
+import { convexQueryOptions } from "../browser/query_options.js";
 import { ConvexProvider } from "./index.js";
 import React from "react";
 import { renderHook } from "@testing-library/react";
@@ -190,5 +191,19 @@ describe("async query fetch", () => {
     optimisticUpdate();
     const queryResult = client.query(anyApi.myQuery.default, {});
     expect(await queryResult).toStrictEqual("queryResult");
+  });
+});
+
+describe("prewarmQuery types", () => {
+  test("accepts QueryOptions shape", () => {
+    const client = testConvexReactClient();
+    const opts = convexQueryOptions({
+      query: makeFunctionReference<"query", { name: string }, string>(
+        "myQuery",
+      ),
+      args: { name: "hi" },
+    });
+    // Type-level check: prewarmQuery accepts QueryOptions without extendSubscriptionFor
+    client.prewarmQuery(opts);
   });
 });

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "../react/client.js";
-import { FunctionReference, makeFunctionReference } from "../server/api.js";
-import { jsonToConvex } from "../values/index.js";
+import { FunctionReference } from "../server/api.js";
+import { parsePreloaded } from "./preloaded.js";
 
 /**
  * The preloaded query payload, which should be passed to a client component
@@ -34,17 +34,14 @@ export type Preloaded<Query extends FunctionReference<"query">> = {
 export function usePreloadedQuery<Query extends FunctionReference<"query">>(
   preloadedQuery: Preloaded<Query>,
 ): Query["_returnType"] {
-  const args = useMemo(
-    () => jsonToConvex(preloadedQuery._argsJSON),
-    [preloadedQuery._argsJSON],
-  ) as Query["_args"];
-  const preloadedResult = useMemo(
-    () => jsonToConvex(preloadedQuery._valueJSON),
-    [preloadedQuery._valueJSON],
+  const parsed = useMemo(
+    () => parsePreloaded(preloadedQuery),
+    // Depend on the stable JSON strings rather than object identity so that
+    // callers creating a new Preloaded object on each render don't cause
+    // unnecessary re-parses.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preloadedQuery._argsJSON, preloadedQuery._valueJSON, preloadedQuery._name],
   );
-  const result = useQuery(
-    makeFunctionReference(preloadedQuery._name) as Query,
-    args,
-  );
-  return result === undefined ? preloadedResult : result;
+  const result = useQuery(parsed.queryReference, parsed.argsObject);
+  return result === undefined ? parsed.preloadedResult : result;
 }

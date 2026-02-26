@@ -1,7 +1,6 @@
 import { test } from "vitest";
 import { makeFunctionReference } from "../server/index.js";
 import { EmptyObject } from "../server/registration.js";
-import { ConvexReactClient } from "../react/client.js";
 import { convexQueryOptions } from "./query_options.js";
 
 const apiQueryFuncWithArgs = makeFunctionReference<
@@ -43,10 +42,4 @@ test("convexQueryOptions", async () => {
   });
 });
 
-test("prewarmQuery types", async () => {
-  const client = {
-    prewarmQuery: () => {},
-  } as unknown as ConvexReactClient;
 
-  client.prewarmQuery({ query: apiQueryFuncWithArgs, args: { name: "hi" } });
-});

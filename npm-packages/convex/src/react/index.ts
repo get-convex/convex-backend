@@ -86,3 +86,5 @@ export {
   useAction,
   useConvexConnectionState,
 } from "./client.js";
+export { convexQueryOptions } from "../browser/query_options.js";
+export type { QueryOptions } from "../browser/query_options.js";
