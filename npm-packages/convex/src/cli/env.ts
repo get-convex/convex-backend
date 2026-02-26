@@ -4,6 +4,7 @@ import { Context, oneoffContext } from "../bundler/context.js";
 import {
   DeploymentSelectionOptions,
   deploymentSelectionWithinProjectFromOptions,
+  DetailedDeploymentCredentials,
   loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
@@ -15,6 +16,7 @@ import {
   envSetInDeployment,
 } from "./lib/env.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import { withRunningBackend } from "./lib/localDeployment/run.js";
 
 const envSet = new Command("set")
   // Pretend value is required
@@ -33,7 +35,13 @@ const envSet = new Command("set")
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env set");
-    await envSetInDeployment(ctx, deployment, originalName, originalValue);
+    await withRunningBackend({
+      ctx,
+      deployment,
+      action: async () => {
+        await envSetInDeployment(ctx, deployment, originalName, originalValue);
+      },
+    });
   });
 
 async function selectEnvDeployment(
@@ -44,6 +52,7 @@ async function selectEnvDeployment(
     deploymentUrl: string;
     adminKey: string;
     deploymentNotice: string;
+    deploymentFields: DetailedDeploymentCredentials["deploymentFields"];
   };
 }> {
   const ctx = await oneoffContext(options);
@@ -58,19 +67,23 @@ async function selectEnvDeployment(
     ctx,
     deploymentSelection,
     selectionWithinProject,
+    { ensureLocalRunning: false },
   );
+
   const deploymentNotice =
     deploymentFields !== null
       ? ` (on ${chalkStderr.bold(deploymentFields.deploymentType)} deployment ${chalkStderr.bold(deploymentFields.deploymentName)})`
       : "";
-  return {
+  const result = {
     ctx,
     deployment: {
       deploymentUrl,
       adminKey,
       deploymentNotice,
+      deploymentFields,
     },
   };
+  return result;
 }
 
 const envGet = new Command("get")
@@ -83,7 +96,13 @@ const envGet = new Command("get")
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env get");
-    await envGetInDeploymentAction(ctx, deployment, envVarName);
+    await withRunningBackend({
+      ctx,
+      deployment,
+      action: async () => {
+        await envGetInDeploymentAction(ctx, deployment, envVarName);
+      },
+    });
   });
 
 const envRemove = new Command("remove")
@@ -101,7 +120,13 @@ const envRemove = new Command("remove")
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env remove");
-    await envRemoveInDeployment(ctx, deployment, name);
+    await withRunningBackend({
+      ctx,
+      deployment,
+      action: async () => {
+        await envRemoveInDeployment(ctx, deployment, name);
+      },
+    });
   });
 
 const envList = new Command("list")
@@ -113,7 +138,13 @@ const envList = new Command("list")
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env list");
-    await envListInDeployment(ctx, deployment);
+    await withRunningBackend({
+      ctx,
+      deployment,
+      action: async () => {
+        await envListInDeployment(ctx, deployment);
+      },
+    });
   });
 
 export const env = new Command("env")

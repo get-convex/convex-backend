@@ -3,14 +3,18 @@ import { logVerbose, logMessage } from "../../../bundler/log.js";
 import {
   LocalDeploymentKind,
   deploymentStateDir,
+  loadDeploymentConfig,
   loadUuidForAnonymousUser,
 } from "./filePaths.js";
+import { ensureBackendBinaryDownloaded } from "./download.js";
 import path from "path";
 import child_process from "child_process";
 import detect from "detect-port";
 import { SENTRY_DSN } from "../utils/sentry.js";
 import { createHash } from "crypto";
 import { LocalDeploymentError } from "./errors.js";
+import { LOCAL_BACKEND_INSTANCE_SECRET } from "./utils.js";
+import { DeploymentType, DetailedDeploymentCredentials } from "../api.js";
 
 export async function runLocalBackend(
   ctx: Context,
@@ -145,32 +149,28 @@ export async function assertLocalBackendRunning(
   },
 ): Promise<void> {
   logVerbose(`Checking local backend at ${args.url} is running`);
-  try {
-    const resp = await fetch(`${args.url}/instance_name`);
-    if (resp.status === 200) {
-      const text = await resp.text();
-      if (text !== args.deploymentName) {
-        return await ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          printedMessage: `A different local backend ${text} is running at ${args.url}`,
-        });
-      } else {
-        return;
-      }
-    } else {
+  const result = await fetchLocalBackendStatus(args);
+  switch (result.kind) {
+    case "running":
+      return;
+    case "different":
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `Error response code received from local backend ${resp.status} ${resp.statusText}`,
+        printedMessage: `A different local backend ${result.name} is running at ${args.url}`,
       });
-    }
-  } catch {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: `Local backend isn't running. (it's not listening at ${args.url})\nRun \`npx convex dev\` in another terminal first.`,
-    });
+    case "error":
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Error response code received from local backend ${result.resp.status} ${result.resp.statusText}`,
+      });
+    case "not-running":
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Local backend isn't running. (it's not listening at ${args.url})\nRun \`npx convex dev\` in another terminal first.`,
+      });
   }
 }
 
@@ -287,4 +287,138 @@ export function selfHostedEventTag(
   deploymentKind: LocalDeploymentKind,
 ): string {
   return deploymentKind === "local" ? "cli-local-dev" : "cli-anonymous-dev";
+}
+
+type LocalBackendStatus =
+  | { kind: "running" }
+  | { kind: "error"; resp: Response }
+  | { kind: "different"; name: string }
+  | { kind: "not-running" };
+
+async function fetchLocalBackendStatus(args: {
+  url: string;
+  deploymentName: string;
+}): Promise<LocalBackendStatus> {
+  logVerbose(`Checking local backend at ${args.url} is running`);
+  try {
+    const resp = await fetch(`${args.url}/instance_name`);
+    if (resp.status === 200) {
+      const text = await resp.text();
+      if (text !== args.deploymentName) {
+        return { kind: "different", name: text };
+      } else {
+        return { kind: "running" };
+      }
+    } else {
+      return { kind: "error", resp };
+    }
+  } catch {
+    return { kind: "not-running" };
+  }
+}
+
+/** Returns true if the correct local backend is listening. */
+export async function isLocalBackendRunning(
+  url: string,
+  deploymentName: string,
+): Promise<boolean> {
+  return (
+    "running" === (await fetchLocalBackendStatus({ url, deploymentName })).kind
+  );
+}
+
+export function shouldUseLocalDeployment(deploymentType: DeploymentType) {
+  return deploymentType === "local" || deploymentType === "anonymous";
+}
+
+interface WithRunningBackendArgs {
+  ctx: Context;
+  deployment: {
+    deploymentUrl: string;
+    deploymentFields: DetailedDeploymentCredentials["deploymentFields"];
+  };
+  action: () => Promise<void>;
+}
+
+/**
+ * If the deployment is a local deployment and not already running, start it
+ * for the duration of the action, then stop it.
+ */
+export async function withRunningBackend({
+  ctx,
+  deployment,
+  action,
+}: WithRunningBackendArgs) {
+  let cleanup: (() => Promise<void>) | null = null;
+
+  if (
+    deployment.deploymentFields &&
+    shouldUseLocalDeployment(deployment.deploymentFields.deploymentType)
+  ) {
+    const isRunning = await isLocalBackendRunning(
+      deployment.deploymentUrl,
+      deployment.deploymentFields.deploymentName,
+    );
+    if (!isRunning) {
+      ({ cleanup } = await startEphemeralLocalBackend(ctx, {
+        deploymentType: deployment.deploymentFields.deploymentType,
+        deploymentName: deployment.deploymentFields.deploymentName,
+      }));
+    }
+  }
+
+  try {
+    await action();
+  } finally {
+    await cleanup?.();
+  }
+}
+
+/**
+ * Start a local backend for a one-off command using saved deployment config.
+ * Returns a cleanup function that stops the backend.
+ */
+async function startEphemeralLocalBackend(
+  ctx: Context,
+  args: {
+    deploymentType: string;
+    deploymentName: string;
+  },
+): Promise<{ cleanup: () => Promise<void> }> {
+  const deploymentKind: LocalDeploymentKind =
+    args.deploymentType === "anonymous" ? "anonymous" : "local";
+
+  const config = loadDeploymentConfig(ctx, deploymentKind, args.deploymentName);
+  if (config === null) {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Local backend isn't running and no saved configuration found.\nRun \`npx convex dev\` first.`,
+    });
+  }
+
+  const { binaryPath } = await ensureBackendBinaryDownloaded(ctx, {
+    kind: "version",
+    version: config.backendVersion,
+  });
+
+  const instanceSecret = config.instanceSecret ?? LOCAL_BACKEND_INSTANCE_SECRET;
+
+  const { cleanupHandle } = await runLocalBackend(ctx, {
+    binaryPath,
+    ports: config.ports,
+    deploymentKind,
+    deploymentName: args.deploymentName,
+    instanceSecret,
+    isLatestVersion: true,
+  });
+
+  return {
+    cleanup: async () => {
+      const fn = ctx.removeCleanup(cleanupHandle);
+      if (fn) {
+        await fn(0);
+      }
+    },
+  };
 }

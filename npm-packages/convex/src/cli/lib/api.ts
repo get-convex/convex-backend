@@ -644,7 +644,6 @@ export type DetailedDeploymentCredentials = {
 
 // This is used by most commands (notably not `dev` and `deploy`) to determine
 // which deployment to act on, taking into account the deployment selection flags.
-//
 export async function loadSelectedDeploymentCredentials(
   ctx: Context,
   deploymentSelection: DeploymentSelection,
