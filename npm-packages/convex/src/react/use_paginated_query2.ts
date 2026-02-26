@@ -6,6 +6,8 @@ import {
   PaginatedQueryArgs,
   UsePaginatedQueryOptions,
   UsePaginatedQueryReturnType,
+  UsePaginatedQueryObjectErrorResult,
+  UsePaginatedQueryObjectReturnType,
 } from "./use_paginated_query.js";
 import { convexToJson, Value } from "../values/value.js";
 import { useQueries } from "./use_queries.js";
@@ -84,7 +86,9 @@ export function usePaginatedQuery_experimental<
 
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,
->(options: UsePaginatedQueryOptions<Query>): UsePaginatedQueryReturnType<Query>;
+>(
+  options: UsePaginatedQueryOptions<Query>,
+): UsePaginatedQueryObjectReturnType<Query>;
 
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,
@@ -96,7 +100,7 @@ export function usePaginatedQuery_experimental<
   // - maximumBytesRead
   // - a cursor for where to start? although probably no endCursor
   options?: { initialNumItems: number },
-): UsePaginatedQueryReturnType<Query> {
+): UsePaginatedQueryObjectReturnType<Query> {
   const isObjectOptions =
     typeof queryOrOptions === "object" &&
     queryOrOptions !== null &&
@@ -104,6 +108,9 @@ export function usePaginatedQuery_experimental<
 
   const query = isObjectOptions ? queryOrOptions.query : queryOrOptions;
   const queryArgs = isObjectOptions ? queryOrOptions.args : args;
+  const throwOnError = isObjectOptions
+    ? (queryOrOptions.throwOnError ?? false)
+    : true;
   const initialOptions = isObjectOptions
     ? { initialNumItems: queryOrOptions.initialNumItems }
     : options;
@@ -225,7 +232,16 @@ export function usePaginatedQuery_experimental<
         status: "LoadingFirstPage",
       };
     } else {
-      throw result;
+      if (throwOnError) {
+        throw result;
+      }
+      return {
+        results: [],
+        loadMore: () => false,
+        isLoading: false,
+        status: "error",
+        error: result,
+      };
     }
   }
 

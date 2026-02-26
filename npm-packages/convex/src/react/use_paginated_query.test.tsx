@@ -22,6 +22,9 @@ import type {
   PaginatedQueryArgs,
   PaginatedQueryItem,
   PaginatedQueryReference,
+  UsePaginatedQueryObjectErrorResult,
+  UsePaginatedQueryObjectReturnType,
+  UsePaginatedQueryReturnType,
 } from "./use_paginated_query.js";
 import {
   resetPaginationId,
@@ -132,6 +135,123 @@ describe.each([
         expect(lastError!.toString()).toEqual(expectedError);
       },
     );
+
+    function pushFirstPageError(client: ConvexReactClient, message: string) {
+      act(() => {
+        void client.mutation(
+          anyApi.myMutation.default,
+          {},
+          {
+            optimisticUpdate: (localStore) => {
+              localStore.setQuery(
+                anyApi.myQuery.default,
+                {
+                  paginationOpts: {
+                    numItems: 10,
+                    cursor: null,
+                    id: 1,
+                  },
+                },
+                new Error(
+                  message,
+                ) as unknown as FunctionReturnType<PaginatedQueryReference>,
+              );
+            },
+          },
+        );
+      });
+    }
+
+    test("Object options default to non-throwing error state", () => {
+      if (version === "client-based logic") {
+        return;
+      }
+      const convexClient = new ConvexReactClient(address);
+      resetPaginationId();
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+      );
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedQuery({
+            query: makeFunctionReference<"query">("myQuery"),
+            args: {},
+            initialNumItems: 10,
+          }),
+        { wrapper },
+      );
+
+      pushFirstPageError(convexClient, "boom-default");
+
+      if (result.current.status !== "error") {
+        throw new Error("Expected error status");
+      }
+      expect(result.current.error.message).toBe("boom-default");
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.results).toEqual([]);
+    });
+
+    test("Object options throw when throwOnError is true", () => {
+      if (version === "client-based logic") {
+        return;
+      }
+      const convexClient = new ConvexReactClient(address);
+      resetPaginationId();
+      let lastError: Error | undefined;
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ErrorBoundary onError={(e) => (lastError = e)}>
+          <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+        </ErrorBoundary>
+      );
+
+      renderHook(
+        () =>
+          usePaginatedQuery({
+            query: makeFunctionReference<"query">("myQuery"),
+            args: {},
+            initialNumItems: 10,
+            throwOnError: true,
+          }),
+        { wrapper },
+      );
+
+      pushFirstPageError(convexClient, "boom-throw");
+
+      expect(lastError).toBeDefined();
+      expect(lastError?.message).toBe("boom-throw");
+    });
+
+    test("Positional form continues throwing on errors", () => {
+      if (version === "client-based logic") {
+        return;
+      }
+      const convexClient = new ConvexReactClient(address);
+      resetPaginationId();
+      let lastError: Error | undefined;
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ErrorBoundary onError={(e) => (lastError = e)}>
+          <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+        </ErrorBoundary>
+      );
+
+      renderHook(
+        () =>
+          usePaginatedQuery(
+            makeFunctionReference<"query">("myQuery"),
+            {},
+            {
+              initialNumItems: 10,
+            },
+          ),
+        { wrapper },
+      );
+
+      pushFirstPageError(convexClient, "boom-positional");
+
+      expect(lastError).toBeDefined();
+      expect(lastError?.message).toBe("boom-positional");
+    });
 
     test("Returns nothing when args are 'skip'", () => {
       const convexClient = new ConvexReactClient(address);
@@ -556,6 +676,58 @@ describe.each([
         >;
         type ActualReturnType = PaginatedQueryItem<MyQueryFunction>;
         assert<Equals<ActualReturnType, ReturnType>>();
+      });
+    });
+
+    describe("UsePaginatedQueryObjectReturnType", () => {
+      type MyQuery = FunctionReference<
+        "query",
+        "public",
+        { paginationOpts: PaginationOptions },
+        PaginationResult<string>
+      >;
+
+      test("object-form return type includes error variant", () => {
+        // Extract<..., { status: "error" }> must not be never
+        type ObjResult = UsePaginatedQueryObjectReturnType<MyQuery>;
+        type ErrorVariant = Extract<ObjResult, { status: "error" }>;
+        assert<Equals<ErrorVariant, UsePaginatedQueryObjectErrorResult<string>>>();
+      });
+
+      test("positional-form return type does NOT include error variant", () => {
+        // Extract<..., { status: "error" }> must be never
+        type PosResult = UsePaginatedQueryReturnType<MyQuery>;
+        type ErrorVariant = Extract<PosResult, { status: "error" }>;
+        assert<Equals<ErrorVariant, never>>();
+      });
+
+      test("error variant has correct shape", () => {
+        type ErrorResult = UsePaginatedQueryObjectErrorResult<string>;
+        assert<
+          Equals<
+            ErrorResult,
+            {
+              results: string[];
+              loadMore: (numItems: number) => void;
+              status: "error";
+              isLoading: false;
+              error: Error;
+            }
+          >
+        >();
+      });
+
+      test("narrowing on status === 'error' gives access to error field", () => {
+        type ObjResult = UsePaginatedQueryObjectReturnType<MyQuery>;
+        // After narrowing, error should be typed as Error
+        type NarrowedError = Extract<ObjResult, { status: "error" }>["error"];
+        assert<Equals<NarrowedError, Error>>();
+        // After narrowing, non-error branches should not have error field
+        type NonError = Exclude<ObjResult, { status: "error" }>;
+        type NonErrorHasError = NonError extends { error: unknown }
+          ? true
+          : false;
+        assert<Equals<NonErrorHasError, false>>();
       });
     });
 
