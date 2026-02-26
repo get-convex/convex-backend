@@ -17,7 +17,7 @@ Clerk identity tokens available everywhere you might make authenticated calls to
 Convex in TanStack Start, you'll want to
 
 1. Get an ID token from Clerk in addition to the `getAuth()` call with
-   `const token = await auth.getToken({ template: "convex" })`.
+   `const token = await auth.getToken()`.
 2. Set the token in beforeLoad with
    `ctx.context.convexQueryClient.serverHttpClient?.setAuth(token)` so the token
    will be available in loaders.

@@ -54,16 +54,14 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
     </p>
 
   </Step>
-  <Step title="Create a JWT Template">
-    In the Clerk Dashboard, navigate to the [JWT templates](https://dashboard.clerk.com/last-active?path=jwt-templates) page.
-
-    Select _New template_ and then from the list of templates, select _Convex_. You'll be redirected to the template's settings page. **Do NOT rename the JWT token. It must be called `convex`.**
-
-    Copy and save the _Issuer_ URL somewhere secure. This URL is the issuer domain for Clerk's JWT templates, which is your Clerk app's _Frontend API URL_. In development, it's format will be `https://verb-noun-00.clerk.accounts.dev`. In production, it's format will be `https://clerk.<your-domain>.com`.
+  <Step title="Activate the Convex integration in Clerk">
+    In the Clerk Dashboard, activate the [Convex integration](https://dashboard.clerk.com/apps/setup/convex).
 
     <p style={{textAlign: 'center'}}>
-      <img src="/screenshots/clerk-createjwt.png" alt="Create a JWT template" width={400} />
+      <img src="/screenshots/clerk-convex-integration.png" alt="Activate the Convex integration in Clerk" width={400} />
     </p>
+
+    Copy your Clerk app's _Frontend API URL_. In development, its format will be `https://verb-noun-00.clerk.accounts.dev`. In production, its format will be `https://clerk.<your-domain>.com`.
 
   </Step>
   <Step title="Configure Convex with the Clerk issuer domain">
@@ -75,7 +73,7 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
     export default {
       providers: [
         {
-          // Replace with your own Clerk Issuer URL from your "convex" JWT template
+          // Replace with your Clerk Frontend API URL
           // or with `process.env.CLERK_JWT_ISSUER_DOMAIN`
           // and configure CLERK_JWT_ISSUER_DOMAIN on the Convex Dashboard
           // See https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances
@@ -213,16 +211,14 @@ follow the [Convex Next.js Quickstart](/quickstart/nextjs.mdx) first. Then:
     </p>
 
   </Step>
-  <Step title="Create a JWT Template">
-    In the Clerk Dashboard, navigate to the [JWT templates](https://dashboard.clerk.com/last-active?path=jwt-templates) page.
-
-    Select _New template_ and then from the list of templates, select _Convex_. You'll be redirected to the template's settings page. **Do NOT rename the JWT token. It must be called `convex`.**
-
-    Copy and save the _Issuer_ URL somewhere secure. This URL is the issuer domain for Clerk's JWT templates, which is your Clerk app's _Frontend API URL_. In development, it's format will be `https://verb-noun-00.clerk.accounts.dev`. In production, it's format will be `https://clerk.<your-domain>.com`.
+  <Step title="Activate the Convex integration in Clerk">
+    In the Clerk Dashboard, activate the [Convex integration](https://dashboard.clerk.com/apps/setup/convex).
 
     <p style={{textAlign: 'center'}}>
-      <img src="/screenshots/clerk-createjwt.png" alt="Create a JWT template" width={400} />
+      <img src="/screenshots/clerk-convex-integration.png" alt="Activate the Convex integration in Clerk" width={400} />
     </p>
+
+    Copy your Clerk app's _Frontend API URL_. In development, its format will be `https://verb-noun-00.clerk.accounts.dev`. In production, its format will be `https://clerk.<your-domain>.com`.
 
   </Step>
   <Step title="Configure Convex with the Clerk issuer domain">
@@ -234,7 +230,7 @@ follow the [Convex Next.js Quickstart](/quickstart/nextjs.mdx) first. Then:
     export default {
       providers: [
         {
-          // Replace with your own Clerk Issuer URL from your "convex" JWT template
+          // Replace with your Clerk Frontend API URL
           // or with `process.env.CLERK_JWT_ISSUER_DOMAIN`
           // and configure CLERK_JWT_ISSUER_DOMAIN on the Convex Dashboard
           // See https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances
@@ -474,10 +470,10 @@ Convex dashboard.
 
 In the Clerk Dashboard, navigate to the
 [**API keys**](https://dashboard.clerk.com/last-active?path=api-keys) page. Copy
-your Clerk Frontend API URL. This URL is the issuer domain for Clerk's JWT
-templates, and is necessary for Convex to validate access tokens. In
-development, it's format will be `https://verb-noun-00.clerk.accounts.dev`. In
-production, it's format will be `https://clerk.<your-domain>.com`.
+your Clerk Frontend API URL. This URL is the issuer domain necessary for Convex
+to validate access tokens. In development, it's format will be
+`https://verb-noun-00.clerk.accounts.dev`. In production, it's format will be
+`https://clerk.<your-domain>.com`.
 
 Paste your Clerk Frontend API URL into your `.env` file, set it as the
 `CLERK_JWT_ISSUER_DOMAIN` environment variable.
