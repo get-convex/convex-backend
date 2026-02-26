@@ -7,6 +7,7 @@ import { test, describe, expectTypeOf } from "vitest";
 import { anyApi } from "../server/api.js";
 
 import type { ApiFromModules, QueryBuilder } from "../server/index.js";
+import type { ConvexReactClient } from "./client.js";
 import { useSuspenseQuery as useSuspenseQueryReal } from "./client.js";
 
 const useSuspenseQuery = (() => {}) as unknown as typeof useSuspenseQueryReal;
@@ -19,6 +20,7 @@ const module = {
 };
 type API = ApiFromModules<{ module: typeof module }>;
 const api = anyApi as unknown as API;
+const client = {} as ConvexReactClient;
 
 describe("useSuspenseQuery types", () => {
   test("supports positional and object options", () => {
@@ -28,6 +30,7 @@ describe("useSuspenseQuery types", () => {
     useSuspenseQuery({
       query: api.module.args,
       args: { _arg: "asdf" },
+      client,
     });
 
     useSuspenseQuery({

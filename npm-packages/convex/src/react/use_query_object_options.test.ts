@@ -7,6 +7,7 @@ import { test, describe, expectTypeOf } from "vitest";
 import { anyApi } from "../server/api.js";
 
 import type { ApiFromModules, QueryBuilder } from "../server/index.js";
+import type { ConvexReactClient } from "./client.js";
 import { useQuery as useQueryReal } from "./client.js";
 
 const useQuery = (() => {}) as unknown as typeof useQueryReal;
@@ -18,6 +19,7 @@ const module = {
 };
 type API = ApiFromModules<{ module: typeof module }>;
 const api = anyApi as unknown as API;
+const client = {} as ConvexReactClient;
 
 describe("useQuery object options types", () => {
   test("supports object options and skip sentinel", () => {
@@ -29,6 +31,7 @@ describe("useQuery object options types", () => {
     useQuery({
       query: api.module.args,
       args: { _arg: "asdf" },
+      client,
     });
 
     const _arg: string | undefined = undefined;

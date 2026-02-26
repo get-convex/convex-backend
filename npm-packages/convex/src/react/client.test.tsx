@@ -22,7 +22,7 @@ const testConvexReactClient = () =>
     webSocketConstructor: ws as unknown as typeof WebSocket,
   });
 
-function createClientWithQuery() {
+function createClientWithQuery(queryResult: string = "queryResult") {
   const client = testConvexReactClient();
   // Use an optimistic update to set up a query to have a result.
   void client.mutation(
@@ -30,7 +30,7 @@ function createClientWithQuery() {
     {},
     {
       optimisticUpdate: (localStore) => {
-        localStore.setQuery(anyApi.myQuery.default, {}, "queryResult");
+        localStore.setQuery(anyApi.myQuery.default, {}, queryResult);
       },
     },
   );
@@ -153,6 +153,46 @@ describe("useQuery", () => {
     });
   });
 
+  test("object options use override client", () => {
+    const providerClient = createClientWithQuery("providerResult");
+    const overrideClient = createClientWithQuery("overrideResult");
+    const wrapper = ({ children }: any) => (
+      <ConvexProvider client={providerClient}>{children}</ConvexProvider>
+    );
+    const { result } = renderHook(
+      () =>
+        useQuery({
+          query: anyApi.myQuery.default,
+          args: {},
+          client: overrideClient,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current).toStrictEqual({
+      data: "overrideResult",
+      error: undefined,
+      status: "success",
+    });
+  });
+
+  test("object options work without provider when client is supplied", () => {
+    const overrideClient = createClientWithQuery("overrideOnly");
+    const { result } = renderHook(() =>
+      useQuery({
+        query: anyApi.myQuery.default,
+        args: {},
+        client: overrideClient,
+      }),
+    );
+
+    expect(result.current).toStrictEqual({
+      data: "overrideOnly",
+      error: undefined,
+      status: "success",
+    });
+  });
+
   test("Optimistic update handlers can’t be async", () => {
     const client = testConvexReactClient();
     const mutation = createMutation(
@@ -201,6 +241,40 @@ describe("useSuspenseQuery", () => {
       },
     );
     expect(result.current).toStrictEqual("queryResult");
+  });
+
+  test("object options use override client", () => {
+    const providerClient = createClientWithQuery("providerResult");
+    const overrideClient = createClientWithQuery("overrideResult");
+    const wrapper = ({ children }: any) => (
+      <ConvexProvider client={providerClient}>{children}</ConvexProvider>
+    );
+    const { result } = renderHook(
+      () =>
+        useSuspenseQuery({
+          query: anyApi.myQuery.default,
+          args: {},
+          client: overrideClient,
+        }),
+      {
+        wrapper,
+      },
+    );
+
+    expect(result.current).toStrictEqual("overrideResult");
+  });
+
+  test("object options work without provider when client is supplied", () => {
+    const overrideClient = createClientWithQuery("overrideOnly");
+    const { result } = renderHook(() =>
+      useSuspenseQuery({
+        query: anyApi.myQuery.default,
+        args: {},
+        client: overrideClient,
+      }),
+    );
+
+    expect(result.current).toStrictEqual("overrideOnly");
   });
 
   test("returns undefined when skipped", () => {

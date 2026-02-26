@@ -826,6 +826,7 @@ export type UseQueryResult<QueryResult> =
 type UseQueryObjectOptions<Query extends FunctionReference<"query">> =
   QueryOptions<Query> & {
     throwOnError?: boolean;
+    client?: ConvexReactClient;
   };
 
 type UseSuspenseQueryObjectOptions<Query extends FunctionReference<"query">> =
@@ -908,6 +909,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
 
   let queryReference: Query | undefined;
   let argsObject: Record<string, Value> = {};
+  let client: ConvexReactClient | undefined;
 
   if (isObjectOptions) {
     const query = queryOrOptions.query;
@@ -916,6 +918,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
         ? (makeFunctionReference<"query", any, any>(query) as Query)
         : query;
     argsObject = queryOrOptions.args ?? ({} as Record<string, Value>);
+    client = queryOrOptions.client;
   } else if (queryOrOptions !== "skip") {
     const query = queryOrOptions;
     queryReference =
@@ -938,7 +941,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
     [JSON.stringify(convexToJson(argsObject)), queryName, skip],
   );
 
-  const results = useQueries(queries);
+  const results = useQueries(queries, client);
   const result = results["query"];
 
   if (isObjectOverload) {
