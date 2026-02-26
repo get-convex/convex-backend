@@ -84,7 +84,9 @@ export function usePaginatedQuery_experimental<
 
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,
->(options: UsePaginatedQueryOptions<Query>): UsePaginatedQueryReturnType<Query>;
+>(
+  options: UsePaginatedQueryOptions<Query>,
+): UsePaginatedQueryObjectReturnType<Query>;
 
 export function usePaginatedQuery_experimental<
   Query extends PaginatedQueryReference,
@@ -96,7 +98,7 @@ export function usePaginatedQuery_experimental<
   // - maximumBytesRead
   // - a cursor for where to start? although probably no endCursor
   options?: { initialNumItems: number },
-): UsePaginatedQueryReturnType<Query> {
+): UsePaginatedQueryObjectReturnType<Query> {
   const isObjectOptions =
     typeof queryOrOptions === "object" &&
     queryOrOptions !== null &&
@@ -104,6 +106,9 @@ export function usePaginatedQuery_experimental<
 
   const query = isObjectOptions ? queryOrOptions.query : queryOrOptions;
   const queryArgs = isObjectOptions ? queryOrOptions.args : args;
+  const throwOnError = isObjectOptions
+    ? (queryOrOptions.throwOnError ?? false)
+    : true;
   const initialOptions = isObjectOptions
     ? { initialNumItems: queryOrOptions.initialNumItems }
     : options;
@@ -225,7 +230,16 @@ export function usePaginatedQuery_experimental<
         status: "LoadingFirstPage",
       };
     } else {
-      throw result;
+      if (throwOnError) {
+        throw result;
+      }
+      return {
+        results: [],
+        loadMore: () => false,
+        isLoading: false,
+        status: "Error",
+        error: result,
+      };
     }
   }
 
@@ -242,6 +256,18 @@ export function usePaginatedQuery_experimental<
           : false,
   } as UsePaginatedQueryReturnType<Query>;
 }
+
+type UsePaginatedQueryObjectErrorResult<Item> = {
+  results: Item[];
+  loadMore: (numItems: number) => void;
+  status: "Error";
+  isLoading: false;
+  error: Error;
+};
+
+type UsePaginatedQueryObjectReturnType<Query extends PaginatedQueryReference> =
+  | UsePaginatedQueryReturnType<Query>
+  | UsePaginatedQueryObjectErrorResult<Query["_returnType"]["page"][number]>;
 
 let paginationId = 0;
 /**

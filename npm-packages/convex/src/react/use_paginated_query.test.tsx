@@ -133,6 +133,123 @@ describe.each([
       },
     );
 
+    function pushFirstPageError(client: ConvexReactClient, message: string) {
+      act(() => {
+        void client.mutation(
+          anyApi.myMutation.default,
+          {},
+          {
+            optimisticUpdate: (localStore) => {
+              localStore.setQuery(
+                anyApi.myQuery.default,
+                {
+                  paginationOpts: {
+                    numItems: 10,
+                    cursor: null,
+                    id: 1,
+                  },
+                },
+                new Error(
+                  message,
+                ) as unknown as FunctionReturnType<PaginatedQueryReference>,
+              );
+            },
+          },
+        );
+      });
+    }
+
+    test("Object options default to non-throwing error state", () => {
+      if (version === "client-based logic") {
+        return;
+      }
+      const convexClient = new ConvexReactClient(address);
+      resetPaginationId();
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+      );
+
+      const { result } = renderHook(
+        () =>
+          usePaginatedQuery({
+            query: makeFunctionReference<"query">("myQuery"),
+            args: {},
+            initialNumItems: 10,
+          }),
+        { wrapper },
+      );
+
+      pushFirstPageError(convexClient, "boom-default");
+
+      if (result.current.status !== "Error") {
+        throw new Error("Expected Error status");
+      }
+      expect(result.current.error.message).toBe("boom-default");
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.results).toEqual([]);
+    });
+
+    test("Object options throw when throwOnError is true", () => {
+      if (version === "client-based logic") {
+        return;
+      }
+      const convexClient = new ConvexReactClient(address);
+      resetPaginationId();
+      let lastError: Error | undefined;
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ErrorBoundary onError={(e) => (lastError = e)}>
+          <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+        </ErrorBoundary>
+      );
+
+      renderHook(
+        () =>
+          usePaginatedQuery({
+            query: makeFunctionReference<"query">("myQuery"),
+            args: {},
+            initialNumItems: 10,
+            throwOnError: true,
+          }),
+        { wrapper },
+      );
+
+      pushFirstPageError(convexClient, "boom-throw");
+
+      expect(lastError).toBeDefined();
+      expect(lastError?.message).toBe("boom-throw");
+    });
+
+    test("Positional form continues throwing on errors", () => {
+      if (version === "client-based logic") {
+        return;
+      }
+      const convexClient = new ConvexReactClient(address);
+      resetPaginationId();
+      let lastError: Error | undefined;
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <ErrorBoundary onError={(e) => (lastError = e)}>
+          <ConvexProvider client={convexClient}>{children}</ConvexProvider>
+        </ErrorBoundary>
+      );
+
+      renderHook(
+        () =>
+          usePaginatedQuery(
+            makeFunctionReference<"query">("myQuery"),
+            {},
+            {
+              initialNumItems: 10,
+            },
+          ),
+        { wrapper },
+      );
+
+      pushFirstPageError(convexClient, "boom-positional");
+
+      expect(lastError).toBeDefined();
+      expect(lastError?.message).toBe("boom-positional");
+    });
+
     test("Returns nothing when args are 'skip'", () => {
       const convexClient = new ConvexReactClient(address);
       const watchQuerySpy =
