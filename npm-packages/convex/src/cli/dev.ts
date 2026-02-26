@@ -61,6 +61,11 @@ export const dev = new Command("dev")
     "Execute only the first 3 steps, on failure watch for local and remote changes and retry steps 2 and 3",
     false,
   )
+  .option(
+    "--init-skip-if-exists",
+    "When initializing convex/, don't overwrite existing convex/README.md or convex/tsconfig.json.",
+    false,
+  )
   .addOption(
     new Option(
       "--run <functionName>",

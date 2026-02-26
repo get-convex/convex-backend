@@ -65,9 +65,10 @@ export async function doInitConvexFolder(
   opts?: {
     dryRun?: boolean;
     debug?: boolean;
+    skipIfExists?: boolean;
   },
 ) {
-  const skipIfExists = false; // Not currently configured
+  const skipIfExists = opts?.skipIfExists ?? false;
   let folder: string;
   if (functionsFolder) {
     folder = functionsFolder;
