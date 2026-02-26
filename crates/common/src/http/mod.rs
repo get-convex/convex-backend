@@ -1063,6 +1063,7 @@ where
                 e.to_string(),
             ))
         })?;
+        sentry::configure_scope(|scope| scope.set_tag("convex_client_version", &client_version));
         Ok(Self(client_version))
     }
 }
