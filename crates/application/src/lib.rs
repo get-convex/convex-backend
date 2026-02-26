@@ -104,10 +104,8 @@ use common::{
     },
     query_journal::QueryJournal,
     runtime::{
-        shutdown_and_join,
         JoinSet,
         Runtime,
-        SpawnHandle,
         UnixTimestamp,
     },
     schemas::{
@@ -340,10 +338,7 @@ use sync_types::{
     SerializedQueryJournal,
 };
 use system_table_cleanup::SystemTableCleanupWorker;
-use table_summary_worker::{
-    TableSummaryClient,
-    TableSummaryWorker,
-};
+use table_summary_worker::TableSummaryWorker;
 use tokio::sync::{
     oneshot,
     Semaphore,
@@ -426,6 +421,7 @@ mod streaming_export;
 mod system_table_cleanup;
 mod table_summary_worker;
 pub mod valid_identifier;
+mod worker_handles;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod test_helpers;
@@ -433,9 +429,12 @@ pub mod test_helpers;
 mod tests;
 
 pub use crate::cache::QueryCache;
-use crate::metrics::{
-    log_external_deps_package,
-    log_source_package_size_bytes_total,
+use crate::{
+    metrics::{
+        log_external_deps_package,
+        log_source_package_size_bytes_total,
+    },
+    worker_handles::WorkerHandles,
 };
 
 pub struct ConfigMetadataAndSchema {
@@ -562,22 +561,10 @@ pub struct Application<RT: Runtime> {
     file_storage: FileStorage<RT>,
     application_storage: ApplicationStorage,
     usage_counter: UsageCounter,
-    usage_gauges_tracking_worker: UsageGaugesTrackingWorker,
     usage_event_logger: Arc<dyn UsageEventLogger>,
     key_broker: KeyBroker,
     instance_name: String,
-    scheduled_job_runner: ScheduledJobRunner,
-    cron_job_executor: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    index_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    fast_forward_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    search_worker: Arc<Mutex<SearchIndexWorkers>>,
-    search_and_vector_bootstrap_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    table_summary_worker: TableSummaryClient,
-    schema_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    snapshot_import_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    export_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    workers: WorkerHandles,
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
     system_env_var_names: HashSet<EnvVarName>,
@@ -846,6 +833,22 @@ impl<RT: Runtime> Application<RT> {
             instance_name.clone(),
         );
 
+        let workers = WorkerHandles {
+            usage_gauges_tracking_worker,
+            scheduled_job_runner,
+            cron_job_executor,
+            index_worker,
+            fast_forward_worker,
+            search_worker,
+            search_and_vector_bootstrap_worker,
+            table_summary_worker,
+            schema_worker,
+            snapshot_import_worker,
+            export_worker,
+            system_table_cleanup_worker,
+            migration_worker,
+        };
+
         Ok(Self {
             runtime,
             database,
@@ -855,21 +858,9 @@ impl<RT: Runtime> Application<RT> {
             application_storage,
             usage_event_logger,
             usage_counter,
-            usage_gauges_tracking_worker,
             key_broker,
-            scheduled_job_runner,
-            cron_job_executor,
             instance_name,
-            index_worker,
-            fast_forward_worker,
-            search_worker,
-            search_and_vector_bootstrap_worker,
-            table_summary_worker,
-            schema_worker,
-            export_worker,
-            snapshot_import_worker,
-            system_table_cleanup_worker,
-            migration_worker,
+            workers,
             log_visibility,
             module_cache,
             system_env_var_names: default_system_env_vars.into_keys().collect(),
@@ -3669,34 +3660,10 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
-        self.usage_gauges_tracking_worker.shutdown().await?;
+        self.workers.shutdown().await?;
         self.log_manager_client.shutdown().await?;
-        self.table_summary_worker.shutdown().await?;
-        self.system_table_cleanup_worker.lock().shutdown();
-        self.schema_worker.lock().shutdown();
-        let index_worker = self.index_worker.lock().take();
-        if let Some(index_worker) = index_worker {
-            shutdown_and_join(index_worker).await?;
-        }
-        self.search_worker.lock().shutdown();
-        self.search_and_vector_bootstrap_worker.lock().shutdown();
-        self.fast_forward_worker.lock().shutdown();
-        let export_worker = self.export_worker.lock().take();
-        if let Some(export_worker) = export_worker {
-            shutdown_and_join(export_worker).await?;
-        }
-        let snapshot_import_worker = self.snapshot_import_worker.lock().take();
-        if let Some(snapshot_import_worker) = snapshot_import_worker {
-            shutdown_and_join(snapshot_import_worker).await?;
-        }
         self.runner.shutdown().await?;
-        self.scheduled_job_runner.shutdown();
-        self.cron_job_executor.lock().shutdown();
         self.database.shutdown().await?;
-        let migration_worker = self.migration_worker.lock().take();
-        if let Some(migration_worker) = migration_worker {
-            shutdown_and_join(migration_worker).await?;
-        }
         self.function_log().shutdown();
         self.usage_event_logger.shutdown().await?;
         tracing::info!("Application shut down");
