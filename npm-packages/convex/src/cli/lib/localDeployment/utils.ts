@@ -25,7 +25,7 @@ export async function choosePorts(
         return ctx.crash({
           exitCode: 1,
           errorType: "fatal",
-          printedMessage: "Requested port is not available",
+          printedMessage: `Requested port ${requestedPort} is not available`,
         });
       }
       ports.push(port);
