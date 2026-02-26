@@ -91,6 +91,8 @@ use crate::{
 };
 
 pub mod index_writer;
+#[cfg(test)]
+mod tests;
 
 pub struct IndexWorker<RT: Runtime> {
     /// Index IDs that are currently being backfilled.
