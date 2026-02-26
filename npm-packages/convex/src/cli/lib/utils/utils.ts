@@ -16,7 +16,7 @@ import {
   logWarning,
 } from "../../../bundler/log.js";
 import { version } from "../../version.js";
-import { Project } from "../api.js";
+import type { CloudDeploymentType, Project } from "../api.js";
 import { promptOptions, promptSearch, promptYesNo } from "./prompts.js";
 import {
   bigBrainEnableFeatureMetadata,
@@ -421,6 +421,7 @@ export async function selectDevDeploymentType(
 export async function selectRegionOrUseDefault(
   ctx: Context,
   selectedTeam: TeamResponse,
+  deploymentType: CloudDeploymentType,
 ) {
   const noDefaultRegionMessage = chalkStderr.gray(
     `Tip: you can configure a default region for your team at ${chalkStderr.underline(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`,
@@ -433,7 +434,8 @@ export async function selectRegionOrUseDefault(
     return selectedTeam.defaultRegion ?? null;
   }
   const selectedRegionName =
-    selectedTeam.defaultRegion ?? (await selectRegion(ctx, selectedTeam.id));
+    selectedTeam.defaultRegion ??
+    (await selectRegion(ctx, selectedTeam.id, deploymentType));
   if (!selectedTeam.defaultRegion) {
     logMessage(noDefaultRegionMessage);
   }
@@ -443,6 +445,7 @@ export async function selectRegionOrUseDefault(
 export async function selectRegion(
   ctx: Context,
   teamId: number,
+  deploymentType: CloudDeploymentType,
 ): Promise<string | null> {
   const regionsResponse = (
     await typedPlatformClient(ctx).GET(
@@ -467,7 +470,7 @@ export async function selectRegion(
       return 0;
     });
   return await promptOptions(ctx, {
-    message: "Where should this dev deployment run?",
+    message: `Where should this ${deploymentType} deployment run?`,
     suffix: `\n${chalkStderr.gray(
       "See https://www.convex.dev/pricing for pricing",
     )}`,

@@ -571,7 +571,7 @@ async function selectNewProject(
 
   const region =
     devDeployment === "cloud"
-      ? await selectRegionOrUseDefault(ctx, selectedTeam)
+      ? await selectRegionOrUseDefault(ctx, selectedTeam, "dev")
       : null;
 
   showSpinner("Creating new Convex project...");
