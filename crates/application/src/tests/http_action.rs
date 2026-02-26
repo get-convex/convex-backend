@@ -265,7 +265,7 @@ async fn test_http_action_disconnect_before_head(
     let paused = hold_end.wait_for_blocked().await;
     paused.expect("HTTP action should pause").unpause();
 
-    let (function_log, _) = application.function_log().stream(0.0).await;
+    let (function_log, _) = application.function_log.stream(0.0).await;
     let last_log_entry = function_log.last().unwrap();
     must_let!(let UdfParams::Http { result, .. } = &last_log_entry.params);
     must_let!(let Err(e) = &result);
@@ -329,7 +329,7 @@ async fn test_http_action_disconnect_while_streaming(
     let paused = hold_end.wait_for_blocked().await;
     paused.expect("HTTP action should pause").unpause();
 
-    let (mut function_log, _) = application.function_log().stream_parts(0.0).await;
+    let (mut function_log, _) = application.function_log.stream_parts(0.0).await;
     let execution_entry = function_log.pop().unwrap();
     let log_entry = function_log.pop().unwrap();
     must_let!(let FunctionExecutionPart::Completion(

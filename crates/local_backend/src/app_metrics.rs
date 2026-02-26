@@ -55,8 +55,8 @@ pub(crate) async fn udf_rate(
 
     let timeseries = st
         .application
-        .udf_rate(identity, udf_identifier, metric.parse()?, window)
-        .await?;
+        .function_log(identity, "udf_rate")?
+        .udf_rate(udf_identifier, metric.parse()?, window)?;
     Ok(Json(timeseries))
 }
 
@@ -80,8 +80,8 @@ pub(crate) async fn failure_percentage_top_k(
 
     let timeseries = st
         .application
-        .failure_percentage_top_k(identity, window, k)
-        .await?;
+        .function_log(identity, "failure_percentage_top_k")?
+        .failure_percentage_top_k(window, k)?;
     Ok(Json(timeseries))
 }
 
@@ -98,8 +98,8 @@ pub(crate) async fn cache_hit_percentage_top_k(
 
     let timeseries = st
         .application
-        .cache_hit_percentage_top_k(identity, window, k)
-        .await?;
+        .function_log(identity, "cache_hit_percentage_top_k")?
+        .cache_hit_percentage_top_k(window, k)?;
     Ok(Json(timeseries))
 }
 
@@ -116,8 +116,8 @@ pub(crate) async fn function_call_count_top_k(
 
     let timeseries = st
         .application
-        .function_call_count_top_k(identity, window, k)
-        .await?;
+        .function_log(identity, "function_call_count_top_k")?
+        .function_call_count_top_k(window, k)?;
     Ok(Json(timeseries))
 }
 
@@ -145,8 +145,8 @@ pub(crate) async fn cache_hit_percentage(
     )?;
     let timeseries = st
         .application
-        .cache_hit_percentage(identity, udf_identifier, window)
-        .await?;
+        .function_log(identity, "cache_hit_percentage")?
+        .cache_hit_percentage(udf_identifier, window)?;
     Ok(Json(timeseries))
 }
 
@@ -177,8 +177,8 @@ pub(crate) async fn latency_percentiles(
     let window = window_json.try_into()?;
     let timeseries: Vec<_> = st
         .application
-        .latency_percentiles(identity, udf_identifier, percentiles, window)
-        .await?
+        .function_log(identity, "latency_percentiles")?
+        .latency_percentiles(udf_identifier, percentiles, window)?
         .into_iter()
         .collect();
     Ok(Json(timeseries))
@@ -202,8 +202,8 @@ pub(crate) async fn table_rate(
     let window = window_json.try_into()?;
     let timeseries = st
         .application
-        .table_rate(identity, name, metric, window)
-        .await?;
+        .function_log(identity, "table_rate")?
+        .table_rate(name, metric, window)?;
     Ok(Json(timeseries))
 }
 
@@ -252,7 +252,10 @@ pub(crate) async fn scheduled_job_lag(
     let window_json: serde_json::Value =
         serde_json::from_str(&query_args.window).map_err(anyhow::Error::new)?;
     let window = window_json.try_into()?;
-    let timeseries = st.application.scheduled_job_lag(identity, window).await?;
+    let timeseries = st
+        .application
+        .function_log(identity, "scheduled_job_lag")?
+        .scheduled_job_lag(window)?;
     Ok(Json(timeseries))
 }
 
@@ -270,8 +273,8 @@ pub(crate) async fn function_concurrency(
     let window = window_json.try_into()?;
     let metrics = st
         .application
-        .function_concurrency(identity, window)
-        .await?;
+        .function_log(identity, "function_concurrency")?
+        .function_concurrency(window)?;
     Ok(Json(metrics))
 }
 

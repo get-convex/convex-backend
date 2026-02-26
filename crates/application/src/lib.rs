@@ -119,7 +119,6 @@ use common::{
         AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
-        CursorMs,
         EnvVarName,
         EnvVarValue,
         FullyQualifiedObjectKey,
@@ -133,7 +132,6 @@ use common::{
         RepeatableTimestamp,
         TableName,
         Timestamp,
-        UdfIdentifier,
         UdfType,
     },
     RequestId,
@@ -180,10 +178,6 @@ use fivetran_destination::{
         DeleteType,
     },
     constants::FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
-};
-use function_log::{
-    FunctionExecution,
-    FunctionExecutionPart,
 };
 use function_runner::FunctionRunner;
 use futures::stream::BoxStream;
@@ -353,11 +347,6 @@ use udf::{
     HttpActionResponseStreamer,
     HttpActionResult,
 };
-use udf_metrics::{
-    MetricsWindow,
-    Percentile,
-    Timeseries,
-};
 use usage_gauges_tracking_worker::UsageGaugesTrackingWorker;
 use usage_tracking::{
     FunctionUsageStats,
@@ -381,12 +370,7 @@ use vector::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     exports::worker::ExportWorker,
-    function_log::{
-        FunctionExecutionLog,
-        TableRate,
-        UdfMetricSummary,
-        UdfRate,
-    },
+    function_log::FunctionExecutionLog,
     log_visibility::LogVisibility,
     module_cache::ModuleCache,
     redaction::{
@@ -890,8 +874,16 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub fn function_log(&self) -> FunctionExecutionLog<RT> {
-        self.function_log.clone()
+    pub fn function_log(
+        &self,
+        identity: Identity,
+        endpoint: &'static str,
+    ) -> anyhow::Result<&FunctionExecutionLog<RT>> {
+        anyhow::ensure!(
+            identity.is_admin() || identity.is_system(),
+            unauthorized_error(endpoint)
+        );
+        Ok(&self.function_log)
     }
 
     pub fn log_manager_client(&self) -> &LogManagerClient {
@@ -2918,150 +2910,6 @@ impl<RT: Runtime> Application<RT> {
         Ok(())
     }
 
-    pub async fn udf_rate(
-        &self,
-        identity: Identity,
-        identifier: UdfIdentifier,
-        metric: UdfRate,
-        window: MetricsWindow,
-    ) -> anyhow::Result<Timeseries> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("udf_rate"));
-        }
-        self.function_log.udf_rate(identifier, metric, window)
-    }
-
-    pub async fn failure_percentage_top_k(
-        &self,
-        identity: Identity,
-        window: MetricsWindow,
-        k: usize,
-    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("failure_percentage_top_k"));
-        }
-        self.function_log.failure_percentage_top_k(window, k)
-    }
-
-    pub async fn cache_hit_percentage_top_k(
-        &self,
-        identity: Identity,
-        window: MetricsWindow,
-        k: usize,
-    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("failure_percentage_top_k"));
-        }
-        self.function_log.cache_hit_percentage_top_k(window, k)
-    }
-
-    pub async fn function_call_count_top_k(
-        &self,
-        identity: Identity,
-        window: MetricsWindow,
-        k: usize,
-    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("function_call_count_top_k"));
-        }
-
-        self.function_log.function_call_count_top_k(window, k)
-    }
-
-    pub async fn cache_hit_percentage(
-        &self,
-        identity: Identity,
-        identifier: UdfIdentifier,
-        window: MetricsWindow,
-    ) -> anyhow::Result<Timeseries> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("cache_hit_percentage"));
-        }
-        self.function_log.cache_hit_percentage(identifier, window)
-    }
-
-    pub async fn latency_percentiles(
-        &self,
-        identity: Identity,
-        identifier: UdfIdentifier,
-        percentiles: Vec<Percentile>,
-        window: MetricsWindow,
-    ) -> anyhow::Result<BTreeMap<Percentile, Timeseries>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("latency_percentiles_ms"));
-        }
-        self.function_log
-            .latency_percentiles(identifier, percentiles, window)
-    }
-
-    pub async fn udf_summary(
-        &self,
-        identity: Identity,
-        cursor: Option<CursorMs>,
-    ) -> anyhow::Result<(Option<UdfMetricSummary>, Option<CursorMs>)> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("latency_percentiles_ms"));
-        }
-        Ok(self.function_log.udf_summary(cursor))
-    }
-
-    pub async fn table_rate(
-        &self,
-        identity: Identity,
-        name: TableName,
-        metric: TableRate,
-        window: MetricsWindow,
-    ) -> anyhow::Result<Timeseries> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("table_rate"));
-        }
-        self.function_log.table_rate(name, metric, window)
-    }
-
-    pub async fn stream_udf_execution(
-        &self,
-        identity: Identity,
-        cursor: CursorMs,
-    ) -> anyhow::Result<(Vec<FunctionExecution>, CursorMs)> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("stream_udf_execution"));
-        }
-        Ok(self.function_log.stream(cursor).await)
-    }
-
-    pub async fn stream_function_logs(
-        &self,
-        identity: Identity,
-        cursor: CursorMs,
-    ) -> anyhow::Result<(Vec<FunctionExecutionPart>, CursorMs)> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("stream_function_logs"));
-        }
-        Ok(self.function_log.stream_parts(cursor).await)
-    }
-
-    pub async fn scheduled_job_lag(
-        &self,
-        identity: Identity,
-        window: MetricsWindow,
-    ) -> anyhow::Result<Timeseries> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("scheduled_job_lag"));
-        }
-        self.function_log.scheduled_job_lag(window)
-    }
-
-    pub async fn function_concurrency(
-        &self,
-        identity: Identity,
-        window: MetricsWindow,
-    ) -> anyhow::Result<BTreeMap<String, Timeseries>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("function_concurrency"));
-        }
-        self.function_log.function_concurrency(window)
-    }
-
     pub async fn delete_scheduled_jobs_table(
         &self,
         identity: Identity,
@@ -3664,7 +3512,7 @@ impl<RT: Runtime> Application<RT> {
         self.log_manager_client.shutdown().await?;
         self.runner.shutdown().await?;
         self.database.shutdown().await?;
-        self.function_log().shutdown();
+        self.function_log.shutdown();
         self.usage_event_logger.shutdown().await?;
         tracing::info!("Application shut down");
         Ok(())

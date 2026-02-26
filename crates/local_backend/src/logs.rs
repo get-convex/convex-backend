@@ -42,11 +42,12 @@ pub async fn stream_udf_execution(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let entries_future = st
         .application
-        .stream_udf_execution(identity, query_args.cursor);
+        .function_log(identity, "stream_udf_execution")?
+        .stream(query_args.cursor);
     let mut zombify_rx = st.zombify_rx.clone();
     futures::select_biased! {
-        entries_future_r = entries_future.fuse() => {
-            let (log_entries, new_cursor) = entries_future_r?;
+        entries_result = entries_future.fuse() => {
+            let (log_entries, new_cursor) = entries_result;
             let entries = log_entries
                 .into_iter()
                 .map(|e| execution_to_json(e, false))
@@ -85,7 +86,8 @@ pub async fn stream_function_logs(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let entries_future = st
         .application
-        .stream_function_logs(identity, query_args.cursor);
+        .function_log(identity, "stream_function_logs")?
+        .stream_parts(query_args.cursor);
     let mut zombify_rx = st.zombify_rx.clone();
     let request_id = match (query_args.session_id, query_args.client_request_counter) {
         (Some(session_id), Some(client_request_counter)) => Some(RequestId::new_for_ws_session(
@@ -114,8 +116,8 @@ pub async fn stream_function_logs(
         | ClientType::Unrecognized(_) => false,
     };
     futures::select_biased! {
-        entries_future_r = entries_future.fuse() => {
-            let (log_entries, new_cursor) = entries_future_r?;
+        entries_result = entries_future.fuse() => {
+            let (log_entries, new_cursor) = entries_result;
             let entries = log_entries
                 .into_iter()
                 .filter(|e| {
