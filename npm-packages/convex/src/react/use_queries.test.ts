@@ -110,6 +110,45 @@ test("Swapping queries and unsubscribing", () => {
   expect(createWatch.mock.results[4].value.numCallbacks()).toBe(0);
 });
 
+test("Switching createWatch recreates subscriptions", () => {
+  const watchesA: FakeWatch<any>[] = [];
+  const createWatchA = vi.fn(() => {
+    const watch = new FakeWatch<any>();
+    watchesA.push(watch);
+    return watch;
+  }) as any;
+  const watchesB: FakeWatch<any>[] = [];
+  const createWatchB = vi.fn(() => {
+    const watch = new FakeWatch<any>();
+    watchesB.push(watch);
+    return watch;
+  }) as any;
+
+  const queries: RequestForQueries = {
+    query: {
+      query: anyApi.query1.default,
+      args: {},
+    },
+  };
+  let createWatch = createWatchA;
+
+  const { rerender, unmount } = renderHook(() =>
+    useQueriesHelper(queries, createWatch),
+  );
+
+  expect(watchesA.some((watch) => watch.numCallbacks() === 1)).toBe(true);
+
+  createWatch = createWatchB;
+  rerender();
+
+  expect(watchesA.every((watch) => watch.numCallbacks() === 0)).toBe(true);
+  expect(watchesB.some((watch) => watch.numCallbacks() === 1)).toBe(true);
+
+  unmount();
+
+  expect(watchesB.every((watch) => watch.numCallbacks() === 0)).toBe(true);
+});
+
 test("Local results on initial render", () => {
   const value: string | undefined = "query1 result";
   const createWatch = vi.fn(() => {

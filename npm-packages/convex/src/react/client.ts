@@ -826,6 +826,7 @@ export type UseQueryResult<QueryResult> =
 type UseQueryObjectOptions<Query extends FunctionReference<"query">> =
   QueryOptions<Query> & {
     throwOnError?: boolean;
+    client?: ConvexReactClient;
   };
 
 type UseSuspenseQueryObjectOptions<Query extends FunctionReference<"query">> =
@@ -838,7 +839,8 @@ type UseSuspenseQueryObjectOptions<Query extends FunctionReference<"query">> =
  * the query result changes. The subscription is managed automatically --
  * it starts when the component mounts and stops when it unmounts.
  *
- * Throws an error if not used under {@link ConvexProvider}.
+ * Throws an error if not used under {@link ConvexProvider}. The object-form
+ * overload accepts a `client` option as an alternative to `ConvexProvider`.
  *
  * @example
  * ```tsx
@@ -922,6 +924,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
 
   let queryReference: Query | undefined;
   let argsObject: Record<string, Value> = {};
+  let client: ConvexReactClient | undefined;
 
   if (isObjectOptions) {
     const query = queryOrOptions.query;
@@ -930,6 +933,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
         ? (makeFunctionReference<"query", any, any>(query) as Query)
         : query;
     argsObject = queryOrOptions.args ?? ({} as Record<string, Value>);
+    client = queryOrOptions.client;
   } else if (queryOrOptions !== "skip") {
     const query = queryOrOptions;
     queryReference =
@@ -952,7 +956,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
     [JSON.stringify(convexToJson(argsObject)), queryName, skip],
   );
 
-  const results = useQueries(queries);
+  const results = useQueries(queries, client);
   const result = results["query"];
 
   if (isObjectOverload) {
