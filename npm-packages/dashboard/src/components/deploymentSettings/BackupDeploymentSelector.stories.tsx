@@ -72,7 +72,7 @@ const createDeployment = (overrides: {
   projectId: 1,
   creator: 1,
   createTime: Date.now() - 7 * 24 * 60 * 60 * 1000,
-  region: "us-east-1",
+  region: "aws-us-east-1",
   isDefault: false,
   previewIdentifier: null,
   deploymentUrl: `https://${overrides.name}.convex.cloud`,

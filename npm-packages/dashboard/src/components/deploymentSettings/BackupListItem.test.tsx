@@ -63,7 +63,7 @@ const targetDeployment: PlatformDeploymentResponse = {
   projectId: 1,
   creator: 1,
   previewIdentifier: null,
-  region: "us-east-2",
+  region: "aws-us-east-1",
   isDefault: true,
   reference: "production",
 };
@@ -88,7 +88,7 @@ jest.mock("api/deployments", () => {
     projectId: 1,
     creator: 1,
     previewIdentifier: null,
-    region: "us-east-2",
+    region: "aws-us-east-1",
     isDefault: true,
     reference: "production",
   };

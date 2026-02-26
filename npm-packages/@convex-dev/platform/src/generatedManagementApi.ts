@@ -693,7 +693,8 @@ export interface components {
         ProjectId: number;
         ProjectName: string;
         ProjectSlug: string;
-        RegionName: string;
+        /** @enum {string} */
+        RegionName: "aws-us-east-1" | "aws-eu-west-1";
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
         /** @enum {string} */

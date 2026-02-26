@@ -138,7 +138,7 @@ export function ProvisionDeploymentFormInner({
     [regions],
   );
 
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<RegionName | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [setAsDefault, setSetAsDefault] = useState(false);
 
@@ -201,7 +201,7 @@ export function ProvisionDeploymentFormInner({
               </Legend>
               <RadioGroup
                 name="region"
-                value={selectedRegion ?? ""}
+                value={selectedRegion ?? null}
                 onChange={setSelectedRegion}
               >
                 <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2">

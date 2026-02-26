@@ -1632,7 +1632,11 @@
         "type": "string"
       },
       "RegionName": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "aws-us-east-1",
+          "aws-eu-west-1"
+        ]
       },
       "RequestDestination": {
         "type": "string",

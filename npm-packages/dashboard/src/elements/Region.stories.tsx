@@ -47,16 +47,6 @@ export const UnavailableRegion: Story = {
   },
 };
 
-export const Local: Story = {
-  args: {
-    region: {
-      displayName: "test",
-      name: "local",
-      available: true,
-    },
-  },
-};
-
 export const AskEveryTime: Story = {
   args: {
     region: null,

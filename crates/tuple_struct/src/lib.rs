@@ -33,7 +33,7 @@ macro_rules! tuple_struct_u64 {
 
 #[macro_export]
 macro_rules! tuple_struct_string {
-    ($name:ident) => {
+    ($(#[$outer:meta])* $name:ident) => {
         #[derive(
             Clone,
             Debug,
@@ -52,6 +52,7 @@ macro_rules! tuple_struct_string {
         )]
         #[from(forward)]
         #[as_ref(forward)]
+        $(#[$outer])*
         pub struct $name(String);
 
         impl $name {

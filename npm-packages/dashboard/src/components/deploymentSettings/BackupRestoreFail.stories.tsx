@@ -42,7 +42,7 @@ const deployment: PlatformDeploymentResponse = {
   projectId: 1,
   creator: 1,
   previewIdentifier: null,
-  region: "us-east-2",
+  region: "aws-us-east-1",
   isDefault: true,
   reference: "production",
 };

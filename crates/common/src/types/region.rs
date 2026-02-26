@@ -5,7 +5,20 @@ use std::sync::{
 
 use tuple_struct::tuple_struct_string;
 
-tuple_struct_string!(RegionName);
+tuple_struct_string!(
+    #[schema(value_type = RegionNameForDocs)]
+    RegionName
+);
+
+#[allow(dead_code)]
+#[derive(utoipa::ToSchema)]
+#[schema(as = RegionName)]
+enum RegionNameForDocs {
+    #[schema(rename = "aws-us-east-1")]
+    AwsUsEast1,
+    #[schema(rename = "aws-eu-west-1")]
+    AwsEuWest1,
+}
 
 static DEFAULT_REGION_NAME: LazyLock<RegionName> = LazyLock::new(|| "aws-us-east-1".into());
 pub static TEST_REGION_NAME: LazyLock<RegionName> = LazyLock::new(|| "local".into());

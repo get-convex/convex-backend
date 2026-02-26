@@ -37,7 +37,7 @@ describe("SettingsSidebar", () => {
               createTime: 0,
               isDefault: false,
               reference: "",
-              region: "",
+              region: "aws-us-east-1",
             }),
           }}
         >
@@ -149,7 +149,7 @@ describe("SettingsSidebar", () => {
               createTime: 0,
               isDefault: false,
               reference: "",
-              region: "",
+              region: "aws-us-east-1",
             }),
           }}
         >
@@ -240,7 +240,7 @@ describe("SettingsSidebar", () => {
               createTime: 0,
               isDefault: false,
               reference: "",
-              region: "",
+              region: "aws-us-east-1",
             }),
           }}
         >
@@ -424,7 +424,7 @@ describe("SettingsSidebar", () => {
               createTime: 0,
               isDefault: false,
               reference: "",
-              region: "",
+              region: "aws-us-east-1",
             }),
           }}
         >
@@ -471,7 +471,7 @@ describe("SettingsSidebar", () => {
               createTime: 0,
               isDefault: false,
               reference: "",
-              region: "",
+              region: "aws-us-east-1",
             }),
           }}
         >

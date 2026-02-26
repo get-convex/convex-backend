@@ -61,18 +61,6 @@ export const Development: Story = {
   },
 };
 
-export const Local: Story = {
-  args: {
-    regions: [
-      {
-        displayName: "test",
-        name: "local",
-        available: true,
-      },
-    ],
-  },
-};
-
 export const NotAdmin: Story = {
   args: {
     isAdmin: false,

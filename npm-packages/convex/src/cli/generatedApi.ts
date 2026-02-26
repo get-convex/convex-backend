@@ -460,7 +460,8 @@ export interface components {
             workosTeamName: string;
         };
         ReferralCode: string;
-        RegionName: string;
+        /** @enum {string} */
+        RegionName: "aws-us-east-1" | "aws-eu-west-1";
         /** Format: int64 */
         TeamId: number;
         TeamName: string;

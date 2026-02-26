@@ -4,7 +4,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { Sheet } from "@ui/Sheet";
 import { TextInput } from "@ui/TextInput";
 import { useFormik } from "formik";
-import { TeamResponse } from "generatedApi";
+import { RegionName, TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { useCopy } from "@common/lib/useCopy";
 import { useDeploymentRegions } from "api/deployments";
@@ -15,7 +15,7 @@ export type TeamFormProps = {
   onUpdateTeam: (body: {
     name: string;
     slug: string;
-    defaultRegion: string | null;
+    defaultRegion: RegionName | null;
   }) => Promise<void>;
   hasAdminPermissions: boolean;
 };

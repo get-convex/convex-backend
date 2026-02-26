@@ -58,7 +58,7 @@ export const ProductionCloud: Story = {
       id: 100,
       projectId: 1,
       isDefault: true,
-      region: "us-east-1",
+      region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
   },
 };
@@ -75,7 +75,7 @@ export const DevelopmentCloudMine: Story = {
       id: 101,
       projectId: 1,
       isDefault: true,
-      region: "us-east-1",
+      region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
     whoseName: null, // null means it's mine
   },
@@ -93,7 +93,7 @@ export const DevelopmentCloudTeammate: Story = {
       id: 102,
       projectId: 1,
       isDefault: false,
-      region: "us-east-1",
+      region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
     whoseName: "Bob Smith",
   },
@@ -128,7 +128,7 @@ export const Preview: Story = {
       id: 103,
       projectId: 1,
       isDefault: false,
-      region: "us-east-1",
+      region: "aws-us-east-1",
       previewIdentifier: "feature-branch-xyz",
     } as PlatformDeploymentResponse,
   },
@@ -146,7 +146,7 @@ export const Custom: Story = {
       id: 104,
       projectId: 1,
       isDefault: false,
-      region: "eu-west-1",
+      region: "aws-eu-west-1",
     } as PlatformDeploymentResponse,
   },
 };
@@ -164,7 +164,7 @@ export const UntitledProject: Story = {
       id: 105,
       projectId: 2,
       isDefault: true,
-      region: "us-east-1",
+      region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
   },
 };
@@ -186,7 +186,7 @@ export const LongProjectName: Story = {
       id: 106,
       projectId: 1,
       isDefault: true,
-      region: "ap-southeast-2",
+      region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
   },
 };
@@ -203,7 +203,7 @@ export const OldDeployment: Story = {
       id: 107,
       projectId: 1,
       isDefault: true,
-      region: "us-west-2",
+      region: "aws-eu-west-1",
     } as PlatformDeploymentResponse,
   },
 };
