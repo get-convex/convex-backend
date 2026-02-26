@@ -183,7 +183,7 @@
     "convex-bundled": "bin/main.js"
   },
   "scripts": {
-    "build": "python3 scripts/build.py 2>&1",
+    "build": "npm run generateApiSpec && python3 scripts/build.py 2>&1",
     "bundle-server": "node scripts/bundle-server.mjs",
     "clean": "shx rm -rf dist tmpDist*",
     "lint": "eslint . --cache",
