@@ -61,6 +61,7 @@ export async function handleAnonymousDeployment(
     forceUpgrade: boolean;
     deploymentName: string | null;
     chosenConfiguration: "new" | "existing" | "ask" | null;
+    initSkipIfExists?: boolean;
   },
 ): Promise<DeploymentDetails> {
   if (await isOffline()) {
@@ -180,7 +181,11 @@ export async function handleAnonymousDeployment(
   });
 
   if (deployment.kind === "new") {
-    await doInitConvexFolder(ctx);
+    const initOpts =
+      options.initSkipIfExists === undefined
+        ? undefined
+        : { skipIfExists: options.initSkipIfExists };
+    await doInitConvexFolder(ctx, undefined, initOpts);
   }
   return {
     adminKey,
