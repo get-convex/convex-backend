@@ -63,6 +63,8 @@ export function OrbSelfServePlan({
     orbSub?.plan.planType === "CONVEX_PROFESSIONAL" &&
     plan.planType === "CONVEX_STARTER_PLUS";
 
+  const isOnBusinessPlan = orbSub?.plan.planType === "CONVEX_BUSINESS";
+
   return (
     <>
       <SelfServePlan
@@ -84,9 +86,11 @@ export function OrbSelfServePlan({
                     ? plan.planType === "CONVEX_PROFESSIONAL"
                       ? `Convex Professional is not available for teams managed by ${startCase(team.managedBy)}. You can create a new team to use Convex Professional. Existing projects can be transferred to another team on the Project Settings page.`
                       : `You can manage your subscription in ${startCase(team.managedBy)}.`
-                    : missingRequiredPaymentMethod
-                      ? "Add a payment method in the settings below to switch to this plan."
-                      : undefined
+                    : isOnBusinessPlan
+                      ? "Please contact support to change your plan."
+                      : missingRequiredPaymentMethod
+                        ? "Add a payment method in the settings below to switch to this plan."
+                        : undefined
               }
               onClick={() => {
                 setIsChangingPlan(true);
@@ -94,9 +98,10 @@ export function OrbSelfServePlan({
               disabled={
                 !hasAdminPermissions ||
                 missingRequiredPaymentMethod ||
-                !!team.managedBy
+                !!team.managedBy ||
+                isOnBusinessPlan
               }
-              variant={isDowngrade ? "neutral" : "primary"}
+              variant="neutral"
             >
               {isDowngrade
                 ? `Downgrade to ${newPlanName}`
@@ -106,9 +111,7 @@ export function OrbSelfServePlan({
             <Button
               onClick={() => upgrade()}
               disabled={!hasAdminPermissions || !!team.managedBy}
-              variant={
-                plan.planType === "CONVEX_PROFESSIONAL" ? "primary" : "neutral"
-              }
+              variant="neutral"
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."

@@ -106,8 +106,13 @@ function Billing({ team }: { team: TeamResponse }) {
               >
                 <div className="flex w-full min-w-[20rem] flex-col gap-4">
                   <Sheet className="flex flex-col gap-4 text-sm">
-                    <div>
-                      <h3 className="mb-4">Plans</h3>
+                    <h3>Plans</h3>
+                    <Plans
+                      team={team}
+                      hasAdminPermissions={hasAdminPermissions}
+                      subscription={orbSub || undefined}
+                    />
+                    <div className="text-center text-content-secondary">
                       Compare all plan features on the{" "}
                       <Link
                         href="https://convex.dev/plans"
@@ -117,14 +122,7 @@ function Billing({ team }: { team: TeamResponse }) {
                       >
                         pricing page
                       </Link>
-                      . Please reach out if any of these limits are not
-                      sufficient.
                     </div>
-                    <Plans
-                      team={team}
-                      hasAdminPermissions={hasAdminPermissions}
-                      subscription={orbSub || undefined}
-                    />
                   </Sheet>
                   <SubscriptionOverview
                     team={team}

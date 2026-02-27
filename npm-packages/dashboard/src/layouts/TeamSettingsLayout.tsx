@@ -101,7 +101,7 @@ export function TeamSettingsLayout({
             )}
           </aside>
           <div className="scrollbar w-full overflow-y-auto">
-            <div className="flex max-w-[65rem] flex-col gap-6 p-6">
+            <div className="flex max-w-[80rem] flex-col gap-6 p-6">
               {selectedTeam ? (
                 <Component team={selectedTeam} key={selectedTeam.id} />
               ) : (

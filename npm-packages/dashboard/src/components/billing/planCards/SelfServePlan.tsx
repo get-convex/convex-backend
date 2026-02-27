@@ -24,7 +24,7 @@ export function SelfServePlan({
               {Number((plan.seatPrice * (1 - percentOff / 100)).toFixed(2))}
             </>
           ) : (
-            `$${plan.seatPrice} per member, per month`
+            `$${plan.seatPrice} per member, per month + usage`
           )
         ) : (
           "Usage-based pricing"

@@ -53,15 +53,21 @@ export function FreePlan({
             </p>
           ) : (
             <Button
-              disabled={!hasAdminPermissions || !!team.managedBy}
+              disabled={
+                !hasAdminPermissions ||
+                !!team.managedBy ||
+                subscription.plan.planType === "CONVEX_BUSINESS"
+              }
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
                   : team.managedBy
                     ? `You can manage your subscription in ${startCase(team.managedBy)}.`
-                    : typeof subscription.endDate === "number"
-                      ? `Your subscription has already been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`
-                      : undefined
+                    : subscription.plan.planType === "CONVEX_BUSINESS"
+                      ? "Please contact support to change your plan."
+                      : typeof subscription.endDate === "number"
+                        ? `Your subscription has already been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`
+                        : undefined
               }
               variant="neutral"
               onClick={() => {

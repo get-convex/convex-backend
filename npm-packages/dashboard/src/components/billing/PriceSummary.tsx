@@ -50,8 +50,10 @@ export function PriceSummary({
             per team member, per month
           </p>
           <p>
-            Usage-based charges will apply for all usage exceeding the limits
-            included with this plan.
+            <span className="font-semibold">
+              Usage-based charges will apply
+            </span>{" "}
+            for all usage exceeding the limits included with this plan.
           </p>
         </>
       ) : (

@@ -1,9 +1,9 @@
 import { useListPlans } from "api/billing";
 import { Loading } from "@ui/Loading";
 import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
-import classNames from "classnames";
 import { OrbSelfServePlan } from "./planCards/OrbSelfServePlan";
 import { FreePlan } from "./planCards/FreePlan";
+import { BusinessPlan } from "./planCards/BusinessPlan";
 
 export function Plans({
   team,
@@ -17,13 +17,7 @@ export function Plans({
   const orbPlans = useListPlans(team.id);
 
   return orbPlans.plans !== undefined ? (
-    <div
-      className={classNames(
-        "grid grid-cols-1 gap-6",
-        // TODO: Remove when we always have > 1 plan
-        orbPlans.plans.length > 1 ? "xl:grid-cols-3" : "lg:grid-cols-2",
-      )}
-    >
+    <div className="scrollbar flex gap-3 overflow-x-auto pb-2">
       <FreePlan
         hasAdminPermissions={hasAdminPermissions}
         subscription={subscription}
@@ -37,8 +31,9 @@ export function Plans({
           team={team}
         />
       ))}
+      <BusinessPlan subscription={subscription} />
     </div>
   ) : (
-    <Loading className="h-48 w-full" fullHeight={false} />
+    <Loading className="h-[7.75rem] w-full" fullHeight={false} />
   );
 }
