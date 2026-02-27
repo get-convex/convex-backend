@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     sync::Arc,
-    time::Duration,
 };
 
 use common::{
@@ -11,7 +10,10 @@ use common::{
         LogEvent,
         StructuredLogEvent,
     },
-    runtime::Runtime,
+    runtime::{
+        block_in_place,
+        Runtime,
+    },
 };
 use maplit::btreemap;
 use model::log_sinks::types::sentry::{
@@ -47,8 +49,7 @@ use crate::{
     LoggingDeploymentMetadata,
 };
 
-pub(crate) struct SentrySink<RT: Runtime> {
-    runtime: RT,
+pub(crate) struct SentrySink {
     sentry_client: sentry::Client,
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
@@ -56,8 +57,8 @@ pub(crate) struct SentrySink<RT: Runtime> {
     config: SentryConfig,
 }
 
-impl<RT: Runtime> SentrySink<RT> {
-    pub async fn start(
+impl SentrySink {
+    pub async fn start<RT: Runtime>(
         runtime: RT,
         config: SentryConfig,
         transport_override: Option<Arc<dyn TransportFactory>>,
@@ -74,7 +75,6 @@ impl<RT: Runtime> SentrySink<RT> {
         });
         anyhow::ensure!(sentry_client.is_enabled());
         let mut sink = Self {
-            runtime: runtime.clone(),
             sentry_client,
             events_receiver: rx,
             backoff: Backoff::new(
@@ -101,29 +101,16 @@ impl<RT: Runtime> SentrySink<RT> {
     async fn verify_creds(&mut self) -> anyhow::Result<()> {
         let envelope = Envelope::new();
         self.sentry_client.send_envelope(envelope);
-        self.sentry_client.flush(None);
+        block_in_place(|| self.sentry_client.flush(None));
         Ok(())
     }
 
     async fn go(mut self) {
-        // Flush sentry sink every 10s
-        let runtime = self.runtime.clone();
-        let sentry_client = self.sentry_client.clone();
-        let handle = self.runtime.spawn("sentry_sink_flusher", async move {
-            loop {
-                runtime.wait(Duration::from_secs(10)).await;
-                sentry_client.flush(None);
-            }
-        });
-
         loop {
             match self.events_receiver.recv().await {
                 None => {
                     // The sender was closed, event loop should shutdown
                     tracing::warn!("Stopping SentrySink. Sender was closed.");
-                    if let Err(mut err) = handle.shutdown_and_join().await {
-                        report_error(&mut err).await;
-                    }
                     return;
                 },
                 Some(ev) => {
