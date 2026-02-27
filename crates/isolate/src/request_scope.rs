@@ -101,6 +101,14 @@ pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     // This is not wrapped in `WithHeapSize` so we can return `&mut TextDecoderStream`.
     // Additionally, `TextDecoderResource` should have a fairly small heap size.
     pub text_decoders: BTreeMap<uuid::Uuid, TextDecoderResource>,
+    pub continuation_preserved_embedder_data_cleanup_state: CpedCleanupState,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum CpedCleanupState {
+    #[default]
+    NotNeeded,
+    Needed,
 }
 
 pub struct RequestStreamState {
@@ -159,6 +167,14 @@ impl HeapSize for StreamListener {
 }
 
 impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
+    pub fn mark_continuation_preserved_embedder_data_touched(&mut self) {
+        self.continuation_preserved_embedder_data_cleanup_state = CpedCleanupState::Needed;
+    }
+
+    pub fn continuation_preserved_embedder_data_cleanup_needed(&self) -> bool {
+        self.continuation_preserved_embedder_data_cleanup_state == CpedCleanupState::Needed
+    }
+
     pub fn create_stream(&mut self) -> anyhow::Result<uuid::Uuid> {
         let uuid = uuid::Builder::from_random_bytes(self.environment.rng()?.random()).into_uuid();
         self.streams.insert(uuid, Ok(ReadableStream::default()));
@@ -324,9 +340,6 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
             set_continuation_preserved_embedder_data_value.into(),
         );
 
-        // Clear continuation-preserved data at the start of every request.
-        scope.set_continuation_preserved_embedder_data(v8::undefined(scope).into());
-
         Ok(())
     }
 
@@ -375,7 +388,16 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         } else {
             v8::undefined(scope).into()
         };
-        scope.set_continuation_preserved_embedder_data(value);
+
+        let context = scope.get_current_context();
+        if let Some(state) = context.get_context_slot_mut::<RequestState<RT, E>>(scope) {
+            state.mark_continuation_preserved_embedder_data_touched();
+            scope.set_continuation_preserved_embedder_data(value);
+            return;
+        }
+
+        let undefined = v8::undefined(scope);
+        scope.set_continuation_preserved_embedder_data(undefined.into());
     }
 
     pub(crate) fn syscall(
@@ -473,9 +495,27 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         pump_message_loop(self.scope);
     }
 
+    fn clear_continuation_preserved_embedder_data(&mut self) {
+        let undefined = v8::undefined(self.scope);
+        self.scope
+            .set_continuation_preserved_embedder_data(undefined.into());
+    }
+
     pub(crate) fn take_state(&mut self) -> Option<RequestState<RT, E>> {
-        let context = self.scope.get_current_context();
-        context.remove_context_slot(self.scope)
+        let state: Option<RequestState<RT, E>> = {
+            let context = self.scope.get_current_context();
+            context.remove_context_slot(self.scope)
+        };
+
+        let should_clear_continuation_preserved_embedder_data = match state.as_ref() {
+            Some(state) => state.continuation_preserved_embedder_data_cleanup_needed(),
+            None => false,
+        };
+        if should_clear_continuation_preserved_embedder_data {
+            self.clear_continuation_preserved_embedder_data();
+        }
+
+        state
     }
 
     pub(crate) fn take_module_map(&mut self) -> Option<ModuleMap> {
@@ -622,12 +662,8 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Drop
     for RequestScope<'a, 's, 'i, RT, E>
 {
     fn drop(&mut self) {
-        let undefined = v8::undefined(self.scope);
-        self.scope
-            .set_continuation_preserved_embedder_data(undefined.into());
-
-        // Remove state from slot to stop Timeouts.
         self.take_state();
+
         // Remove module map from slot to avoid memory leak.
         self.take_module_map();
         // Remove rejected promises which shouldn't persist between requests.
