@@ -62,8 +62,7 @@ convex-test library.
   <Step title="Configure Vitest">
 
     Add <JSDialectFileName name="vitest.config.ts" /> file to configure the test
-    environment to better match the Convex runtime, and to inline the test library
-    for better dependency tracking.
+    environment to better match the Convex runtime.
 
     <Details summary={<>If your Convex functions are in a directory other than <code>convex</code></>}>
       If your project has a
@@ -104,22 +103,34 @@ convex-test library.
 
     <Details summary="Set up multiple test environments (e.g. Convex + frontend)">
       If you want to use Vitest to test both your Convex functions and your React
-      frontend, you might want to use multiple Vitest environments depending on the
-      test file location via
-      [environmentMatchGlobs](https://vitest.dev/config/#environmentmatchglobs):
+      frontend, you can use the
+      [projects](https://vitest.dev/guide/projects) array to define separate
+      configurations per environment:
 
       ```ts title="vitest.config.ts"
       import { defineConfig } from "vitest/config";
 
       export default defineConfig({
         test: {
-          environmentMatchGlobs: [
-            // all tests in convex/ will run in edge-runtime
-            ["convex/**", "edge-runtime"],
-            // all other tests use jsdom
-            ["**", "jsdom"],
+          projects: [
+            {
+              extends: true,
+              test: {
+                name: "convex",
+                include: ["convex/**/*.test.{ts,js}"],
+                environment: "edge-runtime",
+              },
+            },
+            {
+              extends: true,
+              test: {
+                name: "frontend",
+                include: ["**/*.test.{ts,tsx,js,jsx}"],
+                exclude: ["convex/**"],
+                environment: "jsdom",
+              },
+            },
           ],
-          server: { deps: { inline: ["convex-test"] } },
         },
       });
       ```
@@ -131,7 +142,6 @@ convex-test library.
     export default defineConfig({
       test: {
         environment: "edge-runtime",
-        server: { deps: { inline: ["convex-test"] } },
       },
     });
     ```
