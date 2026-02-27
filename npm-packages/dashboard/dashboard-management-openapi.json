@@ -4435,6 +4435,13 @@
                   "cloud"
                 ]
               },
+              "lastDeployTime": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
               "name": {
                 "type": "string"
               },

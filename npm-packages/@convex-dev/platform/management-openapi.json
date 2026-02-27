@@ -936,6 +936,13 @@
                   "cloud"
                 ]
               },
+              "lastDeployTime": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
               "name": {
                 "type": "string"
               },
@@ -1388,6 +1395,14 @@
                 "enum": [
                   "cloud"
                 ]
+              },
+              "lastDeployTime": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Timestamp in milliseconds of the last deploy to this deployment, if\nany."
               },
               "name": {
                 "type": "string",

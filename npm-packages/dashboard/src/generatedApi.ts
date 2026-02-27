@@ -2166,6 +2166,8 @@ export interface components {
             isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
             kind: "cloud";
+            /** Format: int64 */
+            lastDeployTime?: number | null;
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];

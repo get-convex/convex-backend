@@ -446,6 +446,8 @@ export interface components {
             isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
             kind: "cloud";
+            /** Format: int64 */
+            lastDeployTime?: number | null;
             name: string;
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             projectId: components["schemas"]["ProjectId"];
@@ -601,6 +603,12 @@ export interface components {
             isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
             kind: "cloud";
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds of the last deploy to this deployment, if
+             *     any.
+             */
+            lastDeployTime?: number | null;
             /** @description The readable identifier for this deployment, something like
              *     playful-otter-123. */
             name: string;
