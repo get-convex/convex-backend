@@ -140,6 +140,20 @@ All metrics are available in daily breakdowns:
 
 ![Team usage page graphs](/screenshots/teams_usage_2.png)
 
+## Single Sign-On
+
+<Admonition type="info">
+
+Single Sign-On is only available on Convex Business and Enterprise.
+
+</Admonition>
+
+Configure Single Sign-On (SSO) on the
+[SSO settings page](https://dashboard.convex.dev/team/settings/sso) to allow
+your team members to authenticate through your organization's identity provider.
+
+[Learn more about setting up SSO](/dashboard/teams/sso.md).
+
 ## Audit Log
 
 <Admonition type="info">

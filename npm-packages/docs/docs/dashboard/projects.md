@@ -31,10 +31,10 @@ you can:
 
 - Update your project's name and slug.
 - Manage the project's Admins. See
-  [Roles and Permissions](/dashboard/teams.md#roles-and-permissions) for more
-  details.
-- View the amount of [usage metrics](/dashboard/teams.md#usage) your project has
-  consumed.
+  [Roles and Permissions](/dashboard/teams/teams.md#roles-and-permissions) for
+  more details.
+- View the amount of [usage metrics](/dashboard/teams/teams.md#usage) your
+  project has consumed.
 - Manage [custom domains](/production/hosting/custom.mdx#custom-domains) for
   your production deployment (in Deployment Settings).
 - Generate deploy keys for your production deployment (in Deployment Settings)

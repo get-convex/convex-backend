@@ -107,7 +107,7 @@ The valid user attributes are:
 ## Metrics
 
 There are four basic charts for each function. For overall team usage metrics,
-see [team settings](/dashboard/teams.md#usage).
+see [team settings](/dashboard/teams/teams.md#usage).
 
 ### Invocations
 
