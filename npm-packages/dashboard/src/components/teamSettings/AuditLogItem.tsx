@@ -291,6 +291,18 @@ function EntryAction({
           />
         </span>
       );
+    case "updateDeployment": {
+      return (
+        <span>
+          updated deployment{" "}
+          {metadata.current?.deploymentName && (
+            <span className="font-semibold">
+              {metadata.current.deploymentName}
+            </span>
+          )}
+        </span>
+      );
+    }
     case "createProjectEnvironmentVariable":
     case "updateProjectEnvironmentVariable":
     case "deleteProjectEnvironmentVariable":

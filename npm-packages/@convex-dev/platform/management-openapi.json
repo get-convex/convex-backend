@@ -417,9 +417,9 @@
         }
       },
       "patch": {
-        "summary": "Update deployment settings",
-        "description": "Modifies settings for an existing deployment. Fields that are not\nprovided will be left unchanged.\n\nThe following fields can be modified through this API:\n\n- `reference`: the reference of the deployment. When provided, must match\n  the following rules:\n  - be unique across deployment references in the project\n  - 3 to 100 characters (included)\n  - only lowercase letters, numbers, \"-\"\" and \"/\"\n  - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.\n    \"happy-capybara-123\")\n  - not start with \"local-\"\"\n  - not be one of the following reserved keywords: \"prod\", \"dev\", \"cloud\",\n    \"local\", \"default\", \"name\", \"new\", \"existing\", \"deployment\", \"preview\"",
-        "operationId": "update deployment settings",
+        "summary": "Update deployment",
+        "description": "Updates properties of an existing deployment. Only the fields provided in\nthe request body are modified; omitted fields are left unchanged.",
+        "operationId": "update deployment",
         "parameters": [
           {
             "name": "deployment_name",
@@ -435,7 +435,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ModifyDeploymentSettingsArgs"
+                "$ref": "#/components/schemas/PlatformUpdateDeploymentArgs"
               }
             }
           },
@@ -1091,18 +1091,6 @@
         "format": "int64",
         "minimum": 0
       },
-      "ModifyDeploymentSettingsArgs": {
-        "type": "object",
-        "properties": {
-          "reference": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "additionalProperties": false
-      },
       "PlatformCreateDeployKeyArgs": {
         "type": "object",
         "required": [
@@ -1631,6 +1619,26 @@
             }
           }
         ]
+      },
+      "PlatformUpdateDeploymentArgs": {
+        "type": "object",
+        "properties": {
+          "dashboardEditConfirmation": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Controls whether the dashboard requires a confirmation before allowing\nedits during a browser session for this deployment. If set to `null`,\nthe setting is reset to the default behavior (true for prod deployments,\nfalse for dev and preview deployments). If set to `true` or `false`, the\nsetting is explicitly overridden."
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The reference of the deployment. When provided, must match the following\nrules:\n  - be unique across deployment references in the project\n  - 3 to 100 characters (included)\n  - only lowercase letters, numbers, \"-\"\" and \"/\"\n  - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.\n    \"happy-capybara-123\")\n  - not start with \"local-\"\"\n  - not be one of the following reserved keywords: \"prod\", \"dev\",\n    \"cloud\", \"local\", \"default\", \"name\", \"new\", \"existing\",\n    \"deployment\", \"preview\""
+          }
+        },
+        "additionalProperties": false
       },
       "PreviewDeploymentIdentifier": {
         "type": "string"

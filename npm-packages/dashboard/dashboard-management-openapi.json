@@ -3597,7 +3597,8 @@
           "retrieveProjectWorkosEnvironmentCredentials",
           "enableSSO",
           "disableSSO",
-          "updateSSO"
+          "updateSSO",
+          "updateDeployment"
         ]
       },
       "AuditLogActor": {

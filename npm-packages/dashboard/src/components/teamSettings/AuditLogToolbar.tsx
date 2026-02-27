@@ -21,6 +21,7 @@ const AUDIT_LOG_ACTIONS = [
   "deleteProjectEnvironmentVariable",
   "createDeployment",
   "deleteDeployment",
+  "updateDeployment",
   "inviteMember",
   "cancelMemberInvitation",
   "updateMemberRole",

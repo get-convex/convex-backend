@@ -185,24 +185,11 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Update deployment settings
-         * @description Modifies settings for an existing deployment. Fields that are not
-         *     provided will be left unchanged.
-         *
-         *     The following fields can be modified through this API:
-         *
-         *     - `reference`: the reference of the deployment. When provided, must match
-         *       the following rules:
-         *       - be unique across deployment references in the project
-         *       - 3 to 100 characters (included)
-         *       - only lowercase letters, numbers, "-"" and "/"
-         *       - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.
-         *         "happy-capybara-123")
-         *       - not start with "local-""
-         *       - not be one of the following reserved keywords: "prod", "dev", "cloud",
-         *         "local", "default", "name", "new", "existing", "deployment", "preview"
+         * Update deployment
+         * @description Updates properties of an existing deployment. Only the fields provided in
+         *     the request body are modified; omitted fields are left unchanged.
          */
-        patch: operations["update deployment settings"];
+        patch: operations["update deployment"];
         trace?: never;
     };
     "/teams/{team_id}/list_deployment_classes": {
@@ -487,9 +474,6 @@ export interface components {
         };
         /** Format: int64 */
         MemberId: number;
-        ModifyDeploymentSettingsArgs: {
-            reference?: string | null;
-        };
         PlatformCreateDeployKeyArgs: {
             /** @description Name for the deploy key. */
             name: string;
@@ -696,6 +680,26 @@ export interface components {
             /** @enum {string} */
             type: "projectToken";
         };
+        PlatformUpdateDeploymentArgs: {
+            /** @description Controls whether the dashboard requires a confirmation before allowing
+             *     edits during a browser session for this deployment. If set to `null`,
+             *     the setting is reset to the default behavior (true for prod deployments,
+             *     false for dev and preview deployments). If set to `true` or `false`, the
+             *     setting is explicitly overridden. */
+            dashboardEditConfirmation?: boolean | null;
+            /** @description The reference of the deployment. When provided, must match the following
+             *     rules:
+             *       - be unique across deployment references in the project
+             *       - 3 to 100 characters (included)
+             *       - only lowercase letters, numbers, "-"" and "/"
+             *       - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.
+             *         "happy-capybara-123")
+             *       - not start with "local-""
+             *       - not be one of the following reserved keywords: "prod", "dev",
+             *         "cloud", "local", "default", "name", "new", "existing",
+             *         "deployment", "preview" */
+            reference?: string | null;
+        };
         PreviewDeploymentIdentifier: string;
         /** Format: int64 */
         ProjectId: number;
@@ -740,7 +744,6 @@ export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type MemberId = components['schemas']['MemberId'];
-export type ModifyDeploymentSettingsArgs = components['schemas']['ModifyDeploymentSettingsArgs'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateDeploymentArgs = components['schemas']['PlatformCreateDeploymentArgs'];
@@ -755,6 +758,7 @@ export type PlatformListCustomDomainsResponse = components['schemas']['PlatformL
 export type PlatformListTeamMembersResponse = components['schemas']['PlatformListTeamMembersResponse'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
+export type PlatformUpdateDeploymentArgs = components['schemas']['PlatformUpdateDeploymentArgs'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
@@ -980,7 +984,7 @@ export interface operations {
             };
         };
     };
-    "update deployment settings": {
+    "update deployment": {
         parameters: {
             query?: never;
             header?: never;
@@ -992,7 +996,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ModifyDeploymentSettingsArgs"];
+                "application/json": components["schemas"]["PlatformUpdateDeploymentArgs"];
             };
         };
         responses: {
