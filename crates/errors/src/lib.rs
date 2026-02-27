@@ -318,12 +318,12 @@ impl ErrorMetadata {
     /// Internal Optimistic Concurrency Control / Commit Race Error.
     ///
     /// These come from sqlx, or are caused by OCCs on system tables.
-    pub fn system_occ(write_ts: Option<u64>) -> Self {
+    pub fn system_occ(write_ts: Option<u64>, write_source: Option<String>) -> Self {
         Self {
             code: ErrorCode::OCC {
                 table_name: None,
                 document_id: None,
-                write_source: None,
+                write_source,
                 is_system: true,
                 write_ts,
             },
@@ -1029,8 +1029,10 @@ mod proptest {
                     ErrorMetadata::pagination_limit("pagination", "limit")
                 },
                 ErrorCode::OCC {
-                    is_system: true, ..
-                } => ErrorMetadata::system_occ(None),
+                    is_system: true,
+                    write_source,
+                    ..
+                } => ErrorMetadata::system_occ(None, write_source),
                 ErrorCode::OCC {
                     is_system: false,
                     table_name,

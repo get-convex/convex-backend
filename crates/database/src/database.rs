@@ -2582,11 +2582,13 @@ impl ConflictingReadWithWriteSource {
             )
         });
 
+        let write_source = self.write_source.0.as_ref().map(|s| s.to_string());
+
         if !table_name.is_system() {
             let metadata = ErrorMetadata::user_occ(
                 Some(table_name.into()),
                 Some(self.read.id.developer_id.encode()),
-                self.write_source.0.as_ref().map(|s| s.to_string()),
+                write_source,
                 occ_msg,
                 write_ts_val,
             );
@@ -2619,7 +2621,7 @@ impl ConflictingReadWithWriteSource {
                 tracing::error!("Read of {index} occurred at {stack_trace}");
             }
         };
-        let metadata = ErrorMetadata::system_occ(write_ts_val);
+        let metadata = ErrorMetadata::system_occ(write_ts_val, write_source);
         anyhow::anyhow!(formatted).context(metadata)
     }
 }
