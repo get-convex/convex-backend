@@ -834,25 +834,20 @@ pub fn index_point_query(multitenant: bool) -> &'static str {
     tableify!(
         multitenant,
         formatcp!(
-            r#"
-SELECT I.ts, I.table_id, D.json_value, D.prev_ts FROM
-(
-    SELECT {instance_col}ts, deleted, table_id, document_id
-    FROM @db_name.indexes
-    FORCE INDEX (PRIMARY)
-    WHERE index_id = ? AND key_prefix = ? AND key_sha256 = ? AND ts <= ?
-    {instance_cond}
-    ORDER BY ts DESC
-    LIMIT 1
-) I
+            "
+SELECT I.ts, I.table_id, D.json_value, D.prev_ts
+FROM @db_name.indexes I
+FORCE INDEX (PRIMARY)
 LEFT JOIN @db_name.documents D FORCE INDEX FOR JOIN (PRIMARY)
-ON
-{instance_join}D.ts = I.ts AND D.table_id = I.table_id AND D.id = I.document_id
-WHERE I.deleted = false
-"#,
-            instance_col = if multitenant { "instance_name, " } else { "" },
+ON {instance_join}D.ts = I.ts AND D.table_id = I.table_id AND D.id = I.document_id AND NOT \
+             I.deleted
+WHERE I.index_id = ? AND I.key_prefix = ? AND I.key_sha256 = ? AND I.ts <= ?
+{instance_cond}
+ORDER BY I.ts DESC
+LIMIT 1
+",
             instance_cond = if multitenant {
-                "AND instance_name = ?"
+                "AND I.instance_name = ?"
             } else {
                 ""
             },
