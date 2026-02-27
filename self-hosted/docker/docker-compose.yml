@@ -60,7 +60,7 @@ services:
       - NEXT_PUBLIC_DEPLOYMENT_URL=${NEXT_PUBLIC_DEPLOYMENT_URL:-http://127.0.0.1:${PORT:-3210}}
       - NEXT_PUBLIC_LOAD_MONACO_INTERNALLY
     depends_on:
-      backend:
+      convex-backend:
         condition: service_healthy
 
 volumes:
