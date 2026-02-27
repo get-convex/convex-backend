@@ -35,6 +35,16 @@ const config: StorybookConfig = {
         alias: {
           // Match dashboard's tsconfig baseUrl: "src" for api/* imports
           api: path.resolve(import.meta.dirname, "../../dashboard/src/api"),
+          // Match dashboard/dashboard-common tsconfig path alias "@common/*"
+          "@common": path.resolve(
+            import.meta.dirname,
+            "../../dashboard-common/src",
+          ),
+          // Match design-system's tsconfig path alias "@ui/*": ["*"]
+          "@ui": path.resolve(
+            import.meta.dirname,
+            "../../@convex-dev/design-system/src",
+          ),
         },
       },
       server: {
