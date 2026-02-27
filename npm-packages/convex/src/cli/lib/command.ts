@@ -178,14 +178,6 @@ Command.prototype.addDeploymentSelectionOptions = function (
     .addOption(new Option("--admin-key <adminKey>").hideHelp())
     .addOption(
       new Option(
-        "--env-file <envFile>",
-        `Path to a custom file of environment variables, for choosing the \
-deployment, e.g. ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
-Same format as .env.local or .env files, and overrides them.`,
-      ),
-    )
-    .addOption(
-      new Option(
         "--prod",
         action + " this project's production deployment.",
       ).conflicts(["--preview-name", "--deployment-name", "--url"]),
@@ -194,13 +186,25 @@ Same format as .env.local or .env files, and overrides them.`,
       new Option(
         "--preview-name <previewName>",
         action + " the preview deployment with the given name.",
-      ).conflicts(["--prod", "--deployment-name", "--url"]),
+      )
+        .conflicts(["--prod", "--deployment-name", "--url"])
+        .hideHelp(),
     )
     .addOption(
       new Option(
         "--deployment-name <deploymentName>",
         action + " the specified deployment.",
-      ).conflicts(["--prod", "--preview-name", "--url"]),
+      )
+        .conflicts(["--prod", "--preview-name", "--url"])
+        .hideHelp(),
+    )
+    .addOption(
+      new Option(
+        "--env-file <envFile>",
+        `Path to a custom file of environment variables, for choosing the \
+deployment, e.g. ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
+Same format as .env.local or .env files, and overrides them.`,
+      ).hideHelp(),
     ) as any;
 };
 

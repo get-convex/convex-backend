@@ -2,6 +2,7 @@ import { BigBrainAuth, Context } from "../../bundler/context.js";
 import { logVerbose } from "../../bundler/log.js";
 import {
   AccountRequiredDeploymentType,
+  DeploymentSelectionOptions,
   DeploymentType,
   fetchTeamAndProjectForKey,
 } from "./api.js";
@@ -260,11 +261,7 @@ export type ProjectSelection =
 
 export async function getDeploymentSelection(
   ctx: Context,
-  cliArgs: {
-    url?: string | undefined;
-    adminKey?: string | undefined;
-    envFile?: string | undefined;
-  },
+  cliArgs: DeploymentSelectionOptions,
 ): Promise<DeploymentSelection> {
   const metadata = await _getDeploymentSelection(ctx, cliArgs);
   logDeploymentSelection(ctx, metadata);
@@ -327,11 +324,7 @@ function prettyProjectSelection(selection: ProjectSelection) {
 
 async function _getDeploymentSelection(
   ctx: Context,
-  cliArgs: {
-    url?: string | undefined;
-    adminKey?: string | undefined;
-    envFile?: string | undefined;
-  },
+  cliArgs: DeploymentSelectionOptions,
 ): Promise<DeploymentSelection> {
   /*
    - url + adminKey specified via CLI

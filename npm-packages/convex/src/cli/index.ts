@@ -160,7 +160,7 @@ async function main() {
     .addCommand(insights)
     .addCommand(disableLocalDeployments)
     .addCommand(mcp)
-    .addHelpCommand("help <command>", "Show help for given <command>")
+    .helpCommand("help <command>", "Show help for given <command>")
     .version(version)
     // Hide version and help so they don't clutter
     // the list of commands.

@@ -14,7 +14,6 @@ function handlePromptError(ctx: Context) {
   return async (error: unknown): Promise<never> => {
     if (error instanceof Error && error.name === "ExitPromptError") {
       // User pressed Ctrl+C — exit silently with code 130 (standard for SIGINT)
-      // eslint-disable-next-line no-process-exit
       process.exit(130);
     }
     return ctx.crash({

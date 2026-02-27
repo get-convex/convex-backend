@@ -197,9 +197,40 @@ npx convex env set <name> <value>
 npx convex env remove <name>
 ```
 
-See and update the deployment environment variables which you can otherwise
-manage on the dashboard
-[environment variables settings page](/dashboard/deployments/settings.md#environment-variables).
+See and update the
+[deployment environment variables](/production/environment-variables). You can
+alternatively use the
+[settings page on the dashboard](/dashboard/deployments/settings.md#environment-variables).
+
+Tip: to avoid secrets from ending up in your terminal shell history, you can
+pass the value via stdin, from a file, or interactively.
+
+Useful commands:
+
+```sh
+# Set a value interactively
+npx convex env set API_KEY
+
+# Set from MacOS clipboard
+pbpaste | npx convex env set API_KEY
+# Windows PowerShell
+Get-Clipboard | npx convex env set API_KEY
+
+# Read a value from a file
+npx convex env set PUBLIC_KEY --from-file key.pub
+
+# Set multiple variables via a file
+npx convex env set --from-file .env.defaults
+
+# Save environment variables to a file
+npx convex env list >> .env.convex  # append
+npx convex env list >  .env.convex  # overwrite
+
+# Update values after editing them locally:
+npx convex env set --force < .env.convex
+```
+
+Note: to set variables on your production deployment, pass `--prod`.
 
 ## Deploy
 

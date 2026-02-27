@@ -26,12 +26,15 @@ You can modify environment variables using the pencil icon button:
 
 ![Edit Environment Variable](/screenshots/edit_environment_variable.png)
 
-Environment variables can also be viewed and modified with the
+Environment variables can also be viewed and modified from the
 [command line](/cli.md#read-and-write-environment-variables).
 
 ```sh
 npx convex env list
-npx convex env set API_KEY secret-api-key
+npx convex env get NAME
+npx convex env set NAME 'value'
+npx convex env set --from-file .env.convex
+npx convex env remove NAME
 ```
 
 ### Using environment variables in dev and prod deployments
