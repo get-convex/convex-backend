@@ -62,6 +62,27 @@ test("bundle finds JavaScript functions", async () => {
   expect(bundles[1].path).toEqual("foo.js");
 });
 
+test("bundle resolves node async_hooks and events shims", async () => {
+  const fixtureDir = dirname + "/test_fixtures/js/project_with_node_shims";
+  const ctx = await getDefaultCtx();
+  const entryPoints = await entryPointsByEnvironment(ctx, fixtureDir);
+  const bundles = sorted(
+    (
+      await bundle({
+        ctx,
+        dir: fixtureDir,
+        entryPoints: entryPoints.isolate,
+        generateSourceMaps: false,
+        platform: "browser",
+      })
+    ).modules,
+    (b) => b.path,
+  ).filter((bundle) => !bundle.path.includes("_deps"));
+
+  expect(bundles).toHaveLength(1);
+  expect(bundles[0].path).toEqual("uses_node_shims.js");
+});
+
 test("returns true when simple import httpRouter found", async () => {
   const result = await doesImportConvexHttpRouter(`
     import { httpRouter } from "convex/server";
