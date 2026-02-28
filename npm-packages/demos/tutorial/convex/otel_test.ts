@@ -18,7 +18,6 @@ export const testOtelContext = action({
   handler: async () => {
     const results: string[] = [];
 
-    // --- Test 1: Basic context manager setup ---
     try {
       const contextManager = new AsyncLocalStorageContextManager();
       contextManager.enable();
@@ -29,7 +28,6 @@ export const testOtelContext = action({
       return results.join("\n");
     }
 
-    // --- Test 2: Context propagation with .with() ---
     try {
       const key = createContextKey("test-key");
       const ctx = ROOT_CONTEXT.setValue(key, "hello-otel");
@@ -50,13 +48,11 @@ export const testOtelContext = action({
       results.push(`FAIL: Sync context propagation: ${e.message}`);
     }
 
-    // --- Test 3: Context propagation across await ---
     try {
       const key = createContextKey("async-key");
       const ctx = ROOT_CONTEXT.setValue(key, "async-value");
 
       const value = await otelContext.with(ctx, async () => {
-        // Cross an await boundary
         await Promise.resolve();
         const active = otelContext.active();
         return active.getValue(key);
@@ -73,13 +69,11 @@ export const testOtelContext = action({
       results.push(`FAIL: Async context propagation: ${e.message}`);
     }
 
-    // --- Test 4: Context propagation across setTimeout ---
     try {
       const key = createContextKey("timeout-key");
       const ctx = ROOT_CONTEXT.setValue(key, "timeout-value");
 
       const value = await otelContext.with(ctx, async () => {
-        // Cross a setTimeout boundary (Rust async op)
         await new Promise((resolve) => setTimeout(resolve, 10));
         const active = otelContext.active();
         return active.getValue(key);
@@ -96,7 +90,6 @@ export const testOtelContext = action({
       results.push(`FAIL: setTimeout context propagation: ${e.message}`);
     }
 
-    // --- Test 5: Nested context propagation ---
     try {
       const key1 = createContextKey("outer-key");
       const key2 = createContextKey("inner-key");
@@ -122,7 +115,6 @@ export const testOtelContext = action({
       results.push(`FAIL: Nested context: ${e.message}`);
     }
 
-    // --- Test 6: Context isolation between concurrent operations ---
     try {
       const key = createContextKey("concurrent-key");
 
@@ -146,14 +138,11 @@ export const testOtelContext = action({
       results.push(`FAIL: Concurrent isolation: ${e.message}`);
     }
 
-    // Clean up
     otelContext.disable();
 
     return results.join("\n");
   },
 });
-
-// ─── Deep OTel tests: spans, tracers, span hierarchy ────────────────────────
 
 import { trace, SpanStatusCode, SpanKind } from "@opentelemetry/api";
 
@@ -178,272 +167,422 @@ class InMemorySpanExporter {
   }
 }
 
+function installPerformanceShimIfNeeded(): () => void {
+  const globalWithPerformance = globalThis as any;
+  if (typeof globalWithPerformance.performance?.now === "function") {
+    return () => {};
+  }
+
+  const hadOwnPerformance = Object.prototype.hasOwnProperty.call(
+    globalWithPerformance,
+    "performance",
+  );
+  const previousPerformance = globalWithPerformance.performance;
+
+  globalWithPerformance.performance = {
+    now: () => Date.now(),
+    timeOrigin: Date.now(),
+  };
+
+  return () => {
+    if (hadOwnPerformance) {
+      globalWithPerformance.performance = previousPerformance;
+      return;
+    }
+    delete globalWithPerformance.performance;
+  };
+}
+
 export const testOtelSpans = action({
   args: {},
   handler: async () => {
     const results: string[] = [];
-
-    // The OTel SDK requires `performance.now()` for timestamps.
-    // The Convex runtime doesn't expose `performance` yet, so we shim it.
-    if (typeof (globalThis as any).performance === "undefined") {
-      (globalThis as any).performance = {
-        now: () => Date.now(),
-        timeOrigin: Date.now(),
-      };
-    }
-
-    // We need the SDK to create real spans. Import it dynamically
-    // since it's a heavier dependency.
-    let TracerProvider: any;
-    let SimpleSpanProcessor: any;
+    const restorePerformance = installPerformanceShimIfNeeded();
     try {
-      const sdk = await import("@opentelemetry/sdk-trace-base");
-      TracerProvider = sdk.BasicTracerProvider;
-      SimpleSpanProcessor = sdk.SimpleSpanProcessor;
-    } catch (e: any) {
-      results.push(
-        `SKIP: @opentelemetry/sdk-trace-base not available: ${e.message}`,
-      );
-      return results.join("\n");
-    }
+      let TracerProvider: any;
+      let SimpleSpanProcessor: any;
+      try {
+        const sdk = await import("@opentelemetry/sdk-trace-base");
+        TracerProvider = sdk.BasicTracerProvider;
+        SimpleSpanProcessor = sdk.SimpleSpanProcessor;
+      } catch (e: any) {
+        results.push(
+          `SKIP: @opentelemetry/sdk-trace-base not available: ${e.message}`,
+        );
+        return results.join("\n");
+      }
 
-    // Set up context manager
-    const contextManager = new AsyncLocalStorageContextManager();
-    contextManager.enable();
-    otelContext.setGlobalContextManager(contextManager);
+      const contextManager = new AsyncLocalStorageContextManager();
+      contextManager.enable();
+      otelContext.setGlobalContextManager(contextManager);
 
-    // Set up tracer provider with in-memory exporter
-    const exporter = new InMemorySpanExporter();
-    const provider = new TracerProvider();
-    provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
-    provider.register();
+      const exporter = new InMemorySpanExporter();
+      const provider = new TracerProvider();
+      provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+      provider.register();
 
-    const tracer = trace.getTracer("convex-experiment", "1.0.0");
+      const tracer = trace.getTracer("convex-experiment", "1.0.0");
 
-    // --- Test 7: Create a simple span ---
-    try {
-      exporter.reset();
-      tracer.startActiveSpan("simple-span", (span: any) => {
-        span.setAttribute("test.key", "test-value");
-        span.setStatus({ code: SpanStatusCode.OK });
-        span.end();
-      });
-
-      const spans = exporter.spans;
-      const s = spans.find((s: any) => s.name === "simple-span");
-      results.push(
-        s &&
-          s.attributes["test.key"] === "test-value" &&
-          s.status.code === SpanStatusCode.OK
-          ? "PASS: simple span with attribute"
-          : `FAIL: simple span: found=${!!s}, attrs=${JSON.stringify(s?.attributes)}`,
-      );
-    } catch (e: any) {
-      results.push(`FAIL: simple span: ${e.message}`);
-    }
-
-    // --- Test 8: Nested spans (parent-child hierarchy) ---
-    try {
-      exporter.reset();
-      tracer.startActiveSpan("parent-span", (parentSpan: any) => {
-        tracer.startActiveSpan("child-span", (childSpan: any) => {
-          childSpan.setAttribute("level", "child");
-          childSpan.end();
-        });
-        parentSpan.setAttribute("level", "parent");
-        parentSpan.end();
-      });
-
-      const spans = exporter.spans;
-      const parent = spans.find((s: any) => s.name === "parent-span");
-      const child = spans.find((s: any) => s.name === "child-span");
-
-      const parentLinked =
-        parent &&
-        child &&
-        child.parentSpanId === parent.spanContext().spanId &&
-        child.spanContext().traceId === parent.spanContext().traceId;
-
-      results.push(
-        parentLinked
-          ? "PASS: nested spans with correct parent-child link"
-          : `FAIL: nested spans: parent=${parent?.spanContext().spanId}, child.parentSpanId=${child?.parentSpanId}`,
-      );
-    } catch (e: any) {
-      results.push(`FAIL: nested spans: ${e.message}`);
-    }
-
-    // --- Test 9: Span hierarchy across await ---
-    try {
-      exporter.reset();
-      await tracer.startActiveSpan("async-parent", async (parentSpan: any) => {
-        await Promise.resolve();
-
-        await tracer.startActiveSpan("async-child", async (childSpan: any) => {
-          await Promise.resolve();
-          childSpan.setAttribute("async", true);
-          childSpan.end();
-        });
-
-        parentSpan.end();
-      });
-
-      const spans = exporter.spans;
-      const parent = spans.find((s: any) => s.name === "async-parent");
-      const child = spans.find((s: any) => s.name === "async-child");
-
-      const linked =
-        parent &&
-        child &&
-        child.parentSpanId === parent.spanContext().spanId &&
-        child.attributes["async"] === true;
-
-      results.push(
-        linked
-          ? "PASS: span hierarchy preserved across await"
-          : `FAIL: async span hierarchy: parent=${parent?.spanContext().spanId}, child.parentSpanId=${child?.parentSpanId}, async=${child?.attributes["async"]}`,
-      );
-    } catch (e: any) {
-      results.push(`FAIL: async span hierarchy: ${e.message}`);
-    }
-
-    // --- Test 10: Span events and status ---
-    try {
-      exporter.reset();
-      tracer.startActiveSpan("span-with-events", (span: any) => {
-        span.addEvent("processing-started", { "item.count": 42 });
-        span.addEvent("processing-completed");
-        span.setStatus({ code: SpanStatusCode.OK, message: "done" });
-        span.end();
-      });
-
-      const s = exporter.spans.find((s: any) => s.name === "span-with-events");
-      const hasEvents = s?.events?.length === 2;
-      const firstEvent = s?.events?.[0];
-
-      results.push(
-        hasEvents &&
-          firstEvent?.name === "processing-started" &&
-          firstEvent?.attributes?.["item.count"] === 42
-          ? "PASS: span events with attributes"
-          : `FAIL: span events: count=${s?.events?.length}, first=${firstEvent?.name}`,
-      );
-    } catch (e: any) {
-      results.push(`FAIL: span events: ${e.message}`);
-    }
-
-    // --- Test 11: SpanKind ---
-    try {
-      exporter.reset();
-      tracer.startActiveSpan(
-        "server-span",
-        { kind: SpanKind.SERVER },
-        (span: any) => {
+      try {
+        exporter.reset();
+        tracer.startActiveSpan("simple-span", (span: any) => {
+          span.setAttribute("test.key", "test-value");
+          span.setStatus({ code: SpanStatusCode.OK });
           span.end();
-        },
-      );
-
-      const s = exporter.spans.find((s: any) => s.name === "server-span");
-      results.push(
-        s?.kind === SpanKind.SERVER
-          ? "PASS: SpanKind.SERVER preserved"
-          : `FAIL: SpanKind: expected ${SpanKind.SERVER}, got ${s?.kind}`,
-      );
-    } catch (e: any) {
-      results.push(`FAIL: SpanKind: ${e.message}`);
-    }
-
-    // --- Test 12: Deep async span tree (3 levels with await) ---
-    try {
-      exporter.reset();
-      await tracer.startActiveSpan("level-0", async (l0: any) => {
-        l0.setAttribute("depth", 0);
-
-        await tracer.startActiveSpan("level-1", async (l1: any) => {
-          l1.setAttribute("depth", 1);
-          await new Promise((r) => setTimeout(r, 5));
-
-          await tracer.startActiveSpan("level-2", async (l2: any) => {
-            l2.setAttribute("depth", 2);
-            await new Promise((r) => setTimeout(r, 5));
-            l2.end();
-          });
-
-          l1.end();
         });
 
-        l0.end();
-      });
+        const spans = exporter.spans;
+        const s = spans.find((s: any) => s.name === "simple-span");
+        results.push(
+          s &&
+            s.attributes["test.key"] === "test-value" &&
+            s.status.code === SpanStatusCode.OK
+            ? "PASS: simple span with attribute"
+            : `FAIL: simple span: found=${!!s}, attrs=${JSON.stringify(s?.attributes)}`,
+        );
+      } catch (e: any) {
+        results.push(`FAIL: simple span: ${e.message}`);
+      }
 
-      const spans = exporter.spans;
-      const l0 = spans.find((s: any) => s.name === "level-0");
-      const l1 = spans.find((s: any) => s.name === "level-1");
-      const l2 = spans.find((s: any) => s.name === "level-2");
+      try {
+        exporter.reset();
+        tracer.startActiveSpan("parent-span", (parentSpan: any) => {
+          tracer.startActiveSpan("child-span", (childSpan: any) => {
+            childSpan.setAttribute("level", "child");
+            childSpan.end();
+          });
+          parentSpan.setAttribute("level", "parent");
+          parentSpan.end();
+        });
 
-      const traceMatch =
-        l0 &&
-        l1 &&
-        l2 &&
-        l0.spanContext().traceId === l1.spanContext().traceId &&
-        l1.spanContext().traceId === l2.spanContext().traceId;
-      const parentChain =
-        l1?.parentSpanId === l0?.spanContext().spanId &&
-        l2?.parentSpanId === l1?.spanContext().spanId;
+        const spans = exporter.spans;
+        const parent = spans.find((s: any) => s.name === "parent-span");
+        const child = spans.find((s: any) => s.name === "child-span");
 
-      results.push(
-        traceMatch && parentChain
-          ? "PASS: 3-level async span tree (trace + parent chain)"
-          : `FAIL: deep tree: traceMatch=${traceMatch}, parentChain=${parentChain}`,
-      );
-    } catch (e: any) {
-      results.push(`FAIL: deep span tree: ${e.message}`);
-    }
+        const parentLinked =
+          parent &&
+          child &&
+          child.parentSpanId === parent.spanContext().spanId &&
+          child.spanContext().traceId === parent.spanContext().traceId;
 
-    // --- Test 13: Concurrent spans maintain isolation ---
-    try {
-      exporter.reset();
+        results.push(
+          parentLinked
+            ? "PASS: nested spans with correct parent-child link"
+            : `FAIL: nested spans: parent=${parent?.spanContext().spanId}, child.parentSpanId=${child?.parentSpanId}`,
+        );
+      } catch (e: any) {
+        results.push(`FAIL: nested spans: ${e.message}`);
+      }
 
-      const work = async (name: string) => {
-        return tracer.startActiveSpan(
-          `concurrent-${name}`,
-          async (span: any) => {
-            span.setAttribute("worker", name);
-            await new Promise((r) => setTimeout(r, Math.random() * 10));
+      try {
+        exporter.reset();
+        await tracer.startActiveSpan(
+          "async-parent",
+          async (parentSpan: any) => {
+            await Promise.resolve();
 
-            // Check that we're still in our span
-            const activeSpan = trace.getActiveSpan();
-            const correctSpan =
-              activeSpan?.spanContext().spanId === span.spanContext().spanId;
+            await tracer.startActiveSpan(
+              "async-child",
+              async (childSpan: any) => {
+                await Promise.resolve();
+                childSpan.setAttribute("async", true);
+                childSpan.end();
+              },
+            );
 
-            span.end();
-            return correctSpan;
+            parentSpan.end();
           },
         );
-      };
 
-      const [a, b, c] = await Promise.all([work("A"), work("B"), work("C")]);
+        const spans = exporter.spans;
+        const parent = spans.find((s: any) => s.name === "async-parent");
+        const child = spans.find((s: any) => s.name === "async-child");
 
-      results.push(
-        a && b && c
-          ? "PASS: concurrent spans maintain isolation"
-          : `FAIL: concurrent spans: A=${a}, B=${b}, C=${c}`,
-      );
-    } catch (e: any) {
-      results.push(`FAIL: concurrent spans: ${e.message}`);
+        const linked =
+          parent &&
+          child &&
+          child.parentSpanId === parent.spanContext().spanId &&
+          child.attributes["async"] === true;
+
+        results.push(
+          linked
+            ? "PASS: span hierarchy preserved across await"
+            : `FAIL: async span hierarchy: parent=${parent?.spanContext().spanId}, child.parentSpanId=${child?.parentSpanId}, async=${child?.attributes["async"]}`,
+        );
+      } catch (e: any) {
+        results.push(`FAIL: async span hierarchy: ${e.message}`);
+      }
+
+      try {
+        exporter.reset();
+        tracer.startActiveSpan("span-with-events", (span: any) => {
+          span.addEvent("processing-started", { "item.count": 42 });
+          span.addEvent("processing-completed");
+          span.setStatus({ code: SpanStatusCode.OK, message: "done" });
+          span.end();
+        });
+
+        const s = exporter.spans.find(
+          (s: any) => s.name === "span-with-events",
+        );
+        const hasEvents = s?.events?.length === 2;
+        const firstEvent = s?.events?.[0];
+
+        results.push(
+          hasEvents &&
+            firstEvent?.name === "processing-started" &&
+            firstEvent?.attributes?.["item.count"] === 42
+            ? "PASS: span events with attributes"
+            : `FAIL: span events: count=${s?.events?.length}, first=${firstEvent?.name}`,
+        );
+      } catch (e: any) {
+        results.push(`FAIL: span events: ${e.message}`);
+      }
+
+      try {
+        exporter.reset();
+        tracer.startActiveSpan(
+          "server-span",
+          { kind: SpanKind.SERVER },
+          (span: any) => {
+            span.end();
+          },
+        );
+
+        const s = exporter.spans.find((s: any) => s.name === "server-span");
+        results.push(
+          s?.kind === SpanKind.SERVER
+            ? "PASS: SpanKind.SERVER preserved"
+            : `FAIL: SpanKind: expected ${SpanKind.SERVER}, got ${s?.kind}`,
+        );
+      } catch (e: any) {
+        results.push(`FAIL: SpanKind: ${e.message}`);
+      }
+
+      try {
+        exporter.reset();
+        await tracer.startActiveSpan("level-0", async (l0: any) => {
+          l0.setAttribute("depth", 0);
+
+          await tracer.startActiveSpan("level-1", async (l1: any) => {
+            l1.setAttribute("depth", 1);
+            await new Promise((r) => setTimeout(r, 5));
+
+            await tracer.startActiveSpan("level-2", async (l2: any) => {
+              l2.setAttribute("depth", 2);
+              await new Promise((r) => setTimeout(r, 5));
+              l2.end();
+            });
+
+            l1.end();
+          });
+
+          l0.end();
+        });
+
+        const spans = exporter.spans;
+        const l0 = spans.find((s: any) => s.name === "level-0");
+        const l1 = spans.find((s: any) => s.name === "level-1");
+        const l2 = spans.find((s: any) => s.name === "level-2");
+
+        const traceMatch =
+          l0 &&
+          l1 &&
+          l2 &&
+          l0.spanContext().traceId === l1.spanContext().traceId &&
+          l1.spanContext().traceId === l2.spanContext().traceId;
+        const parentChain =
+          l1?.parentSpanId === l0?.spanContext().spanId &&
+          l2?.parentSpanId === l1?.spanContext().spanId;
+
+        results.push(
+          traceMatch && parentChain
+            ? "PASS: 3-level async span tree (trace + parent chain)"
+            : `FAIL: deep tree: traceMatch=${traceMatch}, parentChain=${parentChain}`,
+        );
+      } catch (e: any) {
+        results.push(`FAIL: deep span tree: ${e.message}`);
+      }
+
+      try {
+        exporter.reset();
+
+        const work = async (name: string) => {
+          return tracer.startActiveSpan(
+            `concurrent-${name}`,
+            async (span: any) => {
+              span.setAttribute("worker", name);
+              await new Promise((r) => setTimeout(r, Math.random() * 10));
+
+              const activeSpan = trace.getActiveSpan();
+              const correctSpan =
+                activeSpan?.spanContext().spanId === span.spanContext().spanId;
+
+              span.end();
+              return correctSpan;
+            },
+          );
+        };
+
+        const [a, b, c] = await Promise.all([work("A"), work("B"), work("C")]);
+
+        results.push(
+          a && b && c
+            ? "PASS: concurrent spans maintain isolation"
+            : `FAIL: concurrent spans: A=${a}, B=${b}, C=${c}`,
+        );
+      } catch (e: any) {
+        results.push(`FAIL: concurrent spans: ${e.message}`);
+      }
+
+      otelContext.disable();
+      provider.shutdown();
+
+      return results.join("\n");
+    } finally {
+      restorePerformance();
     }
-
-    // Clean up
-    otelContext.disable();
-    provider.shutdown();
-
-    return results.join("\n");
   },
 });
 
 /**
- * Diagnostic action: check what's actually available on globalThis
- * and what the esbuild shim delivered.
+ * Experiment 4: Verify AI SDK telemetry works with thin dependencies only.
  */
+export const testAiSdkTelemetry = action({
+  args: {},
+  handler: async () => {
+    const results: string[] = [];
+    const errorMessage = (error: unknown) =>
+      error instanceof Error ? error.message : String(error);
+    const restorePerformance = installPerformanceShimIfNeeded();
+    try {
+      const contextManager = new AsyncLocalStorageContextManager();
+      contextManager.enable();
+      otelContext.setGlobalContextManager(contextManager);
+
+      let provider: any;
+      const exporter = new InMemorySpanExporter();
+
+      try {
+        const sdk = await import("@opentelemetry/sdk-trace-base");
+        provider = new sdk.BasicTracerProvider();
+        provider.addSpanProcessor(new sdk.SimpleSpanProcessor(exporter));
+        provider.register();
+        results.push("PASS: OTel tracer provider registered");
+      } catch (e) {
+        results.push(
+          `FAIL: OTel setup for AI SDK telemetry: ${errorMessage(e)}`,
+        );
+        otelContext.disable();
+        return results.join("\n");
+      }
+
+      try {
+        const { generateText } = await import("ai");
+        const { MockLanguageModelV3 } = await import("ai/test");
+
+        const model = new MockLanguageModelV3({
+          modelId: "mock-ai-sdk-model",
+          doGenerate: async () => ({
+            content: [{ type: "text", text: "hello from mock model" }],
+            finishReason: { unified: "stop", raw: "stop" },
+            usage: {
+              inputTokens: {
+                total: 3,
+                noCache: 3,
+                cacheRead: 0,
+                cacheWrite: 0,
+              },
+              outputTokens: { total: 4, text: 4, reasoning: 0 },
+            },
+            warnings: [],
+          }),
+        });
+
+        const tracer = trace.getTracer("convex-ai-sdk-telemetry");
+
+        const generated = await generateText({
+          model,
+          prompt: "Say hello.",
+          experimental_telemetry: {
+            isEnabled: true,
+            functionId: "convex-ai-sdk-telemetry-test",
+            metadata: {
+              experiment: "convex-tutorial",
+            },
+            tracer,
+          },
+        });
+
+        results.push(
+          generated.text === "hello from mock model"
+            ? "PASS: AI SDK generateText works with mock model"
+            : `FAIL: Unexpected generated text: '${generated.text}'`,
+        );
+
+        const spanNames = exporter.spans.map((span: any) => String(span?.name));
+        const hasTopLevelSpan = spanNames.includes("ai.generateText");
+        const hasDoGenerateSpan = spanNames.includes(
+          "ai.generateText.doGenerate",
+        );
+        results.push(
+          hasTopLevelSpan && hasDoGenerateSpan
+            ? "PASS: AI SDK telemetry spans emitted"
+            : `FAIL: Missing expected spans. got=${JSON.stringify(spanNames)}`,
+        );
+
+        const hasFunctionId = exporter.spans.some(
+          (span: any) =>
+            span?.attributes?.["ai.telemetry.functionId"] ===
+            "convex-ai-sdk-telemetry-test",
+        );
+        results.push(
+          hasFunctionId
+            ? "PASS: functionId telemetry attribute recorded"
+            : "FAIL: functionId telemetry attribute missing",
+        );
+
+        const hasMetadata = exporter.spans.some(
+          (span: any) =>
+            span?.attributes?.["ai.telemetry.metadata.experiment"] ===
+            "convex-tutorial",
+        );
+        results.push(
+          hasMetadata
+            ? "PASS: metadata telemetry attribute recorded"
+            : "FAIL: metadata telemetry attribute missing",
+        );
+
+        exporter.reset();
+        await generateText({
+          model,
+          prompt: "No telemetry expected.",
+          experimental_telemetry: {
+            isEnabled: false,
+            tracer,
+          },
+        });
+        results.push(
+          exporter.spans.length === 0
+            ? "PASS: telemetry disabled path emits no spans"
+            : `FAIL: telemetry disabled still emitted ${exporter.spans.length} spans`,
+        );
+      } catch (e) {
+        results.push(`FAIL: AI SDK telemetry integration: ${errorMessage(e)}`);
+      }
+
+      otelContext.disable();
+      if (provider) {
+        await provider.shutdown();
+      }
+
+      return results.join("\n");
+    } finally {
+      restorePerformance();
+    }
+  },
+});
+
 import { AsyncLocalStorage } from "async_hooks";
 
 export const debugGlobals = action({
@@ -451,19 +590,15 @@ export const debugGlobals = action({
   handler: async () => {
     const g = globalThis as any;
 
-    // Check if Promise.prototype.then has been patched
     const nativeThenStr = Function.prototype.toString.call(
       Promise.prototype.then,
     );
     const isPatched = !nativeThenStr.includes("[native code]");
 
-    // Test: manually set context, then check after await
     const als = new g.AsyncLocalStorage();
 
-    // Sync baseline
     const syncResult = als.run("sync-val", () => als.getStore());
 
-    // Manual promise .then test
     let thenResult: string | undefined;
     await als.run("then-val", () => {
       return Promise.resolve().then(() => {
@@ -471,14 +606,12 @@ export const debugGlobals = action({
       });
     });
 
-    // Async/await test
     let awaitResult: string | undefined;
     await als.run("await-val", async () => {
       await Promise.resolve();
       awaitResult = als.getStore() as string;
     });
 
-    // Raw promise constructor test
     let rawPromiseResult: string | undefined;
     await als.run("raw-val", () => {
       return new Promise<void>((resolve) => {
@@ -487,7 +620,6 @@ export const debugGlobals = action({
       });
     });
 
-    // Nested .then test
     let nestedThenResult: string | undefined;
     await als.run("nested-val", () => {
       return Promise.resolve()

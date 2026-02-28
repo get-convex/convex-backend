@@ -8,10 +8,7 @@
  * @module
  */
 
-import type * as bench_test from "../bench_test.js";
-import type * as langgraph_test from "../langgraph_test.js";
 import type * as messages from "../messages.js";
-import type * as otel_test from "../otel_test.js";
 
 import type {
   ApiFromModules,
@@ -20,10 +17,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  bench_test: typeof bench_test;
-  langgraph_test: typeof langgraph_test;
   messages: typeof messages;
-  otel_test: typeof otel_test;
 }>;
 
 /**
