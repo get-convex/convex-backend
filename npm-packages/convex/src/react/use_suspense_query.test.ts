@@ -30,8 +30,15 @@ describe("useSuspenseQuery types", () => {
       args: { _arg: "asdf" },
     });
 
+    // @ts-expect-error throwOnError is not allowed on useSuspenseQuery
+    useSuspenseQuery({
+      query: api.module.args,
+      args: { _arg: "asdf" },
+      throwOnError: true,
+    });
+
     const suspenseResult = useSuspenseQuery(api.module.args, { _arg: "asdf" });
-    expectTypeOf(suspenseResult).toEqualTypeOf<string>();
+    expectTypeOf(suspenseResult).toEqualTypeOf<string | undefined>();
 
     const _arg: string | undefined = undefined;
     const maybeResult = useSuspenseQuery(

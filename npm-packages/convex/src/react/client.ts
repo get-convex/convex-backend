@@ -828,6 +828,9 @@ type UseQueryObjectOptions<Query extends FunctionReference<"query">> =
     throwOnError?: boolean;
   };
 
+type UseSuspenseQueryObjectOptions<Query extends FunctionReference<"query">> =
+  Omit<UseQueryObjectOptions<Query>, "throwOnError">;
+
 /**
  * Load a reactive query within a React component.
  *
@@ -998,11 +1001,11 @@ export function useSuspenseQuery<Query extends FunctionReference<"query">>(
   ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined;
 export function useSuspenseQuery<Query extends FunctionReference<"query">>(
-  options: QueryOptions<Query> | "skip",
+  options: UseSuspenseQueryObjectOptions<Query> | "skip",
 ): Query["_returnType"] | undefined;
 
 export function useSuspenseQuery<Query extends FunctionReference<"query">>(
-  queryOrOptions: Query | QueryOptions<Query> | "skip",
+  queryOrOptions: Query | UseSuspenseQueryObjectOptions<Query> | "skip",
   ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined {
   const isObjectOptions =
@@ -1012,7 +1015,16 @@ export function useSuspenseQuery<Query extends FunctionReference<"query">>(
   const isObjectOverload = isObjectOptions || queryOrOptions === "skip";
   const skip =
     queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
-  const result = useQuery(queryOrOptions as Query | UseQueryObjectOptions<Query>, ...args);
+  // `useQuery` has multiple overloads and TypeScript cannot resolve which
+  // overload to call when the argument type is the union of all overload inputs.
+  // Casting to `any` bypasses overload resolution so we call the implementation
+  // signature directly; the explicit cast on the right-hand side re-establishes
+  // type safety for the result.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = (useQuery as any)(queryOrOptions, ...args) as
+    | Query["_returnType"]
+    | undefined
+    | UseQueryResult<Query["_returnType"]>;
   const suspensePromise = useMemo(() => new Promise<never>(() => {}), []);
 
   if (isObjectOverload) {
