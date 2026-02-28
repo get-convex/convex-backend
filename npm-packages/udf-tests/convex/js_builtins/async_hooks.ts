@@ -6,9 +6,6 @@ import { action } from "../_generated/server";
 import { assert } from "chai";
 import { wrapInTests } from "./testHelpers";
 
-// AsyncLocalStorage and AsyncResource are set up as globals by setupAsyncHooks in the runtime
-// We declare minimal type interfaces here for testing purposes
-
 interface AsyncLocalStorageConstructor {
   new <T = unknown>(): AsyncLocalStorageInstance<T>;
   bind<F extends (...args: any[]) => any>(fn: F, ...args: any[]): F;
@@ -47,6 +44,54 @@ interface AsyncResourceInstance {
 
 declare const AsyncLocalStorage: AsyncLocalStorageConstructor;
 declare const AsyncResource: AsyncResourceConstructor;
+
+type ConvexAsyncContextBridge = {
+  getContinuationPreservedEmbedderData?: () => unknown;
+};
+
+const requestStartsWithEmptyContinuationPreservedEmbedderData = async () => {
+  const convex = (globalThis as { Convex?: ConvexAsyncContextBridge }).Convex;
+  const value = convex?.getContinuationPreservedEmbedderData?.();
+  assert.strictEqual(value, undefined);
+};
+
+const lazyInitialization = async () => {
+  const descriptorBefore = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "AsyncLocalStorage",
+  );
+  assert.isDefined(descriptorBefore, "AsyncLocalStorage should exist");
+  assert.strictEqual(typeof descriptorBefore?.get, "function");
+  assert.isUndefined(descriptorBefore?.value);
+
+  const moduleDescriptorBefore = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "__async_hooks__",
+  );
+  assert.isDefined(moduleDescriptorBefore, "__async_hooks__ should exist");
+  assert.strictEqual(typeof moduleDescriptorBefore?.get, "function");
+  assert.isUndefined(moduleDescriptorBefore?.value);
+
+  const imported = await import("node:async_hooks");
+  assert.strictEqual(typeof imported.AsyncLocalStorage, "function");
+  assert.strictEqual(typeof imported.AsyncResource, "function");
+
+  const descriptorAfter = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "AsyncLocalStorage",
+  );
+  assert.isDefined(descriptorAfter);
+  assert.isUndefined(descriptorAfter?.get);
+  assert.strictEqual(typeof descriptorAfter?.value, "function");
+
+  const moduleDescriptorAfter = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "__async_hooks__",
+  );
+  assert.isDefined(moduleDescriptorAfter);
+  assert.isUndefined(moduleDescriptorAfter?.get);
+  assert.strictEqual(typeof moduleDescriptorAfter?.value, "object");
+};
 
 /**
  * Test basic run() and getStore() functionality
@@ -533,6 +578,8 @@ const interleavedAsyncOps = async () => {
 
 export default action(async () => {
   return await wrapInTests({
+    requestStartsWithEmptyContinuationPreservedEmbedderData,
+    lazyInitialization,
     basicRunAndGetStore,
     contextPreservedAcrossAwait,
     nestedRunCalls,

@@ -41,6 +41,96 @@ function setAsyncContext(context: AsyncContextData): void {
   fallbackAsyncContext = context;
 }
 
+function createAsyncHooksModule() {
+  return {
+    AsyncLocalStorage,
+    AsyncResource,
+    createHook,
+    executionAsyncId,
+    triggerAsyncId,
+    executionAsyncResource,
+    asyncWrapProviders,
+    getAsyncContext,
+    setAsyncContext,
+  };
+}
+
+type AsyncHooksModule = ReturnType<typeof createAsyncHooksModule>;
+
+function getInstalledAsyncHooksModule(
+  global: typeof globalThis,
+): AsyncHooksModule | undefined {
+  const descriptor = Object.getOwnPropertyDescriptor(global, "__async_hooks__");
+  if (!descriptor || descriptor.get) {
+    return undefined;
+  }
+  const value = descriptor.value;
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  return value as AsyncHooksModule;
+}
+
+function installAsyncHooksModule(global: typeof globalThis): AsyncHooksModule {
+  const asyncHooksModule = createAsyncHooksModule();
+
+  Object.defineProperty(global, "AsyncLocalStorage", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: AsyncLocalStorage,
+  });
+
+  Object.defineProperty(global, "AsyncResource", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: AsyncResource,
+  });
+
+  Object.defineProperty(global, "__async_hooks__", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: asyncHooksModule,
+  });
+
+  return asyncHooksModule;
+}
+
+function ensureAsyncHooksModule(global: typeof globalThis): AsyncHooksModule {
+  return (
+    getInstalledAsyncHooksModule(global) ?? installAsyncHooksModule(global)
+  );
+}
+
+function defineLazyGlobal(
+  global: typeof globalThis,
+  key: "AsyncLocalStorage" | "AsyncResource" | "__async_hooks__",
+  getValue: (module: AsyncHooksModule) => unknown,
+): void {
+  if (Object.prototype.hasOwnProperty.call(global, key)) {
+    return;
+  }
+
+  Object.defineProperty(global, key, {
+    configurable: true,
+    enumerable: false,
+    get() {
+      const module = ensureAsyncHooksModule(global);
+      return getValue(module);
+    },
+    set(value: unknown) {
+      Object.defineProperty(global, key, {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value,
+      });
+    },
+  });
+}
+
 export class AsyncLocalStorage<T = unknown> {
   #disabled = false;
 
@@ -362,21 +452,12 @@ export const asyncWrapProviders = {
   INSPECTORJSBINDING: 57,
 };
 
-export function setupAsyncHooks(global: typeof globalThis): void {
-  const asyncHooksModule = {
-    AsyncLocalStorage,
-    AsyncResource,
-    createHook,
-    executionAsyncId,
-    triggerAsyncId,
-    executionAsyncResource,
-    asyncWrapProviders,
-    getAsyncContext,
-    setAsyncContext,
-  };
-
-  (global as Record<string, unknown>).AsyncLocalStorage = AsyncLocalStorage;
-  (global as Record<string, unknown>).AsyncResource = AsyncResource;
-
-  (global as Record<string, unknown>).__async_hooks__ = asyncHooksModule;
+export function setupAsyncHooksLazy(global: typeof globalThis): void {
+  defineLazyGlobal(global, "__async_hooks__", (module) => module);
+  defineLazyGlobal(
+    global,
+    "AsyncLocalStorage",
+    (module) => module.AsyncLocalStorage,
+  );
+  defineLazyGlobal(global, "AsyncResource", (module) => module.AsyncResource);
 }
