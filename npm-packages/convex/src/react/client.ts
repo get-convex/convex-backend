@@ -32,7 +32,7 @@ import {
   instantiateNoopLogger,
   Logger,
 } from "../browser/logging.js";
-import { ConvexQueryOptions } from "../browser/query_options.js";
+import type { QueryOptions } from "../browser/query_options.js";
 import { LoadMoreOfPaginatedQuery } from "../browser/sync/pagination.js";
 import {
   PaginatedQueryClient,
@@ -537,7 +537,7 @@ export class ConvexReactClient {
    * an optional extendSubscriptionFor for how long to subscribe to the query.
    */
   prewarmQuery<Query extends FunctionReference<"query">>(
-    queryOptions: ConvexQueryOptions<Query> & {
+    queryOptions: QueryOptions<Query> & {
       extendSubscriptionFor?: number;
     },
   ) {
@@ -802,6 +802,36 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
     : [args: FuncRef["_args"] | "skip"];
 
 /**
+ * Result returned by object-form {@link useQuery}.
+ *
+ * @public
+ */
+export type UseQueryResult<QueryResult> =
+  | {
+      data: QueryResult;
+      error: undefined;
+      status: "success";
+    }
+  | {
+      data: undefined;
+      error: Error;
+      status: "error";
+    }
+  | {
+      data: undefined;
+      error: undefined;
+      status: "pending";
+    };
+
+type UseQueryObjectOptions<Query extends FunctionReference<"query">> =
+  QueryOptions<Query> & {
+    throwOnError?: boolean;
+  };
+
+type UseSuspenseQueryObjectOptions<Query extends FunctionReference<"query">> =
+  Omit<UseQueryObjectOptions<Query>, "throwOnError">;
+
+/**
  * Load a reactive query within a React component.
  *
  * This React hook subscribes to a Convex query and causes a rerender whenever
@@ -847,20 +877,59 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
 export function useQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
-): Query["_returnType"] | undefined {
-  const skip = args[0] === "skip";
-  const argsObject = args[0] === "skip" ? {} : parseArgs(args[0]);
+): Query["_returnType"] | undefined;
 
-  const queryReference =
-    typeof query === "string"
-      ? makeFunctionReference<"query", any, any>(query)
-      : query;
+/**
+ * Load a reactive query within a React component using an options object.
+ *
+ * @param options - Query options or the string `"skip"`.
+ * @returns the current query state.
+ *
+ * @public
+ */
+export function useQuery<Query extends FunctionReference<"query">>(
+  options: UseQueryObjectOptions<Query> | "skip",
+): UseQueryResult<Query["_returnType"]>;
 
-  const queryName = getFunctionName(queryReference);
+export function useQuery<Query extends FunctionReference<"query">>(
+  queryOrOptions: Query | UseQueryObjectOptions<Query> | "skip",
+  ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined | UseQueryResult<Query["_returnType"]> {
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    "query" in queryOrOptions;
+  const isObjectOverload = isObjectOptions || queryOrOptions === "skip";
+  const throwOnError = isObjectOptions
+    ? (queryOrOptions.throwOnError ?? false)
+    : true;
+  const skip =
+    queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
+
+  let queryReference: Query | undefined;
+  let argsObject: Record<string, Value> = {};
+
+  if (isObjectOptions) {
+    const query = queryOrOptions.query;
+    queryReference =
+      typeof query === "string"
+        ? (makeFunctionReference<"query", any, any>(query) as Query)
+        : query;
+    argsObject = queryOrOptions.args ?? ({} as Record<string, Value>);
+  } else if (queryOrOptions !== "skip") {
+    const query = queryOrOptions;
+    queryReference =
+      typeof query === "string"
+        ? (makeFunctionReference<"query", any, any>(query) as Query)
+        : query;
+    argsObject = args[0] === "skip" ? {} : parseArgs(args[0] as Query["_args"]);
+  }
+
+  const queryName = queryReference ? getFunctionName(queryReference) : "";
 
   const queries = useMemo(
     () =>
-      skip
+      skip || !queryReference
         ? ({} as RequestForQueries)
         : { query: { query: queryReference, args: argsObject } },
     // Stringify args so args that are semantically the same don't trigger a
@@ -871,9 +940,91 @@ export function useQuery<Query extends FunctionReference<"query">>(
 
   const results = useQueries(queries);
   const result = results["query"];
+
+  if (isObjectOverload) {
+    if (result instanceof Error) {
+      if (throwOnError) {
+        throw result;
+      }
+      return {
+        data: undefined,
+        error: result,
+        status: "error",
+      };
+    }
+
+    if (result === undefined) {
+      return {
+        data: undefined,
+        error: undefined,
+        status: "pending",
+      };
+    }
+
+    return {
+      data: result,
+      error: undefined,
+      status: "success",
+    };
+  }
+
   if (result instanceof Error) {
     throw result;
   }
+  return result;
+}
+
+/**
+ * Load a reactive query within a React component and suspend while loading.
+ *
+ * This is a thin wrapper around {@link useQuery} that throws a promise while
+ * the query is loading.
+ *
+ * @public
+ */
+export function useSuspenseQuery<Query extends FunctionReference<"query">>(
+  query: Query,
+  ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined;
+export function useSuspenseQuery<Query extends FunctionReference<"query">>(
+  options: UseSuspenseQueryObjectOptions<Query> | "skip",
+): Query["_returnType"] | undefined;
+
+export function useSuspenseQuery<Query extends FunctionReference<"query">>(
+  queryOrOptions: Query | UseSuspenseQueryObjectOptions<Query> | "skip",
+  ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined {
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    "query" in queryOrOptions;
+  const isObjectOverload = isObjectOptions || queryOrOptions === "skip";
+  const skip =
+    queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
+  const result = useQuery(
+    queryOrOptions as Query | UseQueryObjectOptions<Query>,
+    ...args,
+  );
+  const suspensePromise = useMemo(() => new Promise<never>(() => {}), []);
+
+  if (isObjectOverload) {
+    const objectResult = result as UseQueryResult<Query["_returnType"]>;
+    if (objectResult.status === "error") {
+      throw objectResult.error;
+    }
+    if (objectResult.status === "pending") {
+      if (!skip) {
+        throw suspensePromise;
+      }
+      return undefined;
+    }
+    return objectResult.data;
+  }
+
+  if (result === undefined && !skip) {
+    throw suspensePromise;
+  }
+
   return result;
 }
 
