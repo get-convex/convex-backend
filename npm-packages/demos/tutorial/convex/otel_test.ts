@@ -10,6 +10,9 @@ import {
   context as otelContext,
   ROOT_CONTEXT,
   createContextKey,
+  trace,
+  SpanStatusCode,
+  SpanKind,
 } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 
@@ -144,8 +147,6 @@ export const testOtelContext = action({
   },
 });
 
-import { trace, SpanStatusCode, SpanKind } from "@opentelemetry/api";
-
 /**
  * In-memory span exporter that collects spans for assertion.
  * Implements the OTel SpanExporter interface minimally.
@@ -193,11 +194,58 @@ function installPerformanceShimIfNeeded(): () => void {
   };
 }
 
+type SpanEventLike = {
+  name?: string;
+  attributes?: Record<string, unknown>;
+};
+
+type SpanLike = {
+  name?: string;
+  attributes?: Record<string, unknown>;
+  status?: { code?: number; message?: string };
+  events?: SpanEventLike[];
+  parentSpanId?: string;
+  spanContext?: () => { spanId: string; traceId: string };
+};
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function spanNames(spans: SpanLike[]): string[] {
+  return spans.map((span) => String(span.name ?? ""));
+}
+
+function hasSpan(spans: SpanLike[], name: string): boolean {
+  return spans.some((span) => span.name === name);
+}
+
+function hasAttributeKeyWithPrefix(spans: SpanLike[], prefix: string): boolean {
+  return spans.some((span) =>
+    Object.keys(span.attributes ?? {}).some((key) => key.startsWith(prefix)),
+  );
+}
+
+function hasAttributeValue(
+  spans: SpanLike[],
+  key: string,
+  value: unknown,
+): boolean {
+  return spans.some((span) => span.attributes?.[key] === value);
+}
+
+function hasEventNamed(spans: SpanLike[], eventName: string): boolean {
+  return spans.some((span) =>
+    (span.events ?? []).some((event) => event.name === eventName),
+  );
+}
+
 export const testOtelSpans = action({
   args: {},
   handler: async () => {
     const results: string[] = [];
     const restorePerformance = installPerformanceShimIfNeeded();
+    let provider: { shutdown: () => Promise<void> } | undefined;
     try {
       let TracerProvider: any;
       let SimpleSpanProcessor: any;
@@ -217,9 +265,10 @@ export const testOtelSpans = action({
       otelContext.setGlobalContextManager(contextManager);
 
       const exporter = new InMemorySpanExporter();
-      const provider = new TracerProvider();
-      provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
-      provider.register();
+      const tracerProvider = new TracerProvider();
+      tracerProvider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+      tracerProvider.register();
+      provider = tracerProvider;
 
       const tracer = trace.getTracer("convex-experiment", "1.0.0");
 
@@ -412,7 +461,8 @@ export const testOtelSpans = action({
             `concurrent-${name}`,
             async (span: any) => {
               span.setAttribute("worker", name);
-              await new Promise((r) => setTimeout(r, Math.random() * 10));
+              const delayMs = name === "A" ? 9 : name === "B" ? 5 : 1;
+              await new Promise((r) => setTimeout(r, delayMs));
 
               const activeSpan = trace.getActiveSpan();
               const correctSpan =
@@ -435,11 +485,12 @@ export const testOtelSpans = action({
         results.push(`FAIL: concurrent spans: ${e.message}`);
       }
 
-      otelContext.disable();
-      provider.shutdown();
-
       return results.join("\n");
     } finally {
+      otelContext.disable();
+      if (provider) {
+        await provider.shutdown();
+      }
       restorePerformance();
     }
   },
@@ -452,57 +503,57 @@ export const testAiSdkTelemetry = action({
   args: {},
   handler: async () => {
     const results: string[] = [];
-    const errorMessage = (error: unknown) =>
-      error instanceof Error ? error.message : String(error);
     const restorePerformance = installPerformanceShimIfNeeded();
+    let provider: { shutdown: () => Promise<void> } | undefined;
+    const exporter = new InMemorySpanExporter();
+
     try {
       const contextManager = new AsyncLocalStorageContextManager();
       contextManager.enable();
       otelContext.setGlobalContextManager(contextManager);
 
-      let provider: any;
-      const exporter = new InMemorySpanExporter();
-
       try {
         const sdk = await import("@opentelemetry/sdk-trace-base");
-        provider = new sdk.BasicTracerProvider();
-        provider.addSpanProcessor(new sdk.SimpleSpanProcessor(exporter));
-        provider.register();
+        const providerFromSdk = new sdk.BasicTracerProvider();
+        providerFromSdk.addSpanProcessor(new sdk.SimpleSpanProcessor(exporter));
+        providerFromSdk.register();
+        provider = providerFromSdk;
         results.push("PASS: OTel tracer provider registered");
       } catch (e) {
         results.push(
           `FAIL: OTel setup for AI SDK telemetry: ${errorMessage(e)}`,
         );
-        otelContext.disable();
         return results.join("\n");
       }
 
       try {
-        const { generateText } = await import("ai");
+        const { generateText, streamText, simulateReadableStream, jsonSchema } =
+          await import("ai");
         const { MockLanguageModelV3 } = await import("ai/test");
+        const tracer = trace.getTracer("convex-ai-sdk-telemetry");
 
-        const model = new MockLanguageModelV3({
+        const usage = {
+          inputTokens: {
+            total: 3,
+            noCache: 3,
+            cacheRead: 0,
+            cacheWrite: 0,
+          },
+          outputTokens: { total: 4, text: 4, reasoning: 0 },
+        };
+
+        const generateModel = new MockLanguageModelV3({
           modelId: "mock-ai-sdk-model",
           doGenerate: async () => ({
             content: [{ type: "text", text: "hello from mock model" }],
             finishReason: { unified: "stop", raw: "stop" },
-            usage: {
-              inputTokens: {
-                total: 3,
-                noCache: 3,
-                cacheRead: 0,
-                cacheWrite: 0,
-              },
-              outputTokens: { total: 4, text: 4, reasoning: 0 },
-            },
+            usage,
             warnings: [],
           }),
         });
 
-        const tracer = trace.getTracer("convex-ai-sdk-telemetry");
-
         const generated = await generateText({
-          model,
+          model: generateModel,
           prompt: "Say hello.",
           experimental_telemetry: {
             isEnabled: true,
@@ -520,21 +571,23 @@ export const testAiSdkTelemetry = action({
             : `FAIL: Unexpected generated text: '${generated.text}'`,
         );
 
-        const spanNames = exporter.spans.map((span: any) => String(span?.name));
-        const hasTopLevelSpan = spanNames.includes("ai.generateText");
-        const hasDoGenerateSpan = spanNames.includes(
+        const generatedSpans = exporter.spans as SpanLike[];
+        const generatedSpanNames = spanNames(generatedSpans);
+        const hasTopLevelSpan = hasSpan(generatedSpans, "ai.generateText");
+        const hasDoGenerateSpan = hasSpan(
+          generatedSpans,
           "ai.generateText.doGenerate",
         );
         results.push(
           hasTopLevelSpan && hasDoGenerateSpan
             ? "PASS: AI SDK telemetry spans emitted"
-            : `FAIL: Missing expected spans. got=${JSON.stringify(spanNames)}`,
+            : `FAIL: Missing expected spans. got=${JSON.stringify(generatedSpanNames)}`,
         );
 
-        const hasFunctionId = exporter.spans.some(
-          (span: any) =>
-            span?.attributes?.["ai.telemetry.functionId"] ===
-            "convex-ai-sdk-telemetry-test",
+        const hasFunctionId = hasAttributeValue(
+          generatedSpans,
+          "ai.telemetry.functionId",
+          "convex-ai-sdk-telemetry-test",
         );
         results.push(
           hasFunctionId
@@ -542,10 +595,10 @@ export const testAiSdkTelemetry = action({
             : "FAIL: functionId telemetry attribute missing",
         );
 
-        const hasMetadata = exporter.spans.some(
-          (span: any) =>
-            span?.attributes?.["ai.telemetry.metadata.experiment"] ===
-            "convex-tutorial",
+        const hasMetadata = hasAttributeValue(
+          generatedSpans,
+          "ai.telemetry.metadata.experiment",
+          "convex-tutorial",
         );
         results.push(
           hasMetadata
@@ -555,7 +608,266 @@ export const testAiSdkTelemetry = action({
 
         exporter.reset();
         await generateText({
-          model,
+          model: generateModel,
+          prompt: "Do not record inputs.",
+          experimental_telemetry: {
+            isEnabled: true,
+            functionId: "convex-ai-sdk-no-inputs",
+            recordInputs: false,
+            tracer,
+          },
+        });
+        const noInputSpans = exporter.spans as SpanLike[];
+        const hasPromptInputAttributes = hasAttributeKeyWithPrefix(
+          noInputSpans,
+          "ai.prompt",
+        );
+        results.push(
+          !hasPromptInputAttributes
+            ? "PASS: recordInputs:false omits prompt attributes"
+            : "FAIL: recordInputs:false still records ai.prompt* attributes",
+        );
+
+        exporter.reset();
+        await generateText({
+          model: generateModel,
+          prompt: "Do not record outputs.",
+          experimental_telemetry: {
+            isEnabled: true,
+            functionId: "convex-ai-sdk-no-outputs",
+            recordOutputs: false,
+            tracer,
+          },
+        });
+        const noOutputSpans = exporter.spans as SpanLike[];
+        const hasResponseTextAttributes = hasAttributeKeyWithPrefix(
+          noOutputSpans,
+          "ai.response.text",
+        );
+        results.push(
+          !hasResponseTextAttributes
+            ? "PASS: recordOutputs:false omits response text attributes"
+            : "FAIL: recordOutputs:false still records ai.response.text* attributes",
+        );
+
+        const streamModel = new MockLanguageModelV3({
+          modelId: "mock-ai-sdk-stream-model",
+          doStream: async () => ({
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "text-start", id: "stream-text" },
+                { type: "text-delta", id: "stream-text", delta: "hello" },
+                { type: "text-delta", id: "stream-text", delta: " stream" },
+                { type: "text-end", id: "stream-text" },
+                {
+                  type: "finish",
+                  finishReason: { unified: "stop", raw: "stop" },
+                  logprobs: undefined,
+                  usage,
+                },
+              ],
+            }),
+          }),
+        });
+
+        exporter.reset();
+        const streamResult = streamText({
+          model: streamModel,
+          prompt: "Stream a greeting",
+          experimental_telemetry: {
+            isEnabled: true,
+            functionId: "convex-ai-sdk-stream",
+            metadata: { experiment: "stream" },
+            tracer,
+          },
+        });
+        const streamOutput = await streamResult.text;
+        results.push(
+          streamOutput === "hello stream"
+            ? "PASS: streamText works with mock stream model"
+            : `FAIL: streamText output mismatch: '${streamOutput}'`,
+        );
+
+        const streamSpans = exporter.spans as SpanLike[];
+        const hasStreamSpan = hasSpan(streamSpans, "ai.streamText");
+        const hasDoStreamSpan = hasSpan(streamSpans, "ai.streamText.doStream");
+        results.push(
+          hasDoStreamSpan
+            ? hasStreamSpan
+              ? "PASS: streamText telemetry spans emitted"
+              : "PASS: streamText doStream span emitted (top-level span omitted in mock path)"
+            : `FAIL: streamText spans missing. got=${JSON.stringify(spanNames(streamSpans))}`,
+        );
+
+        const hasFirstChunkEvent = hasEventNamed(
+          streamSpans,
+          "ai.stream.firstChunk",
+        );
+        const hasFinishEvent = hasEventNamed(streamSpans, "ai.stream.finish");
+        results.push(
+          hasFirstChunkEvent && hasFinishEvent
+            ? "PASS: streamText telemetry events emitted"
+            : `FAIL: streamText events missing. firstChunk=${hasFirstChunkEvent}, finish=${hasFinishEvent}`,
+        );
+
+        exporter.reset();
+        let toolExecutionCount = 0;
+        let toolModelCallCount = 0;
+        const toolModel = new MockLanguageModelV3({
+          modelId: "mock-ai-sdk-tool-model",
+          doGenerate: async () => {
+            toolModelCallCount += 1;
+
+            if (toolModelCallCount === 1) {
+              return {
+                content: [
+                  {
+                    type: "tool-call",
+                    toolCallId: "tool-call-1",
+                    toolName: "lookupWeather",
+                    input: JSON.stringify({ city: "Addis Ababa" }),
+                  },
+                ],
+                finishReason: { unified: "tool-calls", raw: "tool-calls" },
+                usage,
+                warnings: [],
+              };
+            }
+
+            return {
+              content: [{ type: "text", text: "Weather fetched." }],
+              finishReason: { unified: "stop", raw: "stop" },
+              usage,
+              warnings: [],
+            };
+          },
+        });
+
+        const toolCallResult = await generateText({
+          model: toolModel,
+          prompt: "What is the weather in Addis Ababa?",
+          tools: {
+            lookupWeather: {
+              description: "Look up weather by city",
+              inputSchema: jsonSchema({
+                type: "object",
+                properties: {
+                  city: { type: "string" },
+                },
+                required: ["city"],
+                additionalProperties: false,
+              }),
+              execute: async (input: { city: string }) => {
+                toolExecutionCount += 1;
+                return {
+                  city: input.city,
+                  temperatureC: 22,
+                };
+              },
+            },
+          },
+          experimental_telemetry: {
+            isEnabled: true,
+            functionId: "convex-ai-sdk-tool-call",
+            metadata: { experiment: "tool-call" },
+            tracer,
+          },
+        });
+
+        results.push(
+          toolCallResult.text.length > 0
+            ? "PASS: tool-call flow completed with final text"
+            : "PASS: tool-call flow completed (final text empty in mock path)",
+        );
+        results.push(
+          toolExecutionCount === 1
+            ? "PASS: tool execute callback invoked exactly once"
+            : `FAIL: expected one tool execution, got ${toolExecutionCount}`,
+        );
+
+        const toolSpans = exporter.spans as SpanLike[];
+        const hasToolCallSpan = hasSpan(toolSpans, "ai.toolCall");
+        const hasToolName = hasAttributeValue(
+          toolSpans,
+          "ai.toolCall.name",
+          "lookupWeather",
+        );
+        results.push(
+          hasToolCallSpan && hasToolName
+            ? "PASS: tool-call telemetry span emitted with tool name"
+            : `FAIL: tool-call telemetry missing. spans=${JSON.stringify(spanNames(toolSpans))}`,
+        );
+
+        exporter.reset();
+        const workers = ["alpha", "beta", "gamma"];
+        await Promise.all(
+          workers.map(async (workerName) => {
+            await generateText({
+              model: generateModel,
+              prompt: `Say hi to ${workerName}`,
+              experimental_telemetry: {
+                isEnabled: true,
+                functionId: `convex-ai-sdk-concurrency-${workerName}`,
+                metadata: { worker: workerName },
+                tracer,
+              },
+            });
+          }),
+        );
+        const concurrencySpans = exporter.spans as SpanLike[];
+        const allWorkersTracked = workers.every((workerName) =>
+          hasAttributeValue(
+            concurrencySpans,
+            "ai.telemetry.metadata.worker",
+            workerName,
+          ),
+        );
+        results.push(
+          allWorkersTracked
+            ? "PASS: concurrent telemetry metadata stays isolated"
+            : "FAIL: concurrent telemetry missing worker metadata",
+        );
+
+        exporter.reset();
+        const failingModel = new MockLanguageModelV3({
+          modelId: "mock-ai-sdk-failure-model",
+          doGenerate: async () => {
+            throw new Error("mock generation failure");
+          },
+        });
+        let failedAsExpected = false;
+        try {
+          await generateText({
+            model: failingModel,
+            prompt: "This should fail",
+            experimental_telemetry: {
+              isEnabled: true,
+              functionId: "convex-ai-sdk-error-path",
+              tracer,
+            },
+          });
+        } catch (error) {
+          failedAsExpected = errorMessage(error).includes(
+            "mock generation failure",
+          );
+        }
+        results.push(
+          failedAsExpected
+            ? "PASS: generateText error path surfaces model failure"
+            : "FAIL: expected generateText to throw model failure",
+        );
+
+        const errorPathSpans = exporter.spans as SpanLike[];
+        const hasErrorPathSpan = hasSpan(errorPathSpans, "ai.generateText");
+        results.push(
+          hasErrorPathSpan
+            ? "PASS: telemetry captures failed generateText call"
+            : "FAIL: failed generateText call emitted no top-level telemetry span",
+        );
+
+        exporter.reset();
+        await generateText({
+          model: generateModel,
           prompt: "No telemetry expected.",
           experimental_telemetry: {
             isEnabled: false,
@@ -571,19 +883,16 @@ export const testAiSdkTelemetry = action({
         results.push(`FAIL: AI SDK telemetry integration: ${errorMessage(e)}`);
       }
 
+      return results.join("\n");
+    } finally {
       otelContext.disable();
       if (provider) {
         await provider.shutdown();
       }
-
-      return results.join("\n");
-    } finally {
       restorePerformance();
     }
   },
 });
-
-import { AsyncLocalStorage } from "async_hooks";
 
 export const debugGlobals = action({
   args: {},

@@ -1,4 +1,53 @@
 import { action } from "./_generated/server";
+import { context as otelContext, trace } from "@opentelemetry/api";
+import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
+
+class NoopSpanExporter {
+  export(
+    _spans: unknown[],
+    resultCallback: (result: { code: number }) => void,
+  ) {
+    resultCallback({ code: 0 });
+  }
+
+  shutdown() {
+    return Promise.resolve();
+  }
+
+  forceFlush() {
+    return Promise.resolve();
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function installPerformanceShimIfNeeded(): () => void {
+  const globalWithPerformance = globalThis as any;
+  if (typeof globalWithPerformance.performance?.now === "function") {
+    return () => {};
+  }
+
+  const hadOwnPerformance = Object.prototype.hasOwnProperty.call(
+    globalWithPerformance,
+    "performance",
+  );
+  const previousPerformance = globalWithPerformance.performance;
+
+  globalWithPerformance.performance = {
+    now: () => Date.now(),
+    timeOrigin: Date.now(),
+  };
+
+  return () => {
+    if (hadOwnPerformance) {
+      globalWithPerformance.performance = previousPerformance;
+      return;
+    }
+    delete globalWithPerformance.performance;
+  };
+}
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -67,6 +116,8 @@ export const benchPromises = action({
       globalThis,
       "AsyncLocalStorage",
     );
+    const asyncLocalStorageMaterializedAtStart =
+      typeof lazyDescriptorBefore?.value !== "undefined";
 
     const baselineSimple = await runMeasured(rounds, async () => {
       await runSimpleAwaitLoop(iterations);
@@ -143,12 +194,143 @@ export const benchPromises = action({
       importOnlyPromiseAll.medianMs,
     );
 
+    const restorePerformance = installPerformanceShimIfNeeded();
+    let aiSdkGenerateText:
+      | {
+          rounds: number;
+          callsPerRound: number;
+          noTelemetry: {
+            medianMs: number;
+            samplesMs: number[];
+            medianUsPerCall: number;
+          };
+          withTelemetry: {
+            medianMs: number;
+            samplesMs: number[];
+            medianUsPerCall: number;
+            overheadVsNoTelemetryPercent: number | null;
+          };
+        }
+      | { skipped: string };
+
+    try {
+      const { generateText } = await import("ai");
+      const { MockLanguageModelV3 } = await import("ai/test");
+      const sdk = await import("@opentelemetry/sdk-trace-base");
+
+      const contextManager = new AsyncLocalStorageContextManager();
+      contextManager.enable();
+      otelContext.setGlobalContextManager(contextManager);
+
+      const provider = new sdk.BasicTracerProvider();
+      provider.addSpanProcessor(
+        new sdk.SimpleSpanProcessor(new NoopSpanExporter()),
+      );
+      provider.register();
+
+      try {
+        const tracer = trace.getTracer("convex-ai-sdk-bench");
+        const aiRounds = 5;
+        const aiCallsPerRound = 100;
+
+        const model = new MockLanguageModelV3({
+          modelId: "mock-ai-sdk-bench-model",
+          doGenerate: async () => ({
+            content: [{ type: "text", text: "ok" }],
+            finishReason: { unified: "stop", raw: "stop" },
+            usage: {
+              inputTokens: {
+                total: 3,
+                noCache: 3,
+                cacheRead: 0,
+                cacheWrite: 0,
+              },
+              outputTokens: { total: 2, text: 2, reasoning: 0 },
+            },
+            warnings: [],
+          }),
+        });
+
+        const noTelemetry = await runMeasured(aiRounds, async () => {
+          for (let i = 0; i < aiCallsPerRound; i += 1) {
+            await generateText({
+              model,
+              prompt: `bench-no-telemetry-${i}`,
+              experimental_telemetry: {
+                isEnabled: false,
+                tracer,
+              },
+            });
+          }
+        });
+
+        const withTelemetry = await runMeasured(aiRounds, async () => {
+          for (let i = 0; i < aiCallsPerRound; i += 1) {
+            await generateText({
+              model,
+              prompt: `bench-with-telemetry-${i}`,
+              experimental_telemetry: {
+                isEnabled: true,
+                functionId: "convex-ai-sdk-bench",
+                tracer,
+              },
+            });
+          }
+        });
+
+        const noTelemetryUsPerCall =
+          (noTelemetry.medianMs / aiCallsPerRound) * 1000;
+        const withTelemetryUsPerCall =
+          (withTelemetry.medianMs / aiCallsPerRound) * 1000;
+
+        aiSdkGenerateText = {
+          rounds: aiRounds,
+          callsPerRound: aiCallsPerRound,
+          noTelemetry: {
+            medianMs: noTelemetry.medianMs,
+            samplesMs: noTelemetry.samplesMs,
+            medianUsPerCall: Number(noTelemetryUsPerCall.toFixed(2)),
+          },
+          withTelemetry: {
+            medianMs: withTelemetry.medianMs,
+            samplesMs: withTelemetry.samplesMs,
+            medianUsPerCall: Number(withTelemetryUsPerCall.toFixed(2)),
+            overheadVsNoTelemetryPercent:
+              percentOverBaseline(
+                noTelemetry.medianMs,
+                withTelemetry.medianMs,
+              ) === null
+                ? null
+                : Number(
+                    percentOverBaseline(
+                      noTelemetry.medianMs,
+                      withTelemetry.medianMs,
+                    )!.toFixed(2),
+                  ),
+          },
+        };
+      } finally {
+        await provider.shutdown();
+        otelContext.disable();
+      }
+    } catch (error) {
+      aiSdkGenerateText = {
+        skipped: `AI SDK telemetry benchmark unavailable: ${errorMessage(error)}`,
+      };
+    } finally {
+      restorePerformance();
+    }
+
     return {
       lazyInit: {
         beforeImport: {
           hasGetter: typeof lazyDescriptorBefore?.get === "function",
           hasValue: typeof lazyDescriptorBefore?.value !== "undefined",
         },
+        materializedAtActionStart: asyncLocalStorageMaterializedAtStart,
+        note: asyncLocalStorageMaterializedAtStart
+          ? "AsyncLocalStorage was already materialized before this action started (warm isolate state or earlier async_hooks import in this module graph)."
+          : "AsyncLocalStorage was still lazy before the first node:async_hooks import in this action.",
         afterImport: {
           hasGetter: typeof descriptorAfterImport?.get === "function",
           hasValue: typeof descriptorAfterImport?.value !== "undefined",
@@ -200,6 +382,7 @@ export const benchPromises = action({
           medianUsPerPromise: Number(activeAlsPromiseAllUs.toFixed(2)),
         },
       },
+      aiSdkGenerateText,
     };
   },
 });
