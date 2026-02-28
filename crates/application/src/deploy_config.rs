@@ -50,7 +50,10 @@ use database::{
     WriteSource,
     SCHEMAS_TABLE,
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use fastrace::{
     future::FutureExt as _,
     Span,
@@ -666,10 +669,12 @@ impl<RT: Runtime> Application<RT> {
             definition.definition.exports = BTreeMap::new();
         }
 
+        let finish_push_write_source = "finish_push";
+
         let (diff, ts) = self
             .execute_with_audit_log_events_and_occ_retries_with_timestamp(
                 identity.clone(),
-                "finish_push",
+                finish_push_write_source,
                 |tx| {
                     let start_push = &start_push;
                     let downloaded_source_packages = &downloaded_source_packages;
@@ -726,7 +731,23 @@ impl<RT: Runtime> Application<RT> {
                     .into()
                 },
             )
-            .await?;
+            .await
+            .map_err(|e| {
+                if let Some((table_name, _document_id, write_source)) = e.occ_info()
+                    && let Some(write_source) = write_source
+                    && write_source == finish_push_write_source
+                {
+                    e.context(ErrorMetadata::bad_request(
+                        "ConcurrentPush",
+                        format!(
+                            "Are you running multiple `npx convex dev` processes in the same \
+                             directory? {write_source:?} {table_name:?}"
+                        ),
+                    ))
+                } else {
+                    e
+                }
+            })?;
 
         Ok((diff, ts))
     }
