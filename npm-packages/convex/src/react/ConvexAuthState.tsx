@@ -1,12 +1,11 @@
-import React, {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { AuthTokenFetcher } from "../browser/sync/client.js";
 import { ConvexProvider } from "./client.js";
+import {
+  ConvexAuthContext,
+  useOptionalConvexAuth,
+  type ConvexAuthState as InternalConvexAuthState,
+} from "./ConvexAuthContext.js";
 
 // Until we can import from our own entry points (requires TypeScript 4.7),
 // just describe the interface enough to help users pass the right type.
@@ -23,12 +22,7 @@ type IConvexReactClient = {
  *
  * @public
  */
-export type ConvexAuthState = {
-  isLoading: boolean;
-  isAuthenticated: boolean;
-};
-
-const ConvexAuthContext = createContext<ConvexAuthState>(undefined as any);
+export type ConvexAuthState = InternalConvexAuthState;
 
 /**
  * Get the {@link ConvexAuthState} within a React component.
@@ -44,7 +38,7 @@ export function useConvexAuth(): {
   isLoading: boolean;
   isAuthenticated: boolean;
 } {
-  const authContext = useContext(ConvexAuthContext);
+  const authContext = useOptionalConvexAuth();
   if (authContext === undefined) {
     throw new Error(
       "Could not find `ConvexProviderWithAuth` (or `ConvexProviderWithClerk` " +

@@ -10,7 +10,7 @@ import {
   useQuery,
   useSuspenseQuery,
 } from "./client.js";
-import { ConvexProvider } from "./index.js";
+import { ConvexProvider, ConvexProviderWithAuth } from "./index.js";
 import React from "react";
 import { renderHook } from "@testing-library/react";
 import { anyApi, makeFunctionReference } from "../server/api.js";
@@ -151,6 +151,59 @@ describe("useQuery", () => {
       error: undefined,
       status: "pending",
     });
+  });
+
+  test("requireAuth returns pending while unauthenticated", () => {
+    const client = createClientWithQuery();
+    const watchQuerySpy = vi.spyOn(client, "watchQuery");
+    const wrapper = ({ children }: any) => (
+      <ConvexProviderWithAuth
+        client={client}
+        useAuth={() => ({
+          isLoading: false,
+          isAuthenticated: false,
+          fetchAccessToken: async () => null,
+        })}
+      >
+        {children}
+      </ConvexProviderWithAuth>
+    );
+
+    const { result } = renderHook(
+      () =>
+        useQuery({
+          query: anyApi.myQuery.default,
+          args: {},
+          requireAuth: true,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current).toStrictEqual({
+      data: undefined,
+      error: undefined,
+      status: "pending",
+    });
+    expect(watchQuerySpy).not.toHaveBeenCalled();
+  });
+
+  test("requireAuth throws usage error without auth provider", () => {
+    const client = createClientWithQuery();
+    const wrapper = ({ children }: any) => (
+      <ConvexProvider client={client}>{children}</ConvexProvider>
+    );
+
+    expect(() => {
+      renderHook(
+        () =>
+          useQuery({
+            query: anyApi.myQuery.default,
+            args: {},
+            requireAuth: true,
+          }),
+        { wrapper },
+      );
+    }).toThrow(/requireAuth: true/);
   });
 
   test("object options use override client", () => {
@@ -300,6 +353,55 @@ describe("useSuspenseQuery", () => {
       wrapper,
     });
     expect(result.current).toStrictEqual(undefined);
+  });
+
+  test("requireAuth does not suspend while unauthenticated", () => {
+    const client = createClientWithQuery();
+    const watchQuerySpy = vi.spyOn(client, "watchQuery");
+    const wrapper = ({ children }: any) => (
+      <ConvexProviderWithAuth
+        client={client}
+        useAuth={() => ({
+          isLoading: false,
+          isAuthenticated: false,
+          fetchAccessToken: async () => null,
+        })}
+      >
+        {children}
+      </ConvexProviderWithAuth>
+    );
+
+    const { result } = renderHook(
+      () =>
+        useSuspenseQuery({
+          query: anyApi.myQuery.default,
+          args: {},
+          requireAuth: true,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current).toStrictEqual(undefined);
+    expect(watchQuerySpy).not.toHaveBeenCalled();
+  });
+
+  test("requireAuth throws usage error for suspense without auth provider", () => {
+    const client = createClientWithQuery();
+    const wrapper = ({ children }: any) => (
+      <ConvexProvider client={client}>{children}</ConvexProvider>
+    );
+
+    expect(() => {
+      renderHook(
+        () =>
+          useSuspenseQuery({
+            query: anyApi.myQuery.default,
+            args: {},
+            requireAuth: true,
+          }),
+        { wrapper },
+      );
+    }).toThrow(/requireAuth: true/);
   });
 
   test("uses query subscription while loading", () => {

@@ -8,6 +8,7 @@ import { anyApi } from "../server/api.js";
 
 import type { ApiFromModules, QueryBuilder } from "../server/index.js";
 import type { ConvexReactClient } from "./client.js";
+import type { UseQueryResult } from "./client.js";
 import { useQuery as useQueryReal } from "./client.js";
 
 const useQuery = (() => {}) as unknown as typeof useQueryReal;
@@ -32,6 +33,7 @@ describe("useQuery object options types", () => {
       query: api.module.args,
       args: { _arg: "asdf" },
       client,
+      requireAuth: true,
     });
 
     const _arg: string | undefined = undefined;
@@ -48,7 +50,7 @@ describe("useQuery object options types", () => {
       query: api.module.args,
       args: { _arg: "asdf" },
     });
-    expectTypeOf(result).toEqualTypeOf<string | undefined>();
+    expectTypeOf(result).toEqualTypeOf<UseQueryResult<string>>();
 
     useQuery("skip");
   });

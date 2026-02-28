@@ -38,6 +38,7 @@ import {
   PaginatedQueryClient,
   ExtendedTransition,
 } from "../browser/sync/paginated_query_client.js";
+import { useOptionalConvexAuth } from "./ConvexAuthContext.js";
 
 // When no arguments are passed, extend subscriptions (for APIs that do this by default)
 // for this amount after the subscription would otherwise be dropped.
@@ -827,6 +828,7 @@ type UseQueryObjectOptions<Query extends FunctionReference<"query">> =
   QueryOptions<Query> & {
     throwOnError?: boolean;
     client?: ConvexReactClient;
+    requireAuth?: boolean;
   };
 
 type UseSuspenseQueryObjectOptions<Query extends FunctionReference<"query">> =
@@ -896,6 +898,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
   queryOrOptions: Query | UseQueryObjectOptions<Query> | "skip",
   ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined | UseQueryResult<Query["_returnType"]> {
+  const convexAuth = useOptionalConvexAuth();
   const isObjectOptions =
     typeof queryOrOptions === "object" &&
     queryOrOptions !== null &&
@@ -910,6 +913,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
   let queryReference: Query | undefined;
   let argsObject: Record<string, Value> = {};
   let client: ConvexReactClient | undefined;
+  let requireAuth = false;
 
   if (isObjectOptions) {
     const query = queryOrOptions.query;
@@ -919,6 +923,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
         : query;
     argsObject = queryOrOptions.args ?? ({} as Record<string, Value>);
     client = queryOrOptions.client;
+    requireAuth = queryOrOptions.requireAuth ?? false;
   } else if (queryOrOptions !== "skip") {
     const query = queryOrOptions;
     queryReference =
@@ -928,17 +933,30 @@ export function useQuery<Query extends FunctionReference<"query">>(
     argsObject = args[0] === "skip" ? {} : parseArgs(args[0] as Query["_args"]);
   }
 
+  if (requireAuth && convexAuth === undefined) {
+    throw new Error(
+      "Could not find `ConvexProviderWithAuth` (or equivalent auth provider) " +
+        "above this component. `requireAuth: true` requires an auth context.",
+    );
+  }
+
+  const authBlocked =
+    requireAuth && convexAuth !== undefined
+      ? convexAuth.isLoading || !convexAuth.isAuthenticated
+      : false;
+  const effectiveSkip = skip || authBlocked;
+
   const queryName = queryReference ? getFunctionName(queryReference) : "";
 
   const queries = useMemo(
     () =>
-      skip || !queryReference
+      effectiveSkip || !queryReference
         ? ({} as RequestForQueries)
         : { query: { query: queryReference, args: argsObject } },
     // Stringify args so args that are semantically the same don't trigger a
     // rerender. Saves developers from adding `useMemo` on every args usage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(convexToJson(argsObject)), queryName, skip],
+    [JSON.stringify(convexToJson(argsObject)), effectiveSkip, queryName],
   );
 
   const results = useQueries(queries, client);
@@ -997,17 +1015,35 @@ export function useSuspenseQuery<Query extends FunctionReference<"query">>(
   queryOrOptions: Query | UseSuspenseQueryObjectOptions<Query> | "skip",
   ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined {
+  const convexAuth = useOptionalConvexAuth();
   const isObjectOptions =
     typeof queryOrOptions === "object" &&
     queryOrOptions !== null &&
     "query" in queryOrOptions;
   const isObjectOverload = isObjectOptions || queryOrOptions === "skip";
+  const requireAuth = isObjectOptions
+    ? (queryOrOptions.requireAuth ?? false)
+    : false;
+  const authBlocked =
+    requireAuth && convexAuth !== undefined
+      ? convexAuth.isLoading || !convexAuth.isAuthenticated
+      : false;
   const skip =
     queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
-  const result = useQuery(
-    queryOrOptions as Query | UseQueryObjectOptions<Query>,
-    ...args,
-  );
+  const suspenseSkip = skip || authBlocked;
+  const useQueryArgs = (
+    isObjectOptions || queryOrOptions === "skip" ? [] : args
+  ) as OptionalRestArgsOrSkip<Query>;
+  const queryOrOptionsForUseQuery:
+    | Query
+    | UseQueryObjectOptions<Query>
+    | "skip" = queryOrOptions;
+  const useQueryInternal: (
+    query: Query | UseQueryObjectOptions<Query> | "skip",
+    ...queryArgs: OptionalRestArgsOrSkip<Query>
+  ) => Query["_returnType"] | undefined | UseQueryResult<Query["_returnType"]> =
+    useQuery;
+  const result = useQueryInternal(queryOrOptionsForUseQuery, ...useQueryArgs);
   const suspensePromise = useMemo(() => new Promise<never>(() => {}), []);
 
   if (isObjectOverload) {
@@ -1016,7 +1052,7 @@ export function useSuspenseQuery<Query extends FunctionReference<"query">>(
       throw objectResult.error;
     }
     if (objectResult.status === "pending") {
-      if (!skip) {
+      if (!suspenseSkip) {
         throw suspensePromise;
       }
       return undefined;
@@ -1024,7 +1060,7 @@ export function useSuspenseQuery<Query extends FunctionReference<"query">>(
     return objectResult.data;
   }
 
-  if (result === undefined && !skip) {
+  if (result === undefined && !suspenseSkip) {
     throw suspensePromise;
   }
 

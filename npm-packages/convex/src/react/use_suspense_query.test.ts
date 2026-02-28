@@ -31,12 +31,13 @@ describe("useSuspenseQuery types", () => {
       query: api.module.args,
       args: { _arg: "asdf" },
       client,
+      requireAuth: true,
     });
 
+    // @ts-expect-error
     useSuspenseQuery({
       query: api.module.args,
       args: { _arg: "asdf" },
-      // @ts-expect-error
       throwOnError: true,
     });
 
