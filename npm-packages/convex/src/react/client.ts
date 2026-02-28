@@ -828,6 +828,9 @@ type UseQueryObjectOptions<Query extends FunctionReference<"query">> =
     throwOnError?: boolean;
   };
 
+type UseSuspenseQueryObjectOptions<Query extends FunctionReference<"query">> =
+  Omit<UseQueryObjectOptions<Query>, "throwOnError">;
+
 /**
  * Load a reactive query within a React component.
  *
@@ -984,11 +987,11 @@ export function useSuspenseQuery<Query extends FunctionReference<"query">>(
   ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined;
 export function useSuspenseQuery<Query extends FunctionReference<"query">>(
-  options: QueryOptions<Query> | "skip",
+  options: UseSuspenseQueryObjectOptions<Query> | "skip",
 ): Query["_returnType"] | undefined;
 
 export function useSuspenseQuery<Query extends FunctionReference<"query">>(
-  queryOrOptions: Query | QueryOptions<Query> | "skip",
+  queryOrOptions: Query | UseSuspenseQueryObjectOptions<Query> | "skip",
   ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined {
   const isObjectOptions =
@@ -998,7 +1001,10 @@ export function useSuspenseQuery<Query extends FunctionReference<"query">>(
   const isObjectOverload = isObjectOptions || queryOrOptions === "skip";
   const skip =
     queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
-  const result = useQuery(queryOrOptions as Query | UseQueryObjectOptions<Query>, ...args);
+  const result = useQuery(
+    queryOrOptions as Query | UseQueryObjectOptions<Query>,
+    ...args,
+  );
   const suspensePromise = useMemo(() => new Promise<never>(() => {}), []);
 
   if (isObjectOverload) {
