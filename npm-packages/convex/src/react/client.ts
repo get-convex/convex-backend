@@ -32,12 +32,14 @@ import {
   instantiateNoopLogger,
   Logger,
 } from "../browser/logging.js";
-import { ConvexQueryOptions } from "../browser/query_options.js";
 import { LoadMoreOfPaginatedQuery } from "../browser/sync/pagination.js";
 import {
   PaginatedQueryClient,
   ExtendedTransition,
 } from "../browser/sync/paginated_query_client.js";
+import type { QueryOptions } from "../browser/query_options.js";
+import type { Preloaded } from "./hydration.js";
+import { parsePreloaded } from "./preloaded.js";
 
 // When no arguments are passed, extend subscriptions (for APIs that do this by default)
 // for this amount after the subscription would otherwise be dropped.
@@ -537,7 +539,7 @@ export class ConvexReactClient {
    * an optional extendSubscriptionFor for how long to subscribe to the query.
    */
   prewarmQuery<Query extends FunctionReference<"query">>(
-    queryOptions: ConvexQueryOptions<Query> & {
+    queryOptions: QueryOptions<Query> & {
       extendSubscriptionFor?: number;
     },
   ) {
@@ -802,6 +804,67 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
     : [args: FuncRef["_args"] | "skip"];
 
 /**
+ * Options for the object-based {@link useQuery} overload.
+ *
+ * @public
+ */
+export type UseQueryOptions<Query extends FunctionReference<"query">> =
+  QueryOptions<Query> & {
+    /**
+     * Whether to throw an error if the query fails.
+     * If false, the error will be returned in the `error` field.
+     * @defaultValue false
+     */
+    throwOnError?: boolean;
+    /**
+     * An initial value to use before the query result is available.
+     * @defaultValue undefined
+     */
+    initialValue?: Query["_returnType"];
+  };
+
+/**
+ * Options for the object-based {@link useQuery} overload with a preloaded query.
+ *
+ * @public
+ */
+export type UseQueryPreloadedOptions<Query extends FunctionReference<"query">> =
+  {
+    /**
+     * A preloaded query result from a Server Component.
+     */
+    preloaded: Preloaded<Query>;
+    /**
+     * Whether to throw an error if the query fails.
+     * If false, the error will be returned in the `error` field.
+     * @defaultValue false
+     */
+    throwOnError?: boolean;
+  };
+
+/**
+ * Result type for the object-based {@link useQuery} overload.
+ *
+ * @public
+ */
+export type UseQueryResult<T> =
+  | {
+      status: "success";
+      data: T;
+      error: undefined;
+    }
+  | {
+      status: "error";
+      data: undefined;
+      error: Error;
+    }
+  | {
+      status: "loading";
+      data: undefined;
+      error: undefined;
+    };
+
+/**
  * Load a reactive query within a React component.
  *
  * This React hook subscribes to a Convex query and causes a rerender whenever
@@ -847,20 +910,83 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
 export function useQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
-): Query["_returnType"] | undefined {
-  const skip = args[0] === "skip";
-  const argsObject = args[0] === "skip" ? {} : parseArgs(args[0]);
+): Query["_returnType"] | undefined;
 
-  const queryReference =
-    typeof query === "string"
-      ? makeFunctionReference<"query", any, any>(query)
-      : query;
+/**
+ * Load a reactive query within a React component using an options object.
+ *
+ * This overload returns an object with `status`, `error`, and `value` fields
+ * instead of throwing errors or returning undefined.
+ *
+ * This React hook contains internal state that will cause a rerender
+ * whenever the query result changes.
+ *
+ * Throws an error if not used under {@link ConvexProvider}.
+ *
+ * @param options - An options object or the string "skip" to skip the query.
+ * @returns An object with `status`, `error`, and `value` fields.
+ *
+ * @public
+ */
+export function useQuery<Query extends FunctionReference<"query">>(
+  options: UseQueryOptions<Query> | UseQueryPreloadedOptions<Query> | "skip",
+): UseQueryResult<Query["_returnType"]>;
 
-  const queryName = getFunctionName(queryReference);
+export function useQuery<Query extends FunctionReference<"query">>(
+  queryOrOptions:
+    | Query
+    | UseQueryOptions<Query>
+    | UseQueryPreloadedOptions<Query>
+    | "skip",
+  ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined | UseQueryResult<Query["_returnType"]> {
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    ("query" in queryOrOptions || "preloaded" in queryOrOptions);
+  const isObjectSkip = queryOrOptions === "skip";
+  const isLegacy = !isObjectOptions && !isObjectSkip;
+  const legacySkip = isLegacy && args[0] === "skip";
+  const isObjectReturn = isObjectOptions || isObjectSkip;
+
+  let queryReference: Query | undefined;
+  let argsObject: Record<string, Value> = {};
+  let throwOnError = false;
+  let initialValue: Query["_returnType"] | undefined;
+  let preloadedResult: Query["_returnType"] | undefined;
+
+  if (isObjectOptions) {
+    if ("preloaded" in queryOrOptions) {
+      const parsed = parsePreloaded(queryOrOptions.preloaded);
+      queryReference = parsed.queryReference;
+      argsObject = parsed.argsObject;
+      preloadedResult = parsed.preloadedResult;
+      throwOnError = queryOrOptions.throwOnError ?? false;
+    } else {
+      const query = queryOrOptions.query;
+      queryReference =
+        typeof query === "string"
+          ? (makeFunctionReference<"query", any, any>(query) as Query)
+          : query;
+      argsObject = queryOrOptions.args ?? ({} as Record<string, Value>);
+      throwOnError = queryOrOptions.throwOnError ?? false;
+      initialValue = queryOrOptions.initialValue;
+    }
+  } else if (isLegacy) {
+    const query = queryOrOptions as Query;
+    queryReference =
+      typeof query === "string"
+        ? (makeFunctionReference<"query", any, any>(query) as Query)
+        : query;
+    argsObject = legacySkip ? {} : parseArgs(args[0] as Query["_args"]);
+  }
+
+  const skip = isObjectSkip || legacySkip;
+  const queryName = queryReference ? getFunctionName(queryReference) : "";
 
   const queries = useMemo(
     () =>
-      skip
+      skip || !queryReference
         ? ({} as RequestForQueries)
         : { query: { query: queryReference, args: argsObject } },
     // Stringify args so args that are semantically the same don't trigger a
@@ -871,10 +997,46 @@ export function useQuery<Query extends FunctionReference<"query">>(
 
   const results = useQueries(queries);
   const result = results["query"];
-  if (result instanceof Error) {
-    throw result;
+
+  if (!isObjectReturn) {
+    if (result instanceof Error) {
+      throw result;
+    }
+    return result;
   }
-  return result;
+
+  if (result instanceof Error) {
+    if (throwOnError) {
+      throw result;
+    }
+    return {
+      status: "error",
+      data: undefined,
+      error: result,
+    } satisfies UseQueryResult<Query["_returnType"]>;
+  }
+
+  if (result === undefined) {
+    const fallbackValue = preloadedResult ?? initialValue;
+    if (fallbackValue !== undefined) {
+      return {
+        status: "success",
+        data: fallbackValue,
+        error: undefined,
+      } satisfies UseQueryResult<Query["_returnType"]>;
+    }
+    return {
+      status: "loading",
+      data: undefined,
+      error: undefined,
+    } satisfies UseQueryResult<Query["_returnType"]>;
+  }
+
+  return {
+    status: "success",
+    data: result,
+    error: undefined,
+  } satisfies UseQueryResult<Query["_returnType"]>;
 }
 
 /**
