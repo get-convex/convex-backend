@@ -32,7 +32,7 @@ import {
   instantiateNoopLogger,
   Logger,
 } from "../browser/logging.js";
-import { ConvexQueryOptions } from "../browser/query_options.js";
+import type { QueryOptions } from "../browser/query_options.js";
 import { LoadMoreOfPaginatedQuery } from "../browser/sync/pagination.js";
 import {
   PaginatedQueryClient,
@@ -537,7 +537,7 @@ export class ConvexReactClient {
    * an optional extendSubscriptionFor for how long to subscribe to the query.
    */
   prewarmQuery<Query extends FunctionReference<"query">>(
-    queryOptions: ConvexQueryOptions<Query> & {
+    queryOptions: QueryOptions<Query> & {
       extendSubscriptionFor?: number;
     },
   ) {
@@ -847,20 +847,55 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
 export function useQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined;
+
+/**
+ * Load a reactive query within a React component using an options object.
+ *
+ * @param options - Query options or the string `"skip"`.
+ * @returns the result of the query. Returns `undefined` while loading.
+ *
+ * @public
+ */
+export function useQuery<Query extends FunctionReference<"query">>(
+  options: QueryOptions<Query> | "skip",
+): Query["_returnType"] | undefined;
+
+export function useQuery<Query extends FunctionReference<"query">>(
+  queryOrOptions: Query | QueryOptions<Query> | "skip",
+  ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined {
-  const skip = args[0] === "skip";
-  const argsObject = args[0] === "skip" ? {} : parseArgs(args[0]);
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    "query" in queryOrOptions;
+  const skip =
+    queryOrOptions === "skip" || (!isObjectOptions && args[0] === "skip");
 
-  const queryReference =
-    typeof query === "string"
-      ? makeFunctionReference<"query", any, any>(query)
-      : query;
+  let queryReference: Query | undefined;
+  let argsObject: Record<string, Value> = {};
 
-  const queryName = getFunctionName(queryReference);
+  if (isObjectOptions) {
+    const query = queryOrOptions.query;
+    queryReference =
+      typeof query === "string"
+        ? (makeFunctionReference<"query", any, any>(query) as Query)
+        : query;
+    argsObject = queryOrOptions.args ?? ({} as Record<string, Value>);
+  } else if (queryOrOptions !== "skip") {
+    const query = queryOrOptions;
+    queryReference =
+      typeof query === "string"
+        ? (makeFunctionReference<"query", any, any>(query) as Query)
+        : query;
+    argsObject = args[0] === "skip" ? {} : parseArgs(args[0] as Query["_args"]);
+  }
+
+  const queryName = queryReference ? getFunctionName(queryReference) : "";
 
   const queries = useMemo(
     () =>
-      skip
+      skip || !queryReference
         ? ({} as RequestForQueries)
         : { query: { query: queryReference, args: argsObject } },
     // Stringify args so args that are semantically the same don't trigger a
