@@ -32,6 +32,7 @@ describe("useQuery object options types", () => {
       query: api.module.args,
       args: { _arg: "asdf" },
       client,
+      requireAuth: true,
     });
 
     const _arg: string | undefined = undefined;

@@ -31,6 +31,7 @@ describe("useSuspenseQuery types", () => {
       query: api.module.args,
       args: { _arg: "asdf" },
       client,
+      requireAuth: true,
     });
 
     // @ts-expect-error throwOnError is not allowed on useSuspenseQuery
