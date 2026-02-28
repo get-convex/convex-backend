@@ -1,6 +1,6 @@
 import { Value } from "../values/index.js";
 import { useEffect, useMemo, useState } from "react";
-import { useConvex } from "./client.js";
+import { ConvexReactClient, useConvex } from "./client.js";
 import { CreateWatch, QueriesObserver } from "./queries_observer.js";
 import { useSubscription } from "./use_subscription.js";
 import { QueryJournal } from "../browser/index.js";
@@ -52,6 +52,8 @@ import { SubscribeToPaginatedQueryOptions } from "../browser/sync/paginated_quer
  * @param queries - An object mapping identifiers to objects of
  * `{query: string, args: Record<string, Value> }` describing which query
  * functions to fetch.
+ * @param client - Optional client override. If not provided, this hook uses
+ * the client from {@link ConvexProvider}.
  * @returns An object with the same keys as the input. The values are the result
  * of the query function, `undefined` if it's still loading, or an `Error` if
  * it threw an exception.
@@ -60,8 +62,10 @@ import { SubscribeToPaginatedQueryOptions } from "../browser/sync/paginated_quer
  */
 export function useQueries(
   queries: RequestForQueries,
+  client?: ConvexReactClient,
 ): Record<string, any | undefined | Error> {
-  const convex = useConvex();
+  const contextConvex = useConvex();
+  const convex = client ?? contextConvex;
   if (convex === undefined) {
     // Error message includes `useQuery` because this hook is called by `useQuery`
     // more often than it's called directly.
