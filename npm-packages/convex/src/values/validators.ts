@@ -452,9 +452,20 @@ export class VLiteral<
   }
   /** @internal */
   get json(): ValidatorJSON {
+    // For BigInt literals, use a special marker to avoid conflicts with $integer
+    // used in Convex value serialization. The $integer format is reserved for
+    // Convex values, not validator metadata.
+    let literalValue: JSONValue;
+    if (typeof this.value === "bigint") {
+      literalValue = {
+        __convexBigIntLiteral: this.value.toString(),
+      };
+    } else {
+      literalValue = convexToJson(this.value as string | boolean | number);
+    }
     return {
       type: this.kind,
-      value: convexToJson(this.value as string | boolean | number | bigint),
+      value: literalValue,
     };
   }
   /** @internal */

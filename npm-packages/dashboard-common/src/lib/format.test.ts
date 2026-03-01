@@ -331,7 +331,7 @@ describe("displaySchemaFromShapes", () => {
           fieldType: {
             type: "literal",
             value: {
-              $integer: "AQAAAAAAAAA=",
+              __convexBigIntLiteral: "1",
             },
           },
           optional: false,
