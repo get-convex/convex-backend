@@ -758,14 +758,13 @@ export type JoinFieldPaths<
   End extends string,
 > = `${Start}.${End}`;
 
-export type ObjectFieldPaths<
-  Fields extends Record<string, GenericValidator>,
-> = {
-  [Property in keyof Fields]:
-    | JoinFieldPaths<Property & string, Fields[Property]["fieldPaths"]>
-    | Property;
-}[keyof Fields] &
-  string;
+export type ObjectFieldPaths<Fields extends Record<string, GenericValidator>> =
+  {
+    [Property in keyof Fields]:
+      | JoinFieldPaths<Property & string, Fields[Property]["fieldPaths"]>
+      | Property;
+  }[keyof Fields] &
+    string;
 
 export type ObjectFieldType = { fieldType: ValidatorJSON; optional: boolean };
 
@@ -797,7 +796,11 @@ export type ValidatorJSON =
       keys: RecordKeyValidatorJSON;
       values: RecordValueValidatorJSON;
     }
-  | { type: "object"; value: Record<string, ObjectFieldType>; unknownKeys?: "strict" | "strip" }
+  | {
+      type: "object";
+      value: Record<string, ObjectFieldType>;
+      unknownKeys?: "strict" | "strip";
+    }
   | { type: "union"; value: ValidatorJSON[] };
 
 export type RecordKeyValidatorJSON =

@@ -208,7 +208,10 @@ describe("v.object with unknownKeys option", () => {
     const defaultObj = v.object({ a: v.string() });
     expect(defaultObj.unknownKeys).toBe("strict");
 
-    const explicitStrict = v.object({ a: v.string() }, { unknownKeys: "strict" });
+    const explicitStrict = v.object(
+      { a: v.string() },
+      { unknownKeys: "strict" },
+    );
     expect(explicitStrict.unknownKeys).toBe("strict");
 
     const strip = v.object({ a: v.string() }, { unknownKeys: "strip" });
@@ -226,12 +229,18 @@ describe("v.object with unknownKeys option", () => {
     const defaultObj = v.object({ a: v.string() });
     expect((defaultObj.json as any).unknownKeys).toBeUndefined();
 
-    const explicitStrict = v.object({ a: v.string() }, { unknownKeys: "strict" });
+    const explicitStrict = v.object(
+      { a: v.string() },
+      { unknownKeys: "strict" },
+    );
     expect((explicitStrict.json as any).unknownKeys).toBeUndefined();
   });
 
   test("propagates through combinators", () => {
-    const obj = v.object({ a: v.string(), b: v.number() }, { unknownKeys: "strip" });
+    const obj = v.object(
+      { a: v.string(), b: v.number() },
+      { unknownKeys: "strip" },
+    );
 
     expect(obj.asOptional().unknownKeys).toBe("strip");
     expect(obj.omit("b").unknownKeys).toBe("strip");
