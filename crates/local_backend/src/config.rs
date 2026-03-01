@@ -94,9 +94,9 @@ pub struct LocalConfig {
     #[clap(long, group = "storage")]
     pub s3_storage: bool,
 
-    /// If set, the persistence won't require SSL when talking to the database.
-    /// It would still prefer SSL if available. This should only be set in
-    /// tests.
+    /// Disables SSL/TLS for PostgreSQL connections. When set, connects with
+    /// sslmode=disable instead of sslmode=prefer. This should only be used
+    /// when connecting to databases with self-signed or untrusted certificates.
     #[clap(long)]
     pub do_not_require_ssl: bool,
 
