@@ -852,6 +852,7 @@ pub struct ValidatedUdfOutcome {
     pub memory_in_mb: u64,
     // TODO(ENG-10204) Make required
     pub user_execution_time: Option<Duration>,
+    pub custom_log_attributes: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl HeapSize for ValidatedUdfOutcome {
@@ -863,6 +864,11 @@ impl HeapSize for ValidatedUdfOutcome {
             + self.journal.heap_size()
             + self.result.heap_size()
             + self.syscall_trace.heap_size()
+            + self
+                .custom_log_attributes
+                .as_ref()
+                .map(|m| serde_json::to_string(m).map(|s| s.len()).unwrap_or(0))
+                .unwrap_or(0)
     }
 }
 
@@ -893,6 +899,7 @@ impl ValidatedUdfOutcome {
             mutation_queue_length: None,
             memory_in_mb: 0,
             user_execution_time: Some(Duration::ZERO),
+            custom_log_attributes: None,
         })
     }
 
@@ -918,6 +925,7 @@ impl ValidatedUdfOutcome {
             mutation_queue_length,
             memory_in_mb: outcome.memory_in_mb,
             user_execution_time: outcome.user_execution_time,
+            custom_log_attributes: outcome.custom_log_attributes,
         };
 
         // TODO(CX-6318) Don't pack json value until it's been validated.
@@ -959,6 +967,7 @@ pub struct ValidatedActionOutcome {
     pub mutation_queue_length: Option<usize>,
     // TODO(ENG-10204) Make required
     pub user_execution_time: Option<Duration>,
+    pub custom_log_attributes: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl ValidatedActionOutcome {
@@ -977,6 +986,7 @@ impl ValidatedActionOutcome {
             udf_server_version: outcome.udf_server_version,
             mutation_queue_length: None,
             user_execution_time: outcome.user_execution_time,
+            custom_log_attributes: outcome.custom_log_attributes,
         };
 
         if returns_validator.needs_validation()
@@ -1018,6 +1028,7 @@ impl ValidatedActionOutcome {
             mutation_queue_length: None,
             // FIXME: We should count user execution time even for failed functions
             user_execution_time: None,
+            custom_log_attributes: None,
         }
     }
 
@@ -1038,6 +1049,7 @@ impl ValidatedActionOutcome {
             udf_server_version: None,
             mutation_queue_length: None,
             user_execution_time: None,
+            custom_log_attributes: None,
         }
     }
 }

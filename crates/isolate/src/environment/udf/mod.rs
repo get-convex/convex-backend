@@ -65,6 +65,7 @@ use common::{
         LogLevel,
         LogLine,
         LogLines,
+        SystemLogMetadata,
     },
     query_journal::QueryJournal,
     runtime::{
@@ -204,6 +205,9 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 
     reactor_depth: usize,
     udf_callback: Box<dyn UdfCallback<RT>>,
+
+    /// Custom log attributes set by the function via ctx.setLogAttributes()
+    custom_log_attributes: Option<serde_json::Map<String, JsonValue>>,
 }
 
 fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
@@ -264,6 +268,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue> {
+        // Handle setLogAttributes directly since it needs to modify self
+        if name == "1.0/setLogAttributes" {
+            return self.syscall_set_log_attributes(args);
+        }
         syscall_impl(self, name, args)
     }
 
@@ -369,7 +377,66 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             reactor_depth,
             udf_callback,
             client_id,
+
+            custom_log_attributes: None,
         }
+    }
+
+    /// Merge custom log attributes set by ctx.setLogAttributes()
+    /// Get the custom log attributes
+    pub fn custom_log_attributes(&self) -> Option<&serde_json::Map<String, JsonValue>> {
+        self.custom_log_attributes.as_ref()
+    }
+
+    /// Handle the setLogAttributes syscall
+    /// This is lenient - invalid attributes are skipped with a warning, and if
+    /// limits are exceeded, attributes are truncated rather than throwing
+    /// an error.
+    fn syscall_set_log_attributes(&mut self, args: JsonValue) -> anyhow::Result<JsonValue> {
+        use serde::Deserialize;
+
+        #[derive(Deserialize)]
+        struct SetLogAttributesArgs {
+            attrs: serde_json::Map<String, JsonValue>,
+        }
+
+        let SetLogAttributesArgs { attrs } = serde_json::from_value(args).map_err(|e| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidArguments",
+                format!("Invalid arguments to setLogAttributes: {e}")
+            ))
+        })?;
+
+        // Filter and merge attributes leniently, collecting warnings
+        let warnings = self.merge_custom_log_attributes_lenient(attrs);
+
+        // Emit any warnings as log lines
+        for warning in warnings {
+            self.emit_log_line(LogLine::new_system_log_line(
+                LogLevel::Warn,
+                vec![warning],
+                self.rt.unix_timestamp(),
+                SystemLogMetadata {
+                    code: "setLogAttributes".to_string(),
+                },
+            ));
+        }
+
+        Ok(JsonValue::Null)
+    }
+
+    /// Merge attributes leniently using the shared utility.
+    /// Returns a list of warning messages for skipped attributes.
+    fn merge_custom_log_attributes_lenient(
+        &mut self,
+        attrs: serde_json::Map<String, JsonValue>,
+    ) -> Vec<String> {
+        use crate::environment::log_attributes::merge_custom_log_attributes_lenient;
+
+        let existing = self
+            .custom_log_attributes
+            .get_or_insert_with(serde_json::Map::new);
+        merge_custom_log_attributes_lenient(existing, attrs)
     }
 
     #[fastrace::trace]
@@ -478,6 +545,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 udf_server_version: self.udf_server_version,
                 memory_in_mb,
                 user_execution_time: Some(user_execution_time),
+                custom_log_attributes: self.custom_log_attributes.clone(),
             }),
             // TODO: Add num_writes and write_bandwidth to UdfOutcome,
             // and use them in log_mutation.
@@ -500,6 +568,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 udf_server_version: self.udf_server_version,
                 memory_in_mb,
                 user_execution_time: Some(user_execution_time),
+                custom_log_attributes: self.custom_log_attributes.clone(),
             }),
             _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
         };
@@ -1005,3 +1074,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         Ok(())
     }
 }
+
+// Note: Unit tests for log attribute validation are in
+// crate::environment::log_attributes::tests

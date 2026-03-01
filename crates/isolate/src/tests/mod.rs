@@ -9,6 +9,7 @@ mod backend_state;
 mod basic;
 mod creation_time;
 mod custom_errors;
+mod custom_log_attributes;
 mod environment_variables;
 mod fetch;
 mod globals;

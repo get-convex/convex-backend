@@ -262,6 +262,11 @@ Schema:
     make up the vector bandwidth used by the function
   - `memory_used_mb`: number, for queries, mutations, and actions, the memory
     used in MiB. This combined with `execution_time_ms` makes up the compute.
+- `custom_attributes`: optional object, user-defined attributes set via
+  [`ctx.setLogAttributes()`](/generated-api/server#setlogattributes). Only
+  present if attributes were set and non-empty. Keys must be alphanumeric with
+  underscores or dots (e.g., `user_id`, `http.method`). Useful for adding
+  context like user IDs, operation types, or request metadata for log analysis.
 
 Example event for a query:
 
@@ -286,6 +291,10 @@ Example event for a query:
       "file_storage_write_bytes": 0,
       "vector_storage_read_bytes": 0,
       "vector_storage_write_bytes": 0
+    },
+    "custom_attributes": {
+      "user_id": "user_123",
+      "operation": "list_messages"
     }
   }
 }

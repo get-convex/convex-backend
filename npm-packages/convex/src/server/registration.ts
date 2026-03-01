@@ -147,6 +147,16 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
     mutation: Mutation,
     ...args: OptionalRestArgs<Mutation>
   ) => Promise<FunctionReturnType<Mutation>>;
+
+  /**
+   * Set custom log attributes that will be included in the function execution log.
+   *
+   * Can be called multiple times - attributes are merged with last-write-wins semantics.
+   *
+   * @param attrs - Key-value pairs where values must be string, number, or boolean.
+   *                Maximum 10 keys, 1KB total size, keys must be alphanumeric with underscores or dots.
+   */
+  setLogAttributes: (attrs: Record<string, string | number | boolean>) => void;
 }
 
 /**
@@ -238,6 +248,16 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
     query: Query,
     ...args: OptionalRestArgs<Query>
   ) => Promise<FunctionReturnType<Query>>;
+
+  /**
+   * Set custom log attributes that will be included in the function execution log.
+   *
+   * Can be called multiple times - attributes are merged with last-write-wins semantics.
+   *
+   * @param attrs - Key-value pairs where values must be string, number, or boolean.
+   *                Maximum 10 keys, 1KB total size, keys must be alphanumeric with underscores or dots.
+   */
+  setLogAttributes: (attrs: Record<string, string | number | boolean>) => void;
 }
 
 /**
@@ -398,6 +418,16 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
       VectorSearchQuery<NamedTableInfo<DataModel, TableName>, IndexName>
     >,
   ): Promise<Array<{ _id: Id<TableName>; _score: number }>>;
+
+  /**
+   * Set custom log attributes that will be included in the function execution log.
+   *
+   * Can be called multiple times - attributes are merged with last-write-wins semantics.
+   *
+   * @param attrs - Key-value pairs where values must be string, number, or boolean.
+   *                Maximum 10 keys, 1KB total size, keys must be alphanumeric with underscores or dots.
+   */
+  setLogAttributes: (attrs: Record<string, string | number | boolean>) => void;
 }
 
 /**
@@ -748,8 +778,8 @@ export type MutationBuilder<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     mutation:
       | {
@@ -841,8 +871,8 @@ export type MutationBuilderWithTable<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     mutation:
       | {
@@ -934,8 +964,8 @@ export type QueryBuilder<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     query:
       | {
@@ -1023,8 +1053,8 @@ export type QueryBuilderWithTable<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     query:
       | {
@@ -1112,8 +1142,8 @@ export type ActionBuilder<
       | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
-    OneOrZeroArgs extends
-      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
+    OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+      DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
     func:
       | {
