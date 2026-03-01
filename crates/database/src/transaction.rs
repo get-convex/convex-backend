@@ -567,13 +567,16 @@ impl<RT: Runtime> Transaction<RT> {
                     format!("Update on nonexistent document ID {id}"),
                 ))?;
 
-        let new_document = {
+        let mut new_document = {
             let patched_value = value.apply(old_document.value().clone().into_value())?;
             old_document.replace_value(patched_value)?
         };
-        SchemaModel::new(self, namespace)
+        if let Some(stripped_value) = SchemaModel::new(self, namespace)
             .enforce(&new_document)
-            .await?;
+            .await?
+        {
+            new_document = new_document.replace_value(stripped_value)?;
+        }
 
         self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document.clone()))?;
         Ok(new_document)
@@ -604,11 +607,14 @@ impl<RT: Runtime> Transaction<RT> {
                 ))?;
 
         // Replace document.
-        let new_document = old_document.replace_value(value)?;
+        let mut new_document = old_document.replace_value(value)?;
 
-        SchemaModel::new(self, namespace)
+        if let Some(stripped_value) = SchemaModel::new(self, namespace)
             .enforce(&new_document)
-            .await?;
+            .await?
+        {
+            new_document = new_document.replace_value(stripped_value)?;
+        }
 
         self.apply_validated_write(
             new_document.id(),
@@ -1045,7 +1051,10 @@ impl<RT: Runtime> Transaction<RT> {
         let namespace = self
             .table_mapping()
             .tablet_namespace(document_id.tablet_id)?;
-        SchemaModel::new(self, namespace).enforce(&document).await?;
+        let mut document = document;
+        if let Some(stripped_value) = SchemaModel::new(self, namespace).enforce(&document).await? {
+            document = document.replace_value(stripped_value)?;
+        }
         self.apply_validated_write(document_id, None, Some(document))?;
         Ok(document_id)
     }
