@@ -3,6 +3,56 @@ import { logMessage } from "../../../bundler/log.js";
 import { detect } from "detect-port";
 import crypto from "crypto";
 import { chalkStderr } from "chalk";
+import { suggestedEnvVarName } from "../envvars.js";
+import * as dotenv from "dotenv";
+import { ENV_VAR_FILE_PATH } from "../utils/utils.js";
+
+function extractPortFromUrl(url: string | undefined): number | null {
+  if (!url) {
+    return null;
+  }
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.port) {
+      const port = parseInt(parsedUrl.port, 10);
+      if (port >= 1024 && port <= 65535) {
+        return port;
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Read port settings from .env.local based on detected framework.
+ */
+export async function getPortsFromEnvFile(
+  ctx: Context,
+  envFile?: string,
+): Promise<{ cloud: number | null; site: number | null }> {
+  const envFilePath = envFile || ENV_VAR_FILE_PATH;
+  
+  if (!ctx.fs.exists(envFilePath)) {
+    return { cloud: null, site: null };
+  }
+
+  const existingFile = ctx.fs.readUtf8File(envFilePath);
+  const config = dotenv.parse(existingFile);
+
+  const { envVar, publicPrefix } = await suggestedEnvVarName(ctx);
+  
+  const baseEnvVarName = envVar;
+  const siteEnvVarName = publicPrefix 
+    ? `${publicPrefix}CONVEX_SITE_URL`
+    : "CONVEX_SITE_URL";
+
+  const cloudPort = extractPortFromUrl(config[baseEnvVarName]);
+  const sitePort = extractPortFromUrl(config[siteEnvVarName]);
+
+  return { cloud: cloudPort, site: sitePort };
+}
 
 export async function choosePorts(
   ctx: Context,
