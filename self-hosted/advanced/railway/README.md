@@ -25,7 +25,7 @@ Convex + Postgres
 
 Convex + Mysql
 
-[![Deploy on Railway.com](https://railway.com/button.svg)](<[https://railway.com/deploy/convex-postgres](https://railway.com/deploy/convex-mysql)>)
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/convex-mysql)
 
 ## Setup
 
