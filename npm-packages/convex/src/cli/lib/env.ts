@@ -11,6 +11,16 @@ import { runSystemQuery } from "./run.js";
 import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
 import { readFromStdin } from "./utils/stdin.js";
 import { promptSecret } from "./utils/prompts.js";
+import {
+  EXPECTED_CONVEX_URL_NAMES,
+  EXPECTED_SITE_URL_NAMES,
+} from "./envvars.js";
+import {
+  CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+  CONVEX_DEPLOYMENT_ENV_VAR_NAME,
+  CONVEX_SELF_HOSTED_URL_VAR_NAME,
+  CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
+} from "./utils/utils.js";
 
 function formatList(items: string[]): string {
   if (items.length === 0) return "";
@@ -71,7 +81,11 @@ export async function envSetInDeployment(
   } else {
     return false;
   }
-  await envSetFromContentInDeployment(ctx, deployment, content, source, force);
+  await envSetFromContentInDeployment(ctx, deployment, {
+    content,
+    source,
+    force,
+  });
   return true;
 }
 
@@ -108,15 +122,48 @@ async function envSetFromContentInDeployment(
     adminKey: string;
     deploymentNotice: string;
   },
-  content: string,
-  source: string,
-  force: boolean,
+  options: {
+    content: string;
+    source: string;
+    force: boolean;
+  },
 ) {
+  const { content, source, force } = options;
   const parsedEnv = dotenv.parse(content);
 
-  const envVarsToSet = Object.entries(parsedEnv);
+  // Filter out CLI-managed environment variables
+  const envVars = Object.entries(parsedEnv);
+  const filteredVars: string[] = [];
+
+  const envVarsToSet: [string, string][] = [];
+  const managedVars = new Set<string>([
+    CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+    CONVEX_DEPLOYMENT_ENV_VAR_NAME,
+    CONVEX_SELF_HOSTED_URL_VAR_NAME,
+    CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
+    ...EXPECTED_CONVEX_URL_NAMES,
+    ...EXPECTED_SITE_URL_NAMES,
+  ]);
+  for (const [name, value] of envVars) {
+    if (managedVars.has(name)) {
+      filteredVars.push(name);
+    } else {
+      envVarsToSet.push([name, value]);
+    }
+  }
+
+  if (filteredVars.length > 0) {
+    const varNames = filteredVars.map((n) => chalkStderr.bold(n));
+    const formattedNames = formatList(varNames);
+    logMessage(
+      `Skipping ${filteredVars.length} CLI-managed environment variable${filteredVars.length === 1 ? "" : "s"}: ${formattedNames}`,
+    );
+  }
+
   if (envVarsToSet.length === 0) {
-    logMessage(`No environment variables found in ${source}.`);
+    if (envVars.length === 0) {
+      logMessage(`No environment variables found in ${source}.`);
+    }
     return;
   }
 

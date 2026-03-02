@@ -365,7 +365,7 @@ function suggestedDevEnvFile(
   };
 }
 
-const EXPECTED_CONVEX_URL_NAMES = new Set([
+export const EXPECTED_CONVEX_URL_NAMES = new Set([
   "CONVEX_URL" as const,
   "PUBLIC_CONVEX_URL" as const,
   "NEXT_PUBLIC_CONVEX_URL" as const,
@@ -376,7 +376,7 @@ const EXPECTED_CONVEX_URL_NAMES = new Set([
 type ConvexUrlEnvVar =
   typeof EXPECTED_CONVEX_URL_NAMES extends Set<infer T> ? T : never;
 
-const EXPECTED_SITE_URL_NAMES = new Set([
+export const EXPECTED_SITE_URL_NAMES = new Set([
   "CONVEX_SITE_URL" as const,
   "PUBLIC_CONVEX_SITE_URL" as const,
   "NEXT_PUBLIC_CONVEX_SITE_URL" as const,
