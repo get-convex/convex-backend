@@ -1,5 +1,5 @@
 import type { Config, Context } from "@netlify/edge-functions";
-import Negotiator from "negotiator";
+import Negotiator from "npm:negotiator@1.0.0";
 
 export default async (request: Request, context: Context) => {
   const negotiator = new Negotiator({
