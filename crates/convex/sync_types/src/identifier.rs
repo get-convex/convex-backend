@@ -90,7 +90,7 @@ fn check_valid_identifier_inner<E>(
         Some('_') => (),
         Some(c) => {
             return Err(error(format_args!(
-                "Invalid first character '{c}' in {s}: Identifiers must start with an alphabetic \
+                "Invalid first character {c:?} in {s}: Identifiers must start with an alphabetic \
                  character or underscore"
             )))
         },
@@ -99,7 +99,7 @@ fn check_valid_identifier_inner<E>(
     for c in chars {
         if !c.is_ascii_alphanumeric() && c != '_' {
             return Err(error(format_args!(
-                "Identifier {s} has invalid character '{c}': Identifiers can only contain \
+                "Identifier {s} has invalid character {c:?}: Identifiers can only contain \
                  alphanumeric characters or underscores"
             )));
         }
@@ -144,7 +144,7 @@ fn check_valid_field_name_inner(s: &str) -> Result<(), String> {
     for c in s.chars() {
         if !c.is_ascii() || c.is_ascii_control() {
             return Err(format!(
-                "Field name {s} has invalid character '{c}': Field names can only contain \
+                "Field name {s} has invalid character {c:?}: Field names can only contain \
                  non-control ASCII characters"
             ));
         }
@@ -193,6 +193,8 @@ mod tests {
 
     use super::{
         arbitrary_regexes::IDENTIFIER_REGEX,
+        check_valid_field_name,
+        check_valid_identifier,
         MIN_IDENTIFIER,
     };
 
@@ -205,5 +207,54 @@ mod tests {
         fn test_min_identifier(ident in IDENTIFIER_REGEX) {
             assert!(MIN_IDENTIFIER <= &ident[..]);
         }
+    }
+
+    #[test]
+    fn test_control_char_in_identifier_body() {
+        let s = "abc\u{0010}def";
+        let err = check_valid_identifier(s).unwrap_err().to_string();
+        assert!(err.contains("'\\u{10}'"), "got: {err}");
+    }
+
+    #[test]
+    fn test_control_char_as_identifier_start() {
+        let s = "\u{0010}abc";
+        let err = check_valid_identifier(s).unwrap_err().to_string();
+        assert!(err.contains("'\\u{10}'"), "got: {err}");
+    }
+
+    #[test]
+    fn test_control_char_in_field_name() {
+        let s = "field\u{0010}name";
+        let err = check_valid_field_name(s).unwrap_err().to_string();
+        assert!(err.contains("'\\u{10}'"), "got: {err}");
+    }
+
+    #[test]
+    fn test_newline_in_identifier() {
+        let s = "abc\ndef";
+        let err = check_valid_identifier(s).unwrap_err().to_string();
+        assert!(err.contains("'\\n'"), "got: {err}");
+    }
+
+    #[test]
+    fn test_regular_char_in_identifier_body() {
+        let s = "abc@def";
+        let err = check_valid_identifier(s).unwrap_err().to_string();
+        assert!(err.contains("'@'"), "got: {err}");
+    }
+
+    #[test]
+    fn test_regular_char_as_identifier_start() {
+        let s = "9abc";
+        let err = check_valid_identifier(s).unwrap_err().to_string();
+        assert!(err.contains("'9'"), "got: {err}");
+    }
+
+    #[test]
+    fn test_emoji_in_field_name() {
+        let s = "field😀name";
+        let err = check_valid_field_name(s).unwrap_err().to_string();
+        assert!(err.contains("'😀'"), "got: {err}");
     }
 }
