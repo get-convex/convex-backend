@@ -44,7 +44,7 @@ mod v1 {
 
     // Tiny custom dictionary for LZ4 compression. This is required for decoding
     // - don't change this! Every document has a _creationTime and _id field,
-    // and we q throw in some JSON at the front because it doesn't cost anything
+    // and we throw in some JSON at the front because it doesn't cost anything
     // and some system documents have internal JSON embedded in them
     const DICT: &[u8] = b"{\"$integer\":\"AAAAAAAAAAA=\"},\x00_id\x00\x10\x15_creationTime\x00\x0d";
 
