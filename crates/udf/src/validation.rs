@@ -992,7 +992,9 @@ impl ValidatedActionOutcome {
                         validated.result = Err(js_err);
                     }
                 },
-                Err(mut e) => report_error_sync(&mut e),
+                Err(mut e) => {
+                    report_error_sync(&mut e);
+                },
             }
         }
 

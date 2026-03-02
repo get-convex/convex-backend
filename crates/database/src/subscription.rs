@@ -278,7 +278,9 @@ impl SubscriptionManager {
                         Some(SubscriptionRequest { token, sender,  is_system,}) => {
                             match self.subscribe(token, sender, is_system) {
                                 Ok(_) => (),
-                                Err(mut e) => report_error(&mut e).await,
+                                Err(mut e) => {
+                                    report_error(&mut e).await;
+                                },
                             }
                         },
                         None => {

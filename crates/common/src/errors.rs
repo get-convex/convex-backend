@@ -37,6 +37,7 @@ use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use sourcemap::SourceMap;
 use url::Url;
+use uuid::Uuid;
 use value::{
     heap_size::{
         HeapSize,
@@ -139,7 +140,7 @@ fn strip_pii(err: &mut anyhow::Error) {
 /// This is the one point where we call into Sentry.
 ///
 /// Other parts of codebase should not use the `sentry_anyhow` crate directly!
-pub async fn report_error(err: &mut anyhow::Error) {
+pub async fn report_error(err: &mut anyhow::Error) -> Option<Uuid> {
     // Trace error before yield - since during shutdown, we won't be back.
     trace_error(err);
 
@@ -147,14 +148,14 @@ pub async fn report_error(err: &mut anyhow::Error) {
     // explicitly aren't useful. Yielding allows tokio to complete a cancellation.
     tokio::task::yield_now().await;
 
-    report_error_sync_no_tracing(err);
+    report_error_sync_no_tracing(err)
 }
 
 /// Use the `pub async fn report_error` above if possible to log an error to
 /// sentry. This is a synchronous version for use in sync contexts.
-pub fn report_error_sync(err: &mut anyhow::Error) {
+pub fn report_error_sync(err: &mut anyhow::Error) -> Option<Uuid> {
     trace_error(err);
-    report_error_sync_no_tracing(err);
+    report_error_sync_no_tracing(err)
 }
 
 fn trace_error(err: &mut anyhow::Error) {
@@ -178,7 +179,7 @@ fn trace_error(err: &mut anyhow::Error) {
     tracing::debug!("{err:?}");
 }
 
-fn report_error_sync_no_tracing(err: &mut anyhow::Error) {
+fn report_error_sync_no_tracing(err: &mut anyhow::Error) -> Option<Uuid> {
     if let Some(e) = err.downcast_mut::<ErrorMetadata>() {
         if let Some(counter) = e.custom_metric() {
             log_counter(counter, 1);
@@ -189,7 +190,7 @@ fn report_error_sync_no_tracing(err: &mut anyhow::Error) {
         match &e.source {
             Some(source) => {
                 tracing::debug!("Not reporting above error: already reported by {source}");
-                return;
+                return None;
             },
             None => {
                 e.source = Some(SERVICE_NAME.clone());
@@ -199,19 +200,19 @@ fn report_error_sync_no_tracing(err: &mut anyhow::Error) {
 
     let Some(sentry_client) = sentry::Hub::current().client() else {
         tracing::error!("Not reporting above error: Sentry is not configured");
-        return;
+        return None;
     };
     if let Some((level, prob)) = err.should_report_to_sentry() {
         if let Some(prob) = prob
             && rand::rng().random::<f64>() > prob
         {
             tracing::debug!("Not reporting above error to sentry - due to sampling.");
-            return;
+            return None;
         }
 
         if !sentry_client.is_enabled() {
             tracing::debug!("Not reporting above error: SENTRY_DSN not set.");
-            return;
+            return None;
         }
 
         let mut event = event_from_error(err);
@@ -227,8 +228,10 @@ fn report_error_sync_no_tracing(err: &mut anyhow::Error) {
             "Reporting above error to sentry with event_id {}",
             event_id.simple()
         );
+        Some(event_id)
     } else {
         tracing::debug!("Not reporting above error to sentry.");
+        None
     }
 }
 
