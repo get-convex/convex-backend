@@ -1,12 +1,7 @@
-use std::{
-    fmt::{
-        Display,
-        Formatter,
-    },
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use anyhow::Context;
+use derive_more::Display;
 use rand::Rng;
 use serde::{
     Deserialize,
@@ -101,7 +96,9 @@ impl HeapSize for ExecutionContext {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Display, Serialize, Deserialize)]
+#[display("{_0}")]
+#[serde(transparent)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct RequestId(String);
 
@@ -148,33 +145,9 @@ impl TryFrom<String> for RequestId {
     }
 }
 
-impl Display for RequestId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 impl HeapSize for RequestId {
     fn heap_size(&self) -> usize {
         self.0.heap_size()
-    }
-}
-
-impl Serialize for RequestId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.as_str().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for RequestId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).map(RequestId)
     }
 }
 
@@ -186,7 +159,9 @@ impl<'de> Deserialize<'de> for RequestId {
 ///
 /// Execution ids are not meant to be human readable, but they must be globally
 /// unique.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Display, Serialize, Deserialize)]
+#[display("{_0}")]
+#[serde(transparent)]
 pub struct ExecutionId(Uuid);
 
 #[cfg(any(test, feature = "testing"))]
@@ -214,30 +189,6 @@ impl FromStr for ExecutionId {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Ok(ExecutionId(value.parse()?))
-    }
-}
-
-impl Display for ExecutionId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Serialize for ExecutionId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ExecutionId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).and_then(|s| s.parse().map_err(serde::de::Error::custom))
     }
 }
 
@@ -297,5 +248,57 @@ impl From<ExecutionContext> for JsonValue {
             "parentScheduledJob": parent_document_id.map(|id| id.to_string()),
             "parentScheduledJobComponentId": parent_component_id.unwrap_or(ComponentId::Root).serialize_to_string(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ExecutionId,
+        RequestId,
+    };
+
+    #[test]
+    fn request_id_json_serde_roundtrip() {
+        let request_id = RequestId::new();
+        let json = serde_json::to_string(&request_id).expect("request id should serialize");
+        assert_eq!(json, format!("\"{request_id}\""));
+
+        let deserialized: RequestId =
+            serde_json::from_str(&json).expect("request id should deserialize");
+        assert_eq!(deserialized, request_id);
+    }
+
+    #[test]
+    fn request_id_convex_serde_roundtrip() {
+        let request_id = RequestId::new();
+        let value = value::serde::to_value(request_id.clone())
+            .expect("request id should serialize to convex value");
+        let value::ConvexValue::String(serialized) = value else {
+            panic!("request id should serialize as string");
+        };
+        assert_eq!(String::from(serialized), request_id.to_string());
+    }
+
+    #[test]
+    fn execution_id_json_serde_roundtrip() {
+        let execution_id = ExecutionId::new();
+        let json = serde_json::to_string(&execution_id).expect("execution id should serialize");
+        assert_eq!(json, format!("\"{execution_id}\""));
+
+        let deserialized: ExecutionId =
+            serde_json::from_str(&json).expect("execution id should deserialize");
+        assert_eq!(deserialized, execution_id);
+    }
+
+    #[test]
+    fn execution_id_convex_serde_roundtrip() {
+        let execution_id = ExecutionId::new();
+        let value = value::serde::to_value(execution_id)
+            .expect("execution id should serialize to convex value");
+        let value::ConvexValue::String(serialized) = value else {
+            panic!("execution id should serialize as string");
+        };
+        assert_eq!(String::from(serialized), execution_id.to_string());
     }
 }
