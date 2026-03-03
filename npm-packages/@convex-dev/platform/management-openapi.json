@@ -186,6 +186,112 @@
         ]
       }
     },
+    "/projects/{project_id}/deployment": {
+      "get": {
+        "summary": "Get deployment by reference",
+        "description": "Get a deployment by its reference within a project.",
+        "operationId": "get deployment by reference",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "description": "The reference of the deployment to retrieve.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/DeploymentReference"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": {
+      "get": {
+        "summary": "Get deployment by reference for project by slug",
+        "description": "Get a deployment by its reference within a project identified by team and\nproject slug.",
+        "operationId": "get deployment by reference for project by slug",
+        "parameters": [
+          {
+            "name": "team_id_or_slug",
+            "in": "path",
+            "description": "Team ID or slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project_slug",
+            "in": "path",
+            "description": "Project slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "description": "The reference of the deployment to retrieve.",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/DeploymentReference"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/projects/{project_id}/delete": {
       "post": {
         "summary": "Delete project",

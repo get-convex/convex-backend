@@ -65,6 +65,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get deployment by reference
+         * @description Get a deployment by its reference within a project.
+         */
+        get: operations["get deployment by reference"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get deployment by reference for project by slug
+         * @description Get a deployment by its reference within a project identified by team and
+         *     project slug.
+         */
+        get: operations["get deployment by reference for project by slug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/delete": {
         parameters: {
             query?: never;
@@ -826,6 +867,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformDeploymentResponse"][];
+                };
+            };
+        };
+    };
+    "get deployment by reference": {
+        parameters: {
+            query: {
+                /** @description The reference of the deployment to retrieve. */
+                reference: components["schemas"]["DeploymentReference"];
+            };
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeploymentResponse"];
+                };
+            };
+        };
+    };
+    "get deployment by reference for project by slug": {
+        parameters: {
+            query: {
+                /** @description The reference of the deployment to retrieve. */
+                reference: components["schemas"]["DeploymentReference"];
+            };
+            header?: never;
+            path: {
+                /** @description Team ID or slug */
+                team_id_or_slug: string;
+                /** @description Project slug */
+                project_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeploymentResponse"];
                 };
             };
         };
