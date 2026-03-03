@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, type MouseEvent } from "react";
 import classNames from "classnames";
 import { GearIcon } from "@radix-ui/react-icons";
 import { ActionText } from "@common/elements/DeploymentEventContent";
@@ -10,14 +10,18 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 export function DeploymentEventListItem({
   event,
   focused = false,
+  selected = false,
   hitBoundary,
   setShownLog,
+  onClick,
   logKey,
 }: {
   event: DeploymentAuditLogEvent;
   focused?: boolean;
+  selected?: boolean;
   hitBoundary?: "top" | "bottom" | null;
   setShownLog: () => void;
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   logKey?: string;
 }) {
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
@@ -42,13 +46,20 @@ export function DeploymentEventListItem({
           "group flex items-center gap-3 w-full text-xs items-center",
           "hover:bg-background-tertiary/70",
           "focus:outline-none focus:border-y focus:border-border-selected",
+          selected && !focused && "bg-background-tertiary/50",
           focused && "bg-background-highlight",
           "select-text",
         )}
         style={{
           height: ITEM_SIZE,
         }}
-        onClick={setShownLog}
+        onClick={(e) => {
+          if (onClick) {
+            onClick(e);
+          } else {
+            setShownLog();
+          }
+        }}
         onFocus={(e) => {
           // Only set shown log if focus is on the button itself,
           // not on child elements (like links)
