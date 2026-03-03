@@ -3101,7 +3101,7 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.11.8)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76)
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.11.8)(react@18.3.1)(typescript@5.9.3)(zod@3.25.76)
       prettier:
         specifier: ^3.8.0
         version: 3.8.0
@@ -3134,8 +3134,8 @@ importers:
         specifier: ^8.0.0
         version: 8.0.4
       typescript:
-        specifier: ~5.0.3
-        version: 5.0.4
+        specifier: ^5.9.2
+        version: 5.9.3
       vite:
         specifier: ^6.4.1
         version: 6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -35632,16 +35632,6 @@ snapshots:
     dependencies:
       convex: link:../../convex
 
-  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.11.8)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76):
-    dependencies:
-      convex: link:../../convex
-    optionalDependencies:
-      '@standard-schema/spec': 1.0.0
-      hono: 4.11.8
-      react: 18.3.1
-      typescript: 5.0.4
-      zod: 3.25.76
-
   convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.11.8)(react@18.3.1)(typescript@5.0.4)(zod@4.1.12):
     dependencies:
       convex: link:../../convex
@@ -35651,6 +35641,16 @@ snapshots:
       react: 18.3.1
       typescript: 5.0.4
       zod: 4.1.12
+
+  convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.11.8)(react@18.3.1)(typescript@5.9.3)(zod@3.25.76):
+    dependencies:
+      convex: link:../../convex
+    optionalDependencies:
+      '@standard-schema/spec': 1.0.0
+      hono: 4.11.8
+      react: 18.3.1
+      typescript: 5.9.3
+      zod: 3.25.76
 
   convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.11.8)(react@19.2.4)(typescript@5.0.4)(zod@4.1.12):
     dependencies:
