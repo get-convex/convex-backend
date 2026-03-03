@@ -4424,6 +4424,14 @@
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType"
               },
+              "expiresAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment will be\ndeleted. Preview deployments have this set by default unless\noverridden."
+              },
               "id": {
                 "$ref": "#/components/schemas/DeploymentId"
               },

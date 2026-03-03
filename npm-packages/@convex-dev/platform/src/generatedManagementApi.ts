@@ -429,6 +429,13 @@ export interface components {
             creator?: null | components["schemas"]["MemberId"];
             dashboardEditConfirmation?: boolean | null;
             deploymentType: components["schemas"]["DeploymentType"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be
+             *     deleted. Preview deployments have this set by default unless
+             *     overridden.
+             */
+            expiresAt?: number | null;
             id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */
@@ -579,6 +586,13 @@ export interface components {
             deploymentType: components["schemas"]["DeploymentType"];
             /** @description The full backend URL for this deployment (e.g. "https://joyful-capybara-123.convex.cloud" or "https://calm-cow-456.eu-west-1.convex.cloud"). This is always a `.convex.cloud` URL, even when the deployment is using custom domains. To get the canonical URL, use [`/get_canonical_urls`](https://docs.convex.dev/deployment-api/get-canonical-urls). */
             deploymentUrl: string;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be
+             *     deleted. Preview deployments have this set by default unless
+             *     overridden.
+             */
+            expiresAt?: number | null;
             id: components["schemas"]["DeploymentId"];
             /** @description For prod deployments, whether they are the default prod deployment
              *     of the project. For dev deployments, whether they are the default
@@ -687,6 +701,15 @@ export interface components {
              *     false for dev and preview deployments). If set to `true` or `false`, the
              *     setting is explicitly overridden. */
             dashboardEditConfirmation?: boolean | null;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be deleted.
+             *     Preview deployments have this set by default unless overridden.
+             *     Must be at least 30 minutes in the future and cannot exceed the
+             *     team's preview deployment retention days entitlement from now.
+             *     Set to `null` to clear the expiration.
+             */
+            expiresAt?: number | null;
             /** @description The reference of the deployment. When provided, must match the following
              *     rules:
              *       - be unique across deployment references in the project

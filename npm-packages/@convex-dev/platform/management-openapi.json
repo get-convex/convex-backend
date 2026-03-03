@@ -924,6 +924,14 @@
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType"
               },
+              "expiresAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment will be\ndeleted. Preview deployments have this set by default unless\noverridden."
+              },
               "id": {
                 "$ref": "#/components/schemas/DeploymentId"
               },
@@ -1371,6 +1379,14 @@
                 "type": "string",
                 "description": "The full backend URL for this deployment (e.g. \"https://joyful-capybara-123.convex.cloud\" or \"https://calm-cow-456.eu-west-1.convex.cloud\"). This is always a `.convex.cloud` URL, even when the deployment is using custom domains. To get the canonical URL, use [`/get_canonical_urls`](https://docs.convex.dev/deployment-api/get-canonical-urls)."
               },
+              "expiresAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment will be\ndeleted. Preview deployments have this set by default unless\noverridden."
+              },
               "id": {
                 "$ref": "#/components/schemas/DeploymentId"
               },
@@ -1629,6 +1645,14 @@
               "null"
             ],
             "description": "Controls whether the dashboard requires a confirmation before allowing\nedits during a browser session for this deployment. If set to `null`,\nthe setting is reset to the default behavior (true for prod deployments,\nfalse for dev and preview deployments). If set to `true` or `false`, the\nsetting is explicitly overridden."
+          },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this deployment will be deleted.\nPreview deployments have this set by default unless overridden.\nMust be at least 30 minutes in the future and cannot exceed the\nteam's preview deployment retention days entitlement from now.\nSet to `null` to clear the expiration."
           },
           "reference": {
             "type": [
