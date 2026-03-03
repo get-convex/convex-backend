@@ -19,19 +19,15 @@ environment variables are present in the build environment or the Convex
 deployment. While developing locally, Convex can write environment variables to
 `.env.local` to make setting up an AuthKit environment a breeze.
 
-## Getting Started
+This automatic configuration is available whether you're
+[starting a new application](/auth/authkit) or adding WorkOS AuthKit to an
+[existing application](/auth/authkit/add-to-app).
 
-Choose AuthKit as your authentication option in the create convex tool.
+Read on for some additional details about how the auto-configuration works and
+some things that you may need to configure manually based on your specific
+needs.
 
-```bash
-npm create convex@latest
-```
-
-These templates include a `convex.json` which cause an AuthKit environment for
-this deployment to be created and configured. With just `npx convex dev` you'll
-get a WorkOS environment all hooked up!
-
-### Going to production
+## Production deployments
 
 In the Convex dashboard settings for your production deployment, create an
 AuthKit environment in the WorkOS Authentication integration under settings,
@@ -40,7 +36,7 @@ variables (in addition to other setup, like adding a production
 `CONVEX_DEPLOY_KEY`, setting the build command, and setting other
 framework-specific AuthKit environment variables).
 
-### Preview deployments
+## Preview deployments
 
 In the Convex dashboard settings for any deployment in your project, create a
 new project-level AuthKit environment in the WorkOS Authentication integration
@@ -113,50 +109,3 @@ Environments for hosting providers in build environments like Vercel (production
 and preview deploys) can be configured at build time, but the environment
 variables for these build environments must be set manually in the build
 settings.
-
-## Recommended Configuration
-
-Here's a common setup for a project where production and preview deploys are
-deployed to from Vercel. Check your hosting provider's docs to substitute the
-right environment variables, and check the guide for using AuthKit with your
-framework of choice to customize this example.
-
-```json title="convex.json"
-{
-  "authKit": {
-    "dev": {
-      "configure": {
-        "redirectUris": ["http://localhost:3000/callback"],
-        "appHomepageUrl": "http://localhost:3000",
-        "corsOrigins": ["http://localhost:3000"]
-      },
-      "localEnvVars": {
-        "WORKOS_CLIENT_ID": "${authEnv.WORKOS_CLIENT_ID}",
-        "WORKOS_API_KEY": "${authEnv.WORKOS_API_KEY}",
-        "NEXT_PUBLIC_WORKOS_REDIRECT_URI": "http://localhost:3000/callback"
-      }
-    },
-    "preview": {
-      "configure": {
-        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
-        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
-        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
-      }
-    },
-    "prod": {
-      "environmentType": "production",
-      "configure": {
-        "redirectUris": [
-          "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}/callback"
-        ],
-        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
-        "corsOrigins": ["https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}"]
-      }
-    }
-  }
-}
-```
-
-Additionally, for local dev in **Next.js** and **TanStack Start**, Convex
-automatically generates a `WORKOS_COOKIE_PASSWORD` if it's not already in
-`.env.local`.

@@ -126,15 +126,21 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
   </Step>
 
   <Step title="Show UI based on authentication state">
-    You can control which UI is shown when the user is signed in or signed out using Convex's `<Authenticated>`, `<Unauthenticated>` and `<AuthLoading>` helper components. These should be used instead of Clerk's `<SignedIn>`, `<SignedOut>` and `<ClerkLoading>` components, respectively.
+    You can control which UI is shown when the user is signed in or signed out using
+    Convex's `<Authenticated>`, `<Unauthenticated>` and `<AuthLoading>` helper components.
 
-    It's important to use the [`useConvexAuth()`](/api/modules/react#useconvexauth) hook instead of
-    Clerk's `useAuth()` hook when you need to check whether the user is logged in or
-    not. The `useConvexAuth()` hook makes sure that the browser has fetched the auth
+    In the following example, the `<Content />` component is a child of `<Authenticated>`,
+    so its content and any of its child components are guaranteed to have an authenticated
+    user, and Convex queries can require authentication.
+
+    <Admonition type="tip">
+    If you choose to build your own auth-integrated components without using the helpers,
+    it's important to use the [`useConvexAuth()`](/api/modules/react#useconvexauth) hook
+    instead of Clerk's `useAuth()` hook when you need to check whether the user is logged
+    in or not. The `useConvexAuth()` hook makes sure that the browser has fetched the auth
     token needed to make authenticated requests to your Convex backend, and that the
     Convex backend has validated it.
-
-    In the following example, the `<Content />` component is a child of `<Authenticated>`, so its content and any of its child components are guaranteed to have an authenticated user, and Convex queries can require authentication.
+    </Admonition>
 
     ```tsx title="src/App.tsx"
     import { SignInButton, UserButton } from "@clerk/clerk-react";
@@ -367,15 +373,21 @@ follow the [Convex Next.js Quickstart](/quickstart/nextjs.mdx) first. Then:
 
   </Step>
   <Step title="Show UI based on authentication state">
-    You can control which UI is shown when the user is signed in or signed out using Convex's `<Authenticated>`, `<Unauthenticated>` and `<AuthLoading>` helper components. These should be used instead of Clerk's `<SignedIn>`, `<SignedOut>` and `<ClerkLoading>` components, respectively.
+    You can control which UI is shown when the user is signed in or signed out using
+    Convex's `<Authenticated>`, `<Unauthenticated>` and `<AuthLoading>` helper components.
 
-    It's important to use the [`useConvexAuth()`](/api/modules/react#useconvexauth) hook instead of
-    Clerk's `useAuth()` hook when you need to check whether the user is logged in or
-    not. The `useConvexAuth()` hook makes sure that the browser has fetched the auth
+    In the following example, the `<Content />` component is a child of `<Authenticated>`,
+    so its content and any of its child components are guaranteed to have an authenticated
+    user, and Convex queries can require authentication.
+
+    <Admonition type="tip">
+    If you choose to build your own auth-integrated components without using the helpers,
+    it's important to use the [`useConvexAuth()`](/api/modules/react#useconvexauth) hook
+    instead of Clerk's `useAuth()` hook when you need to check whether the user is logged
+    in or not. The `useConvexAuth()` hook makes sure that the browser has fetched the auth
     token needed to make authenticated requests to your Convex backend, and that the
     Convex backend has validated it.
-
-    In the following example, the `<Content />` component is a child of `<Authenticated>`, so its content and any of its child components are guaranteed to have an authenticated user, and Convex queries can require authentication.
+    </Admonition>
 
     ```tsx title="app/page.tsx"
     "use client";
