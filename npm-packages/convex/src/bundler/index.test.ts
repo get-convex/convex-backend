@@ -11,6 +11,7 @@ import {
   doesImportConvexHttpRouter,
   entryPoints,
   entryPointsByEnvironment,
+  hasDynamicImport,
   useNodeDirectiveRegex,
   mustBeIsolate,
 } from "./index.js";
@@ -186,4 +187,104 @@ test("must use isolate", () => {
   expect(mustBeIsolate("https.js")).not.toBeTruthy();
   expect(mustBeIsolate("schema2.js")).not.toBeTruthy();
   expect(mustBeIsolate("schema/http.js")).not.toBeTruthy();
+});
+
+test("hasDynamicImport detects top-level dynamic import", () => {
+  expect(
+    hasDynamicImport(`
+    const mod = await import("./helper.js");
+    export default mod;
+  `),
+  ).toBeTruthy();
+});
+
+test("hasDynamicImport detects dynamic import inside a function", () => {
+  expect(
+    hasDynamicImport(`
+    export async function loadModule() {
+      const mod = await import("./helper.js");
+      return mod.default();
+    }
+  `),
+  ).toBeTruthy();
+});
+
+test("hasDynamicImport detects dynamic import with template literal", () => {
+  expect(
+    hasDynamicImport(`
+    export async function loadModule(name) {
+      const mod = await import(\`./\${name}.js\`);
+      return mod;
+    }
+  `),
+  ).toBeTruthy();
+});
+
+test("hasDynamicImport returns false for static imports only", () => {
+  expect(
+    hasDynamicImport(`
+    import { foo } from "./foo.js";
+    export const val = foo;
+  `),
+  ).toBeFalsy();
+});
+
+test("hasDynamicImport returns false for no imports at all", () => {
+  expect(
+    hasDynamicImport(`
+    export const val = 1;
+  `),
+  ).toBeFalsy();
+});
+
+test("hasDynamicImport returns false when import( appears only in a comment", () => {
+  expect(
+    hasDynamicImport(`
+    // const mod = await import("./helper.js");
+    export const val = 1;
+  `),
+  ).toBeFalsy();
+});
+
+test("hasDynamicImport returns false when import( appears only in a string", () => {
+  expect(
+    hasDynamicImport(`
+    export const val = 'import("foo")';
+  `),
+  ).toBeFalsy();
+});
+
+test("hasDynamicImport detects dynamic import in TypeScript", () => {
+  expect(
+    hasDynamicImport(`
+    export async function loadModule(): Promise<any> {
+      const mod = await import("./helper");
+      return mod.default();
+    }
+  `),
+  ).toBeTruthy();
+});
+
+test("entryPointsByEnvironment rejects isolate files with dynamic imports", async () => {
+  const fixtureDir =
+    dirname + "/test_fixtures/js/project_with_dynamic_import";
+  const ctx = await getDefaultCtx();
+  const exitSpy = vi
+    .spyOn(process, "exit")
+    .mockImplementation(() => {
+      throw new Error("process.exit called");
+    });
+  await expect(entryPointsByEnvironment(ctx, fixtureDir)).rejects.toThrow(
+    "process.exit called",
+  );
+  expect(exitSpy).toHaveBeenCalledWith(1);
+});
+
+test("entryPointsByEnvironment allows dynamic imports in 'use node' files", async () => {
+  const fixtureDir =
+    dirname + "/test_fixtures/js/project_with_dynamic_import_use_node";
+  const ctx = await getDefaultCtx();
+  const result = await entryPointsByEnvironment(ctx, fixtureDir);
+  expect(result.node).toHaveLength(1);
+  expect(result.isolate).toHaveLength(0);
 });

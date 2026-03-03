@@ -538,6 +538,41 @@ function hasUseNodeDirective(ctx: Context, fpath: string): boolean {
   }
 }
 
+function containsDynamicImport(node: any): boolean {
+  if (!node || typeof node !== "object") return false;
+  if (
+    node.type === "CallExpression" &&
+    node.callee?.type === "Import"
+  ) {
+    return true;
+  }
+  for (const key of Object.keys(node)) {
+    if (key === "leadingComments" || key === "trailingComments") continue;
+    const child = node[key];
+    if (Array.isArray(child)) {
+      if (child.some((c) => containsDynamicImport(c))) return true;
+    } else if (child && typeof child.type === "string") {
+      if (containsDynamicImport(child)) return true;
+    }
+  }
+  return false;
+}
+
+export function hasDynamicImport(source: string): boolean {
+  if (!source.includes("import(")) {
+    return false;
+  }
+  try {
+    const ast = parseAST(source, {
+      sourceType: "module",
+      plugins: ["jsx", "typescript"],
+    });
+    return containsDynamicImport(ast.program);
+  } catch {
+    return false;
+  }
+}
+
 export function mustBeIsolate(relPath: string): boolean {
   // Check if the path without extension matches any of the static paths.
   return ["http", "crons", "schema", "auth.config"].includes(
@@ -585,6 +620,23 @@ export async function entryPointsByEnvironment(ctx: Context, dir: string) {
       node.push(entryPoint);
     } else {
       isolate.push(entryPoint);
+    }
+  }
+
+  for (const entryPoint of isolate) {
+    const source = ctx.fs.readUtf8File(entryPoint);
+    if (hasDynamicImport(source)) {
+      const relPath = path.relative(dir, entryPoint);
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage:
+          `Dynamic import (\`import()\`) is not allowed in "${relPath}" ` +
+          `because it does not have a "use node" directive. ` +
+          `Dynamic imports are only supported in Node.js actions. ` +
+          `Add "use node" at the top of the file if this is a Node.js action, ` +
+          `or replace the dynamic import with a static import.`,
+      });
     }
   }
 
