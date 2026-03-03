@@ -80,6 +80,10 @@ where
         self.buf.len()
     }
 
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.buf
+    }
+
     /// Get a shared reference to the PackedValue, so it can be opened multiple
     /// times without cloning the underlying buffer.
     pub fn as_ref(&self) -> PackedValue<&[u8]> {

@@ -894,6 +894,55 @@ impl DatabaseIndexSnapshot {
     pub fn timestamp(&self) -> RepeatableTimestamp {
         self.reader.timestamp()
     }
+
+    /// Scan the index, checking in-memory indexes first and falling back
+    /// to the persistence reader. Unlike `range_batch`, this skips the
+    /// per-transaction cache. Later this will be served by the IndexCache.
+    pub async fn index_scan(
+        &self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        interval: &Interval,
+        order: Order,
+        max_size: usize,
+    ) -> anyhow::Result<(
+        Vec<(IndexKeyBytes, Timestamp, LazyDocument)>,
+        CursorPosition,
+    )> {
+        // Try to serve from in-memory indexes.
+        let table_name = self.table_mapping.tablet_to_name()(tablet_id)?;
+        if let Some(range) = self
+            .in_memory_indexes
+            .range(index_id, interval, order, tablet_id, table_name)
+            .await?
+        {
+            let results = range
+                .into_iter()
+                .take(max_size)
+                .map(|(key, ts, doc)| (key, ts, LazyDocument::Memory(doc)))
+                .collect::<Vec<_>>();
+            let cursor = if results.len() >= max_size {
+                CursorPosition::After(results.last().unwrap().0.clone())
+            } else {
+                CursorPosition::End
+            };
+            return Ok((results, cursor));
+        }
+
+        // Fall back to persistence reader.
+        let mut results = vec![];
+        let mut stream = self
+            .reader
+            .index_scan(index_id, tablet_id, interval, order, max_size);
+        while let Some((key, rev)) = stream.try_next().await? {
+            results.push((key, rev.ts, LazyDocument::Resolved(rev.value)));
+            if results.len() >= max_size {
+                let cursor = CursorPosition::After(results.last().unwrap().0.clone());
+                return Ok((results, cursor));
+            }
+        }
+        Ok((results, CursorPosition::End))
+    }
 }
 
 static MAX_TRANSACTION_CACHE_SIZE: LazyLock<usize> =
@@ -1871,6 +1920,14 @@ impl LazyDocument {
             LazyDocument::Resolved(doc) => doc.id(),
             LazyDocument::Packed(doc) => doc.id(),
             LazyDocument::Memory(doc) => doc.packed_document.id(),
+        }
+    }
+
+    pub fn pack(self) -> PackedDocument {
+        match self {
+            LazyDocument::Resolved(doc) => PackedDocument::pack(&doc),
+            LazyDocument::Packed(doc) => doc,
+            LazyDocument::Memory(doc) => doc.packed_document,
         }
     }
 }

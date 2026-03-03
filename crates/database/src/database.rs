@@ -51,6 +51,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    index::IndexKeyBytes,
     interval::Interval,
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
@@ -75,7 +76,10 @@ use common::{
         RetentionValidator,
         TimestampRange,
     },
-    query::Order,
+    query::{
+        CursorPosition,
+        Order,
+    },
     runtime::{
         RateLimiter,
         Runtime,
@@ -1533,6 +1537,39 @@ impl<RT: Runtime> Database<RT> {
 
     pub fn persistence_version(&self) -> PersistenceVersion {
         self.reader.version()
+    }
+
+    pub async fn index_scan(
+        &self,
+        ts: RepeatableTimestamp,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        interval: &Interval,
+        order: Order,
+        max_size: usize,
+    ) -> anyhow::Result<(
+        Vec<(IndexKeyBytes, Timestamp, PackedDocument)>,
+        CursorPosition,
+    )> {
+        let snapshot = self.snapshot_manager.lock().snapshot(*ts)?;
+        let persistence_snapshot =
+            RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator())
+                .read_snapshot(ts)?;
+        let db_index_snapshot = DatabaseIndexSnapshot::new(
+            snapshot.index_registry,
+            Arc::new(snapshot.in_memory_indexes),
+            snapshot.table_registry.table_mapping().clone(),
+            Arc::new(persistence_snapshot),
+            None,
+        );
+        let (results, cursor) = db_index_snapshot
+            .index_scan(index_id, tablet_id, interval, order, max_size)
+            .await?;
+        let entries = results
+            .into_iter()
+            .map(|(key, ts, doc)| (key, ts, doc.pack()))
+            .collect();
+        Ok((entries, cursor))
     }
 
     pub fn now_ts_for_reads(&self) -> RepeatableTimestamp {

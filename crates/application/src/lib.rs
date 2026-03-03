@@ -75,6 +75,7 @@ use common::{
     },
     document::{
         DocumentUpdate,
+        PackedDocument,
         ParsedDocument,
         CREATION_TIME_FIELD_PATH,
     },
@@ -86,6 +87,8 @@ use common::{
         fetch::FetchClient,
         RequestDestination,
     },
+    index::IndexKeyBytes,
+    interval::Interval,
     knobs::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         ENABLE_INDEX_BACKFILL,
@@ -102,6 +105,7 @@ use common::{
     paths::FieldPath,
     persistence::Persistence,
     query::{
+        CursorPosition,
         IndexRange,
         IndexRangeExpression,
         Order,
@@ -939,6 +943,23 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
         self.database.snapshot(ts)
+    }
+
+    pub async fn index_scan(
+        &self,
+        ts: RepeatableTimestamp,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        interval: &Interval,
+        order: Order,
+        max_size: usize,
+    ) -> anyhow::Result<(
+        Vec<(IndexKeyBytes, Timestamp, PackedDocument)>,
+        CursorPosition,
+    )> {
+        self.database
+            .index_scan(ts, index_id, tablet_id, interval, order, max_size)
+            .await
     }
 
     pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot> {
