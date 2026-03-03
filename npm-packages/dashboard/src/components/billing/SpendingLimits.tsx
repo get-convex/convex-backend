@@ -266,10 +266,10 @@ function UsageDefinition() {
       }
       side="right"
     >
-      <div className="flex gap-0.5">
+      <span className="inline-flex items-center gap-0.5">
         <span className="underline decoration-dotted">usage</span>
         <QuestionMarkCircledIcon />
-      </div>
+      </span>
     </Tooltip>
   );
 }
@@ -308,7 +308,12 @@ function SpendLimitInput({
           id={checkboxId}
           checked={value !== null}
           onChange={() => {
-            void formState.setFieldValue(formKey, value === null ? "" : null);
+            if (value === null) {
+              void formState.setFieldValue(formKey, "", false);
+            } else {
+              void formState.setFieldValue(formKey, null, false);
+              void formState.setFieldTouched(formKey, false, false);
+            }
           }}
           disabled={disabled}
         />
