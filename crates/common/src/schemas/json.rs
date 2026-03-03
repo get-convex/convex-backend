@@ -646,6 +646,8 @@ pub enum ValidatorJson {
     Any,
     Literal {
         value: JsonValue,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        literal_type: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
     Id {
@@ -682,7 +684,46 @@ impl TryFrom<ValidatorJson> for Validator {
             ValidatorJson::String => Ok(Validator::String),
             ValidatorJson::Bytes => Ok(Validator::Bytes),
             ValidatorJson::Any => Ok(Validator::Any),
-            ValidatorJson::Literal { value } => Ok(Validator::Literal(value.try_into()?)),
+            ValidatorJson::Literal {
+                value,
+                literal_type,
+            } => {
+                if let Some(type_hint) = literal_type {
+                    match type_hint.as_str() {
+                        "Int64" => {
+                            let convex_value: ConvexValue = value.try_into()?;
+                            match convex_value {
+                                ConvexValue::Int64(i) => {
+                                    Ok(Validator::Literal(LiteralValidator::Int64(i)))
+                                },
+                                ConvexValue::Float64(f) if f.fract() == 0.0 => {
+                                    Ok(Validator::Literal(LiteralValidator::Int64(f as i64)))
+                                },
+                                _ => Ok(Validator::Literal(convex_value.try_into()?)),
+                            }
+                        },
+                        "Float64" => {
+                            let convex_value: ConvexValue = value.try_into()?;
+                            match convex_value {
+                                ConvexValue::Float64(f) => {
+                                    Ok(Validator::Literal(LiteralValidator::Float64(f.into())))
+                                },
+                                ConvexValue::Int64(i) => Ok(Validator::Literal(
+                                    LiteralValidator::Float64((i as f64).into()),
+                                )),
+                                _ => Ok(Validator::Literal(convex_value.try_into()?)),
+                            }
+                        },
+                        _ => {
+                            let convex_value: ConvexValue = value.try_into()?;
+                            Ok(Validator::Literal(convex_value.try_into()?))
+                        },
+                    }
+                } else {
+                    let convex_value: ConvexValue = value.try_into()?;
+                    Ok(Validator::Literal(convex_value.try_into()?))
+                }
+            },
             ValidatorJson::Id { table_name } => Ok(Validator::Id(table_name.parse()?)),
             ValidatorJson::Array { value } => Ok(Validator::Array(Box::new((*value).try_into()?))),
             ValidatorJson::Record { keys, values } => {
@@ -742,8 +783,17 @@ impl TryFrom<Validator> for ValidatorJson {
             Validator::Boolean => ValidatorJson::Boolean,
             Validator::String => ValidatorJson::String,
             Validator::Bytes => ValidatorJson::Bytes,
-            Validator::Literal(literal) => ValidatorJson::Literal {
-                value: literal.try_into()?,
+            Validator::Literal(literal) => {
+                let literal_type = match &literal {
+                    LiteralValidator::Float64(_) => "Float64",
+                    LiteralValidator::Int64(_) => "Int64",
+                    LiteralValidator::Boolean(_) => "Boolean",
+                    LiteralValidator::String(_) => "String",
+                };
+                ValidatorJson::Literal {
+                    value: literal.try_into()?,
+                    literal_type: Some(literal_type.to_string()),
+                }
             },
             Validator::Array(t) => ValidatorJson::Array {
                 value: Box::new(ValidatorJson::try_from(*t)?),
@@ -791,7 +841,9 @@ impl TryFrom<LiteralValidator> for JsonValue {
                 ))?;
                 JsonValue::Number(n)
             },
-            LiteralValidator::Int64(i) => JsonValue::from(ConvexValue::Int64(i)),
+            LiteralValidator::Int64(i) => {
+                JsonValue::Number(serde_json::Number::from(i))
+            },
             LiteralValidator::Boolean(b) => JsonValue::Bool(b),
             LiteralValidator::String(s) => JsonValue::String(s.to_string()),
         };
@@ -929,6 +981,78 @@ mod tests {
             )?,
             ValidatorJson::Any
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_literal_int64_preserves_type() -> anyhow::Result<()> {
+        use crate::schemas::validator::Validator;
+
+        let literal = LiteralValidator::Int64(42);
+        let validator = Validator::Literal(literal.clone());
+        let json_val: ValidatorJson = validator.try_into()?;
+        
+        assert!(matches!(
+            json_val,
+            ValidatorJson::Literal {
+                literal_type: Some(ref t),
+                ..
+            } if t == "Int64"
+        ));
+
+        if let ValidatorJson::Literal { value, .. } = json_val {
+            assert_eq!(value, JsonValue::Number(serde_json::Number::from(42)));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_literal_with_type_hint_int64() -> anyhow::Result<()> {
+        use crate::schemas::validator::Validator;
+
+        let validator_json = json!({
+            "type": "literal",
+            "value": 1,
+            "literalType": "Int64"
+        });
+        let validator: Validator = serde_json::from_value(validator_json)?;
+        
+        assert!(matches!(
+            validator,
+            Validator::Literal(LiteralValidator::Int64(1))
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn test_literal_with_type_hint_float64() -> anyhow::Result<()> {
+        use crate::schemas::validator::Validator;
+
+        let validator_json = json!({
+            "type": "literal",
+            "value": 1,
+            "literalType": "Float64"
+        });
+        let validator: Validator = serde_json::from_value(validator_json)?;
+        
+        assert!(matches!(
+            validator,
+            Validator::Literal(LiteralValidator::Float64(_))
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn test_literal_roundtrip_preserves_int64() -> anyhow::Result<()> {
+        use crate::schemas::validator::Validator;
+
+        let original = Validator::Literal(LiteralValidator::Int64(42));
+        let json: ValidatorJson = original.clone().try_into()?;
+        let serialized = serde_json::to_value(&json)?;
+        let deserialized: ValidatorJson = serde_json::from_value(serialized)?;
+        let back: Validator = deserialized.try_into()?;
+        
+        assert_eq!(original, back);
         Ok(())
     }
 }
