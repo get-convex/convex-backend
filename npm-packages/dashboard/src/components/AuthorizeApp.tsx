@@ -189,7 +189,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
           </title>
         </Head>
         <LoginLayout>
-          <Sheet className="flex max-w-prose min-w-lg flex-col gap-4">
+          <Sheet className="flex max-w-prose flex-col gap-4 sm:min-w-lg">
             <h3>Authorize access to your {authorizationScope}</h3>
             <Callout variant="error" className="max-w-prose">
               <div>
@@ -243,7 +243,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
           </title>
         </Head>
         <LoginLayout>
-          <Sheet className="flex max-w-prose min-w-lg flex-col gap-4">
+          <Sheet className="flex max-w-prose flex-col gap-4 sm:min-w-lg">
             <h3>Authorize access to your {authorizationScope}</h3>
             <Callout variant="error" className="max-w-prose">
               <div>
@@ -457,7 +457,7 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
         </title>
       </Head>
       <LoginLayout>
-        <Sheet className="flex max-w-prose min-w-lg flex-col gap-4">
+        <Sheet className="flex max-w-prose flex-col gap-4 sm:min-w-lg">
           <h3>Authorize access to your {authorizationScope}</h3>
           {!oauthAppData && !oauthError ? (
             <Loading className="h-80 w-full items-center justify-center" />
