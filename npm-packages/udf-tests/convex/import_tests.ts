@@ -1,10 +1,12 @@
+"use node";
+
 import {
   assert,
   // Renaming the import to avoid react-hooks/rules-of-hooks
   use as chaiUse,
 } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { action, query } from "./_generated/server";
+import { action } from "./_generated/server";
 
 import * as helpersStatic from "./helpers";
 
@@ -40,13 +42,11 @@ export const dynamicImportNonexistent = action({
   },
 });
 
-export const dynamicImportQuery = query({
-  args: {},
-  handler: async () => {
-    const helpers = await import("./helpers");
-    return helpers.fibonacci(6);
-  },
-});
+// NOTE: dynamicImportQuery was removed because dynamic imports in V8 isolate
+// files (queries/mutations without "use node") are now blocked at build time.
+// The test that verified runtime failure is no longer possible to build.
+// See test_query_dynamic_import in crates/isolate/src/tests/import.rs for the
+// corresponding Rust test that also needs to be removed.
 
 export const dynamicImportLoadFailure = action({
   args: {},
