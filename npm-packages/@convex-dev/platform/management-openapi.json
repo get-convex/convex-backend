@@ -964,6 +964,7 @@
         "enum": [
           "dev",
           "prod",
+          "preview",
           "custom"
         ]
       },

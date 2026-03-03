@@ -448,7 +448,7 @@ export interface components {
         /** @description Encrypted admin key */
         AdminKey: string;
         /** @enum {string} */
-        CreateDeploymentType: "dev" | "prod" | "custom";
+        CreateDeploymentType: "dev" | "prod" | "preview" | "custom";
         /** @enum {string} */
         DeploymentClass: "s16" | "s256" | "d1024";
         DeploymentClassMetadata: {
