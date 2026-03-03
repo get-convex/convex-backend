@@ -96,6 +96,9 @@ export interface components {
         }) | (components["schemas"]["StorageUsageEvent"] & {
             /** @enum {string} */
             topic: "current_storage_usage";
+        }) | (components["schemas"]["StorageApiBandwidthEvent"] & {
+            /** @enum {string} */
+            topic: "storage_api_bandwidth";
         });
         ScheduledJobLagEvent: {
             /** Format: int64 */
@@ -108,6 +111,13 @@ export interface components {
             lag_seconds: number;
             /** Format: int64 */
             num_running_jobs: number;
+            /** Format: int64 */
+            timestamp: number;
+        };
+        StorageApiBandwidthEvent: {
+            /** Format: int64 */
+            egress_bytes: number;
+            storage_id: string;
             /** Format: int64 */
             timestamp: number;
         };
@@ -143,6 +153,7 @@ export type FunctionExecutionEvent = components['schemas']['FunctionExecutionEve
 export type LogStreamEvent = components['schemas']['LogStreamEvent'];
 export type ScheduledJobLagEvent = components['schemas']['ScheduledJobLagEvent'];
 export type SchedulerStatsEvent = components['schemas']['SchedulerStatsEvent'];
+export type StorageApiBandwidthEvent = components['schemas']['StorageApiBandwidthEvent'];
 export type StorageUsageEvent = components['schemas']['StorageUsageEvent'];
 export type VerificationEvent = components['schemas']['VerificationEvent'];
 export type $defs = Record<string, never>;

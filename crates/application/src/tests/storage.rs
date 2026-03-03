@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
@@ -8,6 +10,9 @@ use common::{
         RequestDestination,
         ResolvedHostname,
     },
+    knobs,
+    log_streaming::StructuredLogEvent,
+    runtime::Runtime,
     types::{
         BackendState,
         FunctionCaller,
@@ -15,11 +20,20 @@ use common::{
     RequestId,
 };
 use errors::ErrorMetadataAnyhowExt;
-use futures::stream;
+use futures::{
+    stream,
+    StreamExt,
+};
 use keybroker::Identity;
+use log_streaming::sinks::mock_sink::MOCK_SINK_EVENTS_BUFFER;
 use model::{
     backend_state::BackendStateModel,
     canonical_urls::types::CanonicalUrl,
+    file_storage::FileStorageId,
+    log_sinks::{
+        types::SinkConfig,
+        LogSinksModel,
+    },
 };
 use must_let::must_let;
 use runtime::testing::TestRuntime;
@@ -278,6 +292,125 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
         .await??;
     must_let!(let ConvexValue::String(url) = action_result.value.unpack()?);
     assert!(url.starts_with("https://carnitas.convex.cloud/api/storage/upload?token="));
+
+    Ok(())
+}
+
+/// Wait for log aggregation and return storage bandwidth events from the mock
+/// sink buffer.
+async fn collect_storage_bandwidth_events(rt: &TestRuntime) -> Vec<(String, u64)> {
+    rt.wait(Duration::from_millis(
+        *knobs::LOG_MANAGER_AGGREGATION_INTERVAL_MILLIS,
+    ))
+    .await;
+    MOCK_SINK_EVENTS_BUFFER
+        .read()
+        .iter()
+        .filter_map(|e| match &e.event {
+            StructuredLogEvent::StorageApiBandwidth {
+                storage_id,
+                egress_bytes,
+            } => Some((storage_id.clone(), *egress_bytes)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[convex_macro::test_runtime]
+async fn test_storage_api_bandwidth_log_events(rt: TestRuntime) -> anyhow::Result<()> {
+    use std::ops::Bound;
+
+    let app = Application::new_for_tests(&rt).await?;
+
+    // Set up mock log sink.
+    MOCK_SINK_EVENTS_BUFFER.write().clear();
+    let mut tx = app.begin(Identity::system()).await?;
+    let mut model = LogSinksModel::new(&mut tx);
+    model.add_or_update(SinkConfig::Mock).await?;
+    app.commit_test(tx).await?;
+    rt.wait(Duration::from_secs(1)).await;
+
+    // --- Test 1: get_file full read emits bandwidth event ---
+    let file_body = Box::pin(stream::once(async {
+        Ok(bytes::Bytes::from(vec![42u8; 2048]))
+    }));
+    let doc_id = app
+        .store_file(ComponentId::Root, None, None, None, file_body)
+        .await?;
+
+    let mut file_stream = app
+        .get_file(ComponentId::Root, FileStorageId::DocumentId(doc_id))
+        .await?;
+    let mut total = 0u64;
+    while let Some(chunk) = file_stream.next().await {
+        total += chunk?.len() as u64;
+    }
+    drop(file_stream);
+    assert_eq!(total, 2048);
+
+    let events = collect_storage_bandwidth_events(&rt).await;
+    assert_eq!(events.len(), 1, "expected one event after full read");
+    assert_eq!(
+        events[0].0,
+        doc_id.to_string(),
+        "storage_id should be document ID"
+    );
+    assert_eq!(events[0].1, 2048);
+
+    // --- Test 2: get_file partial read still emits event ---
+    MOCK_SINK_EVENTS_BUFFER.write().clear();
+
+    let file_body = Box::pin(stream::once(async {
+        Ok(bytes::Bytes::from(vec![7u8; 4096]))
+    }));
+    let doc_id = app
+        .store_file(ComponentId::Root, None, None, None, file_body)
+        .await?;
+
+    let mut file_stream = app
+        .get_file(ComponentId::Root, FileStorageId::DocumentId(doc_id))
+        .await?;
+    let _first_chunk = file_stream.next().await;
+    // Drop without fully consuming.
+    drop(file_stream);
+
+    let events = collect_storage_bandwidth_events(&rt).await;
+    assert_eq!(events.len(), 1, "expected one event after partial read");
+    assert_eq!(
+        events[0].0,
+        doc_id.to_string(),
+        "storage_id should be document ID"
+    );
+    assert!(events[0].1 > 0, "should have streamed some bytes");
+
+    // --- Test 3: get_file_range emits bandwidth event ---
+    MOCK_SINK_EVENTS_BUFFER.write().clear();
+
+    let file_body = Box::pin(stream::once(async {
+        Ok(bytes::Bytes::from(vec![99u8; 4096]))
+    }));
+    let doc_id = app
+        .store_file(ComponentId::Root, None, None, None, file_body)
+        .await?;
+
+    let range = (Bound::Included(0), Bound::Included(1023));
+    let mut file_stream = app
+        .get_file_range(ComponentId::Root, FileStorageId::DocumentId(doc_id), range)
+        .await?;
+    let mut total = 0u64;
+    while let Some(chunk) = file_stream.next().await {
+        total += chunk?.len() as u64;
+    }
+    drop(file_stream);
+
+    let events = collect_storage_bandwidth_events(&rt).await;
+    assert_eq!(events.len(), 1, "expected one event after range read");
+    assert_eq!(
+        events[0].0,
+        doc_id.to_string(),
+        "storage_id should be document ID"
+    );
+    assert_eq!(events[0].1, total);
 
     Ok(())
 }

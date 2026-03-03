@@ -77,7 +77,6 @@ use crate::{
         log_get_file_chunk_size,
         GetFileType,
     },
-    FileRangeStream,
     FileStorage,
     FileStream,
     TransactionalFileStorage,
@@ -234,7 +233,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     ) -> anyhow::Result<FileStream> {
         let sha256 = file.sha256.clone();
 
-        let result = self
+        let mut result = self
             .file_stream(
                 component_path,
                 file,
@@ -243,13 +242,9 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
                 GetFileType::All,
             )
             .await?;
-
-        Ok(FileStream {
-            sha256,
-            content_length: result.content_length,
-            content_type: result.content_type,
-            stream: result.stream,
-        })
+        result.sha256 = Some(sha256);
+        result.content_range = None;
+        Ok(result)
     }
 
     pub async fn get_file_range_stream(
@@ -258,7 +253,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         file: FileStorageEntry,
         bytes_range: (Bound<u64>, Bound<u64>),
         usage_tracker: impl StorageUsageTracker + Clone + 'static,
-    ) -> anyhow::Result<FileRangeStream> {
+    ) -> anyhow::Result<FileStream> {
         self.file_stream(
             component_path,
             file,
@@ -276,7 +271,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         bytes_range: (Bound<u64>, Bound<u64>),
         usage_tracker: impl StorageUsageTracker + Clone + 'static,
         get_file_type: GetFileType,
-    ) -> anyhow::Result<FileRangeStream> {
+    ) -> anyhow::Result<FileStream> {
         let FileStorageEntry {
             storage_id,
             storage_key,
@@ -308,11 +303,14 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
             )
             .await;
 
-        Ok(FileRangeStream {
+        Ok(FileStream {
+            sha256: None,
             content_length,
             content_range,
             content_type,
-            stream: Self::track_stream_usage(component_path, stream, get_file_type, call_tracker),
+            inner: Self::track_stream_usage(component_path, stream, get_file_type, call_tracker),
+            bytes_read_so_far: 0,
+            on_complete: Vec::new(),
         })
     }
 

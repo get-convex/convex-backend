@@ -185,6 +185,12 @@ pub enum StructuredLogEvent {
         node_action: FunctionConcurrencyStats,
         http_action: FunctionConcurrencyStats,
     },
+    /// Topic for storage API bandwidth. These are emitted for direct
+    /// /api/storage/* calls (not UDF-attributed storage operations).
+    StorageApiBandwidth {
+        storage_id: String,
+        egress_bytes: u64,
+    },
     // User-specified topics -- not yet implemented.
     // See here for more details: https://www.notion.so/Log-Streaming-in-Convex-19a1dfadd6924c33b29b2796b0f5b2e2
     // User {
@@ -417,6 +423,15 @@ impl LogEvent {
                     "node_action": node_action,
                     "http_action": http_action,
                 }),
+                StructuredLogEvent::StorageApiBandwidth {
+                    storage_id,
+                    egress_bytes,
+                } => serialize_map!({
+                    "_timestamp": ms,
+                    "_topic": "_storage_api_bandwidth",
+                    "storage_id": storage_id,
+                    "egress_bytes": egress_bytes
+                }),
             },
             LogEventFormatVersion::V2 => match &self.event {
                 StructuredLogEvent::Verification => {
@@ -586,6 +601,17 @@ impl LogEvent {
                         "action": action,
                         "node_action": node_action,
                         "http_action": http_action,
+                    })
+                },
+                StructuredLogEvent::StorageApiBandwidth {
+                    storage_id,
+                    egress_bytes,
+                } => {
+                    serialize_map!({
+                        "timestamp": ms,
+                        "topic": "storage_api_bandwidth",
+                        "storage_id": storage_id,
+                        "egress_bytes": egress_bytes
                     })
                 },
             },
@@ -939,6 +965,14 @@ mod tests {
         total_backup_storage_bytes: u64,
     }
 
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+    #[allow(dead_code)]
+    struct StorageApiBandwidthEvent {
+        timestamp: u64,
+        storage_id: String,
+        egress_bytes: u64,
+    }
+
     // Union type for all log events, discriminated by topic field
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
     #[serde(tag = "topic")]
@@ -958,6 +992,8 @@ mod tests {
         ScheduledJobLag(ScheduledJobLagEvent),
         #[serde(rename = "current_storage_usage")]
         CurrentStorageUsage(StorageUsageEvent),
+        #[serde(rename = "storage_api_bandwidth")]
+        StorageApiBandwidth(StorageApiBandwidthEvent),
     }
 
     #[test]
@@ -1080,6 +1116,18 @@ mod tests {
             .to_json_map(LogEventFormatVersion::V2)?,
         )?;
         let _: LogStreamEvent = serde_json::from_value(job_lag_json)?;
+
+        let storage_bandwidth_json = serde_json::to_value(
+            &LogEvent {
+                timestamp: UnixTimestamp::from_millis(7000),
+                event: StructuredLogEvent::StorageApiBandwidth {
+                    storage_id: "storage-uuid-123".to_string(),
+                    egress_bytes: 2048,
+                },
+            }
+            .to_json_map(LogEventFormatVersion::V2)?,
+        )?;
+        let _: LogStreamEvent = serde_json::from_value(storage_bandwidth_json)?;
 
         Ok(())
     }

@@ -30,10 +30,7 @@ use database::{
     Subscription,
     Token,
 };
-use file_storage::{
-    FileRangeStream,
-    FileStream,
-};
+use file_storage::FileStream;
 use futures::{
     future::BoxFuture,
     stream::BoxStream,
@@ -237,7 +234,7 @@ pub trait ApplicationApi: Send + Sync {
         component: ComponentId,
         file_storage_id: FileStorageId,
         range: (Bound<u64>, Bound<u64>),
-    ) -> anyhow::Result<FileRangeStream>;
+    ) -> anyhow::Result<FileStream>;
 
     async fn get_file(
         &self,
@@ -523,7 +520,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         component: ComponentId,
         file_storage_id: FileStorageId,
         range: (Bound<u64>, Bound<u64>),
-    ) -> anyhow::Result<FileRangeStream> {
+    ) -> anyhow::Result<FileStream> {
         self.get_file_range(component, file_storage_id, range).await
     }
 

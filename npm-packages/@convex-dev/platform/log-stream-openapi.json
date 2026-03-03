@@ -451,6 +451,27 @@
                 }
               }
             ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StorageApiBandwidthEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "storage_api_bandwidth"
+                    ]
+                  }
+                }
+              }
+            ]
           }
         ]
       },
@@ -490,6 +511,29 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "StorageApiBandwidthEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "storage_id",
+          "egress_bytes"
+        ],
+        "properties": {
+          "egress_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "storage_id": {
+            "type": "string"
           },
           "timestamp": {
             "type": "integer",

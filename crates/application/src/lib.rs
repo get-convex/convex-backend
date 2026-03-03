@@ -94,7 +94,11 @@ use common::{
         MAX_USER_MODULES,
     },
     log_lines::LogLines,
-    log_streaming::LogSender,
+    log_streaming::{
+        LogEvent,
+        LogSender,
+        StructuredLogEvent,
+    },
     paths::FieldPath,
     persistence::Persistence,
     query::{
@@ -168,7 +172,6 @@ use fastrace::{
     Span,
 };
 use file_storage::{
-    FileRangeStream,
     FileStorage,
     FileStream,
 };
@@ -257,6 +260,7 @@ use model::{
     file_storage::{
         types::FileStorageEntry,
         FileStorageId,
+        FileStorageModel,
     },
     fivetran_import::FivetranImportModel,
     migrations::MigrationWorker,
@@ -2764,11 +2768,8 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<FileStream> {
         self.bail_if_not_running().await?;
         let mut file_storage_tx = self.begin(Identity::system()).await?;
-        let Some(file_entry) = self
-            .file_storage
-            .transactional_file_storage
-            // The transaction is not part of UDF so use the global usage counters.
-            .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
+        let Some(parsed_doc) = FileStorageModel::new(&mut file_storage_tx, component.into())
+            .get_file(storage_id.clone())
             .await?
         else {
             return Err(ErrorMetadata::not_found(
@@ -2784,12 +2785,28 @@ impl<RT: Runtime> Application<RT> {
             )
             .into());
         };
-        self
+        let doc_id = parsed_doc.developer_id().to_string();
+        let file_entry = parsed_doc.into_value();
+        let mut file_stream = self
             .file_storage
             .transactional_file_storage
             // The transaction is not part of UDF so use the global usage counters.
             .get_file_stream(component_path, file_entry, self.usage_counter.clone())
-            .await
+            .await?;
+        let log_manager_client = self.log_manager_client.clone();
+        file_stream.add_on_complete(Box::new(move |egress_bytes| {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time before epoch");
+            log_manager_client.send_logs(vec![LogEvent {
+                timestamp: UnixTimestamp::from_millis(now.as_millis() as u64),
+                event: StructuredLogEvent::StorageApiBandwidth {
+                    storage_id: doc_id,
+                    egress_bytes,
+                },
+            }]);
+        }));
+        Ok(file_stream)
     }
 
     pub async fn get_file_range(
@@ -2797,15 +2814,12 @@ impl<RT: Runtime> Application<RT> {
         component: ComponentId,
         storage_id: FileStorageId,
         bytes_range: (Bound<u64>, Bound<u64>),
-    ) -> anyhow::Result<FileRangeStream> {
+    ) -> anyhow::Result<FileStream> {
         self.bail_if_not_running().await?;
         let mut file_storage_tx = self.begin(Identity::system()).await?;
 
-        let Some(file_entry) = self
-            .file_storage
-            .transactional_file_storage
-            // The transaction is not part of UDF so use the global usage counters.
-            .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
+        let Some(parsed_doc) = FileStorageModel::new(&mut file_storage_tx, component.into())
+            .get_file(storage_id.clone())
             .await?
         else {
             return Err(ErrorMetadata::not_found(
@@ -2821,8 +2835,9 @@ impl<RT: Runtime> Application<RT> {
             )
             .into());
         };
-
-        self
+        let doc_id = parsed_doc.developer_id().to_string();
+        let file_entry = parsed_doc.into_value();
+        let mut file_stream = self
             .file_storage
             .transactional_file_storage
             // The transaction is not part of UDF so use the global usage counters.
@@ -2832,7 +2847,21 @@ impl<RT: Runtime> Application<RT> {
                 bytes_range,
                 self.usage_counter.clone(),
             )
-            .await
+            .await?;
+        let log_manager_client = self.log_manager_client.clone();
+        file_stream.add_on_complete(Box::new(move |egress_bytes| {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time before epoch");
+            log_manager_client.send_logs(vec![LogEvent {
+                timestamp: UnixTimestamp::from_millis(now.as_millis() as u64),
+                event: StructuredLogEvent::StorageApiBandwidth {
+                    storage_id: doc_id,
+                    egress_bytes,
+                },
+            }]);
+        }));
+        Ok(file_stream)
     }
 
     pub async fn authenticate(

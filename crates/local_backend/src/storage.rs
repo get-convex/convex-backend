@@ -44,10 +44,6 @@ use common::{
     sha256::DigestHeader,
 };
 use errors::ErrorMetadata;
-use file_storage::{
-    FileRangeStream,
-    FileStream,
-};
 use futures::StreamExt;
 use http::StatusCode;
 use model::file_storage::FileStorageId;
@@ -176,17 +172,14 @@ pub async fn storage_get(
         }
         let range = ranges[0];
 
-        let FileRangeStream {
-            content_length,
-            content_range,
-            content_type,
-            stream,
-        } = st
+        let file_stream = st
             .api
             .get_file_range(&host, request_id, origin, component, file_storage_id, range)
             .await?;
 
-        let (status, content_range) = match content_range {
+        let content_length = file_stream.content_length;
+        let content_type = file_stream.content_type.clone();
+        let (status, content_range) = match file_stream.content_range.clone() {
             Some(content_range) => (
                 StatusCode::PARTIAL_CONTENT,
                 Some(TypedHeader(content_range)),
@@ -205,22 +198,20 @@ pub async fn storage_get(
                     .with_max_age(MAX_CACHE_AGE),
             ),
             TypedHeader(AcceptRanges::bytes()),
-            Body::from_stream(stream),
+            Body::from_stream(file_stream),
         )
             .into_response());
     }
 
-    let FileStream {
-        sha256,
-        content_type,
-        content_length,
-        stream,
-    } = st
+    let file_stream = st
         .api
         .get_file(&host, request_id, origin, component, file_storage_id)
         .await?;
+    let sha256 = file_stream.sha256.clone();
+    let content_type = file_stream.content_type.clone();
+    let content_length = file_stream.content_length;
     Ok((
-        TypedHeader(DigestHeader(sha256)),
+        sha256.map(|sha256| TypedHeader(DigestHeader(sha256))),
         content_type.map(TypedHeader),
         TypedHeader(content_length),
         TypedHeader(
@@ -229,7 +220,7 @@ pub async fn storage_get(
                 .with_max_age(MAX_CACHE_AGE),
         ),
         TypedHeader(AcceptRanges::bytes()),
-        Body::from_stream(stream),
+        Body::from_stream(file_stream),
     )
         .into_response())
 }
