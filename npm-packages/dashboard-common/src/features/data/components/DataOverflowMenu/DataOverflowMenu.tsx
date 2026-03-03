@@ -40,6 +40,10 @@ export function DataOverflowMenu({
     tableSchemaStatus?.isDefined ||
     tableSchemaStatus?.referencedByTable !== undefined;
 
+  const isInInProgressSchema =
+    tableSchemaStatus?.isValidationRunning &&
+    tableSchemaStatus?.isDefinedInInProgressSchema;
+
   const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
     DeploymentInfoContext,
   );
@@ -100,6 +104,8 @@ export function DataOverflowMenu({
             "Cannot delete tables in an unmounted component."
           ) : isInSchema ? (
             <RemoveTableFromSchemaTip tableSchemaStatus={tableSchemaStatus} />
+          ) : isInInProgressSchema ? (
+            "Cannot delete table while schema validation is in progress."
           ) : !canManageTable ? (
             "You do not have permission to delete tables in production."
           ) : undefined
@@ -111,7 +117,7 @@ export function DataOverflowMenu({
           isInSchema ||
           !canManageTable ||
           isInUnmountedComponent ||
-          tableSchemaStatus?.isValidationRunning
+          isInInProgressSchema
         }
       >
         <TrashIcon />

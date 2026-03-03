@@ -416,7 +416,7 @@ describe("DataToolbar", () => {
     return deleteTableButton;
   };
 
-  it("has disabled delete table button while waiting for schemas", async () => {
+  it("has enabled delete table button while waiting for schemas if table is not in the in-progress schema", async () => {
     const deleteTableButton = await openMenuAndReturnDeleteTableButton(
       {},
       {
@@ -424,6 +424,22 @@ describe("DataToolbar", () => {
           tableName: "messages",
           isDefined: false,
           isDefinedInInProgressSchema: false,
+          isValidationRunning: true,
+          referencedByTable: undefined,
+        },
+      },
+    );
+    expect(deleteTableButton).toBeEnabled();
+  });
+
+  it("has disabled delete table button while waiting for schemas if table is in the in-progress schema", async () => {
+    const deleteTableButton = await openMenuAndReturnDeleteTableButton(
+      {},
+      {
+        tableSchemaStatus: {
+          tableName: "messages",
+          isDefined: false,
+          isDefinedInInProgressSchema: true,
           isValidationRunning: true,
           referencedByTable: undefined,
         },
