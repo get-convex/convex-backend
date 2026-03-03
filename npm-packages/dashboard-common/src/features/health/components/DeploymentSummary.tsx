@@ -18,6 +18,7 @@ import {
   CodeIcon,
   ExternalLinkIcon,
 } from "@radix-ui/react-icons";
+import { CopyButton } from "@common/elements/CopyButton";
 import Link from "next/link";
 import { useContext, useEffect, useState } from "react";
 import semver from "semver";
@@ -375,27 +376,41 @@ export function DeploymentSummary({
               <span className="text-xs font-medium text-content-secondary">
                 Cloud URL
               </span>
-              <Link
-                href={convexCloudUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-content-link hover:underline"
-              >
-                {convexCloudUrl}
-              </Link>
+              <div className="flex items-center gap-1">
+                <Link
+                  href={convexCloudUrl!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-xs break-all text-content-link hover:underline"
+                >
+                  {convexCloudUrl}
+                </Link>
+                <CopyButton
+                  text={convexCloudUrl!}
+                  inline
+                  tip="Copy Cloud URL"
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-content-secondary">
                 HTTP Actions URL
               </span>
-              <Link
-                href={convexSiteUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-content-link hover:underline"
-              >
-                {convexSiteUrl}
-              </Link>
+              <div className="flex items-center gap-1">
+                <Link
+                  href={convexSiteUrl!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-xs break-all text-content-link hover:underline"
+                >
+                  {convexSiteUrl}
+                </Link>
+                <CopyButton
+                  text={convexSiteUrl!}
+                  inline
+                  tip="Copy HTTP Actions URL"
+                />
+              </div>
             </div>
           </div>
         )}
