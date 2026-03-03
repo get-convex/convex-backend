@@ -10,6 +10,7 @@ use common::{
         database_operational_error,
         database_timeout_error,
         DatabaseOperationalError,
+        DatabaseTimeoutError,
     },
     fastrace_helpers::FutureExt as _,
     knobs::{
@@ -25,6 +26,7 @@ use common::{
     },
     runtime::{
         assert_send,
+        tokio_spawn,
         Runtime,
     },
 };
@@ -261,6 +263,22 @@ async fn with_retries<R, RT: Runtime>(
         match f(conn).await {
             Err(e) if e.is::<DatabaseOperationalError>() => {
                 tracing::warn!("Retrying after MySQL error: {e:#}");
+            },
+            Err(e) if e.is::<DatabaseTimeoutError>() => {
+                // The mysql protocol doesn't support cancellation, so if a
+                // query times out on the client, the connection can't be reused
+                // until the server responds to the query.
+                // So don't return the connection to the pool.
+                let old_conn = mem::replace(conn, pool.acquire_internal().await?);
+                tokio_spawn("disconnect_mysql_timeout_conn", async move {
+                    // Disconnecting the connection could take a long time as well,
+                    // so do it in the background.
+                    if let Err(e) = old_conn.disconnect().await {
+                        tracing::warn!("Error disconnecting timed out MySQL connection: {e}");
+                    }
+                });
+                // Don't retry here as we want the caller to receive some backpressure.
+                return Err(e);
             },
             r => return r,
         }
