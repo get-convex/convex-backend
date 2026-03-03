@@ -540,10 +540,7 @@ function hasUseNodeDirective(ctx: Context, fpath: string): boolean {
 
 function containsDynamicImport(node: any): boolean {
   if (!node || typeof node !== "object") return false;
-  if (
-    node.type === "CallExpression" &&
-    node.callee?.type === "Import"
-  ) {
+  if (node.type === "CallExpression" && node.callee?.type === "Import") {
     return true;
   }
   for (const key of Object.keys(node)) {

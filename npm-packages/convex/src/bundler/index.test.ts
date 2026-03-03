@@ -266,14 +266,11 @@ test("hasDynamicImport detects dynamic import in TypeScript", () => {
 });
 
 test("entryPointsByEnvironment rejects isolate files with dynamic imports", async () => {
-  const fixtureDir =
-    dirname + "/test_fixtures/js/project_with_dynamic_import";
+  const fixtureDir = dirname + "/test_fixtures/js/project_with_dynamic_import";
   const ctx = await getDefaultCtx();
-  const exitSpy = vi
-    .spyOn(process, "exit")
-    .mockImplementation(() => {
-      throw new Error("process.exit called");
-    });
+  const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+    throw new Error("process.exit called");
+  });
   await expect(entryPointsByEnvironment(ctx, fixtureDir)).rejects.toThrow(
     "process.exit called",
   );
