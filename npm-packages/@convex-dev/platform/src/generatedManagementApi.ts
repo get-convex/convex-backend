@@ -423,50 +423,6 @@ export interface components {
             displayName: string;
             name: components["schemas"]["RegionName"];
         };
-        DeploymentResponse: {
-            /** Format: int64 */
-            createTime: number;
-            creator?: null | components["schemas"]["MemberId"];
-            dashboardEditConfirmation?: boolean | null;
-            deploymentType: components["schemas"]["DeploymentType"];
-            /**
-             * Format: int64
-             * @description Timestamp in milliseconds when this deployment will be
-             *     deleted. Preview deployments have this set by default unless
-             *     overridden.
-             */
-            expiresAt?: number | null;
-            id: components["schemas"]["DeploymentId"];
-            isDefault: components["schemas"]["IsDefaultDeployment"];
-            /** @enum {string} */
-            kind: "cloud";
-            /** Format: int64 */
-            lastDeployTime?: number | null;
-            name: string;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            projectId: components["schemas"]["ProjectId"];
-            reference: components["schemas"]["DeploymentReference"];
-            region: components["schemas"]["RegionName"];
-        } | {
-            /** Format: int64 */
-            createTime: number;
-            creator: components["schemas"]["MemberId"];
-            deploymentType: components["schemas"]["DeploymentType"];
-            deviceName: components["schemas"]["DeviceName"];
-            /** Format: int64 */
-            id: number;
-            isActive: boolean;
-            isDefault: components["schemas"]["IsDefaultDeployment"];
-            /** @enum {string} */
-            kind: "local";
-            /** Format: int64 */
-            lastUpdateTime: number;
-            name: string;
-            /** Format: int32 */
-            port: number;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            projectId: components["schemas"]["ProjectId"];
-        };
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview" | "custom";
         DeviceName: string;
@@ -760,7 +716,6 @@ export type DeploymentClassMetadata = components['schemas']['DeploymentClassMeta
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentReference = components['schemas']['DeploymentReference'];
 export type DeploymentRegionMetadata = components['schemas']['DeploymentRegionMetadata'];
-export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
@@ -1002,7 +957,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeploymentResponse"];
+                    "application/json": components["schemas"]["PlatformDeploymentResponse"];
                 };
             };
         };

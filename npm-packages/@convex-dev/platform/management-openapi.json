@@ -100,7 +100,7 @@
             "OAuth Team Token": []
           },
           {
-            "Team Tokens": []
+            "Team Token": []
           }
         ]
       }
@@ -409,12 +409,23 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeploymentResponse"
+                  "$ref": "#/components/schemas/PlatformDeploymentResponse"
                 }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       },
       "patch": {
         "summary": "Update deployment",
@@ -483,7 +494,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
       }
     },
     "/teams/{team_id}/list_deployment_regions": {
@@ -816,7 +835,15 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
       }
     }
   },
@@ -884,171 +911,6 @@
             "$ref": "#/components/schemas/RegionName"
           }
         }
-      },
-      "DeploymentResponse": {
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "id",
-              "name",
-              "createTime",
-              "deploymentType",
-              "projectId",
-              "region",
-              "isDefault",
-              "reference",
-              "kind"
-            ],
-            "properties": {
-              "createTime": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "creator": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/MemberId"
-                  }
-                ]
-              },
-              "dashboardEditConfirmation": {
-                "type": [
-                  "boolean",
-                  "null"
-                ]
-              },
-              "deploymentType": {
-                "$ref": "#/components/schemas/DeploymentType"
-              },
-              "expiresAt": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "int64",
-                "description": "Timestamp in milliseconds when this deployment will be\ndeleted. Preview deployments have this set by default unless\noverridden."
-              },
-              "id": {
-                "$ref": "#/components/schemas/DeploymentId"
-              },
-              "isDefault": {
-                "$ref": "#/components/schemas/IsDefaultDeployment"
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "cloud"
-                ]
-              },
-              "lastDeployTime": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "int64"
-              },
-              "name": {
-                "type": "string"
-              },
-              "previewIdentifier": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
-                  }
-                ]
-              },
-              "projectId": {
-                "$ref": "#/components/schemas/ProjectId"
-              },
-              "reference": {
-                "$ref": "#/components/schemas/DeploymentReference"
-              },
-              "region": {
-                "$ref": "#/components/schemas/RegionName"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "id",
-              "name",
-              "createTime",
-              "deploymentType",
-              "projectId",
-              "creator",
-              "port",
-              "lastUpdateTime",
-              "deviceName",
-              "isActive",
-              "isDefault",
-              "kind"
-            ],
-            "properties": {
-              "createTime": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "creator": {
-                "$ref": "#/components/schemas/MemberId"
-              },
-              "deploymentType": {
-                "$ref": "#/components/schemas/DeploymentType"
-              },
-              "deviceName": {
-                "$ref": "#/components/schemas/DeviceName"
-              },
-              "id": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "isActive": {
-                "type": "boolean"
-              },
-              "isDefault": {
-                "$ref": "#/components/schemas/IsDefaultDeployment"
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "local"
-                ]
-              },
-              "lastUpdateTime": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "name": {
-                "type": "string"
-              },
-              "port": {
-                "type": "integer",
-                "format": "int32",
-                "minimum": 0
-              },
-              "previewIdentifier": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
-                  }
-                ]
-              },
-              "projectId": {
-                "$ref": "#/components/schemas/ProjectId"
-              }
-            }
-          }
-        ]
       },
       "DeploymentType": {
         "type": "string",
