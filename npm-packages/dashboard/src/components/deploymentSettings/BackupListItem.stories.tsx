@@ -28,6 +28,7 @@ const backup: BackupResponse = {
 
 const targetDeployment: PlatformDeploymentResponse = {
   kind: "cloud",
+  class: "s16",
   id: 1,
   name: "joyful-capybara-123",
   deploymentUrl: "https://joyful-capybara-123.convex.cloud",

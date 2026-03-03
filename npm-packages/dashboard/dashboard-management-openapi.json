@@ -4398,6 +4398,7 @@
               "region",
               "isDefault",
               "reference",
+              "deploymentClass",
               "kind"
             ],
             "properties": {
@@ -4420,6 +4421,10 @@
                   "boolean",
                   "null"
                 ]
+              },
+              "deploymentClass": {
+                "type": "string",
+                "description": "The deployment class for this deployment."
               },
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType"

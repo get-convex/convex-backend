@@ -1207,9 +1207,14 @@
               "isDefault",
               "reference",
               "deploymentUrl",
+              "class",
               "kind"
             ],
             "properties": {
+              "class": {
+                "type": "string",
+                "description": "The deployment class for this deployment."
+              },
               "createTime": {
                 "type": "integer",
                 "format": "int64",

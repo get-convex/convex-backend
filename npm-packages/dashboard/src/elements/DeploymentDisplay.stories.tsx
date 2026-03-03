@@ -36,6 +36,7 @@ function createCloudDeployment(
     createTime: Date.now(),
     projectId: 1,
     kind: "cloud",
+    class: "s16",
     region: "us-east-1",
     isDefault: true,
     deploymentUrl: `https://${overrides.name}.convex.cloud`,

@@ -39,6 +39,7 @@ const prodDeployment: PlatformDeploymentResponse = {
   deploymentType: "prod",
   projectId: 1,
   kind: "cloud",
+  class: "s16",
   region: "aws-us-east-1",
   createTime: Date.now() - 1000 * 60 * 60 * 24 * 7, // 1 week ago
   isDefault: true,
@@ -54,6 +55,7 @@ const devCloudDeployment: PlatformDeploymentResponse = {
   deploymentType: "dev",
   projectId: 1,
   kind: "cloud",
+  class: "s16",
   region: "aws-eu-west-1",
   createTime: Date.now() - 1000 * 60 * 60 * 24 * 2, // 2 days ago
   isDefault: false,
@@ -82,6 +84,7 @@ const previewDeployment: PlatformDeploymentResponse = {
   deploymentType: "preview",
   projectId: 1,
   kind: "cloud",
+  class: "s16",
   region: "aws-us-east-1",
   createTime: Date.now() - 1000 * 60 * 60 * 12, // 12 hours ago
   isDefault: false,
@@ -97,6 +100,7 @@ const customDeployment: PlatformDeploymentResponse = {
   deploymentType: "custom",
   projectId: 1,
   kind: "cloud",
+  class: "s16",
   region: "aws-us-east-1",
   createTime: Date.now() - 1000 * 60 * 60 * 24 * 30, // 30 days ago
   isDefault: false,

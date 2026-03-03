@@ -37,6 +37,7 @@ function createCloudDeployment(
     createTime: Date.now(),
     projectId: 1,
     kind: "cloud",
+    deploymentClass: "s16",
     region: "us-east-1",
     isDefault: false,
     ...overrides,

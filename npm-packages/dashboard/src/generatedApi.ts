@@ -2161,7 +2161,16 @@ export interface components {
             createTime: number;
             creator?: null | components["schemas"]["MemberId"];
             dashboardEditConfirmation?: boolean | null;
+            /** @description The deployment class for this deployment. */
+            deploymentClass: string;
             deploymentType: components["schemas"]["DeploymentType"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be
+             *     deleted. Preview deployments have this set by default unless
+             *     overridden.
+             */
+            expiresAt?: number | null;
             id: components["schemas"]["DeploymentId"];
             isDefault: components["schemas"]["IsDefaultDeployment"];
             /** @enum {string} */

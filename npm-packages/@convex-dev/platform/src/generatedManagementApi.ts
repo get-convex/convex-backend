@@ -527,6 +527,8 @@ export interface components {
             name: string;
         };
         PlatformDeploymentResponse: {
+            /** @description The deployment class for this deployment. */
+            class: string;
             /**
              * Format: int64
              * @description Timestamp in milliseconds when this deployment was created.

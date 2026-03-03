@@ -51,6 +51,7 @@ export const ProductionCloud: Story = {
   args: {
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "happy-animal-123",
       deploymentType: "prod",
       createTime: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
@@ -68,6 +69,7 @@ export const DevelopmentCloudMine: Story = {
   args: {
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "clever-otter-456",
       deploymentType: "dev",
       createTime: Date.now() - 30 * 60 * 1000, // 30 minutes ago
@@ -86,6 +88,7 @@ export const DevelopmentCloudTeammate: Story = {
   args: {
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "playful-koala-789",
       deploymentType: "dev",
       createTime: Date.now() - 4 * 60 * 60 * 1000, // 4 hours ago
@@ -121,6 +124,7 @@ export const Preview: Story = {
   args: {
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "preview-feature-123",
       deploymentType: "preview",
       createTime: Date.now() - 1 * 60 * 60 * 1000, // 1 hour ago
@@ -139,6 +143,7 @@ export const Custom: Story = {
   args: {
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "custom-staging-789",
       deploymentType: "custom",
       createTime: Date.now() - 24 * 60 * 60 * 1000, // 1 day ago
@@ -157,6 +162,7 @@ export const UntitledProject: Story = {
     project: projectUntitled,
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "wonderful-panda-999",
       deploymentType: "prod",
       createTime: Date.now() - 3 * 60 * 60 * 1000, // 3 hours ago
@@ -179,6 +185,7 @@ export const LongProjectName: Story = {
     },
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "happy-animal-123",
       deploymentType: "dev",
       createTime: Date.now() - 5 * 60 * 1000, // 5 minutes ago
@@ -196,6 +203,7 @@ export const OldDeployment: Story = {
   args: {
     deployment: {
       kind: "cloud",
+      class: "s16",
       name: "ancient-tortoise-111",
       deploymentType: "prod",
       createTime: Date.now() - 365 * 24 * 60 * 60 * 1000, // 1 year ago

@@ -57,6 +57,7 @@ const deployments: PlatformDeploymentResponse[] = [
     region: "aws-us-east-1",
     isDefault: true,
     reference: "dev/nicolas",
+    class: "s16",
   },
   {
     kind: "cloud",
@@ -71,6 +72,7 @@ const deployments: PlatformDeploymentResponse[] = [
     region: "aws-us-east-1",
     isDefault: true,
     reference: "dev/ari",
+    class: "s16",
   },
   {
     kind: "cloud",
@@ -85,6 +87,7 @@ const deployments: PlatformDeploymentResponse[] = [
     region: "aws-us-east-1",
     isDefault: true,
     reference: "production",
+    class: "s16",
   },
   {
     kind: "cloud",
@@ -99,6 +102,7 @@ const deployments: PlatformDeploymentResponse[] = [
     region: "aws-us-east-1",
     isDefault: false,
     reference: "staging",
+    class: "s16",
   },
 ];
 
