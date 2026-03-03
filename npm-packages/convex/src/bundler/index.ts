@@ -570,6 +570,47 @@ export function hasDynamicImport(source: string): boolean {
   }
 }
 
+function importsQueryOrMutation(source: string): boolean {
+  if (
+    !source.includes("query") &&
+    !source.includes("mutation") &&
+    !source.includes("internalQuery") &&
+    !source.includes("internalMutation")
+  ) {
+    return false;
+  }
+  try {
+    const ast = parseAST(source, {
+      sourceType: "module",
+      plugins: ["jsx", "typescript"],
+    });
+    for (const node of ast.program.body) {
+      if (node.type !== "ImportDeclaration") continue;
+      for (const specifier of node.specifiers) {
+        if (specifier.type !== "ImportSpecifier") continue;
+        const imported = specifier.imported as Identifier;
+        const name = imported.name;
+        if (
+          name === "query" ||
+          name === "mutation" ||
+          name === "internalQuery" ||
+          name === "internalMutation"
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch {
+    return (
+      source.includes("query") ||
+      source.includes("mutation") ||
+      source.includes("internalQuery") ||
+      source.includes("internalMutation")
+    );
+  }
+}
+
 export function mustBeIsolate(relPath: string): boolean {
   // Check if the path without extension matches any of the static paths.
   return ["http", "crons", "schema", "auth.config"].includes(
@@ -622,17 +663,17 @@ export async function entryPointsByEnvironment(ctx: Context, dir: string) {
 
   for (const entryPoint of isolate) {
     const source = ctx.fs.readUtf8File(entryPoint);
-    if (hasDynamicImport(source)) {
+    if (hasDynamicImport(source) && importsQueryOrMutation(source)) {
       const relPath = path.relative(dir, entryPoint);
       return await ctx.crash({
         exitCode: 1,
         errorType: "invalid filesystem data",
         printedMessage:
           `Dynamic import (\`import()\`) is not allowed in "${relPath}" ` +
-          `because it does not have a "use node" directive. ` +
-          `Dynamic imports are only supported in Node.js actions. ` +
-          `Add "use node" at the top of the file if this is a Node.js action, ` +
-          `or replace the dynamic import with a static import.`,
+          `because it contains queries or mutations. ` +
+          `Dynamic imports are not supported in queries or mutations. ` +
+          `Move query/mutation code to a separate file, or replace the ` +
+          `dynamic import with a static import.`,
       });
     }
   }

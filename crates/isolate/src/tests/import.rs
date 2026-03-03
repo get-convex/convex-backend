@@ -27,10 +27,15 @@ async fn test_action_dynamic_import_nonexistent(rt: TestRuntime) -> anyhow::Resu
     Ok(())
 }
 
-// NOTE: test_query_dynamic_import was removed because dynamic imports in V8
-// isolate files (queries/mutations without "use node") are now blocked at
-// build time. The runtime error "dynamic module import unsupported" is no
-// longer reachable because the bundler catches this case during deploy.
+#[convex_macro::test_runtime]
+async fn test_query_dynamic_import(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let err = t
+        .query_js_error("import_tests:dynamicImportQuery", assert_obj!())
+        .await?;
+    assert_contains(&err, "dynamic module import unsupported");
+    Ok(())
+}
 
 #[convex_macro::test_runtime]
 async fn test_dynamic_import_load_failure(rt: TestRuntime) -> anyhow::Result<()> {
