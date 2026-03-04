@@ -52,6 +52,7 @@ use database::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::FutureExt;
+use indexing::backend_in_memory_indexes::IndexReader;
 use isolate::{
     client::EnvironmentData,
     ActionCallbacks,
@@ -135,6 +136,9 @@ pub struct RunRequestArgs {
     pub default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     pub in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
     pub context: ExecutionContext,
+    /// If set, use this IndexReader for index scans instead of reading from
+    /// persistence directly. Used to route index reads to conductor.
+    pub index_reader_override: Option<Arc<dyn IndexReader>>,
 }
 
 #[derive(Clone)]
@@ -306,6 +310,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             default_system_env_vars,
             in_memory_index_last_modified,
             context,
+            index_reader_override,
         }: RunRequestArgs,
         function_metadata: Option<FunctionMetadata>,
         http_action_metadata: Option<HttpActionMetadata>,
@@ -343,6 +348,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 text_index_snapshot,
                 usage_tracker.clone(),
                 retention_validator,
+                index_reader_override,
             )
             .await?;
         let storage = self

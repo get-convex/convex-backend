@@ -63,6 +63,7 @@ use indexing::{
     backend_in_memory_indexes::{
         DatabaseIndexSnapshot,
         InMemoryIndexes,
+        IndexReader,
         MemoryDocument,
         SystemDocument,
     },
@@ -598,6 +599,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
         usage_tracker: FunctionUsageTracker,
         retention_validator: Arc<dyn RetentionValidator>,
+        index_reader_override: Option<Arc<dyn IndexReader>>,
     ) -> anyhow::Result<Transaction<RT>> {
         let _timer = begin_tx_timer();
         for (index_id, last_modified) in &in_memory_index_last_modified {
@@ -623,11 +625,13 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             in_memory_indexes
                 .load_registries(bootstrap_metadata)
                 .await?;
+        let reader: Arc<dyn IndexReader> =
+            index_reader_override.unwrap_or_else(|| Arc::new(persistence_snapshot));
         let database_index_snapshot = DatabaseIndexSnapshot::new(
             index_registry.clone(),
             Arc::new(in_memory_indexes),
             table_registry.table_mapping().clone(),
-            Arc::new(persistence_snapshot),
+            reader,
             None,
         );
 

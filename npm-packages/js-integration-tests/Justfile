@@ -44,6 +44,7 @@ _test *ARGS:
     export MIN_NPM_VERSION_FOR_STRING_IDS="0.0.0"
     export CONVEX_TRACE_FILE="1"  # log to a file
     export RUST_LOG=${RUST_LOG:-0}
+    export FUNRUN_INDEX_READS_TO_CONDUCTOR_PERCENT=100
     echo "Additional logs are available in npm-packages/js-integration-tests/*.log"
     UDF_USE_FUNRUN=true ../../target/debug/backend-harness --provisioner "$1" \
       --package-dir . -- npm run test-integration -- "${@:2}"

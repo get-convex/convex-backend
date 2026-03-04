@@ -1070,6 +1070,11 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
     )
 });
 
+/// Percentage of index read traffic (0-100) that funrun sends to conductor
+/// via the IndexRangeAtTs RPC instead of reading from persistence directly.
+pub static FUNRUN_INDEX_READS_TO_CONDUCTOR_PERCENT: LazyLock<usize> =
+    LazyLock::new(|| env_config("FUNRUN_INDEX_READS_TO_CONDUCTOR_PERCENT", 0));
+
 /// The maximum number of CPU cores that can be used simultaneously by the
 /// isolates. Zero means no limit.
 pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =

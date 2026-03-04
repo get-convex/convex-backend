@@ -256,6 +256,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             default_system_env_vars,
             in_memory_index_last_modified,
             context,
+            index_reader_override: None,
         };
 
         // NOTE: We run the function without checking retention until after the

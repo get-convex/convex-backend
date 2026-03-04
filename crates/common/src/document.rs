@@ -817,6 +817,11 @@ impl PackedDocument {
         Self { value, id, size }
     }
 
+    pub fn from_raw(bytes: Vec<u8>, id: ResolvedDocumentId, size: usize) -> Self {
+        let value = PackedValue::new(ByteBuffer::from(bytes));
+        Self { value, id, size }
+    }
+
     pub fn unpack(&self) -> ResolvedDocument {
         let value =
             ConvexValue::try_from(self.value.as_ref()).expect("Couldn't unpack packed value");
