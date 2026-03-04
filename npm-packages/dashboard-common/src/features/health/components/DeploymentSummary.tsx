@@ -16,7 +16,9 @@ import {
   ArchiveIcon,
   CubeIcon,
   CodeIcon,
+  DimensionsIcon,
   ExternalLinkIcon,
+  QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { useContext, useEffect, useState } from "react";
@@ -219,35 +221,67 @@ export function DeploymentSummary({
             </div>
           </div>
 
-          {/* Row 2: Region/Port + Version */}
+          {/* Row 2: Region/Port + Class + Version */}
           <div className="flex flex-wrap items-center gap-6">
-            {/* Region (cloud) or Port (local) */}
-            {deployment.kind === "cloud" && (
-              <div className="flex items-center gap-2">
-                <Tooltip tip="Deployment region">
-                  <GlobeIcon
-                    className="size-4 shrink-0 text-content-secondary"
-                    aria-label="Region"
-                  />
-                </Tooltip>
-                <div className="text-sm text-content-primary">
-                  {regionDisplayName}
+            {/* Region + Class stay together when wrapping */}
+            <div className="flex items-center gap-6">
+              {/* Region (cloud) or Port (local) */}
+              {deployment.kind === "cloud" && (
+                <div className="flex items-center gap-2">
+                  <Tooltip tip="Deployment region">
+                    <GlobeIcon
+                      className="size-4 shrink-0 text-content-secondary"
+                      aria-label="Region"
+                    />
+                  </Tooltip>
+                  <div className="text-sm text-content-primary">
+                    {regionDisplayName}
+                  </div>
                 </div>
-              </div>
-            )}
-            {deployment.kind === "local" && (
-              <div className="flex items-center gap-2">
-                <Tooltip tip="Local port">
-                  <CodeIcon
-                    className="size-4 shrink-0 text-content-secondary"
-                    aria-label="Port"
-                  />
-                </Tooltip>
-                <div className="text-sm text-content-primary">
-                  Port {deployment.port}
+              )}
+              {deployment.kind === "local" && (
+                <div className="flex items-center gap-2">
+                  <Tooltip tip="Local port">
+                    <CodeIcon
+                      className="size-4 shrink-0 text-content-secondary"
+                      aria-label="Port"
+                    />
+                  </Tooltip>
+                  <div className="text-sm text-content-primary">
+                    Port {deployment.port}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Deployment Class (cloud only) */}
+              {deployment.kind === "cloud" && (
+                <div className="flex items-center gap-2">
+                  <Tooltip
+                    tip={
+                      <span className="flex items-center gap-1">
+                        Deployment class
+                        <a
+                          href="https://docs.convex.dev/production/state/limits"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-content-link hover:underline"
+                        >
+                          <QuestionMarkCircledIcon className="size-3.5" />
+                        </a>
+                      </span>
+                    }
+                  >
+                    <DimensionsIcon
+                      className="size-4 shrink-0 text-content-secondary"
+                      aria-label="Deployment class"
+                    />
+                  </Tooltip>
+                  <div className="text-sm text-content-primary">
+                    {deployment.class}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Convex Version */}
             {lastPushEvent && (
