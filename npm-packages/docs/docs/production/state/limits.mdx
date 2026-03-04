@@ -68,22 +68,45 @@ Applied per document and to any nested `Object` unless stated otherwise.
 | Length of a console.log line                                                 | 4 KiB                                                                     | 4 KiB                                                     |                                                                                                               |
 | [Log streaming](/production/integrations/log-streams/log-streams.mdx) limits | 4096 logs, flushed every 10 seconds                                       | 4096 logs, flushed every 10 seconds                       | How many logs can be buffered when streaming                                                                  |
 
+## Deployment Classes
+
+Convex has three deployment classes that each have different concurrency limits.
+These limits are meant to scale as your traffic grows.
+
+S stands for serverless and D stands for dedicated. Dedicated deployments run on
+their own exclusive database hardware.
+
+The number represents the number of concurrent queries that can be running on a
+deployment at a given time. As the concurrent query limit gets larger, other
+internal limits are scaled proportionately to allow your deployments to handle
+larger workloads.
+
+Below are the deployment classes that each plan has access to:
+
+- Free/Starter: S16
+- Pro: S256
+- Business/Enterprise: S16, S256, or D1024
+
+Free, Starter, and Pro are limited to a single deployment class, while Business
+and Enterprise can choose their class on a per-deployment basis.
+
 ## Concurrent Function Executions
 
 Number of functions you can run at a time for each function type.
 
-|                                         | Free/Starter | Professional<sup>\*</sup> |
-| --------------------------------------- | ------------ | ------------------------- |
-| Queries                                 | 16           | 256                       |
-| Mutations                               | 16           | 256                       |
-| Convex runtime actions and HTTP actions | 64           | 256                       |
-| Node actions                            | 64           | 1000                      |
-| Scheduled jobs                          | 10           | 300                       |
+|                                         | S16    | S256   | D1024<sup>\*</sup> |
+| --------------------------------------- | ------ | ------ | ------------------ |
+| Queries                                 | 16     | 256    | 1024               |
+| Mutations                               | 16     | 256    | 512                |
+| Mutation write throughput limit         | 16 MiB | 16 MiB | 32 MiB             |
+| Convex runtime actions and HTTP actions | 64     | 256    | 2048               |
+| Node actions                            | 64     | 1000   | 1000               |
+| Scheduled jobs                          | 10     | 300    | 600                |
 
-<sup>*</sup> Limits can be lifted for Professional plan customers on a
-case-by-case basis. Send us support message through the dashboard to discuss
-your needs. Usually this is only needed if your product has highly bursty
-traffic.
+<sup>*</sup> Limits can be increased for Business and Enterprise plan customers
+on a case-by-case basis. Send us support message through the dashboard to
+discuss your needs. Usually this is only needed if your product has highly
+bursty traffic.
 
 ## Execution time and scheduling
 
