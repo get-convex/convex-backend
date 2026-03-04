@@ -94,7 +94,7 @@
   [TypeScript native preview](https://devblogs.microsoft.com/typescript/announcing-typescript-native-previews/)
   ([TypeScript 7](https://devblogs.microsoft.com/typescript/typescript-native-port/)).
   To do so, add `@typescript/native-preview` as a dev dependency and
-  [set `typescriptCompiler: "tsGo"` in `convex.json`](https://docs.convex.dev/production/project-configuration#configuring-the-typescript-compiler).
+  [set `typescriptCompiler: "tsgo"` in `convex.json`](https://docs.convex.dev/production/project-configuration#configuring-the-typescript-compiler).
 
 ## 1.31.0
 
