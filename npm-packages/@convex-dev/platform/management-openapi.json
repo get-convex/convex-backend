@@ -977,6 +977,151 @@
         ]
       }
     },
+    "/projects/{project_id}/create_preview_deploy_key": {
+      "post": {
+        "tags": [
+          "Deploy Keys"
+        ],
+        "summary": "Create preview deploy key",
+        "description": "Create a preview deploy key like \"preview:team-slug:project-slug|ey...\"\nwhich can be used with the Convex CLI to create and manage preview\ndeployments within the project.",
+        "operationId": "create preview deploy key",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreatePreviewDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCreatePreviewDeployKeyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/projects/{project_id}/list_preview_deploy_keys": {
+      "get": {
+        "tags": [
+          "Deploy Keys"
+        ],
+        "summary": "List preview deploy keys",
+        "description": "Lists all preview deploy keys for the specified project.",
+        "operationId": "list preview deploy keys",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListPreviewDeployKeysResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/projects/{project_id}/delete_preview_deploy_key": {
+      "post": {
+        "tags": [
+          "Deploy Keys"
+        ],
+        "summary": "Delete preview deploy key",
+        "description": "Deletes a preview deploy key for the specified project. The `id` in the\nrequest body can be the full preview deploy key (with prefix), encoded\ntoken, or the name of the preview deploy key.",
+        "operationId": "delete preview deploy key",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformDeletePreviewDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
     "/token_details": {
       "get": {
         "tags": [
@@ -1403,6 +1548,31 @@
         },
         "additionalProperties": false
       },
+      "PlatformCreatePreviewDeployKeyArgs": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for the preview deploy key."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformCreatePreviewDeployKeyResponse": {
+        "type": "object",
+        "required": [
+          "previewDeployKey"
+        ],
+        "properties": {
+          "previewDeployKey": {
+            "$ref": "#/components/schemas/AdminKey",
+            "description": "The generated preview deploy key."
+          }
+        }
+      },
       "PlatformCreateProjectArgs": {
         "type": "object",
         "required": [
@@ -1524,6 +1694,19 @@
         }
       },
       "PlatformDeleteDeployKeyArgs": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token to delete. This can be the secret value of the token or the\ntoken's unique name."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformDeletePreviewDeployKeyArgs": {
         "type": "object",
         "required": [
           "id"
@@ -1766,6 +1949,21 @@
               "$ref": "#/components/schemas/PlatformCustomDomainResponse"
             },
             "description": "List of custom domains configured for this deployment."
+          }
+        }
+      },
+      "PlatformListPreviewDeployKeysResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDeployKeyResponse"
+            },
+            "description": "The list of preview deploy keys."
           }
         }
       },

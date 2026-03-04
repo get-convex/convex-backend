@@ -382,6 +382,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/create_preview_deploy_key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create preview deploy key
+         * @description Create a preview deploy key like "preview:team-slug:project-slug|ey..."
+         *     which can be used with the Convex CLI to create and manage preview
+         *     deployments within the project.
+         */
+        post: operations["create preview deploy key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/list_preview_deploy_keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List preview deploy keys
+         * @description Lists all preview deploy keys for the specified project.
+         */
+        get: operations["list preview deploy keys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/delete_preview_deploy_key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete preview deploy key
+         * @description Deletes a preview deploy key for the specified project. The `id` in the
+         *     request body can be the full preview deploy key (with prefix), encoded
+         *     token, or the name of the preview deploy key.
+         */
+        post: operations["delete preview deploy key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/token_details": {
         parameters: {
             query?: never;
@@ -553,6 +617,14 @@ export interface components {
             region?: null | components["schemas"]["RegionName"];
             type: components["schemas"]["CreateDeploymentType"];
         };
+        PlatformCreatePreviewDeployKeyArgs: {
+            /** @description Name for the preview deploy key. */
+            name: string;
+        };
+        PlatformCreatePreviewDeployKeyResponse: {
+            /** @description The generated preview deploy key. */
+            previewDeployKey: components["schemas"]["AdminKey"];
+        };
         PlatformCreateProjectArgs: {
             /** @description When creating a deployment, the class to use for the deployment.
              *     If not provided, the default deployment class for your team will be
@@ -599,6 +671,11 @@ export interface components {
             requestDestination: components["schemas"]["RequestDestination"];
         };
         PlatformDeleteDeployKeyArgs: {
+            /** @description The token to delete. This can be the secret value of the token or the
+             *     token's unique name. */
+            id: string;
+        };
+        PlatformDeletePreviewDeployKeyArgs: {
             /** @description The token to delete. This can be the secret value of the token or the
              *     token's unique name. */
             id: string;
@@ -700,6 +777,10 @@ export interface components {
         PlatformListCustomDomainsResponse: {
             /** @description List of custom domains configured for this deployment. */
             domains: components["schemas"]["PlatformCustomDomainResponse"][];
+        };
+        PlatformListPreviewDeployKeysResponse: {
+            /** @description The list of preview deploy keys. */
+            items: components["schemas"]["PlatformDeployKeyResponse"][];
         };
         PlatformListTeamMembersResponse: {
             items: components["schemas"]["TeamMember"][];
@@ -822,14 +903,18 @@ export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateDeploymentArgs = components['schemas']['PlatformCreateDeploymentArgs'];
+export type PlatformCreatePreviewDeployKeyArgs = components['schemas']['PlatformCreatePreviewDeployKeyArgs'];
+export type PlatformCreatePreviewDeployKeyResponse = components['schemas']['PlatformCreatePreviewDeployKeyResponse'];
 export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
 export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
 export type PlatformCustomDomainResponse = components['schemas']['PlatformCustomDomainResponse'];
 export type PlatformDeleteCustomDomainArgs = components['schemas']['PlatformDeleteCustomDomainArgs'];
 export type PlatformDeleteDeployKeyArgs = components['schemas']['PlatformDeleteDeployKeyArgs'];
+export type PlatformDeletePreviewDeployKeyArgs = components['schemas']['PlatformDeletePreviewDeployKeyArgs'];
 export type PlatformDeployKeyResponse = components['schemas']['PlatformDeployKeyResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
+export type PlatformListPreviewDeployKeysResponse = components['schemas']['PlatformListPreviewDeployKeysResponse'];
 export type PlatformListTeamMembersResponse = components['schemas']['PlatformListTeamMembersResponse'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
@@ -1303,6 +1388,78 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlatformDeleteDeployKeyArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "create preview deploy key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformCreatePreviewDeployKeyArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformCreatePreviewDeployKeyResponse"];
+                };
+            };
+        };
+    };
+    "list preview deploy keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformListPreviewDeployKeysResponse"];
+                };
+            };
+        };
+    };
+    "delete preview deploy key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformDeletePreviewDeployKeyArgs"];
             };
         };
         responses: {
