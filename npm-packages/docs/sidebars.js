@@ -379,8 +379,15 @@ const sidebars = {
       type: "category",
       label: "Management API",
       link: { type: "doc", id: "management-api" },
-      // the UNTAGGED section
-      items: managementApiSidebar[1].items,
+      // Tag categories and top-level items (skip the info doc at index 0).
+      // Flatten any UNTAGGED category so its items appear at the top level.
+      items: managementApiSidebar
+        .slice(1)
+        .flatMap((entry) =>
+          entry.type === "category" && entry.label === "UNTAGGED"
+            ? entry.items
+            : [entry],
+        ),
       className: "convex-sidebar-http-api",
     },
     {

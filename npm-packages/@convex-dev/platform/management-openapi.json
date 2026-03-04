@@ -18,6 +18,9 @@
   "paths": {
     "/teams/{team_id}/create_project": {
       "post": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Create project",
         "description": "Create a new project on a team, optionally provisioning a dev or prod\ndeployment.",
         "operationId": "create project",
@@ -66,6 +69,9 @@
     },
     "/teams/{team_id}/list_projects": {
       "get": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "List projects",
         "description": "List all projects for a team.",
         "operationId": "list projects",
@@ -107,6 +113,9 @@
     },
     "/projects/{project_id}/list_deployments": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "List deployments",
         "description": "List deployments for a projects.",
         "operationId": "list deployments",
@@ -188,6 +197,9 @@
     },
     "/projects/{project_id}/deployment": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "Get deployment by reference",
         "description": "Get a deployment by its reference within a project.",
         "operationId": "get deployment by reference",
@@ -238,6 +250,9 @@
     },
     "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "Get deployment by reference for project by slug",
         "description": "Get a deployment by its reference within a project identified by team and\nproject slug.",
         "operationId": "get deployment by reference for project by slug",
@@ -294,6 +309,9 @@
     },
     "/projects/{project_id}/delete": {
       "post": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Delete project",
         "description": "Delete a project. Deletes all deployments in the project as well.",
         "operationId": "delete project",
@@ -325,6 +343,9 @@
     },
     "/projects/{project_id}": {
       "get": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Get project by ID",
         "description": "Get a project by its ID.",
         "operationId": "get project by id",
@@ -366,6 +387,9 @@
     },
     "/teams/{team_id_or_slug}/projects/{project_slug}": {
       "get": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Get project by slug",
         "description": "Get a project by its slug.",
         "operationId": "get project by slug",
@@ -413,6 +437,9 @@
     },
     "/projects/{project_id}/create_deployment": {
       "post": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "Create deployment",
         "description": "Create a new deployment for a project.",
         "operationId": "create deployment",
@@ -464,6 +491,9 @@
     },
     "/deployments/{deployment_name}/delete": {
       "post": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "Delete deployment",
         "description": "Delete a deployment. This will delete all data and files in the deployment,\nso we recommend creating and downloading a backup before calling this\nendpoint. This does not delete the project itself.",
         "operationId": "delete deployment",
@@ -495,6 +525,9 @@
     },
     "/deployments/{deployment_name}": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "Get deployment",
         "description": "Get details about a cloud deployment.",
         "operationId": "platform_get_deployment",
@@ -534,6 +567,9 @@
         ]
       },
       "patch": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "Update deployment",
         "description": "Updates properties of an existing deployment. Only the fields provided in\nthe request body are modified; omitted fields are left unchanged.",
         "operationId": "update deployment",
@@ -578,6 +614,9 @@
     },
     "/teams/{team_id}/list_deployment_classes": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "List deployment classes",
         "description": "Lists the available deployment classes for a team.",
         "operationId": "list deployment classes",
@@ -613,6 +652,9 @@
     },
     "/teams/{team_id}/list_deployment_regions": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "List deployment regions",
         "description": "Lists the available deployment regions for a team.",
         "operationId": "list deployment regions",
@@ -798,6 +840,9 @@
     },
     "/deployments/{deployment_name}/create_deploy_key": {
       "post": {
+        "tags": [
+          "Deploy Keys"
+        ],
         "summary": "Create deploy key",
         "description": "Create a deploy key like \"dev:happy-animal-123|ey...\" which can be\nused with the Convex CLI to develop against or deploy code.\n\nWhen access to the deployment is granted through an OAuth token this\ndeploy key will use the same OAuth-granted token.\n\nWhen access to the deployment is granted any other way a new token will be\ncreated which grants access only to this deployment.",
         "operationId": "create deploy key",
@@ -846,6 +891,9 @@
     },
     "/deployments/{deployment_name}/list_deploy_keys": {
       "get": {
+        "tags": [
+          "Deploy Keys"
+        ],
         "summary": "List deploy keys",
         "description": "Lists all deploy keys for the specified deployment.",
         "operationId": "list deploy keys",
@@ -887,6 +935,9 @@
     },
     "/deployments/{deployment_name}/delete_deploy_key": {
       "post": {
+        "tags": [
+          "Deploy Keys"
+        ],
         "summary": "Delete deploy key",
         "description": "Deletes a deploy key for the specified deployment. The `id` in the request\nbody can be the full deploy key (with prefix), encoded token, or the name of\nthe deploy key.",
         "operationId": "delete deploy key",
@@ -928,6 +979,9 @@
     },
     "/token_details": {
       "get": {
+        "tags": [
+          "Access Tokens"
+        ],
         "summary": "Get token details",
         "description": "Returns the team ID for team tokens.\nEspecially useful after receiving a team token from an OAuth flow\nsince most endpoints require team ID.",
         "operationId": "get token details",
@@ -958,6 +1012,9 @@
     },
     "/deployments/{deployment_name}/create_custom_domain": {
       "post": {
+        "tags": [
+          "Custom Domains"
+        ],
         "summary": "Create custom domain",
         "operationId": "create custom domain",
         "parameters": [
@@ -998,6 +1055,9 @@
     },
     "/deployments/{deployment_name}/delete_custom_domain": {
       "post": {
+        "tags": [
+          "Custom Domains"
+        ],
         "summary": "Delete custom domain",
         "description": "Remove a custom domain from a deployment.",
         "operationId": "delete custom domain",
@@ -1039,6 +1099,9 @@
     },
     "/deployments/{deployment_name}/custom_domains": {
       "get": {
+        "tags": [
+          "Custom Domains"
+        ],
         "summary": "List custom domains",
         "description": "Get all custom domains configured for a deployment.",
         "operationId": "list custom domains",
@@ -1077,6 +1140,9 @@
     },
     "/teams/{team_id}/list_members": {
       "get": {
+        "tags": [
+          "Teams"
+        ],
         "summary": "List team members",
         "description": "List the members of the given team.",
         "operationId": "list team members",
@@ -1934,5 +2000,31 @@
         "description": "Created in the dashboard under team settings for any team you can manage."
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "Projects",
+      "description": "Create, list, and manage projects"
+    },
+    {
+      "name": "Deployments",
+      "description": "Create, list, and manage deployments"
+    },
+    {
+      "name": "Deploy Keys",
+      "description": "Create, list, and delete deploy keys"
+    },
+    {
+      "name": "Custom Domains",
+      "description": "Create, list, and delete custom domains"
+    },
+    {
+      "name": "Teams",
+      "description": "List and manage team members"
+    },
+    {
+      "name": "Access Tokens",
+      "description": "Inspect authentication token details"
+    }
+  ]
 }
