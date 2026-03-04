@@ -1,7 +1,6 @@
 import React, { ReactNode } from "react";
 import { ConvexLogo } from "@common/elements/ConvexLogo";
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
-import { Flourish } from "components/login/Flourish";
 
 type LayoutProps = {
   children: ReactNode;
@@ -21,7 +20,6 @@ export function LoginLayout({ children }: LayoutProps) {
         </div>
         <div className="h-14" />
       </div>
-      <Flourish />
     </div>
   );
 }

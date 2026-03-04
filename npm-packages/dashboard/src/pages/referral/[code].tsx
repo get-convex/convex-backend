@@ -5,7 +5,6 @@ import Background from "components/login/images/background.svg";
 import { ConvexLogo } from "@common/elements/ConvexLogo";
 import { RedeemReferralLanding } from "components/referral/RedeemReferralLanding";
 import { getSession } from "server/workos";
-import { Flourish } from "components/login/Flourish";
 
 /**
  *  This page powers two routes via Next.js rewrites in next.config.js:
@@ -79,8 +78,6 @@ export default function ReferralLandingPage() {
         <meta name="twitter:description" content={description} />
         <meta name="twitter:image" content={ogImage} />
       </Head>
-
-      <Flourish />
 
       <div className="mt-20">
         <ConvexLogo />
