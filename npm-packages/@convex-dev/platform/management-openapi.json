@@ -638,6 +638,164 @@
         }
       }
     },
+    "/teams/{team_id}/list_deployments": {
+      "get": {
+        "summary": "List deployments for team",
+        "description": "Lists deployments for a team with pagination, sorting, and filtering.",
+        "operationId": "list deployments for team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Max results per page (default: 100, max: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "description": "Sort field: createTime, lastDeployTime, reference",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "description": "Sort order: asc, desc",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deployment_type",
+            "in": "query",
+            "description": "Filter by type: dev, prod, preview, custom",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search by deployment name or reference",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "description": "Filter by project ID",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          },
+          {
+            "name": "creator",
+            "in": "query",
+            "description": "Filter by creator member ID",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/MemberId"
+            }
+          },
+          {
+            "name": "is_default",
+            "in": "query",
+            "description": "Filter by default deployment status",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDeploymentsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/teams/{team_id}/list_local_deployments": {
+      "get": {
+        "summary": "List local deployments",
+        "description": "Lists the local deployments for a team.",
+        "operationId": "list local deployments for team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListLocalDeploymentsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/deployments/{deployment_name}/create_deploy_key": {
       "post": {
         "summary": "Create deploy key",
@@ -1063,10 +1221,59 @@
           }
         }
       },
+      "ListLocalDeploymentsResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDeploymentResponse"
+            }
+          }
+        }
+      },
       "MemberId": {
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "PaginatedDeploymentsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformDeploymentResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
+          }
+        }
+      },
+      "PaginationMetadata": {
+        "type": "object",
+        "required": [
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "PlatformCreateDeployKeyArgs": {
         "type": "object",

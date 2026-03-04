@@ -273,6 +273,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/list_deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deployments for team
+         * @description Lists deployments for a team with pagination, sorting, and filtering.
+         */
+        get: operations["list deployments for team"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/list_local_deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List local deployments
+         * @description Lists the local deployments for a team.
+         */
+        get: operations["list local deployments for team"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deployments/{deployment_name}/create_deploy_key": {
         parameters: {
             query?: never;
@@ -476,8 +516,19 @@ export interface components {
         ListDeploymentRegionsResponse: {
             items: components["schemas"]["DeploymentRegionMetadata"][];
         };
+        ListLocalDeploymentsResponse: {
+            items: components["schemas"]["PlatformDeploymentResponse"][];
+        };
         /** Format: int64 */
         MemberId: number;
+        PaginatedDeploymentsResponse: {
+            items: components["schemas"]["PlatformDeploymentResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
+        };
+        PaginationMetadata: {
+            hasMore: boolean;
+            nextCursor?: string | null;
+        };
         PlatformCreateDeployKeyArgs: {
             /** @description Name for the deploy key. */
             name: string;
@@ -764,7 +815,10 @@ export type DeviceName = components['schemas']['DeviceName'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
+export type ListLocalDeploymentsResponse = components['schemas']['ListLocalDeploymentsResponse'];
 export type MemberId = components['schemas']['MemberId'];
+export type PaginatedDeploymentsResponse = components['schemas']['PaginatedDeploymentsResponse'];
+export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateDeploymentArgs = components['schemas']['PlatformCreateDeploymentArgs'];
@@ -1121,6 +1175,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListDeploymentRegionsResponse"];
+                };
+            };
+        };
+    };
+    "list deployments for team": {
+        parameters: {
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Max results per page (default: 100, max: 100) */
+                limit?: number;
+                /** @description Sort field: createTime, lastDeployTime, reference */
+                sort_by?: string;
+                /** @description Sort order: asc, desc */
+                sort_order?: string;
+                /** @description Filter by type: dev, prod, preview, custom */
+                deployment_type?: string;
+                /** @description Search by deployment name or reference */
+                q?: string;
+                /** @description Filter by project ID */
+                project_id?: components["schemas"]["ProjectId"];
+                /** @description Filter by creator member ID */
+                creator?: components["schemas"]["MemberId"];
+                /** @description Filter by default deployment status */
+                is_default?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDeploymentsResponse"];
+                };
+            };
+        };
+    };
+    "list local deployments for team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListLocalDeploymentsResponse"];
                 };
             };
         };
