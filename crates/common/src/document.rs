@@ -801,26 +801,33 @@ impl DeveloperDocument {
 /// when we are using ID strings.
 #[derive(Clone, Debug)]
 #[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
-pub struct PackedDocument(PackedValue<ByteBuffer>, ResolvedDocumentId);
+pub struct PackedDocument {
+    value: PackedValue<ByteBuffer>,
+    id: ResolvedDocumentId,
+    /// The `ConvexValue` size of the document, as computed at pack time.
+    /// This matches `ResolvedDocument::size()`.
+    size: usize,
+}
 
 impl PackedDocument {
     pub fn pack(document: &ResolvedDocument) -> Self {
-        let document_id = document.id();
-        let value = document.document.value();
-        Self(PackedValue::pack_object(value), document_id)
+        let id = document.id();
+        let size = document.size();
+        let value = PackedValue::pack_object(document.document.value());
+        Self { value, id, size }
     }
 
     pub fn unpack(&self) -> ResolvedDocument {
-        let value = ConvexValue::try_from(self.0.as_ref()).expect("Couldn't unpack packed value");
-        let document_id = self.1;
-        ResolvedDocument::from_packed(value, document_id)
+        let value =
+            ConvexValue::try_from(self.value.as_ref()).expect("Couldn't unpack packed value");
+        ResolvedDocument::from_packed(value, self.id)
             .expect("Packed value wasn't a valid document?")
     }
 
     /// Same behavior as ResolvedDocument::id but you don't have to fully
     /// unpack.
     pub fn id(&self) -> ResolvedDocumentId {
-        self.1
+        self.id
     }
 
     pub fn developer_id(&self) -> DeveloperDocumentId {
@@ -828,7 +835,11 @@ impl PackedDocument {
     }
 
     pub fn value(&self) -> &PackedValue<ByteBuffer> {
-        &self.0
+        &self.value
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     /// Like ResolvedDocument::index_key().into_bytes(), but you don't have to
@@ -843,7 +854,7 @@ impl PackedDocument {
         let out = &mut buffer.0 .0;
         out.clear();
         for field_path in fields {
-            let value = self.0.as_ref().open_path(field_path);
+            let value = self.value.as_ref().open_path(field_path);
             write_sort_key_or_undefined::<_, false>(value, out)
                 .expect("failed to unpack opened value");
         }
@@ -871,7 +882,7 @@ impl IndexKeyBuffer {
 
 impl HeapSize for PackedDocument {
     fn heap_size(&self) -> usize {
-        self.0.heap_size() + self.1.heap_size()
+        self.value.heap_size() + self.id.heap_size()
     }
 }
 
@@ -972,9 +983,9 @@ impl<D: ConvexSerializable> ParseDocument<D> for &PackedDocument {
             v => anyhow::bail!("PackedDocument is {v:?}, not object"),
         };
         Ok(ParsedDocument {
-            id: self.1,
+            id: self.id,
             creation_time,
-            value: self.0.as_ref().parse()?,
+            value: self.value.as_ref().parse()?,
         })
     }
 }

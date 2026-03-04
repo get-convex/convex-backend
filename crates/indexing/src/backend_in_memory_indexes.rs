@@ -40,7 +40,6 @@ use common::{
         IndexKey,
         IndexKeyBytes,
     },
-    instrument,
     interval::{
         EndRef,
         Interval,
@@ -49,7 +48,7 @@ use common::{
     },
     knobs::TRANSACTION_MAX_READ_SIZE_BYTES,
     persistence::{
-        IndexStream,
+        LatestDocument,
         PersistenceSnapshot,
     },
     query::{
@@ -119,29 +118,65 @@ pub trait InMemoryIndexes: Send + Sync {
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>>;
 }
 
+pub struct IndexEntry {
+    pub key: IndexKeyBytes,
+    pub ts: Timestamp,
+    pub value: PackedDocument,
+}
+
+pub struct IndexPage {
+    pub entries: Vec<IndexEntry>,
+    pub cursor: CursorPosition,
+}
+#[async_trait]
 pub trait IndexReader: Send + Sync {
-    fn index_scan(
+    async fn index_page(
         &self,
         index_id: IndexId,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
-        size_hint: usize,
-    ) -> IndexStream<'_>;
+        max_results: usize,
+    ) -> anyhow::Result<IndexPage>;
 
     fn timestamp(&self) -> RepeatableTimestamp;
 }
 
+#[async_trait]
 impl IndexReader for PersistenceSnapshot {
-    fn index_scan(
+    async fn index_page(
         &self,
         index_id: IndexId,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
-        size_hint: usize,
-    ) -> IndexStream<'_> {
-        PersistenceSnapshot::index_scan(self, index_id, tablet_id, interval, order, size_hint)
+        max_results: usize,
+    ) -> anyhow::Result<IndexPage> {
+        let mut stream = PersistenceSnapshot::index_scan(
+            self,
+            index_id,
+            tablet_id,
+            interval,
+            order,
+            max_results,
+        );
+        let mut entries = vec![];
+        while let Some(result) = stream.next().await {
+            let (key, LatestDocument { ts, value, .. }) = result?;
+            entries.push(IndexEntry {
+                key,
+                ts,
+                value: PackedDocument::pack(&value),
+            });
+            if entries.len() >= max_results {
+                let cursor = CursorPosition::After(entries.last().unwrap().key.clone());
+                return Ok(IndexPage { entries, cursor });
+            }
+        }
+        return Ok(IndexPage {
+            entries,
+            cursor: CursorPosition::End,
+        });
     }
 
     fn timestamp(&self) -> RepeatableTimestamp {
@@ -861,21 +896,18 @@ impl DatabaseIndexSnapshot {
                         traced = true;
                     }
                     // Query persistence.
-                    let mut stream = reader.index_scan(
-                        index_id,
-                        *range_request.index_name.table(),
-                        &interval,
-                        range_request.order,
-                        range_request.max_size,
-                    );
-                    while let Some((key, rev)) =
-                        instrument!(b"Persistence::try_next", stream.try_next()).await?
-                    {
-                        cache_miss_results.push((rev.ts, PackedDocument::pack(&rev.value)));
-                        results.push((key, rev.ts, rev.value.into()));
-                        if results.len() >= range_request.max_size {
-                            break;
-                        }
+                    let index_page = reader
+                        .index_page(
+                            index_id,
+                            *range_request.index_name.table(),
+                            &interval,
+                            range_request.order,
+                            range_request.max_size,
+                        )
+                        .await?;
+                    for entry in index_page.entries {
+                        cache_miss_results.push((entry.ts, entry.value.clone()));
+                        results.push((entry.key, entry.ts, LazyDocument::Packed(entry.value)));
                     }
                 },
             }
@@ -930,18 +962,16 @@ impl DatabaseIndexSnapshot {
         }
 
         // Fall back to persistence reader.
-        let mut results = vec![];
-        let mut stream = self
+        let index_page = self
             .reader
-            .index_scan(index_id, tablet_id, interval, order, max_size);
-        while let Some((key, rev)) = stream.try_next().await? {
-            results.push((key, rev.ts, LazyDocument::Resolved(rev.value)));
-            if results.len() >= max_size {
-                let cursor = CursorPosition::After(results.last().unwrap().0.clone());
-                return Ok((results, cursor));
-            }
-        }
-        Ok((results, CursorPosition::End))
+            .index_page(index_id, tablet_id, interval, order, max_size)
+            .await?;
+        let results = index_page
+            .entries
+            .into_iter()
+            .map(|IndexEntry { key, ts, value }| (key, ts, LazyDocument::Packed(value)))
+            .collect();
+        Ok((results, index_page.cursor))
     }
 }
 
@@ -1905,13 +1935,11 @@ impl LazyDocument {
         }
     }
 
-    pub fn approximate_size(&self) -> usize {
+    pub fn size(&self) -> usize {
         match self {
             LazyDocument::Resolved(doc) => doc.size(),
-            // This is the size of the PackedValue representation, not the
-            // proper size of the ConvexValue
-            LazyDocument::Packed(doc) => doc.value().size(),
-            LazyDocument::Memory(doc) => doc.packed_document.value().size(),
+            LazyDocument::Packed(doc) => doc.size(),
+            LazyDocument::Memory(doc) => doc.packed_document.size(),
         }
     }
 

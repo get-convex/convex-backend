@@ -270,7 +270,7 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
             self.tx.reads.record_read_document(
                 component_path,
                 T::table_name().clone(),
-                doc.approximate_size(), // This could be wrong
+                doc.size(),
                 &self.tx.usage_tracker,
                 &self.tx.virtual_system_mapping,
             )?;
