@@ -26,6 +26,7 @@ import { copyTextToClipboard, toast } from "@common/lib/utils";
 import { TextInput } from "@ui/TextInput";
 import { cn } from "@ui/cn";
 import cloneDeep from "lodash/cloneDeep";
+import { formatEnvValueForDotfile } from "./formatEnvValueForDotfile";
 
 export const ENVIRONMENT_VARIABLES_ROW_CLASSES =
   "grid grid-cols-[minmax(0,1fr)_6.5rem] gap-x-4 gap-y-2 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem]";
@@ -782,9 +783,16 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
               type="button"
               variant="neutral"
               onClick={async () => {
+                const formattedEnvVars = existingEnvVars.map(
+                  ({ name, value }) => {
+                    const { formatted, warning } =
+                      formatEnvValueForDotfile(value);
+                    return { name, formatted, warning };
+                  },
+                );
                 await copyTextToClipboard(
-                  existingEnvVars
-                    .map(({ name, value }) => `${name}=${value}`)
+                  formattedEnvVars
+                    .map(({ name, formatted }) => `${name}=${formatted}`)
                     .join("\n"),
                 );
 
@@ -792,6 +800,19 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
                   "success",
                   "Environment variables copied to the clipboard.",
                 );
+
+                const warnings = formattedEnvVars.flatMap(
+                  ({ name, warning }) =>
+                    warning ? [`${name}: ${warning}`] : [],
+                );
+                if (warnings.length > 0) {
+                  toast(
+                    "warning",
+                    warnings.length === 1
+                      ? `Formatting warning while copying: ${warnings[0]}`
+                      : `Formatting warnings while copying (${warnings.length} vars): ${warnings.join(" | ")}`,
+                  );
+                }
               }}
               icon={<ClipboardCopyIcon />}
             >

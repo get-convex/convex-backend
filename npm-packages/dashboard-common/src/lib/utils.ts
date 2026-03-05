@@ -36,7 +36,7 @@ export const isUserTableName = (name: string) => !name.startsWith("_");
  *                 Use `false` to never auto-close this toast.
  */
 export function toast(
-  type: "success" | "error" | "info",
+  type: "success" | "error" | "info" | "warning",
   message: ReactNode,
   id?: string,
   duration?: number | false,

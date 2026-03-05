@@ -1,6 +1,11 @@
+/**
+ * NOTE: This test file is intentionally duplicated in dashboard-common.
+ * If you change this file, also update:
+ * npm-packages/dashboard-common/src/features/settings/components/formatEnvValueForDotfile.test.ts
+ */
 import { test, expect, describe } from "vitest";
 import * as dotenv from "dotenv";
-import { formatEnvValueForDotfile } from "./env.js";
+import { formatEnvValueForDotfile } from "./formatEnvValueForDotfile.js";
 
 /**
  * Attempts a round-trip: format the value for dotenv, then parse it back.
