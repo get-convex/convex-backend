@@ -200,9 +200,9 @@
         "tags": [
           "Deployments"
         ],
-        "summary": "Get deployment by reference",
-        "description": "Get a deployment by its reference within a project.",
-        "operationId": "get deployment by reference",
+        "summary": "Get deployment in project by id",
+        "description": "Get a deployment within a project by reference, default production\ndeployment, or default dev deployment for the calling user.",
+        "operationId": "get deployment in project by project id",
         "parameters": [
           {
             "name": "project_id",
@@ -217,9 +217,40 @@
             "name": "reference",
             "in": "query",
             "description": "The reference of the deployment to retrieve.",
-            "required": true,
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/DeploymentReference"
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/DeploymentReference"
+                }
+              ]
+            }
+          },
+          {
+            "name": "defaultProd",
+            "in": "query",
+            "description": "If true, retrieve the default production deployment.",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "defaultDev",
+            "in": "query",
+            "description": "If true, retrieve the default dev deployment for the calling user.",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
             }
           }
         ],
@@ -253,9 +284,9 @@
         "tags": [
           "Deployments"
         ],
-        "summary": "Get deployment by reference for project by slug",
-        "description": "Get a deployment by its reference within a project identified by team and\nproject slug.",
-        "operationId": "get deployment by reference for project by slug",
+        "summary": "Get deployment in project by slug",
+        "description": "Get a deployment within a project identified by team and project slug,\nby reference, default production deployment, or default dev deployment\nfor the calling user.",
+        "operationId": "get deployment in project by project slug",
         "parameters": [
           {
             "name": "team_id_or_slug",
@@ -279,9 +310,40 @@
             "name": "reference",
             "in": "query",
             "description": "The reference of the deployment to retrieve.",
-            "required": true,
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/DeploymentReference"
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/DeploymentReference"
+                }
+              ]
+            }
+          },
+          {
+            "name": "defaultProd",
+            "in": "query",
+            "description": "If true, retrieve the default production deployment.",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "defaultDev",
+            "in": "query",
+            "description": "If true, retrieve the default dev deployment for the calling user.",
+            "required": false,
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
             }
           }
         ],

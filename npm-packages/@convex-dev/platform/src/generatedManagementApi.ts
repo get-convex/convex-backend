@@ -73,10 +73,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get deployment by reference
-         * @description Get a deployment by its reference within a project.
+         * Get deployment in project by id
+         * @description Get a deployment within a project by reference, default production
+         *     deployment, or default dev deployment for the calling user.
          */
-        get: operations["get deployment by reference"];
+        get: operations["get deployment in project by project id"];
         put?: never;
         post?: never;
         delete?: never;
@@ -93,11 +94,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get deployment by reference for project by slug
-         * @description Get a deployment by its reference within a project identified by team and
-         *     project slug.
+         * Get deployment in project by slug
+         * @description Get a deployment within a project identified by team and project slug,
+         *     by reference, default production deployment, or default dev deployment
+         *     for the calling user.
          */
-        get: operations["get deployment by reference for project by slug"];
+        get: operations["get deployment in project by project slug"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1019,11 +1021,15 @@ export interface operations {
             };
         };
     };
-    "get deployment by reference": {
+    "get deployment in project by project id": {
         parameters: {
-            query: {
+            query?: {
                 /** @description The reference of the deployment to retrieve. */
-                reference: components["schemas"]["DeploymentReference"];
+                reference?: null | components["schemas"]["DeploymentReference"];
+                /** @description If true, retrieve the default production deployment. */
+                defaultProd?: boolean | null;
+                /** @description If true, retrieve the default dev deployment for the calling user. */
+                defaultDev?: boolean | null;
             };
             header?: never;
             path: {
@@ -1044,11 +1050,15 @@ export interface operations {
             };
         };
     };
-    "get deployment by reference for project by slug": {
+    "get deployment in project by project slug": {
         parameters: {
-            query: {
+            query?: {
                 /** @description The reference of the deployment to retrieve. */
-                reference: components["schemas"]["DeploymentReference"];
+                reference?: null | components["schemas"]["DeploymentReference"];
+                /** @description If true, retrieve the default production deployment. */
+                defaultProd?: boolean | null;
+                /** @description If true, retrieve the default dev deployment for the calling user. */
+                defaultDev?: boolean | null;
             };
             header?: never;
             path: {
