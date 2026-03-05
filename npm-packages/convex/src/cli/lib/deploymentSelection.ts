@@ -97,7 +97,16 @@ export async function initializeBigBrainAuth(
         deploymentKey: isDeploymentKey(deployKey) ? deployKey : null,
       });
       ctx._updateBigBrainAuth(bigBrainAuth);
+      return;
     }
+    // No deploy key was found in the env file, so fall back on using the global config
+    ctx._updateBigBrainAuth(
+      getBigBrainAuth(ctx, {
+        previewDeployKey: null,
+        projectKey: null,
+        deploymentKey: null,
+      }),
+    );
     return;
   }
   dotenv.config({ path: ENV_VAR_FILE_PATH });
