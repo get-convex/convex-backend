@@ -1,8 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { showSpinner, logMessage } from "../bundler/log.js";
 import { chalkStderr } from "chalk";
@@ -55,13 +52,10 @@ async function runNetworkTest(
     url = options.url;
     adminKey = null;
   } else {
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
     );
     url = credentials.url;
     adminKey = credentials.adminKey;

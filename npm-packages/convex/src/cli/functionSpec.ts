@@ -1,8 +1,5 @@
 import { oneoffContext } from "../bundler/context.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { Command, Option } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 import { functionSpecForDeployment } from "./lib/functionSpec.js";
@@ -22,14 +19,8 @@ export const functionSpec = new Command("function-spec")
   .action(async (options) => {
     const ctx = await oneoffContext(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(options);
     const { adminKey, url: deploymentUrl } =
-      await loadSelectedDeploymentCredentials(
-        ctx,
-        deploymentSelection,
-        selectionWithinProject,
-      );
+      await loadSelectedDeploymentCredentials(ctx, deploymentSelection);
 
     await functionSpecForDeployment(ctx, {
       deploymentUrl,

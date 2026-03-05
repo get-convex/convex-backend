@@ -1,4 +1,8 @@
-import { encodeDeploymentSelector, RequestContext } from "../requestContext.js";
+import {
+  encodeDeploymentSelector,
+  getMcpDeploymentSelection,
+  RequestContext,
+} from "../requestContext.js";
 import {
   DeploymentSelectionWithinProject,
   deploymentSelectionWithinProjectFromOptions,
@@ -74,7 +78,6 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
     );
     let availableDeployments = [
       {
@@ -100,21 +103,26 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
         deploymentSelection.deploymentToActOn.deploymentFields === null
       )
     ) {
-      const prodDeployment: DeploymentSelectionWithinProject = { kind: "prod" };
+      const prodSelectionWithinProject: DeploymentSelectionWithinProject = {
+        kind: "prod",
+      };
+      const prodDeploymentSelection = await getMcpDeploymentSelection(
+        ctx,
+        prodSelectionWithinProject,
+      );
       const prodCredentials = await loadSelectedDeploymentCredentials(
         ctx,
-        deploymentSelection,
-        prodDeployment,
+        prodDeploymentSelection,
       );
       if (
         prodCredentials.deploymentFields?.deploymentName &&
         prodCredentials.deploymentFields.deploymentType
       ) {
         availableDeployments.push({
-          kind: prodDeployment.kind,
+          kind: prodSelectionWithinProject.kind,
           deploymentSelector: encodeDeploymentSelector(
             projectDir,
-            prodDeployment,
+            prodSelectionWithinProject,
           ),
           url: prodCredentials.url,
           dashboardUrl: deploymentDashboardUrlPage(

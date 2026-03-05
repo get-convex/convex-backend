@@ -12,10 +12,9 @@ import {
   DeploymentName,
   fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows,
   createProject,
-  DeploymentSelectionWithinProject,
   loadSelectedDeploymentCredentials,
   checkAccessToSelectedProject,
-  validateDeploymentSelectionForExistingDeployment,
+  DeploymentSelectionWithinProject,
 } from "./lib/api.js";
 import { readProjectConfig, writeProjectConfig } from "./lib/config.js";
 import {
@@ -47,7 +46,6 @@ import {
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
 import {
   DeploymentSelection,
-  ProjectSelection,
   deploymentNameFromSelection,
   shouldAllowAnonymousDevelopment,
 } from "./lib/deploymentSelection.js";
@@ -70,7 +68,6 @@ type ChosenConfiguration =
   | null;
 
 type ConfigureCmdOptions = {
-  selectionWithinProject: DeploymentSelectionWithinProject;
   prod: boolean;
   localOptions: {
     ports?: {
@@ -190,11 +187,6 @@ export async function _deploymentCredentialsOrConfigure(
 
   switch (deploymentSelection.kind) {
     case "existingDeployment":
-      await validateDeploymentSelectionForExistingDeployment(
-        ctx,
-        cmdOptions.selectionWithinProject,
-        deploymentSelection.deploymentToActOn.source,
-      );
       return {
         url: deploymentSelection.deploymentToActOn.url,
         adminKey: deploymentSelection.deploymentToActOn.adminKey,
@@ -211,6 +203,7 @@ export async function _deploymentCredentialsOrConfigure(
       return await handleChooseProject(
         ctx,
         chosenConfiguration,
+        deploymentSelection.selectionWithinProject,
         {
           globallyForceCloud,
         },
@@ -226,7 +219,7 @@ export async function _deploymentCredentialsOrConfigure(
     case "deploymentWithinProject": {
       return await handleDeploymentWithinProject(ctx, {
         chosenConfiguration,
-        targetProject: deploymentSelection.targetProject,
+        deploymentSelection,
         cmdOptions,
         globallyForceCloud,
       });
@@ -254,6 +247,7 @@ export async function _deploymentCredentialsOrConfigure(
         return await handleChooseProject(
           ctx,
           chosenConfiguration,
+          deploymentSelection.selectionWithinProject,
           {
             globallyForceCloud,
           },
@@ -307,6 +301,7 @@ export async function _deploymentCredentialsOrConfigure(
       return await handleChooseProject(
         ctx,
         chosenConfiguration,
+        deploymentSelection.selectionWithinProject,
         {
           globallyForceCloud,
         },
@@ -320,12 +315,14 @@ async function handleDeploymentWithinProject(
   ctx: Context,
   {
     chosenConfiguration,
-    targetProject,
+    deploymentSelection,
     cmdOptions,
     globallyForceCloud,
   }: {
     chosenConfiguration: ChosenConfiguration;
-    targetProject: ProjectSelection;
+    deploymentSelection: DeploymentSelection & {
+      kind: "deploymentWithinProject";
+    };
     cmdOptions: ConfigureCmdOptions;
     globallyForceCloud: boolean;
   },
@@ -347,6 +344,7 @@ async function handleDeploymentWithinProject(
     const result = await handleChooseProject(
       ctx,
       chosenConfiguration,
+      deploymentSelection.selectionWithinProject,
       {
         globallyForceCloud,
       },
@@ -355,12 +353,16 @@ async function handleDeploymentWithinProject(
     return result;
   }
 
-  const accessResult = await checkAccessToSelectedProject(ctx, targetProject);
+  const accessResult = await checkAccessToSelectedProject(
+    ctx,
+    deploymentSelection.targetProject,
+  );
   if (accessResult.kind === "noAccess") {
     logMessage("You don't have access to the selected project.");
     const result = await handleChooseProject(
       ctx,
       chosenConfiguration,
+      deploymentSelection.selectionWithinProject,
       {
         globallyForceCloud,
       },
@@ -371,11 +373,7 @@ async function handleDeploymentWithinProject(
 
   const selectedDeployment = await loadSelectedDeploymentCredentials(
     ctx,
-    {
-      kind: "deploymentWithinProject",
-      targetProject,
-    },
-    cmdOptions.selectionWithinProject,
+    deploymentSelection,
     // We'll start running it below
     { ensureLocalRunning: false },
   );
@@ -402,6 +400,7 @@ async function handleDeploymentWithinProject(
 async function handleChooseProject(
   ctx: Context,
   chosenConfiguration: ChosenConfiguration,
+  selectionWithinProject: DeploymentSelectionWithinProject,
   args: {
     globallyForceCloud: boolean;
   },
@@ -433,7 +432,7 @@ async function handleChooseProject(
   // because we're ignoring them if this isn't a local development.
 
   const deploymentOptions: DeploymentOptions =
-    cmdOptions.selectionWithinProject.kind === "prod"
+    selectionWithinProject.kind === "prod"
       ? { kind: "prod" }
       : project.devDeployment === "local"
         ? { kind: "local", ...cmdOptions.localOptions }

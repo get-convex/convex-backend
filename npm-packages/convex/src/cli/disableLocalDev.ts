@@ -53,7 +53,6 @@ export const disableLocalDeployments = new Command("disable-local-deployments")
     }
 
     await deploymentCredentialsOrConfigure(ctx, deploymentSelection, "ask", {
-      selectionWithinProject: { kind: "ownDev" },
       prod: false,
       localOptions: {
         forceUpgrade: false,

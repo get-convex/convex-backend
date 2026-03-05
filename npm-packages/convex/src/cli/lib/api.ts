@@ -642,21 +642,16 @@ export type DetailedDeploymentCredentials = {
   } | null;
 };
 
-// This is used by most commands (notably not `dev` and `deploy`) to determine
-// which deployment to act on, taking into account the deployment selection flags.
+/**
+ * This is used by most commands to determine which deployment to act on, taking into account the deployment selection flags.
+ */
 export async function loadSelectedDeploymentCredentials(
   ctx: Context,
   deploymentSelection: DeploymentSelection,
-  selectionWithinProject: DeploymentSelectionWithinProject,
   { ensureLocalRunning } = { ensureLocalRunning: true },
 ): Promise<DetailedDeploymentCredentials> {
   switch (deploymentSelection.kind) {
     case "existingDeployment":
-      await validateDeploymentSelectionForExistingDeployment(
-        ctx,
-        selectionWithinProject,
-        deploymentSelection.deploymentToActOn.source,
-      );
       // We're already set up.
       logVerbose(
         `Deployment URL: ${deploymentSelection.deploymentToActOn.url}, Deployment Name: ${deploymentSelection.deploymentToActOn.deploymentFields?.deploymentName ?? "unknown"}, Deployment Type: ${deploymentSelection.deploymentToActOn.deploymentFields?.deploymentType ?? "unknown"}`,
@@ -686,7 +681,8 @@ export async function loadSelectedDeploymentCredentials(
           teamSlug: slugs.teamSlug,
           projectSlug: slugs.projectSlug,
         },
-        selectionWithinProject,
+        // Note that the user could select a non-preview deployment here, and it would succeed if the user is logged in locally because getBigBrainAuth prefers the user's access token over the preview deploy key.
+        deploymentSelection.selectionWithinProject,
         { ensureLocalRunning },
       );
     }
@@ -694,7 +690,7 @@ export async function loadSelectedDeploymentCredentials(
       return await _loadExistingDeploymentCredentialsForProject(
         ctx,
         deploymentSelection.targetProject,
-        selectionWithinProject,
+        deploymentSelection.selectionWithinProject,
         { ensureLocalRunning },
       );
     }

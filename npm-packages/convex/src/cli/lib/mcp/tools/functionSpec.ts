@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { runSystemQuery } from "../../run.js";
-import { getDeploymentSelection } from "../../deploymentSelection.js";
+import { getMcpDeploymentSelection } from "../requestContext.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -39,11 +39,13 @@ export const FunctionSpecTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const deploymentSelection = await getMcpDeploymentSelection(
+      ctx,
+      deployment,
+    );
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      deployment,
     );
     const functions = await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,

@@ -3,10 +3,7 @@ import { chalkStderr } from "chalk";
 import open from "open";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logMessage, logOutput, logWarning } from "../bundler/log.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { checkIfDashboardIsRunning } from "./lib/localDeployment/dashboard.js";
@@ -26,13 +23,10 @@ export const dashboard = new Command("dashboard")
   .action(async (options) => {
     const ctx = await oneoffContext(options);
 
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
       { ensureLocalRunning: false },
     );
 

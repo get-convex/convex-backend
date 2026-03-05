@@ -3,10 +3,7 @@ import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import { oneoffContext } from "../bundler/context.js";
 import { logOutput } from "../bundler/log.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { deploymentDashboardUrlPage } from "./lib/dashboard.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
@@ -102,13 +99,10 @@ export const insights = new Command("insights")
   .action(async (cmdOptions) => {
     const ctx = await oneoffContext(cmdOptions);
 
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(cmdOptions);
     const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
     );
 
     const deploymentName = credentials.deploymentFields?.deploymentName ?? null;

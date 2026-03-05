@@ -6,7 +6,7 @@ import { readProjectConfig } from "../../config.js";
 import { ConvexHttpClient } from "../../../../browser/index.js";
 import { Value } from "../../../../values/index.js";
 import { DefaultLogger } from "../../../../browser/logging.js";
-import { getDeploymentSelection } from "../../deploymentSelection.js";
+import { getMcpDeploymentSelection } from "../requestContext.js";
 const inputSchema = z.object({
   deploymentSelector: z
     .string()
@@ -48,12 +48,8 @@ export const RunTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const metadata = await getDeploymentSelection(ctx, ctx.options);
-    const credentials = await loadSelectedDeploymentCredentials(
-      ctx,
-      metadata,
-      deployment,
-    );
+    const metadata = await getMcpDeploymentSelection(ctx, deployment);
+    const credentials = await loadSelectedDeploymentCredentials(ctx, metadata);
     const parsedArgs = await parseArgs(ctx, args.args);
     const { projectConfig } = await readProjectConfig(ctx);
     const parsedFunctionName = await parseFunctionName(

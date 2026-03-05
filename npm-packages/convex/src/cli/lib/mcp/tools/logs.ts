@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
-import { getDeploymentSelection } from "../../deploymentSelection.js";
 import { deploymentFetch } from "../../utils/utils.js";
 import { FunctionExecution } from "../../apiTypes.js";
 import { formatLogsAsText } from "../../logs.js";
+import { getMcpDeploymentSelection } from "../requestContext.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -80,11 +80,13 @@ export const LogsTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
     const { projectDir, deployment } =
       await ctx.decodeDeploymentSelectorReadOnly(args.deploymentSelector);
     process.chdir(projectDir);
-    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const deploymentSelection = await getMcpDeploymentSelection(
+      ctx,
+      deployment,
+    );
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      deployment,
     );
 
     const fetch = deploymentFetch(ctx, {

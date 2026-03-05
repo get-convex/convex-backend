@@ -7,7 +7,7 @@ import {
   EnvVar,
 } from "../../env.js";
 import { runSystemQuery } from "../../run.js";
-import { getDeploymentSelection } from "../../deploymentSelection.js";
+import { getMcpDeploymentSelection } from "../requestContext.js";
 
 // List Environment Variables
 const envListInputSchema = z.object({
@@ -40,11 +40,13 @@ export const EnvListTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const deploymentSelection = await getMcpDeploymentSelection(
+      ctx,
+      deployment,
+    );
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      deployment,
     );
     const variables = (await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,
@@ -87,11 +89,13 @@ export const EnvGetTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const deploymentSelection = await getMcpDeploymentSelection(
+      ctx,
+      deployment,
+    );
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      deployment,
     );
     const envVar = (await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,
@@ -132,11 +136,13 @@ export const EnvSetTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const deploymentSelection = await getMcpDeploymentSelection(
+      ctx,
+      deployment,
+    );
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      deployment,
     );
     const deploymentInfo = {
       deploymentUrl: credentials.url,
@@ -175,11 +181,13 @@ export const EnvRemoveTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const deploymentSelection = await getMcpDeploymentSelection(
+      ctx,
+      deployment,
+    );
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      deployment,
     );
     const deploymentInfo = {
       deploymentUrl: credentials.url,

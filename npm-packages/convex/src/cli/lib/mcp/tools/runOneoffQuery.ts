@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
-import { getDeploymentSelection } from "../../deploymentSelection.js";
+import { getMcpDeploymentSelection } from "../requestContext.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -61,11 +61,13 @@ export const RunOneoffQueryTool: ConvexTool<
     const { projectDir, deployment } =
       await ctx.decodeDeploymentSelectorReadOnly(args.deploymentSelector);
     process.chdir(projectDir);
-    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const deploymentSelection = await getMcpDeploymentSelection(
+      ctx,
+      deployment,
+    );
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      deployment,
     );
     try {
       const response = await fetch(`${credentials.url}/api/run_test_function`, {

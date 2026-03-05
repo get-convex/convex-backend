@@ -3,8 +3,11 @@ import { logVerbose } from "../../bundler/log.js";
 import {
   AccountRequiredDeploymentType,
   DeploymentSelectionOptions,
+  DeploymentSelectionWithinProject,
+  deploymentSelectionWithinProjectFromOptions,
   DeploymentType,
   fetchTeamAndProjectForKey,
+  validateDeploymentSelectionForExistingDeployment,
 } from "./api.js";
 import {
   deploymentNameFromAdminKeyOrCrash,
@@ -230,17 +233,21 @@ export type DeploymentSelection =
   | {
       kind: "deploymentWithinProject";
       targetProject: ProjectSelection;
+      selectionWithinProject: DeploymentSelectionWithinProject;
     }
   | {
       kind: "preview";
       previewDeployKey: string;
+      selectionWithinProject: DeploymentSelectionWithinProject;
     }
   | {
       kind: "chooseProject";
+      selectionWithinProject: DeploymentSelectionWithinProject;
     }
   | {
       kind: "anonymous";
       deploymentName: string | null;
+      selectionWithinProject: DeploymentSelectionWithinProject;
     };
 
 export type ProjectSelection =
@@ -264,6 +271,15 @@ export async function getDeploymentSelection(
   cliArgs: DeploymentSelectionOptions,
 ): Promise<DeploymentSelection> {
   const metadata = await _getDeploymentSelection(ctx, cliArgs);
+  if (metadata.kind === "existingDeployment") {
+    const selectionWithinProject =
+      deploymentSelectionWithinProjectFromOptions(cliArgs);
+    await validateDeploymentSelectionForExistingDeployment(
+      ctx,
+      selectionWithinProject,
+      metadata.deploymentToActOn.source,
+    );
+  }
   logDeploymentSelection(ctx, metadata);
   return metadata;
 }
@@ -326,6 +342,8 @@ async function _getDeploymentSelection(
   ctx: Context,
   cliArgs: DeploymentSelectionOptions,
 ): Promise<DeploymentSelection> {
+  const selectionWithinProject =
+    deploymentSelectionWithinProjectFromOptions(cliArgs);
   /*
    - url + adminKey specified via CLI
    - Do not check any env vars (including ones relevant for auth)
@@ -356,8 +374,11 @@ async function _getDeploymentSelection(
       });
     }
     const config = dotenv.parse(existingFile);
-    const result = await getDeploymentSelectionFromEnv(ctx, (name) =>
-      config[name] === undefined || config[name] === "" ? null : config[name],
+    const result = await getDeploymentSelectionFromEnv(
+      ctx,
+      selectionWithinProject,
+      (name) =>
+        config[name] === undefined || config[name] === "" ? null : config[name],
     );
     if (result.kind === "unknown") {
       return ctx.crash({
@@ -374,13 +395,17 @@ async function _getDeploymentSelection(
   dotenv.config({ path: ENV_VAR_FILE_PATH });
   // for variables not already set, use .env values
   dotenv.config();
-  const result = await getDeploymentSelectionFromEnv(ctx, (name) => {
-    const value = process.env[name];
-    if (value === undefined || value === "") {
-      return null;
-    }
-    return value;
-  });
+  const result = await getDeploymentSelectionFromEnv(
+    ctx,
+    selectionWithinProject,
+    (name) => {
+      const value = process.env[name];
+      if (value === undefined || value === "") {
+        return null;
+      }
+      return value;
+    },
+  );
   if (result.kind !== "unknown") {
     return result.metadata;
   }
@@ -395,17 +420,20 @@ async function _getDeploymentSelection(
     return {
       kind: "anonymous",
       deploymentName: null,
+      selectionWithinProject,
     };
   }
 
   // Choose a project interactively later
   return {
     kind: "chooseProject",
+    selectionWithinProject,
   };
 }
 
 async function getDeploymentSelectionFromEnv(
   ctx: Context,
+  selectionWithinProject: DeploymentSelectionWithinProject,
   getEnv: (name: string) => string | null,
 ): Promise<
   { kind: "success"; metadata: DeploymentSelection } | { kind: "unknown" }
@@ -430,6 +458,7 @@ async function getDeploymentSelectionFromEnv(
           metadata: {
             kind: "preview",
             previewDeployKey: deployKey,
+            selectionWithinProject,
           },
         };
       }
@@ -444,6 +473,7 @@ async function getDeploymentSelectionFromEnv(
               kind: "projectDeployKey",
               projectDeployKey: deployKey,
             },
+            selectionWithinProject,
           },
         };
       }
@@ -545,6 +575,7 @@ async function getDeploymentSelectionFromEnv(
         metadata: {
           kind: "anonymous",
           deploymentName: targetDeploymentName,
+          selectionWithinProject,
         },
       };
     }
@@ -558,6 +589,7 @@ async function getDeploymentSelectionFromEnv(
           deploymentName: targetDeploymentName,
           deploymentType: targetDeploymentType,
         },
+        selectionWithinProject,
       },
     };
   }

@@ -6,7 +6,6 @@ import { Context, oneoffContext } from "../bundler/context.js";
 import { chalkStderr } from "chalk";
 import {
   DeploymentSelectionOptions,
-  deploymentSelectionWithinProjectFromOptions,
   fetchTeamAndProject,
   getTeamAndProjectSlugForDeployment,
   loadSelectedDeploymentCredentials,
@@ -54,17 +53,11 @@ async function selectEnvDeployment(
 }> {
   const ctx = await oneoffContext(options);
   const deploymentSelection = await getDeploymentSelection(ctx, options);
-  const selectionWithinProject =
-    deploymentSelectionWithinProjectFromOptions(options);
   const {
     adminKey,
     url: deploymentUrl,
     deploymentFields,
-  } = await loadSelectedDeploymentCredentials(
-    ctx,
-    deploymentSelection,
-    selectionWithinProject,
-  );
+  } = await loadSelectedDeploymentCredentials(ctx, deploymentSelection);
   // WorkOS integration only works with cloud deployments
   if (!deploymentFields) {
     return await ctx.crash({

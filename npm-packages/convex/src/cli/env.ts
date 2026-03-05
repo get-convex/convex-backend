@@ -3,7 +3,6 @@ import { chalkStderr } from "chalk";
 import { Context, oneoffContext } from "../bundler/context.js";
 import {
   DeploymentSelectionOptions,
-  deploymentSelectionWithinProjectFromOptions,
   DetailedDeploymentCredentials,
   loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
@@ -86,18 +85,13 @@ async function selectEnvDeployment(
 }> {
   const ctx = await oneoffContext(options);
   const deploymentSelection = await getDeploymentSelection(ctx, options);
-  const selectionWithinProject =
-    deploymentSelectionWithinProjectFromOptions(options);
   const {
     adminKey,
     url: deploymentUrl,
     deploymentFields,
-  } = await loadSelectedDeploymentCredentials(
-    ctx,
-    deploymentSelection,
-    selectionWithinProject,
-    { ensureLocalRunning: false },
-  );
+  } = await loadSelectedDeploymentCredentials(ctx, deploymentSelection, {
+    ensureLocalRunning: false,
+  });
 
   const deploymentNotice =
     deploymentFields !== null

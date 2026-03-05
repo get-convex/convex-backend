@@ -1,10 +1,7 @@
 import { chalkStderr } from "chalk";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { oneoffContext } from "../bundler/context.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 import { DASHBOARD_HOST, deploymentDashboardUrlPage } from "./lib/dashboard.js";
@@ -28,14 +25,10 @@ export const convexImport = new Command("import")
 
     await ensureHasConvexDependency(ctx, "import");
 
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(options);
-
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
     );
 
     const deploymentNotice = options.prod

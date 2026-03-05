@@ -1,9 +1,6 @@
 import { Command } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { logsForDeployment } from "./lib/logs.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
@@ -20,13 +17,10 @@ export const logs = new Command("logs")
   .action(async (cmdOptions) => {
     const ctx = await oneoffContext(cmdOptions);
 
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(cmdOptions);
     const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
     );
     const deploymentName = deployment.deploymentFields?.deploymentName
       ? ` ${deployment.deploymentFields.deploymentName}`

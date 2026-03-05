@@ -5,7 +5,6 @@ import { deploymentCredentialsOrConfigure } from "./configure.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { normalizeDevOptions } from "./lib/command.js";
 import { devAgainstDeployment } from "./lib/dev.js";
-import { deploymentSelectionWithinProjectFromOptions } from "./lib/api.js";
 import {
   CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
@@ -182,9 +181,6 @@ Same format as .env.local or .env files, and overrides them.`,
 
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
 
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(cmdOptions);
-
     if (cmdOptions.configure === undefined) {
       if (cmdOptions.team || cmdOptions.project || cmdOptions.devDeployment)
         return await ctx.crash({
@@ -243,7 +239,6 @@ Same format as .env.local or .env files, and overrides them.`,
       {
         ...cmdOptions,
         localOptions,
-        selectionWithinProject,
       },
     );
 

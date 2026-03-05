@@ -2,10 +2,7 @@ import { chalkStderr } from "chalk";
 import { Command, Option } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logFinishedStep, logMessage, showSpinner } from "../bundler/log.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import {
   gitBranchFromEnvironment,
   isNonProdBuildEnvironment,
@@ -334,15 +331,13 @@ async function deployToExistingDeployment(
     allowDeletingLargeIndexes: boolean;
   },
 ) {
-  const selectionWithinProject = deploymentSelectionWithinProjectFromOptions({
+  const deploymentSelection = await getDeploymentSelection(ctx, {
     ...options,
     implicitProd: true,
   });
-  const deploymentSelection = await getDeploymentSelection(ctx, options);
   const deploymentToActOn = await loadSelectedDeploymentCredentials(
     ctx,
     deploymentSelection,
-    selectionWithinProject,
   );
   const { deploymentFields } = deploymentToActOn;
 

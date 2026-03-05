@@ -1,9 +1,6 @@
 import { Command } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./lib/api.js";
+import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { runInDeployment } from "./lib/run.js";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
@@ -18,13 +15,10 @@ export const run = new Command("run")
   .action(async (functionName, argsString, options) => {
     const ctx = await oneoffContext(options);
     await ensureHasConvexDependency(ctx, "run");
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
     );
 
     if (

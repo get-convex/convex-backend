@@ -44,10 +44,7 @@ import { withTmpDir } from "../../bundler/fs.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import { chalkStderr } from "chalk";
 import { StartPushRequest, StartPushResponse } from "./deployApi/startPush.js";
-import {
-  deploymentSelectionWithinProjectFromOptions,
-  loadSelectedDeploymentCredentials,
-} from "./api.js";
+import { loadSelectedDeploymentCredentials } from "./api.js";
 import { FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import { DEFINITION_FILENAME_TS } from "./components/constants.js";
@@ -109,12 +106,9 @@ export async function runCodegen(
       });
     }
 
-    const selectionWithinProject =
-      deploymentSelectionWithinProjectFromOptions(options);
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
-      selectionWithinProject,
     );
 
     await startComponentsPushAndCodegen(

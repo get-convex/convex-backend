@@ -7,6 +7,10 @@ import {
   DeploymentSelectionOptions,
 } from "../api.js";
 import { z } from "zod";
+import {
+  DeploymentSelection,
+  getDeploymentSelection,
+} from "../deploymentSelection.js";
 
 export interface McpOptions extends DeploymentSelectionOptions {
   projectDir?: string;
@@ -156,4 +160,24 @@ const payloadSchema = z.object({
 function decodeDeploymentSelector(encoded: string) {
   const [_, serializedPayload] = encoded.split(":");
   return payloadSchema.parse(JSON.parse(atob(serializedPayload)));
+}
+
+/**
+ * Get the deployment selection for MCP tools. The agent can pass different
+ * values of `selectionWithinProject` into a tool, so we overwrite the
+ * `selectionWithinProject` of the `DeploymentSelection` if it exists.
+ */
+export async function getMcpDeploymentSelection(
+  ctx: RequestContext,
+  decodedDeploymentSelector: DeploymentSelectionWithinProject,
+): Promise<DeploymentSelection> {
+  const initialSelection = await getDeploymentSelection(ctx, ctx.options);
+  const hasSelectionWithinProject =
+    initialSelection.kind !== "existingDeployment";
+  return {
+    ...initialSelection,
+    ...(hasSelectionWithinProject && {
+      selectionWithinProject: decodedDeploymentSelector,
+    }),
+  };
 }
