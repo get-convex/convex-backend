@@ -28,6 +28,7 @@ pub struct BackendInfo {
     pub provision_concurrency: Option<i32>,
     pub log_streaming_enabled: Option<bool>,
     pub audit_log_retention_days: Option<i64>,
+    pub send_logs_to_client: Option<bool>,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -44,6 +45,7 @@ impl Default for BackendInfo {
             provision_concurrency: Some(DEFAULT_PROVISION_CONCURRENCY),
             log_streaming_enabled: Some(false),
             audit_log_retention_days: Some(0),
+            send_logs_to_client: None,
         }
     }
 }
