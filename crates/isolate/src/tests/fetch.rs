@@ -78,7 +78,7 @@ async fn serve(router: Router, port: u16) {
         router,
         "http_test",
         "0.0.1".to_owned(),
-        1,
+        4,
         Duration::from_secs(125),
         NoopRouteMapper,
     )
@@ -273,8 +273,6 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO(ENG-7281) fix flakes
-#[ignore]
 #[convex_macro::prod_rt_test]
 async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
     let rt_ = rt.clone();
@@ -283,6 +281,7 @@ async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
         .route(
             "/echo_server",
             post(|req: Request<Body>| async {
+                tracing::info!("Got echo");
                 let (parts, body) = req.into_parts();
                 let mut response = Response::new(body);
                 response.headers_mut().extend(parts.headers);
@@ -294,10 +293,12 @@ async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
             get(|| async move {
                 // To test parallel fetches, we race /timeout against /echo_server.
                 // To make sure /echo_server finishes first, /timeout takes a while.
+                tracing::info!("Got timeout");
                 rt_.wait(Duration::from_secs(3)).await;
+                tracing::info!("Timeout done waiting 3s");
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from("timeout"))
+                    .body(Body::from("timeout incorrectly beat echo"))
                     .expect("invalid response")
             }),
         );

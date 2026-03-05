@@ -1734,6 +1734,7 @@ export const fetchInParallel = action({
         method: "POST",
         body: new TextEncoder().encode("hello world"),
       }),
+      fetch("http://localhost:4546/timeout"),
     ];
     const response = await Promise.race(parallelFetches);
     assert(response.ok, await response.text());
