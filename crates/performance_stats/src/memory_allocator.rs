@@ -57,7 +57,7 @@ unsafe extern "C" fn stats_write_cb(ctx: *mut c_void, buf: *const c_char) {
     }
 }
 
-fn load_jemalloc_stats() -> anyhow::Result<JemallocStats> {
+pub fn load_jemalloc_stats() -> anyhow::Result<JemallocStats> {
     let mut buf = vec![0u8; MAX_STATS_SIZE];
     // Just get the bare minimum stats from jemalloc:
     // https://github.com/tikv/jemallocator/blob/main/jemalloc-sys/src/lib.rs#L526
