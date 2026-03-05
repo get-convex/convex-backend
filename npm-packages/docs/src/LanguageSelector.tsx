@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDropdown from "react-dropdown";
+import "react-dropdown/style.css";
 import { useSelectedDialect, useSetDialect } from "./theme/Root";
 
 export function LanguageSelector({ verbose }: { verbose?: true }) {
