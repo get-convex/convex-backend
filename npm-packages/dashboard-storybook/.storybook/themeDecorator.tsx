@@ -3,6 +3,7 @@ import { DecoratorHelpers } from "@storybook/addon-themes";
 import type { DecoratorFunction } from "storybook/internal/types";
 import { ThemeProvider } from "next-themes";
 import { ReactRenderer } from "@storybook/nextjs";
+import { ToastContainer } from "../../dashboard-common/src/elements/ToastContainer";
 const { initializeThemeState, pluckThemeFromContext } = DecoratorHelpers;
 
 const themeDecorator: (args: {
@@ -20,6 +21,7 @@ const themeDecorator: (args: {
     return (
       <ThemeProvider attribute="class" forcedTheme={selected}>
         {storyFn() as ReactNode}
+        <ToastContainer />
       </ThemeProvider>
     );
   };

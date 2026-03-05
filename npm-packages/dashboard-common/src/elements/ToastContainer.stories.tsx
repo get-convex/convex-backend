@@ -67,8 +67,6 @@ function ToastDemo() {
           </div>
         </form>
       </Sheet>
-
-      <ToastContainer />
     </>
   );
 }
