@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { isValidElement } from "react";
 import {
   EnvironmentVariables,
   parseEnvVars,
@@ -66,10 +67,25 @@ describe("EnvironmentVariables", () => {
           updateEnvironmentVariables={async () => {}}
           hasAdminPermissions
           initEnvVar={(envVar) => envVar}
+          envVarKey={(envVar) => `${envVar.name}-${envVar.value}`}
         />,
       );
 
       await user.click(screen.getByRole("button", { name: "Copy All" }));
+    }
+
+    function getWarningToastMessageElement() {
+      const warningCall = mockToast.mock.calls.find(
+        ([type]) => type === "warning",
+      );
+      expect(warningCall).toBeDefined();
+
+      const warningMessage = warningCall?.[1];
+      expect(isValidElement(warningMessage)).toBe(true);
+      if (!isValidElement(warningMessage)) {
+        throw new Error("Expected warning toast to render a React element");
+      }
+      return warningMessage;
     }
 
     it("shows a warning toast when formatter warnings are returned", async () => {
@@ -78,14 +94,42 @@ describe("EnvironmentVariables", () => {
       expect(mockCopyTextToClipboard).toHaveBeenCalledWith(
         "CRLF_VAR='line1\r\nline2'",
       );
-      expect(mockToast).toHaveBeenCalledWith(
+      expect(mockToast).not.toHaveBeenCalledWith(
         "success",
         "Environment variables copied to the clipboard.",
       );
-      expect(mockToast).toHaveBeenCalledWith(
-        "warning",
-        expect.stringContaining("CRLF_VAR"),
+
+      const warningMessage = getWarningToastMessageElement();
+      render(<>{warningMessage}</>);
+      expect(
+        screen.getByText(
+          "Environment variables copied to the clipboard with the following warnings:",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("CRLF_VAR", { selector: "code" }),
+      ).toBeInTheDocument();
+      expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    });
+
+    it("renders each warning on its own line, including duplicate names", async () => {
+      await renderAndCopy([
+        { name: "DUP_VAR", value: "line1\r\nline2" },
+        { name: "DUP_VAR", value: "line3\rline4" },
+      ]);
+
+      const warningMessage = getWarningToastMessageElement();
+      const { container } = render(<>{warningMessage}</>);
+      expect(
+        screen.getByText(
+          "Environment variables copied to the clipboard with the following warnings:",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText("DUP_VAR", { selector: "code" })).toHaveLength(
+        2,
       );
+      expect(container.querySelectorAll("code")).toHaveLength(2);
+      expect(screen.getAllByRole("listitem")).toHaveLength(2);
     });
 
     it("does not show a warning toast when no formatter warnings are returned", async () => {

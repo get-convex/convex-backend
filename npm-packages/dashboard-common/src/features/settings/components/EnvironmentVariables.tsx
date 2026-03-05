@@ -796,21 +796,30 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
                     .join("\n"),
                 );
 
-                toast(
-                  "success",
-                  "Environment variables copied to the clipboard.",
-                );
-
                 const warnings = formattedEnvVars.flatMap(
-                  ({ name, warning }) =>
-                    warning ? [`${name}: ${warning}`] : [],
+                  ({ name, warning }) => (warning ? [{ name, warning }] : []),
                 );
                 if (warnings.length > 0) {
                   toast(
                     "warning",
-                    warnings.length === 1
-                      ? `Formatting warning while copying: ${warnings[0]}`
-                      : `Formatting warnings while copying (${warnings.length} vars): ${warnings.join(" | ")}`,
+                    <div className="space-y-1">
+                      <div>
+                        Environment variables copied to the clipboard with the
+                        following warnings:
+                      </div>
+                      <ul className="list-disc pl-4">
+                        {warnings.map(({ name, warning }, index) => (
+                          <li key={index}>
+                            <code>{name}</code>: {warning}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>,
+                  );
+                } else {
+                  toast(
+                    "success",
+                    "Environment variables copied to the clipboard.",
                   );
                 }
               }}

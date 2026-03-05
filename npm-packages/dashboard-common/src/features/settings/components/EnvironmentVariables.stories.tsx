@@ -85,6 +85,15 @@ export const NoAdminPermissions: Story = {
   },
 };
 
+export const WithCopyFormattingWarnings: Story = {
+  args: {
+    environmentVariables: [
+      { name: "CRLF_VAR_ONE", value: "line1\r\nline2" },
+      { name: "CRLF_VAR_TWO", value: "line3\rline4" },
+    ],
+  },
+};
+
 export const AtLimit: Story = {
   args: {
     environmentVariables: Array.from({ length: 100 }, (_, i) => ({
