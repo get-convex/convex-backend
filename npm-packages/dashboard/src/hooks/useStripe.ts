@@ -88,7 +88,7 @@ export function useStripePaymentSetup(
           fontSize: "0.875rem",
           boxShadow: "none",
           border: `1px solid ${borderTransparent}`,
-          padding: "0.5rem 1rem",
+          padding: "0.375rem 0.5rem",
         },
         ".Input--invalid": {
           border: `1px solid ${borderTransparent}`,

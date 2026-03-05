@@ -5,8 +5,10 @@ import { PlanCard } from "./PlanCard";
 
 export function BusinessPlan({
   subscription,
+  isLoading = false,
 }: {
   subscription?: OrbSubscriptionResponse;
+  isLoading?: boolean;
 }) {
   const isCurrentPlan = subscription?.plan.planType === "CONVEX_BUSINESS";
   const [, setOpenState] = useSupportFormOpen();
@@ -31,6 +33,7 @@ export function BusinessPlan({
         ) : (
           <Button
             variant="neutral"
+            disabled={isLoading}
             onClick={() =>
               setOpenState({
                 defaultSubject: "Business Plan Inquiry",

@@ -1,7 +1,7 @@
 import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 import { TextInput } from "@ui/TextInput";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDebounce } from "react-use";
 import { Elements } from "@stripe/react-stripe-js";
 import { useGetCoupon, useCreateSubscription } from "api/billing";
@@ -177,7 +177,7 @@ export function UpgradePlanContentContainer({
         billingAddressInputs={
           options.clientSecret ? (
             <div className="flex flex-col gap-2">
-              <h4>Billing Address</h4>
+              <h5>Billing Address</h5>
               <Elements stripe={stripePromise} options={options}>
                 <BillingAddressInputs onChangeAddress={setBillingAddress} />
               </Elements>
@@ -216,12 +216,196 @@ export function UpgradePlanContent({
   teamManagedBy,
 }: UpgradePlanContentProps) {
   const formState = useFormikContext<UpgradeFormState>();
+  const [currentStep, setCurrentStep] = useState(0);
 
   if (teamMemberDiscountPct < 0 || teamMemberDiscountPct > 1) {
     throw new Error(
       `Invalid teamMemberDiscountPct: ${teamMemberDiscountPct}. Must be between 0 and 1.`,
     );
   }
+
+  const steps = useMemo(
+    () => [
+      { label: "Billing Information" },
+      { label: "Spending Limits" },
+      ...(requiresPaymentMethod ? [{ label: "Payment Information" }] : []),
+    ],
+    [requiresPaymentMethod],
+  );
+
+  const totalSteps = steps.length;
+  const isLastStep = currentStep === totalSteps - 1;
+
+  // Clamp step if totalSteps decreases (e.g. promo code removes payment requirement)
+  useEffect(() => {
+    if (currentStep >= totalSteps) {
+      setCurrentStep(totalSteps - 1);
+    }
+  }, [totalSteps, currentStep]);
+
+  const canProceedFromStep0 = useMemo(
+    () =>
+      !!formState.values.name &&
+      !!formState.values.email &&
+      !!formState.values.billingAddress &&
+      !isLoadingPromo,
+    [
+      formState.values.name,
+      formState.values.email,
+      formState.values.billingAddress,
+      isLoadingPromo,
+    ],
+  );
+
+  const stepContent = (index: number) => {
+    if (index === 0) {
+      return (
+        <div className="flex flex-col gap-6">
+          {plan.planType === "CONVEX_PROFESSIONAL" && (
+            <div className="flex max-w-64 items-center gap-2">
+              <TextInput
+                label="Promo code"
+                placeholder="Enter a promo code"
+                onChange={(e) =>
+                  formState.setFieldValue(
+                    "promoCode",
+                    e.target.value.toUpperCase(),
+                  )
+                }
+                value={formState.values.promoCode}
+                id="promoCode"
+                error={promoCodeError}
+              />
+              {isLoadingPromo && (
+                <span data-testid="loading-spinner" className="mt-4">
+                  <Spinner />
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <h5>Billing Contact</h5>
+            <BillingContactInputs formState={formState} />
+          </div>
+
+          {billingAddressInputs}
+        </div>
+      );
+    }
+    if (index === 1) {
+      return (
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-content-secondary">
+              We recommend setting spending limit warnings and hard limits to
+              avoid unexpected charges on your Convex usage.
+            </p>
+            <SpendingLimits />
+            {!requiresPaymentMethod && (
+              <p className="text-sm text-content-secondary">
+                Payment information is not required for your promotion code, but
+                you may add spending limits in case payment is applicable in the
+                future.
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    }
+    if (index === 2 && requiresPaymentMethod) {
+      return (
+        <div className="flex flex-col gap-6">
+          {!formState.values.paymentMethod ? (
+            <div className="flex flex-col gap-2">
+              {/* Reduce the amount of space stripe can take up so it doesn't render horizontal overflow */}
+              <div className="max-w-[calc(100%-1rem)]">
+                {paymentDetailsForm}
+              </div>
+            </div>
+          ) : (
+            <Button
+              className="w-fit"
+              size="sm"
+              onClick={() => setPaymentMethod(undefined)}
+              data-testid="update-payment-method-button"
+              variant="neutral"
+            >
+              Change payment method
+            </Button>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const navigationButtons = (
+    <div className="flex gap-2">
+      {currentStep > 0 && (
+        <Button
+          size="sm"
+          variant="neutral"
+          onClick={() => setCurrentStep(currentStep - 1)}
+        >
+          Back
+        </Button>
+      )}
+      {!isLastStep ? (
+        <Button
+          size="sm"
+          onClick={() => setCurrentStep(currentStep + 1)}
+          disabled={currentStep === 0 && !canProceedFromStep0}
+          tip={
+            currentStep === 0
+              ? !formState.values.name
+                ? "Enter a billing contact name to continue."
+                : !formState.values.email
+                  ? "Enter a billing contact email to continue."
+                  : !formState.values.billingAddress
+                    ? "Enter a billing address to continue."
+                    : undefined
+              : undefined
+          }
+        >
+          Next
+        </Button>
+      ) : (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await formState.handleSubmit();
+          }}
+        >
+          <Button
+            data-testid="upgrade-plan-button"
+            className="w-fit"
+            size="sm"
+            disabled={
+              isLoadingPromo ||
+              (requiresPaymentMethod && !formState.values.paymentMethod) ||
+              !formState.values.billingAddress
+            }
+            type="submit"
+            loading={formState.isSubmitting}
+            tip={
+              requiresPaymentMethod && !formState.values.paymentMethod
+                ? "Add a payment method to continue."
+                : !formState.values.name
+                  ? "Enter a billing contact name to continue."
+                  : !formState.values.email
+                    ? "Enter a billing contact email to continue."
+                    : !formState.values.billingAddress
+                      ? "Enter a billing address to continue."
+                      : undefined
+            }
+          >
+            Confirm and Upgrade
+          </Button>
+        </form>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -236,7 +420,7 @@ export function UpgradePlanContent({
           </Link>
         </p>
       )}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <PriceSummary
           plan={plan}
           teamMemberDiscountPct={teamMemberDiscountPct}
@@ -246,96 +430,72 @@ export function UpgradePlanContent({
           isUpgrading={false}
           teamManagedBy={teamManagedBy}
         />
-        {plan.planType === "CONVEX_PROFESSIONAL" && (
-          <div className="flex max-w-64 items-center gap-2">
-            <TextInput
-              label="Promo code"
-              placeholder="Enter a promo code"
-              onChange={(e) =>
-                formState.setFieldValue(
-                  "promoCode",
-                  e.target.value.toUpperCase(),
-                )
-              }
-              value={formState.values.promoCode}
-              id="promoCode"
-              error={promoCodeError}
-            />
-            {isLoadingPromo && (
-              <span data-testid="loading-spinner" className="mt-4">
-                <Spinner />
-              </span>
-            )}
-          </div>
-        )}
 
-        <div className="flex flex-col gap-2">
-          <h4>Billing Contact</h4>
-          <BillingContactInputs formState={formState} />
-        </div>
+        {/* Vertical Timeline */}
+        <div className="flex flex-col">
+          {steps.map((step, index) => {
+            const isCompleted = index < currentStep;
+            const isCurrent = index === currentStep;
+            const isLast = index === steps.length - 1;
 
-        {billingAddressInputs}
+            return (
+              <div key={step.label} className="flex">
+                {/* Left column: circle + connecting line */}
+                <div className="mr-3 flex flex-col items-center">
+                  {/* eslint-disable-next-line react/forbid-elements -- custom timeline step circle indicator */}
+                  <button
+                    type="button"
+                    disabled={!isCompleted}
+                    onClick={() => isCompleted && setCurrentStep(index)}
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                      isCompleted
+                        ? "cursor-pointer bg-util-accent text-white"
+                        : isCurrent
+                          ? "border-2 border-util-accent text-content-primary"
+                          : "border border-border-transparent text-content-tertiary"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                  {!isLast && (
+                    <div
+                      className={`w-px grow ${isCompleted ? "bg-util-accent" : "bg-border-transparent"}`}
+                    />
+                  )}
+                </div>
 
-        <div className="flex flex-col gap-2">
-          <h4>Usage Spending Limits</h4>
-          <SpendingLimits />
-        </div>
-
-        {requiresPaymentMethod && !formState.values.paymentMethod && (
-          <div className="flex flex-col gap-2">
-            <h4>Payment Details</h4>
-            {/* Reduce the amount of space stripe can take up so it doesn't render horizontal overflow */}
-            <div className="max-w-[calc(100%-1rem)]">{paymentDetailsForm}</div>
-          </div>
-        )}
-
-        {(!requiresPaymentMethod || formState.values.paymentMethod) && (
-          <form
-            className="mt-2 flex flex-col items-start gap-4 text-sm"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await formState.handleSubmit();
-            }}
-          >
-            <div className="flex gap-4">
-              {formState.values.paymentMethod && (
-                <Button
-                  size="sm"
-                  onClick={() => setPaymentMethod(undefined)}
-                  data-testid="update-payment-method-button"
-                  variant="neutral"
+                {/* Right column: label + content */}
+                <div
+                  className={`flex min-w-0 grow flex-col pb-6 ${isLast ? "pb-0" : ""}`}
                 >
-                  Change payment method
-                </Button>
-              )}
-              <Button
-                data-testid="upgrade-plan-button"
-                className="w-fit"
-                size="sm"
-                disabled={
-                  isLoadingPromo ||
-                  (requiresPaymentMethod && !formState.values.paymentMethod) ||
-                  !formState.values.billingAddress
-                }
-                type="submit"
-                loading={formState.isSubmitting}
-                tip={
-                  requiresPaymentMethod && !formState.values.paymentMethod
-                    ? "Add a payment method to continue."
-                    : !formState.values.name
-                      ? "Enter a billing contact name to continue."
-                      : !formState.values.email
-                        ? "Enter a billing contact email to continue."
-                        : !formState.values.billingAddress
-                          ? "Enter a billing address to continue."
-                          : undefined
-                }
-              >
-                Confirm and Upgrade
-              </Button>
-            </div>
-          </form>
-        )}
+                  {/* eslint-disable-next-line react/forbid-elements -- custom timeline step label */}
+                  <button
+                    type="button"
+                    disabled={!isCompleted}
+                    onClick={() => isCompleted && setCurrentStep(index)}
+                    className={`flex h-7 items-center text-left font-semibold ${
+                      isCompleted
+                        ? "cursor-pointer text-content-primary"
+                        : isCurrent
+                          ? "text-content-primary"
+                          : "text-content-tertiary"
+                    }`}
+                  >
+                    {step.label}
+                  </button>
+                  <div
+                    className={
+                      isCurrent ? "mt-3 flex flex-col gap-4" : "hidden"
+                    }
+                  >
+                    {stepContent(index)}
+                    {isCurrent && navigationButtons}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </>
   );

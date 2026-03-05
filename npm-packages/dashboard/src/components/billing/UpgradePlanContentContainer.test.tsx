@@ -90,12 +90,15 @@ describe("UpgradePlanContentContainer", () => {
       />,
     );
 
-    // Fill in the billing address
+    // Step 0: Fill in the billing address
     const billingAddressInput = screen.getByTestId("mock-billing-address");
     expect(billingAddressInput).toBeInTheDocument();
     fireEvent.change(billingAddressInput, { target: { value: "123 Main St" } });
 
-    // Fill in the spending limit
+    // Navigate to step 1 (spending limits — last step since no payment required)
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 1: Fill in the spending limit
     const spendingLimitWarningThresholdUsdInput =
       screen.getByLabelText("Warning Threshold");
     expect(spendingLimitWarningThresholdUsdInput).toBeInTheDocument();

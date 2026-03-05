@@ -62,10 +62,11 @@ export const TextInput = forwardRef<
     useLayoutEffect(() => {
       if (leftAddonRef.current && leftAddon !== undefined) {
         const addonWidth = leftAddonRef.current.offsetWidth;
-        // Search icon takes 24px (left-1.5 = 6px + icon 16px + spacing)
-        // leftAddon starts at left-6 = 24px
-        // Total = 24px (to start of addon) + addon width + 4px spacing
-        setLeftPadding(24 + addonWidth + 4);
+        // For search inputs, the search icon takes 24px (left-1.5 = 6px + icon 16px + spacing),
+        // so the leftAddon starts at left-6 = 24px.
+        // For non-search inputs, the leftAddon starts at left-1.5 = 6px.
+        const addonStart = type === "search" ? 24 : 6;
+        setLeftPadding(addonStart + addonWidth + 4);
       } else if (type === "search") {
         setLeftPadding(24); // Default pl-6 (1.5rem = 24px)
       } else {

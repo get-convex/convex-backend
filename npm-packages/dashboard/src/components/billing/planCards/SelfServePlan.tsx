@@ -6,18 +6,22 @@ export function SelfServePlan({
   percentOff,
   plan,
   action,
+  isLoading = false,
 }: {
   currentPlan?: string;
   plan: PlanResponse;
   percentOff?: number;
   action?: React.ReactNode;
+  isLoading?: boolean;
 }) {
   return (
     <PlanCard
       selected={currentPlan === plan.id}
       plan={plan}
       saleHeader={
-        plan.seatPrice ? (
+        isLoading ? (
+          ""
+        ) : plan.seatPrice ? (
           percentOff ? (
             <>
               <span className="mr-1 line-through">${plan.seatPrice}</span>$

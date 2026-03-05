@@ -15,10 +15,12 @@ export function FreePlan({
   subscription,
   hasAdminPermissions,
   team,
+  isLoading = false,
 }: {
   subscription?: OrbSubscriptionResponse;
   hasAdminPermissions: boolean;
   team: TeamResponse;
+  isLoading?: boolean;
 }) {
   const [isSelfServeDowngradeModalOpen, setIsSelfServeDowngradeModalOpen] =
     useState(false);
@@ -54,6 +56,7 @@ export function FreePlan({
           ) : (
             <Button
               disabled={
+                isLoading ||
                 !hasAdminPermissions ||
                 !!team.managedBy ||
                 subscription.plan.planType === "CONVEX_BUSINESS"

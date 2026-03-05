@@ -119,6 +119,15 @@ describe("UpgradePlanContent", () => {
       },
     });
     renderUI();
+
+    // Navigate to the last step (step 2: payment details)
+    act(() => {
+      fireEvent.click(screen.getByText("Next"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByText("Next"));
+    });
+
     act(() => {
       const upgradePlanButton = screen.getByTestId("upgrade-plan-button");
       expect(upgradePlanButton).not.toBeDisabled();

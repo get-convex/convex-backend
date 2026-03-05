@@ -20,10 +20,12 @@ export function OrbSelfServePlan({
   orbSub,
   plan,
   team,
+  isLoading = false,
 }: {
   orbSub?: OrbSubscriptionResponse;
   plan: PlanResponse;
   team: TeamResponse;
+  isLoading?: boolean;
 }) {
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
 
@@ -71,6 +73,7 @@ export function OrbSelfServePlan({
         currentPlan={orbSub?.plan.id}
         plan={plan}
         percentOff={0}
+        isLoading={isLoading}
         action={
           orbSub?.plan.planType === plan.planType ||
           orbSub?.plan.id === plan.id ? (
@@ -79,6 +82,7 @@ export function OrbSelfServePlan({
             </p>
           ) : orbSub ? (
             <Button
+              loading={isLoading}
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
@@ -110,6 +114,7 @@ export function OrbSelfServePlan({
           ) : (
             <Button
               onClick={() => upgrade()}
+              loading={isLoading}
               disabled={!hasAdminPermissions || !!team.managedBy}
               variant="neutral"
               tip={

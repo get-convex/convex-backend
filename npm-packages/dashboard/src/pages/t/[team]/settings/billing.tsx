@@ -144,7 +144,7 @@ function Billing({ team }: { team: TeamResponse }) {
                 inert={!showUpgrade ? "inert" : undefined}
               >
                 {showUpgrade && selectedPlan && (
-                  <Sheet className="scrollbar max-h-full overflow-y-auto">
+                  <Sheet className="scrollbar max-h-full w-2xl overflow-y-auto">
                     <h3 className="mb-4">Upgrade to {newPlanName}</h3>
                     <UpgradePlanContentContainer
                       name={myProfile?.name}
