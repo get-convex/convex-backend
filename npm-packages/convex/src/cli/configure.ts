@@ -195,6 +195,23 @@ export async function _deploymentCredentialsOrConfigure(
         cmdOptions.selectionWithinProject,
         deploymentSelection.deploymentToActOn.source,
       );
+      // Guard: `npx convex dev` must not target a production deployment
+      // unless the hidden `--prod` flag is explicitly passed.
+      if (
+        deploymentSelection.deploymentToActOn.deploymentFields
+          ?.deploymentType === "prod" &&
+        deploymentSelection.deploymentToActOn.source === "deployKey" &&
+        !cmdOptions.prod
+      ) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "`npx convex dev` cannot be used with a production deployment. " +
+            "The CONVEX_DEPLOY_KEY environment variable points to a production deployment. " +
+            "Use `npx convex deploy` to push to production, or set CONVEX_DEPLOY_KEY to a dev or project deploy key.",
+        });
+      }
       return {
         url: deploymentSelection.deploymentToActOn.url,
         adminKey: deploymentSelection.deploymentToActOn.adminKey,
