@@ -40,6 +40,7 @@ function createCloudDeployment(
     deploymentClass: "s16",
     region: "us-east-1",
     isDefault: false,
+    reference: overrides.name,
     ...overrides,
   } as DeploymentResponse;
 }
@@ -111,6 +112,34 @@ export const SingleNonDefaultProd: Story = {
         name: "steady-capybara-123",
         deploymentType: "prod",
         isDefault: false,
+      }),
+    ],
+  },
+};
+
+export const MultipleDevDeployments: Story = {
+  args: {
+    deployments: [
+      createCloudDeployment({
+        name: "prod-default",
+        deploymentType: "prod",
+        isDefault: true,
+      }),
+      // Default dev — shows "Development (Cloud)"
+      createCloudDeployment({
+        name: "dev-default",
+        deploymentType: "dev",
+        isDefault: true,
+        creator: 1,
+        reference: "dev-default",
+      }),
+      // Non-default dev — shows reference instead
+      createCloudDeployment({
+        name: "dev-secondary",
+        deploymentType: "dev",
+        isDefault: false,
+        creator: 1,
+        reference: "dev-secondary",
       }),
     ],
   },
@@ -194,11 +223,20 @@ export const FullMenu: Story = {
         deploymentType: "prod",
         isDefault: false,
       }),
-      // Dev deployment
+      // Dev deployment (default - shows "Development (Cloud)")
       createCloudDeployment({
         name: "dev-deployment",
         deploymentType: "dev",
+        isDefault: true,
         creator: 1,
+      }),
+      // Non-default dev deployment (shows reference, not "Development (Cloud)")
+      createCloudDeployment({
+        name: "dev-secondary",
+        deploymentType: "dev",
+        isDefault: false,
+        creator: 1,
+        reference: "dev-secondary",
       }),
       // Previews
       createCloudDeployment({
@@ -210,6 +248,44 @@ export const FullMenu: Story = {
       createCloudDeployment({
         name: "custom-staging",
         deploymentType: "custom",
+      }),
+    ],
+  },
+};
+
+export const NonDefaultTeammateDev: Story = {
+  beforeEach: () => {
+    mocked(useTeamMembers).mockReturnValue([
+      {
+        id: 2,
+        name: "Jane Smith",
+        email: "jane@example.com",
+        role: "developer",
+      },
+    ]);
+  },
+  args: {
+    deployments: [
+      createCloudDeployment({
+        name: "prod-default",
+        deploymentType: "prod",
+        isDefault: true,
+      }),
+      // Teammate's default dev — shows "Jane Smith's dev"
+      createCloudDeployment({
+        name: "teammate-dev-default",
+        deploymentType: "dev",
+        isDefault: true,
+        creator: 2,
+        reference: "teammate-dev-default",
+      }),
+      // Teammate's non-default dev — shows reference only
+      createCloudDeployment({
+        name: "teammate-dev-secondary",
+        deploymentType: "dev",
+        isDefault: false,
+        creator: 2,
+        reference: "teammate-dev-secondary",
       }),
     ],
   },

@@ -69,6 +69,7 @@ export function DeploymentMenuOptions({
         name: d.name,
         creator: whose?.name || whose?.email || "Teammate",
         isDefault: d.isDefault,
+        reference: d.reference,
       };
     })
     .sort((a, b) => {
@@ -270,7 +271,7 @@ export function DeploymentMenuOptions({
             key={d.name}
             label={
               <DeploymentOption
-                identifier={`${d.creator}'s dev`}
+                identifier={d.isDefault ? `${d.creator}'s dev` : d.reference}
                 name={d.name}
               />
             }
@@ -361,7 +362,13 @@ function AllPersonalDeployments({
             }
             label={
               <DeploymentOption
-                identifier={`${d.kind === "local" ? `${d.deviceName}` : "Development (Cloud)"}`}
+                identifier={
+                  d.kind === "local"
+                    ? d.deviceName
+                    : d.isDefault
+                      ? "Development (Cloud)"
+                      : d.reference
+                }
                 name={d.kind === "local" ? `Port ${d.port}` : d.name}
               />
             }
