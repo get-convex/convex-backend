@@ -109,6 +109,7 @@ use crate::{
     dyn_event,
     errors::report_error_sync,
     knobs::{
+        DISABLE_METRICS_ENDPOINT,
         HTTP_SERVER_TCP_BACKLOG,
         PROPAGATE_UPSTREAM_TRACES,
     },
@@ -1313,6 +1314,13 @@ pub fn platform_api_cors() -> CorsLayer {
 /// Note that registered metrics will not show here until recorded at least
 /// once.
 pub async fn metrics() -> Result<impl IntoResponse, HttpResponseError> {
+    if *DISABLE_METRICS_ENDPOINT {
+        return Err(anyhow::anyhow!(ErrorMetadata::not_found(
+            "MetricsDisabled",
+            "/metrics endpoint disabled"
+        ))
+        .into());
+    }
     let encoder = TextEncoder::new();
     let metrics = CONVEX_METRICS_REGISTRY.gather();
     let output = encoder

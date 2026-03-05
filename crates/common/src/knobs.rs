@@ -1547,3 +1547,7 @@ pub static HTTP_CACHE_SIZE: LazyLock<u64> =
 
 /// Maximum number of environment variables that can be stored.
 pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR_LIMIT", 1000));
+
+/// If set, disable the /metrics endpoint
+pub static DISABLE_METRICS_ENDPOINT: LazyLock<bool> =
+    LazyLock::new(|| env_config("DISABLE_METRICS_ENDPOINT", false));
