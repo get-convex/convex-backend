@@ -745,6 +745,10 @@ export interface components {
             reference: components["schemas"]["DeploymentReference"];
             /** @description The region where this deployment is hosted. */
             region: components["schemas"]["RegionName"];
+            /** @description Whether to send function logs to the client. If `null`, the
+             *     deployment-type default is used (true for dev/preview, false for
+             *     prod). */
+            sendLogsToClient?: boolean | null;
         } | {
             /**
              * Format: int64
@@ -853,6 +857,11 @@ export interface components {
              *         "cloud", "local", "default", "name", "new", "existing",
              *         "deployment", "preview" */
             reference?: string | null;
+            /** @description Whether to send function logs to the client. If set to `null`, the
+             *     setting is reset to the deployment-type default (true for dev/preview,
+             *     false for prod). If set to `true` or `false`, the setting is explicitly
+             *     overridden. */
+            sendLogsToClient?: boolean | null;
         };
         PreviewDeploymentIdentifier: string;
         /** Format: int64 */

@@ -2182,6 +2182,10 @@ export interface components {
             projectId: components["schemas"]["ProjectId"];
             reference: components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
+            /** @description Whether to send function logs to the client. If `null`, the
+             *     deployment-type default is used (true for dev/preview, false for
+             *     prod). */
+            sendLogsToClient?: boolean | null;
         } | {
             /** Format: int64 */
             createTime: number;

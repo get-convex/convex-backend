@@ -1864,6 +1864,13 @@
               "region": {
                 "$ref": "#/components/schemas/RegionName",
                 "description": "The region where this deployment is hosted."
+              },
+              "sendLogsToClient": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Whether to send function logs to the client. If `null`, the\ndeployment-type default is used (true for dev/preview, false for\nprod)."
               }
             }
           },
@@ -2105,6 +2112,13 @@
               "null"
             ],
             "description": "The reference of the deployment. When provided, must match the following\nrules:\n  - be unique across deployment references in the project\n  - 3 to 100 characters (included)\n  - only lowercase letters, numbers, \"-\"\" and \"/\"\n  - not follow the deployment name format [a-z]+-[a-z]+-[0-9]+ (e.g.\n    \"happy-capybara-123\")\n  - not start with \"local-\"\"\n  - not be one of the following reserved keywords: \"prod\", \"dev\",\n    \"cloud\", \"local\", \"default\", \"name\", \"new\", \"existing\",\n    \"deployment\", \"preview\""
+          },
+          "sendLogsToClient": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether to send function logs to the client. If set to `null`, the\nsetting is reset to the deployment-type default (true for dev/preview,\nfalse for prod). If set to `true` or `false`, the setting is explicitly\noverridden."
           }
         },
         "additionalProperties": false

@@ -4477,6 +4477,13 @@
               },
               "region": {
                 "$ref": "#/components/schemas/RegionName"
+              },
+              "sendLogsToClient": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Whether to send function logs to the client. If `null`, the\ndeployment-type default is used (true for dev/preview, false for\nprod)."
               }
             }
           },
