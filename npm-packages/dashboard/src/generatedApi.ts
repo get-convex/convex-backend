@@ -2071,9 +2071,15 @@ export interface components {
             requestedTime: number;
             snapshotId?: string | null;
             sourceDeploymentId: components["schemas"]["DeploymentId"];
-            sourceDeploymentName: components["schemas"]["InstanceName"];
+            sourceDeploymentName: components["schemas"]["CloudDeploymentName"];
             state: string;
         };
+        /** @description Example instance names:
+         *
+         *     tall-sheep-123
+         *
+         *     test-tall-sheep-123  # Prefix of test for internal testing */
+        CloudDeploymentName: string;
         ConfigurePeriodicBackupArgs: {
             cronspec: string;
             /** Format: int64 */
@@ -2348,12 +2354,6 @@ export interface components {
             /** @enum {string} */
             kind: "Local";
         };
-        /** @description Example instance names:
-         *
-         *     tall-sheep-123
-         *
-         *     test-tall-sheep-123  # Prefix of test for internal testing */
-        InstanceName: string;
         InvitationEligibleEmailsResponse: {
             /** @description The admin email used to create this team's WorkOS account (always
              *     eligible for re-invitation) */
@@ -2812,7 +2812,7 @@ export interface components {
             /** Format: int64 */
             creationTime: number;
             domain: string;
-            instanceName: components["schemas"]["InstanceName"];
+            instanceName: components["schemas"]["CloudDeploymentName"];
             requestDestination: components["schemas"]["RequestDestination"];
             /** Format: int64 */
             verificationTime?: number | null;
@@ -2891,6 +2891,7 @@ export type CheckOauthAppArgs = components['schemas']['CheckOauthAppArgs'];
 export type CheckProjectEnvironmentHealthRequest = components['schemas']['CheckProjectEnvironmentHealthRequest'];
 export type CloudBackupId = components['schemas']['CloudBackupId'];
 export type CloudBackupResponse = components['schemas']['CloudBackupResponse'];
+export type CloudDeploymentName = components['schemas']['CloudDeploymentName'];
 export type ConfigurePeriodicBackupArgs = components['schemas']['ConfigurePeriodicBackupArgs'];
 export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs'];
 export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
@@ -2934,7 +2935,6 @@ export type GetTokenInfoResponse = components['schemas']['GetTokenInfoResponse']
 export type HasAssociatedWorkOsTeamResponse = components['schemas']['HasAssociatedWorkOSTeamResponse'];
 export type IdentityResponse = components['schemas']['IdentityResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
-export type InstanceName = components['schemas']['InstanceName'];
 export type InvitationEligibleEmailsResponse = components['schemas']['InvitationEligibleEmailsResponse'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
 export type InviteWorkOsTeamMemberRequest = components['schemas']['InviteWorkOSTeamMemberRequest'];
@@ -4963,7 +4963,7 @@ export interface operations {
                 from?: string;
                 to?: string;
                 projectId?: components["schemas"]["ProjectId"];
-                deploymentName?: components["schemas"]["InstanceName"];
+                deploymentName?: components["schemas"]["CloudDeploymentName"];
                 componentPath?: string;
                 udfId?: string;
                 tableName?: string;

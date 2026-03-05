@@ -2384,7 +2384,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/InstanceName"
+              "$ref": "#/components/schemas/CloudDeploymentName"
             },
             "style": "form"
           },
@@ -4058,12 +4058,16 @@
             "$ref": "#/components/schemas/DeploymentId"
           },
           "sourceDeploymentName": {
-            "$ref": "#/components/schemas/InstanceName"
+            "$ref": "#/components/schemas/CloudDeploymentName"
           },
           "state": {
             "type": "string"
           }
         }
+      },
+      "CloudDeploymentName": {
+        "type": "string",
+        "description": "Example instance names:\n\ntall-sheep-123\n\ntest-tall-sheep-123  # Prefix of test for internal testing"
       },
       "ConfigurePeriodicBackupArgs": {
         "type": "object",
@@ -5113,10 +5117,6 @@
             }
           }
         ]
-      },
-      "InstanceName": {
-        "type": "string",
-        "description": "Example instance names:\n\ntall-sheep-123\n\ntest-tall-sheep-123  # Prefix of test for internal testing"
       },
       "InvitationEligibleEmailsResponse": {
         "type": "object",
@@ -6865,7 +6865,7 @@
             "type": "string"
           },
           "instanceName": {
-            "$ref": "#/components/schemas/InstanceName"
+            "$ref": "#/components/schemas/CloudDeploymentName"
           },
           "requestDestination": {
             "$ref": "#/components/schemas/RequestDestination"
