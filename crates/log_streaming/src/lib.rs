@@ -77,6 +77,8 @@ use serde::Serialize;
 use sinks::mock_sink::MockSink;
 use sinks::{
     local_sink::LocalSink,
+    posthog_error_tracking::PostHogErrorTrackingSink,
+    posthog_logs::PostHogLogsSink,
     sentry::SentrySink,
 };
 use tokio::sync::mpsc;
@@ -649,6 +651,28 @@ impl<RT: Runtime> LogManager<RT> {
                     config,
                     None,
                     metadata.clone(),
+                    should_verify,
+                )
+                .await
+            },
+            SinkConfig::PostHogLogs(config) => {
+                PostHogLogsSink::start(
+                    runtime.clone(),
+                    config,
+                    fetch_client,
+                    metadata,
+                    usage_counter,
+                    should_verify,
+                )
+                .await
+            },
+            SinkConfig::PostHogErrorTracking(config) => {
+                PostHogErrorTrackingSink::start(
+                    runtime.clone(),
+                    config,
+                    fetch_client,
+                    metadata,
+                    usage_counter,
                     should_verify,
                 )
                 .await

@@ -315,6 +315,12 @@ export interface components {
         }) | (components["schemas"]["CreateSentryLogStreamArgs"] & {
             /** @enum {string} */
             logStreamType: "sentry";
+        }) | (components["schemas"]["CreatePostHogLogsLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "postHogLogs";
+        }) | (components["schemas"]["CreatePostHogErrorTrackingLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "postHogErrorTracking";
         });
         CreateLogStreamResponse: (components["schemas"]["CreateWebhookLogStreamResponse"] & {
             /** @enum {string} */
@@ -331,6 +337,28 @@ export interface components {
             id: string;
             /** @enum {string} */
             logStreamType: "sentry";
+        } | {
+            id: string;
+            /** @enum {string} */
+            logStreamType: "postHogLogs";
+        } | {
+            id: string;
+            /** @enum {string} */
+            logStreamType: "postHogErrorTracking";
+        };
+        CreatePostHogErrorTrackingLogStreamArgs: {
+            /** @description PostHog project API key. */
+            apiKey: string;
+            /** @description PostHog host URL. Defaults to https://us.i.posthog.com. */
+            host?: string | null;
+        };
+        CreatePostHogLogsLogStreamArgs: {
+            /** @description PostHog project API key. */
+            apiKey: string;
+            /** @description PostHog host URL. Defaults to https://us.i.posthog.com. */
+            host?: string | null;
+            /** @description OTLP service.name attribute. Defaults to the deployment name. */
+            serviceName?: string | null;
         };
         CreateSentryLogStreamArgs: {
             /** @description Sentry Data Source Name (DSN) to route exceptions to. */
@@ -391,6 +419,12 @@ export interface components {
         }) | (components["schemas"]["SentryLogStreamConfig"] & {
             /** @enum {string} */
             logStreamType: "sentry";
+        }) | (components["schemas"]["PostHogLogsLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "postHogLogs";
+        }) | (components["schemas"]["PostHogErrorTrackingLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "postHogErrorTracking";
         });
         /** @description Status of a log stream */
         LogStreamStatus: {
@@ -409,6 +443,24 @@ export interface components {
         } | {
             /** @enum {string} */
             type: "deleting";
+        };
+        /** PostHogErrorTrackingConfig */
+        PostHogErrorTrackingLogStreamConfig: {
+            /** @description PostHog host URL. */
+            host?: string | null;
+            id: string;
+            /** @description Status of the log stream */
+            status: components["schemas"]["LogStreamStatus"];
+        };
+        /** PostHogLogsConfig */
+        PostHogLogsLogStreamConfig: {
+            /** @description PostHog host URL. */
+            host?: string | null;
+            id: string;
+            /** @description OTLP service.name attribute. */
+            serviceName?: string | null;
+            /** @description Status of the log stream */
+            status: components["schemas"]["LogStreamStatus"];
         };
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
@@ -474,7 +526,27 @@ export interface components {
         }) | (components["schemas"]["UpdateSentrySinkArgs"] & {
             /** @enum {string} */
             logStreamType: "sentry";
+        }) | (components["schemas"]["UpdatePostHogLogsSinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "postHogLogs";
+        }) | (components["schemas"]["UpdatePostHogErrorTrackingSinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "postHogErrorTracking";
         });
+        UpdatePostHogErrorTrackingSinkArgs: {
+            /** @description PostHog project API key. */
+            apiKey?: string | null;
+            /** @description PostHog host URL. */
+            host?: string | null;
+        };
+        UpdatePostHogLogsSinkArgs: {
+            /** @description PostHog project API key. */
+            apiKey?: string | null;
+            /** @description PostHog host URL. */
+            host?: string | null;
+            /** @description OTLP service.name attribute. */
+            serviceName?: string | null;
+        };
         UpdateSentrySinkArgs: {
             /** @description Sentry Data Source Name (DSN) to route exceptions to. */
             dsn?: string | null;
@@ -516,6 +588,8 @@ export type CreateAxiomLogStreamArgs = components['schemas']['CreateAxiomLogStre
 export type CreateDatadogLogStreamArgs = components['schemas']['CreateDatadogLogStreamArgs'];
 export type CreateLogStreamArgs = components['schemas']['CreateLogStreamArgs'];
 export type CreateLogStreamResponse = components['schemas']['CreateLogStreamResponse'];
+export type CreatePostHogErrorTrackingLogStreamArgs = components['schemas']['CreatePostHogErrorTrackingLogStreamArgs'];
+export type CreatePostHogLogsLogStreamArgs = components['schemas']['CreatePostHogLogsLogStreamArgs'];
 export type CreateSentryLogStreamArgs = components['schemas']['CreateSentryLogStreamArgs'];
 export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLogStreamArgs'];
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
@@ -525,6 +599,8 @@ export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsRe
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
 export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type LogStreamStatus = components['schemas']['LogStreamStatus'];
+export type PostHogErrorTrackingLogStreamConfig = components['schemas']['PostHogErrorTrackingLogStreamConfig'];
+export type PostHogLogsLogStreamConfig = components['schemas']['PostHogLogsLogStreamConfig'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStreamSecretResponse'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
@@ -534,6 +610,8 @@ export type UpdateDatadogSinkArgs = components['schemas']['UpdateDatadogSinkArgs
 export type UpdateEnvVarRequest = components['schemas']['UpdateEnvVarRequest'];
 export type UpdateEnvVarsRequest = components['schemas']['UpdateEnvVarsRequest'];
 export type UpdateLogStreamArgs = components['schemas']['UpdateLogStreamArgs'];
+export type UpdatePostHogErrorTrackingSinkArgs = components['schemas']['UpdatePostHogErrorTrackingSinkArgs'];
+export type UpdatePostHogLogsSinkArgs = components['schemas']['UpdatePostHogLogsSinkArgs'];
 export type UpdateSentrySinkArgs = components['schemas']['UpdateSentrySinkArgs'];
 export type UpdateWebhookSinkArgs = components['schemas']['UpdateWebhookSinkArgs'];
 export type WebhookFormat = components['schemas']['WebhookFormat'];
