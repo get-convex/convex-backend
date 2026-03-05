@@ -12,7 +12,7 @@ use ::metrics::StatusTimer;
 use async_broadcast::Receiver as BroadcastReceiver;
 use common::{
     codel_queue::{
-        new_codel_queue_async,
+        CoDelQueue,
         CoDelQueueReceiver,
         CoDelQueueSender,
     },
@@ -223,24 +223,31 @@ impl<
     /// concurrency - The number of values that can be concurrently generated.
     /// This should be set based on system values.
     pub fn new(rt: RT, max_size: u64, concurrency: usize, label: &'static str) -> Self {
-        Self::_new(rt, LruCache::unbounded(), max_size, concurrency, label)
+        Self::_new(
+            CoDelQueue::new(rt.clone(), 200),
+            rt,
+            LruCache::unbounded(),
+            max_size,
+            concurrency,
+            label,
+        )
     }
 
     #[cfg(test)]
     #[allow(unused)]
     fn new_for_tests(rt: RT, max_size: u64, label: &'static str) -> Self {
-        let lru = LruCache::unbounded();
-        Self::_new(rt, lru, max_size, 1, label)
+        Self::new(rt, max_size, 1, label)
     }
 
     fn _new(
+        queue: CoDelQueue<RT, BuildValueRequest<Key, Value>>,
         rt: RT,
         cache: LruCache<Key, CacheResult<Value>>,
         max_size: u64,
         concurrency: usize,
         label: &'static str,
     ) -> Self {
-        let (tx, rx) = new_codel_queue_async(rt.clone(), 200);
+        let (tx, rx) = queue.into_sender_and_receiver();
         let inner = Inner::new(cache, max_size, label, tx);
         let handle = rt.spawn(
             label,
@@ -256,10 +263,9 @@ impl<
 
     fn drop_waiting(inner: Arc<Mutex<Inner<RT, Key, Value>>>, key: &Key) {
         let mut inner = inner.lock();
-        if let Some(value) = inner.cache.pop(key)
-            && matches!(value, CacheResult::Ready { .. })
-        {
-            panic!("Dropped a ready result without changing the cache's size!");
+        // Only remove if still Waiting
+        if matches!(inner.cache.peek(key), Some(CacheResult::Waiting { .. })) {
+            inner.cache.pop(key);
         }
     }
 
@@ -495,18 +501,26 @@ mod tests {
     use std::{
         collections::HashMap,
         sync::Arc,
+        time::Duration,
     };
 
     use common::{
+        codel_queue::CoDelQueue,
         pause::PauseController,
-        runtime,
+        runtime::{
+            self,
+            JoinSet,
+            Runtime,
+        },
     };
     use futures::{
         future::join_all,
         select,
         FutureExt,
     };
+    use lru::LruCache;
     use parking_lot::Mutex;
+    use rand::Rng;
     use runtime::testing::TestRuntime;
 
     use super::SizedValue;
@@ -803,5 +817,47 @@ mod tests {
             format!("{err:?}").contains("Orig Error"),
             "Expected our test error, but instead got: {err:?}",
         );
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_congested(rt: TestRuntime) -> anyhow::Result<()> {
+        let cache: AsyncLru<_, String, u32> = AsyncLru::_new(
+            // Create a CoDelQueue that is always in congested (and therefore LIFO) mode
+            CoDelQueue::new_for_test(
+                rt.clone(),
+                1,
+                Duration::ZERO,         /* idle_expiration */
+                Duration::from_secs(1), /* congested_expiration */
+            ),
+            rt.clone(),
+            LruCache::unbounded(),
+            1, /* max_size */
+            2, /* concurrency */
+            "test",
+        );
+
+        let mut tasks = JoinSet::new();
+        for _ in 0..50000 {
+            let cache_ = cache.clone();
+            let rt_ = rt.clone();
+            let key = rt.rng().random_range(1..=3).to_string();
+            tasks.spawn("get", async move {
+                cache_
+                    .get::<u32>(
+                        key,
+                        async move {
+                            let time = Duration::from_millis(rt_.rng().random_range(500..=1500));
+                            rt_.wait(time).await;
+                            Ok(1)
+                        }
+                        .boxed(),
+                    )
+                    .await
+            });
+            let time = Duration::from_millis(rt.rng().random_range(0..=100));
+            rt.wait(time).await;
+        }
+
+        Ok(())
     }
 }

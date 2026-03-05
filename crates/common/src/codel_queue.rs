@@ -67,8 +67,8 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
         }
     }
 
-    #[cfg(test)]
-    fn new_for_test(
+    #[cfg(any(test, feature = "testing"))]
+    pub fn new_for_test(
         rt: RT,
         capacity: usize,
         idle_expiration: Duration,
@@ -168,6 +168,23 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
             Some((item, _)) => Some((item, None)),
         }
     }
+
+    pub fn into_sender_and_receiver(self) -> (CoDelQueueSender<RT, T>, CoDelQueueReceiver<RT, T>) {
+        let inner = Arc::new(Mutex::new(Inner {
+            queue: self,
+            event: Event::new(),
+            senders: 1,
+        }));
+        (
+            CoDelQueueSender {
+                inner: inner.clone(),
+            },
+            CoDelQueueReceiver {
+                inner,
+                listener: None,
+            },
+        )
+    }
 }
 
 /// Wrapper around CoDelQueue that makes it async.
@@ -175,20 +192,7 @@ pub fn new_codel_queue_async<RT: Runtime, T>(
     rt: RT,
     capacity: usize,
 ) -> (CoDelQueueSender<RT, T>, CoDelQueueReceiver<RT, T>) {
-    let inner = Arc::new(Mutex::new(Inner {
-        queue: CoDelQueue::new(rt, capacity),
-        event: Event::new(),
-        senders: 1,
-    }));
-    (
-        CoDelQueueSender {
-            inner: inner.clone(),
-        },
-        CoDelQueueReceiver {
-            inner,
-            listener: None,
-        },
-    )
+    CoDelQueue::new(rt, capacity).into_sender_and_receiver()
 }
 
 struct Inner<RT: Runtime, T> {
