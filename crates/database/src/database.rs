@@ -1539,7 +1539,7 @@ impl<RT: Runtime> Database<RT> {
         self.reader.version()
     }
 
-    pub async fn index_scan(
+    pub async fn index_page(
         &self,
         ts: RepeatableTimestamp,
         index_id: IndexId,
@@ -1563,7 +1563,7 @@ impl<RT: Runtime> Database<RT> {
             None,
         );
         let (results, cursor) = db_index_snapshot
-            .index_scan(index_id, tablet_id, interval, order, max_size)
+            .index_page(index_id, tablet_id, interval, order, max_size)
             .await?;
         let entries = results
             .into_iter()

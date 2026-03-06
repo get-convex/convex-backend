@@ -945,7 +945,7 @@ impl<RT: Runtime> Application<RT> {
         self.database.snapshot(ts)
     }
 
-    pub async fn index_scan(
+    pub async fn index_page(
         &self,
         ts: RepeatableTimestamp,
         index_id: IndexId,
@@ -958,7 +958,7 @@ impl<RT: Runtime> Application<RT> {
         CursorPosition,
     )> {
         self.database
-            .index_scan(ts, index_id, tablet_id, interval, order, max_size)
+            .index_page(ts, index_id, tablet_id, interval, order, max_size)
             .await
     }
 

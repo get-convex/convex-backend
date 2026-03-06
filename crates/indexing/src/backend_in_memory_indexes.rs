@@ -98,6 +98,7 @@ use crate::{
         IndexedDocument,
     },
     metrics::{
+        index_page_timer,
         log_index_cache_cleared,
         log_transaction_cache_query,
     },
@@ -152,31 +153,39 @@ impl IndexReader for PersistenceSnapshot {
         order: Order,
         max_results: usize,
     ) -> anyhow::Result<IndexPage> {
-        let mut stream = PersistenceSnapshot::index_scan(
-            self,
-            index_id,
-            tablet_id,
-            interval,
-            order,
-            max_results,
-        );
-        let mut entries = vec![];
-        while let Some(result) = stream.next().await {
-            let (key, LatestDocument { ts, value, .. }) = result?;
-            entries.push(IndexEntry {
-                key,
-                ts,
-                value: PackedDocument::pack(&value),
-            });
-            if entries.len() >= max_results {
-                let cursor = CursorPosition::After(entries.last().unwrap().key.clone());
-                return Ok(IndexPage { entries, cursor });
+        let timer = index_page_timer("local");
+        let result = async {
+            let mut stream = PersistenceSnapshot::index_scan(
+                self,
+                index_id,
+                tablet_id,
+                interval,
+                order,
+                max_results,
+            );
+            let mut entries = vec![];
+            while let Some(result) = stream.next().await {
+                let (key, LatestDocument { ts, value, .. }) = result?;
+                entries.push(IndexEntry {
+                    key,
+                    ts,
+                    value: PackedDocument::pack(&value),
+                });
+                if entries.len() >= max_results {
+                    let cursor = CursorPosition::After(entries.last().unwrap().key.clone());
+                    return Ok(IndexPage { entries, cursor });
+                }
             }
+            Ok(IndexPage {
+                entries,
+                cursor: CursorPosition::End,
+            })
         }
-        return Ok(IndexPage {
-            entries,
-            cursor: CursorPosition::End,
-        });
+        .await;
+        if result.is_ok() {
+            timer.finish();
+        }
+        result
     }
 
     fn timestamp(&self) -> RepeatableTimestamp {
@@ -927,10 +936,10 @@ impl DatabaseIndexSnapshot {
         self.reader.timestamp()
     }
 
-    /// Scan the index, checking in-memory indexes first and falling back
-    /// to the persistence reader. Unlike `range_batch`, this skips the
+    /// Scan a page of the index, checking in-memory indexes first and falling
+    /// back to the persistence reader. Unlike `range_batch`, this skips the
     /// per-transaction cache. Later this will be served by the IndexCache.
-    pub async fn index_scan(
+    pub async fn index_page(
         &self,
         index_id: IndexId,
         tablet_id: TabletId,
