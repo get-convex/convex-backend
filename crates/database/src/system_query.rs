@@ -70,6 +70,7 @@ pub struct SystemQuery<'a, 'b, RT: Runtime, T: SystemTable> {
     tablet_id: TabletId,
     index_range: Interval,
     order: Order,
+    queue: std::vec::IntoIter<Arc<ParsedDocument<T::Metadata>>>,
 }
 
 impl<RT: Runtime> Transaction<RT> {
@@ -161,8 +162,7 @@ impl<'a, 'b, RT: Runtime, T: SystemTable> SystemQueryBuilder<'a, 'b, RT, T, EqFi
 }
 
 impl<'a, 'b, RT: Runtime, T: SystemTable, R: Into<Interval>> SystemQueryBuilder<'a, 'b, RT, T, R> {
-    /// Builds the query so that it can be iterated one page at a time with
-    /// [`SystemQuery::next_page`].
+    /// Builds the query so that it can be iterated with [`SystemQuery::next`].
     pub fn build(self) -> SystemQuery<'a, 'b, RT, T> {
         let Self {
             tx,
@@ -178,6 +178,7 @@ impl<'a, 'b, RT: Runtime, T: SystemTable, R: Into<Interval>> SystemQueryBuilder<
             tablet_id,
             index_range: index_range.into(),
             order,
+            queue: vec![].into_iter(),
         }
     }
 
@@ -217,6 +218,21 @@ impl<'a, 'b, RT: Runtime, T: SystemTable, R: Into<Interval>> SystemQueryBuilder<
 }
 
 impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
+    /// Returns the next document from the query, or `None if the query is
+    /// exhausted.
+    pub async fn next(&mut self) -> anyhow::Result<Option<Arc<ParsedDocument<T::Metadata>>>>
+    where
+        T::Metadata: ConvexSerializable,
+    {
+        if let Some(doc) = self.queue.next() {
+            return Ok(Some(doc));
+        }
+        let (page, _has_more) = self.next_page(*DEFAULT_QUERY_PREFETCH).await?;
+        self.queue = page.into_iter();
+        Ok(self.queue.next())
+    }
+
+    /// Lower-level function for reading one page at a time from the query.
     /// Returns the next (up to) `n` documents and a boolean indicating if more
     /// results are expected. Note that this could return `true` even if there
     /// aren't actually any more documents, if there's still an unexplored index
@@ -230,6 +246,10 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
     {
         if self.index_range.is_empty() {
             return Ok((vec![], false));
+        }
+
+        if !self.queue.as_slice().is_empty() {
+            return Ok((mem::take(&mut self.queue).collect(), true));
         }
 
         let Ok(tablet_index_id) = self
@@ -296,6 +316,10 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
                 .collect::<anyhow::Result<Vec<_>>>()?,
             !self.index_range.is_empty(),
         ))
+    }
+
+    pub fn tx(&mut self) -> &mut Transaction<RT> {
+        self.tx
     }
 }
 

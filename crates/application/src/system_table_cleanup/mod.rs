@@ -6,16 +6,10 @@ use std::{
 
 use common::{
     backoff::Backoff,
-    bootstrap_model::tables::{
-        TableMetadata,
-        TableState,
-        TABLES_TABLE,
-    },
+    bootstrap_model::tables::TableState,
     components::ComponentId,
     document::{
         CreationTime,
-        ParseDocument,
-        ParsedDocument,
         CREATION_TIME_FIELD_PATH,
         ID_FIELD_PATH,
     },
@@ -47,12 +41,12 @@ use common::{
     },
 };
 use database::{
-    query::PaginationOptions,
     BootstrapComponentsModel,
     Database,
     ResolvedQuery,
     SystemMetadataModel,
     TableModel,
+    TablesTable,
 };
 use futures::{
     Future,
@@ -222,52 +216,30 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         let mut tx = self.database.begin(Identity::system()).await?;
 
         let mut num_deleted = 0;
-        let query = Query::full_table_scan(TABLES_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(&mut tx, TableNamespace::Global, query.clone())?;
-        {
-            while let Some(document) = query_stream.next(&mut tx, None).await? {
-                // Limit rows read and rows deleted to avoid hitting transaction limits size.
-                if query_stream.is_approaching_data_limit() || num_deleted > 1000 {
-                    let cursor = query_stream.cursor();
-                    self.database
-                        .commit_with_write_source(tx, "system_table_cleanup")
-                        .await?;
-                    tracing::info!("Deleted {num_deleted} hidden tables");
-                    num_deleted = 0;
-                    tx = self.database.begin(Identity::system()).await?;
-                    query_stream = ResolvedQuery::new_bounded(
-                        &mut tx,
-                        TableNamespace::Global,
-                        query.clone(),
-                        PaginationOptions::ManualPagination {
-                            start_cursor: cursor,
-                            maximum_rows_read: None,
-                            maximum_bytes_read: None,
-                        },
-                        None,
-                        database::query::TableFilter::IncludePrivateSystemTables,
-                    )?;
-                }
-                let table: ParsedDocument<TableMetadata> = document.parse()?;
-                match table.state {
-                    TableState::Active | TableState::Deleting => {},
-                    TableState::Hidden => {
-                        let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
-                        let creation_time = table.creation_time();
-                        let age = Duration::from_millis(
-                            (f64::from(now) - f64::from(creation_time)) as u64,
-                        );
-                        // Mark as deleting if hidden for more than twice the max import age.
-                        if age > 2 * (*MAX_IMPORT_AGE) {
-                            let table_id = TabletId(table.id().internal_id());
-                            tracing::info!("Deleting hidden table: {table_id:?}");
-                            TableModel::new(&mut tx)
-                                .delete_hidden_table(table_id)
-                                .await?;
-                            num_deleted += 1;
+        let index = SystemIndex::<TablesTable>::by_creation_time();
+        let mut query = tx.query_system(TableNamespace::Global, &index)?.build();
+        while let Some(table) = query.next().await? {
+            match table.state {
+                TableState::Active | TableState::Deleting => {},
+                TableState::Hidden => {
+                    let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
+                    let creation_time = table.creation_time();
+                    let age =
+                        Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
+                    // Mark as deleting if hidden for more than twice the max import age.
+                    if age > 2 * (*MAX_IMPORT_AGE) {
+                        let table_id = TabletId(table.id().internal_id());
+                        tracing::info!("Deleting hidden table: {table_id:?}");
+                        TableModel::new(query.tx())
+                            .delete_hidden_table(table_id)
+                            .await?;
+                        num_deleted += 1;
+                        // Limit rows deleted to avoid hitting transaction limits size.
+                        if num_deleted >= 1000 {
+                            break;
                         }
-                    },
-                };
+                    }
+                },
             }
         }
 
