@@ -256,7 +256,12 @@ Schema:
     function
   - `file_storage_read_bytes`: number
   - `file_storage_write_bytes`: number, this and `file_storage_read_bytes` make
-    up the file bandwidth used by the function
+    up the file bandwidth used by the function when reading or writing files
+    using the
+    [storage API within Convex functions](/file-storage/store-files.mdx) (e.g.
+    `ctx.storage.store()`, `ctx.storage.get()`). This does not include bandwidth
+    from clients downloading files directly from the storage HTTP API; see
+    [`storage_api_bandwidth`](#storage_api_bandwidth-events).
   - `vector_storage_read_bytes`: number
   - `vector_storage_write_bytes`: number, this and `vector_storage_read_bytes`
     make up the vector bandwidth used by the function
@@ -384,9 +389,14 @@ Example event:
 
 ### `storage_api_bandwidth` events
 
-These events are emitted whenever a client downloads a file via the storage API
-(`GET /api/storage/*`). Each HTTP request that serves file bytes produces one
-event after the download stream completes or is dropped.
+These events are emitted whenever a client downloads a file directly from the
+storage HTTP API (`GET /api/storage/*`), for example when using a
+[file URL](/file-storage/serve-files.mdx) obtained from `ctx.storage.getUrl()`.
+Each HTTP request that serves file bytes produces one event after the download
+stream completes or is dropped. This is separate from the
+`file_storage_read_bytes` and `file_storage_write_bytes` fields in
+[`function_execution`](#function_execution-events) events, which track file
+bandwidth consumed within Convex functions themselves.
 
 The `egress_bytes` field reports the total bytes actually delivered to the
 client, not necessarily the full file size. There are several cases where these
