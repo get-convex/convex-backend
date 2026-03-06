@@ -277,7 +277,7 @@ export function DeploymentSummary({
                     />
                   </Tooltip>
                   <div className="text-sm text-content-primary">
-                    {deployment.class}
+                    {deployment.class.toUpperCase()}
                   </div>
                 </div>
               )}
