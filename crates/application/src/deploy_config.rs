@@ -733,7 +733,7 @@ impl<RT: Runtime> Application<RT> {
             )
             .await
             .map_err(|e| {
-                if let Some((table_name, _document_id, write_source)) = e.occ_info()
+                if let Some((_table_name, _document_id, write_source)) = e.occ_info()
                     && let Some(write_source) = write_source
                     && write_source == finish_push_write_source
                 {
@@ -741,7 +741,7 @@ impl<RT: Runtime> Application<RT> {
                         "ConcurrentPush",
                         format!(
                             "Are you running multiple `npx convex dev` processes in the same \
-                             directory? {write_source:?} {table_name:?}"
+                             directory?"
                         ),
                     ))
                 } else {
