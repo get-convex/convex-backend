@@ -1,12 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { nodeFs } from "../bundler/fs.js";
 import { env } from "./env.js";
+import { deploy } from "./deploy.js";
 import {
   deploymentFetch,
   bigBrainAPI,
   bigBrainAPIMaybeThrows,
 } from "./lib/utils/utils.js";
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
+import { deployToDeployment } from "./lib/deploy2.js";
+import { runPush } from "./lib/components.js";
+import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
+import { gitBranchFromEnvironment } from "./lib/envvars.js";
 
 vi.mock("../bundler/fs.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../bundler/fs.js")>();
@@ -70,6 +75,61 @@ vi.mock("@sentry/node", () => ({
   close: vi.fn(),
 }));
 
+// Deploy-specific mocks
+vi.mock("./lib/deploy2.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/deploy2.js")>();
+  return {
+    ...actual,
+    deployToDeployment: vi.fn(),
+  };
+});
+
+vi.mock("./lib/components.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/components.js")>();
+  return {
+    ...actual,
+    runPush: vi.fn(),
+  };
+});
+
+vi.mock("./lib/config.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/config.js")>();
+  return {
+    ...actual,
+    readProjectConfig: vi.fn().mockResolvedValue({
+      projectConfig: {},
+      configPath: "convex.json",
+      modules: [],
+    }),
+    getAuthKitConfig: vi.fn().mockResolvedValue(null),
+  };
+});
+
+vi.mock("./lib/usage.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/usage.js")>();
+  return {
+    ...actual,
+    usageStateWarning: vi.fn(),
+  };
+});
+
+vi.mock("./lib/updates.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/updates.js")>();
+  return {
+    ...actual,
+    checkVersion: vi.fn(),
+  };
+});
+
+vi.mock("./lib/envvars.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/envvars.js")>();
+  return {
+    ...actual,
+    gitBranchFromEnvironment: vi.fn().mockReturnValue(null),
+    isNonProdBuildEnvironment: vi.fn().mockReturnValue(false),
+  };
+});
+
 /**
  * Routes mock Big Brain API calls by path.
  * Both `bigBrainAPI` and `bigBrainAPIMaybeThrows` delegate to this.
@@ -98,6 +158,13 @@ describe("deployment selection flows", () => {
     vi.resetAllMocks();
     vi.mocked(readGlobalConfig).mockReturnValue(null);
     vi.mocked(nodeFs.exists).mockReturnValue(false);
+    // Re-apply deploy-specific mocks after resetAllMocks
+    vi.mocked(readProjectConfig).mockResolvedValue({
+      projectConfig: {} as any,
+      configPath: "convex.json",
+    });
+    vi.mocked(getAuthKitConfig).mockResolvedValue(undefined);
+    vi.mocked(gitBranchFromEnvironment).mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -567,6 +634,193 @@ describe("deployment selection flows", () => {
           path: "deployment/team_and_project_for_key",
         }),
       );
+    });
+  });
+
+  describe("deploy command (npx convex deploy)", () => {
+    it("defaults to prod with CONVEX_DEPLOYMENT (implicitProd)", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/authorize_prod": () => ({
+          adminKey: "prod-key",
+          url: "https://graceful-puffin-456.convex.cloud",
+          deploymentName: "graceful-puffin-456",
+          deploymentType: "prod",
+        }),
+      });
+
+      await deploy.parseAsync(["--yes"], { from: "user" });
+
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_prod",
+        }),
+      );
+
+      expect(deployToDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "https://graceful-puffin-456.convex.cloud",
+          adminKey: "prod-key",
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("defaults to prod with project deploy key", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "project:identifier|secretkey";
+
+      setupBigBrainRoutes({
+        "deployment/provision_and_authorize": () => ({
+          adminKey: "prod-admin-key",
+          url: "https://graceful-puffin-456.convex.cloud",
+          deploymentName: "graceful-puffin-456",
+        }),
+      });
+
+      await deploy.parseAsync([], { from: "user" });
+
+      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/provision_and_authorize",
+          data: expect.objectContaining({
+            deploymentType: "prod",
+          }),
+        }),
+      );
+
+      expect(deployToDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "https://graceful-puffin-456.convex.cloud",
+          adminKey: "prod-admin-key",
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("deploys to preview with preview deploy key and --preview-create", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "preview:my-team:my-project|secretkey";
+
+      setupBigBrainRoutes({
+        claim_preview_deployment: () => ({
+          adminKey: "preview-admin-key",
+          instanceUrl: "https://nimble-penguin-234.convex.cloud",
+        }),
+      });
+
+      await deploy.parseAsync(["--preview-create", "my-preview"], {
+        from: "user",
+      });
+
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "claim_preview_deployment",
+          data: expect.objectContaining({
+            identifier: "my-preview",
+            projectSelection: {
+              kind: "teamAndProjectSlugs",
+              teamSlug: "my-team",
+              projectSlug: "my-project",
+            },
+          }),
+        }),
+      );
+
+      expect(runPush).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "https://nimble-penguin-234.convex.cloud",
+          adminKey: "preview-admin-key",
+        }),
+      );
+    });
+
+    it("deploys to preview with preview deploy key using git branch fallback", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "preview:my-team:my-project|secretkey";
+      vi.mocked(gitBranchFromEnvironment).mockReturnValue("feature/my-branch");
+
+      setupBigBrainRoutes({
+        claim_preview_deployment: () => ({
+          adminKey: "preview-admin-key",
+          instanceUrl: "https://nimble-penguin-234.convex.cloud",
+        }),
+      });
+
+      await deploy.parseAsync([], { from: "user" });
+
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "claim_preview_deployment",
+          data: expect.objectContaining({
+            identifier: "feature/my-branch",
+          }),
+        }),
+      );
+
+      expect(runPush).toHaveBeenCalled();
+    });
+
+    it("deploys to existing preview with CONVEX_DEPLOYMENT and --preview-name", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/authorize_preview": () => ({
+          adminKey: "preview-key",
+          url: "https://nimble-penguin-234.convex.cloud",
+          deploymentName: "nimble-penguin-234",
+          deploymentType: "preview",
+        }),
+      });
+
+      await deploy.parseAsync(["--preview-name", "my-preview", "--yes"], {
+        from: "user",
+      });
+
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_preview",
+        }),
+      );
+
+      expect(deployToDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "https://nimble-penguin-234.convex.cloud",
+          adminKey: "preview-key",
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("crashes with preview deploy key and --preview-name (deprecated)", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "preview:my-team:my-project|secretkey";
+
+      await expect(
+        deploy.parseAsync(["--preview-name", "my-preview"], { from: "user" }),
+      ).rejects.toThrow();
+
+      expect(deployToDeployment).not.toHaveBeenCalled();
+      expect(runPush).not.toHaveBeenCalled();
     });
   });
 });
