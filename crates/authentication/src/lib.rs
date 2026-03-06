@@ -487,6 +487,12 @@ pub struct AuthAccessToken(pub String);
 pub struct AuthIdToken(pub String);
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeviceToken(pub String);
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppToken {
+    pub client_id: String,
+    pub client_secret: String,
+}
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct WorkOSClaims {
     #[serde(rename = "workos_first_name")]

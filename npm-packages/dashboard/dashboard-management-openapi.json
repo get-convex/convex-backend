@@ -3665,6 +3665,25 @@
                 }
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "app"
+            ],
+            "properties": {
+              "app": {
+                "type": "object",
+                "required": [
+                  "client_id"
+                ],
+                "properties": {
+                  "client_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         ],
         "description": "Represents the `ValidatedActor` equivalent for audit logs. This identifies\nwho executed an AuditLogEvent"
