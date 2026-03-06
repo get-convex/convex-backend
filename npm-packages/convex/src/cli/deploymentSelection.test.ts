@@ -116,450 +116,457 @@ describe("deployment selection flows", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses --url and --admin-key directly", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+  describe("regular command (npx convex env)", () => {
+    it("uses --url and --admin-key directly", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
 
-    await env.parseAsync(
-      [
-        "set",
-        "ABC",
-        "DEF",
-        "--url",
-        "https://joyful-capybara-123.convex.cloud",
-        "--admin-key",
-        "my-admin-key",
-      ],
-      { from: "user" },
-    );
+      await env.parseAsync(
+        [
+          "set",
+          "ABC",
+          "DEF",
+          "--url",
+          "https://joyful-capybara-123.convex.cloud",
+          "--admin-key",
+          "my-admin-key",
+        ],
+        { from: "user" },
+      );
 
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://joyful-capybara-123.convex.cloud",
-        adminKey: "my-admin-key",
-      }),
-    );
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "my-admin-key",
+        }),
+      );
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
 
-    // No Big Brain calls
-    expect(bigBrainAPI).not.toHaveBeenCalled();
-    expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
-  });
-
-  it("resolves CONVEX_DEPLOY_KEY with deployment deploy key via Big Brain", async () => {
-    process.env.CONVEX_DEPLOY_KEY = "prod:joyful-capybara-123|secretkey";
-
-    setupBigBrainRoutes({
-      "deployment/url_for_key": () =>
-        "https://joyful-capybara-123.eu-west-1.convex.cloud",
-      "deployment/team_and_project_for_key": () => ({
-        team: "my-team",
-        project: "my-project",
-        teamId: 1,
-        projectId: 1,
-      }),
+      // No Big Brain calls
+      expect(bigBrainAPI).not.toHaveBeenCalled();
+      expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
     });
 
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+    it("resolves CONVEX_DEPLOY_KEY with deployment deploy key via Big Brain", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "prod:joyful-capybara-123|secretkey";
 
-    await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
+      setupBigBrainRoutes({
+        "deployment/url_for_key": () =>
+          "https://joyful-capybara-123.eu-west-1.convex.cloud",
+        "deployment/team_and_project_for_key": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+      });
 
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://joyful-capybara-123.eu-west-1.convex.cloud",
-        adminKey: "prod:joyful-capybara-123|secretkey",
-      }),
-    );
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
+      await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
 
-    expect(bigBrainAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "deployment/url_for_key" }),
-    );
-    expect(bigBrainAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "deployment/team_and_project_for_key" }),
-    );
-  });
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://joyful-capybara-123.eu-west-1.convex.cloud",
+          adminKey: "prod:joyful-capybara-123|secretkey",
+        }),
+      );
 
-  it("resolves CONVEX_DEPLOY_KEY with project deploy key to dev deployment by default", async () => {
-    process.env.CONVEX_DEPLOY_KEY = "project:identifier|secretkey";
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
 
-    setupBigBrainRoutes({
-      "deployment/provision_and_authorize": () => ({
-        adminKey: "dev-admin-key",
-        url: "https://swift-squirrel-234.convex.cloud",
-        deploymentName: "swift-squirrel-234",
-      }),
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "deployment/url_for_key" }),
+      );
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/team_and_project_for_key",
+        }),
+      );
     });
 
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+    it("resolves CONVEX_DEPLOY_KEY with project deploy key to dev deployment by default", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "project:identifier|secretkey";
 
-    await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
+      setupBigBrainRoutes({
+        "deployment/provision_and_authorize": () => ({
+          adminKey: "dev-admin-key",
+          url: "https://swift-squirrel-234.convex.cloud",
+          deploymentName: "swift-squirrel-234",
+        }),
+      });
 
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://swift-squirrel-234.convex.cloud",
-        adminKey: "dev-admin-key",
-      }),
-    );
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
+      await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
 
-    expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: "deployment/provision_and_authorize",
-      }),
-    );
-  });
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://swift-squirrel-234.convex.cloud",
+          adminKey: "dev-admin-key",
+        }),
+      );
 
-  it("resolves CONVEX_DEPLOY_KEY with project deploy key to prod deployment with --prod", async () => {
-    process.env.CONVEX_DEPLOY_KEY = "project:identifier|secretkey";
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
 
-    setupBigBrainRoutes({
-      "deployment/provision_and_authorize": (_data: any) => ({
-        adminKey: "prod-admin-key",
-        url: "https://graceful-puffin-456.convex.cloud",
-        deploymentName: "graceful-puffin-456",
-      }),
+      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/provision_and_authorize",
+        }),
+      );
     });
 
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+    it("resolves CONVEX_DEPLOY_KEY with project deploy key to prod deployment with --prod", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "project:identifier|secretkey";
 
-    await env.parseAsync(["set", "ABC", "DEF", "--prod"], { from: "user" });
+      setupBigBrainRoutes({
+        "deployment/provision_and_authorize": (_data: any) => ({
+          adminKey: "prod-admin-key",
+          url: "https://graceful-puffin-456.convex.cloud",
+          deploymentName: "graceful-puffin-456",
+        }),
+      });
 
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://graceful-puffin-456.convex.cloud",
-        adminKey: "prod-admin-key",
-      }),
-    );
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
+      await env.parseAsync(["set", "ABC", "DEF", "--prod"], { from: "user" });
 
-    // provision_and_authorize is called with prod deploymentType
-    expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: "deployment/provision_and_authorize",
-        data: expect.objectContaining({
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://graceful-puffin-456.convex.cloud",
+          adminKey: "prod-admin-key",
+        }),
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
+
+      // provision_and_authorize is called with prod deploymentType
+      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/provision_and_authorize",
+          data: expect.objectContaining({
+            deploymentType: "prod",
+          }),
+        }),
+      );
+    });
+
+    it("uses CONVEX_SELF_HOSTED_URL and CONVEX_SELF_HOSTED_ADMIN_KEY directly", async () => {
+      process.env.CONVEX_SELF_HOSTED_URL = "http://localhost:3210";
+      process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = "self-hosted-key";
+
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+      await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
+
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "http://localhost:3210",
+          adminKey: "self-hosted-key",
+        }),
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
+
+      // No Big Brain calls
+      expect(bigBrainAPI).not.toHaveBeenCalled();
+      expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
+    });
+
+    it("resolves CONVEX_DEPLOYMENT to dev deployment by default", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/provision_and_authorize": () => ({
+          adminKey: "dev-key",
+          url: "https://swift-squirrel-234.convex.cloud",
+          deploymentName: "swift-squirrel-234",
+        }),
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+      await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
+
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://swift-squirrel-234.convex.cloud",
+          adminKey: "dev-key",
+        }),
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
+
+      // checkAccessToSelectedProject calls getTeamAndProjectSlugForDeployment
+      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/joyful-capybara-123/team_and_project",
+          method: "GET",
+        }),
+      );
+    });
+
+    it("resolves CONVEX_DEPLOYMENT with --prod to prod deployment", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/authorize_prod": () => ({
+          adminKey: "prod-key",
+          url: "https://graceful-puffin-456.convex.cloud",
+          deploymentName: "graceful-puffin-456",
           deploymentType: "prod",
         }),
-      }),
-    );
-  });
+      });
 
-  it("uses CONVEX_SELF_HOSTED_URL and CONVEX_SELF_HOSTED_ADMIN_KEY directly", async () => {
-    process.env.CONVEX_SELF_HOSTED_URL = "http://localhost:3210";
-    process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = "self-hosted-key";
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
 
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+      await env.parseAsync(["set", "ABC", "DEF", "--prod"], { from: "user" });
 
-    await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://graceful-puffin-456.convex.cloud",
+          adminKey: "prod-key",
+        }),
+      );
 
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "http://localhost:3210",
-        adminKey: "self-hosted-key",
-      }),
-    );
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
-
-    // No Big Brain calls
-    expect(bigBrainAPI).not.toHaveBeenCalled();
-    expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
-  });
-
-  it("resolves CONVEX_DEPLOYMENT to dev deployment by default", async () => {
-    process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
-    vi.mocked(readGlobalConfig).mockReturnValue({
-      accessToken: "test-token",
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_prod",
+        }),
+      );
     });
 
-    setupBigBrainRoutes({
-      "deployment/joyful-capybara-123/team_and_project": () => ({
-        team: "my-team",
-        project: "my-project",
-        teamId: 1,
-        projectId: 1,
-      }),
-      "deployment/provision_and_authorize": () => ({
-        adminKey: "dev-key",
-        url: "https://swift-squirrel-234.convex.cloud",
-        deploymentName: "swift-squirrel-234",
-      }),
+    it("resolves CONVEX_DEPLOYMENT with --preview-name to preview deployment", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/authorize_preview": () => ({
+          adminKey: "preview-key",
+          url: "https://nimble-penguin-234.convex.cloud",
+          deploymentName: "nimble-penguin-234",
+          deploymentType: "preview",
+        }),
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+      await env.parseAsync(
+        ["set", "ABC", "DEF", "--preview-name", "my-preview"],
+        { from: "user" },
+      );
+
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://nimble-penguin-234.convex.cloud",
+          adminKey: "preview-key",
+        }),
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
+
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_preview",
+        }),
+      );
     });
 
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+    it("resolves CONVEX_DEPLOYMENT with --deployment-name to named deployment", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
 
-    await env.parseAsync(["set", "ABC", "DEF"], { from: "user" });
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/authorize_within_current_project": () => ({
+          adminKey: "staging-key",
+          url: "https://clever-otter-890.convex.cloud",
+          deploymentName: "clever-otter-890",
+          deploymentType: "dev",
+        }),
+      });
 
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://swift-squirrel-234.convex.cloud",
-        adminKey: "dev-key",
-      }),
-    );
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
+      await env.parseAsync(
+        ["set", "ABC", "DEF", "--deployment-name", "staging-deploy"],
+        { from: "user" },
+      );
 
-    // checkAccessToSelectedProject calls getTeamAndProjectSlugForDeployment
-    expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: "deployment/joyful-capybara-123/team_and_project",
-        method: "GET",
-      }),
-    );
-  });
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://clever-otter-890.convex.cloud",
+          adminKey: "staging-key",
+        }),
+      );
 
-  it("resolves CONVEX_DEPLOYMENT with --prod to prod deployment", async () => {
-    process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
-    vi.mocked(readGlobalConfig).mockReturnValue({
-      accessToken: "test-token",
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
+
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_within_current_project",
+        }),
+      );
     });
 
-    setupBigBrainRoutes({
-      "deployment/joyful-capybara-123/team_and_project": () => ({
-        team: "my-team",
-        project: "my-project",
-        teamId: 1,
-        projectId: 1,
-      }),
-      "deployment/authorize_prod": () => ({
-        adminKey: "prod-key",
-        url: "https://graceful-puffin-456.convex.cloud",
-        deploymentName: "graceful-puffin-456",
-        deploymentType: "prod",
-      }),
+    it("resolves deployment deploy key from --env-file", async () => {
+      const fakeEnvFilePath = "/fake/convex-test.env";
+      vi.mocked(nodeFs.exists).mockReturnValue(true);
+      vi.mocked(nodeFs.readUtf8File).mockReturnValue(
+        "CONVEX_DEPLOY_KEY=prod:joyful-capybara-123|secretkey\n",
+      );
+
+      setupBigBrainRoutes({
+        "deployment/url_for_key": () =>
+          "https://joyful-capybara-123.convex.cloud",
+        "deployment/team_and_project_for_key": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+      await env.parseAsync(
+        ["set", "ABC", "DEF", "--env-file", fakeEnvFilePath],
+        {
+          from: "user",
+        },
+      );
+
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "prod:joyful-capybara-123|secretkey",
+        }),
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/update_environment_variables",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
+        }),
+      );
+
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "deployment/url_for_key" }),
+      );
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/team_and_project_for_key",
+        }),
+      );
     });
-
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
-
-    await env.parseAsync(["set", "ABC", "DEF", "--prod"], { from: "user" });
-
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://graceful-puffin-456.convex.cloud",
-        adminKey: "prod-key",
-      }),
-    );
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
-
-    expect(bigBrainAPI).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: "deployment/authorize_prod",
-      }),
-    );
-  });
-
-  it("resolves CONVEX_DEPLOYMENT with --preview-name to preview deployment", async () => {
-    process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
-    vi.mocked(readGlobalConfig).mockReturnValue({
-      accessToken: "test-token",
-    });
-
-    setupBigBrainRoutes({
-      "deployment/joyful-capybara-123/team_and_project": () => ({
-        team: "my-team",
-        project: "my-project",
-        teamId: 1,
-        projectId: 1,
-      }),
-      "deployment/authorize_preview": () => ({
-        adminKey: "preview-key",
-        url: "https://nimble-penguin-234.convex.cloud",
-        deploymentName: "nimble-penguin-234",
-        deploymentType: "preview",
-      }),
-    });
-
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
-
-    await env.parseAsync(
-      ["set", "ABC", "DEF", "--preview-name", "my-preview"],
-      { from: "user" },
-    );
-
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://nimble-penguin-234.convex.cloud",
-        adminKey: "preview-key",
-      }),
-    );
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
-
-    expect(bigBrainAPI).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: "deployment/authorize_preview",
-      }),
-    );
-  });
-
-  it("resolves CONVEX_DEPLOYMENT with --deployment-name to named deployment", async () => {
-    process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
-    vi.mocked(readGlobalConfig).mockReturnValue({
-      accessToken: "test-token",
-    });
-
-    setupBigBrainRoutes({
-      "deployment/joyful-capybara-123/team_and_project": () => ({
-        team: "my-team",
-        project: "my-project",
-        teamId: 1,
-        projectId: 1,
-      }),
-      "deployment/authorize_within_current_project": () => ({
-        adminKey: "staging-key",
-        url: "https://clever-otter-890.convex.cloud",
-        deploymentName: "clever-otter-890",
-        deploymentType: "dev",
-      }),
-    });
-
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
-
-    await env.parseAsync(
-      ["set", "ABC", "DEF", "--deployment-name", "staging-deploy"],
-      { from: "user" },
-    );
-
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://clever-otter-890.convex.cloud",
-        adminKey: "staging-key",
-      }),
-    );
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
-
-    expect(bigBrainAPI).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: "deployment/authorize_within_current_project",
-      }),
-    );
-  });
-
-  it("resolves deployment deploy key from --env-file", async () => {
-    const fakeEnvFilePath = "/fake/convex-test.env";
-    vi.mocked(nodeFs.exists).mockReturnValue(true);
-    vi.mocked(nodeFs.readUtf8File).mockReturnValue(
-      "CONVEX_DEPLOY_KEY=prod:joyful-capybara-123|secretkey\n",
-    );
-
-    setupBigBrainRoutes({
-      "deployment/url_for_key": () =>
-        "https://joyful-capybara-123.convex.cloud",
-      "deployment/team_and_project_for_key": () => ({
-        team: "my-team",
-        project: "my-project",
-        teamId: 1,
-        projectId: 1,
-      }),
-    });
-
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
-
-    await env.parseAsync(["set", "ABC", "DEF", "--env-file", fakeEnvFilePath], {
-      from: "user",
-    });
-
-    expect(deploymentFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        deploymentUrl: "https://joyful-capybara-123.convex.cloud",
-        adminKey: "prod:joyful-capybara-123|secretkey",
-      }),
-    );
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/update_environment_variables",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ changes: [{ name: "ABC", value: "DEF" }] }),
-      }),
-    );
-
-    expect(bigBrainAPI).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "deployment/url_for_key" }),
-    );
-    expect(bigBrainAPI).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: "deployment/team_and_project_for_key",
-      }),
-    );
   });
 });
