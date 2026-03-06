@@ -1,5 +1,19 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
-import { validateProjectEnvVarUniqueness } from "./DefaultEnvironmentVariables";
+import { copyTextToClipboard, toast } from "@common/lib/utils";
+import {
+  DefaultEnvironmentVariablesInner,
+  validateProjectEnvVarUniqueness,
+} from "./DefaultEnvironmentVariables";
+
+jest.mock("@common/lib/utils", () => ({
+  copyTextToClipboard: jest.fn(),
+  toast: jest.fn(),
+}));
+
+const mockCopyTextToClipboard = jest.mocked(copyTextToClipboard);
+const mockToast = jest.mocked(toast);
 
 describe("validateProjectEnvVarUniqueness", () => {
   const createVariable = (
@@ -141,5 +155,58 @@ describe("validateProjectEnvVarUniqueness", () => {
     expect(errors["newVars[1].deploymentTypes"]).toBe(
       "At least one deployment type must be selected",
     );
+  });
+});
+
+describe("DefaultEnvironmentVariablesInner Copy All", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCopyTextToClipboard.mockResolvedValue(undefined);
+  });
+
+  async function renderAndCopy(environmentVariables: ProjectEnvVarConfig[]) {
+    const user = userEvent.setup();
+    render(
+      <DefaultEnvironmentVariablesInner
+        environmentVariables={environmentVariables}
+        onUpdate={async () => {}}
+        hasAdminPermissions
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copy All" }));
+  }
+
+  it("copies all variables when names conflict across deployment types", async () => {
+    await renderAndCopy([
+      {
+        name: "SHARED_SECRET",
+        value: "dev-value",
+        deploymentTypes: ["dev"],
+      },
+      {
+        name: "SHARED_SECRET",
+        value: "preview-value",
+        deploymentTypes: ["preview"],
+      },
+      {
+        name: "SHARED_SECRET",
+        value: "prod-value",
+        deploymentTypes: ["prod"],
+      },
+    ]);
+
+    expect(mockCopyTextToClipboard).toHaveBeenCalledWith(
+      [
+        "SHARED_SECRET=dev-value",
+        "SHARED_SECRET=preview-value",
+        "SHARED_SECRET=prod-value",
+      ].join("\n"),
+    );
+    expect(mockToast).toHaveBeenCalledWith(
+      "success",
+      "Environment variables copied to the clipboard.",
+    );
+    expect(mockToast).toHaveBeenCalledTimes(1);
   });
 });
