@@ -744,6 +744,9 @@
     },
     "/teams/{team_id}/list_deployments": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "List deployments for team",
         "description": "Lists deployments for a team with pagination, sorting, and filtering.",
         "operationId": "list deployments for team",
@@ -864,6 +867,9 @@
     },
     "/teams/{team_id}/list_local_deployments": {
       "get": {
+        "tags": [
+          "Deployments"
+        ],
         "summary": "List local deployments",
         "description": "Lists the local deployments for a team.",
         "operationId": "list local deployments for team",

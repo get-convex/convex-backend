@@ -1975,6 +1975,10 @@ export interface components {
             team: {
                 team_id: components["schemas"]["TeamId"];
             };
+        } | {
+            app: {
+                client_id: string;
+            };
         };
         AuditLogEventResponse: {
             action: components["schemas"]["AuditLogAction"];
