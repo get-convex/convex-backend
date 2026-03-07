@@ -394,7 +394,7 @@ impl TransactionIndex {
                 let mut within_bytes_limit = true;
                 let out: Vec<_> = documents
                     .into_iter()
-                    .map(|(key, doc, ts)| (key, doc.unpack(), ts))
+                    .map(|(key, doc, ts)| (key, doc.pack(), ts))
                     .take(*max_size)
                     .take_while(|(_, document, _)| {
                         within_bytes_limit = total_bytes < *TRANSACTION_MAX_READ_SIZE_BYTES;
@@ -1213,7 +1213,7 @@ mod tests {
             result,
             vec![(
                 doc.index_key(&IndexedFields::by_id()[..]).to_bytes(),
-                doc,
+                PackedDocument::pack(&doc),
                 WriteTimestamp::Pending
             )],
         );
@@ -1359,17 +1359,17 @@ mod tests {
             vec![
                 (
                     alice.index_key(&by_id_fields[..]).to_bytes(),
-                    alice.clone(),
+                    PackedDocument::pack(&alice),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
                     zack.index_key(&by_id_fields[..]).to_bytes(),
-                    zack.clone(),
+                    PackedDocument::pack(&zack),
                     WriteTimestamp::Committed(now3)
                 ),
                 (
                     david.index_key(&by_id_fields[..]).to_bytes(),
-                    david.clone(),
+                    PackedDocument::pack(&david),
                     WriteTimestamp::Pending
                 ),
             ]
@@ -1393,17 +1393,17 @@ mod tests {
             vec![
                 (
                     alice.index_key(&by_name_fields[..]).to_bytes(),
-                    alice.clone(),
+                    PackedDocument::pack(&alice),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
                     david.index_key(&by_name_fields[..]).to_bytes(),
-                    david.clone(),
+                    PackedDocument::pack(&david),
                     WriteTimestamp::Pending
                 ),
                 (
                     zack.index_key(&by_name_fields[..]).to_bytes(),
-                    zack.clone(),
+                    PackedDocument::pack(&zack),
                     WriteTimestamp::Committed(now3)
                 ),
             ]
@@ -1431,12 +1431,12 @@ mod tests {
             vec![
                 (
                     alice.index_key(&by_name_fields[..]).to_bytes(),
-                    alice.clone(),
+                    PackedDocument::pack(&alice),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
                     david.index_key(&by_name_fields[..]).to_bytes(),
-                    david.clone(),
+                    PackedDocument::pack(&david),
                     WriteTimestamp::Pending
                 ),
             ]
@@ -1461,17 +1461,17 @@ mod tests {
             vec![
                 (
                     zack.index_key(&by_name_fields[..]).to_bytes(),
-                    zack,
+                    PackedDocument::pack(&zack),
                     WriteTimestamp::Committed(now3)
                 ),
                 (
                     david.index_key(&by_name_fields[..]).to_bytes(),
-                    david,
+                    PackedDocument::pack(&david),
                     WriteTimestamp::Pending
                 ),
                 (
                     alice.index_key(&by_name_fields[..]).to_bytes(),
-                    alice,
+                    PackedDocument::pack(&alice),
                     WriteTimestamp::Committed(now1)
                 ),
             ]
@@ -1558,7 +1558,7 @@ mod tests {
             results,
             vec![(
                 doc.index_key(&IndexedFields::by_id()[..]).to_bytes(),
-                doc.clone(),
+                PackedDocument::pack(&doc),
                 WriteTimestamp::Pending,
             )],
         );
@@ -1600,7 +1600,7 @@ mod tests {
                 updated_doc
                     .index_key(&IndexedFields::by_id()[..])
                     .to_bytes(),
-                updated_doc.clone(),
+                PackedDocument::pack(&updated_doc),
                 WriteTimestamp::Pending,
             )],
         );

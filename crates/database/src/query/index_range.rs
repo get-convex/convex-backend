@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     components::ComponentId,
-    document::ResolvedDocument,
+    document::PackedDocument,
     index::IndexKeyBytes,
     interval::Interval,
     knobs::{
@@ -67,7 +67,7 @@ pub struct IndexRange {
     /// `cursor_interval` must always be a subset of `interval`.
     cursor_interval: CursorInterval,
     intermediate_cursors: Option<Vec<CursorPosition>>,
-    page: VecDeque<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+    page: VecDeque<(IndexKeyBytes, PackedDocument, WriteTimestamp)>,
     /// The interval which we have yet to fetch.
     /// This starts as an intersection of the IndexRange's `interval` and
     /// `cursor_interval`, and gets smaller as results are fetched into `page`.
@@ -202,10 +202,10 @@ impl IndexRange {
 
             let v = if matches!(self.stable_index_name, StableIndexName::Virtual(_, _)) {
                 VirtualTable::new(tx)
-                    .system_to_virtual_doc(v, self.version.clone())
+                    .system_to_virtual_doc(v.unpack(), self.version.clone())
                     .await?
             } else {
-                v.to_developer()
+                v.unpack().to_developer()
             };
 
             let index_bytes = index_position.len();
@@ -288,7 +288,7 @@ impl IndexRange {
 
     fn process_fetch(
         &mut self,
-        page: Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+        page: Vec<(IndexKeyBytes, PackedDocument, WriteTimestamp)>,
         fetch_cursor: CursorPosition,
     ) -> anyhow::Result<()> {
         let (_, new_unfetched_interval) = self.unfetched_interval.split(fetch_cursor, self.order);

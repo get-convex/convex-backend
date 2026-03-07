@@ -952,7 +952,7 @@ impl<RT: Runtime> Transaction<RT> {
                     &self.virtual_system_mapping,
                 )?;
 
-                Some((doc, timestamp))
+                Some((doc.unpack(), timestamp))
             },
             None => None,
         };

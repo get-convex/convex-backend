@@ -9,6 +9,7 @@ use common::{
     components::ComponentId,
     document::{
         DeveloperDocument,
+        PackedDocument,
         ResolvedDocument,
     },
     query::CursorPosition,
@@ -294,7 +295,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
     pub fn record_read_document(
         &mut self,
-        document: &DeveloperDocument,
+        document: &PackedDocument,
         table_name: &TableName,
     ) -> anyhow::Result<()> {
         let component_path = self

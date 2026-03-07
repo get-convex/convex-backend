@@ -13,6 +13,7 @@ use common::{
     },
     document::{
         DeveloperDocument,
+        PackedDocument,
         ResolvedDocument,
     },
     errors::JsError,
@@ -124,7 +125,7 @@ trait QueryStream: Send {
 }
 
 pub struct IndexRangeResponse {
-    pub page: Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+    pub page: Vec<(IndexKeyBytes, PackedDocument, WriteTimestamp)>,
     pub cursor: CursorPosition,
 }
 
