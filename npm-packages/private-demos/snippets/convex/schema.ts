@@ -35,13 +35,16 @@ export default defineSchema({
     type: v.string(),
   }),
   channels: defineTable({}),
-  purchases: defineTable({
-    buyer: v.string(),
-    value: v.number(),
-  }).index("by_buyer", ["buyer"]),
-  events: defineTable({
-    attendeeIds: v.array(v.id("users")),
-  }),
+  grades: defineTable({
+    studentId: v.string(),
+    subject: v.string(),
+    grade: v.number(),
+  }).index("by_studentId", ["studentId"]),
+  events: defineTable({}),
+  attendees: defineTable({
+    eventId: v.id("events"),
+    userId: v.id("users"),
+  }).index("by_eventId", ["eventId"]),
   users: defineTable({
     name: v.optional(v.string()),
     preferencesId: v.id("preferences"),

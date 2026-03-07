@@ -241,34 +241,49 @@ Table join might look like:
   sourceJS={joinExample}
 />
 
+Note: by using Promise.all, the user documents will be fetched from the database
+in parallel, making join patterns like this very fast.
+
 ### Aggregation
 
 Here's an example of computing an average:
 
 <TSAndJSSnippet
-  title="convex/purchases.ts"
+  title="convex/grades.ts"
   sourceTS={averageExample}
   sourceJS={averageExample}
 />
 
-> If you need more scalable aggregate options (for example to handle frequent
-> updates or large tables), consider using the
-> [Sharded Counter](https://www.convex.dev/components/sharded-counter) or
-> [Aggregate](https://www.convex.dev/components/aggregate) components. These
-> components can help you handle high-throughput counters, sums, or computations
-> without looping through the whole table.
+<Admonition type="info" title="Computing aggregates over large sets of values">
+
+Note: Convex enforces [limits](/production/state/limits) on how many documents
+can be read in one query or mutation, in order to keep your app fast and the
+database happy. If you need more scalable aggregate options (for example to
+handle frequent updates or large tables), consider using the
+[Sharded Counter](https://www.convex.dev/components/sharded-counter) or
+[Aggregate](https://www.convex.dev/components/aggregate) components. These
+components can help you handle high-throughput counters, sums, or computations
+without looping through the whole table.
+
+</Admonition>
 
 ### Group by
 
 Here's an example of grouping and counting:
 
 <TSAndJSSnippet
-  title="convex/purchases.ts"
+  title="convex/grades.ts"
   sourceTS={groupByExampleTS}
   sourceJS={groupByExampleJS}
 />
+
+As with the previous example, we use `.collect()` with the assumption that a
+given student won't have more grades than we can fetch in one query. See
+[transaction limits](/production/state/limits)).
 
 ## Explore the syntax on the dashboard
 
 You can try out the syntax described above directly from the dashboard by
 [writing a custom test query](/dashboard/deployments/data.md#writing-custom-queries).
+
+<StackPosts query="streams sql query data" />

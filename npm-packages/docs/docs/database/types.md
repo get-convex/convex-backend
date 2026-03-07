@@ -41,6 +41,25 @@ For information on other limits, see [here](/production/state/limits.mdx).
 If any of these limits don't work for you,
 [let us know](https://convex.dev/community)!
 
+### Measuring document sizes
+
+Use [`getDocumentSize`](/api/modules/values#getDocumentSize) from
+`"convex/values"` to measure the size of documents, including the default `_id`
+and `_creationTime` fields. Use
+[`getConvexSize`](/api/modules/values#getConvexSize) to measure the byte size of
+arbitrary values.
+
+```ts
+import { getDocumentSize, getConvexSize } from "convex/values";
+
+// Includes the size of the system fields added during `db.insert`.
+const bytes = getDocumentSize(doc);
+await ctx.db.insert("documents", doc);
+
+// Calculates the Convex-encoded size of any valid Convex `Value`
+const arraySize = getConvexSize([true, 1n, null, "string", doc, buffer]);
+```
+
 ## Working with `undefined`
 
 The TypeScript value `undefined` is not a valid Convex value, so it cannot be
