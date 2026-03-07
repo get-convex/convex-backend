@@ -36,6 +36,7 @@ import {
   isOffline,
   generateInstanceSecret,
   choosePorts,
+  getPortsFromEnvFile,
   LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./utils.js";
 import { handleDashboard } from "./dashboard.js";
@@ -143,10 +144,16 @@ export async function handleAnonymousDeployment(
     adminKey = data.adminKey;
   }
 
+  // Read port settings from .env.local if not explicitly provided via CLI options
+  const portsFromEnv = options.ports ? { cloud: null, site: null } : await getPortsFromEnvFile(ctx);
+
   const [cloudPort, sitePort] = await choosePorts(ctx, {
     count: 2,
     startPort: 3210,
-    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
+    requestedPorts: [
+      options.ports?.cloud ?? portsFromEnv.cloud ?? null,
+      options.ports?.site ?? portsFromEnv.site ?? null,
+    ],
   });
   const onActivity = async (isOffline: boolean, _wasOffline: boolean) => {
     await ensureBackendRunning(ctx, {
