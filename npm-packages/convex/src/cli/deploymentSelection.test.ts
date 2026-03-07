@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { nodeFs } from "../bundler/fs.js";
 import { env } from "./env.js";
 import { deploy } from "./deploy.js";
+import { dev } from "./dev.js";
 import {
   deploymentFetch,
   bigBrainAPI,
@@ -12,6 +13,13 @@ import { deployToDeployment } from "./lib/deploy2.js";
 import { runPush } from "./lib/components.js";
 import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
 import { gitBranchFromEnvironment } from "./lib/envvars.js";
+import { devAgainstDeployment } from "./lib/dev.js";
+import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
+import {
+  validateOrSelectTeam,
+  validateOrSelectProject,
+} from "./lib/utils/utils.js";
+import { ensureLoggedIn } from "./lib/login.js";
 
 vi.mock("../bundler/fs.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../bundler/fs.js")>();
@@ -37,6 +45,8 @@ vi.mock("./lib/utils/utils.js", async (importOriginal) => {
     ensureHasConvexDependency: vi.fn(),
     bigBrainAPI: vi.fn(),
     bigBrainAPIMaybeThrows: vi.fn(),
+    validateOrSelectTeam: vi.fn(),
+    validateOrSelectProject: vi.fn(),
   };
 });
 
@@ -121,6 +131,55 @@ vi.mock("./lib/updates.js", async (importOriginal) => {
   };
 });
 
+vi.mock("./lib/dev.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/dev.js")>();
+  return { ...actual, devAgainstDeployment: vi.fn() };
+});
+
+vi.mock("./lib/localDeployment/localDeployment.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("./lib/localDeployment/localDeployment.js")
+    >();
+  return { ...actual, handleLocalDeployment: vi.fn() };
+});
+
+vi.mock("./lib/login.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/login.js")>();
+  return { ...actual, ensureLoggedIn: vi.fn() };
+});
+
+vi.mock("./configure.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./configure.js")>();
+  return {
+    ...actual,
+    // Override to skip fetchDeploymentCanonicalSiteUrl and file-writing side
+    // effects, while still exercising _deploymentCredentialsOrConfigure (which
+    // routes through the BigBrain mocks, handleLocalDeployment, etc.).
+    deploymentCredentialsOrConfigure: async (
+      ctx: any,
+      deploymentSelection: any,
+      chosenConfiguration: any,
+      cmdOptions: any,
+    ) => {
+      const selected = await actual._deploymentCredentialsOrConfigure(
+        ctx,
+        deploymentSelection,
+        chosenConfiguration,
+        cmdOptions,
+      );
+      return {
+        url: selected.url,
+        adminKey: selected.adminKey,
+        deploymentFields:
+          selected.deploymentFields !== null
+            ? { ...selected.deploymentFields, siteUrl: null }
+            : null,
+      };
+    },
+  };
+});
+
 vi.mock("./lib/envvars.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./lib/envvars.js")>();
   return {
@@ -165,6 +224,20 @@ describe("deployment selection flows", () => {
     });
     vi.mocked(getAuthKitConfig).mockResolvedValue(undefined);
     vi.mocked(gitBranchFromEnvironment).mockReturnValue(null);
+    vi.mocked(devAgainstDeployment).mockResolvedValue(undefined);
+    vi.mocked(handleLocalDeployment).mockResolvedValue({
+      deploymentName: "local-test",
+      deploymentUrl: "http://127.0.0.1:3210",
+      adminKey: "local|admin|key",
+      onActivity: async () => {},
+    } as any);
+    vi.mocked(validateOrSelectTeam).mockRejectedValue(
+      new Error("validateOrSelectTeam should be mocked"),
+    );
+    vi.mocked(validateOrSelectProject).mockRejectedValue(
+      new Error("validateOrSelectProject should be mocked"),
+    );
+    vi.mocked(ensureLoggedIn).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -821,6 +894,179 @@ describe("deployment selection flows", () => {
 
       expect(deployToDeployment).not.toHaveBeenCalled();
       expect(runPush).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("dev command (npx convex dev)", () => {
+    it("dev --local uses local deployment when local is allowed", async () => {
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      }); // no optOutOfLocalDevDeploymentsUntilBetaOver
+      vi.mocked(validateOrSelectTeam).mockResolvedValue({
+        team: { slug: "my-team", id: 1, name: "My Team" } as any,
+        chosen: false,
+      });
+      vi.mocked(validateOrSelectProject).mockResolvedValue("my-project");
+
+      await dev.parseAsync(["--local", "--configure", "existing"], {
+        from: "user",
+      });
+
+      expect(handleLocalDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          teamSlug: "my-team",
+          projectSlug: "my-project",
+        }),
+      );
+      expect(devAgainstDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "http://127.0.0.1:3210",
+          adminKey: "local|admin|key",
+        }),
+        expect.anything(),
+      );
+      expect(bigBrainAPI).not.toHaveBeenCalled();
+      expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
+    });
+
+    it("dev --local crashes when local deployments are globally disabled", async () => {
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+        optOutOfLocalDevDeploymentsUntilBetaOver: true,
+      });
+
+      await expect(
+        dev.parseAsync(["--skip-push", "--local"], { from: "user" }),
+      ).rejects.toThrow();
+
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Can't specify --local when local deployments are disabled on this machine",
+        ),
+      );
+      expect(devAgainstDeployment).not.toHaveBeenCalled();
+    });
+
+    it("defaults to dev deployment with CONVEX_DEPLOYMENT", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/provision_and_authorize": () => ({
+          adminKey: "dev-key",
+          url: "https://joyful-capybara-123.convex.cloud",
+          deploymentName: "joyful-capybara-123",
+          deploymentType: "dev",
+        }),
+      });
+
+      await dev.parseAsync([], { from: "user" });
+
+      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/provision_and_authorize",
+          data: expect.objectContaining({ deploymentType: "dev" }),
+        }),
+      );
+      expect(devAgainstDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "dev-key",
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("defaults to dev deployment with project deploy key", async () => {
+      process.env.CONVEX_DEPLOY_KEY = "project:identifier|secretkey";
+
+      setupBigBrainRoutes({
+        "deployment/provision_and_authorize": () => ({
+          adminKey: "dev-key",
+          url: "https://swift-squirrel-234.convex.cloud",
+          deploymentName: "swift-squirrel-234",
+          deploymentType: "dev",
+        }),
+      });
+
+      await dev.parseAsync([], { from: "user" });
+
+      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/provision_and_authorize",
+          data: expect.objectContaining({ deploymentType: "dev" }),
+        }),
+      );
+      expect(devAgainstDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "https://swift-squirrel-234.convex.cloud",
+          adminKey: "dev-key",
+        }),
+        expect.anything(),
+      );
+    });
+
+    it("uses CONVEX_SELF_HOSTED_URL and CONVEX_SELF_HOSTED_ADMIN_KEY directly", async () => {
+      process.env.CONVEX_SELF_HOSTED_URL = "http://localhost:3210";
+      process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = "self-hosted-key";
+
+      await dev.parseAsync([], { from: "user" });
+
+      expect(devAgainstDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "http://localhost:3210",
+          adminKey: "self-hosted-key",
+        }),
+        expect.anything(),
+      );
+      expect(bigBrainAPI).not.toHaveBeenCalled();
+      expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
+    });
+
+    it("uses --cloud flag with CONVEX_DEPLOYMENT to force cloud dev deployment", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/joyful-capybara-123/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/provision_and_authorize": () => ({
+          adminKey: "cloud-dev-key",
+          url: "https://joyful-capybara-123.convex.cloud",
+          deploymentName: "joyful-capybara-123",
+          deploymentType: "dev",
+        }),
+      });
+
+      await dev.parseAsync(["--cloud"], { from: "user" });
+
+      expect(devAgainstDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "cloud-dev-key",
+        }),
+        expect.anything(),
+      );
     });
   });
 });
