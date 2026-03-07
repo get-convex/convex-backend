@@ -16,7 +16,7 @@ import {
   formatSize,
   ThrowingFetchError,
 } from "./utils/utils.js";
-import ws from "ws";
+import { nodeWebSocket } from "./nodeWebSocket.js";
 import { BaseConvexClient } from "../../browser/index.js";
 import { DefaultLogger } from "../../browser/logging.js";
 const ipFamilyNumbers = { ipv4: 4, ipv6: 6, auto: 0 } as const;
@@ -244,7 +244,7 @@ async function checkWs(
       }
     },
     {
-      webSocketConstructor: ws as unknown as typeof WebSocket,
+      webSocketConstructor: nodeWebSocket,
       unsavedChangesWarning: false,
       logger,
     },
