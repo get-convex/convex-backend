@@ -9,6 +9,22 @@ export const extraOutputFields = query({
   },
 });
 
+export const extraOutputFieldsStrip = query({
+  args: {},
+  returns: v.object({ a: v.number() }, { unknownKeys: "strip" }),
+  handler: () => {
+    return { a: 1, b: 2 } as any;
+  },
+});
+
+export const wrongTypedOutputFieldStrip = query({
+  args: {},
+  returns: v.object({ a: v.number() }, { unknownKeys: "strip" }),
+  handler: () => {
+    return { a: "not-a-number", b: 2 } as any;
+  },
+});
+
 export const stringOutputReturnsNumberQuery = query({
   args: {},
   returns: v.string(),

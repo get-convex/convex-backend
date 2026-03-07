@@ -134,6 +134,31 @@ async fn test_mutation_extra_fields(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_query_extra_fields_strip_mode(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+    let result =
+        run_zero_arg_query(&application, "returns_validation:extraOutputFieldsStrip").await?;
+    let value = result.result.unwrap().json_value();
+    assert!(value.get("a").is_some());
+    assert!(value.get("b").is_some());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_strip_mode_still_validates_types(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+    let result = run_zero_arg_query(
+        &application,
+        "returns_validation:wrongTypedOutputFieldStrip",
+    )
+    .await?;
+    assert!(format!("{}", result.result.unwrap_err()).contains("ReturnsValidationError"));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_mutation_output(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;

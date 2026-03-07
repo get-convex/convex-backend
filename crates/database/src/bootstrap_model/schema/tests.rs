@@ -14,6 +14,8 @@ use common::{
     schemas::{
         validator::{
             FieldValidator,
+            ObjectValidator,
+            UnknownKeysMode,
             ValidationContext,
             ValidationError,
             Validator,
@@ -31,6 +33,7 @@ use common::{
 };
 use errors::ErrorMetadataAnyhowExt;
 use keybroker::Identity;
+use maplit::btreemap;
 use runtime::testing::TestRuntime;
 use value::assert_obj;
 
@@ -400,6 +403,191 @@ async fn test_schema_enforced_on_write(rt: TestRuntime) -> anyhow::Result<()> {
         .await
         .unwrap_err();
     assert_eq!(err.short_msg(), "SchemaEnforcementError");
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_schema_strip_on_write(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = new_test_database(rt.clone()).await;
+    let mut tx = db.begin(Identity::system()).await?;
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
+
+    let table = "table".parse::<TableName>()?;
+    let object_validator = ObjectValidator {
+        fields: btreemap! {
+            "name".parse()? => FieldValidator::required_field_type(Validator::String),
+        },
+        unknown_keys: UnknownKeysMode::Strip,
+    };
+    let document_schema = DocumentSchema::Union(vec![object_validator]);
+    let db_schema = db_schema!(table.clone() => document_schema);
+    let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
+    model.mark_validated(schema_id).await?;
+    model.mark_active(schema_id).await?;
+
+    let id = UserFacingModel::new_root_for_test(&mut tx)
+        .insert(
+            table,
+            assert_obj!("name" => "emma", "extra" => "should_be_stripped"),
+        )
+        .await?;
+
+    let stored = UserFacingModel::new_root_for_test(&mut tx)
+        .get(id, None)
+        .await?
+        .expect("Inserted document should exist");
+
+    assert!(stored.value().0.get("name").is_some());
+    assert!(stored.value().0.get("extra").is_none());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_schema_strip_mode_still_validates_types(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = new_test_database(rt.clone()).await;
+    let mut tx = db.begin(Identity::system()).await?;
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
+
+    let table = "table".parse::<TableName>()?;
+    let object_validator = ObjectValidator {
+        fields: btreemap! {
+            "name".parse()? => FieldValidator::required_field_type(Validator::String),
+        },
+        unknown_keys: UnknownKeysMode::Strip,
+    };
+    let document_schema = DocumentSchema::Union(vec![object_validator]);
+    let db_schema = db_schema!(table.clone() => document_schema);
+    let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
+    model.mark_validated(schema_id).await?;
+    model.mark_active(schema_id).await?;
+
+    let err = UserFacingModel::new_root_for_test(&mut tx)
+        .insert(table, assert_obj!("name" => 123, "extra" => "x"))
+        .await
+        .unwrap_err();
+    assert_eq!(err.short_msg(), "SchemaEnforcementError");
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_schema_union_prefers_strict_over_strip(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = new_test_database(rt.clone()).await;
+    let mut tx = db.begin(Identity::system()).await?;
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
+
+    let table = "table".parse::<TableName>()?;
+    let strip_narrow = ObjectValidator {
+        fields: btreemap! {
+            "a".parse()? => FieldValidator::required_field_type(Validator::Int64),
+        },
+        unknown_keys: UnknownKeysMode::Strip,
+    };
+    let strict_wide = ObjectValidator {
+        fields: btreemap! {
+            "a".parse()? => FieldValidator::required_field_type(Validator::Int64),
+            "b".parse()? => FieldValidator::required_field_type(Validator::Int64),
+        },
+        unknown_keys: UnknownKeysMode::Strict,
+    };
+    let document_schema = DocumentSchema::Union(vec![strip_narrow, strict_wide]);
+    let db_schema = db_schema!(table.clone() => document_schema);
+    let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
+    model.mark_validated(schema_id).await?;
+    model.mark_active(schema_id).await?;
+
+    let id = UserFacingModel::new_root_for_test(&mut tx)
+        .insert(table, assert_obj!("a" => 1, "b" => 2))
+        .await?;
+
+    let stored = UserFacingModel::new_root_for_test(&mut tx)
+        .get(id, None)
+        .await?
+        .expect("Inserted document should exist");
+
+    assert!(stored.value().0.get("a").is_some());
+    assert!(stored.value().0.get("b").is_some());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_schema_union_strip_uses_declaration_order(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = new_test_database(rt.clone()).await;
+    let mut tx = db.begin(Identity::system()).await?;
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
+
+    let table = "table".parse::<TableName>()?;
+    let strip_narrow = ObjectValidator {
+        fields: btreemap! {
+            "a".parse()? => FieldValidator::required_field_type(Validator::Int64),
+        },
+        unknown_keys: UnknownKeysMode::Strip,
+    };
+    let strip_wide = ObjectValidator {
+        fields: btreemap! {
+            "a".parse()? => FieldValidator::required_field_type(Validator::Int64),
+            "b".parse()? => FieldValidator::required_field_type(Validator::Int64),
+        },
+        unknown_keys: UnknownKeysMode::Strip,
+    };
+    let document_schema = DocumentSchema::Union(vec![strip_narrow, strip_wide]);
+    let db_schema = db_schema!(table.clone() => document_schema);
+    let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
+    model.mark_validated(schema_id).await?;
+    model.mark_active(schema_id).await?;
+
+    let id = UserFacingModel::new_root_for_test(&mut tx)
+        .insert(table, assert_obj!("a" => 1, "b" => 2))
+        .await?;
+
+    let stored = UserFacingModel::new_root_for_test(&mut tx)
+        .get(id, None)
+        .await?
+        .expect("Inserted document should exist");
+
+    assert!(stored.value().0.get("a").is_some());
+    assert!(stored.value().0.get("b").is_none());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_schema_union_strip_reordering_can_preserve_more_fields(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let db = new_test_database(rt.clone()).await;
+    let mut tx = db.begin(Identity::system()).await?;
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
+
+    let table = "table".parse::<TableName>()?;
+    let strip_wide = ObjectValidator {
+        fields: btreemap! {
+            "a".parse()? => FieldValidator::required_field_type(Validator::Int64),
+            "b".parse()? => FieldValidator::required_field_type(Validator::Int64),
+        },
+        unknown_keys: UnknownKeysMode::Strip,
+    };
+    let strip_narrow = ObjectValidator {
+        fields: btreemap! {
+            "a".parse()? => FieldValidator::required_field_type(Validator::Int64),
+        },
+        unknown_keys: UnknownKeysMode::Strip,
+    };
+    let document_schema = DocumentSchema::Union(vec![strip_wide, strip_narrow]);
+    let db_schema = db_schema!(table.clone() => document_schema);
+    let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
+    model.mark_validated(schema_id).await?;
+    model.mark_active(schema_id).await?;
+
+    let id = UserFacingModel::new_root_for_test(&mut tx)
+        .insert(table, assert_obj!("a" => 1, "b" => 2))
+        .await?;
+
+    let stored = UserFacingModel::new_root_for_test(&mut tx)
+        .get(id, None)
+        .await?
+        .expect("Inserted document should exist");
+
+    assert!(stored.value().0.get("a").is_some());
+    assert!(stored.value().0.get("b").is_some());
     Ok(())
 }
 
