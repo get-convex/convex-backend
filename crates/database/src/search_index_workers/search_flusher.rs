@@ -264,12 +264,13 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
 
         let ready_index_sizes = T::get_index_sizes(snapshot)?;
 
-        for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {
-            let (index_id, index_metadata) = index_doc.into_id_and_value();
-            let Some(config) = T::get_config(index_metadata.config) else {
+        IndexModel::new(&mut tx).take_indexes_dependency()?;
+        for index_doc in tx.index.index_registry().clone().all_indexes() {
+            let index_id = index_doc.id();
+            let Some(config) = T::get_config(&index_doc.config) else {
                 continue;
             };
-            let name = index_metadata.name;
+            let name = &index_doc.name;
 
             let needs_backfill = match &config.on_disk_state {
                 SearchOnDiskState::Backfilling(_) => Some(BuildReason::Backfilling),

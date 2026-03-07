@@ -270,16 +270,14 @@ impl<RT: Runtime> Scenario<RT> {
         let mut tx = self.database.begin_system().await?;
         let mut model = IndexModel::new(&mut tx);
         Ok(model
-            .get_all_indexes()
-            .await?
-            .into_iter()
+            .get_all_indexes()?
             .filter_map(|idx| {
                 if let IndexConfig::Vector {
                     spec,
                     on_disk_state,
-                } = idx.config.clone()
+                } = &idx.config
                 {
-                    Some((spec, on_disk_state))
+                    Some((spec.clone(), on_disk_state.clone()))
                 } else {
                     None
                 }

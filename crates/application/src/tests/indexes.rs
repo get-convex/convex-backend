@@ -174,7 +174,7 @@ async fn wait_for_backfill(
             return Ok(());
         }
 
-        model.get_all_indexes().await?;
+        model.take_indexes_dependency()?;
         let token = tx.into_token()?;
         let subscription_fut = db.subscribe_and_wait_for_invalidation(token);
         pin_mut!(subscription_fut);

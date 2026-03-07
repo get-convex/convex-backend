@@ -127,7 +127,7 @@ impl SearchIndex for TextSearchIndex {
     type Spec = TextIndexSpec;
     type Statistics = TextStatistics;
 
-    fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self>> {
+    fn get_config(config: &IndexConfig) -> Option<SearchIndexConfig<Self>> {
         let IndexConfig::Text {
             on_disk_state,
             spec,
@@ -136,8 +136,8 @@ impl SearchIndex for TextSearchIndex {
             return None;
         };
         Some(SearchIndexConfig {
-            spec,
-            on_disk_state: match on_disk_state {
+            spec: spec.clone(),
+            on_disk_state: match on_disk_state.clone() {
                 TextIndexState::Backfilling(snapshot) => {
                     SearchOnDiskState::Backfilling(snapshot.into())
                 },

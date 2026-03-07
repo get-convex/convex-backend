@@ -721,7 +721,7 @@ impl<RT: Runtime> Transaction<RT> {
         &self.stats
     }
 
-    fn take_table_mapping_dep(&mut self) {
+    pub(crate) fn take_table_mapping_dep(&mut self) {
         let tables_by_id = TabletIndexName::by_id(
             self.metadata
                 .table_mapping()

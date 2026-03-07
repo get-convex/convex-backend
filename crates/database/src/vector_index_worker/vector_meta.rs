@@ -150,7 +150,7 @@ impl SearchIndex for VectorSearchIndex {
     type Spec = VectorIndexSpec;
     type Statistics = VectorStatistics;
 
-    fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self>> {
+    fn get_config(config: &IndexConfig) -> Option<SearchIndexConfig<Self>> {
         let IndexConfig::Vector {
             on_disk_state,
             spec,
@@ -159,8 +159,8 @@ impl SearchIndex for VectorSearchIndex {
             return None;
         };
         Some(SearchIndexConfig {
-            spec,
-            on_disk_state: SearchOnDiskState::from(on_disk_state),
+            spec: spec.clone(),
+            on_disk_state: SearchOnDiskState::from(on_disk_state.clone()),
         })
     }
 

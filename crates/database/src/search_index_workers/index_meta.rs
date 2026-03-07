@@ -70,7 +70,7 @@ pub trait SearchIndex: Clone + Debug {
 
     /// Returns the generalized `SearchIndexConfig` if it matches the type of
     /// the parser (e.g. Text vs Vector) and `None` otherwise.
-    fn get_config(_config: IndexConfig) -> Option<SearchIndexConfig<Self>>;
+    fn get_config(_config: &IndexConfig) -> Option<SearchIndexConfig<Self>>;
 
     // TODO(CX-6589): Make this infallible
     fn new_index_config(

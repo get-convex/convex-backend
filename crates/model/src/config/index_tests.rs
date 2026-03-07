@@ -187,9 +187,7 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_removes_
             .await?;
 
         assert!(!IndexModel::new(&mut tx)
-            .get_all_indexes()
-            .await?
-            .iter()
+            .get_all_indexes()?
             .any(|index| index.id().internal_id() == current_index.id().internal_id()));
         Ok(())
     })

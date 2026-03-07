@@ -126,7 +126,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         // Skip compaction on empty tables.
         for index_doc in non_empty_search_indexes {
             let (index_id, index_metadata) = index_doc.into_id_and_value();
-            let Some(config) = T::get_config(index_metadata.config) else {
+            let Some(config) = T::get_config(&index_metadata.config) else {
                 continue;
             };
             let name = index_metadata.name;

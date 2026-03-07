@@ -886,9 +886,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     /// Returns by_id indexes for *all tablets*, including hidden ones.
     pub async fn by_id_indexes(&mut self) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
-        let all_indexes = self.get_all_indexes().await?;
+        let all_indexes = self.get_all_indexes()?;
         Ok(all_indexes
-            .into_iter()
             .filter(|index| index.name.is_by_id())
             .map(|index| (*index.name.table(), index.id().internal_id()))
             .collect())
@@ -911,10 +910,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         &mut self,
         tablet_id: TabletId,
     ) -> anyhow::Result<Vec<ParsedDocument<TabletIndexMetadata>>> {
-        let all_indexes = self.get_all_indexes().await?;
+        let all_indexes = self.get_all_indexes()?;
         Ok(all_indexes
-            .into_iter()
             .filter(|index| *index.name.table() == tablet_id)
+            .cloned()
             .collect())
     }
 
@@ -923,9 +922,14 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     ///
     /// Because of mutated indexes, there may be up to two indexes with the same
     /// name (but different configurations).
-    pub async fn get_all_indexes(
+    pub fn get_all_indexes(
         &mut self,
-    ) -> anyhow::Result<Vec<ParsedDocument<TabletIndexMetadata>>> {
+    ) -> anyhow::Result<impl Iterator<Item = &'_ ParsedDocument<TabletIndexMetadata>>> {
+        self.take_indexes_dependency()?;
+        Ok(self.get_all_indexes_untracked())
+    }
+
+    pub fn take_indexes_dependency(&mut self) -> anyhow::Result<()> {
         let index_by_id = TabletIndexName::by_id(
             self.tx
                 .table_mapping()
@@ -939,22 +943,22 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             IndexedFields::by_id(),
             Interval::all(),
         )?;
-        Ok(self
-            .tx
-            .index
-            .index_registry()
-            .all_indexes()
-            .cloned()
-            .collect())
+        Ok(())
+    }
+
+    pub fn get_all_indexes_untracked(
+        &self,
+    ) -> impl Iterator<Item = &'_ ParsedDocument<TabletIndexMetadata>> {
+        self.tx.index.index_registry().all_indexes()
     }
 
     /// Returns all search indexes (text and vector) on non-empty tables.
     pub async fn get_all_non_empty_search_indexes(
         &mut self,
     ) -> anyhow::Result<Vec<ParsedDocument<TabletIndexMetadata>>> {
-        let all_indexes = self.get_all_indexes().await?;
+        self.take_indexes_dependency()?;
         let mut non_empty_indexes = vec![];
-        for index in all_indexes {
+        for index in self.get_all_indexes_untracked() {
             match index.config {
                 IndexConfig::Text { .. } | IndexConfig::Vector { .. } => (),
                 IndexConfig::Database { .. } => continue,
@@ -966,7 +970,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 )));
             };
             if count != 0 {
-                non_empty_indexes.push(index);
+                non_empty_indexes.push(index.clone());
             }
         }
         Ok(non_empty_indexes)
@@ -1016,18 +1020,21 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         category: IndexCategory,
         namespace: TableNamespace,
     ) -> anyhow::Result<Vec<ParsedDocument<DeveloperIndexMetadata>>> {
-        let indexes = self.get_all_indexes().await?;
-        let table_mapping = self.tx.table_mapping();
+        self.take_indexes_dependency()?;
+        self.tx.take_table_mapping_dep();
+        let table_mapping = self.tx.metadata.table_mapping();
         let mut result = vec![];
-        for doc in indexes {
-            if !category.belongs(&doc, table_mapping) {
+        for doc in self.get_all_indexes_untracked() {
+            if !category.belongs(doc, table_mapping) {
                 continue;
             }
             let tablet_id = *doc.name.table();
             if table_mapping.tablet_namespace(tablet_id)? != namespace {
                 continue;
             }
-            let doc = doc.map(|metadata| metadata.map_table(&table_mapping.tablet_to_name()))?;
+            let doc = doc
+                .clone()
+                .map(|metadata| metadata.map_table(&table_mapping.tablet_to_name()))?;
             result.push(doc);
         }
         Ok(result)
