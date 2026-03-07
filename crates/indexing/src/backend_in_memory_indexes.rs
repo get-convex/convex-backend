@@ -387,7 +387,7 @@ impl BackendInMemoryIndexes {
                 spec,
                 on_disk_state,
                 ..
-            } = &index_doc.config
+            } = &index_doc.metadata().config
             else {
                 continue;
             };
@@ -397,8 +397,7 @@ impl BackendInMemoryIndexes {
                 let key = doc.index_key_owned(&spec.fields);
                 index_map.insert(key, *ts, doc.clone());
             }
-            self.in_memory_indexes
-                .insert(index_doc.id().internal_id(), index_map);
+            self.in_memory_indexes.insert(index_doc.id(), index_map);
         }
     }
 

@@ -427,7 +427,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             .namespace(TableNamespace::Global)
             .id(&COMPONENTS_TABLE)?
             .tablet_id;
-        let components_by_id = index_registry.1.must_get_by_id(component_tablet_id)?.id;
+        let components_by_id = index_registry.1.must_get_by_id(component_tablet_id)?.id();
         let components_last_modified = *self
             .backend_last_modified
             .get(&components_by_id)
@@ -501,7 +501,7 @@ impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
             let namespace = component_id.into();
             let schema_tablet =
                 table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
-            let index_id = index_registry.1.must_get_by_id(schema_tablet)?.id;
+            let index_id = index_registry.1.must_get_by_id(schema_tablet)?.id();
             let schemas_last_modified = *self
                 .backend_last_modified
                 .get(&index_id)

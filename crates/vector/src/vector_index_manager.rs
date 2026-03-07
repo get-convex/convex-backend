@@ -246,7 +246,7 @@ impl VectorIndexManager {
             // We need to add the size of the document id to the write size because it's
             // also stored in the vector index.
             write_size.0 += (qdrant_schema.estimate_vector_size() + id.size()) as u64;
-            self.indexes.update(&index.id, None, |memory_index| {
+            self.indexes.update(&index.id(), None, |memory_index| {
                 memory_index.update(id.internal_id(), ts, old_value, new_value)
             })?;
         }

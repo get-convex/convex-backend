@@ -416,7 +416,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     {
         let tablet_id =
             table_mapping.namespace(namespace).name_to_tablet()(T::table_name().clone())?;
-        let by_id = index_registry.must_get_by_id(tablet_id)?.id;
+        let by_id = index_registry.must_get_by_id(tablet_id)?.id();
         let docs = in_memory_indexes
             .range(by_id, &Interval::all(), Order::Asc)?
             .with_context(|| format!("table {} is not in-memory?", T::table_name()))?;

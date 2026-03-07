@@ -351,7 +351,7 @@ impl TransactionIndex {
             .index_registry
             .require_enabled(&index_name, &query.printable_index_name()?)?;
         let empty = vec![];
-        let pending_updates = self.text_index_updates.get(&index.id).unwrap_or(&empty);
+        let pending_updates = self.text_index_updates.get(&index.id()).unwrap_or(&empty);
         let results = self
             .text_index_snapshot
             .search(&index, query, version, pending_updates)
@@ -570,7 +570,7 @@ impl TransactionIndex {
             // Add the update to all affected text search indexes.
             for index in self.index_registry.text_indexes_by_table(id.tablet_id) {
                 self.text_index_updates
-                    .entry(index.id)
+                    .entry(index.id())
                     .or_default()
                     .push(DocumentUpdate {
                         id,
