@@ -6,7 +6,6 @@ use std::{
         Display,
     },
     str::FromStr,
-    sync::LazyLock,
 };
 
 use anyhow::Context;
@@ -41,8 +40,8 @@ impl IndexDescriptor {
     pub const MIN: Self = IndexDescriptor(Cow::Borrowed(MIN_IDENTIFIER));
 
     pub fn is_reserved(&self) -> bool {
-        self == &*INDEX_BY_ID_DESCRIPTOR
-            || self == &*INDEX_BY_CREATION_TIME_DESCRIPTOR
+        *self == INDEX_BY_ID_DESCRIPTOR
+            || *self == INDEX_BY_CREATION_TIME_DESCRIPTOR
             || self.0.starts_with('_')
     }
 
@@ -220,11 +219,9 @@ impl<T: IndexTableIdentifier> fmt::Debug for GenericIndexName<T> {
     }
 }
 
-pub static INDEX_BY_ID_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("by_id").unwrap());
-
-pub static INDEX_BY_CREATION_TIME_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("by_creation_time").unwrap());
+pub const INDEX_BY_ID_DESCRIPTOR: IndexDescriptor = IndexDescriptor(Cow::Borrowed("by_id"));
+pub const INDEX_BY_CREATION_TIME_DESCRIPTOR: IndexDescriptor =
+    IndexDescriptor(Cow::Borrowed("by_creation_time"));
 
 impl<T: IndexTableIdentifier> GenericIndexName<T> {
     /// Create a new index name for the table and given descriptor,
@@ -252,7 +249,7 @@ impl<T: IndexTableIdentifier> GenericIndexName<T> {
     pub fn by_id(table: T) -> Self {
         Self {
             table,
-            descriptor: INDEX_BY_ID_DESCRIPTOR.clone(),
+            descriptor: INDEX_BY_ID_DESCRIPTOR,
         }
     }
 
@@ -260,7 +257,7 @@ impl<T: IndexTableIdentifier> GenericIndexName<T> {
     pub fn by_creation_time(table: T) -> Self {
         Self {
             table,
-            descriptor: INDEX_BY_CREATION_TIME_DESCRIPTOR.clone(),
+            descriptor: INDEX_BY_CREATION_TIME_DESCRIPTOR,
         }
     }
 
@@ -284,12 +281,12 @@ impl<T: IndexTableIdentifier> GenericIndexName<T> {
 
     /// Is the index name for the by_id index?
     pub fn is_by_id(&self) -> bool {
-        self.descriptor == *INDEX_BY_ID_DESCRIPTOR
+        self.descriptor == INDEX_BY_ID_DESCRIPTOR
     }
 
     /// Is the index name for the creation time index?
     pub fn is_creation_time(&self) -> bool {
-        self.descriptor == *INDEX_BY_CREATION_TIME_DESCRIPTOR
+        self.descriptor == INDEX_BY_CREATION_TIME_DESCRIPTOR
     }
 
     /// Is this index reserved? The system automatically defines these indexes
