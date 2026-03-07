@@ -41,7 +41,7 @@
     "js-base64": "~3.7.4",
     "jsdom-testing-mocks": "^1.16.0",
     "launchdarkly-react-client-sdk": "^3.0.4",
-    "lodash": "~4.17.21",
+    "lodash": "~4.17.23",
     "monaco-editor": "0.40.0",
     "object-sizeof": "~2.6.3",
     "prettier-old-sync": "npm:prettier@2.8.8",

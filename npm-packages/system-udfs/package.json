@@ -16,7 +16,7 @@
     "base64-js": "^1.5.1",
     "web-streams-polyfill": "~3.3.0",
     "abortcontroller-polyfill": "1.7.6",
-    "lodash": "~4.17.21",
+    "lodash": "~4.17.23",
     "id-encoding": "workspace:*",
     "js-base64": "~3.7.4",
     "convex": "workspace:*",

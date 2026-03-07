@@ -59,7 +59,7 @@
     "@docusaurus/module-type-aliases": "~3.9.1",
     "@docusaurus/tsconfig": "~3.9.1",
     "typescript": "~5.0.3",
-    "webpack": "^5.99.9",
+    "webpack": "^5.104.1",
     "@docusaurus/types": "~3.9.1",
     "cspell": "^6.30.2",
     "detect-port": "^2.1.0",
