@@ -163,7 +163,6 @@ use tokio::{
 };
 use udf::{
     environment::system_env_vars,
-    helpers::parse_udf_args,
     validation::{
         validate_schedule_args,
         ValidatedActionOutcome,
@@ -2170,7 +2169,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                             tx,
                         )
                         .await?;
-                        let udf_args = parse_udf_args(&path.udf_path, udf_args.into_args()?)?;
                         let arg_size = udf_args.size();
                         let virtual_id =
                             VirtualSchedulerModel::new(tx, scheduling_component.into())

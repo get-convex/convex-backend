@@ -67,6 +67,7 @@ use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
     serialized_args_ext::SerializedArgsExt,
+    ConvexArray,
     ConvexValue,
     JsonPackedValue,
     NamespacedTableMapping,
@@ -149,7 +150,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
     scheduled_ts: UnixTimestamp,
     udf_ts: UnixTimestamp,
     tx: &mut Transaction<RT>,
-) -> anyhow::Result<(CanonicalizedComponentFunctionPath, SerializedArgs)> {
+) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
     // We validate the following mostly so the developer don't get the timestamp
     // wrong with more than order of magnitude.
     let delta = scheduled_ts.as_secs_f64() - udf_ts.as_secs_f64();
@@ -165,7 +166,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
             format!("{scheduled_ts:?} is more than 5 years in the past")
         ));
     }
-    let udf_args = SerializedArgs::from_args(udf_args)?;
+    let udf_args = parse_udf_args(&path.udf_path, udf_args)?;
 
     // Even though we might use different version of modules when executing,
     // we do validate that the scheduled function exists at time of scheduling.

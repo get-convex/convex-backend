@@ -1433,7 +1433,6 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
         )
         .await?;
 
-        let udf_args = parse_udf_args(&scheduled_path.udf_path, udf_args.into_args()?)?;
         let virtual_id = VirtualSchedulerModel::new(&mut tx, scheduling_component.into())
             .schedule(scheduled_path, udf_args, scheduled_ts, context)
             .await?;

@@ -85,7 +85,6 @@ use serde_json::{
 };
 use sync_types::types::SerializedArgs;
 use udf::{
-    helpers::parse_udf_args,
     validation::{
         validate_schedule_args,
         ValidatedPathAndArgs,
@@ -97,6 +96,7 @@ use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     serialized_args_ext::SerializedArgsExt,
+    ConvexArray,
     ConvexObject,
     TableName,
 };
@@ -304,7 +304,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
         path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, SerializedArgs)>;
+    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)>;
 
     async fn file_storage_generate_upload_url(&mut self) -> anyhow::Result<String>;
     async fn file_storage_get_url_batch(
@@ -409,7 +409,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, SerializedArgs)> {
+    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
         validate_schedule_args(
             path,
             args,
@@ -962,7 +962,6 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         let context = provider.context().clone();
         let tx = provider.tx()?;
-        let udf_args = parse_udf_args(&path.udf_path, udf_args.into_args()?)?;
         let virtual_id = VirtualSchedulerModel::new(tx, scheduling_component.into())
             .schedule(path, udf_args, scheduled_ts, context)
             .await?;

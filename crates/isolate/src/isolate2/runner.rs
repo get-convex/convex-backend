@@ -63,7 +63,6 @@ use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use sync_types::types::SerializedArgs;
 use tokio::sync::{
     mpsc::{
         self,
@@ -83,6 +82,7 @@ use udf::{
 };
 use value::{
     serialized_args_ext::SerializedArgsExt,
+    ConvexArray,
     ConvexObject,
     ConvexValue,
     JsonPackedValue,
@@ -902,7 +902,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
         path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, SerializedArgs)> {
+    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
         validate_schedule_args(path, args, scheduled_ts, self.unix_timestamp, self.tx).await
     }
 
