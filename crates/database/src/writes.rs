@@ -281,7 +281,6 @@ impl Writes {
                 "Too many bytes written in system tables in a single transaction: {}",
                 tx_size.size
             );
-            tx_size
         } else {
             let tx_size = &self.user_tx_size;
             anyhow::ensure!(
@@ -304,8 +303,7 @@ impl Writes {
                     )
                 ),
             );
-            tx_size
-        };
+        }
 
         if let Some(old_update) = self.updates.get(&document_id) {
             let (old_document, old_document_ts) = old_document.unzip();

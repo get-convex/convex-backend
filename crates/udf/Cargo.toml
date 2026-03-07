@@ -15,6 +15,7 @@ testing = [
     "database/testing",
     "errors/testing",
     "keybroker/testing",
+    "metrics/testing",
     "model/testing",
 ]
 
@@ -30,6 +31,7 @@ headers = { workspace = true }
 http = { workspace = true }
 humansize = { workspace = true }
 keybroker = { workspace = true }
+metrics = { workspace = true }
 mime = { workspace = true }
 model = { workspace = true }
 pb = { workspace = true }
@@ -51,6 +53,7 @@ common = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 model = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }

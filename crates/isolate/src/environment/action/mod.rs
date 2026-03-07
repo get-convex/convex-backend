@@ -93,6 +93,11 @@ use tokio::sync::{
 use udf::{
     helpers::parse_udf_args,
     validation::ValidatedHttpPath,
+    warnings::{
+        approaching_duration_limit_warning,
+        approaching_limit_warning,
+        SystemWarning,
+    },
     ActionOutcome,
     HttpActionOutcome,
     HttpActionRequest,
@@ -132,11 +137,6 @@ use self::{
 };
 use super::{
     crypto_rng::CryptoRng,
-    warnings::{
-        approaching_duration_limit_warning,
-        approaching_limit_warning,
-        SystemWarning,
-    },
     ModuleCodeCacheResult,
 };
 use crate::{
@@ -1207,7 +1207,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             None,
             Some(" bytes"),
             None,
-        )? {
+        ) {
             self.trace_system(warning)?;
         }
         self.add_warnings_to_log_lines(execution_time)?;
@@ -1221,7 +1221,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 None,
-            )?
+            )
         {
             self.trace_system(warning)?;
         };
@@ -1241,7 +1241,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             None,
             Some(" bytes"),
             None,
-        )? {
+        ) {
             self.trace_system(warning)?;
         }
         self.add_warnings_to_log_lines(execution_time)?;
@@ -1316,12 +1316,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     }
 
     fn trace_system(&mut self, warning: SystemWarning) -> anyhow::Result<()> {
-        self.log_line_sender.send(LogLine::new_system_log_line(
-            warning.level,
-            warning.messages,
-            self.rt.unix_timestamp(),
-            warning.system_log_metadata,
-        ))?;
+        self.log_line_sender
+            .send(warning.into_log_line(self.rt.unix_timestamp()))?;
         Ok(())
     }
 }

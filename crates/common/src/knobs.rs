@@ -23,10 +23,7 @@ use std::{
 
 use cmd_util::env::env_config;
 
-use crate::{
-    document::MAX_USER_SIZE,
-    fastrace_helpers::SamplingConfig,
-};
+use crate::fastrace_helpers::SamplingConfig;
 
 /// This exists solely to allow knobs to have separate defaults for local
 /// execution and prod (running in Nomad). Don't export this outside of
@@ -260,8 +257,9 @@ pub static MAX_JOBS_CANCEL_BATCH: LazyLock<usize> =
 
 /// Maximum size of a single scheduled function's arguments.
 /// This is not currently enforced.
+/// TODO: ideally this should be MAX_USER_SIZE.
 pub static MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
-    env_config("MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES", MAX_USER_SIZE) // 1 MiB
+    env_config("MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES", 4 << 20) // 4 MiB
 });
 
 /// Maximum total size of the arguments to all functions scheduled in a single

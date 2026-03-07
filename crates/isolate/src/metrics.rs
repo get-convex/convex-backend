@@ -37,7 +37,6 @@ use prometheus::{
     VMHistogram,
     VMHistogramVec,
 };
-use sync_types::CanonicalizedUdfPath;
 use udf::{
     ActionOutcome,
     FunctionOutcome,
@@ -315,28 +314,6 @@ pub fn log_unawaited_pending_op(count: usize, environment: &'static str) {
         count as u64,
         vec![StaticMetricLabel::new("environment", environment)],
     );
-}
-
-register_convex_counter!(
-    FUNCTION_LIMIT_WARNING_TOTAL,
-    "Count of functions that exceeded some limit warning level",
-    &["limit", "system_udf_path"]
-);
-pub fn log_function_limit_warning(
-    limit_name: &'static str,
-    system_udf_path: Option<&CanonicalizedUdfPath>,
-) {
-    let labels = match system_udf_path {
-        Some(udf_path) => vec![
-            StaticMetricLabel::new("limit", limit_name),
-            StaticMetricLabel::new("system_udf_path", udf_path.to_string()),
-        ],
-        None => vec![
-            StaticMetricLabel::new("limit", limit_name),
-            StaticMetricLabel::new("system_udf_path", "none"),
-        ],
-    };
-    log_counter_with_labels(&FUNCTION_LIMIT_WARNING_TOTAL, 1, labels);
 }
 
 register_convex_counter!(

@@ -170,6 +170,7 @@ use udf::{
         ValidatedPathAndArgs,
         ValidatedUdfOutcome,
     },
+    warnings::scheduled_arg_size_warning,
     ActionOutcome,
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
@@ -187,6 +188,7 @@ use value::{
     identifier::Identifier,
     serialized_args_ext::SerializedArgsExt,
     JsonPackedValue,
+    Size as _,
     TableNamespace,
 };
 use vector::{
@@ -2147,7 +2149,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let (_ts, virtual_id, _stats) = self
+        let (_ts, (virtual_id, arg_size), _stats) = self
             .database
             .execute_with_occ_retries(
                 identity,
@@ -2162,23 +2164,38 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                             path,
                             args.into_args()?,
                             scheduled_ts,
-                            // Scheduling from actions is not transaction and happens at latest
+                            // Scheduling from actions is not transactional and happens at latest
                             // timestamp.
                             self.database.runtime().unix_timestamp(),
                             tx,
                         )
                         .await?;
                         let udf_args = parse_udf_args(&path.udf_path, udf_args.into_args()?)?;
+                        let arg_size = udf_args.size();
                         let virtual_id =
                             VirtualSchedulerModel::new(tx, scheduling_component.into())
                                 .schedule(path, udf_args, scheduled_ts, context)
                                 .await?;
-                        Ok(virtual_id)
+                        Ok((virtual_id, arg_size))
                     }
                     .into()
                 },
             )
             .await?;
+        if let Some(warning) =
+            scheduled_arg_size_warning(arg_size, &None /* system_udf_path */)
+        {
+            let timestamp = self.runtime.unix_timestamp();
+            self.function_log.log_action_progress(
+                // This is completely wrong - it should be the path of the caller function, but we
+                // don't know that here and it's at least a hint
+                scheduled_path,
+                timestamp,
+                context,
+                LogLines::from(vec![warning.into_log_line(timestamp)]),
+                ModuleEnvironment::Isolate,
+            );
+        }
         Ok(virtual_id)
     }
 

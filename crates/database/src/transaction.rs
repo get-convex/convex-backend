@@ -108,7 +108,10 @@ use crate::{
         },
     },
     committer::table_dependency_sort_key,
-    execution_size::FunctionExecutionSize,
+    execution_size::{
+        FunctionExecutionSize,
+        ScheduledFunctionsSize,
+    },
     metrics::{
         self,
         log_index_too_large_blocking_writes,
@@ -130,7 +133,6 @@ use crate::{
     writes::{
         NestedWriteToken,
         NestedWrites,
-        TransactionWriteSize,
         Writes,
     },
     ComponentRegistry,
@@ -155,7 +157,7 @@ pub struct Transaction<RT: Runtime> {
     pub(crate) next_creation_time: CreationTime,
 
     // Size of any functions scheduled from this transaction.
-    pub scheduled_size: TransactionWriteSize,
+    pub scheduled_size: ScheduledFunctionsSize,
 
     pub(crate) reads: TransactionReadSet,
     pub(crate) writes: NestedWrites<Writes>,
@@ -226,7 +228,7 @@ impl<RT: Runtime> Transaction<RT> {
             writes: NestedWrites::new(Writes::new()),
             id_generator,
             next_creation_time: creation_time,
-            scheduled_size: TransactionWriteSize::default(),
+            scheduled_size: ScheduledFunctionsSize::default(),
             index: NestedWrites::new(index),
             metadata: NestedWrites::new(metadata),
             schema_registry: NestedWrites::new(schema_registry),

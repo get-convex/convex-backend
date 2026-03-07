@@ -1,11 +1,16 @@
 use std::time::Duration;
 
 use common::{
-    knobs::FUNCTION_LIMIT_WARNING_RATIO,
+    knobs::{
+        FUNCTION_LIMIT_WARNING_RATIO,
+        MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES,
+    },
     log_lines::{
         LogLevel,
+        LogLine,
         SystemLogMetadata,
     },
+    runtime::UnixTimestamp,
 };
 use sync_types::CanonicalizedUdfPath;
 
@@ -17,6 +22,17 @@ pub struct SystemWarning {
     pub system_log_metadata: SystemLogMetadata,
 }
 
+impl SystemWarning {
+    pub fn into_log_line(self, timestamp: UnixTimestamp) -> LogLine {
+        LogLine::new_system_log_line(
+            self.level,
+            self.messages,
+            timestamp,
+            self.system_log_metadata,
+        )
+    }
+}
+
 pub fn approaching_limit_warning(
     actual: usize,
     limit: usize,
@@ -25,11 +41,11 @@ pub fn approaching_limit_warning(
     message_suffix: Option<&str>,
     unit: Option<&str>,
     system_udf_path: Option<&CanonicalizedUdfPath>,
-) -> anyhow::Result<Option<SystemWarning>> {
+) -> Option<SystemWarning> {
     let warning_limit = (*FUNCTION_LIMIT_WARNING_RATIO * (limit as f64)) as usize;
     let should_warn = actual > warning_limit && actual <= limit;
     if !should_warn {
-        return Ok(None);
+        return None;
     }
     log_function_limit_warning(short_code, system_udf_path);
 
@@ -49,7 +65,7 @@ pub fn approaching_limit_warning(
             code: format!("warning:{short_code}"),
         },
     };
-    Ok(Some(warning))
+    Some(warning)
 }
 
 pub fn approaching_duration_limit_warning(
@@ -75,4 +91,27 @@ pub fn approaching_duration_limit_warning(
         },
     };
     Ok(Some(warning))
+}
+
+pub fn scheduled_arg_size_warning(
+    args_size: usize,
+    system_udf_path: &Option<CanonicalizedUdfPath>,
+) -> Option<SystemWarning> {
+    approaching_limit_warning(
+        args_size,
+        *MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES,
+        "ScheduledFunctionsArgumentsTooLarge",
+        || {
+            if args_size > *MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES {
+                "Large arguments for a single scheduled function from this mutation. This will \
+                 become a hard error in the future"
+            } else {
+                "Large arguments for a single scheduled function from this mutation"
+            }
+            .to_string()
+        },
+        None,
+        Some(" bytes"),
+        system_udf_path.as_ref(),
+    )
 }

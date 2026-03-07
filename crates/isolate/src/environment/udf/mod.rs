@@ -29,6 +29,7 @@ use sync_types::types::SerializedArgs;
 use tokio::sync::oneshot;
 use udf::{
     helpers::parse_udf_args,
+    warnings::scheduled_arg_size_warning,
     FunctionOutcome,
     SyscallTrace,
 };
@@ -99,7 +100,14 @@ use file_storage::TransactionalFileStorage;
 use keybroker::FunctionRunnerKeyBroker;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use udf::UdfOutcome;
+use udf::{
+    warnings::{
+        approaching_duration_limit_warning,
+        approaching_limit_warning,
+        SystemWarning,
+    },
+    UdfOutcome,
+};
 use value::{
     heap_size::{
         HeapSize,
@@ -121,14 +129,7 @@ use self::{
     phase::UdfPhase,
     syscall::syscall_impl,
 };
-use super::{
-    warnings::{
-        approaching_duration_limit_warning,
-        approaching_limit_warning,
-        SystemWarning,
-    },
-    ModuleCodeCacheResult,
-};
+use super::ModuleCodeCacheResult;
 use crate::{
     client::{
         EnvironmentData,
@@ -445,14 +446,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             self.phase.biggest_document_writes()?,
             success_result_value,
             |warning| {
-                self.log_lines.push(LogLine::new_system_log_line(
-                    warning.level,
-                    warning.messages,
-                    // Note: accessing the current time here is still deterministic since
-                    // we don't externalize the time to the function.
-                    self.rt.unix_timestamp(),
-                    warning.system_log_metadata,
-                ));
+                // Note: accessing the current time here is still deterministic since
+                // we don't externalize the time to the function.
+                self.log_lines
+                    .push(warning.into_log_line(self.rt.unix_timestamp()));
             },
         )?;
         let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
@@ -853,8 +850,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         result: Option<&ConvexValue>,
         mut trace_system_warning: impl FnMut(SystemWarning),
     ) -> anyhow::Result<()> {
-        // let execution_size = self.phase.execution_size();
-        // let biggest_writes = self.phase.biggest_document_writes();
         let udf_path = path.udf_path.clone();
         let system_udf_path = if udf_path.is_system() {
             Some(udf_path)
@@ -869,7 +864,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )? {
+        ) {
             trace_system_warning(warning);
         }
         if let Some(warning) = approaching_limit_warning(
@@ -880,7 +875,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Some(OVER_LIMIT_HELP),
             None,
             system_udf_path.as_ref(),
-        )? {
+        ) {
             trace_system_warning(warning);
         }
         if let Some(warning) = approaching_limit_warning(
@@ -891,7 +886,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Some(OVER_LIMIT_HELP),
             None,
             system_udf_path.as_ref(),
-        )? {
+        ) {
             trace_system_warning(warning);
         }
         if let Some(warning) = approaching_limit_warning(
@@ -902,7 +897,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Some(OVER_LIMIT_HELP),
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )? {
+        ) {
             trace_system_warning(warning);
         }
         if let Some(warning) = approaching_limit_warning(
@@ -913,7 +908,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             None,
             system_udf_path.as_ref(),
-        )? {
+        ) {
             trace_system_warning(warning);
         }
         if let Some(warning) = approaching_limit_warning(
@@ -924,7 +919,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )? {
+        ) {
             trace_system_warning(warning);
         }
         if let Some(warning) = approaching_limit_warning(
@@ -935,7 +930,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             None,
             system_udf_path.as_ref(),
-        )? {
+        ) {
             trace_system_warning(warning);
         }
         if let Some(warning) = approaching_limit_warning(
@@ -949,7 +944,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )? {
+        ) {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = scheduled_arg_size_warning(
+            execution_size.scheduled_size.max_args_size,
+            &system_udf_path,
+        ) {
             trace_system_warning(warning);
         }
 
@@ -963,7 +964,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 system_udf_path.as_ref(),
-            )? {
+            ) {
                 trace_system_warning(warning);
             }
             let (max_nesting_document_id, max_nesting) = biggest_writes.max_nesting;
@@ -975,7 +976,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 None,
                 Some(" levels"),
                 system_udf_path.as_ref(),
-            )? {
+            ) {
                 trace_system_warning(warning);
             }
         }
@@ -989,7 +990,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 system_udf_path.as_ref(),
-            )?
+            )
         {
             trace_system_warning(warning);
         };

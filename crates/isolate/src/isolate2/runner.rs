@@ -679,14 +679,9 @@ async fn run_request<RT: Runtime>(
         provider.tx.biggest_document_writes(),
         result.as_ref().ok(),
         |warning| {
-            log_lines.push(LogLine::new_system_log_line(
-                warning.level,
-                warning.messages,
-                // Note: accessing the current time here is still deterministic since
-                // we don't externalize the time to the function.
-                rt.unix_timestamp(),
-                warning.system_log_metadata,
-            ));
+            // Note: accessing the current time here is still deterministic since
+            // we don't externalize the time to the function.
+            log_lines.push(warning.into_log_line(rt.unix_timestamp()));
         },
     )?;
     let outcome = UdfOutcome {

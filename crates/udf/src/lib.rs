@@ -7,10 +7,12 @@ pub mod environment;
 mod function_outcome;
 pub mod helpers;
 mod http_action;
+mod metrics;
 mod syscall_stats;
 mod syscall_trace;
 mod udf_outcome;
 pub mod validation;
+pub mod warnings;
 
 #[cfg(any(test, feature = "testing"))]
 pub use crate::http_action::HttpActionResponse;

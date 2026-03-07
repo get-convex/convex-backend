@@ -21,7 +21,6 @@ pub mod crypto_rng;
 pub mod helpers;
 pub mod schema;
 pub mod udf;
-pub mod warnings;
 
 use common::{
     errors::JsError,

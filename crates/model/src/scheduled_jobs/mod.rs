@@ -1,6 +1,9 @@
-use std::sync::{
-    Arc,
-    LazyLock,
+use std::{
+    cmp,
+    sync::{
+        Arc,
+        LazyLock,
+    },
 };
 
 use anyhow::Context;
@@ -9,10 +12,10 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
+        MAX_USER_SIZE,
     },
     execution_context::ExecutionContext,
     knobs::{
-        MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES,
         TRANSACTION_MAX_NUM_SCHEDULED,
         TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
     },
@@ -174,6 +177,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
     }
 
     fn check_scheduling_limits(&mut self, args: &ConvexArray) -> anyhow::Result<()> {
+        let size = args.size();
         // Limit how much you can schedule from a single transaction.
         anyhow::ensure!(
             self.tx.scheduled_size.num_writes < *TRANSACTION_MAX_NUM_SCHEDULED,
@@ -186,7 +190,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             )
         );
         anyhow::ensure!(
-            self.tx.scheduled_size.size + args.size()
+            self.tx.scheduled_size.size + size
                 <= *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
             ErrorMetadata::bad_request(
                 "ScheduledFunctionsArgumentsTooLarge",
@@ -197,11 +201,13 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 )
             ),
         );
-        if args.size() > *MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES {
-            tracing::warn!("Scheduling a job with argument size {}", args.size());
+        if size > MAX_USER_SIZE {
+            tracing::warn!("Scheduling a job with argument size {size}");
         }
+        // TODO: hard-enforce MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES
         self.tx.scheduled_size.num_writes += 1;
-        self.tx.scheduled_size.size += args.size();
+        self.tx.scheduled_size.size += size;
+        self.tx.scheduled_size.max_args_size = cmp::max(self.tx.scheduled_size.max_args_size, size);
         Ok(())
     }
 
@@ -267,7 +273,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             model
                 .insert_metadata(
                     &SCHEDULED_JOBS_ARGS_TABLE,
-                    ScheduledJobArgs::try_from(args.clone())?.try_into()?,
+                    ScheduledJobArgs::try_from(args)?.try_into()?,
                 )
                 .await?
         };
