@@ -69,6 +69,7 @@ type ChosenConfiguration =
 
 type ConfigureCmdOptions = {
   prod: boolean;
+  initSkipIfExists?: boolean | undefined;
   localOptions: {
     ports?: {
       cloud: number;
@@ -286,6 +287,9 @@ export async function _deploymentCredentialsOrConfigure(
           chosenConfiguration,
           deploymentName: deploymentSelection.deploymentName,
           ...cmdOptions.localOptions,
+          ...(cmdOptions.initSkipIfExists
+            ? { initSkipIfExists: true }
+            : {}),
         });
         return {
           adminKey: result.adminKey,
