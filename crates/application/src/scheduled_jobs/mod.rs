@@ -4,6 +4,7 @@ use std::{
         BTreeMap,
         HashSet,
     },
+    ops::Bound,
     sync::Arc,
     time::{
         Duration,
@@ -91,7 +92,6 @@ use model::{
             ScheduledJobState,
         },
         SchedulerModel,
-        COMPLETED_TS_FIELD,
         NEXT_TS_FIELD,
         SCHEDULED_JOBS_INDEX,
         SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS,
@@ -103,7 +103,10 @@ use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
-use value::ResolvedDocumentId;
+use value::{
+    ConvexValue,
+    ResolvedDocumentId,
+};
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
@@ -1047,20 +1050,15 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
             let mut next_job_wait = None;
             for namespace in namespaces {
                 let now = self.rt.generate_timestamp()?;
-                let index_query = Query::index_range(IndexRange {
-                    index_name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.name(),
-                    range: vec![IndexRangeExpression::Gt(
-                        COMPLETED_TS_FIELD.clone(),
-                        value::ConvexValue::Null.into(),
-                    )],
-                    order: Order::Asc,
-                })
-                .limit(*SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE);
-                let mut query_stream = ResolvedQuery::new(&mut tx, namespace, index_query)?;
-
+                // query completed_ts > null
+                let mut index_query = tx
+                    .query_system(namespace, &SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS)?
+                    .range((Bound::Excluded([&ConvexValue::Null]), Bound::Unbounded))?
+                    .build();
                 let mut jobs_to_delete = vec![];
-                while let Some(doc) = query_stream.next(&mut tx, None).await? {
-                    let job: ParsedDocument<ScheduledJobMetadata> = doc.parse()?;
+                while jobs_to_delete.len() < *SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE
+                    && let Some(job) = index_query.next().await?
+                {
                     match job.state {
                         ScheduledJobState::Success => (),
                         ScheduledJobState::Failed(_) => (),
