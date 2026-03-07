@@ -18,6 +18,7 @@ use utoipa::ToSchema;
     Serialize,
     Deserialize,
     ToSchema,
+    clap::ValueEnum,
 )]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]

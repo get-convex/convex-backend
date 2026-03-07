@@ -38,6 +38,7 @@ biscuit = { workspace = true }
 bitvec = { workspace = true }
 byteorder = { workspace = true }
 bytes = { workspace = true }
+clap = { workspace = true }
 cmd_util = { workspace = true }
 compact_str = { workspace = true }
 crossbeam-channel = { workspace = true }

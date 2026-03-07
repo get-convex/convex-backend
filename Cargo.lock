@@ -2064,6 +2064,7 @@ dependencies = [
  "bitvec",
  "byteorder",
  "bytes",
+ "clap",
  "cmd_util",
  "compact_str",
  "convex_sync_types",
