@@ -585,6 +585,8 @@ export interface components {
         ListLocalDeploymentsResponse: {
             items: components["schemas"]["PlatformDeploymentResponse"][];
         };
+        /** @enum {string} */
+        ManagedBy: "vercel";
         /** Format: int64 */
         MemberId: number;
         PaginatedDeploymentsResponse: {
@@ -694,6 +696,7 @@ export interface components {
              * @description Timestamp in milliseconds when this token was last used (if ever).
              */
             lastUsedTime?: number | null;
+            managedBy?: null | components["schemas"]["ManagedBy"];
             /** @description The name given to the deploy key at creation. */
             name: string;
         };
@@ -908,6 +911,7 @@ export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListDeploymentClassesResponse = components['schemas']['ListDeploymentClassesResponse'];
 export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymentRegionsResponse'];
 export type ListLocalDeploymentsResponse = components['schemas']['ListLocalDeploymentsResponse'];
+export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
 export type PaginatedDeploymentsResponse = components['schemas']['PaginatedDeploymentsResponse'];
 export type PaginationMetadata = components['schemas']['PaginationMetadata'];
@@ -1446,7 +1450,11 @@ export interface operations {
     };
     "list preview deploy keys": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description If true, include managed preview deploy keys (e.g., created by external
+                 *     integrations like Vercel) in the response. Defaults to false. */
+                includeManaged?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Project ID */
