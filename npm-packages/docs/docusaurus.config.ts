@@ -51,6 +51,9 @@ const config: Config = {
     POST_HOG_HOST: process.env.POST_HOG_HOST,
   },
   themeConfig: {
+    colorMode: {
+      respectPrefersColorScheme: true,
+    },
     // Replace with your project's social card
     // image: "img/docusaurus-social-card.jpg", // TODO!
     docs: {
