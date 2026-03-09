@@ -60,7 +60,7 @@ use file_storage::{
 };
 use function_runner::{
     in_process_function_runner::InProcessFunctionRunner,
-    server::InstanceStorage,
+    server::DeploymentStorage,
 };
 use http_client::CachedHttpClient;
 use isolate::{
@@ -239,7 +239,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             convex_origin.clone(),
             rt.clone(),
             persistence.reader(),
-            InstanceStorage {
+            DeploymentStorage {
                 files_storage: application_storage.files_storage.clone(),
                 modules_storage: application_storage.modules_storage.clone(),
             },

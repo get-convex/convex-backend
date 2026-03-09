@@ -155,11 +155,11 @@ pub struct HttpActionMetadata {
 }
 
 #[async_trait]
-pub trait StorageForInstance<RT: Runtime>: Debug + Clone + Send + Sync + 'static {
-    /// Gets a storage impl for a instance. Agnostic to what kind of storage -
+pub trait StorageForDeployment<RT: Runtime>: Debug + Clone + Send + Sync + 'static {
+    /// Gets a storage impl for a deployment. Agnostic to what kind of storage -
     /// local or s3, or how it was loaded (e.g. passed directly within backend,
     /// loaded from a transaction created in Funrun)
-    async fn storage_for_instance(
+    async fn storage_for_deployment(
         &self,
         transaction: &mut Transaction<RT>,
         use_case: StorageUseCase,
@@ -167,14 +167,14 @@ pub trait StorageForInstance<RT: Runtime>: Debug + Clone + Send + Sync + 'static
 }
 
 #[derive(Clone, Debug)]
-pub struct InstanceStorage {
+pub struct DeploymentStorage {
     pub files_storage: Arc<dyn Storage>,
     pub modules_storage: Arc<dyn Storage>,
 }
 
 #[async_trait]
-impl<RT: Runtime> StorageForInstance<RT> for InstanceStorage {
-    async fn storage_for_instance(
+impl<RT: Runtime> StorageForDeployment<RT> for DeploymentStorage {
+    async fn storage_for_deployment(
         &self,
         _transaction: &mut Transaction<RT>,
         use_case: StorageUseCase,
@@ -187,7 +187,7 @@ impl<RT: Runtime> StorageForInstance<RT> for InstanceStorage {
     }
 }
 
-pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
+pub struct FunctionRunnerCore<RT: Runtime, S: StorageForDeployment<RT>> {
     rt: RT,
     storage: S,
     index_cache: InMemoryIndexCache<RT>,
@@ -196,7 +196,7 @@ pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     isolate_client: IsolateClient<RT>,
 }
 
-impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S> {
+impl<RT: Runtime, S: StorageForDeployment<RT>> Clone for FunctionRunnerCore<RT, S> {
     fn clone(&self) -> Self {
         Self {
             rt: self.rt.clone(),
@@ -229,7 +229,7 @@ pub async fn validate_run_function_result(
     }
 }
 
-impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
+impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
     pub fn new(rt: RT, storage: S, max_percent_per_client: usize) -> anyhow::Result<Self> {
         Self::_new(rt, storage, max_percent_per_client, MAX_ISOLATE_WORKERS)
     }
@@ -353,12 +353,12 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             .await?;
         let storage = self
             .storage
-            .storage_for_instance(&mut transaction, StorageUseCase::Files)
+            .storage_for_deployment(&mut transaction, StorageUseCase::Files)
             .await?;
         let file_storage = TransactionalFileStorage::new(self.rt.clone(), storage, convex_origin);
         let modules_storage = self
             .storage
-            .storage_for_instance(&mut transaction, StorageUseCase::Modules)
+            .storage_for_deployment(&mut transaction, StorageUseCase::Modules)
             .await?;
 
         let environment_data = EnvironmentData {

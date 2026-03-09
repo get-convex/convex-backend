@@ -53,7 +53,7 @@ use file_storage::{
 };
 use function_runner::{
     in_process_function_runner::InProcessFunctionRunner,
-    server::InstanceStorage,
+    server::DeploymentStorage,
     FunctionRunner,
 };
 use governor::Quota;
@@ -219,7 +219,7 @@ pub async fn make_app(
             config.convex_origin_url()?,
             runtime.clone(),
             persistence.reader(),
-            InstanceStorage {
+            DeploymentStorage {
                 files_storage: application_storage.files_storage.clone(),
                 modules_storage: application_storage.modules_storage.clone(),
             },
