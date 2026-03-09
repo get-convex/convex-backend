@@ -72,29 +72,45 @@ const prodDeployment = createCloudDeployment({
 });
 
 const devDeployment = createCloudDeployment({
-  name: "dev-happy-koala-456",
+  name: "happy-koala-456",
   deploymentType: "dev",
   creator: 1,
   isDefault: false,
 });
 
 const localDevDeployment = createLocalDeployment({
-  name: "local-dev-789",
+  name: "local-nicolas_macbook_pro",
   deviceName: "MacBook Pro",
   port: 3210,
 });
 
 const previewDeployment = createCloudDeployment({
-  name: "preview-feature-branch",
+  name: "peaceful-dog-861",
   deploymentType: "preview",
   previewIdentifier: "feature/new-login",
   isDefault: false,
 });
 
 const customDeployment = createCloudDeployment({
-  name: "custom-staging-env",
+  name: "quiet-husky-173",
   deploymentType: "custom",
   isDefault: false,
+  reference: "staging",
+});
+
+const nonDefaultDevDeployment = createCloudDeployment({
+  name: "swift-eagle-789",
+  deploymentType: "dev",
+  creator: 1,
+  isDefault: false,
+  reference: "dev/vercel",
+});
+
+const nonDefaultProdDeployment = createCloudDeployment({
+  name: "calm-panda-321",
+  deploymentType: "prod",
+  isDefault: false,
+  reference: "prod/shard-1",
 });
 
 const allDeployments = [
@@ -176,6 +192,22 @@ export const Preview: Story = {
 export const Custom: Story = {
   args: {
     deployment: customDeployment,
+    deployments: allDeployments,
+    whoseName: null,
+  },
+};
+
+export const NonDefaultDev: Story = {
+  args: {
+    deployment: nonDefaultDevDeployment,
+    deployments: allDeployments,
+    whoseName: null,
+  },
+};
+
+export const NonDefaultProd: Story = {
+  args: {
+    deployment: nonDefaultProdDeployment,
     deployments: allDeployments,
     whoseName: null,
   },

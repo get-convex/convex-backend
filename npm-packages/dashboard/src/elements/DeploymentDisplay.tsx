@@ -484,6 +484,16 @@ export function getDeploymentLabel({
   deployment: PlatformDeploymentResponse | DeploymentResponse;
   whoseName: string | null; // null = mine
 }): string {
+  if (
+    (deployment.deploymentType === "custom" ||
+      ("isDefault" in deployment &&
+        !deployment.isDefault &&
+        deployment.deploymentType !== "preview")) &&
+    "reference" in deployment
+  ) {
+    return deployment.reference;
+  }
+
   switch (deployment.deploymentType) {
     case "prod":
       return "Production";
