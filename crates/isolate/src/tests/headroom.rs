@@ -269,3 +269,22 @@ async fn test_headroom_after_schedule(rt: TestRuntime) -> anyhow::Result<()> {
     })
     .await
 }
+
+#[convex_macro::test_runtime]
+async fn test_headroom_exceed_limit(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        must_let!(let ConvexValue::Object(r) = t.mutation(
+            "headroom:headroomExceedLimit", assert_obj!()
+        ).await?);
+        let h = get_obj(&r, "headroom");
+        let bytes_written = get_obj(h, "bytesWritten");
+        let remaining = get_f64(bytes_written, "remaining");
+        // The last insert exceeded the limit, so remaining should be negative.
+        assert!(
+            remaining < 0.0,
+            "expected negative remaining, got {remaining}"
+        );
+        Ok(())
+    })
+    .await
+}

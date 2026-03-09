@@ -84,6 +84,24 @@ export const headroomAfterSchedule = mutation({
   },
 });
 
+export const headroomExceedLimit = mutation({
+  handler: async ({ db }) => {
+    const bigString = "x".repeat(900_000);
+    // Insert large documents until we exceed the bytesWritten limit.
+    let count = 0;
+    for (let i = 0; i < 20; i++) {
+      try {
+        await db.insert("messages", { body: bigString, channel: "general" });
+        count++;
+      } catch {
+        break;
+      }
+    }
+    const headroom = await getTransactionHeadroom();
+    return { headroom, count };
+  },
+});
+
 export const headroomFromAction = action({
   handler: async () => {
     return await getTransactionHeadroom();

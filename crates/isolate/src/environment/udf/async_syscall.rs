@@ -770,9 +770,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let tx = provider.tx()?;
         let s = tx.execution_size();
         let limit_value = |limit: usize, used: usize| {
+            let remaining = limit as isize - used as isize;
             json!({
                 "used": used,
-                "remaining": limit - used,
+                "remaining": remaining,
             })
         };
         Ok(json!({
