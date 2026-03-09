@@ -230,14 +230,16 @@ export type DeploymentSelection =
       deploymentToActOn: {
         url: string;
         adminKey: string;
-        deploymentFields: {
-          deploymentName: string;
-          deploymentType: DeploymentType;
-          projectSlug: string;
-          teamSlug: string;
-        } | null;
-        source: "selfHosted" | "deployKey" | "cliArgs";
-      };
+      } & (
+        | {
+            deploymentFields: DeploymentFields;
+            source: "deployKey";
+          }
+        | {
+            deploymentFields: null;
+            source: "selfHosted" | "cliArgs";
+          }
+      );
     }
   | {
       kind: "deploymentWithinProject";
@@ -258,6 +260,13 @@ export type DeploymentSelection =
       deploymentName: string | null;
       selectionWithinProject: DeploymentSelectionWithinProject;
     };
+
+type DeploymentFields = {
+  deploymentName: string;
+  deploymentType: DeploymentType;
+  projectSlug: string;
+  teamSlug: string;
+};
 
 export type ProjectSelection =
   | {
