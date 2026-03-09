@@ -26,6 +26,7 @@ import type * as directory_udfs from "../directory/udfs.js";
 import type * as environmentVariables from "../environmentVariables.js";
 import type * as fetch from "../fetch.js";
 import type * as globals from "../globals.js";
+import type * as headroom from "../headroom.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as http_action from "../http_action.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   environmentVariables: typeof environmentVariables;
   fetch: typeof fetch;
   globals: typeof globals;
+  headroom: typeof headroom;
   helpers: typeof helpers;
   http: typeof http;
   http_action: typeof http_action;

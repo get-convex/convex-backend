@@ -12,6 +12,7 @@ mod custom_errors;
 mod environment_variables;
 mod fetch;
 mod globals;
+mod headroom;
 mod http_action;
 mod id_encoding;
 mod id_strings;

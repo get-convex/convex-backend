@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
 import { assert } from "chai";
+import { Doc } from "./_generated/dataModel";
 
 export const populate = mutation({
   args: {},
@@ -42,7 +43,7 @@ export const getDocuments = query({
   args: {
     ids: v.array(v.id("vectorTable")),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Doc<"vectorTable">[]> => {
     const result = [];
     for (const id of args.ids) {
       const doc = await ctx.db.get(id);

@@ -24,7 +24,9 @@ export default defineSchema({
     created: v.optional(v.string()),
     duration: v.optional(v.number()),
     authorId: v.optional(v.id("users")),
-  }).index("by_task_list_id", ["taskListId"]),
+  })
+    .index("by_task_list_id", ["taskListId"])
+    .index("by_status", ["status"]),
   taskLists: defineTable({}),
   messages: defineTable({
     body: v.string(),

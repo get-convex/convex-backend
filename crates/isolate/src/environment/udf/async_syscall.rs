@@ -21,7 +21,13 @@ use common::{
     knobs::{
         MAX_REACTOR_CALL_DEPTH,
         MAX_SYSCALL_BATCH_SIZE,
+        TRANSACTION_MAX_NUM_SCHEDULED,
+        TRANSACTION_MAX_NUM_USER_WRITES,
+        TRANSACTION_MAX_READ_SET_INTERVALS,
+        TRANSACTION_MAX_READ_SIZE_BYTES,
         TRANSACTION_MAX_READ_SIZE_ROWS,
+        TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
+        TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
     query::{
         Cursor,
@@ -704,6 +710,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/replace" => Box::pin(Self::replace(provider, args)).await,
                     "1.0/remove" => Box::pin(Self::remove(provider, args)).await,
                     "1.0/queryPage" => Box::pin(Self::query_page(provider, args)).await,
+                    "1.0/headroom" => Self::headroom(provider),
                     // Auth
                     "1.0/getUserIdentity" => {
                         Box::pin(Self::get_user_identity(provider, args)).await
@@ -755,6 +762,28 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             .into_iter()
             .map(|result| anyhow::Ok(serde_json::to_string(&result?)?))
             .collect()
+    }
+
+    /// Returns the remaining headroom for this transaction before hitting
+    /// limits.
+    fn headroom(provider: &mut P) -> anyhow::Result<JsonValue> {
+        let tx = provider.tx()?;
+        let s = tx.execution_size();
+        let limit_value = |limit: usize, used: usize| {
+            json!({
+                "used": used,
+                "remaining": limit - used,
+            })
+        };
+        Ok(json!({
+            "bytesRead": limit_value(*TRANSACTION_MAX_READ_SIZE_BYTES, s.read_size.total_document_size),
+            "bytesWritten": limit_value(*TRANSACTION_MAX_USER_WRITE_SIZE_BYTES, s.write_size.size),
+            "databaseQueries": limit_value(*TRANSACTION_MAX_READ_SET_INTERVALS, s.num_intervals),
+            "documentsRead": limit_value(*TRANSACTION_MAX_READ_SIZE_ROWS, s.read_size.total_document_count),
+            "documentsWritten": limit_value(*TRANSACTION_MAX_NUM_USER_WRITES, s.write_size.num_writes),
+            "functionsScheduled": limit_value(*TRANSACTION_MAX_NUM_SCHEDULED, s.scheduled_size.num_writes),
+            "scheduledFunctionArgsBytes": limit_value(*TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES, s.scheduled_size.size),
+        }))
     }
 
     #[convex_macro::instrument_future]

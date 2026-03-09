@@ -43,12 +43,10 @@ To build this in Convex, define a query function that:
    - Use `paginationOptsValidator` exported from `"convex/server"` to
      [validate](/functions/validation.mdx) this argument. It includes fields
      used by the client to manage the gap-less pagination.
-   - You may specify other arguments to your function in args alongside
-     `paginationOpts`.
    - To limit how much is read from the database, set `maximumBytesRead` and/or
      `maximumRowsRead` in `PaginationOptions`. If the page of data would have
      exceeded these values, it will return a status forcing the client to split
-     the pages, maintaining seamless reactive pagination.
+     the pages.
 
 2. Calls
    [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)

@@ -8,6 +8,7 @@ import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/w
 import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
 import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
 import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
+import headroomExample from "!!raw-loader!@site/../private-demos/snippets/convex/clearTasks.ts";
 import { ComponentCardList } from "@site/src/components/ComponentCard";
 
 [Mutations](/functions/mutation-functions.mdx) can insert, update, and remove
@@ -149,4 +150,36 @@ time. It allows you to resume from failures, and validate changes with dry runs.
 ## Write performance and limits
 
 To prevent accidental writes of large amounts of records, queries and mutations
-enforce limits detailed [here](/production/state/limits.mdx#transactions).
+enforce [transaction limits](/production/state/limits.mdx#transactions). In
+situations where you are at risk of reading or writing unknown amounts of data,
+use these tools to stay within the limits.
+
+### Measuring document sizes
+
+Use tools like `getConvexSize` to
+[calculate documents sizes](/database/types#measuring-document-sizes). By doing
+so, you can make batches of work dynamically and handle each batch in a separate
+transaction, using the scheduler or having an action call multiple mutations.
+Note: a mutation or query called by another mutation or query share the overall
+transaction limits.
+
+### Limiting paginated queries
+
+When using [paginated queries](/database/pagination), pass `maximumBytesRead` or
+`maximumRowsRead` in
+[`PaginationOptions`](/api/interfaces/server.PaginationOptions) to limit how
+much data a single page reads. This is especially useful when filtering for rare
+items where a low `numItems` won't bound execution time.
+
+### Checking transaction headroom
+
+Use [`getTransactionHeadroom`](/api/modules/server#getTransactionHeadroom) to
+check how much capacity remains in the current transaction. Each field returns
+`{ used, remaining }` counts.
+
+<TSAndJSSnippet
+  title="convex/clearTasks.ts"
+  sourceTS={headroomExample}
+  sourceJS={headroomExample}
+  highlightPatterns={["getTransactionHeadroom"]}
+/>
