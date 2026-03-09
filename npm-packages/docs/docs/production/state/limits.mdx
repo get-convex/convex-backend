@@ -110,14 +110,15 @@ bursty traffic.
 
 ## Execution time and scheduling
 
-|                                              |                 | Notes                                                                                                                   |
-| -------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Query/mutation execution time                | 1 second        | Limit applies only to user code and doesn’t include database operations.                                                |
-| Action execution time                        | 10&nbsp;minutes |                                                                                                                         |
-| Scheduled functions                          | 1000            | The number of other functions a single mutation can schedule.                                                           |
-| Total size of scheduled functions' arguments | 16 MiB          | Applies only to mutations.                                                                                              |
-| Concurrent IO operations per function        | 1000            | The number of IO operations a single function can perform, e.g., a database operation, or a fetch request in an action. |
-| Outstanding scheduled functions              | 1,000,000       |                                                                                                                         |
+|                                                                               |                 | Notes                                                                                                                   |
+| ----------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Query/mutation execution time                                                 | 1 second        | Limit applies only to user code and doesn’t include database operations.                                                |
+| Action execution time                                                         | 10&nbsp;minutes |                                                                                                                         |
+| Scheduled functions                                                           | 1000            | The number of other functions a single mutation can schedule.                                                           |
+| Scheduled function argument size                                              | 4 MiB           |                                                                                                                         |
+| Total size of all scheduled function arguments scheduled in a single mutation | 16 MiB          | Applies only to functions scheduled from mutations, not actions.                                                        |
+| Concurrent IO operations per function                                         | 1000            | The number of IO operations a single function can perform, e.g., a database operation, or a fetch request in an action. |
+| Outstanding scheduled functions                                               | 1,000,000       |                                                                                                                         |
 
 ## Transactions
 
