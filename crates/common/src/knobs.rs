@@ -1489,7 +1489,13 @@ pub static PROPAGATE_UPSTREAM_TRACES: LazyLock<bool> =
 
 /// The maximum allowed age of /list_snapshot's timestamp.
 pub static LIST_SNAPSHOT_MAX_AGE_SECS: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config("LIST_SNAPSHOT_MAX_AGE_SECS", 30 * 24 * 60 * 60))
+    // /list_snapshot is only used for the initial sync of documents.
+    // So in valid uses of the endpoint, this doesn’t need to be longer
+    // than the maximum duration of an initial sync.
+    // We restrict the caller from calling with a timestamp that’s too far in the
+    // past because the implementation of the endpoint walks the entire transaction
+    // log starting from now, which might be too much work on big deployments.
+    Duration::from_secs(env_config("LIST_SNAPSHOT_MAX_AGE_SECS", 5 * 24 * 60 * 60))
 });
 
 /// The length of the SubscriptionsWorker's input queue.
