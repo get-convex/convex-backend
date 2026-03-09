@@ -2184,6 +2184,7 @@ dependencies = [
  "common",
  "convex_macro",
  "futures",
+ "metrics",
  "pb",
  "prost-reflect",
  "runtime",

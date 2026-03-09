@@ -9,6 +9,7 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 anyhow = { workspace = true }
 common = { workspace = true }
 futures = { workspace = true }
+metrics = { workspace = true }
 prost-reflect = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
@@ -17,6 +18,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true }
+metrics = { workspace = true, features = ["testing"] }
 pb = { workspace = true }
 runtime = { workspace = true, features = ["testing"] }
 tempfile = { workspace = true }

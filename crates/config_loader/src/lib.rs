@@ -33,6 +33,7 @@ use tokio_stream::wrappers::{
 };
 
 pub mod decoding;
+mod metrics;
 
 pub struct ImmediateMode;
 pub struct LazyMode;
@@ -136,6 +137,7 @@ impl<D: ConfigDecoder + Send + 'static, M: mode::ConfigLoaderMode<D::Output>> Co
                 SignalStream::new(signal_fut),
                 ReceiverStream::new(reload_rx),
             );
+            let mut invalid_config_gauge = None;
             loop {
                 let () = stream.select_next_some().await;
                 match tokio::fs::read(&config_path)
@@ -145,6 +147,7 @@ impl<D: ConfigDecoder + Send + 'static, M: mode::ConfigLoaderMode<D::Output>> Co
                     .with_context(|| format!("Failed to reload config from {config_path:?}"))
                 {
                     Ok(config) => {
+                        invalid_config_gauge = None;
                         tracing::info!("Reloading config from {config_path:?}");
                         let config = <M::Maybe>::from(config);
                         config_tx.send_if_modified(|old_config| {
@@ -156,6 +159,9 @@ impl<D: ConfigDecoder + Send + 'static, M: mode::ConfigLoaderMode<D::Output>> Co
                         });
                     },
                     Err(mut e) => {
+                        invalid_config_gauge
+                            .get_or_insert_with(|| metrics::invalid_config_gauge(&config_path))
+                            .set(1);
                         report_error(&mut e).await;
                         continue;
                     },
