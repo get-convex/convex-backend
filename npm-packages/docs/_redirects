@@ -68,6 +68,8 @@
 /production/hosting/environment-variables        /production/environment-variables
 /production/log-streams                          /production/integrations/log-streams/
 /search/using-cursor                            /ai/using-cursor
+/streaming-export-api               /production/integrations/streaming-import-export
+/streaming-import-api               /production/integrations/streaming-import-export
 /using/error-handling               /functions/error-handling
 /using/export                       /database/import-export/export
 /using/external-functions           /functions/http-actions

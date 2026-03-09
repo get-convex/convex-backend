@@ -356,16 +356,6 @@ const sidebars = {
           className: "convex-sidebar-http-api",
         },
         {
-          type: "doc",
-          id: "streaming-export-api",
-          label: "Streaming Export",
-        },
-        {
-          type: "doc",
-          id: "streaming-import-api",
-          label: "Streaming Import",
-        },
-        {
           type: "category",
           label: "Platform",
           link: { type: "doc", id: "deployment-platform-api" },
