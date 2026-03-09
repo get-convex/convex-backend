@@ -85,16 +85,9 @@ pub fn get_keyed_sampled_span<K: Hash + std::fmt::Debug>(
 
 /// Sets the sampling configuration to be used by the `get_sampled_span`
 /// function
-pub fn set_sampling_config(config_str: &str) {
-    match config_str.parse() {
-        Ok(config) => {
-            *SAMPLING_CONFIG_FROM_LOADER.lock() = Some(config);
-            tracing::info!("Sampling config set to: {}", config_str.replace("\n", ""));
-        },
-        Err(e) => {
-            tracing::error!("Failed to parse sampling config: {}", e);
-        },
-    }
+pub fn set_sampling_config(config: SamplingConfig) {
+    tracing::info!("Sampling config set to: {config:?}");
+    *SAMPLING_CONFIG_FROM_LOADER.lock() = Some(config);
 }
 
 fn get_sampling_ratio(instance_name: &str, name: &str) -> f64 {
@@ -109,7 +102,7 @@ fn get_sampling_ratio(instance_name: &str, name: &str) -> f64 {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SamplingConfig {
     by_regex: Vec<(Option<String>, Regex, f64)>,
 }

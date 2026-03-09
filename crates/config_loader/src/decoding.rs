@@ -31,6 +31,26 @@ impl ConfigDecoder for TextDecoder {
 }
 
 #[derive(Copy, Clone)]
+pub struct FromStrDecoder<T>(PhantomData<fn() -> T>);
+
+impl<T> FromStrDecoder<T> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<T: FromStr + PartialEq + Clone + Send + Sync + 'static> ConfigDecoder for FromStrDecoder<T>
+where
+    anyhow::Error: From<T::Err>,
+{
+    type Output = T;
+
+    fn decode(&self, contents: Vec<u8>) -> anyhow::Result<T> {
+        Ok(String::from_utf8(contents)?.parse()?)
+    }
+}
+
+#[derive(Copy, Clone)]
 pub struct DelimitedKeyValueDecoder<K, V> {
     delimiter: char,
     _marker: PhantomData<(K, V)>,
