@@ -32,6 +32,7 @@ impl From<ErrorCode> for ErrorCodeProto {
                 ErrorCodeProto::FeatureTemporarilyUnavailable
             },
             ErrorCode::RejectedBeforeExecution => ErrorCodeProto::RejectedBeforeExecution,
+            ErrorCode::TooEarly => ErrorCodeProto::TooEarly,
             ErrorCode::OCC { .. } => ErrorCodeProto::Occ,
             ErrorCode::PaginationLimit => ErrorCodeProto::PaginationLimit,
             ErrorCode::OutOfRetention => ErrorCodeProto::OutOfRetention,
@@ -59,6 +60,7 @@ impl ErrorCodeProto {
                 ErrorCode::FeatureTemporarilyUnavailable
             },
             ErrorCodeProto::RejectedBeforeExecution => ErrorCode::RejectedBeforeExecution,
+            ErrorCodeProto::TooEarly => ErrorCode::TooEarly,
             ErrorCodeProto::Occ => ErrorCode::OCC {
                 table_name: occ_info.table_name,
                 document_id: occ_info.document_id,
@@ -180,6 +182,7 @@ impl ErrorMetadataStatusExt for tonic::Status {
 mod tests {
     use cmd_util::env::env_config;
     use errors::{
+        ErrorCode,
         ErrorMetadataAnyhowExt,
         INTERNAL_SERVER_ERROR_MSG,
     };
@@ -191,6 +194,14 @@ mod tests {
         error_metadata::ErrorMetadataStatusExt,
         errors::ErrorMetadata as ErrorMetadataProto,
     };
+
+    #[test]
+    fn too_early_round_trips_between_error_code_protos() {
+        let metadata = ErrorMetadata::too_early();
+        let proto: ErrorMetadataProto = metadata.clone().into();
+        let round_trip = ErrorMetadata::try_from(proto).expect("metadata should round trip");
+        assert_eq!(round_trip.code, ErrorCode::TooEarly);
+    }
 
     proptest! {
         #![proptest_config(

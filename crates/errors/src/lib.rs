@@ -71,6 +71,7 @@ pub enum ErrorCode {
 
     OperationalInternalServerError,
     MisdirectedRequest,
+    TooEarly,
 }
 
 impl ErrorMetadata {
@@ -376,6 +377,19 @@ impl ErrorMetadata {
         }
     }
 
+    /// Responds with HTTP 425 Too Early.
+    /// Not intended to be user-facing, but is used to indicate to the
+    /// consistency checker that it should skip this unloaded instance rather
+    /// than considering it an inconsistency.
+    pub fn too_early() -> Self {
+        Self {
+            code: ErrorCode::TooEarly,
+            short_msg: "TooEarly".into(),
+            msg: "Instance is not loaded yet, try again later".into(),
+            source: None,
+        }
+    }
+
     /// Out of Retention
     ///
     /// An error we produce if executing a read at a point that has been removed
@@ -473,6 +487,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::MisdirectedRequest
     }
 
+    pub fn is_too_early(&self) -> bool {
+        self.code == ErrorCode::TooEarly
+    }
+
     pub fn is_client_disconnect(&self) -> bool {
         self.code == ErrorCode::ClientDisconnect
     }
@@ -497,7 +515,8 @@ impl ErrorMetadata {
             | ErrorCode::Overloaded
             | ErrorCode::FeatureTemporarilyUnavailable
             | ErrorCode::RejectedBeforeExecution
-            | ErrorCode::MisdirectedRequest => false,
+            | ErrorCode::MisdirectedRequest
+            | ErrorCode::TooEarly => false,
         }
     }
 
@@ -528,7 +547,8 @@ impl ErrorMetadata {
             | ErrorCode::Conflict
             | ErrorCode::NotFound
             | ErrorCode::Forbidden
-            | ErrorCode::MisdirectedRequest => Some((sentry::Level::Info, None)),
+            | ErrorCode::MisdirectedRequest
+            | ErrorCode::TooEarly => Some((sentry::Level::Info, None)),
             // Unauthenticated errors happen regularly, e.g. for expired ID tokens
             // Pagination limits also happen regularly, e.g. for large queries
             ErrorCode::Unauthenticated
@@ -567,6 +587,7 @@ impl ErrorMetadata {
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect
             | ErrorCode::MisdirectedRequest
+            | ErrorCode::TooEarly
             | ErrorCode::RateLimited
             | ErrorCode::NotFound => None,
             ErrorCode::OCC { .. } => Some("occ"),
@@ -602,6 +623,7 @@ impl ErrorMetadata {
             ErrorCode::RejectedBeforeExecution => None,
             ErrorCode::OperationalInternalServerError => None,
             ErrorCode::MisdirectedRequest => None,
+            ErrorCode::TooEarly => None,
         }
     }
 
@@ -617,7 +639,8 @@ impl ErrorMetadata {
             | ErrorCode::FeatureTemporarilyUnavailable
             | ErrorCode::RateLimited
             | ErrorCode::RejectedBeforeExecution
-            | ErrorCode::MisdirectedRequest => Some(CloseCode::Again),
+            | ErrorCode::MisdirectedRequest
+            | ErrorCode::TooEarly => Some(CloseCode::Again),
             ErrorCode::OperationalInternalServerError => Some(CloseCode::Error),
             // These ones are client errors - so no close code - the client
             // will handle and close the connection instead.
@@ -657,6 +680,7 @@ impl ErrorCode {
             | ErrorCode::Overloaded
             | ErrorCode::FeatureTemporarilyUnavailable
             | ErrorCode::RejectedBeforeExecution => StatusCode::SERVICE_UNAVAILABLE,
+            ErrorCode::TooEarly => StatusCode::TOO_EARLY,
             ErrorCode::ClientDisconnect => StatusCode::REQUEST_TIMEOUT,
             ErrorCode::MisdirectedRequest => StatusCode::MISDIRECTED_REQUEST,
         }
@@ -680,7 +704,7 @@ impl ErrorCode {
             ErrorCode::PaginationLimit => tonic::Code::InvalidArgument,
             ErrorCode::OutOfRetention => tonic::Code::OutOfRange,
             ErrorCode::OperationalInternalServerError => tonic::Code::Internal,
-            ErrorCode::MisdirectedRequest => tonic::Code::FailedPrecondition,
+            ErrorCode::MisdirectedRequest | ErrorCode::TooEarly => tonic::Code::FailedPrecondition,
         }
     }
 
@@ -690,6 +714,7 @@ impl ErrorCode {
             StatusCode::FORBIDDEN => Some(ErrorCode::Forbidden),
             StatusCode::NOT_FOUND => Some(ErrorCode::NotFound),
             StatusCode::TOO_MANY_REQUESTS => Some(ErrorCode::RateLimited),
+            StatusCode::TOO_EARLY => Some(ErrorCode::TooEarly),
             StatusCode::MISDIRECTED_REQUEST => Some(ErrorCode::MisdirectedRequest),
             // Tries to categorize in one of the above more specific 4xx codes first,
             // otherwise categorizes as a general 4xx via BadRequest
@@ -715,6 +740,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_operational_internal_server_error(&self) -> bool;
     fn is_rejected_before_execution(&self) -> bool;
     fn is_forbidden(&self) -> bool;
+    fn is_too_early(&self) -> bool;
     fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)>;
     fn is_deterministic_user_error(&self) -> bool;
     fn is_misdirected_request(&self) -> bool;
@@ -867,6 +893,13 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_client_disconnect(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_client_disconnect();
+        }
+        false
+    }
+
+    fn is_too_early(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_too_early();
         }
         false
     }
@@ -1063,6 +1096,7 @@ mod proptest {
                 },
                 ErrorCode::ClientDisconnect => ErrorMetadata::client_disconnect(),
                 ErrorCode::MisdirectedRequest => ErrorMetadata::misdirected_request(),
+                ErrorCode::TooEarly => ErrorMetadata::too_early(),
             })
         }
     }
@@ -1071,6 +1105,7 @@ mod proptest {
 #[cfg(test)]
 mod tests {
     use cmd_util::env::env_config;
+    use http::StatusCode;
     use proptest::prelude::*;
 
     use crate::{
@@ -1109,5 +1144,15 @@ mod tests {
                 assert_ne!(err.short_msg, INTERNAL_SERVER_ERROR);
             }
         }
+    }
+
+    #[test]
+    fn test_too_early_error_mappings() {
+        let err = ErrorMetadata::too_early();
+        assert_eq!(err.code.http_status_code(), StatusCode::TOO_EARLY);
+        assert_eq!(
+            ErrorCode::from_http_status_code(StatusCode::TOO_EARLY),
+            Some(ErrorCode::TooEarly)
+        );
     }
 }

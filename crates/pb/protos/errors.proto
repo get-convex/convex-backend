@@ -19,6 +19,7 @@ enum ErrorCode {
   AUTH_UPDATE_FAILED = 13;
   CONFLICT = 14;
   FEATURE_TEMPORARILY_UNAVAILABLE = 15;
+  TOO_EARLY = 16;
 }
 
 message OccInfo {
