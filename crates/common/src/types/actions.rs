@@ -137,6 +137,11 @@ impl TryFrom<http::Method> for RoutableMethod {
 pub struct HttpActionRoute {
     pub method: RoutableMethod,
     pub path: String,
+    /// Whether this route was resolved by the JS router's `lookup()`.
+    /// When false, `path` is a fallback from the request URL and should not
+    /// be used as the identifier for usage tracking (to avoid route explosion).
+    #[cfg_attr(any(test, feature = "testing"), proptest(value = "true"))]
+    pub matched: bool,
 }
 
 impl HttpActionRoute {
@@ -175,7 +180,11 @@ impl FromStr for HttpActionRoute {
             Some((method, path)) => (method.parse()?, path.to_owned()),
             None => anyhow::bail!("Invalid HTTP action route"),
         };
-        Ok(Self { method, path })
+        Ok(Self {
+            method,
+            path,
+            matched: true,
+        })
     }
 }
 
@@ -203,6 +212,7 @@ impl TryFrom<SerializedHttpActionRoute> for HttpActionRoute {
         Ok(Self {
             method: value.method.parse()?,
             path: value.path,
+            matched: true,
         })
     }
 }

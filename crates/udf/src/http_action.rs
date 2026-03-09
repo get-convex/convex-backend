@@ -65,6 +65,7 @@ impl HttpActionRequestHead {
                 .parse()
                 .unwrap_or(RoutableMethod::Get),
             path: path.to_string(),
+            matched: false,
         }
     }
 }

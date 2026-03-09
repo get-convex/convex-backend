@@ -206,8 +206,9 @@ impl HttpActionOutcome {
         udf_server_version: Option<semver::Version>,
         user_execution_time: Duration,
     ) -> Self {
+        let route = route.unwrap_or(http_request_head.route_for_failure());
         Self {
-            route: route.unwrap_or(http_request_head.route_for_failure()),
+            route,
             http_request: http_request_head,
             identity,
             unix_timestamp,
@@ -268,7 +269,13 @@ impl HttpActionOutcome {
             memory_in_mb,
             http_request,
             udf_server_version,
-            route: HttpActionRoute { method, path },
+            // Routes from proto always come from the isolate's lookup_route(),
+            // so they are matched routes (parameterized patterns).
+            route: HttpActionRoute {
+                method,
+                path,
+                matched: true,
+            },
             user_execution_time: user_execution_time.map(|d| d.try_into()).transpose()?,
         })
     }

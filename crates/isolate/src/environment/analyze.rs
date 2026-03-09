@@ -968,6 +968,7 @@ fn http_analyze<RT: Runtime>(
             route: HttpActionRoute {
                 path: path.clone(),
                 method,
+                matched: true,
             },
             pos: source_pos,
         });

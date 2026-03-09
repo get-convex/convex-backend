@@ -433,6 +433,7 @@ impl TryFrom<SerializedHttpActionRoute> for HttpActionRoute {
         Ok(Self {
             path: r.path.parse()?,
             method: r.method.parse()?,
+            matched: true,
         })
     }
 }

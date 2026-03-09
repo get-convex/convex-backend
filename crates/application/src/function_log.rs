@@ -750,7 +750,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: None,
             occ_info: None,
         };
-        self.log_execution(execution, true);
+        self.log_execution(execution, true, true);
     }
 
     pub async fn log_mutation(
@@ -906,7 +906,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: Some(mutation_retry_count),
             occ_info,
         };
-        self.log_execution(execution, true);
+        self.log_execution(execution, true, true);
     }
 
     pub async fn log_action(&self, completion: ActionCompletion, usage: FunctionUsageTracker) {
@@ -1001,7 +1001,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: None,
             occ_info: None,
         };
-        self.log_execution(execution, /* send_console_events */ false)
+        self.log_execution(execution, /* send_console_events */ false, true)
     }
 
     pub fn log_action_progress(
@@ -1099,13 +1099,26 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         context: ExecutionContext,
         response_sha256: Sha256Digest,
     ) {
+        // For usage tracking, substitute "[unmatched]" when the JS router
+        // didn't match a route. This avoids route explosion from every unique
+        // 404 URL becoming a separate billing entry. Function execution logs
+        // preserve the actual URL for debugging.
+        let usage_route = if outcome.route.matched {
+            outcome.route.clone()
+        } else {
+            HttpActionRoute {
+                method: outcome.route.method,
+                path: "[unmatched]".to_string(),
+                matched: false,
+            }
+        };
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
                 self.usage_tracking
                     .track_call(
-                        UdfIdentifier::Http(outcome.route.clone()),
+                        UdfIdentifier::Http(usage_route),
                         context.execution_id,
                         context.request_id.clone(),
                         CallType::HttpAction {
@@ -1147,7 +1160,11 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_retry_count: None,
             occ_info: None,
         };
-        self.log_execution(execution, /* send_console_events */ false);
+        self.log_execution(
+            execution,
+            /* send_console_events */ false,
+            /* log_app_metrics */ outcome.route.matched,
+        );
     }
 
     pub fn log_http_action_progress(
@@ -1173,11 +1190,16 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution_progress(log_lines, event_source, unix_timestamp)
     }
 
-    fn log_execution(&self, execution: FunctionExecution, send_console_events: bool) {
-        if let Err(mut e) = self
-            .inner
-            .lock()
-            .log_execution(execution, send_console_events)
+    fn log_execution(
+        &self,
+        execution: FunctionExecution,
+        send_console_events: bool,
+        log_app_metrics: bool,
+    ) {
+        if let Err(mut e) =
+            self.inner
+                .lock()
+                .log_execution(execution, send_console_events, log_app_metrics)
         {
             report_error_sync(&mut e);
         }
@@ -1830,10 +1852,11 @@ impl<RT: Runtime> Inner<RT> {
         &mut self,
         execution: FunctionExecution,
         send_console_events: bool,
+        log_app_metrics: bool,
     ) -> anyhow::Result<()> {
-        if let Err(e) = self.log_execution_metrics(&execution) {
+        if log_app_metrics && let Err(e) = self.log_execution_app_metrics(&execution) {
             Self::log_metrics_error(e);
-        };
+        }
         let next_time = self.next_time()?;
 
         // Gather log lines
@@ -1890,7 +1913,7 @@ impl<RT: Runtime> Inner<RT> {
         }
     }
 
-    fn log_execution_metrics(
+    fn log_execution_app_metrics(
         &mut self,
         execution: &FunctionExecution,
     ) -> Result<(), UdfMetricsError> {

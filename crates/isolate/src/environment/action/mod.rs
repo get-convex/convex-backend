@@ -374,11 +374,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         match termination_error {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
+                // Preserve the route from the inner result if lookup already
+                // succeeded, so usage tracking reports the parameterized route
+                // pattern instead of the raw URL path.
+                let route = result.as_ref().ok().and_then(|(route, _)| route.clone());
                 if !http_response_streamer.has_started() {
-                    result = Ok((request_head.route_for_failure(), HttpActionResult::Error(e)));
+                    result = Ok((route, HttpActionResult::Error(e)));
                 } else {
                     Self::handle_http_streamed_part(&mut self, Err(e))?;
-                    result = Ok((request_head.route_for_failure(), HttpActionResult::Streamed))
+                    result = Ok((route, HttpActionResult::Streamed))
                 }
             },
             Err(e) => {
@@ -389,7 +393,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         self.add_warnings_to_log_lines_http_action(execution_time, total_bytes_sent)?;
         let (route, result) = result?;
         let outcome = HttpActionOutcome::new(
-            Some(route),
+            route,
             request_head,
             self.identity.clone().into(),
             start_unix_timestamp,
@@ -409,7 +413,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         http_module_path: &CanonicalizedUdfPath,
         routed_path: RoutedHttpPath,
         http_request: HttpActionRequest,
-    ) -> anyhow::Result<(HttpActionRoute, HttpActionResult)> {
+    ) -> anyhow::Result<(Option<HttpActionRoute>, HttpActionResult)> {
         let handle = isolate.handle();
         scope!(let v8_scope, isolate.scope());
         let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
@@ -439,10 +443,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             Self::get_router(&mut scope, timeout, http_module_path.clone()).await?;
 
         if let Err(e) = router {
-            return Ok((
-                http_request.head.route_for_failure(),
-                HttpActionResult::Error(e),
-            ));
+            return Ok((None, HttpActionResult::Error(e)));
         };
         let router = router?;
 
@@ -465,10 +466,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 for part in response_parts {
                     Self::handle_http_streamed_part(environment, Ok(part))?;
                 }
-                return Ok((
-                    http_request.head.route_for_failure(),
-                    HttpActionResult::Streamed,
-                ));
+                return Ok((None, HttpActionResult::Streamed));
             },
             Some(route) => route,
         };
@@ -526,8 +524,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         )
         .await?;
         match result {
-            Ok(()) => Ok((route, HttpActionResult::Streamed)),
-            Err(e) => Ok((route, HttpActionResult::Error(e))),
+            Ok(()) => Ok((Some(route), HttpActionResult::Streamed)),
+            Err(e) => Ok((Some(route), HttpActionResult::Error(e))),
         }
     }
 
