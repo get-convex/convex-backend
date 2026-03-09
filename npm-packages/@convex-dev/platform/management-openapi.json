@@ -1116,6 +1116,15 @@
             "schema": {
               "$ref": "#/components/schemas/ProjectId"
             }
+          },
+          {
+            "name": "includeManaged",
+            "in": "query",
+            "description": "If true, include managed preview deploy keys (e.g., created by external\nintegrations like Vercel) in the response. Defaults to false.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1514,6 +1523,12 @@
           }
         }
       },
+      "ManagedBy": {
+        "type": "string",
+        "enum": [
+          "vercel"
+        ]
+      },
       "MemberId": {
         "type": "integer",
         "format": "int64",
@@ -1817,6 +1832,17 @@
             ],
             "format": "int64",
             "description": "Timestamp in milliseconds when this token was last used (if ever)."
+          },
+          "managedBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedBy",
+                "description": "The external integration that manages this deploy key, if any."
+              }
+            ]
           },
           "name": {
             "type": "string",
