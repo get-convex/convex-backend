@@ -22,6 +22,7 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
+        MAX_USER_SIZE,
     },
     errors::{
         report_error,
@@ -33,6 +34,7 @@ use common::{
     },
     fastrace_helpers::get_sampled_span,
     knobs::{
+        MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES,
         MAX_TRANSACTION_WINDOW,
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE,
@@ -42,6 +44,7 @@ use common::{
         SCHEDULED_JOB_INITIAL_BACKOFF,
         SCHEDULED_JOB_MAX_BACKOFF,
         SCHEDULED_JOB_RETENTION,
+        TRANSACTION_MAX_READ_SIZE_BYTES,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     pause::Fault,
@@ -1024,100 +1027,101 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
     pub fn start(rt: RT, database: Database<RT>) -> impl Future<Output = ()> + Send {
         let garbage_collector = Self { rt, database };
         async move {
-            let mut backoff = Backoff::new(
-                *SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF,
-                *SCHEDULED_JOB_GARBAGE_COLLECTION_MAX_BACKOFF,
-            );
-            while let Err(mut e) = garbage_collector.run(&mut backoff).await {
-                let delay = backoff.fail(&mut garbage_collector.rt.rng());
-                tracing::error!("Scheduled job garbage collector failed, sleeping {delay:?}");
-                // Only report OCCs that happen repeatedly
-                if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
-                    report_error(&mut e).await;
+            loop {
+                let mut backoff = Backoff::new(
+                    *SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF,
+                    *SCHEDULED_JOB_GARBAGE_COLLECTION_MAX_BACKOFF,
+                );
+                let mut batch_size = *SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE;
+                while let Err(mut e) = garbage_collector.run(&mut backoff, batch_size).await {
+                    if e.is_pagination_limit() {
+                        // Retry with a smaller batch size
+                        batch_size = batch_size.div_ceil(2);
+                    }
+                    let delay = backoff.fail(&mut garbage_collector.rt.rng());
+                    tracing::error!("Scheduled job garbage collector failed, sleeping {delay:?}");
+                    // Only report OCCs that happen repeatedly
+                    if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
+                    {
+                        report_error(&mut e).await;
+                    }
+                    garbage_collector.rt.wait(delay).await;
                 }
-                garbage_collector.rt.wait(delay).await;
             }
         }
     }
 
-    async fn run(&self, backoff: &mut Backoff) -> anyhow::Result<()> {
-        loop {
-            let mut tx = self.database.begin(Identity::system()).await?;
-            let namespaces = tx
-                .table_mapping()
-                .namespaces_for_name(&SCHEDULED_JOBS_TABLE);
-            let mut deleted_jobs = 0;
-            let mut next_job_wait = None;
-            for namespace in namespaces {
-                let now = self.rt.generate_timestamp()?;
-                // query completed_ts > null
-                let mut index_query = tx
-                    .query_system(namespace, &SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS)?
-                    .range((Bound::Excluded([&ConvexValue::Null]), Bound::Unbounded))?
-                    .build();
-                let mut jobs_to_delete = vec![];
-                while jobs_to_delete.len() < *SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE
-                    && let Some(job) = index_query.next().await?
-                {
-                    match job.state {
-                        ScheduledJobState::Success => (),
-                        ScheduledJobState::Failed(_) => (),
-                        ScheduledJobState::Canceled => (),
-                        _ => anyhow::bail!(
-                            "Scheduled job to be garbage collected has the wrong state"
-                        ),
-                    }
+    async fn run(&self, backoff: &mut Backoff, batch_size: usize) -> anyhow::Result<()> {
+        let mut tx = self.database.begin(Identity::system()).await?;
+        let namespaces = tx
+            .table_mapping()
+            .namespaces_for_name(&SCHEDULED_JOBS_TABLE);
+        let mut deleted_jobs = 0;
+        let mut next_job_wait = None;
+        'outer_loop: for namespace in namespaces {
+            let now = self.rt.generate_timestamp()?;
+            // query completed_ts > null
+            let mut index_query = tx
+                .query_system(namespace, &SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS)?
+                .range((Bound::Excluded([&ConvexValue::Null]), Bound::Unbounded))?
+                .build();
+            while let Some(job) = index_query.next().await? {
+                match job.state {
+                    ScheduledJobState::Success => (),
+                    ScheduledJobState::Failed(_) => (),
+                    ScheduledJobState::Canceled => (),
+                    _ => anyhow::bail!("Scheduled job to be garbage collected has the wrong state"),
+                }
 
-                    let completed_ts = match job.completed_ts {
-                        Some(completed_ts) => completed_ts,
-                        None => {
-                            anyhow::bail!("Could not get completed_ts of finished scheduled job");
-                        },
+                let completed_ts = match job.completed_ts {
+                    Some(completed_ts) => completed_ts,
+                    None => {
+                        anyhow::bail!("Could not get completed_ts of finished scheduled job");
+                    },
+                };
+                if completed_ts.add(*SCHEDULED_JOB_RETENTION)? > now {
+                    let next_job_wait_ns = completed_ts.add(*SCHEDULED_JOB_RETENTION)? - now;
+                    next_job_wait = match next_job_wait {
+                        Some(next_job_wait) => Some(cmp::min(next_job_wait, next_job_wait_ns)),
+                        None => Some(next_job_wait_ns),
                     };
-                    if completed_ts.add(*SCHEDULED_JOB_RETENTION)? > now {
-                        let next_job_wait_ns = completed_ts.add(*SCHEDULED_JOB_RETENTION)? - now;
-                        next_job_wait = match next_job_wait {
-                            Some(next_job_wait) => Some(cmp::min(next_job_wait, next_job_wait_ns)),
-                            None => Some(next_job_wait_ns),
-                        };
-                        break;
-                    }
-                    jobs_to_delete.push(job.id());
-                }
-                if !jobs_to_delete.is_empty() {
-                    deleted_jobs += jobs_to_delete.len();
-                    tracing::debug!(
-                        "Garbage collecting {} finished scheduled jobs",
-                        jobs_to_delete.len()
-                    );
-                    let mut model = SchedulerModel::new(&mut tx, namespace);
-                    for job_id in jobs_to_delete {
-                        model.delete(job_id).await?;
-                    }
-                }
-                if deleted_jobs >= *SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE {
                     break;
                 }
-            }
-            if deleted_jobs > 0 {
-                self.database
-                    .commit_with_write_source(tx, "scheduled_job_gc")
+                SchedulerModel::new(index_query.tx(), namespace)
+                    .delete(job.id())
                     .await?;
-                self.rt.wait(*SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY).await;
-            } else {
-                let next_job_future = if let Some(next_job_wait) = next_job_wait {
-                    Either::Left(self.rt.wait(next_job_wait))
-                } else {
-                    Either::Right(std::future::pending())
-                };
-                let token = tx.into_token()?;
-                let subscription_fut = self.database.subscribe_and_wait_for_invalidation(token);
-                select_biased! {
-                    _ = next_job_future.fuse() => {},
-                    _ = subscription_fut.fuse() => {},
+                deleted_jobs += 1;
+                // Avoid making this transaction too large.
+                if deleted_jobs >= batch_size
+                    || index_query.tx().user_tx_read_size().total_document_size
+                        > TRANSACTION_MAX_READ_SIZE_BYTES
+                            .saturating_sub(*MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES)
+                            .saturating_sub(MAX_USER_SIZE)
+                {
+                    break 'outer_loop;
                 }
             }
-            backoff.reset();
         }
+        if deleted_jobs > 0 {
+            tracing::debug!("Garbage collecting {deleted_jobs} finished scheduled jobs");
+            self.database
+                .commit_with_write_source(tx, "scheduled_job_gc")
+                .await?;
+            self.rt.wait(*SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY).await;
+        } else {
+            let next_job_future = if let Some(next_job_wait) = next_job_wait {
+                Either::Left(self.rt.wait(next_job_wait))
+            } else {
+                Either::Right(std::future::pending())
+            };
+            let token = tx.into_token()?;
+            let subscription_fut = self.database.subscribe_and_wait_for_invalidation(token);
+            select_biased! {
+                _ = next_job_future.fuse() => {},
+                _ = subscription_fut.fuse() => {},
+            }
+        }
+        backoff.reset();
+        Ok(())
     }
 }

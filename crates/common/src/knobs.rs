@@ -296,7 +296,7 @@ pub static SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF: LazyLock<Duration> 
     LazyLock::new(|| {
         Duration::from_millis(env_config(
             "SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF_MS",
-            10,
+            1000,
         ))
     });
 

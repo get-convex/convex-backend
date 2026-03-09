@@ -142,6 +142,7 @@ use crate::{
     SystemMetadataModel,
     TableModel,
     TableRegistry,
+    TransactionReadSize,
     SCHEMAS_TABLE,
 };
 
@@ -433,6 +434,10 @@ impl<RT: Runtime> Transaction<RT> {
             write_size: self.writes.user_size().to_owned(),
             scheduled_size: self.scheduled_size.clone(),
         }
+    }
+
+    pub fn user_tx_read_size(&self) -> &TransactionReadSize {
+        self.reads.user_tx_size()
     }
 
     /// Applies the reads and writes from FunctionRunner to the Transaction.
