@@ -129,8 +129,9 @@ impl TransactionIndex {
         index_registry: &IndexRegistry,
         database_index_updates: &'a OrdMap<IndexId, TransactionIndexMap>,
         range_request: &'a RangeRequest,
-    ) -> anyhow::Result<
-        impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<ResolvedDocument>)> + 'a,
+    ) -> Result<
+        impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<PackedDocument>)> + 'a,
+        anyhow::Error,
     > {
         let iter = match index_registry.require_enabled(
             &range_request.index_name,
@@ -681,10 +682,10 @@ impl TransactionIndexMap {
     pub fn range(
         &self,
         interval: &Interval,
-    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<ResolvedDocument>)> + use<'_> {
+    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<PackedDocument>)> + use<'_> {
         self.inner
             .range(interval)
-            .map(|(k, v)| (IndexKeyBytes(k.clone()), v.as_ref().map(|v| v.unpack())))
+            .map(|(k, v)| (IndexKeyBytes(k.clone()), v.clone()))
     }
 
     pub fn insert(&mut self, k: IndexKeyBytes, v: Option<&ResolvedDocument>) {

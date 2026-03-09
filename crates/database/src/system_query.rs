@@ -44,7 +44,6 @@ use crate::{
     system_tables::{
         SystemIndex,
         SystemTable,
-        SystemTableMetadata,
     },
     Transaction,
 };
@@ -300,9 +299,6 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
             page.into_iter()
                 .map(|(_index_key, doc, _ts)| {
                     Ok(match doc {
-                        LazyDocument::Resolved(doc) => {
-                            Arc::new(SystemTableMetadata::parse_from_doc(doc)?)
-                        },
                         LazyDocument::Memory(doc) if !T::FOR_MIGRATION => {
                             doc.force::<T::Metadata>()?
                         },

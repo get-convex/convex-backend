@@ -1865,7 +1865,6 @@ pub struct RangeRequest {
 }
 
 pub enum LazyDocument {
-    Resolved(ResolvedDocument),
     Packed(PackedDocument),
     Memory(MemoryDocument),
 }
@@ -1928,16 +1927,15 @@ impl SystemDocument {
     }
 }
 
-impl From<ResolvedDocument> for LazyDocument {
-    fn from(value: ResolvedDocument) -> Self {
-        Self::Resolved(value)
+impl From<PackedDocument> for LazyDocument {
+    fn from(value: PackedDocument) -> Self {
+        Self::Packed(value)
     }
 }
 
 impl LazyDocument {
     pub fn unpack(self) -> ResolvedDocument {
         match self {
-            LazyDocument::Resolved(doc) => doc,
             LazyDocument::Packed(doc) => doc.unpack(),
             LazyDocument::Memory(doc) => doc.packed_document.unpack(),
         }
@@ -1945,7 +1943,6 @@ impl LazyDocument {
 
     pub fn size(&self) -> usize {
         match self {
-            LazyDocument::Resolved(doc) => doc.size(),
             LazyDocument::Packed(doc) => doc.size(),
             LazyDocument::Memory(doc) => doc.packed_document.size(),
         }
@@ -1953,7 +1950,6 @@ impl LazyDocument {
 
     pub fn id(&self) -> ResolvedDocumentId {
         match self {
-            LazyDocument::Resolved(doc) => doc.id(),
             LazyDocument::Packed(doc) => doc.id(),
             LazyDocument::Memory(doc) => doc.packed_document.id(),
         }
@@ -1961,7 +1957,6 @@ impl LazyDocument {
 
     pub fn pack(self) -> PackedDocument {
         match self {
-            LazyDocument::Resolved(doc) => PackedDocument::pack(&doc),
             LazyDocument::Packed(doc) => doc,
             LazyDocument::Memory(doc) => doc.packed_document,
         }
