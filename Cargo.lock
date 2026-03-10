@@ -2052,6 +2052,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "command-fds"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f849b92c694fe237ecd8fafd1ba0df7ae0d45c1df6daeb7f68ed4220d51640bd"
+dependencies = [
+ "nix 0.30.1",
+ "thiserror 2.0.17",
+ "tokio",
+]
+
+[[package]]
 name = "common"
 version = "0.1.0"
 dependencies = [
@@ -6279,12 +6290,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
+dependencies = [
+ "bitflags 2.10.0",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "node_executor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "cmd_util",
+ "command-fds",
  "common",
  "convex_macro",
  "convex_sync_types",
@@ -6298,7 +6322,6 @@ dependencies = [
  "maplit",
  "metrics",
  "model",
- "portpicker",
  "reqwest",
  "runtime",
  "serde",

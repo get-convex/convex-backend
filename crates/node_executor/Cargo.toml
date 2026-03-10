@@ -24,6 +24,7 @@ testing = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 cmd_util = { workspace = true }
+command-fds = { workspace = true }
 common = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
@@ -35,7 +36,6 @@ keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 model = { workspace = true }
-portpicker = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

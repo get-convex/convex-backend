@@ -3,11 +3,16 @@ import { invoke } from "./executor";
 import { v4 as uuidv4 } from "uuid";
 import { log, setDebugLogging } from "./log";
 import os from "node:os";
+import http from "node:http";
 import express, { Request, Response } from "express";
 
 const DEFAULT_PORT = 3002;
 
-async function startServer(port: number, debug: boolean, tempdir: string) {
+async function startServer(
+  listenTarget: number | { fd: number },
+  debug: boolean,
+  tempdir: string,
+) {
   setDebugLogging(debug);
   const app = express();
   app.use(express.json({ limit: "6MB" })); // 5 MiB for args (https://docs.convex.dev/production/state/limits#functions) + extra space
@@ -52,8 +57,14 @@ async function startServer(port: number, debug: boolean, tempdir: string) {
     }
   });
 
-  app.listen(port, () => {
-    log(`Node executor server listening on port ${port}`);
+  const server = http.createServer(app);
+  server.listen(listenTarget, () => {
+    const addr = server.address();
+    const addrStr =
+      typeof addr === "object" && addr
+        ? `port ${addr.port}`
+        : String(listenTarget);
+    log(`Node executor server listening on ${addrStr}`);
   });
 }
 
@@ -67,13 +78,20 @@ program
   .option("--debug", "print debug output", false)
   .option("--port <number>", "port to listen on", DEFAULT_PORT.toString())
   .option(
+    "--fd <number>",
+    "inherit a pre-bound TCP listener from the given file descriptor",
+  )
+  .option(
     "--tempdir <path>",
     "temporary directory to use for downloading code and dependencies",
     "",
   )
   .action(async (options) => {
-    const port = parseInt(options.port, 10);
-    await startServer(port, options.debug, options.tempdir);
+    const listenTarget =
+      options.fd !== undefined
+        ? { fd: parseInt(options.fd, 10) }
+        : parseInt(options.port, 10);
+    await startServer(listenTarget, options.debug, options.tempdir);
   });
 
 program.parseAsync(process.argv);

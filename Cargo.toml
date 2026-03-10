@@ -48,6 +48,7 @@ clap = { version = "^4.1.8", features = [ "derive", "env" ] }
 clusters = { path = "crates/clusters" }
 cmd_util = { path = "crates/cmd_util" }
 colored = "3"
+command-fds = { version = "0.3.2", features = [ "tokio" ] }
 common = { path = "crates/common" }
 compact_str = "0.9.0"
 const-oid = "0.9.6"

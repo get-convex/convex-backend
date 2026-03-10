@@ -1,5 +1,7 @@
 use std::{
     fs,
+    net::TcpListener,
+    os::fd::AsFd,
     path::PathBuf,
     sync::Arc,
     time::Duration,
@@ -7,6 +9,10 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use command_fds::{
+    CommandFdExt,
+    FdMapping,
+};
 use common::log_lines::LogLine;
 use errors::ErrorMetadata;
 use futures::{
@@ -44,6 +50,9 @@ use crate::{
 /// Always use node version specified in .nvmrc for lambda execution, even if
 /// we're using older version for CLI.
 const NODE_VERSION: &str = include_str!("../../../.nvmrc");
+/// The child fd number we map the pre-bound TCP listener to. Fd 3 is the first
+/// fd after stdin/stdout/stderr.
+const LISTEN_CHILD_FD: i32 = 3;
 const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 
@@ -81,15 +90,28 @@ impl InnerLocalNodeExecutor {
         );
 
         let client = Client::new();
-        let port = portpicker::pick_unused_port().context("No ports free")?;
+        // Bind to port 0 in the parent process to get an OS-assigned port,
+        // then pass the bound socket fd to the child. This avoids TOCTOU races
+        // with portpicker where another process could grab the port between
+        // picking and binding.
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let port = listener.local_addr()?.port();
         let server_handle =
-            Self::try_start_node_executor_server(&client, port, &source_path, &source_dir).await?;
-        Ok(Self {
-            _source_dir: source_dir,
-            port,
-            client,
-            _server_handle: server_handle,
-        })
+            Self::start_node_with_listener(&source_path, &source_dir, listener).await?;
+
+        // Wait for the Node process to be ready to handle HTTP requests.
+        for _ in 0..MAX_HEALTH_CHECK_ATTEMPTS {
+            if Self::check_server_health(&client, port).await? {
+                return Ok(Self {
+                    _source_dir: source_dir,
+                    port,
+                    client,
+                    _server_handle: server_handle,
+                });
+            }
+            tokio::time::sleep(HEALTH_CHECK_INTERVAL).await;
+        }
+        anyhow::bail!("Node executor server failed to start and become healthy")
     }
 
     async fn check_node_version(node_path: &str) -> anyhow::Result<()> {
@@ -127,11 +149,10 @@ impl InnerLocalNodeExecutor {
         }
     }
 
-    async fn try_start_node_executor_server(
-        client: &Client,
-        port: u16,
+    async fn start_node_with_listener(
         source_path: &PathBuf,
         temp_dir: &TempDir,
+        listener: TcpListener,
     ) -> anyhow::Result<Child> {
         let node_version = NODE_VERSION.trim();
 
@@ -149,22 +170,22 @@ impl InnerLocalNodeExecutor {
 
         let mut cmd = TokioCommand::new(node_path);
         cmd.arg(source_path)
-            .arg("--port")
-            .arg(port.to_string())
+            .arg("--fd")
+            .arg(LISTEN_CHILD_FD.to_string())
             .arg("--tempdir")
             .arg(temp_dir.path())
             .kill_on_drop(true);
 
-        tracing::info!("Starting node executor server on port {}", port);
+        // Map the listener fd into the child process at a well-known fd number.
+        // command_fds handles clearing CLOEXEC and dup2 for us.
+        cmd.fd_mappings(vec![FdMapping {
+            parent_fd: listener.as_fd().try_clone_to_owned()?,
+            child_fd: LISTEN_CHILD_FD,
+        }])?;
+
         let child = cmd.spawn()?;
 
-        for _ in 0..MAX_HEALTH_CHECK_ATTEMPTS {
-            if Self::check_server_health(client, port).await? {
-                return Ok(child);
-            }
-            tokio::time::sleep(HEALTH_CHECK_INTERVAL).await;
-        }
-        anyhow::bail!("Node executor server failed to start and become healthy")
+        Ok(child)
     }
 }
 
