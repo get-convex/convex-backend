@@ -12,6 +12,9 @@ sb.mock(import("../../dashboard/src/api/profile.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/deployments.ts"), { spy: true });
 
 const preview: Preview = {
+  initialGlobals: {
+    a11y: { manual: false },
+  },
   parameters: {
     actions: { argTypesRegex: "^on[A-Z].*" },
     controls: {
