@@ -545,18 +545,21 @@ impl ErrorMetadata {
             },
             ErrorCode::BadRequest
             | ErrorCode::Conflict
-            | ErrorCode::NotFound
             | ErrorCode::Forbidden
             | ErrorCode::MisdirectedRequest
             | ErrorCode::TooEarly => Some((sentry::Level::Info, None)),
-            // Unauthenticated errors happen regularly, e.g. for expired ID tokens
-            // Pagination limits also happen regularly, e.g. for large queries
+            // Sample errors that only matter at high volume, to reduce load on sentry.
             ErrorCode::Unauthenticated
+            | ErrorCode::NotFound
             | ErrorCode::AuthUpdateFailed
             | ErrorCode::PaginationLimit => Some((sentry::Level::Info, Some(0.001))),
+
+            // Sample operational errors - since they only matter at high volume
             ErrorCode::OutOfRetention
             | ErrorCode::RejectedBeforeExecution
-            | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
+            | ErrorCode::OperationalInternalServerError => {
+                Some((sentry::Level::Warning, Some(0.1)))
+            },
 
             // Sampling for OCC/Overloaded/RateLimited, since we only really care about the
             // details if they happen at high volume.
