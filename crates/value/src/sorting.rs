@@ -265,7 +265,7 @@ pub mod sorting_decode {
                                 break;
                             }
                         } else {
-                            read_escaped_string(reader)?.parse()?
+                            read_escaped_string(reader)?.try_into()?
                         };
                         let value = Self::read_sort_key(reader)?;
                         if elements.insert(field, value).is_some() {

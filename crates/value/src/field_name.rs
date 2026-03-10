@@ -38,6 +38,15 @@ impl FromStr for FieldName {
     }
 }
 
+impl TryFrom<String> for FieldName {
+    type Error = anyhow::Error;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        check_valid_field_name(&s)?;
+        Ok(Self(s))
+    }
+}
+
 impl From<FieldName> for String {
     fn from(f: FieldName) -> Self {
         f.0
