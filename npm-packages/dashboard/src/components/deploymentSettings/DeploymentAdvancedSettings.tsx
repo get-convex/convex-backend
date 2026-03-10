@@ -5,7 +5,7 @@ import {
 } from "api/deployments";
 import { useCurrentProject } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
-import { useHasProjectAdminPermissions } from "api/roles";
+import { useIsCurrentMemberTeamAdmin } from "api/roles";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
@@ -222,7 +222,7 @@ export function DeploymentAdvancedSettings() {
   const project = useCurrentProject();
   const team = useCurrentTeam();
   const entitlements = useTeamEntitlements(team?.id);
-  const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
+  const isTeamAdmin = useIsCurrentMemberTeamAdmin();
   const modifySettings = useModifyDeploymentSettings({
     deploymentName: deployment?.name,
     projectId: project?.id,
@@ -231,7 +231,7 @@ export function DeploymentAdvancedSettings() {
   if (deployment === undefined) return null;
   if (deployment.kind === "local") return null;
 
-  const disabled = !hasAdminPermissions;
+  const disabled = !isTeamAdmin;
   const deploymentType = deployment.deploymentType;
 
   return (
@@ -429,24 +429,38 @@ function TriStateSettingSheet({
 }) {
   const [value, setValue] = useState<TriStateValue>(initialValue);
   const [isSaving, setIsSaving] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-
-  const isDirty = value !== initialValue;
+  const [pendingValue, setPendingValue] = useState<TriStateValue | undefined>(
+    undefined,
+  );
 
   const warningText = getWarning(value, defaultForType);
+  const pendingWarningText =
+    pendingValue !== undefined
+      ? getWarning(pendingValue, defaultForType)
+      : null;
+
+  const handleChange = useCallback(
+    (newValue: TriStateValue) => {
+      if (newValue !== initialValue) {
+        setPendingValue(newValue);
+      } else {
+        setValue(newValue);
+      }
+    },
+    [initialValue],
+  );
 
   const executeSave = useCallback(async () => {
+    if (pendingValue === undefined) return;
     setIsSaving(true);
     try {
-      await onSave({ [fieldName]: value });
+      await onSave({ [fieldName]: pendingValue });
+      setValue(pendingValue);
     } finally {
       setIsSaving(false);
+      setPendingValue(undefined);
     }
-  }, [onSave, fieldName, value]);
-
-  const handleSave = useCallback(() => {
-    setShowConfirmation(true);
-  }, []);
+  }, [onSave, fieldName, pendingValue]);
 
   return (
     <Sheet>
@@ -456,7 +470,7 @@ function TriStateSettingSheet({
         <TriStateRadioGroup
           name={fieldName}
           value={value}
-          onChange={setValue}
+          onChange={handleChange}
           defaultForType={defaultForType}
           defaultTooltip={defaultTooltip}
           disabled={disabled || isSaving}
@@ -467,21 +481,11 @@ function TriStateSettingSheet({
             <span>{warningText}</span>
           </div>
         )}
-        <div className="flex justify-end">
-          <Button
-            variant="primary"
-            disabled={!isDirty || isSaving || disabled}
-            loading={isSaving}
-            onClick={handleSave}
-          >
-            Save
-          </Button>
-        </div>
       </div>
 
-      {showConfirmation && (
+      {pendingValue !== undefined && (
         <ConfirmationDialog
-          onClose={() => setShowConfirmation(false)}
+          onClose={() => setPendingValue(undefined)}
           onConfirm={executeSave}
           dialogTitle={`Confirm ${title} Change`}
           dialogBody={
@@ -494,10 +498,16 @@ function TriStateSettingSheet({
                   <span className="font-medium">{title}</span>
                   <span className="text-content-secondary">
                     {triStateDisplayValue(initialValue)} →{" "}
-                    {triStateDisplayValue(value)}
+                    {triStateDisplayValue(pendingValue)}
                   </span>
                 </div>
               </div>
+              {pendingWarningText && (
+                <div className="flex w-fit items-center gap-2 rounded-lg border bg-background-warning px-3 py-2 text-sm text-content-warning">
+                  <ExclamationTriangleIcon className="size-4 shrink-0" />
+                  <span>{pendingWarningText}</span>
+                </div>
+              )}
             </div>
           }
           confirmText="Save Changes"
@@ -626,9 +636,9 @@ function DeploymentExpirySheet({
             </span>
           </div>
         )}
-        <div className="flex justify-end">
+        <div className="flex justify-start">
           <Button
-            variant="primary"
+            variant={hasExpiry ? "danger" : "primary"}
             disabled={!isDirty || isSaving || disabled || !isExpiryValid}
             loading={isSaving}
             onClick={handleSave}
@@ -669,6 +679,11 @@ function DeploymentExpirySheet({
             </div>
           }
           confirmText="Save Changes"
+          validationText={
+            hasExpiry && isSecurityWarningDeployment(deploymentType)
+              ? "Automatically delete this deployment in the future"
+              : undefined
+          }
           variant="danger"
         />
       )}
