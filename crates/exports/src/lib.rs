@@ -3,6 +3,10 @@
 use std::{
     collections::BTreeMap,
     sync::Arc,
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::Context as _;
@@ -252,24 +256,41 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     // Write documents from stream to table uploads
     let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
     let is_ambiguous = ExportContext::is_ambiguous(table_summary.inferred_type());
+    let mut num_documents: u64 = 0;
+    let mut total_bytes: u64 = 0;
+    let mut last_log_time = Instant::now();
+    let log_interval = Duration::from_secs(60 * 60);
     while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
         if is_ambiguous {
             generated_schema.insert(doc.value(), doc.developer_id());
         }
+        let doc_size = doc.size() as u64;
         usage.track_database_egress(
             component_path.clone(),
             table_name.to_string(),
-            doc.size() as u64,
+            doc_size,
             false,
         );
         usage.track_database_egress_v2(
             component_path.clone(),
             table_name.to_string(),
-            doc.size() as u64,
+            doc_size,
             false,
         );
         table_upload.write(doc).await?;
+        num_documents += 1;
+        total_bytes += doc_size;
+        if last_log_time.elapsed() >= log_interval {
+            tracing::info!(
+                "Export table {table_name} in progress: {num_documents} documents, {total_bytes} \
+                 bytes written so far",
+            );
+            last_log_time = Instant::now();
+        }
     }
+    tracing::info!(
+        "Export table {table_name} complete: {num_documents} documents, {total_bytes} bytes",
+    );
 
     table_upload.complete().await?;
     zip_snapshot_upload

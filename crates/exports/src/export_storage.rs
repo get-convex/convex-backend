@@ -1,4 +1,10 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    time::{
+        Duration,
+        Instant,
+    },
+};
 
 use anyhow::Context;
 use bytes::Bytes;
@@ -85,6 +91,9 @@ pub(crate) async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     {
         let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
         pin_mut!(stream);
+        let mut num_storage_entries: u64 = 0;
+        let mut last_log_time = Instant::now();
+        let log_interval = Duration::from_secs(60 * 60);
         while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
             let file_storage_entry = ParseDocument::<FileStorageEntry>::parse(doc)?;
             let virtual_storage_id = file_storage_entry.id().developer_id;
@@ -99,7 +108,16 @@ pub(crate) async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
                     internal_id: Some(file_storage_entry.storage_id.to_string()),
                 }))
                 .await?;
+            num_storage_entries += 1;
+            if last_log_time.elapsed() >= log_interval {
+                tracing::info!(
+                    "Export _storage metadata in progress: {num_storage_entries} entries written \
+                     so far",
+                );
+                last_log_time = Instant::now();
+            }
         }
+        tracing::info!("Export _storage metadata complete: {num_storage_entries} entries",);
     }
     table_upload.complete().await?;
 
@@ -183,12 +201,23 @@ pub(crate) async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
         })
         .try_buffer_unordered(*EXPORT_STORAGE_GET_CONCURRENCY); // Note that this will return entries in an arbitrary order
     pin_mut!(files_stream);
+    let mut num_files: u64 = 0;
+    let mut last_log_time = Instant::now();
+    let log_interval = Duration::from_secs(60 * 60);
     while let Some((path, file_stream, permit)) = files_stream.try_next().await? {
         zip_snapshot_upload
             .stream_full_file(path, file_stream)
             .await?;
         drop(permit);
+        num_files += 1;
+        if last_log_time.elapsed() >= log_interval {
+            tracing::info!(
+                "Export _storage files in progress: {num_files} files downloaded so far",
+            );
+            last_log_time = Instant::now();
+        }
     }
+    tracing::info!("Export _storage files complete: {num_files} files");
     Ok(())
 }
 
