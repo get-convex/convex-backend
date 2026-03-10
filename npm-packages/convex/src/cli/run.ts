@@ -5,6 +5,7 @@ import { actionDescription } from "./lib/command.js";
 import { runInDeployment } from "./lib/run.js";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import { withRunningBackend } from "./lib/localDeployment/run.js";
 
 export const run = new Command("run")
   .description("Run a function (query, mutation, or action) on your deployment")
@@ -19,6 +20,7 @@ export const run = new Command("run")
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
+      { ensureLocalRunning: false },
     );
 
     if (
@@ -34,19 +36,28 @@ export const run = new Command("run")
       });
     }
 
-    await runInDeployment(ctx, {
-      deploymentUrl: deployment.url,
-      adminKey: deployment.adminKey,
-      deploymentName: deployment.deploymentFields?.deploymentName ?? null,
-      functionName,
-      argsString: argsString ?? "{}",
-      componentPath: options.component,
-      identityString: options.identity,
-      push: !!options.push,
-      watch: !!options.watch,
-      typecheck: options.typecheck,
-      typecheckComponents: options.typecheckComponents,
-      codegen: options.codegen === "enable",
-      liveComponentSources: !!options.liveComponentSources,
+    await withRunningBackend({
+      ctx,
+      deployment: {
+        deploymentUrl: deployment.url,
+        deploymentFields: deployment.deploymentFields,
+      },
+      action: async () => {
+        await runInDeployment(ctx, {
+          deploymentUrl: deployment.url,
+          adminKey: deployment.adminKey,
+          deploymentName: deployment.deploymentFields?.deploymentName ?? null,
+          functionName,
+          argsString: argsString ?? "{}",
+          componentPath: options.component,
+          identityString: options.identity,
+          push: !!options.push,
+          watch: !!options.watch,
+          typecheck: options.typecheck,
+          typecheckComponents: options.typecheckComponents,
+          codegen: options.codegen === "enable",
+          liveComponentSources: !!options.liveComponentSources,
+        });
+      },
     });
   });
