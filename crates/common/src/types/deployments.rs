@@ -11,6 +11,30 @@ use utoipa::ToSchema;
     Copy,
     Clone,
     Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    clap::ValueEnum,
+)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum DeploymentClass {
+    S16,
+    S256,
+    D1024,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
     Deserialize,
     PartialEq,
     Eq,

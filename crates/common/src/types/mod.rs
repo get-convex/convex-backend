@@ -18,8 +18,7 @@ mod actions;
 mod admin_key;
 mod backend_info;
 mod backend_state;
-mod deployment_class;
-mod deployment_type;
+mod deployments;
 mod environment_variables;
 mod file_storage;
 mod functions;
@@ -54,8 +53,10 @@ pub use backend_info::{
     DEFAULT_PROVISION_CONCURRENCY,
 };
 pub use backend_state::BackendState;
-pub use deployment_class::DeploymentClass;
-pub use deployment_type::DeploymentType;
+pub use deployments::{
+    DeploymentClass,
+    DeploymentType,
+};
 pub use environment_variables::{
     env_var_limit_met,
     env_var_name_forbidden,
