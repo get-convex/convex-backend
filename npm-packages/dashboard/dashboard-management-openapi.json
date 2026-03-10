@@ -750,34 +750,6 @@
         }
       }
     },
-    "/projects/{project_id}/instances": {
-      "get": {
-        "operationId": "list_deployments_for_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DeploymentResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/delete_project/{project_id}": {
       "post": {
         "operationId": "dashboard_delete_project",
