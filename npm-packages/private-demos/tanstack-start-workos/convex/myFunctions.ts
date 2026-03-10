@@ -63,7 +63,7 @@ export const myAction = action({
   handler: async (ctx, args) => {
     // // Use the browser-like `fetch` API to send HTTP requests.
     // // See https://docs.convex.dev/functions/actions#calling-third-party-apis-and-using-npm-packages.
-    // const response = await ctx.fetch("https://api.thirdpartyservice.com");
+    // const response = await fetch("https://api.thirdpartyservice.com");
     // const data = await response.json();
 
     // // Query data by running Convex queries.
