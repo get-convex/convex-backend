@@ -220,8 +220,8 @@ text_search = { path = "crates/text_search" }
 textplots = "0.8"
 thiserror = "2"
 thousands = "0.2.0"
-tikv-jemalloc-sys = { version = "0.6", features = [ "profiling", "unprefixed_malloc_on_supported_platforms" ] }
-tikv-jemallocator = { version = "0.6", features = [ "profiling", "unprefixed_malloc_on_supported_platforms" ] }
+tikv-jemalloc-sys = { version = "0.6", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
+tikv-jemallocator = { version = "0.6", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
 tld = "2.36.0"
 tokio = { version = "1.47.1", features = [ "full" ] }
 tokio-metrics = { version = "0.4.0" }
