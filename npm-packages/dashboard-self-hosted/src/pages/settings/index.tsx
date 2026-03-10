@@ -1,9 +1,6 @@
 import { Sheet } from "@ui/Sheet";
-import {
-  DeploymentUrl,
-  HttpActionsUrl,
-} from "@common/features/settings/components/DeploymentUrl";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
+import { DeploymentSummary } from "@common/features/health/components/DeploymentSummary";
 import Link from "next/link";
 import { useContext, useRef } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -12,8 +9,11 @@ import { PauseDeployment } from "@common/features/settings/components/PauseDeplo
 import { useScrollToHash } from "@common/lib/useScrollToHash";
 
 export default function Settings() {
-  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const { useCurrentDeployment, useCurrentTeam, useCurrentProject } =
+    useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
+  const team = useCurrentTeam();
+  const project = useCurrentProject();
   const isAnonymousDeployment =
     deployment?.name?.startsWith("anonymous-") ||
     deployment?.name?.startsWith("tryitout-");
@@ -24,14 +24,13 @@ export default function Settings() {
   return (
     <DeploymentSettingsLayout page="general">
       <div className="flex flex-col gap-4">
-        <Sheet>
-          <DeploymentUrl>
-            Configure a Convex client with this URL.
-          </DeploymentUrl>
-        </Sheet>
-        <Sheet>
-          <HttpActionsUrl />
-        </Sheet>
+        {deployment && team && project && (
+          <DeploymentSummary
+            deployment={deployment}
+            teamSlug={team.slug}
+            projectSlug={project.slug}
+          />
+        )}
         <Sheet>
           <div className="flex flex-col gap-2 text-content-primary">
             <h4 className="mb-4">Deploy Key</h4>
