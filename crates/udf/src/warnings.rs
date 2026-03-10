@@ -47,6 +47,27 @@ pub fn approaching_limit_warning(
     if !should_warn {
         return None;
     }
+    let warning = create_warning(
+        actual,
+        limit,
+        short_code,
+        get_message,
+        message_suffix,
+        unit,
+        system_udf_path,
+    );
+    Some(warning)
+}
+
+fn create_warning(
+    actual: usize,
+    limit: usize,
+    short_code: &'static str,
+    get_message: impl Fn() -> String,
+    message_suffix: Option<&str>,
+    unit: Option<&str>,
+    system_udf_path: Option<&CanonicalizedUdfPath>,
+) -> SystemWarning {
     log_function_limit_warning(short_code, system_udf_path);
 
     let message = get_message();
@@ -58,14 +79,14 @@ pub fn approaching_limit_warning(
             .map(|suffix| format!(" {suffix}"))
             .unwrap_or("".to_string()),
     );
-    let warning = SystemWarning {
+
+    SystemWarning {
         level: LogLevel::Warn,
         messages: vec![full_message],
         system_log_metadata: SystemLogMetadata {
             code: format!("warning:{short_code}"),
         },
-    };
-    Some(warning)
+    }
 }
 
 pub fn approaching_duration_limit_warning(
@@ -97,7 +118,15 @@ pub fn scheduled_arg_size_warning(
     args_size: usize,
     system_udf_path: &Option<CanonicalizedUdfPath>,
 ) -> Option<SystemWarning> {
-    approaching_limit_warning(
+    // warn even if above the limit, as we aren't enforcing this limit yet
+    // TODO: enforce the limit & switch to the usual `approaching_limit_warning`
+    let warning_limit =
+        (*FUNCTION_LIMIT_WARNING_RATIO * (*MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES as f64)) as usize;
+    let should_warn = args_size > warning_limit;
+    if !should_warn {
+        return None;
+    }
+    let warning = create_warning(
         args_size,
         *MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES,
         "ScheduledFunctionsArgumentsTooLarge",
@@ -113,5 +142,6 @@ pub fn scheduled_arg_size_warning(
         None,
         Some(" bytes"),
         system_udf_path.as_ref(),
-    )
+    );
+    Some(warning)
 }
