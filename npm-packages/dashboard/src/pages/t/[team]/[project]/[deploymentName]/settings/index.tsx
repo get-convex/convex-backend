@@ -10,7 +10,7 @@ import {
   DeploymentUrl,
   HttpActionsUrl,
 } from "@common/features/settings/components/DeploymentUrl";
-import { DeploymentReference } from "components/deploymentSettings/DeploymentReference";
+import { DeploymentAdvancedSettings } from "components/deploymentSettings/DeploymentAdvancedSettings";
 import { PauseDeployment } from "@common/features/settings/components/PauseDeployment";
 import { useScrollToHash } from "@common/lib/useScrollToHash";
 import { usePostHog } from "hooks/usePostHog";
@@ -72,10 +72,10 @@ function DeploymentURLAndDeployKey() {
       <Sheet>
         <HttpActionsUrl />
       </Sheet>
-      {showReferences && <DeploymentReference />}
       <Sheet>
         <DeployKeysForDeployment />
       </Sheet>
+      {showReferences && <DeploymentAdvancedSettings />}
       <div ref={pauseDeploymentRef}>
         <PauseDeployment
           onPausedDeployment={() => {

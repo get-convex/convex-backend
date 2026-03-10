@@ -111,7 +111,7 @@ export function useModifyDeploymentSettings({
     mutatePathParams: {
       project_id: projectId ?? 0,
     },
-    successToast: "Deployment reference updated successfully",
+    successToast: "Deployment settings updated successfully",
   });
 }
 
