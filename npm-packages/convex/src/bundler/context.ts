@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/node";
 import { Ora } from "ora";
 import { Filesystem, nodeFs } from "./fs.js";
 import { initializeBigBrainAuth } from "../cli/lib/deploymentSelection.js";
+import { detectSuspiciousEnvironmentVariables } from "../cli/lib/envvars.js";
 import { logFailure, logVerbose } from "./log.js";
 // How the error should be handled when running `npx convex dev`.
 export type ErrorType =
@@ -158,6 +159,10 @@ export const oneoffContext: (args: {
   envFile?: string | undefined;
 }) => Promise<OneoffCtx> = async (args) => {
   const ctx = new OneoffContextImpl();
+  await detectSuspiciousEnvironmentVariables(
+    ctx,
+    !!process.env.CONVEX_IGNORE_SUSPICIOUS_ENV_VARS,
+  );
   await initializeBigBrainAuth(ctx, {
     url: args.url,
     adminKey: args.adminKey,
