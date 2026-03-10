@@ -10,7 +10,6 @@ use common::{
         text_index::FragmentedTextSegment,
         vector_index::{
             FragmentedVectorSegment,
-            VectorIndexBackfillState,
             VectorIndexSnapshot,
             VectorIndexSnapshotData,
             VectorIndexState,
@@ -360,12 +359,8 @@ impl VectorFixtures {
     ) -> anyhow::Result<Vec<FragmentedVectorSegment>> {
         let metadata = self.get_index_metadata(index_name).await?;
         must_let!(let IndexConfig::Vector { on_disk_state, .. } = &metadata.config);
-        must_let!(let VectorIndexState::Backfilling(VectorIndexBackfillState
-            {
-                segments,
-                ..
-            }) = on_disk_state);
-        Ok(segments.clone())
+        must_let!(let VectorIndexState::Backfilling(backfill_state) = on_disk_state);
+        Ok(backfill_state.segments.clone())
     }
 
     pub async fn load_segment(&self, segment: &FragmentedVectorSegment) -> anyhow::Result<Segment> {

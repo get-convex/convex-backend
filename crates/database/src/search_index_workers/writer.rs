@@ -51,6 +51,7 @@ use crate::{
     search_index_workers::{
         index_meta::{
             BackfillState,
+            SearchBackfillCursor,
             SearchIndex,
             SearchOnDiskState,
             SearchSnapshot,
@@ -282,7 +283,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let mut metadata = Self::require_index_metadata(&mut tx, index_id).await?;
 
         let (spec, state) = T::extract_metadata(metadata)?;
-        let snapshot_ts = *state.ts().context("Compacted a segment without a ts?")?;
+        let snapshot_ts = state.ts().context("Compacted a segment without a ts?")?;
         let snapshot_ts = tx.begin_timestamp().prior_ts(snapshot_ts)?;
         let mut current_segments = state.segments().clone();
 
@@ -458,24 +459,24 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             job.metadata_id,
             job.index_name.clone(),
             spec,
-            if backfill_result.is_backfill_complete {
-                SearchOnDiskState::Backfilled {
+            match backfill_result {
+                MultiSegmentBackfillResult::Complete => SearchOnDiskState::Backfilled {
                     snapshot: SearchSnapshot {
                         ts: *backfill_complete_ts,
                         data: SnapshotData::MultiSegment(new_and_modified_segments),
                     },
                     staged,
-                }
-            } else {
-                SearchOnDiskState::Backfilling(BackfillState {
-                    segments: new_and_modified_segments,
-                    cursor: backfill_result
-                        .new_cursor
-                        .map(|cursor| cursor.internal_id()),
-                    backfill_snapshot_ts: Some(*backfill_complete_ts),
-                    last_segment_ts: None,
-                    staged,
-                })
+                },
+                MultiSegmentBackfillResult::InProgress(cursor) => {
+                    SearchOnDiskState::Backfilling(BackfillState {
+                        segments: new_and_modified_segments,
+                        cursor: Some(SearchBackfillCursor::AtSnapshot {
+                            backfill_snapshot_ts: *backfill_complete_ts,
+                            cursor: cursor.internal_id(),
+                        }),
+                        staged,
+                    })
+                },
             },
         )
         .await?;
@@ -512,7 +513,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             // we necesssarily must have a snapshot timestamp for when those
             // segments were valid. So it's an error if we think we need to
             // merge with a compaction but have no snapshot timestamp.
-            let start_snapshot_ts = *current_disk_state
+            let start_snapshot_ts = current_disk_state
                 .ts()
                 .context("Compaction ran before index had a snapshot")?;
             let updated_segments = self

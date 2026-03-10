@@ -4,10 +4,7 @@ mod index_snapshot;
 mod index_state;
 
 pub use self::{
-    backfill_state::{
-        TextBackfillCursor,
-        TextIndexBackfillState,
-    },
+    backfill_state::TextIndexBackfillState,
     index_config::{
         SerializedTextIndexSpec,
         TextIndexSpec,

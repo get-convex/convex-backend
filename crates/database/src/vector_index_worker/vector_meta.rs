@@ -9,7 +9,6 @@ use common::{
     bootstrap_model::index::{
         vector_index::{
             FragmentedVectorSegment,
-            VectorIndexBackfillState,
             VectorIndexSnapshot,
             VectorIndexSnapshotData,
             VectorIndexSpec,
@@ -57,7 +56,6 @@ use vector::{
 
 use crate::{
     search_index_workers::index_meta::{
-        BackfillState,
         SearchIndex,
         SearchIndexConfig,
         SearchOnDiskState,
@@ -73,9 +71,7 @@ use crate::{
 impl From<VectorIndexState> for SearchOnDiskState<VectorSearchIndex> {
     fn from(value: VectorIndexState) -> Self {
         match value {
-            VectorIndexState::Backfilling(backfill_state) => {
-                SearchOnDiskState::Backfilling(backfill_state.into())
-            },
+            VectorIndexState::Backfilling(state) => SearchOnDiskState::Backfilling(state),
             VectorIndexState::Backfilled { snapshot, staged } => SearchOnDiskState::Backfilled {
                 snapshot: snapshot.into(),
                 staged,
@@ -92,7 +88,7 @@ impl TryFrom<SearchOnDiskState<VectorSearchIndex>> for VectorIndexState {
 
     fn try_from(value: SearchOnDiskState<VectorSearchIndex>) -> anyhow::Result<Self> {
         Ok(match value {
-            SearchOnDiskState::Backfilling(state) => Self::Backfilling(state.into()),
+            SearchOnDiskState::Backfilling(state) => Self::Backfilling(state),
             SearchOnDiskState::Backfilled { snapshot, staged } => Self::Backfilled {
                 snapshot: snapshot.try_into()?,
                 staged,
@@ -342,30 +338,6 @@ impl SegmentStatistics for VectorStatistics {
 
     fn num_non_deleted_documents(&self) -> u64 {
         self.non_deleted_vectors
-    }
-}
-
-impl From<VectorIndexBackfillState> for BackfillState<VectorSearchIndex> {
-    fn from(value: VectorIndexBackfillState) -> Self {
-        Self {
-            segments: value.segments,
-            cursor: value.cursor,
-            backfill_snapshot_ts: value.backfill_snapshot_ts,
-            staged: value.staged,
-            last_segment_ts: value.last_segment_ts,
-        }
-    }
-}
-
-impl From<BackfillState<VectorSearchIndex>> for VectorIndexBackfillState {
-    fn from(value: BackfillState<VectorSearchIndex>) -> Self {
-        Self {
-            segments: value.segments,
-            cursor: value.cursor,
-            backfill_snapshot_ts: value.backfill_snapshot_ts,
-            staged: value.staged,
-            last_segment_ts: value.last_segment_ts,
-        }
     }
 }
 

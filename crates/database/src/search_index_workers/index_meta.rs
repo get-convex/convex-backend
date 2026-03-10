@@ -6,6 +6,10 @@ use std::{
 };
 
 use async_trait::async_trait;
+pub use common::bootstrap_model::index::search_index::{
+    BackfillState,
+    SearchBackfillCursor,
+};
 use common::{
     bootstrap_model::index::{
         IndexConfig,
@@ -34,7 +38,6 @@ use storage::Storage;
 use sync_types::Timestamp;
 use value::{
     ConvexObject,
-    InternalId,
     TabletId,
 };
 
@@ -181,18 +184,8 @@ pub struct SearchSnapshot<T: SearchIndex> {
     pub data: SnapshotData<T::Segment>,
 }
 
-#[derive(Debug)]
-pub struct BackfillState<T: SearchIndex> {
-    pub segments: Vec<T::Segment>,
-    pub cursor: Option<InternalId>,
-    pub backfill_snapshot_ts: Option<Timestamp>,
-    pub staged: bool,
-    /// The timestamp of the most recently-written-to segment
-    pub last_segment_ts: Option<Timestamp>,
-}
-
 pub enum SearchOnDiskState<T: SearchIndex> {
-    Backfilling(BackfillState<T>),
+    Backfilling(BackfillState<T::Segment>),
     Backfilled {
         snapshot: SearchSnapshot<T>,
         staged: bool,
@@ -209,13 +202,11 @@ impl<T: SearchIndex> SearchOnDiskState<T> {
         }
     }
 
-    pub fn ts(&self) -> Option<&Timestamp> {
+    pub fn ts(&self) -> Option<Timestamp> {
         match self {
-            SearchOnDiskState::Backfilling(backfill_state) => {
-                backfill_state.backfill_snapshot_ts.as_ref()
-            },
+            SearchOnDiskState::Backfilling(backfill_state) => backfill_state.backfill_ts(),
             SearchOnDiskState::Backfilled { snapshot, .. }
-            | SearchOnDiskState::SnapshottedAt(snapshot) => Some(&snapshot.ts),
+            | SearchOnDiskState::SnapshottedAt(snapshot) => Some(snapshot.ts),
         }
     }
 

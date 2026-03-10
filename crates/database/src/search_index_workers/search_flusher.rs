@@ -14,7 +14,10 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::index::IndexMetadata,
+    bootstrap_model::index::{
+        search_index::SearchBackfillCursor,
+        IndexMetadata,
+    },
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         SEARCH_WORKERS_MAX_CHECKPOINT_AGE,
@@ -372,50 +375,57 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                 // means a version of the search flusher has run that supports a different
                 // backfill algorithm, but this version does not support that algorithm so we
                 // need to restart the backfill.
-                if backfill_state.last_segment_ts.is_some() {
-                    let tablet = job.index_name.table();
-                    let table_name = tx.table_mapping().tablet_name(*tablet)?;
-                    let table_namespace = tx.table_mapping().tablet_namespace(*tablet)?;
-                    let total_docs = tx.count(table_namespace, &table_name).await?;
-                    let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
-                    index_backfill_model
-                        .initialize_search_index_backfill(job.index_id, total_docs)
-                        .await?;
-                    let no_segments = vec![];
-                    let cursor = None;
-                    let backfill_snapshot_ts = new_ts;
-                    let new_metadata = IndexMetadata {
-                        name: job.index_name.clone(),
-                        config: T::new_index_config(
-                            job.index_config.spec.clone(),
-                            SearchOnDiskState::Backfilling(BackfillState {
-                                segments: no_segments.clone(),
-                                cursor,
-                                backfill_snapshot_ts: Some(*backfill_snapshot_ts),
-                                staged: backfill_state.staged,
-                                last_segment_ts: None,
-                            }),
-                        )?,
-                    };
+                match backfill_state.cursor {
+                    Some(SearchBackfillCursor::WalkingForwards { .. }) => {
+                        let tablet = job.index_name.table();
+                        let table_name = tx.table_mapping().tablet_name(*tablet)?;
+                        let table_namespace = tx.table_mapping().tablet_namespace(*tablet)?;
+                        let total_docs = tx.count(table_namespace, &table_name).await?;
+                        let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
+                        index_backfill_model
+                            .initialize_search_index_backfill(job.index_id, total_docs)
+                            .await?;
+                        let no_segments = vec![];
+                        let new_metadata = IndexMetadata {
+                            name: job.index_name.clone(),
+                            config: T::new_index_config(
+                                job.index_config.spec.clone(),
+                                SearchOnDiskState::Backfilling(BackfillState {
+                                    segments: no_segments.clone(),
+                                    cursor: None,
+                                    staged: backfill_state.staged,
+                                }),
+                            )?,
+                        };
 
-                    SystemMetadataModel::new_global(&mut tx)
-                        .replace(job.metadata_id, new_metadata.try_into()?)
-                        .await?;
-                    (
-                        no_segments,
-                        MultipartBuildType::IncrementalComplete {
-                            cursor: None,
-                            backfill_snapshot_ts: new_ts,
-                        },
-                    )
-                } else {
-                    let maybe_backfill_snapshot_ts = backfill_state
-                        .backfill_snapshot_ts
-                        .map(|ts| new_ts.prior_ts(ts))
-                        .transpose()?;
-                    let backfill_snapshot_ts = if let Some(ts) = maybe_backfill_snapshot_ts {
-                        ts
-                    } else {
+                        SystemMetadataModel::new_global(&mut tx)
+                            .replace(job.metadata_id, new_metadata.try_into()?)
+                            .await?;
+                        (
+                            no_segments,
+                            MultipartBuildType::IncrementalComplete {
+                                cursor: None,
+                                backfill_snapshot_ts: new_ts,
+                            },
+                        )
+                    },
+                    Some(SearchBackfillCursor::AtSnapshot {
+                        backfill_snapshot_ts,
+                        cursor,
+                    }) => {
+                        new_ts = new_ts.prior_ts(backfill_snapshot_ts)?;
+                        (
+                            backfill_state.segments.clone(),
+                            MultipartBuildType::IncrementalComplete {
+                                cursor: Some(ResolvedDocumentId::new(
+                                    tablet_id,
+                                    DeveloperDocumentId::new(table_number, cursor),
+                                )),
+                                backfill_snapshot_ts: new_ts,
+                            },
+                        )
+                    },
+                    None => {
                         // This is the beginning of a backfill!
                         // We need to initialize the backfill with the size of the table at this
                         // snapshot.
@@ -427,26 +437,14 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         index_backfill_model
                             .initialize_search_index_backfill(job.index_id, total_docs)
                             .await?;
-                        new_ts
-                    };
-                    // For backfilling indexes, the snapshot timestamp we return is the backfill
-                    // snapshot timestamp
-                    new_ts = backfill_snapshot_ts;
-
-                    let cursor = backfill_state.cursor;
-
-                    (
-                        backfill_state.segments.clone(),
-                        MultipartBuildType::IncrementalComplete {
-                            cursor: cursor.map(|cursor| {
-                                ResolvedDocumentId::new(
-                                    tablet_id,
-                                    DeveloperDocumentId::new(table_number, cursor),
-                                )
-                            }),
-                            backfill_snapshot_ts,
-                        },
-                    )
+                        (
+                            vec![],
+                            MultipartBuildType::IncrementalComplete {
+                                cursor: None,
+                                backfill_snapshot_ts: new_ts,
+                            },
+                        )
+                    },
                 }
             },
             SearchOnDiskState::Backfilled { ref snapshot, .. }
@@ -675,10 +673,14 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
 
         let index_backfill_result =
             if let MultipartBuildType::IncrementalComplete { .. } = build_type {
-                Some(MultiSegmentBackfillResult {
-                    new_cursor,
-                    is_backfill_complete,
-                })
+                let result = if is_backfill_complete {
+                    MultiSegmentBackfillResult::Complete
+                } else {
+                    let cursor =
+                        new_cursor.context("Must have a cursor for incomplete backfill build")?;
+                    MultiSegmentBackfillResult::InProgress(cursor)
+                };
+                Some(result)
             } else {
                 None
             };

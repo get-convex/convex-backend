@@ -13,8 +13,6 @@ use common::{
     bootstrap_model::index::{
         text_index::{
             FragmentedTextSegment,
-            TextBackfillCursor,
-            TextIndexBackfillState,
             TextIndexSnapshot,
             TextIndexSnapshotData,
             TextIndexSpec,
@@ -74,7 +72,6 @@ use value::TabletId;
 
 use crate::{
     search_index_workers::index_meta::{
-        BackfillState,
         SearchIndex,
         SearchIndexConfig,
         SearchOnDiskState,
@@ -138,9 +135,7 @@ impl SearchIndex for TextSearchIndex {
         Some(SearchIndexConfig {
             spec: spec.clone(),
             on_disk_state: match on_disk_state.clone() {
-                TextIndexState::Backfilling(snapshot) => {
-                    SearchOnDiskState::Backfilling(snapshot.into())
-                },
+                TextIndexState::Backfilling(state) => SearchOnDiskState::Backfilling(state),
                 TextIndexState::Backfilled { snapshot, staged } => SearchOnDiskState::Backfilled {
                     snapshot: snapshot.into(),
                     staged,
@@ -418,7 +413,7 @@ pub struct TextStatistics {
 impl From<SearchOnDiskState<TextSearchIndex>> for TextIndexState {
     fn from(value: SearchOnDiskState<TextSearchIndex>) -> Self {
         match value {
-            SearchOnDiskState::Backfilling(state) => Self::Backfilling(state.into()),
+            SearchOnDiskState::Backfilling(state) => Self::Backfilling(state),
             SearchOnDiskState::Backfilled { snapshot, staged } => Self::Backfilled {
                 snapshot: snapshot.into(),
                 staged,
@@ -431,7 +426,7 @@ impl From<SearchOnDiskState<TextSearchIndex>> for TextIndexState {
 impl From<TextIndexState> for SearchOnDiskState<TextSearchIndex> {
     fn from(value: TextIndexState) -> Self {
         match value {
-            TextIndexState::Backfilling(state) => Self::Backfilling(state.into()),
+            TextIndexState::Backfilling(state) => Self::Backfilling(state),
             TextIndexState::Backfilled { snapshot, staged } => Self::Backfilled {
                 snapshot: snapshot.into(),
                 staged,
@@ -457,42 +452,6 @@ impl SegmentStatistics for TextStatistics {
 
     fn num_non_deleted_documents(&self) -> u64 {
         self.num_indexed_documents - self.num_deleted_documents
-    }
-}
-
-impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {
-    fn from(value: TextIndexBackfillState) -> Self {
-        Self {
-            segments: value.segments,
-            cursor: value.cursor.clone().and_then(|value| value.cursor),
-            backfill_snapshot_ts: value
-                .cursor
-                .as_ref()
-                .and_then(|value| value.backfill_snapshot_ts),
-            staged: value.staged,
-            last_segment_ts: value.cursor.and_then(|value| value.last_segment_ts),
-        }
-    }
-}
-
-impl From<BackfillState<TextSearchIndex>> for TextIndexBackfillState {
-    fn from(value: BackfillState<TextSearchIndex>) -> Self {
-        let cursor = if let Some(cursor) = value.cursor
-            && let Some(backfill_snapshot_ts) = value.backfill_snapshot_ts
-        {
-            Some(TextBackfillCursor {
-                cursor: Some(cursor),
-                backfill_snapshot_ts: Some(backfill_snapshot_ts),
-                last_segment_ts: value.last_segment_ts,
-            })
-        } else {
-            None
-        };
-        Self {
-            segments: value.segments,
-            cursor,
-            staged: value.staged,
-        }
     }
 }
 

@@ -76,7 +76,7 @@ pub async fn timeout_with_jitter<RT: Runtime>(rt: &RT, duration: Duration) {
 }
 
 #[derive(Debug)]
-pub struct MultiSegmentBackfillResult {
-    pub new_cursor: Option<ResolvedDocumentId>,
-    pub is_backfill_complete: bool,
+pub enum MultiSegmentBackfillResult {
+    InProgress(ResolvedDocumentId),
+    Complete,
 }

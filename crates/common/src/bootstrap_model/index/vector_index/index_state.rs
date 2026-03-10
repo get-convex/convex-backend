@@ -5,16 +5,14 @@ use serde::{
 use value::codegen_convex_serialization;
 
 use super::{
-    backfill_state::{
-        SerializedVectorIndexBackfillState,
-        VectorIndexBackfillState,
-    },
+    backfill_state::SerializedVectorIndexBackfillState,
     index_snapshot::{
         SerializedVectorIndexSnapshot,
         VectorIndexSnapshot,
         VectorIndexSnapshotData,
     },
     segment::FragmentedVectorSegment,
+    VectorIndexBackfillState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

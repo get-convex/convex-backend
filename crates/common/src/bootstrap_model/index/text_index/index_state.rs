@@ -6,12 +6,10 @@ use value::codegen_convex_serialization;
 
 use super::{
     index_snapshot::SerializedTextIndexSnapshot,
+    TextIndexBackfillState,
     TextIndexSnapshot,
 };
-use crate::bootstrap_model::index::text_index::backfill_state::{
-    SerializedTextIndexBackfillState,
-    TextIndexBackfillState,
-};
+use crate::bootstrap_model::index::text_index::backfill_state::SerializedTextIndexBackfillState;
 
 /// The state of a text search index.
 /// Text search indexes begin in `Backfilling`. Once they finish backfilling,

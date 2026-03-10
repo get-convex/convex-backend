@@ -10,7 +10,6 @@ use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::{
         vector_index::{
-            VectorIndexBackfillState,
             VectorIndexSnapshot,
             VectorIndexSnapshotData,
             VectorIndexSpec,
@@ -784,14 +783,9 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
         // Verify that on_disk_state remains in backfilling until last iteration
         // and each iteration adds a new segment.
         if i < num_parts - 1 {
-            must_let!(let VectorIndexState::Backfilling(
-                VectorIndexBackfillState {
-                    segments,
-                    backfill_snapshot_ts,
-                    ..
-                }) = on_disk_state);
-            assert_eq!(segments.len(), (i + 1) as usize);
-            backfill_ts = backfill_snapshot_ts;
+            must_let!(let VectorIndexState::Backfilling(backfill_state) = on_disk_state);
+            assert_eq!(backfill_state.segments.len(), (i + 1) as usize);
+            backfill_ts = backfill_state.backfill_ts();
         } else {
             must_let!(let VectorIndexState::Backfilled {
                 snapshot: VectorIndexSnapshot {
