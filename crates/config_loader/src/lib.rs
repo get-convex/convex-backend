@@ -41,6 +41,7 @@ pub struct LazyMode;
 mod mode {
     pub trait ConfigLoaderMode<T> {
         type Maybe: From<T> + Into<Option<T>> + PartialEq + Clone + Send + Sync + 'static;
+        const LAZY: bool;
     }
 
     impl<T> ConfigLoaderMode<T> for super::ImmediateMode
@@ -48,6 +49,8 @@ mod mode {
         T: PartialEq + Clone + Send + Sync + 'static,
     {
         type Maybe = T;
+
+        const LAZY: bool = false;
     }
 
     impl<T> ConfigLoaderMode<T> for super::LazyMode
@@ -55,6 +58,8 @@ mod mode {
         T: PartialEq + Clone + Send + Sync + 'static,
     {
         type Maybe = Option<T>;
+
+        const LAZY: bool = true;
     }
 }
 
@@ -130,6 +135,9 @@ impl<D: ConfigDecoder + Send + 'static, M: mode::ConfigLoaderMode<D::Output>> Co
         let (config_tx, mut config_rx) = watch::channel(initial_value);
         config_rx.mark_changed();
         let (reload_tx, reload_rx) = tokio::sync::mpsc::channel(1);
+        if M::LAZY {
+            reload_tx.try_send(())?;
+        }
         let handle = rt.spawn("config_loader", async move {
             let config_path = config_path;
             tracing::info!("Starting config loader thread for {config_path:?}");
@@ -312,6 +320,16 @@ mod tests {
         config_loader.reload();
         let next_config = subscription.next().await;
         assert_eq!(next_config, Some(1234));
+
+        let config_loader = ConfigLoader::new_lazy(
+            rt.clone(),
+            SignalKind::user_defined1(),
+            file.path().to_owned(),
+            FromStrDecoder::<u64>::new(),
+        )
+        .await?;
+        let mut subscription = config_loader.subscribe(true /* include_current */);
+        assert_eq!(subscription.next().await, Some(1234));
         Ok(())
     }
 
