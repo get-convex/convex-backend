@@ -137,40 +137,16 @@ async fn test_export_zip(rt: TestRuntime) -> anyhow::Result<()> {
             .namespace(TableNamespace::test_user())
             .number_to_tablet()(doc.table())?;
         let doc = doc.to_resolved(tablet_id);
-        let id_v6 = doc.developer_id().encode();
         expected_export_entries.insert(
             format!("table_{i}/documents.jsonl"),
             format!(
                 "{}\n",
-                serde_json::to_string(&doc.export(ValueFormat::ConvexCleanJSON))?
+                serde_json::to_string(&doc.export(ValueFormat::ConvexExportJSON))?
             ),
         );
         expected_export_entries.insert(
             format!("table_{i}/generated_schema.jsonl"),
-            match i {
-                0 => format!(
-                    "{}\n",
-                    json!(format!(
-                        "{{\"_creationTime\": normalfloat64, \"_id\": \"{id_v6}\", \"foo\": \
-                         int64}}"
-                    ))
-                ),
-                1 => format!(
-                    "{}\n{}\n",
-                    json!(format!(
-                        "{{\"_creationTime\": normalfloat64, \"_id\": \"{id_v6}\", \"foo\": \
-                         array<int64 | field_name>}}"
-                    )),
-                    json!({id_v6: {"foo": ["int64", "infer"]}})
-                ),
-                _ => format!(
-                    "{}\n",
-                    json!(format!(
-                        "{{\"_creationTime\": normalfloat64, \"_id\": \"{id_v6}\", \"foo\": \
-                         field_name}}"
-                    ))
-                ),
-            },
+            "\"uniform\"\n".to_owned(),
         );
         db.commit(tx).await?;
     }

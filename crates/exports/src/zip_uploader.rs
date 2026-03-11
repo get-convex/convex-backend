@@ -17,10 +17,7 @@ use futures::{
     pin_mut,
     AsyncWriteExt,
 };
-use serde_json::{
-    json,
-    Value as JsonValue,
-};
+use serde_json::Value as JsonValue;
 use shape_inference::{
     export_context::GeneratedSchema,
     ShapeConfig,
@@ -69,7 +66,7 @@ impl<'a, 'b> ZipSnapshotTableUpload<'a, 'b> {
     }
 
     pub async fn write(&mut self, doc: ResolvedDocument) -> anyhow::Result<()> {
-        let json = doc.export(ValueFormat::ConvexCleanJSON);
+        let json = doc.export(ValueFormat::ConvexExportJSON);
         self.write_json_line(json).await
     }
 
@@ -137,7 +134,7 @@ impl<'a> ZipSnapshotUpload<'a> {
         ZipSnapshotTableUpload::new(&mut self.writer, path_prefix, table_name).await
     }
 
-    pub async fn write_generated_schema<T: ShapeConfig>(
+    pub async fn write_legacy_generated_schema<T: ShapeConfig>(
         &mut self,
         path_prefix: &str,
         table_name: &TableName,
@@ -151,16 +148,9 @@ impl<'a> ZipSnapshotUpload<'a> {
             .write_entry_stream(builder.build())
             .await?
             .compat_write();
-        let generated_schema_str = generated_schema.inferred_shape.to_string();
-        entry_writer
-            .write_all(serde_json::to_string(&generated_schema_str)?.as_bytes())
-            .await?;
-        entry_writer.write_all(b"\n").await?;
-        for (override_id, override_export_context) in generated_schema.overrides.into_iter() {
-            let override_json =
-                json!({override_id.encode(): JsonValue::from(override_export_context)});
+        for line in generated_schema.serialize() {
             entry_writer
-                .write_all(serde_json::to_string(&override_json)?.as_bytes())
+                .write_all(serde_json::to_string(&line)?.as_bytes())
                 .await?;
             entry_writer.write_all(b"\n").await?;
         }

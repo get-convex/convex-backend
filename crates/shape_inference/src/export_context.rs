@@ -18,15 +18,19 @@ use std::{
 };
 
 use anyhow::Context;
-use itertools::Itertools;
+use itertools::{
+    Either,
+    Itertools,
+};
 use maplit::btreeset;
 use serde_json::{
     json,
     Value as JsonValue,
 };
+#[cfg(any(test, feature = "testing"))]
+use value::ConvexObject;
 use value::{
     id_v6::DeveloperDocumentId,
-    ConvexObject,
     ConvexValue,
     FieldName,
     IdentifierFieldName,
@@ -128,6 +132,7 @@ impl<C: ShapeConfig, S: ShapeCounter> Shape<C, S> {
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
     fn specified_fields(&self) -> BTreeSet<&IdentifierFieldName> {
         match self.variant() {
             ShapeEnum::Union(options) => options
@@ -141,6 +146,7 @@ impl<C: ShapeConfig, S: ShapeCounter> Shape<C, S> {
 
     /// What is the shape of an object's value at a key that does not appear in
     /// the shape.
+    #[cfg(any(test, feature = "testing"))]
     fn object_unspecified_field(&self) -> BTreeSet<&Self> {
         match self.variant() {
             ShapeEnum::Union(options) => options
@@ -159,6 +165,7 @@ impl ExportContext {
         matches!(self, Self::Infer)
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub fn of<C: ShapeConfig, S: ShapeCounter>(
         value: &ConvexValue,
         shape: &Shape<C, S>,
@@ -167,6 +174,7 @@ impl ExportContext {
         Self::of_inner(value, &shape_options)
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub fn of_object<C: ShapeConfig, S: ShapeCounter>(
         object: &ConvexObject,
         shape: &Shape<C, S>,
@@ -175,6 +183,7 @@ impl ExportContext {
         Self::of_object_inner(object, &shape_options)
     }
 
+    #[cfg(any(test, feature = "testing"))]
     fn of_object_inner<C: ShapeConfig, S: ShapeCounter>(
         fields: &ConvexObject,
         shape: &BTreeSet<&Shape<C, S>>,
@@ -204,6 +213,7 @@ impl ExportContext {
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub fn of_inner<C: ShapeConfig, S: ShapeCounter>(
         value: &ConvexValue,
         shape: &BTreeSet<&Shape<C, S>>,
@@ -268,10 +278,12 @@ impl ExportContext {
 
     /// Returns true if all values with the given shape can use
     /// ExportContext::Infer.
+    #[cfg(any(test, feature = "testing"))]
     pub fn is_ambiguous<C: ShapeConfig, S: ShapeCounter>(shape: &Shape<C, S>) -> bool {
         Self::is_ambiguous_inner(&btreeset! {shape})
     }
 
+    #[cfg(any(test, feature = "testing"))]
     fn is_ambiguous_inner<C: ShapeConfig, S: ShapeCounter>(
         shape_options: &BTreeSet<&Shape<C, S>>,
     ) -> bool {
@@ -984,28 +996,49 @@ mod tests {
 
 /// GeneratedSchema stores sidecar data necessary to round-trip an entire table.
 #[derive(Debug, Clone)]
-pub struct GeneratedSchema<T: ShapeConfig> {
-    pub inferred_shape: StructuralShape<T>,
-    pub overrides: BTreeMap<DeveloperDocumentId, ExportContext>,
+pub enum GeneratedSchema<T: ShapeConfig> {
+    /// Stores a desired shape & per-document overrides to resolve ambiguities.
+    /// This format is deprecated and only exists to support importing old
+    /// zip exports.
+    LegacyInferred {
+        inferred_shape: StructuralShape<T>,
+        overrides: BTreeMap<DeveloperDocumentId, ExportContext>,
+    },
+    /// Indicates that values are encoded using a uniform encoding (i.e.
+    /// [`value::export::ValueFormat::ConvexExportJSON`]).
+    Uniform,
 }
 
 impl<T: ShapeConfig> GeneratedSchema<T> {
+    // legacy code, no longer used in production
+    #[cfg(any(test, feature = "testing"))]
     pub fn new(inferred_shape: StructuralShape<T>) -> Self {
-        Self {
+        Self::LegacyInferred {
             inferred_shape,
             overrides: BTreeMap::default(),
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub fn insert(&mut self, object: &ConvexObject, id: DeveloperDocumentId) {
-        let export_context = ExportContext::of_object(object, &self.inferred_shape);
-        if !export_context.is_infer() {
-            self.overrides.insert(id, export_context);
+        match self {
+            GeneratedSchema::LegacyInferred {
+                inferred_shape,
+                overrides,
+            } => {
+                let export_context = ExportContext::of_object(object, inferred_shape);
+                if !export_context.is_infer() {
+                    overrides.insert(id, export_context);
+                }
+            },
+            GeneratedSchema::Uniform => {
+                // no action needed
+            },
         }
     }
 
     pub fn apply(
-        mut schema: Option<&mut Self>,
+        schema: Option<&mut Self>,
         exported_value: JsonValue,
     ) -> anyhow::Result<ConvexValue> {
         let Some(exported_object) = exported_value.as_object() else {
@@ -1019,24 +1052,45 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
                 if truncated { "..." } else { "" }
             );
         };
-        let export_context = if let Some(schema) = &mut schema
-            && let Some(JsonValue::String(id_str)) = exported_object.get("_id")
-        {
-            let id = DeveloperDocumentId::decode(id_str)?;
-            schema.overrides.remove(&id).unwrap_or(ExportContext::Infer)
-        } else {
-            ExportContext::Infer
-        };
-        let unknown = StructuralShape::new(ShapeEnum::Unknown);
-        let value = export_context.apply(
-            exported_value,
-            if let Some(schema) = schema {
-                &schema.inferred_shape
-            } else {
-                &unknown
+        match schema {
+            Some(GeneratedSchema::Uniform) => ConvexValue::from_clean_lossless(exported_value),
+            Some(GeneratedSchema::LegacyInferred {
+                inferred_shape,
+                overrides,
+            }) => {
+                let export_context =
+                    if let Some(JsonValue::String(id_str)) = exported_object.get("_id") {
+                        let id = DeveloperDocumentId::decode(id_str)?;
+                        overrides.remove(&id).unwrap_or(ExportContext::Infer)
+                    } else {
+                        ExportContext::Infer
+                    };
+                export_context.apply(exported_value, inferred_shape)
             },
-        )?;
-        Ok(value)
+            None => ExportContext::Infer.apply(
+                exported_value,
+                &StructuralShape::<T>::new(ShapeEnum::Unknown),
+            ),
+        }
+    }
+
+    pub fn serialize(self) -> impl Iterator<Item = JsonValue> {
+        match self {
+            GeneratedSchema::LegacyInferred {
+                inferred_shape,
+                overrides,
+            } => {
+                Either::Left(
+                    iter::once(inferred_shape.to_string().into())
+                        .chain(overrides.into_iter().map(|(override_id, override_export_context)| {
+                            json!({override_id.encode(): JsonValue::from(override_export_context)})
+                        })),
+                )
+            },
+            GeneratedSchema::Uniform => {
+                Either::Right(iter::once("uniform".to_owned().into()))
+            },
+        }
     }
 }
 

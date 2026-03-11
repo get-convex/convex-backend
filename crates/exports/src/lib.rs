@@ -56,9 +56,9 @@ use model::{
     virtual_system_mapping,
 };
 use serde_json::json;
-use shape_inference::export_context::{
-    ExportContext,
-    GeneratedSchema,
+use shape_inference::{
+    export_context::GeneratedSchema,
+    ProdConfig,
 };
 use storage::{
     ChannelWriter,
@@ -242,7 +242,6 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     component_path: &ComponentPath,
     tablet_id: &TabletId,
     table_name: TableName,
-    table_summary: TableSummary,
     by_id: &InternalId,
     usage: &FunctionUsageTracker,
 ) -> anyhow::Result<()> {
@@ -254,16 +253,11 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     pin_mut!(stream);
 
     // Write documents from stream to table uploads
-    let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
-    let is_ambiguous = ExportContext::is_ambiguous(table_summary.inferred_type());
     let mut num_documents: u64 = 0;
     let mut total_bytes: u64 = 0;
     let mut last_log_time = Instant::now();
     let log_interval = Duration::from_secs(60 * 60);
     while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
-        if is_ambiguous {
-            generated_schema.insert(doc.value(), doc.developer_id());
-        }
         let doc_size = doc.size() as u64;
         usage.track_database_egress(
             component_path.clone(),
@@ -294,7 +288,11 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
 
     table_upload.complete().await?;
     zip_snapshot_upload
-        .write_generated_schema(path_prefix, &table_name, generated_schema)
+        .write_legacy_generated_schema(
+            path_prefix,
+            &table_name,
+            GeneratedSchema::<ProdConfig>::Uniform,
+        )
         .await?;
     Ok(())
 }
@@ -349,7 +347,7 @@ where
     // sort tables small to large, and write them to the zip.
     let mut sorted_tables: Vec<_> = tables.iter().collect();
     sorted_tables.sort_by_key(|(_, (_, _, _, table_summary))| table_summary.total_size());
-    for (tablet_id, (namespace, _, table_name, table_summary)) in sorted_tables {
+    for (tablet_id, (namespace, _, table_name, _table_summary)) in sorted_tables {
         let component_id: ComponentId = (*namespace).into();
         let Some(component_path) = component_ids_to_paths.get(&component_id) else {
             tracing::info!(
@@ -384,7 +382,6 @@ where
             component_path,
             tablet_id,
             table_name.clone(),
-            table_summary.clone(),
             by_id,
             &usage,
         )

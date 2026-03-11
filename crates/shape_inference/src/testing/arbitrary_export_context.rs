@@ -50,7 +50,7 @@ impl<T: ShapeConfig> Arbitrary for GeneratedSchema<T> {
                 0..10,
             ),
         )
-            .prop_map(|(inferred_shape, overrides)| Self {
+            .prop_map(|(inferred_shape, overrides)| Self::LegacyInferred {
                 inferred_shape,
                 overrides,
             })

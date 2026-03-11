@@ -66,21 +66,16 @@ async fn write_test_data_in_component(
     let doc = doc.to_resolved(tablet_id);
     let expected_documents = format!(
         "{}\n",
-        serde_json::to_string(&doc.export(ValueFormat::ConvexCleanJSON))?
+        serde_json::to_string(&doc.export(ValueFormat::ConvexExportJSON))?
     );
-    let expected_generated_schema = format!(
-        "{}\n",
-        json!(format!(
-            r#"{{"_creationTime": normalfloat64, "_id": "{id}", "channel": "c", "text": field_name}}"#,
-        ))
-    );
+    let expected_generated_schema = "\"uniform\"\n";
     expected_export_entries.insert(
         format!("{path_prefix}messages/documents.jsonl"),
-        expected_documents.clone(),
+        expected_documents,
     );
     expected_export_entries.insert(
         format!("{path_prefix}messages/generated_schema.jsonl"),
-        expected_generated_schema.clone(),
+        expected_generated_schema.to_owned(),
     );
     db.commit(tx).await?;
     Ok(())

@@ -436,6 +436,9 @@ async fn parse_generated_schema<T: ShapeConfig>(
         .map_err(ImportError::NotUtf8)?;
     let inferred_type_json: serde_json::Value =
         serde_json::from_str(&line).map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
+    if inferred_type_json.as_str() == Some("uniform") {
+        return Ok(GeneratedSchema::Uniform);
+    }
     let inferred_type = Shape::from_str(inferred_type_json.as_str().with_context(|| {
         ImportError::InvalidConvexValue(
             lineno,
@@ -480,7 +483,7 @@ async fn parse_generated_schema<T: ShapeConfig>(
         line.clear();
         lineno += 1;
     }
-    let generated_schema = GeneratedSchema {
+    let generated_schema = GeneratedSchema::LegacyInferred {
         inferred_shape: inferred_type,
         overrides,
     };

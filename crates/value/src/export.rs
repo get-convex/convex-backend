@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    collections::BTreeMap,
+    str::FromStr,
+};
 
 use errors::ErrorMetadata;
 use serde_json::{
@@ -9,6 +12,7 @@ use serde_json::{
 use crate::{
     ConvexObject,
     ConvexValue,
+    FieldName,
 };
 
 /// There are multiple ways a client may want their return Values represented.
@@ -30,6 +34,12 @@ pub enum ValueFormat {
     ///
     /// <https://www.notion.so/convex-dev/Clean-Export-serialization-c02508b390f54bdfa1cfdf06f9b7f71e>.
     ConvexCleanJSON,
+    /// Representing values with a lossless(*) but human-readable encoding.
+    ///
+    /// (*): lossless to Rust; int64s larger than Number.MAX_SAFE_VALUE will
+    /// lose precision if parsed in JS, and other languages may have trouble
+    /// distinguishing between int64 and float.
+    ConvexExportJSON,
 }
 
 impl FromStr for ValueFormat {
@@ -41,12 +51,23 @@ impl FromStr for ValueFormat {
             "convex_json" => Ok(Self::ConvexEncodedJSON), // Legacy alias
             "json" => Ok(Self::ConvexCleanJSON),
             "convex_clean_json" => Ok(Self::ConvexCleanJSON), // Legacy alias
+            "export_json" => Ok(Self::ConvexExportJSON),
             _ => Err(anyhow::anyhow!("unrecognized value format {s:?}").context(
                 ErrorMetadata::bad_request(
                     "BadFormat",
                     format!("format param must be one of [`json`]. Got {s}"),
                 ),
             )),
+        }
+    }
+}
+
+impl ValueFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ValueFormat::ConvexEncodedJSON => "convex_encoded_json",
+            ValueFormat::ConvexCleanJSON => "json",
+            ValueFormat::ConvexExportJSON => "export_json",
         }
     }
 }
@@ -66,6 +87,7 @@ impl ConvexValue {
         match value_format {
             ValueFormat::ConvexEncodedJSON => self.to_internal_json(),
             ValueFormat::ConvexCleanJSON => self.export_clean(),
+            ValueFormat::ConvexExportJSON => self.export_clean_lossless(),
         }
     }
 
@@ -123,6 +145,82 @@ impl ConvexValue {
             ),
         }
     }
+
+    /// See [`ValueFormat::ConvexExportJSON`].
+    fn export_clean_lossless(self) -> JsonValue {
+        match self {
+            ConvexValue::Null => JsonValue::Null,
+            ConvexValue::Int64(value) => {
+                // serializes as a decimal number, e.g. "123"
+                value.into()
+            },
+            ConvexValue::Float64(value) => {
+                if value.is_finite() {
+                    // serializes as a decimal number with a dot, e.g "123.0" or "-0.0"
+                    value.into()
+                } else {
+                    // use the `{"$integer":"<base64>"}` encoding
+                    self.to_internal_json()
+                }
+            },
+            ConvexValue::Boolean(value) => JsonValue::Bool(value),
+            ConvexValue::String(value) => JsonValue::String(value.into()),
+            this @ ConvexValue::Bytes(_) => {
+                // use the `{"$bytes":"<base64>"}` encoding
+                this.to_internal_json()
+            },
+            ConvexValue::Array(values) => JsonValue::Array(
+                values
+                    .into_iter()
+                    .map(|x| x.export_clean_lossless())
+                    .collect(),
+            ),
+            ConvexValue::Object(map) => JsonValue::Object(
+                map.into_iter()
+                    .map(|(key, value)| (key.to_string(), value.export_clean_lossless()))
+                    .collect(),
+            ),
+        }
+    }
+
+    /// See [`ValueFormat::ConvexExportJSON`].
+    pub fn from_clean_lossless(j: JsonValue) -> anyhow::Result<Self> {
+        Ok(match j {
+            JsonValue::Null => Self::Null,
+            JsonValue::Bool(b) => Self::Boolean(b),
+            JsonValue::Number(number) => {
+                if let Some(number) = number.as_i64() {
+                    Self::Int64(number)
+                } else if let Some(number) = number.as_f64() {
+                    Self::Float64(number)
+                } else {
+                    anyhow::bail!("number is neither i64 nor f64: {number:?}");
+                }
+            },
+            JsonValue::String(s) => Self::String(s.try_into()?),
+            JsonValue::Array(a) => Self::Array(
+                a.into_iter()
+                    .map(Self::from_clean_lossless)
+                    .collect::<anyhow::Result<Vec<Self>>>()?
+                    .try_into()?,
+            ),
+            JsonValue::Object(m) => {
+                if m.keys().next().is_some_and(|s| s.starts_with("$")) {
+                    // parse as internal JSON
+                    Self::try_from(JsonValue::Object(m))?
+                } else {
+                    Self::Object(
+                        m.into_iter()
+                            .map(|(k, v)| {
+                                anyhow::Ok((FieldName::try_from(k)?, Self::from_clean_lossless(v)?))
+                            })
+                            .collect::<anyhow::Result<BTreeMap<_, _>>>()?
+                            .try_into()?,
+                    )
+                }
+            },
+        })
+    }
 }
 
 #[cfg(test)]
@@ -155,6 +253,15 @@ mod tests {
             let client_value: convex::Value = json_value.try_into().unwrap();
             prop_assert_eq!(server_value.export_clean(), client_value.export());
         }
+
+        #[test]
+        fn lossless_roundtrips(
+            value in any::<ConvexValue>()
+        ) {
+            let exported = value.clone().export_clean_lossless();
+            let imported = ConvexValue::from_clean_lossless(exported);
+            prop_assert_eq!(imported.map_err(|e| TestCaseError::fail(format!("{e:?}")))?, value);
+        }
     }
 
     #[test]
@@ -170,5 +277,53 @@ mod tests {
     fn export_of_a_simple_int64() {
         let value = ConvexValue::Int64(42);
         assert_eq!(value.export_clean(), JsonValue::String("42".to_string()));
+    }
+
+    #[test]
+    fn export_lossless_integer() {
+        assert_eq!(
+            ConvexValue::Int64(42).export_clean_lossless().to_string(),
+            "42"
+        );
+        assert_eq!(
+            ConvexValue::Int64(i64::MAX)
+                .export_clean_lossless()
+                .to_string(),
+            "9223372036854775807"
+        );
+    }
+
+    #[test]
+    fn export_lossless_float() {
+        assert_eq!(
+            ConvexValue::Float64(0f64)
+                .export_clean_lossless()
+                .to_string(),
+            "0.0"
+        );
+        assert_eq!(
+            ConvexValue::Float64(-0f64)
+                .export_clean_lossless()
+                .to_string(),
+            "-0.0"
+        );
+        assert_eq!(
+            ConvexValue::Float64(f64::MIN)
+                .export_clean_lossless()
+                .to_string(),
+            "-1.7976931348623157e308"
+        );
+        assert_eq!(
+            ConvexValue::Float64(f64::MIN_POSITIVE)
+                .export_clean_lossless()
+                .to_string(),
+            "2.2250738585072014e-308"
+        );
+        assert_eq!(
+            ConvexValue::Float64(f64::INFINITY)
+                .export_clean_lossless()
+                .to_string(),
+            r#"{"$float":"AAAAAAAA8H8="}"#
+        );
     }
 }
