@@ -973,11 +973,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * This endpoint is a placeholder for generating our own access tokens.
+        /** This endpoint is a placeholder for generating our own access tokens.
          *     Right now, it is a no-op for the token.
-         *     Version 1 of the token is the WorkOS access token
-         */
+         *     Version 1 of the token is the WorkOS access token */
         post: operations["authorize_device"];
         delete?: never;
         options?: never;
@@ -1947,10 +1945,8 @@ export interface components {
         };
         /** @enum {string} */
         AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "deleteWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "disconnectWorkosTeam" | "inviteWorkosTeamMember" | "createProjectWorkosEnvironment" | "deleteProjectWorkosEnvironment" | "retrieveProjectWorkosEnvironmentCredentials" | "enableSSO" | "disableSSO" | "updateSSO" | "updateDeployment";
-        /**
-         * @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
-         *     who executed an AuditLogEvent
-         */
+        /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
+         *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
             member: {
                 member_id: components["schemas"]["MemberId"];
@@ -1976,11 +1972,9 @@ export interface components {
             metadata: components["schemas"]["Value"];
             teamId: components["schemas"]["TeamId"];
         };
-        /**
-         * @description Struct that contains the result of a query to the audit_logs table. The
+        /** @description Struct that contains the result of a query to the audit_logs table. The
          *     `events` field contains all of the `AuditLog` values and the `cursor` field
-         *     denotes where to resume the query if more results are needed.
-         */
+         *     denotes where to resume the query if more results are needed. */
         AuditLogResponse: {
             cursor?: string | null;
             events: components["schemas"]["AuditLogEventResponse"][];
@@ -2068,13 +2062,11 @@ export interface components {
             sourceDeploymentName: components["schemas"]["CloudDeploymentName"];
             state: string;
         };
-        /**
-         * @description Example instance names:
+        /** @description Example instance names:
          *
          *     tall-sheep-123
          *
-         *     test-tall-sheep-123  # Prefix of test for internal testing
-         */
+         *     test-tall-sheep-123  # Prefix of test for internal testing */
         CloudDeploymentName: string;
         ConfigurePeriodicBackupArgs: {
             cronspec: string;
@@ -2135,10 +2127,8 @@ export interface components {
              */
             projectId: number;
         };
-        /**
-         * @description Response for deleting a project environment - matches
-         *     DeleteWorkOSEnvironmentResponse
-         */
+        /** @description Response for deleting a project environment - matches
+         *     DeleteWorkOSEnvironmentResponse */
         DeleteProjectEnvironmentResponse: {
             workosEnvironmentId: string;
             workosEnvironmentName: string;
@@ -2186,11 +2176,9 @@ export interface components {
             projectId: components["schemas"]["ProjectId"];
             reference: components["schemas"]["DeploymentReference"];
             region: components["schemas"]["RegionName"];
-            /**
-             * @description Whether to send function logs to the client. If `null`, the
+            /** @description Whether to send function logs to the client. If `null`, the
              *     deployment-type default is used (true for dev/preview, false for
-             *     prod).
-             */
+             *     prod). */
             sendLogsToClient?: boolean | null;
         } | {
             /** Format: int64 */
@@ -2290,10 +2278,8 @@ export interface components {
             environmentName?: string | null;
             isProduction?: boolean | null;
         };
-        /**
-         * @description Response for getting a project WorkOS environment with credentials - matches
-         *     ProvisionProjectEnvironmentResponse pattern with workos_ prefix
-         */
+        /** @description Response for getting a project WorkOS environment with credentials - matches
+         *     ProvisionProjectEnvironmentResponse pattern with workos_ prefix */
         GetProjectEnvironmentResponse: {
             isProduction: boolean;
             /** @description The user-provided environment name (e.g., "staging", "development") */
@@ -2327,21 +2313,15 @@ export interface components {
             tokensUsed: number;
         };
         HasAssociatedWorkOSTeamResponse: {
-            /**
-             * @description Email of Convex team member who created the WorkOS account.
+            /** @description Email of Convex team member who created the WorkOS account.
              *     This field should always be present when has_associated_workos_team is
-             *     true.
-             */
+             *     true. */
             adminConvexEmail?: string | null;
-            /**
-             * @description Email address used to provision the WorkOS account. This field should
-             *     always be present if has_associated_workos_team is true.
-             */
+            /** @description Email address used to provision the WorkOS account. This field should
+             *     always be present if has_associated_workos_team is true. */
             adminEmail?: string | null;
-            /**
-             * @description Name of Convex team member who created the WorkOS account.
-             *     This field is optional even when has_associated_workos_team is true.
-             */
+            /** @description Name of Convex team member who created the WorkOS account.
+             *     This field is optional even when has_associated_workos_team is true. */
             adminName?: string | null;
             hasAssociatedWorkosTeam: boolean;
             teamId: components["schemas"]["TeamId"];
@@ -2363,10 +2343,8 @@ export interface components {
             kind: "Local";
         };
         InvitationEligibleEmailsResponse: {
-            /**
-             * @description The admin email used to create this team's WorkOS account (always
-             *     eligible for re-invitation)
-             */
+            /** @description The admin email used to create this team's WorkOS account (always
+             *     eligible for re-invitation) */
             adminEmail?: string | null;
             eligibleEmails: string[];
         };
@@ -2376,10 +2354,8 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         InviteWorkOSTeamMemberRequest: {
-            /**
-             * @description Email address to invite to the WorkOS team,
-             *     must be a verified email address associated with the user's account
-             */
+            /** @description Email address to invite to the WorkOS team,
+             *     must be a verified email address associated with the user's account */
             email: string;
             /** @description Convex team ID that has an associated WorkOS team */
             teamId: components["schemas"]["TeamId"];
@@ -2403,10 +2379,8 @@ export interface components {
         InvoicesResponse: {
             invoices: components["schemas"]["InvoiceResponse"][];
         };
-        /**
-         * @description Indicates whether the deployment is the default prod deployment for the
-         *     project, or the default cloud dev deployment for the member in the project.
-         */
+        /** @description Indicates whether the deployment is the default prod deployment for the
+         *     project, or the default cloud dev deployment for the member in the project. */
         IsDefaultDeployment: boolean;
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
@@ -2523,11 +2497,9 @@ export interface components {
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
         };
-        /**
-         * @description Summary of a project WorkOS environment for list responses - slimmer than
+        /** @description Summary of a project WorkOS environment for list responses - slimmer than
          *     full environment details, uses workos_ prefix for consistency with
-         *     deployment
-         */
+         *     deployment */
         ProjectEnvironmentSummary: {
             isProduction: boolean;
             /** @description The user-provided environment name (e.g., "staging", "development") */
@@ -2576,10 +2548,8 @@ export interface components {
             environmentName: string;
             isProduction?: boolean | null;
         };
-        /**
-         * @description Response for provisioning a project WorkOS environment - matches
-         *     ProvisionEnvironmentResponse pattern with workos_ prefix for consistency
-         */
+        /** @description Response for provisioning a project WorkOS environment - matches
+         *     ProvisionEnvironmentResponse pattern with workos_ prefix for consistency */
         ProvisionProjectEnvironmentResponse: {
             newlyProvisioned: boolean;
             /** @description The user-provided environment name (e.g., "staging", "development") */
@@ -2590,10 +2560,8 @@ export interface components {
             workosEnvironmentName: string;
         };
         ProvisionWorkOSTeamRequest: {
-            /**
-             * @description Email address to use for the WorkOS team admin,
-             *     must be a verified email address associated with the user's account
-             */
+            /** @description Email address to use for the WorkOS team admin,
+             *     must be a verified email address associated with the user's account */
             email: string;
             /** @description Convex team ID, no WorkOS team exists at this point */
             teamId: components["schemas"]["TeamId"];
@@ -2651,8 +2619,7 @@ export interface components {
         };
         /** @enum {string} */
         SSOPortalIntent: "sso" | "domainVerification" | "certificateRenewal";
-        /**
-         * @description ConvexAccessToken is our own internal notion of authorization.
+        /** @description ConvexAccessToken is our own internal notion of authorization.
          *     It is versioned.
          *
          *     V1 - uses an WorkOS access token for authorization.
@@ -2669,8 +2636,7 @@ export interface components {
          *     left public.
          *
          *     The json is externally tagged. Expect it to look like
-         *     {"v1": "workostoken"}
-         */
+         *     {"v1": "workostoken"} */
         SerializedAccessToken: string;
         SetSpendingLimitArgs: {
             /** Format: int64 */
