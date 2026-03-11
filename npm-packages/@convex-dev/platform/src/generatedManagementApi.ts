@@ -547,6 +547,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/create_team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a team */
+        post: operations["create team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -648,6 +665,10 @@ export interface components {
              *     deployment was requested. */
             deploymentUrl?: string | null;
             projectId: components["schemas"]["ProjectId"];
+        };
+        PlatformCreateTeamArgs: {
+            defaultRegion: components["schemas"]["RegionName"];
+            name: components["schemas"]["ProposedTeamName"];
         };
         PlatformCustomDomainResponse: {
             /**
@@ -873,6 +894,8 @@ export interface components {
         ProjectId: number;
         ProjectName: string;
         ProjectSlug: string;
+        ProposedTeamName: string;
+        ReferralCode: string;
         /** @enum {string} */
         RegionName: "aws-us-east-1" | "aws-eu-west-1";
         /** @enum {string} */
@@ -889,6 +912,20 @@ export interface components {
             name?: string | null;
             /** @description The role of the team member */
             role: components["schemas"]["Role"];
+        };
+        TeamName: string;
+        TeamResponse: {
+            creator?: null | components["schemas"]["MemberId"];
+            defaultRegion?: null | components["schemas"]["RegionName"];
+            id: components["schemas"]["TeamId"];
+            managedBy?: null | components["schemas"]["ManagedBy"];
+            managedByUrl?: string | null;
+            name: components["schemas"]["TeamName"];
+            referralCode: components["schemas"]["ReferralCode"];
+            referredBy?: null | components["schemas"]["TeamId"];
+            slug: components["schemas"]["TeamSlug"];
+            ssoLoginId?: string | null;
+            suspended: boolean;
         };
         TeamSlug: string;
     };
@@ -922,6 +959,7 @@ export type PlatformCreatePreviewDeployKeyArgs = components['schemas']['Platform
 export type PlatformCreatePreviewDeployKeyResponse = components['schemas']['PlatformCreatePreviewDeployKeyResponse'];
 export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
 export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
+export type PlatformCreateTeamArgs = components['schemas']['PlatformCreateTeamArgs'];
 export type PlatformCustomDomainResponse = components['schemas']['PlatformCustomDomainResponse'];
 export type PlatformDeleteCustomDomainArgs = components['schemas']['PlatformDeleteCustomDomainArgs'];
 export type PlatformDeleteDeployKeyArgs = components['schemas']['PlatformDeleteDeployKeyArgs'];
@@ -938,11 +976,15 @@ export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeployme
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
+export type ProposedTeamName = components['schemas']['ProposedTeamName'];
+export type ReferralCode = components['schemas']['ReferralCode'];
 export type RegionName = components['schemas']['RegionName'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type Role = components['schemas']['Role'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMember = components['schemas']['TeamMember'];
+export type TeamName = components['schemas']['TeamName'];
+export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -1606,6 +1648,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlatformListTeamMembersResponse"];
                 };
+            };
+        };
+    };
+    "create team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformCreateTeamArgs"];
+            };
+        };
+        responses: {
+            /** @description Team created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamResponse"];
+                };
+            };
+            /** @description Caller is not authorized to create teams */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

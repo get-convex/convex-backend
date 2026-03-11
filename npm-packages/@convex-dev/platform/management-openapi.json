@@ -1397,6 +1397,41 @@
           }
         ]
       }
+    },
+    "/teams/create_team": {
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "Create a team",
+        "operationId": "create team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateTeamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Team created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not authorized to create teams"
+          }
+        },
+        "security": []
+      }
     }
   },
   "components": {
@@ -1720,6 +1755,21 @@
           },
           "projectId": {
             "$ref": "#/components/schemas/ProjectId"
+          }
+        }
+      },
+      "PlatformCreateTeamArgs": {
+        "type": "object",
+        "required": [
+          "defaultRegion",
+          "name"
+        ],
+        "properties": {
+          "defaultRegion": {
+            "$ref": "#/components/schemas/RegionName"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ProposedTeamName"
           }
         }
       },
@@ -2231,6 +2281,12 @@
       "ProjectSlug": {
         "type": "string"
       },
+      "ProposedTeamName": {
+        "type": "string"
+      },
+      "ReferralCode": {
+        "type": "string"
+      },
       "RegionName": {
         "type": "string",
         "enum": [
@@ -2282,6 +2338,88 @@
           "role": {
             "$ref": "#/components/schemas/Role",
             "description": "The role of the team member"
+          }
+        }
+      },
+      "TeamName": {
+        "type": "string"
+      },
+      "TeamResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "suspended",
+          "referralCode"
+        ],
+        "properties": {
+          "creator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId"
+              }
+            ]
+          },
+          "defaultRegion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegionName"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "managedBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedBy"
+              }
+            ]
+          },
+          "managedByUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "$ref": "#/components/schemas/TeamName"
+          },
+          "referralCode": {
+            "$ref": "#/components/schemas/ReferralCode"
+          },
+          "referredBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamId"
+              }
+            ]
+          },
+          "slug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
+          "ssoLoginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suspended": {
+            "type": "boolean"
           }
         }
       },
