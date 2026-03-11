@@ -3,7 +3,6 @@ use std::{
         BTreeMap,
         Bound,
     },
-    future,
     iter,
     marker::PhantomData,
     num::NonZeroU32,
@@ -18,6 +17,10 @@ use common::{
         search_index::SearchBackfillCursor,
         IndexMetadata,
     },
+    index::{
+        IndexKey,
+        IndexKeyBytes,
+    },
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         SEARCH_WORKERS_MAX_CHECKPOINT_AGE,
@@ -25,7 +28,15 @@ use common::{
     },
     persistence::{
         DocumentLogEntry,
+        LatestDocument,
+        PersistenceReader,
+        PersistenceSnapshot,
+        RepeatablePersistence,
         TimestampRange,
+    },
+    query::{
+        CursorPosition,
+        Order,
     },
     runtime::{
         new_rate_limiter,
@@ -52,8 +63,9 @@ use tokio::{
     task,
 };
 use value::{
-    DeveloperDocumentId,
     ResolvedDocumentId,
+    TableNumber,
+    TabletId,
 };
 
 use crate::{
@@ -88,6 +100,7 @@ use crate::{
         FlusherType,
         MultiSegmentBackfillResult,
     },
+    table_iteration::TableScanCursor,
     Database,
     IndexModel,
     SystemMetadataModel,
@@ -115,6 +128,7 @@ impl<RT: Runtime, T: SearchIndex> Deref for SearchFlusher<RT, T> {
 pub struct Params<RT: Runtime, T: SearchIndex> {
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     limits: SearchIndexLimits,
     build_args: T::BuildIndexArgs,
@@ -144,6 +158,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         limits: SearchIndexLimits,
         writer: SearchIndexMetadataWriter<RT, T>,
@@ -154,6 +169,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             params: Params {
                 runtime,
                 database,
+                reader,
                 storage,
                 limits,
                 build_args,
@@ -355,6 +371,59 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         Ok((to_build, tx.into_token()?))
     }
 
+    /// Build a segment for a search index, handling both partial updates to
+    /// existing indexes and incremental backfill of new indexes.
+    ///
+    /// # Incremental Backfill Algorithm
+    ///
+    /// When a new search index is created on a large table, we don't build one
+    /// giant segment. Instead we scan the table incrementally by document ID,
+    /// building one segment per flusher iteration. The cursor and segments are
+    /// persisted in [`BackfillState`] so progress survives restarts.
+    ///
+    /// ```text
+    ///                          doc_id ──►
+    ///              1    2    3    4    5    6    7
+    ///         ┌──────────────┐
+    ///         │  S0          │
+    ///         │  table scan  │
+    ///  t0 ────├──────────────┼─────────────┐
+    ///    │    │  S1          │ S1          │
+    ///    │    │  doc log     │ table scan  │
+    ///  t1 ────├──────────────┴─────────────┼──────────┐
+    ///    │    │  S2                        │ S2       │
+    ///    │    │  doc log                   │ table    │
+    ///    │    │                            │ scan     │
+    ///  t2 ────└────────────────────────────┴──────────┘
+    ///    ▼
+    ///   ts
+    ///
+    ///  Each segment has two parts:
+    ///    - incremental_table_scan(): Scans the by_id index from
+    ///      cursor forward (the squares along the diagonal),
+    ///      accumulating documents until
+    ///      incremental_multipart_threshold_bytes is reached.
+    ///    - walk_document_log_for_updates(): Reads the doc
+    ///      log for (prev_ts, new_ts], filtered to doc IDs <=
+    ///      cursor start (the rectangles below the diagonal).
+    ///      This catches updates and deletes to already-scanned
+    ///      documents and feeds them to build_disk_index to apply
+    ///      deletes to previous segments.
+    ///
+    ///  build_incremental_doc_stream() chains the table scan then
+    ///  the doc log, so build_disk_index sees new documents first,
+    ///  then mutations to previous segments.
+    /// ```
+    ///
+    /// Steps per iteration:
+    /// 1. [`incremental_table_scan`]: scan by_id from cursor, up to threshold
+    /// 2. [`build_incremental_doc_stream`]: chain table scan docs with doc log
+    ///    updates
+    /// 3. [`build_disk_index`]: build new segment, apply deletes to prior ones
+    /// 4. Upload segment, persist cursor + segments to [`BackfillState`]
+    ///
+    /// After the final iteration (cursor reaches End), the index transitions
+    /// from Backfilling to SnapshottedAt and becomes ready for queries.
     async fn build_multipart_segment(
         &self,
         job: &IndexBuild<T>,
@@ -362,21 +431,20 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     ) -> anyhow::Result<IndexBuildResult<T>> {
         let index_path = TempDir::new()?;
         let mut tx = self.database.begin(Identity::system()).await?;
-        let tablet_id = *job.index_name.table();
-        let table_number = tx.table_mapping().tablet_number(tablet_id)?;
-        let mut new_ts = tx.begin_timestamp();
+
+        let new_ts = tx.begin_timestamp();
         let (previous_segments, build_type) = match job.index_config.on_disk_state {
             SearchOnDiskState::Backfilling(ref backfill_state) => {
                 // TODO(ENG-9707) Remove this code to ensure backwards compatibility once we've
                 // rolled out the new backfill algorithm.
                 //
                 // Restart backfill from
-                // the beginning if last_segment_ts is not None. This
+                // the beginning if backfill_snapshot_ts is not None. This
                 // means a version of the search flusher has run that supports a different
                 // backfill algorithm, but this version does not support that algorithm so we
                 // need to restart the backfill.
-                match backfill_state.cursor {
-                    Some(SearchBackfillCursor::WalkingForwards { .. }) => {
+                match &backfill_state.cursor {
+                    Some(SearchBackfillCursor::AtSnapshot { .. }) => {
                         let tablet = job.index_name.table();
                         let table_name = tx.table_mapping().tablet_name(*tablet)?;
                         let table_namespace = tx.table_mapping().tablet_namespace(*tablet)?;
@@ -395,7 +463,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                                     cursor: None,
                                     staged: backfill_state.staged,
                                 }),
-                            )?,
+                            ),
                         };
 
                         SystemMetadataModel::new_global(&mut tx)
@@ -404,27 +472,21 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         (
                             no_segments,
                             MultipartBuildType::IncrementalComplete {
-                                cursor: None,
-                                backfill_snapshot_ts: new_ts,
+                                start_cursor: None,
+                                last_segment_ts: new_ts,
                             },
                         )
                     },
-                    Some(SearchBackfillCursor::AtSnapshot {
-                        backfill_snapshot_ts,
-                        cursor,
-                    }) => {
-                        new_ts = new_ts.prior_ts(backfill_snapshot_ts)?;
-                        (
-                            backfill_state.segments.clone(),
-                            MultipartBuildType::IncrementalComplete {
-                                cursor: Some(ResolvedDocumentId::new(
-                                    tablet_id,
-                                    DeveloperDocumentId::new(table_number, cursor),
-                                )),
-                                backfill_snapshot_ts: new_ts,
-                            },
-                        )
-                    },
+                    Some(SearchBackfillCursor::WalkingForwards {
+                        last_segment_ts,
+                        table_scan_cursor,
+                    }) => (
+                        backfill_state.segments.clone(),
+                        MultipartBuildType::IncrementalComplete {
+                            start_cursor: Some(IndexKeyBytes(table_scan_cursor.to_vec())),
+                            last_segment_ts: new_ts.prior_ts(*last_segment_ts)?,
+                        },
+                    ),
                     None => {
                         // This is the beginning of a backfill!
                         // We need to initialize the backfill with the size of the table at this
@@ -440,8 +502,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         (
                             vec![],
                             MultipartBuildType::IncrementalComplete {
-                                cursor: None,
-                                backfill_snapshot_ts: new_ts,
+                                start_cursor: None,
+                                last_segment_ts: new_ts,
                             },
                         )
                     },
@@ -515,7 +577,11 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let data = SnapshotData::MultiSegment(new_and_updated_parts);
 
         Ok(IndexBuildResult {
-            snapshot_ts: new_ts,
+            // Backfilled indexes may have a newer timestamp if they're using the new algorithm.
+            snapshot_ts: backfill_result
+                .as_ref()
+                .map(|result| result.new_ts)
+                .unwrap_or(new_ts),
             data,
             total_stats,
             new_segment_stats,
@@ -582,14 +648,14 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     .context("Invalid row rate limit")?,
             ),
         );
-        // Cursor and completion state for MultipartBuildType::IncrementalComplete
-        let mut new_cursor = None;
-        let mut is_backfill_complete = true;
-        let mut is_size_exceeded = false;
         let qdrant_schema = T::new_schema(&spec);
 
-        let mut lower_bound_ts: Option<Timestamp> = None;
-        let (documents, previous_segments) = match build_type {
+        // Actually create the persistence after new_ts is determined so it covers the
+        // full range for incremental doc log walks.
+        let persistence;
+
+        let lower_bound_ts: Option<Timestamp>;
+        let (documents, previous_segments, backfill_result) = match build_type {
             MultipartBuildType::Partial(last_ts) => {
                 lower_bound_ts = Some(*last_ts);
                 let range =
@@ -601,56 +667,51 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     T::partial_document_order(),
                     &row_rate_limiter,
                 );
-                (documents, previous_segments)
+                (documents, previous_segments, None)
             },
             MultipartBuildType::IncrementalComplete {
-                cursor,
-                backfill_snapshot_ts,
+                start_cursor,
+                last_segment_ts,
             } => {
-                let documents = params
-                    .database
-                    .table_iterator(backfill_snapshot_ts, *VECTOR_INDEX_WORKER_PAGE_SIZE)
-                    .stream_documents_in_table(*index_name.table(), by_id, cursor)
-                    .scan(0_u64, |total_size, res| {
-                        if is_size_exceeded {
-                            is_backfill_complete = false;
-                            return future::ready(None);
-                        }
-                        let updated_cursor = if let Ok(rev) = &res {
-                            let size = T::estimate_document_size(&qdrant_schema, &rev.value);
-                            *total_size += size;
-                            Some(rev.value.id())
-                        } else {
-                            None
-                        };
-                        if *total_size >= params.limits.incremental_multipart_threshold_bytes as u64
-                        {
-                            // The size is exceeded, but we don't know whether the backfill is
-                            // complete until we see if there is another document. So set a boolean
-                            // and see if we loop again. If we do, then we know the backfill isn't
-                            // finished. If we don't, then this happens to be the last document and
-                            // the backfill is done.
-                            // This behavior is only really important for very large documents or
-                            // very small incremental_multipart_threshold_bytes values where you can
-                            // have weird behavior if we returned early here instead (like never
-                            // marking the index as backfilled).
-                            is_size_exceeded = true;
-                        }
-                        if let Some(updated_cursor) = updated_cursor {
-                            new_cursor = Some(updated_cursor);
-                        }
-                        future::ready(Some(res))
-                    })
-                    .map_ok(|rev| DocumentLogEntry {
-                        ts: rev.ts,
-                        id: rev.value.id_with_table_id(),
-                        value: Some(rev.value),
-                        prev_ts: rev.prev_ts,
-                    })
-                    .boxed();
+                let mut tx = params.database.begin_system().await?;
+                let tablet_id = *index_name.table();
+                let table_number = tx.table_mapping().tablet_number(tablet_id)?;
+                let new_ts = tx.begin_timestamp();
+                drop(tx);
+                persistence = RepeatablePersistence::new(
+                    params.reader.clone(),
+                    new_ts,
+                    params.database.retention_validator(),
+                );
+
+                let IncrementalTableScanResult {
+                    documents,
+                    new_cursor,
+                } = incremental_table_scan::<T>(
+                    &persistence.read_snapshot(new_ts)?,
+                    start_cursor.clone(),
+                    by_id,
+                    tablet_id,
+                    &qdrant_schema,
+                    params.limits.incremental_multipart_threshold_bytes,
+                )
+                .await?;
+
+                let doc_stream = build_incremental_doc_stream::<T>(
+                    &persistence,
+                    last_segment_ts,
+                    new_ts,
+                    table_number,
+                    tablet_id,
+                    documents,
+                    start_cursor,
+                );
+
+                lower_bound_ts = Some(*last_segment_ts);
                 (
-                    T::table_scan_stream_to_doc_stream(documents),
+                    doc_stream,
                     previous_segments,
+                    Some(MultiSegmentBackfillResult { new_cursor, new_ts }),
                 )
             },
         };
@@ -671,24 +732,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let updated_previous_segments =
             T::upload_previous_segments(params.storage, mutable_previous_segments).await?;
 
-        let index_backfill_result =
-            if let MultipartBuildType::IncrementalComplete { .. } = build_type {
-                let result = if is_backfill_complete {
-                    MultiSegmentBackfillResult::Complete
-                } else {
-                    let cursor =
-                        new_cursor.context("Must have a cursor for incomplete backfill build")?;
-                    MultiSegmentBackfillResult::InProgress(cursor)
-                };
-                Some(result)
-            } else {
-                None
-            };
-
         Ok(MultiSegmentBuildResult {
             new_segment,
             updated_previous_segments,
-            backfill_result: index_backfill_result,
+            backfill_result,
         })
     }
 
@@ -704,6 +751,112 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             });
         handle.join().await?;
         rx.await?
+    }
+}
+
+pub(crate) struct IncrementalTableScanResult {
+    pub documents: Vec<(IndexKeyBytes, LatestDocument)>,
+    pub new_cursor: TableScanCursor,
+}
+
+pub(crate) async fn incremental_table_scan<T: SearchIndex>(
+    reader: &PersistenceSnapshot,
+    start_cursor: Option<IndexKeyBytes>,
+    by_id: IndexId,
+    tablet_id: TabletId,
+    schema: &T::Schema,
+    threshold_bytes: usize,
+) -> anyhow::Result<IncrementalTableScanResult> {
+    let page_size = *VECTOR_INDEX_WORKER_PAGE_SIZE;
+    let mut total_size = 0u64;
+    let mut all_documents = Vec::new();
+    let mut cursor = TableScanCursor {
+        index_key: start_cursor.map(CursorPosition::After),
+    };
+
+    'outer: loop {
+        let stream = reader.index_scan(by_id, tablet_id, &cursor.interval(), Order::Asc, page_size);
+        let page: Vec<_> = stream.take(page_size).try_collect().await?;
+        if page.len() < page_size {
+            cursor.advance(CursorPosition::End)?;
+        } else if let Some((index_key, ..)) = page.last() {
+            cursor.advance(CursorPosition::After(index_key.clone()))?;
+        }
+        if page.is_empty() {
+            break;
+        }
+
+        let page_len = page.len();
+        for (i, (index_key, latest_doc)) in page.into_iter().enumerate() {
+            let developer_doc_id = latest_doc.value.id().developer_id;
+            let size = T::estimate_document_size(schema, &latest_doc.value);
+            total_size += size;
+
+            all_documents.push((index_key, latest_doc));
+            if total_size >= threshold_bytes as u64 {
+                // Reset the cursor to be in the middle of the page we just interrupted
+                // processing because we exceeded the size limit for the segment unless we just
+                // processed the last document in the page.
+                if i != page_len - 1 {
+                    cursor.index_key = Some(CursorPosition::After(
+                        IndexKey::new(vec![], developer_doc_id).to_bytes(),
+                    ));
+                }
+                break 'outer;
+            }
+        }
+        if matches!(cursor.index_key, Some(CursorPosition::End)) {
+            break;
+        }
+    }
+
+    Ok(IncrementalTableScanResult {
+        documents: all_documents,
+        new_cursor: cursor,
+    })
+}
+
+/// Build the document stream for incremental backfill from table scan
+/// results and chains in the doc log for updates to previously-scanned
+/// documents if `start_cursor` is present (we're not building the first
+/// segment).
+fn build_incremental_doc_stream<'a, T: SearchIndex>(
+    reader: &'a RepeatablePersistence,
+    previous_ts: RepeatableTimestamp,
+    new_ts: RepeatableTimestamp,
+    table_number: TableNumber,
+    tablet_id: TabletId,
+    documents: Vec<(IndexKeyBytes, LatestDocument)>,
+    start_cursor: Option<IndexKeyBytes>,
+) -> T::DocStream<'a> {
+    // Convert Vec<(IndexKeyBytes, LatestDocument)> into a DocumentStream
+    let document_stream =
+        futures::stream::iter(documents.into_iter().map(|(_index_key, latest_doc)| {
+            Ok(DocumentLogEntry {
+                ts: latest_doc.ts,
+                id: latest_doc.value.id_with_table_id(),
+                value: Some(latest_doc.value),
+                prev_ts: latest_doc.prev_ts,
+            })
+        }))
+        .boxed();
+
+    let scan_doc_stream = T::table_scan_stream_to_doc_stream(document_stream);
+
+    // If we have a start cursor, walk over the document log to see if
+    // there are any updates to documents before and including the cursor that we
+    // need to propagate to previous segments.
+    if let Some(ref start_index_key) = start_cursor {
+        T::walk_document_log_for_updates(
+            scan_doc_stream,
+            reader,
+            tablet_id,
+            table_number,
+            TimestampRange::new((Bound::Excluded(*previous_ts), Bound::Included(*new_ts))),
+            ..=start_index_key.clone(),
+        )
+    } else {
+        scan_doc_stream
     }
 }
 
@@ -737,13 +890,15 @@ pub struct MultiSegmentBuildResult<T: SearchIndex> {
 }
 
 /// Specifies how documents should be fetched to construct this segment
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum MultipartBuildType {
     // Build a part
     Partial(RepeatableTimestamp),
     // Build the whole index in parts
     IncrementalComplete {
-        cursor: Option<ResolvedDocumentId>,
-        backfill_snapshot_ts: RepeatableTimestamp,
+        /// Index key after which to start the next segment table scan from
+        start_cursor: Option<IndexKeyBytes>,
+        /// Timestamp from the last segment built during backfilling.
+        last_segment_ts: RepeatableTimestamp,
     },
 }

@@ -160,14 +160,16 @@ pub async fn backfill_indexes(
 ) -> anyhow::Result<()> {
     let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
     let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone())?);
+    let reader = tp.reader();
     backfill_text_indexes(
         rt.clone(),
         db.clone(),
+        reader.clone(),
         storage.clone(),
         segment_term_metadata_fetcher,
     )
     .await?;
-    backfill_vector_indexes(rt.clone(), db.clone(), storage).await?;
+    backfill_vector_indexes(rt.clone(), db.clone(), reader, storage).await?;
     // As long as these tests don't actually have data in the tables, we could
     // probably just mutate the index state. But running the whole IndexWorker
     // is easy and is a bit more robust to changes, so why not...

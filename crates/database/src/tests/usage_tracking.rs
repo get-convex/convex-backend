@@ -319,7 +319,7 @@ async fn text_fields_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Resul
 
     let key = (ComponentPath::root(), index_name.table().clone());
     let value = storage.get(&key).copied();
-    assert_eq!(value, Some(2658_u64));
+    assert_eq!(value, Some(2657_u64));
     Ok(())
 }
 
@@ -360,7 +360,7 @@ async fn text_index_backfilled_staged_counts_as_usage(rt: TestRuntime) -> anyhow
         .get_text_index_storage(&Identity::system())?;
     let key = (ComponentPath::root(), index_name.table().clone());
     let value = storage.get(&key).copied();
-    assert_eq!(value, Some(2657_u64));
+    assert_eq!(value, Some(2658_u64));
     Ok(())
 }
 
@@ -488,7 +488,7 @@ async fn text_query_counts_usage(rt: TestRuntime) -> anyhow::Result<()> {
         .unwrap();
 
     assert_eq!(*num_searches, 2);
-    assert_eq!(*bytes_searched, 2 * 2659);
+    assert_eq!(*bytes_searched, 2 * 2658);
     Ok(())
 }
 

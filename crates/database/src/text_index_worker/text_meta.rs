@@ -3,6 +3,7 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    ops::RangeToInclusive,
     path::PathBuf,
     sync::Arc,
 };
@@ -26,9 +27,14 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    index::{
+        IndexKey,
+        IndexKeyBytes,
+    },
     persistence::{
         DocumentRevisionStream,
         DocumentStream,
+        RepeatablePersistence,
         TimestampRange,
     },
     persistence_helpers::{
@@ -68,7 +74,11 @@ use search::{
 };
 use storage::Storage;
 use sync_types::Timestamp;
-use value::TabletId;
+use value::{
+    DeveloperDocumentId,
+    TableNumber,
+    TabletId,
+};
 
 use crate::{
     search_index_workers::index_meta::{
@@ -236,6 +246,27 @@ impl SearchIndex for TextSearchIndex {
             .boxed()
     }
 
+    fn walk_document_log_for_updates<'a>(
+        scan_doc_stream: DocumentRevisionStream<'a>,
+        reader: &'a RepeatablePersistence,
+        tablet_id: TabletId,
+        table_number: TableNumber,
+        range: TimestampRange,
+        filter_id_range: RangeToInclusive<IndexKeyBytes>,
+    ) -> DocumentRevisionStream<'a> {
+        let log_stream = reader
+            .load_revision_pairs(Some(tablet_id), range, Order::Desc)
+            .try_filter(move |revision_pair| {
+                let doc_id_index_key = IndexKey::new(
+                    vec![],
+                    DeveloperDocumentId::new(table_number, revision_pair.id.internal_id()),
+                );
+                futures::future::ready(filter_id_range.contains(&doc_id_index_key.to_bytes()))
+            })
+            .boxed();
+        scan_doc_stream.chain(log_stream).boxed()
+    }
+
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
@@ -282,15 +313,12 @@ impl SearchIndex for TextSearchIndex {
         Ok((spec, SearchOnDiskState::from(on_disk_state)))
     }
 
-    fn new_index_config(
-        spec: Self::Spec,
-        new_state: SearchOnDiskState<Self>,
-    ) -> anyhow::Result<IndexConfig> {
+    fn new_index_config(spec: Self::Spec, new_state: SearchOnDiskState<Self>) -> IndexConfig {
         let on_disk_state = TextIndexState::from(new_state);
-        Ok(IndexConfig::Text {
+        IndexConfig::Text {
             on_disk_state,
             spec,
-        })
+        }
     }
 
     fn search_type() -> SearchType {

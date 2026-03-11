@@ -24,8 +24,11 @@ pub type VectorIndexBackfillState = BackfillState<FragmentedVectorSegment>;
 #[derive(Serialize, Deserialize)]
 pub struct SerializedVectorIndexBackfillState {
     segments: Option<Vec<SerializedFragmentedVectorSegment>>,
+    /// TODO(ENG-9707): Remove this deprecated field that used the InternalId
+    /// serialized as a string
     document_cursor: Option<String>,
     backfill_snapshot_ts: Option<i64>,
+    /// New cursor format (using the IndexKeyBytes in the TableScanCursor)
     table_scan_cursor: Option<Vec<u8>>,
     last_segment_ts: Option<i64>,
     staged: Option<bool>,

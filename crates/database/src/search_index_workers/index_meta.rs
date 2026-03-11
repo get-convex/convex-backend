@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     fmt::Debug,
+    ops::RangeToInclusive,
     path::PathBuf,
     sync::Arc,
 };
@@ -19,8 +20,10 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    index::IndexKeyBytes,
     persistence::{
         DocumentStream,
+        RepeatablePersistence,
         TimestampRange,
     },
     query::Order,
@@ -38,6 +41,7 @@ use storage::Storage;
 use sync_types::Timestamp;
 use value::{
     ConvexObject,
+    TableNumber,
     TabletId,
 };
 
@@ -75,11 +79,7 @@ pub trait SearchIndex: Clone + Debug {
     /// the parser (e.g. Text vs Vector) and `None` otherwise.
     fn get_config(_config: &IndexConfig) -> Option<SearchIndexConfig<Self>>;
 
-    // TODO(CX-6589): Make this infallible
-    fn new_index_config(
-        spec: Self::Spec,
-        new_state: SearchOnDiskState<Self>,
-    ) -> anyhow::Result<IndexConfig>;
+    fn new_index_config(spec: Self::Spec, new_state: SearchOnDiskState<Self>) -> IndexConfig;
 
     fn extract_metadata(
         metadata: ParsedDocument<TabletIndexMetadata>,
@@ -119,6 +119,19 @@ pub trait SearchIndex: Clone + Debug {
     /// Convert a table scan document stream (DocumentLogEntry, no deletes)
     /// into this search type's `DocStream` format.
     fn table_scan_stream_to_doc_stream<'a>(documents: DocumentStream<'a>) -> Self::DocStream<'a>;
+
+    /// Load updates from the document log for previously-scanned documents
+    /// during an incremental backfill, and chain them after an existing
+    /// doc stream from the table scan. The doc log stream is filtered to only
+    /// documents within `filter_id_range`.
+    fn walk_document_log_for_updates<'a>(
+        scan_doc_stream: Self::DocStream<'a>,
+        reader: &'a RepeatablePersistence,
+        tablet_id: TabletId,
+        table_number: TableNumber,
+        range: TimestampRange,
+        filter_id_range: RangeToInclusive<IndexKeyBytes>,
+    ) -> Self::DocStream<'a>;
 
     async fn build_disk_index(
         schema: &Self::Schema,

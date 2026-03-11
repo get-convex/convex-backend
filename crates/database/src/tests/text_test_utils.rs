@@ -160,6 +160,7 @@ impl TextFixtures {
         FlusherBuilder::new(
             self.rt.clone(),
             self.db.clone(),
+            self.reader.clone(),
             self.storage.clone(),
             self.segment_term_metadata_fetcher.clone(),
             self.writer.clone(),
@@ -244,6 +245,7 @@ impl TextFixtures {
         backfill_text_indexes(
             self.rt.clone(),
             self.db.clone(),
+            self.reader.clone(),
             self.storage.clone(),
             self.segment_term_metadata_fetcher.clone(),
         )

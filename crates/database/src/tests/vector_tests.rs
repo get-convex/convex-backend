@@ -9,7 +9,9 @@ use std::{
 use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::{
+        search_index::SearchBackfillCursor,
         vector_index::{
+            VectorIndexBackfillState,
             VectorIndexSnapshot,
             VectorIndexSnapshotData,
             VectorIndexSpec,
@@ -23,6 +25,7 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
+    persistence::PersistenceReader,
     runtime::Runtime,
     types::{
         unchecked_repeatable_ts,
@@ -107,6 +110,7 @@ const TABLE_NAMESPACE: TableNamespace = TableNamespace::test_user();
 struct Scenario<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
 }
@@ -114,6 +118,7 @@ struct Scenario<RT: Runtime> {
 impl<RT: Runtime> Scenario<RT> {
     async fn new(rt: RT) -> anyhow::Result<Self> {
         let DbFixtures {
+            tp,
             db,
             searcher,
             search_storage,
@@ -132,6 +137,7 @@ impl<RT: Runtime> Scenario<RT> {
         let self_ = Self {
             rt,
             database: db,
+            reader: tp.reader(),
             search_storage,
             searcher,
         };
@@ -149,6 +155,7 @@ impl<RT: Runtime> Scenario<RT> {
         new_vector_flusher_for_tests(
             self.rt.clone(),
             self.database.clone(),
+            self.reader.clone(),
             self.search_storage.clone(),
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -226,6 +233,7 @@ impl<RT: Runtime> Scenario<RT> {
         backfill_vector_indexes(
             self.rt.clone(),
             self.database.clone(),
+            self.reader.clone(),
             self.search_storage.clone(),
         )
         .await?;
@@ -261,6 +269,96 @@ impl<RT: Runtime> Scenario<RT> {
             )
             .await?;
         Ok(results)
+    }
+
+    async fn replace_with_random_vector(
+        &self,
+        id: DeveloperDocumentId,
+    ) -> anyhow::Result<Vec<f32>> {
+        let mut tx = self.database.begin_system().await?;
+        let mut model = UserFacingModel::new(&mut tx, TableNamespace::test_user());
+        let random_vector = random_vector(&mut self.rt.rng());
+        let random_vector_value = vector_to_value(random_vector.clone());
+        let obj =
+            assert_obj!(INDEXED_FIELD => random_vector_value, "A" => ConvexValue::Int64(1017));
+        model.replace(id, obj).await?;
+        self.database.commit(tx).await?;
+        Ok(random_vector)
+    }
+
+    async fn on_disk_state(&self) -> anyhow::Result<VectorIndexState> {
+        let mut vec_indexes = self.get_vector_index_configs().await?;
+        assert_eq!(vec_indexes.len(), 1);
+        let (_, on_disk_state) = vec_indexes.remove(0);
+        Ok(on_disk_state)
+    }
+
+    async fn on_disk_backfilling_segments(
+        &self,
+    ) -> anyhow::Result<Vec<common::bootstrap_model::index::vector_index::FragmentedVectorSegment>>
+    {
+        let on_disk_state = self.on_disk_state().await?;
+        must_let!(let VectorIndexState::Backfilling(
+            VectorIndexBackfillState {
+                segments,
+                ..
+            }) = on_disk_state);
+        Ok(segments)
+    }
+
+    async fn on_disk_backfilled_segments(
+        &self,
+    ) -> anyhow::Result<Vec<common::bootstrap_model::index::vector_index::FragmentedVectorSegment>>
+    {
+        let on_disk_state = self.on_disk_state().await?;
+        must_let!(let VectorIndexState::Backfilled {
+            snapshot: VectorIndexSnapshot {
+                data: VectorIndexSnapshotData::MultiSegment(segments),
+                ..
+            },
+            ..
+        } = on_disk_state);
+        Ok(segments)
+    }
+
+    async fn on_disk_backfilled_segments_and_ts(
+        &self,
+    ) -> anyhow::Result<(
+        Vec<common::bootstrap_model::index::vector_index::FragmentedVectorSegment>,
+        sync_types::Timestamp,
+    )> {
+        let on_disk_state = self.on_disk_state().await?;
+        must_let!(let VectorIndexState::Backfilled {
+            snapshot: VectorIndexSnapshot {
+                data: VectorIndexSnapshotData::MultiSegment(segments),
+                ts,
+            },
+            ..
+        } = on_disk_state);
+        Ok((segments, ts))
+    }
+
+    async fn check_ids_match_search_results(
+        &self,
+        ids: &[DeveloperDocumentId],
+    ) -> anyhow::Result<()> {
+        let results = self
+            .search_with_limit(vec![0.; 4], btreeset![], Some(256))
+            .await?;
+
+        let left = results
+            .into_iter()
+            .map(|result| result.id.internal_id())
+            .sorted()
+            .collect::<Vec<_>>();
+        let right = ids
+            .iter()
+            .map(|id| id.internal_id())
+            .sorted()
+            .collect::<Vec<_>>();
+        assert_eq!(left.len(), right.len());
+        assert_eq!(left, right);
+        Ok(())
     }
 
     pub async fn get_vector_index_configs(
@@ -770,7 +868,6 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
 
     let flusher = scenario.new_backfill_flusher(incremental_index_size);
 
-    let mut backfill_ts = None;
     for i in 0..num_parts {
         // Do a backfill iteration
         flusher.step().await?;
@@ -785,17 +882,14 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
         if i < num_parts - 1 {
             must_let!(let VectorIndexState::Backfilling(backfill_state) = on_disk_state);
             assert_eq!(backfill_state.segments.len(), (i + 1) as usize);
-            backfill_ts = backfill_state.backfill_ts();
         } else {
             must_let!(let VectorIndexState::Backfilled {
                 snapshot: VectorIndexSnapshot {
                     data,
-                    ts,
+                    ..
                 },
                 ..
             } = on_disk_state);
-            // Verify snapshot timestamp matches backfill timestamp
-            assert_eq!(backfill_ts.unwrap(), ts);
             must_let!(let VectorIndexSnapshotData::MultiSegment(segments) = data);
             assert_eq!(segments.len(), (num_parts) as usize);
         }
@@ -1013,5 +1107,258 @@ async fn test_multi_segment_search_obeys_sorted_order(rt: TestRuntime) -> anyhow
             .collect_vec(),
     );
 
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_incremental_backfill_captures_new_writes(rt: TestRuntime) -> anyhow::Result<()> {
+    let scenario = Scenario::new(rt.clone()).await?;
+    let num_parts = 3;
+    let vectors_per_part = 8;
+    let incremental_index_size =
+        (DIMENSIONS * (VECTOR_ELEMENT_SIZE as u32) * vectors_per_part) as usize;
+    // Add the index
+    scenario.add_vector_index(false).await?;
+    // Add the vectors
+    let ids = scenario
+        .seed_table_with_vector_data(num_parts * vectors_per_part)
+        .await?;
+    let flusher = scenario.new_backfill_flusher(incremental_index_size);
+    let mut backfill_ts = None;
+    for i in 0..num_parts {
+        // Do a backfill iteration
+        flusher.step().await?;
+
+        // Fetch the current index metadata
+        let on_disk_state = scenario.on_disk_state().await?;
+
+        // Verify that on_disk_state remains in backfilling until last iteration
+        // and each iteration adds a new segment.
+        if i < num_parts - 1 {
+            must_let!(let VectorIndexState::Backfilling(
+                VectorIndexBackfillState {
+                    segments,
+                    cursor: Some(SearchBackfillCursor::WalkingForwards {
+                        last_segment_ts,
+                        table_scan_cursor: _,
+                    }),
+                    ..
+                }) = on_disk_state);
+            assert_eq!(segments.len(), (i + 1) as usize);
+            if let Some(ts) = backfill_ts {
+                // Verify backfilling snapshot timestamp walks forward
+                assert!(ts < last_segment_ts);
+            }
+            backfill_ts = Some(last_segment_ts);
+        } else {
+            must_let!(let VectorIndexState::Backfilled {
+                snapshot: VectorIndexSnapshot {
+                    data,
+                    ts,
+                },
+                ..
+            } = on_disk_state);
+            // Verify backfilled snapshot timestamp walks forward
+            assert!(backfill_ts.unwrap() < ts);
+            must_let!(let VectorIndexSnapshotData::MultiSegment(segments) = data);
+            assert_eq!(segments.len(), (num_parts) as usize);
+        }
+    }
+
+    scenario.enable_index().await?;
+    scenario.check_ids_match_search_results(&ids).await?;
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_incremental_backfill_handles_deletes(rt: TestRuntime) -> anyhow::Result<()> {
+    let scenario = Scenario::new(rt.clone()).await?;
+    let num_parts = 1;
+    let vectors_per_part = 8;
+    let incremental_index_size =
+        (DIMENSIONS * (VECTOR_ELEMENT_SIZE as u32) * vectors_per_part) as usize;
+
+    // Add the vectors - one more than fits in a part so that backfilling doesn't
+    // finish.
+    let ids = scenario
+        .seed_table_with_vector_data(num_parts * vectors_per_part + 1)
+        .await?;
+
+    // Add the index
+    scenario.add_vector_index(false).await?;
+
+    let flusher = scenario.new_backfill_flusher(incremental_index_size);
+    flusher.step().await?;
+    let segments = scenario.on_disk_backfilling_segments().await?;
+    assert_eq!(segments.len(), 1);
+
+    // Delete a vector
+    let mut tx = scenario.database.begin_system().await?;
+    let mut model = UserFacingModel::new(&mut tx, TableNamespace::test_user());
+    // Delete an id in the first segment
+    model.delete(ids[0]).await?;
+    scenario.database.commit(tx).await?;
+
+    flusher.step().await?;
+    let segments = scenario.on_disk_backfilled_segments().await?;
+    assert_eq!(segments.len(), 2);
+    assert_eq!(segments[0].num_vectors, 8);
+    assert_eq!(segments[0].num_deleted, 1);
+    assert_eq!(segments[1].num_vectors, 1);
+    assert_eq!(segments[1].num_deleted, 0);
+    scenario.enable_index().await?;
+    scenario.check_ids_match_search_results(&ids[1..]).await?;
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_incremental_backfill_handles_replaces(rt: TestRuntime) -> anyhow::Result<()> {
+    let scenario = Scenario::new(rt.clone()).await?;
+    let num_parts = 1;
+    let vectors_per_part = 8;
+    let incremental_index_size =
+        (DIMENSIONS * (VECTOR_ELEMENT_SIZE as u32) * vectors_per_part) as usize;
+
+    // Add the vectors - one more than fits in a part so that backfilling doesn't
+    // finish.
+    let ids = scenario
+        .seed_table_with_vector_data(num_parts * vectors_per_part + 1)
+        .await?;
+
+    scenario.add_vector_index(false).await?;
+
+    let flusher = scenario.new_backfill_flusher(incremental_index_size);
+    flusher.step().await?;
+    let segments = scenario.on_disk_backfilling_segments().await?;
+    assert_eq!(segments.len(), 1);
+
+    // Replace a vector
+    scenario.replace_with_random_vector(ids[0]).await?;
+
+    flusher.step().await?;
+    let segments = scenario.on_disk_backfilled_segments().await?;
+    assert_eq!(segments.len(), 2);
+    assert_eq!(segments[0].num_vectors, 8);
+    assert_eq!(segments[0].num_deleted, 1);
+    assert_eq!(segments[1].num_vectors, 2);
+    assert_eq!(segments[1].num_deleted, 0);
+    scenario.enable_index().await?;
+    scenario.check_ids_match_search_results(&ids).await?;
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_incremental_backfill_skips_past_revisions_of_same_document(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let scenario = Scenario::new(rt.clone()).await?;
+    let vectors_per_part = 3;
+    let incremental_index_size =
+        (DIMENSIONS * (VECTOR_ELEMENT_SIZE as u32) * vectors_per_part) as usize;
+    let ids = scenario
+        .seed_table_with_vector_data(vectors_per_part + 1)
+        .await?;
+    scenario.add_vector_index(false).await?;
+
+    let flusher = scenario.new_backfill_flusher(incremental_index_size);
+    flusher.step().await?;
+    let segments = scenario.on_disk_backfilling_segments().await?;
+    assert_eq!(segments.len(), 1);
+
+    // Do 2 replaces so that we can check that only the most recent one gets written
+    // to the index in the next segment build.
+    let less_recent_vector = scenario.replace_with_random_vector(ids[1]).await?;
+    let most_recent_vector = scenario.replace_with_random_vector(ids[1]).await?;
+    flusher.step().await?;
+    let segments = scenario.on_disk_backfilled_segments().await?;
+    assert_eq!(segments.len(), 2);
+    assert_eq!(segments[0].num_vectors, 3);
+    assert_eq!(segments[0].num_deleted, 1);
+    assert_eq!(segments[1].num_vectors, 2);
+
+    // Do a search and check we have the most recent random vector update
+    scenario.enable_index().await?;
+    let most_recent_search = scenario
+        .search_with_limit(most_recent_vector, btreeset![], Some(1))
+        .await?;
+    let less_recent_search = scenario
+        .search_with_limit(less_recent_vector, btreeset![], Some(1))
+        .await?;
+    let most_recent_search_score = most_recent_search[0].score;
+    assert!(most_recent_search_score > less_recent_search[0].score);
+    assert!(most_recent_search_score > 0.9);
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_incremental_backfill_includes_recently_written_vectors(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let scenario = Scenario::new(rt.clone()).await?;
+    let num_parts = 12;
+    let vectors_per_part = 8;
+    let incremental_index_size =
+        (DIMENSIONS * (VECTOR_ELEMENT_SIZE as u32) * vectors_per_part) as usize;
+
+    // Add the vectors
+    let mut ids = scenario
+        .seed_table_with_vector_data(num_parts * vectors_per_part)
+        .await?;
+
+    scenario.add_vector_index(false).await?;
+
+    let flusher = scenario.new_backfill_flusher(incremental_index_size);
+
+    let mut last_ts = None;
+    for i in 0..num_parts - 1 {
+        // Do a backfill iteration
+        flusher.step().await?;
+
+        // Fetch the current index metadata
+        let on_disk_state = scenario.on_disk_state().await?;
+
+        must_let!(let VectorIndexState::Backfilling(
+            VectorIndexBackfillState {
+                segments,
+                cursor: Some(SearchBackfillCursor::WalkingForwards {
+                    last_segment_ts, ..
+                }),
+                ..
+            }) = on_disk_state);
+        assert_eq!(segments.len(), (i + 1) as usize);
+        // Make sure intermediate updates are included
+        let mut new_ids = scenario.seed_table_with_vector_data(1).await?;
+        ids.append(&mut new_ids);
+        if i > 0 {
+            assert!(last_segment_ts > last_ts.unwrap());
+        }
+        last_ts = Some(last_segment_ts);
+    }
+
+    // Create the last segment with 8ish vectors
+    flusher.step().await?;
+    // One segment with the extra vectors we wrote
+    flusher.step().await?;
+    let (segments, ts) = scenario.on_disk_backfilled_segments_and_ts().await?;
+    // Verify the on-disk timestamp is greater than the last one we tracked, since
+    // we built two more segments.
+    assert!(last_ts.unwrap() < ts);
+    // We have one more segment because we wrote extra vectors
+    assert_eq!(segments.len(), (num_parts + 1) as usize);
+    // Check that the number of vectors matches the number of documents we inserted
+    let total_vectors = segments
+        .iter()
+        .map(|segment| segment.num_vectors)
+        .sum::<u32>();
+    assert_eq!(total_vectors, ids.len() as u32);
+    let deleted_vectors = segments
+        .iter()
+        .map(|segment| segment.num_deleted)
+        .sum::<u32>();
+    assert_eq!(deleted_vectors, 0);
+    scenario.enable_index().await?;
+    scenario.check_ids_match_search_results(&ids).await?;
     Ok(())
 }

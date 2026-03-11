@@ -5,6 +5,7 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
+    persistence::PersistenceReader,
     runtime::Runtime,
 };
 use storage::Storage;
@@ -30,11 +31,13 @@ pub type VectorIndexFlusher<RT> = SearchFlusher<RT, VectorSearchIndex>;
 pub async fn backfill_vector_indexes<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<()> {
     let flusher = new_vector_flusher_for_tests(
         runtime.clone(),
         database.clone(),
+        reader.clone(),
         storage.clone(),
         /* index_size_soft_limit= */ 0,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -45,6 +48,7 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
     let flusher = new_vector_flusher_for_tests(
         runtime,
         database,
+        reader,
         storage,
         /* index_size_soft_limit= */ 0,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -59,6 +63,7 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
 pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     index_size_soft_limit: usize,
     full_scan_segment_max_kb: usize,
@@ -76,6 +81,7 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     SearchFlusher::new(
         runtime,
         database,
+        reader,
         storage,
         SearchIndexLimits {
             index_size_soft_limit,
@@ -92,6 +98,7 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
 pub(crate) fn new_vector_flusher<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
     flusher_type: FlusherType,
@@ -99,6 +106,7 @@ pub(crate) fn new_vector_flusher<RT: Runtime>(
     SearchFlusher::new(
         runtime,
         database,
+        reader,
         storage,
         SearchIndexLimits {
             index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
@@ -114,7 +122,10 @@ pub(crate) fn new_vector_flusher<RT: Runtime>(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{
+        collections::BTreeSet,
+        sync::Arc,
+    };
 
     use common::{
         bootstrap_model::index::{
@@ -192,12 +203,14 @@ mod tests {
     fn new_vector_flusher_with_soft_limit(
         rt: &TestRuntime,
         database: &Database<TestRuntime>,
+        reader: Arc<dyn common::persistence::PersistenceReader>,
         soft_limit: usize,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
         let storage = LocalDirStorage::new(rt.clone())?;
         Ok(new_vector_flusher_for_tests(
             rt.clone(),
             database.clone(),
+            reader,
             Arc::new(storage),
             soft_limit,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -209,15 +222,16 @@ mod tests {
     fn new_vector_flusher(
         rt: &TestRuntime,
         database: &Database<TestRuntime>,
+        reader: Arc<dyn common::persistence::PersistenceReader>,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
-        new_vector_flusher_with_soft_limit(rt, database, 1000)
+        new_vector_flusher_with_soft_limit(rt, database, reader, 1000)
     }
 
     #[convex_macro::test_runtime]
     async fn worker_does_not_crash_on_documents_with_invalid_vector_dimensions(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+        let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?;
 
         let VectorIndexData { index_name, .. } = backfilling_vector_index_with_doc(&db).await?;
 
@@ -226,7 +240,7 @@ mod tests {
         add_document_vec(&mut tx, index_name.table(), vec).await?;
         db.commit(tx).await?;
 
-        let worker = new_vector_flusher(&rt, &db)?;
+        let worker = new_vector_flusher(&rt, &db, tp.reader())?;
         worker.step().await?;
 
         Ok(())
@@ -236,7 +250,7 @@ mod tests {
     async fn worker_does_not_crash_on_documents_with_non_vector(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+        let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?;
 
         let VectorIndexData {
             index_name,
@@ -254,7 +268,7 @@ mod tests {
         db.commit(tx).await?;
 
         // Use 0 soft limit so that we always reindex documents
-        let worker = new_vector_flusher_with_soft_limit(&rt, &db, 0)?;
+        let worker = new_vector_flusher_with_soft_limit(&rt, &db, tp.reader(), 0)?;
         let (metrics, _) = worker.step().await?;
         // Make sure we advance past the invalid document.
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
@@ -361,7 +375,7 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn flusher_restarts_backfill_if_last_segment_ts_is_set(
+    async fn flusher_restarts_backfill_if_backfill_snapshot_ts_is_set(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
@@ -396,16 +410,17 @@ mod tests {
         assert_eq!(progress.num_docs_indexed, 1);
         assert_eq!(progress.total_docs, Some(2));
 
-        // Inject `last_segment_ts`.
+        // Inject `backfill_snapshot_ts` to simulate an old flusher version.
         fixtures
-            .inject_last_segment_ts_into_backfilling_vector_index(
+            .inject_backfill_snapshot_ts_into_backfilling_vector_index(
                 index_name.clone(),
                 index_id,
                 namespace,
             )
             .await?;
         // In the next step, we should rebuild the first segment again, since
-        // `last_segment_ts` is not supported here.
+        // `backfill_snapshot_ts` being set indicates an incompatible flusher
+        // version.
         worker.step().await?;
         let segments = fixtures
             .get_segments_from_backfilling_index(index_name.clone())
@@ -552,6 +567,7 @@ mod tests {
             let flusher = new_vector_flusher_for_tests(
                 fixtures.rt.clone(),
                 fixtures.db.clone(),
+                fixtures.reader.clone(),
                 fixtures.storage.clone(),
                 // Force indexes to always be built.
                 0,
@@ -584,6 +600,7 @@ mod tests {
             let flusher = new_vector_flusher_for_tests(
                 fixtures.rt.clone(),
                 fixtures.db.clone(),
+                fixtures.reader.clone(),
                 fixtures.storage.clone(),
                 // Force indexes to always be built.
                 0,
@@ -791,6 +808,76 @@ mod tests {
         pause: PauseController,
     ) -> anyhow::Result<()> {
         let test = ConcurrentBackfillFlushAndCompaction;
+        test.test_compaction_during_flush(rt, pause, FlusherType::Backfill)
+            .await?;
+        Ok(())
+    }
+
+    struct ConcurrentBackfillFlushAndCompactionWithDeletes;
+    impl RaceTest for ConcurrentBackfillFlushAndCompactionWithDeletes {
+        type VerifyArgs = ();
+
+        async fn setup(rt: &TestRuntime) -> anyhow::Result<(VectorFixtures, Self::VerifyArgs)> {
+            let (fixtures, min_compaction_segments) =
+                Self::fixtures_with_compaction(rt.clone()).await?;
+            // Add 4 vectors and set part threshold to build 4 segments
+            let VectorIndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+            let mut docs = vec![];
+            for i in 0..(min_compaction_segments + 1) {
+                let id = fixtures
+                    .add_document_vec_array(index_name.table(), [i as f64, (i + 1) as f64])
+                    .await?;
+                docs.push(id);
+            }
+            // Do every backfill flush step until last one
+            let worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
+            for _ in 0..min_compaction_segments {
+                worker.step().await?;
+            }
+
+            // Delete one document
+            let doc_to_delete = docs.pop().unwrap();
+            let mut tx = fixtures.db.begin_system().await?;
+            tx.delete_inner(doc_to_delete).await?;
+            fixtures.db.commit(tx).await?;
+            Ok((fixtures, ()))
+        }
+
+        async fn verify(fixtures: &VectorFixtures, _args: Self::VerifyArgs) -> anyhow::Result<()> {
+            // There should be 2 segments left: the compacted segment and the new segment
+            // from flush, and the delete should exist in the compacted segment.
+            let segments = fixtures
+                .get_segments_metadata(VECTOR_INDEX_NAME.clone())
+                .await?;
+            assert_eq!(segments.len(), 2);
+
+            let expected_doc_counts = btreeset![(3, 1), (1, 0)];
+            let actual_doc_counts = segments
+                .into_iter()
+                .map(|segment| (segment.num_vectors, segment.num_deleted))
+                .collect::<BTreeSet<_>>();
+            assert_eq!(actual_doc_counts, expected_doc_counts);
+            Ok(())
+        }
+    }
+
+    #[convex_macro::test_runtime]
+    async fn flush_during_backfill_compaction_has_deletes(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
+        let test = ConcurrentBackfillFlushAndCompactionWithDeletes;
+        test.test_flush_during_compaction(rt, pause, FlusherType::Backfill)
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn compact_during_backfill_flush_has_deletes(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
+        let test = ConcurrentBackfillFlushAndCompactionWithDeletes;
         test.test_compaction_during_flush(rt, pause, FlusherType::Backfill)
             .await?;
         Ok(())

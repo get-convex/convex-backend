@@ -887,6 +887,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         backfill_text_indexes(
             self.rt.clone(),
             self.database.clone(),
+            self.persistence.reader(),
             self.search_storage.clone(),
             segment_term_metadata_fetcher,
         )
@@ -898,6 +899,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         backfill_vector_indexes(
             self.rt.clone(),
             self.database.clone(),
+            self.persistence.reader(),
             self.search_storage.clone(),
         )
         .await?;

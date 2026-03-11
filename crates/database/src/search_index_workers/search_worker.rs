@@ -14,6 +14,7 @@ use common::{
         SEARCH_COMPACTOR_MAX_BACKOFF,
         SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
     },
+    persistence::PersistenceReader,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -98,6 +99,7 @@ impl SearchIndexWorkers {
     pub fn create_and_start<RT: Runtime>(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         search_storage: Arc<dyn Storage>,
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
@@ -130,6 +132,7 @@ impl SearchIndexWorkers {
             SearchIndexWorker::VectorFlusher(new_vector_flusher(
                 runtime.clone(),
                 database.clone(),
+                reader.clone(),
                 search_storage.clone(),
                 vector_index_metadata_writer.clone(),
                 FlusherType::LiveFlush,
@@ -146,6 +149,7 @@ impl SearchIndexWorkers {
             SearchIndexWorker::VectorFlusher(new_vector_flusher(
                 runtime.clone(),
                 database.clone(),
+                reader.clone(),
                 search_storage.clone(),
                 vector_index_metadata_writer.clone(),
                 FlusherType::Backfill,
@@ -169,6 +173,7 @@ impl SearchIndexWorkers {
         let text_live_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
             runtime.clone(),
             database.clone(),
+            reader.clone(),
             search_storage.clone(),
             segment_term_metadata_fetcher.clone(),
             text_index_metadata_writer.clone(),
@@ -186,6 +191,7 @@ impl SearchIndexWorkers {
         let text_backfill_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
             runtime.clone(),
             database.clone(),
+            reader,
             search_storage.clone(),
             segment_term_metadata_fetcher,
             text_index_metadata_writer.clone(),

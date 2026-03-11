@@ -25,6 +25,8 @@ pub type TextIndexBackfillState = BackfillState<FragmentedTextSegment>;
 
 #[derive(Serialize, Deserialize)]
 pub struct SerializedTextBackfillCursor {
+    /// TODO(ENG-9707): Remove this deprecated field that used the InternalId
+    /// serialized as a string
     pub document_cursor: Option<String>,
     pub backfill_snapshot_ts: Option<i64>,
     /// New cursor format (using the IndexKeyBytes in the TableScanCursor)
