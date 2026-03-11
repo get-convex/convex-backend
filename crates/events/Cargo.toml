@@ -9,13 +9,7 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 ignored = ["proptest", "proptest-derive"]
 
 [features]
-testing = [
-    "common",
-    "common/testing",
-    "parking_lot",
-    "proptest",
-    "proptest-derive",
-]
+testing = ["common", "common/testing", "parking_lot", "proptest", "proptest-derive"]
 
 [dependencies]
 anyhow = { workspace = true }

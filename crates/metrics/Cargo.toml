@@ -6,7 +6,7 @@ edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
 [package.metadata.cargo-machete]
-ignored = ["vergen"] # Build dependencies not understood
+ignored = ["vergen"]
 
 [lib]
 doctest = false

@@ -11,12 +11,7 @@ doctest = false
 [features]
 metrics = ["common/testing"]
 tracy-tracing = ["common/tracy-tracing"]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "keybroker/testing",
-    "metrics/testing",
-]
+testing = ["common/testing", "errors/testing", "keybroker/testing", "metrics/testing"]
 
 [dependencies]
 anyhow = { workspace = true }
