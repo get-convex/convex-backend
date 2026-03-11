@@ -46,6 +46,7 @@ const meta = {
   args: {
     snapshotImport: baseSnapshotImport,
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof ImportState>;
 
 export default meta;

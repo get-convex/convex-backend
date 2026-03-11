@@ -14,6 +14,7 @@ const meta = {
       <UsageBarChart {...args} />
     </Sheet>
   ),
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof UsageBarChart>;
 
 export default meta;

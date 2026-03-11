@@ -125,6 +125,7 @@ const meta = {
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof EventsForInsight>;
 
 export default meta;

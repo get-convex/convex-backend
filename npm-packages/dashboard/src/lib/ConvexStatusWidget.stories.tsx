@@ -5,6 +5,7 @@ const meta: Meta<typeof ConvexStatusWidget> = {
   component: ConvexStatusWidget,
   parameters: {
     layout: "padded",
+    a11y: { test: "todo" },
   },
 };
 

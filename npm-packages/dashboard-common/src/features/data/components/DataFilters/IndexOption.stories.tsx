@@ -5,6 +5,7 @@ const meta: Meta<typeof IndexOption> = {
   component: IndexOption,
   parameters: {
     layout: "centered",
+    a11y: { test: "todo" },
   },
 };
 

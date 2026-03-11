@@ -24,6 +24,7 @@ const meta = {
       ],
     ]),
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof ShowSchema>;
 
 export default meta;

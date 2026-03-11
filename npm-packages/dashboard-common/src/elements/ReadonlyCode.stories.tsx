@@ -12,6 +12,7 @@ const meta = {
       <ReadonlyCode {...args} />
     </div>
   ),
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof ReadonlyCode>;
 
 export default meta;

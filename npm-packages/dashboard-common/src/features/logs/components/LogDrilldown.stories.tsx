@@ -58,6 +58,7 @@ const meta = {
   component: LogDrilldown,
   parameters: {
     layout: "fullscreen",
+    a11y: { test: "todo" },
   },
   args: {} as any,
 } satisfies Meta<typeof LogDrilldown>;

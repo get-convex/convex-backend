@@ -6,6 +6,7 @@ const meta: Meta<typeof LogMetadata> = {
   component: LogMetadata,
   parameters: {
     layout: "padded",
+    a11y: { test: "todo" },
   },
 };
 

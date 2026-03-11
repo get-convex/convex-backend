@@ -11,7 +11,7 @@ const meta = {
       <IndexList {...args} />
     </div>
   ),
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", a11y: { test: "todo" } },
 } satisfies Meta<typeof IndexList>;
 
 export default meta;

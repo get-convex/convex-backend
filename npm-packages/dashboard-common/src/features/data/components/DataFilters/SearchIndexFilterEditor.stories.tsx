@@ -37,6 +37,7 @@ const meta: Meta<typeof SearchIndexFilterEditor> = {
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),
+  parameters: { a11y: { test: "todo" } },
 };
 export default meta;
 

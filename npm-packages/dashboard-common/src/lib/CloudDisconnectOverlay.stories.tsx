@@ -6,6 +6,7 @@ const meta: Meta<typeof CloudDisconnectOverlay> = {
   component: CloudDisconnectOverlay,
   parameters: {
     layout: "fullscreen",
+    a11y: { test: "todo" },
   },
 };
 

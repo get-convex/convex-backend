@@ -16,6 +16,7 @@ const preview: Preview = {
     a11y: { manual: false },
   },
   parameters: {
+    a11y: { test: "error" },
     actions: { argTypesRegex: "^on[A-Z].*" },
     controls: {
       matchers: {

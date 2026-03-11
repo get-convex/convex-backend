@@ -12,6 +12,7 @@ const meta = {
     currentBillingPeriod,
     onChange: fn(),
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof UsagePeriodSelector>;
 
 export default meta;

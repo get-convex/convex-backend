@@ -8,6 +8,7 @@ const meta: Meta<typeof DeploymentReferenceInner> = {
     value: "dev/nicolas",
     onUpdate: fn(),
   },
+  parameters: { a11y: { test: "todo" } },
 };
 
 export default meta;

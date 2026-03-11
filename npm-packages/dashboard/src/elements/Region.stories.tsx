@@ -12,6 +12,7 @@ const meta = {
   args: {
     teamSlug: "example-team",
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof Region>;
 
 export default meta;

@@ -11,6 +11,9 @@ const meta = {
     },
     setDate: fn(),
   },
+  parameters: {
+    a11y: { test: "todo" },
+  },
 } satisfies Meta<typeof DateRangePicker>;
 
 export default meta;

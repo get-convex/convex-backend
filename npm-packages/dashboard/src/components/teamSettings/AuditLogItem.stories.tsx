@@ -31,6 +31,7 @@ const meta = {
     memberId: 1,
     members: [member],
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof AuditLogItem>;
 
 export default meta;

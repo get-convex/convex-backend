@@ -127,6 +127,7 @@ const meta: Meta<typeof IndexFilters> = {
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),
+  parameters: { a11y: { test: "todo" } },
 };
 
 export default meta;

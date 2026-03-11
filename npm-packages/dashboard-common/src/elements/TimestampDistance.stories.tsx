@@ -8,6 +8,7 @@ const meta = {
       <TimestampDistance {...args}>TimestampDistance content</TimestampDistance>
     </div>
   ),
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof TimestampDistance>;
 
 export default meta;

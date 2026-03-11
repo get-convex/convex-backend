@@ -41,6 +41,7 @@ const meta = {
     teamMembers,
     href: "#",
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof DeploymentCard>;
 
 export default meta;

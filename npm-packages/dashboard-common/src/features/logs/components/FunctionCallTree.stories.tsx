@@ -6,6 +6,7 @@ const meta: Meta<typeof FunctionCallTree> = {
   component: FunctionCallTree,
   parameters: {
     layout: "padded",
+    a11y: { test: "todo" },
   },
   args: {
     currentLog: {

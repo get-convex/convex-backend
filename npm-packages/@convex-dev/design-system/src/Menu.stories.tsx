@@ -8,6 +8,9 @@ const meta = {
       <Menu {...args} />
     </div>
   ),
+  parameters: {
+    a11y: { test: "todo" },
+  },
 } satisfies Meta<typeof Menu>;
 
 export default meta;

@@ -29,6 +29,7 @@ const meta = {
       </Sheet>
     ),
   ],
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof DefaultRegionSelector>;
 
 export default meta;

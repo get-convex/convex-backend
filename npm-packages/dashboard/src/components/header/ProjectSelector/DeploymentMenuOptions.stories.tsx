@@ -71,6 +71,7 @@ const meta = {
     mocked(useTeamMembers).mockReturnValue([]);
     mocked(useDefaultDevDeployment).mockReturnValue(undefined);
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof MenuWrapper>;
 
 export default meta;

@@ -19,6 +19,7 @@ const meta = {
       <TeamUsageByFunctionChart {...args} />
     </Sheet>
   ),
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof TeamUsageByFunctionChart>;
 
 export default meta;

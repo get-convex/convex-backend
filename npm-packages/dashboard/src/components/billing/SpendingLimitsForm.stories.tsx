@@ -14,6 +14,7 @@ const meta = {
     onCancel: fn(),
     currentSpending,
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof SpendingLimitsForm>;
 
 export default meta;

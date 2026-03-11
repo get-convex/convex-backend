@@ -30,6 +30,7 @@ const meta: Meta<typeof ObjectEditorWithPlaceholder> = {
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),
+  parameters: { a11y: { test: "todo" } },
 };
 export default meta;
 

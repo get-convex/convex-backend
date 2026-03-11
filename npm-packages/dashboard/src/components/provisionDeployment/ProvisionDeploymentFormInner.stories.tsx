@@ -23,6 +23,7 @@ const meta = {
     teamName: "Example Team",
     isAdmin: true,
   },
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof ProvisionDeploymentFormInner>;
 
 export default meta;

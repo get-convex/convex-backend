@@ -1,9 +1,10 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { DiscordAccountsList } from "./DiscordAccounts";
 
-const meta = { component: DiscordAccountsList } satisfies Meta<
-  typeof DiscordAccountsList
->;
+const meta = {
+  component: DiscordAccountsList,
+  parameters: { a11y: { test: "todo" } },
+} satisfies Meta<typeof DiscordAccountsList>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

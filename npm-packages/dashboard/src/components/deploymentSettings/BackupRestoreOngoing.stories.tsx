@@ -3,6 +3,7 @@ import { BackupRestoreOngoing } from "./BackupRestoreStatus";
 
 const meta = {
   component: BackupRestoreOngoing,
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof BackupRestoreOngoing>;
 
 export default meta;

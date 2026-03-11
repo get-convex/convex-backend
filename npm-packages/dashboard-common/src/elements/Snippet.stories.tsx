@@ -8,6 +8,7 @@ const meta = {
       <Snippet {...args} />
     </div>
   ),
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof Snippet>;
 
 export default meta;

@@ -3,6 +3,7 @@ import { PlanSummaryForTeam } from "./PlanSummary";
 
 const meta = {
   component: PlanSummaryForTeam,
+  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof PlanSummaryForTeam>;
 
 export default meta;
