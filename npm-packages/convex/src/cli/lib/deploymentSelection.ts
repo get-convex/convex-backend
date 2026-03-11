@@ -570,6 +570,22 @@ async function getDeploymentSelectionFromEnv(
     };
   }
 
+  // --deployment-name’s deployment may be in a different project from CONVEX_DEPLOYMENT.
+  if (selectionWithinProject.kind === "deploymentName") {
+    return {
+      kind: "success",
+      metadata: {
+        kind: "deploymentWithinProject",
+        targetProject: {
+          kind: "deploymentName",
+          deploymentName: selectionWithinProject.deploymentName,
+          deploymentType: null,
+        },
+        selectionWithinProject,
+      },
+    };
+  }
+
   if (convexDeployment !== null) {
     if (selfHostedUrl !== null || selfHostedAdminKey !== null) {
       return await ctx.crash({
@@ -580,6 +596,8 @@ async function getDeploymentSelectionFromEnv(
     }
     const targetDeploymentType =
       getDeploymentTypeFromConfiguredDeployment(convexDeployment);
+
+    // Commands can select a deployment within the project that this deployment belongs to.
     const targetDeploymentName = stripDeploymentTypePrefix(convexDeployment);
     const isAnonymous = isAnonymousDeployment(targetDeploymentName);
     if (isAnonymous) {
@@ -597,7 +615,7 @@ async function getDeploymentSelectionFromEnv(
         },
       };
     }
-    // Commands can select a deployment within the project that this deployment belongs to.
+
     return {
       kind: "success",
       metadata: {

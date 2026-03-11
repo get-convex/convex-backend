@@ -610,7 +610,7 @@ describe("deployment selection flows", () => {
       });
 
       setupBigBrainRoutes({
-        "deployment/joyful-capybara-123/team_and_project": () => ({
+        "deployment/limitless-wolf-571/team_and_project": () => ({
           team: "my-team",
           project: "my-project",
           teamId: 1,
@@ -628,7 +628,7 @@ describe("deployment selection flows", () => {
       vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
 
       await env.parseAsync(
-        ["set", "ABC", "DEF", "--deployment-name", "staging-deploy"],
+        ["set", "ABC", "DEF", "--deployment-name", "limitless-wolf-571"],
         { from: "user" },
       );
 
@@ -651,6 +651,114 @@ describe("deployment selection flows", () => {
       expect(bigBrainAPI).toHaveBeenCalledWith(
         expect.objectContaining({
           path: "deployment/authorize_within_current_project",
+          data: expect.objectContaining({
+            projectSelection: expect.objectContaining({
+              kind: "deploymentName",
+              deploymentName: "limitless-wolf-571",
+              deploymentType: null,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("resolves --deployment-name targeting a deployment in a different project from CONVEX_DEPLOYMENT", async () => {
+      process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      setupBigBrainRoutes({
+        "deployment/cross-project-deploy/team_and_project": () => ({
+          team: "other-team",
+          project: "other-project",
+          teamId: 2,
+          projectId: 2,
+        }),
+        "deployment/authorize_within_current_project": () => ({
+          adminKey: "cross-project-key",
+          url: "https://cross-project-deploy.convex.cloud",
+          deploymentName: "cross-project-deploy",
+          deploymentType: "dev",
+        }),
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+      await env.parseAsync(
+        ["set", "ABC", "DEF", "--deployment-name", "cross-project-deploy"],
+        { from: "user" },
+      );
+
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://cross-project-deploy.convex.cloud",
+          adminKey: "cross-project-key",
+        }),
+      );
+
+      // Verify authorize_within_current_project was called with the
+      // --deployment-name deployment as the project selector, not CONVEX_DEPLOYMENT
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_within_current_project",
+          data: expect.objectContaining({
+            projectSelection: expect.objectContaining({
+              kind: "deploymentName",
+              deploymentName: "cross-project-deploy",
+              deploymentType: null,
+            }),
+            selectedDeploymentName: "cross-project-deploy",
+          }),
+        }),
+      );
+    });
+
+    it("resolves --deployment-name with cloud deployment name without CONVEX_DEPLOYMENT", async () => {
+      delete process.env.CONVEX_DEPLOYMENT;
+
+      setupBigBrainRoutes({
+        "deployment/clever-otter-890/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+        "deployment/authorize_within_current_project": () => ({
+          adminKey: "other-key",
+          url: "https://clever-otter-890.convex.cloud",
+          deploymentName: "clever-otter-890",
+          deploymentType: "dev",
+        }),
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+      await env.parseAsync(
+        ["set", "ABC", "DEF", "--deployment-name", "clever-otter-890"],
+        { from: "user" },
+      );
+
+      // The project was resolved using clever-otter-890 as the anchor, not
+      // joyful-capybara-123 (which isn't set in this test).
+      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/clever-otter-890/team_and_project",
+        }),
+      );
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_within_current_project",
+        }),
+      );
+      expect(deploymentFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          deploymentUrl: "https://clever-otter-890.convex.cloud",
+          adminKey: "other-key",
         }),
       );
     });
