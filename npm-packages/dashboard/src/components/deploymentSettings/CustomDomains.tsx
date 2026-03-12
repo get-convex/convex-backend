@@ -25,12 +25,9 @@ import { useState, useMemo, ReactNode } from "react";
 import {
   PlatformDeploymentResponse,
   PlatformCustomDomainResponse,
-} from "@convex-dev/platform/managementApi";
-import {
-  TeamResponse,
-  TeamEntitlementsResponse,
   PlatformDeleteCustomDomainArgs,
-} from "generatedApi";
+} from "@convex-dev/platform/managementApi";
+import { TeamResponse, TeamEntitlementsResponse } from "generatedApi";
 import {
   useListVanityDomains,
   useCreateVanityDomain,

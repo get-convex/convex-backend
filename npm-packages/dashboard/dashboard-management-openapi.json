@@ -1351,107 +1351,6 @@
         }
       }
     },
-    "/instances/{deployment_name}/domains/create": {
-      "post": {
-        "operationId": "create_vanity_domain",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlatformDeleteCustomDomainArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/domains/delete": {
-      "post": {
-        "operationId": "delete_vanity_domain",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlatformDeleteCustomDomainArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/domains/list": {
-      "get": {
-        "operationId": "list_vanity_domains_for_instance",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListVanityDomainsResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/rename_token": {
-      "post": {
-        "operationId": "rename_access_token",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RenameAccessTokenArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/delete_access_token": {
       "post": {
         "operationId": "delete_access_token",
@@ -2191,62 +2090,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/preview_deployments": {
-      "get": {
-        "operationId": "list_preview_deployments_for_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DeploymentResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/delete_preview_deployment": {
-      "post": {
-        "operationId": "deactivate_preview_deployment",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeactivatePreviewDeploymentArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
           }
         }
       }
@@ -4264,17 +4107,6 @@
           }
         }
       },
-      "DeactivatePreviewDeploymentArgs": {
-        "type": "object",
-        "required": [
-          "identifier"
-        ],
-        "properties": {
-          "identifier": {
-            "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
-          }
-        }
-      },
       "DeleteAccessTokenArgs": {
         "type": "object",
         "required": [
@@ -5259,20 +5091,6 @@
           }
         }
       },
-      "ListVanityDomainsResponse": {
-        "type": "object",
-        "required": [
-          "domains"
-        ],
-        "properties": {
-          "domains": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/VanityDomainResponse"
-            }
-          }
-        }
-      },
       "ManagedBy": {
         "type": "string",
         "enum": [
@@ -5633,23 +5451,6 @@
             "items": {
               "$ref": "#/components/schemas/PlanResponse"
             }
-          }
-        }
-      },
-      "PlatformDeleteCustomDomainArgs": {
-        "type": "object",
-        "required": [
-          "requestDestination",
-          "domain"
-        ],
-        "properties": {
-          "domain": {
-            "type": "string",
-            "description": "The custom domain name to delete."
-          },
-          "requestDestination": {
-            "$ref": "#/components/schemas/RequestDestination",
-            "description": "The destination for this custom domain (convexCloud or convexSite)."
           }
         }
       },
@@ -6057,23 +5858,6 @@
         },
         "additionalProperties": false
       },
-      "RenameAccessTokenArgs": {
-        "type": "object",
-        "required": [
-          "accessToken",
-          "newName"
-        ],
-        "properties": {
-          "accessToken": {
-            "type": "string",
-            "description": "Authentication token is expected to be the access token from WorkOS"
-          },
-          "newName": {
-            "$ref": "#/components/schemas/DeviceName"
-          }
-        },
-        "additionalProperties": false
-      },
       "RequestCloudBackupArgs": {
         "type": "object",
         "required": [
@@ -6084,13 +5868,6 @@
             "type": "boolean"
           }
         }
-      },
-      "RequestDestination": {
-        "type": "string",
-        "enum": [
-          "convexCloud",
-          "convexSite"
-        ]
       },
       "RestoreFromCloudBackupArgs": {
         "type": "object",
@@ -6839,37 +6616,6 @@
         ]
       },
       "Value": {},
-      "VanityDomainResponse": {
-        "type": "object",
-        "required": [
-          "creationTime",
-          "instanceName",
-          "requestDestination",
-          "domain"
-        ],
-        "properties": {
-          "creationTime": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "domain": {
-            "type": "string"
-          },
-          "instanceName": {
-            "$ref": "#/components/schemas/CloudDeploymentName"
-          },
-          "requestDestination": {
-            "$ref": "#/components/schemas/RequestDestination"
-          },
-          "verificationTime": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64"
-          }
-        }
-      },
       "WorkOSAssociatedTeam": {
         "type": "object",
         "required": [

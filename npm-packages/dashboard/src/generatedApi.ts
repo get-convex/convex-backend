@@ -788,70 +788,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/instances/{deployment_name}/domains/create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["create_vanity_domain"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/instances/{deployment_name}/domains/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["delete_vanity_domain"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/instances/{deployment_name}/domains/list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_vanity_domains_for_instance"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rename_token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["rename_access_token"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/delete_access_token": {
         parameters: {
             query?: never;
@@ -1281,38 +1217,6 @@ export interface paths {
         get: operations["get_spending_limits"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/preview_deployments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_preview_deployments_for_project"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/delete_preview_deployment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["deactivate_preview_deployment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2112,9 +2016,6 @@ export interface components {
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];
         };
-        DeactivatePreviewDeploymentArgs: {
-            identifier: components["schemas"]["PreviewDeploymentIdentifier"];
-        };
         DeleteAccessTokenArgs: {
             name: components["schemas"]["DeviceName"];
         };
@@ -2385,9 +2286,6 @@ export interface components {
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
         };
-        ListVanityDomainsResponse: {
-            domains: components["schemas"]["VanityDomainResponse"][];
-        };
         /** @enum {string} */
         ManagedBy: "vercel";
         MemberDataResponse: {
@@ -2475,12 +2373,6 @@ export interface components {
         };
         PlansResponse: {
             plans: components["schemas"]["PlanResponse"][];
-        };
-        PlatformDeleteCustomDomainArgs: {
-            /** @description The custom domain name to delete. */
-            domain: string;
-            /** @description The destination for this custom domain (convexCloud or convexSite). */
-            requestDestination: components["schemas"]["RequestDestination"];
         };
         PreviewDeploymentIdentifier: string;
         ProfileEmailArgs: {
@@ -2589,16 +2481,9 @@ export interface components {
         RemoveMemberArgs: {
             memberId: components["schemas"]["MemberId"];
         };
-        RenameAccessTokenArgs: {
-            /** @description Authentication token is expected to be the access token from WorkOS */
-            accessToken: string;
-            newName: components["schemas"]["DeviceName"];
-        };
         RequestCloudBackupArgs: {
             includeStorage: boolean;
         };
-        /** @enum {string} */
-        RequestDestination: "convexCloud" | "convexSite";
         RestoreFromCloudBackupArgs: {
             id: components["schemas"]["CloudBackupId"];
         };
@@ -2796,15 +2681,6 @@ export interface components {
             };
         } | "Invalid";
         Value: unknown;
-        VanityDomainResponse: {
-            /** Format: int64 */
-            creationTime: number;
-            domain: string;
-            instanceName: components["schemas"]["CloudDeploymentName"];
-            requestDestination: components["schemas"]["RequestDestination"];
-            /** Format: int64 */
-            verificationTime?: number | null;
-        };
         WorkOSAssociatedTeam: {
             convexTeamId: components["schemas"]["TeamId"];
             creatorMemberId: components["schemas"]["MemberId"];
@@ -2886,7 +2762,6 @@ export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
 export type CreateProjectResponse = components['schemas']['CreateProjectResponse'];
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
-export type DeactivatePreviewDeploymentArgs = components['schemas']['DeactivatePreviewDeploymentArgs'];
 export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
 export type DeleteProjectEnvironmentRequest = components['schemas']['DeleteProjectEnvironmentRequest'];
 export type DeleteProjectEnvironmentResponse = components['schemas']['DeleteProjectEnvironmentResponse'];
@@ -2931,7 +2806,6 @@ export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type IsDefaultDeployment = components['schemas']['IsDefaultDeployment'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
-export type ListVanityDomainsResponse = components['schemas']['ListVanityDomainsResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
 export type MemberEmailId = components['schemas']['MemberEmailId'];
@@ -2949,7 +2823,6 @@ export type PaymentMethodResponse = components['schemas']['PaymentMethodResponse
 export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig'];
 export type PlanResponse = components['schemas']['PlanResponse'];
 export type PlansResponse = components['schemas']['PlansResponse'];
-export type PlatformDeleteCustomDomainArgs = components['schemas']['PlatformDeleteCustomDomainArgs'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProfileEmailArgs = components['schemas']['ProfileEmailArgs'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
@@ -2975,9 +2848,7 @@ export type ReferralState = components['schemas']['ReferralState'];
 export type RegionName = components['schemas']['RegionName'];
 export type RegisterOauthAppArgs = components['schemas']['RegisterOauthAppArgs'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
-export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs'];
 export type RequestCloudBackupArgs = components['schemas']['RequestCloudBackupArgs'];
-export type RequestDestination = components['schemas']['RequestDestination'];
 export type RestoreFromCloudBackupArgs = components['schemas']['RestoreFromCloudBackupArgs'];
 export type Role = components['schemas']['Role'];
 export type SsoDomainState = components['schemas']['SSODomainState'];
@@ -3015,7 +2886,6 @@ export type UpdateTeamArgs = components['schemas']['UpdateTeamArgs'];
 export type UsageState = components['schemas']['UsageState'];
 export type ValidateReferralCodeResult = components['schemas']['ValidateReferralCodeResult'];
 export type Value = components['schemas']['Value'];
-export type VanityDomainResponse = components['schemas']['VanityDomainResponse'];
 export type WorkOsAssociatedTeam = components['schemas']['WorkOSAssociatedTeam'];
 export type WorkOsEnvironmentHealthResponse = components['schemas']['WorkOSEnvironmentHealthResponse'];
 export type WorkOsEnvironmentInfo = components['schemas']['WorkOSEnvironmentInfo'];
@@ -4140,94 +4010,6 @@ export interface operations {
             };
         };
     };
-    create_vanity_domain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformDeleteCustomDomainArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    delete_vanity_domain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformDeleteCustomDomainArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    list_vanity_domains_for_instance: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListVanityDomainsResponse"];
-                };
-            };
-        };
-    };
-    rename_access_token: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RenameAccessTokenArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     delete_access_token: {
         parameters: {
             query?: never;
@@ -4831,50 +4613,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GetSpendingLimitsResponse"];
                 };
-            };
-        };
-    };
-    list_preview_deployments_for_project: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeploymentResponse"][];
-                };
-            };
-        };
-    };
-    deactivate_preview_deployment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeactivatePreviewDeploymentArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
