@@ -1203,6 +1203,26 @@ main .container .col[class*="docItemCol"] {
   opacity: 1;
 }
 
+/*
+Fix Docusaurus copy button icon cascade in production CSS:
+some optimized builds reorder shared icon rules after success-state rules.
+Keep this scoped to code blocks so inline custom copy buttons remain module-driven.
+*/
+.theme-code-block svg[class*="copyButtonSuccessIcon"] {
+  top: 50% !important;
+  left: 50% !important;
+  opacity: 0 !important;
+  transform: translate(-50%, -50%) scale(0.33) !important;
+}
+
+.theme-code-block
+  button[class*="copyButtonCopied"]
+  svg[class*="copyButtonSuccessIcon"] {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  transition-delay: 0.075s !important;
+}
+
 /* START: TourGuide styling */
 
 .convex-tour-guide {

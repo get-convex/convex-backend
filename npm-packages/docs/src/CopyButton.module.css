@@ -31,7 +31,6 @@
 
 .copyButtonIcons {
   position: relative;
-  display: inline-block;
   width: 1.125rem;
   height: 1.125rem;
 }
@@ -39,17 +38,22 @@
 .copyButtonIcon,
 .copyButtonSuccessIcon {
   position: absolute;
-  inset: 0;
-  margin: auto;
   fill: currentColor;
-  opacity: inherit;
   width: inherit;
   height: inherit;
   transition: all var(--ifm-transition-fast) ease;
 }
 
+.copyButtonIcon {
+  top: 0;
+  left: 0;
+  opacity: inherit;
+}
+
 .copyButtonSuccessIcon {
-  transform: scale(0.33);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.33);
   opacity: 0;
   color: #00d600;
 }
@@ -60,7 +64,7 @@
 }
 
 .copyButtonCopied .copyButtonSuccessIcon {
-  transform: scale(1);
+  transform: translate(-50%, -50%) scale(1);
   opacity: 1;
   transition-delay: 0.075s;
 }
