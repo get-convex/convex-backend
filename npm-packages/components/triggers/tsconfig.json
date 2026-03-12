@@ -5,7 +5,7 @@
     "strict": true,
 
     "target": "ESNext",
-    "lib": ["ES2021", "dom"],
+    "lib": ["ES2023", "dom"],
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
     "module": "NodeNext",

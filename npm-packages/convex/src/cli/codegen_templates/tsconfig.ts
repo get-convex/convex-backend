@@ -15,7 +15,7 @@ export function tsconfigCodegen() {
 
     /* These compiler options are required by Convex */
     "target": "ESNext",
-    "lib": ["ES2021", "dom"],
+    "lib": ["ES2023", "dom"],
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "isolatedModules": true,
