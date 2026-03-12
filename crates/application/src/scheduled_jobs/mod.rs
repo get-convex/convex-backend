@@ -105,7 +105,10 @@ use parking_lot::Mutex;
 use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
-use usage_tracking::FunctionUsageTracker;
+use usage_tracking::{
+    FunctionUsageTracker,
+    OccInfo,
+};
 use value::{
     ConvexValue,
     ResolvedDocumentId,
@@ -784,17 +787,40 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             SchedulerModel::new(&mut tx, namespace)
                 .complete(job_id, ScheduledJobState::Success)
                 .await?;
-            if let Fault::Error(e) = pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
-                tracing::info!("Injected error before committing mutation");
-                return Err(e);
-            };
-            if let Err(err) = self
-                .database
-                .commit_with_write_source(tx, "scheduled_job_mutation_success")
-                .await
-            {
+            let commit_result =
+                if let Fault::Error(e) = pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
+                    tracing::info!("Injected error before committing mutation");
+                    Err(e)
+                } else {
+                    self.database
+                        .commit_with_write_source(tx, "scheduled_job_mutation_success")
+                        .await
+                };
+            if let Err(err) = commit_result {
                 if err.is_deterministic_user_error() {
                     outcome.result = Err(JsError::from_error(err));
+                } else if err.is_occ() {
+                    let (table_name, document_id, write_source) =
+                        err.occ_info().unwrap_or((None, None, None));
+                    self.function_log
+                        .log_mutation_occ_error(
+                            outcome,
+                            stats,
+                            execution_time,
+                            caller,
+                            usage_tracker,
+                            context,
+                            OccInfo {
+                                table_name,
+                                document_id,
+                                write_source,
+                                retry_count: mutation_retry_count as u64,
+                            },
+                            None,
+                            mutation_retry_count,
+                        )
+                        .await;
+                    return Err(err);
                 } else {
                     return Err(err);
                 }

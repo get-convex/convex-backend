@@ -1,5 +1,6 @@
 use std::{
     str::FromStr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -25,6 +26,13 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
+use events::{
+    testing::BasicTestUsageEventLogger,
+    usage::{
+        FunctionCallUsageFields,
+        UsageEvent,
+    },
+};
 use keybroker::Identity;
 use model::{
     backend_state::{
@@ -70,6 +78,7 @@ use crate::{
         SCHEDULER_STARTED,
     },
     test_helpers::{
+        ApplicationFixtureArgs,
         ApplicationTestExt,
         OBJECTS_TABLE,
         OBJECTS_TABLE_COMPONENT,
@@ -426,7 +435,12 @@ async fn test_scheduled_job_retry(
     rt: TestRuntime,
     pause_controller: PauseController,
 ) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
+    let logger = BasicTestUsageEventLogger::new();
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs::with_event_logger(Arc::new(logger.clone())),
+    )
+    .await?;
     application.load_udf_tests_modules().await?;
 
     let attempt_commit = pause_controller.hold(SCHEDULED_JOB_COMMITTING);
@@ -462,6 +476,35 @@ async fn test_scheduled_job_retry(
     let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Success);
+
+    // Verify usage is tracked for both the OCC'd attempt and the successful
+    // attempt.
+    let function_call_events: Vec<FunctionCallUsageFields> = logger
+        .collect()
+        .into_iter()
+        .filter_map(|event| {
+            if let UsageEvent::FunctionCall { fields } = event {
+                if fields.udf_id.contains("insertObject") {
+                    Some(fields)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // We expect two function call events: one for the OCC'd attempt and one for
+    // the successful retry.
+    assert_eq!(
+        function_call_events.len(),
+        2,
+        "Expected 2 function call usage events (1 OCC + 1 success), got {}: {:?}",
+        function_call_events.len(),
+        function_call_events,
+    );
+
     Ok(())
 }
 
