@@ -130,7 +130,7 @@ impl ConvexValue {
                 }
             },
             ConvexValue::Boolean(value) => JsonValue::Bool(value),
-            ConvexValue::String(value) => JsonValue::String(value.to_string()),
+            ConvexValue::String(value) => JsonValue::String(value.into()),
             ConvexValue::Bytes(value) => {
                 let bytes: Vec<u8> = value.into();
                 JsonValue::String(base64::encode(bytes))
@@ -140,7 +140,7 @@ impl ConvexValue {
             },
             ConvexValue::Object(map) => JsonValue::Object(
                 map.into_iter()
-                    .map(|(key, value)| (key.to_string(), value.export_clean()))
+                    .map(|(key, value)| (key.into(), value.export_clean()))
                     .collect(),
             ),
         }
@@ -177,7 +177,7 @@ impl ConvexValue {
             ),
             ConvexValue::Object(map) => JsonValue::Object(
                 map.into_iter()
-                    .map(|(key, value)| (key.to_string(), value.export_clean_lossless()))
+                    .map(|(key, value)| (key.into(), value.export_clean_lossless()))
                     .collect(),
             ),
         }
