@@ -103,8 +103,6 @@ export {
   internalMutationGeneric,
   internalQueryGeneric,
 } from "./impl/registration_impl.js";
-export { getTransactionHeadroom } from "./headroom.js";
-export type { TransactionHeadroom, TransactionMetric } from "./headroom.js";
 export type { IndexRange, IndexRangeBuilder } from "./index_range_builder.js";
 export * from "./pagination.js";
 export type { OrderedQuery, Query, QueryInitializer } from "./query.js";

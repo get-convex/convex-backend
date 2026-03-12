@@ -1,7 +1,43 @@
 import { getConvexSize, getDocumentSize } from "convex/values";
-import { getTransactionHeadroom, TransactionHeadroom } from "convex/server";
 import { api } from "./_generated/api";
 import { query, mutation, action } from "./_generated/server";
+
+// Inlined from convex/server for testing - not part of public API
+type TransactionMetric = {
+  used: number;
+  remaining: number;
+};
+
+type TransactionHeadroom = {
+  bytesRead: TransactionMetric;
+  bytesWritten: TransactionMetric;
+  databaseQueries: TransactionMetric;
+  documentsRead: TransactionMetric;
+  documentsWritten: TransactionMetric;
+  functionsScheduled: TransactionMetric;
+  scheduledFunctionArgsBytes: TransactionMetric;
+};
+
+declare const Convex: {
+  asyncSyscall: (op: string, jsonArgs: string) => Promise<string>;
+};
+
+async function getTransactionHeadroom(): Promise<TransactionHeadroom> {
+  let syscallJSON;
+  try {
+    const resultStr = await Convex.asyncSyscall("1.0/headroom", "{}");
+    syscallJSON = JSON.parse(resultStr);
+  } catch (e: any) {
+    if (e.message?.includes("Unknown async operation")) {
+      throw new Error(
+        "getTransactionHeadroom() can only be called from a query or mutation. " +
+          "It is not available in actions or outside of a Convex function.",
+      );
+    }
+    throw e;
+  }
+  return syscallJSON as TransactionHeadroom;
+}
 
 export const headroomEmpty = query({
   handler: async () => {
