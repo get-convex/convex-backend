@@ -1432,6 +1432,39 @@
         },
         "security": []
       }
+    },
+    "/teams/{team_id}/create_access_token": {
+      "post": {
+        "tags": [
+          "Access Tokens"
+        ],
+        "summary": "Create a team management access token",
+        "operationId": "create team management access token",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Team management access token created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTeamManagementAccessTokenResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not authorized to create team management access tokens"
+          }
+        },
+        "security": []
+      }
     }
   },
   "components": {
@@ -1448,6 +1481,21 @@
           "preview",
           "custom"
         ]
+      },
+      "CreateTeamManagementAccessTokenResponse": {
+        "type": "object",
+        "required": [
+          "accessToken",
+          "tokenType"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "tokenType": {
+            "type": "string"
+          }
+        }
       },
       "DeploymentClass": {
         "type": "string",

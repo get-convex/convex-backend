@@ -564,6 +564,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/create_access_token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a team management access token */
+        post: operations["create team management access token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -572,6 +589,10 @@ export interface components {
         AdminKey: string;
         /** @enum {string} */
         CreateDeploymentType: "dev" | "prod" | "preview" | "custom";
+        CreateTeamManagementAccessTokenResponse: {
+            accessToken: string;
+            tokenType: string;
+        };
         /** @enum {string} */
         DeploymentClass: "s16" | "s256" | "d1024";
         DeploymentClassMetadata: {
@@ -938,6 +959,7 @@ export interface components {
 }
 export type AdminKey = components['schemas']['AdminKey'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
+export type CreateTeamManagementAccessTokenResponse = components['schemas']['CreateTeamManagementAccessTokenResponse'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
 export type DeploymentId = components['schemas']['DeploymentId'];
@@ -1675,6 +1697,35 @@ export interface operations {
                 };
             };
             /** @description Caller is not authorized to create teams */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "create team management access token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Team management access token created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateTeamManagementAccessTokenResponse"];
+                };
+            };
+            /** @description Caller is not authorized to create team management access tokens */
             403: {
                 headers: {
                     [name: string]: unknown;
