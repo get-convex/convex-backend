@@ -42,6 +42,7 @@ declare module "@commander-js/extra-typings" {
         prod?: boolean;
         previewName?: string;
         deploymentName?: string;
+        deployment?: string;
       }
     >;
 
@@ -170,7 +171,12 @@ Command.prototype.addDeploymentSelectionOptions = function (
     options?.showUrlHelp
       ? action + " the deployment at the given URL."
       : undefined,
-  ).conflicts(["--prod", "--preview-name", "--deployment-name"]);
+  ).conflicts([
+    "--prod",
+    "--preview-name",
+    "--deployment-name",
+    "--deployment",
+  ]);
   if (!options?.showUrlHelp) {
     urlOption.hideHelp();
   }
@@ -179,15 +185,20 @@ Command.prototype.addDeploymentSelectionOptions = function (
     .addOption(
       new Option(
         "--prod",
-        action + " this project's production deployment.",
-      ).conflicts(["--preview-name", "--deployment-name", "--url"]),
+        action + " this project's default production deployment.",
+      ).conflicts([
+        "--preview-name",
+        "--deployment-name",
+        "--url",
+        "--deployment",
+      ]),
     )
     .addOption(
       new Option(
         "--preview-name <previewName>",
         action + " the preview deployment with the given name.",
       )
-        .conflicts(["--prod", "--deployment-name", "--url"])
+        .conflicts(["--prod", "--deployment-name", "--url", "--deployment"])
         .hideHelp(),
     )
     .addOption(
@@ -195,8 +206,17 @@ Command.prototype.addDeploymentSelectionOptions = function (
         "--deployment-name <deploymentName>",
         action + " the specified deployment.",
       )
-        .conflicts(["--prod", "--preview-name", "--url"])
+        .conflicts(["--prod", "--preview-name", "--url", "--deployment"])
         .hideHelp(),
+    )
+    .addOption(
+      new Option(
+        "--deployment <deployment>",
+        action +
+          " the specified deployment. Accepts a deployment name (e.g. joyful-capybara-123), ref (e.g. dev/james), 'dev' (for your personal dev deployment), 'prod' (for your project’s default production deployment). You can also select deployments in other projects with 'project-slug:ref' or 'team-slug:project-slug:ref'.",
+      )
+        .conflicts(["--prod", "--preview-name", "--deployment-name", "--url"])
+        .hideHelp(), // TODO(nicolas) Make this public
     )
     .addOption(
       new Option(

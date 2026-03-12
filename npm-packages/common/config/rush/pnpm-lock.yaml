@@ -643,8 +643,8 @@ importers:
         specifier: ^14.0.0
         version: 14.0.0(commander@14.0.2)
       '@convex-dev/platform':
-        specifier: 0.1.0
-        version: 0.1.0
+        specifier: 0.1.5
+        version: 0.1.5
       '@eslint/compat':
         specifier: ~2.0.0
         version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
@@ -7027,8 +7027,8 @@ packages:
     peerDependencies:
       typedoc: '>=0.24.0'
 
-  '@convex-dev/platform@0.1.0':
-    resolution: {integrity: sha512-BRp2/O5j9DoFibDGiSSxz+41FAGifMeU6yujmBj41k9km/C9wnkFw1YhS3lVLYBIYRXHJJm95uia2i9zPziQHg==}
+  '@convex-dev/platform@0.1.5':
+    resolution: {integrity: sha512-hJj+Klo6jjVGkqrph7SjnBYGlwVS+q8OiWXOxB3/B8YSUchSfxrk6+qae5EYw5WwMX7U3gD+KzJ8hcTlZ9fFtg==}
 
   '@convex-dev/rate-limiter@0.3.2':
     resolution: {integrity: sha512-+oBPsBfFbzdxiF/9XaaTQmVnvDlvEfg/c69/v8LxTbw4VLuiflIKlfnPQL8OS0azXQQ11hcPWHmU8ytFmHKDXA==}
@@ -25900,7 +25900,7 @@ snapshots:
     dependencies:
       typedoc: 0.24.8(typescript@5.0.4)
 
-  '@convex-dev/platform@0.1.0':
+  '@convex-dev/platform@0.1.5':
     dependencies:
       openapi-fetch: 0.15.0
 
@@ -29049,7 +29049,7 @@ snapshots:
 
   '@pkgr/core@0.2.9': {}
 
-  '@pmmmwh/react-refresh-webpack-plugin@0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))':
+  '@pmmmwh/react-refresh-webpack-plugin@0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))':
     dependencies:
       ansi-html: 0.0.9
       core-js-pure: 3.46.0
@@ -30474,7 +30474,7 @@ snapshots:
       '@babel/preset-react': 7.28.5(@babel/core@7.28.5)
       '@babel/preset-typescript': 7.28.5(@babel/core@7.28.5)
       '@babel/runtime': 7.28.4
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
       '@storybook/builder-webpack5': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@storybook/preset-react-webpack': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@storybook/react': 10.2.17(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
@@ -30534,7 +30534,7 @@ snapshots:
       '@babel/preset-react': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/preset-typescript': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/runtime': 7.28.4
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
       '@storybook/builder-webpack5': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@storybook/preset-react-webpack': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(typescript@5.9.3)
       '@storybook/react': 10.2.17(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(typescript@5.9.3)

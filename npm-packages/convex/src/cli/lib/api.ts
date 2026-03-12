@@ -10,6 +10,7 @@ import {
   bigBrainAPI,
   bigBrainAPIMaybeThrows,
   logAndHandleFetchError,
+  typedPlatformClient,
 } from "./utils/utils.js";
 import { z } from "zod";
 import {
@@ -18,6 +19,8 @@ import {
 } from "./deploymentSelection.js";
 import { loadLocalDeploymentCredentials } from "./localDeployment/localDeployment.js";
 import { loadAnonymousDeployment } from "./localDeployment/anonymous.js";
+import { parseDeploymentSelector } from "./deploymentSelector.js";
+import { chalkStderr } from "chalk";
 export type DeploymentName = string;
 export type CloudDeploymentType = "prod" | "dev" | "preview" | "custom";
 export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
@@ -99,6 +102,10 @@ export const deploymentSelectionWithinProjectSchema = z.discriminatedUnion(
     z.object({ kind: z.literal("prod") }),
     z.object({ kind: z.literal("implicitProd") }),
     z.object({ kind: z.literal("ownDev") }),
+    z.object({
+      kind: z.literal("deploymentSelector"),
+      selector: z.string(),
+    }),
   ],
 );
 
@@ -114,6 +121,7 @@ type DeploymentSelectionOptionsWithinProject = {
 
   previewName?: string | undefined;
   deploymentName?: string | undefined;
+  deployment?: string | undefined;
 };
 
 export type DeploymentSelectionOptions =
@@ -126,6 +134,9 @@ export type DeploymentSelectionOptions =
 export function deploymentSelectionWithinProjectFromOptions(
   options: DeploymentSelectionOptions,
 ): DeploymentSelectionWithinProject {
+  if (options.deployment !== undefined) {
+    return { kind: "deploymentSelector", selector: options.deployment };
+  }
   if (options.previewName !== undefined) {
     return { kind: "previewName", previewName: options.previewName };
   }
@@ -152,6 +163,31 @@ export async function validateDeploymentSelectionForExistingDeployment(
   ) {
     // These are both considered the "default" selection depending on the command, so this is always fine
     return;
+  }
+  if (deploymentSelection.kind === "deploymentSelector") {
+    switch (source) {
+      case "selfHosted":
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "The `--deployment` flag cannot be used with a self-hosted deployment.",
+        });
+      case "deployKey":
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "The `--deployment` flag cannot be used with CONVEX_DEPLOY_KEY.",
+        });
+      case "cliArgs":
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "The `--deployment` flag cannot be used with --url and --admin-key.",
+        });
+    }
   }
   switch (source) {
     case "selfHosted":
@@ -575,6 +611,12 @@ async function fetchDeploymentCredentialsWithinCurrentProject(
         deploymentSelection.deploymentName,
         projectSelection,
       );
+    case "deploymentSelector":
+      return await handleDeploymentSelector(
+        ctx,
+        deploymentSelection.selector,
+        projectSelection,
+      );
     default: {
       deploymentSelection satisfies never;
       return ctx.crash({
@@ -583,6 +625,120 @@ async function fetchDeploymentCredentialsWithinCurrentProject(
         // This should be unreachable, so don't bother with a printed message.
         printedMessage: null,
         errForSentry: `Unexpected deployment selection: ${deploymentSelection as any}`,
+      });
+    }
+  }
+}
+
+async function resolveDeploymentNameByReference(
+  ctx: Context,
+  teamSlug: string,
+  projectSlug: string,
+  reference: string,
+): Promise<string> {
+  try {
+    const result = await typedPlatformClient(ctx, { throw: true }).GET(
+      "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
+      {
+        params: {
+          path: { team_id_or_slug: teamSlug, project_slug: projectSlug },
+          query: { reference },
+        },
+      },
+    );
+
+    return result.data!.name;
+  } catch (err) {
+    if (
+      err instanceof ThrowingFetchError &&
+      err.serverErrorData?.code === "DeploymentNotFound"
+    ) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Deployment “${reference}” not found. To create a new deployment, use ${chalkStderr.bold(`npx convex deployment create ${reference} --team ${teamSlug} --project ${projectSlug} --select`)}`,
+        errForSentry: err,
+      });
+    }
+    return await logAndHandleFetchError(ctx, err);
+  }
+}
+
+async function handleDeploymentSelector(
+  ctx: Context,
+  selector: string,
+  projectSelection: ProjectSelection,
+): Promise<{
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: DeploymentType;
+}> {
+  const parsed = parseDeploymentSelector(selector);
+  switch (parsed.kind) {
+    case "defaultDev":
+      return await handleOwnDev(ctx, projectSelection);
+    case "defaultProd":
+      return await handleProd(ctx, projectSelection);
+    case "deploymentName":
+      return await handleDeploymentName(
+        ctx,
+        parsed.deploymentName,
+        projectSelection,
+      );
+    case "refInSameProject": {
+      // Resolve team/project from projectSelection, then look up deployment by reference
+      const access = await checkAccessToSelectedProject(ctx, projectSelection);
+      if (access.kind !== "hasAccess") {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "You don't have access to the selected project. Run `npx convex dev` to select a different project.",
+        });
+      }
+      const deploymentName = await resolveDeploymentNameByReference(
+        ctx,
+        access.teamSlug,
+        access.projectSlug,
+        parsed.reference,
+      );
+      return await handleDeploymentName(ctx, deploymentName, projectSelection);
+    }
+    case "refInOtherProject": {
+      // Derive team from current project context, then resolve by reference
+      const access = await checkAccessToSelectedProject(ctx, projectSelection);
+      if (access.kind !== "hasAccess") {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "You don't have access to the selected project. Run `npx convex dev` to select a different project.",
+        });
+      }
+      const deploymentName = await resolveDeploymentNameByReference(
+        ctx,
+        access.teamSlug,
+        parsed.projectSlug,
+        parsed.reference,
+      );
+      return await handleDeploymentName(ctx, deploymentName, {
+        kind: "teamAndProjectSlugs",
+        teamSlug: access.teamSlug,
+        projectSlug: parsed.projectSlug,
+      });
+    }
+    case "refInOtherTeam": {
+      const deploymentName = await resolveDeploymentNameByReference(
+        ctx,
+        parsed.teamSlug,
+        parsed.projectSlug,
+        parsed.reference,
+      );
+      return await handleDeploymentName(ctx, deploymentName, {
+        kind: "teamAndProjectSlugs",
+        teamSlug: parsed.teamSlug,
+        projectSlug: parsed.projectSlug,
       });
     }
   }

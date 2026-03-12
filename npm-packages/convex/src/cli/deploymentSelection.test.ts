@@ -14,7 +14,10 @@ import { runPush } from "./lib/components.js";
 import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
 import { gitBranchFromEnvironment } from "./lib/envvars.js";
 import { devAgainstDeployment } from "./lib/dev.js";
-import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
+import {
+  handleLocalDeployment,
+  loadLocalDeploymentCredentials,
+} from "./lib/localDeployment/localDeployment.js";
 import {
   validateOrSelectTeam,
   validateOrSelectProject,
@@ -37,6 +40,9 @@ vi.mock("../bundler/fs.js", async (importOriginal) => {
   };
 });
 
+// Mock typedPlatformClient GET function — can be configured per test
+const mockPlatformGet = vi.fn();
+
 vi.mock("./lib/utils/utils.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./lib/utils/utils.js")>();
   return {
@@ -47,6 +53,7 @@ vi.mock("./lib/utils/utils.js", async (importOriginal) => {
     bigBrainAPIMaybeThrows: vi.fn(),
     validateOrSelectTeam: vi.fn(),
     validateOrSelectProject: vi.fn(),
+    typedPlatformClient: vi.fn(() => ({ GET: mockPlatformGet })),
   };
 });
 
@@ -60,6 +67,7 @@ vi.mock("./lib/localDeployment/run.js", async (importOriginal) => {
         await action();
       },
     ),
+    assertLocalBackendRunning: vi.fn(),
   };
 });
 
@@ -141,7 +149,11 @@ vi.mock("./lib/localDeployment/localDeployment.js", async (importOriginal) => {
     await importOriginal<
       typeof import("./lib/localDeployment/localDeployment.js")
     >();
-  return { ...actual, handleLocalDeployment: vi.fn() };
+  return {
+    ...actual,
+    handleLocalDeployment: vi.fn(),
+    loadLocalDeploymentCredentials: vi.fn(),
+  };
 });
 
 vi.mock("./lib/login.js", async (importOriginal) => {
@@ -231,6 +243,11 @@ describe("deployment selection flows", () => {
       adminKey: "local|admin|key",
       onActivity: async () => {},
     } as any);
+    vi.mocked(loadLocalDeploymentCredentials).mockResolvedValue({
+      deploymentName: "local-test",
+      deploymentUrl: "http://127.0.0.1:3210",
+      adminKey: "local|admin|key",
+    });
     vi.mocked(validateOrSelectTeam).mockRejectedValue(
       new Error("validateOrSelectTeam should be mocked"),
     );
@@ -815,6 +832,342 @@ describe("deployment selection flows", () => {
           path: "deployment/team_and_project_for_key",
         }),
       );
+    });
+
+    describe("--deployment flag", () => {
+      beforeEach(() => {
+        process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+        vi.mocked(readGlobalConfig).mockReturnValue({
+          accessToken: "test-token",
+        });
+      });
+
+      it("resolves --deployment prod to production deployment", async () => {
+        setupBigBrainRoutes({
+          "deployment/joyful-capybara-123/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "deployment/authorize_prod": () => ({
+            adminKey: "prod-key",
+            url: "https://graceful-puffin-456.convex.cloud",
+            deploymentName: "graceful-puffin-456",
+            deploymentType: "prod",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(["set", "ABC", "DEF", "--deployment", "prod"], {
+          from: "user",
+        });
+
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({ path: "deployment/authorize_prod" }),
+        );
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "https://graceful-puffin-456.convex.cloud",
+            adminKey: "prod-key",
+          }),
+        );
+      });
+
+      it("resolves --deployment dev to dev deployment", async () => {
+        setupBigBrainRoutes({
+          "deployment/joyful-capybara-123/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "deployment/provision_and_authorize": () => ({
+            adminKey: "dev-key",
+            url: "https://joyful-capybara-123.convex.cloud",
+            deploymentName: "joyful-capybara-123",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(["set", "ABC", "DEF", "--deployment", "dev"], {
+          from: "user",
+        });
+
+        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/provision_and_authorize",
+            data: expect.objectContaining({ deploymentType: "dev" }),
+          }),
+        );
+      });
+
+      it("resolves --deployment with cloud deployment name (abc-xyz-123)", async () => {
+        setupBigBrainRoutes({
+          "deployment/clever-otter-890/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "deployment/authorize_within_current_project": () => ({
+            adminKey: "other-key",
+            url: "https://clever-otter-890.convex.cloud",
+            deploymentName: "clever-otter-890",
+            deploymentType: "dev",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "clever-otter-890"],
+          { from: "user" },
+        );
+
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
+            data: expect.objectContaining({
+              selectedDeploymentName: "clever-otter-890",
+            }),
+          }),
+        );
+      });
+
+      it("resolves --deployment with cloud deployment name without CONVEX_DEPLOYMENT", async () => {
+        // No CONVEX_DEPLOYMENT set — the deployment name itself must be used as the
+        // project anchor (team_and_project is looked up via clever-otter-890, not
+        // via some pre-existing CONVEX_DEPLOYMENT).
+        delete process.env.CONVEX_DEPLOYMENT;
+
+        setupBigBrainRoutes({
+          "deployment/clever-otter-890/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "deployment/authorize_within_current_project": () => ({
+            adminKey: "other-key",
+            url: "https://clever-otter-890.convex.cloud",
+            deploymentName: "clever-otter-890",
+            deploymentType: "dev",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "clever-otter-890"],
+          { from: "user" },
+        );
+
+        // The project was resolved using clever-otter-890 as the anchor, not
+        // joyful-capybara-123 (which isn't set in this test).
+        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/clever-otter-890/team_and_project",
+          }),
+        );
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
+            data: expect.objectContaining({
+              selectedDeploymentName: "clever-otter-890",
+            }),
+          }),
+        );
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "https://clever-otter-890.convex.cloud",
+            adminKey: "other-key",
+          }),
+        );
+      });
+
+      it("resolves --deployment with a reference", async () => {
+        setupBigBrainRoutes({
+          "deployment/joyful-capybara-123/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "teams/my-team/projects/my-project/deployments": () => true,
+          "deployment/authorize_within_current_project": () => ({
+            adminKey: "staging-key",
+            url: "https://clever-otter-890.convex.cloud",
+            deploymentName: "clever-otter-890",
+            deploymentType: "dev",
+          }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "clever-otter-890" },
+          error: undefined,
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(["set", "ABC", "DEF", "--deployment", "staging"], {
+          from: "user",
+        });
+
+        expect(mockPlatformGet).toHaveBeenCalledWith(
+          "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
+          expect.objectContaining({
+            params: expect.objectContaining({
+              path: { team_id_or_slug: "my-team", project_slug: "my-project" },
+              query: { reference: "staging" },
+            }),
+          }),
+        );
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
+            data: expect.objectContaining({
+              selectedDeploymentName: "clever-otter-890",
+            }),
+          }),
+        );
+      });
+
+      it("resolves --deployment with project:reference format", async () => {
+        setupBigBrainRoutes({
+          "deployment/joyful-capybara-123/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "teams/my-team/projects/my-project/deployments": () => true,
+          "deployment/authorize_within_current_project": () => ({
+            adminKey: "other-proj-key",
+            url: "https://other-deploy-123.convex.cloud",
+            deploymentName: "other-deploy-123",
+            deploymentType: "dev",
+          }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "other-deploy-123" },
+          error: undefined,
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "other-project:staging"],
+          { from: "user" },
+        );
+
+        expect(mockPlatformGet).toHaveBeenCalledWith(
+          "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
+          expect.objectContaining({
+            params: expect.objectContaining({
+              path: {
+                team_id_or_slug: "my-team",
+                project_slug: "other-project",
+              },
+              query: { reference: "staging" },
+            }),
+          }),
+        );
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
+            data: expect.objectContaining({
+              selectedDeploymentName: "other-deploy-123",
+            }),
+          }),
+        );
+      });
+
+      it("resolves --deployment with team:project:reference format without CONVEX_DEPLOYMENT", async () => {
+        // No CONVEX_DEPLOYMENT set
+        delete process.env.CONVEX_DEPLOYMENT;
+        setupBigBrainRoutes({
+          "deployment/authorize_within_current_project": () => ({
+            adminKey: "fq-key",
+            url: "https://fully-qualified-123.convex.cloud",
+            deploymentName: "fully-qualified-123",
+            deploymentType: "dev",
+          }),
+          "teams/myteam/projects/myproj/deployments": () => true,
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "fully-qualified-123" },
+          error: undefined,
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "myteam:myproj:staging"],
+          { from: "user" },
+        );
+
+        expect(mockPlatformGet).toHaveBeenCalledWith(
+          "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
+          expect.objectContaining({
+            params: expect.objectContaining({
+              path: { team_id_or_slug: "myteam", project_slug: "myproj" },
+              query: { reference: "staging" },
+            }),
+          }),
+        );
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
+            data: expect.objectContaining({
+              selectedDeploymentName: "fully-qualified-123",
+            }),
+          }),
+        );
+      });
+
+      it("errors when --deployment used with self-hosted deployment", async () => {
+        delete process.env.CONVEX_DEPLOYMENT;
+        process.env.CONVEX_SELF_HOSTED_URL = "http://localhost:3210";
+        process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = "self-hosted-key";
+
+        await expect(
+          env.parseAsync(["set", "ABC", "DEF", "--deployment", "prod"], {
+            from: "user",
+          }),
+        ).rejects.toThrow();
+
+        expect(deploymentFetch).not.toHaveBeenCalled();
+      });
+
+      it("errors when --deployment used with --url and --admin-key", async () => {
+        await expect(
+          env.parseAsync(
+            [
+              "set",
+              "ABC",
+              "DEF",
+              "--deployment",
+              "prod",
+              "--url",
+              "https://example.convex.cloud",
+              "--admin-key",
+              "mykey",
+            ],
+            { from: "user" },
+          ),
+        ).rejects.toThrow();
+      });
     });
   });
 

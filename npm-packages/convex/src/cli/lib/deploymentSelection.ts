@@ -19,6 +19,7 @@ import {
   isProjectKey,
   stripDeploymentTypePrefix,
 } from "./deployment.js";
+import { parseDeploymentSelector } from "./deploymentSelector.js";
 import { getBuildEnvironment } from "./envvars.js";
 import { readGlobalConfig } from "./utils/globalConfig.js";
 import {
@@ -376,6 +377,41 @@ async function _getDeploymentSelection(
         source: "cliArgs",
       },
     };
+  }
+
+  // If --deployment is a fully qualified selector (team:project:ref or a
+  // deployment name), we don't need a current project context — handle it
+  // before env var resolution.
+  if (cliArgs.deployment !== undefined) {
+    const parsed = parseDeploymentSelector(cliArgs.deployment);
+    if (parsed.kind === "refInOtherTeam") {
+      return {
+        kind: "deploymentWithinProject",
+        targetProject: {
+          kind: "teamAndProjectSlugs",
+          teamSlug: parsed.teamSlug,
+          projectSlug: parsed.projectSlug,
+        },
+        selectionWithinProject: {
+          kind: "deploymentSelector",
+          selector: cliArgs.deployment,
+        },
+      };
+    }
+    if (parsed.kind === "deploymentName") {
+      return {
+        kind: "deploymentWithinProject",
+        targetProject: {
+          kind: "deploymentName",
+          deploymentName: parsed.deploymentName,
+          deploymentType: null,
+        },
+        selectionWithinProject: {
+          kind: "deploymentSelector",
+          selector: cliArgs.deployment,
+        },
+      };
+    }
   }
 
   if (cliArgs.envFile !== undefined) {
