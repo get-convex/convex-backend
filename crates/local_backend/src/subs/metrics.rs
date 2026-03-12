@@ -138,9 +138,12 @@ pub fn log_websocket_closed_error_not_reported(partition_id: String) {
 register_convex_gauge!(
     SYNC_PROTOCOL_WEBSOCKETS_TOTAL,
     "Number of WebSocket connected to a backend",
+    &["partition_id"],
 );
-pub fn log_sync_protocol_websockets_total(delta: i8) {
-    SYNC_PROTOCOL_WEBSOCKETS_TOTAL.add(delta as f64)
+pub fn log_sync_protocol_websockets_total(partition_id: &str, delta: i8) {
+    SYNC_PROTOCOL_WEBSOCKETS_TOTAL
+        .with_label_values(&[partition_id])
+        .add(delta as f64)
 }
 
 register_convex_counter!(pub WEBSOCKET_CONNECTION_RESET_TOTAL, "Number of websocket connection resets");

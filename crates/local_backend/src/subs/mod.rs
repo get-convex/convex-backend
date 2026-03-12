@@ -90,19 +90,21 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 /// How long before lack of client response causes a timeout.
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(120);
 
-struct SyncSocketDropToken {}
+struct SyncSocketDropToken {
+    partition_id_label: String,
+}
 
 /// Tracker that exists for the lifetime of a run_sync_socket.
 impl SyncSocketDropToken {
-    fn new() -> Self {
-        log_sync_protocol_websockets_total(1);
-        SyncSocketDropToken {}
+    fn new(partition_id_label: String) -> Self {
+        log_sync_protocol_websockets_total(&partition_id_label, 1);
+        SyncSocketDropToken { partition_id_label }
     }
 }
 
 impl Drop for SyncSocketDropToken {
     fn drop(&mut self) {
-        log_sync_protocol_websockets_total(-1);
+        log_sync_protocol_websockets_total(&self.partition_id_label, -1);
     }
 }
 
@@ -126,7 +128,13 @@ async fn run_sync_socket(
     sentry_scope: sentry::Scope,
     on_connect: Box<dyn FnOnce(SessionId) + Send>,
 ) {
-    let _drop_token = SyncSocketDropToken::new();
+    // For segmenting metrics
+    let partition_id = st.api.partition_id(&host).await;
+    let partition_id_label = partition_id
+        .as_ref()
+        .map(|p| p.to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    let _drop_token = SyncSocketDropToken::new(partition_id_label.clone());
 
     let (mut tx, mut rx) = socket.split();
 
@@ -225,12 +233,6 @@ async fn run_sync_socket(
         }
         Ok(())
     };
-    // For segmenting metrics
-    let partition_id = st.api.partition_id(&host).await;
-    let partition_id_label = partition_id
-        .as_ref()
-        .map(|p| p.to_string())
-        .unwrap_or_else(|_| "unknown".to_string());
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
         let mut sync_worker = SyncWorker::new(
