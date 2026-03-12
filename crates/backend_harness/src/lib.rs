@@ -1,5 +1,6 @@
 #![feature(exit_status_error)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 
 /// Harness for spawning/testing a backend for a given package
 mod metrics;

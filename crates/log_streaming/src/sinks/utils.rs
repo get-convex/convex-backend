@@ -147,7 +147,7 @@ pub fn assert_bandwidth_events(
 #[cfg(test)]
 mod tests {
     use std::{
-        assert_matches::assert_matches,
+        assert_matches,
         sync::Arc,
     };
 

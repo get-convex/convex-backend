@@ -16,13 +16,13 @@
 //! allow. Linux's `procfs` is an inspiration here, where it's useful to present
 //! system data as regular files, but most mutations don't make much sense.
 
-#![feature(assert_matches)]
 #![feature(coroutines)]
 #![feature(iter_advance_by)]
 #![feature(type_alias_impl_trait)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(iter_from_coroutine)]
 #![feature(duration_constructors)]

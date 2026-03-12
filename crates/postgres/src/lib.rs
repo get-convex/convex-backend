@@ -2,7 +2,6 @@
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
-#![feature(assert_matches)]
 mod connection;
 mod metrics;
 mod sql;

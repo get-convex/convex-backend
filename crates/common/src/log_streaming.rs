@@ -228,6 +228,7 @@ impl Display for LogEventFormatVersion {
 }
 
 #[cfg(any(test, feature = "testing"))]
+#[allow(clippy::derivable_impls)]
 impl Default for LogEventFormatVersion {
     fn default() -> Self {
         Self::V2

@@ -1243,7 +1243,7 @@ impl DatabaseIndexSnapshotCache {
                 })
                 .collect();
             // If the cache is too big, empty the cache
-            if !self.populate(tracked_keys.into_iter(), ts, doc) {
+            if !self.populate(tracked_keys, ts, doc) {
                 log_index_cache_cleared();
                 *self = Self::new();
                 return false;

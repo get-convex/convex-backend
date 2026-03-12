@@ -31,6 +31,7 @@ use common::{
         UnixTimestamp,
     },
     sync::spsc,
+    try_anyhow,
     types::{
         PersistenceVersion,
         UdfType,
@@ -507,7 +508,7 @@ async fn run_request<RT: Runtime>(
     });
 
     // Phase 1: Load and register all source needed, and evaluate the UDF's module.
-    let r: anyhow::Result<_> = try {
+    let r: anyhow::Result<_> = try_anyhow!({
         let mut stack = vec![udf_path.module().clone()];
 
         while let Some(module_path) = stack.pop() {
@@ -536,7 +537,7 @@ async fn run_request<RT: Runtime>(
         let udf_module_specifier = module_specifier_from_path(udf_path.module())?;
         client.evaluate_module(udf_module_specifier.clone()).await?;
         anyhow::Ok(())
-    };
+    });
     if let Err(e) = r {
         let js_error = e.downcast::<JsError>()?;
         client.shutdown().await?;
@@ -576,7 +577,7 @@ async fn run_request<RT: Runtime>(
         execution_context,
     );
     let parsed_args = parse_udf_args(udf_path, arguments.clone().into_args()?)?;
-    let r: anyhow::Result<_> = try {
+    let r: anyhow::Result<_> = try_anyhow!({
         // Update our shared state with the updated table mappings before reentering
         // user code.
         provider.shared.update_table_mappings(provider.tx);
@@ -659,7 +660,7 @@ async fn run_request<RT: Runtime>(
             provider.shared.update_table_mappings(provider.tx);
             result = client.poll_function(function_id, completions).await?;
         }
-    };
+    });
 
     let result = match r {
         Ok(result) => Ok(result),

@@ -1,5 +1,4 @@
 //! Common code, types and libraries for interacting with the system.
-#![feature(assert_matches)]
 #![feature(binary_heap_drain_sorted)]
 #![feature(const_for)]
 #![feature(const_type_name)]
@@ -7,13 +6,13 @@
 #![feature(iter_intersperse)]
 #![feature(nonzero_ops)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(type_alias_impl_trait)]
 #![feature(bound_as_ref)]
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
 #![feature(error_iter)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(round_char_boundary)]
 #![feature(never_type)]
 #![feature(error_generic_member_access)]
 #![feature(str_split_remainder)]
@@ -72,6 +71,7 @@ pub mod sync;
 pub mod testing;
 pub mod tracing;
 pub mod tracing_util;
+pub mod try_anyhow;
 pub mod types;
 pub mod utils;
 pub mod virtual_system_mapping;

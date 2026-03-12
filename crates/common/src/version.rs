@@ -449,7 +449,7 @@ impl fmt::Debug for ClientVersion {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
+    use std::assert_matches;
 
     use cmd_util::env::env_config;
     use proptest::prelude::*;

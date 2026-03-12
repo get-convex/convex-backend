@@ -17,6 +17,7 @@ use common::{
         missing_schema_export_error,
         DatabaseSchema,
     },
+    try_anyhow,
 };
 use deno_core::{
     v8::{
@@ -240,7 +241,7 @@ impl SchemaEnvironment {
             anyhow::bail!(missing_schema_export_error());
         }
         let export_str = strings::export.create(&scope)?;
-        let v8_schema_result: anyhow::Result<v8::Local<v8::String>> = try {
+        let v8_schema_result: anyhow::Result<v8::Local<v8::String>> = try_anyhow!({
             let schema_obj: v8::Local<v8::Object> = schema_val.try_into()?;
             let export_function: v8::Local<v8::Function> = schema_obj
                 .get(&scope, export_str.into())
@@ -253,7 +254,7 @@ impl SchemaEnvironment {
                     "Missing return value from successful function call"
                 )),
             }?
-        };
+        });
         // If we can't export the schema into a string, probably there is
         // something funky in their `schema.ts` file, so throw
         // `invalid_schema_export_error`

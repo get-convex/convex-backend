@@ -1,4 +1,5 @@
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(coroutines)]
 
 use std::{
@@ -43,6 +44,7 @@ use common::{
     },
     query::Order,
     runtime::CoopStreamExt as _,
+    try_anyhow,
     types::{
         IndexId,
         PersistenceVersion,
@@ -450,7 +452,7 @@ impl PersistenceReader for SqlitePersistence {
         _page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
-        let triples = try {
+        let triples = try_anyhow!({
             let connection = &self.inner.lock().connection;
             let load_docs_query = load_docs(range, order);
             let mut stmt = connection.prepare(load_docs_query.as_str())?;
@@ -466,7 +468,7 @@ impl PersistenceReader for SqlitePersistence {
                 }));
             }
             entries
-        };
+        });
         // load_documents isn't async so we have to validate snapshot as part of the
         // stream.
         let validate =

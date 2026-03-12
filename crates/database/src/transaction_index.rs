@@ -34,6 +34,7 @@ use common::{
         SearchVersion,
     },
     runtime,
+    try_anyhow,
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
@@ -224,7 +225,7 @@ impl TransactionIndex {
                 .next()
                 .unwrap_or_else(|| Err(anyhow::anyhow!("fewer persistence results than expected")));
 
-            let result = try {
+            let result = try_anyhow!({
                 let (snapshot_result_vec, cursor) = snapshot_result?;
                 let mut snapshot_it = snapshot_result_vec.into_iter();
                 let pending_it = Self::pending_iter_for_request(
@@ -313,7 +314,7 @@ impl TransactionIndex {
                     ))?;
                 }
                 (range_results, cursor)
-            };
+            });
             results.push(result);
         }
         assert_eq!(results.len(), batch_size);
@@ -389,7 +390,7 @@ impl TransactionIndex {
             fetch_result,
         ) in ranges.iter().zip(fetch_results)
         {
-            let result: anyhow::Result<_> = try {
+            let result: anyhow::Result<_> = try_anyhow!({
                 let (documents, fetch_cursor) = fetch_result?;
                 let mut total_bytes = 0;
                 let mut within_bytes_limit = true;
@@ -424,7 +425,7 @@ impl TransactionIndex {
                     ))?;
                 }
                 IndexRangeResponse { page: out, cursor }
-            };
+            });
             results.push(result);
         }
         assert_eq!(results.len(), batch_size);

@@ -11,6 +11,7 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    try_anyhow,
 };
 use errors::{
     ErrorMetadata,
@@ -57,7 +58,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     pub async fn run_async_syscall(&self, name: String, args: JsonValue) -> anyhow::Result<String> {
         let start = self.rt.monotonic_now();
         let timer = async_syscall_timer(&name);
-        let result: anyhow::Result<_> = try {
+        let result: anyhow::Result<_> = try_anyhow!({
             match &name[..] {
                 "1.0/actions/query" => self.async_syscall_actions_runQuery(args).await?.into(),
                 "1.0/actions/mutation" => {
@@ -87,7 +88,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     ));
                 },
             }
-        };
+        });
         self.syscall_trace
             .lock()
             .log_async_syscall(name, start.elapsed(), result.is_ok());

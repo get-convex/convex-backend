@@ -1,4 +1,5 @@
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(impl_trait_in_fn_trait_return)]
 
 use std::sync::{
@@ -10,6 +11,7 @@ use bytes::BufMut;
 use common::{
     http::fetch::build_proxied_reqwest_client,
     knobs::HTTP_CACHE_SIZE,
+    try_anyhow,
 };
 use futures::Future;
 use http::StatusCode;
@@ -116,7 +118,7 @@ async fn cached_http_client_inner(
     // returns multiple error types that are easiest to unify under
     // `anyhow::Error`. We can collect the result as an `anyhow::Error`, then
     // convert it to a `AsStdError` which does implement `std::error::Error
-    let res: Result<HttpResponse, anyhow::Error> = try {
+    let res: Result<HttpResponse, anyhow::Error> = try_anyhow!({
         let (parts, body) = request.into_parts();
         let mut request_builder = client
             .request(parts.method.as_str().parse()?, parts.uri.to_string())
@@ -146,7 +148,7 @@ async fn cached_http_client_inner(
         let mut vec_body = vec![];
         vec_body.put(body.aggregate());
         HttpResponse::from_parts(parts, vec_body)
-    };
+    });
     res.map_err(AsStdError)
 }
 

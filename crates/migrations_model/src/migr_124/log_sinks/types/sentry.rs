@@ -74,9 +74,13 @@ impl fmt::Display for SentryConfig {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Default)
+)]
 pub enum ExceptionFormatVersion {
     V1,
+    #[cfg_attr(any(test, feature = "testing"), default)]
     V2,
 }
 
@@ -98,12 +102,5 @@ impl Display for ExceptionFormatVersion {
             Self::V1 => write!(f, "1"),
             Self::V2 => write!(f, "2"),
         }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Default for ExceptionFormatVersion {
-    fn default() -> Self {
-        Self::V2
     }
 }

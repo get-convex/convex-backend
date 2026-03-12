@@ -2,12 +2,11 @@
 #![feature(error_generic_member_access)]
 #![feature(exclusive_wrapper)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(iterator_try_collect)]
 #![feature(type_alias_impl_trait)]
 #![feature(never_type)]
-#![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(round_char_boundary)]
 #![feature(ptr_metadata)]
 #![feature(exit_status_error)]
 

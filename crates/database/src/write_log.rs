@@ -243,7 +243,7 @@ impl HeapSize for WriteSource {
     fn heap_size(&self) -> usize {
         self.0
             .as_ref()
-            .filter(|value| value.is_owned())
+            .filter(|value| Cow::is_owned(value))
             .map(|value| value.len())
             .unwrap_or_default()
     }

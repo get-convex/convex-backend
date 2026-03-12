@@ -6,6 +6,7 @@ use common::{
         ResolvedComponentFunctionPath,
     },
     errors::JsError,
+    try_anyhow,
     types::UdfType,
 };
 use deno_core::{
@@ -492,7 +493,7 @@ impl<'enter, 'scope: 'enter, 'i> EnteredContext<'enter, 'scope, 'i> {
         if self.scope.is_execution_terminating() {
             anyhow::bail!("Execution terminated");
         }
-        let err: anyhow::Result<_> = try {
+        let err: anyhow::Result<_> = try_anyhow!({
             let (message, frame_data, custom_data) =
                 extract_source_mapped_error(self.scope, exception)?;
             JsError::from_frames(message, frame_data, custom_data, |s| {
@@ -502,7 +503,7 @@ impl<'enter, 'scope: 'enter, 'i> EnteredContext<'enter, 'scope, 'i> {
                 };
                 Ok(source_map_from_slice(source_map.as_bytes()))
             })
-        };
+        });
         let err = match err {
             Ok(e) => e,
             Err(e) => {

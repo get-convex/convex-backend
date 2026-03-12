@@ -39,6 +39,7 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    try_anyhow,
     types::{
         AllowedVisibility,
         PersistenceVersion,
@@ -1154,7 +1155,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let mut results = BTreeMap::new();
         let batch_size = batch_args.len();
         for (idx, args) in batch_args.into_iter().enumerate() {
-            let result: anyhow::Result<_> = try {
+            let result: anyhow::Result<_> = try_anyhow!({
                 match args {
                     AsyncRead::QueryStreamNext(args) => {
                         let query_id = with_argument_error("queryStreamNext", || {
@@ -1235,7 +1236,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         }
                     },
                 }
-            };
+            });
             match result {
                 Err(e) => {
                     assert!(results.insert(idx, Err(e)).is_none());
@@ -1274,7 +1275,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         }
 
         for (batch_key, (query_id, local_query)) in queries_to_fetch {
-            let result: anyhow::Result<_> = try {
+            let result: anyhow::Result<_> = try_anyhow!({
                 if let Some(query_id) = query_id {
                     provider.insert_query(query_id, local_query);
                 }
@@ -1299,7 +1300,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 } else {
                     value.into()
                 }
-            };
+            });
             results.insert(batch_key, result);
         }
         assert_eq!(results.len(), batch_size);

@@ -1,7 +1,7 @@
 //! Database metadata. Currently this metadata is just used to store the shape
 //! and size for each table.
 
-use std::assert_matches::assert_matches;
+use std::assert_matches;
 
 use common::{
     bootstrap_model::tables::{

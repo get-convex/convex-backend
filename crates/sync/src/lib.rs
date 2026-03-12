@@ -1,6 +1,6 @@
 #![feature(type_alias_impl_trait)]
 #![feature(try_blocks)]
-#![feature(btree_extract_if)]
+#![feature(try_blocks_heterogeneous)]
 
 mod metrics;
 mod state;

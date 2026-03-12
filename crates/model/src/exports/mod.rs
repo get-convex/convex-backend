@@ -298,7 +298,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
 #[cfg(test)]
 mod tests {
     use std::{
-        assert_matches::assert_matches,
+        assert_matches,
         time::Duration,
     };
 

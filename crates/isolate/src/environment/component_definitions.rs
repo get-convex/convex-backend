@@ -28,6 +28,7 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    try_anyhow,
     types::{
         EnvVarName,
         EnvVarValue,
@@ -539,10 +540,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
             return Ok(Some((self.source.clone(), ModuleCodeCacheResult::noop())));
         }
         if let Some(remainder) = path.strip_prefix("_componentDeps/") {
-            let r: anyhow::Result<_> = try {
+            let r: anyhow::Result<_> = try_anyhow!({
                 let def_path_str = String::from_utf8(base64::decode_urlsafe(remainder)?)?;
                 ComponentDefinitionPath::from_str(&def_path_str)?
-            };
+            });
             let def_path =
                 r.map_err(|e| ErrorMetadata::bad_request("InvalidModule", e.to_string()))?;
             let Some(def) = self.evaluated_definitions.get(&def_path) else {

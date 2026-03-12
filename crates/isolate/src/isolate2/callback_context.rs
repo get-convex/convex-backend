@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use anyhow::anyhow;
+use common::try_anyhow;
 use deno_core::{
     serde_v8,
     v8::{
@@ -267,7 +268,7 @@ impl<'callback, 'scope: 'callback, 'i> CallbackContext<'callback, 'scope, 'i> {
         specifier: v8::Local<'scope, v8::String>,
         referrer: v8::Local<'scope, v8::Module>,
     ) -> Option<v8::Local<'scope, v8::Module>> {
-        let r: anyhow::Result<_> = try {
+        let r: anyhow::Result<_> = try_anyhow!({
             let referrer_global = v8::Global::new(self.scope, referrer);
             let specifier_str = helpers::to_rust_string(self.scope, &specifier)?;
             let context_state = self.context_state()?;
@@ -283,7 +284,7 @@ impl<'callback, 'scope: 'callback, 'i> CallbackContext<'callback, 'scope, 'i> {
                 .ok_or_else(|| anyhow!("Couldn't find {resolved_specifier}"))?
                 .clone();
             v8::Local::new(self.scope, module)
-        };
+        });
         match r {
             Ok(m) => Some(m),
             Err(e) => {

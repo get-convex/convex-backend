@@ -256,10 +256,9 @@ macro_rules! obj {
 #[macro_export(local_inner_macros)]
 macro_rules! assert_val {
     ( $($tt:tt)+ ) => ({
-        let r: anyhow::Result<_> = try {
+        try bikeshed anyhow::Result<_> {
             val!( $($tt)+ )
-        };
-        r.unwrap()
+        }.unwrap()
     });
 }
 
@@ -270,9 +269,8 @@ macro_rules! assert_obj {
         $crate::ConvexObject::empty()
     });
     ( $($tt:tt)+ ) => ({
-        let r: anyhow::Result<_> = try {
+        try bikeshed anyhow::Result<_> {
             obj!( $($tt)+ )?
-        };
-        r.unwrap()
+        }.unwrap()
     });
 }

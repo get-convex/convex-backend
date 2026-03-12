@@ -3,6 +3,7 @@
 #![feature(iterator_try_collect)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 // TODO
 // [ ] Add IdAnyTable?
 // [ ] add tuple types

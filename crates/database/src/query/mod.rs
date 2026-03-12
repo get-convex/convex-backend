@@ -28,6 +28,7 @@ use common::{
         QuerySource,
     },
     runtime::Runtime,
+    try_anyhow,
     types::{
         IndexName,
         TabletIndexName,
@@ -622,12 +623,12 @@ pub async fn query_batch_next_<RT: Runtime>(
         };
         let mut next_batch = BTreeMap::new();
         for (batch_key, (query, prefetch_hint)) in batch_to_feed {
-            let result: anyhow::Result<_> = try {
+            let result: anyhow::Result<_> = try_anyhow!({
                 let index_range_responses = responses
                     .remove(&batch_key)
                     .context("batch_key missing")??;
                 query.root.feed(index_range_responses)?;
-            };
+            });
             match result {
                 Err(e) => {
                     results.insert(batch_key, Err(e));
@@ -671,7 +672,7 @@ pub async fn resolved_query_batch_next<RT: Runtime>(
     results
         .into_iter()
         .map(|(batch_key, result)| {
-            let resolved_result: anyhow::Result<_> = try {
+            let resolved_result: anyhow::Result<_> = try_anyhow!({
                 match result? {
                     Some((document, ts)) => {
                         let tablet_id = tablet_ids
@@ -683,7 +684,7 @@ pub async fn resolved_query_batch_next<RT: Runtime>(
                     },
                     None => None,
                 }
-            };
+            });
             (batch_key, resolved_result)
         })
         .collect()

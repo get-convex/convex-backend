@@ -2,6 +2,7 @@
 #![feature(coroutines)]
 #![feature(iterator_try_collect)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 
 use std::net::{
     IpAddr,

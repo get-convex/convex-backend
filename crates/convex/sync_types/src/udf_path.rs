@@ -3,9 +3,6 @@ use std::{
     str::FromStr,
 };
 
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
-
 use super::module_path::{
     CanonicalizedModulePath,
     ModulePath,

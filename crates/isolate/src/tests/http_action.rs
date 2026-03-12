@@ -1,5 +1,5 @@
 use std::{
-    assert_matches::assert_matches,
+    assert_matches,
     time::Duration,
 };
 

@@ -637,7 +637,7 @@ async fn provision_from_big_brain(
     provision_request: &ProvisionRequest,
     metric_label: StaticMetricLabel,
 ) -> anyhow::Result<DeploymentSelector> {
-    let result: anyhow::Result<_> = try {
+    let result: anyhow::Result<_> = try bikeshed anyhow::Result<_> {
         let ProvisionHostCredentials {
             provision_host,
             access_token,
@@ -787,7 +787,7 @@ async fn deploy(
                     .arg(url)
             },
         };
-        let push_result: anyhow::Result<()> = try {
+        let push_result: anyhow::Result<()> = try bikeshed anyhow::Result<_> {
             logs.spawn_with_prefixed_logs(
                 "npx convex deploy".into(),
                 push_command.current_dir(package_dir),
@@ -815,7 +815,7 @@ async fn delete_project(
     tracing::info!("Tearing down project");
     let big_brain_client = BigBrainClient::new(provision_host.into(), access_token);
 
-    let result: anyhow::Result<()> = try {
+    let result: anyhow::Result<()> = try bikeshed anyhow::Result<_> {
         let deployment_name = get_configured_deployment_name(package_dir)?;
         let project_id = big_brain_client
             .get_project_and_team_for_deployment(deployment_name)

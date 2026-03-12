@@ -2,6 +2,7 @@ use common::{
     components::ComponentPath,
     errors::report_error,
     runtime::Runtime,
+    try_anyhow,
     types::TableName,
 };
 use database::Database;
@@ -21,7 +22,7 @@ pub async fn best_effort_update_progress_message<RT: Runtime>(
 ) {
     // Ignore errors because it's not worth blocking or retrying if we can't
     // send a nice progress message on the first try.
-    let result: anyhow::Result<()> = try {
+    let result: anyhow::Result<()> = try_anyhow!({
         let mut tx = database.begin(identity.clone()).await?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
         import_model
@@ -36,7 +37,7 @@ pub async fn best_effort_update_progress_message<RT: Runtime>(
         database
             .commit_with_write_source(tx, "snapshot_update_progress_msg")
             .await?;
-    };
+    });
     if let Err(err) = result {
         report_error(&mut err.context(format!(
             "Failed to update progress message for import {import_id}"

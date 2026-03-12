@@ -106,7 +106,7 @@ impl DeletedBitset {
 
         let count = self.len();
         let num_deleted = self.num_deleted as u32;
-        let expected_blocks = count.next_multiple_of(64) / 64;
+        let expected_blocks = count.div_ceil(64);
         anyhow::ensure!(self.deleted.as_raw_slice().len() == expected_blocks);
 
         // Unfortunately, `bitset` wants `usize`s but we want to serialize `u64`s out to
@@ -146,7 +146,7 @@ impl DeletedBitset {
         anyhow::ensure!(num_deleted <= num_bits);
 
         // Compute the number of blocks in the bitset.
-        let num_blocks = num_bits.next_multiple_of(64) / 64;
+        let num_blocks = num_bits.div_ceil(64);
 
         // As with `Self::load_uuids`, check that the file's lengths match up.
         let mut expected_len = 0;

@@ -566,7 +566,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
             // We don't know the ID of the most recent document, so we
             // need to scan the entire timestamp range to find it
             // (this may include looking at the `documents` log outside of the retention window)
-            Arc::new(NoopRetentionValidator),
+            Arc::new(NoopRetentionValidator) as Arc<_>,
         );
         let max_repeatable =
             self.get_persistence_global(PersistenceGlobalKey::MaxRepeatableTimestamp);

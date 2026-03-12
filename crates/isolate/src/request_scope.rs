@@ -16,6 +16,7 @@ use common::{
         UnixTimestamp,
     },
     sync::spsc,
+    try_anyhow,
 };
 use deno_core::{
     serde_v8,
@@ -529,7 +530,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         specifier: v8::Local<'s2, v8::String>,
         _import_assertions: v8::Local<'s2, v8::FixedArray>,
     ) -> Option<v8::Local<'s2, v8::Promise>> {
-        let r: anyhow::Result<_> = try {
+        let r: anyhow::Result<_> = try_anyhow!({
             let promise_resolver = v8::PromiseResolver::new(scope)
                 .ok_or_else(|| anyhow::anyhow!("Failed to create v8::PromiseResolver"))?;
             let promise = promise_resolver.get_promise(scope);
@@ -551,7 +552,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
             dynamic_imports.push(resolved_specifier, promise_resolver);
 
             promise
-        };
+        });
         match r {
             Ok(promise) => Some(promise),
             Err(e) => {

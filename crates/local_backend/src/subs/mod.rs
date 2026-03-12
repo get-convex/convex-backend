@@ -31,6 +31,7 @@ use common::{
         ResolvedHostname,
     },
     runtime::Runtime,
+    try_anyhow,
     value::heap_size::HeapSize,
     version::{
         self,
@@ -313,10 +314,10 @@ async fn run_sync_socket(
             });
             // Only do a best-effort send of the final application message.
             if let Some(final_message) = final_message {
-                let r: anyhow::Result<_> = try {
+                let r: anyhow::Result<_> = try_anyhow!({
                     let serialized = serde_json::to_string(&JsonValue::from(final_message))?;
                     socket.send(Message::Text(serialized.into())).await?;
-                };
+                });
                 if let Err(mut e) = r {
                     if is_connection_closed_error(&*e) {
                         log_websocket_closed_error_not_reported(partition_id_label.clone())

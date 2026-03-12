@@ -1,8 +1,11 @@
 use anyhow::Context;
-use common::errors::{
-    report_error_sync,
-    FrameData,
-    JsError,
+use common::{
+    errors::{
+        report_error_sync,
+        FrameData,
+        JsError,
+    },
+    try_anyhow,
 };
 use deno_core::v8::{
     self,
@@ -19,7 +22,7 @@ pub(crate) fn throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
     provider: &mut P,
     message: String,
 ) -> anyhow::Result<!> {
-    let frame_data: anyhow::Result<Vec<FrameData>> = try {
+    let frame_data: anyhow::Result<Vec<FrameData>> = try_anyhow!({
         let mut scope = provider.scope();
         scope!(let scope, &mut scope);
         let empty_string = strings::empty.create(scope)?;
@@ -36,7 +39,7 @@ pub(crate) fn throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
             .try_cast::<v8::String>()?;
         let frame_data_json = frame_data_json.to_rust_string_lossy(scope);
         serde_json::from_str(&frame_data_json)?
-    };
+    });
     let js_error = JsError::from_frames(
         message.clone(),
         match frame_data {

@@ -36,8 +36,6 @@ use pb::common::{
     DocumentUpdateWithPrevTs as DocumentUpdateWithPrevTsProto,
     ResolvedDocument as ResolvedDocumentProto,
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
 use serde_json::{
     Number,
     Value as JsonValue,

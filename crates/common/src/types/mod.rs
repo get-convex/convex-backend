@@ -130,6 +130,7 @@ pub enum PersistenceVersion {
 }
 
 #[cfg(any(test, feature = "testing"))]
+#[allow(clippy::derivable_impls)]
 impl Default for PersistenceVersion {
     fn default() -> Self {
         Self::V5

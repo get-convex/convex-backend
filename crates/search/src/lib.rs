@@ -1,8 +1,8 @@
 #![feature(iter_from_coroutine, coroutines)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(ptr_metadata)]
 #![feature(iterator_try_collect)]
-#![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(trait_alias)]
 

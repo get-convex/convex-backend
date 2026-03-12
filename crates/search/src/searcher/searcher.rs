@@ -24,6 +24,7 @@ use common::{
     bounded_thread_pool::BoundedThreadPool,
     document::CreationTime,
     runtime::Runtime,
+    try_anyhow,
     types::{
         ObjectKey,
         SearchIndexMetricLabels,
@@ -587,7 +588,7 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
         labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         let timer = metrics::vector_query_timer(VectorIndexType::MultiSegment);
-        let results: anyhow::Result<Vec<VectorSearchQueryResult>> = try {
+        let results: anyhow::Result<Vec<VectorSearchQueryResult>> = try_anyhow!({
             let total_segments = fragments.len();
             let query_capacity = (query.limit + overfetch_delta) as usize;
 
@@ -615,7 +616,7 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
                 query.limit + overfetch_delta
             );
             results
-        };
+        });
 
         timer.finish(results.is_ok());
         results

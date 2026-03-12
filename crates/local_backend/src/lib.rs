@@ -1,4 +1,5 @@
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
 #![feature(exhaustive_patterns)]

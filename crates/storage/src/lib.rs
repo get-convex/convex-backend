@@ -1,4 +1,5 @@
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(coroutines)]
 
 use std::{
@@ -41,6 +42,7 @@ use bytes::Bytes;
 use common::{
     errors::report_error,
     runtime::Runtime,
+    try_anyhow,
     types::{
         FullyQualifiedObjectKey,
         ObjectKey,
@@ -552,7 +554,7 @@ impl Upload for BufferedUpload {
         let mut upload = self.upload.try_write_parallel(&mut boxed_rx).fuse();
 
         let buffer_bytes = async {
-            let result: anyhow::Result<()> = try {
+            let result: anyhow::Result<()> = try_anyhow!({
                 while let Some(result) = stream.next().await {
                     match result {
                         Err(e) => tx.send(Err(e)).await?,
@@ -568,7 +570,7 @@ impl Upload for BufferedUpload {
                         },
                     }
                 }
-            };
+            });
             drop(tx);
             result
         }

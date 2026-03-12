@@ -1,7 +1,10 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
-    VecDeque,
+use std::{
+    cmp::Reverse,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+        VecDeque,
+    },
 };
 
 use convex_sync_types::{
@@ -156,7 +159,7 @@ impl RequestManager {
     pub fn restart(&self) -> VecDeque<ClientMessage> {
         // Sort ongoing requests by timestamp
         let mut ordered_requests = Vec::from_iter(self.ongoing_requests.values());
-        ordered_requests.sort_by(|(req_a, _), (req_b, _)| req_b.ts.cmp(&req_a.ts));
+        ordered_requests.sort_by_key(|(req, _)| Reverse(req.ts));
 
         let mut messages = VecDeque::new();
         for (request, _) in ordered_requests {

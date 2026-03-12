@@ -4,8 +4,8 @@
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(if_let_guard)]
-#![feature(assert_matches)]
 mod chunks;
 mod connection;
 mod document_encoding;

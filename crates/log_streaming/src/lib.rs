@@ -1,7 +1,6 @@
 #![feature(coroutines)]
 #![feature(future_join)]
 #![feature(never_type)]
-#![feature(assert_matches)]
 pub mod consts;
 mod metrics;
 pub mod sinks;
@@ -667,7 +666,7 @@ pub struct LogSinkClient {
 #[cfg(test)]
 mod tests {
     use std::{
-        assert_matches::assert_matches,
+        assert_matches,
         collections::BTreeMap,
         sync::{
             atomic::{

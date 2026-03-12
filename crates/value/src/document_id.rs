@@ -206,7 +206,7 @@ impl FromStr for InternalDocumentId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let id: Result<Self, anyhow::Error> = try {
+        let id: Result<Self, anyhow::Error> = try bikeshed anyhow::Result<_> {
             // Versions 4/5: DocumentIds have the table name and internal ID separated by
             // "|". Version 2 are 3 IDs are base64 encoded with an alphabet that
             // doesn't include "|".

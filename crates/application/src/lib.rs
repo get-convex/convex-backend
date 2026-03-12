@@ -1,11 +1,9 @@
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(stmt_expr_attributes)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
-#![feature(round_char_boundary)]
 #![feature(duration_constructors)]
-#![feature(duration_constructors_lite)]
-#![feature(assert_matches)]
 #![feature(never_type)]
 
 use std::{
@@ -121,6 +119,7 @@ use common::{
         TableDefinition,
     },
     shutdown::ShutdownSignal,
+    try_anyhow,
     types::{
         env_var_limit_met,
         env_var_name_not_unique,
@@ -1082,7 +1081,7 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
 
-        let query_return: anyhow::Result<_> = try {
+        let query_return: anyhow::Result<_> = try_anyhow!({
             let journal = journal
                 .map(|serialized_journal| {
                     self.key_broker
@@ -1100,7 +1099,7 @@ impl<RT: Runtime> Application<RT> {
                     caller,
                 )
                 .await?
-        };
+        });
 
         let redacted_query_return = match query_return {
             Ok(query_return) => RedactedQueryReturn {
@@ -3478,7 +3477,7 @@ impl<RT: Runtime> Application<RT> {
                 .await?;
 
             loop {
-                let res: anyhow::Result<()> = try {
+                let res: anyhow::Result<()> = try_anyhow!({
                     match query.next(&mut tx, None).await? {
                         Some(doc) => {
                             FivetranImportModel::new(&mut tx)
@@ -3490,7 +3489,7 @@ impl<RT: Runtime> Application<RT> {
                             break;
                         },
                     }
-                };
+                });
                 if let Err(e) = res {
                     if e.is_pagination_limit() {
                         // Need a new transaction: commit what we already have and continue

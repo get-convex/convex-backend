@@ -27,6 +27,7 @@ pub(crate) struct Pbkdf2Key {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub(crate) struct ImportKeyAlgorithm;
 
 #[derive(Deserialize, Debug)]

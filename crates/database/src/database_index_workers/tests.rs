@@ -1,6 +1,6 @@
 use std::{
     self,
-    assert_matches::assert_matches,
+    assert_matches,
     sync::Arc,
 };
 

@@ -4,6 +4,7 @@
 #![feature(coroutines)]
 #![feature(coroutine_trait)]
 #![feature(try_blocks)]
+#![feature(try_blocks_heterogeneous)]
 #![feature(impl_trait_in_assoc_type)]
 
 use std::ops::Deref;

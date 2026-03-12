@@ -102,6 +102,7 @@ use common::{
         Reader,
         Writer,
     },
+    try_anyhow,
     try_chunks::TryChunksExt,
     types::{
         GenericIndexName,
@@ -957,8 +958,8 @@ impl LeaderRetentionWorkers {
                 .into_iter()
                 .filter_map(
                     |doc: (Timestamp, Option<(Timestamp, InternalDocumentId)>)| {
-                        if doc.1.is_some() {
-                            Some((doc.0, doc.1.unwrap()))
+                        if let Some(v) = doc.1 {
+                            Some((doc.0, v))
                         } else {
                             None
                         }
@@ -1444,7 +1445,7 @@ impl LeaderRetentionWorkers {
                 "go_delete_documents: running, current_bounds: \
                  {cursor}..{min_document_snapshot_ts}",
             );
-            let r: anyhow::Result<()> = try {
+            let r: anyhow::Result<()> = try_anyhow!({
                 // Only delete documents up to (now() -
                 // DOCUMENT_RETENTION_DELAY), even if min_document_snapshot_ts
                 // is ahead of that point.
@@ -1499,7 +1500,7 @@ impl LeaderRetentionWorkers {
                         );
                     },
                 }
-            };
+            });
             if let Err(mut err) = r {
                 report_error(&mut err).await;
                 let delay = error_backoff.fail(&mut rt.rng());
@@ -2149,13 +2150,7 @@ mod tests {
         let scanned: Vec<_> = scanned_stream.try_collect().await?;
         let expired: Vec<_> = scanned
             .into_iter()
-            .filter_map(|doc| {
-                if doc.1.is_some() {
-                    Some((doc.0, doc.1.unwrap()))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|doc| Some((doc.0, doc.1?)))
             .collect();
 
         assert_eq!(expired.len(), 5);
@@ -2223,13 +2218,7 @@ mod tests {
         let scanned: Vec<_> = scanned_stream.try_collect().await?;
         let expired: Vec<_> = scanned
             .into_iter()
-            .filter_map(|doc| {
-                if doc.1.is_some() {
-                    Some((doc.0, doc.1.unwrap()))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|doc| Some((doc.0, doc.1?)))
             .collect();
 
         assert_eq!(expired.len(), 9);

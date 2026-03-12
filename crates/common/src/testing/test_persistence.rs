@@ -96,7 +96,7 @@ impl Persistence for TestPersistence {
     }
 
     fn reader(&self) -> Arc<dyn PersistenceReader> {
-        Arc::new(self.clone())
+        Arc::new(self.clone()) as Arc<_>
     }
 
     async fn write<'a>(
