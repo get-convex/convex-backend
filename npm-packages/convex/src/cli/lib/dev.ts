@@ -51,6 +51,7 @@ export async function devAgainstDeployment(
       | { kind: "shell"; command: string }
       | undefined;
     tailLogs: LogMode;
+    logJsonl: boolean;
     traceEvents: boolean;
     debugBundlePath?: string | undefined;
     debugNodeApis: boolean;
@@ -88,6 +89,7 @@ export async function devAgainstDeployment(
       watchLogs(ctx, credentials.url, credentials.adminKey, "stderr", {
         logManager,
         success: false,
+        jsonl: devOptions.logJsonl,
       }),
     );
   }

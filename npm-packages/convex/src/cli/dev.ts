@@ -86,6 +86,7 @@ export const dev = new Command("dev")
       .choices(["always", "pause-on-deploy", "disable"] as const)
       .default("pause-on-deploy"),
   )
+  .addOption(new Option("--log-jsonl").default(false).hideHelp())
   .addOption(new Option("--trace-events").default(false).hideHelp())
   .addOption(new Option("--debug-bundle-path <path>").hideHelp())
   .addOption(new Option("--debug-node-apis").hideHelp())

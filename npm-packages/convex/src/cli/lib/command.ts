@@ -247,6 +247,7 @@ export async function normalizeDevOptions(
     runSh?: string;
     runComponent?: string;
     tailLogs?: string | true;
+    logJsonl?: boolean;
     traceEvents: boolean;
     debugBundlePath?: string | undefined;
     debugNodeApis?: boolean;
@@ -266,6 +267,7 @@ export async function normalizeDevOptions(
     | { kind: "shell"; command: string }
     | undefined;
   tailLogs: LogMode;
+  logJsonl: boolean;
   traceEvents: boolean;
   debugBundlePath?: string | undefined;
   debugNodeApis: boolean;
@@ -319,6 +321,7 @@ export async function normalizeDevOptions(
       typeof cmdOptions.tailLogs === "string"
         ? (cmdOptions.tailLogs as LogMode)
         : "pause-on-deploy",
+    logJsonl: !!cmdOptions.logJsonl,
     traceEvents: cmdOptions.traceEvents,
     debugBundlePath: cmdOptions.debugBundlePath,
     debugNodeApis: !!cmdOptions.debugNodeApis,
