@@ -7,7 +7,7 @@
     "build": "tsc && next build 2>&1",
     "dev:backend": "convex dev",
     "dev:frontend": "next dev",
-    "predev": "convex dev --until-success",
+    "predev": "convex init",
     "start": "next start",
     "lint": "eslint ."
   },

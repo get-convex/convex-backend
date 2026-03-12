@@ -8,7 +8,7 @@
     "build": "vite build",
     "dev:backend": "convex dev",
     "dev:frontend": "vite --open --clearScreen false",
-    "predev": "convex dev --until-success",
+    "predev": "convex init",
     "lint": "eslint ."
   },
   "dependencies": {

@@ -6,7 +6,7 @@
     "build": "tsc && vite build",
     "dev:backend": "convex dev",
     "dev:frontend": "vite --open",
-    "predev": "convex dev --once"
+    "predev": "convex init"
   },
   "dependencies": {
     "@faker-js/faker": "^10.0.0",

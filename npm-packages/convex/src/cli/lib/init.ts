@@ -51,7 +51,10 @@ export async function finalizeConfiguration(
   if (options.wroteToGitIgnore) {
     logMessage(chalkStderr.gray(`  Added ".env.local" to .gitignore`));
   }
-  if (options.deploymentType === "anonymous") {
+  if (
+    options.deploymentType === "anonymous" &&
+    process.env.CONVEX_AGENT_MODE !== "anonymous"
+  ) {
     logMessage(
       `Run \`npx convex login\` at any time to create an account and link this deployment.`,
     );
@@ -77,9 +80,9 @@ export async function finalizeConfiguration(
 function messageForDeploymentType(deploymentType: DeploymentType, url: string) {
   switch (deploymentType) {
     case "anonymous":
-      return `Started running a deployment locally at ${url}`;
+      return `Configured a local deployment for ${url}`;
     case "local":
-      return `Started running a deployment locally at ${url}`;
+      return `Configured a local deployment for ${url}`;
     case "dev":
     case "prod":
     case "preview":

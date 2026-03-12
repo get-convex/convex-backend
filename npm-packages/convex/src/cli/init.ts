@@ -1,40 +1,45 @@
-import { Command, Option } from "@commander-js/extra-typings";
-import path from "path";
+import { Command } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
+import { logVerbose } from "../bundler/log.js";
+import { deploymentCredentialsOrConfigure } from "./configure.js";
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import { checkVersion } from "./lib/updates.js";
+import { usageStateWarning } from "./lib/usage.js";
 
-const cwd = path.basename(process.cwd());
-
-// Initialize a new Convex project.
-// This command is deprecated and hidden from the command help.
-// `npx convex dev --once --configure=new` replaces it.
+// Equivalent to `npx convex dev --once --skip-push`.
 export const init = new Command("init")
-  .description("Initialize a new Convex project in the current directory")
+  .description(
+    "Ensures a Convex project is configured and initialized in the current directory. Does nothing if one is already configured. Unlike `npx convex dev`, it will not push code or typecheck.\nTypically you can skip this and run `npx convex dev` directly which will both initialize and continously deploy code. \n\nTo initialize an agent: `export CONVEX_AGENT_MODE=anonymous && npx convex init && npx convex env set < .env.defaults && npx convex dev`.",
+  )
+  .summary(
+    "Ensures a Convex project is configured. Does not push code. No-ops if already configured.",
+  )
   .allowExcessArguments(false)
-  .addOption(
-    new Option(
-      "--project <name>",
-      `Name of the project to create. Defaults to \`${cwd}\` (the current directory)`,
-    ),
-  )
-  .addOption(
-    new Option(
-      "--team <slug>",
-      "Slug identifier for the team this project will belong to.",
-    ),
-  )
-  .action(async (_options) => {
-    return (
-      await oneoffContext({
-        url: undefined,
-        adminKey: undefined,
-        envFile: undefined,
-      })
-    ).crash({
-      exitCode: 1,
-      errorType: "fatal",
-      errForSentry:
-        "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
-      printedMessage:
-        "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
+  .action(async () => {
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
     });
+    process.on("SIGINT", async () => {
+      logVerbose("Received SIGINT, cleaning up...");
+      await ctx.flushAndExit(-2);
+    });
+
+    const deploymentSelection = await getDeploymentSelection(ctx, {});
+    const credentials = await deploymentCredentialsOrConfigure(
+      ctx,
+      deploymentSelection,
+      null,
+      { prod: false, localOptions: { forceUpgrade: false } },
+    );
+
+    if (credentials.deploymentFields !== null) {
+      await Promise.all([
+        usageStateWarning(ctx, credentials.deploymentFields.deploymentName),
+        checkVersion(),
+      ]);
+    }
+
+    await ctx.flushAndExit(0);
   });

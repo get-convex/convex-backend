@@ -63,6 +63,7 @@ export async function writeDeploymentEnvVar(
   // Until this is cleaned up consider either of these values not a change.
   // Otherwise we spam the init instructions (Welcome to Convex etc.) on every run of `npx convex dev`.
   const changedDeploymentEnvVar =
+    !!changedFile &&
     existingValue !== deployment.deploymentName &&
     existingValue !== deploymentEnvVarValue;
 

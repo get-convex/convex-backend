@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+- `npx convex env set` can now:
+  - Accept a value interactively
+  - Accept a value via `--from-file`
+  - Set multiple variables at once via `--from-file` or stdin, e.g.
+    `npx convex env set < .env.defaults`. This will refuse if any existing
+    values don't match, unless `--force` is provided. It will not set convex-
+    managed variables, such as `CONVEX_DEPLOYMENT` or `VITE_CONVEX_URL`.
+  - Auto-start a local backend while setting environment variables if it isn't
+    running already.
+- `npx convex env list` now emits a more robust format for multi-line and other
+  complex environment variables, so you can do:
+  `npx convex env list > .env.convex` from one deployment, then
+  `npx convex env set < .env.convex` on another.
+  This format is also now available on the Dashboard.
+- `npx convex run` will auto-start a local backend if necessary, for the
+  duration of the call.
+- `getConvexSize` will now return 0 for `undefined`, even though it isn't
+  stictly a `Value` (it is not serialized for documents, arguments, or results).
+- Passing `--env-file` to the CLI works more reliably for specifying the target
+  deployment.
+- Improves the types of _generated/api to avoid infinite recursion when you have
+  a file and folder with the same name in your convex/ folder.
+- Adds `npx convex init` as a command that will go through the interactive
+  deployment selection process, if a deployment isn't already configured, but
+  not push code. This is useful for `predev` package.json scripts that want to
+  do interactive selection steps before running the frontend and backend in
+  parallel. It also enables agents to initialize and set environment variables:
+  ```
+  export CONVEX_AGENT_MODE=anonymous
+  npx convex init
+  convex env set < .env.defaults
+  ```
+
 ## 1.32.0
 
 - Improved the API documentation with more examples to help AI agents.
