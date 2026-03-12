@@ -67,7 +67,6 @@ use tokio::sync::mpsc;
 mod metrics;
 
 use metrics::{
-    log_debug_sync_protocol_websockets_total,
     log_sync_protocol_websockets_total,
     log_websocket_client_timeout,
     log_websocket_closed,
@@ -107,25 +106,6 @@ impl Drop for SyncSocketDropToken {
     }
 }
 
-// TODO(presley): Remove. Used for debugging.
-struct DebugSyncSocketDropToken {
-    tag: &'static str,
-}
-
-/// Tracker that exists for the lifetime of a run_sync_socket.
-impl DebugSyncSocketDropToken {
-    fn new(tag: &'static str) -> Self {
-        log_debug_sync_protocol_websockets_total(tag, 1);
-        DebugSyncSocketDropToken { tag }
-    }
-}
-
-impl Drop for DebugSyncSocketDropToken {
-    fn drop(&mut self) {
-        log_debug_sync_protocol_websockets_total(self.tag, -1);
-    }
-}
-
 // The WebSocket layer for the sync protocol has three asynchronous processes:
 //
 // 1) A `receive_messages` loop that consumes messages from the WebSocket,
@@ -155,7 +135,6 @@ async fn run_sync_socket(
 
     let (client_tx, client_rx) = mpsc::unbounded_channel();
     let receive_messages = async {
-        let _receive_message_drop_token = DebugSyncSocketDropToken::new("receive_message");
         while let Some(message_r) = rx.next().await {
             let message = match message_r {
                 Ok(message) => message,
@@ -209,7 +188,6 @@ async fn run_sync_socket(
 
     let (server_tx, mut server_rx) = measurable_unbounded_channel();
     let send_messages = async {
-        let _send_message_drop_token = DebugSyncSocketDropToken::new("send_message");
         let mut ping_ticker = tokio::time::interval(HEARTBEAT_INTERVAL);
         'top: loop {
             select_biased! {
@@ -255,7 +233,6 @@ async fn run_sync_socket(
         .unwrap_or_else(|_| "unknown".to_string());
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
-        let _sync_worker_drop_token = DebugSyncSocketDropToken::new("sync_worker");
         let mut sync_worker = SyncWorker::new(
             st.api.clone(),
             st.runtime.clone(),
