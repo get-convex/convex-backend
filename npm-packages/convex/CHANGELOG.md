@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.33.0
 
 - `npx convex env set` can now:
   - Accept a value interactively
@@ -34,6 +34,9 @@
   npx convex init
   convex env set < .env.defaults
   ```
+- No longer overwrites the `tsconfig.json` and `README.md` files in the
+  `convex/` folder when configuring a new deployment, only when first creating
+  the `convex/` folder.
 
 ## 1.32.0
 
