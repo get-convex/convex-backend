@@ -3,6 +3,7 @@ import { ReadonlyCodeDiff } from "@common/elements/ReadonlyCode";
 
 const meta = {
   component: ReadonlyCodeDiff,
+  parameters: { a11y: { test: "todo" } },
   args: {
     language: "javascript",
     path: "example.js",

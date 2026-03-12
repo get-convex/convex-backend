@@ -1051,8 +1051,8 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1
       react-day-picker:
-        specifier: ~9.12.0
-        version: 9.12.0(react@18.3.1)
+        specifier: ~9.13.0
+        version: 9.13.2(react@18.3.1)
       react-dom:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
@@ -1340,8 +1340,8 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1
       react-day-picker:
-        specifier: ~9.12.0
-        version: 9.12.0(react@18.3.1)
+        specifier: ~9.13.0
+        version: 9.13.2(react@18.3.1)
       react-dnd:
         specifier: ~16.0.1
         version: 16.0.1(@types/hoist-non-react-statics@3.3.7(@types/react@18.3.26))(@types/node@18.19.130)(@types/react@18.3.26)(react@18.3.1)
@@ -19997,8 +19997,8 @@ packages:
     peerDependencies:
       react: '>= 16.3.0'
 
-  react-day-picker@9.12.0:
-    resolution: {integrity: sha512-t8OvG/Zrciso5CQJu5b1A7yzEmebvST+S3pOVQJWxwjjVngyG/CA2htN/D15dLI4uTEuLLkbZyS4YYt480FAtA==}
+  react-day-picker@9.13.2:
+    resolution: {integrity: sha512-IMPiXfXVIAuR5Yk58DDPBC8QKClrhdXV+Tr/alBrwrHUw0qDDYB1m5zPNuTnnPIr/gmJ4ChMxmtqPdxm8+R4Eg==}
     engines: {node: '>=18'}
     peerDependencies:
       react: '>=16.8.0'
@@ -44171,7 +44171,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  react-day-picker@9.12.0(react@18.3.1):
+  react-day-picker@9.13.2(react@18.3.1):
     dependencies:
       '@date-fns/tz': 1.4.1
       date-fns: 4.1.0
