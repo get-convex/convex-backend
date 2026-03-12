@@ -58,13 +58,13 @@ export function FreePlan({
               disabled={
                 isLoading ||
                 !hasAdminPermissions ||
-                !!team.managedBy ||
+                team.managedBy === "vercel" ||
                 subscription.plan.planType === "CONVEX_BUSINESS"
               }
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : team.managedBy
+                  : team.managedBy === "vercel"
                     ? `You can manage your subscription in ${startCase(team.managedBy)}.`
                     : subscription.plan.planType === "CONVEX_BUSINESS"
                       ? "Please contact support to change your plan."

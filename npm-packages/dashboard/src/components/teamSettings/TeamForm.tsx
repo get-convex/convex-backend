@@ -79,7 +79,7 @@ export function TeamForm({
               value={formState.values.name}
               id="name"
               error={formState.errors.name}
-              disabled={!hasAdminPermissions || !!team.managedBy}
+              disabled={!hasAdminPermissions || team.managedBy === "vercel"}
             />
           </Tooltip>
           <Tooltip

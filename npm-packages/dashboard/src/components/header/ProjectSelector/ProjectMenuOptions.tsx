@@ -149,9 +149,9 @@ export function ProjectMenuOptions({
           icon={<PlusIcon aria-hidden="true" />}
           className="grow"
           size="sm"
-          disabled={!!team.managedBy}
+          disabled={team.managedBy === "vercel"}
           tip={
-            team.managedBy
+            team.managedBy === "vercel"
               ? `This team is managed by ${startCase(team.managedBy)}. You can create new projects through the ${startCase(team.managedBy)} dashboard.`
               : ""
           }

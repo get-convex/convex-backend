@@ -122,7 +122,7 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
 
       {entitlements && !ssoEnabled && (
         <Callout variant="upsell">
-          {team.managedBy ? (
+          {team.managedBy === "vercel" ? (
             <div className="flex w-full items-center justify-between gap-4">
               <div>
                 SSO is not available for teams managed by{" "}

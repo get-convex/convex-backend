@@ -602,8 +602,9 @@ export interface components {
         ListLocalDeploymentsResponse: {
             items: components["schemas"]["PlatformDeploymentResponse"][];
         };
-        /** @enum {string} */
-        ManagedBy: "vercel";
+        ManagedBy: "vercel" | {
+            oauthApp: string;
+        };
         /** Format: int64 */
         MemberId: number;
         PaginatedDeploymentsResponse: {

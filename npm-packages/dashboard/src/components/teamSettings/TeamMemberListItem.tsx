@@ -79,7 +79,7 @@ export function TeamMemberListItem({
   }
 
   let updateRoleMessage = "";
-  if (team.managedBy) {
+  if (team.managedBy === "vercel") {
     updateRoleMessage = `This team is managed by ${startCase(team.managedBy)}. You may manage team roles in ${startCase(team.managedBy)}.`;
   } else if (isMemberTheLastAdmin) {
     updateRoleMessage = "You cannot change the role of the last admin.";
@@ -127,7 +127,7 @@ export function TeamMemberListItem({
             <div className="text-sm text-content-primary">
               {startCase(member.role)}
             </div>
-          ) : !canManageMember || team.managedBy ? (
+          ) : !canManageMember || team.managedBy === "vercel" ? (
             // Combobox is difficult to create a disabled state for, so we're using a div here that looks like a disabled input
             <Tooltip tip={updateRoleMessage}>
               <div className="flex cursor-not-allowed items-center gap-1 rounded-sm border bg-background-tertiary p-1.5 text-content-secondary">
@@ -205,7 +205,7 @@ export function TeamMemberListItem({
                     You are about to remove {confirmationDisplayName} from{" "}
                     {team.name}, are you sure you want to continue?{" "}
                   </p>
-                  {team.managedBy && (
+                  {team.managedBy === "vercel" && (
                     <Callout>
                       Note that this member may be able to re-join the team
                       through the {startCase(team.managedBy)} dashboard if they

@@ -158,7 +158,7 @@ export function UpgradePlanContentContainer({
         {...props}
         plan={plan}
         isChef={isChef}
-        teamManagedBy={team.managedBy || undefined}
+        teamManagedBy={team.managedBy === "vercel" ? team.managedBy : undefined}
         setPaymentMethod={(p) => {
           if (!p) {
             resetClientSecret();

@@ -123,7 +123,9 @@ export function UpgradePlanDialog({
             requiresPaymentMethod
             couponDurationInMonths={undefined}
             isUpgrading
-            teamManagedBy={team.managedBy || undefined}
+            teamManagedBy={
+              team.managedBy === "vercel" ? team.managedBy : undefined
+            }
           />
           {newPlan.planType === "CONVEX_PROFESSIONAL" && (
             <div className="flex max-w-64 items-center gap-2">
@@ -144,7 +146,7 @@ export function UpgradePlanDialog({
           )}
         </div>
       }
-      disableConfirm={!!team.managedBy || couponData.isLoading}
+      disableConfirm={team.managedBy === "vercel" || couponData.isLoading}
       variant="primary"
       confirmText="Upgrade"
       onConfirm={() => onConfirm(couponData.coupon?.planId ?? newPlan.id)}

@@ -395,8 +395,9 @@ export interface components {
             email: string;
             roleSlug: string;
         };
-        /** @enum {string} */
-        ManagedBy: "vercel";
+        ManagedBy: "vercel" | {
+            oauthApp: string;
+        };
         /** Format: int64 */
         MemberId: number;
         ProjectDetails: {

@@ -31,7 +31,7 @@ export function TeamMembers({ team }: { team: TeamResponse }) {
     inviteMembers = (
       <Loading className="h-[9.5rem] w-full rounded-sm" fullHeight={false} />
     );
-  } else if (team.managedBy) {
+  } else if (team.managedBy === "vercel") {
     inviteMembers = (
       <Sheet>
         <div className="flex items-center justify-between gap-4">

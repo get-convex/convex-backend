@@ -47,7 +47,7 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
         <h3 className="mb-4">Delete Team</h3>
         <p className="mb-4">
           Permanently deletes this team.{" "}
-          {!team.managedBy && (
+          {team.managedBy !== "vercel" && (
             <>
               To delete your team, you must first remove all team members and
               delete all projects associated with the team.
@@ -61,7 +61,7 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
             subscription.
           </p>
         )}
-        {team.managedBy && (
+        {team.managedBy === "vercel" && (
           <div className="flex items-center justify-between gap-4">
             <div>
               This team is managed by {startCase(team.managedBy)}. You may
@@ -71,11 +71,12 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
             <OpenInVercel team={team} />
           </div>
         )}
-        {!team.managedBy && (
+        {team.managedBy !== "vercel" && (
           <Button
             variant="danger"
             onClick={() => setShowDeleteTeamModal(true)}
             disabled={
+              // TODO: what to do about team lifecycle and Expo?
               !!team.managedBy ||
               !hasAdminPermissions ||
               !teams ||

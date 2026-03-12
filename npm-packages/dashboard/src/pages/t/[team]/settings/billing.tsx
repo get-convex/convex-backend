@@ -74,7 +74,7 @@ function Billing({ team }: { team: TeamResponse }) {
         )}
         <h2>Billing</h2>
       </div>
-      {team.managedBy && (
+      {team.managedBy === "vercel" && (
         <Callout className="mx-6 mb-4" variant="upsell">
           <div className="flex w-full items-center justify-between gap-4">
             <div>

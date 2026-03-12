@@ -2286,8 +2286,9 @@ export interface components {
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
         };
-        /** @enum {string} */
-        ManagedBy: "vercel";
+        ManagedBy: "vercel" | {
+            oauthApp: string;
+        };
         MemberDataResponse: {
             deployments: components["schemas"]["DeploymentResponse"][];
             optInsToAccept: components["schemas"]["OptInToAccept"][];

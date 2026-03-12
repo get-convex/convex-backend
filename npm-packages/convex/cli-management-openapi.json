@@ -827,9 +827,24 @@
         }
       },
       "ManagedBy": {
-        "type": "string",
-        "enum": [
-          "vercel"
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "vercel"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "oauthApp"
+            ],
+            "properties": {
+              "oauthApp": {
+                "type": "string"
+              }
+            }
+          }
         ]
       },
       "MemberId": {

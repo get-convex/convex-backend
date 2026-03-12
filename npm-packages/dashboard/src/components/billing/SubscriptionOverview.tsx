@@ -115,7 +115,7 @@ export function SubscriptionOverview({
             team={team}
             hasAdminPermissions={hasAdminPermissions}
           />
-          {!team.managedBy && (
+          {team.managedBy !== "vercel" && (
             <>
               <hr />
               <BillingContactForm
@@ -139,9 +139,11 @@ export function SubscriptionOverview({
           )}
         </Sheet>
       )}
-      {!team.managedBy && invoices && (invoices.length > 0 || subscription) && (
-        <Invoices invoices={invoices} />
-      )}
+      {team.managedBy !== "vercel" &&
+        invoices &&
+        (invoices.length > 0 || subscription) && (
+          <Invoices invoices={invoices} />
+        )}
     </>
   );
 }
@@ -459,7 +461,7 @@ function BillingAddressForm({
   return (
     <div className="flex flex-col gap-4" ref={ref}>
       <h4>Billing Address</h4>
-      {team.managedBy && (
+      {team.managedBy === "vercel" && (
         <Callout>
           <div>
             This team is managed by {startCase(team.managedBy)}. You may add a
@@ -606,7 +608,7 @@ function PaymentMethodForm({
   return (
     <div className="flex flex-col gap-4">
       <h4>Payment Method</h4>
-      {team.managedBy && (
+      {team.managedBy === "vercel" && (
         <Callout>
           <div>
             This team is managed by {startCase(team.managedBy)}. You may add a

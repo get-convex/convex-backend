@@ -223,7 +223,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
             size="xs"
           >
             {subscription
-              ? team.managedBy
+              ? team.managedBy === "vercel"
                 ? "View Subscription"
                 : "View Subscription & Invoices"
               : "Upgrade Subscription"}

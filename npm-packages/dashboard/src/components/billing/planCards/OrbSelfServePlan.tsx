@@ -86,7 +86,7 @@ export function OrbSelfServePlan({
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : team.managedBy
+                  : team.managedBy === "vercel"
                     ? plan.planType === "CONVEX_PROFESSIONAL"
                       ? `Convex Professional is not available for teams managed by ${startCase(team.managedBy)}. You can create a new team to use Convex Professional. Existing projects can be transferred to another team on the Project Settings page.`
                       : `You can manage your subscription in ${startCase(team.managedBy)}.`
@@ -102,7 +102,7 @@ export function OrbSelfServePlan({
               disabled={
                 !hasAdminPermissions ||
                 missingRequiredPaymentMethod ||
-                !!team.managedBy ||
+                team.managedBy === "vercel" ||
                 isOnBusinessPlan
               }
               variant="neutral"
@@ -115,12 +115,12 @@ export function OrbSelfServePlan({
             <Button
               onClick={() => upgrade()}
               loading={isLoading}
-              disabled={!hasAdminPermissions || !!team.managedBy}
+              disabled={!hasAdminPermissions || team.managedBy === "vercel"}
               variant="neutral"
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : team.managedBy
+                  : team.managedBy === "vercel"
                     ? plan.planType === "CONVEX_PROFESSIONAL"
                       ? `Convex Professional is not available for teams managed by ${startCase(team.managedBy)}. You can create a new team to use Convex Professional. Existing projects can be transferred to another team on the Project Settings page.`
                       : `You can manage your subscription in ${startCase(team.managedBy)}.`

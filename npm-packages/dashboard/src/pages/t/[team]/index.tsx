@@ -203,7 +203,7 @@ function ProjectGrid({
             id="Search projects"
             isSearchLoading={isLoading && debouncedQuery === projectQuery}
           />
-          {!team.managedBy && (
+          {team.managedBy !== "vercel" && (
             <Button
               onClick={() => showCreateProjectModal()}
               variant="neutral"
