@@ -1360,19 +1360,19 @@ export interface operations {
                 /** @description Max results per page (default: 100, max: 100) */
                 limit?: number;
                 /** @description Sort field: createTime, lastDeployTime, reference */
-                sort_by?: string;
+                sortBy?: string;
                 /** @description Sort order: asc, desc */
-                sort_order?: string;
+                sortOrder?: string;
                 /** @description Filter by type: dev, prod, preview, custom */
-                deployment_type?: string;
+                deploymentType?: string;
                 /** @description Search by deployment name or reference */
                 q?: string;
                 /** @description Filter by project ID */
-                project_id?: components["schemas"]["ProjectId"];
+                projectId?: components["schemas"]["ProjectId"];
                 /** @description Filter by creator member ID */
                 creator?: components["schemas"]["MemberId"];
                 /** @description Filter by default deployment status */
-                is_default?: boolean;
+                isDefault?: boolean;
             };
             header?: never;
             path: {

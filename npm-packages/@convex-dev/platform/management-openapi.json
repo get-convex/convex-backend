@@ -780,7 +780,7 @@
             }
           },
           {
-            "name": "sort_by",
+            "name": "sortBy",
             "in": "query",
             "description": "Sort field: createTime, lastDeployTime, reference",
             "required": false,
@@ -789,7 +789,7 @@
             }
           },
           {
-            "name": "sort_order",
+            "name": "sortOrder",
             "in": "query",
             "description": "Sort order: asc, desc",
             "required": false,
@@ -798,7 +798,7 @@
             }
           },
           {
-            "name": "deployment_type",
+            "name": "deploymentType",
             "in": "query",
             "description": "Filter by type: dev, prod, preview, custom",
             "required": false,
@@ -816,7 +816,7 @@
             }
           },
           {
-            "name": "project_id",
+            "name": "projectId",
             "in": "query",
             "description": "Filter by project ID",
             "required": false,
@@ -834,7 +834,7 @@
             }
           },
           {
-            "name": "is_default",
+            "name": "isDefault",
             "in": "query",
             "description": "Filter by default deployment status",
             "required": false,
