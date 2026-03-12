@@ -130,8 +130,28 @@ export async function handleLocalDeployment(
     forceUpgrade: options.forceUpgrade,
   });
 
+  // Periodically report activity to BigBrain every 60 seconds.
+  // Uses self-scheduling setTimeout to avoid overlapping requests.
+  let activityTimeout: ReturnType<typeof setTimeout> | null = null;
+  const scheduleActivityPing = () => {
+    activityTimeout = setTimeout(async () => {
+      try {
+        await bigBrainRecordActivity(ctx, {
+          instanceName: deploymentName,
+        });
+      } catch {
+        // Best-effort: don't crash on failed pings
+      }
+      scheduleActivityPing();
+    }, 60_000);
+  };
+  scheduleActivityPing();
+
   const cleanupFunc = ctx.removeCleanup(cleanupHandle);
   ctx.registerCleanup(async (exitCode, err) => {
+    if (activityTimeout !== null) {
+      clearTimeout(activityTimeout);
+    }
     if (cleanupFunc !== null) {
       await cleanupFunc(exitCode, err);
     }
