@@ -277,6 +277,31 @@ to the mock backend:
   highlightPatterns={["t.run"]}
 />
 
+### Test helper functions with inline queries, mutations, and actions
+
+Often your code will have helper functions that take in `QueryCtx`,
+`MutationCtx`, and `ActionCtx` as an argument. With version `0.0.42` and later,
+you can pass an inline function to `t.query`, `t.mutation`, and `t.action`,
+similar to `t.run`, but with a `ctx` argument matching the function type.
+
+```ts
+test("helper functions", async () => {
+  const t = convexTest();
+  const threadId = await t.mutation(async (ctx) => {
+    const threadId = await ctx.db.insert("threads", {});
+    // insertThreadMessage takes a MutationCtx argument.
+    await insertThreadMessage(ctx, threadId, "Hello");
+    return threadId;
+  });
+
+  const text = await t.action(async (ctx) => {
+    // searchForMessages takes an ActionCtx argument.
+    const messages = await searchForMessages(ctx, threadId);
+    const response = await promptLLM(ctx, threadId, messages);
+  });
+});
+```
+
 ### HTTP actions
 
 Your test can call [HTTP actions](/functions/http-actions.mdx) registered by
