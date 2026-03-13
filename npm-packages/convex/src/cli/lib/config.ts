@@ -99,6 +99,12 @@ export interface ProjectConfig {
 
   // WorkOS AuthKit integration configuration
   authKit?: AuthKitConfig | undefined;
+
+  // Convex AI files user preferences.
+  aiFiles?: {
+    // When true, suppresses AI files install/staleness nags.
+    disableStalenessMessage?: boolean;
+  };
 }
 
 export interface Config {
@@ -282,6 +288,10 @@ const BundlerSchema = z.object({
     ),
 });
 
+const AiFilesSchema = z.object({
+  disableStalenessMessage: z.boolean().default(false),
+});
+
 const refineToObject = <T extends z.ZodTypeAny>(schema: T) =>
   schema.refine((val) => val !== null && !Array.isArray(val), {
     message: "Expected `convex.json` to contain an object",
@@ -320,6 +330,7 @@ const createProjectConfigSchema = (strict: boolean) => {
     $schema: z.string().optional(),
     // WorkOS AuthKit integration configuration
     authKit: AuthKitConfigSchema.optional(),
+    aiFiles: AiFilesSchema.optional(),
 
     // Deprecated fields that have been deprecated for years, only here so we
     // know it's safe to delete them.
@@ -541,6 +552,9 @@ export async function readProjectConfig(ctx: Context): Promise<{
         codegen: {
           staticApi: false,
           staticDataModel: false,
+        },
+        aiFiles: {
+          disableStalenessMessage: false,
         },
       },
       configPath: configName(),

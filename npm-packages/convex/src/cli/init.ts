@@ -37,7 +37,7 @@ export const init = new Command("init")
     if (credentials.deploymentFields !== null) {
       await Promise.all([
         usageStateWarning(ctx, credentials.deploymentFields.deploymentName),
-        checkVersion(),
+        checkVersion(ctx),
       ]);
     }
 

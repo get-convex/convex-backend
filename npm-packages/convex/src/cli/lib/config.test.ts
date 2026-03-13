@@ -274,7 +274,7 @@ test("writeProjectConfig - creates functions directory", async () => {
 
   await writeProjectConfig(testCtx, config);
   expect(mkdirCalled).toBe(true);
-  expect(mkdirPath).toBe("my-functions/");
+  expect(mkdirPath).toMatch(/^my-functions[\\/]$/);
 });
 
 test("writeProjectConfig - does not write to convex.json", async () => {
@@ -327,6 +327,7 @@ test("readProjectConfig - returns defaults when file doesn't exist", async () =>
     node: { externalPackages: [] },
     generateCommonJSApi: false,
     codegen: { staticApi: false, staticDataModel: false },
+    aiFiles: { disableStalenessMessage: false },
   });
 });
 

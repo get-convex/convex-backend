@@ -15,10 +15,25 @@ import { hashSha256 } from "./util/hash";
 
 const http = httpRouter();
 
+function logClientTelemetryHeaders(path: string, req: Request) {
+  // Temporary telemetry sink: emit all inbound request headers as JSON so we can
+  // forward service logs to Axiom and analyze usage by header dimensions
+  // (for example Convex-Client, Convex-Interactive, and Convex-Agent-Mode).
+  const headers = Object.fromEntries(req.headers.entries());
+  console.log(
+    JSON.stringify({
+      event: "version_api_headers",
+      path,
+      headers,
+    }),
+  );
+}
+
 const COMMON_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, convex-client",
+  "Access-Control-Allow-Headers":
+    "Content-Type, convex-client, convex-interactive, convex-agent-mode",
   "Cache-Control": "public, max-age=3600",
   Vary: "Convex-Client",
 };
@@ -34,6 +49,7 @@ http.route({
   path: "/v1/version",
   method: "GET",
   handler: httpAction(async (ctx, req) => {
+    logClientTelemetryHeaders("/v1/version", req);
     const convexClientHeader = req.headers.get("Convex-Client");
     const clientVersion = extractVersionFromHeader(convexClientHeader);
 
@@ -96,7 +112,8 @@ http.route({
 http.route({
   path: "/v1/guidelines",
   method: "GET",
-  handler: httpAction(async (ctx) => {
+  handler: httpAction(async (ctx, req) => {
+    logClientTelemetryHeaders("/v1/guidelines", req);
     const guidelinesData = await getCachedOrRefresh(ctx, internal.guidelines);
 
     if (!guidelinesData) {

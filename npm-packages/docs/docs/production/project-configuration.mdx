@@ -64,6 +64,28 @@ have the following config:
 }
 ```
 
+### Configuring AI files messages
+
+Convex can install AI helper files (for tools like Cursor and Claude Code) and
+show install or update suggestions during `npx convex dev`.
+
+:::caution This setting is supported in Convex CLI `1.33.0` and later. :::
+
+To suppress those suggestions, set `aiFiles.disableStalenessMessage` to `true`
+in `convex.json`:
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "aiFiles": {
+    "disableStalenessMessage": true
+  }
+}
+```
+
+When this is `true`, `npx convex dev` will not show the AI files install or
+staleness messages.
+
 ### Installing packages on the server
 
 You can specify which packages used by Node actions should be installed on the

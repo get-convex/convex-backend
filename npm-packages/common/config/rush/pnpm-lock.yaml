@@ -666,6 +666,9 @@ importers:
       '@inquirer/select':
         specifier: ^5.0.4
         version: 5.0.4(@types/node@18.19.130)
+      '@inquirer/testing':
+        specifier: ^3.3.0
+        version: 3.3.0(@inquirer/confirm@6.0.4(@types/node@18.19.130))(@inquirer/input@5.0.4(@types/node@18.19.130))(@inquirer/search@4.1.0(@types/node@18.19.130))(@inquirer/select@5.0.4(@types/node@18.19.130))(@types/jest@30.0.0)(@types/node@18.19.130)(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.27.0))(ts-node@10.9.1(@swc/core@1.15.8)(@types/node@18.19.130)(typescript@5.0.4)))(vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.6.5(bufferutil@4.0.9))(jiti@2.6.1)(jsdom@27.4.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       '@modelcontextprotocol/sdk':
         specifier: ^1.25.2
         version: 1.26.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
@@ -8882,6 +8885,60 @@ packages:
       '@types/node':
         optional: true
 
+  '@inquirer/testing@3.3.0':
+    resolution: {integrity: sha512-/b7a2Yxhs5aEqfEMlUp1bdAmwa9R0Nv6wUftIh9zwoP/g8uqSZFrui3sXq0oyJzY70swkMNbcTvJ8nIIZMFpmw==}
+    engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
+    peerDependencies:
+      '@inquirer/checkbox': '>=1.0.0'
+      '@inquirer/confirm': '>=1.0.0'
+      '@inquirer/editor': '>=1.0.0'
+      '@inquirer/expand': '>=1.0.0'
+      '@inquirer/external-editor': '>=1.0.0'
+      '@inquirer/input': '>=1.0.0'
+      '@inquirer/number': '>=1.0.0'
+      '@inquirer/password': '>=1.0.0'
+      '@inquirer/prompts': '>=1.0.0'
+      '@inquirer/rawlist': '>=1.0.0'
+      '@inquirer/search': '>=1.0.0'
+      '@inquirer/select': '>=1.0.0'
+      '@types/jest': '>=29.0.0'
+      '@types/node': '>=18'
+      jest: '>=29.0.0'
+      vitest: '>=1.0.0'
+    peerDependenciesMeta:
+      '@inquirer/checkbox':
+        optional: true
+      '@inquirer/confirm':
+        optional: true
+      '@inquirer/editor':
+        optional: true
+      '@inquirer/expand':
+        optional: true
+      '@inquirer/external-editor':
+        optional: true
+      '@inquirer/input':
+        optional: true
+      '@inquirer/number':
+        optional: true
+      '@inquirer/password':
+        optional: true
+      '@inquirer/prompts':
+        optional: true
+      '@inquirer/rawlist':
+        optional: true
+      '@inquirer/search':
+        optional: true
+      '@inquirer/select':
+        optional: true
+      '@types/jest':
+        optional: true
+      '@types/node':
+        optional: true
+      jest:
+        optional: true
+      vitest:
+        optional: true
+
   '@inquirer/type@4.0.3':
     resolution: {integrity: sha512-cKZN7qcXOpj1h+1eTTcGDVLaBIHNMT1Rz9JqJP5MnEJ0JhgVWllx7H/tahUp5YEK1qaByH2Itb8wLG/iScD5kw==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
@@ -12806,6 +12863,9 @@ packages:
 
   '@xobotyi/scrollbar-width@1.9.5':
     resolution: {integrity: sha512-N8tkAACJx2ww8vFMneJmaAgmjAG1tnVBZJRLRcx061tmsLRZHSEZSLuGWnwPtunsSLvSqXQ2wfp7Mgqg1I+2dQ==}
+
+  '@xterm/headless@6.0.0':
+    resolution: {integrity: sha512-5Yj1QINYCyzrZtf8OFIHi47iQtI+0qYFPHmouEfG8dHNxbZ9Tb9YGSuLcsEwj9Z+OL75GJqPyJbyoFer80a2Hw==}
 
   '@xtuc/ieee754@1.2.0':
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
@@ -28006,6 +28066,21 @@ snapshots:
     optionalDependencies:
       '@types/node': 18.19.130
 
+  '@inquirer/testing@3.3.0(@inquirer/confirm@6.0.4(@types/node@18.19.130))(@inquirer/input@5.0.4(@types/node@18.19.130))(@inquirer/search@4.1.0(@types/node@18.19.130))(@inquirer/select@5.0.4(@types/node@18.19.130))(@types/jest@30.0.0)(@types/node@18.19.130)(jest@30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.27.0))(ts-node@10.9.1(@swc/core@1.15.8)(@types/node@18.19.130)(typescript@5.0.4)))(vitest@3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.6.5(bufferutil@4.0.9))(jiti@2.6.1)(jsdom@27.4.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))':
+    dependencies:
+      '@inquirer/type': 4.0.3(@types/node@18.19.130)
+      '@xterm/headless': 6.0.0
+      mute-stream: 3.0.0
+    optionalDependencies:
+      '@inquirer/confirm': 6.0.4(@types/node@18.19.130)
+      '@inquirer/input': 5.0.4(@types/node@18.19.130)
+      '@inquirer/search': 4.1.0(@types/node@18.19.130)
+      '@inquirer/select': 5.0.4(@types/node@18.19.130)
+      '@types/jest': 30.0.0
+      '@types/node': 18.19.130
+      jest: 30.2.0(@types/node@18.19.130)(esbuild-register@3.6.0(esbuild@0.27.0))(ts-node@10.9.1(@swc/core@1.15.8)(@types/node@18.19.130)(typescript@5.0.4))
+      vitest: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.6.5(bufferutil@4.0.9))(jiti@2.6.1)(jsdom@27.4.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+
   '@inquirer/type@4.0.3(@types/node@18.19.130)':
     optionalDependencies:
       '@types/node': 18.19.130
@@ -29049,7 +29124,7 @@ snapshots:
 
   '@pkgr/core@0.2.9': {}
 
-  '@pmmmwh/react-refresh-webpack-plugin@0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))':
+  '@pmmmwh/react-refresh-webpack-plugin@0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))':
     dependencies:
       ansi-html: 0.0.9
       core-js-pure: 3.46.0
@@ -30474,7 +30549,7 @@ snapshots:
       '@babel/preset-react': 7.28.5(@babel/core@7.28.5)
       '@babel/preset-typescript': 7.28.5(@babel/core@7.28.5)
       '@babel/runtime': 7.28.4
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
       '@storybook/builder-webpack5': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@storybook/preset-react-webpack': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@storybook/react': 10.2.17(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
@@ -30534,7 +30609,7 @@ snapshots:
       '@babel/preset-react': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/preset-typescript': 7.28.5(@babel/core@7.28.5(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/runtime': 7.28.4
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.2.2)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.17(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0)))(webpack-hot-middleware@2.26.1)(webpack@5.105.4(@swc/core@1.15.8)(esbuild@0.27.0))
       '@storybook/builder-webpack5': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@storybook/preset-react-webpack': 10.2.17(@swc/core@1.15.8)(esbuild@0.27.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(typescript@5.9.3)
       '@storybook/react': 10.2.17(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@10.2.17(@testing-library/dom@10.4.1)(bufferutil@4.0.9)(prettier@3.8.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(supports-color@10.2.2)(typescript@5.9.3)
@@ -34419,6 +34494,8 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
 
   '@xobotyi/scrollbar-width@1.9.5': {}
+
+  '@xterm/headless@6.0.0': {}
 
   '@xtuc/ieee754@1.2.0': {}
 

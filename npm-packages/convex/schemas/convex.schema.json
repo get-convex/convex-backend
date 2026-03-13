@@ -184,6 +184,18 @@
     },
     "authKit": {
       "$ref": "#/definitions/authKitConfig"
+    },
+    "aiFiles": {
+      "type": "object",
+      "description": "User-configurable settings for Convex AI files behavior.",
+      "properties": {
+        "disableStalenessMessage": {
+          "type": "boolean",
+          "description": "When true, suppresses Convex AI files install/staleness nags in `npx convex dev`.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

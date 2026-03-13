@@ -57,6 +57,34 @@ We're constantly working on improving the quality of these rules for Convex by
 using rigorous evals. You can help by
 [contributing to our evals repo](https://github.com/get-convex/convex-evals).
 
+## Convex AI files
+
+The Convex CLI can install and maintain AI helper files in your project:
+
+- `convex/_generated/ai/guidelines.md`
+- Managed sections in `AGENTS.md` and `CLAUDE.md`
+- Agent skills installed via `npx skills`
+
+Use these commands to manage AI files:
+
+- `npx convex ai-files install` - Install or refresh AI files
+- `npx convex ai-files update` - Update to latest available AI files
+- `npx convex ai-files status` - Show what is installed and what is stale
+- `npx convex ai-files disable` - Suppress install and staleness messages in
+  `npx convex dev`
+- `npx convex ai-files enable` - Re-enable install and staleness messages
+- `npx convex ai-files remove` - Remove Convex-managed AI files
+
+The message preference is controlled in `convex.json` with:
+
+```json title="convex.json"
+{
+  "aiFiles": {
+    "disableStalenessMessage": true
+  }
+}
+```
+
 ## Using Convex with Background Agents
 
 Remote cloud-based coding agents like Jules, Devin, Codex, and Cursor background

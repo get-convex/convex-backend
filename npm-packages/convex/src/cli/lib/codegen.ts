@@ -44,6 +44,28 @@ import {
 import { functionsDir } from "./utils/utils.js";
 import { LargeIndexDeletionCheck } from "./indexes.js";
 
+const PRESERVED_GENERATED_ENTRIES = new Set(["ai"]);
+
+export function cleanupStaleGeneratedEntries(
+  ctx: Context,
+  codegenDir: string,
+  writtenFiles: string[],
+  opts?: { debug?: boolean; force?: boolean; dryRun?: boolean },
+) {
+  // Skip cleanup in debug mode since we don't actually write files in that mode.
+  if (opts?.debug) {
+    return;
+  }
+  for (const file of ctx.fs.listDir(codegenDir)) {
+    if (PRESERVED_GENERATED_ENTRIES.has(file.name)) {
+      continue;
+    }
+    if (!writtenFiles.includes(file.name)) {
+      recursivelyDelete(ctx, path.join(codegenDir, file.name), opts);
+    }
+  }
+}
+
 export type CodegenOptions = {
   url?: string | undefined;
   adminKey?: string | undefined;
@@ -164,14 +186,7 @@ export async function doCodegen(
     writtenFiles.push(...apiFiles);
 
     // Cleanup any files that weren't written in this run.
-    // Skip cleanup in debug mode since we don't actually write files in that mode.
-    if (!opts?.debug) {
-      for (const file of ctx.fs.listDir(codegenDir)) {
-        if (!writtenFiles.includes(file.name)) {
-          recursivelyDelete(ctx, path.join(codegenDir, file.name), opts);
-        }
-      }
-    }
+    cleanupStaleGeneratedEntries(ctx, codegenDir, writtenFiles, opts);
 
     // Generated code is updated, typecheck the query and mutation functions.
     await typeCheckFunctionsInMode(ctx, typeCheckMode, functionsDir);
@@ -269,14 +284,7 @@ export async function doInitialComponentCodegen(
   }
 
   // Cleanup any files that weren't written in this run.
-  // Skip cleanup in debug mode since we don't actually write files in that mode.
-  if (!opts?.debug) {
-    for (const file of ctx.fs.listDir(codegenDir)) {
-      if (!writtenFiles.includes(file.name)) {
-        recursivelyDelete(ctx, path.join(codegenDir, file.name), opts);
-      }
-    }
-  }
+  cleanupStaleGeneratedEntries(ctx, codegenDir, writtenFiles, opts);
 }
 
 /* This component defined in a dist directory; it is probably in a node_module

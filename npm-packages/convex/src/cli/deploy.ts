@@ -383,7 +383,7 @@ async function deployToExistingDeployment(
     ...(isCloudDeployment
       ? [
           usageStateWarning(ctx, deploymentFields.deploymentName),
-          checkVersion(),
+          checkVersion(ctx),
         ]
       : []),
   ]);

@@ -261,7 +261,7 @@ Same format as .env.local or .env files, and overrides them.`,
       ...(credentials.deploymentFields !== null
         ? [
             usageStateWarning(ctx, credentials.deploymentFields.deploymentName),
-            checkVersion(),
+            checkVersion(ctx),
           ]
         : []),
     ]);

@@ -44,6 +44,7 @@ import {
   promptYesNo,
 } from "./lib/utils/prompts.js";
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
+import { maybeSetupAiFiles } from "./lib/ai/index.js";
 import {
   DeploymentSelection,
   deploymentNameFromSelection,
@@ -616,6 +617,13 @@ async function selectNewProject(
   }
 
   await doInitConvexFolder(ctx);
+  const { configPath, projectConfig } = await readProjectConfig(ctx);
+  const folder = functionsDir(configPath, projectConfig);
+  await maybeSetupAiFiles(
+    ctx,
+    path.resolve(folder),
+    path.resolve(path.dirname(configPath)),
+  );
   return { teamSlug, projectSlug, devDeployment };
 }
 
@@ -668,6 +676,15 @@ async function selectExistingProject(
   });
 
   logFinishedStep(`Reinitialized project ${chalkStderr.bold(projectSlug)}`);
+
+  const { configPath, projectConfig } = await readProjectConfig(ctx);
+  const folder = functionsDir(configPath, projectConfig);
+  await maybeSetupAiFiles(
+    ctx,
+    path.resolve(folder),
+    path.resolve(path.dirname(configPath)),
+  );
+
   return { teamSlug, projectSlug, devDeployment };
 }
 

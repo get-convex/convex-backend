@@ -28,6 +28,7 @@ import { functionSpec } from "./functionSpec.js";
 import { insights } from "./insights.js";
 import { disableLocalDeployments } from "./disableLocalDev.js";
 import { mcp } from "./mcp.js";
+import { aiFiles } from "./aiFiles.js";
 import dns from "node:dns";
 import net from "node:net";
 import { integration } from "./integration.js";
@@ -160,6 +161,7 @@ async function main() {
     .addCommand(insights)
     .addCommand(disableLocalDeployments)
     .addCommand(mcp)
+    .addCommand(aiFiles)
     .helpCommand("help <command>", "Show help for given <command>")
     .version(version)
     // Hide version and help so they don't clutter

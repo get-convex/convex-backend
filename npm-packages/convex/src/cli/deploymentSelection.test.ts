@@ -115,7 +115,7 @@ vi.mock("./lib/config.js", async (importOriginal) => {
   return {
     ...actual,
     readProjectConfig: vi.fn().mockResolvedValue({
-      projectConfig: {},
+      projectConfig: { functions: "convex" },
       configPath: "convex.json",
       modules: [],
     }),
@@ -159,6 +159,11 @@ vi.mock("./lib/localDeployment/localDeployment.js", async (importOriginal) => {
 vi.mock("./lib/login.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./lib/login.js")>();
   return { ...actual, ensureLoggedIn: vi.fn() };
+});
+
+vi.mock("./lib/ai/index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./lib/ai/index.js")>();
+  return { ...actual, maybeSetupAiFiles: vi.fn() };
 });
 
 vi.mock("./configure.js", async (importOriginal) => {
@@ -231,7 +236,7 @@ describe("deployment selection flows", () => {
     vi.mocked(nodeFs.exists).mockReturnValue(false);
     // Re-apply deploy-specific mocks after resetAllMocks
     vi.mocked(readProjectConfig).mockResolvedValue({
-      projectConfig: {} as any,
+      projectConfig: { functions: "convex" } as any,
       configPath: "convex.json",
     });
     vi.mocked(getAuthKitConfig).mockResolvedValue(undefined);

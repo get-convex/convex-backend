@@ -46,6 +46,9 @@ import { createProject } from "../api.js";
 import { removeAnonymousPrefix } from "../deployment.js";
 import { nodeFs } from "../../../bundler/fs.js";
 import { doInitConvexFolder } from "../codegen.js";
+import { readProjectConfig } from "../config.js";
+import { functionsDir } from "../utils/utils.js";
+import { maybeSetupAiFiles } from "../ai/index.js";
 
 export async function handleAnonymousDeployment(
   ctx: Context,
@@ -181,6 +184,10 @@ export async function handleAnonymousDeployment(
 
   if (deployment.kind === "new") {
     await doInitConvexFolder(ctx);
+    const { configPath, projectConfig } = await readProjectConfig(ctx);
+    const convexDir = path.resolve(functionsDir(configPath, projectConfig));
+    const projectDir = path.resolve(path.dirname(configPath));
+    await maybeSetupAiFiles(ctx, convexDir, projectDir);
   }
   return {
     adminKey,
