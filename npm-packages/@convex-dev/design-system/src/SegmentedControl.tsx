@@ -1,5 +1,6 @@
 import { cn } from "@ui/cn";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 export type SegmentedControlOption<T extends string> = {
   label: string;
@@ -23,19 +24,43 @@ export function SegmentedControl<T extends string>({
     left: number;
     width: number;
   } | null>(null);
+  const [animate, setAnimate] = useState(true);
 
-  useEffect(() => {
+  const measureHighlight = useCallback(() => {
     const container = containerRef.current;
     const button = buttonRefs.current.get(value);
     if (container && button) {
       const containerRect = container.getBoundingClientRect();
       const buttonRect = button.getBoundingClientRect();
-      setHighlightStyle({
+      return {
         left: buttonRect.left - containerRect.left,
         width: buttonRect.width,
-      });
+      };
     }
-  }, [value, options]);
+    return null;
+  }, [value]);
+
+  // Animate when value or options change
+  useEffect(() => {
+    setAnimate(true);
+    setHighlightStyle(measureHighlight());
+  }, [measureHighlight, options]);
+
+  // Instantly reposition on resize (no animation)
+  // This is done to avoid having a frame where the
+  // highlighted section overlaps text from a different option
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => {
+      flushSync(() => {
+        setAnimate(false);
+        setHighlightStyle(measureHighlight());
+      });
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [measureHighlight]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const currentIndex = options.findIndex((o) => o.value === value);
@@ -66,7 +91,10 @@ export function SegmentedControl<T extends string>({
     >
       {highlightStyle && (
         <div
-          className="absolute top-1 bottom-1 rounded-full bg-background-secondary shadow-sm transition-all duration-200 ease-in-out"
+          className={cn(
+            "absolute top-1 bottom-1 rounded-full bg-background-secondary shadow-sm",
+            animate && "transition-all duration-200 ease-in-out",
+          )}
           style={{
             left: highlightStyle.left,
             width: highlightStyle.width,
