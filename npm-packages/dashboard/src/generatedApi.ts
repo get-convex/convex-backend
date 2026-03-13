@@ -2290,7 +2290,7 @@ export interface components {
             oauthApp: string;
         };
         MemberDataResponse: {
-            deployments: components["schemas"]["DeploymentResponse"][];
+            deployments: components["schemas"]["PlatformDeploymentResponse"][];
             optInsToAccept: components["schemas"]["OptInToAccept"][];
             projects: components["schemas"]["ProjectDetails"][];
             teams: components["schemas"]["TeamResponse"][];
@@ -2374,6 +2374,89 @@ export interface components {
         };
         PlansResponse: {
             plans: components["schemas"]["PlanResponse"][];
+        };
+        PlatformDeploymentResponse: {
+            /** @description The deployment class for this deployment. */
+            class: string;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment was created.
+             */
+            createTime: number;
+            creator?: null | components["schemas"]["MemberId"];
+            /** @description Controls whether the dashboard requires a confirmation before
+             *     allowing edits during a browser session for this deployment.
+             *     If not set, defaults to true for prod deployments and false
+             *     for dev and preview deployments. */
+            dashboardEditConfirmation?: boolean | null;
+            /** @description The type of this deployment. */
+            deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The full backend URL for this deployment (e.g. "https://joyful-capybara-123.convex.cloud" or "https://calm-cow-456.eu-west-1.convex.cloud"). This is always a `.convex.cloud` URL, even when the deployment is using custom domains. To get the canonical URL, use [`/get_canonical_urls`](https://docs.convex.dev/deployment-api/get-canonical-urls). */
+            deploymentUrl: string;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be
+             *     deleted. Preview deployments have this set by default unless
+             *     overridden.
+             */
+            expiresAt?: number | null;
+            id: components["schemas"]["DeploymentId"];
+            /** @description For prod deployments, whether they are the default prod deployment
+             *     of the project. For dev deployments, whether they are the default
+             *     dev deployment for the member that created it.
+             *     For other deployments, set to false. */
+            isDefault: components["schemas"]["IsDefaultDeployment"];
+            /** @enum {string} */
+            kind: "cloud";
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds of the last deploy to this deployment, if
+             *     any.
+             */
+            lastDeployTime?: number | null;
+            /** @description The readable identifier for this deployment, something like
+             *     playful-otter-123. */
+            name: string;
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
+            /** @description An identifier that uniquely identifies this deployment within the
+             *     project. */
+            reference: components["schemas"]["DeploymentReference"];
+            /** @description The region where this deployment is hosted. */
+            region: components["schemas"]["RegionName"];
+            /** @description Whether to send function logs to the client. If `null`, the
+             *     deployment-type default is used (true for dev/preview, false for
+             *     prod). */
+            sendLogsToClient?: boolean | null;
+        } | {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment was created.
+             */
+            createTime: number;
+            /** @description The member who created this deployment. */
+            creator: components["schemas"]["MemberId"];
+            /** @description Whether this is a "dev" development deployment or "prod" production
+             *     deployment. Note that this will always be "dev" for local
+             *     deployments. */
+            deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The device name where this local deployment is running. */
+            deviceName: components["schemas"]["DeviceName"];
+            /** @description Whether this local deployment is currently active. */
+            isActive: boolean;
+            /** @enum {string} */
+            kind: "local";
+            /** @description The readable identifier for this deployment. */
+            name: string;
+            /**
+             * Format: int32
+             * @description The port where this local deployment is running.
+             */
+            port: number;
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
         };
         PreviewDeploymentIdentifier: string;
         ProfileEmailArgs: {
@@ -2824,6 +2907,7 @@ export type PaymentMethodResponse = components['schemas']['PaymentMethodResponse
 export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig'];
 export type PlanResponse = components['schemas']['PlanResponse'];
 export type PlansResponse = components['schemas']['PlansResponse'];
+export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProfileEmailArgs = components['schemas']['ProfileEmailArgs'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];

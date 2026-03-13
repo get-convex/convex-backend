@@ -5124,7 +5124,7 @@
           "deployments": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DeploymentResponse"
+              "$ref": "#/components/schemas/PlatformDeploymentResponse"
             }
           },
           "optInsToAccept": {
@@ -5468,6 +5468,194 @@
             }
           }
         }
+      },
+      "PlatformDeploymentResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "region",
+              "isDefault",
+              "reference",
+              "deploymentUrl",
+              "class",
+              "kind"
+            ],
+            "properties": {
+              "class": {
+                "type": "string",
+                "description": "The deployment class for this deployment."
+              },
+              "createTime": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment was created."
+              },
+              "creator": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MemberId",
+                    "description": "The member who created this deployment."
+                  }
+                ]
+              },
+              "dashboardEditConfirmation": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Controls whether the dashboard requires a confirmation before\nallowing edits during a browser session for this deployment.\nIf not set, defaults to true for prod deployments and false\nfor dev and preview deployments."
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType",
+                "description": "The type of this deployment."
+              },
+              "deploymentUrl": {
+                "type": "string",
+                "description": "The full backend URL for this deployment (e.g. \"https://joyful-capybara-123.convex.cloud\" or \"https://calm-cow-456.eu-west-1.convex.cloud\"). This is always a `.convex.cloud` URL, even when the deployment is using custom domains. To get the canonical URL, use [`/get_canonical_urls`](https://docs.convex.dev/deployment-api/get-canonical-urls)."
+              },
+              "expiresAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment will be\ndeleted. Preview deployments have this set by default unless\noverridden."
+              },
+              "id": {
+                "$ref": "#/components/schemas/DeploymentId"
+              },
+              "isDefault": {
+                "$ref": "#/components/schemas/IsDefaultDeployment",
+                "description": "For prod deployments, whether they are the default prod deployment\nof the project. For dev deployments, whether they are the default\ndev deployment for the member that created it.\nFor other deployments, set to false."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cloud"
+                ]
+              },
+              "lastDeployTime": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Timestamp in milliseconds of the last deploy to this deployment, if\nany."
+              },
+              "name": {
+                "type": "string",
+                "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
+                    "description": "Preview deployment identifier, if this is a preview deployment."
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId",
+                "description": "The project this deployment belongs to."
+              },
+              "reference": {
+                "$ref": "#/components/schemas/DeploymentReference",
+                "description": "An identifier that uniquely identifies this deployment within the\nproject."
+              },
+              "region": {
+                "$ref": "#/components/schemas/RegionName",
+                "description": "The region where this deployment is hosted."
+              },
+              "sendLogsToClient": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "Whether to send function logs to the client. If `null`, the\ndeployment-type default is used (true for dev/preview, false for\nprod)."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "creator",
+              "port",
+              "deviceName",
+              "isActive",
+              "kind"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this deployment was created."
+              },
+              "creator": {
+                "$ref": "#/components/schemas/MemberId",
+                "description": "The member who created this deployment."
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType",
+                "description": "Whether this is a \"dev\" development deployment or \"prod\" production\ndeployment. Note that this will always be \"dev\" for local\ndeployments."
+              },
+              "deviceName": {
+                "$ref": "#/components/schemas/DeviceName",
+                "description": "The device name where this local deployment is running."
+              },
+              "isActive": {
+                "type": "boolean",
+                "description": "Whether this local deployment is currently active."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "local"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "description": "The readable identifier for this deployment."
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "description": "The port where this local deployment is running.",
+                "minimum": 0
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
+                    "description": "Preview deployment identifier. Note that this will always be None\nfor local deployments."
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId",
+                "description": "The project this deployment belongs to."
+              }
+            }
+          }
+        ]
       },
       "PreviewDeploymentIdentifier": {
         "type": "string"
