@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     str::FromStr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -10,6 +11,7 @@ use common::{
         ComponentId,
         ComponentPath,
     },
+    pause::PauseController,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -23,6 +25,14 @@ use database::{
     DeveloperQuery,
     TableModel,
     Transaction,
+};
+use errors::ErrorMetadata;
+use events::{
+    testing::BasicTestUsageEventLogger,
+    usage::{
+        FunctionCallUsageFields,
+        UsageEvent,
+    },
 };
 use keybroker::Identity;
 use model::{
@@ -47,7 +57,9 @@ use serde_json::Value as JsonValue;
 use udf::helpers::parse_udf_args;
 
 use crate::{
+    cron_jobs::CRON_COMITTING,
     test_helpers::{
+        ApplicationFixtureArgs,
         ApplicationTestExt,
         OBJECTS_TABLE,
         OBJECTS_TABLE_COMPONENT,
@@ -181,16 +193,77 @@ pub(crate) async fn test_cron_jobs_race_condition(rt: TestRuntime) -> anyhow::Re
 }
 
 #[convex_macro::test_runtime]
+async fn test_cron_occ_gets_logged(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let logger = BasicTestUsageEventLogger::new();
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs::with_event_logger(Arc::new(logger.clone())),
+    )
+    .await?;
+    application.load_udf_tests_modules().await?;
+    // Wait for built-in crons from udf-tests to execute before setting up
+    // the pause, so they don't intercept it.
+    rt.wait(Duration::from_secs(100)).await;
+    let attempt_commit = pause_controller.hold(CRON_COMITTING);
+    let mut tx = application.begin(Identity::system()).await?;
+    create_cron_job(&mut tx).await?;
+    application.commit_test(tx).await?;
+    let mut pause_guard = attempt_commit.wait_for_blocked().await.unwrap();
+    pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(
+        None, None, None, None, None
+    )));
+    // Hold the commit pause again so the retry blocks there, guaranteeing the
+    // OCC event from the first attempt has been logged.
+    let second_attempt_commit = pause_controller.hold(CRON_COMITTING);
+    pause_guard.unpause();
+    let pause_guard = second_attempt_commit.wait_for_blocked().await.unwrap();
+    pause_guard.unpause();
+    // Verify usage is tracked for the OCC'd attempt.
+    let function_call_events: Vec<FunctionCallUsageFields> = logger
+        .collect()
+        .into_iter()
+        .filter_map(|event| {
+            if let UsageEvent::FunctionCall { fields } = event {
+                if fields.udf_id.contains("insertObject") {
+                    Some(fields)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // We expect one function call event for the OCC'd attempt.
+    assert_eq!(
+        function_call_events.len(),
+        1,
+        "Expected 1 function call usage event (OCC), got {}: {:?}",
+        function_call_events.len(),
+        function_call_events,
+    );
+    let occ_event = &function_call_events[0];
+    assert!(
+        occ_event.is_occ,
+        "Expected the function call event to be an OCC, got: {:?}",
+        occ_event,
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_paused_cron_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_cron_jobs_helper(rt, BackendState::Paused).await?;
-
     Ok(())
 }
 
 #[convex_macro::test_runtime]
 async fn test_disable_cron_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_cron_jobs_helper(rt, BackendState::Disabled).await?;
-
     Ok(())
 }
 

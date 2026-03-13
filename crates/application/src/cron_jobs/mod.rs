@@ -29,6 +29,7 @@ use common::{
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     log_lines::LogLines,
+    pause::Fault,
     runtime::Runtime,
     types::{
         FunctionCaller,
@@ -73,7 +74,10 @@ use model::{
 use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
-use usage_tracking::FunctionUsageTracker;
+use usage_tracking::{
+    FunctionUsageTracker,
+    OccInfo,
+};
 use value::{
     JsonPackedValue,
     ResolvedDocumentId,
@@ -89,6 +93,7 @@ mod metrics;
 
 const INITIAL_BACKOFF: Duration = Duration::from_millis(500);
 const MAX_BACKOFF: Duration = Duration::from_secs(15);
+pub(crate) const CRON_COMITTING: &str = "cron_committing";
 
 // Truncate result and log lines for cron job logs since they are only
 // used for the dashboard
@@ -492,13 +497,40 @@ impl<RT: Runtime> CronJobContext<RT> {
                 Some(mutation_retry_count),
             )
             .await?;
-            if let Err(err) = self
-                .database
-                .commit_with_write_source(tx, "cron_commit_mutation")
-                .await
-            {
+            let commit_result =
+                if let Fault::Error(e) = self.rt.pause_client().wait(CRON_COMITTING).await {
+                    tracing::info!("Injected error before committing mutation");
+                    Err(e)
+                } else {
+                    self.database
+                        .commit_with_write_source(tx, "cron_commit_mutation")
+                        .await
+                };
+            if let Err(err) = commit_result {
                 if err.is_deterministic_user_error() {
                     outcome.result = Err(JsError::from_error(err));
+                } else if err.is_occ() {
+                    let (table_name, document_id, write_source) =
+                        err.occ_info().unwrap_or((None, None, None));
+                    self.function_log
+                        .log_mutation_occ_error(
+                            outcome,
+                            stats,
+                            execution_time,
+                            caller,
+                            usage_tracker,
+                            context,
+                            OccInfo {
+                                table_name,
+                                document_id,
+                                write_source,
+                                retry_count: mutation_retry_count as u64,
+                            },
+                            None,
+                            mutation_retry_count,
+                        )
+                        .await;
+                    return Err(err);
                 } else {
                     return Err(err);
                 }
