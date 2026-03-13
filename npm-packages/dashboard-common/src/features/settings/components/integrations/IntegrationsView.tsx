@@ -8,8 +8,10 @@ import { LoadingTransition } from "@ui/Loading";
 
 export function IntegrationsView({
   onAddedIntegration,
+  showPostHogIntegrations,
 }: {
   onAddedIntegration?: (kind: string) => void;
+  showPostHogIntegrations?: boolean;
 }) {
   const {
     useCurrentTeam,
@@ -35,6 +37,7 @@ export function IntegrationsView({
             integrations={integrations}
             workosData={workosData}
             onAddedIntegration={onAddedIntegration}
+            showPostHogIntegrations={showPostHogIntegrations}
           />
         )}
       </LoadingTransition>

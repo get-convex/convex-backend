@@ -26,6 +26,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 aws-lc-rs = { workspace = true }
 bytes = { workspace = true }
+chrono = { workspace = true }
 common = { workspace = true }
 convex_macro = { workspace = true }
 database = { workspace = true }
