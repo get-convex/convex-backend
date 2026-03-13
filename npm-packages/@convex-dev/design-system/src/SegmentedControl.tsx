@@ -102,6 +102,7 @@ export function SegmentedControl<T extends string>({
         />
       )}
       {options.map((option) => (
+        // eslint-disable-next-line react/forbid-elements -- We need a native button here to implement custom radiogroup semantics and keyboard focus management.
         <button
           key={option.value}
           ref={(el) => {
