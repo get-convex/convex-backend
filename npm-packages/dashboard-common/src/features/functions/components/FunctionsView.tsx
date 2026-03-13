@@ -137,9 +137,6 @@ export function EmptyFunctions() {
                 Statistics
               </div>
               <div className="px-3 py-2 text-sm text-content-secondary">
-                Code
-              </div>
-              <div className="px-3 py-2 text-sm text-content-secondary">
                 Logs
               </div>
             </div>
