@@ -40,6 +40,13 @@ export function SegmentedControl<T extends string>({
     return null;
   }, [value]);
 
+  // Keep a ref to the latest measure function so the ResizeObserver
+  // can call it without being re-created on every value change.
+  const measureRef = useRef(measureHighlight);
+  useEffect(() => {
+    measureRef.current = measureHighlight;
+  }, [measureHighlight]);
+
   // Animate when value or options change
   useEffect(() => {
     setAnimate(true);
@@ -55,12 +62,12 @@ export function SegmentedControl<T extends string>({
     const observer = new ResizeObserver(() => {
       flushSync(() => {
         setAnimate(false);
-        setHighlightStyle(measureHighlight());
+        setHighlightStyle(measureRef.current());
       });
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [measureHighlight]);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const currentIndex = options.findIndex((o) => o.value === value);
