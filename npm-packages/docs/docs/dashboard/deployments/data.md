@@ -136,7 +136,7 @@ Document".
 To reference another document, use the string ID of the document you want to
 reference.
 
-You can copy the ID by clicking on its cell and pressing CTRL/CMD+C.
+You can copy the ID by clicking on its cell and pressing ⌘C / Ctrl+C.
 
 ## Bulk editing documents
 
