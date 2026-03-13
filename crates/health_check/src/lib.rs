@@ -3,6 +3,8 @@ use std::time::{
     Instant,
 };
 
+use convex_sync_types::backoff::Backoff;
+use rand::rng;
 use reqwest::Url;
 
 pub async fn health_check(service_url: &Url) -> anyhow::Result<Option<String>> {
@@ -22,7 +24,7 @@ pub async fn wait_for_http_health(
     expected_version: Option<&str>,
     expected_instance_name: Option<&str>,
     num_retries: usize,
-    sleep: Duration,
+    initial_backoff: Duration,
 ) -> anyhow::Result<String> {
     wait_for_http_health_inner(
         service_url,
@@ -31,7 +33,7 @@ pub async fn wait_for_http_health(
         expected_instance_name,
         "instance_version",
         num_retries,
-        sleep,
+        initial_backoff,
     )
     .await
 }
@@ -41,7 +43,7 @@ pub async fn wait_for_conductor_http_health(
     service_url: &Url,
     expected_version: Option<&str>,
     num_retries: usize,
-    sleep: Duration,
+    initial_backoff: Duration,
 ) -> anyhow::Result<String> {
     let version = wait_for_http_health_inner(
         service_url,
@@ -50,7 +52,7 @@ pub async fn wait_for_conductor_http_health(
         None,
         "version",
         num_retries,
-        sleep,
+        initial_backoff,
     )
     .await?;
 
@@ -72,7 +74,7 @@ async fn wait_for_http_health_inner(
     expected_instance_name: Option<&str>,
     health_check_endpoint: &str,
     num_retries: usize,
-    sleep: Duration,
+    initial_backoff: Duration,
 ) -> anyhow::Result<String> {
     let start = Instant::now();
     let service_name = service_name
@@ -86,7 +88,7 @@ async fn wait_for_http_health_inner(
         expected_instance_name,
         health_check_endpoint,
         num_retries,
-        sleep,
+        initial_backoff,
     )
     .await?
     {
@@ -110,12 +112,14 @@ async fn health_check_with_retries(
     expected_instance_name: Option<&str>,
     health_check_endpoint: &str,
     num_retries: usize,
-    sleep: Duration,
+    initial_backoff: Duration,
 ) -> anyhow::Result<Option<String>> {
+    let mut backoff = Backoff::new(initial_backoff, Duration::from_secs(30));
     let mut last_error = None;
     for i in 0..=num_retries {
         if i != 0 {
-            tokio::time::sleep(sleep).await;
+            let delay = backoff.fail(&mut rng());
+            tokio::time::sleep(delay).await;
         }
         match health_check_once(service_url, expected_version, health_check_endpoint).await {
             Ok(version) => {

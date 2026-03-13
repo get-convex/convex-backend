@@ -470,7 +470,7 @@ async fn provision(
             let funrun_handle = udf_use_funrun
                 .then(|| start_local_funrun(logs, release, &db_path))
                 .transpose()?;
-            // Give it 15 seconds to start up (30 retries at 500ms)
+            // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(
                 &USHER_INSTANCE_URL.parse()?,
                 Some("0.0.0-backendharness"),
@@ -478,7 +478,7 @@ async fn provision(
                 // admin key. Right now the admin key is static, so either we use a static name
                 // which will always match, or we refactor to allow dynamic admin keys here.
                 None,
-                30,
+                5,
                 Duration::from_millis(500),
             )
             .await
@@ -529,7 +529,7 @@ async fn provision(
                     .kill_on_drop(true),
             )?;
             let backend_url = "http://127.0.0.1:8000".to_string();
-            // Give it 15 seconds to start up (30 retries at 500ms)
+            // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(
                 &backend_url.parse()?,
                 Some("0.0.0-backendharness"),
@@ -537,7 +537,7 @@ async fn provision(
                 // admin key. Right now the admin key is static, so either we use a static name
                 // which will always match, or we refactor to allow dynamic admin keys here.
                 None,
-                30,
+                5,
                 Duration::from_millis(500),
             )
             .await
@@ -582,7 +582,7 @@ async fn provision(
             let backend_handle =
                 logs.spawn_with_prefixed_logs("docker up".into(), &mut docker_up_cmd)?;
             let backend_url = "http://127.0.0.1:8000".to_string();
-            // Give it 15 seconds to start up (30 retries at 500ms)
+            // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(
                 &backend_url.parse()?,
                 Some("0.0.0-backendharness"),
@@ -590,7 +590,7 @@ async fn provision(
                 // admin key. Right now the admin key is static, so either we use a static name
                 // which will always match, or we refactor to allow dynamic admin keys here.
                 None,
-                30,
+                5,
                 Duration::from_millis(500),
             )
             .await
