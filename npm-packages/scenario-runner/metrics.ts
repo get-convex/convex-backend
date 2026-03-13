@@ -2,6 +2,7 @@
 // Metrics must first be added to crates/load_generator/src/metrics.rs
 export type ScenarioName =
   | "CloudBackup"
+  | "HoldSubscriptions"
   | "ManyIntersections"
   | "ObserveInsert"
   | "ObserveInsertWithSearch"
@@ -13,6 +14,8 @@ export type ScenarioName =
 export type ScenarioLatencyMetric =
   // CloudBackup
   | "backup"
+  // HoldSubscriptions
+  | "invalidation_completed"
   // ManyIntersections
   | "mutation_completed"
   | "mutation_observed"
@@ -37,6 +40,8 @@ export type ScenarioCountMetric =
   | "backup_completed"
   | "backup_timeout"
   | "request_backup_succeeded"
+  // HoldSubscriptions
+  | "invalidation_timeout"
   // ManyIntersections
   | "mutation_observed_timeout"
   | "mutation_send_timeout"
@@ -68,6 +73,8 @@ export type ScenarioError =
   | "backup_failure"
   | "get_backup_failed"
   | "request_backup_failed"
+  // HoldSubscriptions
+  | "mutation"
   // ManyIntersections
   | "mutation"
   // ObserveInsert

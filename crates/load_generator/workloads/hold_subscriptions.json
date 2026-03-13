@@ -1,0 +1,19 @@
+{
+  "name": "hold_subscriptions",
+  "scenarios": [
+    {
+      "name": "HoldSubscriptions",
+      "benchmark": 1000,
+      "num_subscriptions": 10,
+      "hold_duration_secs": 600
+    },
+    {
+      "name": "HoldSubscriptions",
+      "benchmark": 1000,
+      "num_subscriptions": 10,
+      "hold_duration_secs": 600,
+      "invalidation_interval_secs": 110,
+      "num_invalidations": 3
+    }
+  ]
+}

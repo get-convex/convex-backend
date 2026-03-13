@@ -126,14 +126,32 @@ enum FunctionType {
 #[derive(Deserialize, Serialize, Debug, Clone, Display)]
 #[serde(tag = "name")]
 enum Scenario {
-    RunFunction { path: String, fn_type: FunctionType },
-    ObserveInsert { search_indexes: bool },
+    RunFunction {
+        path: String,
+        fn_type: FunctionType,
+    },
+    ObserveInsert {
+        search_indexes: bool,
+    },
     Search,
     VectorSearch,
     SnapshotExport,
-    ManyIntersections { num_subscriptions: i32 },
+    ManyIntersections {
+        num_subscriptions: i32,
+    },
+    HoldSubscriptions {
+        num_subscriptions: i32,
+        hold_duration_secs: f64,
+        #[serde(default)]
+        invalidation_interval_secs: Option<f64>,
+        #[serde(default)]
+        num_invalidations: Option<i32>,
+    },
     CloudBackup,
-    RunHttpAction { path: String, method: String },
+    RunHttpAction {
+        path: String,
+        method: String,
+    },
 }
 
 impl Scenario {
@@ -151,6 +169,7 @@ impl Scenario {
             | Scenario::CloudBackup
             | Scenario::RunHttpAction { .. } => false,
             Scenario::ManyIntersections { .. } => false,
+            Scenario::HoldSubscriptions { .. } => false,
         }
     }
 

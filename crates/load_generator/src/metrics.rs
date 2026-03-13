@@ -97,6 +97,15 @@ static ERROR_METRICS: LazyLock<BTreeMap<&str, BTreeMap<&str, IntCounterVec>>> =
                     )
                 }
             },
+            "HoldSubscriptions" => btreemap!{
+                "mutation" => {
+                    register_convex_counter_owned!(
+                        HOLD_SUBSCRIPTIONS_MUTATION_ERROR_TOTAL,
+                        "Errors on the mutation in hold subscriptions scenario",
+                        &["backend_version", "load_description"],
+                    )
+                }
+            },
             "SnapshotExport" => btreemap!{
                 "request_export_failed" => {
                     register_convex_counter_owned!(
@@ -275,6 +284,15 @@ static LATENCY_METRICS: LazyLock<BTreeMap<&str, BTreeMap<&str, VMHistogramVec>>>
                     )
                 },
             },
+            "HoldSubscriptions" => btreemap!{
+                "invalidation_completed" => {
+                    register_convex_histogram_owned!(
+                        HOLD_SUBSCRIPTIONS_INVALIDATION_COMPLETED_LATENCY_SECONDS,
+                        "Latency on invalidation completion for HoldSubscriptions",
+                        &["backend_version", "load_description"],
+                    )
+                },
+            },
             "Search" => btreemap!{
                 "search" => {
                     register_convex_histogram_owned!(
@@ -368,6 +386,15 @@ static COUNT_METRICS: LazyLock<BTreeMap<&str, BTreeMap<&str, IntCounterVec>>> =
                     register_convex_counter_owned!(
                         OBSERVE_INSERT_WITH_MANY_INTERSECTIONS_OBSERVED_TIMEOUT_TOTAL,
                         "Count of observed timeouts for mutation in ManyIntersections",
+                        &["backend_version", "load_description"],
+                    )
+                }
+            },
+            "HoldSubscriptions" => btreemap!{
+                "invalidation_timeout" => {
+                    register_convex_counter_owned!(
+                        HOLD_SUBSCRIPTIONS_INVALIDATION_TIMEOUT_TOTAL,
+                        "Count of invalidation timeouts in HoldSubscriptions",
                         &["backend_version", "load_description"],
                     )
                 }

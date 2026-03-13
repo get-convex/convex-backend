@@ -14,6 +14,7 @@ import { ScenarioMessage } from "./types.js";
 import { RunHttpAction } from "./scenarios/run_http_action.js";
 import dns from "node:dns";
 import { ManyIntersections } from "./scenarios/many_intersections.js";
+import { HoldSubscriptions } from "./scenarios/hold_subscriptions.js";
 
 Sentry.init({
   tracesSampleRate: 0.1,
@@ -118,6 +119,15 @@ async function runScenario(
       break;
     case "ManyIntersections":
       scenario = new ManyIntersections(config, scenarioSpec.num_subscriptions);
+      break;
+    case "HoldSubscriptions":
+      scenario = new HoldSubscriptions(
+        config,
+        scenarioSpec.num_subscriptions,
+        scenarioSpec.hold_duration_secs,
+        scenarioSpec.invalidation_interval_secs,
+        scenarioSpec.num_invalidations,
+      );
       break;
     case "SnapshotExport":
       scenario = new SnapshotExport(config, adminKey);
