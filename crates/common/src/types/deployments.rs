@@ -64,6 +64,10 @@ impl DeploymentType {
     pub fn as_sentry_tag(&self) -> String {
         self.to_string()
     }
+
+    pub fn default_send_logs_to_client(&self) -> bool {
+        matches!(self, DeploymentType::Dev | DeploymentType::Preview)
+    }
 }
 
 #[cfg(test)]
