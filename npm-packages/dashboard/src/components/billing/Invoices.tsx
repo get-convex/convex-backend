@@ -20,10 +20,6 @@ export function Invoices({ invoices }: { invoices: InvoiceResponse[] }) {
           No invoices yet.
         </div>
       )}
-      <p className="flex flex-col gap-1 text-xs text-content-secondary">
-        Looking for older invoices? Invoices from before May 2024 were emailed
-        to the team creator.
-      </p>
     </Sheet>
   );
 }
@@ -92,21 +88,10 @@ function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
   );
 }
 
-const statusColors: Record<InvoiceResponse["status"], string> = {
-  paid: "bg-background-success",
-  issued: "bg-background-warning",
-  draft: "bg-blue-200 dark:bg-blue-800",
-  void: "bg-background-error",
-  failed: "bg-background-error",
-  synced: "bg-background-tertiary",
-};
 function StatusPill({ status }: { status: InvoiceResponse["status"] }) {
-  const color = statusColors[status] || "bg-blue-200";
   return (
-    <span className={cn("rounded-sm p-1 text-xs", color)}>
-      {status === "draft"
-        ? "Preview"
-        : status.charAt(0).toUpperCase() + status.slice(1)}
+    <span className="text-xs">
+      {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
   );
 }
