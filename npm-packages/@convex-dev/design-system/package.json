@@ -124,6 +124,10 @@
       "import": "./dist/ProgressBar.jsx",
       "types": "./dist/ProgressBar.d.ts"
     },
+    "./SegmentedControl": {
+      "import": "./dist/SegmentedControl.jsx",
+      "types": "./dist/SegmentedControl.d.ts"
+    },
     "./Sheet": {
       "import": "./dist/Sheet.jsx",
       "types": "./dist/Sheet.d.ts"
