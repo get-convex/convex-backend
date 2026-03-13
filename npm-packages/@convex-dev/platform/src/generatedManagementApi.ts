@@ -648,6 +648,17 @@ export interface components {
             /** @description The class to use for this deployment. If not provided, the default
              *     deployment class for your team will be used. */
             class?: string | null;
+            /** @description When creating a prod deployment, whether the deployment is the default
+             *     production deployment for the project (i.e. the one used by default
+             *     when running `npx convex deploy`).
+             *     When creating a dev deployment, whether the deployment is the default
+             *     development deployment for the member that creates it (i.e. the one used
+             *     by default when running `npx convex dev`).
+             *     This option can’t be set on other types of deployments.
+             *     If not provided, defaults to `true` when creating a dev or prod
+             *     deployment without providing a reference (and defaults to `false`
+             *     otherwise). */
+            isDefault?: boolean | null;
             /** @description An identifier that uniquely identifies this deployment within the
              *     project. By providing a reference, you can create multiple dev and prod
              *     deployments in the project. If you don’t provide a reference, the

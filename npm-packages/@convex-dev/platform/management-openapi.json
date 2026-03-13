@@ -1705,6 +1705,13 @@
             ],
             "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
           },
+          "isDefault": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "When creating a prod deployment, whether the deployment is the default\nproduction deployment for the project (i.e. the one used by default\nwhen running `npx convex deploy`).\nWhen creating a dev deployment, whether the deployment is the default\ndevelopment deployment for the member that creates it (i.e. the one used\nby default when running `npx convex dev`).\nThis option can’t be set on other types of deployments.\nIf not provided, defaults to `true` when creating a dev or prod\ndeployment without providing a reference (and defaults to `false`\notherwise)."
+          },
           "reference": {
             "type": [
               "string",
