@@ -128,11 +128,21 @@ function SettingsNavigationScrollProgress() {
   const [transform, setTransform] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    const contentContainer = document.querySelector("[data-settings-content]");
-    if (!contentContainer) return undefined;
+    const contentWrapper = document.querySelector(
+      "[data-settings-content-wrapper]",
+    );
+    const content = document.querySelector("[data-settings-content]");
+    if (!contentWrapper) return undefined;
 
     const forceUpdate = () => {
-      const containerRect = contentContainer.getBoundingClientRect();
+      // Don't show indicator until sections are rendered
+      const firstElement = document.getElementById(sections[0].id);
+      if (!firstElement) {
+        setTransform(undefined);
+        return;
+      }
+
+      const containerRect = contentWrapper.getBoundingClientRect();
 
       const elementHeight = 1 / sections.length;
 
@@ -140,7 +150,7 @@ function SettingsNavigationScrollProgress() {
       const lastBoundary = findScrollBoundary("last", containerRect);
 
       const y =
-        (firstBoundary.index + (1 - firstBoundary.visibilityFraction)) *
+        (firstBoundary.index + firstBoundary.topClippedFraction) *
         elementHeight;
       const height =
         firstBoundary.index === lastBoundary.index
@@ -160,11 +170,18 @@ function SettingsNavigationScrollProgress() {
     const update = () => {
       window.requestAnimationFrame(forceUpdate);
     };
-    contentContainer.addEventListener("scroll", update);
+    contentWrapper.addEventListener("scroll", update);
     window.addEventListener("resize", update);
+
+    const resizeObserver = new ResizeObserver(update);
+    if (content) {
+      resizeObserver.observe(content);
+    }
+
     return () => {
-      contentContainer.removeEventListener("scroll", update);
+      contentWrapper.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      resizeObserver.disconnect();
     };
   }, []);
 
@@ -207,6 +224,8 @@ function findScrollBoundary(
       return {
         index: i,
         visibilityFraction: visibleHeight / elementHeight,
+        topClippedFraction:
+          Math.max(0, containerRect.top - rect.top) / elementHeight,
       };
     }
   }
@@ -214,6 +233,7 @@ function findScrollBoundary(
   return {
     index: 0,
     visibilityFraction: 0,
+    topClippedFraction: 0,
   };
 }
 
@@ -323,14 +343,20 @@ function ProjectSettings() {
             <div className="grow" />
           </div>
         </div>
-        <div className="scrollbar h-full overflow-y-auto" data-settings-content>
+        <div
+          className="scrollbar h-full overflow-y-auto"
+          data-settings-content-wrapper
+        >
           <div className="m-auto flex min-h-0 max-w-(--container-width) gap-(--sidebar-gap) px-(--container-px)">
             <div className="hidden w-(--sidebar-width) shrink-0 md:block" />
 
             <div className="flex grow flex-col items-start">
               <div className="md:hidden">{title}</div>
 
-              <div className="flex w-full grow flex-col gap-6 pr-2 pb-6 md:pt-20 [&>*]:scroll-mt-3">
+              <div
+                data-settings-content
+                className="flex w-full grow flex-col gap-6 pr-2 pb-6 md:pt-20 [&>*]:scroll-mt-3"
+              >
                 {team && project ? (
                   <div id={SECTION_IDS.projectForm}>
                     <ProjectForm
