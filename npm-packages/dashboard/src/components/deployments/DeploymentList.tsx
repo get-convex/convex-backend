@@ -19,7 +19,7 @@ import { PaginationControls } from "elements/PaginationControls";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import sortBy from "lodash/sortBy";
-import { DeploymentCard } from "./DeploymentCard";
+import { DeploymentRow } from "./DeploymentRow";
 
 function PrefixedOption({
   prefix,
@@ -362,6 +362,11 @@ export function DeploymentToolbar({
         setSelectedOption={(v) => filters.setTypeFilter(v === null ? "all" : v)}
         disableSearch
         buttonClasses="w-fit"
+        innerButtonClasses={
+          filters.typeFilter !== "all"
+            ? "bg-yellow-100/50 dark:bg-yellow-600/20 hover:bg-yellow-100 dark:hover:bg-yellow-600/50"
+            : ""
+        }
       />
       <Combobox
         label="Creator"
@@ -373,6 +378,11 @@ export function DeploymentToolbar({
           filters.setCreatorFilter(v === null ? "all" : v)
         }
         buttonClasses="w-fit"
+        innerButtonClasses={
+          filters.creatorFilter !== "all"
+            ? "bg-yellow-100/50 dark:bg-yellow-600/20 hover:bg-yellow-100 dark:hover:bg-yellow-600/50"
+            : ""
+        }
         optionsWidth="fit"
       />
       <Combobox
@@ -388,6 +398,11 @@ export function DeploymentToolbar({
         }}
         disableSearch
         buttonClasses="w-fit"
+        innerButtonClasses={
+          filters.sort !== "lastDeployTime:desc"
+            ? "bg-yellow-100/50 dark:bg-yellow-600/20 hover:bg-yellow-100 dark:hover:bg-yellow-600/50"
+            : ""
+        }
       />
       {filters.isLoading && (
         <div>
@@ -462,7 +477,7 @@ export function DeploymentList({
                   i > 0 && "border-t",
                 )}
               >
-                <DeploymentCard
+                <DeploymentRow
                   deployment={d}
                   teamSlug={team.slug}
                   teamMembers={teamMembers}

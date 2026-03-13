@@ -1,7 +1,10 @@
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import type { Meta, StoryObj } from "@storybook/nextjs";
+import { mocked } from "storybook/test";
 import { MemberResponse } from "generatedApi";
-import { DeploymentCard } from "./DeploymentCard";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { useProjectById } from "api/projects";
+import { DeploymentRow } from "./DeploymentRow";
 
 const teamMembers: MemberResponse[] = [
   {
@@ -17,13 +20,30 @@ const teamMembers: MemberResponse[] = [
 ];
 
 const meta = {
-  component: DeploymentCard,
+  component: DeploymentRow,
   args: {
     teamSlug: "my-team",
     teamMembers,
   },
   parameters: { a11y: { test: "todo" } },
-} satisfies Meta<typeof DeploymentCard>;
+  beforeEach: () => {
+    mocked(useLaunchDarkly).mockReturnValue({
+      showReferences: false,
+    } as ReturnType<typeof useLaunchDarkly>);
+    mocked(useProjectById).mockReturnValue({
+      project: {
+        id: 1,
+        slug: "my-awesome-project",
+        name: "My Awesome Project",
+        teamId: 1,
+        createTime: Date.now() - 30 * 24 * 60 * 60 * 1000,
+        isDemo: false,
+      },
+      isLoading: false,
+      error: undefined,
+    } as ReturnType<typeof useProjectById>);
+  },
+} satisfies Meta<typeof DeploymentRow>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

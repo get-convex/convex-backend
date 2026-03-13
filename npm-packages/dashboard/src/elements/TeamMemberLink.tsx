@@ -4,14 +4,20 @@ import { useCurrentTeam } from "../api/teams";
 export function TeamMemberLink({
   memberId,
   name,
+  isMember = true,
 }: {
   memberId?: number | null;
   name: string;
+  isMember?: boolean;
 }) {
   const team = useCurrentTeam();
-  return !memberId ? (
-    <span>Convex</span>
-  ) : (
+  if (!memberId) {
+    return <span>Convex</span>;
+  }
+  if (!isMember) {
+    return <span className="text-content-secondary">Unknown team member</span>;
+  }
+  return (
     <Link
       target="_blank"
       className="rounded text-content-link hover:underline focus-visible:outline-2 focus-visible:outline-border-selected"

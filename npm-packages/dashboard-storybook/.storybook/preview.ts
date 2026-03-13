@@ -10,6 +10,7 @@ sb.mock(import("../../dashboard/src/api/teams.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/projects.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/profile.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/deployments.ts"), { spy: true });
+sb.mock(import("../../dashboard/src/hooks/useLaunchDarkly.tsx"), { spy: true });
 
 const preview: Preview = {
   initialGlobals: {

@@ -35,7 +35,7 @@ function deploymentTypeLabel(deployment: PlatformDeploymentResponse): string {
   }
 }
 
-export function DeploymentCard({
+export function DeploymentRow({
   deployment,
   teamSlug,
   teamMembers,
@@ -87,7 +87,7 @@ export function DeploymentCard({
         <Tooltip tip={deploymentTypeLabel(deployment)}>
           <div
             className={cn(
-              "inline-flex shrink-0 items-center justify-center self-center rounded-full p-1",
+              "relative z-10 inline-flex shrink-0 items-center justify-center self-center rounded-full p-1 ring-3 ring-background-secondary",
               getBackgroundColor(deployment.deploymentType),
             )}
           >
@@ -151,6 +151,7 @@ export function DeploymentCard({
                 <TeamMemberLink
                   memberId={deployment.creator}
                   name={creatorName}
+                  isMember={!!creator}
                 />
               </span>
             )}
