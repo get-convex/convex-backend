@@ -28,6 +28,7 @@ import { functionSpec } from "./functionSpec.js";
 import { insights } from "./insights.js";
 import { disableLocalDeployments } from "./disableLocalDev.js";
 import { mcp } from "./mcp.js";
+import { deployment } from "./deployment.js";
 import { aiFiles } from "./aiFiles.js";
 import dns from "node:dns";
 import net from "node:net";
@@ -141,6 +142,7 @@ async function main() {
     .addCommand(reinit, { hidden: true })
     .addCommand(dev)
     .addCommand(deploy)
+    .addCommand(deployment, { hidden: true }) // TODO(nicolas) Release `npx convex deployment`
     .addCommand(deployments, { hidden: true })
     .addCommand(run)
     .addCommand(convexImport)
