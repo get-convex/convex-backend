@@ -3,6 +3,11 @@
   "version": "0.3.0",
   "type": "module",
   "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/get-convex/convex-backend.git",
+    "directory": "npm-packages/@convex-dev/design-system"
+  },
   "files": [
     "dist",
     "package.json"

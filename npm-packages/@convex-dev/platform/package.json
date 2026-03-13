@@ -3,6 +3,12 @@
   "version": "0.1.6",
   "description": "A client for the Convex Platform APIs",
   "type": "module",
+  "homepage": "https://docs.convex.dev/platform-apis",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/get-convex/convex-backend.git",
+    "directory": "npm-packages/@convex-dev/platform"
+  },
   "scripts": {
     "build": "npm run generateApiSpec && node version-check.mjs && zshy",
     "prepare": "npm run build",

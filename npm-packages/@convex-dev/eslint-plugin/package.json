@@ -3,6 +3,12 @@
   "version": "1.1.1",
   "license": "Apache-2.0",
   "type": "module",
+  "homepage": "https://docs.convex.dev/eslint",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/get-convex/convex-backend.git",
+    "directory": "npm-packages/@convex-dev/eslint-plugin"
+  },
   "scripts": {
     "build": "tshy",
     "test": "vitest run && node src/scripts/version-check.mjs",
