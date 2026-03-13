@@ -139,8 +139,7 @@ const meta = {
     teamSlug: "my-team",
     projectSlug: "my-project",
     lastBackupTime: Date.now() - 1000 * 60 * 60 * 24, // 1 day ago
-    creatorId: 123,
-    creatorName: "Ari",
+    teamMembers: [{ id: 123, name: "Ari", email: "ari@example.com" }],
     regions: mockRegions,
   },
   render: (args) => (

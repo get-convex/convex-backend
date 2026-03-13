@@ -153,20 +153,28 @@ export function DeploymentSummary({
   teamSlug,
   projectSlug,
   lastBackupTime,
-  creatorId,
-  creatorName,
+  teamMembers,
   regions,
 }: {
   deployment: PlatformDeploymentResponse;
   teamSlug: string;
   projectSlug: string;
   lastBackupTime?: number | null;
-  creatorId?: number;
-  creatorName?: string;
+  teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
 }) {
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
   const lastPushEvent = useQuery(udfs.deploymentEvents.lastPushEvent, {});
+
+  // Resolve the team member who last deployed from the push event
+  const deployer = teamMembers?.find(
+    (tm) => lastPushEvent && tm.id === Number(lastPushEvent.member_id),
+  );
+  const deployerId = lastPushEvent
+    ? Number(lastPushEvent.member_id)
+    : undefined;
+  const deployerName = deployer?.name || deployer?.email || undefined;
+
   const convexCloudUrl = useQuery(udfs.convexCloudUrl.default, {});
   const convexSiteUrl = useQuery(udfs.convexSiteUrl.default, {});
   const serverVersion = useQuery(udfs.getVersion.default);
@@ -349,10 +357,13 @@ export function DeploymentSummary({
                     date={new Date(lastPushEvent._creationTime)}
                     className="text-sm text-content-primary"
                   />
-                  {creatorId && creatorName && (
+                  {deployerId && deployerName && (
                     <>
                       <span>by</span>
-                      <TeamMemberLink memberId={creatorId} name={creatorName} />
+                      <TeamMemberLink
+                        memberId={deployerId}
+                        name={deployerName}
+                      />
                     </>
                   )}
                 </div>

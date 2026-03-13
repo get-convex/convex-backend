@@ -66,10 +66,6 @@ function DeploymentURLAndDeployKey() {
       : null;
   }, [backups, deployment]);
 
-  const creator = teamMembers?.find((tm) => tm.id === deployment?.creator);
-  const creatorId = deployment?.creator || undefined;
-  const creatorName = creator?.name || creator?.email || undefined;
-
   return (
     <div className="flex flex-col gap-4">
       {deployment && team?.slug && project?.slug && (
@@ -78,8 +74,7 @@ function DeploymentURLAndDeployKey() {
           teamSlug={team.slug}
           projectSlug={project.slug}
           lastBackupTime={lastBackupTime}
-          creatorId={creatorId}
-          creatorName={creatorName}
+          teamMembers={teamMembers}
           regions={regions}
         />
       )}

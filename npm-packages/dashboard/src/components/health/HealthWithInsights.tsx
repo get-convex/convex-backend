@@ -89,11 +89,6 @@ export function HealthWithInsights() {
       : null;
   }, [backups, deployment]);
 
-  // Get creator info
-  const creator = teamMembers?.find((tm) => tm.id === deployment?.creator);
-  const creatorId = deployment?.creator || undefined;
-  const creatorName = creator?.name || creator?.email || undefined;
-
   const selectedInsight = insights?.find(
     (insight) => getInsightPageIdentifier(insight) === page,
   );
@@ -237,8 +232,7 @@ export function HealthWithInsights() {
         teamSlug={team?.slug}
         projectSlug={project?.slug}
         lastBackupTime={lastBackupTime}
-        creatorId={creatorId}
-        creatorName={creatorName}
+        teamMembers={teamMembers}
         regions={regions}
       />
     </InsightsContext.Provider>

@@ -22,8 +22,7 @@ export function HealthView({
   teamSlug,
   projectSlug,
   lastBackupTime,
-  creatorId,
-  creatorName,
+  teamMembers,
   regions,
 }: {
   header: JSX.Element;
@@ -33,8 +32,7 @@ export function HealthView({
   teamSlug?: string;
   projectSlug?: string;
   lastBackupTime?: number | null;
-  creatorId?: number;
-  creatorName?: string;
+  teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
 }) {
   const {
@@ -59,8 +57,7 @@ export function HealthView({
                     teamSlug={teamSlug}
                     projectSlug={projectSlug}
                     lastBackupTime={lastBackupTime}
-                    creatorId={creatorId}
-                    creatorName={creatorName}
+                    teamMembers={teamMembers}
                     regions={regions}
                   />
                 </DisclosureSection>
