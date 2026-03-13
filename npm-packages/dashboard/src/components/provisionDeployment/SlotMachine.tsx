@@ -803,8 +803,8 @@ function SlotMachineAnimated({
   onReplay: () => void;
   onComplete?: () => void;
 }) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const { forcedTheme, resolvedTheme } = useTheme();
+  const isDark = (forcedTheme ?? resolvedTheme) === "dark";
   const itemHeight = showEmoji ? ITEM_HEIGHT_EMOJI : ITEM_HEIGHT_TEXT;
   const parts = deploymentName?.split("-");
   const finalAdjective = parts?.[0];
