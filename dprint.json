@@ -9,6 +9,7 @@
     ".mypy_cache/",
     ".pytest_cache/",
     ".venv/",
+    ".context/",
     ".git/",
     ".vercel/",
     ".tshy",
