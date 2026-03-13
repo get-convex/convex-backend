@@ -573,8 +573,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a team management access token */
-        post: operations["create team management access token"];
+        /** Create a team access token */
+        post: operations["create team access token"];
         delete?: never;
         options?: never;
         head?: never;
@@ -589,7 +589,7 @@ export interface components {
         AdminKey: string;
         /** @enum {string} */
         CreateDeploymentType: "dev" | "prod" | "preview" | "custom";
-        CreateTeamManagementAccessTokenResponse: {
+        CreateTeamAccessTokenResponse: {
             accessToken: string;
             tokenType: string;
         };
@@ -970,7 +970,7 @@ export interface components {
 }
 export type AdminKey = components['schemas']['AdminKey'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
-export type CreateTeamManagementAccessTokenResponse = components['schemas']['CreateTeamManagementAccessTokenResponse'];
+export type CreateTeamAccessTokenResponse = components['schemas']['CreateTeamAccessTokenResponse'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
 export type DeploymentId = components['schemas']['DeploymentId'];
@@ -1716,7 +1716,7 @@ export interface operations {
             };
         };
     };
-    "create team management access token": {
+    "create team access token": {
         parameters: {
             query?: never;
             header?: never;
@@ -1727,16 +1727,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Team management access token created successfully */
+            /** @description Team access token created successfully */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreateTeamManagementAccessTokenResponse"];
+                    "application/json": components["schemas"]["CreateTeamAccessTokenResponse"];
                 };
             };
-            /** @description Caller is not authorized to create team management access tokens */
+            /** @description Caller is not authorized to create team access tokens */
             403: {
                 headers: {
                     [name: string]: unknown;

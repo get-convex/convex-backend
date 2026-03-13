@@ -1438,8 +1438,8 @@
         "tags": [
           "Access Tokens"
         ],
-        "summary": "Create a team management access token",
-        "operationId": "create team management access token",
+        "summary": "Create a team access token",
+        "operationId": "create team access token",
         "parameters": [
           {
             "name": "team_id",
@@ -1450,17 +1450,17 @@
         ],
         "responses": {
           "201": {
-            "description": "Team management access token created successfully",
+            "description": "Team access token created successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateTeamManagementAccessTokenResponse"
+                  "$ref": "#/components/schemas/CreateTeamAccessTokenResponse"
                 }
               }
             }
           },
           "403": {
-            "description": "Caller is not authorized to create team management access tokens"
+            "description": "Caller is not authorized to create team access tokens"
           }
         },
         "security": []
@@ -1482,7 +1482,7 @@
           "custom"
         ]
       },
-      "CreateTeamManagementAccessTokenResponse": {
+      "CreateTeamAccessTokenResponse": {
         "type": "object",
         "required": [
           "accessToken",
