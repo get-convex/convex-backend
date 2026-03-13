@@ -98,11 +98,6 @@ impl<D: ConfigDecoder + Send + 'static> ConfigLoader<D, ImmediateMode> {
         )
         .await
     }
-
-    /// Returns the current decoded config.
-    pub fn get_config(&self) -> D::Output {
-        self.config_rx.borrow().clone()
-    }
 }
 
 impl<D: ConfigDecoder + Send + 'static> ConfigLoader<D, LazyMode> {
@@ -202,6 +197,11 @@ impl<D: ConfigDecoder + Send + 'static, M: mode::ConfigLoaderMode<D::Output>> Co
         // Omit `None` from the resulting stream. For LazyMode this means the
         // stream will block if there is an error reading the config.
         WatchStream::from_changes(rx).filter_map(|v| future::ready(v.into()))
+    }
+
+    /// Returns the current decoded config, if available.
+    pub fn get_config(&self) -> M::Maybe {
+        self.config_rx.borrow().clone()
     }
 
     /// Manually trigger a reload of the configuration file on disk.
