@@ -17,8 +17,15 @@ export function TeamMenuOptions({
   onCreateTeamClick: () => void;
   close(): void;
 }) {
-  const { pathname } = useRouter();
+  const { pathname, query } = useRouter();
   const currentTeam = useCurrentTeam();
+
+  // When switching teams, only preserve view and sort params
+  const teamSwitchQuery = (slug: string) => ({
+    team: slug,
+    ...(query.view ? { view: query.view } : {}),
+    ...(query.sort ? { sort: query.sort } : {}),
+  });
   return (
     <>
       {teams && (
@@ -33,7 +40,9 @@ export function TeamMenuOptions({
                 pathname: pathname.startsWith("/t/[team]/settings")
                   ? pathname
                   : "/t/[team]",
-                query: { team: currentTeam.slug },
+                query: pathname.startsWith("/t/[team]/settings")
+                  ? { ...query, team: currentTeam.slug }
+                  : teamSwitchQuery(currentTeam.slug),
               }}
               key={currentTeam?.slug}
               active={team?.slug === currentTeam.slug}
@@ -60,7 +69,9 @@ export function TeamMenuOptions({
                   pathname: pathname.startsWith("/t/[team]/settings")
                     ? pathname
                     : "/t/[team]",
-                  query: { team: t.slug },
+                  query: pathname.startsWith("/t/[team]/settings")
+                    ? { ...query, team: t.slug }
+                    : teamSwitchQuery(t.slug),
                 }}
                 key={t.slug}
                 active={team?.slug === t.slug}

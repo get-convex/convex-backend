@@ -10,11 +10,11 @@ export function TeamMemberLink({
 }) {
   const team = useCurrentTeam();
   return !memberId ? (
-    <span className="font-semibold">Convex</span>
+    <span>Convex</span>
   ) : (
     <Link
       target="_blank"
-      className="font-semibold text-content-link hover:underline"
+      className="rounded text-content-link hover:underline focus-visible:outline-2 focus-visible:outline-border-selected"
       href={`/t/${team?.slug}/settings/members#${memberId}`}
     >
       {name}

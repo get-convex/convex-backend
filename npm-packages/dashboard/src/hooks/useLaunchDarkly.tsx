@@ -10,6 +10,7 @@ const flagDefaults: {
   enableStatuspageWidget: boolean;
   connectionStateCheckIntervalMs: number;
   showReferences: boolean;
+  deploymentList: boolean;
   postHogIntegrations: boolean;
 } = {
   commandPalette: false,
@@ -20,6 +21,7 @@ const flagDefaults: {
   enableStatuspageWidget: true,
   connectionStateCheckIntervalMs: 2500,
   showReferences: false,
+  deploymentList: false,
   postHogIntegrations: false,
 };
 

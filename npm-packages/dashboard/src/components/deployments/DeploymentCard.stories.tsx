@@ -1,25 +1,7 @@
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import type { Meta, StoryObj } from "@storybook/nextjs";
-import { ProjectDetails, MemberResponse } from "generatedApi";
+import { MemberResponse } from "generatedApi";
 import { DeploymentCard } from "./DeploymentCard";
-
-const project: ProjectDetails = {
-  id: 1,
-  slug: "my-awesome-project",
-  name: "My Awesome Project",
-  teamId: 1,
-  createTime: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
-  isDemo: false,
-};
-
-const projectUntitled: ProjectDetails = {
-  id: 2,
-  slug: "untitled-project-123",
-  name: "",
-  teamId: 1,
-  createTime: Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 days ago
-  isDemo: false,
-};
 
 const teamMembers: MemberResponse[] = [
   {
@@ -37,9 +19,8 @@ const teamMembers: MemberResponse[] = [
 const meta = {
   component: DeploymentCard,
   args: {
-    project,
+    teamSlug: "my-team",
     teamMembers,
-    href: "#",
   },
   parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof DeploymentCard>;
@@ -80,7 +61,6 @@ export const DevelopmentCloudMine: Story = {
       isDefault: true,
       region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
-    whoseName: null, // null means it's mine
   },
 };
 
@@ -99,7 +79,6 @@ export const DevelopmentCloudTeammate: Story = {
       isDefault: false,
       region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
-    whoseName: "Bob Smith",
   },
 };
 
@@ -153,48 +132,6 @@ export const Custom: Story = {
       projectId: 1,
       isDefault: false,
       region: "aws-eu-west-1",
-    } as PlatformDeploymentResponse,
-  },
-};
-
-// Untitled project
-export const UntitledProject: Story = {
-  args: {
-    project: projectUntitled,
-    deployment: {
-      kind: "cloud",
-      class: "s16",
-      name: "wonderful-panda-999",
-      deploymentType: "prod",
-      createTime: Date.now() - 3 * 60 * 60 * 1000, // 3 hours ago
-      creator: 1,
-      id: 105,
-      projectId: 2,
-      isDefault: true,
-      region: "aws-us-east-1",
-    } as PlatformDeploymentResponse,
-  },
-};
-
-// Long project name (testing truncation)
-export const LongProjectName: Story = {
-  args: {
-    project: {
-      ...project,
-      name: "My Super Long Project Name That Should Truncate Nicely When Displayed",
-      slug: "my-super-long-project-name-that-should-truncate",
-    },
-    deployment: {
-      kind: "cloud",
-      class: "s16",
-      name: "happy-animal-123",
-      deploymentType: "dev",
-      createTime: Date.now() - 5 * 60 * 1000, // 5 minutes ago
-      creator: 1,
-      id: 106,
-      projectId: 1,
-      isDefault: true,
-      region: "aws-us-east-1",
     } as PlatformDeploymentResponse,
   },
 };

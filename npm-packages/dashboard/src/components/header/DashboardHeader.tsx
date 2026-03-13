@@ -128,7 +128,7 @@ function DashboardHeaderWhenLoggedIn() {
         {projectSelector}
         <NavBar
           items={[
-            { label: "Projects", href: `/t/${selectedTeamSlug}` },
+            { label: "Home", href: `/t/${selectedTeamSlug}` },
             {
               label: "Team Settings",
               href: `/t/${selectedTeamSlug}/settings`,
@@ -137,7 +137,7 @@ function DashboardHeaderWhenLoggedIn() {
           activeLabel={
             router.asPath.startsWith(`/t/${selectedTeamSlug}/settings`)
               ? "Team Settings"
-              : "Projects"
+              : "Home"
           }
         />
       </div>

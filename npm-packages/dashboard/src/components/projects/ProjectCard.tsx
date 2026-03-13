@@ -12,9 +12,18 @@ import { ReactNode, useState } from "react";
 import { ProjectDetails } from "generatedApi";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { useCurrentTeam } from "api/teams";
+import { HighlightMatch } from "elements/HighlightMatch";
 import { DeleteProjectModal } from "./modals/DeleteProjectModal";
 
-export function ProjectCard({ project }: { project: ProjectDetails }) {
+export function ProjectCard({
+  project,
+  listItem,
+  searchQuery,
+}: {
+  project: ProjectDetails;
+  listItem?: boolean;
+  searchQuery?: string;
+}) {
   const router = useRouter();
   const { id, slug, name } = project;
   const team = useCurrentTeam();
@@ -65,10 +74,12 @@ export function ProjectCard({ project }: { project: ProjectDetails }) {
   return (
     <Card
       cardClassName="group animate-fadeInFromLoading"
+      listItem={listItem}
+      linkLabel={name?.length ? name : "Untitled Project"}
       href={deleteModal || lostAccessModal ? undefined : defaultHref}
       dropdownItems={dropdownItems}
       overlayed={
-        <div className="flex gap-1">
+        <div className="relative z-10 flex gap-1">
           {!isLoadingDeployments ? (
             <div className="flex flex-col items-end">
               <DeploymentLinks
@@ -99,12 +110,16 @@ export function ProjectCard({ project }: { project: ProjectDetails }) {
         >
           <span className="flex items-center gap-2 text-content-primary">
             <span className="shrink truncate">
-              {name?.length ? name : "Untitled Project"}
+              {name?.length ? (
+                <HighlightMatch text={name} query={searchQuery} />
+              ) : (
+                "Untitled Project"
+              )}
             </span>
           </span>
         </div>
         <div className="mb-1 h-4 truncate text-xs text-content-secondary">
-          {slug}
+          <HighlightMatch text={slug} query={searchQuery} />
         </div>
         {team && deleteModal && (
           <DeleteProjectModal
@@ -197,7 +212,7 @@ function DeploymentLabel({
   showTip,
 }: {
   href: string;
-  isDefault: boolean;
+  isDefault?: boolean;
   title: string;
   tip?: ReactNode;
   showTip?: boolean;

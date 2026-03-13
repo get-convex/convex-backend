@@ -75,6 +75,7 @@ export function ProjectSelector({
           : ["text-content-primary", "hover:bg-background-tertiary"]),
         "rounded-full",
         "cursor-pointer",
+        "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-selected",
       )}
       onClick={() => {
         logEvent("click project selector");

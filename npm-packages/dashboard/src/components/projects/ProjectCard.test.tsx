@@ -58,10 +58,12 @@ describe("ProjectCard", () => {
 
     render(<ProjectCard project={baseProject} />);
 
-    expect(screen.getByText("Test Project")).toBeInTheDocument();
+    expect(screen.getAllByText("Test Project").length).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(screen.getByText("test-project")).toBeInTheDocument();
 
-    // Check card's main link - when no dev deployment, defaults to prod (provision page)
+    // Card links to production (defaultHref falls back to prod when no dev deployment)
     const cardLink = screen.getByRole("link", { name: /Test Project/ });
     expect(cardLink).toHaveAttribute(
       "href",
@@ -96,10 +98,12 @@ describe("ProjectCard", () => {
 
     render(<ProjectCard project={baseProject} />);
 
-    expect(screen.getByText("Test Project")).toBeInTheDocument();
+    expect(screen.getAllByText("Test Project").length).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(screen.getByText("test-project")).toBeInTheDocument();
 
-    // Check card's main link - when dev deployment exists, defaults to dev deployment
+    // Card links to dev deployment (defaultHref prefers dev when available)
     const cardLink = screen.getByRole("link", { name: /Test Project/ });
     expect(cardLink).toHaveAttribute(
       "href",
@@ -134,10 +138,12 @@ describe("ProjectCard", () => {
 
     render(<ProjectCard project={baseProject} />);
 
-    expect(screen.getByText("Test Project")).toBeInTheDocument();
+    expect(screen.getAllByText("Test Project").length).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(screen.getByText("test-project")).toBeInTheDocument();
 
-    // Check card's main link - when no dev deployment, defaults to prod deployment
+    // Card links to prod (defaultHref falls back to prod when no dev deployment)
     const cardLink = screen.getByRole("link", { name: /Test Project/ });
     expect(cardLink).toHaveAttribute(
       "href",
@@ -172,10 +178,12 @@ describe("ProjectCard", () => {
 
     render(<ProjectCard project={baseProject} />);
 
-    expect(screen.getByText("Test Project")).toBeInTheDocument();
+    expect(screen.getAllByText("Test Project").length).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(screen.getByText("test-project")).toBeInTheDocument();
 
-    // Check card's main link - when dev deployment exists, defaults to dev deployment
+    // Card links to dev deployment (defaultHref prefers dev when available)
     const cardLink = screen.getByRole("link", { name: /Test Project/ });
     expect(cardLink).toHaveAttribute(
       "href",

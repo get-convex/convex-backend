@@ -1,102 +1,158 @@
 import { Card } from "elements/Card";
 import { cn } from "@ui/cn";
+import { Tooltip } from "@ui/Tooltip";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { ProjectDetails, MemberResponse } from "generatedApi";
-import {
-  getBackgroundColor,
-  getDeploymentLabel,
-} from "elements/DeploymentDisplay";
+import { MemberResponse } from "generatedApi";
+import { getBackgroundColor } from "elements/DeploymentDisplay";
 import {
   CommandLineIcon,
   SignalIcon,
   WrenchIcon,
 } from "@heroicons/react/24/outline";
 import { Pencil2Icon } from "@radix-ui/react-icons";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { useProjectById } from "api/projects";
+import { HighlightMatch } from "elements/HighlightMatch";
+
+// Deployments created after this date have deploy time tracking,
+// so missing lastDeployTime means "never deployed" rather than unknown.
+const DEPLOY_TRACKING_CUTOFF = new Date("2026-03-01T00:00:00Z").getTime();
+
+function deploymentTypeLabel(deployment: PlatformDeploymentResponse): string {
+  switch (deployment.deploymentType) {
+    case "prod":
+      return "Production";
+    case "dev":
+      return "Development";
+    case "preview":
+      return "Preview";
+    case "custom":
+      return "Custom";
+    default:
+      return "";
+  }
+}
 
 export function DeploymentCard({
   deployment,
-  project,
+  teamSlug,
   teamMembers,
-  href,
-  whoseName,
+  showProject = true,
+  listItem,
+  searchQuery,
 }: {
   deployment: PlatformDeploymentResponse;
-  project: ProjectDetails;
+  teamSlug: string;
   teamMembers?: MemberResponse[];
-  href?: string;
-  whoseName?: string | null;
+  showProject?: boolean;
+  listItem?: boolean;
+  searchQuery?: string;
 }) {
+  const { showReferences } = useLaunchDarkly();
+  const { project } = useProjectById(deployment.projectId);
   const creator = teamMembers?.find((tm) => tm.id === deployment.creator);
   const creatorName = creator?.name || creator?.email || "Unknown";
 
+  const projectSlug = project?.slug ?? "";
+  const projectName = project?.name?.length ? project.name : projectSlug;
+  const href =
+    deployment.kind === "cloud"
+      ? `/t/${teamSlug}/${projectSlug}/${deployment.name}`
+      : undefined;
+
   return (
     <Card
-      cardClassName="group min-w-fit animate-fadeInFromLoading"
+      cardClassName="group animate-fadeInFromLoading"
+      contentClassName="!py-2"
       href={href}
-      dropdownItems={undefined}
+      linkLabel={projectName}
+      listItem={listItem}
     >
-      <div className="grid grid-cols-[minmax(200px,2fr)_minmax(150px,1.5fr)_minmax(150px,1.5fr)] gap-4">
-        {/* First column: Deployment name and type */}
-        <div className="flex flex-col gap-2">
-          {/* Deployment name or port */}
-          {deployment.kind === "cloud" && (
-            <div className="truncate font-mono text-base font-semibold text-content-primary">
-              {deployment.name}
+      <div className="flex items-center gap-3 overflow-hidden">
+        {/* Project name section */}
+        {showProject && (
+          <div className="w-56 shrink-0">
+            <div className="truncate text-sm font-semibold text-content-primary">
+              {projectName}
             </div>
-          )}
-          {deployment.kind === "local" && (
-            <div className="truncate text-base font-semibold text-content-primary">
-              Port {deployment.port}
+            <div className="truncate text-xs text-content-secondary">
+              {projectSlug}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Deployment type badge */}
-          <div>
-            <div
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                getBackgroundColor(deployment.deploymentType),
+        {/* Deployment type icon */}
+        <Tooltip tip={deploymentTypeLabel(deployment)}>
+          <div
+            className={cn(
+              "inline-flex shrink-0 items-center justify-center self-center rounded-full p-1",
+              getBackgroundColor(deployment.deploymentType),
+            )}
+          >
+            <DeploymentIcon deployment={deployment} />
+          </div>
+        </Tooltip>
+
+        {/* Reference + deployment name */}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            {deployment.kind === "cloud" &&
+              showReferences &&
+              deployment.reference && (
+                <span className="truncate text-sm font-semibold text-content-primary">
+                  <HighlightMatch
+                    text={deployment.reference}
+                    query={searchQuery}
+                  />
+                </span>
               )}
-            >
-              <DeploymentIcon deployment={deployment} />
-              <span className="truncate">
-                {getDeploymentLabel({
-                  deployment,
-                  whoseName: whoseName ?? null,
-                })}
+            {deployment.kind === "cloud" && !showReferences && (
+              <span className="truncate text-sm font-semibold text-content-primary">
+                <HighlightMatch text={deployment.name} query={searchQuery} />
               </span>
-            </div>
+            )}
+            {deployment.kind === "local" && (
+              <span className="truncate text-sm font-semibold text-content-primary">
+                Port {deployment.port}
+              </span>
+            )}
           </div>
+
+          {/* Second line: deployment name when showing references */}
+          {deployment.kind === "cloud" && showReferences && (
+            <span className="truncate text-xs text-content-secondary">
+              <HighlightMatch text={deployment.name} query={searchQuery} />
+            </span>
+          )}
         </div>
 
-        {/* Second column: Project name and slug */}
-        <div className="flex min-w-0 flex-col items-start justify-center gap-0.5 text-left">
-          <div className="w-full truncate text-sm text-content-primary">
-            {project.name?.length ? project.name : "Untitled Project"}
-          </div>
-          <div className="w-full truncate text-xs text-content-secondary">
-            {project.slug}
-          </div>
-        </div>
-
-        {/* Third column: Created time and by */}
-        <div className="flex items-center justify-end">
-          <div className="flex flex-wrap items-center justify-end gap-1 text-right text-xs text-content-secondary">
+        {/* Right-aligned: timestamps + creator */}
+        <div className="ml-auto flex min-w-max shrink-0 flex-col items-end gap-0.5 text-xs whitespace-nowrap text-content-secondary">
+          {deployment.kind === "cloud" && deployment.lastDeployTime ? (
+            <TimestampDistance
+              date={new Date(deployment.lastDeployTime)}
+              prefix="Deployed"
+            />
+          ) : deployment.kind === "cloud" ? (
+            deployment.createTime >= DEPLOY_TRACKING_CUTOFF ? (
+              <span>Never deployed</span>
+            ) : null
+          ) : null}
+          <div className="flex items-center gap-1">
             <TimestampDistance
               date={new Date(deployment.createTime)}
-              className="truncate"
               prefix="Created"
             />
             {deployment.creator && (
-              <>
+              <span className="relative z-10 flex items-center gap-1">
                 <span>by</span>
                 <TeamMemberLink
                   memberId={deployment.creator}
                   name={creatorName}
                 />
-              </>
+              </span>
             )}
           </div>
         </div>

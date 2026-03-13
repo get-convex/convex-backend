@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { useMemo } from "react";
 import { useInitialData } from "hooks/useServerSideData";
 import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
@@ -7,6 +8,7 @@ import {
   useManagementApiMutation,
   useManagementApiQuery,
 } from "./api";
+import { useDeploymentsPageSize } from "hooks/useDeploymentsPageSize";
 
 export function useDeployments(projectId?: number) {
   const [initialData] = useInitialData();
@@ -157,4 +159,74 @@ export function useDeleteDeployment(
   });
 
   return deleteDeployment;
+}
+
+export function usePaginatedDeployments(
+  teamId: number | undefined,
+  options: {
+    cursor?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    deploymentType?: string;
+    q?: string;
+    projectId?: number;
+    creator?: number;
+    isDefault?: boolean;
+  },
+  refreshInterval?: number,
+) {
+  const { pageSize } = useDeploymentsPageSize();
+
+  const {
+    cursor,
+    sortBy,
+    sortOrder,
+    deploymentType,
+    q,
+    projectId,
+    creator,
+    isDefault,
+  } = options;
+
+  // Note: the OpenAPI spec uses snake_case names, but the Rust handler has
+  // #[serde(rename_all = "camelCase")] so it actually expects camelCase params.
+  const queryParams = useMemo(
+    () => ({
+      cursor,
+      limit: pageSize,
+      sortBy,
+      sortOrder,
+      deploymentType,
+      q,
+      projectId,
+      creator,
+      isDefault,
+    }),
+    [
+      cursor,
+      pageSize,
+      sortBy,
+      sortOrder,
+      deploymentType,
+      q,
+      projectId,
+      creator,
+      isDefault,
+    ],
+  );
+
+  const { data, isLoading } = useManagementApiQuery({
+    path: "/teams/{team_id}/list_deployments",
+    pathParams: {
+      team_id: teamId ?? 0,
+    },
+    queryParams,
+    swrOptions: { refreshInterval },
+  });
+
+  if (data === undefined) {
+    return undefined;
+  }
+
+  return { ...data, isLoading };
 }

@@ -2,6 +2,7 @@ import { PlanSummary } from "components/billing/PlanSummary";
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
+import { SegmentedControl } from "@ui/SegmentedControl";
 import {
   AggregatedFunctionMetrics,
   useUsageTeamActionComputeDailyByProject,
@@ -407,8 +408,12 @@ function FunctionBreakdownSection({
       componentPrefix,
     );
 
-  const [functionBreakdownTabIndex, setFunctionBreakdownTabIndex] = useState(0);
-  const metric = FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex];
+  const [functionBreakdownTab, setFunctionBreakdownTab] = useState(
+    FUNCTION_BREAKDOWN_TABS[0].name,
+  );
+  const metric =
+    FUNCTION_BREAKDOWN_TABS.find((t) => t.name === functionBreakdownTab) ??
+    FUNCTION_BREAKDOWN_TABS[0];
   const usageByProject = useUsageByProject(metricsByFunction, metric);
 
   const {
@@ -433,12 +438,17 @@ function FunctionBreakdownSection({
     shownBillingPeriod.type,
     shownBillingPeriod.from,
     shownBillingPeriod.to,
-    functionBreakdownTabIndex,
+    functionBreakdownTab,
     setCurrentPage, // stable
   ]);
 
   const isFunctionBreakdownBandwidthAvailable =
     shownBillingPeriod === null || shownBillingPeriod.from >= "2024-01-01";
+
+  const functionBreakdownOptions = FUNCTION_BREAKDOWN_TABS.map((tab) => ({
+    label: tab.name.replace(/\b\w/g, (c) => c.toUpperCase()),
+    value: tab.name,
+  }));
 
   return (
     <TeamUsageSection
@@ -447,26 +457,11 @@ function FunctionBreakdownSection({
         <>
           <h3>Breakdown by function</h3>
 
-          <div className="flex overflow-hidden rounded border">
-            {FUNCTION_BREAKDOWN_TABS.map((tab, index) => (
-              <Button
-                key={tab.name}
-                variant="unstyled"
-                className={cn(
-                  "px-3 py-1 text-sm capitalize",
-                  index > 0 && "border-l",
-                  functionBreakdownTabIndex === index
-                    ? "bg-background-tertiary font-medium"
-                    : "text-content-secondary hover:bg-background-tertiary/50",
-                )}
-                onClick={() => {
-                  setFunctionBreakdownTabIndex(index);
-                }}
-              >
-                {tab.name}
-              </Button>
-            ))}
-          </div>
+          <SegmentedControl
+            options={functionBreakdownOptions}
+            value={functionBreakdownTab}
+            onChange={setFunctionBreakdownTab}
+          />
 
           <PaginationControls
             currentPage={currentPage}
@@ -481,7 +476,7 @@ function FunctionBreakdownSection({
           <UsageDataError entity="Functions breakdown" />
         ) : !metricsByFunction ? (
           <ChartLoading />
-        ) : functionBreakdownTabIndex === 0 ||
+        ) : metric === FUNCTION_BREAKDOWN_TABS[0] ||
           isFunctionBreakdownBandwidthAvailable ? (
           <FunctionUsageBreakdown
             team={team}
@@ -490,9 +485,7 @@ function FunctionBreakdownSection({
             metric={metric}
           />
         ) : (
-          <UsageDataNotAvailable
-            entity={`Breakdown by ${FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex].name}`}
-          />
+          <UsageDataNotAvailable entity={`Breakdown by ${metric.name}`} />
         )}
       </div>
     </TeamUsageSection>
@@ -714,38 +707,17 @@ function DatabaseStorageUsage({
         <>
           <h3 className="py-2">Database Storage</h3>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex overflow-hidden rounded border">
-              <Button
-                variant="unstyled"
-                className={cn(
-                  "px-3 py-1 text-sm",
-                  activeTab === "size"
-                    ? "bg-background-tertiary font-medium"
-                    : "text-content-secondary hover:bg-background-tertiary/50",
-                )}
-                onClick={() => {
-                  setActiveTab("size");
-                  setSelectedDate(null);
-                }}
-              >
-                Document Size
-              </Button>
-              <Button
-                variant="unstyled"
-                className={cn(
-                  "border-l px-3 py-1 text-sm",
-                  activeTab === "count"
-                    ? "bg-background-tertiary font-medium"
-                    : "text-content-secondary hover:bg-background-tertiary/50",
-                )}
-                onClick={() => {
-                  setActiveTab("count");
-                  setSelectedDate(null);
-                }}
-              >
-                Document Count
-              </Button>
-            </div>
+            <SegmentedControl
+              options={[
+                { label: "Document Size", value: "size" },
+                { label: "Document Count", value: "count" },
+              ]}
+              value={activeTab}
+              onChange={(v) => {
+                setActiveTab(v);
+                setSelectedDate(null);
+              }}
+            />
             <GroupBySelector
               value={viewMode}
               onChange={setViewMode}
