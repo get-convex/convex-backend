@@ -94,6 +94,23 @@ const previewDeployment: PlatformDeploymentResponse = {
   deploymentUrl: "https://musical-dog-123.convex.cloud",
 };
 
+const previewDeploymentWithExpiry: PlatformDeploymentResponse = {
+  id: 6,
+  name: "curious-lemur-456",
+  deploymentType: "preview",
+  projectId: 1,
+  kind: "cloud",
+  class: "s16",
+  region: "aws-us-east-1",
+  createTime: Date.now() - 1000 * 60 * 60 * 24, // 1 day ago
+  isDefault: false,
+  creator: 456,
+  previewIdentifier: "pr-99",
+  reference: "preview/add-feature",
+  deploymentUrl: "https://curious-lemur-456.convex.cloud",
+  expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 3, // 3 days from now
+};
+
 const customDeployment: PlatformDeploymentResponse = {
   id: 5,
   name: "wandering-fish-513",
@@ -197,6 +214,12 @@ export const Preview: Story = {
 export const Custom: Story = {
   args: {
     deployment: customDeployment,
+  },
+};
+
+export const PreviewWithExpiry: Story = {
+  args: {
+    deployment: previewDeploymentWithExpiry,
   },
 };
 

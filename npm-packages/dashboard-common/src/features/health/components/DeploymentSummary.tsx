@@ -2,9 +2,13 @@ import { Sheet } from "@ui/Sheet";
 import { cn } from "@ui/cn";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
-import { TimestampDistance } from "@common/elements/TimestampDistance";
+import {
+  LiveTimestampDistanceInner,
+  TimestampDistance,
+} from "@common/elements/TimestampDistance";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
+  ClockIcon,
   CommandLineIcon,
   SignalIcon,
   WrenchIcon,
@@ -400,6 +404,36 @@ export function DeploymentSummary({
               </div>
             )}
           </div>
+
+          {/* Row 4: Expiry warning (ephemeral deployments) */}
+          {deployment.kind === "cloud" && deployment.expiresAt && (
+            <div className="flex items-center gap-2">
+              <Tooltip tip="This deployment will be automatically deleted">
+                <ClockIcon
+                  className="size-4 shrink-0 text-content-warning"
+                  aria-label="Expiry"
+                />
+              </Tooltip>
+              <Tooltip
+                tip={new Date(deployment.expiresAt).toLocaleString(undefined, {
+                  timeZoneName: "short",
+                })}
+              >
+                <span className="text-sm text-content-warning">
+                  Will expire on{" "}
+                  {new Date(deployment.expiresAt).toLocaleDateString(
+                    undefined,
+                    { month: "short", day: "numeric", year: "numeric" },
+                  )}{" "}
+                  (
+                  <LiveTimestampDistanceInner
+                    date={new Date(deployment.expiresAt)}
+                  />
+                  )
+                </span>
+              </Tooltip>
+            </div>
+          )}
         </div>
 
         {/* Deployment URLs */}
