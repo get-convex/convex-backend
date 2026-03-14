@@ -1,5 +1,5 @@
 import { omit, isEqual } from "lodash-es";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Combobox as HeadlessCombobox,
   ComboboxButton as HeadlessComboboxButton,
@@ -88,7 +88,9 @@ export function Combobox<T>({
     null,
   );
 
-  // Force tabindex to 0
+  // Force tabindex to 0 - HeadlessUI sets tabIndex={-1} on the button when
+  // a ComboboxInput exists, but our input is inside the portal and only
+  // rendered when open.
   useEffect(() => {
     if (referenceElement?.children[0]) {
       (referenceElement.children[0] as HTMLElement).tabIndex = 0;
@@ -96,6 +98,16 @@ export function Combobox<T>({
   }, [referenceElement]);
 
   const [isOpen, setIsOpen] = useState(false);
+  const wasOpen = useRef(false);
+
+  // Restore focus to the button when the dropdown closes
+  useEffect(() => {
+    if (wasOpen.current && !isOpen) {
+      const button = referenceElement?.querySelector("button");
+      button?.focus();
+    }
+    wasOpen.current = isOpen;
+  }, [isOpen, referenceElement]);
 
   const { styles, attributes, update } = usePopper(
     referenceElement,
@@ -276,7 +288,17 @@ export function Combobox<T>({
                         <div className="border-b p-1 pb-2">{optionsHeader}</div>
                       )}
                       <div className="min-w-fit">
-                        {!disableSearch && (
+                        {disableSearch ? (
+                          // Hidden input to enable keyboard navigation
+                          // (arrow keys, Enter, Escape) via HeadlessUI
+                          <HeadlessComboboxInput
+                            onChange={() => {}}
+                            value=""
+                            autoFocus
+                            className="sr-only"
+                            aria-hidden
+                          />
+                        ) : (
                           <div className="sticky top-0 z-10 flex w-full items-center gap-2 border-b bg-background-secondary px-3 pt-1">
                             {isLoadingOptions ? (
                               <div className="animate-fadeInFromLoading">
