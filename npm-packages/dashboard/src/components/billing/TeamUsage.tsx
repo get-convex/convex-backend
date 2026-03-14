@@ -454,21 +454,25 @@ function FunctionBreakdownSection({
     <TeamUsageSection
       stickyHeader
       header={
-        <>
-          <h3>Breakdown by function</h3>
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex items-center justify-between gap-4">
+            <h3>Breakdown by function</h3>
 
-          <SegmentedControl
-            options={functionBreakdownOptions}
-            value={functionBreakdownTab}
-            onChange={setFunctionBreakdownTab}
-          />
+            <SegmentedControl
+              options={functionBreakdownOptions}
+              value={functionBreakdownTab}
+              onChange={setFunctionBreakdownTab}
+            />
+          </div>
 
-          <PaginationControls
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
-        </>
+          <div className="flex justify-end">
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </div>
       }
     >
       <div className="px-4">
