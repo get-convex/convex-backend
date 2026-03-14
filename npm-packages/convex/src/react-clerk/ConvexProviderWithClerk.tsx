@@ -15,10 +15,14 @@ type IConvexReactClient = {
 type UseAuth = () => {
   isLoaded: boolean;
   isSignedIn: boolean | undefined;
-  getToken: (options: { skipCache?: boolean }) => Promise<string | null>;
+  getToken: (options: {
+    template?: "convex";
+    skipCache?: boolean;
+  }) => Promise<string | null>;
   // We don't use these properties but they should trigger a new token fetch.
   orgId: string | undefined | null;
   orgRole: string | undefined | null;
+  sessionClaims: Record<string, unknown> | undefined | null;
 };
 
 /**
@@ -56,13 +60,29 @@ function useUseAuthFromClerk(useAuth: UseAuth) {
   return useMemo(
     () =>
       function useAuthFromClerk() {
-        const { isLoaded, isSignedIn, getToken, orgId, orgRole } = useAuth();
+        const {
+          isLoaded,
+          isSignedIn,
+          getToken,
+          orgId,
+          orgRole,
+          sessionClaims,
+        } = useAuth();
         const fetchAccessToken = useCallback(
           async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
             try {
-              return await getToken({
-                skipCache: forceRefreshToken,
-              });
+              if (sessionClaims?.aud === "convex") {
+                // Using the Convex integration
+                return await getToken({
+                  skipCache: forceRefreshToken,
+                });
+              } else {
+                // Using the JWT token template
+                return await getToken({
+                  template: "convex",
+                  skipCache: forceRefreshToken,
+                });
+              }
             } catch {
               return null;
             }

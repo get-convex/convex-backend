@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.33.1
+
+- Fixes the ConvexProviderWithClerk to fetch the JWT template
+  if the (new) Convex integration is not enabled. It is safe to
+  both set the JWT template and enable the integration.
+  In 1.33.0 it broke if you only had the JWT template specified.
+
 ## 1.33.0
 
 - `npx convex env set` can now:
