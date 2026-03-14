@@ -11,6 +11,10 @@ module.exports = {
   settings: {
     "boundaries/elements": [
       {
+        type: "docs",
+        pattern: "docs/*",
+      },
+      {
         type: "hooks",
         pattern: "hooks/*",
       },
@@ -37,7 +41,8 @@ module.exports = {
       },
       {
         type: "pages",
-        pattern: "pages/*",
+        pattern: "pages/**",
+        mode: "full",
       },
       {
         type: "layouts",
@@ -87,6 +92,10 @@ module.exports = {
               "lib",
               "elements",
             ],
+          },
+          {
+            from: "docs",
+            allow: ["pages", "lib", "components"],
           },
         ],
       },

@@ -38,13 +38,15 @@ import { Tooltip } from "@ui/Tooltip";
 
 export { getServerSideProps } from "lib/ssr";
 
-export default withAuthenticatedPage(function ProjectSettingsPage() {
+export function ProjectSettingsPage() {
   return (
     <PageContent>
       <ProjectSettings />
     </PageContent>
   );
-});
+}
+
+export default withAuthenticatedPage(ProjectSettingsPage);
 
 const SECTION_IDS = {
   projectForm: "project-form",

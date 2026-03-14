@@ -1,7 +1,7 @@
 import { useFlags } from "launchdarkly-react-client-sdk";
 import kebabCase from "lodash/kebabCase";
 
-const flagDefaults: {
+export const flagDefaults: {
   commandPalette: boolean;
   commandPaletteDeleteProjects: boolean;
   singleSignOn: boolean;
