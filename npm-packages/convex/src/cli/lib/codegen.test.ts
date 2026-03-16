@@ -3,9 +3,9 @@ import { oneoffContext, Context } from "../../bundler/context.js";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { cleanupStaleGeneratedEntries } from "./codegen.js";
+import { cleanupStaleGeneratedEntries, doInitConvexFolder } from "./codegen.js";
 
-describe("codegen cleanup", () => {
+describe("codegen", () => {
   let tmpDir: string;
   let ctx: Context;
 
@@ -20,6 +20,14 @@ describe("codegen cleanup", () => {
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test("writes README.md when initializing a new functions directory", async () => {
+    const functionsPath = path.join(tmpDir, "convex");
+    await doInitConvexFolder(ctx, functionsPath);
+
+    expect(ctx.fs.exists(path.join(functionsPath, "README.md"))).toBe(true);
+    expect(ctx.fs.exists(path.join(functionsPath, "tsconfig.json"))).toBe(true);
   });
 
   test("preserves convex/_generated/ai while deleting stale generated files", () => {

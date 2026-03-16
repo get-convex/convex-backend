@@ -97,9 +97,19 @@ export async function doInitConvexFolder(
     const { projectConfig, configPath } = await readProjectConfig(ctx);
     folder = functionsDir(configPath, projectConfig);
   }
-  await prepareForCodegen(ctx, folder, opts);
+  const { functionsDirExistedBeforeCodegen } = await prepareForCodegen(
+    ctx,
+    folder,
+    opts,
+  );
   await withTmpDir(async (tmpDir) => {
-    await doReadmeCodegen(ctx, tmpDir, folder, skipIfExists, opts);
+    await doReadmeCodegen(
+      ctx,
+      tmpDir,
+      folder,
+      skipIfExists && functionsDirExistedBeforeCodegen,
+      opts,
+    );
     await doTsconfigCodegen(ctx, tmpDir, folder, skipIfExists, opts);
   });
 }
@@ -109,6 +119,7 @@ async function prepareForCodegen(
   functionsDir: string,
   opts?: { dryRun?: boolean },
 ) {
+  const functionsDirExistedBeforeCodegen = ctx.fs.exists(functionsDir);
   // Delete the old _generated.ts because v0.1.2 used to put the react generated
   // code there
   const legacyCodegenPath = path.join(functionsDir, "_generated.ts");
@@ -126,7 +137,7 @@ async function prepareForCodegen(
   // Create the codegen dir if it doesn't already exist.
   const codegenDir = path.join(functionsDir, "_generated");
   ctx.fs.mkdir(codegenDir, { allowExisting: true, recursive: true });
-  return codegenDir;
+  return { codegenDir, functionsDirExistedBeforeCodegen };
 }
 
 /** Codegen only for an application (a root component) */
@@ -137,7 +148,7 @@ export async function doCodegen(
   opts?: { dryRun?: boolean; generateCommonJSApi?: boolean; debug?: boolean },
 ) {
   const { projectConfig } = await readProjectConfig(ctx);
-  const codegenDir = await prepareForCodegen(ctx, functionsDir, opts);
+  const { codegenDir } = await prepareForCodegen(ctx, functionsDir, opts);
 
   await withTmpDir(async (tmpDir) => {
     // Write files in dependency order so a watching dev server doesn't
@@ -218,7 +229,7 @@ export async function doInitialComponentCodegen(
     return;
   }
 
-  const codegenDir = await prepareForCodegen(
+  const { codegenDir } = await prepareForCodegen(
     ctx,
     componentDirectory.path,
     opts,
@@ -471,11 +482,11 @@ async function doReadmeCodegen(
   ctx: Context,
   tmpDir: TempDir,
   functionsDir: string,
-  skipIfExists: boolean,
+  skip: boolean,
   opts?: { dryRun?: boolean; debug?: boolean },
 ) {
   const readmePath = path.join(functionsDir, "README.md");
-  if (skipIfExists && ctx.fs.exists(readmePath)) {
+  if (skip) {
     logVerbose(`Not overwriting README.md.`);
     return;
   }
