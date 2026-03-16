@@ -27,6 +27,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     ConvexObject,
     ConvexValue,
+    FieldName,
     IdentifierFieldName,
     Namespace,
     NamespacedTableMapping,
@@ -359,6 +360,25 @@ impl DatabaseSchema {
                 validation_error,
                 table_name,
             })
+    }
+
+    pub fn strip_new_document(
+        &self,
+        doc: &ResolvedDocument,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+    ) -> anyhow::Result<Option<ConvexObject>> {
+        if self.schema_validation
+            && let Ok(table_name) = table_mapping.tablet_name(doc.id().tablet_id)
+            && let Some(document_schema) = self.schema_for_table(&table_name)
+        {
+            return document_schema.strip_value(
+                &doc.value().0,
+                table_mapping,
+                virtual_system_mapping,
+            );
+        }
+        Ok(None)
     }
 
     fn contains_table_as_reference(&self, table_name: &TableName) -> Option<TableName> {
@@ -848,7 +868,7 @@ impl DocumentSchema {
                 .iter()
                 .flat_map(|validator| {
                     validator
-                        .0
+                        .fields
                         .iter()
                         .filter_map(|(field_name, field_validator)| {
                             if field_validator.optional {
@@ -867,6 +887,57 @@ impl DocumentSchema {
             Self::Any => Either::Left(iter::empty()),
             Self::Union(options) => {
                 Either::Right(options.iter().flat_map(|option| option.foreign_keys()))
+            },
+        }
+    }
+
+    pub fn strip_value(
+        &self,
+        value: &ConvexObject,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+    ) -> anyhow::Result<Option<ConvexObject>> {
+        match self {
+            DocumentSchema::Any => Ok(None),
+            DocumentSchema::Union(validators) => {
+                let user_fields = value.clone().filter_system_fields();
+
+                // Prefer the first strict validator that matches.
+                for obj_validator in validators {
+                    if obj_validator.unknown_keys.strips_unknown_fields() {
+                        continue;
+                    }
+                    if obj_validator
+                        .check_value(&user_fields, table_mapping, virtual_system_mapping)
+                        .is_ok()
+                    {
+                        return Ok(None);
+                    }
+                }
+
+                // Otherwise use the first strip validator that matches.
+                for obj_validator in validators {
+                    if !obj_validator.unknown_keys.strips_unknown_fields() {
+                        continue;
+                    }
+                    if obj_validator
+                        .check_value(&user_fields, table_mapping, virtual_system_mapping)
+                        .is_err()
+                    {
+                        continue;
+                    }
+                    let stripped = obj_validator.strip_unknown_fields(user_fields)?;
+                    let mut fields: BTreeMap<FieldName, ConvexValue> =
+                        stripped.into_iter().collect();
+                    fields.extend(
+                        value
+                            .iter()
+                            .filter(|(k, _)| k.is_system())
+                            .map(|(k, v)| (k.clone(), v.clone())),
+                    );
+                    return Ok(Some(ConvexObject::try_from(fields)?));
+                }
+                Ok(None)
             },
         }
     }

@@ -8,6 +8,7 @@ use std::{
         Display,
     },
     iter,
+    str::FromStr,
 };
 
 use errors::ErrorMetadata;
@@ -115,7 +116,12 @@ impl proptest::arbitrary::Arbitrary for Validator {
                     }),
                     0..8
                 )
-                .prop_map(ObjectValidator)
+                .prop_flat_map(|fields| {
+                    any::<UnknownKeysMode>().prop_map(move |unknown_keys| ObjectValidator {
+                        fields: fields.clone(),
+                        unknown_keys,
+                    })
+                })
                 .prop_map(Validator::Object),
                 prop::collection::vec(inner, 1..8).prop_map(Validator::Union),
             ]
@@ -235,33 +241,7 @@ impl Validator {
                 }
             },
             (Validator::Object(object_validator), ConvexValue::Object(object)) => {
-                for (field_name, field_type) in &object_validator.0 {
-                    let maybe_value = object.get::<str>(field_name.borrow());
-                    if let Some(value) = maybe_value {
-                        field_type.validator.check_value_internal(
-                            value,
-                            all_tables_number_to_name,
-                            context.with(format!(".{field_name}")),
-                        )?
-                    } else if !field_type.optional {
-                        return Err(ValidationError::MissingRequiredField {
-                            object: object.clone(),
-                            field_name: field_name.clone(),
-                            object_validator: object_validator.clone(),
-                            context,
-                        });
-                    }
-                }
-                for field in object.keys() {
-                    if !object_validator.0.contains_key::<str>(field.borrow()) {
-                        return Err(ValidationError::ExtraField {
-                            object: object.clone(),
-                            field_name: field.clone(),
-                            object_validator: object_validator.clone(),
-                            context,
-                        });
-                    }
-                }
+                object_validator.check_fields(object, all_tables_number_to_name, context)?;
             },
             (Validator::Union(validators), value) => {
                 if validators.len() == 1 {
@@ -351,7 +331,10 @@ impl Validator {
                         )
                     })
                     .collect();
-                Self::Object(ObjectValidator(object_fields))
+                Self::Object(ObjectValidator {
+                    fields: object_fields,
+                    unknown_keys: UnknownKeysMode::Strict,
+                })
             },
             ShapeEnum::Record(record_type) => Self::Record(
                 Box::new(Self::from_shape(
@@ -387,10 +370,14 @@ impl Validator {
             (Validator::Array(left_contents), Validator::Array(right_contents)) => {
                 left_contents.is_subset(right_contents)
             },
-            (
-                Validator::Object(ObjectValidator(left_fields)),
-                Validator::Object(ObjectValidator(right_fields)),
-            ) => {
+            (Validator::Object(left_obj), Validator::Object(right_obj)) => {
+                if left_obj.unknown_keys.strips_unknown_fields()
+                    && !right_obj.unknown_keys.strips_unknown_fields()
+                {
+                    return false;
+                }
+                let left_fields = &left_obj.fields;
+                let right_fields = &right_obj.fields;
                 // No field disappears
                 left_fields
                     .keys()
@@ -486,7 +473,8 @@ impl Validator {
             Validator::Union(cases) => cases
                 .iter()
                 .any(|case| case._can_contain_field(field_path_parts)),
-            Validator::Object(ObjectValidator(fields)) => fields
+            Validator::Object(obj) => obj
+                .fields
                 .get(first_part)
                 .map(|field_validator| {
                     field_validator
@@ -530,7 +518,8 @@ impl Validator {
             Validator::Union(cases) => cases
                 .iter()
                 .any(|case| case._overlaps_with_array_float64(field_path_parts)),
-            Validator::Object(ObjectValidator(fields)) => fields
+            Validator::Object(obj) => obj
+                .fields
                 .get(first_part)
                 .map(|field_validator| {
                     field_validator
@@ -560,9 +549,10 @@ impl Validator {
                 element_validator.ensure_supported_for_streaming_export()
             },
             Validator::Object(object_validator) => {
-                let fields = &object_validator.0;
-                for field_validator in fields.values() {
-                    field_validator.validator.ensure_supported_for_streaming_export()?
+                for field_validator in object_validator.fields.values() {
+                    field_validator
+                        .validator
+                        .ensure_supported_for_streaming_export()?
                 }
                 Ok(())
             },
@@ -789,42 +779,97 @@ impl TryFrom<ConvexValue> for LiteralValidator {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum UnknownKeysMode {
+    #[default]
+    Strict,
+    Strip,
+}
+
+impl UnknownKeysMode {
+    pub fn strips_unknown_fields(&self) -> bool {
+        match self {
+            Self::Strict => false,
+            Self::Strip => true,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Strict => "strict",
+            Self::Strip => "strip",
+        }
+    }
+}
+
+impl fmt::Display for UnknownKeysMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for UnknownKeysMode {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
+        match s {
+            "strict" => Ok(Self::Strict),
+            "strip" => Ok(Self::Strip),
+            other => anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidUnknownKeysMode",
+                format!(
+                    "Invalid unknownKeys value: \"{other}\". Expected \"strict\" or \"strip\"."
+                )
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[cfg_attr(
     any(test, feature = "testing"),
     proptest(params = "BTreeSet<TableName>")
 )]
-pub struct ObjectValidator(
+pub struct ObjectValidator {
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
             strategy = "prop::collection::btree_map(any::<IdentifierFieldName>(), \
-                        any_with::<FieldValidator>(params), 0..8)"
+                        any_with::<FieldValidator>(params.clone()), 0..8)"
         )
     )]
-    pub BTreeMap<IdentifierFieldName, FieldValidator>,
-);
+    pub fields: BTreeMap<IdentifierFieldName, FieldValidator>,
+    pub unknown_keys: UnknownKeysMode,
+}
 
 #[macro_export]
 macro_rules! object_validator {
     ($($field_name:expr => $field_type:expr),* $(,)?) => {
         {
-            use $crate::schemas::validator::ObjectValidator;
+            use $crate::schemas::validator::{ObjectValidator, UnknownKeysMode};
             use std::collections::BTreeMap;
             #[allow(unused_mut)]
             let mut fields = BTreeMap::new();
             {
                 $(fields.insert($field_name.to_string().parse()?, $field_type);)*
             }
-            ObjectValidator(fields)
+            ObjectValidator {
+                fields,
+                unknown_keys: UnknownKeysMode::Strict,
+            }
         }
     };
 }
 
 impl Display for ObjectValidator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        display_map(f, ["v.object({", "})"], self.0.iter())
+        display_map(f, ["v.object({", "})"], self.fields.iter())?;
+        if self.unknown_keys != UnknownKeysMode::Strict {
+            write!(f, " /* unknownKeys: \"{}\" */", self.unknown_keys)?;
+        }
+        Ok(())
     }
 }
 
@@ -834,18 +879,84 @@ pub enum AddTopLevelFields {
 }
 
 impl ObjectValidator {
+    fn check_fields(
+        &self,
+        object: &ConvexObject,
+        all_tables_number_to_name: &impl Fn(TableNumber) -> anyhow::Result<TableName>,
+        context: ValidationContext,
+    ) -> Result<(), ValidationError> {
+        for (field_name, field_type) in &self.fields {
+            let maybe_value = object.get::<str>(field_name.borrow());
+            if let Some(value) = maybe_value {
+                field_type.validator.check_value_internal(
+                    value,
+                    all_tables_number_to_name,
+                    context.with(format!(".{field_name}")),
+                )?
+            } else if !field_type.optional {
+                return Err(ValidationError::MissingRequiredField {
+                    object: object.clone(),
+                    field_name: field_name.clone(),
+                    object_validator: self.clone(),
+                    context,
+                });
+            }
+        }
+        if !self.unknown_keys.strips_unknown_fields() {
+            for field in object.keys() {
+                if !self.fields.contains_key::<str>(field.borrow()) {
+                    return Err(ValidationError::ExtraField {
+                        object: object.clone(),
+                        field_name: field.clone(),
+                        object_validator: self.clone(),
+                        context,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn check_value(
+        &self,
+        object: &ConvexObject,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+    ) -> Result<(), ValidationError> {
+        let all_tables_number_to_name =
+            all_tables_number_to_name(table_mapping, virtual_system_mapping);
+        self.check_fields(object, &all_tables_number_to_name, ValidationContext::new())
+    }
+
     pub fn has_validator_for_system_field(&self) -> bool {
-        let fields = &self.0;
-        fields.keys().any(|f| f.is_system())
+        self.fields.keys().any(|f| f.is_system())
     }
 
     pub fn filter_system_fields(self) -> Self {
         if !self.has_validator_for_system_field() {
             return self;
         }
-        let fields = self.0;
-        let filtered_fields = fields.into_iter().filter(|(f, _)| !f.is_system()).collect();
-        Self(filtered_fields)
+        let filtered_fields = self
+            .fields
+            .into_iter()
+            .filter(|(f, _)| !f.is_system())
+            .collect();
+        Self {
+            fields: filtered_fields,
+            unknown_keys: self.unknown_keys,
+        }
+    }
+
+    pub fn strip_unknown_fields(&self, object: ConvexObject) -> anyhow::Result<ConvexObject> {
+        let filtered: BTreeMap<FieldName, ConvexValue> = object
+            .into_iter()
+            .filter(|(field_name, _)| {
+                let field_str: &str = field_name;
+                self.fields.contains_key::<str>(field_str)
+            })
+            .collect();
+
+        ConvexObject::try_from(filtered)
     }
 
     pub fn to_json_schema(
@@ -853,7 +964,7 @@ impl ObjectValidator {
         add_top_level_fields: AddTopLevelFields,
         value_format: ValueFormat,
     ) -> JsonValue {
-        let fields = &self.0;
+        let fields = &self.fields;
         let mut field_infos: BTreeMap<String, json_schemas::FieldInfo> = fields
             .iter()
             .map(|(field_name, field_validator)| {
@@ -886,7 +997,7 @@ impl ObjectValidator {
     }
 
     pub fn foreign_keys(&self) -> impl Iterator<Item = &TableName> {
-        self.0
+        self.fields
             .values()
             .flat_map(|field| field.validator.foreign_keys())
     }
@@ -1053,6 +1164,7 @@ mod tests {
                 FieldValidator,
                 LiteralValidator,
                 ObjectValidator,
+                UnknownKeysMode,
                 ValidationContext,
                 ValidationError,
             },
@@ -1105,7 +1217,7 @@ mod tests {
             },
             Validator::Object(object) => {
                 let map: BTreeMap<_, _> = object
-                    .0
+                    .fields
                     .into_iter()
                     .map(|(field_name, field_type)| {
                         let value = value_from_validator(field_type.validator, id_generator)?;
@@ -1686,11 +1798,14 @@ mod tests {
     fn test_error_messages_include_context() -> anyhow::Result<()> {
         // The validator expects `property` to be an array of strings,
         // but it actually contains an int.
-        let validator = Validator::Object(ObjectValidator(btreemap! {
-            "property".parse()? => FieldValidator::required_field_type(
-                Validator::Array(Box::new(Validator::String))
-            )
-        }));
+        let validator = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "property".parse()? => FieldValidator::required_field_type(
+                    Validator::Array(Box::new(Validator::String))
+                )
+            },
+            unknown_keys: UnknownKeysMode::Strict,
+        });
         let object =
             ConvexValue::Object(assert_obj!("property" => ConvexValue::Array(array!(123.into())?)));
 
@@ -1710,9 +1825,12 @@ mod tests {
 
     #[test]
     fn test_ensure_supported_for_streaming_export() -> anyhow::Result<()> {
-        let simple_object_validator = Validator::Object(ObjectValidator(btreemap! {
-            "property".parse()? => FieldValidator::required_field_type(Validator::String)
-        }));
+        let simple_object_validator = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "property".parse()? => FieldValidator::required_field_type(Validator::String)
+            },
+            unknown_keys: UnknownKeysMode::Strict,
+        });
         assert!(simple_object_validator
             .ensure_supported_for_streaming_export()
             .is_ok());
@@ -1722,24 +1840,36 @@ mod tests {
             .is_ok());
 
         let union_object_validator = Validator::Union(vec![
-            Validator::Object(ObjectValidator(btreemap! {
-                "propertyA".parse()? => FieldValidator::required_field_type(Validator::String)
-            })),
-            Validator::Object(ObjectValidator(btreemap! {
-                "propertyB".parse()? => FieldValidator::required_field_type(Validator::String)
-            })),
+            Validator::Object(ObjectValidator {
+                fields: btreemap! {
+                    "propertyA".parse()? => FieldValidator::required_field_type(Validator::String)
+                },
+                unknown_keys: UnknownKeysMode::Strict,
+            }),
+            Validator::Object(ObjectValidator {
+                fields: btreemap! {
+                    "propertyB".parse()? => FieldValidator::required_field_type(Validator::String)
+                },
+                unknown_keys: UnknownKeysMode::Strict,
+            }),
         ]);
         must_let::must_let!(
             let Err(e) = union_object_validator.ensure_supported_for_streaming_export()
         );
         assert_eq!(e.short_msg(), "UnsupportedSchemaForExport");
         let nested_union_object_validator = Validator::Array(Box::new(Validator::Union(vec![
-            Validator::Object(ObjectValidator(btreemap! {
-                "propertyA".parse()? => FieldValidator::required_field_type(Validator::String)
-            })),
-            Validator::Object(ObjectValidator(btreemap! {
-                "propertyB".parse()? => FieldValidator::required_field_type(Validator::String)
-            })),
+            Validator::Object(ObjectValidator {
+                fields: btreemap! {
+                    "propertyA".parse()? => FieldValidator::required_field_type(Validator::String)
+                },
+                unknown_keys: UnknownKeysMode::Strict,
+            }),
+            Validator::Object(ObjectValidator {
+                fields: btreemap! {
+                    "propertyB".parse()? => FieldValidator::required_field_type(Validator::String)
+                },
+                unknown_keys: UnknownKeysMode::Strict,
+            }),
         ])));
         must_let::must_let!(
             let Err(e) = nested_union_object_validator.ensure_supported_for_streaming_export()
@@ -1803,5 +1933,137 @@ mod tests {
                 &virtual_system_mapping
             ).is_ok());
         }
+    }
+
+    #[test]
+    fn test_strip_unknown_fields_removes_extra() -> anyhow::Result<()> {
+        let validator = ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strip,
+        };
+        let object = assert_obj!("a" => "hello", "b" => 42);
+        let stripped = validator.strip_unknown_fields(object)?;
+        let expected = assert_obj!("a" => "hello");
+        assert_eq!(stripped, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_unknown_fields_noop_when_no_extra() -> anyhow::Result<()> {
+        let validator = ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+                "b".parse()? => FieldValidator::required_field_type(Validator::Float64),
+            },
+            unknown_keys: UnknownKeysMode::Strip,
+        };
+        let object = assert_obj!("a" => "hello", "b" => 42.0);
+        let stripped = validator.strip_unknown_fields(object.clone())?;
+        assert_eq!(stripped, object);
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_unknown_fields_empty_object() -> anyhow::Result<()> {
+        let validator = ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strip,
+        };
+        let object = ConvexObject::empty();
+        let stripped = validator.strip_unknown_fields(object)?;
+        assert_eq!(stripped, ConvexObject::empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_subset_strip_not_subset_of_strict() -> anyhow::Result<()> {
+        let strip_validator = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strip,
+        });
+        let strict_validator = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strict,
+        });
+        assert!(!strip_validator.is_subset(&strict_validator));
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_subset_strict_subset_of_strip() -> anyhow::Result<()> {
+        let strict_validator = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strict,
+        });
+        let strip_validator = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strip,
+        });
+        assert!(strict_validator.is_subset(&strip_validator));
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_subset_strip_subset_of_strip() -> anyhow::Result<()> {
+        let strip_a = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strip,
+        });
+        let strip_b = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strip,
+        });
+        assert!(strip_a.is_subset(&strip_b));
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_subset_strict_subset_of_strict() -> anyhow::Result<()> {
+        let strict_a = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strict,
+        });
+        let strict_b = Validator::Object(ObjectValidator {
+            fields: btreemap! {
+                "a".parse()? => FieldValidator::required_field_type(Validator::String),
+            },
+            unknown_keys: UnknownKeysMode::Strict,
+        });
+        assert!(strict_a.is_subset(&strict_b));
+        Ok(())
+    }
+
+    #[test]
+    fn unknown_keys_mode_display_roundtrip() {
+        for mode in [UnknownKeysMode::Strict, UnknownKeysMode::Strip] {
+            let s = mode.to_string();
+            let parsed: UnknownKeysMode = s.parse().unwrap();
+            assert_eq!(mode, parsed);
+        }
+    }
+
+    #[test]
+    fn unknown_keys_mode_from_str_rejects_invalid() {
+        assert!("passthrough".parse::<UnknownKeysMode>().is_err());
+        assert!("".parse::<UnknownKeysMode>().is_err());
+        assert!("STRICT".parse::<UnknownKeysMode>().is_err());
     }
 }

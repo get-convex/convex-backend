@@ -20,6 +20,11 @@ use value::{
     NamespacedTableMapping,
 };
 
+pub struct ValidatedArgs {
+    pub args: ConvexArray,
+    pub stripped: bool,
+}
+
 /**
  * A validator for the arguments to a UDF.
  */
@@ -39,48 +44,52 @@ pub enum ArgsValidator {
 impl ArgsValidator {
     pub fn check_args(
         &self,
-        args: &ConvexArray,
+        args: ConvexArray,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
-    ) -> anyhow::Result<Option<JsError>> {
-        let result = match self {
-            ArgsValidator::Unvalidated => None,
+    ) -> anyhow::Result<Result<ValidatedArgs, JsError>> {
+        match self {
+            ArgsValidator::Unvalidated => Ok(Ok(ValidatedArgs {
+                args,
+                stripped: false,
+            })),
             ArgsValidator::Validated(object_validator) => {
-                let single_arg = match &args[..] {
-                    [arg] => arg,
-                    _ => {
-                        let error_message = format!(
-                            "Expected to receive a single object as the function's argument. \
-                             Instead received {} arguments: {args}",
-                            args.len()
-                        );
-                        return Ok(Some(JsError::from_message(error_message)));
-                    },
-                };
-                let object_arg = match single_arg {
-                    ConvexValue::Object(o) => o,
-                    _ => {
-                        let error_message = format!(
-                            "Expected to receive an object as the function's argument. Instead \
-                             received: {single_arg}"
-                        );
-                        return Ok(Some(JsError::from_message(error_message)));
-                    },
+                let mut args_vec = Vec::from(args);
+                if args_vec.len() != 1 {
+                    let error_message = format!(
+                        "Expected to receive a single object as the function's argument. Instead \
+                         received {} arguments.",
+                        args_vec.len(),
+                    );
+                    return Ok(Err(JsError::from_message(error_message)));
+                }
+                let single_arg = args_vec.pop().expect("checked len == 1");
+                let ConvexValue::Object(object_arg) = single_arg else {
+                    let error_message = format!(
+                        "Expected to receive an object as the function's argument. Instead \
+                         received: {single_arg}"
+                    );
+                    return Ok(Err(JsError::from_message(error_message)));
                 };
 
-                let validation_error = Validator::Object(object_validator.clone()).check_value(
-                    &ConvexValue::Object(object_arg.clone()),
-                    table_mapping,
-                    virtual_system_mapping,
-                );
-                if let Err(error) = validation_error {
-                    Some(JsError::from_message(error.to_string()))
-                } else {
-                    None
+                if let Err(error) =
+                    object_validator.check_value(&object_arg, table_mapping, virtual_system_mapping)
+                {
+                    return Ok(Err(JsError::from_message(error.to_string())));
                 }
+
+                let stripped = object_validator.unknown_keys.strips_unknown_fields();
+                let final_object = if stripped {
+                    object_validator.strip_unknown_fields(object_arg)?
+                } else {
+                    object_arg
+                };
+                Ok(Ok(ValidatedArgs {
+                    args: ConvexArray::try_from(vec![ConvexValue::Object(final_object)])?,
+                    stripped,
+                }))
             },
-        };
-        Ok(result)
+        }
     }
 }
 
