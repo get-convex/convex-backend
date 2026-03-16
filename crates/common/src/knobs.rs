@@ -1405,14 +1405,6 @@ pub static USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL: LazyLock<usize> =
 pub static USHER_MAX_JSON_ARGS_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("USHER_MAX_JSON_ARGS_SIZE", 30 * 1024 * 1024)); // 30MB
 
-/// Initial backoff duration when retrying a failed gRPC call in usher.
-pub static USHER_GRPC_INITIAL_BACKOFF: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("USHER_GRPC_INITIAL_BACKOFF_MS", 500)));
-
-/// Maximum backoff duration when retrying a failed gRPC call in usher.
-pub static USHER_GRPC_MAX_BACKOFF: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("USHER_GRPC_MAX_BACKOFF_SECS", 600)));
-
 /// Batch size for migration that rewrites virtual tables.
 pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MIGRATION_REWRITE_BATCH_SIZE", 100));
