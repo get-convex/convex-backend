@@ -139,6 +139,7 @@ pub enum SelectionArg {
 
     /// If only the table name is provided, assumes it’s in the root component.
     SingleTable {
+        #[serde(alias = "tableName")]
         table_name: String,
 
         /// The component path of the table. If not provided, the table is
@@ -226,6 +227,28 @@ mod tests {
             r#"{"selection": { "_other": "incl" }}"#,
             SelectionArg::Exact {
                 selection: Selection::default(),
+            },
+        );
+    }
+
+    #[test]
+    fn test_table_name_camel_case() {
+        assert_selection_arg_deserialization(
+            r#"{"tableName": "users"}"#,
+            SelectionArg::SingleTable {
+                table_name: "users".to_string(),
+                component: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_table_name_camel_case_and_component() {
+        assert_selection_arg_deserialization(
+            r#"{"tableName": "jobs", "component": "cron"}"#,
+            SelectionArg::SingleTable {
+                table_name: "jobs".to_string(),
+                component: Some("cron".to_string()),
             },
         );
     }
