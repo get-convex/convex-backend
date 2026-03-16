@@ -59,7 +59,7 @@ overrides:
   tar@>=6.0.0 <7.5.7: ^7.5.10
   trim@<0.0.3: ^0.0.3
   undici@5.28.4: ^5.28.8
-  undici@6.21.0: ^6.23.0
+  undici@6.21.0: ^6.24.0
   validator@13.15.15: ^13.15.22
   vinxi@0.5.3: ^0.5.6
   vite@5.4.14: ^5.4.19
@@ -835,8 +835,8 @@ importers:
         specifier: ~8.38.0
         version: 8.38.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
       undici:
-        specifier: 7.18.2
-        version: 7.18.2
+        specifier: 7.24.0
+        version: 7.24.0
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.6.5(bufferutil@4.0.9))(jiti@2.6.1)(jsdom@27.4.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -3591,8 +3591,8 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
       undici:
-        specifier: 7.18.2
-        version: 7.18.2
+        specifier: 7.24.0
+        version: 7.24.0
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@20.19.25)(happy-dom@20.6.5(bufferutil@4.0.9))(jiti@2.6.1)(jsdom@27.4.0(bufferutil@4.0.9)(postcss@8.5.6))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -22176,8 +22176,8 @@ packages:
     resolution: {integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==}
     engines: {node: '>=14.0'}
 
-  undici@7.18.2:
-    resolution: {integrity: sha512-y+8YjDFzWdQlSE9N5nzKMT3g4a5UBX1HKowfdXh0uvAnTaqqwqB92Jt4UXBAeKekDs5IaDKyJFR4X1gYVCgXcw==}
+  undici@7.24.0:
+    resolution: {integrity: sha512-jxytwMHhsbdpBXxLAcuu0fzlQeXCNnWdDyRHpvWsUl8vd98UwYdl9YTyn8/HcpcJPC3pwUveefsa3zTxyD/ERg==}
     engines: {node: '>=20.18.1'}
 
   unenv@1.10.0:
@@ -35608,7 +35608,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 7.18.2
+      undici: 7.24.0
       whatwg-mimetype: 4.0.0
 
   chokidar-cli@3.0.0:
@@ -46902,7 +46902,7 @@ snapshots:
     dependencies:
       '@fastify/busboy': 2.1.1
 
-  undici@7.18.2: {}
+  undici@7.24.0: {}
 
   unenv@1.10.0:
     dependencies:
