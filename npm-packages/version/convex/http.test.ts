@@ -207,14 +207,20 @@ describe("HTTP endpoints", () => {
 
     test("GET /v1/guidelines returns 500 when refresh fails", async () => {
       const t = convexTest(schema, modules);
-      vi.mocked(getLatestGuidelines).mockRejectedValue(
-        new Error("simulated fetch failure"),
-      );
+      const error = new Error("simulated fetch failure");
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      vi.mocked(getLatestGuidelines).mockRejectedValue(error);
 
       const response = await t.fetch("/v1/guidelines", { method: "GET" });
 
       expect(response.status).toBe(500);
       expect(await response.text()).toContain("Can't get guidelines");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Failed to refresh Guidelines:",
+        error,
+      );
     });
   });
 });
