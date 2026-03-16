@@ -967,10 +967,22 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return match e.metric_server_error_label_value() {
                 Some(v) => v,
-                None => {
-                    StaticMetricLabel::STATUS_DEVELOPER_ERROR
-                        .split_key_value()
-                        .1
+                None => match e.code {
+                    ErrorCode::Unauthenticated => {
+                        StaticMetricLabel::STATUS_UNAUTHENTICATED_ERROR
+                            .split_key_value()
+                            .1
+                    },
+                    ErrorCode::AuthUpdateFailed => {
+                        StaticMetricLabel::STATUS_AUTH_UPDATE_FAILED_ERROR
+                            .split_key_value()
+                            .1
+                    },
+                    _ => {
+                        StaticMetricLabel::STATUS_DEVELOPER_ERROR
+                            .split_key_value()
+                            .1
+                    },
                 },
             };
         }

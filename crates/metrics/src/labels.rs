@@ -16,6 +16,10 @@ pub struct MetricLabel<'a> {
 }
 
 impl<'a> MetricLabel<'a> {
+    pub const STATUS_AUTH_UPDATE_FAILED_ERROR: StaticMetricLabel = MetricLabel {
+        key: "status",
+        value: Cow::Borrowed("auth_update_failed_error"),
+    };
     pub const STATUS_CANCELED: StaticMetricLabel = MetricLabel {
         key: "status",
         value: Cow::Borrowed("canceled"),
@@ -31,6 +35,10 @@ impl<'a> MetricLabel<'a> {
     pub const STATUS_SUCCESS: StaticMetricLabel = MetricLabel {
         key: "status",
         value: Cow::Borrowed("success"),
+    };
+    pub const STATUS_UNAUTHENTICATED_ERROR: StaticMetricLabel = MetricLabel {
+        key: "status",
+        value: Cow::Borrowed("unauthenticated_error"),
     };
 
     pub fn new(key: &'static str, value: impl Into<Cow<'a, str>>) -> Self {
