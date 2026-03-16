@@ -27,8 +27,13 @@ import {
 } from "../../dashboard/src/hooks/useLaunchDarkly";
 import { useProfile } from "../../dashboard/src/api/profile";
 import { AuthContext } from "../../dashboard/src/providers/AuthProvider/AuthContext";
-import { useTeamOrbSubscription } from "../../dashboard/src/api/billing";
+import {
+  useTeamOrbSubscription,
+  useListInvoices,
+  useGetSpendingLimits,
+} from "../../dashboard/src/api/billing";
 import { useDeployments } from "../../dashboard/src/api/deployments";
+import { useTeamUsageState } from "../../dashboard/src/api/usage";
 
 const MOCK_PROFILE_PICTURE_URL =
   "data:image/webp;base64,UklGRqYFAABXRUJQVlA4IJoFAACwFwCdASpAAEAAPpE8mUiloyIhLBqqaLASCWwAnTLLxB/G+ZjZ2vaGntzejrbgc7TpzPoAT6/2j/VfBXxxe2cz3GXaB9XkZTJNa93iEAHVd6qaw5QA9wD5YNDD1inUcsafQyKkL3va9r5b6tHRyOzYkfx3XdT7BBLNpPvVQDroRE+86vqS4IbQ/TuVbxR22x/qQ3ATiNd6VDuwkyEDi67ee40Djosp8rgLpxKRgzL15tn235yg5nJiZkZLMqLeVsk+AqZEJiAA/ub/+ti932/SJ7Ed6JWfB5D7z9NBn34kJK3wWGn17qnGuhyXm3arHw5zYWWoqoTVlBBWsym+VLk6FBA3KCPlX9hyu9YNhcCear7jv4Onz3JXFtmd7O7nog1WPOQgejCX4W5PJ6mLS19O3AZfSyn/rGPbQOBZuqsw51VzDBoJXR8K6rio+Qt3X1nLwwdc5Yr8Ki/duH8c9/F6rcRW30/0I8fHTkJ0IY53taSJfuiaGJ5VsghdyUG3p7mkvD/HMN+467NVP26wO3v+cAd5ke9N8pM0FyM4moFWtHw3FSUH/jzn4+38UZuYpNYI1v8Noumcs/sfQ/IEhE76bFQMsGvAgUCsd89hWG2w+g1U0Nd4Ugiv0deXMH28+lq6JHYXKBsj9uy6LLvK4sx/yXtsYfF3uj8z8bGpcWLNdZ3hWNmYZH7dTCzFm6P/zRcH0Pd0VNZ8rRc2/+Pq6f5Hq5qHwywa8Dq6FL9dr5xmIowIfzxyKWEITu6bfUBOdaloCxcD6+NhKroqeAL2dLq1qW58eXyrZFVb1adugT9qIC+YlnbzZMyR3d5L7vezSng58Pd4scxsgu7Koi5/PE1MS3+JD1vmLd+0eQwd5Shk1pSTkwI7raQgwPAtF0br9RaLsW+p7wPb1fY51wj++AyVK/i5dlmaktv7o/T49TCUfqLRPm796NCM16jK/tViNOlBonU7rLcOvq0S2wXjm9KhUFJmOrwM5c8l+LmdFEOFZQdFzRg4bgxZPe380SUQev6O/kSjPKz/yqt4QFFvkvOQhWc1o4Yk98XA1XOQiPwzr3eouH/uQaGw4WOF86+dKXsk0rPhzqh/ThVbS9T/SQUKj1HbQ8LHwUt3RRXju1cZK6V3CmfO8Ep0abVycofCiBlgse12mpsP+/yhR0jtAnjjaq5D1P7bQq8Suck/kJWBEU2MpwqU3JZ62GEDddHiKi/D7Z5jcvBzSGTF1wmlEbl1MAF8rfPq7ncROFLF1busN73evw9mEUN+kIS1WuWxOGz66zIZS+gF098q9kXHq7xhV2bsPemqpqHJ/FAkDqOM1AS6Mg+3MJVD/JsDWETX5nUO6W1I1Nts35WcLI4wUtbtKvfp+1XbB+h9FP1OZ8DeGiMX+iL+KzLUPzNbrYb0+4ZGXOmhl0HYdAvWzd6Zd7JssNGNKVOgvYcqi6ljy/JYLnk0JgePXqg2jEpZuYRG8Zz66yg/NOPHn96zN4EeppQtzso6paGyrrGJ3fR+eh6+y2kV/vXInPU3dw7mbC/8gQUnTFoHg2RrQCCRypP3HO0LlG8uT47z+yFSx3lDXFs/iPETPXP9RhDYkg2Ja7XozibpaLMr3uNfNzb9Z8YuCEeB5OBrg19n92+08SgaHjVK/m+1jjv1s4vAhJCMJOZRUS0VZXTMD2kRQTPcgYosp7Tt/uo0i3yX4zzb25rvbeR+smvjoMuqG6MrXqZ2w0eU22DOdWSd3kuKUfYxZvLEuWwqtVKawcX5yyUHo7wryoMcnJzF/iqh1lVkmla8pBdBBISSOA8u1Ef+tvGYOf3nVscALWEwwgjIgW5Jz17pmObucgE9xNaEfwpu72nhFZOPecK8zRkTPZ00iotWPZav6MaJ3rd9bXN3uG1VzJABCQrEAFDkONmytDf6AAA=";
@@ -183,8 +188,21 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   );
   mocked(useTeamOrbSubscription).mockReturnValue({
     isLoading: false,
-    subscription: mockSubscription,
+    subscription: null,
   });
+  mocked(useListInvoices).mockReturnValue({
+    isLoading: false,
+    invoices: [],
+  });
+  mocked(useGetSpendingLimits).mockReturnValue({
+    isLoading: false,
+    spendingLimits: {
+      state: null,
+      disableThresholdCents: null,
+      warningThresholdCents: null,
+    },
+  });
+  mocked(useTeamUsageState).mockReturnValue("Default");
   mocked(useDeployments).mockReturnValue({
     deployments: [
       {
