@@ -1672,7 +1672,8 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
             anyhow::bail!(snapshot_invalid_error(
                 ts,
                 *min_snapshot_ts,
-                RetentionType::Index
+                RetentionType::Index,
+                "leader",
             ));
         }
         Ok(())
@@ -1684,7 +1685,8 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
             anyhow::bail!(snapshot_invalid_error(
                 ts,
                 *min_snapshot_ts,
-                RetentionType::Document
+                RetentionType::Document,
+                "leader",
             ));
         }
         Ok(())
@@ -1695,7 +1697,12 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
         log_snapshot_verification_age(&self.rt, ts, *min_snapshot_ts, true, true);
         anyhow::ensure!(
             ts >= *min_snapshot_ts,
-            "leader retention bounds check failed: {ts} < {min_snapshot_ts}"
+            snapshot_invalid_error(
+                ts,
+                *min_snapshot_ts,
+                RetentionType::Index,
+                "optimistic leader",
+            )
         );
         Ok(())
     }
@@ -1772,14 +1779,16 @@ async fn load_snapshot_bounds(
         anyhow::bail!(snapshot_invalid_error(
             *repeatable_ts,
             *min_index_snapshot_ts,
-            RetentionType::Index
+            RetentionType::Index,
+            "follower initialization",
         ));
     }
     if repeatable_ts < min_document_snapshot_ts {
         anyhow::bail!(snapshot_invalid_error(
             *repeatable_ts,
             *min_document_snapshot_ts,
-            RetentionType::Document
+            RetentionType::Document,
+            "follower initialization",
         ));
     }
     Ok(SnapshotBounds {
@@ -1819,7 +1828,8 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
             anyhow::bail!(snapshot_invalid_error(
                 ts,
                 *min_snapshot_ts,
-                RetentionType::Index
+                RetentionType::Index,
+                "follower"
             ));
         }
         Ok(())
@@ -1831,7 +1841,8 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
             anyhow::bail!(snapshot_invalid_error(
                 ts,
                 *min_snapshot_ts,
-                RetentionType::Document
+                RetentionType::Document,
+                "follower"
             ));
         }
         Ok(())
@@ -1842,7 +1853,12 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
         log_snapshot_verification_age(&self.rt, ts, *min_snapshot_ts, true, false);
         anyhow::ensure!(
             ts >= *min_snapshot_ts,
-            "follower retention bounds check failed: {ts} < {min_snapshot_ts}"
+            snapshot_invalid_error(
+                ts,
+                *min_snapshot_ts,
+                RetentionType::Index,
+                "optimistic follower"
+            )
         );
         Ok(())
     }
@@ -1874,9 +1890,11 @@ fn snapshot_invalid_error(
     ts: Timestamp,
     min_snapshot_ts: Timestamp,
     retention_type: RetentionType,
+    context: &str,
 ) -> anyhow::Error {
     anyhow::anyhow!(ErrorMetadata::out_of_retention()).context(format!(
-        "{retention_type:?} snapshot timestamp out of retention window: {ts} < {min_snapshot_ts}"
+        "{retention_type:?} snapshot timestamp out of {context} retention window: {ts} < \
+         {min_snapshot_ts}"
     ))
 }
 
@@ -1954,7 +1972,8 @@ mod tests {
             anyhow::bail!(snapshot_invalid_error(
                 Timestamp::must(1),
                 Timestamp::must(30),
-                RetentionType::Document
+                RetentionType::Document,
+                "test"
             ));
         };
         let stream_throws = stream::once(async move { throws() });
