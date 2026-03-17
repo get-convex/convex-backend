@@ -12,6 +12,7 @@ export const flagDefaults: {
   showReferences: boolean;
   deploymentList: boolean;
   postHogIntegrations: boolean;
+  transferDeployment: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -23,6 +24,7 @@ export const flagDefaults: {
   showReferences: false,
   deploymentList: false,
   postHogIntegrations: false,
+  transferDeployment: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

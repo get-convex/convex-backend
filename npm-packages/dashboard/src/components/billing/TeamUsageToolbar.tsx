@@ -43,20 +43,26 @@ export function TeamUsageToolbar({
   const projects = paginatedProjects ? paginatedProjects.items : undefined;
 
   // Detect duplicate project names and prepare options
-  const projectOptions = useMemo(() => {
+  const { projectOptions, slugByProjectId } = useMemo(() => {
     const nameCountMap = new Map<string, number>();
     projects?.forEach((p) => {
       nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
     });
 
-    return [
-      { label: "All Projects", value: null },
+    const slugMap = new Map<number, string>();
+    const options = [
+      { label: "All Projects", value: null as number | null },
       ...(projects?.map((p) => {
         const isDuplicate = (nameCountMap.get(p.name) || 0) > 1;
+        if (isDuplicate && p.slug) {
+          slugMap.set(p.id, p.slug);
+        }
         const label = isDuplicate && p.slug ? `${p.name} (${p.slug})` : p.name;
-        return { label, value: p.id };
+        return { label, value: p.id as number | null };
       }) ?? []),
     ];
+
+    return { projectOptions: options, slugByProjectId: slugMap };
   }, [projects]);
 
   return (
@@ -86,6 +92,18 @@ export function TeamUsageToolbar({
           void replace({ query }, undefined, { shallow: true });
         }}
         unknownLabel={() => "projects"}
+        Option={({ label, value }) => {
+          const slug = value !== null ? slugByProjectId.get(value) : undefined;
+          if (slug) {
+            const name = label.replace(` (${slug})`, "");
+            return (
+              <span>
+                {name} <span className="text-content-secondary">({slug})</span>
+              </span>
+            );
+          }
+          return <span>{label}</span>;
+        }}
       />
 
       <Tooltip

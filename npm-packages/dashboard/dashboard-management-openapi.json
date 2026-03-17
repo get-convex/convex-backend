@@ -3413,6 +3413,8 @@
           "enableSSO",
           "disableSSO",
           "updateSSO",
+          "transferDeployment",
+          "receiveDeployment",
           "updateDeployment"
         ]
       },

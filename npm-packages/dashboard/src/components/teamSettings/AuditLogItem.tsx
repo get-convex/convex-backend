@@ -256,17 +256,27 @@ function EntryAction({
       return <span>updated the team</span>;
     case "deleteTeam":
       return <span>deleted the team</span>;
-    case "createDeployment":
-      if (!metadata.current?.type || !metadata.current?.projectId) {
+    case "createDeployment": {
+      const deploymentType =
+        metadata.current?.deploymentType ?? metadata.current?.type;
+      if (!deploymentType || !metadata.current?.projectId) {
         captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
 
       return (
         <span>
-          created a{" "}
-          <span className="font-semibold">{metadata.current.type}</span>{" "}
-          deployment for{" "}
+          created a <span className="font-semibold">{deploymentType}</span>{" "}
+          deployment
+          {metadata.current?.reference && (
+            <>
+              {" "}
+              <span className="font-semibold">
+                {metadata.current.reference}
+              </span>
+            </>
+          )}{" "}
+          for{" "}
           <ProjectLink
             projectId={metadata.current.projectId}
             metadata={metadata}
@@ -274,16 +284,27 @@ function EntryAction({
           />
         </span>
       );
-    case "deleteDeployment":
-      if (!metadata.previous?.type || !metadata.previous?.projectId) {
+    }
+    case "deleteDeployment": {
+      const deploymentType =
+        metadata.previous?.deploymentType ?? metadata.previous?.type;
+      if (!deploymentType || !metadata.previous?.projectId) {
         captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
         <span>
-          deleted a{" "}
-          <span className="font-semibold">{metadata.previous.type}</span>{" "}
-          deployment for{" "}
+          deleted a <span className="font-semibold">{deploymentType}</span>{" "}
+          deployment
+          {metadata.previous?.reference && (
+            <>
+              {" "}
+              <span className="font-semibold">
+                {metadata.previous.reference}
+              </span>
+            </>
+          )}{" "}
+          for{" "}
           <ProjectLink
             projectId={metadata.previous.projectId}
             metadata={metadata}
@@ -291,6 +312,7 @@ function EntryAction({
           />
         </span>
       );
+    }
     case "updateDeployment": {
       return (
         <span>
@@ -602,6 +624,39 @@ function EntryAction({
     }
     case "retrieveProjectWorkosEnvironmentCredentials": {
       return <span>retrieved project WorkOS environment credentials</span>;
+    }
+    case "transferDeployment": {
+      return (
+        <span>
+          transferred deployment{" "}
+          <span className="font-semibold">
+            {metadata.previous?.reference ?? "unknown"}
+          </span>{" "}
+          from{" "}
+          {metadata.previous?.projectId ? (
+            <ProjectLink
+              projectId={metadata.previous.projectId}
+              metadata={metadata}
+              team={team}
+            />
+          ) : (
+            <span className="font-semibold">unknown project</span>
+          )}{" "}
+          to{" "}
+          {metadata.current?.projectId ? (
+            <ProjectLink
+              projectId={metadata.current.projectId}
+              metadata={metadata}
+              team={team}
+            />
+          ) : (
+            <span className="font-semibold">unknown project</span>
+          )}
+        </span>
+      );
+    }
+    case "receiveDeployment": {
+      return <span>received a deployment from another project</span>;
     }
     default:
       action satisfies never;

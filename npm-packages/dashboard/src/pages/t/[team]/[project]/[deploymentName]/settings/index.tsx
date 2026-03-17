@@ -5,6 +5,7 @@ import { useCurrentDeployment, useDeploymentRegions } from "api/deployments";
 import { useRouter } from "next/router";
 import { usePathname } from "next/navigation";
 import { DeleteDeployment } from "components/deploymentSettings/DeleteDeployment";
+import { TransferDeployment } from "components/deploymentSettings/TransferDeployment";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { DeploymentAdvancedSettings } from "components/deploymentSettings/DeploymentAdvancedSettings";
 import { PauseDeployment } from "@common/features/settings/components/PauseDeployment";
@@ -46,7 +47,7 @@ function DeploymentURLAndDeployKey() {
   const { capture } = usePostHog();
   const pauseDeploymentRef = useRef<HTMLDivElement | null>(null);
   useScrollToHash("#pause-deployment", pauseDeploymentRef);
-  const { showReferences } = useLaunchDarkly();
+  const { showReferences, transferDeployment } = useLaunchDarkly();
 
   const team = useCurrentTeam();
   const project = useCurrentProject();
@@ -90,6 +91,7 @@ function DeploymentURLAndDeployKey() {
         />
       </div>
       <DeleteDeployment />
+      {transferDeployment && <TransferDeployment />}
     </div>
   );
 }

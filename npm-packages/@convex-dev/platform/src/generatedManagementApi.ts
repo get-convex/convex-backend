@@ -235,6 +235,30 @@ export interface paths {
         patch: operations["update deployment"];
         trace?: never;
     };
+    "/deployments/{deployment_name}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer deployment
+         * @description Transfer a deployment from its current project to another project within the
+         *     same team. For production deployments, the caller must be a project admin on
+         *     both the source and destination projects. For other deployment types, any
+         *     team member can transfer deployments they created, or project admins can
+         *     transfer any deployment.
+         */
+        post: operations["transfer deployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/list_deployment_classes": {
         parameters: {
             query?: never;
@@ -888,6 +912,9 @@ export interface components {
             /** @enum {string} */
             type: "projectToken";
         };
+        PlatformTransferDeploymentArgs: {
+            destinationProjectId: components["schemas"]["ProjectId"];
+        };
         PlatformUpdateDeploymentArgs: {
             /** @description Controls whether the dashboard requires a confirmation before allowing
              *     edits during a browser session for this deployment. If set to `null`,
@@ -1005,6 +1032,7 @@ export type PlatformListPreviewDeployKeysResponse = components['schemas']['Platf
 export type PlatformListTeamMembersResponse = components['schemas']['PlatformListTeamMembersResponse'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
+export type PlatformTransferDeploymentArgs = components['schemas']['PlatformTransferDeploymentArgs'];
 export type PlatformUpdateDeploymentArgs = components['schemas']['PlatformUpdateDeploymentArgs'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProjectId = components['schemas']['ProjectId'];
@@ -1312,6 +1340,30 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "transfer deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment Name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformTransferDeploymentArgs"];
+            };
+        };
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

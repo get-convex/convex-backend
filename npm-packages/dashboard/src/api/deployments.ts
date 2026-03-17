@@ -161,6 +161,15 @@ export function useDeleteDeployment(
   return deleteDeployment;
 }
 
+export function useTransferDeployment(deploymentName: string) {
+  return useManagementApiMutation({
+    path: "/deployments/{deployment_name}/transfer",
+    method: "post",
+    pathParams: { deployment_name: deploymentName },
+    successToast: "Deployment transferred.",
+  });
+}
+
 export function usePaginatedDeployments(
   teamId: number | undefined,
   options: {
