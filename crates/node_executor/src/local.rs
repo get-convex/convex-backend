@@ -1,7 +1,5 @@
 use std::{
     fs,
-    net::TcpListener,
-    os::fd::AsFd,
     path::PathBuf,
     sync::Arc,
     time::Duration,
@@ -9,10 +7,6 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
-use command_fds::{
-    CommandFdExt,
-    FdMapping,
-};
 use common::log_lines::LogLine;
 use errors::ErrorMetadata;
 use futures::{
@@ -21,6 +15,7 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use isolate::bundled_js::node_executor_file;
+use rand::Rng;
 use reqwest::Client;
 use serde_json::Value as JsonValue;
 use tempfile::TempDir;
@@ -50,9 +45,6 @@ use crate::{
 /// Always use node version specified in .nvmrc for lambda execution, even if
 /// we're using older version for CLI.
 const NODE_VERSION: &str = include_str!("../../../.nvmrc");
-/// The child fd number we map the pre-bound TCP listener to. Fd 3 is the first
-/// fd after stdin/stdout/stderr.
-const LISTEN_CHILD_FD: i32 = 3;
 const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 
@@ -67,7 +59,6 @@ struct LocalNodeExecutorConfig {
 
 struct InnerLocalNodeExecutor {
     _source_dir: TempDir,
-    port: u16,
     client: reqwest::Client,
     _server_handle: Child,
 }
@@ -89,22 +80,34 @@ impl InnerLocalNodeExecutor {
             source_path.to_str().expect("Path is not UTF-8 string?"),
         );
 
-        let client = Client::new();
-        // Bind to port 0 in the parent process to get an OS-assigned port,
-        // then pass the bound socket fd to the child. This avoids TOCTOU races
-        // with portpicker where another process could grab the port between
-        // picking and binding.
-        let listener = TcpListener::bind("127.0.0.1:0")?;
-        let port = listener.local_addr()?.port();
+        let socket_path = if cfg!(unix) {
+            source_dir.path().join(".executor.sock")
+        } else if cfg!(windows) {
+            PathBuf::from(format!(
+                r"\\.\pipe\cvx-node-executor-{:016x}",
+                rand::rng().random::<u64>()
+            ))
+        } else {
+            panic!("not supported");
+        };
         let server_handle =
-            Self::start_node_with_listener(&source_path, &source_dir, listener).await?;
+            Self::start_node_with_listener(&source_path, &source_dir, &socket_path).await?;
+        let mut client_builder = Client::builder();
+        #[cfg(unix)]
+        {
+            client_builder = client_builder.unix_socket(socket_path);
+        }
+        #[cfg(windows)]
+        {
+            client_builder = client_builder.windows_named_pipe(socket_path);
+        }
+        let client = client_builder.build()?;
 
         // Wait for the Node process to be ready to handle HTTP requests.
         for _ in 0..MAX_HEALTH_CHECK_ATTEMPTS {
-            if Self::check_server_health(&client, port).await? {
+            if Self::check_server_health(&client).await? {
                 return Ok(Self {
                     _source_dir: source_dir,
-                    port,
                     client,
                     _server_handle: server_handle,
                 });
@@ -137,9 +140,9 @@ impl InnerLocalNodeExecutor {
         Ok(())
     }
 
-    async fn check_server_health(client: &Client, port: u16) -> anyhow::Result<bool> {
+    async fn check_server_health(client: &Client) -> anyhow::Result<bool> {
         match client
-            .get(format!("http://127.0.0.1:{port}/health"))
+            .get(format!("http://localhost/health"))
             .timeout(Duration::from_secs(1))
             .send()
             .await
@@ -152,7 +155,7 @@ impl InnerLocalNodeExecutor {
     async fn start_node_with_listener(
         source_path: &PathBuf,
         temp_dir: &TempDir,
-        listener: TcpListener,
+        socket_path: &PathBuf,
     ) -> anyhow::Result<Child> {
         let node_version = NODE_VERSION.trim();
 
@@ -170,18 +173,11 @@ impl InnerLocalNodeExecutor {
 
         let mut cmd = TokioCommand::new(node_path);
         cmd.arg(source_path)
-            .arg("--fd")
-            .arg(LISTEN_CHILD_FD.to_string())
+            .arg("--ipc-path")
+            .arg(socket_path)
             .arg("--tempdir")
             .arg(temp_dir.path())
             .kill_on_drop(true);
-
-        // Map the listener fd into the child process at a well-known fd number.
-        // command_fds handles clearing CLOEXEC and dup2 for us.
-        cmd.fd_mappings(vec![FdMapping {
-            parent_fd: listener.as_fd().try_clone_to_owned()?,
-            child_fd: LISTEN_CHILD_FD,
-        }])?;
 
         let child = cmd.spawn()?;
 
@@ -250,7 +246,7 @@ impl NodeExecutor for LocalNodeExecutor {
         request: ExecutorRequest,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<InvokeResponse> {
-        let (client, port) = {
+        let client = {
             let mut inner = self.inner.lock().await;
             if inner.is_none() {
                 *inner = Some(
@@ -260,12 +256,12 @@ impl NodeExecutor for LocalNodeExecutor {
                 )
             }
             let inner = inner.as_ref().unwrap();
-            (inner.client.clone(), inner.port)
+            inner.client.clone()
         };
         let request_json = JsonValue::try_from(request)?;
 
         let response_result = client
-            .post(format!("http://127.0.0.1:{port}/invoke"))
+            .post(format!("http://localhost/invoke"))
             .json(&request_json)
             .timeout(self.config.node_process_timeout)
             .send()
