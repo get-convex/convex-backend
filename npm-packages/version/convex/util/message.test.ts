@@ -45,6 +45,12 @@ describe("generateMessage", () => {
       const result = generateMessage(latest, "npm-cli-1.23.0");
       expect(result).toBeNull();
     });
+
+    test("suppresses message for 1.33.0 → 1.33.1", () => {
+      const latest = createNpmVersionDoc("1.33.1");
+      const result = generateMessage(latest, "npm-cli-1.33.0");
+      expect(result).toBeNull();
+    });
   });
 
   describe("generates update messages", () => {

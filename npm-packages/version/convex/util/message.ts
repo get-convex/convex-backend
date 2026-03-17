@@ -27,6 +27,12 @@ export function generateMessage(
     return null;
   }
 
+  // 1.33.1 was published after we forgot to bump some clients off 1.33.0.
+  // Don't show an update nag for this specific patch transition.
+  if (semver.eq(current, "1.33.0") && semver.eq(latest, "1.33.1")) {
+    return null;
+  }
+
   // Check if an update is available
   if (semver.gte(currentVersion, latestVersion)) {
     return null; // No update needed
