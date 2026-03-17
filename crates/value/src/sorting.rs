@@ -108,10 +108,10 @@ fn write_tagged_int(n: i64, writer: &mut impl BufMut) {
 }
 
 /// Generate the sort key for a sequence of `Value`s.
-pub fn values_to_bytes<const FIXED: bool>(values: &[Option<ConvexValue>]) -> Vec<u8> {
+pub fn values_to_bytes(values: &[Option<ConvexValue>]) -> Vec<u8> {
     let mut out = vec![];
     for value in values {
-        let Ok(()) = write_sort_key_or_undefined::<_, FIXED>(value.as_ref(), &mut out);
+        let Ok(()) = write_sort_key_or_undefined(value.as_ref(), &mut out);
     }
     out
 }
@@ -285,19 +285,19 @@ pub mod sorting_decode {
 
 impl ConvexValue {
     /// Generate the sort key for a given `Value`.
-    pub fn sort_key<const FIXED: bool>(&self) -> Vec<u8> {
+    pub fn sort_key(&self) -> Vec<u8> {
         let mut out = vec![];
-        self.write_sort_key::<FIXED>(&mut out);
+        self.write_sort_key(&mut out);
         out
     }
 
-    pub fn write_sort_key<const FIXED: bool>(&self, writer: &mut impl BufMut) {
-        let Ok(()) = write_sort_key::<_, FIXED>(self, writer);
+    pub fn write_sort_key(&self, writer: &mut impl BufMut) {
+        let Ok(()) = write_sort_key(self, writer);
     }
 }
 
 /// Write a `Value`'s sort key out to a writer.
-pub fn write_sort_key<V: ConvexValueWalker, const FIXED: bool>(
+pub fn write_sort_key<V: ConvexValueWalker>(
     value: V,
     writer: &mut impl BufMut,
 ) -> Result<(), V::Error> {
@@ -341,7 +341,7 @@ pub fn write_sort_key<V: ConvexValueWalker, const FIXED: bool>(
         ConvexValueType::Array(array) => {
             writer.put_u8(ARRAY_TAG);
             for element in array.walk() {
-                write_sort_key::<_, FIXED>(element?, writer)?;
+                write_sort_key(element?, writer)?;
             }
             writer.put_u8(TERMINATOR_BYTE);
         },
@@ -355,13 +355,10 @@ pub fn write_sort_key<V: ConvexValueWalker, const FIXED: bool>(
                 // object. Note that this encoding looks like an escaped `\0`
                 // byte, but valid FieldNames only contain non-control ASCII
                 // characters so this is not ambiguous.
-                // TODO: already-written index keys may contain the invalid
-                // encoding; find them if necessary and migrate them. For now,
-                // indexes use FIXED=false.
-                if FIXED && field.is_empty() {
+                if field.is_empty() {
                     writer.put_u8(ESCAPE_BYTE);
                 }
-                write_sort_key::<_, FIXED>(value, writer)?;
+                write_sort_key(value, writer)?;
             }
             writer.put_u8(TERMINATOR_BYTE);
         },
@@ -371,12 +368,12 @@ pub fn write_sort_key<V: ConvexValueWalker, const FIXED: bool>(
 
 /// Writes `value`'s sort key, interpreting `None` as `undefined` (which is,
 /// notably, a different value than `null`)
-pub fn write_sort_key_or_undefined<V: ConvexValueWalker, const FIXED: bool>(
+pub fn write_sort_key_or_undefined<V: ConvexValueWalker>(
     value: Option<V>,
     writer: &mut impl BufMut,
 ) -> Result<(), V::Error> {
     match value {
-        Some(value) => write_sort_key::<_, FIXED>(value, writer),
+        Some(value) => write_sort_key(value, writer),
         None => {
             writer.put_u8(UNDEFINED_TAG);
             Ok(())
@@ -547,7 +544,7 @@ mod tests {
         let trophies = vec![ConvexValue::from(-1), ConvexValue::from(id)];
         for v in trophies {
             assert_eq!(
-                ConvexValue::read_sort_key(&mut &v.sort_key::<true>()[..]).unwrap(),
+                ConvexValue::read_sort_key(&mut &v.sort_key()[..]).unwrap(),
                 v
             );
         }
@@ -563,7 +560,7 @@ mod tests {
         let lv: ConvexValue = l.try_into().unwrap();
         let rv: ConvexValue = r.try_into().unwrap();
 
-        let ord2 = lv.sort_key::<true>().cmp(&rv.sort_key::<true>());
+        let ord2 = lv.sort_key().cmp(&rv.sort_key());
         assert_eq!(ord1, ord2);
     }
 
@@ -572,12 +569,12 @@ mod tests {
 
         #[test]
         fn test_roundtrips(v in any::<ConvexValue>(),) {
-            assert_eq!(ConvexValue::read_sort_key(&mut &v.sort_key::<true>()[..], ).unwrap(), v);
+            assert_eq!(ConvexValue::read_sort_key(&mut &v.sort_key()[..], ).unwrap(), v);
         }
 
         #[test]
         fn test_vector_roundtrips(v in any::<Vec<Option<ConvexValue>>>()) {
-            let bytes = values_to_bytes::<true>(&v);
+            let bytes = values_to_bytes(&v);
             assert_eq!(
                 bytes_to_values(&mut &bytes[..]).unwrap(),
                 v,
@@ -587,13 +584,13 @@ mod tests {
         #[test]
         fn test_integer_roundtrips(v in any::<i64>()) {
             let v = ConvexValue::from(v);
-            assert_eq!(ConvexValue::read_sort_key(&mut &v.sort_key::<true>()[..]).unwrap(), v);
+            assert_eq!(ConvexValue::read_sort_key(&mut &v.sort_key()[..]).unwrap(), v);
         }
 
         #[test]
         fn test_id_roundtrips(v in any::<DeveloperDocumentId>()) {
             let v: ConvexValue = v.into();
-            assert_eq!(ConvexValue::read_sort_key(&mut &v.sort_key::<true>()[..]).unwrap(), v);
+            assert_eq!(ConvexValue::read_sort_key(&mut &v.sort_key()[..]).unwrap(), v);
         }
 
 
@@ -603,7 +600,7 @@ mod tests {
             r in any::<ConvexValue>(),
         ) {
             let ord1 = l.cmp(&r);
-            let ord2 = l.sort_key::<true>().cmp(&r.sort_key::<true>());
+            let ord2 = l.sort_key().cmp(&r.sort_key());
             assert_eq!(ord1, ord2);
         }
 

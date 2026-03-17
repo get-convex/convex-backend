@@ -1359,7 +1359,7 @@ mod cache_tests {
 
     fn interval_gte(value: f64) -> anyhow::Result<Interval> {
         Ok(Interval {
-            start: StartIncluded(values_to_bytes::<false>(&[Some(val!(value))]).into()),
+            start: StartIncluded(values_to_bytes(&[Some(val!(value))]).into()),
             end: End::Unbounded,
         })
     }
@@ -1452,7 +1452,7 @@ mod cache_tests {
             vec![d(key2.clone(), ts2, doc2.clone())]
         );
         // Empty sub-interval also cached.
-        let interval_eq_35 = Interval::prefix(values_to_bytes::<false>(&[Some(val!(35.0))]).into());
+        let interval_eq_35 = Interval::prefix(values_to_bytes(&[Some(val!(35.0))]).into());
         assert_eq!(f.cache.get(index_id, &interval_eq_35, Order::Asc), vec![]);
         // Super-interval partially cached.
         let interval_gt_16 = interval_gte(16.0)?;
@@ -1461,7 +1461,7 @@ mod cache_tests {
             vec![
                 cache_miss(Interval {
                     start: interval_gt_16.start.clone(),
-                    end: End::Excluded(values_to_bytes::<false>(&[Some(val!(18.0))]).into())
+                    end: End::Excluded(values_to_bytes(&[Some(val!(18.0))]).into())
                 }),
                 d(key1.clone(), ts1, doc1.clone()),
                 d(key2.clone(), ts2, doc2.clone()),
@@ -1475,7 +1475,7 @@ mod cache_tests {
                 d(key1, ts1, doc1),
                 cache_miss(Interval {
                     start: interval_gt_16.start.clone(),
-                    end: End::Excluded(values_to_bytes::<false>(&[Some(val!(18.0))]).into())
+                    end: End::Excluded(values_to_bytes(&[Some(val!(18.0))]).into())
                 }),
             ]
         );

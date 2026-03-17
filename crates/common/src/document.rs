@@ -840,10 +840,9 @@ impl PackedDocument {
         out.clear();
         for field_path in fields {
             let value = self.value.as_ref().open_path(field_path);
-            write_sort_key_or_undefined::<_, false>(value, out)
-                .expect("failed to unpack opened value");
+            write_sort_key_or_undefined(value, out).expect("failed to unpack opened value");
         }
-        let Ok(()) = write_sort_key::<_, false>(
+        let Ok(()) = write_sort_key(
             self.id().developer_id.encode_into(&mut Default::default()),
             out,
         );
