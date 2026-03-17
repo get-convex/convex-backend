@@ -21,6 +21,7 @@ use crate::{
         check_system_size,
     },
     utils::display_sequence,
+    walk::ConvexValueType,
     ConvexValue,
 };
 
@@ -47,8 +48,10 @@ impl ConvexArray {
     }
 
     pub fn into_serialized_args(&self) -> anyhow::Result<SerializedArgs> {
-        let serialized = self.json_serialize()?;
-        Ok(SerializedArgs::from_slice(serialized.as_bytes())?)
+        let serialized = serde_json::value::to_raw_value(&crate::json_value::SerializeValue::new(
+            ConvexValueType::<&ConvexValue>::Array(self),
+        ))?;
+        Ok(SerializedArgs::from_raw(serialized))
     }
 }
 
