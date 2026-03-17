@@ -271,12 +271,6 @@ impl DeveloperDocument {
     }
 }
 
-impl HeapSize for DeveloperDocument {
-    fn heap_size(&self) -> usize {
-        self.id.heap_size() + self.value.heap_size()
-    }
-}
-
 impl Debug for DeveloperDocument {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Document({:?})", self.value)
@@ -312,12 +306,6 @@ impl Debug for ResolvedDocument {
 impl Display for ResolvedDocument {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&self.document, f)
-    }
-}
-
-impl HeapSize for ResolvedDocument {
-    fn heap_size(&self) -> usize {
-        self.document.heap_size()
     }
 }
 
@@ -620,12 +608,6 @@ pub struct DocumentUpdateWithPrevTs {
     /// The timestamp will become the update's `prev_ts`.
     pub old_document: Option<(ResolvedDocument, Timestamp)>,
     pub new_document: Option<ResolvedDocument>,
-}
-
-impl HeapSize for DocumentUpdateWithPrevTs {
-    fn heap_size(&self) -> usize {
-        self.old_document.heap_size() + self.new_document.heap_size()
-    }
 }
 
 impl TryFrom<DocumentUpdateWithPrevTs> for DocumentUpdateWithPrevTsProto {

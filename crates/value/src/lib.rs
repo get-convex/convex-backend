@@ -53,7 +53,6 @@ use anyhow::{
     bail,
     Error,
 };
-use heap_size::HeapSize;
 pub use paste::paste;
 pub use sync_types::identifier;
 use walk::ConvexValueWalker;
@@ -374,21 +373,6 @@ impl Size for ConvexValue {
             ConvexValue::Bytes(_) => 0,
             ConvexValue::Array(arr) => arr.nesting(),
             ConvexValue::Object(m) => m.nesting(),
-        }
-    }
-}
-
-impl HeapSize for ConvexValue {
-    fn heap_size(&self) -> usize {
-        match self {
-            ConvexValue::Null => 0,
-            ConvexValue::Int64(_) => 0,
-            ConvexValue::Float64(_) => 0,
-            ConvexValue::Boolean(_) => 0,
-            ConvexValue::String(s) => s.heap_size(),
-            ConvexValue::Bytes(b) => b.heap_size(),
-            ConvexValue::Array(arr) => arr.heap_size(),
-            ConvexValue::Object(m) => m.heap_size(),
         }
     }
 }

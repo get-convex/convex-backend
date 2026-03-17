@@ -16,10 +16,6 @@ use super::size::{
 };
 use crate::{
     field_path::FieldPath,
-    heap_size::{
-        HeapSize,
-        WithHeapSize,
-    },
     size::check_system_size,
     utils::display_map,
     ConvexValue,
@@ -42,7 +38,7 @@ pub struct ConvexObject {
     // Precomputed 1 + max(nesting(v1), ..., nesting(vN))
     nesting: usize,
 
-    fields: WithHeapSize<BTreeMap<FieldName, ConvexValue>>,
+    fields: BTreeMap<FieldName, ConvexValue>,
 }
 
 impl PartialEq for ConvexObject {
@@ -85,7 +81,7 @@ impl TryFrom<BTreeMap<FieldName, ConvexValue>> for ConvexObject {
         Ok(Self {
             size,
             nesting,
-            fields: fields.into(),
+            fields,
         })
     }
 }
@@ -96,7 +92,7 @@ impl ConvexObject {
         Self {
             size: 1 + 1,
             nesting: 1,
-            fields: WithHeapSize::default(),
+            fields: BTreeMap::default(),
         }
     }
 
@@ -198,7 +194,7 @@ impl fmt::Display for ConvexObject {
 
 impl From<ConvexObject> for BTreeMap<FieldName, ConvexValue> {
     fn from(o: ConvexObject) -> Self {
-        o.fields.into()
+        o.fields
     }
 }
 
@@ -346,12 +342,6 @@ impl Deref for ConvexObject {
 
     fn deref(&self) -> &Self::Target {
         &self.fields
-    }
-}
-
-impl HeapSize for ConvexObject {
-    fn heap_size(&self) -> usize {
-        self.fields.heap_size()
     }
 }
 

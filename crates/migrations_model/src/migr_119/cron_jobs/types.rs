@@ -173,12 +173,6 @@ pub struct CronSpec {
     pub cron_schedule: CronSchedule,
 }
 
-impl HeapSize for CronSpec {
-    fn heap_size(&self) -> usize {
-        self.udf_args.heap_size() + self.cron_schedule.heap_size() + self.udf_path.heap_size()
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedCronSpec {

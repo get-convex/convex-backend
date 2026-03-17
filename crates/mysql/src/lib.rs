@@ -47,7 +47,6 @@ use common::{
         ResolvedDocument,
     },
     errors::lease_lost_error,
-    heap_size::HeapSize,
     index::{
         IndexEntry,
         IndexKeyBytes,
@@ -394,7 +393,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             match &update.value {
                 Some(doc) => {
                     anyhow::ensure!(update.id == doc.id_with_table_id());
-                    write_size += doc.heap_size();
+                    write_size += doc.size();
                 },
                 None => {},
             }

@@ -16,8 +16,7 @@ use crate::{
 fn test_value_size() -> anyhow::Result<()> {
     // Feel free to change this, but it's good to be aware of how large our values
     // are.
-    assert_eq!(mem::size_of::<ConvexValue>(), 56);
-    assert_eq!(mem::size_of::<ConvexValue>(), 56);
+    assert_eq!(mem::size_of::<ConvexValue>(), 48);
 
     // Changing the computed size of a value can make stored TableSummary
     // inconsistent, so when changing this you need to also rewrite all
