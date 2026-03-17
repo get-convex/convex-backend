@@ -35,6 +35,23 @@ function filenameFromTitle(title: string, theme: "light" | "dark"): string {
   return `${segments.join("_")}_${theme}.webp`;
 }
 
+/** Run tasks with limited concurrency */
+async function runWithConcurrency<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number,
+): Promise<T[]> {
+  const results: T[] = [];
+  let index = 0;
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]();
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 /** Start the Storybook dev server and wait until it responds, returns { close } */
 async function startStorybookDevServer(
   port: number,
@@ -104,10 +121,6 @@ spinner.succeed(`Found ${docsStories.length} stories`);
 // 3. Launch Playwright (WebKit)
 spinner = ora("Launching Playwright...").start();
 const browser = await webkit.launch();
-const context = await browser.newContext({
-  viewport: { width: 1024, height: 700 },
-  deviceScaleFactor: 2,
-});
 spinner.succeed("Playwright launched");
 
 // Ensure output dir exists
@@ -124,23 +137,49 @@ const results: {
 }[] = [];
 
 // 4. Screenshot each story in light and dark mode
-const totalScreenshots = docsStories.length * 2;
-let screenshotCount = 0;
+const CONCURRENCY = 10; // with 100 MB each per window, uses 1 GB of memory
+const total = docsStories.length * 2;
+let completed = 0;
+const inProgress = new Set<string>();
+const errors: { filename: string; error: unknown }[] = [];
 
-for (const story of docsStories) {
-  for (const theme of ["light", "dark"] as const) {
-    screenshotCount++;
-    const filename = filenameFromTitle(story.title, theme);
-    currentFilenames.add(filename);
-    const outputPath = path.join(OUTPUT_DIR, filename);
+function updateSpinner() {
+  const lines = [`Screenshots: ${completed}/${total}`];
+  for (const f of inProgress) {
+    lines.push(chalk.dim(`  ◌ ${f}`));
+  }
+  spinner.text = lines.join("\n");
+}
 
-    spinner = ora({
-      text: `${filename} (${screenshotCount}/${totalScreenshots})`,
-      prefixText: "",
-    }).start();
+async function captureScreenshot(
+  story: { id: string; title: string; type: string },
+  theme: "light" | "dark",
+): Promise<{
+  filename: string;
+  theme: "light" | "dark";
+  storyTitle: string;
+  status: "created" | "updated" | "unchanged";
+} | null> {
+  const filename = filenameFromTitle(story.title, theme);
+  const outputPath = path.join(OUTPUT_DIR, filename);
+  const url = `http://127.0.0.1:${port}/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story&globals=theme:${theme}`;
 
-    const url = `http://127.0.0.1:${port}/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story&globals=theme:${theme}`;
+  // Read the existing file before any async work so the snapshot is consistent
+  // regardless of what other concurrent tasks write during page navigation.
+  const existingWebp = fs.existsSync(outputPath)
+    ? fs.readFileSync(outputPath)
+    : null;
 
+  inProgress.add(filename);
+  updateSpinner();
+
+  try {
+    // Create a fresh browser context for each screenshot to avoid flaky
+    // rendering caused by shared state between stories.
+    const context = await browser.newContext({
+      viewport: { width: 1024, height: 700 },
+      deviceScaleFactor: 2,
+    });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
@@ -160,7 +199,7 @@ for (const story of docsStories) {
     } else {
       png = await page.screenshot({ fullPage: false });
     }
-    await page.close();
+    await context.close();
 
     const PADDING = 32;
     const pipeline = sharp(png);
@@ -176,27 +215,37 @@ for (const story of docsStories) {
     const webp = await pipeline.webp({ lossless: true }).toBuffer();
 
     let status: "created" | "updated" | "unchanged" = "created";
-    if (fs.existsSync(outputPath)) {
-      const existing = fs.readFileSync(outputPath);
-      const [a, b] = await Promise.all([
-        sharp(existing)
-          .ensureAlpha()
-          .raw()
-          .toBuffer({ resolveWithObject: true }),
-        sharp(webp).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
-      ]);
-      if (a.info.width !== b.info.width || a.info.height !== b.info.height) {
-        status = "updated";
+    if (existingWebp !== null) {
+      if (existingWebp.equals(webp)) {
+        // Fast path: identical bytes means identical image.
+        status = "unchanged";
       } else {
-        const diff = pixelmatch(
-          a.data,
-          b.data,
-          null,
-          a.info.width,
-          a.info.height,
-          { threshold: 0.1 },
-        );
-        status = diff === 0 ? "unchanged" : "updated";
+        // Bytes differ — decode both and do a perceptual comparison to
+        // distinguish real changes from minor rendering non-determinism
+        // (sub-pixel anti-aliasing, font hinting, etc.).
+        const [a, b] = await Promise.all([
+          sharp(existingWebp)
+            .ensureAlpha()
+            .raw()
+            .toBuffer({ resolveWithObject: true }),
+          sharp(webp).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+        ]);
+        if (a.info.width !== b.info.width || a.info.height !== b.info.height) {
+          status = "updated";
+        } else {
+          const diff = pixelmatch(
+            a.data,
+            b.data,
+            null,
+            a.info.width,
+            a.info.height,
+            { threshold: 0.1 },
+          );
+          // Allow up to 0.05% of pixels to differ — handles minor rendering
+          // variations that are invisible to the human eye.
+          const maxDiff = Math.ceil(a.info.width * a.info.height * 0.0005);
+          status = diff <= maxDiff ? "unchanged" : "updated";
+        }
       }
     }
 
@@ -204,16 +253,60 @@ for (const story of docsStories) {
       fs.writeFileSync(outputPath, webp);
     }
 
-    const label = `${filename} (${screenshotCount}/${totalScreenshots})`;
+    inProgress.delete(filename);
+    completed++;
+    spinner.clear();
     if (status === "created") {
-      spinner.succeed(chalk.green(`created: ${label}`));
+      process.stdout.write(
+        chalk.green(`  ✓ ${chalk.white.bgGreen("  Created  ")} ${filename}\n`),
+      );
     } else if (status === "updated") {
-      spinner.warn(chalk.yellow(`updated: ${label}`));
+      process.stdout.write(
+        chalk.blue(`  ✓ ${chalk.white.bgBlue("  Updated  ")} ${filename}\n`),
+      );
     } else {
-      spinner.info(chalk.gray(`unchanged: ${label}`));
+      process.stdout.write(
+        chalk.gray(`  ✓ ${chalk.white.bgGray(" Unchanged ")} ${filename}\n`),
+      );
     }
+    updateSpinner();
+    spinner.render();
 
-    results.push({ filename, theme, storyTitle: story.title, status });
+    return { filename, theme, storyTitle: story.title, status };
+  } catch (error) {
+    inProgress.delete(filename);
+    completed++;
+    spinner.clear();
+    process.stdout.write(chalk.red(`  ✗ failed: ${filename}: ${error}\n`));
+    updateSpinner();
+    spinner.render();
+    errors.push({ filename, error });
+    return null;
+  }
+}
+
+const tasks = docsStories.flatMap((story) =>
+  (["light", "dark"] as const).map(
+    (theme) => () => captureScreenshot(story, theme),
+  ),
+);
+
+spinner = ora(`Screenshots: 0/${total}`).start();
+
+const taskResults = await runWithConcurrency(tasks, CONCURRENCY);
+
+spinner.succeed(`Completed ${total} screenshots`);
+
+for (const result of taskResults) {
+  if (result === null) continue;
+  currentFilenames.add(result.filename);
+  results.push(result);
+}
+
+if (errors.length > 0) {
+  console.error(chalk.red(`\n${errors.length} screenshot(s) failed:`));
+  for (const { filename, error } of errors) {
+    console.error(chalk.red(`  ${filename}: ${error}`));
   }
 }
 
