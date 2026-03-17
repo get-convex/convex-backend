@@ -27,17 +27,21 @@ use application::{
     RedactedMutationError,
 };
 use common::{
+    backoff::Backoff,
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
         ExportPath,
     },
+    errors::report_error,
     fastrace_helpers::get_sampled_span,
     heap_size::HeapSize,
     http::ResolvedHostname,
     knobs::{
         SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY,
         SYNC_MAX_SEND_TRANSITION_COUNT,
+        SYNC_WORKER_RETRY_INITIAL_BACKOFF,
+        SYNC_WORKER_RETRY_MAX_BACKOFF,
     },
     runtime::{
         try_join_buffer_unordered,
@@ -345,7 +349,6 @@ impl<RT: Runtime> SyncWorker<RT> {
         // Starts off as a future that is never ready, as there's no identity that may
         // expire.
         'top: loop {
-            let rt = self.rt.clone();
             self.state.validate()?;
             let maybe_response = select_biased! {
                 message = self.rx.recv().fuse() => {
@@ -432,18 +435,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     .await?;
                 let new_transition_future =
                     self.begin_update_queries(target_ts, subscription_client.clone())?;
-                self.transition_future = Some(
-                    async move {
-                        rt.with_timeout(
-                            "update_queries",
-                            SYNC_WORKER_PROCESS_TIMEOUT,
-                            new_transition_future,
-                        )
-                        .await
-                    }
-                    .boxed()
-                    .fuse(),
-                );
+                self.transition_future = Some(new_transition_future.boxed().fuse());
                 self.update_scheduled = false;
             }
         }
@@ -849,6 +841,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         // Step 4: Refresh subscriptions up to new_ts and run queries which
         // subscriptions are no longer current.
         let api = self.api.clone();
+        let rt = self.rt.clone();
         let need_fetch: Vec<_> = self.state.need_fetch().collect();
         let host = self.host.clone();
         let client_version = self.config.client_version.clone();
@@ -858,6 +851,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 "update_query",
                 need_fetch.into_iter().map(move |query| {
                     let api = api.clone();
+                    let rt = rt.clone();
                     let host = host.clone();
                     let identity_ = identity.clone();
                     let client_version = client_version.clone();
@@ -887,45 +881,69 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // We failed to refresh the subscription or it was invalid to start
                                 // with. Rerun the query.
                                 let caller = FunctionCaller::SyncWorker(client_version);
-                                let ts = ExecuteQueryTimestamp::At(new_ts);
 
                                 // This query run might have been triggered due to invalidation
                                 // of a subscription. The sync worker is effectively the owner
                                 // of the query so we do not want to re-use the original query
                                 // request id.
-                                let request_id = RequestId::new();
-                                let udf_return_result = match query.component_path {
-                                    None => {
-                                        api.execute_public_query(
-                                            &host,
-                                            request_id,
-                                            identity_,
-                                            ExportPath::from(query.udf_path.canonicalize()),
-                                            query.args,
-                                            caller,
-                                            ts,
-                                            query.journal,
-                                        )
-                                        .await
-                                    },
-                                    Some(ref p) => {
-                                        let path = Self::parse_admin_component_path(
-                                            p,
-                                            &query.udf_path,
-                                            &identity_,
-                                        )?;
-                                        api.execute_admin_query(
-                                            &host,
-                                            request_id,
-                                            identity_,
-                                            path,
-                                            query.args,
-                                            caller,
-                                            ts,
-                                            query.journal,
-                                        )
-                                        .await
-                                    },
+                                let mut backoff = Backoff::new(
+                                    *SYNC_WORKER_RETRY_INITIAL_BACKOFF,
+                                    *SYNC_WORKER_RETRY_MAX_BACKOFF,
+                                );
+                                let udf_return_result = loop {
+                                    let request_id = RequestId::new();
+                                    let result = match query.component_path {
+                                        None => {
+                                            api.execute_public_query(
+                                                &host,
+                                                request_id,
+                                                identity_.clone(),
+                                                ExportPath::from(
+                                                    query.udf_path.clone().canonicalize(),
+                                                ),
+                                                query.args.clone(),
+                                                caller.clone(),
+                                                ExecuteQueryTimestamp::At(new_ts),
+                                                query.journal.clone(),
+                                            )
+                                            .await
+                                        },
+                                        Some(ref p) => {
+                                            let path = Self::parse_admin_component_path(
+                                                p,
+                                                &query.udf_path,
+                                                &identity_,
+                                            )?;
+                                            api.execute_admin_query(
+                                                &host,
+                                                request_id,
+                                                identity_.clone(),
+                                                path,
+                                                query.args.clone(),
+                                                caller.clone(),
+                                                ExecuteQueryTimestamp::At(new_ts),
+                                                query.journal.clone(),
+                                            )
+                                            .await
+                                        },
+                                    };
+                                    match result {
+                                        Err(e) if is_retriable_sync_worker_error(&e) => {
+                                            metrics::log_sync_worker_query_retry(partition_id);
+                                            let wait = backoff.fail(&mut rt.rng());
+                                            let err_msg = format!(
+                                                "Failed to run query for deployment {}. Retrying \
+                                                 in {} ms.",
+                                                host.instance_name,
+                                                wait.as_millis()
+                                            );
+                                            tracing::error!(err_msg);
+                                            report_error(&mut e.context(err_msg)).await;
+                                            rt.wait(wait).await;
+                                            continue;
+                                        },
+                                        _ => break result,
+                                    }
                                 };
                                 match udf_return_result {
                                     Err(e) => {
@@ -1060,4 +1078,11 @@ impl<RT: Runtime> SyncWorker<RT> {
         }
         Ok(transition)
     }
+}
+
+fn is_retriable_sync_worker_error(err: &anyhow::Error) -> bool {
+    err.is_misdirected_request()
+        || err.is_operational_internal_server_error()
+        || err.is_overloaded()
+        || err.is_rejected_before_execution()
 }

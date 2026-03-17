@@ -529,6 +529,22 @@ register_convex_histogram!(
     "Length of transition message over server-to-client transit time, from client",
     &["partition_id"]
 );
+register_convex_counter!(
+    SYNC_WORKER_QUERY_RETRY_TOTAL,
+    "Number of times the sync worker retried a query execution",
+    &["partition_id"],
+);
+pub fn log_sync_worker_query_retry(partition_id: u64) {
+    log_counter_with_labels(
+        &SYNC_WORKER_QUERY_RETRY_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
+
 register_convex_histogram!(
     SYNC_QUERY_INVALIDATION_LAG_SECONDS,
     "Time between an invalidating write and a query being rerun",
