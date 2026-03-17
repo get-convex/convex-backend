@@ -161,7 +161,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let arg = assert_obj!(
        "x" => ConvexValue::Float64(1.0)
     );
-    let args: ConvexArray = vec![ConvexValue::Object(arg)].try_into()?;
+    let args = ConvexArray::try_from(vec![ConvexValue::Object(arg)])?.into_serialized_args()?;
     assert_eq!(
         module.cron_specs,
         Some(btreemap!(

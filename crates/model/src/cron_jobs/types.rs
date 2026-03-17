@@ -28,6 +28,7 @@ use serde::{
 };
 use serde_json::Value as JsonValue;
 use sync_types::{
+    types::SerializedArgs,
     CanonicalizedUdfPath,
     UdfPath,
 };
@@ -219,10 +220,16 @@ pub struct CronSpec {
     pub udf_path: CanonicalizedUdfPath,
     #[cfg_attr(
         any(test, feature = "testing"),
-        proptest(strategy = "proptest::arbitrary::any_with::<ConvexArray>((0..4).into())")
+        proptest(strategy = "valid_serialized_args()")
     )]
-    pub udf_args: ConvexArray,
+    pub udf_args: SerializedArgs,
     pub cron_schedule: CronSchedule,
+}
+
+#[cfg(any(test, feature = "testing"))]
+fn valid_serialized_args() -> impl proptest::strategy::Strategy<Value = SerializedArgs> {
+    use proptest::prelude::*;
+    any_with::<ConvexArray>((0..4).into()).prop_map(|a| a.into_serialized_args().unwrap())
 }
 
 impl HeapSize for CronSpec {
@@ -246,7 +253,7 @@ impl TryFrom<CronSpec> for SerializedCronSpec {
     fn try_from(spec: CronSpec) -> anyhow::Result<Self, Self::Error> {
         // Serialize the udf arguments as binary since we restrict what
         // field names can be used in a `Document`'s top-level object.
-        let udf_args_bytes = spec.udf_args.json_serialize()?.into_bytes();
+        let udf_args_bytes = spec.udf_args.into_bytes();
         Ok(Self {
             udf_path: String::from(spec.udf_path),
             udf_args: Some(udf_args_bytes),
@@ -261,11 +268,8 @@ impl TryFrom<SerializedCronSpec> for CronSpec {
     fn try_from(value: SerializedCronSpec) -> anyhow::Result<Self, Self::Error> {
         let udf_path = value.udf_path.parse()?;
         let udf_args = match value.udf_args {
-            Some(b) => {
-                let udf_args_json: JsonValue = serde_json::from_slice(&b)?;
-                udf_args_json.try_into()?
-            },
-            None => ConvexArray::try_from(vec![])?,
+            Some(b) => SerializedArgs::from_slice(&b)?,
+            None => ConvexArray::empty().into_serialized_args()?,
         };
         let cron_schedule = value.cron_schedule.try_into()?;
         Ok(Self {
@@ -498,7 +502,7 @@ impl TryFrom<JsonValue> for CronSpec {
         );
         Ok(Self {
             udf_path: udf_path_canonicalized,
-            udf_args,
+            udf_args: udf_args.into_serialized_args()?,
             cron_schedule: schedule,
         })
     }
@@ -792,11 +796,7 @@ pub struct CronJobLog {
     pub name: CronIdentifier,
     pub ts: Timestamp,
     pub udf_path: CanonicalizedUdfPath,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::arbitrary::any_with::<ConvexArray>((0..4).into())")
-    )]
-    pub udf_args: ConvexArray,
+    pub udf_args: SerializedArgs,
     pub status: CronJobStatus,
     pub log_lines: CronJobLogLines,
     pub execution_time: f64,
@@ -808,7 +808,7 @@ impl TryFrom<CronJobLog> for ConvexObject {
     fn try_from(log: CronJobLog) -> anyhow::Result<Self, Self::Error> {
         // Serialize the udf arguments as binary since we restrict what
         // field names can be used in a `Document`'s top-level object.
-        let udf_args_bytes = log.udf_args.json_serialize()?.into_bytes();
+        let udf_args_bytes = log.udf_args.into_bytes();
 
         obj!(
             "name" => log.name.to_string(),
@@ -850,10 +850,7 @@ impl TryFrom<ConvexObject> for CronJobLog {
             .parse()
             .context(format!("Failed to deserialize udf_path {udf_path}"))?;
         let udf_args = match fields.remove("udfArgs") {
-            Some(ConvexValue::Bytes(b)) => {
-                let udf_args_json: JsonValue = serde_json::from_slice(&b)?;
-                udf_args_json.try_into()?
-            },
+            Some(ConvexValue::Bytes(b)) => SerializedArgs::from_slice(&b)?,
             _ => anyhow::bail!(
                 "Missing or invalid `udfArgs` field for CronJobLog: {:?}",
                 fields

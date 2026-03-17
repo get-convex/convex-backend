@@ -130,6 +130,7 @@ impl Hash for SerializedArgs {
 }
 
 impl SerializedArgs {
+    /// `value` should be a valid serialized `ConvexArray`; this is unchecked
     pub fn from_raw(value: Box<RawValue>) -> Self {
         Self(value)
     }
@@ -149,6 +150,10 @@ impl SerializedArgs {
 
     pub fn get(&self) -> &str {
         self.0.get()
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        <Box<str>>::from(self.0).into_boxed_bytes().into_vec()
     }
 }
 

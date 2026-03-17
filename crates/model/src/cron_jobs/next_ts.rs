@@ -89,7 +89,7 @@ mod tests {
         // Every minute
         let cron_spec = CronSpec {
             udf_path: UdfPath::from_str("test").unwrap().canonicalize(),
-            udf_args: ConvexArray::try_from(vec![]).unwrap(),
+            udf_args: ConvexArray::empty().into_serialized_args().unwrap(),
             cron_schedule: CronSchedule::Interval { seconds: 60 },
         };
 
@@ -111,7 +111,7 @@ mod tests {
         // Every hour on the 5th minute
         let cron_spec = CronSpec {
             udf_path: UdfPath::from_str("test").unwrap().canonicalize(),
-            udf_args: ConvexArray::try_from(vec![]).unwrap(),
+            udf_args: ConvexArray::empty().into_serialized_args().unwrap(),
             cron_schedule: CronSchedule::Hourly { minute_utc: 5 },
         };
 
@@ -129,7 +129,7 @@ mod tests {
         // Every day at 8:30
         let cron_spec = CronSpec {
             udf_path: UdfPath::from_str("test").unwrap().canonicalize(),
-            udf_args: ConvexArray::try_from(vec![]).unwrap(),
+            udf_args: ConvexArray::empty().into_serialized_args().unwrap(),
             cron_schedule: CronSchedule::Daily {
                 hour_utc: 8,
                 minute_utc: 30,
@@ -150,7 +150,7 @@ mod tests {
         // Every Tuesday at 12:30
         let cron_spec = CronSpec {
             udf_path: UdfPath::from_str("test").unwrap().canonicalize(),
-            udf_args: ConvexArray::try_from(vec![]).unwrap(),
+            udf_args: ConvexArray::empty().into_serialized_args().unwrap(),
             cron_schedule: CronSchedule::Weekly {
                 day_of_week: 2,
                 hour_utc: 12,
@@ -172,7 +172,7 @@ mod tests {
         // Every month on the first day at 12:30
         let cron_spec = CronSpec {
             udf_path: UdfPath::from_str("test").unwrap().canonicalize(),
-            udf_args: ConvexArray::try_from(vec![]).unwrap(),
+            udf_args: ConvexArray::empty().into_serialized_args().unwrap(),
             cron_schedule: CronSchedule::Monthly {
                 day: 1,
                 hour_utc: 12,
@@ -196,7 +196,7 @@ mod tests {
         // Every Monday and Friday at 12:00
         let mut cron_spec = CronSpec {
             udf_path: UdfPath::from_str("test").unwrap().canonicalize(),
-            udf_args: ConvexArray::try_from(vec![]).unwrap(),
+            udf_args: ConvexArray::empty().into_serialized_args().unwrap(),
             cron_schedule: CronSchedule::Cron {
                 cron_expr: "0 12 * * 1,5".to_string(),
             },
@@ -213,7 +213,7 @@ mod tests {
         // Invalid cron, 7 is not a day of the week
         cron_spec = CronSpec {
             udf_path: UdfPath::from_str("test").unwrap().canonicalize(),
-            udf_args: ConvexArray::try_from(vec![]).unwrap(),
+            udf_args: ConvexArray::empty().into_serialized_args().unwrap(),
             cron_schedule: CronSchedule::Cron {
                 cron_expr: "0 12 * * 7".to_string(),
             },
