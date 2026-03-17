@@ -15,6 +15,15 @@ const config: StorybookConfig = {
     "@storybook/addon-a11y",
     "@storybook/addon-vitest",
   ],
+  staticDirs: [
+    {
+      from: path.resolve(
+        import.meta.dirname,
+        "../../@convex-dev/design-system/node_modules/@fontsource-variable/inter/files",
+      ),
+      to: "/assets/files",
+    },
+  ],
   framework: {
     name: "@storybook/nextjs-vite",
     options: {
