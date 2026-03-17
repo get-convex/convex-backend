@@ -68,9 +68,7 @@ pub fn persistence_seed<RT: Runtime>(
             db_spec: db_spec.to_owned(),
         }),
         DbDriverTag::Postgres(version)
-        | DbDriverTag::PostgresMultiSchema(version)
         | DbDriverTag::PostgresMultitenant(version)
-        | DbDriverTag::PostgresAwsIam(version)
         | DbDriverTag::MySql(version)
         | DbDriverTag::MySqlAwsIam(version)
         | DbDriverTag::MySqlMultitenant(version) => {
