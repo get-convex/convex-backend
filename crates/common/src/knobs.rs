@@ -1400,6 +1400,16 @@ pub static USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL: LazyLock<usize> =
 /// MAX_BACKEND_RPC_REQUEST_SIZE,
 pub static USHER_MAX_JSON_ARGS_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("USHER_MAX_JSON_ARGS_SIZE", 30 * 1024 * 1024)); // 30MB
+                                                                                //
+/// Usher cache for service discovery lookups (partition -> address)
+pub static USHER_SERVICE_CACHE_MAX_ENTRIES: LazyLock<u64> =
+    LazyLock::new(|| env_config("USHER_SERVICE_CACHE_MAX_ENTRIES", 1000));
+
+/// Usher cache for instance -> partition lookups.
+/// Arbitrarily chosen cache size. From metrics, a single Usher processes
+/// requests for about 250 unique instances in a 10 minute period.
+pub static USHER_PARTITION_CACHE_MAX_ENTRIES: LazyLock<u64> =
+    LazyLock::new(|| env_config("USHER_PARTITION_CACHE_MAX_ENTRIES", 1000));
 
 /// Initial backoff duration when retrying a query in the sync worker.
 pub static SYNC_WORKER_RETRY_INITIAL_BACKOFF: LazyLock<Duration> = LazyLock::new(|| {
