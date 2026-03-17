@@ -12,6 +12,8 @@ common = { workspace = true }
 errors = { workspace = true }
 futures = { workspace = true }
 humansize = { workspace = true }
+memory-stats = { workspace = true }
+metrics = { workspace = true }
 parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

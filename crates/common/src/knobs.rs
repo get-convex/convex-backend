@@ -98,11 +98,7 @@ pub static UDF_METRICS_SIGNIFICANT_FIGURES: LazyLock<u8> =
 pub static UDF_ANALYTICS_POLL_TIME: LazyLock<u64> =
     LazyLock::new(|| env_config("UDF_ANALYTICS_POLL_TIME", 60));
 
-/// Enables the heap worker memory report.
-pub static HEAP_WORKER_PRINT_REPORT: LazyLock<bool> =
-    LazyLock::new(|| env_config("HEAP_WORKER_PRINT_REPORT", false));
-
-/// How often the heap worker prints a report, if enabled.
+/// How often the heap worker reports metrics.
 pub static HEAP_WORKER_REPORT_INTERVAL_SECONDS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("HEAP_WORKER_REPORT_INTERVAL_SECONDS", 30)));
 

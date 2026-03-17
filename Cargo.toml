@@ -128,6 +128,7 @@ lru = "0.16.0"
 lz4_flex = "0.12"
 maplit = "1"
 memchr = "2.7"
+memory-stats = "1"
 metrics = { path = "crates/metrics" }
 migrations_model = { path = "crates/migrations_model" }
 mime = "0.3"
