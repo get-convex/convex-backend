@@ -6,6 +6,8 @@ description:
   "Manage team settings, members, billing, and access control in Convex"
 ---
 
+import { Screenshot } from "@site/src/components/Screenshot";
+
 In Convex, your projects are organized by team. Teams are used to share access
 to your projects with other people. You may switch between teams or create a new
 team by clicking on the name of your team located on the top of the Convex
@@ -26,7 +28,7 @@ You may also delete the team from this page. You can only delete a team after
 deleting all of it's projects, and removing all other team members from your
 team. Deleting your team will automatically cancel your Convex subscription.
 
-![General team settings page](/screenshots/teams_general.png)
+<Screenshot story="docs/pages/TeamSettings" alt="General team settings page" />
 
 ## Team Members
 
@@ -34,7 +36,7 @@ Use the
 [members settings page](https://dashboard.convex.dev/team/settings/members) to
 invite or remove members from your team.
 
-![Team members page](/screenshots/teams_members.png)
+<Screenshot story="docs/pages/TeamMembers" alt="Team members page" />
 
 ### Roles and permissions
 
@@ -89,7 +91,7 @@ If you are a Project Admin for a given project, you may:
 You may assign and remove the Project Admin role for multiple projects at the
 same time on the member settings page. To assign or remove the Project Admin
 role for multiple members at the same time, visit the
-[Project Settings](/dashboard/projects.md#project-settings) page instead.
+[Project Settings](/dashboard/projects.mdx#project-settings) page instead.
 
 ## Billing
 
@@ -117,7 +119,7 @@ your team on the
   to run functions in your projects. You can re-enable projects by increasing or
   removing the limit.
 
-Spending limits only apply to the resources used by your team’s projects beyond
+Spending limits only apply to the resources used by your team's projects beyond
 the amounts included in your plan. The seat fees (the amount paid for each
 developer in your team) are not counted towards the limits. For instance, if you
 send the spending limit to $0/month, you will be billed for the seat fees only

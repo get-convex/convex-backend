@@ -5,6 +5,8 @@ sidebar_position: 10
 description: "Create and manage Convex projects, settings, and deployments"
 ---
 
+import { Screenshot } from "@site/src/components/Screenshot";
+
 ![Project settings](/screenshots/projects.png)
 
 A project corresponds to a codebase that uses Convex, which contains a
@@ -31,9 +33,9 @@ you can:
 
 - Update your project's name and slug.
 - Manage the project's Admins. See
-  [Roles and Permissions](/dashboard/teams/teams.md#roles-and-permissions) for
+  [Roles and Permissions](/dashboard/teams/teams.mdx#roles-and-permissions) for
   more details.
-- View the amount of [usage metrics](/dashboard/teams/teams.md#usage) your
+- View the amount of [usage metrics](/dashboard/teams/teams.mdx#usage) your
   project has consumed.
 - Manage [custom domains](/production/hosting/custom.mdx#custom-domains) for
   your production deployment (in Deployment Settings).
@@ -45,7 +47,7 @@ you can:
   your `CONVEX_DEPLOYMENT` config.
 - Permanently delete the project.
 
-![Project settings](/screenshots/project_settings.png)
+<Screenshot story="docs/pages/project/ProjectSettings" alt="Project settings" />
 
 ## Deleting projects
 
