@@ -418,18 +418,23 @@ export async function selectDevDeploymentType(
   });
   return { devDeployment };
 }
+
+export function logNoDefaultRegionMessage(teamSlug: string) {
+  const noDefaultRegionMessage = chalkStderr.gray(
+    `Tip: you can configure a default region for your team at ${chalkStderr.underline(`https://dashboard.convex.dev/t/${teamSlug}/settings`)}`,
+  );
+  logMessage(noDefaultRegionMessage);
+}
+
 export async function selectRegionOrUseDefault(
   ctx: Context,
   selectedTeam: TeamResponse,
   deploymentType: CloudDeploymentType,
 ) {
-  const noDefaultRegionMessage = chalkStderr.gray(
-    `Tip: you can configure a default region for your team at ${chalkStderr.underline(`https://dashboard.convex.dev/t/${selectedTeam.slug}/settings`)}`,
-  );
   if (!process.stdin.isTTY) {
     // Use the team default in non-interactive terminals
     if (!selectedTeam.defaultRegion) {
-      logMessage(noDefaultRegionMessage);
+      logNoDefaultRegionMessage(selectedTeam.slug);
     }
     return selectedTeam.defaultRegion ?? null;
   }
@@ -437,7 +442,8 @@ export async function selectRegionOrUseDefault(
     selectedTeam.defaultRegion ??
     (await selectRegion(ctx, selectedTeam.id, deploymentType));
   if (!selectedTeam.defaultRegion) {
-    logMessage(noDefaultRegionMessage);
+    // Log after the user chooses a region
+    logNoDefaultRegionMessage(selectedTeam.slug);
   }
   return selectedRegionName;
 }
@@ -446,7 +452,7 @@ export async function selectRegion(
   ctx: Context,
   teamId: number,
   deploymentType: CloudDeploymentType,
-): Promise<string | null> {
+): Promise<string> {
   const regionsResponse = (
     await typedPlatformClient(ctx).GET(
       "/teams/{team_id}/list_deployment_regions",

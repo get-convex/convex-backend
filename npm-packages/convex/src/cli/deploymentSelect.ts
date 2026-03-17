@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import { oneoffContext } from "../bundler/context.js";
+import { Context, oneoffContext } from "../bundler/context.js";
 import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import {
   getDeploymentSelection,
@@ -24,80 +24,86 @@ export const deploymentSelect = new Command("select")
   )
   .argument("<deployment>", "The deployment to use")
   .allowExcessArguments(false)
-  .action(async (selector, options) => {
+  .action(async (selector) => {
     const ctx = await oneoffContext({
       url: undefined,
       adminKey: undefined,
       envFile: undefined,
     });
-
-    // Get the current deployment selection (no flags, just env/config state)
-    const currentSelection = await getDeploymentSelection(ctx, options);
-
-    // If no project is configured and the selector needs project context, show a specific error
-    const parsed = parseDeploymentSelector(selector);
-    if (
-      currentSelection.kind === "chooseProject" &&
-      parsed.kind !== "refInOtherTeam" &&
-      parsed.kind !== "deploymentName"
-    ) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `No project configured. Run \`npx convex dev\` to set up a project first, or use a full selector like 'my-team:my-project:dev/james' or 'happy-capybara-123'.`,
-      });
-    }
-
-    // Resolve the new deployment using the selector relative to the current project
-    const newSelection = await getDeploymentSelection(ctx, {
-      url: undefined,
-      adminKey: undefined,
-      envFile: undefined,
-      deployment: selector,
-    });
-
-    const deployment = await loadSelectedDeploymentCredentials(
-      ctx,
-      newSelection,
-      {
-        ensureLocalRunning: false,
-      },
-    );
-
-    if (deployment.deploymentFields === null) {
-      // Should be unreachable since for now, `select` only allows users
-      // to select deployments that exist in Big Brain
-      return ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: null,
-        errForSentry: `Unexpected selection in select: ${JSON.stringify(deployment)}`,
-      });
-    }
-
-    if (deployment.deploymentFields.deploymentType === "prod") {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `Selecting a production deployment is unsupported. To run commands on a production deployment, pass the ${chalkStderr.bold(`--deployment ${selector}`)} flag to each command.`,
-      });
-    }
-
-    const siteUrl = await fetchDeploymentCanonicalSiteUrl(ctx, {
-      adminKey: deployment.adminKey,
-      deploymentUrl: deployment.url,
-    });
-
-    await updateEnvAndConfigForDeploymentSelection(
-      ctx,
-      {
-        url: deployment.url,
-        siteUrl,
-        deploymentName: deployment.deploymentFields.deploymentName,
-        teamSlug: deployment.deploymentFields.teamSlug,
-        projectSlug: deployment.deploymentFields.projectSlug,
-        deploymentType: deployment.deploymentFields.deploymentType,
-      },
-      deploymentNameFromSelection(currentSelection),
-    );
+    await selectDeployment(ctx, selector);
   });
+
+export async function selectDeployment(
+  ctx: Context,
+  selector: string,
+): Promise<void> {
+  // Get the current deployment selection (no flags, just env/config state)
+  const currentSelection = await getDeploymentSelection(ctx, {});
+
+  // If no project is configured and the selector needs project context, show a specific error
+  const parsed = parseDeploymentSelector(selector);
+  if (
+    currentSelection.kind === "chooseProject" &&
+    parsed.kind !== "refInOtherTeam" &&
+    parsed.kind !== "deploymentName"
+  ) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `No project configured. Run \`npx convex dev\` to set up a project first, or use a full selector like 'my-team:my-project:dev/james' or 'happy-capybara-123'.`,
+    });
+  }
+
+  // Resolve the new deployment using the selector relative to the current project
+  const newSelection = await getDeploymentSelection(ctx, {
+    url: undefined,
+    adminKey: undefined,
+    envFile: undefined,
+    deployment: selector,
+  });
+
+  const deployment = await loadSelectedDeploymentCredentials(
+    ctx,
+    newSelection,
+    {
+      ensureLocalRunning: false,
+    },
+  );
+
+  if (deployment.deploymentFields === null) {
+    // Should be unreachable since for now, `select` only allows users
+    // to select deployments that exist in Big Brain
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: null,
+      errForSentry: `Unexpected selection in select: ${JSON.stringify(deployment)}`,
+    });
+  }
+
+  if (deployment.deploymentFields.deploymentType === "prod") {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Selecting a production deployment is unsupported. To run commands on a production deployment, pass the ${chalkStderr.bold(`--deployment ${selector}`)} flag to each command.`,
+    });
+  }
+
+  const siteUrl = await fetchDeploymentCanonicalSiteUrl(ctx, {
+    adminKey: deployment.adminKey,
+    deploymentUrl: deployment.url,
+  });
+
+  await updateEnvAndConfigForDeploymentSelection(
+    ctx,
+    {
+      url: deployment.url,
+      siteUrl,
+      deploymentName: deployment.deploymentFields.deploymentName,
+      teamSlug: deployment.deploymentFields.teamSlug,
+      projectSlug: deployment.deploymentFields.projectSlug,
+      deploymentType: deployment.deploymentFields.deploymentType,
+    },
+    deploymentNameFromSelection(currentSelection),
+  );
+}

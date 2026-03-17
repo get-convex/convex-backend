@@ -1,3 +1,4 @@
+import { PlatformProjectDetails } from "@convex-dev/platform/managementApi";
 import { BigBrainAuth, Context } from "../../bundler/context.js";
 import { logVerbose } from "../../bundler/log.js";
 import {
@@ -30,6 +31,7 @@ import {
   ENV_VAR_FILE_PATH,
   bigBrainAPI,
   processDeployKeyValue,
+  typedPlatformClient,
 } from "./utils/utils.js";
 import * as dotenv from "dotenv";
 
@@ -741,3 +743,54 @@ export const shouldAllowAnonymousDevelopment = (): boolean => {
   }
   return true;
 };
+
+/**
+ * Fetch the project details corresponding to the given ProjectSelection.
+ */
+export async function getProjectDetails(
+  ctx: Context,
+  projectSelection: ProjectSelection,
+): Promise<PlatformProjectDetails> {
+  switch (projectSelection.kind) {
+    case "deploymentName": {
+      const deployment = (
+        await typedPlatformClient(ctx).GET("/deployments/{deployment_name}", {
+          params: {
+            path: { deployment_name: projectSelection.deploymentName },
+          },
+        })
+      ).data!;
+      return (
+        await typedPlatformClient(ctx).GET("/projects/{project_id}", {
+          params: { path: { project_id: deployment.projectId } },
+        })
+      ).data!;
+    }
+    case "teamAndProjectSlugs": {
+      return (
+        await typedPlatformClient(ctx).GET(
+          "/teams/{team_id_or_slug}/projects/{project_slug}",
+          {
+            params: {
+              path: {
+                team_id_or_slug: projectSelection.teamSlug,
+                project_slug: projectSelection.projectSlug,
+              },
+            },
+          },
+        )
+      ).data!;
+    }
+    case "projectDeployKey": {
+      const result = await fetchTeamAndProjectForKey(
+        ctx,
+        projectSelection.projectDeployKey,
+      );
+      return (
+        await typedPlatformClient(ctx).GET("/projects/{project_id}", {
+          params: { path: { project_id: result.projectId } },
+        })
+      ).data!;
+    }
+  }
+}
