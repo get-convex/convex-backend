@@ -32,7 +32,10 @@ import {
   useListInvoices,
   useGetSpendingLimits,
 } from "../../dashboard/src/api/billing";
-import { useDeployments } from "../../dashboard/src/api/deployments";
+import {
+  useDeployments,
+  useCurrentDeployment,
+} from "../../dashboard/src/api/deployments";
 import { useTeamUsageState } from "../../dashboard/src/api/usage";
 
 const MOCK_PROFILE_PICTURE_URL =
@@ -242,7 +245,11 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     isLoading: false,
     optInsWithMessageToAccept: [],
   });
-  mocked(useLaunchDarkly).mockReturnValue(flagDefaults);
+  mocked(useLaunchDarkly).mockReturnValue({
+    ...flagDefaults,
+    enableStatuspageWidget: false,
+  });
+  mocked(useCurrentDeployment).mockReturnValue(undefined);
 
   return <DocsShell>{storyFn()}</DocsShell>;
 };
