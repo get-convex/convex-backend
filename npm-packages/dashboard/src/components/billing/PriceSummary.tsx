@@ -91,6 +91,15 @@ export function PriceSummary({
           .
         </p>
       )}
+      <Callout variant="instructions" className="mt-2 text-xs">
+        <p>
+          <span className="font-semibold">
+            Included limits apply to US region only.
+          </span>{" "}
+          All usage on EU-hosted deployments is billed on-demand at plan rates,
+          plus a 30% regional surcharge.
+        </p>
+      </Callout>
     </div>
   );
 }

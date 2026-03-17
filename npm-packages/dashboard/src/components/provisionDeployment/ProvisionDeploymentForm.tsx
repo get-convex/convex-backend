@@ -222,6 +222,12 @@ export function ProvisionDeploymentFormInner({
                       ))}
                 </div>
               </RadioGroup>
+              {selectedRegion && selectedRegion !== "aws-us-east-1" && (
+                <p className="mt-2 text-xs text-content-warning">
+                  No included limits — all usage billed on-demand + 30% regional
+                  surcharge
+                </p>
+              )}
             </Fieldset>
 
             <Tooltip

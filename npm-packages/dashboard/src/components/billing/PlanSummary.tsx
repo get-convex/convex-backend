@@ -3,6 +3,7 @@ import { Sheet } from "@ui/Sheet";
 import { Tooltip } from "@ui/Tooltip";
 import { Loading } from "@ui/Loading";
 import { Spinner } from "@ui/Spinner";
+import { Callout } from "@ui/Callout";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { UsageSummary } from "hooks/usageMetrics";
 import { ReactNode } from "react";
@@ -11,6 +12,7 @@ import {
   QuestionMarkCircledIcon,
   CrossCircledIcon,
   ChevronRightIcon,
+  InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
@@ -206,113 +208,145 @@ export function PlanSummaryForTeam({
   hasFilter,
   error,
 }: PlanSummaryForTeamProps) {
+  const hasEuDeployments = teamSummary?.some(
+    (s) => s.region !== "aws-us-east-1",
+  );
+
   return (
-    <Sheet
-      className="animate-fadeInFromLoading overflow-hidden"
-      padding={false}
-    >
-      <div className="flex flex-col gap-1 overflow-x-clip">
-        <div
-          className={cn(
-            "grid items-center gap-2 rounded-t border-b px-4 py-2 text-sm text-content-secondary",
-            hasSubscription
-              ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
-              : "grid-cols-[5fr_4fr_auto]",
-          )}
-        >
-          <div>Resource</div>
-          <div>
+    <>
+      {hasEuDeployments && (
+        <Callout variant="instructions" className="flex items-start gap-2">
+          <InfoCircledIcon className="mt-0.5 size-4 shrink-0" />
+          <p>
             {hasSubscription ? (
+              <>
+                <span className="font-semibold">
+                  EU region usage is billed on-demand.
+                </span>{" "}
+                Included plan limits only apply to US-hosted deployments. All
+                usage on EU deployments is charged at on-demand rates, plus a
+                30% regional surcharge.
+              </>
+            ) : (
+              <>
+                <span className="font-semibold">
+                  EU region usage has no included limits on paid plans.
+                </span>{" "}
+                If you upgrade, included plan limits will only apply to
+                US-hosted deployments. EU deployment usage will be billed
+                on-demand at plan rates, plus a 30% regional surcharge.
+              </>
+            )}
+          </p>
+        </Callout>
+      )}
+      <Sheet
+        className="animate-fadeInFromLoading overflow-hidden"
+        padding={false}
+      >
+        <div className="flex flex-col gap-1 overflow-x-clip">
+          <div
+            className={cn(
+              "grid items-center gap-2 rounded-t border-b px-4 py-2 text-sm text-content-secondary",
+              hasSubscription
+                ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
+                : "grid-cols-[5fr_4fr_auto]",
+            )}
+          >
+            <div>Resource</div>
+            <div>
+              {hasSubscription ? (
+                <div className="flex items-center gap-1">
+                  Included{" "}
+                  <Tooltip
+                    tip="The amount of usage used within the included limits of your plan. Built-in usage limits are only applied to deployments hosted in the US region."
+                    side="right"
+                    className="hidden sm:block"
+                  >
+                    <QuestionMarkCircledIcon />
+                  </Tooltip>
+                </div>
+              ) : (
+                "Usage"
+              )}
+            </div>
+            {hasSubscription && (
               <div className="flex items-center gap-1">
-                Included{" "}
+                On-demand{" "}
                 <Tooltip
-                  tip="The amount of usage used within the included limits of your plan. Built-in usage limits are only applied to deployments hosted in the US region."
+                  tip="Usage beyond your plan's included limits, plus all usage from EU-hosted deployments. On-demand usage is charged at your plan's per-unit rates."
                   side="right"
                   className="hidden sm:block"
                 >
                   <QuestionMarkCircledIcon />
                 </Tooltip>
               </div>
-            ) : (
-              "Usage"
             )}
-          </div>
-          {hasSubscription && (
-            <div className="flex items-center gap-1">
-              On-demand{" "}
-              <Tooltip
-                tip="The amount of usage used in addition to the included amount. On-demand usage incurs a surcharge based on the pricing of your plan."
-                side="right"
-                className="hidden sm:block"
-              >
-                <QuestionMarkCircledIcon />
-              </Tooltip>
-            </div>
-          )}
-          <span className="invisible flex items-center gap-1 text-xs">
-            <span className="hidden whitespace-nowrap sm:inline">
-              View breakdown by day
+            <span className="invisible flex items-center gap-1 text-xs">
+              <span className="hidden whitespace-nowrap sm:inline">
+                View breakdown by day
+              </span>
+              <ChevronRightIcon className="size-4" />
             </span>
-            <ChevronRightIcon className="size-4" />
-          </span>
-        </div>
-        {error ? (
-          <PlanSummaryError />
-        ) : !teamSummary ? (
-          <PlanSummaryLoading />
-        ) : (
-          sections.map((section, index) => {
-            let metric: number | undefined;
-            let primaryRegionMetric: number | undefined;
+          </div>
+          {error ? (
+            <PlanSummaryError />
+          ) : !teamSummary ? (
+            <PlanSummaryLoading />
+          ) : (
+            sections.map((section, index) => {
+              let metric: number | undefined;
+              let primaryRegionMetric: number | undefined;
 
-            if (section.metric === "chefTokens") {
-              metric = chefTokenUsage
-                ? chefTokenUsage.centitokensUsed / 100
-                : undefined;
-              primaryRegionMetric = metric; // Chef tokens are not region-specific
-            } else if (section.metric === "deploymentCount") {
-              metric = deploymentCount;
-              primaryRegionMetric = deploymentCount; // Deployment count is not region-specific
-            } else {
-              const aggregated = aggregateRegionalMetric(
-                teamSummary,
-                section.metric,
+              if (section.metric === "chefTokens") {
+                metric = chefTokenUsage
+                  ? chefTokenUsage.centitokensUsed / 100
+                  : undefined;
+                primaryRegionMetric = metric; // Chef tokens are not region-specific
+              } else if (section.metric === "deploymentCount") {
+                metric = deploymentCount;
+                primaryRegionMetric = deploymentCount; // Deployment count is not region-specific
+              } else {
+                const aggregated = aggregateRegionalMetric(
+                  teamSummary,
+                  section.metric,
+                );
+                metric = aggregated?.total;
+                primaryRegionMetric = aggregated?.primaryRegion;
+              }
+
+              return (
+                <UsageSection
+                  key={index}
+                  metric={metric}
+                  primaryRegionMetric={primaryRegionMetric}
+                  entitlement={
+                    section.metric === "chefTokens"
+                      ? chefTokenUsage
+                        ? chefTokenUsage.centitokensQuota / 100
+                        : undefined
+                      : entitlements
+                        ? (entitlements[section.entitlement] ?? 0)
+                        : undefined
+                  }
+                  isNotSubjectToFilter={
+                    section.metric === "chefTokens" && hasFilter
+                  }
+                  hasSubscription={hasSubscription}
+                  metricName={section.metric}
+                  format={section.format}
+                  detail={section.detail}
+                  title={section.title}
+                  suffix={section.suffix}
+                  showEntitlements={showEntitlements}
+                  noOnDemand={section.noOnDemand}
+                />
               );
-              metric = aggregated?.total;
-              primaryRegionMetric = aggregated?.primaryRegion;
-            }
-
-            return (
-              <UsageSection
-                key={index}
-                metric={metric}
-                primaryRegionMetric={primaryRegionMetric}
-                entitlement={
-                  section.metric === "chefTokens"
-                    ? chefTokenUsage
-                      ? chefTokenUsage.centitokensQuota / 100
-                      : undefined
-                    : entitlements
-                      ? (entitlements[section.entitlement] ?? 0)
-                      : undefined
-                }
-                isNotSubjectToFilter={
-                  section.metric === "chefTokens" && hasFilter
-                }
-                hasSubscription={hasSubscription}
-                metricName={section.metric}
-                format={section.format}
-                detail={section.detail}
-                title={section.title}
-                suffix={section.suffix}
-                showEntitlements={showEntitlements}
-                noOnDemand={section.noOnDemand}
-              />
-            );
-          })
-        )}
-      </div>
-    </Sheet>
+            })
+          )}
+        </div>
+      </Sheet>
+    </>
   );
 }
 
