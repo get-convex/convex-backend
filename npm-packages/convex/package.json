@@ -191,6 +191,7 @@
     "format": "prettier -w . '!CHANGELOG.md' && eslint --fix .",
     "format-check": "prettier -c . '!CHANGELOG.md' && eslint . --cache",
     "prepare": "npm run build",
+    "prepublishOnly": "node scripts/version-check.mjs",
     "prepack": "node scripts/prepack.mjs",
     "postpack": "node scripts/postpack.mjs",
     "test": "vitest --silent",
