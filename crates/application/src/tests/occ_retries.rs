@@ -67,14 +67,15 @@ async fn test_occ_fails(rt: TestRuntime, pause: PauseController) -> anyhow::Resu
 
     let fut2 = async {
         let mut hold_guard = hold_guard;
-        for _i in 0..MAX_OCC_FAILURES {
+        for i in 0..MAX_OCC_FAILURES {
             let guard = hold_guard
                 .wait_for_blocked()
                 .await
                 .context("Didn't hit breakpoint?")?;
             hold_guard = pause.hold("retry_tx_loop_start");
             let mut tx = application.begin(identity.clone()).await?;
-            test_replace_tx(&mut tx, id, "value2".try_into()?).await?;
+            let conflict_value: ConvexValue = format!("conflict{i}").try_into()?;
+            test_replace_tx(&mut tx, id, conflict_value).await?;
             application.commit_test(tx).await?;
             guard.unpause();
         }
@@ -111,7 +112,7 @@ async fn test_occ_succeeds(rt: TestRuntime, pause: PauseController) -> anyhow::R
             hold_guard = pause.hold("retry_tx_loop_start");
             if i < MAX_OCC_FAILURES - 1 {
                 let mut tx = application.begin(identity.clone()).await?;
-                test_replace_tx(&mut tx, id, "value2".try_into()?).await?;
+                test_replace_tx(&mut tx, id, format!("conflict{i}").try_into()?).await?;
                 application.commit_test(tx).await?;
             }
             guard.unpause();

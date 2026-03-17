@@ -578,6 +578,9 @@ impl<RT: Runtime> Transaction<RT> {
             let patched_value = value.apply(old_document.value().clone().into_value())?;
             old_document.replace_value(patched_value)?
         };
+        if new_document == old_document {
+            return Ok(new_document);
+        }
         SchemaModel::new(self, namespace)
             .enforce(&new_document)
             .await?;
@@ -612,6 +615,9 @@ impl<RT: Runtime> Transaction<RT> {
 
         // Replace document.
         let new_document = old_document.replace_value(value)?;
+        if new_document == old_document {
+            return Ok(new_document);
+        }
 
         SchemaModel::new(self, namespace)
             .enforce(&new_document)

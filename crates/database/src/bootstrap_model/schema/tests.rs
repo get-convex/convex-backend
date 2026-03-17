@@ -473,6 +473,7 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     // failed and succeed
     let mut model = SchemaModel::new_root_for_test(&mut tx);
     let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
+    let bad_object = assert_obj!("name" => "alex", "age" => "24");
     UserFacingModel::new_root_for_test(&mut tx)
         .patch(id, bad_object.into())
         .await?;
