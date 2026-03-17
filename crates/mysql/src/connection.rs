@@ -327,7 +327,7 @@ impl<RT: Runtime> MySqlConnection<'_, RT> {
             .await?
         };
         if let Some(row) = &row {
-            log_query_result(row, self.labels.clone());
+            log_query_result(self.labels.clone()).add_row(row);
         }
         Ok(row)
     }
@@ -387,9 +387,10 @@ impl<RT: Runtime> MySqlConnection<'_, RT> {
     ) -> anyhow::Result<Vec<R>> {
         let mut result = vec![];
         pin_mut!(stream);
+        let mut stats = log_query_result(labels);
         while let Some(row) = with_timeout(stream.try_next()).await? {
             progress_counter.add_processed(1);
-            log_query_result(&row, labels.clone());
+            stats.add_row(&row);
             // `f` may be computationally intensive, and
             // `stream.try_next().await` might not yield to tokio if the rows
             // are all available at once. Avoid long poll times by intentionally

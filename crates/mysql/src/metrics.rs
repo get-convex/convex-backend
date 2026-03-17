@@ -459,18 +459,42 @@ register_convex_counter!(
     &["name", "cluster_name"]
 );
 
-pub fn log_query_result(row: &Row, labels: Vec<StaticMetricLabel>) {
-    log_counter_with_labels(&MYSQL_QUERY_RESULT_TOTAL, 1, labels.clone());
-    let mut total_data_size = 0;
-    for i in 0..row.len() {
-        // Only counts size from BLOBs because the interface doesn't allow
-        // generic parsing. All JsonValues are BLOBs though so this is almost
-        // everything.
-        if let Some(Value::Bytes(col)) = row.as_ref(i) {
-            total_data_size += col.len();
+pub fn log_query_result(labels: Vec<StaticMetricLabel>) -> LogQueryResult {
+    LogQueryResult {
+        labels,
+        rows: 0,
+        data_size: 0,
+    }
+}
+
+pub struct LogQueryResult {
+    labels: Vec<StaticMetricLabel>,
+    rows: u64,
+    data_size: u64,
+}
+
+impl LogQueryResult {
+    pub fn add_row(&mut self, row: &Row) {
+        self.rows += 1;
+        for i in 0..row.len() {
+            // Only counts size from BLOBs because the interface doesn't allow
+            // generic parsing. All JsonValues are BLOBs though so this is almost
+            // everything.
+            if let Some(Value::Bytes(col)) = row.as_ref(i) {
+                self.data_size += col.len() as u64;
+            }
         }
     }
-    log_counter_with_labels(&MYSQL_QUERY_RESULT_BYTES, total_data_size as u64, labels);
+}
+impl Drop for LogQueryResult {
+    fn drop(&mut self) {
+        log_counter_with_labels(&MYSQL_QUERY_RESULT_TOTAL, self.rows, self.labels.clone());
+        log_counter_with_labels(
+            &MYSQL_QUERY_RESULT_BYTES,
+            self.data_size,
+            self.labels.clone(),
+        );
+    }
 }
 
 register_convex_counter!(
