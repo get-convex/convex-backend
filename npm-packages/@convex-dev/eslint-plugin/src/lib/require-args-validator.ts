@@ -71,8 +71,7 @@ function createArgsFix(
   objectArg: TSESTree.ObjectExpression,
 ): ReportFixFunction {
   return (fixer) => {
-    const sourceCode = context.getSourceCode();
-    const objectText = sourceCode.getText(objectArg);
+    const objectText = context.sourceCode.getText(objectArg);
     const firstBracePos = objectText.indexOf("{");
 
     if (firstBracePos === -1) return null;
@@ -125,7 +124,7 @@ export const requireArgsValidator = createRule<Options, MessageIds>({
   create: (context, options) => {
     const { ignoreUnusedArguments } = options[0];
 
-    const filename = context.getFilename();
+    const { filename } = context;
 
     // Generated files don’t define functions, so we skip them to avoid unnecessary work
     const isGenerated = filename.includes("_generated");
@@ -181,11 +180,9 @@ export const requireArgsValidator = createRule<Options, MessageIds>({
                 let fixText = "{\n";
                 fixText += "  args: {},\n";
 
-                // Preserve the original function as much as possible
-                const sourceCode = context.getSourceCode();
-
                 // Get the original function text without the outer parentheses
-                const originalFunctionText = sourceCode.getText(handler);
+                const originalFunctionText =
+                  context.sourceCode.getText(handler);
 
                 // Add the handler property with the original function
                 fixText += `  handler: ${originalFunctionText}`;

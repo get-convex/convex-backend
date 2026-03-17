@@ -18,8 +18,8 @@ export const noImportUseNode = createRule({
   },
   defaultOptions: [],
   create: (context) => {
-    const filename = context.getFilename();
-    const entry = isEntryPoint(context.getFilename());
+    const { filename } = context;
+    const entry = isEntryPoint(filename);
     if (!entry) return {};
 
     const currentDir = path.dirname(filename);
