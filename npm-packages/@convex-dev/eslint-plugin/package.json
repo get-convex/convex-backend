@@ -19,6 +19,7 @@
     "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },
   "dependencies": {
+    "@typescript-eslint/types": "~8.49.0",
     "@typescript-eslint/utils": "~8.49.0"
   },
   "peerDependencies": {

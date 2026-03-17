@@ -1,10 +1,10 @@
-import type { TSESTree } from "@typescript-eslint/utils";
+import type { TSESTree } from "@typescript-eslint/types";
 import { createRule } from "../util.js";
-import {
+import type {
   ReportFixFunction,
   RuleContext,
 } from "@typescript-eslint/utils/ts-eslint";
-import { AST_NODE_TYPES } from "@typescript-eslint/utils";
+import { AST_NODE_TYPES } from "@typescript-eslint/types";
 import type ts from "typescript";
 
 /**

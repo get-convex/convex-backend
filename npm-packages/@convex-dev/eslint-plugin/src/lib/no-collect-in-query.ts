@@ -1,5 +1,5 @@
-import type { TSESTree } from "@typescript-eslint/utils";
-import { AST_NODE_TYPES } from "@typescript-eslint/utils";
+import type { TSESTree } from "@typescript-eslint/types";
+import { AST_NODE_TYPES } from "@typescript-eslint/types";
 import { createRule } from "../util.js";
 import type ts from "typescript";
 

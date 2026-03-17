@@ -3,7 +3,7 @@ import { noOldRegisteredFunctionSyntax } from "./lib/no-old-registered-function-
 import { requireArgsValidator } from "./lib/require-args-validator.js";
 import { explicitTableIds } from "./lib/explicit-table-ids.js";
 import { noCollectInQuery } from "./lib/no-collect-in-query.js";
-import { RuleModule } from "@typescript-eslint/utils/ts-eslint";
+import type { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 import { version } from "./version.js";
 
 const rules = {

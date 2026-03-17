@@ -1,4 +1,4 @@
-import type { TSESTree } from "@typescript-eslint/utils";
+import type { TSESTree } from "@typescript-eslint/types";
 import { CONVEX_REGISTRARS, createRule, isEntryPoint } from "../util.js";
 
 /**

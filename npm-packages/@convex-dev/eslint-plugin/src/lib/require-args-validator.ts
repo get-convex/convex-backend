@@ -1,6 +1,6 @@
-import type { TSESTree } from "@typescript-eslint/utils";
+import type { TSESTree } from "@typescript-eslint/types";
 import { CONVEX_REGISTRARS, createRule } from "../util.js";
-import {
+import type {
   ReportFixFunction,
   RuleContext,
 } from "@typescript-eslint/utils/ts-eslint";
