@@ -207,7 +207,7 @@ async function resolveOptionsInteractively(
       },
       {
         name: "preview",
-        value: "dev" as const,
+        value: "preview" as const,
       },
       {
         name: "prod",

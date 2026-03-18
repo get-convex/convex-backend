@@ -426,6 +426,44 @@ describe("interactive create flow", () => {
     });
   }
 
+  test.each([
+    { deploymentType: "dev" as const, downPresses: 0 },
+    { deploymentType: "preview" as const, downPresses: 1 },
+    { deploymentType: "prod" as const, downPresses: 2 },
+  ])(
+    "selecting $deploymentType calls endpoint with type=$deploymentType",
+    async ({ deploymentType, downPresses }) => {
+      setupDefaultRoutes();
+
+      const promise = deploymentCreate.parseAsync([], { from: "user" });
+
+      // Type prompt (select)
+      await screen.next();
+      expect(screen.getScreen()).toContain("Deployment type?");
+      for (let i = 0; i < downPresses; i++) {
+        screen.keypress("down");
+      }
+      screen.keypress("enter");
+
+      // Ref prompt (input)
+      await screen.next();
+      expect(screen.getScreen()).toContain("Deployment ref?");
+      screen.type("my-feature");
+      screen.keypress("enter");
+
+      await promise;
+
+      expect(mockPlatformPost).toHaveBeenCalledWith(
+        "/projects/{project_id}/create_deployment",
+        expect.objectContaining({
+          body: expect.objectContaining({
+            type: deploymentType,
+          }),
+        }),
+      );
+    },
+  );
+
   test("full prompt flow: select type, enter ref", async () => {
     setupDefaultRoutes();
 
