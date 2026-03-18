@@ -500,8 +500,9 @@ mod tests {
                 .route("/test", get(ws_handler))
                 .with_state(ws_shutdown_tx),
         );
-        let port = portpicker::pick_unused_port().expect("No ports free");
-        let addr = format!("127.0.0.1:{port}").parse()?;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+        let addr = listener.local_addr()?;
+        drop(listener);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let proxy_server = tokio::spawn(app.serve(addr, async move {
             shutdown_rx.await.unwrap();

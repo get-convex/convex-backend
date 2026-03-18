@@ -155,7 +155,6 @@ performance_stats = { path = "crates/performance_stats" }
 phf = { version = "0.11.2", features = [ "macros" ] }
 pin-project = "1"
 pkcs8 = "0.10.2"
-portpicker = "0.1"
 postgres = { path = "crates/postgres" }
 postgres-protocol = { version = "0.6" }
 pretty_assertions = "1"
