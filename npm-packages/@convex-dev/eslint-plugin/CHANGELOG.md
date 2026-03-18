@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- The plugin now supports ESLint v10.x.
+
 ## 1.2.0
 
 - Added a new rule `@convex-dev/no-collect-in-query`

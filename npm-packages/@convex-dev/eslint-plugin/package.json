@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/eslint-plugin",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "license": "Apache-2.0",
   "type": "module",
   "homepage": "https://docs.convex.dev/eslint",
