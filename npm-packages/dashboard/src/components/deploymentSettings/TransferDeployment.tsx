@@ -101,7 +101,6 @@ export function TransferDeployment() {
           label="Destination Project"
           labelHidden={false}
           placeholder="Select a project"
-          allowCustomValue
           onFilterChange={setFilter}
           isLoadingOptions={
             !!paginatedProjects?.isLoading && debouncedFilter === filter

@@ -75,7 +75,6 @@ export function TeamUsageToolbar({
       <Combobox
         label="Projects"
         options={projectOptions}
-        allowCustomValue
         selectedOption={projectId}
         onFilterChange={setFilter}
         isLoadingOptions={
