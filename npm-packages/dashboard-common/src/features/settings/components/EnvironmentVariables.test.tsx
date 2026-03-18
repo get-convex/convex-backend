@@ -56,6 +56,62 @@ describe("EnvironmentVariables", () => {
     });
   });
 
+  describe("empty environment variable values", () => {
+    it("shows a touched warning and still allows submit", async () => {
+      const user = userEvent.setup();
+      const updateEnvironmentVariables = jest.fn().mockResolvedValue(undefined);
+
+      render(
+        <EnvironmentVariables<BaseEnvironmentVariable>
+          environmentVariables={[]}
+          updateEnvironmentVariables={updateEnvironmentVariables}
+          hasAdminPermissions
+          initEnvVar={(envVar) => envVar}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: "Add" }));
+      const [nameInput, valueInput] = screen.getAllByRole("textbox");
+      await user.type(nameInput, "EMPTY_VALUE_VAR");
+
+      expect(
+        screen.queryByText("This value is an empty string."),
+      ).not.toBeInTheDocument();
+
+      await user.click(valueInput);
+      await user.tab();
+
+      const warning = screen.getByText("This value is an empty string.");
+      expect(warning).toHaveClass("text-content-warning");
+
+      const saveButton = screen.getByRole("button", { name: "Save" });
+      expect(saveButton).toBeEnabled();
+
+      await user.click(saveButton);
+      expect(updateEnvironmentVariables).toHaveBeenCalledWith(
+        [{ name: "EMPTY_VALUE_VAR", value: "" }],
+        [],
+        [],
+      );
+    });
+
+    it("treats prefilled initial rows as touched", () => {
+      render(
+        <EnvironmentVariables<BaseEnvironmentVariable>
+          environmentVariables={[]}
+          updateEnvironmentVariables={async () => {}}
+          hasAdminPermissions
+          initEnvVar={(envVar) => envVar}
+          initialFormValues={[{ name: "EMPTY_STRING", value: "" }]}
+        />,
+      );
+
+      expect(
+        screen.getByText("This value is an empty string."),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("Copy All", () => {
     async function renderAndCopy(
       environmentVariables: BaseEnvironmentVariable[],

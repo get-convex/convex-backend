@@ -1,4 +1,4 @@
-import { Form, Formik, getIn, useFormikContext } from "formik";
+import { Form, Formik, FormikTouched, getIn, useFormikContext } from "formik";
 
 import {
   ClipboardCopyIcon,
@@ -96,11 +96,19 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
     newVars: initialFormValues ?? [],
     deletedVars: [],
   };
+  const initialTouched = {
+    newVars: initialValues.newVars.map(({ name, value }) =>
+      name !== "" || value !== ""
+        ? ({ name: true, value: true } as FormikTouched<T>)
+        : ({} as FormikTouched<T>),
+    ),
+  } as FormikTouched<FormState<T>>;
 
   return (
     <Formik
       enableReinitialize
       initialValues={initialValues}
+      initialTouched={initialTouched}
       onSubmit={async (values, helpers) => {
         await updateEnvironmentVariables(
           values.newVars,
@@ -539,7 +547,6 @@ const EnvVarName = z
 
 const EnvVarValue = z
   .string()
-  .min(1, "Environment variable value is required.")
   .max(8192, "Environment variable value cannot be larger than 8KB");
 
 function EditEnvVarForm<T extends BaseEnvironmentVariable>({
@@ -977,6 +984,8 @@ function EnvVarValueInput({
   const hasLeadingOrTrailingWhitespace =
     value.length > 0 && value !== value.trim();
   const hasReturnCharacter = value.includes("\n");
+  const emptyStringWarning =
+    touched && value === "" ? "This value is an empty string." : "";
 
   // Build whitespace warning message
   let whitespaceWarning = "";
@@ -1026,12 +1035,17 @@ function EnvVarValueInput({
           hint: error,
           hintStyle: "error" as const,
         }
-      : whitespaceWarning
+      : emptyStringWarning
         ? {
-            hint: whitespaceWarning,
+            hint: emptyStringWarning,
             hintStyle: "warning" as const,
           }
-        : { hint: null, hintStyle: null };
+        : whitespaceWarning
+          ? {
+              hint: whitespaceWarning,
+              hintStyle: "warning" as const,
+            }
+          : { hint: null, hintStyle: null };
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

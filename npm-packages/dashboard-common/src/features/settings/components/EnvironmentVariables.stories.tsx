@@ -60,6 +60,7 @@ export const WithWhitespaceValues: Story = {
   args: {
     environmentVariables: [],
     initialFormValues: [
+      { name: "EMPTY_STRING", value: "" },
       { name: "LEADING_SPACE", value: "  value" },
       { name: "TRAILING_SPACE", value: "value  " },
       { name: "BOTH_SPACES", value: "  value  " },
