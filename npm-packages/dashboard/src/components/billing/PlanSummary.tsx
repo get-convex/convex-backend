@@ -6,6 +6,8 @@ import { Spinner } from "@ui/Spinner";
 import { Callout } from "@ui/Callout";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { UsageSummary } from "hooks/usageMetrics";
+import { UsageSummaryRowV2 } from "hooks/usageMetricsV2";
+import { formatQuantity } from "./lib/formatQuantity";
 import { ReactNode } from "react";
 import { GetTokenInfoResponse, TeamEntitlementsResponse } from "generatedApi";
 import {
@@ -29,6 +31,187 @@ const METRIC_TO_SECTION: Record<string, string> = {
   vectorBandwidth: "vectorsBandwidth",
   deploymentCount: "deployments",
 };
+
+const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
+  functionCalls: "functionCalls",
+  compute: "compute",
+  databaseStorage: "databaseStorage",
+  databaseIO: "databaseIO",
+  fileStorage: "filesStorage",
+  searchStorage: "searchStorage",
+  dataEgress: "dataEgress",
+  searchQueries: "searchQueries",
+  deploymentCount: "deployments",
+};
+
+type BusinessMetricKey =
+  | keyof Omit<UsageSummaryRowV2, "deploymentClass" | "region">
+  | "compute"
+  | "deploymentCount";
+
+const businessSections: {
+  metric: BusinessMetricKey;
+  format: (value: number) => string;
+  detail: string;
+  title: string;
+  suffix?: string;
+}[] = [
+  {
+    metric: "functionCalls",
+    format: formatNumberCompact,
+    detail: "The number of function calls across all deployments",
+    title: "Function Calls",
+  },
+  {
+    metric: "compute",
+    format: (n: number) => formatQuantity(n, "actionCompute"),
+    detail:
+      "The total execution time of functions multiplied by their allocated RAM",
+    title: "Compute",
+  },
+  {
+    metric: "databaseStorage",
+    format: formatBytes,
+    detail: "The total size of all documents stored in your projects",
+    title: "Database Storage",
+  },
+  {
+    metric: "databaseIO",
+    format: formatBytes,
+    detail: "The amount of data read and written to the database",
+    title: "Database I/O",
+  },
+  {
+    metric: "fileStorage",
+    format: formatBytes,
+    detail: "The total size of all files stored in your projects",
+    title: "File Storage",
+  },
+  {
+    metric: "searchStorage",
+    format: formatBytes,
+    detail: "The total size of all text and vector search indexes stored",
+    title: "Search Storage",
+  },
+  {
+    metric: "dataEgress",
+    format: formatBytes,
+    detail:
+      "The amount of data egressed via file serving, fetch requests, and log streaming",
+    title: "Data Egress",
+  },
+  {
+    metric: "searchQueries",
+    format: (n: number) => formatQuantity(n, "textSearch"),
+    detail: "The total query-GB of text and vector search queries",
+    title: "Search Queries",
+  },
+  {
+    metric: "deploymentCount",
+    format: formatNumberCompact,
+    detail: "The number of deployments across all projects",
+    title: "Deployments",
+  },
+];
+
+export function BusinessPlanSummary({
+  summaryV2,
+  deploymentCount,
+  hasFilter: _hasFilter,
+  error,
+}: {
+  summaryV2?: UsageSummaryRowV2[];
+  deploymentCount?: number;
+  hasFilter: boolean;
+  error?: any;
+}) {
+  const router = useRouter();
+
+  // Aggregate across deployment classes and regions
+  const aggregated = summaryV2
+    ? summaryV2.reduce(
+        (acc, row) => {
+          for (const section of businessSections) {
+            if (section.metric === "deploymentCount") continue;
+            const value =
+              section.metric === "compute"
+                ? row.queryMutationCompute +
+                  row.actionComputeConvex +
+                  row.actionComputeNode
+                : row[section.metric];
+            acc[section.metric] = (acc[section.metric] || 0) + value;
+          }
+          return acc;
+        },
+        {} as Record<string, number>,
+      )
+    : undefined;
+
+  // Add deployment count from separate data source
+  if (aggregated && deploymentCount !== undefined) {
+    aggregated.deploymentCount = deploymentCount;
+  }
+
+  return (
+    <Sheet
+      className="animate-fadeInFromLoading overflow-hidden"
+      padding={false}
+    >
+      <div className="flex flex-col gap-1 overflow-x-clip">
+        <div className="grid grid-cols-[5fr_4fr_auto] items-center gap-2 rounded-t border-b px-4 py-2 text-sm text-content-secondary">
+          <div>Resource</div>
+          <div>Usage</div>
+          <span className="invisible flex items-center gap-1 text-xs">
+            <span className="hidden whitespace-nowrap sm:inline">
+              View breakdown by day
+            </span>
+            <ChevronRightIcon className="size-4" />
+          </span>
+        </div>
+        {error ? (
+          <PlanSummaryError />
+        ) : !aggregated ? (
+          <PlanSummaryLoading />
+        ) : (
+          businessSections.map((section, index) => {
+            const sectionId = BUSINESS_METRIC_TO_SECTION[section.metric];
+            const { section: _s, tab: _t, ...restQuery } = router.query;
+            const linkQuery = sectionId
+              ? { ...restQuery, section: sectionId }
+              : restQuery;
+            const linkHref = { pathname: router.pathname, query: linkQuery };
+
+            return (
+              <Button
+                key={index}
+                variant="unstyled"
+                onClick={() => {
+                  void router.push(linkHref, undefined, { shallow: true });
+                }}
+                className="group grid min-h-10 grid-cols-[5fr_4fr_auto] items-center gap-2 rounded-sm px-4 py-2 text-left transition-colors hover:bg-background-primary focus-visible:bg-background-primary focus-visible:outline-2 focus-visible:outline-border-selected"
+              >
+                <div className="flex items-center gap-2">
+                  <SectionLabel detail={section.detail}>
+                    {section.title}
+                  </SectionLabel>
+                </div>
+                <div className="animate-fadeInFromLoading">
+                  <span>{section.format(aggregated[section.metric] ?? 0)}</span>
+                </div>
+                <span className="flex items-center gap-1 text-xs text-content-secondary">
+                  <span className="hidden whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:inline">
+                    View breakdown by day
+                  </span>
+                  <ChevronRightIcon className="size-4" />
+                </span>
+              </Button>
+            );
+          })
+        )}
+      </div>
+    </Sheet>
+  );
+}
 
 export function PlanSummary({
   chefTokenUsage,

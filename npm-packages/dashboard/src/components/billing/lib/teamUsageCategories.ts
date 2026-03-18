@@ -93,6 +93,99 @@ export const TAG_CATEGORIES = {
   },
 };
 
+export const DATA_EGRESS_CATEGORIES = {
+  fetchEgress: {
+    name: "Fetch Egress",
+    color: "fill-chart-line-1",
+  },
+  logStream: {
+    name: "Log Streams",
+    color: "fill-chart-line-2",
+  },
+  servingEgress: {
+    name: "Serving Reads",
+    color: "fill-chart-line-3",
+  },
+  userFunctionEgress: {
+    name: "User Function Reads",
+    color: "fill-chart-line-4",
+  },
+  backup: {
+    name: "Backup",
+    color: "fill-chart-line-5",
+  },
+  restore: {
+    name: "Restore",
+    color: "fill-chart-line-6",
+  },
+};
+
+export const SEARCH_STORAGE_CATEGORIES = {
+  textSearch: {
+    name: "Text Search",
+    color: "fill-chart-line-1",
+  },
+  vector: {
+    name: "Vector",
+    color: "fill-chart-line-2",
+  },
+};
+
+export const SEARCH_QUERIES_CATEGORIES = {
+  textSearch: {
+    name: "Text Search",
+    color: "fill-chart-line-1",
+  },
+  vectorSearch: {
+    name: "Vector Search",
+    color: "fill-chart-line-2",
+  },
+};
+
+export const DATABASE_IO_CATEGORIES = {
+  egress: {
+    name: "Reads",
+    color: "fill-chart-line-1",
+  },
+  ingress: {
+    name: "Writes",
+    // eslint-disable-next-line no-restricted-syntax
+    color: "fill-chart-line-2",
+  },
+};
+
+export const COMPUTE_CATEGORIES = {
+  queryMutation: {
+    name: "Query/Mutation (Dedicated)",
+    color: "fill-chart-line-1",
+  },
+  actionConvex: {
+    name: "Action",
+    // eslint-disable-next-line no-restricted-syntax
+    color: "fill-chart-line-2",
+  },
+  actionNode: {
+    name: "Action (Node)",
+    color: "fill-chart-line-3",
+  },
+};
+
+const DEPLOYMENT_CLASS_COLORS: Record<string, string> = {
+  s16: "fill-chart-line-1",
+  s256: "fill-chart-line-2",
+  d1024: "fill-chart-line-3",
+};
+
+export const DEPLOYMENT_CLASS_CATEGORIES: Record<
+  string,
+  { name: string; color: string }
+> = Object.fromEntries(
+  Object.entries(DEPLOYMENT_CLASS_COLORS).map(([key, color]) => [
+    key,
+    { name: key.toUpperCase(), color },
+  ]),
+);
+
 export const CATEGORY_RENAMES = {
   uncached_query: "query",
   cached_query: "query",

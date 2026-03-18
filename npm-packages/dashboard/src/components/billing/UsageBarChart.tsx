@@ -103,13 +103,15 @@ export function UsageStackedBarChart({
     const dataPoint = chartData.find((d) => d.dateNumeric === selectedDate);
     if (!dataPoint) return [];
 
-    return Object.entries(categories).map(([tag, { name, color }]) => ({
-      name,
-      value: ((dataPoint as any)[tag] as number) || 0,
-      color,
-      project: undefined, // Category-based items don't have projects
-    }));
-  }, [selectedDate, chartData, categories]);
+    return Object.entries(categories)
+      .filter(([tag]) => totalByTag[tag] > 0)
+      .map(([tag, { name, color }]) => ({
+        name,
+        value: ((dataPoint as any)[tag] as number) || 0,
+        color,
+        project: undefined, // Category-based items don't have projects
+      }));
+  }, [selectedDate, chartData, categories, totalByTag]);
 
   const colorMap = useMemo(
     () =>
@@ -145,39 +147,41 @@ export function UsageStackedBarChart({
           yAxisWidth={quantityType === "actionCompute" ? 80 : 60}
           hideTooltip={selectedDate !== null}
         >
-          {Object.entries(categories).map(([tag, { name, color }]) => (
-            <Bar
-              key={tag}
-              dataKey={tag}
-              className={color}
-              name={name}
-              barSize={chartData.length === 1 ? SINGLE_BAR_WIDTH : undefined}
-              isAnimationActive={false}
-              stackId="stack"
-              style={{ cursor: "pointer" }}
-              onClick={(data: any) => {
-                if (data?.dateNumeric) {
-                  setSelectedDate(data.dateNumeric);
-                }
-              }}
-              shape={(props: any) => {
-                // eslint-disable-next-line react/prop-types
-                const { dateNumeric, name: categoryName } = props;
-                if (
-                  typeof dateNumeric !== "number" ||
-                  typeof categoryName !== "string"
-                ) {
-                  Sentry.captureMessage(
-                    "Invalid props in stacked bar",
-                    "error",
-                  );
-                  return <Rectangle {...props} />;
-                }
+          {Object.entries(categories)
+            .filter(([tag]) => totalByTag[tag] > 0)
+            .map(([tag, { name, color }]) => (
+              <Bar
+                key={tag}
+                dataKey={tag}
+                className={color}
+                name={name}
+                barSize={chartData.length === 1 ? SINGLE_BAR_WIDTH : undefined}
+                isAnimationActive={false}
+                stackId="stack"
+                style={{ cursor: "pointer" }}
+                onClick={(data: any) => {
+                  if (data?.dateNumeric) {
+                    setSelectedDate(data.dateNumeric);
+                  }
+                }}
+                shape={(props: any) => {
+                  // eslint-disable-next-line react/prop-types
+                  const { dateNumeric, name: categoryName } = props;
+                  if (
+                    typeof dateNumeric !== "number" ||
+                    typeof categoryName !== "string"
+                  ) {
+                    Sentry.captureMessage(
+                      "Invalid props in stacked bar",
+                      "error",
+                    );
+                    return <Rectangle {...props} />;
+                  }
 
-                return <Rectangle {...props} />;
-              }}
-            />
-          ))}
+                  return <Rectangle {...props} />;
+                }}
+              />
+            ))}
           {selectedDate === null && (
             <Legend
               content={() => (
