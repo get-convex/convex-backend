@@ -20,6 +20,8 @@ import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TextInput } from "@ui/TextInput";
 import { useFormik } from "formik";
 import { useHasProjectAdminPermissions } from "api/roles";
+import { useDeployments } from "api/deployments";
+import { useCurrentProject } from "api/projects";
 import Link from "next/link";
 import { useState, useMemo, ReactNode } from "react";
 import {
@@ -60,6 +62,14 @@ export function CustomDomains({
     deployment.deploymentType !== "prod" || hasAdminPermissions;
   const hasEditAccess = hasEntitlement && canPerformActions;
 
+  const project = useCurrentProject();
+  const defaultProdDeployment = useDeployments(
+    deployment.projectId,
+  ).deployments?.find(
+    (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
+  );
+  const isNonProd = deployment.deploymentType !== "prod";
+
   return (
     <div className="flex flex-col gap-4">
       <Sheet>
@@ -72,6 +82,23 @@ export function CustomDomains({
               actions are configured separately.
             </p>
           </div>
+
+          {isNonProd && (
+            <Callout variant="hint">
+              <div>
+                You can add custom domains to this deployment, but you may be
+                looking to configure them on your production deployment instead.{" "}
+                {defaultProdDeployment && project ? (
+                  <Link
+                    href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings/custom-domains`}
+                    className="text-content-link hover:underline"
+                  >
+                    Go to production custom domains.
+                  </Link>
+                ) : null}
+              </div>
+            </Callout>
+          )}
 
           <div>
             {!hasEntitlement && (
