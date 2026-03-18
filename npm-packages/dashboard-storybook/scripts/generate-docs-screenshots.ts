@@ -173,10 +173,11 @@ async function captureScreenshot(
   inProgress.add(filename);
   updateSpinner();
 
+  let context: Awaited<ReturnType<typeof browser.newContext>> | null = null;
   try {
     // Create a fresh browser context for each screenshot to avoid flaky
     // rendering caused by shared state between stories.
-    const context = await browser.newContext({
+    context = await browser.newContext({
       viewport: { width: 1024, height: 700 },
       deviceScaleFactor: 2,
     });
@@ -199,7 +200,6 @@ async function captureScreenshot(
     } else {
       png = await page.screenshot({ fullPage: false });
     }
-    await context.close();
 
     const PADDING = 32;
     const pipeline = sharp(png);
@@ -282,6 +282,18 @@ async function captureScreenshot(
     spinner.render();
     errors.push({ filename, error });
     return null;
+  } finally {
+    if (context) {
+      try {
+        await context.close();
+      } catch (closeError) {
+        process.stdout.write(
+          chalk.red(
+            `  ✗ failed to close context: ${filename}: ${closeError}\n`,
+          ),
+        );
+      }
+    }
   }
 }
 
