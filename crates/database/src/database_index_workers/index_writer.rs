@@ -6,6 +6,7 @@ use std::{
     fmt::Display,
     num::NonZeroU32,
     sync::Arc,
+    time::Duration,
 };
 
 use common::{
@@ -165,7 +166,6 @@ pub struct TabletBackfillProgress {
     pub num_docs_indexed: u64,
     pub backfill_bytes_read: u64,
     pub backfill_bytes_written: u64,
-    pub phase: String,
 }
 
 impl<RT: Runtime> IndexWriter<RT> {
@@ -548,7 +548,10 @@ impl<RT: Runtime> IndexWriter<RT> {
             .buffered(*INDEX_BACKFILL_WORKERS);
         pin_mut!(updates);
 
+        let mut last_logged = self.runtime.system_time();
         let mut last_checkpointed = self.runtime.system_time();
+        let mut last_logged_docs_indexed = 0;
+        let mut num_docs_indexed_total = 0;
         let mut num_docs_indexed_since_progress_reported = 0;
         let mut backfill_bytes_read = 0;
         let mut backfill_bytes_written = 0u64;
@@ -559,6 +562,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 last_cursor = cursor;
             }
             num_docs_indexed_since_progress_reported += docs_in_chunk;
+            num_docs_indexed_total += docs_in_chunk;
             backfill_bytes_written += bytes_written;
             backfill_bytes_read += bytes_read;
             if let Some(tx) = self.progress_tx.as_ref()
@@ -572,7 +576,6 @@ impl<RT: Runtime> IndexWriter<RT> {
                     num_docs_indexed: num_docs_indexed_since_progress_reported,
                     backfill_bytes_read,
                     backfill_bytes_written,
-                    phase: phase.clone(),
                 })
                 .await?;
                 num_docs_indexed_since_progress_reported = 0;
@@ -583,6 +586,17 @@ impl<RT: Runtime> IndexWriter<RT> {
                     .pause_client()
                     .wait(UPDATE_BACKFILL_PROGRESS_LABEL)
                     .await;
+            }
+            if last_logged.elapsed()? >= Duration::from_secs(60) {
+                let now = self.runtime.system_time();
+                tracing::info!(
+                    "Backfilled {num_docs_indexed_total} docs into indexes: {index_selector} \
+                     {phase} ({} rows/s)",
+                    (num_docs_indexed_total - last_logged_docs_indexed) as f64
+                        / (now.duration_since(last_logged).unwrap_or_default()).as_secs_f64(),
+                );
+                last_logged = now;
+                last_logged_docs_indexed = num_docs_indexed_total;
             }
         }
         // Flush any remaining accumulated bytes that weren't sent during the loop
@@ -597,11 +611,13 @@ impl<RT: Runtime> IndexWriter<RT> {
                 num_docs_indexed: num_docs_indexed_since_progress_reported,
                 backfill_bytes_read,
                 backfill_bytes_written,
-                phase: phase.clone(),
             })
             .await?;
         }
-        tracing::info!("Done backfilling indexes: {index_selector} {phase}",);
+
+        tracing::info!(
+            "Done backfilling {num_docs_indexed_total} docs into indexes: {index_selector} {phase}",
+        );
         Ok(())
     }
 

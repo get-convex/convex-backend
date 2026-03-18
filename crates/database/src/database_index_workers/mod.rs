@@ -325,7 +325,6 @@ impl<RT: Runtime> IndexWorker<RT> {
                         num_docs_indexed,
                         backfill_bytes_read,
                         backfill_bytes_written,
-                        phase,
                     }) = maybe_progress else {
                     anyhow::bail!("Database index backfill progress channel closed");
                 };
@@ -343,27 +342,20 @@ impl<RT: Runtime> IndexWorker<RT> {
                     tablet_id,
                     DeveloperDocumentId::new(table_number, cursor.internal_id())
                 );
+                tracing::info!(
+                    "IndexWorker got progress update for {} indexes in tablet {tablet_id} at cursor {}",
+                    index_ids.len(),
+                    cursor.developer_id,
+                );
                 for index_id in index_ids {
-                    let updated = model
+                    model
                         .update_database_index_backfill_progress(
                             index_id,
                             tablet_id,
                             num_docs_indexed,
-                            cursor,
+                            cursor
                         )
                         .await?;
-                    if let Some(metadata) = updated {
-                        let total = metadata
-                            .total_docs
-                            .map(|t| t.to_string())
-                            .unwrap_or_else(|| "?".to_string());
-                        tracing::info!(
-                            "IndexWorker backfill progress for index {index_id} in tablet \
-                             {tablet_id} at cursor {}: {}/{total} docs indexed {phase}",
-                            cursor.developer_id,
-                            metadata.num_docs_indexed,
-                        );
-                    }
                 }
                 self.database.commit_with_write_source(tx, "index_worker_backfill_progress")
                     .await?;
