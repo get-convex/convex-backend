@@ -442,12 +442,14 @@ pub async fn sync(
 
 #[cfg(test)]
 mod tests {
+
     use axum::{
         extract::State,
         routing::get,
         Router,
     };
     use common::http::{
+        server_socket,
         websocket::{
             Message,
             WebSocket,
@@ -500,10 +502,10 @@ mod tests {
                 .route("/test", get(ws_handler))
                 .with_state(ws_shutdown_tx),
         );
-        let port = portpicker::pick_unused_port().expect("No ports free");
-        let addr = format!("127.0.0.1:{port}").parse()?;
+        let sock = server_socket("127.0.0.1:0".parse()?)?;
+        let addr = sock.local_addr()?;
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        let proxy_server = tokio::spawn(app.serve(addr, async move {
+        let proxy_server = tokio::spawn(app.serve(sock, async move {
             shutdown_rx.await.unwrap();
         }));
 

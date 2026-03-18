@@ -1,7 +1,7 @@
 use std::{
     net::{
         Ipv4Addr,
-        SocketAddrV4,
+        SocketAddr,
     },
     time::Duration,
 };
@@ -83,7 +83,7 @@ async fn serve(router: Router, port: u16) {
         NoopRouteMapper,
     )
     .serve(
-        SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port).into(),
+        SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port),
         async move {
             let _ = shutdown_rx.recv().await;
         },

@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+    fmt,
+    net::SocketAddr,
+};
 
 use clap::Parser;
 use clusters::DbDriverTag;
@@ -140,8 +143,8 @@ impl fmt::Debug for LocalConfig {
 }
 
 impl LocalConfig {
-    pub fn http_bind_address(&self) -> ([u8; 4], u16) {
-        (self.interface.octets(), self.port)
+    pub fn http_bind_address(&self) -> SocketAddr {
+        SocketAddr::new(self.interface.into(), self.port)
     }
 
     pub fn site_forward_prefix(&self) -> String {

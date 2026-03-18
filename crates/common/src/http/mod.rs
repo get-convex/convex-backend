@@ -686,7 +686,7 @@ impl ConvexHttpService {
 
     pub async fn serve<F: Future<Output = ()> + Send + 'static>(
         self,
-        addr: SocketAddr,
+        addr: impl MakeSocket,
         shutdown: F,
     ) -> anyhow::Result<()> {
         let extra = self.meta_routes();
@@ -695,10 +695,12 @@ impl ConvexHttpService {
             router = router.merge(extra);
         }
         let make_svc = router.into_make_service_with_connect_info::<SocketAddr>();
-        tracing::info!("{} listening on {addr}", self.service_name);
-        serve_http(make_svc, addr, shutdown)
+        let socket = addr.make_socket()?;
+        let local_addr = socket.local_addr()?;
+        tracing::info!("{} listening on {local_addr}", self.service_name);
+        serve_http(make_svc, socket, shutdown)
             .await
-            .with_context(|| format!("Could not start {} on {addr}", self.service_name))
+            .with_context(|| format!("Could not start {} on {local_addr}", self.service_name))
     }
 
     /// Apply `middleware_fn` to incoming requests *before* passing them to
@@ -707,7 +709,7 @@ impl ConvexHttpService {
     /// matched.
     pub async fn serve_with_middleware<F, Fut, Rejection>(
         self,
-        addr: SocketAddr,
+        addr: impl MakeSocket,
         shutdown: F,
         middleware_fn: impl FnMut(http::Request<Body>) -> Fut + Clone + Send + Sync + 'static,
     ) -> anyhow::Result<()>
@@ -720,7 +722,9 @@ impl ConvexHttpService {
         let meta_router = self.meta_routes();
         let wrapped_svc = middleware.layer(self.router);
 
-        tracing::info!("{} listening on {addr}", self.service_name);
+        let socket = addr.make_socket()?;
+        let local_addr = socket.local_addr()?;
+        tracing::info!("{} listening on {local_addr}", self.service_name);
         if self.meta_routes_enabled {
             // Fall back to the middleware-wrapped service if the request doesn't match the
             // meta router.
@@ -728,7 +732,7 @@ impl ConvexHttpService {
                 meta_router
                     .fallback_service(wrapped_svc)
                     .into_make_service_with_connect_info::<SocketAddr>(),
-                addr,
+                socket,
                 shutdown,
             )
             .await
@@ -736,7 +740,7 @@ impl ConvexHttpService {
             // If we're not serving meta routes, simply serve the middleware-wrapped service
             serve_http(
                 wrapped_svc.into_make_service_with_connect_info::<SocketAddr>(),
-                addr,
+                socket,
                 shutdown,
             )
             .await
@@ -763,7 +767,7 @@ impl ConvexHttpService {
 /// Serves an HTTP server using the given service.
 pub async fn serve_http<F, R>(
     make_service: IntoMakeServiceWithConnectInfo<R, SocketAddr>,
-    addr: SocketAddr,
+    addr: impl MakeSocket,
     shutdown: F,
 ) -> anyhow::Result<()>
 where
@@ -774,6 +778,14 @@ where
     <R as Service<http::Request<Body>>>::Future: Send,
     F: Future<Output = ()> + Send + 'static,
 {
+    let listener = addr.make_socket()?.listen(*HTTP_SERVER_TCP_BACKLOG)?;
+    fork_of_axum_serve::serve(listener, make_service)
+        .with_graceful_shutdown(shutdown)
+        .await?;
+    Ok(())
+}
+
+pub fn server_socket(addr: SocketAddr) -> anyhow::Result<TcpSocket> {
     // Set SO_REUSEADDR and a bounded TCP accept backlog for our server's listening
     // socket.
     let socket = TcpSocket::new_v4()?;
@@ -781,12 +793,23 @@ where
     // Set TCP_NODELAY on accepted connections.
     socket.set_nodelay(true)?;
     socket.bind(addr)?;
-    let listener = socket.listen(*HTTP_SERVER_TCP_BACKLOG)?;
+    Ok(socket)
+}
 
-    fork_of_axum_serve::serve(listener, make_service)
-        .with_graceful_shutdown(shutdown)
-        .await?;
-    Ok(())
+pub trait MakeSocket {
+    fn make_socket(self) -> anyhow::Result<TcpSocket>;
+}
+
+impl MakeSocket for SocketAddr {
+    fn make_socket(self) -> anyhow::Result<TcpSocket> {
+        server_socket(self)
+    }
+}
+
+impl MakeSocket for TcpSocket {
+    fn make_socket(self) -> anyhow::Result<TcpSocket> {
+        Ok(self)
+    }
 }
 
 async fn client_version_state_middleware(
