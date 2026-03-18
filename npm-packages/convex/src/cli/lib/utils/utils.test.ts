@@ -1,9 +1,12 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
+import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
+// Must be imported before any module that uses @inquirer/*
+import { screen } from "@inquirer/testing/vitest";
 import type { BigBrainAuth, Context } from "../../../bundler/context.js";
 import {
   bigBrainFetch,
   bigBrainAPIMaybeThrows,
   BIG_BRAIN_URL,
+  selectRegion,
 } from "./utils.js";
 
 // Hoist this mock so it's in place before `retryingFetch` is initialized.
@@ -232,4 +235,106 @@ describe("bigBrainAPIMaybeThrows", () => {
     const { options } = capturedArgs(mockFetch);
     expect(options.body).toBe('{"raw":true}');
   });
+});
+
+const testRegions = [
+  { name: "aws-eu-west-1", displayName: "EU West (Ireland)", available: true },
+  {
+    name: "aws-us-east-1",
+    displayName: "US East (Virginia)",
+    available: true,
+  },
+  {
+    name: "aws-ap-southeast-1",
+    displayName: "Asia Pacific (Singapore)",
+    available: false,
+  },
+];
+
+function stubRegionsFetch() {
+  const mockFetch = vi.fn().mockImplementation(async (resource: any) => {
+    const url = resource instanceof Request ? resource.url : String(resource);
+    if (url.includes("/list_deployment_regions")) {
+      return new Response(JSON.stringify({ items: testRegions }), {
+        status: 200,
+      });
+    }
+    return new Response("{}", { status: 200 });
+  });
+  vi.stubGlobal("fetch", mockFetch);
+  return mockFetch;
+}
+
+describe("selectRegion", () => {
+  beforeEach(() => {
+    stubRegionsFetch();
+    process.stdin.isTTY = true;
+  });
+
+  afterEach(() => {
+    process.stdin.isTTY = false;
+  });
+
+  test("US region is shown first", async () => {
+    const ctx = makeContext(null);
+
+    const promise = selectRegion(ctx, 123, "dev");
+
+    await screen.next();
+    const rendered = screen.getScreen();
+    // US East should appear before EU West in the rendered output
+    const usIndex = rendered.indexOf("US East");
+    const euIndex = rendered.indexOf("EU West");
+    expect(usIndex).toBeGreaterThanOrEqual(0);
+    expect(euIndex).toBeGreaterThanOrEqual(0);
+    expect(usIndex).toBeLessThan(euIndex);
+
+    // Select the first option (US East) and resolve the promise
+    screen.keypress("enter");
+    const result = await promise;
+    expect(result).toBe("aws-us-east-1");
+  });
+
+  test("unavailable regions are not displayed", async () => {
+    const ctx = makeContext(null);
+
+    const promise = selectRegion(ctx, 123, "dev");
+
+    await screen.next();
+    const rendered = screen.getScreen();
+    expect(rendered).not.toContain("Asia Pacific (Singapore)");
+    expect(rendered).toContain("US East (Virginia)");
+    expect(rendered).toContain("EU West (Ireland)");
+
+    screen.keypress("enter");
+    await promise;
+  });
+
+  const availableRegions = testRegions.filter((r) => r.available);
+
+  test.each(availableRegions.map((r, i) => ({ ...r, downPresses: i })))(
+    "selecting option at position $downPresses returns the correct region",
+    async ({ downPresses }) => {
+      const ctx = makeContext(null);
+
+      const promise = selectRegion(ctx, 123, "dev");
+
+      await screen.next();
+      for (let i = 0; i < downPresses; i++) {
+        screen.keypress("down");
+      }
+
+      // Check which option is currently highlighted on screen,
+      // then find the matching region to know what value to expect.
+      const rendered = screen.getScreen();
+      const selectedRegion = testRegions.find(
+        (r) => r.available && rendered.includes(`❯ ${r.displayName}`),
+      );
+      expect(selectedRegion).toBeDefined();
+
+      screen.keypress("enter");
+      const result = await promise;
+      expect(result).toBe(selectedRegion!.name);
+    },
+  );
 });
