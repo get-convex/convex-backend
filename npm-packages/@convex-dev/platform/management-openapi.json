@@ -1512,6 +1512,38 @@
         },
         "security": []
       }
+    },
+    "/teams/{team_id}/invite_team_member": {
+      "post": {
+        "tags": [
+          "Team Members"
+        ],
+        "operationId": "invite team member",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": []
+      }
     }
   },
   "components": {
@@ -1528,6 +1560,21 @@
           "preview",
           "custom"
         ]
+      },
+      "CreateInvitationArgs": {
+        "type": "object",
+        "required": [
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
       },
       "CreateTeamAccessTokenResponse": {
         "type": "object",
