@@ -13,10 +13,7 @@ use axum::{
     debug_handler,
     http::HeaderMap,
 };
-use common::{
-    http::HttpResponseError,
-    runtime::block_in_place,
-};
+use common::http::HttpResponseError;
 use serde::Deserialize;
 use tikv_jemalloc_sys::malloc_stats_print;
 use tikv_jemallocator::Jemalloc;
@@ -118,14 +115,9 @@ pub async fn heap_profile(
     Ok(collect_profile().await?)
 }
 
-pub async fn log_process_memory_stats() -> anyhow::Result<()> {
-    let (jemalloc_stats, process_stats) =
-        block_in_place(|| (load_jemalloc_stats(), memory_stats::memory_stats()));
-    log_process_level_stats(
-        process_stats
-            .context("failed to get memory stats")?
-            .physical_mem,
-        &jemalloc_stats?,
-    );
+pub fn log_process_memory_stats() -> anyhow::Result<()> {
+    let jemalloc_stats = load_jemalloc_stats()?;
+    let process_stats = memory_stats::memory_stats().context("failed to get memory stats")?;
+    log_process_level_stats(process_stats.physical_mem, &jemalloc_stats);
     Ok(())
 }

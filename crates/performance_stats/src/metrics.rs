@@ -1,50 +1,32 @@
-use metrics::{
-    log_distribution_with_labels,
-    register_convex_histogram,
-    StaticMetricLabel,
-};
+use metrics::register_convex_int_gauge;
 
 use crate::performance::JemallocStats;
 
-register_convex_histogram!(
+register_convex_int_gauge!(
     APPLICATION_PROCESS_MEMORY_BYTES,
     "Process-level memory statistics in bytes",
     &["component"]
 );
 pub fn log_process_level_stats(memory_usage: usize, jemalloc: &JemallocStats) {
-    log_distribution_with_labels(
-        &APPLICATION_PROCESS_MEMORY_BYTES,
-        memory_usage as f64,
-        vec![StaticMetricLabel::new("component", "memory_usage")],
-    );
-    log_distribution_with_labels(
-        &APPLICATION_PROCESS_MEMORY_BYTES,
-        jemalloc.allocated as f64,
-        vec![StaticMetricLabel::new("component", "jemalloc_allocated")],
-    );
-    log_distribution_with_labels(
-        &APPLICATION_PROCESS_MEMORY_BYTES,
-        jemalloc.active as f64,
-        vec![StaticMetricLabel::new("component", "jemalloc_active")],
-    );
-    log_distribution_with_labels(
-        &APPLICATION_PROCESS_MEMORY_BYTES,
-        jemalloc.metadata as f64,
-        vec![StaticMetricLabel::new("component", "jemalloc_metadata")],
-    );
-    log_distribution_with_labels(
-        &APPLICATION_PROCESS_MEMORY_BYTES,
-        jemalloc.resident as f64,
-        vec![StaticMetricLabel::new("component", "jemalloc_resident")],
-    );
-    log_distribution_with_labels(
-        &APPLICATION_PROCESS_MEMORY_BYTES,
-        jemalloc.mapped as f64,
-        vec![StaticMetricLabel::new("component", "jemalloc_mapped")],
-    );
-    log_distribution_with_labels(
-        &APPLICATION_PROCESS_MEMORY_BYTES,
-        jemalloc.retained as f64,
-        vec![StaticMetricLabel::new("component", "jemalloc_retained")],
-    );
+    APPLICATION_PROCESS_MEMORY_BYTES
+        .with_label_values(&["memory_usage"])
+        .set(memory_usage as i64);
+    APPLICATION_PROCESS_MEMORY_BYTES
+        .with_label_values(&["jemalloc_allocated"])
+        .set(jemalloc.allocated as i64);
+    APPLICATION_PROCESS_MEMORY_BYTES
+        .with_label_values(&["jemalloc_active"])
+        .set(jemalloc.active as i64);
+    APPLICATION_PROCESS_MEMORY_BYTES
+        .with_label_values(&["jemalloc_metadata"])
+        .set(jemalloc.metadata as i64);
+    APPLICATION_PROCESS_MEMORY_BYTES
+        .with_label_values(&["jemalloc_resident"])
+        .set(jemalloc.resident as i64);
+    APPLICATION_PROCESS_MEMORY_BYTES
+        .with_label_values(&["jemalloc_mapped"])
+        .set(jemalloc.mapped as i64);
+    APPLICATION_PROCESS_MEMORY_BYTES
+        .with_label_values(&["jemalloc_retained"])
+        .set(jemalloc.retained as i64);
 }
