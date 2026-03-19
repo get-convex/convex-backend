@@ -49,61 +49,61 @@ export type LogIntegrationConfig =
 
 export type LogIntegration =
   | {
-      kind: "datadog";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof datadogConfig>;
-      } | null;
-    }
+    kind: "datadog";
+    existing: {
+      _id: Id<"_log_sinks">;
+      _creationTime: number;
+      status: SinkStatus;
+      config: Infer<typeof datadogConfig>;
+    } | null;
+  }
   | {
-      kind: "axiom";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof axiomConfig>;
-      } | null;
-    }
+    kind: "axiom";
+    existing: {
+      _id: Id<"_log_sinks">;
+      _creationTime: number;
+      status: SinkStatus;
+      config: Infer<typeof axiomConfig>;
+    } | null;
+  }
   | {
-      kind: "webhook";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof webhookConfig>;
-      } | null;
-    }
+    kind: "webhook";
+    existing: {
+      _id: Id<"_log_sinks">;
+      _creationTime: number;
+      status: SinkStatus;
+      config: Infer<typeof webhookConfig>;
+    } | null;
+  }
   | {
-      kind: "postHogLogs";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof postHogLogsConfig>;
-      } | null;
-    };
+    kind: "postHogLogs";
+    existing: {
+      _id: Id<"_log_sinks">;
+      _creationTime: number;
+      status: SinkStatus;
+      config: Infer<typeof postHogLogsConfig>;
+    } | null;
+  };
 
 export type ExceptionReportingIntegration =
   | {
-      kind: "sentry";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof sentryConfig>;
-      } | null;
-    }
+    kind: "sentry";
+    existing: {
+      _id: Id<"_log_sinks">;
+      _creationTime: number;
+      status: SinkStatus;
+      config: Infer<typeof sentryConfig>;
+    } | null;
+  }
   | {
-      kind: "postHogErrorTracking";
-      existing: {
-        _id: Id<"_log_sinks">;
-        _creationTime: number;
-        status: SinkStatus;
-        config: Infer<typeof postHogErrorTrackingConfig>;
-      } | null;
-    };
+    kind: "postHogErrorTracking";
+    existing: {
+      _id: Id<"_log_sinks">;
+      _creationTime: number;
+      status: SinkStatus;
+      config: Infer<typeof postHogErrorTrackingConfig>;
+    } | null;
+  };
 
 export type ExceptionReportingIntegrationConfig =
   | Infer<typeof sentryConfig>
@@ -324,18 +324,10 @@ export function configToUrl(config: IntegrationConfig): string {
     case "webhook":
       return config.url;
     case "postHogLogs": {
-      const logsHost = (config.host ?? "https://us.i.posthog.com").replace(
-        ".i.",
-        ".",
-      );
-      return `${logsHost}/logs`;
+      return `https://app.posthog.com/logs`;
     }
     case "postHogErrorTracking": {
-      const etHost = (config.host ?? "https://us.i.posthog.com").replace(
-        ".i.",
-        ".",
-      );
-      return `${etHost}/error_tracking`;
+      return `https://app.posthog.com/error_tracking`;
     }
     default:
       // eslint-disable-next-line no-case-declarations
