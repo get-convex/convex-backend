@@ -15,7 +15,12 @@ fn create_context(bencher: divan::Bencher) {
     let tokio_rt = tokio::runtime::Builder::new_multi_thread().build().unwrap();
     let rt = ProdRuntime::new(&tokio_rt);
     let limiter = ConcurrencyLimiter::unlimited();
-    let mut isolate = isolate::isolate::Isolate::new(rt.clone(), None, limiter.clone());
+    let mut isolate = isolate::isolate::Isolate::new(
+        rt.clone(),
+        None,
+        limiter.clone(),
+        *common::knobs::ISOLATE_MAX_USER_HEAP_SIZE,
+    );
     bencher.bench_local(|| {
         scope!(let scope, isolate.isolate());
         v8::Context::new(scope, v8::ContextOptions::default());
@@ -28,7 +33,12 @@ fn create_isolate(bencher: divan::Bencher) {
     let rt = ProdRuntime::new(&tokio_rt);
     let limiter = ConcurrencyLimiter::unlimited();
     bencher.bench(|| {
-        let mut isolate = isolate::isolate::Isolate::new(rt.clone(), None, limiter.clone());
+        let mut isolate = isolate::isolate::Isolate::new(
+            rt.clone(),
+            None,
+            limiter.clone(),
+            *common::knobs::ISOLATE_MAX_USER_HEAP_SIZE,
+        );
         scope!(let scope, isolate.isolate());
         v8::Context::new(scope, v8::ContextOptions::default());
     });

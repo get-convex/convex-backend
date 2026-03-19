@@ -4,10 +4,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use common::knobs::{
-    ISOLATE_MAX_HEAP_EXTRA_SIZE,
-    ISOLATE_MAX_USER_HEAP_SIZE,
-};
+use common::knobs::ISOLATE_MAX_HEAP_EXTRA_SIZE;
 use deno_core::{
     v8::{
         self,
@@ -44,7 +41,10 @@ const INITIAL_HEAP_SIZE: usize = 1 << 16;
 
 /// Creates a new V8 isolate from the saved snapshot. Contexts created in this
 /// isolate will have the UDF runtime already loaded.
-pub(crate) fn create_isolate_with_udf_runtime(create_params: v8::CreateParams) -> v8::OwnedIsolate {
+pub(crate) fn create_isolate_with_udf_runtime(
+    create_params: v8::CreateParams,
+    max_heap_size: usize,
+) -> v8::OwnedIsolate {
     let snapshot = BASE_SNAPSHOT
         .get()
         .expect("udf_runtime::initialize not called");
@@ -52,7 +52,7 @@ pub(crate) fn create_isolate_with_udf_runtime(create_params: v8::CreateParams) -
         create_params
             .heap_limits(
                 INITIAL_HEAP_SIZE,
-                *ISOLATE_MAX_USER_HEAP_SIZE + *ISOLATE_MAX_HEAP_EXTRA_SIZE,
+                max_heap_size + *ISOLATE_MAX_HEAP_EXTRA_SIZE,
             )
             .snapshot_blob(Cow::Borrowed(&snapshot[..]).into())
             .external_references(external_references().into()),

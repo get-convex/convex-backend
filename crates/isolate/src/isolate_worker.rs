@@ -173,6 +173,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 modules,
                 environment_variables,
                 response,
+                max_user_heap_size: _,
             } => {
                 let r = AnalyzeEnvironment::analyze::<RT>(
                     client_id,

@@ -42,6 +42,7 @@ use common::{
         APPLICATION_MAX_CONCURRENT_QUERIES,
         APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
         DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
+        ISOLATE_MAX_HEAP_FOR_ANALYZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
@@ -1630,6 +1631,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             udf_config,
             isolate_modules,
             environment_variables.clone(),
+            *ISOLATE_MAX_HEAP_FOR_ANALYZE,
         );
 
         let node_future = async {

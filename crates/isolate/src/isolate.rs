@@ -70,6 +70,7 @@ pub struct Isolate<RT: Runtime> {
     heap_ctx_ptr: *mut HeapContext,
     limiter: ConcurrencyLimiter,
     array_buffer_memory_limit: Arc<ArrayBufferMemoryLimit>,
+    max_user_heap_size: usize,
 
     created: tokio::time::Instant,
 }
@@ -157,7 +158,12 @@ impl IsolateHeapStats {
 }
 
 impl<RT: Runtime> Isolate<RT> {
-    pub fn new(rt: RT, max_user_timeout: Option<Duration>, limiter: ConcurrencyLimiter) -> Self {
+    pub fn new(
+        rt: RT,
+        max_user_timeout: Option<Duration>,
+        limiter: ConcurrencyLimiter,
+        max_user_heap_size: usize,
+    ) -> Self {
         let _timer = create_isolate_timer();
         let (array_buffer_memory_limit, array_buffer_allocator) =
             crate::array_buffer_allocator::limited_array_buffer_allocator(
@@ -165,6 +171,7 @@ impl<RT: Runtime> Isolate<RT> {
             );
         let mut v8_isolate = crate::udf_runtime::create_isolate_with_udf_runtime(
             v8::CreateParams::default().array_buffer_allocator(array_buffer_allocator),
+            max_user_heap_size,
         );
 
         // Tells V8 to capture current stack trace when uncaught exception occurs and
@@ -212,6 +219,7 @@ impl<RT: Runtime> Isolate<RT> {
             max_user_timeout,
             limiter,
             array_buffer_memory_limit,
+            max_user_heap_size,
         }
     }
 
@@ -244,6 +252,10 @@ impl<RT: Runtime> Isolate<RT> {
         let promise = resolver.get_promise(scope);
         resolver.reject(scope, exception);
         Some(promise)
+    }
+
+    pub fn max_user_heap_size(&self) -> usize {
+        self.max_user_heap_size
     }
 
     // Heap stats for an isolate that has no associated state or environment.

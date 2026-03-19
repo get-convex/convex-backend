@@ -11,8 +11,10 @@ pub struct Thread {
 
 impl Thread {
     pub fn new() -> Self {
-        let mut isolate =
-            crate::udf_runtime::create_isolate_with_udf_runtime(v8::CreateParams::default());
+        let mut isolate = crate::udf_runtime::create_isolate_with_udf_runtime(
+            v8::CreateParams::default(),
+            *common::knobs::ISOLATE_MAX_USER_HEAP_SIZE,
+        );
 
         // Tells V8 to capture current stack trace when uncaught exception occurs and
         // report it to the message listeners. The option is off by default.

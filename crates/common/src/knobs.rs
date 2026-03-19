@@ -836,6 +836,12 @@ pub static ISOLATE_MAX_USER_HEAP_SIZE: LazyLock<usize> =
 pub static ISOLATE_MAX_HEAP_EXTRA_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_HEAP_EXTRA_SIZE", 1 << 25));
 
+/// Set the heap size limit for analyze requests. Analyze imports all user
+/// modules into a single isolate, which can require more memory than a single
+/// UDF execution. Defaults to the same as ISOLATE_MAX_USER_HEAP_SIZE.
+pub static ISOLATE_MAX_HEAP_FOR_ANALYZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("ISOLATE_MAX_HEAP_FOR_ANALYZE", *ISOLATE_MAX_USER_HEAP_SIZE));
+
 /// Set a separate 64MB limit on ArrayBuffer allocations.
 pub static ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE", 1 << 26));

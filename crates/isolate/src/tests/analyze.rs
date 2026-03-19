@@ -5,6 +5,7 @@ use std::{
 
 use common::{
     components::ComponentId,
+    knobs::ISOLATE_MAX_HEAP_FOR_ANALYZE,
     types::{
         ModuleEnvironment,
         RoutableMethod,
@@ -74,6 +75,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
             modules,
             BTreeMap::new(),
             DEV_INSTANCE_NAME.to_string(),
+            *ISOLATE_MAX_HEAP_FOR_ANALYZE,
         )
         .await??;
     let analyze_path = "analyze.js".parse()?;
@@ -231,6 +233,7 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
                 modules,
                 BTreeMap::new(),
                 DEV_INSTANCE_NAME.to_string(),
+                *ISOLATE_MAX_HEAP_FOR_ANALYZE,
             )
             .await?
         else {
@@ -260,6 +263,7 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
             modules,
             BTreeMap::new(),
             DEV_INSTANCE_NAME.to_string(),
+            *ISOLATE_MAX_HEAP_FOR_ANALYZE,
         )
         .await??;
     let source_maps_path = "sourceMaps.js".parse()?;
@@ -315,6 +319,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
             modules,
             BTreeMap::new(),
             DEV_INSTANCE_NAME.to_string(),
+            *ISOLATE_MAX_HEAP_FOR_ANALYZE,
         )
         .await??;
     let internal_path = "internal.js".parse()?;
@@ -528,6 +533,7 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
                 modules,
                 BTreeMap::new(),
                 DEV_INSTANCE_NAME.to_string(),
+                *ISOLATE_MAX_HEAP_FOR_ANALYZE,
             )
             .await?
             .expect("analyze failed");

@@ -36,7 +36,12 @@ impl JsClientThread {
         server: ServerThread,
         mut rx: mpsc::UnboundedReceiver<JsClientThreadRequest>,
     ) -> anyhow::Result<()> {
-        let mut isolate = Isolate::new(rt.clone(), None, ConcurrencyLimiter::unlimited());
+        let mut isolate = Isolate::new(
+            rt.clone(),
+            None,
+            ConcurrencyLimiter::unlimited(),
+            *common::knobs::ISOLATE_MAX_USER_HEAP_SIZE,
+        );
         let client_id = Arc::new(String::new());
         let environment = TestEnvironment::new(rt);
         let (handle, state, mut timeout) = isolate.start_request(client_id, environment).await?;
