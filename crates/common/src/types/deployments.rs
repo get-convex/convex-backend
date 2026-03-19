@@ -31,6 +31,15 @@ pub enum DeploymentClass {
     D1024,
 }
 
+impl DeploymentClass {
+    pub fn is_big(&self) -> bool {
+        match self {
+            DeploymentClass::D1024 => true,
+            DeploymentClass::S16 | DeploymentClass::S256 => false,
+        }
+    }
+}
+
 #[derive(
     Copy,
     Clone,
