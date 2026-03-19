@@ -142,7 +142,7 @@ async function main() {
     .addCommand(reinit, { hidden: true })
     .addCommand(dev)
     .addCommand(deploy)
-    .addCommand(deployment, { hidden: true }) // TODO(nicolas) Release `npx convex deployment`
+    .addCommand(deployment)
     .addCommand(deployments, { hidden: true })
     .addCommand(run)
     .addCommand(convexImport)
