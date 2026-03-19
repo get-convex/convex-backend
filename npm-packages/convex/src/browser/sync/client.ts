@@ -413,16 +413,11 @@ export class BaseConvexClient {
 
           // Throw out our remote query, reissue queries
           // and outstanding mutations, and reauthenticate.
-          const oldRemoteQueryResults = new Set(
-            this.remoteQuerySet.remoteQueryResults().keys(),
-          );
           this.remoteQuerySet = new RemoteQuerySet(
             (queryId) => this.state.queryPath(queryId),
             this.logger,
           );
-          const [querySetModification, authModification] = this.state.restart(
-            oldRemoteQueryResults,
-          );
+          const [querySetModification, authModification] = this.state.restart();
           if (authModification) {
             this.webSocketManager.sendMessage(authModification);
           }
@@ -525,7 +520,7 @@ export class BaseConvexClient {
    */
   private hasSyncedPastLastReconnect() {
     const hasSyncedPastLastReconnect =
-      this.requestManager.hasSyncedPastLastReconnect() ||
+      this.requestManager.hasSyncedPastLastReconnect() &&
       this.state.hasSyncedPastLastReconnect();
     return hasSyncedPastLastReconnect;
   }

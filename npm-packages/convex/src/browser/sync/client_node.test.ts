@@ -852,3 +852,177 @@ test("TransitionChunk messages are assembled into a Transition", async () => {
     await client.close();
   });
 });
+
+test("Backoff does not reset when queries synced but mutation is still inflight", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
+    const client = new BaseConvexClient(address, () => null, {
+      webSocketConstructor: nodeWebSocket,
+      unsavedChangesWarning: false,
+    });
+
+    client.subscribe("queries:myQuery", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    // Start a mutation, then server closes while it's inflight
+    const mutP = client.mutation("myMutation", {});
+    const mutReq = await receive();
+    expect(mutReq.type).toEqual("Mutation");
+    const requestId = (mutReq as MutationRequest).requestId;
+
+    close();
+
+    expect((await receive()).type).toEqual("Connect");
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+    expect((await receive()).type).toEqual("Mutation");
+
+    // Server sends query results but NOT mutation response
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result 2",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result 2") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    // Retries should NOT reset — mutation is still inflight
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+
+    // Now complete the mutation
+    send({
+      type: "MutationResponse",
+      requestId: requestId,
+      success: true,
+      result: null,
+      ts: Long.fromNumber(300),
+      logLines: [],
+    });
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(400) },
+      modifications: [],
+    });
+
+    await mutP;
+
+    // Both queries and mutations synced — retries should reset
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    await client.close();
+  });
+});
+
+test("Backoff does not reset for idle client until server re-confirms queries", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
+    const client = new BaseConvexClient(address, () => null, {
+      webSocketConstructor: nodeWebSocket,
+      unsavedChangesWarning: false,
+    });
+
+    client.subscribe("queries:myQuery", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    // Server closes (idle client, no mutations in flight)
+    close();
+
+    expect((await receive()).type).toEqual("Connect");
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    // Empty transition — query not re-confirmed yet, retries should hold
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(150) },
+      modifications: [],
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+
+    // Server re-confirms the query
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(150) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result refreshed",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result refreshed")
+        break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    // Query re-confirmed — retries should reset
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    await client.close();
+  });
+});
