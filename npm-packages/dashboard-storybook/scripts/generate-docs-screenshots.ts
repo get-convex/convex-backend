@@ -137,7 +137,7 @@ const results: {
 }[] = [];
 
 // 4. Screenshot each story in light and dark mode
-const CONCURRENCY = 10; // with 100 MB each per window, uses 1 GB of memory
+const CONCURRENCY = 5;
 const total = docsStories.length * 2;
 let completed = 0;
 const inProgress = new Set<string>();
@@ -182,7 +182,7 @@ async function captureScreenshot(
       deviceScaleFactor: 2,
     });
     const page = await context.newPage();
-    await page.goto(url, { waitUntil: "networkidle" });
+    await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
     await page.evaluate(() => document.fonts.ready);
 
     const isComponentStory = story.title
