@@ -212,11 +212,23 @@ export function DeploymentSummary({
     );
   }
 
+  const mainPanelRounding =
+    deployment.kind === "cloud"
+      ? // When the Cloud URL panel is present we split rounding between panels.
+        "rounded-l-lg rounded-tr-lg rounded-bl-none lg:flex-1 lg:rounded-tr-none lg:rounded-bl-lg"
+      : // Local backends don't render the Cloud URL panel, so round all corners.
+        "rounded-lg";
+
   return (
     <Sheet className="flex w-fit flex-col bg-transparent" padding={false}>
       <div className="flex flex-col lg:flex-row">
         {/* Main deployment info */}
-        <div className="flex flex-col gap-4 rounded-l-lg rounded-tr-lg rounded-bl-none bg-background-secondary p-2 py-3 lg:flex-1 lg:rounded-tr-none lg:rounded-bl-lg lg:pr-4">
+        <div
+          className={cn(
+            "flex flex-col gap-4 bg-background-secondary p-2 py-3 lg:pr-4",
+            mainPanelRounding,
+          )}
+        >
           {/* Row 1: Type + Name (always together) */}
           <div className="flex flex-wrap items-center gap-2">
             <div
