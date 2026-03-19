@@ -1449,6 +1449,12 @@ pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
 pub static STORAGE_MAX_INTERMEDIATE_PART_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("STORAGE_MAX_INTERMEDIATE_PART_SIZE", 200 * (1 << 20)));
 
+/// Fixed part size (in bytes) for S3-compatible multipart uploads.
+///
+/// Defaults to 0 (doubling strategy).
+pub static STORAGE_UPLOAD_PART_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("STORAGE_UPLOAD_PART_SIZE", 0));
+
 /// Minimum number of milliseconds a commit needs to take to send traces to
 /// honeycomb.
 pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =

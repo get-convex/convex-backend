@@ -1393,6 +1393,45 @@ mod buffered_upload_tests {
         assert_eq!(lengths, vec![14, 21, 30, 15]);
         Ok(())
     }
+
+    /// Regression test: when min == max (fixed-size mode used for R2), every
+    /// non-trailing part must be exactly that size. This ensures the fix for
+    /// "InvalidPart: All non-trailing parts must have the same length." works.
+    #[convex_macro::test_runtime]
+    async fn test_buffered_upload_fixed_size(_rt: TestRuntime) -> anyhow::Result<()> {
+        let (sender, receiver) = mpsc::channel::<Bytes>(1);
+        let parts = Arc::new(Mutex::new(vec![]));
+        let upload = NoopUpload {
+            parts: parts.clone(),
+        };
+        // Fixed part size of 10 bytes (min == max).
+        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(upload, 10, 10));
+        let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
+        // Write 35 bytes via a ChannelWriter with a smaller chunk size (7 bytes)
+        // to ensure parts are assembled from multiple channel chunks.
+        let mut writer = ChannelWriter::new(sender, 7);
+        let data = b"abcdefghij_abcdefghij_abcdefghij___";
+        let write_fut = async move {
+            writer.write_all(data).await?;
+            writer.shutdown().await?;
+            drop(writer);
+            anyhow::Ok(())
+        };
+        let _ = futures::try_join!(write_fut, uploader)?;
+        let _ = upload.complete().await?;
+        let parts = parts.lock();
+        // All data must round-trip correctly.
+        let joined_parts: Bytes = parts.iter().flat_map(|p| p.iter().copied()).collect();
+        assert_eq!(joined_parts, Bytes::from_static(data));
+        let lengths: Vec<_> = parts.iter().map(|p| p.len()).collect();
+        // 35 bytes with fixed size 10: three full parts of 10, one trailing of 5.
+        assert_eq!(lengths, vec![10, 10, 10, 5]);
+        // Every non-trailing part must be exactly the fixed size.
+        for &len in lengths[..lengths.len() - 1].iter() {
+            assert_eq!(len, 10, "non-trailing part size must equal fixed size");
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

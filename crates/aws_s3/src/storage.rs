@@ -35,7 +35,10 @@ use aws_utils::{
 use bytes::Bytes;
 use common::{
     errors::report_error,
-    knobs::STORAGE_MAX_INTERMEDIATE_PART_SIZE,
+    knobs::{
+        STORAGE_MAX_INTERMEDIATE_PART_SIZE,
+        STORAGE_UPLOAD_PART_SIZE,
+    },
     runtime::Runtime,
     types::{
         FullyQualifiedObjectKey,
@@ -264,14 +267,24 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             self.runtime.clone(),
         )
         .await?;
-        let upload = BufferedUpload::new(
-            s3_upload,
-            MIN_S3_INTERMEDIATE_PART_SIZE,
-            std::cmp::min(
-                MAX_S3_INTERMEDIATE_PART_SIZE,
-                *STORAGE_MAX_INTERMEDIATE_PART_SIZE,
-            ),
-        );
+        let (min_part_size, max_part_size) = if *STORAGE_UPLOAD_PART_SIZE > 0 {
+            // Fixed part size mode: required for R2 and other providers that
+            // enforce uniform non-trailing part sizes. Setting min == max pins
+            // BufferedUpload to emit exactly this many bytes per part.
+            let fixed = (*STORAGE_UPLOAD_PART_SIZE)
+                .clamp(MIN_S3_INTERMEDIATE_PART_SIZE, MAX_S3_INTERMEDIATE_PART_SIZE);
+            (fixed, fixed)
+        } else {
+            // Doubling strategy: optimal for AWS S3.
+            (
+                MIN_S3_INTERMEDIATE_PART_SIZE,
+                std::cmp::min(
+                    MAX_S3_INTERMEDIATE_PART_SIZE,
+                    *STORAGE_MAX_INTERMEDIATE_PART_SIZE,
+                ),
+            )
+        };
+        let upload = BufferedUpload::new(s3_upload, min_part_size, max_part_size);
         Ok(Box::new(upload))
     }
 
