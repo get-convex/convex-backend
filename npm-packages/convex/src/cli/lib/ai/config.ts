@@ -62,7 +62,7 @@ async function readAiDisabledFromProjectConfig(
   }
 }
 
-async function writeAiDisabledToProjectConfig(
+export async function writeAiDisabledToProjectConfig(
   disableStalenessMessage: boolean,
   projectDir: string,
 ): Promise<void> {
@@ -110,8 +110,8 @@ export async function readAiConfig(
       "utf8",
     );
   } catch {
-    // State file doesn't exist yet — only treat as configured if user explicitly
-    // disabled AI files in convex.json.
+    // No state file means AI files are not installed, unless the user has
+    // explicitly disabled install/staleness messages in convex.json.
     return disableStalenessMessage
       ? { ...EMPTY_AI_STATE, disableStalenessMessage }
       : null;

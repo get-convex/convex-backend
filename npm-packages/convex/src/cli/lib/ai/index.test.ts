@@ -1,7 +1,11 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Sentry from "@sentry/node";
 import { logMessage } from "../../../bundler/log.js";
-import { readAiConfig, writeAiConfig } from "./config.js";
+import {
+  readAiConfig,
+  writeAiConfig,
+  writeAiDisabledToProjectConfig,
+} from "./config.js";
 import {
   downloadGuidelines,
   fetchAgentSkillsSha,
@@ -17,7 +21,6 @@ import {
   updateAiFiles,
   removeAiFiles,
   disableAiFiles,
-  writeDisabledAiConfig,
   statusAiFiles,
 } from "./index.js";
 import {
@@ -185,6 +188,7 @@ vi.mock("../../../bundler/log.js", () => ({
 vi.mock("./config.js", () => ({
   readAiConfig: vi.fn(),
   writeAiConfig: vi.fn(),
+  writeAiDisabledToProjectConfig: vi.fn(),
 }));
 
 vi.mock("../versionApi.js", () => ({
@@ -211,6 +215,9 @@ vi.mock("child_process", () => ({
 const mockLogMessage = vi.mocked(logMessage);
 const mockReadAiConfig = vi.mocked(readAiConfig);
 const mockWriteAiConfig = vi.mocked(writeAiConfig);
+const mockWriteAiDisabledToProjectConfig = vi.mocked(
+  writeAiDisabledToProjectConfig,
+);
 const mockDownloadGuidelines = vi.mocked(downloadGuidelines);
 const mockFetchAgentSkillsSha = vi.mocked(fetchAgentSkillsSha);
 const mockGetVersion = vi.mocked(getVersion);
@@ -228,12 +235,15 @@ const baseConfig = {
 
 describe("checkAiFilesStaleness", () => {
   beforeEach(() => vi.clearAllMocks());
-  afterEach(() => vi.resetAllMocks());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetAllMocks();
+  });
 
   const dummyProjectDir = "/tmp/test-project";
   const dummyConvexDir = "/tmp/test-project/convex";
 
-  test("logs install nudge when no config file exists, even with null canonical values", async () => {
+  test("logs install nudge when no state file exists, even with null canonical values", async () => {
     mockReadAiConfig.mockResolvedValue(null);
 
     await checkAiFilesStaleness(null, null, dummyProjectDir, dummyConvexDir);
@@ -258,7 +268,7 @@ describe("checkAiFilesStaleness", () => {
     expect(mockLogMessage).not.toHaveBeenCalled();
   });
 
-  test("logs install nudge when no config file exists (never set up)", async () => {
+  test("logs install nudge when no state file exists, even if canonical hashes are available", async () => {
     mockReadAiConfig.mockResolvedValue(null);
 
     await checkAiFilesStaleness(
@@ -276,6 +286,28 @@ describe("checkAiFilesStaleness", () => {
     );
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("not installed"),
+    );
+  });
+
+  test("adds agent-specific guidance when in agent mode", async () => {
+    vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
+    mockReadAiConfig.mockResolvedValue(null);
+
+    await checkAiFilesStaleness(
+      "canonical-hash",
+      null,
+      dummyProjectDir,
+      dummyConvexDir,
+    );
+
+    expect(mockLogMessage).toHaveBeenCalledWith(
+      expect.stringContaining("If you are an agent tell the human to run"),
+    );
+    expect(mockLogMessage).toHaveBeenCalledWith(
+      expect.stringContaining("npx convex ai-files install"),
+    );
+    expect(mockLogMessage).toHaveBeenCalledWith(
+      expect.stringContaining("npx convex ai-files disable"),
     );
   });
 
@@ -836,13 +868,11 @@ describe("removeAiFiles", () => {
       "utf8",
     );
 
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
 
-    expect(mockWriteAiConfig).toHaveBeenCalledWith(
-      expect.objectContaining({ disableStalenessMessage: true }),
-      expect.any(String),
-      expect.any(String),
-      expect.objectContaining({ persistDisabledPreference: "always" }),
+    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith(
+      true,
+      tmpDir,
     );
     expect(
       fs.existsSync(path.join(convexDir, "_generated", "ai", "guidelines.md")),
@@ -852,42 +882,12 @@ describe("removeAiFiles", () => {
   test("disableAiFiles writes config to project root, not convex dir", async () => {
     mockReadAiConfig.mockResolvedValue(null);
 
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
 
-    expect(mockWriteAiConfig).toHaveBeenCalledWith(
-      expect.objectContaining({ disableStalenessMessage: true }),
+    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith(
+      true,
       tmpDir,
-      expect.any(String),
-      expect.objectContaining({ persistDisabledPreference: "always" }),
     );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// writeDisabledAiConfig - callers pass convexDir, not projectDir.
-// ---------------------------------------------------------------------------
-
-describe("writeDisabledAiConfig", () => {
-  beforeEach(() => vi.clearAllMocks());
-  afterEach(() => vi.resetAllMocks());
-
-  test("writes disable config when given convex dir path", async () => {
-    const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-    try {
-      const convexDir = path.join(tmpDir, "convex");
-      fs.mkdirSync(convexDir, { recursive: true });
-
-      await writeDisabledAiConfig(convexDir);
-
-      expect(mockWriteAiConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ disableStalenessMessage: true }),
-        tmpDir,
-        convexDir,
-        expect.objectContaining({ persistDisabledPreference: "always" }),
-      );
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
   });
 });
 

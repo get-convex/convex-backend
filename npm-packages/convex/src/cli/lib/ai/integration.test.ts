@@ -9,7 +9,6 @@ import {
   removeAiFiles,
   statusAiFiles,
   updateAiFiles,
-  writeDisabledAiConfig,
 } from "./index.js";
 import { logMessage } from "../../../bundler/log.js";
 import { AGENTS_MD_START_MARKER } from "../../codegen_templates/agentsmd.js";
@@ -172,7 +171,7 @@ describe("ai-files integration with default convex/ directory", () => {
 
   test("staleness check is silent when disabled in convex.json", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     const state = readJson(statePath());
     state.guidelinesHash = "deliberately-stale-hash";
     fs.writeFileSync(statePath(), JSON.stringify(state, null, 2) + "\n");
@@ -188,7 +187,7 @@ describe("ai-files integration with default convex/ directory", () => {
 
   test("disable keeps files but sets convex.json preference", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
 
     expect(readJson(projectConfigPath()).aiFiles.disableStalenessMessage).toBe(
       true,
@@ -196,6 +195,16 @@ describe("ai-files integration with default convex/ directory", () => {
     expect(fs.existsSync(guidelinesPath())).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
+  });
+
+  test("disable before install writes only convex.json and no AI state file", async () => {
+    await disableAiFiles(tmpDir);
+
+    expect(readJson(projectConfigPath()).aiFiles.disableStalenessMessage).toBe(
+      true,
+    );
+    expect(fs.existsSync(statePath())).toBe(false);
+    expect(fs.existsSync(guidelinesPath())).toBe(false);
   });
 
   test("remove deletes ai directory and AGENTS.md managed section", async () => {
@@ -231,7 +240,7 @@ describe("ai-files integration with default convex/ directory", () => {
   test("disable after CLAUDE.md user edits preserves the file", async () => {
     await updateAiFiles(tmpDir, convexDir);
     fs.appendFileSync(path.join(tmpDir, "CLAUDE.md"), "My custom note\n");
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     expect(fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf8")).toContain(
       "My custom note",
     );
@@ -250,7 +259,7 @@ describe("ai-files integration with default convex/ directory", () => {
 
   test("enable clears disableStalenessMessage", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     expect(readJson(projectConfigPath()).aiFiles.disableStalenessMessage).toBe(
       true,
     );
@@ -264,7 +273,7 @@ describe("ai-files integration with default convex/ directory", () => {
 
   test("full cycle: disable -> remove -> enable reinstalls everything", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     await removeAiFiles(tmpDir, convexDir);
     expect(fs.existsSync(aiDir())).toBe(false);
 
@@ -328,7 +337,7 @@ describe("ai-files integration with default convex/ directory", () => {
     expect(after).not.toContain(CLAUDE_MD_START_MARKER);
   });
 
-  test("checkAiFilesStaleness nags when no config exists (first-time install)", async () => {
+  test("checkAiFilesStaleness nags when no state file exists", async () => {
     vi.mocked(logMessage).mockClear();
 
     await checkAiFilesStaleness(null, null, tmpDir, convexDir);
@@ -359,33 +368,6 @@ describe("ai-files integration with default convex/ directory", () => {
     ).toBeUndefined();
   });
 
-  test("writeDisabledAiConfig writes suppression without creating AI files", async () => {
-    await writeDisabledAiConfig(convexDir);
-
-    expect(readJson(projectConfigPath()).aiFiles.disableStalenessMessage).toBe(
-      true,
-    );
-    expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
-    expect(
-      fs.existsSync(path.join(convexDir, "_generated", "ai", "guidelines.md")),
-    ).toBe(false);
-  });
-
-  test("writeDisabledAiConfig suppresses future staleness nags", async () => {
-    await writeDisabledAiConfig(convexDir);
-    vi.mocked(logMessage).mockClear();
-
-    await checkAiFilesStaleness("any-hash", "any-sha", tmpDir, convexDir);
-
-    const calls = vi.mocked(logMessage).mock.calls.map((c) => c[0]);
-    expect(
-      calls.find((m) => typeof m === "string" && m.includes("out of date")),
-    ).toBeUndefined();
-    expect(
-      calls.find((m) => typeof m === "string" && m.includes("not installed")),
-    ).toBeUndefined();
-  });
-
   test("AGENTS.md managed section is replaced not duplicated on repeated updates", async () => {
     await updateAiFiles(tmpDir, convexDir);
     await updateAiFiles(tmpDir, convexDir);
@@ -398,7 +380,7 @@ describe("ai-files integration with default convex/ directory", () => {
 
   test("status reports disabled state after disable", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     vi.mocked(logMessage).mockClear();
 
     await statusAiFiles(tmpDir, convexDir);
@@ -544,7 +526,7 @@ describe("ai-files integration with functions directory override", () => {
 
   test("disable sets convex.json preference and keeps files", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
 
     expect(readJson(projectConfigPath()).aiFiles.disableStalenessMessage).toBe(
       true,
@@ -572,7 +554,7 @@ describe("ai-files integration with functions directory override", () => {
       "My custom note\n",
       "utf8",
     );
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     expect(fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf8")).toContain(
       "My custom note",
     );
@@ -592,7 +574,7 @@ describe("ai-files integration with functions directory override", () => {
 
   test("enable clears disableStalenessMessage and re-enables status", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     await enableAiFiles(tmpDir, convexDir);
     await statusAiFiles(tmpDir, convexDir);
 
@@ -606,7 +588,7 @@ describe("ai-files integration with functions directory override", () => {
 
   test("disable + remove + enable works with overridden functions directory", async () => {
     await updateAiFiles(tmpDir, convexDir);
-    await disableAiFiles(tmpDir, convexDir);
+    await disableAiFiles(tmpDir);
     await removeAiFiles(tmpDir, convexDir);
 
     expect(

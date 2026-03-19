@@ -56,10 +56,6 @@ function makeTmpDir(): string {
   return fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
 }
 
-function readJson(filePath: string): any {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
-}
-
 const fakeCtx: Context = {
   fs: {
     readFile: (p: string) => fs.readFileSync(p, { encoding: "utf8" }),
@@ -102,6 +98,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   afterEach(() => {
     process.stdin.isTTY = originalIsTTY!;
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
 
@@ -121,7 +118,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
     );
   });
 
-  test("user declines prompt: suppression config written, no AI files", async () => {
+  test("user declines prompt: no config and no AI files are written", async () => {
     const result = maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
 
     // Type "n" then Enter to decline
@@ -133,8 +130,18 @@ describe("maybeSetupAiFiles interactive prompt", () => {
     expect(fs.existsSync(guidelinesPath())).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(false);
-    expect(readJson(projectConfigPath()).aiFiles.disableStalenessMessage).toBe(
-      true,
-    );
+    expect(fs.existsSync(projectConfigPath())).toBe(false);
+  });
+
+  test("agent mode skips the prompt and does not install AI files", async () => {
+    vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
+
+    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+
+    expect(fs.existsSync(guidelinesPath())).toBe(false);
+    expect(fs.existsSync(statePath())).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(false);
+    expect(fs.existsSync(projectConfigPath())).toBe(false);
   });
 });

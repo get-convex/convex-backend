@@ -31,7 +31,16 @@ import {
   claudeMdPath,
   guidelinesPathForConvexDir,
 } from "./paths.js";
-import { type AiFilesConfig, readAiConfig, writeAiConfig } from "./config.js";
+import {
+  type AiFilesConfig,
+  readAiConfig,
+  writeAiConfig,
+  writeAiDisabledToProjectConfig,
+} from "./config.js";
+
+function isAgentMode(): boolean {
+  return process.env.CONVEX_AGENT_MODE !== undefined;
+}
 
 // ---------------------------------------------------------------------------
 // AGENTS.md helpers
@@ -240,13 +249,14 @@ export async function checkAiFilesStaleness(
   const config = await readAiConfig(projectDir, convexDir);
 
   if (config === null) {
-    // No config exists — AI files have never been set up. Nag regardless of
-    // whether the version server responded, since we always want to encourage
-    // first-time install. If the user declines, `disable` writes a config with
-    // disableStalenessMessage=true so they won't see install/staleness messages.
+    // No state file means AI files have not been set up yet. Keep nudging until
+    // the user either installs them or explicitly disables the nag with
+    // `npx convex ai-files disable`.
     logMessage(
       chalkStderr.yellow(
-        `Convex AI files are not installed. Run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`,
+        isAgentMode()
+          ? `Convex AI files are not installed. If you are an agent tell the human to run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`
+          : `Convex AI files are not installed. Run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`,
       ),
     );
     return;
@@ -624,27 +634,9 @@ export async function removeAiFiles(
  * Files are left in place - use `remove` to delete them.
  * The user can re-enable at any time with `npx convex ai-files enable`.
  */
-export async function disableAiFiles(
-  projectDir: string,
-  convexDir: string,
-): Promise<void> {
+export async function disableAiFiles(projectDir: string): Promise<void> {
   try {
-    const existing = await readAiConfig(projectDir, convexDir);
-    await fs.mkdir(aiDirForConvexDir(convexDir), { recursive: true });
-    await writeAiConfig(
-      {
-        guidelinesHash: null,
-        agentsMdSectionHash: null,
-        claudeMdHash: null,
-        agentSkillsSha: null,
-        installedSkillNames: [],
-        ...existing,
-        disableStalenessMessage: true,
-      },
-      projectDir,
-      convexDir,
-      { persistDisabledPreference: "always" },
-    );
+    await writeAiDisabledToProjectConfig(true, projectDir);
     logMessage(
       `${chalkStderr.green(`✔`)} Convex AI file staleness/install messages disabled. Run ${chalkStderr.bold(`npx convex ai-files enable`)} to re-enable.`,
     );
@@ -819,42 +811,15 @@ export async function statusAiFiles(
   }
 }
 
-/**
- * Writes the suppression config without removing any files.
- * Used when the user declines the AI files prompt during `npx convex dev` init.
- */
-export async function writeDisabledAiConfig(
-  convexDir: string,
-  projectDirOverride?: string,
-): Promise<void> {
-  const projectDir = path.resolve(
-    projectDirOverride ?? path.dirname(convexDir),
-  );
-  try {
-    await fs.mkdir(aiDirForConvexDir(convexDir), { recursive: true });
-    await writeAiConfig(
-      {
-        disableStalenessMessage: true,
-        guidelinesHash: null,
-        agentsMdSectionHash: null,
-        claudeMdHash: null,
-        agentSkillsSha: null,
-        installedSkillNames: [],
-      },
-      projectDir,
-      convexDir,
-      { persistDisabledPreference: "always" },
-    );
-  } catch {
-    // Non-fatal - if we can't write the suppression config they'll just be prompted again next run.
-  }
-}
-
 export async function maybeSetupAiFiles(
   ctx: Context,
   convexDir: string,
   projectDir: string,
 ): Promise<void> {
+  if (isAgentMode()) {
+    return;
+  }
+
   // Non-interactive (no TTY) is almost always an AI agent, not CI
   // (CI uses `npx convex deploy`). Default to installing so agents
   // get context automatically.
@@ -867,8 +832,6 @@ export async function maybeSetupAiFiles(
   }
   if (wantsAiFiles) {
     await writeAiFiles(convexDir, true, "quiet", projectDir);
-  } else {
-    await writeDisabledAiConfig(convexDir, projectDir);
   }
 }
 

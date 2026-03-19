@@ -79,8 +79,8 @@ const aiDisable = new Command("disable")
   )
   .allowExcessArguments(false)
   .action(async () => {
-    const { projectDir, convexDir } = await resolveProjectPaths();
-    await disableAiFiles(projectDir, convexDir);
+    const { projectDir } = await resolveProjectPaths();
+    await disableAiFiles(projectDir);
   });
 
 const aiStatus = new Command("status")

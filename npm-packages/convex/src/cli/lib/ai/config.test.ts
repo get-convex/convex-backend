@@ -1,7 +1,12 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Sentry from "@sentry/node";
 import { promises as fs } from "fs";
-import { aiFilesSchema, readAiConfig, writeAiConfig } from "./config.js";
+import {
+  aiFilesSchema,
+  readAiConfig,
+  writeAiConfig,
+  writeAiDisabledToProjectConfig,
+} from "./config.js";
 
 vi.mock("@sentry/node", () => ({
   captureException: vi.fn(),
@@ -115,7 +120,7 @@ describe("readAiConfig", () => {
     });
   });
 
-  test("returns empty state when disableStalenessMessage in convex.json and state file is missing", async () => {
+  test("returns empty disabled config when state file is missing and convex.json disables nags", async () => {
     mockFs.readFile
       .mockResolvedValueOnce(
         JSON.stringify({ aiFiles: { disableStalenessMessage: true } }),
@@ -308,6 +313,25 @@ describe("writeAiConfig", () => {
     expect(mockFs.writeFile).toHaveBeenCalledWith(
       expect.stringContaining("ai-files.state.json"),
       expect.any(String),
+      "utf8",
+    );
+  });
+});
+
+describe("writeAiDisabledToProjectConfig", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.resetAllMocks());
+
+  test("writes only convex.json with disableStalenessMessage=true", async () => {
+    mockFs.readFile.mockResolvedValue("{}");
+    mockFs.writeFile.mockResolvedValue(undefined);
+
+    await writeAiDisabledToProjectConfig(true, dummyProjectDir);
+
+    expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
+    expect(mockFs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining("convex.json"),
+      expect.stringContaining('"disableStalenessMessage": true'),
       "utf8",
     );
   });
