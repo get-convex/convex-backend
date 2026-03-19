@@ -179,7 +179,7 @@ function Billing({ team }: { team: TeamResponse }) {
   );
 }
 
-function BillingPage() {
+export function BillingPage() {
   return (
     <TeamSettingsLayout page="billing" Component={Billing} title="Billing" />
   );

@@ -1149,7 +1149,7 @@ function DatabaseDocumentCountUsage({
   );
 }
 
-function FunctionCallsUsage({
+export function FunctionCallsUsage({
   team,
   dateRange,
   projectId,

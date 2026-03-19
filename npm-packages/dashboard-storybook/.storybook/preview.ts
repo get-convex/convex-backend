@@ -21,6 +21,11 @@ sb.mock(import("../../dashboard/src/api/optins.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/api.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/hooks/useLaunchDarkly.tsx"), { spy: true });
 sb.mock(import("../../dashboard/src/api/usage.ts"), { spy: true });
+sb.mock(import("../../dashboard/src/api/auditLog.ts"), { spy: true });
+sb.mock(import("../../dashboard/src/hooks/usageMetrics.ts"), { spy: true });
+sb.mock(import("../../dashboard-common/src/elements/LocalDevCallout.tsx"), {
+  spy: true,
+});
 
 const preview: Preview = {
   initialGlobals: {

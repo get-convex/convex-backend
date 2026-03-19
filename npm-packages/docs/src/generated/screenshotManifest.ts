@@ -29,6 +29,58 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/components/SpendingLimitsSection",
+    "light": {
+      "filename": "components_spending_limits_section_light.webp",
+      "width": 2048,
+      "height": 444
+    },
+    "dark": {
+      "filename": "components_spending_limits_section_dark.webp",
+      "width": 2048,
+      "height": 444
+    }
+  },
+  {
+    "storyTitle": "docs/components/UsageByProjectChart",
+    "light": {
+      "filename": "components_usage_by_project_chart_light.webp",
+      "width": 2048,
+      "height": 702
+    },
+    "dark": {
+      "filename": "components_usage_by_project_chart_dark.webp",
+      "width": 2048,
+      "height": 702
+    }
+  },
+  {
+    "storyTitle": "docs/pages/TeamAuditLog",
+    "light": {
+      "filename": "pages_team_audit_log_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_team_audit_log_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/TeamBilling",
+    "light": {
+      "filename": "pages_team_billing_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_team_billing_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
     "storyTitle": "docs/pages/TeamMembers",
     "light": {
       "filename": "pages_team_members_light.webp",
@@ -50,6 +102,19 @@ export const screenshots = [
     },
     "dark": {
       "filename": "pages_team_settings_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
+    "storyTitle": "docs/pages/TeamUsage",
+    "light": {
+      "filename": "pages_team_usage_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_team_usage_dark.webp",
       "width": 2048,
       "height": 1400
     }
