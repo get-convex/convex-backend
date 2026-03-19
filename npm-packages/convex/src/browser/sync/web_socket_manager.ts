@@ -126,6 +126,12 @@ const serverDisconnectErrors = {
   VectorIndexesUnavailable: { timeout: 1000 },
   SearchIndexesUnavailable: { timeout: 1000 },
   TableSummariesUnavailable: { timeout: 1000 },
+  // ErrorMetadata::service_unavailable() when backend/conductor is unreachable
+  ServiceUnavailable: { timeout: 3000 },
+  // ErrorMetadata::rejected_before_execution() when funrun workers are unavailable
+  WorkerOverloaded: { timeout: 3000 },
+  IsolateNotClean: { timeout: 3000 },
+  InitialPermitTimeoutError: { timeout: 3000 },
   // More ErrorMetadata::overloaded()
   VectorIndexTooLarge: { timeout: 3000 },
   SearchIndexTooLarge: { timeout: 3000 },
@@ -229,7 +235,7 @@ export class WebSocketManager {
 
     // backoff for unknown errors
     this.defaultInitialBackoff = 1000;
-    this.maxBackoff = 16000;
+    this.maxBackoff = 64000;
     this.retries = 0;
 
     // Ping messages (sync protocol Pings, not WebSocket protocol Pings) are
