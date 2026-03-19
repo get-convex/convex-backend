@@ -281,6 +281,11 @@ async function captureScreenshot(
     updateSpinner();
     spinner.render();
     errors.push({ filename, error });
+    // If the file already existed, preserve it by returning an "unchanged"
+    // result so it won't be deleted as stale and stays in the manifest.
+    if (existingWebp !== null) {
+      return { filename, theme, storyTitle: story.title, status: "unchanged" };
+    }
     return null;
   } finally {
     if (context) {
@@ -332,7 +337,7 @@ for (const file of existingWebps) {
   if (!currentFilenames.has(file)) {
     fs.unlinkSync(path.join(OUTPUT_DIR, file));
     deleted.push(file);
-    console.log(chalk.red(`deleted: ${file}`));
+    console.log(chalk.red(`  ✓ ${chalk.white.bgRed("  Deleted  ")} ${file}`));
   }
 }
 if (deleted.length > 0) {
