@@ -316,39 +316,61 @@ function parseSelectorForNewDeployment(
 ): NewDeploymentSelectorResult {
   const selector = parseDeploymentSelector(selectorString);
   switch (selector.kind) {
-    case "defaultDev":
-      return {
-        kind: "invalid",
-        message: `"dev" is not a valid deployment reference.`,
-      };
-    case "defaultProd":
-      return {
-        kind: "invalid",
-        message: `"prod" is not a valid deployment reference.`,
-      };
     case "deploymentName":
       return {
         kind: "invalid",
         message: `"${selector.deploymentName}" is not a valid deployment reference. References cannot be in the format abc-xyz-123, as it is reserved for deployment names.`,
       };
-    case "refInOtherProject":
+    case "inCurrentProject": {
+      const inner = selector.selector;
+      if (inner.kind === "dev") {
+        return {
+          kind: "invalid",
+          message: `"dev" is not a valid deployment reference.`,
+        };
+      }
+      if (inner.kind === "prod") {
+        return {
+          kind: "invalid",
+          message: `"prod" is not a valid deployment reference.`,
+        };
+      }
+      return { kind: "valid", ref: inner.reference };
+    }
+    case "inProject": {
       return {
         kind: "invalid",
         message: `Please use "team:project:ref" to specify the team when creating a new deployment in a different project.`,
       };
-    case "refInOtherTeam":
+    }
+    case "inTeamProject": {
+      const inner = selector.selector;
+      if (inner.kind === "dev") {
+        return {
+          kind: "invalid",
+          message: `"dev" is not a valid deployment reference.`,
+        };
+      }
+      if (inner.kind === "prod") {
+        return {
+          kind: "invalid",
+          message: `"prod" is not a valid deployment reference.`,
+        };
+      }
       return {
         kind: "valid",
-        ref: selector.reference,
+        ref: inner.reference,
         teamAndProject: {
           teamSlug: selector.teamSlug,
           projectSlug: selector.projectSlug,
         },
       };
-    case "refInSameProject":
+    }
+    default:
+      selector satisfies never;
       return {
-        kind: "valid",
-        ref: selector.reference,
+        kind: "invalid",
+        message: "Unknown state. This is a bug in Convex.",
       };
   }
 }

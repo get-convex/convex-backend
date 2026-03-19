@@ -386,7 +386,7 @@ async function _getDeploymentSelection(
   // before env var resolution.
   if (cliArgs.deployment !== undefined) {
     const parsed = parseDeploymentSelector(cliArgs.deployment);
-    if (parsed.kind === "refInOtherTeam") {
+    if (parsed.kind === "inTeamProject") {
       return {
         kind: "deploymentWithinProject",
         targetProject: {

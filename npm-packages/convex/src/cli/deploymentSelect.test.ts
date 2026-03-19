@@ -253,7 +253,7 @@ describe("npx convex select", () => {
           teamId: 1,
           projectId: 1,
         }),
-        "teams/my-team/projects/my-project/deployments": () => true,
+        "teams/my-team/projects/other-project/deployments": () => true,
         "deployment/authorize_within_current_project": () => ({
           adminKey: "preview-key",
           url: "https://feature-preview-123.convex.cloud",

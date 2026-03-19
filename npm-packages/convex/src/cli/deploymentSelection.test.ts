@@ -1054,7 +1054,7 @@ describe("deployment selection flows", () => {
             teamId: 1,
             projectId: 1,
           }),
-          "teams/my-team/projects/my-project/deployments": () => true,
+          "teams/my-team/projects/other-project/deployments": () => true,
           "deployment/authorize_within_current_project": () => ({
             adminKey: "other-proj-key",
             url: "https://other-deploy-123.convex.cloud",
@@ -1137,6 +1137,164 @@ describe("deployment selection flows", () => {
             data: expect.objectContaining({
               selectedDeploymentName: "fully-qualified-123",
             }),
+          }),
+        );
+      });
+
+      it("resolves --deployment project:dev to dev deployment in another project", async () => {
+        setupBigBrainRoutes({
+          "deployment/joyful-capybara-123/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "deployment/provision_and_authorize": () => ({
+            adminKey: "other-project-dev-key",
+            url: "https://other-project-dev.convex.cloud",
+            deploymentName: "other-project-dev",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "other-project:dev"],
+          { from: "user" },
+        );
+
+        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/provision_and_authorize",
+            data: expect.objectContaining({
+              teamSlug: "my-team",
+              projectSlug: "other-project",
+              deploymentType: "dev",
+            }),
+          }),
+        );
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "https://other-project-dev.convex.cloud",
+            adminKey: "other-project-dev-key",
+          }),
+        );
+      });
+
+      it("resolves --deployment project:prod to prod deployment in another project", async () => {
+        setupBigBrainRoutes({
+          "deployment/joyful-capybara-123/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "deployment/provision_and_authorize": () => ({
+            adminKey: "other-project-prod-key",
+            url: "https://other-project-prod.convex.cloud",
+            deploymentName: "other-project-prod",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "other-project:prod"],
+          { from: "user" },
+        );
+
+        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/provision_and_authorize",
+            data: expect.objectContaining({
+              teamSlug: "my-team",
+              projectSlug: "other-project",
+              deploymentType: "prod",
+            }),
+          }),
+        );
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "https://other-project-prod.convex.cloud",
+            adminKey: "other-project-prod-key",
+          }),
+        );
+      });
+
+      it("resolves --deployment team:project:prod to prod deployment in fully qualified team/project", async () => {
+        setupBigBrainRoutes({
+          "teams/myteam/projects/myproject/deployments": () => true,
+          "deployment/provision_and_authorize": () => ({
+            adminKey: "fq-prod-key",
+            url: "https://fq-prod-deploy.convex.cloud",
+            deploymentName: "fq-prod-deploy",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "myteam:myproject:prod"],
+          { from: "user" },
+        );
+
+        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/provision_and_authorize",
+            data: expect.objectContaining({
+              teamSlug: "myteam",
+              projectSlug: "myproject",
+              deploymentType: "prod",
+            }),
+          }),
+        );
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "https://fq-prod-deploy.convex.cloud",
+            adminKey: "fq-prod-key",
+          }),
+        );
+      });
+
+      it("resolves --deployment team:project:dev to dev deployment in fully qualified team/project", async () => {
+        setupBigBrainRoutes({
+          "teams/myteam/projects/myproject/deployments": () => true,
+          "deployment/provision_and_authorize": () => ({
+            adminKey: "fq-dev-key",
+            url: "https://fq-dev-deploy.convex.cloud",
+            deploymentName: "fq-dev-deploy",
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(
+          ["set", "ABC", "DEF", "--deployment", "myteam:myproject:dev"],
+          { from: "user" },
+        );
+
+        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/provision_and_authorize",
+            data: expect.objectContaining({
+              teamSlug: "myteam",
+              projectSlug: "myproject",
+              deploymentType: "dev",
+            }),
+          }),
+        );
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "https://fq-dev-deploy.convex.cloud",
+            adminKey: "fq-dev-key",
           }),
         );
       });

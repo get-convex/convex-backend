@@ -44,7 +44,7 @@ export async function selectDeployment(
   const parsed = parseDeploymentSelector(selector);
   if (
     currentSelection.kind === "chooseProject" &&
-    parsed.kind !== "refInOtherTeam" &&
+    parsed.kind !== "inTeamProject" &&
     parsed.kind !== "deploymentName"
   ) {
     return await ctx.crash({

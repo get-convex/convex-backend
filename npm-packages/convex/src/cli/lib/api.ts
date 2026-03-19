@@ -19,7 +19,10 @@ import {
 } from "./deploymentSelection.js";
 import { loadLocalDeploymentCredentials } from "./localDeployment/localDeployment.js";
 import { loadAnonymousDeployment } from "./localDeployment/anonymous.js";
-import { parseDeploymentSelector } from "./deploymentSelector.js";
+import {
+  parseDeploymentSelector,
+  InProjectSelector,
+} from "./deploymentSelector.js";
 import { chalkStderr } from "chalk";
 export type DeploymentName = string;
 export type CloudDeploymentType = "prod" | "dev" | "preview" | "custom";
@@ -664,9 +667,9 @@ async function resolveDeploymentNameByReference(
   }
 }
 
-async function handleDeploymentSelector(
+async function handleRefInProject(
   ctx: Context,
-  selector: string,
+  selector: InProjectSelector,
   projectSelection: ProjectSelection,
 ): Promise<{
   deploymentName: string;
@@ -674,20 +677,12 @@ async function handleDeploymentSelector(
   url: string;
   deploymentType: DeploymentType;
 }> {
-  const parsed = parseDeploymentSelector(selector);
-  switch (parsed.kind) {
-    case "defaultDev":
+  switch (selector.kind) {
+    case "dev":
       return await handleOwnDev(ctx, projectSelection);
-    case "defaultProd":
+    case "prod":
       return await handleProd(ctx, projectSelection);
-    case "deploymentName":
-      return await handleDeploymentName(
-        ctx,
-        parsed.deploymentName,
-        projectSelection,
-      );
-    case "refInSameProject": {
-      // Resolve team/project from projectSelection, then look up deployment by reference
+    case "reference": {
       const access = await checkAccessToSelectedProject(ctx, projectSelection);
       if (access.kind !== "hasAccess") {
         return await ctx.crash({
@@ -701,12 +696,34 @@ async function handleDeploymentSelector(
         ctx,
         access.teamSlug,
         access.projectSlug,
-        parsed.reference,
+        selector.reference,
       );
       return await handleDeploymentName(ctx, deploymentName, projectSelection);
     }
-    case "refInOtherProject": {
-      // Derive team from current project context, then resolve by reference
+  }
+}
+
+async function handleDeploymentSelector(
+  ctx: Context,
+  selector: string,
+  projectSelection: ProjectSelection,
+): Promise<{
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: DeploymentType;
+}> {
+  const parsed = parseDeploymentSelector(selector);
+  switch (parsed.kind) {
+    case "deploymentName":
+      return await handleDeploymentName(
+        ctx,
+        parsed.deploymentName,
+        projectSelection,
+      );
+    case "inCurrentProject":
+      return await handleRefInProject(ctx, parsed.selector, projectSelection);
+    case "inProject": {
       const access = await checkAccessToSelectedProject(ctx, projectSelection);
       if (access.kind !== "hasAccess") {
         return await ctx.crash({
@@ -716,31 +733,18 @@ async function handleDeploymentSelector(
             "You don't have access to the selected project. Run `npx convex dev` to select a different project.",
         });
       }
-      const deploymentName = await resolveDeploymentNameByReference(
-        ctx,
-        access.teamSlug,
-        parsed.projectSlug,
-        parsed.reference,
-      );
-      return await handleDeploymentName(ctx, deploymentName, {
+      return await handleRefInProject(ctx, parsed.selector, {
         kind: "teamAndProjectSlugs",
         teamSlug: access.teamSlug,
         projectSlug: parsed.projectSlug,
       });
     }
-    case "refInOtherTeam": {
-      const deploymentName = await resolveDeploymentNameByReference(
-        ctx,
-        parsed.teamSlug,
-        parsed.projectSlug,
-        parsed.reference,
-      );
-      return await handleDeploymentName(ctx, deploymentName, {
+    case "inTeamProject":
+      return await handleRefInProject(ctx, parsed.selector, {
         kind: "teamAndProjectSlugs",
         teamSlug: parsed.teamSlug,
         projectSlug: parsed.projectSlug,
       });
-    }
   }
 }
 
