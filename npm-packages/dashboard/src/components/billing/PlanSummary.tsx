@@ -39,8 +39,8 @@ const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
   databaseIO: "databaseIO",
   fileStorage: "filesStorage",
   searchStorage: "searchStorage",
-  dataEgress: "dataEgress",
   searchQueries: "searchQueries",
+  dataEgress: "dataEgress",
   deploymentCount: "deployments",
 };
 
@@ -94,17 +94,17 @@ const businessSections: {
     title: "Search Storage",
   },
   {
+    metric: "searchQueries",
+    format: (n: number) => formatQuantity(n, "textSearch"),
+    detail: "The total query-GB of text and vector search queries",
+    title: "Search Queries",
+  },
+  {
     metric: "dataEgress",
     format: formatBytes,
     detail:
       "The amount of data egressed via file serving, fetch requests, and log streaming",
     title: "Data Egress",
-  },
-  {
-    metric: "searchQueries",
-    format: (n: number) => formatQuantity(n, "textSearch"),
-    detail: "The total query-GB of text and vector search queries",
-    title: "Search Queries",
   },
   {
     metric: "deploymentCount",

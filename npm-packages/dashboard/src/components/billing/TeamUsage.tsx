@@ -37,7 +37,6 @@ import { useProjectById, useProjectBySlug } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
-import classNames from "classnames";
 import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -56,6 +55,7 @@ import {
   FILE_BANDWIDTH_CATEGORIES,
   FILE_STORAGE_CATEGORIES,
   DATA_EGRESS_CATEGORIES,
+  DATA_EGRESS_CATEGORY_RENAMES,
   SEARCH_STORAGE_CATEGORIES,
   SEARCH_QUERIES_CATEGORIES,
   DATABASE_IO_CATEGORIES,
@@ -142,8 +142,8 @@ export type UsageSectionId =
   | "compute"
   | "databaseIO"
   | "searchStorage"
-  | "dataEgress"
-  | "searchQueries";
+  | "searchQueries"
+  | "dataEgress";
 
 export function TeamUsage({ team }: { team: TeamResponse }) {
   const router = useRouter();
@@ -169,8 +169,8 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
     compute: "Compute",
     databaseIO: "Database I/O",
     searchStorage: "Search Storage",
-    dataEgress: "Data Egress",
     searchQueries: "Search Queries",
+    dataEgress: "Data Egress",
   };
 
   const summaryHref = (() => {
@@ -525,16 +525,16 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                   />
                 )}
 
-                {section === "dataEgress" && (
-                  <BusinessDataEgressUsage
+                {section === "searchQueries" && (
+                  <BusinessSearchQueriesUsage
                     team={team}
                     dateRange={dateRange}
                     componentPrefix={componentPrefix}
                   />
                 )}
 
-                {section === "searchQueries" && (
-                  <BusinessSearchQueriesUsage
+                {section === "dataEgress" && (
+                  <BusinessDataEgressUsage
                     team={team}
                     dateRange={dateRange}
                     componentPrefix={componentPrefix}
@@ -725,21 +725,6 @@ function FunctionUsageBreakdown({
 
   return (
     <div className="scrollbar animate-fadeInFromLoading overflow-y-auto">
-      {metric.categories !== undefined ? (
-        <div className="mb-4 flex items-center gap-6">
-          {metric.categories.map((category, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <div
-                className={classNames(
-                  "w-4 h-4 rounded-full",
-                  category.backgroundColor,
-                )}
-              />
-              <span className="text-xs font-medium">{category.name}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
       {usageByProject.map(({ key, projectId, rows, total }) => (
         <FunctionUsageBreakdownByProject
           key={key}
@@ -909,7 +894,7 @@ function DatabaseStorageUsage({
                   rows={databaseStorage}
                   categories={DATABASE_STORAGE_CATEGORIES}
                   quantityType="storage"
-                  showCategoryTotals={false}
+                  isGauge
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                 />
@@ -923,6 +908,7 @@ function DatabaseStorageUsage({
                 <UsageByTableChart
                   rows={databaseStorageByTable}
                   quantityType="storage"
+                  isGauge
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                 />
@@ -933,6 +919,7 @@ function DatabaseStorageUsage({
               <UsageByProjectChart
                 rows={databaseStorageByProject}
                 quantityType="storage"
+                isGauge
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -1364,7 +1351,7 @@ function FilesStorageUsage({
                   rows={fileStorage}
                   categories={FILE_STORAGE_CATEGORIES}
                   quantityType="storage"
-                  showCategoryTotals={false}
+                  isGauge
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                 />
@@ -1375,6 +1362,7 @@ function FilesStorageUsage({
               <UsageByProjectChart
                 rows={fileStorageByProject}
                 quantityType="storage"
+                isGauge
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -1548,7 +1536,6 @@ function DeploymentCountUsage({
             <UsageStackedBarChart
               rows={deploymentCountByType}
               categories={deploymentTypeCategories}
-              showCategoryTotals={false}
               selectedDate={selectedDate}
               setSelectedDate={setSelectedDate}
             />
@@ -1668,7 +1655,6 @@ function BusinessDeploymentCountUsage({
             <UsageStackedBarChart
               rows={deploymentCountByType}
               categories={deploymentTypeCategories}
-              showCategoryTotals={false}
               selectedDate={selectedDate}
               setSelectedDate={setSelectedDate}
             />
@@ -1694,7 +1680,6 @@ function BusinessDeploymentCountUsage({
           <UsageStackedBarChart
             rows={deploymentsByClass}
             categories={DEPLOYMENT_CLASS_CATEGORIES}
-            showCategoryTotals={false}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
           />
@@ -1772,6 +1757,7 @@ function VectorStorageUsage({
               <UsageByProjectChart
                 rows={vectorStorageByProject}
                 quantityType="storage"
+                isGauge
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -2317,7 +2303,7 @@ function BusinessDatabaseStorageUsage({
                   rows={daily}
                   categories={DATABASE_STORAGE_CATEGORIES}
                   quantityType="storage"
-                  showCategoryTotals={false}
+                  isGauge
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                 />
@@ -2332,6 +2318,7 @@ function BusinessDatabaseStorageUsage({
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                   quantityType="storage"
+                  isGauge
                 />
               )
             ) : dailyByClass === undefined ? (
@@ -2343,6 +2330,7 @@ function BusinessDatabaseStorageUsage({
                 rows={dailyByClass}
                 categories={DEPLOYMENT_CLASS_CATEGORIES}
                 quantityType="storage"
+                isGauge
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
               />
@@ -2529,6 +2517,7 @@ function BusinessSearchStorageUsage({
                   rows={daily}
                   categories={SEARCH_STORAGE_CATEGORIES}
                   quantityType="storage"
+                  isGauge
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                 />
@@ -2542,6 +2531,7 @@ function BusinessSearchStorageUsage({
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 quantityType="storage"
+                isGauge
               />
             )}
           </>
@@ -2577,6 +2567,7 @@ function BusinessFileStorageUsage({
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             quantityType="storage"
+            isGauge
           />
         )}
       </div>
@@ -2632,6 +2623,7 @@ function BusinessDataEgressUsage({
                 <UsageStackedBarChart
                   rows={daily}
                   categories={DATA_EGRESS_CATEGORIES}
+                  categoryRenames={DATA_EGRESS_CATEGORY_RENAMES}
                   quantityType="storage"
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
