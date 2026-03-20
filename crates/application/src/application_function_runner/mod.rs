@@ -825,22 +825,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 .database
                 .begin_with_usage(identity.clone(), usage_tracker.clone())
                 .await?;
-            match self.database.check_write_throughput_limit() {
-                Ok(()) => {},
-                Err(e)
-                    if e.is_rate_limited()
-                        && (backoff.failures() as usize) < *UDF_EXECUTOR_OCC_MAX_RETRIES =>
-                {
-                    let sleep = backoff.fail(&mut self.runtime.rng());
-                    tracing::warn!(
-                        "Write throughput limit exceeded, retrying {udf_path_string:?} after \
-                         {sleep:?}",
-                    );
-                    self.runtime.wait(sleep).await;
-                    continue;
-                },
-                Err(e) => return Err(e),
-            }
             let pause_client = self.runtime.pause_client();
             pause_client.wait("retry_mutation_loop_start").await;
             let identity = tx.inert_identity();
@@ -866,6 +850,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let (mut tx, mut outcome) = match result {
                 Ok(r) => r,
                 Err(e) => {
+                    if e.short_msg() == "TooManyWrites"
+                        && (backoff.failures() as usize) < *UDF_EXECUTOR_OCC_MAX_RETRIES
+                    {
+                        let sleep = backoff.fail(&mut self.runtime.rng());
+                        tracing::warn!(
+                            "Write throughput limit exceeded, retrying {udf_path_string:?} after \
+                             {sleep:?}",
+                        );
+                        self.runtime.wait(sleep).await;
+                        continue;
+                    }
                     self.function_log
                         .log_mutation_system_error(
                             &e,
@@ -1047,6 +1042,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         context: ExecutionContext,
         mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
+        self.database.check_write_throughput_limit()?;
         let result = self
             .run_mutation_inner(
                 tx,

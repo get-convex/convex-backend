@@ -571,3 +571,38 @@ async fn test_scheduler_continues_while_scheduled_jobs_table_deleted(
 
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_scheduled_job_write_throughput_limit_exceeded(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    unsafe { std::env::set_var("MAX_BYTES_WRITTEN_PER_SECOND", "0") };
+
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+
+    let hold_guard = pause_controller.hold(SCHEDULED_JOB_EXECUTED);
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let (job_id, _model) = create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
+    application.commit_test(tx).await?;
+
+    // Wait for the scheduled job to execute (and fail due to write throughput
+    // limit).
+    wait_for_scheduled_job_execution(hold_guard).await;
+
+    // The job should still be pending (rescheduled for retry) with a system error
+    // recorded, not silently succeeding.
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Pending);
+
+    let jobs = model.list().await?;
+    let job = jobs.iter().find(|j| j.id() == job_id).unwrap();
+    assert_eq!(job.attempts.system_errors, 1);
+    assert_eq!(job.attempts.occ_errors, 0);
+
+    Ok(())
+}
