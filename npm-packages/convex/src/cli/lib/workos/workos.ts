@@ -618,12 +618,11 @@ export async function tryToCreateAssociatedWorkosTeam(
   );
 
   if (!result.success) {
-    const dashboardUrl = deploymentDashboardUrlPage(
-      deploymentName,
-      `/settings/environment-variables?var=WORKOS_CLIENT_ID`,
-    );
     logMessage(
-      `To provide your own WorkOS environment credentials instead, set environment variables manually on the dashboard:\n  ${dashboardUrl}`,
+      `To provide your own WorkOS environment credentials instead, set environment variables manually:
+
+npx convex env set WORKOS_CLIENT_ID $YOUR_CLIENT_ID_HERE
+npx convex env set WORKOS_API_KEY $YOUR_API_KEY_HERE`,
     );
     return "choseNotToAssociatedTeam";
   }
