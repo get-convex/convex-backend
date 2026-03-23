@@ -40,9 +40,7 @@ export function TeamMenuOptions({
                 pathname: pathname.startsWith("/t/[team]/settings")
                   ? pathname
                   : "/t/[team]",
-                query: pathname.startsWith("/t/[team]/settings")
-                  ? { ...query, team: currentTeam.slug }
-                  : teamSwitchQuery(currentTeam.slug),
+                query: teamSwitchQuery(currentTeam.slug),
               }}
               key={currentTeam?.slug}
               active={team?.slug === currentTeam.slug}
@@ -69,9 +67,7 @@ export function TeamMenuOptions({
                   pathname: pathname.startsWith("/t/[team]/settings")
                     ? pathname
                     : "/t/[team]",
-                  query: pathname.startsWith("/t/[team]/settings")
-                    ? { ...query, team: t.slug }
-                    : teamSwitchQuery(t.slug),
+                  query: teamSwitchQuery(t.slug),
                 }}
                 key={t.slug}
                 active={team?.slug === t.slug}
