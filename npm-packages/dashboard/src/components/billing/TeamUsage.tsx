@@ -339,6 +339,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                       hasFilter={projectId !== null || !!componentPrefix}
                       summaryV2={summaryV2}
                       deploymentCount={latestDeploymentCount}
+                      chefTokenUsage={chefTokenUsage}
                       error={summaryV2Error}
                     />
                     <BusinessFunctionBreakdownSection
