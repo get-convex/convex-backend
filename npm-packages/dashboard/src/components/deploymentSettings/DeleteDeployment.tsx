@@ -111,6 +111,7 @@ function DeleteDeploymentModal({
     name: string;
     deploymentType: string;
     projectId: number;
+    reference?: string;
   };
   onClose: () => void;
 }) {
@@ -148,9 +149,7 @@ function DeleteDeploymentModal({
     deployment.deploymentType.charAt(0).toUpperCase() +
     deployment.deploymentType.slice(1);
 
-  const validationText = isProd
-    ? `Delete ${deploymentTypeLabel} deployment and all data`
-    : `Delete deployment and all data`;
+  const validationText = `Delete ${deployment.reference ?? deploymentTypeLabel} and all data`;
 
   return (
     <ConfirmationDialog
