@@ -76,7 +76,7 @@ export function UpgradePlanContentContainer({
       planId: plan.id,
       paymentMethod: undefined,
       billingAddress: undefined,
-      spendingLimitWarningThresholdUsd: "",
+      spendingLimitWarningThresholdUsd: null,
       spendingLimitDisableThresholdUsd: null,
     },
     validationSchema: CreateSubscriptionSchema.concat(
@@ -355,7 +355,14 @@ export function UpgradePlanContent({
         <Button
           size="sm"
           onClick={() => setCurrentStep(currentStep + 1)}
-          disabled={currentStep === 0 && !canProceedFromStep0}
+          disabled={
+            (currentStep === 0 && !canProceedFromStep0) ||
+            (currentStep === 1 &&
+              !!(
+                formState.errors.spendingLimitWarningThresholdUsd ||
+                formState.errors.spendingLimitDisableThresholdUsd
+              ))
+          }
           tip={
             currentStep === 0
               ? !formState.values.name

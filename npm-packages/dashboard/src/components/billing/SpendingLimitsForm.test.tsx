@@ -114,7 +114,7 @@ describe("SpendingLimitsForm", () => {
     ).toBeInTheDocument();
   });
 
-  it("should not allow submission when spend limit is left empty", async () => {
+  it("should default to $0 when spend limit checkbox is checked", async () => {
     render(
       <SpendingLimitsForm
         defaultValue={{
@@ -132,22 +132,22 @@ describe("SpendingLimitsForm", () => {
     await userEvent.click(spendLimitCheckbox);
     expect(spendLimitCheckbox).toBeChecked();
 
-    // At this point no error is shown
-    expect(
-      screen.queryByText("Please enter a positive number."),
-    ).not.toBeInTheDocument();
+    // The input should default to 0
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
+    expect(spendLimitInput).toHaveValue(0);
 
-    // Click the submit button
+    // Click the submit button - should succeed with value 0
     const submitButton = screen.getByRole("button", {
       name: "Save Spending Limits",
     });
     await userEvent.click(submitButton);
 
-    // The form should not be submitted and the error is shown
-    expect(
-      screen.getByText("Please enter a positive number."),
-    ).toBeInTheDocument();
-    expect(mockOnSubmit).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith({
+        spendingLimitWarningThresholdUsd: null,
+        spendingLimitDisableThresholdUsd: 0,
+      });
+    });
   });
 
   it("should not allow submission when warning threshold is higher than spend limit", async () => {
@@ -163,10 +163,15 @@ describe("SpendingLimitsForm", () => {
       />,
     );
 
-    // Enable both checkboxes
+    // Enable spend limit checkbox (defaults to 0)
     const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
     await userEvent.click(spendLimitCheckbox);
     expect(spendLimitCheckbox).toBeChecked();
+
+    // Set a non-zero spend limit so the warning threshold checkbox is visible
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
+    await userEvent.clear(spendLimitInput);
+    await userEvent.type(spendLimitInput, "100");
 
     const warningThresholdCheckbox = screen.getByLabelText(
       "Warn when spending exceeds",
@@ -174,11 +179,7 @@ describe("SpendingLimitsForm", () => {
     await userEvent.click(warningThresholdCheckbox);
     expect(warningThresholdCheckbox).toBeChecked();
 
-    // Enter two values that don’t match
-    const spendLimitInput = screen.getByLabelText("Disable Threshold");
-    await userEvent.clear(spendLimitInput);
-    await userEvent.type(spendLimitInput, "100");
-
+    // Enter a warning threshold higher than the spend limit
     const warningThresholdInput = screen.getByLabelText("Warning Threshold");
     await userEvent.clear(warningThresholdInput);
     await userEvent.type(warningThresholdInput, "101");
