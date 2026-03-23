@@ -171,7 +171,7 @@ export function DeploymentSummary({
     (tm) => lastPushEvent && tm.id === Number(lastPushEvent.member_id),
   );
   const deployerId = lastPushEvent
-    ? Number(lastPushEvent.member_id)
+    ? Number(lastPushEvent.member_id) || undefined
     : undefined;
   const deployerName = deployer?.name || deployer?.email || undefined;
 
@@ -369,7 +369,7 @@ export function DeploymentSummary({
                     date={new Date(lastPushEvent._creationTime)}
                     className="text-sm text-content-primary"
                   />
-                  {deployerId && deployerName && (
+                  {deployerId !== undefined && deployerName && (
                     <>
                       <span>by</span>
                       <TeamMemberLink
