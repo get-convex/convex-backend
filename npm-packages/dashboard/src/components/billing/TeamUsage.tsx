@@ -90,10 +90,12 @@ import {
   GroupBy,
   DatabaseGroupBy,
   BusinessGroupBy,
+  BusinessDatabaseGroupBy,
   GroupBySelector,
   GROUP_BY_OPTIONS,
   DATABASE_GROUP_BY_OPTIONS,
   BUSINESS_GROUP_BY_OPTIONS,
+  BUSINESS_DATABASE_GROUP_BY_OPTIONS,
 } from "./GroupBySelector";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { ProjectLink } from "./ProjectLink";
@@ -101,6 +103,8 @@ import {
   useUsageTeamSummaryV2,
   useUsageTeamMetricsByFunctionV2,
   useDatabaseStoragePerDayByProjectAndClassV2,
+  useDatabaseStoragePerDayByTableV2,
+  useDocumentCountPerDayByTableV2,
   useDatabaseIOPerDayByProjectAndClassV2,
   useFunctionCallsPerDayByProjectAndClassV2,
   useComputePerDayByProjectV2,
@@ -388,6 +392,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                     <BusinessFunctionCallsUsage
                       team={team}
                       dateRange={dateRange}
+                      projectId={projectId}
                       componentPrefix={componentPrefix}
                     />
                   ) : (
@@ -413,6 +418,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                     <BusinessDatabaseStorageUsage
                       team={team}
                       dateRange={dateRange}
+                      projectId={projectId}
                       componentPrefix={componentPrefix}
                     />
                   ) : (
@@ -447,6 +453,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                     <BusinessFileStorageUsage
                       team={team}
                       dateRange={dateRange}
+                      projectId={projectId}
                       componentPrefix={componentPrefix}
                     />
                   ) : (
@@ -490,6 +497,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                     <BusinessDeploymentCountUsage
                       team={team}
                       dateRange={dateRange}
+                      projectId={projectId}
                       componentPrefix={componentPrefix}
                     />
                   ) : (
@@ -506,6 +514,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                   <BusinessComputeUsage
                     team={team}
                     dateRange={dateRange}
+                    projectId={projectId}
                     componentPrefix={componentPrefix}
                   />
                 )}
@@ -514,6 +523,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                   <BusinessDatabaseIOUsage
                     team={team}
                     dateRange={dateRange}
+                    projectId={projectId}
                     componentPrefix={componentPrefix}
                   />
                 )}
@@ -522,6 +532,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                   <BusinessSearchStorageUsage
                     team={team}
                     dateRange={dateRange}
+                    projectId={projectId}
                     componentPrefix={componentPrefix}
                   />
                 )}
@@ -530,6 +541,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                   <BusinessSearchQueriesUsage
                     team={team}
                     dateRange={dateRange}
+                    projectId={projectId}
                     componentPrefix={componentPrefix}
                   />
                 )}
@@ -538,6 +550,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
                   <BusinessDataEgressUsage
                     team={team}
                     dateRange={dateRange}
+                    projectId={projectId}
                     componentPrefix={componentPrefix}
                   />
                 )}
@@ -1962,6 +1975,7 @@ function BusinessFunctionBreakdownSection({
 type BusinessDetailSectionProps = {
   team: TeamResponse;
   dateRange: DateRange | null;
+  projectId: number | null;
   componentPrefix: string | null;
 };
 
@@ -2051,6 +2065,7 @@ function aggregateTagByProjectToByClass(
 function BusinessFunctionCallsUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<BusinessGroupBy>(
@@ -2064,6 +2079,7 @@ function BusinessFunctionCallsUsage({
     useFunctionCallsPerDayByProjectAndClassV2(
       team.id,
       dateRange,
+      projectId,
       componentPrefix,
     );
 
@@ -2147,6 +2163,7 @@ function BusinessFunctionCallsUsage({
 function BusinessComputeUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
@@ -2159,6 +2176,7 @@ function BusinessComputeUsage({
   const { data: computeData, error } = useComputePerDayByProjectV2(
     team.id,
     dateRange,
+    projectId,
     componentPrefix,
   );
 
@@ -2220,12 +2238,14 @@ function BusinessComputeUsage({
 function BusinessDatabaseStorageUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
-  const [storedViewMode, setViewMode] = useGlobalLocalStorage<BusinessGroupBy>(
-    "usageViewMode_businessDatabaseStorage",
-    "byType",
-  );
+  const [storedViewMode, setViewMode] =
+    useGlobalLocalStorage<BusinessDatabaseGroupBy>(
+      "usageViewMode_businessDatabaseStorage",
+      "byTable",
+    );
   const viewMode = storedViewMode;
 
   const [activeTab, setActiveTab] = useState<"size" | "count">("size");
@@ -2234,11 +2254,28 @@ function BusinessDatabaseStorageUsage({
     useDatabaseStoragePerDayByProjectAndClassV2(
       team.id,
       dateRange,
+      projectId,
+      componentPrefix,
+    );
+
+  const { data: databaseStorageByTable, error: databaseStorageByTableError } =
+    useDatabaseStoragePerDayByTableV2(
+      team.id,
+      dateRange,
+      projectId,
       componentPrefix,
     );
 
   const { data: documentsCountByProject, error: documentsCountByProjectError } =
     useUsageTeamDocumentsPerDayByProject(team.id, dateRange, componentPrefix);
+
+  const { data: documentsCountByTable, error: documentsCountByTableError } =
+    useDocumentCountPerDayByTableV2(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
 
   const daily =
     viewMode === "byType"
@@ -2261,7 +2298,9 @@ function BusinessDatabaseStorageUsage({
       : null;
 
   const hasError =
-    activeTab === "size" ? storageError : documentsCountByProjectError;
+    activeTab === "size"
+      ? storageError || databaseStorageByTableError
+      : documentsCountByProjectError || documentsCountByTableError;
 
   return (
     <TeamUsageSection
@@ -2278,12 +2317,19 @@ function BusinessDatabaseStorageUsage({
               onChange={(v) => {
                 setActiveTab(v);
                 setSelectedDate(null);
+                if (v === "count" && viewMode === "byDeploymentClass") {
+                  setViewMode("byType");
+                }
               }}
             />
             <GroupBySelector
               value={viewMode}
               onChange={setViewMode}
-              options={BUSINESS_GROUP_BY_OPTIONS}
+              options={
+                activeTab === "count"
+                  ? DATABASE_GROUP_BY_OPTIONS
+                  : BUSINESS_DATABASE_GROUP_BY_OPTIONS
+              }
             />
           </div>
         </>
@@ -2303,6 +2349,20 @@ function BusinessDatabaseStorageUsage({
                 <UsageStackedBarChart
                   rows={daily}
                   categories={DATABASE_STORAGE_CATEGORIES}
+                  quantityType="storage"
+                  isGauge
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                />
+              )
+            ) : viewMode === "byTable" ? (
+              databaseStorageByTable === undefined ? (
+                <ChartLoading />
+              ) : databaseStorageByTable === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageByTableChart
+                  rows={databaseStorageByTable}
                   quantityType="storage"
                   isGauge
                   selectedDate={selectedDate}
@@ -2347,13 +2407,14 @@ function BusinessDatabaseStorageUsage({
               ) : (
                 <UsageBarChart rows={documentsCount} entity="documents" />
               )
-            ) : viewMode === "byProject" ? (
-              documentsCountByProject === undefined ? (
+            ) : viewMode === "byTable" ? (
+              documentsCountByTable === undefined ? (
                 <ChartLoading />
+              ) : documentsCountByTable === null ? (
+                <UsageChartUnavailable />
               ) : (
-                <UsageByProjectChart
-                  rows={documentsCountByProject}
-                  team={team}
+                <UsageByTableChart
+                  rows={documentsCountByTable}
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                 />
@@ -2378,6 +2439,7 @@ function BusinessDatabaseStorageUsage({
 function BusinessDatabaseIOUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<BusinessGroupBy>(
@@ -2388,7 +2450,12 @@ function BusinessDatabaseIOUsage({
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const { data: dataByProjectAndClass, error } =
-    useDatabaseIOPerDayByProjectAndClassV2(team.id, dateRange, componentPrefix);
+    useDatabaseIOPerDayByProjectAndClassV2(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
 
   const daily =
     viewMode === "byType"
@@ -2472,6 +2539,7 @@ function BusinessDatabaseIOUsage({
 function BusinessSearchStorageUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
@@ -2484,6 +2552,7 @@ function BusinessSearchStorageUsage({
   const { data, error } = useSearchStoragePerDayByProjectV2(
     team.id,
     dateRange,
+    projectId,
     componentPrefix,
   );
 
@@ -2545,12 +2614,14 @@ function BusinessSearchStorageUsage({
 function BusinessFileStorageUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const { data, error } = useFileStoragePerDayByProjectV2(
     team.id,
     dateRange,
+    projectId,
     componentPrefix,
   );
 
@@ -2579,6 +2650,7 @@ function BusinessFileStorageUsage({
 function BusinessDataEgressUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
@@ -2591,6 +2663,7 @@ function BusinessDataEgressUsage({
   const { data, error } = useDataEgressPerDayByProjectV2(
     team.id,
     dateRange,
+    projectId,
     componentPrefix,
   );
 
@@ -2651,6 +2724,7 @@ function BusinessDataEgressUsage({
 function BusinessSearchQueriesUsage({
   team,
   dateRange,
+  projectId,
   componentPrefix,
 }: BusinessDetailSectionProps) {
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
@@ -2663,6 +2737,7 @@ function BusinessSearchQueriesUsage({
   const { data, error } = useSearchQueriesPerDayByProjectV2(
     team.id,
     dateRange,
+    projectId,
     componentPrefix,
   );
 
