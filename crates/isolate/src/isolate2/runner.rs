@@ -560,6 +560,7 @@ async fn run_request<RT: Runtime>(
             memory_in_mb: 0,
             // Bogus value because we are removing isolate2
             user_execution_time: Some(Duration::ZERO),
+            custom_log_attributes: None,
         };
         return Ok(outcome);
     }
@@ -704,6 +705,7 @@ async fn run_request<RT: Runtime>(
             .unwrap(),
         // Bogus value because we are removing isolate2
         user_execution_time: Some(Duration::ZERO),
+        custom_log_attributes: None,
     };
     Ok(outcome)
 }
