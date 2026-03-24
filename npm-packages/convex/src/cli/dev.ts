@@ -9,7 +9,10 @@ import {
   CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
 } from "./lib/utils/utils.js";
-import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import {
+  getDeploymentSelection,
+  type DeploymentSelection,
+} from "./lib/deploymentSelection.js";
 import { checkVersion } from "./lib/updates.js";
 
 export const dev = new Command("dev")
@@ -96,7 +99,7 @@ export const dev = new Command("dev")
       "Ignore existing configuration and configure new or existing project, interactively or set by --team <team_slug>, --project <project_slug>, and --dev-deployment local|cloud",
     )
       .choices(["new", "existing"] as const)
-      .conflicts(["--local", "--cloud"]),
+      .conflicts(["--local", "--cloud", "--url", "--admin-key", "--env-file"]),
   )
   .addOption(
     new Option(
@@ -225,7 +228,17 @@ Same format as .env.local or .env files, and overrides them.`,
 
     const configure =
       cmdOptions.configure === true ? "ask" : (cmdOptions.configure ?? null);
-    const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
+    // --configure means "pick a project" — skip deployment selection entirely
+    const deploymentSelection =
+      configure !== null
+        ? ({
+            kind: "chooseProject",
+            selectionWithinProject: {
+              // For backwards compatibility, allow `--configure --prod`
+              kind: cmdOptions.prod ? "prod" : "ownDev",
+            },
+          } satisfies DeploymentSelection)
+        : await getDeploymentSelection(ctx, cmdOptions);
     const credentials = await deploymentCredentialsOrConfigure(
       ctx,
       deploymentSelection,

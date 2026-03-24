@@ -3,6 +3,7 @@ import { Context } from "../../bundler/context.js";
 import { logWarning } from "../../bundler/log.js";
 import { teamDashboardUrl } from "./dashboard.js";
 import { fetchTeamAndProject } from "./api.js";
+import { isAnonymousDeployment } from "./deployment.js";
 import { bigBrainAPI } from "./utils/utils.js";
 
 async function warn(
@@ -53,7 +54,8 @@ export async function usageStateWarning(
     auth === null ||
     auth.kind === "projectKey" ||
     auth.kind === "deploymentKey" ||
-    process.env.CONVEX_AGENT_MODE === "anonymous"
+    process.env.CONVEX_AGENT_MODE === "anonymous" ||
+    isAnonymousDeployment(targetDeployment)
   ) {
     return;
   }

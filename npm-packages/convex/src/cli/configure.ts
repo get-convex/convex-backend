@@ -230,6 +230,7 @@ export async function _deploymentCredentialsOrConfigure(
       const isAgentMode = process.env.CONVEX_AGENT_MODE === "anonymous";
       if (
         !isAgentMode &&
+        process.stdin.isTTY &&
         hasAuth &&
         deploymentSelection.deploymentName !== null
       ) {
@@ -266,22 +267,23 @@ export async function _deploymentCredentialsOrConfigure(
         );
       }
 
-      const shouldPromptForLogin = isAgentMode
-        ? "no"
-        : alreadyHasConfiguredAnonymousDeployment
+      const shouldPromptForLogin =
+        isAgentMode || !process.stdin.isTTY
           ? "no"
-          : await promptOptions(ctx, {
-              message:
-                "Welcome to Convex! Would you like to login to your account?",
-              choices: [
-                {
-                  name: "Start without an account (run Convex locally)",
-                  value: "no",
-                },
-                { name: "Login or create an account", value: "yes" },
-              ],
-              default: "no",
-            });
+          : alreadyHasConfiguredAnonymousDeployment
+            ? "no"
+            : await promptOptions(ctx, {
+                message:
+                  "Welcome to Convex! Would you like to login to your account?",
+                choices: [
+                  {
+                    name: "Start without an account (run Convex locally)",
+                    value: "no",
+                  },
+                  { name: "Login or create an account", value: "yes" },
+                ],
+                default: "no",
+              });
       if (shouldPromptForLogin === "no") {
         const result = await handleAnonymousDeployment(ctx, {
           chosenConfiguration,
