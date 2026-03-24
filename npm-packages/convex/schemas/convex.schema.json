@@ -150,8 +150,8 @@
         },
         "legacyComponentApi": {
           "type": "boolean",
-          "description": "When true (or omitted, default is true), generates inline expanded types for component APIs. When false, generates import-based component API references instead. The import-based format is more modern and recommended for projects using components.\n\nNote: When false, component.ts files are automatically generated for each component.",
-          "default": true
+          "description": "When true, generates inline expanded types for component APIs. When false (recommended), generates import-based component API references instead.",
+          "default": false
         },
         "staticApi": {
           "type": "boolean",

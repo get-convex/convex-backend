@@ -131,9 +131,9 @@ export function usesTypeScriptCodegen(projectConfig: ProjectConfig): boolean {
   return projectConfig.codegen.fileType === "ts";
 }
 
-/** Whether the new component API import style should be used (default is false) */
+/** Whether the new component API import style should be used */
 export function usesComponentApiImports(projectConfig: ProjectConfig): boolean {
-  return projectConfig.codegen.legacyComponentApi === false;
+  return projectConfig.codegen.legacyComponentApi !== true;
 }
 
 /**
