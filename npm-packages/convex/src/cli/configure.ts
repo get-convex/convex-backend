@@ -382,14 +382,20 @@ async function handleDeploymentWithinProject(
     selectedDeployment.deploymentFields !== null &&
     selectedDeployment.deploymentFields.deploymentType === "local"
   ) {
-    // Start running the local backend
-    await handleLocalDeployment(ctx, {
+    // Start running the local backend, which may bind to different ports
+    // than what was saved from a previous run.
+    const localDeployment = await handleLocalDeployment(ctx, {
       teamSlug: selectedDeployment.deploymentFields.teamSlug!,
       projectSlug: selectedDeployment.deploymentFields.projectSlug!,
       forceUpgrade: cmdOptions.localOptions.forceUpgrade,
       ports: cmdOptions.localOptions.ports,
       backendVersion: cmdOptions.localOptions.backendVersion,
     });
+    return {
+      url: localDeployment.deploymentUrl,
+      adminKey: localDeployment.adminKey,
+      deploymentFields: selectedDeployment.deploymentFields,
+    };
   }
   return {
     url: selectedDeployment.url,

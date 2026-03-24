@@ -1555,6 +1555,59 @@ describe("deployment selection flows", () => {
       expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
     });
 
+    it("dev with CONVEX_DEPLOYMENT=local:... uses fresh credentials from handleLocalDeployment", async () => {
+      process.env.CONVEX_DEPLOYMENT = "local:my-local-deployment";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      // loadLocalDeploymentCredentials returns stale saved config (e.g. from a
+      // previous run on a different port).
+      vi.mocked(loadLocalDeploymentCredentials).mockResolvedValue({
+        deploymentName: "my-local-deployment",
+        deploymentUrl: "http://127.0.0.1:3212",
+        adminKey: "stale|admin|key",
+      });
+
+      // handleLocalDeployment starts a new backend, potentially on different
+      // ports, and returns the actual credentials.
+      vi.mocked(handleLocalDeployment).mockResolvedValue({
+        deploymentName: "my-local-deployment",
+        deploymentUrl: "http://127.0.0.1:3210",
+        adminKey: "fresh|admin|key",
+        onActivity: async () => {},
+      } as any);
+
+      setupBigBrainRoutes({
+        "deployment/my-local-deployment/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+      });
+
+      await dev.parseAsync([], { from: "user" });
+
+      expect(handleLocalDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          teamSlug: "my-team",
+          projectSlug: "my-project",
+        }),
+      );
+      // Must use the fresh credentials from handleLocalDeployment, not the
+      // stale ones from loadLocalDeploymentCredentials.
+      expect(devAgainstDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "http://127.0.0.1:3210",
+          adminKey: "fresh|admin|key",
+        }),
+        expect.anything(),
+      );
+    });
+
     it("dev --local crashes when local deployments are globally disabled", async () => {
       vi.mocked(readGlobalConfig).mockReturnValue({
         accessToken: "test-token",
