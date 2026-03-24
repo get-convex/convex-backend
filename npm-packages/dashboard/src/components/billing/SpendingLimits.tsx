@@ -313,7 +313,18 @@ function SpendLimitInput({
           checked={value !== null}
           onChange={() => {
             if (value === null) {
-              void formState.setFieldValue(formKey, 0, false);
+              let defaultValue = 10;
+              if (formKey === "spendingLimitDisableThresholdUsd") {
+                const warningThreshold =
+                  formState.values.spendingLimitWarningThresholdUsd;
+                if (
+                  typeof warningThreshold === "number" &&
+                  warningThreshold >= 10
+                ) {
+                  defaultValue = warningThreshold * 2;
+                }
+              }
+              void formState.setFieldValue(formKey, defaultValue, false);
             } else {
               void formState.setFieldValue(formKey, null, false);
               void formState.setFieldTouched(formKey, false, false);

@@ -114,7 +114,7 @@ describe("SpendingLimitsForm", () => {
     ).toBeInTheDocument();
   });
 
-  it("should default to $0 when spend limit checkbox is checked", async () => {
+  it("should default to $10 when spend limit checkbox is checked", async () => {
     render(
       <SpendingLimitsForm
         defaultValue={{
@@ -132,11 +132,11 @@ describe("SpendingLimitsForm", () => {
     await userEvent.click(spendLimitCheckbox);
     expect(spendLimitCheckbox).toBeChecked();
 
-    // The input should default to 0
+    // The input should default to 10
     const spendLimitInput = screen.getByLabelText("Disable Threshold");
-    expect(spendLimitInput).toHaveValue(0);
+    expect(spendLimitInput).toHaveValue(10);
 
-    // Click the submit button - should succeed with value 0
+    // Click the submit button - should succeed with value 10
     const submitButton = screen.getByRole("button", {
       name: "Save Spending Limits",
     });
@@ -145,9 +145,55 @@ describe("SpendingLimitsForm", () => {
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledWith({
         spendingLimitWarningThresholdUsd: null,
-        spendingLimitDisableThresholdUsd: 0,
+        spendingLimitDisableThresholdUsd: 10,
       });
     });
+  });
+
+  it("should default spending limit to double the warning threshold when warning >= $10", async () => {
+    render(
+      <SpendingLimitsForm
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: 25,
+          spendingLimitDisableThresholdUsd: null,
+        }}
+        onSubmit={mockOnSubmit}
+        onCancel={jest.fn()}
+        currentSpending={currentSpending}
+      />,
+    );
+
+    // Enable the spending limit checkbox
+    const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
+    await userEvent.click(spendLimitCheckbox);
+    expect(spendLimitCheckbox).toBeChecked();
+
+    // The input should default to double the warning threshold
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
+    expect(spendLimitInput).toHaveValue(50);
+  });
+
+  it("should default spending limit to $10 when warning threshold is below $10", async () => {
+    render(
+      <SpendingLimitsForm
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: 5,
+          spendingLimitDisableThresholdUsd: null,
+        }}
+        onSubmit={mockOnSubmit}
+        onCancel={jest.fn()}
+        currentSpending={currentSpending}
+      />,
+    );
+
+    // Enable the spending limit checkbox
+    const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
+    await userEvent.click(spendLimitCheckbox);
+    expect(spendLimitCheckbox).toBeChecked();
+
+    // The input should default to $10 since warning is below threshold
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
+    expect(spendLimitInput).toHaveValue(10);
   });
 
   it("should not allow submission when warning threshold is higher than spend limit", async () => {
