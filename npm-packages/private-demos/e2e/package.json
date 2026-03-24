@@ -1,0 +1,16 @@
+{
+  "name": "private-demos-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node backendHarness.js './run-e2e-tests.sh'",
+    "test:tanstack-start": "node backendHarness.js './run-e2e-tests.sh tanstack-start'",
+    "test:tanstack-start-clerk": "node backendHarness.js './run-e2e-tests.sh tanstack-start-clerk'",
+    "test:tanstack-start-workos": "node backendHarness.js './run-e2e-tests.sh tanstack-start-workos'",
+    "test:tanstack-start-quickstart": "node backendHarness.js './run-e2e-tests.sh tanstack-start-quickstart'"
+  },
+  "devDependencies": {
+    "@clerk/testing": "^1.5.1",
+    "@playwright/test": "^1.52.0"
+  }
+}

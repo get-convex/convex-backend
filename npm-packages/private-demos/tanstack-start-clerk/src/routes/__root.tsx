@@ -1,6 +1,8 @@
 import {
+  HeadContent,
   Link,
   Outlet,
+  Scripts,
   createRootRouteWithContext,
   useRouteContext,
 } from '@tanstack/react-router'
@@ -11,13 +13,12 @@ import {
   SignedOut,
   UserButton,
   useAuth,
-} from '@clerk/tanstack-start'
-import { TanStackRouterDevtools } from '@tanstack/router-devtools'
-import { Meta, Scripts, createServerFn } from '@tanstack/start'
+} from '@clerk/tanstack-react-start'
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { createServerFn } from '@tanstack/react-start'
 import { QueryClient } from '@tanstack/react-query'
 import * as React from 'react'
-import { getAuth } from '@clerk/tanstack-start/server'
-import { getWebRequest } from 'vinxi/http'
+import { auth } from '@clerk/tanstack-react-start/server'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary.js'
 import { NotFound } from '~/components/NotFound.js'
 import appCss from '~/styles/app.css?url'
@@ -27,11 +28,11 @@ import { ConvexReactClient } from 'convex/react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 
 const fetchClerkAuth = createServerFn({ method: 'GET' }).handler(async () => {
-  const auth = await getAuth(getWebRequest())
-  const token = await auth.getToken({ template: 'convex' })
+  const { userId, getToken } = await auth()
+  const token = await getToken()
 
   return {
-    userId: auth.userId,
+    userId,
     token,
   }
 })
@@ -39,7 +40,7 @@ const fetchClerkAuth = createServerFn({ method: 'GET' }).handler(async () => {
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
   convexClient: ConvexReactClient
-  convexQueryClient: ConvexQueryClient
+  convexQueryClient: ConvexQueryClient<ConvexReactClient>
 }>()({
   head: () => ({
     meta: [
@@ -75,8 +76,7 @@ export const Route = createRootRouteWithContext<{
     ],
   }),
   beforeLoad: async (ctx) => {
-    const auth = await fetchClerkAuth()
-    const { userId, token } = auth
+    const { userId, token } = await fetchClerkAuth()
 
     // During SSR only (the only time serverHttpClient exists),
     // set the Clerk auth token to make HTTP queries with.
@@ -117,7 +117,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html>
       <head>
-        <Meta />
+        <HeadContent />
       </head>
       <body>
         <div className="p-2 flex gap-2 text-lg">
