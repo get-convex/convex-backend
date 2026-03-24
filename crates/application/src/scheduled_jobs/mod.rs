@@ -44,6 +44,8 @@ use common::{
         SCHEDULED_JOB_INITIAL_BACKOFF,
         SCHEDULED_JOB_MAX_BACKOFF,
         SCHEDULED_JOB_RETENTION,
+        SCHEDULER_OCC_INITIAL_BACKOFF,
+        SCHEDULER_OCC_MAX_BACKOFF,
         TRANSACTION_MAX_READ_SIZE_BYTES,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
@@ -123,6 +125,7 @@ mod metrics;
 
 pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
 pub(crate) const SCHEDULED_JOB_COMMITTING: &str = "scheduled_job_committing";
+pub(crate) const SCHEDULED_JOB_MUTATION_ERROR: &str = "scheduled_job_mutation_error";
 pub(crate) const SCHEDULED_JOB_SUCCEEDED: &str = "scheduled_job_succeeded";
 pub(crate) const SCHEDULED_JOB_QUERIED: &str = "scheduled_job_queried";
 pub(crate) const SCHEDULER_STARTED: &str = "scheduler_started";
@@ -551,24 +554,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             return Ok(());
         };
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
-
         let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
         let attempts = &mut job.attempts;
         backoff.set_failures(attempts.count_failures());
-        // Only report OCCs that happen repeatedly
-        if !system_error.is_occ() || (attempts.occ_errors as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
-        {
-            report_error(&mut system_error).await;
-        }
-        if system_error.is_occ() {
-            attempts.occ_errors += 1;
-        } else {
-            attempts.system_errors += 1;
-        }
+        report_error(&mut system_error).await;
+        attempts.system_errors += 1;
         let delay = backoff.fail(&mut self.rt.rng());
         tracing::error!("System error executing job {job_id}, sleeping {delay:?}");
         job.next_ts = Some(self.rt.generate_timestamp()?.add(delay)?);
-
         SchedulerModel::new(&mut tx, namespace)
             .replace(job_id, job)
             .await?;
@@ -653,10 +646,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         // Note that we do validate that the scheduled function execute during
         // scheduling, but the modules can have been modified since scheduling.
         match udf_type {
-            UdfType::Mutation => {
-                self.handle_mutation(caller, tx, job, job_id, usage_tracker, mutation_retry_count)
-                    .await?
-            },
+            UdfType::Mutation => self.handle_mutation(caller, job, job_id).await?,
             UdfType::Action => {
                 self.handle_action(caller, tx, job, job_id, usage_tracker)
                     .await?
@@ -733,136 +723,159 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
     async fn handle_mutation(
         &self,
         caller: FunctionCaller,
-        mut tx: Transaction<RT>,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
-        usage_tracker: FunctionUsageTracker,
-        mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
-        let start = self.rt.monotonic_now();
-        let request_id = RequestId::new();
-        let context = ExecutionContext::new(request_id, &caller);
-        sentry::configure_scope(|scope| context.add_sentry_tags(scope));
-        let identity = tx.inert_identity();
-        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
-        let path = job.path.clone();
-        let pause_client = self.rt.pause_client();
-
+        let mut backoff = Backoff::new(*SCHEDULER_OCC_INITIAL_BACKOFF, *SCHEDULER_OCC_MAX_BACKOFF);
         let udf_args = job.udf_args()?;
-        let result = self
-            .runner
-            .run_mutation_no_udf_log(
-                tx,
-                PublicFunctionPath::Component(path.clone()),
-                udf_args.clone(),
-                caller.allowed_visibility(),
-                context.clone(),
-                None,
-            )
-            .await;
-        let (mut tx, mut outcome) = match result {
-            Ok(r) => r,
-            Err(e) => {
-                self.function_log
-                    .log_mutation_system_error(
-                        &e,
-                        path,
-                        udf_args,
-                        identity,
-                        start,
-                        caller,
-                        context,
-                        None,
-                        mutation_retry_count,
-                    )
-                    .await?;
-                return Err(e);
-            },
-        };
-
-        let stats = tx.take_stats();
-        let execution_time = start.elapsed();
-
-        if outcome.result.is_ok() {
-            SchedulerModel::new(&mut tx, namespace)
-                .complete(job_id, ScheduledJobState::Success)
-                .await?;
-            let commit_result =
-                if let Fault::Error(e) = pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
-                    tracing::info!("Injected error before committing mutation");
-                    Err(e)
-                } else {
-                    self.database
-                        .commit_with_write_source(tx, "scheduled_job_mutation_success")
-                        .await
-                };
-            if let Err(err) = commit_result {
-                if err.is_deterministic_user_error() {
-                    outcome.result = Err(JsError::from_error(err));
-                } else if err.is_occ() {
-                    let (table_name, document_id, write_source) =
-                        err.occ_info().unwrap_or((None, None, None));
-                    self.function_log
-                        .log_mutation_occ_error(
-                            outcome,
-                            stats,
-                            execution_time,
-                            caller,
-                            usage_tracker,
-                            context,
-                            OccInfo {
-                                table_name,
-                                document_id,
-                                write_source,
-                                retry_count: mutation_retry_count as u64,
-                            },
-                            None,
-                            mutation_retry_count,
-                        )
-                        .await;
-                    return Err(err);
-                } else {
-                    return Err(err);
-                }
-            }
-        }
-
-        if outcome.result.is_err() {
-            // UDF failed due to developer error. It is not safe to commit the
-            // transaction it executed in. We should remove the job in a new
-            // transaction.
-            let Some((mut tx, _metadata)) = self
+        let request_id = RequestId::new();
+        loop {
+            let mutation_retry_count = backoff.failures() as usize;
+            let usage_tracker = FunctionUsageTracker::new();
+            let Some((mut tx, job)) = self
                 .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
                 .await?
             else {
-                // Continue without updating since the job state has changed
+                // Continue without running function since the job state has changed
                 return Ok(());
             };
-            SchedulerModel::new(&mut tx, namespace)
-                .complete(
-                    job_id,
-                    ScheduledJobState::Failed(outcome.result.clone().unwrap_err().to_string()),
-                )
-                .await?;
-            // NOTE: We should not be getting developer errors here.
-            self.database
-                .commit_with_write_source(tx, "scheduled_job_mutation_error")
-                .await?;
-        }
-        self.function_log
-            .log_mutation(
-                outcome,
-                stats,
-                execution_time,
-                caller,
-                usage_tracker,
-                context,
-                None,
-                mutation_retry_count,
-            )
-            .await;
+            let start = self.rt.monotonic_now();
+            let context = ExecutionContext::new(request_id.clone(), &caller);
+            sentry::configure_scope(|scope| context.add_sentry_tags(scope));
+            let identity = tx.inert_identity();
+            let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+            let path = job.path.clone();
+            let pause_client = self.rt.pause_client();
 
-        Ok(())
+            let result = self
+                .runner
+                .run_mutation_no_udf_log(
+                    tx,
+                    PublicFunctionPath::Component(path.clone()),
+                    udf_args.clone(),
+                    caller.allowed_visibility(),
+                    context.clone(),
+                    None,
+                )
+                .await;
+            let (mut tx, mut outcome) = match result {
+                Ok(r) => r,
+                Err(e) => {
+                    self.function_log
+                        .log_mutation_system_error(
+                            &e,
+                            path,
+                            udf_args.clone(),
+                            identity,
+                            start,
+                            caller.clone(),
+                            context,
+                            None,
+                            mutation_retry_count,
+                        )
+                        .await?;
+                    if e.short_msg() == "TooManyWrites" {
+                        pause_client.wait(SCHEDULED_JOB_MUTATION_ERROR).await;
+                        let delay = backoff.fail(&mut self.rt.rng());
+                        self.rt.wait(delay).await;
+                        continue;
+                    } else {
+                        // Only retry in this loop on write throughput errors and OCC errors on
+                        // commit (below), other system errors should cause
+                        // the mutation to be rescheduled.
+                        return Err(e);
+                    }
+                },
+            };
+
+            let stats = tx.take_stats();
+            let execution_time = start.elapsed();
+
+            if outcome.result.is_ok() {
+                SchedulerModel::new(&mut tx, namespace)
+                    .complete(job_id, ScheduledJobState::Success)
+                    .await?;
+                let commit_result =
+                    if let Fault::Error(e) = pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
+                        tracing::info!("Injected error before committing mutation");
+                        Err(e)
+                    } else {
+                        self.database
+                            .commit_with_write_source(tx, "scheduled_job_mutation_success")
+                            .await
+                    };
+                if let Err(err) = commit_result {
+                    if err.is_deterministic_user_error() {
+                        outcome.result = Err(JsError::from_error(err));
+                    } else if err.is_occ() || err.short_msg() == "TooManyWrites" {
+                        metrics::log_scheduled_job_failure(&err, mutation_retry_count as u32);
+                        if let Some((table_name, document_id, write_source)) = err.occ_info() {
+                            // TODO log errors on write throughput limit too
+                            self.function_log
+                                .log_mutation_occ_error(
+                                    outcome,
+                                    stats,
+                                    execution_time,
+                                    caller.clone(),
+                                    usage_tracker,
+                                    context,
+                                    OccInfo {
+                                        table_name,
+                                        document_id,
+                                        write_source,
+                                        retry_count: mutation_retry_count as u64,
+                                    },
+                                    None,
+                                    mutation_retry_count,
+                                )
+                                .await;
+                        }
+                        let delay = backoff.fail(&mut self.rt.rng());
+                        self.rt.wait(delay).await;
+                        continue;
+                    } else {
+                        // Return an error instead of retrying indefinitely on system errors. The
+                        // scheduled job will be rescheduled.
+                        return Err(err);
+                    }
+                }
+            }
+            if outcome.result.is_err() {
+                // UDF failed due to developer error. It is not safe to commit the
+                // transaction it executed in. We should remove the job in a new
+                // transaction.
+                let Some((mut tx, _metadata)) = self
+                    .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
+                    .await?
+                else {
+                    // Continue without updating since the job state has changed
+                    return Ok(());
+                };
+                SchedulerModel::new(&mut tx, namespace)
+                    .complete(
+                        job_id,
+                        ScheduledJobState::Failed(outcome.result.clone().unwrap_err().to_string()),
+                    )
+                    .await?;
+                // NOTE: We should not be getting developer errors here.
+                self.database
+                    .commit_with_write_source(tx, "scheduled_job_mutation_error")
+                    .await?;
+            }
+            self.function_log
+                .log_mutation(
+                    outcome,
+                    stats,
+                    execution_time,
+                    caller,
+                    usage_tracker,
+                    context,
+                    None,
+                    mutation_retry_count,
+                )
+                .await;
+            return Ok(());
+        }
     }
 
     async fn handle_action(
