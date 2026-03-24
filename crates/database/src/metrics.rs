@@ -1250,3 +1250,19 @@ register_convex_counter!(
 pub fn log_write_throughput_limit_exceeded() {
     log_counter(&WRITE_THROUGHPUT_LIMIT_EXCEEDED_TOTAL, 1);
 }
+
+register_convex_counter!(
+    WRITE_THROUGHPUT_LIMIT_WOULD_BE_EXCEEDED_TOTAL,
+    "Total number of times mutation execution would be rejected due to write throughput limit"
+);
+pub fn log_write_throughput_limit_would_be_exceeded() {
+    log_counter(&WRITE_THROUGHPUT_LIMIT_EXCEEDED_TOTAL, 1);
+}
+
+register_convex_histogram!(
+    WRITE_THROUGHPUT_BYTES,
+    "Total bytes written in the current window",
+);
+pub fn log_write_throughput(bytes: u64) {
+    log_distribution(&WRITE_THROUGHPUT_BYTES, bytes as f64);
+}
