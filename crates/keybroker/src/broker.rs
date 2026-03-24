@@ -636,6 +636,8 @@ pub struct AdminIdentity {
     // actions. At the database level, they are allowed to read data from user and system tables
     // but not write to them.
     is_read_only: bool,
+    // Operations this identity is allowed to perform. Empty means all operations allowed.
+    allowed_operations: Vec<i32>,
 }
 
 impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
@@ -645,6 +647,7 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
             principal,
             key,
             is_read_only,
+            allowed_operations,
         }: AdminIdentity,
     ) -> Self {
         Self {
@@ -659,6 +662,7 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
             },
             key: Some(key),
             is_read_only,
+            allowed_operations,
         }
     }
 }
@@ -684,6 +688,7 @@ impl AdminIdentity {
             principal,
             key,
             is_read_only,
+            allowed_operations: msg.allowed_operations,
         })
     }
 
@@ -698,6 +703,7 @@ impl AdminIdentity {
             principal,
             key: access_token,
             is_read_only,
+            allowed_operations: vec![],
         }
     }
 
@@ -727,6 +733,7 @@ impl Arbitrary for AdminIdentity {
             principal,
             key,
             is_read_only: false,
+            allowed_operations: vec![],
         })
     }
 }
@@ -739,6 +746,7 @@ impl AdminIdentity {
             principal: AdminIdentityPrincipal::Member(member_id),
             key: "chocolate-charlies-cupcake".to_string(),
             is_read_only: false,
+            allowed_operations: vec![],
         }
     }
 
@@ -927,6 +935,7 @@ impl KeyBroker {
                 principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
                 is_read_only,
+                allowed_operations: vec![],
             }),
             AdminIdentityProto::System(()) => Identity::system(),
         })
