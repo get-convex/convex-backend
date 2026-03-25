@@ -24,7 +24,7 @@ describe("HTTPClient", () => {
       secondsLeft: 4,
     });
     await expect(result).rejects.toThrow(
-      "Could not find public function for 'internal:update'. Did you forget to run `npx convex dev` or `npx convex deploy`?",
+      "Could not find public function for 'internal:update'. Did you forget to run `npx convex dev`?",
     );
   });
 

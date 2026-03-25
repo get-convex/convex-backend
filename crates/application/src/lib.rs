@@ -1367,8 +1367,7 @@ impl<RT: Runtime> Application<RT> {
             })
         else {
             let missing_or_internal = format!(
-                "Could not find function for '{}'{}. Did you forget to run `npx convex dev` or \
-                 `npx convex deploy`?",
+                "Could not find function for '{}'{}. Did you forget to run `npx convex dev`?",
                 String::from(canonicalized_path.udf_path.strip()),
                 canonicalized_path.component.in_component_str(),
             );

@@ -219,8 +219,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
 fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String> {
     let path = path.debug_into_component_path();
     Ok(format!(
-        "Could not find public function for '{}'{}. Did you forget to run `npx convex dev` or \
-         `npx convex deploy`?",
+        "Could not find public function for '{}'{}. Did you forget to run `npx convex dev`?",
         String::from(path.udf_path.clone().strip()),
         path.component.in_component_str()
     ))
