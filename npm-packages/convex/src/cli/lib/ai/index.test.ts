@@ -22,6 +22,10 @@ import {
   removeAiFiles,
   disableAiFiles,
   statusAiFiles,
+  hasGuidelinesInstalled,
+  hasAgentsMdInstalled,
+  hasClaudeMdInstalled,
+  hasExistingAiFilesArtifacts,
 } from "./index.js";
 import {
   AGENTS_MD_START_MARKER,
@@ -169,6 +173,155 @@ describe("injectClaudeMdSection", () => {
     expect(content).toContain("# Footer");
     expect(content).toContain("## Convex");
     expect(content).not.toContain("Old");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasGuidelinesInstalled / hasAgentsMdInstalled / hasClaudeMdInstalled /
+// hasExistingAiFilesArtifacts — real temp-directory tests.
+// ---------------------------------------------------------------------------
+
+describe("hasGuidelinesInstalled", () => {
+  let tmpDir: string;
+  let convexDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
+    convexDir = path.join(tmpDir, "convex");
+    fs.mkdirSync(path.join(convexDir, "_generated", "ai"), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test("returns false when guidelines.md does not exist", async () => {
+    expect(await hasGuidelinesInstalled(convexDir)).toBe(false);
+  });
+
+  test("returns true when guidelines.md exists", async () => {
+    fs.writeFileSync(
+      path.join(convexDir, "_generated", "ai", "guidelines.md"),
+      "some content",
+    );
+    expect(await hasGuidelinesInstalled(convexDir)).toBe(true);
+  });
+
+  test("returns true even when guidelines.md is empty", async () => {
+    fs.writeFileSync(
+      path.join(convexDir, "_generated", "ai", "guidelines.md"),
+      "",
+    );
+    expect(await hasGuidelinesInstalled(convexDir)).toBe(true);
+  });
+});
+
+describe("hasAgentsMdInstalled", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test("returns false when AGENTS.md does not exist", async () => {
+    expect(await hasAgentsMdInstalled(tmpDir)).toBe(false);
+  });
+
+  test("returns false when AGENTS.md exists but has no managed markers", async () => {
+    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), "User content only\n");
+    expect(await hasAgentsMdInstalled(tmpDir)).toBe(false);
+  });
+
+  test("returns false when only the start marker is present", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "AGENTS.md"),
+      `${AGENTS_MD_START_MARKER}\npartial content\n`,
+    );
+    expect(await hasAgentsMdInstalled(tmpDir)).toBe(false);
+  });
+
+  test("returns true when both markers are present", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "AGENTS.md"),
+      `# Project\n\n${AGENTS_MD_START_MARKER}\n## Convex\n${AGENTS_MD_END_MARKER}\n`,
+    );
+    expect(await hasAgentsMdInstalled(tmpDir)).toBe(true);
+  });
+});
+
+describe("hasClaudeMdInstalled", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test("returns false when CLAUDE.md does not exist", async () => {
+    expect(await hasClaudeMdInstalled(tmpDir)).toBe(false);
+  });
+
+  test("returns false when CLAUDE.md exists but has no managed markers", async () => {
+    fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), "User content only\n");
+    expect(await hasClaudeMdInstalled(tmpDir)).toBe(false);
+  });
+
+  test("returns true when both markers are present", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "CLAUDE.md"),
+      `${CLAUDE_MD_START_MARKER}\n## Convex\n${CLAUDE_MD_END_MARKER}\n`,
+    );
+    expect(await hasClaudeMdInstalled(tmpDir)).toBe(true);
+  });
+});
+
+describe("hasExistingAiFilesArtifacts", () => {
+  let tmpDir: string;
+  let convexDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
+    convexDir = path.join(tmpDir, "convex");
+    fs.mkdirSync(path.join(convexDir, "_generated", "ai"), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test("returns false when no artifacts exist", async () => {
+    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(false);
+  });
+
+  test("returns true when only guidelines.md exists", async () => {
+    fs.writeFileSync(
+      path.join(convexDir, "_generated", "ai", "guidelines.md"),
+      "content",
+    );
+    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(true);
+  });
+
+  test("returns true when only AGENTS.md has managed section", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "AGENTS.md"),
+      `${AGENTS_MD_START_MARKER}\nConvex\n${AGENTS_MD_END_MARKER}\n`,
+    );
+    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(true);
+  });
+
+  test("returns true when only CLAUDE.md has managed section", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "CLAUDE.md"),
+      `${CLAUDE_MD_START_MARKER}\nConvex\n${CLAUDE_MD_END_MARKER}\n`,
+    );
+    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(true);
   });
 });
 

@@ -138,7 +138,6 @@ export async function injectClaudeMdSection(
 export async function writeAiFiles(
   convexDir: string,
   installSkills: boolean = false,
-  skillsOutputMode: "verbose" | "quiet" = "verbose",
   projectDirOverride?: string,
 ): Promise<void> {
   const projectDir = path.resolve(
@@ -194,7 +193,7 @@ export async function writeAiFiles(
     if (installSkills) {
       if (await shouldRunSkillsCli()) {
         logMessage("Installing Convex agent skills...");
-        const skillsOk = await runSkillsAdd(projectDir, skillsOutputMode);
+        const skillsOk = await runSkillsAdd(projectDir);
         if (skillsOk) {
           // Record the canonical SHA for staleness detection.
           const sha = await fetchAgentSkillsSha();
@@ -249,16 +248,18 @@ export async function checkAiFilesStaleness(
   const config = await readAiConfig(projectDir, convexDir);
 
   if (config === null) {
-    // No state file means AI files have not been set up yet. Keep nudging until
-    // the user either installs them or explicitly disables the nag with
-    // `npx convex ai-files disable`.
-    logMessage(
-      chalkStderr.yellow(
-        isAgentMode()
-          ? `Convex AI files are not installed. If you are an agent tell the human to run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`
-          : `Convex AI files are not installed. Run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`,
-      ),
-    );
+    // No state file, but the files themselves might be present on disk (e.g.
+    // fresh checkout where the state file is gitignored). Only nag when no
+    // artifacts exist at all.
+    if (!(await hasExistingAiFilesArtifacts(projectDir, convexDir))) {
+      logMessage(
+        chalkStderr.yellow(
+          isAgentMode()
+            ? `Convex AI files are not installed. If you are an agent tell the human to run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`
+            : `Convex AI files are not installed. Run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`,
+        ),
+      );
+    }
     return;
   }
 
@@ -307,7 +308,7 @@ export async function updateAiFiles(
   const config = await readAiConfig(projectDir, convexDir);
   if (config === null) {
     // No config yet — run the full init and install skills.
-    await writeAiFiles(convexDir, true, "verbose", projectDir);
+    await writeAiFiles(convexDir, true, projectDir);
     return;
   }
 
@@ -820,6 +821,21 @@ export async function maybeSetupAiFiles(
     return;
   }
 
+  // If this checkout already has AI files (state file, managed AGENTS.md
+  // section, guidelines, etc.), update them to latest without re-prompting.
+  const existingConfig = await readAiConfig(projectDir, convexDir);
+  if (
+    existingConfig !== null ||
+    (await hasExistingAiFilesArtifacts(projectDir, convexDir))
+  ) {
+    try {
+      await updateAiFiles(projectDir, convexDir);
+    } catch (error) {
+      Sentry.captureException(error);
+    }
+    return;
+  }
+
   // Non-interactive (no TTY) is almost always an AI agent, not CI
   // (CI uses `npx convex deploy`). Default to installing so agents
   // get context automatically.
@@ -831,8 +847,47 @@ export async function maybeSetupAiFiles(
     });
   }
   if (wantsAiFiles) {
-    await writeAiFiles(convexDir, true, "quiet", projectDir);
+    await writeAiFiles(convexDir, true, projectDir);
   }
+}
+
+export async function hasGuidelinesInstalled(
+  convexDir: string,
+): Promise<boolean> {
+  return (await readFileSafe(guidelinesPathForConvexDir(convexDir))) !== null;
+}
+
+export async function hasAgentsMdInstalled(
+  projectDir: string,
+): Promise<boolean> {
+  const content = await readFileSafe(agentsMdPath(projectDir));
+  return (
+    content !== null &&
+    content.includes(AGENTS_MD_START_MARKER) &&
+    content.includes(AGENTS_MD_END_MARKER)
+  );
+}
+
+export async function hasClaudeMdInstalled(
+  projectDir: string,
+): Promise<boolean> {
+  const content = await readFileSafe(claudeMdPath(projectDir));
+  return (
+    content !== null &&
+    content.includes(CLAUDE_MD_START_MARKER) &&
+    content.includes(CLAUDE_MD_END_MARKER)
+  );
+}
+
+export async function hasExistingAiFilesArtifacts(
+  projectDir: string,
+  convexDir: string,
+): Promise<boolean> {
+  return (
+    (await hasGuidelinesInstalled(convexDir)) ||
+    (await hasAgentsMdInstalled(projectDir)) ||
+    (await hasClaudeMdInstalled(projectDir))
+  );
 }
 
 /**
@@ -939,15 +994,8 @@ async function readInstalledSkillNames(projectDir: string): Promise<string[]> {
  * Output mode controls whether the skills CLI output is streamed live.
  * Returns true on success, false if the process fails or cannot be started.
  */
-function runSkillsAdd(
-  cwd: string,
-  outputMode: "verbose" | "quiet" = "verbose",
-): Promise<boolean> {
-  return runSkillsCommand(
-    cwd,
-    ["add", "get-convex/agent-skills", "--yes"],
-    outputMode,
-  );
+function runSkillsAdd(cwd: string): Promise<boolean> {
+  return runSkillsCommand(cwd, ["add", "get-convex/agent-skills", "--yes"]);
 }
 
 /**
@@ -971,30 +1019,27 @@ async function shouldRunSkillsCli(): Promise<boolean> {
   return true;
 }
 
-function runSkillsCommand(
-  cwd: string,
-  args: string[],
-  outputMode: "verbose" | "quiet" = "verbose",
-): Promise<boolean> {
+function runSkillsCommand(cwd: string, args: string[]): Promise<boolean> {
   return new Promise((resolve) => {
-    const quiet = outputMode === "quiet";
-    const proc = child_process.spawn("npx", ["skills@latest", ...args], {
-      cwd,
-      stdio: quiet ? "pipe" : "inherit",
-      // shell: true is required on Windows to resolve `npx` from PATH.
-      shell: process.platform === "win32",
-    });
+    const proc = child_process.spawn(
+      "npx",
+      ["--yes", "skills@latest", ...args],
+      {
+        cwd,
+        stdio: "pipe",
+        // .cmd files on Windows require shell execution.
+        shell: process.platform === "win32",
+      },
+    );
     let capturedOutput = "";
-    if (quiet) {
-      proc.stdout?.on("data", (chunk) => {
-        capturedOutput += chunk.toString();
-      });
-      proc.stderr?.on("data", (chunk) => {
-        capturedOutput += chunk.toString();
-      });
-    }
+    proc.stdout?.on("data", (chunk) => {
+      capturedOutput += chunk.toString();
+    });
+    proc.stderr?.on("data", (chunk) => {
+      capturedOutput += chunk.toString();
+    });
     proc.on("close", (code) => {
-      if (quiet && code !== 0 && capturedOutput.trim().length > 0) {
+      if (code !== 0 && capturedOutput.trim().length > 0) {
         const lines = capturedOutput.trim().split(/\r?\n/);
         const tail = lines.slice(-10).join("\n");
         logMessage(chalkStderr.gray(`skills output (tail):\n${tail}`));

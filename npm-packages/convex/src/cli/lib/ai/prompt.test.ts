@@ -4,6 +4,10 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import type { Context } from "../../../bundler/context.js";
+import {
+  AGENTS_MD_END_MARKER,
+  AGENTS_MD_START_MARKER,
+} from "../../codegen_templates/agentsmd.js";
 
 let testInput: PassThrough;
 
@@ -103,11 +107,11 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   });
 
   test("user accepts prompt: AI files are installed", async () => {
-    const result = maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+    // Pre-buffer Enter before starting; the PassThrough stream holds the
+    // bytes until @inquirer/confirm reads them, avoiding timing hacks.
+    testInput.write("\n");
 
-    // Simulate pressing Enter to accept the default (yes)
-    testInput.emit("keypress", null, { name: "enter" });
-    await result;
+    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
 
     expect(fs.existsSync(guidelinesPath())).toBe(true);
     expect(fs.existsSync(statePath())).toBe(true);
@@ -119,13 +123,10 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   });
 
   test("user declines prompt: no config and no AI files are written", async () => {
-    const result = maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+    // Pre-buffer "n" + Enter before starting
+    testInput.write("n\n");
 
-    // Type "n" then Enter to decline
-    testInput.write("n");
-    testInput.emit("keypress", null, { name: "n" });
-    testInput.emit("keypress", null, { name: "enter" });
-    await result;
+    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
 
     expect(fs.existsSync(guidelinesPath())).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
@@ -143,5 +144,53 @@ describe("maybeSetupAiFiles interactive prompt", () => {
     expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(false);
     expect(fs.existsSync(projectConfigPath())).toBe(false);
+  });
+
+  test("existing state file updates AI files without prompting", async () => {
+    const stateDir = path.join(convexDir, "_generated", "ai");
+    fs.mkdirSync(stateDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(stateDir, "ai-files.state.json"),
+      JSON.stringify(
+        {
+          guidelinesHash: "hash",
+          agentsMdSectionHash: "hash",
+          claudeMdHash: "hash",
+          agentSkillsSha: "sha",
+          installedSkillNames: [],
+        },
+        null,
+        2,
+      ),
+    );
+
+    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+
+    expect(fs.existsSync(path.join(stateDir, "ai-files.state.json"))).toBe(
+      true,
+    );
+    expect(fs.existsSync(guidelinesPath())).toBe(true);
+    expect(fs.readFileSync(guidelinesPath(), "utf8")).toBe(
+      "prompt test guidelines content",
+    );
+  });
+
+  test("existing AGENTS.md managed section rebuilds state without prompting", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "AGENTS.md"),
+      [
+        "# Team notes",
+        "",
+        AGENTS_MD_START_MARKER,
+        "Managed section",
+        AGENTS_MD_END_MARKER,
+        "",
+      ].join("\n"),
+    );
+
+    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+
+    expect(fs.existsSync(statePath())).toBe(true);
+    expect(fs.existsSync(guidelinesPath())).toBe(true);
   });
 });
