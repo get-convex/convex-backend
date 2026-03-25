@@ -242,6 +242,9 @@ Schema:
 - `function`: object, see
   [function fields](/production/integrations/log-streams/log-streams.mdx#function-fields)
 - `execution_time_ms`: number, the time in milliseconds this function took to
+  execute
+- `user_execution_time_ms`: optional number, the time in milliseconds the user's
+  code spent executing (excludes system overhead)
 - `status`: string, one of `["success", "failure"]`
 - `error_message`: string, present for functions with status `failure`,
   containing the error and any stack trace.

@@ -300,6 +300,14 @@
                 "minimum": 0
               }
             }
+          },
+          "user_execution_time_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
           }
         }
       },

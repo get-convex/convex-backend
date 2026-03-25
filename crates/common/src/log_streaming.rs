@@ -140,6 +140,7 @@ pub enum StructuredLogEvent {
         source: FunctionEventSource,
         error: Option<JsError>,
         execution_time: Duration,
+        user_execution_time: Option<Duration>,
         usage_stats: AggregatedFunctionUsageStats,
         occ_info: Option<OccInfo>,
         scheduler_info: Option<SchedulerInfo>,
@@ -324,6 +325,7 @@ impl LogEvent {
                     source,
                     error,
                     execution_time,
+                    user_execution_time,
                     usage_stats,
                     occ_info: _,
                     scheduler_info: _,
@@ -333,6 +335,7 @@ impl LogEvent {
                         None => (None, "success"),
                     };
                     let execution_time_ms = execution_time.as_millis();
+                    let user_execution_time_ms = user_execution_time.map(|d| d.as_millis());
                     serialize_map!({
                         "_timestamp": ms,
                         "_topic":  "_execution_record",
@@ -342,6 +345,7 @@ impl LogEvent {
                         "status": status,
                         "reason": reason,
                         "executionTimeMs": execution_time_ms,
+                        "userExecutionTimeMs": user_execution_time_ms,
                         "databaseReadBytes": usage_stats.database_read_bytes,
                         "databaseWriteBytes": usage_stats.database_write_bytes,
                         "storageReadBytes": usage_stats.storage_read_bytes,
@@ -468,6 +472,7 @@ impl LogEvent {
                     source,
                     error,
                     execution_time,
+                    user_execution_time,
                     usage_stats,
                     occ_info,
                     scheduler_info,
@@ -496,11 +501,13 @@ impl LogEvent {
                     } else {
                         None
                     };
+                    let user_execution_time_ms = user_execution_time.map(|d| d.as_millis());
                     serialize_map!({
                         "timestamp": ms,
                         "topic": "function_execution",
                         "function": function_source,
                         "execution_time_ms": execution_time.as_millis(),
+                        "user_execution_time_ms": user_execution_time_ms,
                         "status": status,
                         "error_message": error_message,
                         "occ_info": occ_info,
@@ -714,6 +721,7 @@ pub enum FunctionExecutionJson {
         caller: String,
         parent_execution_id: Option<String>,
         execution_time: f64,
+        user_execution_time: Option<f64>,
         success: Option<JsonValue>,
         error: Option<String>,
         request_id: String,
@@ -909,6 +917,7 @@ mod tests {
         #[schema(inline)]
         function: SchemaFunctionEventSource,
         execution_time_ms: u64,
+        user_execution_time_ms: Option<u64>,
         status: String, // "success" or "failure"
         error_message: Option<String>,
         #[schema(inline)]
@@ -1051,6 +1060,7 @@ mod tests {
                     },
                     error: None,
                     execution_time: std::time::Duration::from_millis(100),
+                    user_execution_time: Some(std::time::Duration::from_millis(80)),
                     usage_stats: AggregatedFunctionUsageStats {
                         database_read_bytes: 512,
                         database_write_bytes: 256,

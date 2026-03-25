@@ -140,6 +140,8 @@ pub struct FunctionExecution {
     pub cached_result: bool,
     /// How long (in seconds) did executing this UDF take?
     pub execution_time: f64,
+    /// How long (in seconds) did the user's code execute?
+    pub user_execution_time: Option<Duration>,
 
     /// Who called this UDF?
     pub caller: FunctionCaller,
@@ -270,6 +272,7 @@ impl FunctionExecution {
                 source: self.event_source(None),
                 error: self.params.err().cloned(),
                 execution_time,
+                user_execution_time: self.user_execution_time,
                 occ_info: match &self.occ_info {
                     Some(occ_info) => Some(log_streaming::OccInfo {
                         table_name: occ_info.table_name.clone(),
@@ -738,6 +741,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             tables_touched: tables_touched.into(),
             cached_result: was_cached,
             execution_time: execution_time.as_secs_f64(),
+            user_execution_time: outcome.user_execution_time,
             caller,
             environment: ModuleEnvironment::Isolate,
             syscall_trace: outcome.syscall_trace.clone(),
@@ -894,6 +898,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             tables_touched: tables_touched.into(),
             cached_result: false,
             execution_time: execution_time.as_secs_f64(),
+            user_execution_time: outcome.user_execution_time,
             caller,
             environment: ModuleEnvironment::Isolate,
             syscall_trace: outcome.syscall_trace,
@@ -989,6 +994,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             tables_touched: WithHeapSize::default(),
             cached_result: false,
             execution_time: completion.execution_time.as_secs_f64(),
+            user_execution_time: outcome.user_execution_time,
             caller: completion.caller,
             environment: completion.environment,
             syscall_trace: outcome.syscall_trace,
@@ -1148,6 +1154,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             tables_touched: WithHeapSize::default(),
             cached_result: false,
             execution_time: execution_time.as_secs_f64(),
+            user_execution_time: outcome.user_execution_time,
             caller,
             environment: ModuleEnvironment::Isolate,
             usage_stats: aggregated,
