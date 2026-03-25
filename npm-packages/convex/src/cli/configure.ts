@@ -239,22 +239,17 @@ export async function _deploymentCredentialsOrConfigure(
           (await promptYesNo(ctx, {
             message: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is configured with deployment ${deploymentSelection.deploymentName}, which is not linked with your account. Would you like to link it now?`,
           }));
-        if (!shouldConfigure) {
-          return await ctx.crash({
-            exitCode: 0,
-            errorType: "fatal",
-            printedMessage: `Run \`npx convex login --link-deployments\` first to link this deployment to your account, and then run \`npx convex dev\` again.`,
-          });
+        if (shouldConfigure) {
+          return await handleChooseProject(
+            ctx,
+            chosenConfiguration,
+            deploymentSelection.selectionWithinProject,
+            {
+              globallyForceCloud,
+            },
+            cmdOptions,
+          );
         }
-        return await handleChooseProject(
-          ctx,
-          chosenConfiguration,
-          deploymentSelection.selectionWithinProject,
-          {
-            globallyForceCloud,
-          },
-          cmdOptions,
-        );
       }
       const alreadyHasConfiguredAnonymousDeployment =
         deploymentSelection.deploymentName !== null &&
