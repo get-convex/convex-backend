@@ -106,6 +106,16 @@ export function Backups({
             periodicBackupsEnabled={periodicBackupsEnabled}
             maxCloudBackups={maxCloudBackups}
           />
+          <p className="text-xs text-content-secondary">
+            Backups generation incurs{" "}
+            <Link
+              href="https://docs.convex.dev/database/backup-restore#how-are-they-priced"
+              className="text-content-link hover:underline"
+            >
+              storage and bandwidth usage
+            </Link>
+            .
+          </p>
         </Sheet>
 
         <div className="flex flex-col gap-4 pb-8 xl:grow xl:pb-0">
