@@ -26,8 +26,12 @@ const RSA_ALGORITHMS = ["RSASSA-PKCS1-v1_5", "RSA-PSS", "RSA-OAEP"].flatMap(
       ),
     ),
 );
-const EC_ALGORITHMS = ["P-256", "P-384", "P-521"].map((namedCurve) => ({
+const ECDSA_ALGORITHMS = ["P-256", "P-384", "P-521"].map((namedCurve) => ({
   name: "ECDSA",
+  namedCurve,
+}));
+const ECDH_ALGORITHMS = ["P-256", "P-384", "P-521"].map((namedCurve) => ({
+  name: "ECDH",
   namedCurve,
 }));
 const AES_ALGORITHMS = ["AES-CTR", "AES-CBC", "AES-GCM"].flatMap((name) =>
@@ -39,7 +43,8 @@ const AES_ALGORITHMS = ["AES-CTR", "AES-CBC", "AES-GCM"].flatMap((name) =>
 
 const KEY_ALGORITHMS = [
   ...RSA_ALGORITHMS,
-  ...EC_ALGORITHMS,
+  ...ECDSA_ALGORITHMS,
+  ...ECDH_ALGORITHMS,
   { name: "HMAC", hash: "SHA-256" },
   ...AES_ALGORITHMS,
   { name: "Ed25519" },
@@ -60,6 +65,7 @@ const usages = (name: string): KeyUsage[] => {
     case "AES-GCM":
       return ["decrypt", "encrypt"];
     case "X25519":
+    case "ECDH":
       return ["deriveBits"];
     default:
       throw new Error(`unknown ${name}`);
@@ -145,6 +151,7 @@ const createVectors = async (
   alg: any,
   key: CryptoKey,
   vectors: Record<string, any>,
+  peerPublicKey?: CryptoKey,
 ): Promise<void> => {
   if (key.usages.includes("sign")) {
     vectors.signature = new Uint8Array(
@@ -160,10 +167,19 @@ const createVectors = async (
       await crypto.subtle.encrypt(encryptAlg(alg), key, sampleData),
     ).toBase64();
   }
+  if (key.usages.includes("deriveBits") && peerPublicKey) {
+    const derivedBits = await crypto.subtle.deriveBits(
+      { name: alg.name, public: peerPublicKey },
+      key,
+      256,
+    );
+    vectors.derivedBits = new Uint8Array(derivedBits).toBase64();
+  }
 };
 const checkVectors = async (
   key: CryptoKey,
   vectors: Record<string, any>,
+  peerPublicKey?: CryptoKey,
 ): Promise<void> => {
   const alg: any = key.algorithm;
   if (key.usages.includes("verify")) {
@@ -188,12 +204,42 @@ const checkVectors = async (
       sampleData,
     );
   }
+  if (
+    key.usages.includes("deriveBits") &&
+    peerPublicKey &&
+    vectors.derivedBits
+  ) {
+    const derivedBits = await crypto.subtle.deriveBits(
+      { name: alg.name, public: peerPublicKey },
+      key,
+      256,
+    );
+    assert.deepEqual(
+      new Uint8Array(derivedBits).toBase64(),
+      vectors.derivedBits,
+    );
+  }
 };
 const importAndVerify = async (
   alg: any,
   keys: Record<string, any>,
   vectors: Record<string, any>,
+  peerPublicKeys?: Record<string, any>,
 ): Promise<void> => {
+  let importedPeerPublicKey: CryptoKey | undefined;
+  if (peerPublicKeys) {
+    for (const [format, key] of Object.entries(peerPublicKeys)) {
+      if (typeof key === "object" && "exception" in key) continue;
+      importedPeerPublicKey = await crypto.subtle.importKey(
+        format as any,
+        format === "jwk" ? key.data : Uint8Array.fromBase64(key.data),
+        alg,
+        true,
+        [],
+      );
+      break;
+    }
+  }
   for (const [format, key] of Object.entries(keys)) {
     if (typeof key === "object" && "exception" in key) continue;
     const cryptoKey = await crypto.subtle.importKey(
@@ -204,9 +250,11 @@ const importAndVerify = async (
       key.usages,
     );
     assert.deepEqual(await exportKey(cryptoKey), keys);
-    checkVectors(cryptoKey, vectors);
+    await checkVectors(cryptoKey, vectors, importedPeerPublicKey);
   }
 };
+const supportsDeriveBits = (name: string): boolean => name === "ECDH";
+
 export const generateData = async () => {
   const algs: any[] = [];
   const promises: Promise<void>[] = [];
@@ -221,11 +269,28 @@ export const generateData = async () => {
           true,
           usages(algorithm.name),
         );
+        let peerPublicKey: CryptoKey | undefined;
+        if (supportsDeriveBits(algorithm.name)) {
+          const peer = await crypto.subtle.generateKey(
+            algorithm,
+            true,
+            usages(algorithm.name),
+          );
+          if (!(peer instanceof CryptoKey)) {
+            peerPublicKey = peer.publicKey;
+            data.peerPublicKey = await exportKey(peer.publicKey);
+          }
+        }
         if (k instanceof CryptoKey) {
           await createVectors(algorithm, k, data.vectors);
           data.key = await exportKey(k);
         } else {
-          await createVectors(algorithm, k.privateKey, data.vectors);
+          await createVectors(
+            algorithm,
+            k.privateKey,
+            data.vectors,
+            peerPublicKey,
+          );
           await createVectors(algorithm, k.publicKey, data.vectors);
           data.privateKey = await exportKey(k.privateKey);
           data.publicKey = await exportKey(k.publicKey);
@@ -239,7 +304,12 @@ export const generateData = async () => {
 export const consumeData = async (algsJson: string) => {
   for (const { algorithm, data } of JSON.parse(algsJson)) {
     if ("privateKey" in data) {
-      await importAndVerify(algorithm, data.privateKey, data.vectors);
+      await importAndVerify(
+        algorithm,
+        data.privateKey,
+        data.vectors,
+        data.peerPublicKey,
+      );
       await importAndVerify(algorithm, data.publicKey, data.vectors);
     } else {
       await importAndVerify(algorithm, data.key, data.vectors);

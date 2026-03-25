@@ -92,6 +92,7 @@ declare_strings!(
     CryptoKey,
     publicKey,
     privateKey,
+    public,
     r#type => "type",
     extractable,
     algorithm,
