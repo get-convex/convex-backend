@@ -6,8 +6,9 @@ import { promises as fs } from "fs";
 import path from "path";
 import { z } from "zod";
 import { aiFilesStatePathForConvexDir } from "./paths.js";
+import { iife, readFileSafe } from "./utils.js";
 
-const aiFilesStateSchema = z.object({
+export const aiFilesStateSchema = z.object({
   guidelinesHash: z.string().nullable(),
   agentsMdSectionHash: z.string().nullable(),
   claudeMdHash: z.string().nullable(),
@@ -29,8 +30,6 @@ const aiFilesProjectConfigSchema = z
   })
   .passthrough();
 
-export const aiFilesSchema = aiFilesStateSchema;
-
 type AiFilesState = z.infer<typeof aiFilesStateSchema>;
 export type AiFilesConfig = AiFilesState & {
   disableStalenessMessage: boolean;
@@ -47,12 +46,8 @@ const EMPTY_AI_STATE: AiFilesState = {
 async function readAiDisabledFromProjectConfig(
   projectDir: string,
 ): Promise<boolean> {
-  let raw: string;
-  try {
-    raw = await fs.readFile(path.join(projectDir, "convex.json"), "utf8");
-  } catch {
-    return false;
-  }
+  const raw = await readFileSafe(path.join(projectDir, "convex.json"));
+  if (raw === null) return false;
   try {
     const parsed = aiFilesProjectConfigSchema.parse(JSON.parse(raw));
     return parsed.aiFiles.disableStalenessMessage;
@@ -62,17 +57,21 @@ async function readAiDisabledFromProjectConfig(
   }
 }
 
-export async function writeAiDisabledToProjectConfig(
-  disableStalenessMessage: boolean,
-  projectDir: string,
-): Promise<void> {
+export async function writeAiDisabledToProjectConfig({
+  projectDir,
+  disableStalenessMessage,
+}: {
+  projectDir: string;
+  disableStalenessMessage: boolean;
+}): Promise<void> {
   const filePath = path.join(projectDir, "convex.json");
-  let existing: unknown = {};
-  try {
-    existing = JSON.parse(await fs.readFile(filePath, "utf8"));
-  } catch {
-    // Use a minimal object when convex.json doesn't exist yet or is unreadable.
-  }
+  const existing = await iife(async () => {
+    try {
+      return JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
+    } catch {
+      return {} as unknown;
+    }
+  });
   const base =
     existing !== null &&
     typeof existing === "object" &&
@@ -97,19 +96,17 @@ export async function writeAiDisabledToProjectConfig(
   await fs.writeFile(filePath, JSON.stringify(next, null, 2) + "\n", "utf8");
 }
 
-export async function readAiConfig(
-  projectDir: string,
-  convexDir: string,
-): Promise<AiFilesConfig | null> {
+export async function readAiConfig({
+  projectDir,
+  convexDir,
+}: {
+  projectDir: string;
+  convexDir: string;
+}): Promise<AiFilesConfig | null> {
   const disableStalenessMessage =
     await readAiDisabledFromProjectConfig(projectDir);
-  let rawState: string;
-  try {
-    rawState = await fs.readFile(
-      aiFilesStatePathForConvexDir(convexDir),
-      "utf8",
-    );
-  } catch {
+  const rawState = await readFileSafe(aiFilesStatePathForConvexDir(convexDir));
+  if (rawState === null) {
     // No state file means AI files are not installed, unless the user has
     // explicitly disabled install/staleness messages in convex.json.
     return disableStalenessMessage
@@ -128,12 +125,42 @@ export async function readAiConfig(
   }
 }
 
-export async function writeAiConfig(
-  config: AiFilesConfig,
-  projectDir: string,
-  convexDir: string,
-  options?: { persistDisabledPreference?: "ifTrue" | "always" | "never" },
-): Promise<void> {
+export async function hasAiFilesConfig({
+  projectDir,
+  convexDir,
+}: {
+  projectDir: string;
+  convexDir: string;
+}): Promise<boolean> {
+  if (await readAiDisabledFromProjectConfig(projectDir)) {
+    return true;
+  }
+  try {
+    const rawState = await fs.readFile(
+      aiFilesStatePathForConvexDir(convexDir),
+      "utf8",
+    );
+    aiFilesStateSchema.parse(JSON.parse(rawState));
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      Sentry.captureException(err);
+    }
+    return false;
+  }
+}
+
+export async function writeAiConfig({
+  config,
+  projectDir,
+  convexDir,
+  options,
+}: {
+  config: AiFilesConfig;
+  projectDir: string;
+  convexDir: string;
+  options?: { persistDisabledPreference?: "ifTrue" | "always" | "never" };
+}): Promise<void> {
   const state = aiFilesStateSchema.parse({
     guidelinesHash: config.guidelinesHash,
     agentsMdSectionHash: config.agentsMdSectionHash,
@@ -146,14 +173,14 @@ export async function writeAiConfig(
     JSON.stringify(state, null, 2) + "\n",
     "utf8",
   );
+
   const persistMode = options?.persistDisabledPreference ?? "ifTrue";
   if (
     persistMode === "always" ||
     (persistMode === "ifTrue" && config.disableStalenessMessage)
-  ) {
-    await writeAiDisabledToProjectConfig(
-      config.disableStalenessMessage,
+  )
+    await writeAiDisabledToProjectConfig({
       projectDir,
-    );
-  }
+      disableStalenessMessage: config.disableStalenessMessage,
+    });
 }

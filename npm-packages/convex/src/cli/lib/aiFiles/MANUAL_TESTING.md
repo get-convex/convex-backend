@@ -27,8 +27,12 @@ After `npx convex ai-files install` (or `update`) verify:
 - `.cursor/skills/` (Cursor symlinks)
 - `.claude/skills/` (Claude Code symlinks)
 
-Expected skill set: `auth-setup`, `components-guide`, `convex-helpers-guide`,
-`convex-quickstart`, `function-creator`, `migration-helper`, `schema-builder`.
+Expected skill set (as of Mar 2026): `convex-create-component`,
+`convex-migration-helper`, `convex-performance-audit`, `convex-quickstart`,
+`convex-setup-auth`.
+
+Note: the live skill set is fetched remotely and may change. Check the current
+list against what `npx convex ai-files status` reports after install.
 
 **Why manual:** these paths and symlink behaviors are environment-dependent and
 are mocked in automated tests.

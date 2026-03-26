@@ -1,5 +1,10 @@
 import path from "path";
 
+export type AiFilesPaths = {
+  projectDir: string;
+  convexDir: string;
+};
+
 const AI_FILES_PARENT_DIR = "_generated";
 const AI_FILES_DIR = "ai";
 

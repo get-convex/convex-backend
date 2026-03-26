@@ -44,7 +44,7 @@ import {
   promptYesNo,
 } from "./lib/utils/prompts.js";
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
-import { maybeSetupAiFiles } from "./lib/ai/index.js";
+import { maybeSetupAiFiles } from "./lib/aiFiles/index.js";
 import {
   DeploymentSelection,
   deploymentNameFromSelection,
@@ -622,11 +622,11 @@ async function selectNewProject(
   await doInitConvexFolder(ctx);
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const folder = functionsDir(configPath, projectConfig);
-  await maybeSetupAiFiles(
+  await maybeSetupAiFiles({
     ctx,
-    path.resolve(folder),
-    path.resolve(path.dirname(configPath)),
-  );
+    convexDir: path.resolve(folder),
+    projectDir: path.resolve(path.dirname(configPath)),
+  });
   return { teamSlug, projectSlug, devDeployment };
 }
 
@@ -682,11 +682,11 @@ async function selectExistingProject(
 
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const folder = functionsDir(configPath, projectConfig);
-  await maybeSetupAiFiles(
+  await maybeSetupAiFiles({
     ctx,
-    path.resolve(folder),
-    path.resolve(path.dirname(configPath)),
-  );
+    convexDir: path.resolve(folder),
+    projectDir: path.resolve(path.dirname(configPath)),
+  });
 
   return { teamSlug, projectSlug, devDeployment };
 }

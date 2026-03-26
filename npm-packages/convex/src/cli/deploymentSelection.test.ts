@@ -171,8 +171,9 @@ vi.mock("./lib/login.js", async (importOriginal) => {
   return { ...actual, ensureLoggedIn: vi.fn() };
 });
 
-vi.mock("./lib/ai/index.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./lib/ai/index.js")>();
+vi.mock("./lib/aiFiles/index.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./lib/aiFiles/index.js")>();
   return { ...actual, maybeSetupAiFiles: vi.fn() };
 });
 

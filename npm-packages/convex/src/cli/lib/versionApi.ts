@@ -20,7 +20,11 @@ export type VersionResult = {
   disableSkillsCli: boolean;
 };
 
-export async function getVersion(): Promise<VersionResult | null> {
+export type VersionFetchResult =
+  | { kind: "ok"; data: VersionResult }
+  | { kind: "error" };
+
+export async function getVersion(): Promise<VersionFetchResult> {
   try {
     const req = await fetch(VERSION_ENDPOINT, {
       headers: HEADERS,
@@ -30,14 +34,17 @@ export async function getVersion(): Promise<VersionResult | null> {
       Sentry.captureException(
         new Error(`Failed to fetch version: status = ${req.status}`),
       );
-      return null;
+      return { kind: "error" };
     }
 
     const json = await req.json();
-    return validateVersionResult(json);
+    const result = validateVersionResult(json);
+
+    if (result === null) return { kind: "error" };
+    return { kind: "ok", data: result };
   } catch (error) {
     Sentry.captureException(error);
-    return null;
+    return { kind: "error" };
   }
 }
 
@@ -71,7 +78,8 @@ export function validateVersionResult(json: any): VersionResult | null {
 /** Fetch the latest agent skills SHA from version.convex.dev. */
 export async function fetchAgentSkillsSha(): Promise<string | null> {
   const versionData = await getVersion();
-  return versionData?.agentSkillsSha ?? null;
+  if (versionData.kind === "error") return null;
+  return versionData.data.agentSkillsSha;
 }
 
 export async function downloadGuidelines(): Promise<string | null> {

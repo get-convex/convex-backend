@@ -40,10 +40,13 @@ describe("versionApi", () => {
       const result = await getVersion();
 
       expect(result).toEqual({
-        message: "New version available",
-        guidelinesHash: null,
-        agentSkillsSha: sha,
-        disableSkillsCli: false,
+        kind: "ok",
+        data: {
+          message: "New version available",
+          guidelinesHash: null,
+          agentSkillsSha: sha,
+          disableSkillsCli: false,
+        },
       });
       expect(mockFetch).toHaveBeenCalledWith(
         "https://version.convex.dev/v1/version",
@@ -59,15 +62,15 @@ describe("versionApi", () => {
       );
     });
 
-    it("returns null on network error", async () => {
+    it("returns error on network error", async () => {
       mockFetch.mockRejectedValue(new Error("Network error"));
 
       const result = await getVersion();
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ kind: "error" });
     });
 
-    it("returns null on non-ok response", async () => {
+    it("returns error on non-ok response", async () => {
       const mockResponse = {
         ok: false,
         status: 500,
@@ -76,10 +79,10 @@ describe("versionApi", () => {
 
       const result = await getVersion();
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ kind: "error" });
     });
 
-    it("returns null on invalid JSON response", async () => {
+    it("returns error on invalid JSON response", async () => {
       const mockResponse = {
         ok: true,
         json: vi.fn().mockResolvedValue("invalid json"),
@@ -88,7 +91,7 @@ describe("versionApi", () => {
 
       const result = await getVersion();
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ kind: "error" });
     });
   });
 

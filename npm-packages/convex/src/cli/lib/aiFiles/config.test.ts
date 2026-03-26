@@ -2,7 +2,8 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Sentry from "@sentry/node";
 import { promises as fs } from "fs";
 import {
-  aiFilesSchema,
+  aiFilesStateSchema,
+  hasAiFilesConfig,
   readAiConfig,
   writeAiConfig,
   writeAiDisabledToProjectConfig,
@@ -26,9 +27,9 @@ const mockCaptureException = vi.mocked(Sentry.captureException);
 const dummyProjectDir = "/tmp/test-project";
 const dummyConvexDir = "/tmp/test-project/convex";
 
-describe("aiFilesSchema", () => {
+describe("aiFilesStateSchema", () => {
   test("accepts a fully populated valid state object", () => {
-    const result = aiFilesSchema.safeParse({
+    const result = aiFilesStateSchema.safeParse({
       guidelinesHash: "abc123",
       agentsMdSectionHash: "def456",
       claudeMdHash: "ghi789",
@@ -39,7 +40,7 @@ describe("aiFilesSchema", () => {
   });
 
   test("accepts null hashes", () => {
-    const result = aiFilesSchema.safeParse({
+    const result = aiFilesStateSchema.safeParse({
       guidelinesHash: null,
       agentsMdSectionHash: null,
       claudeMdHash: null,
@@ -49,7 +50,7 @@ describe("aiFilesSchema", () => {
   });
 
   test("applies default for installedSkillNames when absent", () => {
-    const result = aiFilesSchema.safeParse({
+    const result = aiFilesStateSchema.safeParse({
       guidelinesHash: "abc",
       agentsMdSectionHash: null,
       claudeMdHash: null,
@@ -62,7 +63,7 @@ describe("aiFilesSchema", () => {
   });
 
   test("rejects a number where a string hash is expected", () => {
-    const result = aiFilesSchema.safeParse({
+    const result = aiFilesStateSchema.safeParse({
       guidelinesHash: 123,
       agentsMdSectionHash: null,
       claudeMdHash: null,
@@ -72,7 +73,7 @@ describe("aiFilesSchema", () => {
   });
 
   test("rejects missing required fields", () => {
-    const result = aiFilesSchema.safeParse({
+    const result = aiFilesStateSchema.safeParse({
       guidelinesHash: "abc",
     });
     expect(result.success).toBe(false);
@@ -88,7 +89,10 @@ describe("readAiConfig", () => {
       Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
     );
 
-    const result = await readAiConfig(dummyProjectDir, dummyConvexDir);
+    const result = await readAiConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(result).toBeNull();
     expect(mockCaptureException).not.toHaveBeenCalled();
@@ -108,7 +112,10 @@ describe("readAiConfig", () => {
         }),
       );
 
-    const result = await readAiConfig(dummyProjectDir, dummyConvexDir);
+    const result = await readAiConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(result).toEqual({
       guidelinesHash: "abc",
@@ -129,7 +136,10 @@ describe("readAiConfig", () => {
         Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
       );
 
-    const result = await readAiConfig(dummyProjectDir, dummyConvexDir);
+    const result = await readAiConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(result).toEqual({
       guidelinesHash: null,
@@ -148,7 +158,10 @@ describe("readAiConfig", () => {
       )
       .mockResolvedValueOnce("not valid json {{{}");
 
-    const result = await readAiConfig(dummyProjectDir, dummyConvexDir);
+    const result = await readAiConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(result).toBeNull();
     expect(mockCaptureException).toHaveBeenCalledWith(expect.any(Error));
@@ -166,7 +179,10 @@ describe("readAiConfig", () => {
         }),
       );
 
-    const result = await readAiConfig(dummyProjectDir, dummyConvexDir);
+    const result = await readAiConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(result).toBeNull();
     expect(mockCaptureException).toHaveBeenCalledWith(expect.any(Error));
@@ -185,13 +201,86 @@ describe("readAiConfig", () => {
       )
       .mockResolvedValueOnce(JSON.stringify(stored));
 
-    const result = await readAiConfig(dummyProjectDir, dummyConvexDir);
+    const result = await readAiConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(result).toEqual({
       ...stored,
       installedSkillNames: [],
       disableStalenessMessage: true,
     });
+  });
+});
+
+describe("hasAiFilesConfig", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.resetAllMocks());
+
+  test("returns false when neither convex.json nor state file exists", async () => {
+    mockFs.readFile.mockRejectedValue(
+      Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+    );
+
+    const result = await hasAiFilesConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
+
+    expect(result).toBe(false);
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  test("returns true when convex.json disables staleness messages", async () => {
+    mockFs.readFile.mockResolvedValueOnce(
+      JSON.stringify({ aiFiles: { disableStalenessMessage: true } }),
+    );
+
+    const result = await hasAiFilesConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  test("returns true when a valid state file exists", async () => {
+    mockFs.readFile
+      .mockRejectedValueOnce(
+        Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          guidelinesHash: "abc",
+          agentsMdSectionHash: "def",
+          claudeMdHash: null,
+          agentSkillsSha: null,
+        }),
+      );
+
+    const result = await hasAiFilesConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  test("returns false and captures exception when the state file is invalid", async () => {
+    mockFs.readFile
+      .mockRejectedValueOnce(
+        Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+      )
+      .mockResolvedValueOnce("not valid json {{{}");
+
+    const result = await hasAiFilesConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
+
+    expect(result).toBe(false);
+    expect(mockCaptureException).toHaveBeenCalledWith(expect.any(Error));
   });
 });
 
@@ -211,7 +300,11 @@ describe("writeAiConfig", () => {
       installedSkillNames: ["convex-migrations"],
     };
 
-    await writeAiConfig(config, dummyProjectDir, dummyConvexDir);
+    await writeAiConfig({
+      config,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
     expect(mockFs.writeFile).toHaveBeenCalledWith(
@@ -235,8 +328,8 @@ describe("writeAiConfig", () => {
     mockFs.writeFile.mockResolvedValue(undefined);
     mockFs.readFile.mockResolvedValue("{}");
 
-    await writeAiConfig(
-      {
+    await writeAiConfig({
+      config: {
         disableStalenessMessage: false,
         guidelinesHash: null,
         agentsMdSectionHash: null,
@@ -244,10 +337,10 @@ describe("writeAiConfig", () => {
         agentSkillsSha: null,
         installedSkillNames: [],
       },
-      dummyProjectDir,
-      dummyConvexDir,
-      { persistDisabledPreference: "always" },
-    );
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+      options: { persistDisabledPreference: "always" },
+    });
 
     expect(mockFs.writeFile).toHaveBeenNthCalledWith(
       2,
@@ -270,8 +363,8 @@ describe("writeAiConfig", () => {
     mockFs.writeFile.mockResolvedValue(undefined);
     mockFs.readFile.mockResolvedValue("{}");
 
-    await writeAiConfig(
-      {
+    await writeAiConfig({
+      config: {
         disableStalenessMessage: true,
         guidelinesHash: null,
         agentsMdSectionHash: null,
@@ -279,9 +372,9 @@ describe("writeAiConfig", () => {
         agentSkillsSha: null,
         installedSkillNames: [],
       },
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockFs.writeFile).toHaveBeenCalledTimes(2);
     expect(mockFs.writeFile).toHaveBeenNthCalledWith(
@@ -295,8 +388,8 @@ describe("writeAiConfig", () => {
   test("never writes to convex.json when persistDisabledPreference is 'never'", async () => {
     mockFs.writeFile.mockResolvedValue(undefined);
 
-    await writeAiConfig(
-      {
+    await writeAiConfig({
+      config: {
         disableStalenessMessage: true,
         guidelinesHash: null,
         agentsMdSectionHash: null,
@@ -304,10 +397,10 @@ describe("writeAiConfig", () => {
         agentSkillsSha: null,
         installedSkillNames: [],
       },
-      dummyProjectDir,
-      dummyConvexDir,
-      { persistDisabledPreference: "never" },
-    );
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+      options: { persistDisabledPreference: "never" },
+    });
 
     expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
     expect(mockFs.writeFile).toHaveBeenCalledWith(
@@ -326,7 +419,10 @@ describe("writeAiDisabledToProjectConfig", () => {
     mockFs.readFile.mockResolvedValue("{}");
     mockFs.writeFile.mockResolvedValue(undefined);
 
-    await writeAiDisabledToProjectConfig(true, dummyProjectDir);
+    await writeAiDisabledToProjectConfig({
+      projectDir: dummyProjectDir,
+      disableStalenessMessage: true,
+    });
 
     expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
     expect(mockFs.writeFile).toHaveBeenCalledWith(

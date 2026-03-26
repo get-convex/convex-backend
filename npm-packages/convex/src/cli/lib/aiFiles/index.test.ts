@@ -1,5 +1,4 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import * as Sentry from "@sentry/node";
 import { logMessage } from "../../../bundler/log.js";
 import {
   readAiConfig,
@@ -15,18 +14,12 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import {
-  injectAgentsMdSection,
-  injectClaudeMdSection,
   checkAiFilesStaleness,
-  updateAiFiles,
+  installAiFiles,
   removeAiFiles,
-  disableAiFiles,
-  statusAiFiles,
-  hasGuidelinesInstalled,
-  hasAgentsMdInstalled,
-  hasClaudeMdInstalled,
-  hasExistingAiFilesArtifacts,
+  safelyAttemptToDisableAiFiles,
 } from "./index.js";
+import { statusAiFiles } from "./status.js";
 import {
   AGENTS_MD_START_MARKER,
   AGENTS_MD_END_MARKER,
@@ -37,296 +30,7 @@ import {
 } from "../../codegen_templates/claudemd.js";
 
 // ---------------------------------------------------------------------------
-// injectAgentsMdSection — tested with real temp directories to exercise the
-// actual file I/O and string-surgery logic without complex mock wiring.
-// ---------------------------------------------------------------------------
-
-describe("injectAgentsMdSection", () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  const section = `${AGENTS_MD_START_MARKER}\n## Convex\nRead guidelines.\n${AGENTS_MD_END_MARKER}`;
-
-  test("creates AGENTS.md when it does not exist", async () => {
-    await injectAgentsMdSection(section, tmpDir);
-
-    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
-    expect(content).toContain(AGENTS_MD_START_MARKER);
-    expect(content).toContain(AGENTS_MD_END_MARKER);
-    expect(content).toContain("## Convex");
-  });
-
-  test("appends to an existing AGENTS.md that has no Convex section", async () => {
-    const existing = "# My project\n\nSome existing content.\n";
-    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), existing);
-
-    await injectAgentsMdSection(section, tmpDir);
-
-    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
-    expect(content).toContain("# My project");
-    expect(content).toContain("Some existing content.");
-    expect(content).toContain(AGENTS_MD_START_MARKER);
-    expect(content).toContain("## Convex");
-  });
-
-  test("replaces an existing Convex section when markers are present", async () => {
-    const oldSection = `${AGENTS_MD_START_MARKER}\n## Convex\nOld content.\n${AGENTS_MD_END_MARKER}`;
-    const existing = `# My project\n\n${oldSection}\n`;
-    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), existing);
-
-    const newSection = `${AGENTS_MD_START_MARKER}\n## Convex\nNew content.\n${AGENTS_MD_END_MARKER}`;
-    await injectAgentsMdSection(newSection, tmpDir);
-
-    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
-    expect(content).toContain("New content.");
-    expect(content).not.toContain("Old content.");
-    // Only one occurrence of the start marker
-    expect(content.split(AGENTS_MD_START_MARKER).length - 1).toBe(1);
-  });
-
-  test("preserves content before and after an existing Convex section", async () => {
-    const oldSection = `${AGENTS_MD_START_MARKER}\n## Convex\nOld.\n${AGENTS_MD_END_MARKER}`;
-    const existing = `# Before\n\n${oldSection}\n\n# After\n`;
-    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), existing);
-
-    await injectAgentsMdSection(section, tmpDir);
-
-    const content = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
-    expect(content).toContain("# Before");
-    expect(content).toContain("# After");
-  });
-
-  test("returns a non-null hash of the written content", async () => {
-    const hash = await injectAgentsMdSection(section, tmpDir);
-    expect(typeof hash).toBe("string");
-    expect(hash!.length).toBeGreaterThan(0);
-  });
-
-  test("returns hash of the section content, not the entire file", async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "AGENTS.md"),
-      "# My project\n\nExisting content.\n",
-    );
-
-    const hash = await injectAgentsMdSection(section, tmpDir);
-
-    const { hashSha256 } = await import("../utils/hash.js");
-    expect(hash).toBe(hashSha256(section));
-  });
-});
-
-describe("injectClaudeMdSection", () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  const section = `${CLAUDE_MD_START_MARKER}\n## Convex\nRead guidelines.\n${CLAUDE_MD_END_MARKER}`;
-
-  test("creates CLAUDE.md when it does not exist", async () => {
-    const result = await injectClaudeMdSection(section, tmpDir);
-
-    const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf8");
-    expect(content).toContain(CLAUDE_MD_START_MARKER);
-    expect(content).toContain(CLAUDE_MD_END_MARKER);
-    expect(result.didWrite).toBe(true);
-  });
-
-  test("appends managed section to existing CLAUDE.md content", async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
-      "My custom instructions\n",
-    );
-
-    const result = await injectClaudeMdSection(section, tmpDir);
-
-    const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf8");
-    expect(content).toContain("My custom instructions");
-    expect(content).toContain(CLAUDE_MD_START_MARKER);
-    expect(result.didWrite).toBe(true);
-  });
-
-  test("replaces managed section without touching user content", async () => {
-    const oldSection = `${CLAUDE_MD_START_MARKER}\nOld\n${CLAUDE_MD_END_MARKER}`;
-    fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
-      `# Header\n\n${oldSection}\n\n# Footer\n`,
-      "utf8",
-    );
-
-    await injectClaudeMdSection(section, tmpDir);
-
-    const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf8");
-    expect(content).toContain("# Header");
-    expect(content).toContain("# Footer");
-    expect(content).toContain("## Convex");
-    expect(content).not.toContain("Old");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// hasGuidelinesInstalled / hasAgentsMdInstalled / hasClaudeMdInstalled /
-// hasExistingAiFilesArtifacts — real temp-directory tests.
-// ---------------------------------------------------------------------------
-
-describe("hasGuidelinesInstalled", () => {
-  let tmpDir: string;
-  let convexDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-    convexDir = path.join(tmpDir, "convex");
-    fs.mkdirSync(path.join(convexDir, "_generated", "ai"), { recursive: true });
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  test("returns false when guidelines.md does not exist", async () => {
-    expect(await hasGuidelinesInstalled(convexDir)).toBe(false);
-  });
-
-  test("returns true when guidelines.md exists", async () => {
-    fs.writeFileSync(
-      path.join(convexDir, "_generated", "ai", "guidelines.md"),
-      "some content",
-    );
-    expect(await hasGuidelinesInstalled(convexDir)).toBe(true);
-  });
-
-  test("returns true even when guidelines.md is empty", async () => {
-    fs.writeFileSync(
-      path.join(convexDir, "_generated", "ai", "guidelines.md"),
-      "",
-    );
-    expect(await hasGuidelinesInstalled(convexDir)).toBe(true);
-  });
-});
-
-describe("hasAgentsMdInstalled", () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  test("returns false when AGENTS.md does not exist", async () => {
-    expect(await hasAgentsMdInstalled(tmpDir)).toBe(false);
-  });
-
-  test("returns false when AGENTS.md exists but has no managed markers", async () => {
-    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), "User content only\n");
-    expect(await hasAgentsMdInstalled(tmpDir)).toBe(false);
-  });
-
-  test("returns false when only the start marker is present", async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "AGENTS.md"),
-      `${AGENTS_MD_START_MARKER}\npartial content\n`,
-    );
-    expect(await hasAgentsMdInstalled(tmpDir)).toBe(false);
-  });
-
-  test("returns true when both markers are present", async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "AGENTS.md"),
-      `# Project\n\n${AGENTS_MD_START_MARKER}\n## Convex\n${AGENTS_MD_END_MARKER}\n`,
-    );
-    expect(await hasAgentsMdInstalled(tmpDir)).toBe(true);
-  });
-});
-
-describe("hasClaudeMdInstalled", () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  test("returns false when CLAUDE.md does not exist", async () => {
-    expect(await hasClaudeMdInstalled(tmpDir)).toBe(false);
-  });
-
-  test("returns false when CLAUDE.md exists but has no managed markers", async () => {
-    fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), "User content only\n");
-    expect(await hasClaudeMdInstalled(tmpDir)).toBe(false);
-  });
-
-  test("returns true when both markers are present", async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
-      `${CLAUDE_MD_START_MARKER}\n## Convex\n${CLAUDE_MD_END_MARKER}\n`,
-    );
-    expect(await hasClaudeMdInstalled(tmpDir)).toBe(true);
-  });
-});
-
-describe("hasExistingAiFilesArtifacts", () => {
-  let tmpDir: string;
-  let convexDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-    convexDir = path.join(tmpDir, "convex");
-    fs.mkdirSync(path.join(convexDir, "_generated", "ai"), { recursive: true });
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  test("returns false when no artifacts exist", async () => {
-    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(false);
-  });
-
-  test("returns true when only guidelines.md exists", async () => {
-    fs.writeFileSync(
-      path.join(convexDir, "_generated", "ai", "guidelines.md"),
-      "content",
-    );
-    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(true);
-  });
-
-  test("returns true when only AGENTS.md has managed section", async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "AGENTS.md"),
-      `${AGENTS_MD_START_MARKER}\nConvex\n${AGENTS_MD_END_MARKER}\n`,
-    );
-    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(true);
-  });
-
-  test("returns true when only CLAUDE.md has managed section", async () => {
-    fs.writeFileSync(
-      path.join(tmpDir, "CLAUDE.md"),
-      `${CLAUDE_MD_START_MARKER}\nConvex\n${CLAUDE_MD_END_MARKER}\n`,
-    );
-    expect(await hasExistingAiFilesArtifacts(tmpDir, convexDir)).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// checkAiFilesStaleness — mock-based: logic only, no real I/O needed.
+// Mocks
 // ---------------------------------------------------------------------------
 
 vi.mock("@sentry/node", () => ({
@@ -354,7 +58,6 @@ vi.mock("child_process", () => ({
   default: {
     spawn: vi.fn(() => {
       const emitter = { on: vi.fn() };
-      // Immediately simulate a successful exit.
       emitter.on.mockImplementation(
         (event: string, cb: (arg: number) => void) => {
           if (event === "close") cb(0);
@@ -374,7 +77,6 @@ const mockWriteAiDisabledToProjectConfig = vi.mocked(
 const mockDownloadGuidelines = vi.mocked(downloadGuidelines);
 const mockFetchAgentSkillsSha = vi.mocked(fetchAgentSkillsSha);
 const mockGetVersion = vi.mocked(getVersion);
-const mockCaptureException = vi.mocked(Sentry.captureException);
 
 /** Minimal valid config used across tests; includes all required fields. */
 const baseConfig = {
@@ -385,6 +87,10 @@ const baseConfig = {
   installedSkillNames: [] as string[],
   disableStalenessMessage: false,
 };
+
+// ---------------------------------------------------------------------------
+// checkAiFilesStaleness
+// ---------------------------------------------------------------------------
 
 describe("checkAiFilesStaleness", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -399,7 +105,12 @@ describe("checkAiFilesStaleness", () => {
   test("logs install nudge when no state file exists, even with null canonical values", async () => {
     mockReadAiConfig.mockResolvedValue(null);
 
-    await checkAiFilesStaleness(null, null, dummyProjectDir, dummyConvexDir);
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: null,
+      canonicalAgentSkillsSha: null,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockReadAiConfig).toHaveBeenCalled();
     expect(mockLogMessage).toHaveBeenCalledWith(
@@ -416,7 +127,12 @@ describe("checkAiFilesStaleness", () => {
       guidelinesHash: "some-hash",
     });
 
-    await checkAiFilesStaleness(null, null, dummyProjectDir, dummyConvexDir);
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: null,
+      canonicalAgentSkillsSha: null,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).not.toHaveBeenCalled();
   });
@@ -424,12 +140,12 @@ describe("checkAiFilesStaleness", () => {
   test("logs install nudge when no state file exists, even if canonical hashes are available", async () => {
     mockReadAiConfig.mockResolvedValue(null);
 
-    await checkAiFilesStaleness(
-      "canonical-hash",
-      null,
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: "canonical-hash",
+      canonicalAgentSkillsSha: null,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("npx convex ai-files install"),
@@ -446,12 +162,12 @@ describe("checkAiFilesStaleness", () => {
     vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
     mockReadAiConfig.mockResolvedValue(null);
 
-    await checkAiFilesStaleness(
-      "canonical-hash",
-      null,
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: "canonical-hash",
+      canonicalAgentSkillsSha: null,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("If you are an agent tell the human to run"),
@@ -470,12 +186,12 @@ describe("checkAiFilesStaleness", () => {
       disableStalenessMessage: true,
     });
 
-    await checkAiFilesStaleness(
-      "canonical-hash",
-      null,
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: "canonical-hash",
+      canonicalAgentSkillsSha: null,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).not.toHaveBeenCalled();
   });
@@ -486,12 +202,12 @@ describe("checkAiFilesStaleness", () => {
       guidelinesHash: "same-hash",
     });
 
-    await checkAiFilesStaleness(
-      "same-hash",
-      null,
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: "same-hash",
+      canonicalAgentSkillsSha: null,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).not.toHaveBeenCalled();
   });
@@ -502,12 +218,12 @@ describe("checkAiFilesStaleness", () => {
       guidelinesHash: "old-hash",
     });
 
-    await checkAiFilesStaleness(
-      "new-canonical-hash",
-      null,
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: "new-canonical-hash",
+      canonicalAgentSkillsSha: null,
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("npx convex ai-files update"),
@@ -521,12 +237,12 @@ describe("checkAiFilesStaleness", () => {
       agentSkillsSha: "old-sha",
     });
 
-    await checkAiFilesStaleness(
-      "current-hash",
-      "new-sha",
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: "current-hash",
+      canonicalAgentSkillsSha: "new-sha",
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("npx convex ai-files update"),
@@ -536,30 +252,33 @@ describe("checkAiFilesStaleness", () => {
   test("does nothing when stored guidelinesHash is null (never written)", async () => {
     mockReadAiConfig.mockResolvedValue(baseConfig);
 
-    await checkAiFilesStaleness(
-      "some-hash",
-      "some-sha",
-      dummyProjectDir,
-      dummyConvexDir,
-    );
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: "some-hash",
+      canonicalAgentSkillsSha: "some-sha",
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).not.toHaveBeenCalled();
   });
 });
 
 // ---------------------------------------------------------------------------
-// updateAiFiles — mock-based.
+// installAiFiles
 // ---------------------------------------------------------------------------
 
-describe("updateAiFiles", () => {
+describe("installAiFiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetchAgentSkillsSha.mockResolvedValue("canonical-sha-abc123");
     mockGetVersion.mockResolvedValue({
-      message: null,
-      guidelinesHash: null,
-      agentSkillsSha: "canonical-sha-abc123",
-      disableSkillsCli: false,
+      kind: "ok",
+      data: {
+        message: null,
+        guidelinesHash: null,
+        agentSkillsSha: "canonical-sha-abc123",
+        disableSkillsCli: false,
+      },
     });
   });
   afterEach(() => vi.resetAllMocks());
@@ -575,7 +294,7 @@ describe("updateAiFiles", () => {
 
       mockDownloadGuidelines.mockResolvedValue("guidelines content");
 
-      await updateAiFiles(tmpDir, convexDir);
+      await installAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(
         fs.existsSync(
@@ -589,32 +308,6 @@ describe("updateAiFiles", () => {
         (c) => Array.isArray(c[1]) && c[1].includes("add"),
       );
       expect(addCall).toBeDefined();
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("reports up to date when guidelines hash already matches", async () => {
-    mockDownloadGuidelines.mockResolvedValue("guidelines content");
-    const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-    const convexDir = path.join(tmpDir, "convex");
-
-    const { hashSha256 } = await import("../utils/hash.js");
-    const realHash = hashSha256("guidelines content");
-
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      guidelinesHash: realHash,
-      agentSkillsSha: "canonical-sha-abc123",
-    });
-
-    try {
-      await updateAiFiles(tmpDir, convexDir);
-
-      expect(mockLogMessage).toHaveBeenCalledWith(
-        expect.stringContaining("already up to date"),
-      );
-      expect(mockCaptureException).not.toHaveBeenCalled();
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -643,15 +336,15 @@ describe("updateAiFiles", () => {
         agentSkillsSha: "old-sha",
       });
 
-      await updateAiFiles(tmpDir, convexDir);
+      await installAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(mockWriteAiConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          agentSkillsSha: "canonical-sha-abc123",
-          installedSkillNames: ["migration-helper", "schema-builder"],
+          config: expect.objectContaining({
+            agentSkillsSha: "canonical-sha-abc123",
+            installedSkillNames: ["migration-helper", "schema-builder"],
+          }),
         }),
-        expect.anything(),
-        expect.anything(),
       );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -668,12 +361,12 @@ describe("updateAiFiles", () => {
       });
       mockDownloadGuidelines.mockResolvedValue(null);
 
-      await updateAiFiles(tmpDir, convexDir);
+      await installAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(mockWriteAiConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ disableStalenessMessage: true }),
-        expect.anything(),
-        expect.anything(),
+        expect.objectContaining({
+          config: expect.objectContaining({ disableStalenessMessage: true }),
+        }),
       );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -694,7 +387,7 @@ describe("updateAiFiles", () => {
       });
       mockDownloadGuidelines.mockResolvedValue("fresh guidelines");
 
-      await updateAiFiles(tmpDir, convexDir);
+      await installAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(fs.existsSync(path.join(convexDir, "_generated", "ai"))).toBe(
         true,
@@ -706,11 +399,12 @@ describe("updateAiFiles", () => {
       ).toBe(true);
       expect(mockWriteAiConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          disableStalenessMessage: true,
-          guidelinesHash: expect.any(String),
+          config: expect.objectContaining({
+            disableStalenessMessage: true,
+            guidelinesHash: expect.any(String),
+          }),
+          projectDir: tmpDir,
         }),
-        tmpDir,
-        expect.anything(),
       );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -724,7 +418,7 @@ describe("updateAiFiles", () => {
       mockReadAiConfig.mockResolvedValue(baseConfig);
       mockDownloadGuidelines.mockResolvedValue(null);
 
-      await updateAiFiles(tmpDir, convexDir);
+      await installAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(mockLogMessage).toHaveBeenCalledWith(
         expect.stringContaining("Could not download Convex AI guidelines"),
@@ -741,13 +435,16 @@ describe("updateAiFiles", () => {
       mockReadAiConfig.mockResolvedValue(baseConfig);
       mockDownloadGuidelines.mockResolvedValue("guidelines content");
       mockGetVersion.mockResolvedValue({
-        message: null,
-        guidelinesHash: null,
-        agentSkillsSha: null,
-        disableSkillsCli: true,
+        kind: "ok",
+        data: {
+          message: null,
+          guidelinesHash: null,
+          agentSkillsSha: null,
+          disableSkillsCli: true,
+        },
       });
 
-      await updateAiFiles(tmpDir, convexDir);
+      await installAiFiles({ projectDir: tmpDir, convexDir });
 
       const { default: cp } = await import("child_process");
       const spawnCalls = vi.mocked(cp.spawn).mock.calls;
@@ -765,7 +462,7 @@ describe("updateAiFiles", () => {
 });
 
 // ---------------------------------------------------------------------------
-// removeAiFiles — tested with real temp directories.
+// removeAiFiles
 // ---------------------------------------------------------------------------
 
 describe("removeAiFiles", () => {
@@ -775,10 +472,13 @@ describe("removeAiFiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetVersion.mockResolvedValue({
-      message: null,
-      guidelinesHash: null,
-      agentSkillsSha: "canonical-sha-abc123",
-      disableSkillsCli: false,
+      kind: "ok",
+      data: {
+        message: null,
+        guidelinesHash: null,
+        agentSkillsSha: "canonical-sha-abc123",
+        disableSkillsCli: false,
+      },
     });
     tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
     convexDir = path.join(tmpDir, "convex");
@@ -802,10 +502,9 @@ describe("removeAiFiles", () => {
   }
 
   test("logs nothing-to-remove when no config exists", async () => {
-    // No config file written — readAiConfig returns null.
     mockReadAiConfig.mockResolvedValue(null);
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("nothing to remove"),
@@ -819,7 +518,7 @@ describe("removeAiFiles", () => {
     const agentsMdContent = `${AGENTS_MD_START_MARKER}\n## Convex\nGuidelines.\n${AGENTS_MD_END_MARKER}\n`;
     fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), agentsMdContent, "utf8");
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
   });
@@ -834,7 +533,7 @@ describe("removeAiFiles", () => {
       `# After\n`;
     fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), agentsMdContent, "utf8");
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     const result = fs.readFileSync(path.join(tmpDir, "AGENTS.md"), "utf8");
     expect(result).toContain("# My project");
@@ -849,7 +548,7 @@ describe("removeAiFiles", () => {
     const managed = `${CLAUDE_MD_START_MARKER}\n## Convex\nRead guidelines.\n${CLAUDE_MD_END_MARKER}\n`;
     fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), managed, "utf8");
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(false);
   });
@@ -860,7 +559,7 @@ describe("removeAiFiles", () => {
 
     fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), "User content\n", "utf8");
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
   });
@@ -875,7 +574,7 @@ describe("removeAiFiles", () => {
       "utf8",
     );
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     const content = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf8");
     expect(content).toContain("# User header");
@@ -896,7 +595,7 @@ describe("removeAiFiles", () => {
       "utf8",
     );
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
     expect(fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf8")).toBe(
@@ -911,9 +610,8 @@ describe("removeAiFiles", () => {
       installedSkillNames: skillNames,
     });
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
-    // child_process.spawn should have been called with the skill names.
     const { default: cp } = await import("child_process");
     const spawnCalls = vi.mocked(cp.spawn).mock.calls;
     const removeCall = spawnCalls.find(
@@ -944,7 +642,7 @@ describe("removeAiFiles", () => {
       "utf8",
     );
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     expect(fs.existsSync(path.join(tmpDir, "skills-lock.json"))).toBe(false);
   });
@@ -970,7 +668,7 @@ describe("removeAiFiles", () => {
       "utf8",
     );
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     expect(fs.existsSync(path.join(tmpDir, "skills-lock.json"))).toBe(true);
   });
@@ -982,13 +680,16 @@ describe("removeAiFiles", () => {
       installedSkillNames: skillNames,
     });
     mockGetVersion.mockResolvedValue({
-      message: null,
-      guidelinesHash: null,
-      agentSkillsSha: null,
-      disableSkillsCli: true,
+      kind: "ok",
+      data: {
+        message: null,
+        guidelinesHash: null,
+        agentSkillsSha: null,
+        disableSkillsCli: true,
+      },
     });
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
     const { default: cp } = await import("child_process");
     const spawnCalls = vi.mocked(cp.spawn).mock.calls;
@@ -1005,13 +706,12 @@ describe("removeAiFiles", () => {
     writeConfig();
     mockReadAiConfig.mockResolvedValue(baseConfig);
 
-    await removeAiFiles(tmpDir, convexDir);
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
 
-    // removeAiFiles should not call writeAiConfig — that is disableAiFiles's job.
     expect(mockWriteAiConfig).not.toHaveBeenCalled();
   });
 
-  test("disableAiFiles writes disableStalenessMessage=true without removing files", async () => {
+  test("safelyAttemptToDisableAiFiles writes disableStalenessMessage=true without removing files", async () => {
     writeConfig({ guidelinesHash: null });
     mockReadAiConfig.mockResolvedValue(baseConfig);
 
@@ -1021,31 +721,31 @@ describe("removeAiFiles", () => {
       "utf8",
     );
 
-    await disableAiFiles(tmpDir);
+    await safelyAttemptToDisableAiFiles(tmpDir);
 
-    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith(
-      true,
-      tmpDir,
-    );
+    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith({
+      disableStalenessMessage: true,
+      projectDir: tmpDir,
+    });
     expect(
       fs.existsSync(path.join(convexDir, "_generated", "ai", "guidelines.md")),
     ).toBe(true);
   });
 
-  test("disableAiFiles writes config to project root, not convex dir", async () => {
+  test("safelyAttemptToDisableAiFiles writes config to project root, not convex dir", async () => {
     mockReadAiConfig.mockResolvedValue(null);
 
-    await disableAiFiles(tmpDir);
+    await safelyAttemptToDisableAiFiles(tmpDir);
 
-    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith(
-      true,
-      tmpDir,
-    );
+    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith({
+      disableStalenessMessage: true,
+      projectDir: tmpDir,
+    });
   });
 });
 
 // ---------------------------------------------------------------------------
-// statusAiFiles — mock-based.
+// statusAiFiles
 // ---------------------------------------------------------------------------
 
 describe("statusAiFiles", () => {
@@ -1055,10 +755,13 @@ describe("statusAiFiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetVersion.mockResolvedValue({
-      message: null,
-      guidelinesHash: "canonical-guidelines-hash",
-      agentSkillsSha: "canonical-skills-sha",
-      disableSkillsCli: false,
+      kind: "ok",
+      data: {
+        message: null,
+        guidelinesHash: "canonical-guidelines-hash",
+        agentSkillsSha: "canonical-skills-sha",
+        disableSkillsCli: false,
+      },
     });
   });
   afterEach(() => vi.resetAllMocks());
@@ -1066,7 +769,10 @@ describe("statusAiFiles", () => {
   test("reports not installed when config is null", async () => {
     mockReadAiConfig.mockResolvedValue(null);
 
-    await statusAiFiles(dummyProjectDir, dummyConvexDir);
+    await statusAiFiles({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("not installed"),
@@ -1082,7 +788,10 @@ describe("statusAiFiles", () => {
       disableStalenessMessage: true,
     });
 
-    await statusAiFiles(dummyProjectDir, dummyConvexDir);
+    await statusAiFiles({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("disabled"),
@@ -1095,7 +804,10 @@ describe("statusAiFiles", () => {
   test("reports enabled when config exists and disableStalenessMessage=false", async () => {
     mockReadAiConfig.mockResolvedValue(baseConfig);
 
-    await statusAiFiles(dummyProjectDir, dummyConvexDir);
+    await statusAiFiles({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("enabled"),
@@ -1124,13 +836,16 @@ describe("statusAiFiles", () => {
         guidelinesHash: hash,
       });
       mockGetVersion.mockResolvedValue({
-        message: null,
-        guidelinesHash: hash,
-        agentSkillsSha: null,
-        disableSkillsCli: false,
+        kind: "ok",
+        data: {
+          message: null,
+          guidelinesHash: hash,
+          agentSkillsSha: null,
+          disableSkillsCli: false,
+        },
       });
 
-      await statusAiFiles(tmpDir, convexDir);
+      await statusAiFiles({ projectDir: tmpDir, convexDir });
 
       const calls = mockLogMessage.mock.calls.map((c) => c[0]);
       expect(calls.some((m) => /guidelines\.md.*up to date/.test(m))).toBe(
@@ -1162,13 +877,16 @@ describe("statusAiFiles", () => {
         guidelinesHash: hashSha256(content),
       });
       mockGetVersion.mockResolvedValue({
-        message: null,
-        guidelinesHash: "new-canonical-hash",
-        agentSkillsSha: null,
-        disableSkillsCli: false,
+        kind: "ok",
+        data: {
+          message: null,
+          guidelinesHash: "new-canonical-hash",
+          agentSkillsSha: null,
+          disableSkillsCli: false,
+        },
       });
 
-      await statusAiFiles(tmpDir, convexDir);
+      await statusAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(mockLogMessage).toHaveBeenCalledWith(
         expect.stringContaining("out of date"),
@@ -1201,7 +919,7 @@ describe("statusAiFiles", () => {
         guidelinesHash: hashSha256("original content"),
       });
 
-      await statusAiFiles(tmpDir, convexDir);
+      await statusAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(mockLogMessage).toHaveBeenCalledWith(
         expect.stringContaining("modified locally"),
@@ -1218,13 +936,19 @@ describe("statusAiFiles", () => {
       agentSkillsSha: "old-sha",
     });
     mockGetVersion.mockResolvedValue({
-      message: null,
-      guidelinesHash: null,
-      agentSkillsSha: "new-sha",
-      disableSkillsCli: false,
+      kind: "ok",
+      data: {
+        message: null,
+        guidelinesHash: null,
+        agentSkillsSha: "new-sha",
+        disableSkillsCli: false,
+      },
     });
 
-    await statusAiFiles(dummyProjectDir, dummyConvexDir);
+    await statusAiFiles({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("out of date"),
@@ -1241,9 +965,12 @@ describe("statusAiFiles", () => {
       agentSkillsSha: "old-sha",
       installedSkillNames: ["migration-helper"],
     });
-    mockGetVersion.mockResolvedValue(null);
+    mockGetVersion.mockResolvedValue({ kind: "error" });
 
-    await statusAiFiles(dummyProjectDir, dummyConvexDir);
+    await statusAiFiles({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     const calls = mockLogMessage.mock.calls.map((c) => c[0]);
     expect(calls.some((m) => /out of date/.test(m))).toBe(false);
@@ -1256,7 +983,10 @@ describe("statusAiFiles", () => {
       agentSkillsSha: "canonical-skills-sha",
     });
 
-    await statusAiFiles(dummyProjectDir, dummyConvexDir);
+    await statusAiFiles({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("migration-helper"),
@@ -1277,7 +1007,7 @@ describe("statusAiFiles", () => {
       );
       mockReadAiConfig.mockResolvedValue(baseConfig);
 
-      await statusAiFiles(tmpDir, convexDir);
+      await statusAiFiles({ projectDir: tmpDir, convexDir });
 
       expect(mockLogMessage).toHaveBeenCalledWith(
         expect.stringContaining("CLAUDE.md: no Convex section present"),

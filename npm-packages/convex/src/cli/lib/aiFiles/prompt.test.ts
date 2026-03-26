@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { PassThrough, Writable } from "stream";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -9,7 +8,14 @@ import {
   AGENTS_MD_START_MARKER,
 } from "../../codegen_templates/agentsmd.js";
 
-let testInput: PassThrough;
+const { mockPromptYesNo } = vi.hoisted(() => {
+  return { mockPromptYesNo: vi.fn() };
+});
+
+vi.mock("@sentry/node", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 vi.mock("../../../bundler/log.js", () => ({
   logMessage: vi.fn(),
@@ -20,10 +26,13 @@ vi.mock("../versionApi.js", () => ({
   downloadGuidelines: vi.fn(async () => "prompt test guidelines content"),
   fetchAgentSkillsSha: vi.fn(async () => "prompt-test-sha"),
   getVersion: vi.fn(async () => ({
-    message: null,
-    guidelinesHash: "prompt-test-guidelines-hash",
-    agentSkillsSha: "prompt-test-agent-skills-sha",
-    disableSkillsCli: false,
+    kind: "ok",
+    data: {
+      message: null,
+      guidelinesHash: "prompt-test-guidelines-hash",
+      agentSkillsSha: "prompt-test-agent-skills-sha",
+      disableSkillsCli: false,
+    },
   })),
 }));
 
@@ -39,18 +48,11 @@ vi.mock("child_process", () => ({
   },
 }));
 
-vi.mock("@inquirer/confirm", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@inquirer/confirm")>();
+vi.mock("../utils/prompts.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/prompts.js")>();
   return {
     ...actual,
-    default: (config: any, context: any) => {
-      const output = new Writable({
-        write(_c, _e, cb) {
-          cb();
-        },
-      });
-      return actual.default(config, { ...context, input: testInput, output });
-    },
+    promptYesNo: mockPromptYesNo,
   };
 });
 
@@ -96,7 +98,8 @@ describe("maybeSetupAiFiles interactive prompt", () => {
     fs.writeFileSync(path.join(convexDir, "schema.ts"), "");
     originalIsTTY = process.stdin.isTTY;
     process.stdin.isTTY = true;
-    testInput = new PassThrough();
+    mockPromptYesNo.mockResolvedValue(true);
+    delete process.env.CONVEX_AGENT_MODE;
   });
 
   afterEach(() => {
@@ -107,11 +110,9 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   });
 
   test("user accepts prompt: AI files are installed", async () => {
-    // Pre-buffer Enter before starting; the PassThrough stream holds the
-    // bytes until @inquirer/confirm reads them, avoiding timing hacks.
-    testInput.write("\n");
+    mockPromptYesNo.mockResolvedValue(true);
 
-    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(guidelinesPath())).toBe(true);
     expect(fs.existsSync(statePath())).toBe(true);
@@ -123,10 +124,9 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   });
 
   test("user declines prompt: no config and no AI files are written", async () => {
-    // Pre-buffer "n" + Enter before starting
-    testInput.write("n\n");
+    mockPromptYesNo.mockResolvedValue(false);
 
-    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(guidelinesPath())).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
@@ -137,7 +137,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   test("agent mode skips the prompt and does not install AI files", async () => {
     vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
 
-    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(guidelinesPath())).toBe(false);
     expect(fs.existsSync(statePath())).toBe(false);
@@ -164,7 +164,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
       ),
     );
 
-    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(path.join(stateDir, "ai-files.state.json"))).toBe(
       true,
@@ -188,7 +188,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
       ].join("\n"),
     );
 
-    await maybeSetupAiFiles(fakeCtx, convexDir, tmpDir);
+    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(statePath())).toBe(true);
     expect(fs.existsSync(guidelinesPath())).toBe(true);
