@@ -76,7 +76,7 @@ whose React integration includes `AuthProviderXReactProvider` and
 First we replace `ConvexProvider` with `AuthProviderXReactProvider` wrapping
 `ConvexProviderWithAuth` at the root of our app:
 
-```jsx title="src/index.js"
+```jsx title="src/index.tsx"
 import { AuthProviderXReactProvider } from "providerX";
 import { ConvexProviderWithAuth } from "convex/react";
 
@@ -99,7 +99,7 @@ provider API and the [`ConvexReactClient`](/api/classes/react.ConvexReactClient)
 API, which is ultimately responsible for making sure that the ID token is passed
 down to your Convex backend.
 
-```jsx title="src/ConvexProviderWithProviderX.js"
+```jsx title="src/ConvexProviderWithProviderX.tsx"
 function useAuthFromProviderX() {
   const { isLoading, isAuthenticated, getToken } = useProviderXAuth();
   const fetchAccessToken = useCallback(

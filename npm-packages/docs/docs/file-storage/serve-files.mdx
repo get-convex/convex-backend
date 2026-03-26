@@ -6,11 +6,9 @@ description: "Serve files stored in Convex to users"
 ---
 
 import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
-import AppTS from "!!raw-loader!@site/../demos/file-storage/src/App.tsx";
-import AppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import App from "!!raw-loader!@site/../demos/file-storage/src/App.tsx";
 import Http from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
-import HttpAppTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/App.tsx";
-import HttpAppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpImage.jsx";
+import HttpApp from "!!raw-loader!@site/../demos/file-storage-with-http/src/App.tsx";
 
 Files stored in Convex can be served to your users by generating a URL pointing
 to a given file.
@@ -27,22 +25,16 @@ A file URL can be generated from a storage ID by the
 [`MutationCtx`](/api/interfaces/server.GenericMutationCtx), or
 [`ActionCtx`](/api/interfaces/server.GenericActionCtx) object:
 
-<TSAndJSSnippet
+<Snippet
   title="convex/listMessages.ts"
-  sourceTS={Messages}
-  sourceJS={Messages}
+  source={Messages}
   snippet="query"
   highlightPatterns={["storage.getUrl"]}
 />
 
 File URLs can be used in `img` elements to render images:
 
-<TSAndJSSnippet
-  title="src/App.tsx"
-  sourceTS={AppTS}
-  sourceJS={AppJS}
-  snippet="imageComponent"
-/>
+<Snippet title="src/App.tsx" source={App} snippet="imageComponent" />
 
 In your query you can control who gets access to a file when the URL is
 generated. If you need to control access when the file is _served_, you can
@@ -66,7 +58,7 @@ can be generated from a storage ID by the
 [`ActionCtx`](/api/interfaces/server.GenericActionCtx) object, which can be
 returned in a `Response`:
 
-<TSAndJSSnippet title="convex/http.ts" sourceTS={Http} sourceJS={Http} snippet="getImage"
+<Snippet title="convex/http.ts" source={Http} snippet="getImage"
 highlightPatterns={["storage.get"]} prefix={
     `import { httpRouter } from "convex/server";
 import { httpAction } from "./\_generated/server";
@@ -79,9 +71,4 @@ const http = httpRouter();\
 The URL of such an action can be used directly in `img` elements to render
 images:
 
-<TSAndJSSnippet
-  title="src/App.tsx"
-  sourceTS={HttpAppTS}
-  sourceJS={HttpAppJS}
-  snippet="getImage"
-/>
+<Snippet title="src/App.tsx" source={HttpApp} snippet="getImage" />

@@ -7,8 +7,7 @@ description: "Query and read data from Convex database tables"
 import getExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbGet.ts";
 import queryExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbQuery.ts";
 import averageExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataAverage.ts";
-import groupByExampleTS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByTS.ts";
-import groupByExampleJS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByJS.js";
+import groupByExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByTS.ts";
 import joinExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataJoin.ts";
 
 [Query](/functions/query-functions.mdx) and
@@ -20,10 +19,9 @@ database tables using _document ids_ and _document queries_.
 Given a single document's id you can read its data with the
 [`db.get`](/api/interfaces/server.GenericDatabaseReader#get) method:
 
-<TSAndJSSnippet
+<Snippet
   title="convex/tasks.ts"
-  sourceTS={getExample}
-  sourceJS={getExample}
+  source={getExample}
   highlightPatterns={["db.get"]}
 />
 
@@ -35,10 +33,9 @@ sure you are not exposing data from tables other than the ones you intended.
 Document queries always begin by choosing the table to query with the
 [`db.query`](/api/interfaces/server.GenericDatabaseReader#query) method:
 
-<TSAndJSSnippet
+<Snippet
   title="convex/tasks.ts"
-  sourceTS={queryExample}
-  sourceJS={queryExample}
+  source={queryExample}
   highlightPatterns={["db.query"]}
 />
 
@@ -235,11 +232,7 @@ the results will be consistent.
 
 Table join might look like:
 
-<TSAndJSSnippet
-  title="convex/events.ts"
-  sourceTS={joinExample}
-  sourceJS={joinExample}
-/>
+<Snippet title="convex/events.ts" source={joinExample} />
 
 Note: by using Promise.all, the user documents will be fetched from the database
 in parallel, making join patterns like this very fast.
@@ -248,11 +241,7 @@ in parallel, making join patterns like this very fast.
 
 Here's an example of computing an average:
 
-<TSAndJSSnippet
-  title="convex/grades.ts"
-  sourceTS={averageExample}
-  sourceJS={averageExample}
-/>
+<Snippet title="convex/grades.ts" source={averageExample} />
 
 <Admonition type="info" title="Computing aggregates over large sets of values">
 
@@ -271,11 +260,7 @@ without looping through the whole table.
 
 Here's an example of grouping and counting:
 
-<TSAndJSSnippet
-  title="convex/grades.ts"
-  sourceTS={groupByExampleTS}
-  sourceJS={groupByExampleJS}
-/>
+<Snippet title="convex/grades.ts" source={groupByExample} />
 
 As with the previous example, we use `.collect()` with the assumption that a
 given student won't have more grades than we can fetch in one query. See

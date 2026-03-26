@@ -8,7 +8,7 @@ description:
 ---
 
 import simpleAuthedAppTSX from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/_simpleAuthedApp.tsx";
-import apiTS from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/api/clicks.ts";
+import api from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/api/clicks.ts";
 
 This pages covers the Pages Router variant of Next.js. Alternatively see the
 [App Router](/client/nextjs/app-router/index.mdx) version of this page.
@@ -37,7 +37,7 @@ If you're using Auth0, the helper component `ConvexProviderWithAuth0` can be
 imported from `convex/react-auth0`.
 
 <Snippet
-  title="pages/_app.jsx"
+  title="pages/_app.tsx"
   snippet="simpleAuthedApp"
   source={simpleAuthedAppTSX}
 />
@@ -69,7 +69,7 @@ file to the `pages/api` directory.
 To load and edit Convex data in your endpoints, use the
 [`fetchQuery`](/api/modules/nextjs#fetchquery) function from `convex/nextjs`:
 
-<Snippet title="pages/api/clicks.js" source={apiTS} />
+<Snippet title="pages/api/clicks.ts" source={api} />
 
 ## Server-side rendering
 

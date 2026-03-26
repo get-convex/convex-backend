@@ -7,11 +7,9 @@ description:
   database queries, function organization, validation, and security."
 ---
 
-import BestPracticesTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/index.ts";
-import HelperFunctionsTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/helperFunctions.ts";
-import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import BestPractices from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/index.ts";
+import HelperFunctions from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/helperFunctions.ts";
 import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
-import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
 
 This is a list of best practices and common anti-patterns around using Convex.
 We recommend going through this list before broadly releasing your app to
@@ -50,12 +48,7 @@ for an overview of how to define indexes and how they work.
 
 ### Examples
 
-<TSAndJSSnippet
-  title="convex/messages.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
-  snippet="filter"
-/>
+<Snippet title="convex/messages.ts" source={BestPractices} snippet="filter" />
 
 ### How?
 
@@ -97,28 +90,25 @@ denormalizing data, or changing the product feature.
 
 **Using an index:**
 
-<TSAndJSSnippet
+<Snippet
   title="convex/movies.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="collectIndex"
 />
 
 **Using pagination:**
 
-<TSAndJSSnippet
+<Snippet
   title="convex/movies.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="collectPaginate"
 />
 
 **Using a limit or denormalizing:**
 
-<TSAndJSSnippet
+<Snippet
   title="convex/movies.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="collectCount"
 />
 
@@ -149,10 +139,9 @@ Indexes like `by_foo` and `by_foo_and_bar` are usually redundant (you only need
 `by_foo_and_bar`). Reducing the number of indexes saves on database storage and
 reduces the overhead of writing to the table.
 
-<TSAndJSSnippet
+<Snippet
   title="convex/teams.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="redundantIndexes"
   replacements={[[/\sOMIT_ME.*/g, ""]]}
 />
@@ -185,10 +174,9 @@ validators) help ensure you're getting the traffic you expect.
 
 ### Example
 
-<TSAndJSSnippet
+<Snippet
   title="convex/movies.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="validation"
   replacements={[[/_OMIT_[0-9]+/g, ""]]}
 />
@@ -231,10 +219,9 @@ control checks.
 
 ### Example
 
-<TSAndJSSnippet
+<Snippet
   title="convex/teams.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="accessControl"
   replacements={[
     [/\sOMIT_ME.*/g, ""],
@@ -287,10 +274,9 @@ your Convex functions directory.
 
 ### Examples
 
-<TSAndJSSnippet
+<Snippet
   title="convex/teams.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="internal"
   replacements={[
     [/_OMIT_[0-9]+/g, ""],
@@ -326,10 +312,9 @@ discussed more in the
 [Avoid sequential `ctx.runMutation` / `ctx.runQuery` from actions](/understanding/best-practices/best-practices.mdx#avoid-sequential-ctxrunmutation--ctxrunquery-calls-from-actions)
 section.
 
-<TSAndJSSnippet
+<Snippet
   title="convex/users.ts"
-  sourceTS={HelperFunctionsTS}
-  sourceJS={HelperFunctionsTS}
+  source={HelperFunctions}
   snippet="usersWrong"
   replacements={[
     [/\sOMIT_ME.*/g, ""],
@@ -337,10 +322,9 @@ section.
   ]}
 />
 
-<TSAndJSSnippet
+<Snippet
   title="convex/conversations.ts"
-  sourceTS={HelperFunctionsTS}
-  sourceJS={HelperFunctionsTS}
+  source={HelperFunctions}
   snippet="conversationsWrong"
   replacements={[
     [/\sOMIT_ME.*/g, ""],
@@ -352,10 +336,9 @@ section.
 this application is in `convex/conversations.ts`, which contains very little
 code itself.
 
-<TSAndJSSnippet
+<Snippet
   title="convex/model/users.ts"
-  sourceTS={HelperFunctionsTS}
-  sourceJS={HelperFunctionsTS}
+  source={HelperFunctions}
   snippet="usersCorrect"
   replacements={[
     [/\sOMIT_ME.*/g, ""],
@@ -364,10 +347,9 @@ code itself.
   prefix={`import { QueryCtx } from '../_generated/server';\n`}
 />
 
-<TSAndJSSnippet
+<Snippet
   title="convex/model/conversations.ts"
-  sourceTS={HelperFunctionsTS}
-  sourceJS={HelperFunctionsTS}
+  source={HelperFunctions}
   snippet="conversationsModelCorrect"
   replacements={[
     [/\sOMIT_ME.*/g, ""],
@@ -376,10 +358,9 @@ code itself.
   prefix={`import { QueryCtx, MutationCtx } from '../_generated/server';\nimport * as Users from './users';\n`}
 />
 
-<TSAndJSSnippet
+<Snippet
   title="convex/conversations.ts"
-  sourceTS={HelperFunctionsTS}
-  sourceJS={HelperFunctionsTS}
+  source={HelperFunctions}
   snippet="conversationsApiCorrect"
   replacements={[
     [/\sOMIT_ME.*/g, ""],
@@ -402,10 +383,9 @@ then you can use `runAction` to call the Node.js code.
 
 ### Example
 
-<TSAndJSSnippet
+<Snippet
   title="convex/scrape.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="runAction"
   replacements={[
     [/\sOMIT_ME.*/g, ""],
@@ -413,10 +393,9 @@ then you can use `runAction` to call the Node.js code.
   ]}
 />
 
-<TSAndJSSnippet
+<Snippet
   title="convex/model/scrape.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="scrapeModel"
   prefix={`import { ActionCtx } from '../_generated/server';\n`}
   replacements={[
@@ -425,10 +404,9 @@ then you can use `runAction` to call the Node.js code.
   ]}
 />
 
-<TSAndJSSnippet
+<Snippet
   title="convex/scrape.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="scrapeAction"
   prefix={`import * as Scrape from './model/scrape';\n`}
   replacements={[
@@ -462,27 +440,24 @@ code to use helper functions will make this easier.
 
 ### Example: Queries
 
-<TSAndJSSnippet
+<Snippet
   title="convex/teams.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="runQueryWrong"
 />
 
-<TSAndJSSnippet
+<Snippet
   title="convex/teams.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="runQueryCorrect"
   prefix={`import * as Teams from './model/teams';\nimport * as Users from './model/users';\n`}
 />
 
 ### Example: Loops
 
-<TSAndJSSnippet
+<Snippet
   title="convex/teams.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="runMutationWrong"
   prefix={`import * as Users from './model/users';\n`}
   replacements={[
@@ -491,10 +466,9 @@ code to use helper functions will make this easier.
   ]}
 />
 
-<TSAndJSSnippet
+<Snippet
   title="convex/teams.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="runMutationCorrect"
   prefix={`import * as Users from './model/users';\n`}
   replacements={[
@@ -535,10 +509,9 @@ TypeScript function.
 - If you want partial rollback on an error, you will want `ctx.runMutation`
   instead of a plain TypeScript function.
 
-<TSAndJSSnippet
+<Snippet
   title="convex/messages.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="partialRollback"
 />
 
@@ -553,10 +526,9 @@ required for custom ID generation in the future.
 
 ### Example
 
-<TSAndJSSnippet
+<Snippet
   title="convex/movies.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="explicitTableIds"
 />
 
@@ -593,10 +565,9 @@ will unnecessarily increase the work that the database has to do.
 
 ### Example
 
-<TSAndJSSnippet
+<Snippet
   title="convex/posts.ts"
-  sourceTS={BestPracticesTS}
-  sourceJS={BestPracticesTS}
+  source={BestPractices}
   snippet="dateInQueries"
 />
 

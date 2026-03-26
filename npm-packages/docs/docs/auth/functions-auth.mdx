@@ -6,8 +6,7 @@ description: "Access user authentication in Convex functions"
 ---
 
 import Example from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctions.ts";
-import FieldsTS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFields.ts";
-import FieldsJS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFieldsJS.js";
+import Fields from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFields.ts";
 import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
 
 _If you're using Convex Auth, see the
@@ -19,11 +18,7 @@ property of the [`QueryCtx`](/generated-api/server#queryctx),
 [`MutationCtx`](/generated-api/server#mutationctx), or
 [`ActionCtx`](/generated-api/server#actionctx) object:
 
-<TSAndJSSnippet
-  sourceTS={Example}
-  sourceJS={Example}
-  title="convex/myFunctions.ts"
-/>
+<Snippet source={Example} title="convex/myFunctions.ts" />
 
 ## User identity fields
 
@@ -42,11 +37,7 @@ following fields will be present: `familyName`, `givenName`, `nickname`,
 standard definition in the
 [OpenID docs](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
 
-<TSAndJSSnippet
-  sourceTS={FieldsTS}
-  sourceJS={FieldsJS}
-  title="convex/myFunctions.ts"
-/>
+<Snippet source={Fields} title="convex/myFunctions.ts" />
 
 ### Clerk claims configuration
 
@@ -66,6 +57,6 @@ You can also access the user identity from an HTTP action
 [`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity), by
 calling your endpoint with an `Authorization` header including a JWT token:
 
-<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />
+<Snippet source={Fetch} title="myPage.ts" />
 
 <StackPosts query="authentication functions" />

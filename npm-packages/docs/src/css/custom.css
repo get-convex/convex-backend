@@ -9,7 +9,6 @@
 
 /* Customize the search button in nav and modal */
 @import url("./search.css");
-@import url("./language-selector.css");
 
 @theme {
   --color-neutral-white: #ffffff;
@@ -1370,12 +1369,6 @@ html:not([class*="docs-doc-id-quickstart/"]):not(
 .screenshot-border {
   border-radius: var(--ifm-code-border-radius);
   box-shadow: var(--ifm-global-shadow-lw);
-}
-
-/* Make space for language selector in code blocks */
-.codeblock-header {
-  display: flex;
-  justify-content: space-between;
 }
 
 /* FROM HERE ON: Dark mode styles */

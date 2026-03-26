@@ -60,9 +60,8 @@ To build this in Convex, define a query function that:
      [`filter`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)
      it before returning it.
 
-<TSAndJSSnippet
-  sourceTS={Messages}
-  sourceJS={Messages}
+<Snippet
+  source={Messages}
   title="convex/messages.ts"
   highlightPatterns={["paginationOpts"]}
   snippet="list"
@@ -73,9 +72,8 @@ To build this in Convex, define a query function that:
 You can define paginated query functions that take arguments in addition to
 `paginationOpts`:
 
-<TSAndJSSnippet
-  sourceTS={Messages}
-  sourceJS={Messages}
+<Snippet
+  source={Messages}
   snippet="listWithExtraArg"
   title="convex/messages.ts"
 />
@@ -87,9 +85,8 @@ You can apply arbitrary
 to the `page` property of the object returned by `paginate`, which contains the
 array of documents:
 
-<TSAndJSSnippet
-  sourceTS={Messages}
-  sourceJS={Messages}
+<Snippet
+  source={Messages}
   snippet="listWithTransformation"
   title="convex/messages.ts"
 />
@@ -121,9 +118,8 @@ The hook returns an object with:
 - `loadMore(n)`: A callback to fetch more results. This will only fetch more
   results if the status is `"CanLoadMore"`.
 
-<TSAndJSSnippet
-  sourceTS={SimpleCall}
-  sourceJS={SimpleCall}
+<Snippet
+  source={SimpleCall}
   snippet="example"
   title="src/App.tsx"
   highlightPatterns={["usePaginatedQuery\\(", "api.", "{}", "initialNumItems"]}
@@ -132,9 +128,8 @@ The hook returns an object with:
 You can also pass additional arguments in the arguments object if your function
 expects them:
 
-<TSAndJSSnippet
-  sourceTS={CallWithArgs}
-  sourceJS={CallWithArgs}
+<Snippet
+  source={CallWithArgs}
   snippet="example"
   title="src/App.tsx"
   highlightPatterns={["author:"]}
@@ -156,4 +151,4 @@ its initial size.
 If you're paginating outside of React, you can manually call your paginated
 function multiple times to collect the items:
 
-<TSAndJSSnippet title="download.ts" sourceTS={Download} sourceJS={Download} />
+<Snippet title="download.ts" source={Download} />

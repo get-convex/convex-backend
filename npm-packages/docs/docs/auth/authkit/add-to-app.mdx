@@ -6,8 +6,7 @@ description: "Adding WorkOS AuthKit to an existing Convex application"
 ---
 
 import AuthConfigTs from "@site/docs/auth/authkit/_auth_config_ts.mdx";
-import ConfigTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuthKit.tsx";
-import ConfigJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainAuthKit.jsx";
+import Config from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainAuthKit.tsx";
 import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/workosFunctions.ts";
 import tanstackStartRouter from "!!raw-loader!@site/../private-demos/tanstack-start-workos/src/router.tsx";
 import tanstackStartRoot from "!!raw-loader!@site/../private-demos/tanstack-start-workos/src/routes/__root.tsx";
@@ -159,7 +158,7 @@ should follow the **Standard WorkOS team** instructions.
         </Tabs>
     </Step>
     <Step title="Create or update auth.config.ts">
-      In your app's `convex/` folder, create or update the <JSDialectFileName name="auth.config.ts" />
+      In your app's `convex/` folder, create or update the `auth.config.ts`
       file with the following code. This is the server-side configuration for validating access tokens.
 
       <AuthConfigTs/>
@@ -199,7 +198,7 @@ should follow the **Standard WorkOS team** instructions.
 
     </Step>
       <Step title="Configure auth with the WorkOS Client ID">
-      In your app's `convex/` folder, create a new file <JSDialectFileName name="auth.config.ts" /> with the following code. This is the server-side configuration for validating access tokens.
+      In your app's `convex/` folder, create a new file `auth.config.ts` with the following code. This is the server-side configuration for validating access tokens.
 
       <AuthConfigTs/>
     </Step>
@@ -288,10 +287,9 @@ working React app with Convex. If not follow the
       Then, wrap it with `<AuthKitProvider>`. `<AuthKitProvider>` requires `clientId` and `redirectUri` props, which you can set to `VITE_WORKOS_CLIENT_ID` and `VITE_WORKOS_REDIRECT_URI`, respectively.
 
 
-      <TSAndJSSnippet
+      <Snippet
         title="src/main.tsx"
-        sourceTS={ConfigTS}
-        sourceJS={ConfigJS}
+        source={Config}
         highlightPatterns={["AuthKitProvider", "clientId", "redirectUri", "ConvexProviderWithAuthKit"]}
       />
 
@@ -362,10 +360,9 @@ working React app with Convex. If not follow the
       **Make sure that the component calling this query is a child of `<Authenticated>` from
       `convex/react`**. Otherwise, it will throw on page load.
 
-      <TSAndJSSnippet
+      <Snippet
         title="convex/myFunctions.ts"
-        sourceTS={Functions}
-        sourceJS={Functions}
+        source={Functions}
       />
 
     </Step>
@@ -701,10 +698,9 @@ working Next.js app with Convex. If not follow the
       **Make sure that the component calling this query is a child of `<Authenticated>` from
       `convex/react`**. Otherwise, it will throw on page load.
 
-      <TSAndJSSnippet
+      <Snippet
         title="convex/myFunctions.ts"
-        sourceTS={Functions}
-        sourceJS={Functions}
+        source={Functions}
       />
 
     </Step>
@@ -930,10 +926,9 @@ working TanStack Start app with Convex. If not, follow the
       **Make sure that the component calling this query is a child of `<Authenticated>` from
       `convex/react`**. Otherwise, it will throw on page load.
 
-      <TSAndJSSnippet
+      <Snippet
         title="convex/myFunctions.ts"
-        sourceTS={Functions}
-        sourceJS={Functions}
+        source={Functions}
       />
 
     </Step>

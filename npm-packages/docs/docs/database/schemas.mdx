@@ -7,7 +7,7 @@ description:
 toc_max_heading_level: 4
 ---
 
-import SchemaTS from "!!raw-loader!@site/../demos/users-and-auth/convex/schema.ts";
+import Schema from "!!raw-loader!@site/../demos/users-and-auth/convex/schema.ts";
 import circularExample from "!!raw-loader!@site/../private-demos/snippets/convex/schemasCircular.ts";
 
 A schema is a description of
@@ -33,7 +33,7 @@ then adding a schema once you've solidified your plan. To learn more see our
 Schemas are defined in a `schema.ts` file in your `convex/` directory and look
 like:
 
-<Snippet source={SchemaTS} title="convex/schema.ts" />
+<Snippet source={Schema} title="convex/schema.ts" />
 
 This schema (which is based on our
 [users and auth example](https://github.com/get-convex/convex-demos/tree/main/users-and-auth)),
@@ -331,11 +331,7 @@ export default defineSchema({
 This way you can create a preferences document first, then create a user
 document, then set the reference on the preferences document:
 
-<TSAndJSSnippet
-  title="convex/users.ts"
-  sourceTS={circularExample}
-  sourceJS={circularExample}
-/>
+<Snippet title="convex/users.ts" source={circularExample} />
 
 [Let us know](/production/contact.md) if you need better support for circular
 references.

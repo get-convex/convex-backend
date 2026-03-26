@@ -30,7 +30,7 @@ app's Convex functions.
 The api object is used by client-side React hooks and Convex functions that run
 or schedule other functions.
 
-```javascript title="src/App.jsx"
+```javascript title="src/App.tsx"
 import { api } from "../convex/_generated/api";
 import { useQuery } from "convex/react";
 
@@ -41,7 +41,7 @@ const data = useQuery(api.messages.list);
 
 Another object of type `API` describing your app's internal Convex API.
 
-```js title="convex/upgrade.js"
+```js title="convex/upgrade.ts"
 import { action } from "../_generated/server";
 import { internal } from "../_generated/api";
 

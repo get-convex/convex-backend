@@ -131,10 +131,9 @@ See
 With React it can be tricky to dynamically invoke a hook, because hooks cannot
 be placed inside conditionals or after early returns:
 
-<TSAndJSSnippet
+<Snippet
   title="src/App.tsx"
-  sourceTS={SkipBad}
-  sourceJS={SkipBad}
+  source={SkipBad}
   snippet="example"
   highlightPatterns={["useQuery"]}
 />
@@ -142,12 +141,7 @@ be placed inside conditionals or after early returns:
 For this reason `useQuery` can be "disabled" by passing in `"skip"` instead of
 its arguments:
 
-<TSAndJSSnippet
-  title="src/App.tsx"
-  sourceTS={SkipGood}
-  sourceJS={SkipGood}
-  highlightPatterns={["skip"]}
-/>
+<Snippet title="src/App.tsx" source={SkipGood} highlightPatterns={["skip"]} />
 
 When `"skip"` is used the `useQuery` doesn't talk to your backend at all and
 returns `undefined`.

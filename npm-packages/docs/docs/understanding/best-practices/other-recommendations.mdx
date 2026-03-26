@@ -9,9 +9,7 @@ description:
 ---
 
 import UserHelpers from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpers.ts";
-import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
 import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
-import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
 
 {/* This page was previously the Best Practices page which has been rewritten */}
 {/* with some of this content dropped. We are keeping this as a hidden page that is */}
@@ -83,11 +81,10 @@ instead of using `ctx.runAction` reduces function calls and resource usage.
 See the [TypeScript page](/understanding/best-practices/typescript.mdx) for
 useful types.
 
-<TSAndJSSnippet sourceTS={Teams} sourceJS={TeamsJS} title="convex/teams.js" />
+<Snippet source={Teams} title="convex/teams.js" />
 
-<TSAndJSSnippet
-  sourceTS={UserHelpers}
-  sourceJS={UserHelpersJS}
+<Snippet
+  source={UserHelpers}
   title="convex/userHelpers.js"
   snippet="userHelpers"
   suffix={`}`}

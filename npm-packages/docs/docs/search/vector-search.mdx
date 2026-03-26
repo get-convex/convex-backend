@@ -87,9 +87,8 @@ They generally involve three steps:
 Here's an example of the first two steps for searching for similar French foods
 based on a description:
 
-<TSAndJSSnippet
-  sourceTS={VectorSearchSnippets}
-  sourceJS={VectorSearchSnippets}
+<Snippet
+  source={VectorSearchSnippets}
   title="convex/foods.ts"
   snippet="vectorSearchQuery"
   highlightPatterns={["vectorSearch"]}
@@ -137,16 +136,10 @@ For now, let's load the documents and return them from the action. To do so,
 we'll pass the list of results to a Convex query and run it inside of our
 action, returning the result:
 
-<TSAndJSSnippet
-  sourceTS={Foods}
-  sourceJS={Foods}
-  title="convex/foods.ts"
-  snippet="fetchResults"
-/>
+<Snippet source={Foods} title="convex/foods.ts" snippet="fetchResults" />
 
-<TSAndJSSnippet
-  sourceTS={VectorSearchSnippets2}
-  sourceJS={VectorSearchSnippets2}
+<Snippet
+  source={VectorSearchSnippets2}
   title="convex/foods.ts"
   snippet="fetchResults"
 />
@@ -236,9 +229,8 @@ different since we have an ID for `movieEmbeddings` but want to load a `movies`
 document. We can do this using the `by_embedding` database index on the `movies`
 table:
 
-<TSAndJSSnippet
-  sourceTS={VectorSearchSnippets}
-  sourceJS={VectorSearchSnippets}
+<Snippet
+  source={VectorSearchSnippets}
   title="convex/movies.ts"
   snippet="fetchMovies"
   highlightPatterns={["withIndex"]}

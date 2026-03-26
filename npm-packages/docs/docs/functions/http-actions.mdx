@@ -50,11 +50,7 @@ HTTP action handlers are defined using the
 [`httpAction`](/generated-api/server#httpaction) constructor, similar to the
 `action` constructor for normal actions:
 
-<TSAndJSSnippet
-  title="convex/myHttpActions.ts"
-  sourceTS={Constructor}
-  sourceJS={Constructor}
-/>
+<Snippet title="convex/myHttpActions.ts" source={Constructor} />
 
 The first argument to the `handler` is an
 [`ActionCtx`](/api/interfaces/server.GenericActionCtx) object, which provides
@@ -70,25 +66,16 @@ incoming Request is left entirely to you.
 
 Here's an example:
 
-<TSAndJSSnippet
-  title="convex/messages.ts"
-  sourceTS={httpFunction}
-  sourceJS={httpFunction}
-/>
+<Snippet title="convex/messages.ts" source={httpFunction} />
 
-<>
-  {/* Wrapped in fragment because Prettier pushes the JSDialectFileName on new line */}
-  To expose the HTTP Action, export an instance of
-  [`HttpRouter`](/api/classes/server.HttpRouter) from the
-  <JSDialectFileName name="convex/http.ts" /> file. To create the instance call
-  the `httpRouter` function. On the `HttpRouter` you can expose routes using the
-  `route` method:
-</>
+To expose the HTTP Action, export an instance of
+[`HttpRouter`](/api/classes/server.HttpRouter) from the `convex/http.ts` file.
+To create the instance call the `httpRouter` function. On the `HttpRouter` you
+can expose routes using the `route` method:
 
-<TSAndJSSnippet
+<Snippet
   title="convex/http.ts"
-  sourceTS={http}
-  sourceJS={http}
+  source={http}
   snippet="router"
   highlightPatterns={["handler: postMessage"]}
 />
@@ -200,20 +187,18 @@ on the use case. [This site](https://httptoolkit.com/will-it-cors/) provides an
 interactive walkthrough for what CORS headers to add. Here's an example of
 adding CORS headers to a Convex HTTP action:
 
-<TSAndJSSnippet
+<Snippet
   title="convex/http.ts"
-  sourceTS={httpStorage}
-  sourceJS={httpStorage}
+  source={httpStorage}
   snippet={["sendImageStore"]}
   highlightPatterns={["headers: new Headers", "        ", "     \\}\\)"]}
 />
 
 Here's an example of handling a pre-flight `OPTIONS` request:
 
-<TSAndJSSnippet
+<Snippet
   title="convex/http.ts"
-  sourceTS={httpStorage}
-  sourceJS={httpStorage}
+  source={httpStorage}
   snippet="preflight"
   highlightPatterns={["headers: new Headers", "          ", "       \\}\\)"]}
 />
@@ -225,4 +210,4 @@ access a user identity from
 [`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity). To
 do this call your endpoint with an `Authorization` header including a JWT token:
 
-<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />
+<Snippet source={Fetch} title="myPage.ts" />

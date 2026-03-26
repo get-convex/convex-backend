@@ -6,10 +6,8 @@ description: "Integrate Clerk authentication with Convex"
 ---
 
 import UnderTheHood from "@site/docs/auth/_under_the_hood.mdx";
-import ConfigTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainClerk.tsx";
-import ConfigJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainClerk.jsx";
-import ConfigEnvTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainClerkEnv.tsx";
-import ConfigEnvJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainClerkEnv.jsx";
+import Config from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainClerk.tsx";
+import ConfigEnv from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainClerkEnv.tsx";
 import App from "!!raw-loader!@site/../private-demos/snippets/src/clerkApp.tsx";
 import Messages from "!!raw-loader!@site/../private-demos/snippets/convex/clerkMessages.ts";
 
@@ -65,7 +63,7 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
 
   </Step>
   <Step title="Configure Convex with the Clerk issuer domain">
-    In your app's `convex` folder, create a new file <JSDialectFileName name="auth.config.ts" /> with the following code. This is the server-side configuration for validating access tokens.
+    In your app's `convex` folder, create a new file `auth.config.ts` with the following code. This is the server-side configuration for validating access tokens.
 
     ```ts title="convex/auth.config.ts"
     import { AuthConfig } from "convex/server";
@@ -116,10 +114,9 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
 
     Then, wrap it with `<ClerkProvider>`. `<ClerkProvider>` requires a `publishableKey` prop, which you can set to the `VITE_CLERK_PUBLISHABLE_KEY` environment variable.
 
-    <TSAndJSSnippet
+    <Snippet
       title="src/main.tsx"
-      sourceTS={ConfigTS}
-      sourceJS={ConfigJS}
+      source={Config}
       highlightPatterns={["ClerkProvider", "ConvexProviderWithClerk"]}
     />
 
@@ -183,10 +180,9 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
     **Make sure that the component calling this query is a child of `<Authenticated>` from
     `convex/react`**. Otherwise, it will throw on page load.
 
-    <TSAndJSSnippet
+    <Snippet
       title="convex/messages.ts"
-      sourceTS={Messages}
-      sourceJS={Messages}
+      source={Messages}
     />
 
   </Step>
@@ -228,7 +224,7 @@ follow the [Convex Next.js Quickstart](/quickstart/nextjs.mdx) first. Then:
 
   </Step>
   <Step title="Configure Convex with the Clerk issuer domain">
-    In your app's `convex` folder, create a new file <JSDialectFileName name="auth.config.ts" /> with the following code. This is the server-side configuration for validating access tokens.
+    In your app's `convex` folder, create a new file `auth.config.ts` with the following code. This is the server-side configuration for validating access tokens.
 
     ```ts title="convex/auth.config.ts"
     import { AuthConfig } from "convex/server";
@@ -428,10 +424,9 @@ follow the [Convex Next.js Quickstart](/quickstart/nextjs.mdx) first. Then:
     **Make sure that the component calling this query is a child of `<Authenticated>` from
     `convex/react`**. Otherwise, it will throw on page load.
 
-    <TSAndJSSnippet
+    <Snippet
       title="convex/messages.ts"
-      sourceTS={Messages}
-      sourceJS={Messages}
+      source={Messages}
     />
 
   </Step>
@@ -494,8 +489,7 @@ Paste your Clerk Frontend API URL into your `.env` file, set it as the
 CLERK_JWT_ISSUER_DOMAIN=https://verb-noun-00.clerk.accounts.dev
 ```
 
-Then, update your <JSDialectFileName name="auth.config.ts" /> file to use the
-environment variable.
+Then, update your `auth.config.ts` file to use the environment variable.
 
 ```ts title="convex/auth.config.ts"
 import { AuthConfig } from "convex/server";
@@ -568,10 +562,9 @@ redirected back to your page, `useConvexAuth()` returns
 `isAuthenticated: false`, it's possible that your backend isn't correctly
 configured.
 
-The <JSDialectFileName name="auth.config.ts" /> file contains a list of
-configured authentication providers. You must run `npx convex dev` or
-`npx convex deploy` after adding a new provider to sync the configuration to
-your backend.
+The `auth.config.ts` file contains a list of configured authentication
+providers. You must run `npx convex dev` or `npx convex deploy` after adding a
+new provider to sync the configuration to your backend.
 
 For more thorough debugging steps, see
 [Debugging Authentication](/auth/debug.mdx).

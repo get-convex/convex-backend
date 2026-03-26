@@ -33,7 +33,7 @@ You can find the URLs of all deployments in a project by visiting the
 Construct a Convex React client by passing in the URL of the Convex deployment.
 There should generally be a single Convex client in a frontend application.
 
-```jsx title="src/index.js"
+```jsx title="src/index.ts"
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 
 const deploymentURL = import.meta.env.VITE_CONVEX_URL;

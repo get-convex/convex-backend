@@ -6,8 +6,6 @@ description:
   "JavaScript clients for Node.js and browser applications using Convex"
 ---
 
-import Http from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
-
 # Convex JavaScript Clients
 
 Convex applications can be accessed from Node.js or any JavaScript runtime that
@@ -28,10 +26,9 @@ If you're using React, see the dedicated
 The [`ConvexClient`](/api/classes/browser.ConvexClient) provides subscriptions
 to queries in Node.js and any JavaScript environment that supports WebSockets.
 
-import VanillaTS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
-import VanillaJS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.js";
+import Vanilla from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
 
-<TSAndJSSnippet title="script.ts" sourceTS={VanillaTS} sourceJS={VanillaJS} />
+<Snippet title="script.ts" source={Vanilla} />
 
 The Convex client is open source and available on
 [GitHub](https://github.com/get-convex/convex-js).
@@ -47,14 +44,13 @@ browser, Node.js, and any JavaScript environment with `fetch`.
 
 See the [Node.js Quickstart](/quickstart/nodejs.mdx).
 
-<TSAndJSSnippet title="script.ts" sourceTS={Example} sourceJS={Example} />
+<Snippet title="script.ts" source={Example} />
 
 ## Using Convex without generated `convex/_generated/api.js`
 
 If the source code for your Convex function isn't located in the same project or
 in the same monorepos you can use the untyped `api` object called `anyApi`.
 
-import StringsTS from "!!raw-loader!@site/../private-demos/snippets/src/strings.ts";
-import StringsJS from "!!raw-loader!@site/../private-demos/snippets/src/strings.js";
+import Strings from "!!raw-loader!@site/../private-demos/snippets/src/strings.ts";
 
-<TSAndJSSnippet title="script.ts" sourceTS={StringsTS} sourceJS={StringsJS} />
+<Snippet title="script.ts" source={Strings} />

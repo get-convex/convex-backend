@@ -15,11 +15,6 @@ import { StackPosts } from "@site/src/StackPosts.tsx";
 import BetaAdmonition from "@site/docs/_betaAdmonition.mdx";
 import BetaContactUsAdmonition from "@site/docs/_betaContactUsAdmonition.mdx";
 import ProFeatureUpsell from "@site/docs/_proFeatureUpsell.mdx";
-import { JSDialectVariants } from "../JSDialectVariants";
-import { JSDialectFileName } from "../JSDialectFileName";
-import { TSAndJSCode } from "../TSAndJSCode";
-import { TSAndJSSnippet } from "../TSAndJSSnippet";
-import { LanguageSelector } from "../LanguageSelector";
 import { CodeWithCopyButton } from "../CodeWithCopyButton";
 import { ErrorExample } from "../ErrorExample";
 
@@ -35,9 +30,6 @@ export default {
   DocCardList,
   ErrorExample,
   CardLink,
-  JSDialectFileName,
-  JSDialectVariants,
-  LanguageSelector,
   ProFeatureUpsell,
   StackPosts,
   StepByStep,
@@ -45,6 +37,4 @@ export default {
   Snippet,
   TourGuide,
   TourStep,
-  TSAndJSCode,
-  TSAndJSSnippet,
 };

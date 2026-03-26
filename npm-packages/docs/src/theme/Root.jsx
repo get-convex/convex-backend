@@ -1,5 +1,5 @@
 import { logEvent } from "convex-analytics";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import Analytics from "../components/Analytics/Analytics";
 
 import { Toaster } from "sonner";
@@ -35,25 +35,13 @@ function Root({ children }) {
     });
   }, []);
 
-  const [lang, setLang] = useState("TS");
-
   return (
-    <DialectContext.Provider value={{ lang, setLang }}>
+    <>
       {children}
       <Analytics />
       <Toaster />
-    </DialectContext.Provider>
+    </>
   );
-}
-
-const DialectContext = createContext();
-
-export function useSelectedDialect() {
-  return useContext(DialectContext).lang;
-}
-
-export function useSetDialect() {
-  return useContext(DialectContext).setLang;
 }
 
 export default Root;
