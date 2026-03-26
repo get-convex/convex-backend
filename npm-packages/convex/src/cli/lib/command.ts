@@ -213,10 +213,13 @@ Command.prototype.addDeploymentSelectionOptions = function (
       new Option(
         "--deployment <deployment>",
         action +
-          " the specified deployment. Accepts a deployment name (e.g. joyful-capybara-123), ref (e.g. dev/james), 'dev' (for your personal dev deployment), 'prod' (for your project’s default production deployment). You can also select deployments in other projects with 'project-slug:ref' or 'team-slug:project-slug:ref'.",
-      )
-        .conflicts(["--prod", "--preview-name", "--deployment-name", "--url"])
-        .hideHelp(), // TODO(nicolas) Make this public
+          " a specific deployment. Accepts:\n" +
+          "• a deployment name (e.g. joyful-capybara-123)\n" +
+          "• a deployment ref (e.g. dev/james)\n" +
+          "• 'dev' (for your personal dev deployment)\n" +
+          "• 'prod' (for your project’s default production deployment)." +
+          "\nYou can also select deployments in other projects with 'project-slug:ref' or 'team-slug:project-slug:ref'.",
+      ).conflicts(["--prod", "--preview-name", "--deployment-name", "--url"]),
     )
     .addOption(
       new Option(
