@@ -143,6 +143,3 @@ quickly.
 Consider the relationship of the execution time to the cache hit rate. As a
 rule, a cache hit takes well under 1 ms, so the higher your cache hit rate, the
 better your response times will be.
-
-Clicking on any of the charts will give you a larger, detailed view where you
-can customize the time ranges you're inspecting.
