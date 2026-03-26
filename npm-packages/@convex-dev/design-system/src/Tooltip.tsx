@@ -15,6 +15,7 @@ export function Tooltip({
   delayDuration = 0,
   maxWidthClassName = "max-w-[16rem]",
   disableHoverableContent = false,
+  ["aria-label"]: ariaLabel,
 }: {
   children: React.ReactNode;
   tip: React.ReactNode | undefined;
@@ -26,6 +27,7 @@ export function Tooltip({
   asChild?: boolean;
   delayDuration?: number;
   disableHoverableContent?: boolean;
+  "aria-label"?: string;
 }) {
   // Some existing callsites pass in boolean so we do a truthy check
   if (!tip) {
@@ -44,6 +46,7 @@ export function Tooltip({
             className,
           )}
           type="button" // don’t make the tooltip trigger submit forms
+          aria-label={ariaLabel}
         >
           {children}
         </RadixTooltip.Trigger>

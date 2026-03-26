@@ -101,6 +101,10 @@
       "import": "./dist/Donut.jsx",
       "types": "./dist/Donut.d.ts"
     },
+    "./HelpTooltip": {
+      "import": "./dist/HelpTooltip.jsx",
+      "types": "./dist/HelpTooltip.d.ts"
+    },
     "./KeyboardShortcut": {
       "import": "./dist/KeyboardShortcut.jsx",
       "types": "./dist/KeyboardShortcut.d.ts"

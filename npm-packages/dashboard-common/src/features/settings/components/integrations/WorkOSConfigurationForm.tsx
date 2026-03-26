@@ -7,9 +7,8 @@ import {
 } from "@common/lib/deploymentContext";
 import Link from "next/link";
 import { Loading } from "@ui/Loading";
-import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import {
-  QuestionMarkCircledIcon,
   CheckIcon,
   ExclamationTriangleIcon,
   Cross2Icon,
@@ -581,27 +580,23 @@ function WorkOSTeamSection({
         <p className="text-sm text-content-primary">
           <span className="inline-flex items-center gap-1">
             <span className="font-mono">{workosTeam.workosTeamName}</span>
-            <Tooltip
-              tip={
-                <div className="flex flex-col gap-2">
-                  <div>
-                    <div className="text-xs font-semibold">WorkOS Team ID</div>
-                    <CopyTextButton
-                      text={workosTeam.workosTeamId}
-                      className="font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold">Admin Email</div>
-                    <div className="font-mono text-xs">
-                      {workosTeam.workosAdminEmail}
-                    </div>
+            <HelpTooltip>
+              <div className="flex flex-col gap-2">
+                <div>
+                  <div className="text-xs font-semibold">WorkOS Team ID</div>
+                  <CopyTextButton
+                    text={workosTeam.workosTeamId}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold">Admin Email</div>
+                  <div className="font-mono text-xs">
+                    {workosTeam.workosAdminEmail}
                   </div>
                 </div>
-              }
-            >
-              <QuestionMarkCircledIcon className="inline text-content-tertiary" />
-            </Tooltip>
+              </div>
+            </HelpTooltip>
           </span>
         </p>
 

@@ -1,4 +1,4 @@
-import { QuestionMarkCircledIcon, TrashIcon } from "@radix-ui/react-icons";
+import { TrashIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { useContext, useState } from "react";
 import {
@@ -22,6 +22,7 @@ import { Button } from "@ui/Button";
 import { SchedulerStatus } from "@common/elements/SchedulerStatus";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { Checkbox } from "@ui/Checkbox";
 import { Callout } from "@ui/Callout";
 import { cn } from "@ui/cn";
@@ -187,9 +188,9 @@ export function ScheduledFunctionsContentToolbar({
                   <span className="flex items-center gap-1 text-sm">
                     Emergency delete (faster)
                     {!deleteTable && (
-                      <Tooltip tip={<DeleteScheduledFunctionsTableMessage />}>
-                        <QuestionMarkCircledIcon className="text-content-tertiary" />
-                      </Tooltip>
+                      <HelpTooltip>
+                        <DeleteScheduledFunctionsTableMessage />
+                      </HelpTooltip>
                     )}
                   </span>
                 </label>

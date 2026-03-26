@@ -6,7 +6,6 @@ import {
 import {
   ChevronUpIcon,
   ChevronDownIcon,
-  QuestionMarkCircledIcon,
   ArrowRightIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
@@ -28,6 +27,7 @@ import { useDeploymentById } from "api/deployments";
 import { BackupIdentifier } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { formatUsd } from "@common/lib/utils";
 import { useProjectById } from "api/projects";
 
@@ -1015,9 +1015,7 @@ function SpendingLimitLine({
     <div className="contents">
       <header className="mr-2 flex items-center gap-1">
         <div className="text-content-secondary">{label}</div>
-        <Tooltip tip={tooltip} side="top">
-          <QuestionMarkCircledIcon className="text-content-tertiary" />
-        </Tooltip>
+        <HelpTooltip tipSide="top">{tooltip}</HelpTooltip>
       </header>
       <SpendingValue valueCents={previousValue} />
       <ArrowRightIcon className="text-content-tertiary" />

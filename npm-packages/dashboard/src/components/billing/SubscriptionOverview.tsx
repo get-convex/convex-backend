@@ -22,8 +22,7 @@ import {
   OrbSubscriptionResponse,
   TeamResponse,
 } from "generatedApi";
-import { Tooltip } from "@ui/Tooltip";
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { Callout } from "@ui/Callout";
 import { formatUsd } from "@common/lib/utils";
 import { planNameMap } from "components/billing/planCards/PlanCard";
@@ -307,9 +306,7 @@ function CostLabel({
     <div className="flex flex-col gap-0.5">
       <span className="flex items-center gap-1 text-content-secondary">
         {label}
-        <Tooltip tip={tooltip} side="top">
-          <QuestionMarkCircledIcon className="text-content-tertiary" />
-        </Tooltip>
+        <HelpTooltip tipSide="top">{tooltip}</HelpTooltip>
       </span>
       <span className="flex items-baseline gap-1">
         {/* eslint-disable-next-line no-restricted-syntax */}

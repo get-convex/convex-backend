@@ -14,6 +14,7 @@ import { api } from "system-udfs/convex/_generated/api";
 import { Fragment } from "react";
 import { ProgressBarWithPercent } from "@ui/ProgressBar";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { cn } from "@ui/cn";
 import { Callout } from "@ui/Callout";
 
@@ -120,23 +121,19 @@ function IndexListSection({
       <header className="flex items-center gap-1.5 text-content-primary">
         <Icon className="size-5 text-content-secondary" />
         <h5 className="text-base font-medium">{title}</h5>
-        <Tooltip
-          tip={
-            <p>
-              {description}{" "}
-              <a
-                href={learnMoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-content-link hover:underline"
-              >
-                Learn more
-              </a>
-            </p>
-          }
-        >
-          <QuestionMarkCircledIcon className="text-content-tertiary" />
-        </Tooltip>
+        <HelpTooltip>
+          <p>
+            {description}{" "}
+            <a
+              href={learnMoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-content-link hover:underline"
+            >
+              Learn more
+            </a>
+          </p>
+        </HelpTooltip>
       </header>
       {indexes.length === 0 ? (
         <div className="text-sm text-content-tertiary">
