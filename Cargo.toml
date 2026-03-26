@@ -124,7 +124,7 @@ libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
 log_interleaver = { path = "crates/log_interleaver" }
 log_streaming = { path = "crates/log_streaming" }
 lru = "0.16.0"
-lz4_flex = "0.12"
+lz4_flex = "0.13"
 maplit = "1"
 memchr = "2.7"
 memory-stats = "1"
