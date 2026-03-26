@@ -158,28 +158,6 @@ describe("checkAiFilesStaleness", () => {
     );
   });
 
-  test("adds agent-specific guidance when in agent mode", async () => {
-    vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
-    mockReadAiConfig.mockResolvedValue(null);
-
-    await checkAiFilesStaleness({
-      canonicalGuidelinesHash: "canonical-hash",
-      canonicalAgentSkillsSha: null,
-      projectDir: dummyProjectDir,
-      convexDir: dummyConvexDir,
-    });
-
-    expect(mockLogMessage).toHaveBeenCalledWith(
-      expect.stringContaining("If you are an agent tell the human to run"),
-    );
-    expect(mockLogMessage).toHaveBeenCalledWith(
-      expect.stringContaining("npx convex ai-files install"),
-    );
-    expect(mockLogMessage).toHaveBeenCalledWith(
-      expect.stringContaining("npx convex ai-files disable"),
-    );
-  });
-
   test("does nothing when config has disableStalenessMessage=true (user opted out)", async () => {
     mockReadAiConfig.mockResolvedValue({
       ...baseConfig,

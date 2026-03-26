@@ -18,7 +18,7 @@ import {
   writeAiConfig,
   writeAiDisabledToProjectConfig,
 } from "./config.js";
-import { isAgentMode, isInInteractiveTerminal } from "./utils.js";
+import { isInInteractiveTerminal } from "./utils.js";
 import {
   hasAgentsMdInstalled,
   applyAgentsMdSection,
@@ -163,9 +163,7 @@ export async function checkAiFilesStaleness(
   if (status === "not-installed") {
     logMessage(
       chalkStderr.yellow(
-        isAgentMode()
-          ? `Convex AI files are not installed. If you are an agent tell the human to run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`
-          : `Convex AI files are not installed. Run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`,
+        `Convex AI files are not installed. Run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`,
       ),
     );
   }
@@ -286,19 +284,17 @@ export async function maybeSetupAiFiles({
 }: {
   ctx: Context;
 } & AiFilesPaths): Promise<void> {
-  if (isAgentMode()) return;
+  if (!isInInteractiveTerminal()) return;
 
   if (await hasAiFilesBeenInstalledBefore({ projectDir, convexDir })) {
     await attemptToInstallAiFiles({ projectDir, convexDir });
     return;
   }
 
-  const shouldInstall =
-    !isInInteractiveTerminal() ||
-    (await promptYesNo(ctx, {
-      message: "Set up Convex AI files? (guidelines, AGENTS.md, agent skills)",
-      default: true,
-    }));
+  const shouldInstall = await promptYesNo(ctx, {
+    message: "Set up Convex AI files? (guidelines, AGENTS.md, agent skills)",
+    default: true,
+  });
 
   if (shouldInstall) await attemptToInstallAiFiles({ projectDir, convexDir });
 }

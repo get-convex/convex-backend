@@ -4,10 +4,6 @@ import { chalkStderr } from "chalk";
 import { logMessage } from "../../../bundler/log.js";
 import { hashSha256 } from "../utils/hash.js";
 
-export function isAgentMode(): boolean {
-  return process.env.CONVEX_AGENT_MODE !== undefined;
-}
-
 export function isInInteractiveTerminal(): boolean {
   return process.stdin.isTTY === true;
 }

@@ -99,7 +99,6 @@ describe("maybeSetupAiFiles interactive prompt", () => {
     originalIsTTY = process.stdin.isTTY;
     process.stdin.isTTY = true;
     mockPromptYesNo.mockResolvedValue(true);
-    delete process.env.CONVEX_AGENT_MODE;
   });
 
   afterEach(() => {
@@ -134,8 +133,8 @@ describe("maybeSetupAiFiles interactive prompt", () => {
     expect(fs.existsSync(projectConfigPath())).toBe(false);
   });
 
-  test("agent mode skips the prompt and does not install AI files", async () => {
-    vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
+  test("non-interactive terminal skips the prompt and does not install AI files", async () => {
+    process.stdin.isTTY = false;
 
     await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
