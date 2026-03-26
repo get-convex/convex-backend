@@ -47,7 +47,7 @@ function DeploymentURLAndDeployKey() {
   const { capture } = usePostHog();
   const pauseDeploymentRef = useRef<HTMLDivElement | null>(null);
   useScrollToHash("#pause-deployment", pauseDeploymentRef);
-  const { showReferences, transferDeployment } = useLaunchDarkly();
+  const { transferDeployment } = useLaunchDarkly();
 
   const team = useCurrentTeam();
   const project = useCurrentProject();
@@ -82,7 +82,7 @@ function DeploymentURLAndDeployKey() {
       <Sheet>
         <DeployKeysForDeployment />
       </Sheet>
-      {showReferences && <DeploymentAdvancedSettings />}
+      <DeploymentAdvancedSettings />
       <div ref={pauseDeploymentRef}>
         <PauseDeployment
           onPausedDeployment={() => {

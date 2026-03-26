@@ -12,7 +12,6 @@ import {
   WrenchIcon,
 } from "@heroicons/react/24/outline";
 import { Pencil2Icon } from "@radix-ui/react-icons";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useProjectById } from "api/projects";
 import { HighlightMatch } from "elements/HighlightMatch";
 
@@ -50,7 +49,6 @@ export function DeploymentRow({
   listItem?: boolean;
   searchQuery?: string;
 }) {
-  const { showReferences } = useLaunchDarkly();
   const { project } = useProjectById(deployment.projectId);
   const creator = teamMembers?.find((tm) => tm.id === deployment.creator);
   const creatorName = creator?.name || creator?.email || "Unknown";
@@ -98,19 +96,12 @@ export function DeploymentRow({
         {/* Reference + deployment name */}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-center gap-2">
-            {deployment.kind === "cloud" &&
-              showReferences &&
-              deployment.reference && (
-                <span className="truncate text-sm font-semibold text-content-primary">
-                  <HighlightMatch
-                    text={deployment.reference}
-                    query={searchQuery}
-                  />
-                </span>
-              )}
-            {deployment.kind === "cloud" && !showReferences && (
+            {deployment.kind === "cloud" && deployment.reference && (
               <span className="truncate text-sm font-semibold text-content-primary">
-                <HighlightMatch text={deployment.name} query={searchQuery} />
+                <HighlightMatch
+                  text={deployment.reference}
+                  query={searchQuery}
+                />
               </span>
             )}
             {deployment.kind === "local" && (
@@ -120,8 +111,8 @@ export function DeploymentRow({
             )}
           </div>
 
-          {/* Second line: deployment name when showing references */}
-          {deployment.kind === "cloud" && showReferences && (
+          {/* Second line: deployment name */}
+          {deployment.kind === "cloud" && (
             <span className="truncate text-xs text-content-secondary">
               <HighlightMatch text={deployment.name} query={searchQuery} />
             </span>

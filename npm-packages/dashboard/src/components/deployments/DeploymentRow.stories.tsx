@@ -1,8 +1,6 @@
-import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked } from "storybook/test";
 import { MemberResponse } from "generatedApi";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useProjectById } from "api/projects";
 import { DeploymentRow } from "./DeploymentRow";
 
@@ -27,9 +25,6 @@ const meta = {
   },
   parameters: { a11y: { test: "todo" } },
   beforeEach: () => {
-    mocked(useLaunchDarkly).mockReturnValue({
-      showReferences: false,
-    } as ReturnType<typeof useLaunchDarkly>);
     mocked(useProjectById).mockReturnValue({
       project: {
         id: 1,
@@ -55,6 +50,7 @@ export const ProductionCloud: Story = {
       kind: "cloud",
       class: "s16",
       name: "happy-animal-123",
+      reference: "prod",
       deploymentType: "prod",
       createTime: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
       creator: 1,
@@ -62,7 +58,8 @@ export const ProductionCloud: Story = {
       projectId: 1,
       isDefault: true,
       region: "aws-us-east-1",
-    } as PlatformDeploymentResponse,
+      deploymentUrl: "https://happy-animal-123.convex.cloud",
+    },
   },
 };
 
@@ -73,6 +70,7 @@ export const DevelopmentCloudMine: Story = {
       kind: "cloud",
       class: "s16",
       name: "clever-otter-456",
+      reference: "dev/alice",
       deploymentType: "dev",
       createTime: Date.now() - 30 * 60 * 1000, // 30 minutes ago
       creator: 1,
@@ -80,7 +78,8 @@ export const DevelopmentCloudMine: Story = {
       projectId: 1,
       isDefault: true,
       region: "aws-us-east-1",
-    } as PlatformDeploymentResponse,
+      deploymentUrl: "https://clever-otter-456.convex.cloud",
+    },
   },
 };
 
@@ -91,6 +90,7 @@ export const DevelopmentCloudTeammate: Story = {
       kind: "cloud",
       class: "s16",
       name: "playful-koala-789",
+      reference: "dev/bob",
       deploymentType: "dev",
       createTime: Date.now() - 4 * 60 * 60 * 1000, // 4 hours ago
       creator: 2,
@@ -98,7 +98,8 @@ export const DevelopmentCloudTeammate: Story = {
       projectId: 1,
       isDefault: false,
       region: "aws-us-east-1",
-    } as PlatformDeploymentResponse,
+      deploymentUrl: "https://playful-koala-789.convex.cloud",
+    },
   },
 };
 
@@ -115,7 +116,7 @@ export const DevelopmentLocal: Story = {
       deviceName: "MacBook Pro",
       port: 3210,
       isActive: true,
-    } as PlatformDeploymentResponse,
+    },
   },
 };
 
@@ -125,7 +126,8 @@ export const Preview: Story = {
     deployment: {
       kind: "cloud",
       class: "s16",
-      name: "preview-feature-123",
+      name: "magical-owl-201",
+      reference: "preview/my-feature",
       deploymentType: "preview",
       createTime: Date.now() - 1 * 60 * 60 * 1000, // 1 hour ago
       creator: 1,
@@ -133,8 +135,9 @@ export const Preview: Story = {
       projectId: 1,
       isDefault: false,
       region: "aws-us-east-1",
-      previewIdentifier: "feature-branch-xyz",
-    } as PlatformDeploymentResponse,
+      previewIdentifier: "my-feature",
+      deploymentUrl: "https://magical-owl-201.convex.cloud",
+    },
   },
 };
 
@@ -144,7 +147,8 @@ export const Custom: Story = {
     deployment: {
       kind: "cloud",
       class: "s16",
-      name: "custom-staging-789",
+      name: "clever-fox-512",
+      reference: "staging",
       deploymentType: "custom",
       createTime: Date.now() - 24 * 60 * 60 * 1000, // 1 day ago
       creator: 2,
@@ -152,7 +156,8 @@ export const Custom: Story = {
       projectId: 1,
       isDefault: false,
       region: "aws-eu-west-1",
-    } as PlatformDeploymentResponse,
+      deploymentUrl: "https://clever-fox-512.convex.cloud",
+    },
   },
 };
 
@@ -163,6 +168,7 @@ export const OldDeployment: Story = {
       kind: "cloud",
       class: "s16",
       name: "ancient-tortoise-111",
+      reference: "production",
       deploymentType: "prod",
       createTime: Date.now() - 365 * 24 * 60 * 60 * 1000, // 1 year ago
       creator: 2,
@@ -170,6 +176,7 @@ export const OldDeployment: Story = {
       projectId: 1,
       isDefault: true,
       region: "aws-eu-west-1",
-    } as PlatformDeploymentResponse,
+      deploymentUrl: "https://ancient-tortoise-111.convex.cloud",
+    },
   },
 };
