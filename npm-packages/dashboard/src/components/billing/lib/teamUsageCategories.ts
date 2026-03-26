@@ -110,14 +110,15 @@ export const DATA_EGRESS_CATEGORIES = {
     name: "User Function Reads",
     color: "fill-chart-line-4",
   },
-  backup: {
-    name: "Backup",
+  backupRestore: {
+    name: "Backup / Restore",
     color: "fill-chart-line-5",
   },
-  restore: {
-    name: "Restore",
-    color: "fill-chart-line-6",
-  },
+};
+
+export const DATA_EGRESS_CATEGORY_RENAMES: Record<string, string> = {
+  backup: "backupRestore",
+  restore: "backupRestore",
 };
 
 export const SEARCH_STORAGE_CATEGORIES = {

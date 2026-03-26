@@ -147,6 +147,14 @@ pub static UDF_EXECUTOR_OCC_INITIAL_BACKOFF: LazyLock<Duration> =
 pub static UDF_EXECUTOR_OCC_MAX_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("UDF_EXECUTOR_OCC_MAX_BACKOFF_MS", 2000)));
 
+/// Initial backoff when the scheduler encounters an OCC conflict
+pub static SCHEDULER_OCC_INITIAL_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULER_OCC_INITIAL_BACKOFF_MS", 100)));
+
+/// Maximum backoff when the scheduler faces repeated OCC conflicts
+pub static SCHEDULER_OCC_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULER_OCC_MAX_BACKOFF_MS", 10 * 1000)));
+
 /// The time for which a backend will stay around, after getting preempted,
 /// answering health checks but not serving traffic.
 ///
@@ -748,10 +756,15 @@ pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
         ))
     });
 
-/// The maximum number of writes per second allowed for mutations.
+/// The maximum write rate (per second) allowed for mutations and import
 /// Default 16 MiB
 pub static MAX_BYTES_WRITTEN_PER_SECOND: LazyLock<u64> =
     LazyLock::new(|| env_config("MAX_BYTES_WRITTEN_PER_SECOND", 16 * 1024 * 1024));
+
+/// Proposed new limit for write rate (per second)
+/// Default 4 MiB
+pub static PROPOSED_MAX_BYTES_WRITTEN_PER_SECOND: LazyLock<u64> =
+    LazyLock::new(|| env_config("PROPOSED_MAX_BYTES_WRITTEN_PER_SECOND", 4 * 1024 * 1024));
 
 /// The time window (in milliseconds) used to track write throughput.
 pub static WRITE_THROUGHPUT_WINDOW: LazyLock<Duration> =
@@ -835,6 +848,12 @@ pub static ISOLATE_MAX_USER_HEAP_SIZE: LazyLock<usize> =
 /// by the UDF.
 pub static ISOLATE_MAX_HEAP_EXTRA_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_HEAP_EXTRA_SIZE", 1 << 25));
+
+/// Set the heap size limit for analyze requests. Analyze imports all user
+/// modules into a single isolate, which can require more memory than a single
+/// UDF execution. Defaults to the same as ISOLATE_MAX_USER_HEAP_SIZE.
+pub static ISOLATE_MAX_HEAP_FOR_ANALYZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("ISOLATE_MAX_HEAP_FOR_ANALYZE", *ISOLATE_MAX_USER_HEAP_SIZE));
 
 /// Set a separate 64MB limit on ArrayBuffer allocations.
 pub static ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE: LazyLock<usize> =

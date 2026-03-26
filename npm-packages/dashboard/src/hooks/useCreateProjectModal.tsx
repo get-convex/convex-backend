@@ -34,7 +34,7 @@ export function useCreateProjectModal(): [
             <LocalDevCallout
               className="mb-5"
               tipText="Tip: Run this to increase the number of projects you can create:"
-              command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement max_projects --team-id ${selectedTeam.id} --reason "local" 500 --for-real`}
+              command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement max_projects --team-id ${selectedTeam.id} --reason "local" 500 --for-real`}
             />
           </>
         )}

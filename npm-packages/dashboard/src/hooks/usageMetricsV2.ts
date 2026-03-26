@@ -12,6 +12,8 @@ const QUERY_IDS_V2: {
 
 const BY_PROJECT_QUERY_IDS_V2: {
   databaseStorageByProjectAndClass: DatabricksQueryId;
+  databaseStorageByTable: DatabricksQueryId;
+  documentCountByTable: DatabricksQueryId;
   databaseIOByProjectAndClass: DatabricksQueryId;
   functionCallsByProjectAndClass: DatabricksQueryId;
   storageCallsByProjectAndClass: DatabricksQueryId;
@@ -22,6 +24,8 @@ const BY_PROJECT_QUERY_IDS_V2: {
   searchQueriesByProject: DatabricksQueryId;
 } = {
   databaseStorageByProjectAndClass: "489b0f87-6b3a-4dfe-a327-f2965b5c2977",
+  databaseStorageByTable: "017c5977-3002-40ca-96af-31868e70e611",
+  documentCountByTable: "28646a64-f234-44c2-b763-ecb63d43ad24",
   databaseIOByProjectAndClass: "9f606f77-521d-44bb-83ef-b1057b0fb1c9",
   functionCallsByProjectAndClass: "77a4e5bd-aa82-43e7-85a4-89897cecaa05",
   storageCallsByProjectAndClass: "90c9d3b3-d93e-4583-a054-dbb2f9dad5a3",
@@ -70,6 +74,13 @@ export interface DailyPerTagMetricsByProjectAndClass {
   projectId: number | "_rest";
   deploymentClass: string;
   metrics: { tag: string; value: number }[];
+}
+
+export interface DailyMetricByTable {
+  ds: string;
+  projectId: number | "_rest";
+  tableName: string;
+  value: number;
 }
 
 export interface DailyMetricByProject {
@@ -220,12 +231,13 @@ export function useUsageTeamMetricsByFunctionV2(
 export function useDatabaseStoragePerDayByProjectAndClassV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProjectAndClass[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.databaseStorageByProjectAndClass,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -257,15 +269,85 @@ export function useDatabaseStoragePerDayByProjectAndClassV2(
   };
 }
 
+export function useDatabaseStoragePerDayByTableV2(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByTable[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_V2.databaseStorageByTable,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([
+        _teamId,
+        rowProjectId,
+        tableName,
+        ds,
+        documentStorage,
+        indexStorage,
+      ]) => ({
+        ds,
+        projectId: parseProjectId(rowProjectId),
+        tableName,
+        value: Number(documentStorage) + Number(indexStorage),
+      }),
+    ),
+    error: undefined,
+  };
+}
+
+export function useDocumentCountPerDayByTableV2(
+  teamId: number,
+  period: DateRange | null,
+  projectId: number | null,
+  componentPrefix: string | null,
+): { data: DailyMetricByTable[] | undefined; error: any } {
+  const { data, error } = useUsageQuery({
+    queryId: BY_PROJECT_QUERY_IDS_V2.documentCountByTable,
+    teamId,
+    projectId,
+    period,
+    componentPrefix,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  return {
+    data: data?.map(
+      ([_teamId, rowProjectId, tableName, ds, documentCount]) => ({
+        ds,
+        projectId: parseProjectId(rowProjectId),
+        tableName,
+        value: Number(documentCount),
+      }),
+    ),
+    error: undefined,
+  };
+}
+
 export function useDatabaseIOPerDayByProjectAndClassV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProjectAndClass[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.databaseIOByProjectAndClass,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -293,12 +375,13 @@ export function useDatabaseIOPerDayByProjectAndClassV2(
 export function useComputePerDayByProjectV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.computeByProject,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -339,12 +422,13 @@ export function useComputePerDayByProjectV2(
 export function useFunctionCallsPerDayByProjectAndClassV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProjectAndClass[] | undefined; error: any } {
   const { data: functionData, error: functionError } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.functionCallsByProjectAndClass,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -352,7 +436,7 @@ export function useFunctionCallsPerDayByProjectAndClassV2(
   const { data: storageData, error: storageError } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.storageCallsByProjectAndClass,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -412,12 +496,13 @@ export function useFunctionCallsPerDayByProjectAndClassV2(
 export function useFileStoragePerDayByProjectV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyMetricByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.fileStorageByProject,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -439,12 +524,13 @@ export function useFileStoragePerDayByProjectV2(
 export function useSearchStoragePerDayByProjectV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.searchStorageByProject,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -471,12 +557,13 @@ export function useSearchStoragePerDayByProjectV2(
 export function useDataEgressPerDayByProjectV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.dataEgressByProject,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });
@@ -525,12 +612,13 @@ export function useDataEgressPerDayByProjectV2(
 export function useSearchQueriesPerDayByProjectV2(
   teamId: number,
   period: DateRange | null,
+  projectId: number | null,
   componentPrefix: string | null,
 ): { data: DailyPerTagMetricsByProject[] | undefined; error: any } {
   const { data, error } = useUsageQuery({
     queryId: BY_PROJECT_QUERY_IDS_V2.searchQueriesByProject,
     teamId,
-    projectId: null,
+    projectId,
     period,
     componentPrefix,
   });

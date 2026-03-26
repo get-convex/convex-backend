@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.34.0
+
+- The CLI can now [automatically provide Convex AI context files](https://docs.convex.dev/ai#convex-ai-files)
+  (`AGENTS.md`, `CLAUDE.md`, guidelines/state files) to your project when using `npx convex dev`.
+  You can manage Convex AI files using the new `npx convex ai-files` command:
+  - `npx convex ai-files install` - Install or refresh AI files
+  - `npx convex ai-files update` - Update to latest available AI files
+  - `npx convex ai-files status` - Show what is installed and what is stale
+  - `npx convex ai-files disable` - Suppress install and staleness messages in `npx convex dev`
+  - `npx convex ai-files enable` - Re-enable install and staleness messages
+  - `npx convex ai-files remove` - Remove Convex-managed AI files
+- Adds new `npx convex deployment` commands:
+  - `npx convex deployment create` allows you to create new cloud deployments for a project
+  - `npx convex deployment select` allows you to select the deployment to use in your project
+    directory when running commands
+- CLI commands now support the `--deployment` flag to select a deployment to target.
+  It accepts a deployment name (e.g. `joyful-capybara-123`), ref (e.g. `dev/james`), `dev` (for
+  your personal dev deployment), or `prod` (for your project’s default production deployment). You
+  can also select deployments in other projects with `project-slug:ref` or `team-slug:project-slug:ref`.
+- Improves websocket client backoff behavior.
+- No longer recreates `convex/README.md` when `convex/` already exists.
+
 ## 1.33.1
 
 - Fixes the ConvexProviderWithClerk to fetch the JWT template

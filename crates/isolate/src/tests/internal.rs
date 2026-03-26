@@ -10,6 +10,7 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
+    knobs::ISOLATE_MAX_HEAP_FOR_ANALYZE,
     types::{
         AllowedVisibility,
         MemberId,
@@ -74,6 +75,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
             modules_by_path,
             BTreeMap::new(),
             DEV_INSTANCE_NAME.to_string(),
+            *ISOLATE_MAX_HEAP_FOR_ANALYZE,
         )
         .await??;
 

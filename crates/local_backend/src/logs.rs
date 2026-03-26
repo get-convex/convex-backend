@@ -211,6 +211,7 @@ fn execution_to_json(
     let identity_type = execution.identity.tag().value.to_string();
     let environment = execution.environment.to_string();
     let execution_timestamp = execution.execution_timestamp.as_secs_f64();
+    let user_execution_time = execution.user_execution_time.map(|d| d.as_secs_f64());
     let json = match execution.params {
         UdfParams::Function { error, identifier } => {
             let component_path = identifier.component.serialize();
@@ -225,6 +226,7 @@ fn execution_to_json(
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,
+                user_execution_time,
                 success: None,
                 error: error.map(|e| e.to_string()),
                 request_id: execution.context.request_id.to_string(),
@@ -258,6 +260,7 @@ fn execution_to_json(
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,
+                user_execution_time,
                 caller: execution.caller.to_string(),
                 parent_execution_id: execution
                     .caller

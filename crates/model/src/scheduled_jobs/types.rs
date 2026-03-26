@@ -230,6 +230,8 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJobMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledJobAttempts {
     pub system_errors: u32,
+    // Deprecated field that's no longer used for tracking OCCs since we changed to retry
+    // indefinitely on OCCs
     pub occ_errors: u32,
 }
 

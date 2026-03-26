@@ -48,19 +48,5 @@ export const internal: FilterApi<
 > = anyApi as any;
 
 export const components = componentsGeneric() as unknown as {
-  component: {
-    messages: {
-      dateNow: FunctionReference<"query", "internal", {}, any>;
-      hello: FunctionReference<"action", "internal", {}, any>;
-      insertMessage: FunctionReference<
-        "mutation",
-        "internal",
-        { channel: string; text: string },
-        any
-      >;
-      listMessages: FunctionReference<"query", "internal", {}, any>;
-      mathRandom: FunctionReference<"query", "internal", {}, any>;
-      tryToPaginate: FunctionReference<"query", "internal", {}, any>;
-    };
-  };
+  component: import("../../../../component/_generated/component.js").ComponentApi<"component">;
 };

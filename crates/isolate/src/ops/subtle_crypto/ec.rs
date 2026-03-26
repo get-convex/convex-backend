@@ -1,3 +1,6 @@
+use std::rc::Rc;
+
+use deno_core::v8;
 use indexmap::{
     indexset,
     IndexSet,
@@ -7,6 +10,7 @@ use openssl::{
         BigNum,
         BigNumContext,
     },
+    derive::Deriver,
     ec::{
         EcGroup,
         EcKey,
@@ -56,8 +60,11 @@ use crate::{
     convert_v8::{
         DOMException,
         DOMExceptionName,
+        FromV8,
+        TypeError,
     },
     environment::crypto_rng::CryptoRng,
+    strings,
 };
 
 // id-ecPublicKey OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
@@ -566,4 +573,125 @@ impl EcPublicKey {
             )
         })?)
     }
+}
+
+/// Parameters for ECDH deriveBits/deriveKey operations.
+/// Contains the public key of the other party for the key agreement.
+pub(crate) struct EcdhKeyDeriveParams {
+    public_key: Rc<CryptoKey>,
+}
+
+impl FromV8 for EcdhKeyDeriveParams {
+    type Output = EcdhKeyDeriveParams;
+
+    fn from_v8<'s>(
+        scope: &mut v8::PinScope<'s, '_>,
+        input: v8::Local<'s, v8::Value>,
+    ) -> anyhow::Result<Self::Output> {
+        let object: v8::Local<v8::Object> = input.try_cast()?;
+        let public_str = strings::public.create(scope)?;
+        let public_key_value = object.get(scope, public_str.into()).ok_or_else(|| {
+            anyhow::anyhow!(TypeError::new("ECDH algorithm requires 'public' parameter"))
+        })?;
+        let public_key = CryptoKey::from_v8(scope, public_key_value)?;
+        Ok(EcdhKeyDeriveParams { public_key })
+    }
+}
+
+/// Perform ECDH key derivation to compute shared bits.
+pub(crate) fn derive_bits(
+    params: EcdhKeyDeriveParams,
+    base_key: &CryptoKey,
+    length: Option<usize>,
+) -> anyhow::Result<Vec<u8>> {
+    // Get the private key from base_key
+    let CryptoKeyKind::EcPrivate { algorithm, key } = &base_key.kind else {
+        anyhow::bail!(DOMException::new(
+            "Base key must be an EC private key",
+            DOMExceptionName::InvalidAccessError
+        ))
+    };
+
+    // Ensure the algorithm is ECDH
+    anyhow::ensure!(
+        algorithm.name == EcAlgorithm::Ecdh,
+        DOMException::new(
+            "Base key algorithm must be ECDH",
+            DOMExceptionName::InvalidAccessError
+        )
+    );
+
+    // Get the public key from params
+    let CryptoKeyKind::EcPublic {
+        algorithm: public_algorithm,
+        key: public_key,
+    } = &params.public_key.kind
+    else {
+        anyhow::bail!(DOMException::new(
+            "Public key must be an EC public key",
+            DOMExceptionName::InvalidAccessError
+        ))
+    };
+
+    // Ensure the public key algorithm is ECDH
+    anyhow::ensure!(
+        public_algorithm.name == EcAlgorithm::Ecdh,
+        DOMException::new(
+            "Public key algorithm must be ECDH",
+            DOMExceptionName::InvalidAccessError
+        )
+    );
+
+    // Ensure both keys use the same curve
+    anyhow::ensure!(
+        algorithm.named_curve == public_algorithm.named_curve,
+        DOMException::new(
+            "Private and public keys must use the same curve",
+            DOMExceptionName::InvalidAccessError
+        )
+    );
+
+    // Perform ECDH key agreement
+    let mut deriver = Deriver::new(&key.private_key)?;
+    deriver.set_peer(&public_key.public_key)?;
+    let shared_secret = deriver.derive_to_vec().map_err(|_| {
+        DOMException::new(
+            "ECDH key derivation failed",
+            DOMExceptionName::OperationError,
+        )
+    })?;
+
+    // The full shared secret length in bits
+    let shared_secret_bits = shared_secret.len() * 8;
+
+    // Handle the length parameter according to Web Crypto spec
+    let output = match length {
+        None => {
+            // If length is null, return the entire shared secret
+            shared_secret
+        },
+        Some(length) => {
+            anyhow::ensure!(
+                length % 8 == 0,
+                DOMException::new(
+                    "length must be a multiple of 8",
+                    DOMExceptionName::OperationError
+                )
+            );
+            anyhow::ensure!(
+                length <= shared_secret_bits,
+                DOMException::new(
+                    format!(
+                        "requested length {} exceeds shared secret length {}",
+                        length, shared_secret_bits
+                    ),
+                    DOMExceptionName::OperationError
+                )
+            );
+            // Return the first `length` bits (length/8 bytes)
+            shared_secret[..(length / 8)].to_vec()
+        },
+    };
+
+    Ok(output)
 }

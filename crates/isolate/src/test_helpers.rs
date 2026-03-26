@@ -36,6 +36,7 @@ use common::{
         fetch::ProxiedFetchClient,
         RoutedHttpPath,
     },
+    knobs::ISOLATE_MAX_HEAP_FOR_ANALYZE,
     log_lines::LogLines,
     pause::HoldGuard,
     persistence::Persistence,
@@ -374,6 +375,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 modules_by_path.clone(),
                 BTreeMap::new(),
                 DEV_INSTANCE_NAME.to_string(),
+                *ISOLATE_MAX_HEAP_FOR_ANALYZE,
             )
             .await?
         {

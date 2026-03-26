@@ -33,6 +33,8 @@ export interface components {
             timestamp: number;
             udfType: components["schemas"]["UdfTypeJson"];
             usageStats: components["schemas"]["UsageStatsJson"];
+            /** Format: double */
+            userExecutionTime?: number | null;
         } | {
             componentPath?: string | null;
             executionId: string;

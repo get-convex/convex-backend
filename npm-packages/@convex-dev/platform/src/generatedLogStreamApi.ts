@@ -74,6 +74,8 @@ export interface components {
                 /** Format: int64 */
                 vector_storage_write_bytes: number;
             };
+            /** Format: int64 */
+            user_execution_time_ms?: number | null;
         };
         LogStreamEvent: (components["schemas"]["ConsoleLogEvent"] & {
             /** @enum {string} */

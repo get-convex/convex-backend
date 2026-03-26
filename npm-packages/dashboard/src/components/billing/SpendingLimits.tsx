@@ -36,12 +36,15 @@ export function spendingLimitsSchema({
     .test(
       "is-spending-value",
       "Please enter a positive number.",
-      (value) => value === null || (typeof value === "number" && value >= 0),
+      (value) =>
+        value === null ||
+        value === "" ||
+        (typeof value === "number" && value >= 0),
     )
     .test(
       "is-integer-or-null",
       "Please enter an integer amount.",
-      (value) => value === null || Number.isInteger(value),
+      (value) => value === null || value === "" || Number.isInteger(value),
     );
 
   const disableSchema = baseSchema.test(
@@ -58,6 +61,7 @@ export function spendingLimitsSchema({
     (value) =>
       currentSpending === undefined ||
       value === null ||
+      value === "" ||
       currentSpending.totalCents <= value * 100,
   );
 
@@ -309,7 +313,18 @@ function SpendLimitInput({
           checked={value !== null}
           onChange={() => {
             if (value === null) {
-              void formState.setFieldValue(formKey, "", false);
+              let defaultValue = 10;
+              if (formKey === "spendingLimitDisableThresholdUsd") {
+                const warningThreshold =
+                  formState.values.spendingLimitWarningThresholdUsd;
+                if (
+                  typeof warningThreshold === "number" &&
+                  warningThreshold >= 10
+                ) {
+                  defaultValue = warningThreshold * 2;
+                }
+              }
+              void formState.setFieldValue(formKey, defaultValue, false);
             } else {
               void formState.setFieldValue(formKey, null, false);
               void formState.setFieldTouched(formKey, false, false);

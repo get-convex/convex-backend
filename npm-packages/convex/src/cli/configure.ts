@@ -44,7 +44,7 @@ import {
   promptYesNo,
 } from "./lib/utils/prompts.js";
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
-import { maybeSetupAiFiles } from "./lib/ai/index.js";
+import { maybeSetupAiFiles } from "./lib/aiFiles/index.js";
 import {
   DeploymentSelection,
   deploymentNameFromSelection,
@@ -230,6 +230,7 @@ export async function _deploymentCredentialsOrConfigure(
       const isAgentMode = process.env.CONVEX_AGENT_MODE === "anonymous";
       if (
         !isAgentMode &&
+        process.stdin.isTTY &&
         hasAuth &&
         deploymentSelection.deploymentName !== null
       ) {
@@ -238,22 +239,17 @@ export async function _deploymentCredentialsOrConfigure(
           (await promptYesNo(ctx, {
             message: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is configured with deployment ${deploymentSelection.deploymentName}, which is not linked with your account. Would you like to link it now?`,
           }));
-        if (!shouldConfigure) {
-          return await ctx.crash({
-            exitCode: 0,
-            errorType: "fatal",
-            printedMessage: `Run \`npx convex login --link-deployments\` first to link this deployment to your account, and then run \`npx convex dev\` again.`,
-          });
+        if (shouldConfigure) {
+          return await handleChooseProject(
+            ctx,
+            chosenConfiguration,
+            deploymentSelection.selectionWithinProject,
+            {
+              globallyForceCloud,
+            },
+            cmdOptions,
+          );
         }
-        return await handleChooseProject(
-          ctx,
-          chosenConfiguration,
-          deploymentSelection.selectionWithinProject,
-          {
-            globallyForceCloud,
-          },
-          cmdOptions,
-        );
       }
       const alreadyHasConfiguredAnonymousDeployment =
         deploymentSelection.deploymentName !== null &&
@@ -266,22 +262,23 @@ export async function _deploymentCredentialsOrConfigure(
         );
       }
 
-      const shouldPromptForLogin = isAgentMode
-        ? "no"
-        : alreadyHasConfiguredAnonymousDeployment
+      const shouldPromptForLogin =
+        isAgentMode || !process.stdin.isTTY
           ? "no"
-          : await promptOptions(ctx, {
-              message:
-                "Welcome to Convex! Would you like to login to your account?",
-              choices: [
-                {
-                  name: "Start without an account (run Convex locally)",
-                  value: "no",
-                },
-                { name: "Login or create an account", value: "yes" },
-              ],
-              default: "no",
-            });
+          : alreadyHasConfiguredAnonymousDeployment
+            ? "no"
+            : await promptOptions(ctx, {
+                message:
+                  "Welcome to Convex! Would you like to login to your account?",
+                choices: [
+                  {
+                    name: "Start without an account (run Convex locally)",
+                    value: "no",
+                  },
+                  { name: "Login or create an account", value: "yes" },
+                ],
+                default: "no",
+              });
       if (shouldPromptForLogin === "no") {
         const result = await handleAnonymousDeployment(ctx, {
           chosenConfiguration,
@@ -382,14 +379,20 @@ async function handleDeploymentWithinProject(
     selectedDeployment.deploymentFields !== null &&
     selectedDeployment.deploymentFields.deploymentType === "local"
   ) {
-    // Start running the local backend
-    await handleLocalDeployment(ctx, {
+    // Start running the local backend, which may bind to different ports
+    // than what was saved from a previous run.
+    const localDeployment = await handleLocalDeployment(ctx, {
       teamSlug: selectedDeployment.deploymentFields.teamSlug!,
       projectSlug: selectedDeployment.deploymentFields.projectSlug!,
       forceUpgrade: cmdOptions.localOptions.forceUpgrade,
       ports: cmdOptions.localOptions.ports,
       backendVersion: cmdOptions.localOptions.backendVersion,
     });
+    return {
+      url: localDeployment.deploymentUrl,
+      adminKey: localDeployment.adminKey,
+      deploymentFields: selectedDeployment.deploymentFields,
+    };
   }
   return {
     url: selectedDeployment.url,
@@ -619,11 +622,11 @@ async function selectNewProject(
   await doInitConvexFolder(ctx);
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const folder = functionsDir(configPath, projectConfig);
-  await maybeSetupAiFiles(
+  await maybeSetupAiFiles({
     ctx,
-    path.resolve(folder),
-    path.resolve(path.dirname(configPath)),
-  );
+    convexDir: path.resolve(folder),
+    projectDir: path.resolve(path.dirname(configPath)),
+  });
   return { teamSlug, projectSlug, devDeployment };
 }
 
@@ -679,11 +682,11 @@ async function selectExistingProject(
 
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const folder = functionsDir(configPath, projectConfig);
-  await maybeSetupAiFiles(
+  await maybeSetupAiFiles({
     ctx,
-    path.resolve(folder),
-    path.resolve(path.dirname(configPath)),
-  );
+    convexDir: path.resolve(folder),
+    projectDir: path.resolve(path.dirname(configPath)),
+  });
 
   return { teamSlug, projectSlug, devDeployment };
 }

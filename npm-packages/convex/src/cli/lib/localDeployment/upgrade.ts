@@ -76,6 +76,7 @@ export async function handlePotentialUpgrade(
   );
   const confirmed =
     args.forceUpgrade ||
+    !process.stdin.isTTY ||
     (await promptYesNo(ctx, {
       message: `This deployment is using an older version of the Convex backend. Upgrade now?`,
       default: true,
@@ -102,16 +103,17 @@ export async function handlePotentialUpgrade(
       isLatestVersion: false,
     });
   }
-  const choice = args.forceUpgrade
-    ? "transfer"
-    : await promptOptions(ctx, {
-        message: "Transfer data from existing deployment?",
-        default: "transfer",
-        choices: [
-          { name: "transfer data", value: "transfer" },
-          { name: "start fresh", value: "reset" },
-        ],
-      });
+  const choice =
+    args.forceUpgrade || !process.stdin.isTTY
+      ? "transfer"
+      : await promptOptions(ctx, {
+          message: "Transfer data from existing deployment?",
+          default: "transfer",
+          choices: [
+            { name: "transfer data", value: "transfer" },
+            { name: "start fresh", value: "reset" },
+          ],
+        });
   const deploymentStatePath = deploymentStateDir(
     ctx,
     args.deploymentKind,

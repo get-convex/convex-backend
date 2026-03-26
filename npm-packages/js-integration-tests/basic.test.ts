@@ -23,7 +23,7 @@ describe("HTTPClient", () => {
     await expect(
       httpClient.query(makeFunctionReference<"query">("notARegisteredUdf"), {}),
     ).rejects.toThrow(
-      "Could not find public function for 'notARegisteredUdf'. Did you forget to run `npx convex dev` or `npx convex deploy`?",
+      "Could not find public function for 'notARegisteredUdf'. Did you forget to run `npx convex dev`?",
     );
   });
 

@@ -3,7 +3,7 @@ import { logMessage } from "../../bundler/log.js";
 import type { Context } from "../../bundler/context.js";
 import { readProjectConfig } from "./config.js";
 import { functionsDir } from "./utils/utils.js";
-import { checkAiFilesStaleness } from "./ai/index.js";
+import { checkAiFilesStaleness } from "./aiFiles/index.js";
 import { getVersion } from "./versionApi.js";
 
 /**
@@ -13,24 +13,24 @@ import { getVersion } from "./versionApi.js";
 export async function checkVersion(ctx: Context) {
   const version = await getVersion();
 
-  if (version === null) {
+  if (version.kind === "error") {
     return;
   }
 
-  if (version.message) {
-    logMessage(version.message);
+  if (version.data.message) {
+    logMessage(version.data.message);
   }
 
   try {
     const { configPath, projectConfig } = await readProjectConfig(ctx);
     const convexDir = path.resolve(functionsDir(configPath, projectConfig));
     const projectDir = path.resolve(path.dirname(configPath));
-    await checkAiFilesStaleness(
-      version.guidelinesHash,
-      version.agentSkillsSha,
+    await checkAiFilesStaleness({
+      canonicalGuidelinesHash: version.data.guidelinesHash,
+      canonicalAgentSkillsSha: version.data.agentSkillsSha,
       projectDir,
       convexDir,
-    );
+    });
   } catch {
     // Non-fatal: skip staleness check if project config can't be resolved.
   }

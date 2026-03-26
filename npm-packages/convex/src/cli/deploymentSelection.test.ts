@@ -18,6 +18,7 @@ import {
   handleLocalDeployment,
   loadLocalDeploymentCredentials,
 } from "./lib/localDeployment/localDeployment.js";
+import { handleAnonymousDeployment } from "./lib/localDeployment/anonymous.js";
 import {
   validateOrSelectTeam,
   validateOrSelectProject,
@@ -156,13 +157,23 @@ vi.mock("./lib/localDeployment/localDeployment.js", async (importOriginal) => {
   };
 });
 
+vi.mock("./lib/localDeployment/anonymous.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./lib/localDeployment/anonymous.js")>();
+  return {
+    ...actual,
+    handleAnonymousDeployment: vi.fn(),
+  };
+});
+
 vi.mock("./lib/login.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./lib/login.js")>();
   return { ...actual, ensureLoggedIn: vi.fn() };
 });
 
-vi.mock("./lib/ai/index.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./lib/ai/index.js")>();
+vi.mock("./lib/aiFiles/index.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./lib/aiFiles/index.js")>();
   return { ...actual, maybeSetupAiFiles: vi.fn() };
 });
 
@@ -226,10 +237,14 @@ function setupBigBrainRoutes(routes: Record<string, (data?: any) => any>) {
 
 describe("deployment selection flows", () => {
   let savedEnv: NodeJS.ProcessEnv;
+  let savedIsTTY: boolean | undefined;
 
   beforeEach(() => {
     savedEnv = { ...process.env };
+    savedIsTTY = process.stdin.isTTY;
     process.env = {};
+    // Default to interactive TTY for existing tests
+    process.stdin.isTTY = true as any;
 
     vi.resetAllMocks();
     vi.mocked(readGlobalConfig).mockReturnValue(null);
@@ -260,10 +275,17 @@ describe("deployment selection flows", () => {
       new Error("validateOrSelectProject should be mocked"),
     );
     vi.mocked(ensureLoggedIn).mockResolvedValue(undefined);
+    vi.mocked(handleAnonymousDeployment).mockResolvedValue({
+      deploymentName: "anon-test",
+      deploymentUrl: "http://127.0.0.1:3210",
+      adminKey: "anon|admin|key",
+      onActivity: async () => {},
+    });
   });
 
   afterEach(() => {
     process.env = savedEnv;
+    process.stdin.isTTY = savedIsTTY as any;
   });
 
   // Suppress process.exit and stderr
@@ -1555,6 +1577,59 @@ describe("deployment selection flows", () => {
       expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
     });
 
+    it("dev with CONVEX_DEPLOYMENT=local:... uses fresh credentials from handleLocalDeployment", async () => {
+      process.env.CONVEX_DEPLOYMENT = "local:my-local-deployment";
+      vi.mocked(readGlobalConfig).mockReturnValue({
+        accessToken: "test-token",
+      });
+
+      // loadLocalDeploymentCredentials returns stale saved config (e.g. from a
+      // previous run on a different port).
+      vi.mocked(loadLocalDeploymentCredentials).mockResolvedValue({
+        deploymentName: "my-local-deployment",
+        deploymentUrl: "http://127.0.0.1:3212",
+        adminKey: "stale|admin|key",
+      });
+
+      // handleLocalDeployment starts a new backend, potentially on different
+      // ports, and returns the actual credentials.
+      vi.mocked(handleLocalDeployment).mockResolvedValue({
+        deploymentName: "my-local-deployment",
+        deploymentUrl: "http://127.0.0.1:3210",
+        adminKey: "fresh|admin|key",
+        onActivity: async () => {},
+      } as any);
+
+      setupBigBrainRoutes({
+        "deployment/my-local-deployment/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+      });
+
+      await dev.parseAsync([], { from: "user" });
+
+      expect(handleLocalDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          teamSlug: "my-team",
+          projectSlug: "my-project",
+        }),
+      );
+      // Must use the fresh credentials from handleLocalDeployment, not the
+      // stale ones from loadLocalDeploymentCredentials.
+      expect(devAgainstDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          url: "http://127.0.0.1:3210",
+          adminKey: "fresh|admin|key",
+        }),
+        expect.anything(),
+      );
+    });
+
     it("dev --local crashes when local deployments are globally disabled", async () => {
       vi.mocked(readGlobalConfig).mockReturnValue({
         accessToken: "test-token",
@@ -1691,6 +1766,110 @@ describe("deployment selection flows", () => {
         }),
         expect.anything(),
       );
+    });
+
+    describe("non-interactive terminal", () => {
+      beforeEach(() => {
+        process.stdin.isTTY = false as any;
+      });
+
+      it("non-interactive, not logged in, no config → uses anonymous deployment", async () => {
+        await dev.parseAsync(["--once"], { from: "user" });
+
+        expect(handleAnonymousDeployment).toHaveBeenCalled();
+        expect(bigBrainAPI).not.toHaveBeenCalled();
+        expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
+        expect(validateOrSelectTeam).not.toHaveBeenCalled();
+        expect(validateOrSelectProject).not.toHaveBeenCalled();
+      });
+
+      it("non-interactive, logged in, no CONVEX_DEPLOYMENT → uses anonymous deployment", async () => {
+        vi.mocked(readGlobalConfig).mockReturnValue({
+          accessToken: "test-token",
+        });
+
+        await dev.parseAsync(["--once"], { from: "user" });
+
+        expect(handleAnonymousDeployment).toHaveBeenCalled();
+        expect(validateOrSelectTeam).not.toHaveBeenCalled();
+        expect(validateOrSelectProject).not.toHaveBeenCalled();
+      });
+
+      it("non-interactive with CONVEX_DEPLOYMENT → uses configured deployment", async () => {
+        process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
+        vi.mocked(readGlobalConfig).mockReturnValue({
+          accessToken: "test-token",
+        });
+
+        setupBigBrainRoutes({
+          "deployment/joyful-capybara-123/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+          "deployment/provision_and_authorize": () => ({
+            adminKey: "dev-key",
+            url: "https://joyful-capybara-123.convex.cloud",
+            deploymentName: "joyful-capybara-123",
+            deploymentType: "dev",
+          }),
+        });
+
+        await dev.parseAsync([], { from: "user" });
+
+        expect(devAgainstDeployment).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            url: "https://joyful-capybara-123.convex.cloud",
+            adminKey: "dev-key",
+          }),
+          expect.anything(),
+        );
+        expect(handleAnonymousDeployment).not.toHaveBeenCalled();
+      });
+
+      it("non-interactive with CONVEX_DEPLOY_KEY → uses deploy key", async () => {
+        process.env.CONVEX_DEPLOY_KEY = "project:identifier|secretkey";
+
+        setupBigBrainRoutes({
+          "deployment/provision_and_authorize": () => ({
+            adminKey: "dev-key",
+            url: "https://swift-squirrel-234.convex.cloud",
+            deploymentName: "swift-squirrel-234",
+            deploymentType: "dev",
+          }),
+        });
+
+        await dev.parseAsync([], { from: "user" });
+
+        expect(devAgainstDeployment).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            url: "https://swift-squirrel-234.convex.cloud",
+            adminKey: "dev-key",
+          }),
+          expect.anything(),
+        );
+        expect(handleAnonymousDeployment).not.toHaveBeenCalled();
+      });
+
+      it("non-interactive with CONVEX_SELF_HOSTED_URL → uses self-hosted", async () => {
+        process.env.CONVEX_SELF_HOSTED_URL = "http://localhost:3210";
+        process.env.CONVEX_SELF_HOSTED_ADMIN_KEY = "self-hosted-key";
+
+        await dev.parseAsync([], { from: "user" });
+
+        expect(devAgainstDeployment).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            url: "http://localhost:3210",
+            adminKey: "self-hosted-key",
+          }),
+          expect.anything(),
+        );
+        expect(handleAnonymousDeployment).not.toHaveBeenCalled();
+      });
     });
   });
 });

@@ -3,12 +3,17 @@ use std::collections::VecDeque;
 use common::{
     knobs::{
         MAX_BYTES_WRITTEN_PER_SECOND,
+        PROPOSED_MAX_BYTES_WRITTEN_PER_SECOND,
         WRITE_THROUGHPUT_WINDOW,
     },
     types::Timestamp,
 };
 
-use crate::metrics::log_write_throughput_limit_exceeded;
+use crate::metrics::{
+    log_write_throughput,
+    log_write_throughput_limit_exceeded,
+    log_write_throughput_limit_would_be_exceeded,
+};
 
 /// Tracks write throughput and enforces rate limits on database writes.
 ///
@@ -21,6 +26,8 @@ pub struct WriteThroughputLimiter {
     total_bytes_written_in_window: u64,
     /// Maximum number of bytes that can be written in the given window.
     max_bytes_written_in_window: u64,
+    /// Proposed maximum number of bytes that can be written in the given window
+    proposed_max_bytes_written_in_window: u64,
 }
 
 impl WriteThroughputLimiter {
@@ -29,6 +36,9 @@ impl WriteThroughputLimiter {
             bytes_written: VecDeque::new(),
             total_bytes_written_in_window: 0,
             max_bytes_written_in_window: *MAX_BYTES_WRITTEN_PER_SECOND
+                * WRITE_THROUGHPUT_WINDOW.as_millis() as u64
+                / 1000,
+            proposed_max_bytes_written_in_window: *PROPOSED_MAX_BYTES_WRITTEN_PER_SECOND
                 * WRITE_THROUGHPUT_WINDOW.as_millis() as u64
                 / 1000,
         }
@@ -54,10 +64,14 @@ impl WriteThroughputLimiter {
     }
 
     pub fn check_limit(&self) -> bool {
+        log_write_throughput(self.total_bytes_written_in_window);
         if self.total_bytes_written_in_window > self.max_bytes_written_in_window {
             log_write_throughput_limit_exceeded();
             false
         } else {
+            if self.total_bytes_written_in_window > self.proposed_max_bytes_written_in_window {
+                log_write_throughput_limit_would_be_exceeded();
+            }
             true
         }
     }

@@ -106,6 +106,16 @@ export function Backups({
             periodicBackupsEnabled={periodicBackupsEnabled}
             maxCloudBackups={maxCloudBackups}
           />
+          <p className="text-xs text-content-secondary">
+            Backups generation incurs{" "}
+            <Link
+              href="https://docs.convex.dev/database/backup-restore#how-are-they-priced"
+              className="text-content-link hover:underline"
+            >
+              storage and bandwidth usage
+            </Link>
+            .
+          </p>
         </Sheet>
 
         <div className="flex flex-col gap-4 pb-8 xl:grow xl:pb-0">
@@ -160,14 +170,14 @@ function BackupProCallouts({
         <LocalDevCallout
           className="mt-6 flex-col"
           tipText="Tip: Run this to enable automatic backups locally:"
-          command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement periodic_backups_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+          command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement periodic_backups_enabled --team-id ${team?.id} --reason "local" true --for-real`}
         />
       )}
       {maxCloudBackups <= 2 && (
         <LocalDevCallout
           className="mt-6 flex-col"
           tipText="Tip: Run this to increase the backup limit locally:"
-          command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement max_cloud_backups --team-id ${team?.id} --reason "local" 50 --for-real`}
+          command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement max_cloud_backups --team-id ${team?.id} --reason "local" 50 --for-real`}
         />
       )}
     </>

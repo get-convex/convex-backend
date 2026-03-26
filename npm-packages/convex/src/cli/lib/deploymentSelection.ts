@@ -467,10 +467,12 @@ async function _getDeploymentSelection(
   }
   // none of these?
 
-  // Check if they're logged in
   const isLoggedIn = ctx.bigBrainAuth() !== null;
   if (
-    (!isLoggedIn || process.env.CONVEX_AGENT_MODE === "anonymous") &&
+    (!isLoggedIn ||
+      process.env.CONVEX_AGENT_MODE === "anonymous" ||
+      !process.stdin.isTTY) &&
+    !cliArgs.implicitProd &&
     shouldAllowAnonymousDevelopment()
   ) {
     return {

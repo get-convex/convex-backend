@@ -92,7 +92,7 @@ export function Integrations({
       <LocalDevCallout
         key="log-streaming"
         tipText="Tip: Run this to enable log streaming locally:"
-        command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement log_streaming_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+        command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement log_streaming_enabled --team-id ${team?.id} --reason "local" true --for-real`}
       />,
     );
   }
@@ -102,7 +102,7 @@ export function Integrations({
         key="streaming-export"
         className="flex-col"
         tipText="Tip: Run this to enable streaming export locally:"
-        command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement streaming_export_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+        command={`cargo run --bin big-brain-tool -- --dev entitlement grant --team-entitlement streaming_export_enabled --team-id ${team?.id} --reason "local" true --for-real`}
       />,
     );
   }

@@ -72,10 +72,14 @@ function setupBigBrainRoutes(routes: Record<string, (data?: any) => any>) {
 
 describe("npx convex select", () => {
   let savedEnv: NodeJS.ProcessEnv;
+  let savedIsTTY: boolean | undefined;
 
   beforeEach(() => {
     savedEnv = { ...process.env };
+    savedIsTTY = process.stdin.isTTY;
     process.env = {};
+    // Default to interactive TTY for existing tests
+    process.stdin.isTTY = true as any;
 
     // Start with minimal filesystem: package.json for readProjectConfig fallback
     testFiles = new Map([[path.resolve("package.json"), "{}"]]);
@@ -115,6 +119,7 @@ describe("npx convex select", () => {
 
   afterEach(() => {
     process.env = savedEnv;
+    process.stdin.isTTY = savedIsTTY as any;
   });
 
   // Suppress process.exit and stderr

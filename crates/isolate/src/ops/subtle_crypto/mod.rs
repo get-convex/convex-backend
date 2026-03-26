@@ -281,10 +281,9 @@ pub(crate) fn op_crypto_subtle_import_key<'b, P: OpProvider<'b>>(
     Ok(key)
 }
 
-#[derive(Debug)]
 enum KeyDeriveParams {
     Pbkdf2(pbkdf2::Pbkdf2Params),
-    Ecdh,   // TODO
+    Ecdh(ec::EcdhKeyDeriveParams),
     Hkdf,   // TODO
     X25519, // TODO
 }
@@ -297,7 +296,7 @@ impl FromV8 for KeyDeriveParams {
     ) -> anyhow::Result<Self::Output> {
         match get_name(scope, input)?.as_str() {
             "pbkdf2" => Ok(Self::Pbkdf2(pbkdf2::Pbkdf2Params::from_v8(scope, input)?)),
-            "ecdh" => Ok(Self::Ecdh),
+            "ecdh" => Ok(Self::Ecdh(ec::EcdhKeyDeriveParams::from_v8(scope, input)?)),
             "hkdf" => Ok(Self::Hkdf),
             "x25519" => Ok(Self::X25519),
             _ => anyhow::bail!(DOMException::new(
@@ -330,7 +329,7 @@ fn derive_bits_inner<'b, P: OpProvider<'b>>(
 ) -> anyhow::Result<Vec<u8>> {
     match algorithm {
         KeyDeriveParams::Pbkdf2(algorithm) => pbkdf2::derive_bits(algorithm, key, length),
-        KeyDeriveParams::Ecdh => unimplemented(provider, operation, "ECDH")?,
+        KeyDeriveParams::Ecdh(params) => ec::derive_bits(params, key, length),
         KeyDeriveParams::Hkdf => unimplemented(provider, operation, "HKDF")?,
         KeyDeriveParams::X25519 => unimplemented(provider, operation, "X25519")?,
     }

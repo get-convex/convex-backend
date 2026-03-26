@@ -132,6 +132,13 @@
               },
               "usageStats": {
                 "$ref": "#/components/schemas/UsageStatsJson"
+              },
+              "userExecutionTime": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "format": "double"
               }
             }
           },

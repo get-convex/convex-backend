@@ -35,6 +35,14 @@
         "types": "./dist/commonjs/triggers/convex.config.d.ts",
         "default": "./dist/commonjs/triggers/convex.config.js"
       }
+    },
+    "./_generated/component.js": {
+      "import": {
+        "types": "./dist/esm/triggers/_generated/component.d.ts"
+      },
+      "require": {
+        "types": "./dist/commonjs/triggers/_generated/component.d.ts"
+      }
     }
   },
   "dependencies": {

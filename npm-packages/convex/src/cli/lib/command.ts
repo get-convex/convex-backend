@@ -333,7 +333,12 @@ Command.prototype.addDeployOptions = function () {
       "--dry-run",
       "Print out the generated configuration without deploying to your Convex deployment",
     )
-    .option("-y, --yes", "Skip confirmation prompt when running locally")
+    .addOption(
+      new Option(
+        "-y, --yes",
+        "Skip confirmation prompt when running interactively. Warning: this deploys to PRODUCTION. To deploy to your current dev environment, run npx convex dev --once",
+      ).hideHelp(),
+    )
     .addOption(
       new Option(
         "--typecheck <mode>",

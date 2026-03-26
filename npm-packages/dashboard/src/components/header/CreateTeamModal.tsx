@@ -14,7 +14,7 @@ export function CreateTeamModal({ onClose }: { onClose(): void }) {
       <CreateTeamForm onClose={onClose} />
       <LocalDevCallout
         tipText="Tip: Run this to increase the number of teams you can create:"
-        command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --member-entitlement max_teams 500 --member-id ${profile?.id ?? "{MEMBER_ID}"} --reason "local" --for-real`}
+        command={`cargo run --bin big-brain-tool -- --dev entitlement grant --member-entitlement max_teams 500 --member-id ${profile?.id ?? "{MEMBER_ID}"} --reason "local" --for-real`}
       />
     </Modal>
   );

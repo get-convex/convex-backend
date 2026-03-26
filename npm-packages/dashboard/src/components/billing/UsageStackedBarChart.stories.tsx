@@ -95,7 +95,6 @@ export const Storage: Story = {
   args: {
     rows,
     quantityType: "storage",
-    showCategoryTotals: false,
   },
 };
 

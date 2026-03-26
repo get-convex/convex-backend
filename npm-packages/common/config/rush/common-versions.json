@@ -108,9 +108,6 @@
     "@eslint/eslintrc": ["^3"],
     "eslint-config-next": ["~13.4.16", "15.2.3"],
 
-    // Keep the TanStack Start + Clerk demo on a pre-RC version since Clerk doesn't support RC yet
-    "@tanstack/react-start": ["1.120.11"],
-
     "eslint": ["^8.29.0", "^9"],
 
     "zod": ["^3.25.0"],

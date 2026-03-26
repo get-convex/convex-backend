@@ -606,7 +606,7 @@ export function TransferSummary({
   team: TeamResponse;
 }) {
   return (
-    <div className="mb-4 grid justify-center gap-2 rounded-lg border md:flex md:gap-5">
+    <div className="mb-4 grid justify-center gap-2 rounded-lg border p-4 md:flex md:gap-5">
       <BackupSummary
         backup={backup}
         sourceDeploymentAppearance={

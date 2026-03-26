@@ -1328,18 +1328,18 @@ async function testImportEcDhJwk() {
     const expPublicKeyJWK = await subtle.exportKey("jwk", publicKeyECDH);
     assert(equalJwk(publicJWK, expPublicKeyJWK as JWK));
 
-    const _size = size;
-    // const derivedKey = await subtle.deriveBits(
-    //   {
-    //     name: "ECDH",
-    //     public: publicKeyECDH,
-    //   },
-    //   privateKeyECDH,
-    //   size,
-    // );
+    // Test ECDH deriveBits
+    const derivedKey = await subtle.deriveBits(
+      {
+        name: "ECDH",
+        public: publicKeyECDH,
+      },
+      privateKeyECDH,
+      size,
+    );
 
-    // assert(derivedKey instanceof ArrayBuffer);
-    // assert.strictEqual(derivedKey.byteLength, size / 8);
+    assert(derivedKey instanceof ArrayBuffer);
+    assert.strictEqual(derivedKey.byteLength, size / 8);
   }
 }
 
@@ -2135,6 +2135,61 @@ async function testDeriveKeyPBKDF2() {
   assert.strictEqual(algorithm.length, 512);
 }
 
+async function testDeriveBitsECDH() {
+  // Test ECDH key exchange with two key pairs
+  for (const namedCurve of ["P-256", "P-384", "P-521"] as const) {
+    const aliceKeyPair = (await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve },
+      true,
+      ["deriveBits"],
+    )) as CryptoKeyPair;
+
+    const bobKeyPair = (await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve },
+      true,
+      ["deriveBits"],
+    )) as CryptoKeyPair;
+
+    // Alice derives shared secret using her private key and Bob's public key
+    const aliceSharedSecret = await crypto.subtle.deriveBits(
+      { name: "ECDH", public: bobKeyPair.publicKey },
+      aliceKeyPair.privateKey,
+      null as any, // null returns full shared secret
+    );
+
+    // Bob derives shared secret using his private key and Alice's public key
+    const bobSharedSecret = await crypto.subtle.deriveBits(
+      { name: "ECDH", public: aliceKeyPair.publicKey },
+      bobKeyPair.privateKey,
+      null as any,
+    );
+
+    // Both should derive the same shared secret
+    assert(aliceSharedSecret instanceof ArrayBuffer);
+    assert(bobSharedSecret instanceof ArrayBuffer);
+    assert.deepEqual(
+      new Uint8Array(aliceSharedSecret),
+      new Uint8Array(bobSharedSecret),
+    );
+
+    // Test with specific length
+    const expectedSizes = { "P-256": 32, "P-384": 48, "P-521": 66 };
+    assert.strictEqual(aliceSharedSecret.byteLength, expectedSizes[namedCurve]);
+
+    // Test deriving partial bits
+    const partialBits = await crypto.subtle.deriveBits(
+      { name: "ECDH", public: bobKeyPair.publicKey },
+      aliceKeyPair.privateKey,
+      128, // 16 bytes
+    );
+    assert.strictEqual(partialBits.byteLength, 16);
+    assert.deepEqual(
+      new Uint8Array(partialBits),
+      new Uint8Array(aliceSharedSecret).slice(0, 16),
+    );
+  }
+}
+
 async function testDigest() {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -2406,6 +2461,7 @@ export const testAction = action({
 
       testEd25519GenerateKey,
       testX25519GenerateKey,
+      testDeriveBitsECDH,
     });
   },
 });

@@ -20,7 +20,7 @@ const fetchWorkosAuth = createServerFn({ method: 'GET' }).handler(async () => {
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
   convexClient: ConvexReactClient;
-  convexQueryClient: ConvexQueryClient;
+  convexQueryClient: ConvexQueryClient<ConvexReactClient>;
 }>()({
   head: () => ({
     meta: [
@@ -46,7 +46,7 @@ export const Route = createRootRouteWithContext<{
     const { userId, token } = await fetchWorkosAuth();
 
     // During SSR only (the only time serverHttpClient exists),
-    // set the Clerk auth token to make HTTP queries with.
+    // set the WorkOS auth token to make HTTP queries with.
     if (token) {
       ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
     }

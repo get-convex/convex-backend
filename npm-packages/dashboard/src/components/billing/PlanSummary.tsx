@@ -39,15 +39,16 @@ const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
   databaseIO: "databaseIO",
   fileStorage: "filesStorage",
   searchStorage: "searchStorage",
-  dataEgress: "dataEgress",
   searchQueries: "searchQueries",
+  dataEgress: "dataEgress",
   deploymentCount: "deployments",
 };
 
 type BusinessMetricKey =
   | keyof Omit<UsageSummaryRowV2, "deploymentClass" | "region">
   | "compute"
-  | "deploymentCount";
+  | "deploymentCount"
+  | "chefTokens";
 
 const businessSections: {
   metric: BusinessMetricKey;
@@ -94,6 +95,12 @@ const businessSections: {
     title: "Search Storage",
   },
   {
+    metric: "searchQueries",
+    format: (n: number) => formatQuantity(n, "textSearch"),
+    detail: "The total query-GB of text and vector search queries",
+    title: "Search Queries",
+  },
+  {
     metric: "dataEgress",
     format: formatBytes,
     detail:
@@ -101,27 +108,29 @@ const businessSections: {
     title: "Data Egress",
   },
   {
-    metric: "searchQueries",
-    format: (n: number) => formatQuantity(n, "textSearch"),
-    detail: "The total query-GB of text and vector search queries",
-    title: "Search Queries",
-  },
-  {
     metric: "deploymentCount",
     format: formatNumberCompact,
     detail: "The number of deployments across all projects",
     title: "Deployments",
+  },
+  {
+    metric: "chefTokens",
+    format: (n: number) => `${formatNumberCompact(n)} Tokens`,
+    detail: "The number of Chef tokens used",
+    title: "Chef Tokens",
   },
 ];
 
 export function BusinessPlanSummary({
   summaryV2,
   deploymentCount,
+  chefTokenUsage,
   hasFilter: _hasFilter,
   error,
 }: {
   summaryV2?: UsageSummaryRowV2[];
   deploymentCount?: number;
+  chefTokenUsage?: GetTokenInfoResponse;
   hasFilter: boolean;
   error?: any;
 }) {
@@ -132,7 +141,11 @@ export function BusinessPlanSummary({
     ? summaryV2.reduce(
         (acc, row) => {
           for (const section of businessSections) {
-            if (section.metric === "deploymentCount") continue;
+            if (
+              section.metric === "deploymentCount" ||
+              section.metric === "chefTokens"
+            )
+              continue;
             const value =
               section.metric === "compute"
                 ? row.queryMutationCompute +
@@ -150,6 +163,11 @@ export function BusinessPlanSummary({
   // Add deployment count from separate data source
   if (aggregated && deploymentCount !== undefined) {
     aggregated.deploymentCount = deploymentCount;
+  }
+
+  // Add chef token usage from separate data source
+  if (aggregated && chefTokenUsage) {
+    aggregated.chefTokens = chefTokenUsage.centitokensUsed / 100;
   }
 
   return (
@@ -180,6 +198,32 @@ export function BusinessPlanSummary({
               ? { ...restQuery, section: sectionId }
               : restQuery;
             const linkHref = { pathname: router.pathname, query: linkQuery };
+
+            if (section.metric === "chefTokens") {
+              return (
+                <div
+                  key={index}
+                  className="grid min-h-10 grid-cols-[5fr_4fr_auto] items-center gap-2 rounded-sm px-4 py-2 text-left transition-colors hover:bg-background-primary"
+                >
+                  <div className="flex items-center gap-2">
+                    <SectionLabel detail={section.detail}>
+                      {section.title}
+                    </SectionLabel>
+                  </div>
+                  <div className="animate-fadeInFromLoading">
+                    <span>
+                      {section.format(aggregated[section.metric] ?? 0)}
+                    </span>
+                  </div>
+                  <span className="invisible flex items-center gap-1 text-xs">
+                    <span className="hidden whitespace-nowrap sm:inline">
+                      View breakdown by day
+                    </span>
+                    <ChevronRightIcon className="size-4" />
+                  </span>
+                </div>
+              );
+            }
 
             return (
               <Button

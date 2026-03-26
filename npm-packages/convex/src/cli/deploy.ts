@@ -21,7 +21,10 @@ import { getTeamAndProjectFromPreviewAdminKey } from "./lib/deployment.js";
 import { runPush } from "./lib/components.js";
 import { promptYesNo } from "./lib/utils/prompts.js";
 import { deployToDeployment, runCommand } from "./lib/deploy2.js";
-import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import {
+  DeploymentSelection,
+  getDeploymentSelection,
+} from "./lib/deploymentSelection.js";
 import { deploymentNameAndTypeFromSelection } from "./lib/deploymentSelection.js";
 import { checkVersion } from "./lib/updates.js";
 import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
@@ -93,7 +96,10 @@ Same format as .env.local or .env files, and overrides them.`,
   .action(async (cmdOptions) => {
     const ctx = await oneoffContext(cmdOptions);
 
-    const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
+    const deploymentSelection = await getDeploymentSelection(ctx, {
+      ...cmdOptions,
+      implicitProd: true,
+    });
     if (
       cmdOptions.checkBuildEnvironment === "enable" &&
       isNonProdBuildEnvironment() &&
@@ -171,7 +177,7 @@ Same format as .env.local or .env files, and overrides them.`,
         });
       }
 
-      await deployToExistingDeployment(ctx, {
+      await deployToExistingDeployment(ctx, deploymentSelection, {
         ...cmdOptions,
         skipWorkosCheck: cmdOptions.skipWorkosCheck ?? false,
         allowDeletingLargeIndexes:
@@ -309,6 +315,7 @@ async function deployToNewPreviewDeployment(
 
 async function deployToExistingDeployment(
   ctx: Context,
+  deploymentSelection: DeploymentSelection,
   options: {
     verbose?: boolean | undefined;
     dryRun?: boolean | undefined;
@@ -331,10 +338,6 @@ async function deployToExistingDeployment(
     allowDeletingLargeIndexes: boolean;
   },
 ) {
-  const deploymentSelection = await getDeploymentSelection(ctx, {
-    ...options,
-    implicitProd: true,
-  });
   const deploymentToActOn = await loadSelectedDeploymentCredentials(
     ctx,
     deploymentSelection,
