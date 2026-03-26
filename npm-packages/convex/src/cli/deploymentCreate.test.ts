@@ -447,7 +447,7 @@ describe("interactive create flow", () => {
 
       // Ref prompt (input)
       await screen.next();
-      expect(screen.getScreen()).toContain("Deployment ref?");
+      expect(screen.getScreen()).toContain("How to name this deployment?");
       screen.type("my-feature");
       screen.keypress("enter");
 
@@ -476,7 +476,7 @@ describe("interactive create flow", () => {
 
     // Ref prompt (input)
     await screen.next();
-    expect(screen.getScreen()).toContain("Deployment ref?");
+    expect(screen.getScreen()).toContain("How to name this deployment?");
     screen.type("my-feature");
     screen.keypress("enter");
 
@@ -526,14 +526,16 @@ describe("interactive create flow", () => {
 
     // Ref prompt — enter invalid ref "dev"
     await screen.next();
-    expect(screen.getScreen()).toContain("Deployment ref?");
+    expect(screen.getScreen()).toContain("How to name this deployment?");
     screen.type("dev");
     screen.keypress("enter");
 
-    // Re-prompted for ref after error
+    // Inline validation error, then edit input
     await screen.next();
-    expect(screen.getScreen()).toContain("Deployment ref?");
-    screen.type("my-feature");
+    expect(screen.getScreen()).toContain(
+      '"dev" is not a valid deployment reference.',
+    );
+    screen.type("/my-feature");
     screen.keypress("enter");
 
     await promise;
@@ -542,7 +544,7 @@ describe("interactive create flow", () => {
       "/projects/{project_id}/create_deployment",
       expect.objectContaining({
         body: expect.objectContaining({
-          reference: "my-feature",
+          reference: "dev/my-feature",
           isDefault: null,
         }),
       }),

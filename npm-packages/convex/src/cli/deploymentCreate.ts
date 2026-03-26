@@ -24,30 +24,28 @@ import { promptOptions, promptString } from "./lib/utils/prompts.js";
 import { chalkStderr } from "chalk";
 import { parseDeploymentSelector } from "./lib/deploymentSelector.js";
 
+const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
+
 export const deploymentCreate = new Command("create")
   .summary("Create a new cloud deployment for a project")
   .description(
     "Create a new cloud deployment for a project.\n\n" +
-      "  Create a dev deployment and select it: `npx convex deployment create dev/my-new-feature --type dev --select`\n" +
-      "  Create a prod staging deployment:      `npx convex deployment create staging --type prod`\n",
+      "  Create a dev deployment and select it:    `npx convex deployment create dev/my-new-feature --type dev --select`\n" +
+      "  Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`\n",
   )
   .argument("[ref]")
   .allowExcessArguments(false)
   .addOption(
-    new Option("--type <type>", "Deployment type").choices([
-      "dev",
-      "prod",
-      "preview",
-    ] as const),
+    new Option("--type <type>", "Deployment type").choices(SUPPORTED_TYPES),
   )
   .option("--region <region>", "Deployment region")
   .option(
     "--select",
-    "Select the new deployment. This will update the Convex environment variables in .env.local and `npx convex dev` will run against this deployment.",
+    "Select the new deployment. This will update the Convex environment variables in .env.local. Subsequent `npx convex` commands will run against this deployment.",
   )
   .option(
     "--default",
-    "Set the new deployment as your default development or production deployment.",
+    "Make the new deployment your default production deployment (used by `npx convex deploy`) or your personal dev deployment.",
   )
   .action(async (refParam, options) => {
     const ctx = await oneoffContext({
@@ -97,13 +95,18 @@ export const deploymentCreate = new Command("create")
 
     if (!options.select) {
       logFinishedStep(
-        `Provisioned a ${created.isDefault ? "default " : ""}${created.deploymentType} deployment. Select this deployment to develop against using \`npx convex deployment select ${created.reference}\``,
+        `Provisioned a ${created.isDefault ? "default " : ""}${created.deploymentType} deployment.`,
       );
-      logMessage(
-        chalkStderr.gray(
-          "Hint: use `npx convex deployment create --select` to immediately select the newly created deployment.",
-        ),
-      );
+      if (type !== "prod") {
+        logMessage(
+          `\nTo make \`npx convex\` use this deployment, run ${chalkStderr.bold(`npx convex deployment select ${created.reference}`)}`,
+        );
+        logMessage(
+          chalkStderr.gray(
+            "Hint: use `--select` to immediately select the newly created deployment.",
+          ),
+        );
+      }
     }
 
     if (options.select) {
@@ -151,7 +154,7 @@ async function resolveOptionsNoninteractively(
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "--type is required. Use --type dev or --type prod.",
+      printedMessage: `--type is required (supported values: ${SUPPORTED_TYPES.join(", ")})`,
     });
   }
 
@@ -232,7 +235,15 @@ async function resolveOptionsInteractively(
     }
   }
   while (ref === undefined) {
-    const input = await promptString(ctx, { message: "Deployment ref?" });
+    const input = await promptString(ctx, {
+      message:
+        "How to name this deployment?\n" +
+        chalkStderr.reset.dim(
+          "The deployment reference will be used to identify your deployment on the dashboard and in CLI commands.\nExamples: staging, dev/james/feature-payment-integration",
+        ) +
+        "\n>",
+      validate: validateTentativeReference,
+    });
     const result = parseSelectorForNewDeployment(input);
     if (result.kind === "invalid") {
       logFailure(result.message);
@@ -514,4 +525,28 @@ async function crashInvalidRegion(
 function logAndUse<T extends string | boolean>(label: string, value: T): T {
   logFinishedStep(`Using ${label}: ${chalkStderr.bold(value)}`);
   return value;
+}
+
+// This is an oversimplification, it’s fine if it fails later
+function validateTentativeReference(tentativeReference: string): true | string {
+  if (tentativeReference.length < 3) {
+    return "References must be at least 3 characters";
+  }
+  if (tentativeReference.length > 100) {
+    return "References must be at most 100 characters";
+  }
+  if (!/^[a-z0-9/-]+$/.test(tentativeReference)) {
+    return "References can only contain lowercase letters, numbers, hyphens, and slashes";
+  }
+  if (tentativeReference === "dev") {
+    return '"dev" is not a valid deployment reference.';
+  }
+  if (tentativeReference === "prod") {
+    return '"prod" is not a valid deployment reference.';
+  }
+  if (/^[a-z]+-[a-z]+-\d+$/.test(tentativeReference)) {
+    return "References cannot be in the format abc-xyz-123, as it is reserved for deployment names";
+  }
+
+  return true;
 }
