@@ -21,6 +21,7 @@
   --color-red-300: var(--red-300);
   --color-red-400: var(--red-400);
   --color-red-500: var(--red-500);
+  --color-red-600: var(--red-600);
   --color-red-700: var(--red-700);
   --color-red-900: var(--red-900);
 
@@ -293,6 +294,7 @@
   --red-300: rgb(252, 165, 165);
   --red-400: rgb(253, 76, 65);
   --red-500: rgb(238, 52, 47);
+  --red-600: rgb(218, 43, 37);
   --red-700: rgb(168, 21, 21);
   --red-900: rgb(107, 33, 31);
   --purple-100: rgb(241, 200, 233);
@@ -361,13 +363,13 @@ html.light {
   --background-error: var(--red-100);
   --background-errorSecondary: var(--red-200);
   --content-primary: rgb(42, 40, 37);
-  --content-secondary: rgb(120, 118, 113);
-  --content-tertiary: rgb(120, 118, 113);
+  --content-secondary: rgb(112, 111, 106);
+  --content-tertiary: rgb(112, 111, 106);
   --content-accent: rgb(48, 106, 207);
   --content-success: var(--green-700);
   --content-warning: var(--yellow-900);
   --content-error: var(--red-700);
-  --content-errorSecondary: var(--red-500);
+  --content-errorSecondary: var(--red-600);
   --content-link: var(--blue-700);
   --border-transparent: rgba(33, 34, 30, 0.14);
   --border-selected: rgb(30, 28, 25);
@@ -388,12 +390,12 @@ html.dark {
   --background-errorSecondary: var(--red-700);
   --content-primary: rgb(255, 255, 255);
   --content-secondary: rgb(185, 177, 170);
-  --content-tertiary: rgb(143, 135, 128);
+  --content-tertiary: rgb(151, 144, 138);
   --content-accent: rgb(99, 168, 248);
   --content-success: var(--green-200);
   --content-warning: var(--yellow-200);
   --content-error: var(--red-200);
-  --content-errorSecondary: var(--red-400);
+  --content-errorSecondary: var(--red-300);
   --content-link: var(--blue-200);
   --border-transparent: rgba(163, 156, 148, 0.3);
   --border-selected: rgb(225, 215, 205);
