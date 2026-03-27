@@ -1,33 +1,50 @@
 # Changelog
 
+## 1.34.1
+
+- Hides the `--yes` flag on `npx convex deploy` to discourage YOLO agents being
+  run in privileged environments from pushing to production.
+- Improves client backoff strategy to reconnect more quickly. The changes in
+  1.34.0 did not correctly reset backoff sufficiently after reconnect.
+- AI files will not be installed by default in non-interactive environments.
+- Disabling AI files is now tracked with an "enabled" flag in convex.json that
+  hides nags for initial setup and updates when set to false.
+- Fix ai-files re-prompting to install files on setup when they already exist.
+- Fix local deployments returning stale credentials when ports change.
+
 ## 1.34.0
 
-- The CLI can now [automatically provide Convex AI context files](https://docs.convex.dev/ai#convex-ai-files)
-  (`AGENTS.md`, `CLAUDE.md`, guidelines/state files) to your project when using `npx convex dev`.
-  You can manage Convex AI files using the new `npx convex ai-files` command:
+- The CLI can now
+  [automatically provide Convex AI context files](https://docs.convex.dev/ai#convex-ai-files)
+  (`AGENTS.md`, `CLAUDE.md`, guidelines/state files) to your project when using
+  `npx convex dev`. You can manage Convex AI files using the new
+  `npx convex ai-files` command:
   - `npx convex ai-files install` - Install or refresh AI files
   - `npx convex ai-files update` - Update to latest available AI files
   - `npx convex ai-files status` - Show what is installed and what is stale
-  - `npx convex ai-files disable` - Suppress install and staleness messages in `npx convex dev`
+  - `npx convex ai-files disable` - Suppress install and staleness messages in
+    `npx convex dev`
   - `npx convex ai-files enable` - Re-enable install and staleness messages
   - `npx convex ai-files remove` - Remove Convex-managed AI files
 - Adds new `npx convex deployment` commands:
-  - `npx convex deployment create` allows you to create new cloud deployments for a project
-  - `npx convex deployment select` allows you to select the deployment to use in your project
-    directory when running commands
-- CLI commands now support the `--deployment` flag to select a deployment to target.
-  It accepts a deployment name (e.g. `joyful-capybara-123`), ref (e.g. `dev/james`), `dev` (for
-  your personal dev deployment), or `prod` (for your project’s default production deployment). You
-  can also select deployments in other projects with `project-slug:ref` or `team-slug:project-slug:ref`.
+  - `npx convex deployment create` allows you to create new cloud deployments
+    for a project
+  - `npx convex deployment select` allows you to select the deployment to use in
+    your project directory when running commands
+- CLI commands now support the `--deployment` flag to select a deployment to
+  target. It accepts a deployment name (e.g. `joyful-capybara-123`), ref (e.g.
+  `dev/james`), `dev` (for your personal dev deployment), or `prod` (for your
+  project’s default production deployment). You can also select deployments in
+  other projects with `project-slug:ref` or `team-slug:project-slug:ref`.
 - Improves websocket client backoff behavior.
 - No longer recreates `convex/README.md` when `convex/` already exists.
 
 ## 1.33.1
 
-- Fixes the ConvexProviderWithClerk to fetch the JWT template
-  if the (new) Convex integration is not enabled. It is safe to
-  both set the JWT template and enable the integration.
-  In 1.33.0 it broke if you only had the JWT template specified.
+- Fixes the ConvexProviderWithClerk to fetch the JWT template if the (new)
+  Convex integration is not enabled. It is safe to both set the JWT template and
+  enable the integration. In 1.33.0 it broke if you only had the JWT template
+  specified.
 
 ## 1.33.0
 
@@ -43,16 +60,16 @@
 - `npx convex env list` now emits a more robust format for multi-line and other
   complex environment variables, so you can do:
   `npx convex env list > .env.convex` from one deployment, then
-  `npx convex env set < .env.convex` on another.
-  This format is also now available on the Dashboard.
+  `npx convex env set < .env.convex` on another. This format is also now
+  available on the Dashboard.
 - `npx convex run` will auto-start a local backend if necessary, for the
   duration of the call.
 - `getConvexSize` will now return 0 for `undefined`, even though it isn't
   stictly a `Value` (it is not serialized for documents, arguments, or results).
 - Passing `--env-file` to the CLI works more reliably for specifying the target
   deployment.
-- Improves the types of _generated/api to avoid infinite recursion when you have
-  a file and folder with the same name in your convex/ folder.
+- Improves the types of \_generated/api to avoid infinite recursion when you
+  have a file and folder with the same name in your convex/ folder.
 - Adds `npx convex init` as a command that will go through the interactive
   deployment selection process, if a deployment isn't already configured, but
   not push code. This is useful for `predev` package.json scripts that want to
@@ -71,38 +88,36 @@
 
 - Improved the API documentation with more examples to help AI agents.
 
-- Added a new `npx convex insights` CLI command to show the insights
-  for a deployment.
-- Added `insights` MCP tool for diagnosing OCC conflicts and resource limit issues
-  on cloud deployments.
+- Added a new `npx convex insights` CLI command to show the insights for a
+  deployment.
+- Added `insights` MCP tool for diagnosing OCC conflicts and resource limit
+  issues on cloud deployments.
 - The `insights` MCP tool works on production deployments without requiring
   `--dangerously-enable-production-deployments`.
 - When using a local Convex backend (local dev deployment, agent mode or
-  anonymous mode), the deployment’s data is now stored in a `.convex`
-  directory in the project root (instead of `~/.convex`). This change
-  is helpful when using multiple worktrees, since each worktree can get
-  its own isolated storage. Existing local deployments are not affected.
-- Added new options `maximumRowsRead` and `maximumBytesRead`
-  to `PaginationOptions` to get more fine-grained control over
-  the number of rows read when using pagination.
+  anonymous mode), the deployment’s data is now stored in a `.convex` directory
+  in the project root (instead of `~/.convex`). This change is helpful when
+  using multiple worktrees, since each worktree can get its own isolated
+  storage. Existing local deployments are not affected.
+- Added new options `maximumRowsRead` and `maximumBytesRead` to
+  `PaginationOptions` to get more fine-grained control over the number of rows
+  read when using pagination.
 - When creating a new dev deployment, the Convex CLI now asks you which
   deployment region you want to use if you haven’t set a team default.
-- Increased the default value for `authRefreshTokenLeewaySeconds`
-  to 10 seconds.
+- Increased the default value for `authRefreshTokenLeewaySeconds` to 10 seconds.
 - The CLI now uses `VITE_CONVEX_*` environment variables when using Remix
   alongside Vite, instead of `CONVEX_*`.
-- Fixed an issue where the CLI would sometimes be affected by GitHub API
-  rate limits when downloading the local deployment binary.
+- Fixed an issue where the CLI would sometimes be affected by GitHub API rate
+  limits when downloading the local deployment binary.
 - Fixed an issue where websockets would disconnect when using Bun.
-- Fixed an issue with the WorkOS integration that caused crashes
-  when running `npx convex deploy` with a deployment that has
-  its own WorkOS credentials.
-- Fixed an issue with the WorkOS integration where the
-  `WORKOS_API_KEY` environment variable from the shell
-  would incorrectly be used.
-- Fixed an issue where some modifications to `auth.config.ts`
-  would cause the push process to fail.
-- Fixed an issue on Windows that caused arrow key presses to be ignored when the “cloud or local deployment” prompt is shown.
+- Fixed an issue with the WorkOS integration that caused crashes when running
+  `npx convex deploy` with a deployment that has its own WorkOS credentials.
+- Fixed an issue with the WorkOS integration where the `WORKOS_API_KEY`
+  environment variable from the shell would incorrectly be used.
+- Fixed an issue where some modifications to `auth.config.ts` would cause the
+  push process to fail.
+- Fixed an issue on Windows that caused arrow key presses to be ignored when the
+  “cloud or local deployment” prompt is shown.
 
 ## 1.31.7
 
