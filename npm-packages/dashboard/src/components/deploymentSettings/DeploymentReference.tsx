@@ -28,10 +28,13 @@ const referenceValidationSchema = Yup.object().shape({
     )
     .test(
       "not-local-prefix",
-      "Reference cannot start with 'local-'",
+      "Reference cannot start with 'local-' or 'local/'",
       (value) => {
         if (!value) return true;
-        return !value.startsWith("local-");
+        const valueLower = value.toLowerCase();
+        return (
+          !valueLower.startsWith("local-") && !valueLower.startsWith("local/")
+        );
       },
     )
     .test(
@@ -40,6 +43,7 @@ const referenceValidationSchema = Yup.object().shape({
       '"${value}" is a reserved name and cannot be used as a reference.',
       (value) => {
         if (!value) return true;
+        const valueLower = value.toLowerCase();
         const reserved = [
           "prod",
           "dev",
@@ -52,7 +56,7 @@ const referenceValidationSchema = Yup.object().shape({
           "deployment",
           "preview",
         ];
-        return !reserved.includes(value);
+        return !reserved.includes(valueLower);
       },
     ),
 });
