@@ -40,8 +40,10 @@ use common::{
     knobs::{
         SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY,
         SYNC_MAX_SEND_TRANSITION_COUNT,
-        SYNC_WORKER_RETRY_INITIAL_BACKOFF,
-        SYNC_WORKER_RETRY_MAX_BACKOFF,
+        SYNC_WORKER_QUERY_RETRY_INITIAL_BACKOFF_MS,
+        SYNC_WORKER_QUERY_RETRY_MAX_BACKOFF_SECS,
+        SYNC_WORKER_UPDATE_QUERIES_RETRY_INITIAL_BACKOFF_MS,
+        SYNC_WORKER_UPDATE_QUERIES_RETRY_MAX_BACKOFF_SECS,
     },
     runtime::{
         try_join_buffer_unordered,
@@ -81,6 +83,7 @@ use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
     ClientMessage,
     IdentityVersion,
+    Query,
     QueryId,
     QuerySetModification,
     QuerySetVersion,
@@ -274,7 +277,7 @@ enum QueryResult {
 }
 
 struct TransitionState {
-    udf_results: Vec<(QueryId, QueryResult, Box<dyn SubscriptionTrait>)>,
+    udf_results: Vec<(QueryId, QueryResult, Arc<dyn SubscriptionTrait>)>,
     state_modifications: BTreeMap<QueryId, StateModification<JsonPackedValue>>,
     current_version: StateVersion,
     new_version: StateVersion,
@@ -423,18 +426,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                 && self.tx.transition_count() < *SYNC_MAX_SEND_TRANSITION_COUNT
                 && self.transition_future.is_none()
             {
-                // Always transition to the latest timestamp. In the future,
-                // when we have Sync Worker running on the edge, we can remove this
-                // call by making self.update_scheduled to be a Option<Timestamp>,
-                // and set it accordingly based on the operation that triggered the
-                // Transition. We would choose the latest timestamp available at
-                // the edge for the initial sync.
-                let target_ts = *self
-                    .api
-                    .latest_timestamp(&self.host, RequestId::new())
-                    .await?;
                 let new_transition_future =
-                    self.begin_update_queries(target_ts, subscription_client.clone())?;
+                    self.begin_update_queries(subscription_client.clone())?;
                 self.transition_future = Some(new_transition_future.boxed().fuse());
                 self.update_scheduled = false;
             }
@@ -779,7 +772,6 @@ impl<RT: Runtime> SyncWorker<RT> {
 
     fn begin_update_queries(
         &mut self,
-        new_ts: Timestamp,
         subscriptions_client: Arc<dyn SubscriptionClient>,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>> + use<RT>> {
         let root = get_sampled_span(
@@ -811,16 +803,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         }
         let identity = self.state.identity(self.rt.system_time())?;
 
-        // Step 1: Decide on a new target (query set version, identity version, ts) for
-        // the system.
-        let new_version = StateVersion {
-            ts: new_ts,
-            // We only bump the query set version when the client modifies the query set
-            query_set: new_query_version,
-            identity: identity_version,
-        };
-
-        // Step 2: Add or remove queries from our query set.
+        // Step 1: Add or remove queries from our query set.
         let mut state_modifications = BTreeMap::new();
         for modification in modifications {
             match modification {
@@ -835,10 +818,10 @@ impl<RT: Runtime> SyncWorker<RT> {
             }
         }
 
-        // Step 3: Take all remaining subscriptions.
-        let mut remaining_subscriptions = self.state.take_subscriptions();
+        // Step 2: Take all remaining subscriptions.
+        let remaining_subscriptions = self.state.take_subscriptions();
 
-        // Step 4: Refresh subscriptions up to new_ts and run queries which
+        // Step 3: Refresh subscriptions up to new_ts and run queries which
         // subscriptions are no longer current.
         let api = self.api.clone();
         let rt = self.rt.clone();
@@ -846,165 +829,226 @@ impl<RT: Runtime> SyncWorker<RT> {
         let host = self.host.clone();
         let client_version = self.config.client_version.clone();
         let partition_id = self.partition_id;
+        let mut backoff = Backoff::new(
+            *SYNC_WORKER_UPDATE_QUERIES_RETRY_INITIAL_BACKOFF_MS,
+            *SYNC_WORKER_UPDATE_QUERIES_RETRY_MAX_BACKOFF_SECS,
+        );
         Ok(async move {
-            let future_results: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
-                "update_query",
-                need_fetch.into_iter().map(move |query| {
-                    let api = api.clone();
-                    let rt = rt.clone();
-                    let host = host.clone();
-                    let identity_ = identity.clone();
-                    let client_version = client_version.clone();
-                    let current_subscription = remaining_subscriptions.remove(&query.query_id);
-                    let subscriptions_client = subscriptions_client.clone();
-                    async move {
-                        LocalSpan::add_property(|| ("udf_path", query.udf_path.to_string()));
-                        let new_subscription = match current_subscription {
-                            Some(subscription) => {
-                                match subscription.extend_validity(new_ts).await? {
-                                    SubscriptionValidity::Valid => Some(subscription),
-                                    SubscriptionValidity::Invalid { invalid_ts } => {
-                                        metrics::log_query_invalidated(
-                                            partition_id,
-                                            invalid_ts,
-                                            new_ts,
-                                        );
-                                        None
-                                    },
-                                }
-                            },
-                            None => None,
-                        };
-                        let (query_result, subscription) = match new_subscription {
-                            Some(subscription) => (QueryResult::Refresh, Some(subscription)),
-                            None => {
-                                // We failed to refresh the subscription or it was invalid to start
-                                // with. Rerun the query.
-                                let caller = FunctionCaller::SyncWorker(client_version);
-
-                                // This query run might have been triggered due to invalidation
-                                // of a subscription. The sync worker is effectively the owner
-                                // of the query so we do not want to re-use the original query
-                                // request id.
-                                let mut backoff = Backoff::new(
-                                    *SYNC_WORKER_RETRY_INITIAL_BACKOFF,
-                                    *SYNC_WORKER_RETRY_MAX_BACKOFF,
-                                );
-                                let udf_return_result = loop {
-                                    let request_id = RequestId::new();
-                                    let result = match query.component_path {
-                                        None => {
-                                            api.execute_public_query(
-                                                &host,
-                                                request_id,
-                                                identity_.clone(),
-                                                ExportPath::from(
-                                                    query.udf_path.clone().canonicalize(),
-                                                ),
-                                                query.args.clone(),
-                                                caller.clone(),
-                                                ExecuteQueryTimestamp::At(new_ts),
-                                                query.journal.clone(),
-                                            )
-                                            .await
-                                        },
-                                        Some(ref p) => {
-                                            let path = Self::parse_admin_component_path(
-                                                p,
-                                                &query.udf_path,
-                                                &identity_,
-                                            )?;
-                                            api.execute_admin_query(
-                                                &host,
-                                                request_id,
-                                                identity_.clone(),
-                                                path,
-                                                query.args.clone(),
-                                                caller.clone(),
-                                                ExecuteQueryTimestamp::At(new_ts),
-                                                query.journal.clone(),
-                                            )
-                                            .await
-                                        },
-                                    };
-                                    match result {
-                                        Err(e) if is_retriable_sync_worker_error(&e) => {
-                                            metrics::log_sync_worker_query_retry(partition_id);
-                                            let wait = backoff.fail(&mut rt.rng());
-                                            let err_msg = format!(
-                                                "Failed to run query for deployment {}. Retrying \
-                                                 in {} ms.",
-                                                host.instance_name,
-                                                wait.as_millis()
-                                            );
-                                            tracing::error!(err_msg);
-                                            report_error(&mut e.context(err_msg)).await;
-                                            rt.wait(wait).await;
-                                            continue;
-                                        },
-                                        _ => break result,
-                                    }
-                                };
-                                match udf_return_result {
-                                    Err(e) => {
-                                        // TODO: use ErrorCode::FeatureTemporarilyUnavailable
-                                        // instead
-                                        if let Some(error) = e.downcast_ref::<ErrorMetadata>()
-                                            && [
-                                                "SearchIndexesUnavailable",
-                                                "TableSummariesUnavailable",
-                                            ]
-                                            .contains(&&*error.short_msg)
-                                        {
-                                            (QueryResult::TemporarilyUnavailable, None)
-                                        } else {
-                                            anyhow::bail!(e)
-                                        }
-                                    },
-                                    Ok(udf_return) => {
-                                        let subscription = subscriptions_client
-                                            .subscribe(udf_return.token)
-                                            .await?;
-                                        (
-                                            QueryResult::Rerun {
-                                                result: udf_return.result,
-                                                log_lines: udf_return.log_lines,
-                                                journal: udf_return.journal,
-                                            },
-                                            Some(subscription),
-                                        )
-                                    },
-                                }
-                            },
-                        };
-                        Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
-                    }
-                }),
-            )
-            .await;
-
-            let mut udf_results = vec![];
-            let mut temporarily_unavailable = false;
-            for result in future_results? {
-                let (query_id, result, maybe_subscription) = result;
-                if matches!(result, QueryResult::TemporarilyUnavailable) {
-                    temporarily_unavailable = true;
-                }
-                if let Some(subscription) = maybe_subscription {
-                    udf_results.push((query_id, result, subscription));
+            loop {
+                // Always transition to the latest timestamp. In the future,
+                // when we have Sync Worker running on the edge, we can remove this
+                // call by making self.update_scheduled to be a Option<Timestamp>,
+                // and set it accordingly based on the operation that triggered the
+                // Transition. We would choose the latest timestamp available at
+                // the edge for the initial sync.
+                let new_ts = *api.latest_timestamp(&host, RequestId::new()).await?;
+                let new_version = StateVersion {
+                    ts: new_ts,
+                    // We only bump the query set version when the client modifies
+                    // the query set
+                    query_set: new_query_version,
+                    identity: identity_version,
+                };
+                // TODO: On `run_update_queries` retries, we don't keep around successful
+                // results even though only one query may have failed. We should
+                // consider adding the successful results, so we don't have to
+                // duplicate work on a single failure.
+                match Self::run_update_queries(
+                    api.clone(),
+                    rt.clone(),
+                    host.clone(),
+                    need_fetch.clone(),
+                    identity.clone(),
+                    client_version.clone(),
+                    partition_id,
+                    subscriptions_client.clone(),
+                    remaining_subscriptions.clone(),
+                    new_ts,
+                )
+                .await
+                {
+                    Err(e) if e.is_out_of_retention() => {
+                        metrics::log_sync_worker_update_queries_retry(partition_id);
+                        let wait = backoff.fail(&mut rt.rng());
+                        let err_msg = format!(
+                            "Failed to update queries for deployment {}. Retrying in {} ms.",
+                            host.instance_name,
+                            wait.as_millis()
+                        );
+                        tracing::error!(err_msg);
+                        report_error(&mut e.context(err_msg)).await;
+                        rt.wait(wait).await;
+                        continue;
+                    },
+                    other => {
+                        let (udf_results, temporarily_unavailable) = other?;
+                        break Ok(TransitionState {
+                            udf_results,
+                            state_modifications,
+                            current_version,
+                            new_version,
+                            timer,
+                            temporarily_unavailable,
+                        });
+                    },
                 }
             }
-
-            Ok(TransitionState {
-                udf_results,
-                state_modifications,
-                current_version,
-                new_version,
-                timer,
-                temporarily_unavailable,
-            })
         }
         .in_span(root))
+    }
+
+    async fn run_update_queries(
+        api: Arc<dyn ApplicationApi>,
+        rt: RT,
+        host: ResolvedHostname,
+        need_fetch: Vec<Query>,
+        identity: Identity,
+        client_version: ClientVersion,
+        partition_id: u64,
+        subscriptions_client: Arc<dyn SubscriptionClient>,
+        mut remaining_subscriptions: BTreeMap<QueryId, Arc<dyn SubscriptionTrait>>,
+        new_ts: Timestamp,
+    ) -> anyhow::Result<(
+        Vec<(QueryId, QueryResult, Arc<dyn SubscriptionTrait>)>,
+        bool,
+    )> {
+        let future_results: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
+            "update_query",
+            need_fetch.into_iter().map(move |query| {
+                let api = api.clone();
+                let rt = rt.clone();
+                let host = host.clone();
+                let identity_ = identity.clone();
+                let client_version = client_version.clone();
+                let current_subscription = remaining_subscriptions.remove(&query.query_id);
+                let subscriptions_client = subscriptions_client.clone();
+                async move {
+                    LocalSpan::add_property(|| ("udf_path", query.udf_path.to_string()));
+                    let new_subscription = match current_subscription {
+                        Some(subscription) => match subscription.extend_validity(new_ts).await? {
+                            SubscriptionValidity::Valid => Some(subscription),
+                            SubscriptionValidity::Invalid { invalid_ts } => {
+                                metrics::log_query_invalidated(partition_id, invalid_ts, new_ts);
+                                None
+                            },
+                        },
+                        None => None,
+                    };
+                    let (query_result, subscription) = match new_subscription {
+                        Some(subscription) => (QueryResult::Refresh, Some(subscription)),
+                        None => {
+                            // We failed to refresh the subscription or it was invalid to start
+                            // with. Rerun the query.
+                            let caller = FunctionCaller::SyncWorker(client_version);
+
+                            // This query run might have been triggered due to invalidation
+                            // of a subscription. The sync worker is effectively the owner
+                            // of the query so we do not want to re-use the original query
+                            // request id.
+                            let mut backoff = Backoff::new(
+                                *SYNC_WORKER_QUERY_RETRY_INITIAL_BACKOFF_MS,
+                                *SYNC_WORKER_QUERY_RETRY_MAX_BACKOFF_SECS,
+                            );
+                            let udf_return_result = loop {
+                                let request_id = RequestId::new();
+                                let result = match query.component_path {
+                                    None => {
+                                        api.execute_public_query(
+                                            &host,
+                                            request_id,
+                                            identity_.clone(),
+                                            ExportPath::from(query.udf_path.clone().canonicalize()),
+                                            query.args.clone(),
+                                            caller.clone(),
+                                            ExecuteQueryTimestamp::At(new_ts),
+                                            query.journal.clone(),
+                                        )
+                                        .await
+                                    },
+                                    Some(ref p) => {
+                                        let path = Self::parse_admin_component_path(
+                                            p,
+                                            &query.udf_path,
+                                            &identity_,
+                                        )?;
+                                        api.execute_admin_query(
+                                            &host,
+                                            request_id,
+                                            identity_.clone(),
+                                            path,
+                                            query.args.clone(),
+                                            caller.clone(),
+                                            ExecuteQueryTimestamp::At(new_ts),
+                                            query.journal.clone(),
+                                        )
+                                        .await
+                                    },
+                                };
+                                match result {
+                                    Err(e) if is_retriable_sync_worker_error(&e) => {
+                                        metrics::log_sync_worker_query_retry(partition_id);
+                                        let wait = backoff.fail(&mut rt.rng());
+                                        let err_msg = format!(
+                                            "Failed to run query for deployment {}. Retrying in \
+                                             {} ms.",
+                                            host.instance_name,
+                                            wait.as_millis()
+                                        );
+                                        tracing::error!(err_msg);
+                                        report_error(&mut e.context(err_msg)).await;
+                                        rt.wait(wait).await;
+                                        continue;
+                                    },
+                                    _ => break result,
+                                }
+                            };
+                            match udf_return_result {
+                                Err(e) => {
+                                    // TODO: use ErrorCode::FeatureTemporarilyUnavailable
+                                    // instead
+                                    if let Some(error) = e.downcast_ref::<ErrorMetadata>()
+                                        && ["SearchIndexesUnavailable", "TableSummariesUnavailable"]
+                                            .contains(&&*error.short_msg)
+                                    {
+                                        (QueryResult::TemporarilyUnavailable, None)
+                                    } else {
+                                        anyhow::bail!(e)
+                                    }
+                                },
+                                Ok(udf_return) => {
+                                    let subscription =
+                                        subscriptions_client.subscribe(udf_return.token).await?;
+                                    (
+                                        QueryResult::Rerun {
+                                            result: udf_return.result,
+                                            log_lines: udf_return.log_lines,
+                                            journal: udf_return.journal,
+                                        },
+                                        Some(subscription),
+                                    )
+                                },
+                            }
+                        },
+                    };
+                    Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
+                }
+            }),
+        )
+        .await;
+
+        let mut udf_results = vec![];
+        let mut temporarily_unavailable = false;
+        for result in future_results? {
+            let (query_id, result, maybe_subscription) = result;
+            if matches!(result, QueryResult::TemporarilyUnavailable) {
+                temporarily_unavailable = true;
+            }
+            if let Some(subscription) = maybe_subscription {
+                udf_results.push((query_id, result, subscription));
+            }
+        }
+
+        Ok((udf_results, temporarily_unavailable))
     }
 
     fn finish_update_queries(

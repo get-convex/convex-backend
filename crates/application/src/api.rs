@@ -552,7 +552,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
 #[async_trait]
 pub trait SubscriptionClient: Send + Sync {
-    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>>;
+    async fn subscribe(&self, token: Token) -> anyhow::Result<Arc<dyn SubscriptionTrait>>;
 }
 
 struct ApplicationSubscriptionClient<RT: Runtime> {
@@ -561,9 +561,9 @@ struct ApplicationSubscriptionClient<RT: Runtime> {
 
 #[async_trait]
 impl<RT: Runtime> SubscriptionClient for ApplicationSubscriptionClient<RT> {
-    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>> {
+    async fn subscribe(&self, token: Token) -> anyhow::Result<Arc<dyn SubscriptionTrait>> {
         let inner = self.database.subscribe(token.clone()).await?;
-        Ok(Box::new(ApplicationSubscription {
+        Ok(Arc::new(ApplicationSubscription {
             initial_ts: token.ts(),
             reads: token.reads_owned(),
             inner,

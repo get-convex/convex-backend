@@ -1431,13 +1431,35 @@ pub static USHER_PARTITION_CACHE_MAX_ENTRIES: LazyLock<u64> =
     LazyLock::new(|| env_config("USHER_PARTITION_CACHE_MAX_ENTRIES", 1000));
 
 /// Initial backoff duration when retrying a query in the sync worker.
-pub static SYNC_WORKER_RETRY_INITIAL_BACKOFF: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_millis(env_config("SYNC_WORKER_RETRY_INITIAL_BACKOFF_MS", 500))
+pub static SYNC_WORKER_QUERY_RETRY_INITIAL_BACKOFF_MS: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_millis(env_config(
+        "SYNC_WORKER_QUERY_RETRY_INITIAL_BACKOFF_MS",
+        500,
+    ))
 });
 
 /// Maximum backoff duration when retrying a query in the sync worker.
-pub static SYNC_WORKER_RETRY_MAX_BACKOFF: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("SYNC_WORKER_RETRY_MAX_BACKOFF_SECS", 600)));
+pub static SYNC_WORKER_QUERY_RETRY_MAX_BACKOFF_SECS: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("SYNC_WORKER_QUERY_RETRY_MAX_BACKOFF_SECS", 600))
+});
+
+/// Initial backoff duration when running `update_queries` in the sync worker.
+pub static SYNC_WORKER_UPDATE_QUERIES_RETRY_INITIAL_BACKOFF_MS: LazyLock<Duration> =
+    LazyLock::new(|| {
+        Duration::from_millis(env_config(
+            "SYNC_WORKER_UPDATE_QUERIES_RETRY_INITIAL_BACKOFF_MS",
+            3000,
+        ))
+    });
+
+/// Maximum backoff duration when retrying `update_queries` in the sync worker.
+pub static SYNC_WORKER_UPDATE_QUERIES_RETRY_MAX_BACKOFF_SECS: LazyLock<Duration> =
+    LazyLock::new(|| {
+        Duration::from_secs(env_config(
+            "SYNC_WORKER_UPDATE_QUERIES_RETRY_MAX_BACKOFF_SECS",
+            600,
+        ))
+    });
 
 /// Batch size for migration that rewrites virtual tables.
 pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =

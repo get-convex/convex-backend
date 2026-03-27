@@ -2,6 +2,7 @@ use std::{
     collections::BTreeMap,
     hash::Hash,
     mem,
+    sync::Arc,
     time::SystemTime,
 };
 
@@ -57,7 +58,7 @@ pub struct SyncedQuery {
     /// - Starts `None`: Query is newly inserted.
     /// - `None -> Some(subscription)`: `SyncState::complete_fetch`.
     /// - `Some(..) -> None`: `SyncState::prune_invalidated_queries`.
-    subscription: Option<Box<dyn SubscriptionTrait>>,
+    subscription: Option<Arc<dyn SubscriptionTrait>>,
 
     /// What was the hash of the last successful return value? This allows us to
     /// deduplicate transitions for queries whose results haven't actually
@@ -332,7 +333,7 @@ impl SyncState {
         Ok(())
     }
 
-    pub fn take_subscriptions(&mut self) -> BTreeMap<QueryId, Box<dyn SubscriptionTrait>> {
+    pub fn take_subscriptions(&mut self) -> BTreeMap<QueryId, Arc<dyn SubscriptionTrait>> {
         let mut newly_invalidated = BTreeMap::new();
 
         for (query_id, query) in self.queries.iter_mut() {
@@ -360,7 +361,7 @@ impl SyncState {
     pub fn refill_subscription(
         &mut self,
         query_id: QueryId,
-        subscription: Box<dyn SubscriptionTrait>,
+        subscription: Arc<dyn SubscriptionTrait>,
     ) -> anyhow::Result<()> {
         // Per the state machine, we should only be refilling subscriptions if we
         // had a valid subscription before, which means the query is non-pending
@@ -384,7 +385,7 @@ impl SyncState {
         result: Result<JsonPackedValue, RedactedJsError>,
         log_lines: RedactedLogLines,
         journal: SerializedQueryJournal,
-        subscription: Box<dyn SubscriptionTrait>,
+        subscription: Arc<dyn SubscriptionTrait>,
     ) -> anyhow::Result<Option<StateModification<JsonPackedValue>>> {
         if let Some(query) = self.in_progress_queries.remove(&query_id) {
             let sq = SyncedQuery {
