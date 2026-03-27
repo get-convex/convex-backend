@@ -1256,7 +1256,7 @@ register_convex_counter!(
     "Total number of times mutation execution would be rejected due to write throughput limit"
 );
 pub fn log_write_throughput_limit_would_be_exceeded() {
-    log_counter(&WRITE_THROUGHPUT_LIMIT_EXCEEDED_TOTAL, 1);
+    log_counter(&WRITE_THROUGHPUT_LIMIT_WOULD_BE_EXCEEDED_TOTAL, 1);
 }
 
 register_convex_histogram!(
