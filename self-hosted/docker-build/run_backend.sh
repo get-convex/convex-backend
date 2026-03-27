@@ -68,6 +68,5 @@ exec ./convex-local-backend "$@" \
     ${DISABLE_BEACON:+--disable-beacon} \
     ${REDACT_LOGS_TO_CLIENT:+--redact-logs-to-client} \
     ${DO_NOT_REQUIRE_SSL:+--do-not-require-ssl} \
-    "${DB_FLAGS[@]}" \
-    "${STORAGE_FLAGS[@]}" \
-    "$DB_SPEC"
+    "${DB_FLAGS[@]}" "$DB_SPEC" \
+    "${STORAGE_FLAGS[@]}"
