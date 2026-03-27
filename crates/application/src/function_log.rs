@@ -242,7 +242,7 @@ impl FunctionExecution {
         match log_line {
             LogLine::Structured(log_line) => {
                 vec![LogEvent {
-                    timestamp: log_line.timestamp,
+                    timestamp: self.unix_timestamp,
                     event: StructuredLogEvent::Console {
                         source: self.event_source(sub_function_path),
                         log_line: log_line.clone(),
