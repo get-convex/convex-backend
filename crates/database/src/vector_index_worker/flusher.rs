@@ -321,60 +321,6 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn incremental_backfill_exceed_part_threshold_builds_multiple_parts(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = VectorFixtures::new(rt.clone()).await?;
-
-        let VectorIndexData {
-            index_name,
-            index_id,
-            ..
-        } = fixtures.backfilling_vector_index().await?;
-        fixtures
-            .add_document_vec_array(index_name.table(), [3f64, 4f64])
-            .await?;
-        fixtures
-            .add_document_vec_array(index_name.table(), [5f64, 6f64])
-            .await?;
-        let worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
-
-        // Should be in backfilling state after step
-        worker.step().await?;
-        let segments = fixtures
-            .get_segments_from_backfilling_index(index_name.clone())
-            .await?;
-        assert_eq!(segments.len(), 1);
-        let segment = segments.first().unwrap();
-        let segment = fixtures.load_segment(segment).await?;
-        assert_eq!(segment.total_point_count(), 1);
-        // Should have written backfill progress, and it is halfway done.
-        let progress = fixtures
-            .index_backfill_progress(index_id.developer_id)
-            .await?
-            .unwrap();
-        assert_eq!(progress.num_docs_indexed, 1);
-        assert_eq!(progress.total_docs, Some(2));
-
-        // Should be no longer in backfilling state now after step
-        worker.step().await?;
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(segments.len(), 2);
-        let segment = segments.get(1).unwrap();
-        let segment = fixtures.load_segment(segment).await?;
-        assert_eq!(segment.total_point_count(), 1);
-        // Should have written backfill progress, and it is complete.
-        let progress = fixtures
-            .index_backfill_progress(index_id.developer_id)
-            .await?
-            .unwrap();
-        assert_eq!(progress.num_docs_indexed, 2);
-        assert_eq!(progress.total_docs, Some(2));
-
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
     async fn flusher_restarts_backfill_if_backfill_snapshot_ts_is_set(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {

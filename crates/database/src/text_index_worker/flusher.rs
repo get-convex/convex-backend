@@ -536,73 +536,6 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn backfill_with_two_documents_0_max_segment_size_creates_two_segments(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = TextFixtures::new(rt).await?;
-        let TextIndexData {
-            index_name,
-            index_id,
-            ..
-        } = fixtures.insert_backfilling_text_index().await?;
-
-        fixtures.add_document("some text").await?;
-        fixtures.add_document("some other text").await?;
-        let flusher = fixtures
-            .new_search_flusher_builder()
-            .set_incremental_multipart_threshold_bytes(0)
-            .build();
-
-        // Build the first segment, which stops because the document size is > 0
-        flusher.step().await?;
-        // Should have written backfill progress, and it is halfway done.
-        let progress = fixtures
-            .index_backfill_progress(index_id.developer_id)
-            .await?
-            .unwrap();
-        assert_eq!(progress.num_docs_indexed, 1);
-        assert_eq!(progress.total_docs, Some(2));
-
-        // Build the second segment and finalize the index metadata.
-        flusher.step().await?;
-        // Should have written backfill progress, and it is complete.
-        let progress = fixtures
-            .index_backfill_progress(index_id.developer_id)
-            .await?
-            .unwrap();
-        assert_eq!(progress.num_docs_indexed, 2);
-        assert_eq!(progress.total_docs, Some(2));
-
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(segments.len(), 2);
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn backfill_with_two_documents_leaves_document_backfilling_after_first_flush(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = TextFixtures::new(rt).await?;
-        let index_data = fixtures.insert_backfilling_text_index().await?;
-
-        fixtures.add_document("cat").await?;
-        fixtures.add_document("dog").await?;
-
-        let flusher = fixtures
-            .new_search_flusher_builder()
-            .set_incremental_multipart_threshold_bytes(0)
-            .build();
-        // Build the first segment, which stops because the document size is > 0
-        flusher.step().await?;
-        let metadata = fixtures.get_index_metadata(index_data.index_name).await?;
-        must_let!(let IndexConfig::Text { on_disk_state, .. }= &metadata.config);
-        must_let!(let TextIndexState::Backfilling(backfilling_meta) = on_disk_state);
-        assert_eq!(backfilling_meta.segments.len(), 1);
-
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
     async fn backfill_with_two_documents_0_max_segment_size_includes_both_documents(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
@@ -782,54 +715,6 @@ mod tests {
         let doc_id = fixtures.add_document("cat").await?;
         let mut tx = fixtures.db.begin_system().await?;
         tx.delete_inner(doc_id).await?;
-        fixtures.db.commit(tx).await?;
-
-        flusher.step().await?;
-        fixtures.enable_index(&index_name).await?;
-
-        let results = fixtures.search(index_name, "cat").await?;
-        assert!(results.is_empty());
-
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn backfill_one_doc_added_then_deleted_separate_builds_does_not_include_deleted_document(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = TextFixtures::new(rt).await?;
-        let TextIndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_backfill_text_flusher();
-
-        let doc_id = fixtures.add_document("cat").await?;
-        flusher.step().await?;
-
-        let mut tx = fixtures.db.begin_system().await?;
-        tx.delete_inner(doc_id).await?;
-        fixtures.db.commit(tx).await?;
-
-        flusher.step().await?;
-        fixtures.enable_index(&index_name).await?;
-
-        let results = fixtures.search(index_name, "cat").await?;
-        assert!(results.is_empty());
-
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn backfill_one_doc_added_then_replaced_separate_builds_does_not_include_first_document(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = TextFixtures::new(rt).await?;
-        let TextIndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_backfill_text_flusher();
-
-        let doc_id = fixtures.add_document("cat").await?;
-        flusher.step().await?;
-
-        let mut tx = fixtures.db.begin_system().await?;
-        tx.replace_inner(doc_id, assert_obj!()).await?;
         fixtures.db.commit(tx).await?;
 
         flusher.step().await?;
@@ -1120,51 +1005,6 @@ mod tests {
         let results = fixtures.search(index_name, "new_text").await?;
         assert!(results.is_empty());
 
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn backfill_with_multiple_replaces_in_previous_segment(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = TextFixtures::new(rt).await?;
-        let TextIndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures
-            .new_search_flusher_builder()
-            .set_incremental_multipart_threshold_bytes(0)
-            .set_soft_limit(0)
-            .build();
-
-        // Add two documents so we stay in backfilling state.
-        fixtures.add_document("extra").await?;
-        let doc_id = fixtures.add_document("original").await?;
-        flusher.step().await?;
-        let segments = fixtures.get_segments_metadata(index_name.clone()).await?;
-        assert_eq!(segments.len(), 1);
-        assert_eq!(segments[0].num_indexed_documents, 1);
-        assert_eq!(segments[0].num_deleted_documents, 0);
-
-        // Add two replaces. intermediate value never makes it into a segment, just
-        // final value.
-        fixtures.replace_document(doc_id, "intermediate").await?;
-        fixtures.replace_document(doc_id, "final").await?;
-        flusher.step().await?;
-
-        let segments = fixtures.get_segments_metadata(index_name.clone()).await?;
-        assert_eq!(segments.len(), 2);
-        assert_eq!(segments[0].num_indexed_documents, 1);
-        assert_eq!(segments[0].num_deleted_documents, 1);
-        assert_eq!(segments[1].num_indexed_documents, 2);
-        assert_eq!(segments[1].num_deleted_documents, 0);
-
-        fixtures.enable_index(&index_name).await?;
-
-        let results = fixtures.search(index_name.clone(), "original").await?;
-        assert!(results.is_empty());
-        let results = fixtures.search(index_name.clone(), "intermediate").await?;
-        assert!(results.is_empty());
-        let results = fixtures.search(index_name, "final").await?;
-        assert_eq!(results.len(), 1);
         Ok(())
     }
 }

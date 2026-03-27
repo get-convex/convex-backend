@@ -132,6 +132,7 @@ use crate::{
 
 mod committer_race_tests;
 mod randomized_search_tests;
+mod search_index_backfill_tests;
 mod streaming_export_tests;
 mod usage_tracking;
 mod vector_tests;
