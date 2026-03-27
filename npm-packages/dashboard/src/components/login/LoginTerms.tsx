@@ -19,7 +19,7 @@ const OPT_IN_MESSAGES: Record<
 };
 type OptInName = keyof typeof OPT_IN_MESSAGES;
 
-function CheckboxLine({
+export function CheckboxLine({
   optInName,
   toggle,
 }: {
