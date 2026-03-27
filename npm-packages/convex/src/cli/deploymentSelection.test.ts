@@ -1872,4 +1872,15 @@ describe("deployment selection flows", () => {
       });
     });
   });
+
+  it("dev --deployment crashes with helpful message pointing to deployment select", async () => {
+    await expect(
+      dev.parseAsync(["--deployment", "happy-animal-123"], { from: "user" }),
+    ).rejects.toThrow();
+
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      expect.stringContaining("npx convex deployment select happy-animal-123"),
+    );
+    expect(devAgainstDeployment).not.toHaveBeenCalled();
+  });
 });

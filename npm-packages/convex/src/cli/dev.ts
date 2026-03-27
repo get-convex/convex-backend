@@ -1,4 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
+import { chalkStderr } from "chalk";
 import { oneoffContext } from "../bundler/context.js";
 import { logVerbose } from "../bundler/log.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
@@ -150,6 +151,7 @@ Same format as .env.local or .env files, and overrides them.`,
   .addOption(new Option("--local-site-port <port>").hideHelp())
   .addOption(new Option("--local-backend-version <version>").hideHelp())
   .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
+  .addOption(new Option("--deployment <deployment>").hideHelp())
   .addOption(
     new Option(
       "--local",
@@ -175,6 +177,20 @@ Same format as .env.local or .env files, and overrides them.`,
       logVerbose("Received SIGINT, cleaning up...");
       await ctx.flushAndExit(-2);
     });
+
+    if (cmdOptions.deployment !== undefined) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "`--deployment` can’t be used with `npx convex dev`. \n\n" +
+          "  To select this deployment for development, run: \n" +
+          chalkStderr.bold(
+            `      npx convex deployment select ${cmdOptions.deployment}\n`,
+          ) +
+          "  Then, run `npx convex dev` again.",
+      });
+    }
 
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
 
