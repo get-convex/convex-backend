@@ -1,9 +1,20 @@
-use std::sync::Arc;
+use std::sync::{
+    atomic::{
+        AtomicU64,
+        Ordering,
+    },
+    Arc,
+};
 
 use common::log_streaming::{
     LogEvent,
     StructuredLogEvent,
 };
+
+/// Shared counter for total log stream egress bytes across all sinks.
+/// Sinks atomically increment this; a periodic task drains it and emits
+/// a `LogStreamEgress` event.
+pub type EgressCounter = Arc<AtomicU64>;
 
 /// This is the log event filter used by Sentry and future exception sinks.
 /// Exception sinks don't receive _verification events or any other events for
@@ -28,7 +39,8 @@ pub fn default_log_filter(event: &LogEvent) -> bool {
         | StructuredLogEvent::ScheduledJobLag { .. }
         | StructuredLogEvent::CurrentStorageUsage { .. }
         | StructuredLogEvent::ConcurrencyStats { .. }
-        | StructuredLogEvent::StorageApiBandwidth { .. } => true,
+        | StructuredLogEvent::StorageApiBandwidth { .. }
+        | StructuredLogEvent::LogStreamEgress { .. } => true,
         StructuredLogEvent::Exception { .. } => false,
     }
 }
@@ -47,101 +59,25 @@ pub fn build_event_batches(
         .collect()
 }
 
-/// Helper function to track bandwidth usage for log sinks.
-/// This consolidates the common logic for tracking network egress across
-/// Axiom, Datadog, and Webhook sinks.
+pub fn batch_has_non_egress_events(events: &[Arc<LogEvent>]) -> bool {
+    events
+        .iter()
+        .any(|ev| !matches!(ev.event, StructuredLogEvent::LogStreamEgress { .. }))
+}
+
+/// Accumulates log sink network egress bytes. Called by sinks after each
+/// successful HTTP send. The accumulated bytes are periodically drained by
+/// `LogManager::egress_emission_worker` which emits both a `LogStreamEgress`
+/// event and a billing `track_call`.
 ///
 /// Note: This should only be called for non-verification requests.
-/// Verification requests should be filtered out by the caller.
-pub async fn track_log_sink_bandwidth(
+pub fn track_log_sink_bandwidth(
     num_bytes_egress: u64,
-    url_label: String,
-    execution_id: common::execution_context::ExecutionId,
-    request_id: &common::RequestId,
-    usage_counter: &usage_tracking::UsageCounter,
+    egress_counter: &EgressCounter,
     metrics_fn: impl FnOnce(u64),
 ) {
     metrics_fn(num_bytes_egress);
-
-    // Track fetch egress
-    let usage_tracker = usage_tracking::FunctionUsageTracker::new();
-    usage_tracker.track_fetch_egress(url_label, num_bytes_egress);
-
-    // Report usage via track_call
-    let stats = usage_tracker.gather_user_stats();
-    usage_counter
-        .track_call(
-            common::types::UdfIdentifier::SystemJob("log_stream_payload".to_string()),
-            execution_id,
-            request_id.clone(),
-            usage_tracking::CallType::LogStreamPayload,
-            true,
-            stats,
-        )
-        .await;
-}
-
-/// Test helper to verify bandwidth tracking events.
-/// Asserts that exactly 2 events (FunctionCall + NetworkBandwidth) were
-/// captured, and that the NetworkBandwidth event has the correct egress size
-/// and URL.
-#[cfg(test)]
-pub fn assert_bandwidth_events(
-    events: Vec<events::usage::UsageEvent>,
-    actual_request_size: u64,
-    expected_url: &str,
-) {
-    use events::usage::UsageEvent;
-
-    assert!(!events.is_empty(), "Expected usage events to be recorded");
-
-    // Should have exactly 2 events: FunctionCall + NetworkBandwidth
-    assert_eq!(
-        events.len(),
-        2,
-        "Expected exactly 2 events (FunctionCall + NetworkBandwidth), got: {events:?}",
-    );
-
-    // Verify we have one FunctionCall event
-    let function_calls: Vec<_> = events
-        .iter()
-        .filter(|e| matches!(e, UsageEvent::FunctionCall { .. }))
-        .collect();
-    assert_eq!(
-        function_calls.len(),
-        1,
-        "Expected exactly 1 FunctionCall event"
-    );
-
-    // Verify we have one NetworkBandwidth event with correct size
-    let bandwidth_events: Vec<_> = events
-        .iter()
-        .filter_map(|e| match e {
-            UsageEvent::NetworkBandwidth { egress, url, .. } => Some((*egress, url.clone())),
-            _ => None,
-        })
-        .collect();
-
-    assert_eq!(
-        bandwidth_events.len(),
-        1,
-        "Expected exactly 1 NetworkBandwidth event"
-    );
-
-    assert!(
-        actual_request_size > 0,
-        "Expected actual request size to be non-zero"
-    );
-
-    let (egress, url) = &bandwidth_events[0];
-    assert_eq!(
-        *egress, actual_request_size,
-        "Expected egress bytes ({egress}) to match actual request size ({actual_request_size})",
-    );
-    assert_eq!(
-        url, expected_url,
-        "Expected URL to be '{expected_url}', got '{url}'",
-    );
+    egress_counter.fetch_add(num_bytes_egress, Ordering::Relaxed);
 }
 
 #[cfg(test)]

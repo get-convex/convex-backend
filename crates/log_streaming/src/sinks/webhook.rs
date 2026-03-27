@@ -14,7 +14,6 @@ use bytes::Bytes;
 use common::{
     backoff::Backoff,
     errors::report_error,
-    execution_context::ExecutionId,
     http::{
         categorize_http_response_stream,
         fetch::FetchClient,
@@ -26,7 +25,6 @@ use common::{
         LogEventFormatVersion,
     },
     runtime::Runtime,
-    RequestId,
 };
 use errors::{
     ErrorMetadata,
@@ -46,7 +44,6 @@ use reqwest::header::HeaderMap;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use tokio::sync::mpsc;
-use usage_tracking::UsageCounter;
 
 use crate::{
     consts,
@@ -55,6 +52,7 @@ use crate::{
         self,
         build_event_batches,
         default_log_filter,
+        EgressCounter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -88,7 +86,7 @@ pub struct WebhookSink<RT: Runtime> {
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
-    usage_counter: UsageCounter,
+    egress_counter: EgressCounter,
 }
 
 impl<RT: Runtime> WebhookSink<RT> {
@@ -97,7 +95,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         config: WebhookConfig,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
-        usage_counter: UsageCounter,
+        egress_counter: EgressCounter,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting WebhookSink");
@@ -113,7 +111,7 @@ impl<RT: Runtime> WebhookSink<RT> {
                 consts::WEBHOOK_SINK_MAX_BACKOFF,
             ),
             deployment_metadata,
-            usage_counter,
+            egress_counter,
         };
 
         if should_verify {
@@ -133,7 +131,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         let verification_event = LogEvent::default_for_verification(&self.runtime)?;
         let deployment_metadata = self.deployment_metadata.lock().clone();
         let payload = WebhookLogEvent::new(verification_event, &deployment_metadata)?;
-        self.send_batch(vec![payload], true).await?;
+        self.send_batch(vec![payload], true, false).await?;
 
         Ok(())
     }
@@ -156,7 +154,8 @@ impl<RT: Runtime> WebhookSink<RT> {
 
                     // Process each batch and send to Datadog
                     for batch in batches {
-                        if let Err(mut e) = self.process_events(batch).await {
+                        let track_egress = utils::batch_has_non_egress_events(&batch);
+                        if let Err(mut e) = self.process_events(batch, track_egress).await {
                             tracing::error!(
                                 "Error emitting log event batch in WebhookSink: {e:?}."
                             );
@@ -174,6 +173,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         &mut self,
         batch: Vec<WebhookLogEvent<'_>>,
         is_verification: bool,
+        track_egress: bool,
     ) -> anyhow::Result<()> {
         let mut batch_json: Vec<JsonValue> = vec![];
         for ev in batch {
@@ -200,8 +200,6 @@ impl<RT: Runtime> WebhookSink<RT> {
         );
 
         // Make request in a loop that retries on transient errors
-        let request_id = RequestId::new();
-        let execution_id = ExecutionId::new();
         let mut last_error = None;
         let max_attempts = if is_verification {
             consts::WEBHOOK_SINK_VERIFICATION_MAX_ATTEMPTS
@@ -222,17 +220,16 @@ impl<RT: Runtime> WebhookSink<RT> {
                 )
                 .await;
 
-            if !is_verification && let Ok(r) = &response {
+            if !is_verification
+                && track_egress
+                && let Ok(r) = &response
+            {
                 let num_bytes_egress = r.request_size.load(Ordering::Relaxed);
                 utils::track_log_sink_bandwidth(
                     num_bytes_egress,
-                    self.config.url.to_string(),
-                    execution_id,
-                    &request_id,
-                    &self.usage_counter,
+                    &self.egress_counter,
                     webhook_sink_network_egress_bytes,
-                )
-                .await;
+                );
             }
 
             // Only retry on 5xx requests
@@ -288,7 +285,11 @@ impl<RT: Runtime> WebhookSink<RT> {
         ))
     }
 
-    async fn process_events(&mut self, events: Vec<Arc<LogEvent>>) -> anyhow::Result<()> {
+    async fn process_events(
+        &mut self,
+        events: Vec<Arc<LogEvent>>,
+        track_egress: bool,
+    ) -> anyhow::Result<()> {
         crate::metrics::webhook_sink_logs_received(events.len());
 
         let mut values_to_send = vec![];
@@ -305,7 +306,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         }
         let batch_size = values_to_send.len();
 
-        if let Err(e) = self.send_batch(values_to_send, false).await {
+        if let Err(e) = self.send_batch(values_to_send, false, track_egress).await {
             // We don't report this error to Sentry to prevent misconfigured webhook sinks
             // from overflowing our Sentry logs.
             tracing::error!("could not send batch to WebhookSink: {e}");
@@ -345,11 +346,10 @@ mod tests {
         WebhookFormat,
     };
     use parking_lot::Mutex;
-    use usage_tracking::UsageCounter;
 
     use crate::{
         sinks::{
-            utils,
+            utils::EgressCounter,
             webhook::WebhookSink,
         },
         LoggingDeploymentMetadata,
@@ -357,9 +357,6 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_webhook_tracks_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
-        // Test that verifies webhook sink correctly tracks network egress as billable
-        // usage. This ensures that bytes sent to webhook endpoints are
-        // properly reported via UsageEvent::NetworkBandwidth events.
         let webhook_url: reqwest::Url = "https://webhook.example.com/endpoint".parse()?;
 
         let webhook_config = WebhookConfig {
@@ -368,10 +365,8 @@ mod tests {
             hmac_secret: "test_secret".to_string(),
         };
 
-        // Track the actual request size from the handler
         let actual_request_size = Arc::new(Mutex::new(0u64));
 
-        // Register handler that returns success and tracks request size
         let mut fetch_client = StaticFetchClient::new();
         let size_tracker = actual_request_size.clone();
         let handler = move |request: HttpRequestStream| {
@@ -408,31 +403,33 @@ mod tests {
             deployment_region: Some("test".to_string()),
         }));
 
-        // Use BasicTestUsageEventLogger to capture usage events
-        let usage_logger = events::testing::BasicTestUsageEventLogger::new();
-        let usage_counter = UsageCounter::new(Arc::new(usage_logger.clone()));
-
+        let egress_counter = EgressCounter::default();
         let webhook_sink = WebhookSink::start(
             rt.clone(),
             webhook_config,
             Arc::new(fetch_client),
             meta.clone(),
-            usage_counter,
+            egress_counter.clone(),
             false, // Don't verify, so we only track one event
         )
         .await?;
 
-        // Send a log event
         webhook_sink
             .events_sender
             .send(vec![Arc::new(LogEvent::default_for_verification(&rt)?)])
             .await?;
         rt.wait(Duration::from_secs(1)).await;
 
-        // Verify bandwidth tracking
-        let events = usage_logger.collect();
         let actual_size = *actual_request_size.lock();
-        utils::assert_bandwidth_events(events, actual_size, webhook_url.as_str());
+        assert!(
+            actual_size > 0,
+            "Expected actual request size to be non-zero"
+        );
+        let tracked = egress_counter.load(std::sync::atomic::Ordering::Relaxed);
+        assert_eq!(
+            tracked, actual_size,
+            "Expected egress counter ({tracked}) to match actual request size ({actual_size})",
+        );
 
         Ok(())
     }

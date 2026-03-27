@@ -70,6 +70,8 @@ export interface components {
                 /** Format: int64 */
                 file_storage_write_bytes: number;
                 /** Format: int64 */
+                network_egress_bytes: number;
+                /** Format: int64 */
                 vector_storage_read_bytes: number;
                 /** Format: int64 */
                 vector_storage_write_bytes: number;

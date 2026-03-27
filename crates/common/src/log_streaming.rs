@@ -68,6 +68,7 @@ pub struct AggregatedFunctionUsageStats {
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
     pub text_index_write_bytes: u64,
+    pub network_egress_bytes: u64,
     pub memory_used_mb: u64,
     pub return_bytes: Option<u64>,
 }
@@ -190,6 +191,11 @@ pub enum StructuredLogEvent {
     /// /api/storage/* calls (not UDF-attributed storage operations).
     StorageApiBandwidth {
         storage_id: String,
+        egress_bytes: u64,
+    },
+    /// Topic for log stream egress. Emitted when a log sink sends a batch
+    /// of events to an external service, reporting the egress bytes used.
+    LogStreamEgress {
         egress_bytes: u64,
     },
     // User-specified topics -- not yet implemented.
@@ -350,6 +356,7 @@ impl LogEvent {
                         "databaseWriteBytes": usage_stats.database_write_bytes,
                         "storageReadBytes": usage_stats.storage_read_bytes,
                         "storageWriteBytes": usage_stats.storage_write_bytes,
+                        "networkEgressBytes": usage_stats.network_egress_bytes,
                     })
                 },
                 StructuredLogEvent::Exception {
@@ -437,6 +444,11 @@ impl LogEvent {
                     "storage_id": storage_id,
                     "egress_bytes": egress_bytes
                 }),
+                StructuredLogEvent::LogStreamEgress { egress_bytes } => serialize_map!({
+                    "_timestamp": ms,
+                    "_topic": "_log_stream_egress",
+                    "egress_bytes": egress_bytes
+                }),
             },
             LogEventFormatVersion::V2 => match &self.event {
                 StructuredLogEvent::Verification => {
@@ -491,6 +503,7 @@ impl LogEvent {
                         file_storage_write_bytes: u64,
                         vector_storage_read_bytes: u64,
                         vector_storage_write_bytes: u64,
+                        network_egress_bytes: u64,
                         memory_used_mb: u64,
                         action_memory_used_mb: Option<u64>,
                     }
@@ -520,6 +533,7 @@ impl LogEvent {
                             file_storage_write_bytes: usage_stats.storage_write_bytes,
                             vector_storage_read_bytes: usage_stats.vector_index_read_bytes,
                             vector_storage_write_bytes: usage_stats.vector_index_write_bytes,
+                            network_egress_bytes: usage_stats.network_egress_bytes,
                             memory_used_mb: usage_stats.memory_used_mb,
                             action_memory_used_mb,
                         }
@@ -619,6 +633,13 @@ impl LogEvent {
                         "timestamp": ms,
                         "topic": "storage_api_bandwidth",
                         "storage_id": storage_id,
+                        "egress_bytes": egress_bytes
+                    })
+                },
+                StructuredLogEvent::LogStreamEgress { egress_bytes } => {
+                    serialize_map!({
+                        "timestamp": ms,
+                        "topic": "log_stream_egress",
                         "egress_bytes": egress_bytes
                     })
                 },
@@ -938,6 +959,7 @@ mod tests {
         file_storage_write_bytes: u64,
         vector_storage_read_bytes: u64,
         vector_storage_write_bytes: u64,
+        network_egress_bytes: u64,
         action_memory_used_mb: Option<u64>,
     }
 
@@ -1070,6 +1092,7 @@ mod tests {
                         vector_index_read_bytes: 0,
                         vector_index_write_bytes: 0,
                         text_index_write_bytes: 0,
+                        network_egress_bytes: 0,
                         memory_used_mb: 0,
                         return_bytes: Some(64),
                     },

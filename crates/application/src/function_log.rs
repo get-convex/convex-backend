@@ -297,6 +297,7 @@ impl FunctionExecution {
                     vector_index_read_bytes: self.usage_stats.vector_index_read_bytes,
                     vector_index_write_bytes: self.usage_stats.vector_index_write_bytes,
                     text_index_write_bytes: self.usage_stats.text_index_write_bytes,
+                    network_egress_bytes: self.usage_stats.network_egress_bytes,
                     memory_used_mb: self.memory_used_mb,
                     return_bytes: self.return_bytes,
                 },

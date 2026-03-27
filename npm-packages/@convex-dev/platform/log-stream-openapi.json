@@ -253,7 +253,8 @@
               "file_storage_read_bytes",
               "file_storage_write_bytes",
               "vector_storage_read_bytes",
-              "vector_storage_write_bytes"
+              "vector_storage_write_bytes",
+              "network_egress_bytes"
             ],
             "properties": {
               "action_memory_used_mb": {
@@ -285,6 +286,11 @@
                 "minimum": 0
               },
               "file_storage_write_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "network_egress_bytes": {
                 "type": "integer",
                 "format": "int64",
                 "minimum": 0

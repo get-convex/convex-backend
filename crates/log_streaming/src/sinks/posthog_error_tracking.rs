@@ -11,7 +11,6 @@ use chrono::{
 use common::{
     backoff::Backoff,
     errors::report_error,
-    execution_context::ExecutionId,
     http::{
         categorize_http_response_stream,
         fetch::FetchClient,
@@ -23,7 +22,6 @@ use common::{
         StructuredLogEvent,
     },
     runtime::Runtime,
-    RequestId,
 };
 use errors::{
     ErrorMetadata,
@@ -40,7 +38,6 @@ use serde_json::{
     Value as JsonValue,
 };
 use tokio::sync::mpsc;
-use usage_tracking::UsageCounter;
 
 use crate::{
     consts,
@@ -49,6 +46,7 @@ use crate::{
         self,
         build_event_batches,
         only_exceptions_log_filter,
+        EgressCounter,
     },
     LogSinkClient,
     LoggingDeploymentMetadata,
@@ -62,7 +60,7 @@ pub struct PostHogErrorTrackingSink<RT: Runtime> {
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
     deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
-    usage_counter: UsageCounter,
+    egress_counter: EgressCounter,
 }
 
 impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
@@ -71,7 +69,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
         config: model::log_sinks::types::posthog_error_tracking::PostHogErrorTrackingConfig,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
-        usage_counter: UsageCounter,
+        egress_counter: EgressCounter,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting PostHogErrorTrackingSink");
@@ -91,7 +89,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                 consts::POSTHOG_ET_SINK_INITIAL_BACKOFF,
                 consts::POSTHOG_ET_SINK_MAX_BACKOFF,
             ),
-            usage_counter,
+            egress_counter,
         };
 
         if should_verify {
@@ -306,8 +304,6 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
         let header_map = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
         let batch_json = Bytes::from(batch_json);
 
-        let request_id = RequestId::new();
-        let execution_id = ExecutionId::new();
         for _ in 0..consts::POSTHOG_ET_SINK_MAX_REQUEST_ATTEMPTS {
             let batch_json = batch_json.clone();
             let response = self
@@ -325,13 +321,9 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                 let num_bytes_egress = r.request_size.load(Ordering::Relaxed);
                 utils::track_log_sink_bandwidth(
                     num_bytes_egress,
-                    "posthog_error_tracking".to_string(),
-                    execution_id,
-                    &request_id,
-                    &self.usage_counter,
+                    &self.egress_counter,
                     posthog_et_sink_network_egress_bytes,
-                )
-                .await;
+                );
             }
 
             match response.and_then(categorize_http_response_stream) {
@@ -390,12 +382,11 @@ mod tests {
     use parking_lot::Mutex;
     use reqwest::header::HeaderMap;
     use serde_json::Value as JsonValue;
-    use usage_tracking::UsageCounter;
 
     use crate::{
         sinks::{
             posthog_error_tracking::PostHogErrorTrackingSink,
-            utils,
+            utils::EgressCounter,
         },
         LoggingDeploymentMetadata,
     };
@@ -447,13 +438,13 @@ mod tests {
             deployment_region: Some("test".to_string()),
         }));
 
-        let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
+        let egress_counter = EgressCounter::default();
         let sink = PostHogErrorTrackingSink::start(
             rt.clone(),
             config,
             Arc::new(fetch_client),
             meta.clone(),
-            usage_counter,
+            egress_counter,
             true,
         )
         .await?;
@@ -558,13 +549,13 @@ mod tests {
             deployment_region: Some("test".to_string()),
         }));
 
-        let usage_counter = UsageCounter::new(Arc::new(events::usage::NoOpUsageEventLogger));
+        let egress_counter = EgressCounter::default();
         assert!(PostHogErrorTrackingSink::start(
             rt.clone(),
             config,
             Arc::new(fetch_client),
             meta,
-            usage_counter,
+            egress_counter,
             true,
         )
         .await
@@ -614,15 +605,14 @@ mod tests {
             deployment_region: Some("test".to_string()),
         }));
 
-        let usage_logger = events::testing::BasicTestUsageEventLogger::new();
-        let usage_counter = UsageCounter::new(Arc::new(usage_logger.clone()));
+        let egress_counter = EgressCounter::default();
 
         let sink = PostHogErrorTrackingSink::start(
             rt.clone(),
             config,
             Arc::new(fetch_client),
             meta.clone(),
-            usage_counter,
+            egress_counter.clone(),
             true,
         )
         .await?;
@@ -633,9 +623,16 @@ mod tests {
             .await?;
         rt.wait(Duration::from_secs(1)).await;
 
-        let events = usage_logger.collect();
         let actual_size = *actual_request_size.lock();
-        utils::assert_bandwidth_events(events, actual_size, "posthog_error_tracking");
+        assert!(
+            actual_size > 0,
+            "Expected actual request size to be non-zero"
+        );
+        let tracked = egress_counter.load(std::sync::atomic::Ordering::Relaxed);
+        assert_eq!(
+            tracked, actual_size,
+            "Expected egress counter ({tracked}) to match actual request size ({actual_size})",
+        );
 
         Ok(())
     }

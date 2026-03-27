@@ -1164,6 +1164,7 @@ impl FunctionUsageStats {
             vector_index_read_bytes: self.vector_egress.values().sum(),
             vector_index_write_bytes: self.vector_ingress.values().sum(),
             text_index_write_bytes: self.text_ingress.values().sum(),
+            network_egress_bytes: self.fetch_egress.values().sum(),
             vector_index_write_bytes_v2: self.vector_ingress_v2.values().sum(),
         }
     }
@@ -1486,6 +1487,7 @@ pub struct AggregatedFunctionUsageStats {
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
     pub text_index_write_bytes: u64,
+    pub network_egress_bytes: u64,
     pub vector_index_write_bytes_v2: u64,
 }
 

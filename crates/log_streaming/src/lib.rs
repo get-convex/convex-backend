@@ -32,6 +32,7 @@ use common::{
     log_streaming::{
         LogEvent,
         LogSender,
+        StructuredLogEvent,
     },
     runtime::{
         shutdown_and_join,
@@ -86,6 +87,7 @@ use usage_tracking::UsageCounter;
 use crate::sinks::{
     axiom::AxiomSink,
     datadog::DatadogSink,
+    utils::EgressCounter,
     webhook::WebhookSink,
 };
 
@@ -224,11 +226,15 @@ pub struct LogManager<RT: Runtime> {
     fetch_client: Arc<dyn FetchClient>,
     sinks: Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
     event_receiver: mpsc::Receiver<LogEvent>,
+    /// Cloned sender for feeding log events back into the pipeline (e.g.,
+    /// LogStreamEgress events emitted by sinks).
+    event_sender: mpsc::Sender<LogEvent>,
     instance_name: String,
     deployment_region: Option<String>,
     /// How many sinks are active right now?
     active_sinks_count: Arc<AtomicUsize>,
     usage_counter: usage_tracking::UsageCounter,
+    egress_counter: EgressCounter,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -254,6 +260,7 @@ impl<RT: Runtime> LogManager<RT> {
         let (req_tx, req_rx) = mpsc::channel(*knobs::LOG_MANAGER_EVENT_RECV_BUFFER_SIZE);
 
         let active_sinks_count = Arc::new(AtomicUsize::new(0));
+        let egress_counter = EgressCounter::default();
         let worker = Self {
             runtime: runtime.clone(),
             database,
@@ -261,10 +268,12 @@ impl<RT: Runtime> LogManager<RT> {
             // Sinks are populated from the `_log_sinks` system table on startup
             sinks: Arc::new(RwLock::new(BTreeMap::new())),
             event_receiver: req_rx,
+            event_sender: req_tx.clone(),
             instance_name,
             deployment_region,
             active_sinks_count: active_sinks_count.clone(),
             usage_counter,
+            egress_counter,
         };
 
         let handle = Arc::new(Mutex::new(Some(runtime.spawn("log_manager", worker.go()))));
@@ -303,10 +312,19 @@ impl<RT: Runtime> LogManager<RT> {
             self.instance_name.clone(),
             self.deployment_region.clone(),
             self.active_sinks_count.clone(),
-            self.usage_counter.clone(),
+            self.egress_counter.clone(),
         )
         .fuse();
         pin_mut!(sink_startup_worker_fut);
+
+        let egress_emission_fut = Self::egress_emission_worker(
+            &self.runtime,
+            &self.event_sender,
+            &self.egress_counter,
+            &self.usage_counter,
+        )
+        .fuse();
+        pin_mut!(egress_emission_fut);
 
         let log_event_listener_fut =
             Self::log_event_listener(&self.runtime, &mut self.event_receiver, &self.sinks).fuse();
@@ -316,6 +334,9 @@ impl<RT: Runtime> LogManager<RT> {
         // log_event_listener will usually be of a much higher throughput.
         select_biased! {
             r = sink_startup_worker_fut => {
+                r?;
+            },
+            r = egress_emission_fut => {
                 r?;
             },
             r = log_event_listener_fut => {
@@ -424,7 +445,7 @@ impl<RT: Runtime> LogManager<RT> {
         instance_name: String,
         deployment_region: Option<String>,
         active_sinks_count: Arc<AtomicUsize>,
-        usage_counter: usage_tracking::UsageCounter,
+        egress_counter: EgressCounter,
     ) -> anyhow::Result<!> {
         // Deployment_type is populated within the loop based on a subscription
         // to BackendInfoModel. Since deployment_type can be updated dynamically
@@ -460,7 +481,7 @@ impl<RT: Runtime> LogManager<RT> {
                 sinks,
                 active_sinks_count.clone(),
                 metadata.clone(),
-                usage_counter.clone(),
+                egress_counter.clone(),
             )
             .await?;
 
@@ -478,7 +499,7 @@ impl<RT: Runtime> LogManager<RT> {
         sinks: &Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
         active_sinks_count: Arc<AtomicUsize>,
         metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
-        usage_counter: usage_tracking::UsageCounter,
+        egress_counter: EgressCounter,
     ) -> anyhow::Result<()> {
         let (pending_sinks, inactive_sinks, tombstoned_sinks) = {
             let sinks = sinks.read();
@@ -542,8 +563,6 @@ impl<RT: Runtime> LogManager<RT> {
             let sink_id = row.id();
             let sink_config = row.config.clone();
             let sink_status = row.status.clone();
-            // Use the shared usage counter for tracking log sink network usage
-            let usage_counter = usage_counter.clone();
             let timed_startup_result = runtime
                 .with_timeout(
                     "sink startup timeout",
@@ -553,8 +572,8 @@ impl<RT: Runtime> LogManager<RT> {
                         fetch_client.clone(),
                         sink_config,
                         metadata.clone(),
-                        usage_counter,
                         sink_status,
+                        egress_counter.clone(),
                     ),
                 )
                 .await;
@@ -606,8 +625,8 @@ impl<RT: Runtime> LogManager<RT> {
         fetch_client: Arc<dyn FetchClient>,
         config: SinkConfig,
         metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
-        usage_counter: usage_tracking::UsageCounter,
         status: SinkState,
+        egress_counter: EgressCounter,
     ) -> anyhow::Result<LogSinkClient> {
         // Only verify credentials for sinks in Pending state (not Restarting)
         let should_verify = matches!(status, SinkState::Pending);
@@ -620,7 +639,7 @@ impl<RT: Runtime> LogManager<RT> {
                     fetch_client,
                     config,
                     metadata,
-                    usage_counter,
+                    egress_counter.clone(),
                     should_verify,
                 )
                 .await
@@ -631,7 +650,7 @@ impl<RT: Runtime> LogManager<RT> {
                     config,
                     fetch_client,
                     metadata,
-                    usage_counter,
+                    egress_counter.clone(),
                     should_verify,
                 )
                 .await
@@ -642,7 +661,7 @@ impl<RT: Runtime> LogManager<RT> {
                     config,
                     fetch_client,
                     metadata,
-                    usage_counter,
+                    egress_counter.clone(),
                     should_verify,
                 )
                 .await
@@ -663,7 +682,7 @@ impl<RT: Runtime> LogManager<RT> {
                     config,
                     fetch_client,
                     metadata,
-                    usage_counter,
+                    egress_counter.clone(),
                     should_verify,
                 )
                 .await
@@ -674,13 +693,49 @@ impl<RT: Runtime> LogManager<RT> {
                     config,
                     fetch_client,
                     metadata,
-                    usage_counter,
+                    egress_counter.clone(),
                     should_verify,
                 )
                 .await
             },
             #[cfg(any(test, feature = "testing"))]
             SinkConfig::Mock | SinkConfig::Mock2 => MockSink::start(runtime.clone()).await,
+        }
+    }
+
+    /// Periodically drains accumulated egress bytes, emits a
+    /// `LogStreamEgress` event, and reports billing usage.
+    async fn egress_emission_worker(
+        runtime: &RT,
+        event_sender: &mpsc::Sender<LogEvent>,
+        egress_counter: &EgressCounter,
+        usage_counter: &UsageCounter,
+    ) -> anyhow::Result<!> {
+        loop {
+            runtime.wait(Duration::from_secs(60)).await;
+            let egress_bytes = egress_counter.swap(0, Ordering::Relaxed);
+            if egress_bytes > 0 {
+                // Emit log stream event
+                let _ = event_sender.try_send(LogEvent {
+                    timestamp: runtime.unix_timestamp(),
+                    event: StructuredLogEvent::LogStreamEgress { egress_bytes },
+                });
+
+                // Report billing usage
+                let usage_tracker = usage_tracking::FunctionUsageTracker::new();
+                usage_tracker.track_fetch_egress("log_stream_payload".to_string(), egress_bytes);
+                let stats = usage_tracker.gather_user_stats();
+                usage_counter
+                    .track_call(
+                        common::types::UdfIdentifier::SystemJob("log_stream_payload".to_string()),
+                        common::execution_context::ExecutionId::new(),
+                        common::RequestId::new(),
+                        usage_tracking::CallType::LogStreamPayload,
+                        true,
+                        stats,
+                    )
+                    .await;
+            }
         }
     }
 }
@@ -713,7 +768,6 @@ mod tests {
         test_helpers::DbFixtures,
         Database,
     };
-    use events::usage::NoOpUsageEventLogger;
     use model::{
         log_sinks::{
             types::{
@@ -731,9 +785,9 @@ mod tests {
         RwLock,
     };
     use runtime::testing::TestRuntime;
-    use usage_tracking::UsageCounter;
 
     use crate::{
+        sinks::utils::EgressCounter,
         LogManager,
         LoggingDeploymentMetadata,
     };
@@ -769,7 +823,6 @@ mod tests {
             deployment_region: Some("aws-us-east-1".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
-        let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
 
         LogManager::sink_startup_worker_once(
             &rt,
@@ -779,7 +832,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata,
-            usage_counter,
+            EgressCounter::default(),
         )
         .await?;
         assert_eq!(active_sinks_count.load(Ordering::Relaxed), 2);
@@ -805,7 +858,7 @@ mod tests {
             deployment_region: Some("aws-us-east-1".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
-        let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
+        let egress_counter = EgressCounter::default();
 
         LogManager::sink_startup_worker_once(
             &rt,
@@ -815,7 +868,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata.clone(),
-            usage_counter.clone(),
+            egress_counter.clone(),
         )
         .await?;
 
@@ -831,7 +884,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata,
-            usage_counter.clone(),
+            egress_counter.clone(),
         )
         .await?;
 
@@ -866,7 +919,7 @@ mod tests {
             deployment_region: Some("aws-us-east-1".to_string()),
         }));
         let sink_rows = setup_log_sinks(&db, vec![SinkConfig::Mock, SinkConfig::Mock2]).await?;
-        let usage_counter = UsageCounter::new(Arc::new(NoOpUsageEventLogger));
+        let egress_counter = EgressCounter::default();
 
         LogManager::sink_startup_worker_once(
             &rt,
@@ -876,7 +929,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata.clone(),
-            usage_counter.clone(),
+            egress_counter.clone(),
         )
         .await?;
 
@@ -894,7 +947,7 @@ mod tests {
             &sinks,
             active_sinks_count.clone(),
             metadata,
-            usage_counter.clone(),
+            egress_counter.clone(),
         )
         .await?;
 

@@ -6,5 +6,5 @@ pub mod mock_sink;
 pub mod posthog_error_tracking;
 pub mod posthog_logs;
 pub mod sentry;
-mod utils;
+pub(crate) mod utils;
 pub mod webhook;
