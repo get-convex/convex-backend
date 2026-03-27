@@ -2,6 +2,7 @@ import { Command } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { loadSelectedDeploymentCredentials } from "./lib/api.js";
 import {
+  DeploymentSelection,
   getDeploymentSelection,
   deploymentNameFromSelection,
 } from "./lib/deploymentSelection.js";
@@ -30,45 +31,49 @@ export const deploymentSelect = new Command("select")
       adminKey: undefined,
       envFile: undefined,
     });
-    await selectDeployment(ctx, selector);
+
+    // Get the current deployment selection (no flags, just env/config state)
+    const currentSelection = await getDeploymentSelection(ctx, {});
+
+    // If no project is configured and the selector needs project context, show a specific error
+    const parsed = parseDeploymentSelector(selector);
+    if (
+      currentSelection.kind === "chooseProject" &&
+      parsed.kind !== "inTeamProject" &&
+      parsed.kind !== "deploymentName"
+    ) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `No project configured. Run \`npx convex dev\` to set up a project first, or use a full selector like 'my-team:my-project:dev/james' or 'happy-capybara-123'.`,
+      });
+    }
+
+    // Resolve the new deployment using the selector relative to the current project
+    const newSelection = await getDeploymentSelection(ctx, {
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+      deployment: selector,
+    });
+
+    await saveSelectedDeployment(
+      ctx,
+      selector,
+      newSelection,
+      deploymentNameFromSelection(currentSelection),
+    );
   });
 
-export async function selectDeployment(
+export async function saveSelectedDeployment(
   ctx: Context,
   selector: string,
+  selection: DeploymentSelection,
+  previousDeploymentName: string | null,
 ): Promise<void> {
-  // Get the current deployment selection (no flags, just env/config state)
-  const currentSelection = await getDeploymentSelection(ctx, {});
-
-  // If no project is configured and the selector needs project context, show a specific error
-  const parsed = parseDeploymentSelector(selector);
-  if (
-    currentSelection.kind === "chooseProject" &&
-    parsed.kind !== "inTeamProject" &&
-    parsed.kind !== "deploymentName"
-  ) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: `No project configured. Run \`npx convex dev\` to set up a project first, or use a full selector like 'my-team:my-project:dev/james' or 'happy-capybara-123'.`,
-    });
-  }
-
-  // Resolve the new deployment using the selector relative to the current project
-  const newSelection = await getDeploymentSelection(ctx, {
-    url: undefined,
-    adminKey: undefined,
-    envFile: undefined,
-    deployment: selector,
+  const deployment = await loadSelectedDeploymentCredentials(ctx, selection, {
+    ensureLocalRunning: false,
   });
-
-  const deployment = await loadSelectedDeploymentCredentials(
-    ctx,
-    newSelection,
-    {
-      ensureLocalRunning: false,
-    },
-  );
 
   if (deployment.deploymentFields === null) {
     // Should be unreachable since for now, `select` only allows users
@@ -104,6 +109,6 @@ export async function selectDeployment(
       projectSlug: deployment.deploymentFields.projectSlug,
       deploymentType: deployment.deploymentFields.deploymentType,
     },
-    deploymentNameFromSelection(currentSelection),
+    previousDeploymentName,
   );
 }

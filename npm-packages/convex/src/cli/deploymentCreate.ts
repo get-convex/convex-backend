@@ -10,6 +10,7 @@ import {
   DeploymentSelection,
   getDeploymentSelection,
   getProjectDetails,
+  deploymentNameFromSelection,
 } from "./lib/deploymentSelection.js";
 import {
   logNoDefaultRegionMessage,
@@ -19,7 +20,7 @@ import {
 } from "./lib/utils/utils.js";
 import { PlatformProjectDetails } from "@convex-dev/platform/managementApi";
 import { getTeamAndProjectFromPreviewAdminKey } from "./lib/deployment.js";
-import { selectDeployment } from "./deploymentSelect.js";
+import { saveSelectedDeployment } from "./deploymentSelect.js";
 import { promptOptions, promptString } from "./lib/utils/prompts.js";
 import { chalkStderr } from "chalk";
 import { parseDeploymentSelector } from "./lib/deploymentSelector.js";
@@ -54,10 +55,33 @@ export const deploymentCreate = new Command("create")
       envFile: undefined,
     });
 
-    const { ref, regionDetails, projectId, type, isDefault } = process.stdin
-      .isTTY
-      ? await resolveOptionsInteractively(ctx, refParam, options)
-      : await resolveOptionsNoninteractively(ctx, refParam, options);
+    const currentDeployment = await getDeploymentSelection(ctx, {
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
+
+    const {
+      ref,
+      regionDetails,
+      projectId,
+      type,
+      isDefault,
+      teamSlug,
+      projectSlug,
+    } = process.stdin.isTTY
+      ? await resolveOptionsInteractively(
+          ctx,
+          currentDeployment,
+          refParam,
+          options,
+        )
+      : await resolveOptionsNoninteractively(
+          ctx,
+          currentDeployment,
+          refParam,
+          options,
+        );
 
     showSpinner(
       `Creating ${type} deployment` +
@@ -110,7 +134,24 @@ export const deploymentCreate = new Command("create")
     }
 
     if (options.select) {
-      await selectDeployment(ctx, created.reference);
+      const selection: DeploymentSelection = {
+        kind: "deploymentWithinProject",
+        targetProject: {
+          kind: "teamAndProjectSlugs",
+          teamSlug,
+          projectSlug,
+        },
+        selectionWithinProject: {
+          kind: "deploymentSelector",
+          selector: created.reference,
+        },
+      };
+      await saveSelectedDeployment(
+        ctx,
+        created.reference,
+        selection,
+        deploymentNameFromSelection(currentDeployment),
+      );
     }
   });
 
@@ -121,6 +162,7 @@ type OptionsParam = Parameters<
 
 async function resolveOptionsNoninteractively(
   ctx: Context,
+  currentDeployment: DeploymentSelection,
   refParam: RefParam,
   options: OptionsParam,
 ) {
@@ -164,14 +206,7 @@ async function resolveOptionsNoninteractively(
         teamSlug: teamAndProject.teamSlug,
         projectSlug: teamAndProject.projectSlug,
       })
-    : await resolveProject(
-        ctx,
-        await getDeploymentSelection(ctx, {
-          url: undefined,
-          adminKey: undefined,
-          envFile: undefined,
-        }),
-      );
+    : await resolveProject(ctx, currentDeployment);
   const projectId = project.id;
 
   // If no region is passed in, the team's default region will be used
@@ -191,11 +226,14 @@ async function resolveOptionsNoninteractively(
     projectId,
     regionDetails,
     type: options.type,
+    teamSlug: project.teamSlug,
+    projectSlug: project.slug,
   };
 }
 
 async function resolveOptionsInteractively(
   ctx: Context,
+  currentDeployment: DeploymentSelection,
   refParam: RefParam,
   options: OptionsParam,
 ) {
@@ -259,14 +297,7 @@ async function resolveOptionsInteractively(
         teamSlug: teamAndProject.teamSlug,
         projectSlug: teamAndProject.projectSlug,
       })
-    : await resolveProject(
-        ctx,
-        await getDeploymentSelection(ctx, {
-          url: undefined,
-          adminKey: undefined,
-          envFile: undefined,
-        }),
-      );
+    : await resolveProject(ctx, currentDeployment);
 
   const availableRegions = await fetchAvailableRegions(ctx, project.teamId);
   let regionDetails: AvailableRegion;
@@ -311,6 +342,8 @@ async function resolveOptionsInteractively(
     projectId: project.id,
     regionDetails,
     type: deploymentType,
+    teamSlug: project.teamSlug,
+    projectSlug: project.slug,
   };
 }
 

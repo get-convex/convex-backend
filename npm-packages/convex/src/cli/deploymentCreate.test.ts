@@ -11,8 +11,9 @@ import { PlatformProjectDetails } from "@convex-dev/platform/managementApi";
 import {
   getDeploymentSelection,
   getProjectDetails,
+  deploymentNameFromSelection,
 } from "./lib/deploymentSelection.js";
-import { selectDeployment } from "./deploymentSelect.js";
+import { saveSelectedDeployment } from "./deploymentSelect.js";
 import { deploymentCreate, resolveRegionDetails } from "./deploymentCreate.js";
 
 vi.mock("@sentry/node", () => ({
@@ -31,10 +32,11 @@ vi.mock("./lib/deploymentSelection.js", () => ({
   initializeBigBrainAuth: vi.fn(),
   getDeploymentSelection: vi.fn(),
   getProjectDetails: vi.fn(),
+  deploymentNameFromSelection: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock("./deploymentSelect.js", () => ({
-  selectDeployment: vi.fn(),
+  saveSelectedDeployment: vi.fn(),
 }));
 
 const mockRegions = [
@@ -107,7 +109,9 @@ describe("non-interactive create flow", () => {
   beforeEach(() => {
     vi.mocked(getDeploymentSelection).mockReset();
     vi.mocked(getProjectDetails).mockReset();
-    vi.mocked(selectDeployment).mockReset();
+    vi.mocked(saveSelectedDeployment).mockReset();
+    vi.mocked(deploymentNameFromSelection).mockReset();
+    vi.mocked(deploymentNameFromSelection).mockReturnValue(null);
   });
 
   describe("validation errors", () => {
@@ -285,7 +289,7 @@ describe("non-interactive create flow", () => {
       );
     });
 
-    test("creates a deployment with --select calls selectDeployment", async () => {
+    test("creates a deployment with --select calls saveSelectedDeployment", async () => {
       setupPlatformForCreate({
         reference: "dev/my-deployment",
       });
@@ -295,9 +299,22 @@ describe("non-interactive create flow", () => {
         { from: "user" },
       );
 
-      expect(selectDeployment).toHaveBeenCalledWith(
+      expect(saveSelectedDeployment).toHaveBeenCalledWith(
         expect.anything(),
         "dev/my-deployment",
+        {
+          kind: "deploymentWithinProject",
+          targetProject: {
+            kind: "teamAndProjectSlugs",
+            teamSlug: "my-team",
+            projectSlug: "my-project",
+          },
+          selectionWithinProject: {
+            kind: "deploymentSelector",
+            selector: "dev/my-deployment",
+          },
+        },
+        null,
       );
     });
   });
@@ -321,7 +338,6 @@ describe("non-interactive create flow", () => {
         teamSlug: "other-team",
         projectSlug: "other-project",
       });
-      expect(getDeploymentSelection).not.toHaveBeenCalled();
       expect(mockPlatformPost).toHaveBeenCalledWith(
         "/projects/{project_id}/create_deployment",
         expect.objectContaining({
@@ -375,8 +391,10 @@ describe("interactive create flow", () => {
     process.stdin.isTTY = true;
     vi.mocked(getDeploymentSelection).mockReset();
     vi.mocked(getProjectDetails).mockReset();
-    vi.mocked(selectDeployment).mockReset();
+    vi.mocked(saveSelectedDeployment).mockReset();
     vi.mocked(selectRegion).mockReset();
+    vi.mocked(deploymentNameFromSelection).mockReset();
+    vi.mocked(deploymentNameFromSelection).mockReturnValue(null);
 
     // Default: project configured via deployment selection
     vi.mocked(getDeploymentSelection).mockResolvedValue({
