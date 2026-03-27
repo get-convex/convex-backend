@@ -342,7 +342,9 @@ fn start_local_usher(logs: &LogInterleaver, release: bool) -> anyhow::Result<Chi
             .arg("--port")
             .arg(USHER_PORT.to_string())
             .arg("--register-service")
-            .arg("convex-backend-carnitas=127.0.0.1:8000,grpc.port=7999")
+            .arg("convex-conductor-0=127.0.0.1:8000,grpc.port=7999")
+            .arg("--partition-mapping")
+            .arg("carnitas=0")
             .arg("--region=local")
             .kill_on_drop(true),
     )
