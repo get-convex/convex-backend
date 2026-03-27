@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.35.0 (Unreleased)
+
+- Defaults non-interactive commands to target an anonymous deployment if one is
+  not configured or specified by the deploy key. This enables coding agents to
+  more easily develop without needing the CONVEX_AGENT_MODE env variable.
+  By default, the CLI will avoid prompting in non-interactive terminals when
+  possible.
+- You can now develop against your anonymous local deployments even when logged
+  in. You will be prompted to link the deployment to a project if the terminal
+  is interactive.
+- Exposes a `--deployment` CLI flag to target a specific deployment for various
+  commands, for example `npx convex env list --deployment staging`.
+- Changes the default codegen to use the component's `ComponentApi` type instead
+  of static code generation for components in `_generated/api.d.ts`.
+  To get the old behavior, set `{ "codegen": { "legacyComponentApi": true } }`
+  in `convex.json`.
+- Enables `npx convex deployment create` when you don't yet have a project.
+
 ## 1.34.1
 
 - Hides the `--yes` flag on `npx convex deploy` to discourage YOLO agents being
