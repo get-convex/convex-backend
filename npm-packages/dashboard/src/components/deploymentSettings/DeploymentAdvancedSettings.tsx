@@ -1,4 +1,4 @@
-import { useState, useCallback, useId, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   useCurrentDeployment,
   useModifyDeploymentSettings,
@@ -10,68 +10,15 @@ import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { TextInput } from "@ui/TextInput";
 import {
-  Pencil1Icon,
   ExclamationTriangleIcon,
   InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import { Tooltip } from "@ui/Tooltip";
-import { CopyButton } from "@common/elements/CopyButton";
 import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
 import { cn } from "@ui/cn";
-import { useFormik } from "formik";
-import * as Yup from "yup";
-import * as Sentry from "@sentry/nextjs";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
-
-const referenceValidationSchema = Yup.object().shape({
-  reference: Yup.string()
-    .required("Reference is required")
-    .min(3, "Reference must be at least 3 characters")
-    .max(100, "Reference must be at most 100 characters")
-    .matches(
-      /^[a-z0-9/-]+$/,
-      "Reference can only contain lowercase letters, numbers, hyphens, and slashes",
-    )
-    .test(
-      "not-deployment-name-format",
-      "Reference cannot be in the format abc-xyz-123, as it is reserved for deployment names",
-      (value) => {
-        if (!value) return true;
-        return !/^[a-z]+-[a-z]+-\d+$/.test(value);
-      },
-    )
-    .test(
-      "not-local-prefix",
-      "Reference cannot start with 'local-'",
-      (value) => {
-        if (!value) return true;
-        return !value.startsWith("local-");
-      },
-    )
-    .test(
-      "not-reserved",
-      // eslint-disable-next-line no-template-curly-in-string -- Yup error template
-      '"${value}" is a reserved name and cannot be used as a reference.',
-      (value) => {
-        if (!value) return true;
-        const reserved = [
-          "prod",
-          "dev",
-          "cloud",
-          "local",
-          "default",
-          "name",
-          "new",
-          "existing",
-          "deployment",
-          "preview",
-        ];
-        return !reserved.includes(value);
-      },
-    ),
-});
+import { DeploymentReference } from "./DeploymentReference";
 
 type TriStateValue = boolean | null;
 
@@ -236,10 +183,10 @@ export function DeploymentAdvancedSettings() {
 
   return (
     <>
-      <DeploymentReferenceSheet
-        reference={deployment.reference}
-        disabled={disabled}
-        onSave={modifySettings}
+      <DeploymentReference
+        value={deployment.reference}
+        canManage={isTeamAdmin}
+        onUpdate={(reference) => modifySettings({ reference })}
       />
       <TriStateSettingSheet
         title="Send Logs to Client"
@@ -300,107 +247,6 @@ export function DeploymentAdvancedSettings() {
         onSave={modifySettings}
       />
     </>
-  );
-}
-
-function DeploymentReferenceSheet({
-  reference,
-  disabled,
-  onSave,
-}: {
-  reference: string;
-  disabled: boolean;
-  onSave: SaveFn;
-}) {
-  const referenceFieldId = useId();
-  const [isEditing, setIsEditing] = useState(false);
-
-  const form = useFormik({
-    initialValues: { reference },
-    validationSchema: referenceValidationSchema,
-    onSubmit: async (values) => {
-      if (values.reference === undefined) {
-        Sentry.captureMessage(
-          "Unexpectedly submitting DeploymentReferenceInner with an undefined value",
-          "error",
-        );
-        return;
-      }
-      await onSave({ reference: values.reference });
-      setIsEditing(false);
-    },
-    enableReinitialize: true,
-  });
-
-  const handleCancel = useCallback(() => {
-    form.resetForm();
-    setIsEditing(false);
-  }, [form]);
-
-  return (
-    <Sheet>
-      <h4 className="mb-2">Deployment Reference</h4>
-      <p className="mb-4 text-xs text-content-secondary">
-        You can use the reference to target this deployment from the CLI (e.g.{" "}
-        <code>--deployment&nbsp;{reference ?? "<reference>"}</code>).
-      </p>
-      <div className="flex flex-wrap items-start gap-x-2 gap-y-4 sm:flex-nowrap">
-        {!isEditing ? (
-          <>
-            <TextInput
-              id={referenceFieldId}
-              label="Reference"
-              labelHidden
-              value={reference}
-              disabled
-            />
-            <CopyButton
-              text={reference ?? ""}
-              disabled={reference === undefined}
-              size="sm"
-            />
-            <Button
-              variant="neutral"
-              onClick={() => setIsEditing(true)}
-              disabled={disabled}
-              icon={<Pencil1Icon />}
-              aria-label="Edit deployment reference"
-            >
-              Edit
-            </Button>
-          </>
-        ) : (
-          <form onSubmit={form.handleSubmit} className="contents">
-            <TextInput
-              id={referenceFieldId}
-              label="Reference"
-              labelHidden
-              error={
-                (form.touched.reference && form.errors.reference) || undefined
-              }
-              disabled={form.isSubmitting}
-              {...form.getFieldProps("reference")}
-            />
-            <Button
-              type="button"
-              variant="neutral"
-              onClick={handleCancel}
-              disabled={form.isSubmitting}
-            >
-              Undo Edit
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={form.isSubmitting || !form.isValid}
-              loading={form.isSubmitting}
-            >
-              Save
-            </Button>
-          </form>
-        )}
-      </div>
-    </Sheet>
   );
 }
 
