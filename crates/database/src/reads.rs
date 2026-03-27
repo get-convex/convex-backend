@@ -57,7 +57,6 @@ use crate::{
     write_log::{
         DocumentIndexKeysUpdate,
         PackedDocumentUpdate,
-        RefreshableTabletUpdate,
         WriteSource,
     },
 };
@@ -315,7 +314,7 @@ impl ReadSet {
                     Item = &'a (
                         ResolvedDocumentId,
                         DocumentIndexKeysUpdate,
-                        Option<RefreshableTabletUpdate>,
+                        Option<PackedDocument>,
                     ),
                 >,
                 &'a WriteSource,

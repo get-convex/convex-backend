@@ -62,7 +62,6 @@ use http_client::CachedHttpClient;
 use model::{
     initialize_application_system_tables,
     virtual_system_mapping,
-    REFRESHABLE_APP_TABLES,
 };
 use node_executor::{
     local::LocalNodeExecutor,
@@ -162,7 +161,6 @@ pub async fn make_app(
         searcher.clone(),
         preempt_tx.clone(),
         virtual_system_mapping().clone(),
-        REFRESHABLE_APP_TABLES.clone(),
         Arc::new(new_rate_limiter(
             runtime.clone(),
             Quota::per_second(*DOCUMENT_RETENTION_RATE_LIMIT),

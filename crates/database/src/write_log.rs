@@ -2,20 +2,16 @@ use std::{
     borrow::Cow,
     collections::{
         BTreeMap,
-        BTreeSet,
         VecDeque,
     },
     sync::Arc,
 };
 
 use common::{
-    bootstrap_model::tables::TableMetadata,
     document::{
         DocumentUpdate,
         DocumentUpdateRef,
         PackedDocument,
-        ParseDocument,
-        ParsedDocument,
     },
     document_index_keys::{
         DocumentIndexKeyValue,
@@ -48,16 +44,13 @@ use indexing::{
     },
     index_registry::IndexRegistry,
 };
+use itertools::Itertools;
 use parking_lot::Mutex;
 use search::query::tokenize;
 use tokio::sync::oneshot;
-use value::{
-    heap_size::{
-        HeapSize,
-        WithHeapSize,
-    },
-    TableName,
-    TabletId,
+use value::heap_size::{
+    HeapSize,
+    WithHeapSize,
 };
 
 use crate::{
@@ -106,7 +99,7 @@ pub type IterWrites<'a> = std::slice::Iter<
     (
         ResolvedDocumentId,
         DocumentIndexKeysUpdate,
-        Option<RefreshableTabletUpdate>,
+        Option<PackedDocument>,
     ),
 >;
 
@@ -148,65 +141,29 @@ type OrderedIndexKeyWrites = WithHeapSize<
     Vec<(
         ResolvedDocumentId,
         DocumentIndexKeysUpdate,
-        Option<RefreshableTabletUpdate>,
+        Option<PackedDocument>,
     )>,
 >;
-
-/// None if the update was a delete.
-pub struct RefreshableTabletUpdate(Option<PackedDocument>);
-
-impl RefreshableTabletUpdate {
-    pub fn document(&self) -> Option<&PackedDocument> {
-        self.0.as_ref()
-    }
-}
-
-impl HeapSize for RefreshableTabletUpdate {
-    fn heap_size(&self) -> usize {
-        self.0.heap_size()
-    }
-}
 
 /// Converts [OrderedDocumentWrites] (the log used in `PendingWrites` that
 /// contains full documents) to [OrderedIndexKeyWrites] (the log used
 /// in `WriteLog` that contains only index keys).
-///
-/// Also updates `refreshable_tablets` if we see changes to table documents that
-/// match `refreshable_tables`.
 pub fn index_keys_from_full_documents(
     ordered_writes: OrderedDocumentWrites,
     index_registry: &IndexRegistry,
-    tables_tablet_id: TabletId,
-    refreshable_tables: &BTreeSet<TableName>,
-    refreshable_tablets: &mut BTreeSet<TabletId>,
 ) -> OrderedIndexKeyWrites {
-    let mut writes = vec![];
-    for (id, update) in ordered_writes {
-        if id.tablet_id == tables_tablet_id
-            && let Some(new_doc) = update.new_document.as_ref()
-        {
-            let maybe_table_metadata: anyhow::Result<ParsedDocument<TableMetadata>> =
-                new_doc.parse();
-            if let Ok(table_doc) = maybe_table_metadata {
-                if refreshable_tables.contains(&table_doc.name) {
-                    refreshable_tablets.insert(TabletId(id.internal_id()));
-                }
-            } else {
-                tracing::error!(
-                    "Failed to parse table metadata from doc {id} with tables_tablet \
-                     {tables_tablet_id}, may not be able to refresh system table index caches"
-                );
-            }
-        }
-        writes.push((
-            id,
-            DocumentIndexKeysUpdate::from_document_update(&update, index_registry),
-            refreshable_tablets
-                .contains(&id.tablet_id)
-                .then_some(RefreshableTabletUpdate(update.new_document)),
-        ));
-    }
-    WithHeapSize::from(writes)
+    WithHeapSize::from(
+        ordered_writes
+            .into_iter()
+            .map(|(id, update)| {
+                (
+                    id,
+                    DocumentIndexKeysUpdate::from_document_update(&update, index_registry),
+                    update.new_document,
+                )
+            })
+            .collect_vec(),
+    )
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -549,32 +506,24 @@ impl LogReader {
         if *begin_ts != *end_ts {
             let from = (*begin_ts).succ()?;
             let result = self.for_each(from, *end_ts, |ts, writes| {
-                for (_doc_id, index_keys_update, refreshable_update) in writes {
-                    if let Some(refreshable_update) = refreshable_update {
-                        let old_keys = resolve_db_index_keys(
-                            index_registry,
-                            index_keys_update.old_document_keys.as_ref(),
-                            &cache,
-                        );
-                        let new_keys = resolve_db_index_keys(
-                            index_registry,
-                            index_keys_update.new_document_keys.as_ref(),
-                            &cache,
-                        );
-                        if !cache.apply_write(
-                            ts,
-                            old_keys.unwrap_or_default(),
-                            new_keys.unwrap_or_default(),
-                            refreshable_update.document().cloned(),
-                        ) {
-                            return;
-                        }
-                    } else {
-                        remove_non_refreshable_indexes(
-                            index_keys_update,
-                            index_registry,
-                            &mut cache,
-                        );
+                for (_doc_id, index_keys_update, maybe_document) in writes {
+                    let old_keys = resolve_db_index_keys(
+                        index_registry,
+                        index_keys_update.old_document_keys.as_ref(),
+                        &cache,
+                    );
+                    let new_keys = resolve_db_index_keys(
+                        index_registry,
+                        index_keys_update.new_document_keys.as_ref(),
+                        &cache,
+                    );
+                    if !cache.apply_write(
+                        ts,
+                        old_keys.unwrap_or_default(),
+                        new_keys.unwrap_or_default(),
+                        maybe_document.clone(),
+                    ) {
+                        return;
                     }
                 }
             });
@@ -586,28 +535,6 @@ impl LogReader {
         }
 
         Ok(Some(TimestampedIndexCache { cache, ts: end_ts }))
-    }
-}
-
-fn remove_non_refreshable_indexes(
-    index_keys_update: &DocumentIndexKeysUpdate,
-    index_registry: &IndexRegistry,
-    index_cache: &mut DatabaseIndexSnapshotCache,
-) {
-    for doc_keys in [
-        &index_keys_update.old_document_keys,
-        &index_keys_update.new_document_keys,
-    ]
-    .into_iter()
-    .flatten()
-    {
-        for (index_name, key_value) in doc_keys.iter() {
-            if matches!(key_value, DocumentIndexKeyValue::Standard(_))
-                && let Some(index) = index_registry.get_enabled(index_name)
-            {
-                index_cache.remove_index(index.id());
-            }
-        }
     }
 }
 
@@ -835,10 +762,8 @@ mod tests {
         },
         write_log::{
             new_write_log,
-            remove_non_refreshable_indexes,
             resolve_db_index_keys,
             DocumentIndexKeysUpdate,
-            RefreshableTabletUpdate,
             WriteLogManager,
             WriteSource,
         },
@@ -1247,74 +1172,6 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn non_refreshable_insert() -> anyhow::Result<()> {
-        let mut f = FastForwardIndexCacheFixture::new()?;
-        let (_id, key, _doc) = f.make_doc(assert_obj!("name" => "alice"))?;
-
-        let update = DocumentIndexKeysUpdate {
-            id: _id,
-            old_document_keys: None,
-            new_document_keys: Some(DocumentIndexKeys::with_standard_index_for_test(
-                f.table_index_name.clone(),
-                key,
-            )),
-        };
-
-        let mut cache = f.cache_tracking_index();
-        assert!(cache.is_index_tracked(&f.index_id));
-        remove_non_refreshable_indexes(&update, &f.index_registry, &mut cache);
-        assert!(!cache.is_index_tracked(&f.index_id));
-        Ok(())
-    }
-
-    #[test]
-    fn non_refreshable_delete() -> anyhow::Result<()> {
-        let mut f = FastForwardIndexCacheFixture::new()?;
-        let (id, key, _doc) = f.make_doc(assert_obj!("name" => "alice"))?;
-
-        let update = DocumentIndexKeysUpdate {
-            id,
-            old_document_keys: Some(DocumentIndexKeys::with_standard_index_for_test(
-                f.table_index_name.clone(),
-                key,
-            )),
-            new_document_keys: None,
-        };
-
-        let mut cache = f.cache_tracking_index();
-        assert!(cache.is_index_tracked(&f.index_id));
-        remove_non_refreshable_indexes(&update, &f.index_registry, &mut cache);
-        assert!(!cache.is_index_tracked(&f.index_id));
-        Ok(())
-    }
-
-    #[test]
-    fn non_refreshable_search_index_filtered() -> anyhow::Result<()> {
-        let mut f = FastForwardIndexCacheFixture::new()?;
-
-        // Use a search index key value (not Standard) — should be filtered out.
-        let search_keys = DocumentIndexKeys::with_search_index_for_test(
-            f.table_index_name.clone(),
-            "name".parse()?,
-            common::document_index_keys::SearchValueTokens::from_iter_for_test(vec![
-                "hello".to_string()
-            ]),
-        );
-
-        let update = DocumentIndexKeysUpdate {
-            id: f.id_generator.user_generate(&"users".parse()?),
-            old_document_keys: None,
-            new_document_keys: Some(search_keys),
-        };
-
-        let mut cache = f.cache_tracking_index();
-        remove_non_refreshable_indexes(&update, &f.index_registry, &mut cache);
-        // Index should still be tracked since search indexes are filtered out.
-        assert!(cache.is_index_tracked(&f.index_id));
-        Ok(())
-    }
-
     #[test_runtime]
     async fn test_fast_forward_index_cache_same_ts(_rt: TestRuntime) -> anyhow::Result<()> {
         let f = FastForwardIndexCacheFixture::new()?;
@@ -1352,7 +1209,7 @@ mod tests {
                         key,
                     )),
                 },
-                Some(RefreshableTabletUpdate(Some(doc))),
+                Some(doc),
             )]
             .into(),
             WriteSource::unknown(),

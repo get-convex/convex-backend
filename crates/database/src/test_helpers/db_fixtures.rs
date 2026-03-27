@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use common::{
     persistence::Persistence,
@@ -26,7 +23,6 @@ use storage::{
     Storage,
 };
 use usage_tracking::UsageCounter;
-use value::TableName;
 
 use crate::{
     text_index_worker::BuildTextIndexArgs,
@@ -50,7 +46,6 @@ pub struct DbFixturesArgs {
     pub searcher: Option<Arc<dyn Searcher>>,
     pub search_storage: Option<Arc<dyn Storage>>,
     pub virtual_system_mapping: VirtualSystemMapping,
-    pub refreshable_app_tables: BTreeSet<TableName>,
     pub bootstrap_search_and_vector_indexes: bool,
     pub bootstrap_table_summaries: bool,
 }
@@ -62,7 +57,6 @@ impl Default for DbFixturesArgs {
             searcher: None,
             search_storage: None,
             virtual_system_mapping: Default::default(),
-            refreshable_app_tables: Default::default(),
             bootstrap_search_and_vector_indexes: true,
             bootstrap_table_summaries: true,
         }
@@ -81,7 +75,6 @@ impl<RT: Runtime> DbFixtures<RT> {
             searcher,
             search_storage,
             virtual_system_mapping,
-            refreshable_app_tables,
             bootstrap_search_and_vector_indexes,
             bootstrap_table_summaries,
         }: DbFixturesArgs,
@@ -101,7 +94,6 @@ impl<RT: Runtime> DbFixtures<RT> {
             searcher.clone(),
             ShutdownSignal::panic(),
             virtual_system_mapping,
-            refreshable_app_tables,
             Arc::new(new_unlimited_rate_limiter(rt.clone())),
             deleted_tablet_sender,
         )
