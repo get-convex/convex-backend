@@ -24,6 +24,10 @@ export function UpdateBillingAddressBanner() {
 export function useShowUpdateBillingAddressBanner() {
   const team = useCurrentTeam();
   const orbSubscription = useTeamOrbSubscription(team?.id).subscription;
+  // Team billing is managed by Vercel
+  if (team?.managedBy === "vercel") {
+    return false;
+  }
   // Team does not have a paid subscription
   if (!orbSubscription) {
     return false;
