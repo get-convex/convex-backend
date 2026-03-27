@@ -205,7 +205,7 @@ export function FieldSelector({
           className={cn(
             "h-[27.5px] w-fit min-w-[27.5px] justify-center rounded-lg p-1 text-xs",
             hasHiddenFields &&
-              "bg-blue-100/50 hover:bg-blue-100/70 dark:bg-blue-700/50 dark:hover:bg-blue-700/70",
+              "bg-yellow-100/50 hover:bg-yellow-100 dark:bg-yellow-600/20 dark:hover:bg-yellow-600/50",
           )}
         >
           {hasHiddenFields
