@@ -10,8 +10,6 @@
 - You can now develop against your anonymous local deployments even when logged
   in. You will be prompted to link the deployment to a project if the terminal
   is interactive.
-- Exposes a `--deployment` CLI flag to target a specific deployment for various
-  commands, for example `npx convex env list --deployment staging`.
 - Changes the default codegen to use the component's `ComponentApi` type instead
   of static code generation for components in `_generated/api.d.ts`.
   To get the old behavior, set `{ "codegen": { "legacyComponentApi": true } }`
