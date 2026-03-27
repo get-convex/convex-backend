@@ -122,6 +122,11 @@ module.exports = {
           ".bottom-4 is blocked on convex.dev by easylist_cookie; use .bottom-four instead",
         selector: "Literal[value=/bottom-4(?:\\D|$)/i]",
       },
+      {
+        message:
+          "Use the Link component from @ui/Link instead of manually adding the text-content-link class.",
+        selector: "Literal[value=/text-content-link/]",
+      },
     ],
     // allow (_arg: number) => {}
     "@typescript-eslint/no-unused-vars": [

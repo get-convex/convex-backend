@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import * as Yup from "yup";
 import { useFormik } from "formik";
 import { DatadogSiteLocation } from "system-udfs/convex/_system/frontend/common";
@@ -122,7 +122,6 @@ export function DatadogConfigurationForm({
               Format for events sent in this stream.{" "}
               <Link
                 href="https://docs.convex.dev/production/integrations/log-streams/legacy-event-schema"
-                className="text-content-link"
                 target="_blank"
               >
                 Learn more
@@ -160,7 +159,6 @@ export function DatadogConfigurationForm({
           Location of your Datadog deployment.{" "}
           <Link
             href="https://docs.datadoghq.com/getting_started/site/"
-            className="text-content-link"
             target="_blank"
           >
             Learn more
@@ -201,7 +199,6 @@ export function DatadogConfigurationForm({
             each log event via the <code>ddtags</code> field.{" "}
             <Link
               href="https://docs.datadoghq.com/getting_started/tagging/"
-              className="text-content-link"
               target="_blank"
             >
               Learn more

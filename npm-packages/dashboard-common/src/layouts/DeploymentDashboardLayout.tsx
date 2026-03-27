@@ -9,7 +9,7 @@ import {
   InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useContext, useState, useEffect } from "react";
 import udfs from "@common/udfs";
 import classNames from "classnames";
@@ -213,11 +213,7 @@ function PauseBanner() {
   return (
     <div className="border-y bg-background-error py-2 text-center text-content-error">
       This deployment is paused. Resume your deployment on the{" "}
-      <Link
-        passHref
-        href={`${deploymentsURI}/settings/pause-deployment`}
-        className="text-content-link hover:underline"
-      >
+      <Link passHref href={`${deploymentsURI}/settings/pause-deployment`}>
         settings
       </Link>{" "}
       page.

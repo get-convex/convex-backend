@@ -5,7 +5,7 @@ import { Sheet } from "@ui/Sheet";
 import { useTeamMembers, useTeamEntitlements } from "api/teams";
 import { useTeamInvites } from "api/invitations";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { TeamResponse } from "generatedApi";
 import startCase from "lodash/startCase";
 
@@ -61,7 +61,7 @@ export function TeamMembers({ team }: { team: TeamResponse }) {
             You've reached the member limit for this team.{" "}
             <Link
               href={`/${team.slug}/settings/billing`}
-              className="items-center text-content-link"
+              className="items-center"
             >
               Upgrade
             </Link>{" "}
@@ -82,7 +82,7 @@ export function TeamMembers({ team }: { team: TeamResponse }) {
             <Link
               href="mailto:support@convex.dev"
               passHref
-              className="items-center text-content-link"
+              className="items-center"
             >
               <EnvelopeClosedIcon className="mr-0.5 inline" />
               support@convex.dev

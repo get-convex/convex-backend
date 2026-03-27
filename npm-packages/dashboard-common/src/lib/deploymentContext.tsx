@@ -1,4 +1,5 @@
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { Link } from "@ui/Link";
 import { ConnectionState, ConvexHttpClient } from "convex/browser";
 import {
   createContext,
@@ -794,14 +795,13 @@ export function LocalDeploymentDisconnectOverlay() {
           <p className="mb-2">
             Brave blocks connections to localhost by default. We recommend using
             another browser or{" "}
-            <a
+            <Link
               href="https://docs.convex.dev/cli/local-deployments#brave"
               target="_blank"
               rel="noreferrer"
-              className="text-content-link hover:underline"
             >
               setting up Brave to allow localhost connections
-            </a>
+            </Link>
             .
           </p>
           <Button

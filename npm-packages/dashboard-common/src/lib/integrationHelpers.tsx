@@ -15,7 +15,7 @@ import {
   sentryConfig,
   webhookConfig,
 } from "system-udfs/convex/schema";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import classNames from "classnames";
 import { WebhookIcon } from "@common/elements/icons";
 import { DatadogLogo } from "@common/lib/logos/DatadogLogo";
@@ -283,7 +283,6 @@ export const STREAMING_EXPORT_DESCRIPTION = (
     <Link
       passHref
       href="https://docs.convex.dev/database/import-export/streaming"
-      className="text-content-link"
       target="_blank"
     >
       Learn more

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useCurrentTeam } from "../api/teams";
 
 export function TeamMemberLink({
@@ -20,7 +20,7 @@ export function TeamMemberLink({
   return (
     <Link
       target="_blank"
-      className="rounded text-content-link hover:underline focus-visible:outline-2 focus-visible:outline-border-selected"
+      className="rounded hover:underline focus-visible:outline-2 focus-visible:outline-border-selected"
       href={`/t/${team?.slug}/settings/members#${memberId}`}
     >
       {name}

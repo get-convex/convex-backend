@@ -8,7 +8,6 @@ import {
   CaretDownIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  ExternalLinkIcon,
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
@@ -22,7 +21,7 @@ import { functionIdentifierValue } from "@common/lib/functions/generateFileTree"
 import { ComponentId, useNents } from "@common/lib/useNents";
 import { documentHref } from "@common/lib/utils";
 import { cn } from "@ui/cn";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useContext } from "react";
 
 // Type definitions to match what's in api/insights.ts
@@ -560,10 +559,9 @@ function EventOccDocumentId({
             captureMessage,
           })}
           target="_blank"
-          className="flex items-center gap-1 text-content-link hover:underline"
+          externalIcon
         >
           {event.occDocumentId}
-          <ExternalLinkIcon className="size-3 shrink-0" />
         </Link>
       ) : (
         <span className="text-content-secondary">Unknown</span>

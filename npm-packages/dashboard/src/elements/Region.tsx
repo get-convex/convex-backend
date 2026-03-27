@@ -3,7 +3,7 @@ import { DeploymentRegionMetadata } from "@convex-dev/platform/managementApi";
 import { Field, Radio, Label } from "@headlessui/react";
 import { cn } from "@ui/cn";
 import { Tooltip } from "@ui/Tooltip";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { Loading } from "@ui/Loading";
 
 export function Region({
@@ -117,7 +117,6 @@ export function Region({
               <p>
                 <Link
                   href={`/t/${teamSlug}/settings/billing`}
-                  className="text-content-link hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   Upgrade your plan

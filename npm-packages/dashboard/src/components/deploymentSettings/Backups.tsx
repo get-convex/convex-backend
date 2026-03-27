@@ -22,7 +22,7 @@ import {
   TeamResponse,
   TeamEntitlementsResponse,
 } from "generatedApi";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useHasProjectAdminPermissions } from "api/roles";
@@ -60,10 +60,7 @@ export function Backups({
         <span className="text-sm">
           Use this page to automatically or manually backup and restore your
           deployment data.{" "}
-          <Link
-            href="https://docs.convex.dev/database/backup-restore"
-            className="text-content-link"
-          >
+          <Link href="https://docs.convex.dev/database/backup-restore">
             Learn more
           </Link>
         </span>
@@ -108,10 +105,7 @@ export function Backups({
           />
           <p className="text-xs text-content-secondary">
             Backups generation incurs{" "}
-            <Link
-              href="https://docs.convex.dev/database/backup-restore#how-are-they-priced"
-              className="text-content-link hover:underline"
-            >
+            <Link href="https://docs.convex.dev/database/backup-restore#how-are-they-priced">
               storage and bandwidth usage
             </Link>
             .
@@ -131,7 +125,6 @@ export function Backups({
                   your last snapshot{" "}
                   <Link
                     href={`/t/${team.slug}/${project?.slug}/${deployment.name}/settings/snapshots`}
-                    className="text-content-link hover:underline"
                   >
                     here
                   </Link>

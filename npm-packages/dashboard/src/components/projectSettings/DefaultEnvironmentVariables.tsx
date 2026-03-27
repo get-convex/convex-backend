@@ -12,7 +12,7 @@ import {
   DeploymentType as DeploymentTypeType,
   UpdateEnvironmentVariables,
 } from "generatedApi";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { EnvironmentVariables } from "@common/features/settings/components/EnvironmentVariables";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 
@@ -70,7 +70,6 @@ export function DefaultEnvironmentVariablesInner({
           <Link
             passHref
             href="https://docs.convex.dev/production/hosting/environment-variables#project-environment-variable-defaults"
-            className="text-content-link"
             target="_blank"
           >
             Learn more

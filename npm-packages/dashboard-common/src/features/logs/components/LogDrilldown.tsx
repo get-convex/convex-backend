@@ -27,7 +27,7 @@ import { LogOutput, messagesToString } from "@common/elements/LogOutput";
 import { CopyButton } from "@common/elements/CopyButton";
 import { DeploymentEventContent } from "@common/elements/DeploymentEventContent";
 import { Tab } from "@ui/Tab";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useHotkeys } from "react-hotkeys-hook";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { Callout } from "@ui/Callout";
@@ -180,7 +180,6 @@ export function LogDrilldown({
                 number of logs. If you need log persistence, try out{" "}
                 <Link
                   href="https://docs.convex.dev/production/integrations/log-streams/"
-                  className="text-content-link hover:underline"
                   target="_blank"
                 >
                   Log Streams

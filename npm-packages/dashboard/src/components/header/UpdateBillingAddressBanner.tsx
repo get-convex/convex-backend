@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import { useCurrentTeam } from "api/teams";
 import { useTeamOrbSubscription } from "api/billing";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 
 export function UpdateBillingAddressBanner() {
   const team = useCurrentTeam();
@@ -13,11 +13,7 @@ export function UpdateBillingAddressBanner() {
       )}
     >
       Your subscription is missing a full billing address. Please{" "}
-      <Link
-        href={`/t/${team?.slug}/settings/billing#billingAddress`}
-        passHref
-        className="text-content-link hover:underline"
-      >
+      <Link href={`/t/${team?.slug}/settings/billing#billingAddress`} passHref>
         update it on the Billing page
       </Link>{" "}
       to avoid issues processing future invoices.

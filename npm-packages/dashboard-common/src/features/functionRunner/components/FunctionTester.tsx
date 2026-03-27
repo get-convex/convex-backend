@@ -10,7 +10,7 @@ import { UserIdentityAttributes } from "convex/browser";
 import { ConvexReactClient } from "convex/react";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useCallback, useContext, useState } from "react";
 import { useDebounce } from "react-use";
 import { ZodError, z } from "zod";
@@ -663,7 +663,6 @@ export function useFunctionTester({
                     <Link
                       href="https://docs.convex.dev/dashboard/deployments/functions#assuming-a-user-identity"
                       passHref
-                      className="underline"
                       target="_blank"
                     >
                       Learn more

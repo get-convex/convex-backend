@@ -11,7 +11,6 @@ import {
   InfoCircledIcon,
   DotsVerticalIcon,
   QuestionMarkCircledIcon,
-  ExternalLinkIcon,
 } from "@radix-ui/react-icons";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import {
@@ -33,7 +32,7 @@ import { toast } from "@common/lib/utils";
 
 import { captureException, captureMessage } from "@sentry/nextjs";
 import { useProfile } from "api/profile";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 
 // Utility function to validate URLs without side effects
@@ -423,9 +422,8 @@ export function OauthApps({ teamId }: { teamId: number }) {
                   href="https://docs.convex.dev/platform-apis/oauth-applications"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex w-fit items-center gap-1 text-content-link hover:underline"
+                  externalIcon
                 >
-                  <ExternalLinkIcon />
                   Learn more about OAuth applications
                 </Link>
               </p>
@@ -475,9 +473,8 @@ export function OauthApps({ teamId }: { teamId: number }) {
                     href="https://docs.convex.dev/platform-apis/oauth-applications"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex w-fit items-center gap-1 text-content-link hover:underline"
+                    externalIcon
                   >
-                    <ExternalLinkIcon />
                     Learn more about OAuth applications
                   </Link>
                 </p>
@@ -486,9 +483,8 @@ export function OauthApps({ teamId }: { teamId: number }) {
                     href="https://docs.convex.dev/platform-apis"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex w-fit items-center gap-1 text-content-link hover:underline"
+                    externalIcon
                   >
-                    <ExternalLinkIcon />
                     Learn more about Convex Platform APIs
                   </Link>
                 </p>

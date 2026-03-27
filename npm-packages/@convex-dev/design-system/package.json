@@ -109,6 +109,10 @@
       "import": "./dist/KeyboardShortcut.jsx",
       "types": "./dist/KeyboardShortcut.d.ts"
     },
+    "./Link": {
+      "import": "./dist/Link.jsx",
+      "types": "./dist/Link.d.ts"
+    },
     "./Loading": {
       "import": "./dist/Loading.jsx",
       "types": "./dist/Loading.d.ts"

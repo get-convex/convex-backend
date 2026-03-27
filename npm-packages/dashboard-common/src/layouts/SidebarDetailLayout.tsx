@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { useQuery } from "convex/react";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { ReactNode, useContext, useRef, useState } from "react";
 import { useLocalStorage } from "react-use";
 import { gt } from "semver";
@@ -114,7 +114,6 @@ function NpmConvexServerVersionBanner() {
         <Link
           href="https://www.npmjs.com/package/convex"
           passHref
-          className="text-content-link"
           target="_blank"
         >
           convex package
@@ -124,7 +123,6 @@ function NpmConvexServerVersionBanner() {
         <Link
           href="https://news.convex.dev/tag/releases/"
           passHref
-          className="text-content-link"
           target="_blank"
         >
           release notes.

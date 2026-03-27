@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@ui/Link";
 import { Button } from "@ui/Button";
 import { toast } from "@common/lib/utils";
 import { CopyIcon } from "@radix-ui/react-icons";
@@ -57,12 +58,9 @@ export function WorkOSCredentialsSection({
         <p className="mb-3 text-xs text-content-secondary">
           Copy WORKOS_* environment variables to your build environment (like
           Vercel) to set up AuthKit for your frontend and run{" "}
-          <a
-            href="https://docs.convex.dev/auth/authkit"
-            className="text-content-link underline"
-          >
+          <Link href="https://docs.convex.dev/auth/authkit">
             authKit configuration specified in convex.json
-          </a>{" "}
+          </Link>{" "}
           during builds.
         </p>
 
@@ -124,23 +122,17 @@ WORKOS_COOKIE_PASSWORD="${cookiePassword}"`}
                 <>
                   {" "}
                   Create one in{" "}
-                  <a
-                    href={`/t/${teamSlug}/settings/deploy-keys#production`}
-                    className="text-content-link hover:underline"
-                  >
+                  <Link href={`/t/${teamSlug}/settings/deploy-keys#production`}>
                     Team Settings → Production Deploy Keys
-                  </a>
+                  </Link>
                 </>
               ) : (
                 <>
                   {" "}
                   Create one in{" "}
-                  <a
-                    href={`/t/${teamSlug}/settings/deploy-keys#preview`}
-                    className="text-content-link hover:underline"
-                  >
+                  <Link href={`/t/${teamSlug}/settings/deploy-keys#preview`}>
                     Team Settings → Preview Deploy Keys
-                  </a>
+                  </Link>
                 </>
               )}
             </div>

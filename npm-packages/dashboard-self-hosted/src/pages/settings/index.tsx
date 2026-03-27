@@ -1,7 +1,7 @@
 import { Sheet } from "@ui/Sheet";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { DeploymentSummary } from "@common/features/health/components/DeploymentSummary";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useContext, useRef } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
@@ -49,7 +49,6 @@ export default function Settings() {
                 <Link
                   href="https://docs.convex.dev/production/hosting/"
                   target="_blank"
-                  className="text-content-link hover:underline"
                 >
                   Learn more
                 </Link>
@@ -57,10 +56,7 @@ export default function Settings() {
             ) : (
               <p className="mt-1 max-w-prose text-content-primary">
                 Instead, generate an admin key instead using{" "}
-                <Link
-                  href="https://github.com/get-convex/convex-backend/tree/main/self-hosted#docker-configuration"
-                  className="text-content-link hover:underline"
-                >
+                <Link href="https://github.com/get-convex/convex-backend/tree/main/self-hosted#docker-configuration">
                   the script in your repository
                 </Link>
                 .

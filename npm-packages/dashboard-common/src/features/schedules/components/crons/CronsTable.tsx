@@ -1,5 +1,4 @@
 import { jsonToConvex, JSONValue } from "convex/values";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { CellProps, useTable } from "react-table";
@@ -21,6 +20,7 @@ import { prettier } from "@common/lib/format";
 import { Tooltip } from "@ui/Tooltip";
 import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { displayName } from "@common/lib/functions/generateFileTree";
+import { Link } from "@ui/Link";
 import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
 import { Button } from "@ui/Button";
 import { DetailPanel } from "@common/elements/DetailPanel";
@@ -82,11 +82,9 @@ function Function({ value }: CellProps<CronDatum, string>) {
   const url = useFunctionUrl(value);
   const name = displayName(value);
   return (
-    <div className="truncate text-content-link hover:underline">
-      <Link href={url} legacyBehavior>
-        {name}
-      </Link>
-    </div>
+    <Link href={url} className="truncate">
+      {name}
+    </Link>
   );
 }
 

@@ -1,4 +1,5 @@
 import { DownloadIcon, EnvelopeClosedIcon } from "@radix-ui/react-icons";
+import { Link } from "@ui/Link";
 import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 import { Callout } from "@ui/Callout";
@@ -93,13 +94,10 @@ export function SnapshotExport() {
             <Callout variant="error">
               <div>
                 Latest snapshot export failed. Please try again or contact us at{" "}
-                <a
-                  href="mailto:support@convex.dev"
-                  className="items-center text-content-link"
-                >
+                <Link href="mailto:support@convex.dev" className="items-center">
                   <EnvelopeClosedIcon className="mr-0.5 inline" />
                   support@convex.dev
-                </a>
+                </Link>
               </div>
             </Callout>
           ) : existingExport.state === "completed" &&

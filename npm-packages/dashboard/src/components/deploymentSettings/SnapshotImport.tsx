@@ -16,7 +16,7 @@ import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import { formatDistanceStrict } from "date-fns";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { snapshotImportFormat } from "system-udfs/convex/tableDefs/snapshotImport";
 import { Infer } from "convex/values";
@@ -394,7 +394,6 @@ export function SnapshotImport() {
               <Link
                 target="_blank"
                 href="https://docs.convex.dev/database/import-export/import"
-                className="text-content-link hover:underline"
               >
                 Learn more
               </Link>

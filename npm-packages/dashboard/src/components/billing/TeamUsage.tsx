@@ -39,7 +39,7 @@ import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
 import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { DateRange, useCurrentBillingPeriod } from "api/usage";
 import { cn } from "@ui/cn";
@@ -279,9 +279,7 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
         <h2 className="flex items-center gap-2">
           {section ? (
             <>
-              <Link href={summaryHref} className="text-content-link">
-                Usage
-              </Link>
+              <Link href={summaryHref}>Usage</Link>
               <span className="animate-fadeInFromLoading">/</span>
               <span className="animate-fadeInFromLoading">
                 {SECTION_TITLES[section]}

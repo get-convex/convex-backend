@@ -1,4 +1,5 @@
 import * as Yup from "yup";
+import { Link } from "@ui/Link";
 import { useFormik } from "formik";
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
@@ -67,14 +68,13 @@ function HmacSecretDisplay({
           Use this secret to verify webhook signatures.{" "}
           {!initialShowSecret &&
             "Regenerating the secret will immediately invalidate the old secret. "}
-          <a
+          <Link
             href="https://docs.convex.dev/production/integrations/log-streams/#webhook"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-content-link hover:underline"
           >
             Learn more about securing webhooks.
-          </a>
+          </Link>
         </p>
       </div>
     </>

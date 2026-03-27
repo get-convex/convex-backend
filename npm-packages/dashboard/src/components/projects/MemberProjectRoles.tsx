@@ -10,7 +10,7 @@ import {
   useCurrentProjectRoles,
 } from "api/roles";
 import { TeamMember } from "generatedApi";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useState } from "react";
 import sortBy from "lodash/sortBy";
 import { ProjectAdminFormModal } from "./ProjectAdminsFormModal";
@@ -64,7 +64,6 @@ export function MemberProjectRoles() {
         <Link
           href="https://docs.convex.dev/dashboard/teams#roles-and-permissions"
           target="_blank"
-          className="text-content-link hover:underline"
         >
           Learn more
         </Link>{" "}
@@ -107,11 +106,7 @@ export function MemberProjectRoles() {
                           </p>{" "}
                           <p>
                             You may view and manage team admins on the{" "}
-                            <Link
-                              className="underline"
-                              href={`/t/${team?.slug}/settings/members`}
-                              passHref
-                            >
+                            <Link href={`/t/${team?.slug}/settings/members`}>
                               member settings
                             </Link>{" "}
                             page.

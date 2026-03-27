@@ -22,7 +22,7 @@ import {
 } from "generatedApi";
 import { captureMessage } from "@sentry/nextjs";
 import startCase from "lodash/startCase";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useDeploymentById } from "api/deployments";
 import { BackupIdentifier } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
@@ -685,7 +685,7 @@ export function ProjectLink({
   return project ? (
     <Link
       href={`/t/${team.slug}/${project.slug}/settings`}
-      className="font-semibold text-content-link hover:underline"
+      className="font-semibold"
       target="_blank"
     >
       {projectName}
@@ -903,7 +903,7 @@ function DeploymentSettingsLink({
     <>
       <Link
         href={`/t/${team.slug}/${project.slug}/${deployment.name}/settings${urlSuffix}`}
-        className="font-semibold text-content-link hover:underline"
+        className="font-semibold"
         target="_blank"
       >
         {deploymentDisplayName(deployment)}
@@ -928,7 +928,7 @@ function ProjectSettingsLink({
   return (
     <Link
       href={`/t/${team.slug}/${project.slug}/settings`}
-      className="font-semibold text-content-link hover:underline"
+      className="font-semibold"
       target="_blank"
     >
       {project.name}

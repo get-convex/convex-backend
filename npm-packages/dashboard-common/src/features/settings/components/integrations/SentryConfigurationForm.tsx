@@ -12,7 +12,7 @@ import {
   useDeleteLogStream,
 } from "@common/lib/integrationsApi";
 import { toast } from "@common/lib/utils";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import * as Yup from "yup";
 
 const sentryValidationSchema = Yup.object().shape({
@@ -141,7 +141,6 @@ export function SentryConfigurationForm({
             Sentry Data Source Name (DSN) to route exceptions to.{" "}
             <Link
               href="https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/"
-              className="text-content-link"
               target="_blank"
             >
               Learn more

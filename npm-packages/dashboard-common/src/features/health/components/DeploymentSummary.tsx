@@ -24,7 +24,7 @@ import {
   ExternalLinkIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useContext, useEffect, useState } from "react";
 import semver from "semver";
 import { Button } from "@ui/Button";
@@ -284,14 +284,13 @@ export function DeploymentSummary({
                     tip={
                       <span className="flex items-center gap-1">
                         Deployment class
-                        <a
+                        <Link
                           href="https://docs.convex.dev/production/state/limits"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-content-link hover:underline"
                         >
                           <QuestionMarkCircledIcon className="size-3.5" />
-                        </a>
+                        </Link>
                       </span>
                     }
                   >
@@ -338,6 +337,7 @@ export function DeploymentSummary({
                       aria-label="Convex NPM Package Upgrade Available"
                       href="https://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog"
                       target="_blank"
+                      // eslint-disable-next-line no-restricted-syntax -- manual Link-Button hybrid implementation
                       className="h-[1.25rem] text-content-link"
                     >
                       <div>({latestVersion} available)</div>
@@ -399,7 +399,6 @@ export function DeploymentSummary({
                       </span>
                       <Link
                         href={backupSettingsUrl}
-                        className="text-content-link hover:underline"
                         aria-label="View backup settings"
                       >
                         <ExternalLinkIcon className="size-3.5" />
@@ -416,7 +415,6 @@ export function DeploymentSummary({
                       />
                       <Link
                         href={backupSettingsUrl}
-                        className="text-content-link hover:underline"
                         aria-label="View backup settings"
                       >
                         <ExternalLinkIcon className="size-3.5" />
@@ -470,7 +468,8 @@ export function DeploymentSummary({
                 href={convexCloudUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-content-link hover:underline"
+                className="font-mono text-xs break-all"
+                noUnderline
               >
                 {convexCloudUrl}
               </Link>
@@ -483,7 +482,8 @@ export function DeploymentSummary({
                 href={convexSiteUrl!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-content-link hover:underline"
+                className="font-mono text-xs break-all"
+                noUnderline
               >
                 {convexSiteUrl}
               </Link>

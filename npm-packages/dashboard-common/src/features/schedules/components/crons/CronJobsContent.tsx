@@ -9,7 +9,6 @@ import {
   ReloadIcon,
   StopwatchIcon,
 } from "@radix-ui/react-icons";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useRef } from "react";
 import {
@@ -23,6 +22,7 @@ import { PageContent } from "@common/elements/PageContent";
 import { LoadingTransition } from "@ui/Loading";
 import { Sheet } from "@ui/Sheet";
 import { Tooltip } from "@ui/Tooltip";
+import { Link } from "@ui/Link";
 import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { formatDateTime, msFormat } from "@common/lib/format";
 import { displayName } from "@common/lib/functions/generateFileTree";
@@ -152,11 +152,9 @@ function CronJobLogListItem({ cronJobLog }: { cronJobLog: CronJobLog }) {
               : ""}
           </div>
           <LogStatusLine status={cronJobLog.status} />
-          <div className="truncate text-content-link hover:underline">
-            <Link href={url} legacyBehavior>
-              {displayName(cronJobLog.udfPath)}
-            </Link>
-          </div>
+          <Link href={url} className="truncate">
+            {displayName(cronJobLog.udfPath)}
+          </Link>
         </div>
         {cronJobLog.status.type === "success" ||
         cronJobLog.status.type === "err" ? (
@@ -235,11 +233,9 @@ export function TopCronJobLogListItem({
               {currentlyRunning ? "running" : "scheduled"}
             </span>
           </div>
-          <div className="truncate text-content-link hover:underline">
-            <Link href={url} legacyBehavior>
-              {displayName(cronJob.cronSpec.udfPath)}
-            </Link>
-          </div>
+          <Link href={url} className="truncate">
+            {displayName(cronJob.cronSpec.udfPath)}
+          </Link>
         </div>
       </div>
     </div>

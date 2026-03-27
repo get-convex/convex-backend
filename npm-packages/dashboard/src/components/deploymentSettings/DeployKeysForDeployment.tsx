@@ -7,7 +7,7 @@ import {
   useInstanceAccessTokens,
 } from "api/accessTokens";
 import { useHasProjectAdminPermissions } from "api/roles";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
   TeamResponse,
@@ -147,7 +147,6 @@ export function DeployKeysForDeployment() {
       <Link
         passHref
         href="https://docs.convex.dev/production/hosting"
-        className="text-content-link"
         target="_blank"
       >
         hosting provider
@@ -156,7 +155,6 @@ export function DeployKeysForDeployment() {
       <Link
         passHref
         href="https://docs.convex.dev/database/import-export/streaming"
-        className="text-content-link"
         target="_blank"
       >
         Fivetran or Airbyte

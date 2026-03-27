@@ -17,7 +17,7 @@ import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
 import { PaginationControls } from "elements/PaginationControls";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import sortBy from "lodash/sortBy";
 import { DeploymentRow } from "./DeploymentRow";
 
@@ -495,13 +495,7 @@ export function DeploymentList({
         <div className="mb-4 flex w-full items-start justify-between gap-8">
           <p className="shrink text-xs text-pretty text-content-secondary">
             Looking for a local deployment?{" "}
-            <Link
-              href={`/t/${team.slug}`}
-              className="text-content-link hover:underline"
-            >
-              Visit your project directly
-            </Link>
-            .
+            <Link href={`/t/${team.slug}`}>Visit your project directly</Link>.
           </p>
           <PaginationControls
             showPageSize

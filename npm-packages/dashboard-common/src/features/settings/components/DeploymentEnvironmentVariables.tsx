@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common";
 import {
@@ -54,12 +54,7 @@ export function DeploymentEnvironmentVariables({
           <InfoCircledIcon />
           <p className="flex-1">
             This deployment has different environment variables from the{" "}
-            <Link
-              className="text-content-link underline"
-              href={projectSettingsURI}
-            >
-              project defaults.
-            </Link>
+            <Link href={projectSettingsURI}>project defaults.</Link>
           </p>
         </div>
         <Button

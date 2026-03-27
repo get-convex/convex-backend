@@ -8,7 +8,7 @@ import { useAccessToken, useInitialData } from "hooks/useServerSideData";
 import { Button } from "@ui/Button";
 import { Callout } from "@ui/Callout";
 import { LoadingLogo } from "@ui/Loading";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { UIProvider } from "@ui/UIContext";
 import { useWorkOS } from "hooks/useWorkOS";
 import { User } from "@workos-inc/node";
@@ -110,7 +110,7 @@ function withSWRFallback(Page: NextPage) {
             <Link
               href="mailto:support@convex.dev"
               passHref
-              className="items-center text-content-link"
+              className="items-center"
             >
               support@convex.dev
             </Link>{" "}
@@ -126,7 +126,7 @@ function withSWRFallback(Page: NextPage) {
             <Link
               href="mailto:support@convex.dev"
               passHref
-              className="items-center text-content-link"
+              className="items-center"
             >
               support@convex.dev
             </Link>

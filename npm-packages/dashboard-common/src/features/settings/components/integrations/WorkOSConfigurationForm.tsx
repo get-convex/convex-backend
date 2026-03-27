@@ -5,7 +5,7 @@ import {
   DeploymentInfo,
   DeploymentInfoContext,
 } from "@common/lib/deploymentContext";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { Loading } from "@ui/Loading";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import {
@@ -316,11 +316,7 @@ function ProvisionWorkOSTeamSection({
       <div className="flex flex-col gap-2">
         <p className="text-sm text-content-secondary">
           Create a WorkOS team for this team to let Convex to create new{" "}
-          <Link
-            href="https://workos.com/docs/authkit/authkit"
-            className="text-content-link hover:underline"
-            target="_blank"
-          >
+          <Link href="https://workos.com/docs/authkit/authkit" target="_blank">
             AuthKit
           </Link>{" "}
           environments in that WorkOS workspace.
@@ -330,7 +326,6 @@ function ProvisionWorkOSTeamSection({
             You can also use AuthKit without creating a new WorkOS team by{" "}
             <Link
               href="https://workos.com/docs/authkit/authkit"
-              className="text-content-link hover:underline"
               target="_blank"
             >
               configuring it manually
@@ -433,11 +428,7 @@ function ProvisionWorkOSTeamSection({
 
       <p className="text-xs text-content-tertiary">
         Need to use a different email?{" "}
-        <Link
-          href="/profile"
-          className="text-content-link hover:underline"
-          target="_blank"
-        >
+        <Link href="/profile" target="_blank">
           Add and verify an email in your profile
         </Link>
       </p>
@@ -551,7 +542,6 @@ function WorkOSTeamSection({
                   Add an <code>authKit</code> section to your project's
                   <Link
                     href="https://docs.convex.dev/auth/authkit/auto-provision"
-                    className="text-content-link hover:underline"
                     target="_blank"
                   >
                     convex.json
@@ -638,14 +628,13 @@ function WorkOSTeamSection({
               <span className="inline-flex items-center gap-1 text-content-secondary">
                 <ExclamationTriangleIcon className="h-4 w-4 flex-shrink-0 text-content-warning" />
                 <span>
-                  <a
+                  <Link
                     href="https://dashboard.workos.com/settings/billing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-content-link hover:underline"
                   >
                     Add payment method in WorkOS
-                  </a>{" "}
+                  </Link>{" "}
                   to provision production AuthKit environments.
                 </span>
               </span>
@@ -991,14 +980,13 @@ function ConsolidatedEnvironmentSection({
                 <span>{environment.workosEnvironmentName}</span>
                 <WorkOSEnvironmentInfo environment={environment} />
               </span>{" "}
-              <a
+              <Link
                 href={`https://dashboard.workos.com/${environment.workosEnvironmentId}/authentication`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-content-link hover:underline"
               >
                 View in WorkOS
-              </a>
+              </Link>
             </p>
           </div>
 
@@ -1289,7 +1277,6 @@ function ConsolidatedEnvironmentSection({
               <code>redirectUris</code> in{" "}
               <Link
                 href="https://docs.convex.dev/auth/authkit/auto-provision"
-                className="text-content-link hover:underline"
                 target="_blank"
               >
                 convex.json
@@ -1311,17 +1298,12 @@ function ConsolidatedEnvironmentSection({
             <p className="text-sm">{notSupportedReason}</p>
             <p className="text-sm">
               You can{" "}
-              <Link
-                href="https://docs.convex.dev/auth/authkit"
-                className="text-content-link hover:underline"
-                target="_blank"
-              >
+              <Link href="https://docs.convex.dev/auth/authkit" target="_blank">
                 configure WorkOS AuthKit manually
               </Link>{" "}
               by setting{" "}
               <Link
                 href={`${envVarsLink}?var=WORKOS_CLIENT_ID&var=WORKOS_API_KEY`}
-                className="text-content-link hover:underline"
               >
                 environment variables
               </Link>
@@ -1417,7 +1399,6 @@ function ModalFooter() {
     <p className="text-sm text-content-primary">
       <Link
         href="https://docs.convex.dev/auth/authkit/auto-provision"
-        className="text-content-link hover:underline"
         target="_blank"
       >
         Learn more about automatic creation of WorkOS environments

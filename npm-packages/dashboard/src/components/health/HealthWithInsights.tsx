@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useContext,
   createContext,
+  PropsWithChildren,
 } from "react";
 import { cn } from "@ui/cn";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
@@ -23,7 +24,7 @@ import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useListCloudBackups } from "api/backups";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import {
   itemIdentifier,
   useModuleFunctions,
@@ -35,6 +36,7 @@ import {
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";
+import { UrlObject } from "url";
 
 // We need a context here so the insights components can have data provided to them without rerendering the Health page.
 const InsightsContext = createContext<
@@ -129,42 +131,53 @@ export function HealthWithInsights() {
           />
         )}
         <h3 className="flex items-center gap-2 py-2">
-          <Link
-            href={{
-              pathname: "/t/[team]/[project]/[deploymentName]",
-              query: {
-                team: query.team,
-                project: query.project,
-                deploymentName: query.deploymentName,
-                ...(query.lowInsightsThreshold
-                  ? { lowInsightsThreshold: query.lowInsightsThreshold }
-                  : {}),
-              },
-            }}
-            className={page !== "home" ? "text-content-link" : ""}
+          <MaybeLink
+            href={
+              page === "home"
+                ? null
+                : {
+                    pathname: "/t/[team]/[project]/[deploymentName]",
+                    query: {
+                      team: query.team,
+                      project: query.project,
+                      deploymentName: query.deploymentName,
+                      ...(query.lowInsightsThreshold
+                        ? { lowInsightsThreshold: query.lowInsightsThreshold }
+                        : {}),
+                    },
+                  }
+            }
           >
             Health
-          </Link>{" "}
+          </MaybeLink>{" "}
           {page.startsWith("insight") && (
             <>
               <span className="animate-fadeInFromLoading">/</span>
-              <Link
-                href={{
-                  pathname: "/t/[team]/[project]/[deploymentName]",
-                  query: {
-                    team: query.team,
-                    project: query.project,
-                    deploymentName: query.deploymentName,
-                    view: "insights",
-                    ...(query.lowInsightsThreshold
-                      ? { lowInsightsThreshold: query.lowInsightsThreshold }
-                      : {}),
-                  },
-                }}
-                className="text-content-link"
-              >
-                <span className="animate-fadeInFromLoading">Insights</span>
-              </Link>
+              <span className="animate-fadeInFromLoading">
+                <MaybeLink
+                  href={
+                    page === "insights"
+                      ? null
+                      : {
+                          pathname: "/t/[team]/[project]/[deploymentName]",
+                          query: {
+                            team: query.team,
+                            project: query.project,
+                            deploymentName: query.deploymentName,
+                            view: "insights",
+                            ...(query.lowInsightsThreshold
+                              ? {
+                                  lowInsightsThreshold:
+                                    query.lowInsightsThreshold,
+                                }
+                              : {}),
+                          },
+                        }
+                  }
+                >
+                  Insights
+                </MaybeLink>
+              </span>
             </>
           )}
           {selectedInsight && (
@@ -327,5 +340,18 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
       {children}
       <SmallInsightsSummary onViewAll={onViewAll || (() => {})} />
     </div>
+  );
+}
+
+function MaybeLink({
+  href,
+  children,
+}: PropsWithChildren<{
+  href: UrlObject | null;
+}>) {
+  return href === null ? (
+    <span>{children}</span>
+  ) : (
+    <Link href={href}>{children}</Link>
   );
 }

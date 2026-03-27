@@ -22,7 +22,7 @@ import { useFormik } from "formik";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useState, useMemo, ReactNode } from "react";
 import {
   PlatformDeploymentResponse,
@@ -91,7 +91,6 @@ export function CustomDomains({
                 {defaultProdDeployment && project ? (
                   <Link
                     href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings/custom-domains`}
-                    className="text-content-link hover:underline"
                   >
                     Go to production custom domains.
                   </Link>
@@ -110,10 +109,7 @@ export function CustomDomains({
                       only available on the Pro plan
                     </span>
                     .{" "}
-                    <Link
-                      href={`/t/${team.slug}/settings/billing`}
-                      className="underline"
-                    >
+                    <Link href={`/t/${team.slug}/settings/billing`}>
                       Upgrade to get access.
                     </Link>
                   </div>

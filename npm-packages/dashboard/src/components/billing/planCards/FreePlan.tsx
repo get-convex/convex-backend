@@ -4,7 +4,7 @@ import { formatDate } from "@common/lib/format";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Checkbox } from "@ui/Checkbox";
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useCancelSubscription } from "api/billing";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
@@ -96,12 +96,7 @@ export function FreePlan({
               </p>
               <p>
                 If this team's{" "}
-                <Link
-                  className="text-content-link hover:underline"
-                  href={`/t/${team?.slug}/settings/usage`}
-                >
-                  usage
-                </Link>{" "}
+                <Link href={`/t/${team?.slug}/settings/usage`}>usage</Link>{" "}
                 exceeds the Free plan limits, your projects may be automatically
                 disabled.
               </p>

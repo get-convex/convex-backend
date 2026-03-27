@@ -1,4 +1,5 @@
 import groupBy from "lodash/groupBy";
+import { Link } from "@ui/Link";
 import {
   MagnifyingGlassIcon,
   QuestionMarkCircledIcon,
@@ -57,14 +58,13 @@ export function IndexesList({
           <p>
             <strong className="font-semibold">Hint</strong>: When adding an
             index to a large table, consider using a{" "}
-            <a
+            <Link
               href="https://docs.convex.dev/database/reading-data/indexes/#staged-indexes"
               target="_blank"
               rel="noreferrer"
-              className="underline"
             >
               staged index
-            </a>{" "}
+            </Link>{" "}
             to avoid blocking deploy.
           </p>
         </Callout>
@@ -124,14 +124,9 @@ function IndexListSection({
         <HelpTooltip>
           <p>
             {description}{" "}
-            <a
-              href={learnMoreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-content-link hover:underline"
-            >
+            <Link href={learnMoreUrl} target="_blank" rel="noopener noreferrer">
               Learn more
-            </a>
+            </Link>
           </p>
         </HelpTooltip>
       </header>

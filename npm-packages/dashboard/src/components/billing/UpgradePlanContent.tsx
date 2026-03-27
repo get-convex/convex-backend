@@ -8,7 +8,7 @@ import { useGetCoupon, useCreateSubscription } from "api/billing";
 import { FormikProvider, useFormik, useFormikContext } from "formik";
 import * as Yup from "yup";
 import { Address, PlanResponse, TeamResponse } from "generatedApi";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { PriceSummary } from "components/billing/PriceSummary";
 import { usePostHog } from "hooks/usePostHog";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
@@ -419,12 +419,7 @@ export function UpgradePlanContent({
       {isChef && plan.planType === "CONVEX_STARTER_PLUS" && (
         <p className="mb-2">
           {plan.name} is recommended for Convex Chef users.{" "}
-          <Link
-            href="/team/settings/billing"
-            className="text-content-link hover:underline"
-          >
-            View all plans.
-          </Link>
+          <Link href="/team/settings/billing">View all plans.</Link>
         </p>
       )}
       <div className="flex flex-col gap-4">

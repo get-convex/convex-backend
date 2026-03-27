@@ -12,7 +12,7 @@ import {
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { Tooltip } from "@ui/Tooltip";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { formatUsd } from "@common/lib/utils";
 import { TeamResponse } from "generatedApi";
 import * as Sentry from "@sentry/nextjs";
@@ -259,10 +259,7 @@ function UsageDefinition() {
       tip={
         <>
           Resources used beyond the{" "}
-          <Link
-            className="text-content-link hover:underline"
-            href="https://www.convex.dev/pricing"
-          >
+          <Link href="https://www.convex.dev/pricing">
             built-in resources of your plan
           </Link>
           . Seat fees are not counted in your spending limits.

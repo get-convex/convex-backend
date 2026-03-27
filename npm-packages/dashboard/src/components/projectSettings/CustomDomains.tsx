@@ -3,7 +3,7 @@ import { Callout } from "@ui/Callout";
 import { Sheet } from "@ui/Sheet";
 import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { ReactNode } from "react";
 import { TeamResponse } from "generatedApi";
 import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
@@ -35,7 +35,6 @@ export function CustomDomains({
             {defaultProdDeployment && project ? (
               <Link
                 href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings/custom-domains`}
-                className="text-content-link hover:underline"
               >
                 Deployment Settings
               </Link>
@@ -56,10 +55,7 @@ export function CustomDomains({
                     only available on the Pro plan
                   </span>
                   .{" "}
-                  <Link
-                    href={`/t/${team.slug}/settings/billing`}
-                    className="underline"
-                  >
+                  <Link href={`/t/${team.slug}/settings/billing`}>
                     Upgrade to get access.
                   </Link>
                 </div>

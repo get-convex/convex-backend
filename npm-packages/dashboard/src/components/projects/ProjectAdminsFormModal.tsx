@@ -5,7 +5,7 @@ import { TeamMemberLink } from "elements/TeamMemberLink";
 import { ProjectMemberRoleResponse, TeamMember } from "generatedApi";
 import difference from "lodash/difference";
 import sortBy from "lodash/sortBy";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useState } from "react";
 import type { ProjectDetails } from "generatedApi";
 
@@ -132,10 +132,7 @@ export function ProjectAdminFormModal({
         <p className="text-xs text-content-secondary">
           Pro-tip! You can manage the Project Admin role for multiple projects
           at the same time on the{" "}
-          <Link
-            href="https://docs.convex.dev/dashboard/teams#members"
-            className="text-content-link hover:underline"
-          >
+          <Link href="https://docs.convex.dev/dashboard/teams#members">
             Team Member Settings
           </Link>{" "}
           page.{" "}

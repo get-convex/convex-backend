@@ -25,7 +25,7 @@ import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { DefaultEnvironmentVariables } from "components/projectSettings/DefaultEnvironmentVariables";
 import { getAccessTokenBasedDeployKeyForPreview } from "components/deploymentSettings/DeployKeysForDeployment";
 import { ProjectDetails } from "generatedApi";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import Head from "next/head";
 import { useAccessToken } from "hooks/useServerSideData";
 import { MemberProjectRoles } from "components/projects/MemberProjectRoles";
@@ -290,10 +290,7 @@ function ProjectSettings() {
         <p className="mt-1 mb-2 text-xs text-content-secondary">
           There may also be <b>team-wide authorized applications</b> that can
           access all projects in this team. You can view them in{" "}
-          <Link
-            href={`/t/${team.slug}/settings/applications`}
-            className="text-content-link hover:underline"
-          >
+          <Link href={`/t/${team.slug}/settings/applications`}>
             Team Settings
           </Link>
           .
@@ -379,7 +376,6 @@ function ProjectSettings() {
                     <p className="text-sm">
                       View this project's usage and limits on{" "}
                       <Link
-                        className="text-content-link hover:underline"
                         href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
                       >
                         this team's usage page
@@ -525,7 +521,6 @@ function ProductionDeployKeys({ project }: { project: ProjectDetails }) {
             {team && defaultProdDeployment ? (
               <Link
                 href={`/t/${team.slug}/${project.slug}/${defaultProdDeployment.name}/settings`}
-                className="text-content-link hover:underline"
               >
                 Deployment Settings
               </Link>
@@ -557,7 +552,6 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
       <Link
         passHref
         href="https://docs.convex.dev/production/hosting/preview-deployments"
-        className="text-content-link"
         target="_blank"
       >
         preview deployments
@@ -566,7 +560,6 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
       <Link
         passHref
         href="https://docs.convex.dev/production/hosting"
-        className="text-content-link"
         target="_blank"
       >
         hosting provider

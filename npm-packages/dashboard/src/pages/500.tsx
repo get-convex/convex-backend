@@ -1,6 +1,6 @@
 import { captureMessage } from "@sentry/nextjs";
 import { Callout } from "@ui/Callout";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 
 export default function Custom500() {
   return <Fallback eventId={null} error={new Error("Internal Server Error")} />;
@@ -43,19 +43,14 @@ export function Fallback({
               <Link
                 href="mailto:support@convex.dev"
                 passHref
-                className="items-center text-content-link"
+                className="items-center"
               >
                 support@convex.dev
               </Link>{" "}
               for support with this issue.
             </p>
             {eventId !== null && <div>Event ID: {eventId}</div>}{" "}
-            <Link
-              href="https://status.convex.dev"
-              className="text-content-link hover:underline"
-            >
-              Convex Status page
-            </Link>
+            <Link href="https://status.convex.dev">Convex Status page</Link>
           </div>
         </Callout>
       </div>

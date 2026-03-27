@@ -10,7 +10,7 @@ import {
   LogIntegration,
 } from "@common/lib/integrationHelpers";
 
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import {
   DeploymentInfo,
   DeploymentInfoContext,
@@ -141,7 +141,6 @@ export function Integrations({
             <Link
               href="https://docs.convex.dev/production/integrations/"
               target="_blank"
-              className="text-content-link hover:underline"
             >
               Learn more
             </Link>{" "}

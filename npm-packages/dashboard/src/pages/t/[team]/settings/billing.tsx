@@ -7,7 +7,7 @@ import { useListPlans, useTeamOrbSubscription } from "api/billing";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
 import { TeamSettingsLayout } from "layouts/TeamSettingsLayout";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useRouter } from "next/router";
 import { TeamResponse } from "generatedApi";
 import { Plans } from "components/billing/Plans";
@@ -117,7 +117,6 @@ function Billing({ team }: { team: TeamResponse }) {
                       <Link
                         href="https://convex.dev/plans"
                         passHref
-                        className="text-content-link"
                         target="_blank"
                       >
                         pricing page
@@ -199,7 +198,7 @@ function BillingErrorFallback({ eventId }: { eventId: string | null }) {
           <Link
             href="mailto:support@convex.dev"
             passHref
-            className="items-center text-content-link"
+            className="items-center"
           >
             support@convex.dev
           </Link>{" "}

@@ -4,6 +4,7 @@ import { LoadingLogo } from "@ui/Loading";
 import { useAcceptOptIns, useHasOptedIn } from "api/optins";
 import { useRouter } from "next/router";
 import { ChangeEvent, useEffect, useState } from "react";
+import { Link } from "@ui/Link";
 
 // TODO get these from the server once there are more of them
 const OPT_IN_MESSAGES: Record<
@@ -50,14 +51,9 @@ function CheckboxLine({
       >
         <span>
           {text}{" "}
-          <a
-            href={linkUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="underline"
-          >
+          <Link href={linkUrl} target="_blank" rel="noreferrer">
             {linkText}
-          </a>
+          </Link>
           .
         </span>
       </label>

@@ -23,7 +23,7 @@ import {
 } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import { useProfileEmails } from "api/profile";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { LoadingTransition } from "@ui/Loading";
 import { OpenInVercel } from "components/OpenInVercel";
 import startCase from "lodash/startCase";
@@ -271,10 +271,7 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
                                           you will not be able to log in with
                                           SSO with this domain.
                                         </span>
-                                        <Link
-                                          href="/profile"
-                                          className="text-content-link hover:underline"
-                                        >
+                                        <Link href="/profile">
                                           You may verify an email on the profile
                                           page.
                                         </Link>

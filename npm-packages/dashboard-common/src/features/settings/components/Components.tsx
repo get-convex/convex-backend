@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useDeleteComponent } from "@common/features/settings/lib/api";
 import { Sheet } from "@ui/Sheet";
@@ -28,10 +28,8 @@ export function Components({ nents }: { nents: Nent[] }) {
           This page lists all of the components that are configured in your
           project's <pre>convex.config.ts</pre> file. You may delete components
           that have been unmounted.{" "}
-          <Link
-            // TODO(ENG-7301): Update this link to the correct URL
+          <Link // TODO(ENG-7301): Update this link to the correct URL
             href="https://docs.convex.dev/components"
-            className="text-content-link hover:underline"
           >
             Learn more
           </Link>

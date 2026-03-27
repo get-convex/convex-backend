@@ -1,6 +1,6 @@
 import { planNameMap } from "components/billing/planCards/PlanCard";
 import { PlanResponse } from "generatedApi";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import startCase from "lodash/startCase";
 import { Callout } from "@ui/Callout";
 
@@ -60,11 +60,7 @@ export function PriceSummary({
         <p className="max-w-prose">
           {newPlanName} is a "pay as you go" plan. You'll be charged for usage
           above the included limits of this plan. See the{" "}
-          <Link
-            href="https://convex.dev/pricing"
-            target="_blank"
-            className="text-content-link hover:underline"
-          >
+          <Link href="https://convex.dev/pricing" target="_blank">
             pricing page
           </Link>{" "}
           for more details on usage-based pricing.

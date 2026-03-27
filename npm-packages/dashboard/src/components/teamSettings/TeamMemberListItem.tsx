@@ -15,7 +15,7 @@ import { CaretSortIcon } from "@radix-ui/react-icons";
 import { useMount } from "react-use";
 import classNames from "classnames";
 import startCase from "lodash/startCase";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { Callout } from "@ui/Callout";
 import { MemberProjectRolesModal } from "./MemberProjectRolesModal";
 
@@ -147,10 +147,7 @@ export function TeamMemberListItem({
                 tip: (
                   <span>
                     Change this member's{" "}
-                    <Link
-                      href="https://docs.convex.dev/dashboard/teams#roles-and-permissions"
-                      className="underline"
-                    >
+                    <Link href="https://docs.convex.dev/dashboard/teams#roles-and-permissions">
                       team role
                     </Link>
                     .

@@ -1,5 +1,5 @@
 import { captureException } from "@sentry/nextjs";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import React from "react";
 
 import { Callout } from "@ui/Callout";
@@ -15,7 +15,7 @@ export function Fallback({ eventId }: { eventId: string | null }) {
           <Link
             href="mailto:support@convex.dev"
             passHref
-            className="items-center text-content-link"
+            className="items-center"
           >
             support@convex.dev
           </Link>{" "}

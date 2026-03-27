@@ -13,7 +13,7 @@ import type {
   UpdateProjectRolesArgs,
   TeamMember,
 } from "generatedApi";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { usePaginatedProjects } from "api/projects";
 import sortBy from "lodash/sortBy";
@@ -242,10 +242,7 @@ export function MemberProjectRolesModal({
         <p className="mt-1 text-xs text-content-secondary">
           Pro-tip! You can manage the Project Admin role for multiple members at
           the same time on the{" "}
-          <Link
-            href="https://docs.convex.dev/dashboard/projects#project-settings"
-            className="text-content-link hover:underline"
-          >
+          <Link href="https://docs.convex.dev/dashboard/projects#project-settings">
             Project Settings
           </Link>{" "}
           page.{" "}

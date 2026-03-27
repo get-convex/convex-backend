@@ -10,7 +10,7 @@ import { useCreateInvite } from "api/invitations";
 import { useTeamOrbSubscription } from "api/billing";
 import { TeamResponse, CreateInvitationArgs, TeamMember } from "generatedApi";
 import * as Yup from "yup";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { roleOptions } from "./TeamMemberListItem";
 
 export type InviteMemberFormProps = {
@@ -101,10 +101,7 @@ export function InviteMemberForm({
                 tip: (
                   <span>
                     Select a{" "}
-                    <Link
-                      href="https://docs.convex.dev/dashboard/teams#roles-and-permissions"
-                      className="underline"
-                    >
+                    <Link href="https://docs.convex.dev/dashboard/teams#roles-and-permissions">
                       team role
                     </Link>{" "}
                     for the new member.

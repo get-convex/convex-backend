@@ -3,7 +3,7 @@ import { ValidatorJSON, Value } from "convex/values";
 import { GenericDocument } from "convex/server";
 import isEqual from "lodash/isEqual";
 import omitBy from "lodash/omitBy";
-import Link from "next/link";
+import { Link } from "@ui/Link";
 import { createGlobalState } from "react-use";
 import { JavascriptDocumentsForm } from "@common/features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
 import { useNents } from "@common/lib/useNents";
@@ -130,7 +130,6 @@ export function EditDocumentPanel({
         <Link
           passHref
           href={`https://docs.convex.dev/dashboard/deployments/data#${docsSection}`}
-          className="text-content-link"
           target="_blank"
         >
           Learn more
