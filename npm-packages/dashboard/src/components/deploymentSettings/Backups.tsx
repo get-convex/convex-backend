@@ -53,6 +53,26 @@ export function Backups({
   const canPerformActions =
     deployment.deploymentType !== "prod" || hasAdminPermissions;
 
+  if (deployment.kind === "cloud" && deployment.class.startsWith("d")) {
+    return (
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h3 className="min-w-fit">Backup & Restore</h3>
+        </div>
+        <Callout className="max-w-prose">
+          <span>
+            Backups for {deployment.class.toUpperCase()} deployments are
+            produced every 12 hours. Contact the Convex team to restore from a
+            backup{" "}
+            <Link href="https://docs.convex.dev/database/backup-restore">
+              Learn more about backups
+            </Link>
+          </span>
+        </Callout>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -61,7 +81,7 @@ export function Backups({
           Use this page to automatically or manually backup and restore your
           deployment data.{" "}
           <Link href="https://docs.convex.dev/database/backup-restore">
-            Learn more
+            Learn more about backups
           </Link>
         </span>
       </div>
