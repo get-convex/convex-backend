@@ -122,8 +122,9 @@ export const deploymentCreate = new Command("create")
         `Provisioned a ${created.isDefault ? "default " : ""}${created.deploymentType} deployment.`,
       );
       if (type !== "prod") {
+        const selectRef = `${teamSlug}:${projectSlug}:${created.reference}`;
         logMessage(
-          `\nTo make \`npx convex\` use this deployment, run ${chalkStderr.bold(`npx convex deployment select ${created.reference}`)}`,
+          `\nTo make \`npx convex\` use this deployment, run ${chalkStderr.bold(`npx convex deployment select ${selectRef}`)}`,
         );
         logMessage(
           chalkStderr.gray(

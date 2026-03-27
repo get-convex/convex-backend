@@ -383,6 +383,22 @@ describe("non-interactive create flow", () => {
       });
       expect(mockPlatformPost).toHaveBeenCalled();
     });
+
+    test("hint includes full team:project:ref when no project configured in current directory", async () => {
+      vi.mocked(getProjectDetails).mockResolvedValue(fakeProject);
+      setupPlatformForCreate();
+
+      await deploymentCreate.parseAsync(
+        ["my-team:my-project:my-deployment", "--type", "dev"],
+        { from: "user" },
+      );
+
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "npx convex deployment select my-team:my-project:dev/my-deployment",
+        ),
+      );
+    });
   });
 });
 
