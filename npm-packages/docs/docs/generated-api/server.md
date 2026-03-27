@@ -178,9 +178,9 @@ typed for your app's data model.
 
 #### Parameters
 
-| Name   | Description                                                                                 |
-| :----- | :------------------------------------------------------------------------------------------ |
-| `func` | The action function. It receives an [ActionCtx](server.md#actionctx) as its first argument. |
+| Name   | Description                                                                        |
+| :----- | :--------------------------------------------------------------------------------- |
+| `func` | The action function. It receives an [ActionCtx](#actionctx) as its first argument. |
 
 #### Returns
 
@@ -199,9 +199,9 @@ accessible.
 
 #### Parameters
 
-| Name   | Type                                                      | Description                                                                                                                                                                                         |
-| :----- | :-------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `func` | `(ctx: ActionCtx, request: Request) => Promise<Response>` | The function. It receives an [`ActionCtx`](/api/modules/server#actionctx) as its first argument and a [`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request) as its second argument. |
+| Name   | Type                                                      | Description                                                                                                                                                                      |
+| :----- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `func` | `(ctx: ActionCtx, request: Request) => Promise<Response>` | The function. It receives an [`ActionCtx`](#actionctx) as its first argument and a [`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request) as its second argument. |
 
 #### Returns
 
@@ -270,8 +270,9 @@ A set of services for use within Convex action functions.
 The action context is passed as the first argument to any Convex action function
 run on the server.
 
-This is an alias of [`ActionCtx`](/api/modules/server#actionctx) that is typed
-for your app's data model.
+This is an alias of
+[`GenericActionCtx`](/api/interfaces/server.GenericActionCtx) that is typed for
+your app's data model.
 
 #### Type declaration
 

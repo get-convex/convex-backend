@@ -181,8 +181,8 @@ npx convex insights --prod
 ```
 
 Show health insights for a Convex deployment over the last 72 hours. Reports
-[OCC (Optimistic Concurrency Control)](/error#optimistic-concurrency-control)
-conflicts and resource limit issues that may indicate performance problems.
+[OCC (Optimistic Concurrency Control)](/error#1) conflicts and resource limit
+issues that may indicate performance problems.
 
 Add `--details` to include recent events for each insight. Use `--prod` to check
 the production deployment, `--preview-name <name>` for a preview deployment, or

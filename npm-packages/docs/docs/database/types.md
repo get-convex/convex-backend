@@ -43,10 +43,10 @@ If any of these limits don't work for you,
 
 ### Measuring document sizes
 
-Use [`getDocumentSize`](/api/modules/values#getDocumentSize) from
+Use [`getDocumentSize`](/api/modules/values#getdocumentsize) from
 `"convex/values"` to measure the size of documents, including the default `_id`
 and `_creationTime` fields. Use
-[`getConvexSize`](/api/modules/values#getConvexSize) to measure the byte size of
+[`getConvexSize`](/api/modules/values#getconvexsize) to measure the byte size of
 arbitrary values.
 
 ```ts
