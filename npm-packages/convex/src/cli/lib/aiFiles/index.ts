@@ -16,7 +16,7 @@ import {
   hasAiFilesConfig,
   readAiConfig,
   writeAiConfig,
-  writeAiDisabledToProjectConfig,
+  writeAiEnabledToProjectConfig,
 } from "./config.js";
 import { isInInteractiveTerminal } from "./utils.js";
 import {
@@ -68,7 +68,7 @@ export async function installAiFiles({
     projectDir,
     convexDir,
   })) ?? {
-    disableStalenessMessage: false,
+    enabled: true,
     guidelinesHash: null,
     agentsMdSectionHash: null,
     claudeMdHash: null,
@@ -130,7 +130,7 @@ async function determineAiFilesStaleness({
     return hasArtifacts ? "has-artifacts" : "not-installed";
   }
 
-  if (config.disableStalenessMessage) return "disabled";
+  if (!config.enabled) return "disabled";
 
   if (canonicalGuidelinesHash === null && canonicalAgentSkillsSha === null)
     return "up-to-date";
@@ -184,12 +184,12 @@ export async function enableAiFiles({
   await installAiFiles({ projectDir, convexDir });
   const config = await readAiConfig({ projectDir, convexDir });
   if (config === null) return;
-  config.disableStalenessMessage = false;
+  config.enabled = true;
   await writeAiConfig({
     config,
     projectDir,
     convexDir,
-    options: { persistDisabledPreference: "always" },
+    options: { persistEnabledPreference: "always" },
   });
 }
 
@@ -231,12 +231,12 @@ export async function safelyAttemptToDisableAiFiles(
   projectDir: string,
 ): Promise<void> {
   try {
-    await writeAiDisabledToProjectConfig({
+    await writeAiEnabledToProjectConfig({
       projectDir,
-      disableStalenessMessage: true,
+      enabled: false,
     });
     logMessage(
-      `${chalkStderr.green(`✔`)} Convex AI file staleness/install messages disabled. Run ${chalkStderr.bold(`npx convex ai-files enable`)} to re-enable.`,
+      `${chalkStderr.green(`✔`)} Convex AI files disabled. Run ${chalkStderr.bold(`npx convex ai-files enable`)} to re-enable.`,
     );
   } catch (error) {
     Sentry.captureException(error);
@@ -285,6 +285,9 @@ export async function maybeSetupAiFiles({
   ctx: Context;
 } & AiFilesPaths): Promise<void> {
   if (!isInInteractiveTerminal()) return;
+
+  const config = await readAiConfig({ projectDir, convexDir });
+  if (config !== null && !config.enabled) return;
 
   if (await hasAiFilesBeenInstalledBefore({ projectDir, convexDir })) {
     await attemptToInstallAiFiles({ projectDir, convexDir });

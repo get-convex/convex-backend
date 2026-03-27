@@ -102,7 +102,9 @@ export interface ProjectConfig {
 
   // Convex AI files user preferences.
   aiFiles?: {
-    // When true, suppresses AI files install/staleness nags.
+    // When false, disables all AI files prompts and staleness messages.
+    enabled?: boolean;
+    // @deprecated use `enabled` instead.
     disableStalenessMessage?: boolean;
   };
 }
@@ -289,7 +291,8 @@ const BundlerSchema = z.object({
 });
 
 const AiFilesSchema = z.object({
-  disableStalenessMessage: z.boolean().default(false),
+  enabled: z.boolean().optional(),
+  disableStalenessMessage: z.boolean().optional(),
 });
 
 const refineToObject = <T extends z.ZodTypeAny>(schema: T) =>
@@ -553,9 +556,7 @@ export async function readProjectConfig(ctx: Context): Promise<{
           staticApi: false,
           staticDataModel: false,
         },
-        aiFiles: {
-          disableStalenessMessage: false,
-        },
+        aiFiles: {},
       },
       configPath: configName(),
     };

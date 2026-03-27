@@ -327,7 +327,7 @@ test("readProjectConfig - returns defaults when file doesn't exist", async () =>
     node: { externalPackages: [] },
     generateCommonJSApi: false,
     codegen: { staticApi: false, staticDataModel: false },
-    aiFiles: { disableStalenessMessage: false },
+    aiFiles: {},
   });
 });
 

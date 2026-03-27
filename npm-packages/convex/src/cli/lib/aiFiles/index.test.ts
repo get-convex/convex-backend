@@ -3,7 +3,7 @@ import { logMessage } from "../../../bundler/log.js";
 import {
   readAiConfig,
   writeAiConfig,
-  writeAiDisabledToProjectConfig,
+  writeAiEnabledToProjectConfig,
 } from "./config.js";
 import {
   downloadGuidelines,
@@ -45,7 +45,7 @@ vi.mock("../../../bundler/log.js", () => ({
 vi.mock("./config.js", () => ({
   readAiConfig: vi.fn(),
   writeAiConfig: vi.fn(),
-  writeAiDisabledToProjectConfig: vi.fn(),
+  writeAiEnabledToProjectConfig: vi.fn(),
 }));
 
 vi.mock("../versionApi.js", () => ({
@@ -71,8 +71,8 @@ vi.mock("child_process", () => ({
 const mockLogMessage = vi.mocked(logMessage);
 const mockReadAiConfig = vi.mocked(readAiConfig);
 const mockWriteAiConfig = vi.mocked(writeAiConfig);
-const mockWriteAiDisabledToProjectConfig = vi.mocked(
-  writeAiDisabledToProjectConfig,
+const mockWriteAiEnabledToProjectConfig = vi.mocked(
+  writeAiEnabledToProjectConfig,
 );
 const mockDownloadGuidelines = vi.mocked(downloadGuidelines);
 const mockFetchAgentSkillsSha = vi.mocked(fetchAgentSkillsSha);
@@ -85,7 +85,7 @@ const baseConfig = {
   claudeMdHash: null,
   agentSkillsSha: null,
   installedSkillNames: [] as string[],
-  disableStalenessMessage: false,
+  enabled: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -158,10 +158,10 @@ describe("checkAiFilesStaleness", () => {
     );
   });
 
-  test("does nothing when config has disableStalenessMessage=true (user opted out)", async () => {
+  test("does nothing when config has enabled=false (user opted out)", async () => {
     mockReadAiConfig.mockResolvedValue({
       ...baseConfig,
-      disableStalenessMessage: true,
+      enabled: false,
     });
 
     await checkAiFilesStaleness({
@@ -329,13 +329,13 @@ describe("installAiFiles", () => {
     }
   });
 
-  test("update does not clear disableStalenessMessage when set true", async () => {
+  test("update does not clear enabled=false when set", async () => {
     const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
     const convexDir = path.join(tmpDir, "convex");
     try {
       mockReadAiConfig.mockResolvedValue({
         ...baseConfig,
-        disableStalenessMessage: true,
+        enabled: false,
       });
       mockDownloadGuidelines.mockResolvedValue(null);
 
@@ -343,7 +343,7 @@ describe("installAiFiles", () => {
 
       expect(mockWriteAiConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          config: expect.objectContaining({ disableStalenessMessage: true }),
+          config: expect.objectContaining({ enabled: false }),
         }),
       );
     } finally {
@@ -360,7 +360,7 @@ describe("installAiFiles", () => {
       fs.writeFileSync(path.join(tmpDir, "convex.json"), "{}");
       mockReadAiConfig.mockResolvedValue({
         ...baseConfig,
-        disableStalenessMessage: true,
+        enabled: false,
         guidelinesHash: null,
       });
       mockDownloadGuidelines.mockResolvedValue("fresh guidelines");
@@ -378,7 +378,7 @@ describe("installAiFiles", () => {
       expect(mockWriteAiConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
-            disableStalenessMessage: true,
+            enabled: false,
             guidelinesHash: expect.any(String),
           }),
           projectDir: tmpDir,
@@ -689,7 +689,7 @@ describe("removeAiFiles", () => {
     expect(mockWriteAiConfig).not.toHaveBeenCalled();
   });
 
-  test("safelyAttemptToDisableAiFiles writes disableStalenessMessage=true without removing files", async () => {
+  test("safelyAttemptToDisableAiFiles writes enabled=false without removing files", async () => {
     writeConfig({ guidelinesHash: null });
     mockReadAiConfig.mockResolvedValue(baseConfig);
 
@@ -701,8 +701,8 @@ describe("removeAiFiles", () => {
 
     await safelyAttemptToDisableAiFiles(tmpDir);
 
-    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith({
-      disableStalenessMessage: true,
+    expect(mockWriteAiEnabledToProjectConfig).toHaveBeenCalledWith({
+      enabled: false,
       projectDir: tmpDir,
     });
     expect(
@@ -715,8 +715,8 @@ describe("removeAiFiles", () => {
 
     await safelyAttemptToDisableAiFiles(tmpDir);
 
-    expect(mockWriteAiDisabledToProjectConfig).toHaveBeenCalledWith({
-      disableStalenessMessage: true,
+    expect(mockWriteAiEnabledToProjectConfig).toHaveBeenCalledWith({
+      enabled: false,
       projectDir: tmpDir,
     });
   });
@@ -760,10 +760,10 @@ describe("statusAiFiles", () => {
     );
   });
 
-  test("reports disabled when config has disableStalenessMessage=true", async () => {
+  test("reports disabled when config has enabled=false", async () => {
     mockReadAiConfig.mockResolvedValue({
       ...baseConfig,
-      disableStalenessMessage: true,
+      enabled: false,
     });
 
     await statusAiFiles({
@@ -779,7 +779,7 @@ describe("statusAiFiles", () => {
     );
   });
 
-  test("reports enabled when config exists and disableStalenessMessage=false", async () => {
+  test("reports enabled when config exists and enabled=true", async () => {
     mockReadAiConfig.mockResolvedValue(baseConfig);
 
     await statusAiFiles({

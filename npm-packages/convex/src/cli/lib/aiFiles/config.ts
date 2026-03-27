@@ -24,15 +24,21 @@ const aiFilesProjectConfigSchema = z
   .object({
     aiFiles: z
       .object({
-        disableStalenessMessage: z.boolean().default(false),
+        // `enabled` is the canonical field. When present it takes full
+        // precedence - `enabled: true` will re-enable even if the legacy
+        // disableStalenessMessage field is still `true` in the file.
+        enabled: z.boolean().optional(),
+        // @deprecated - use `enabled` instead. Read for backward compat;
+        // new writes always emit `enabled` and drop this key.
+        disableStalenessMessage: z.boolean().optional(),
       })
-      .default({ disableStalenessMessage: false }),
+      .default({}),
   })
   .passthrough();
 
 type AiFilesState = z.infer<typeof aiFilesStateSchema>;
 export type AiFilesConfig = AiFilesState & {
-  disableStalenessMessage: boolean;
+  enabled: boolean;
 };
 
 const EMPTY_AI_STATE: AiFilesState = {
@@ -43,26 +49,29 @@ const EMPTY_AI_STATE: AiFilesState = {
   installedSkillNames: [],
 };
 
-async function readAiDisabledFromProjectConfig(
+async function readAiEnabledFromProjectConfig(
   projectDir: string,
 ): Promise<boolean> {
   const raw = await readFileSafe(path.join(projectDir, "convex.json"));
-  if (raw === null) return false;
+  if (raw === null) return true;
   try {
     const parsed = aiFilesProjectConfigSchema.parse(JSON.parse(raw));
-    return parsed.aiFiles.disableStalenessMessage;
+    // `enabled` takes full precedence when explicitly set.
+    if (parsed.aiFiles.enabled !== undefined) return parsed.aiFiles.enabled;
+    // Legacy `disableStalenessMessage` - invert it.
+    return !(parsed.aiFiles.disableStalenessMessage ?? false);
   } catch (err) {
     Sentry.captureException(err);
-    return false;
+    return true;
   }
 }
 
-export async function writeAiDisabledToProjectConfig({
+export async function writeAiEnabledToProjectConfig({
   projectDir,
-  disableStalenessMessage,
+  enabled,
 }: {
   projectDir: string;
-  disableStalenessMessage: boolean;
+  enabled: boolean;
 }): Promise<void> {
   const filePath = path.join(projectDir, "convex.json");
   const existing = await iife(async () => {
@@ -85,13 +94,12 @@ export async function writeAiDisabledToProjectConfig({
       ? (base.aiFiles as Record<string, unknown>)
       : {};
   const { $schema, ...rest } = base;
+  // Remove legacy keys on every write.
+  const { disableStalenessMessage: _legacy, ...restAiFiles } = aiFilesValue;
   const next: Record<string, unknown> = {
     $schema: $schema ?? "node_modules/convex/schemas/convex.schema.json",
     ...rest,
-    aiFiles: {
-      ...aiFilesValue,
-      disableStalenessMessage,
-    },
+    aiFiles: { ...restAiFiles, enabled },
   };
   await fs.writeFile(filePath, JSON.stringify(next, null, 2) + "\n", "utf8");
 }
@@ -103,22 +111,16 @@ export async function readAiConfig({
   projectDir: string;
   convexDir: string;
 }): Promise<AiFilesConfig | null> {
-  const disableStalenessMessage =
-    await readAiDisabledFromProjectConfig(projectDir);
+  const enabled = await readAiEnabledFromProjectConfig(projectDir);
   const rawState = await readFileSafe(aiFilesStatePathForConvexDir(convexDir));
   if (rawState === null) {
     // No state file means AI files are not installed, unless the user has
-    // explicitly disabled install/staleness messages in convex.json.
-    return disableStalenessMessage
-      ? { ...EMPTY_AI_STATE, disableStalenessMessage }
-      : null;
+    // explicitly disabled in convex.json.
+    return !enabled ? { ...EMPTY_AI_STATE, enabled } : null;
   }
   try {
     const state = aiFilesStateSchema.parse(JSON.parse(rawState));
-    return {
-      ...state,
-      disableStalenessMessage,
-    };
+    return { ...state, enabled };
   } catch (err) {
     Sentry.captureException(err);
     return null;
@@ -132,7 +134,7 @@ export async function hasAiFilesConfig({
   projectDir: string;
   convexDir: string;
 }): Promise<boolean> {
-  if (await readAiDisabledFromProjectConfig(projectDir)) {
+  if (!(await readAiEnabledFromProjectConfig(projectDir))) {
     return true;
   }
   try {
@@ -159,7 +161,7 @@ export async function writeAiConfig({
   config: AiFilesConfig;
   projectDir: string;
   convexDir: string;
-  options?: { persistDisabledPreference?: "ifTrue" | "always" | "never" };
+  options?: { persistEnabledPreference?: "ifFalse" | "always" | "never" };
 }): Promise<void> {
   const state = aiFilesStateSchema.parse({
     guidelinesHash: config.guidelinesHash,
@@ -174,13 +176,13 @@ export async function writeAiConfig({
     "utf8",
   );
 
-  const persistMode = options?.persistDisabledPreference ?? "ifTrue";
+  const persistMode = options?.persistEnabledPreference ?? "ifFalse";
   if (
     persistMode === "always" ||
-    (persistMode === "ifTrue" && config.disableStalenessMessage)
+    (persistMode === "ifFalse" && !config.enabled)
   )
-    await writeAiDisabledToProjectConfig({
+    await writeAiEnabledToProjectConfig({
       projectDir,
-      disableStalenessMessage: config.disableStalenessMessage,
+      enabled: config.enabled,
     });
 }

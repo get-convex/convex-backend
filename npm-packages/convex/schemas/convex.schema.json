@@ -189,9 +189,15 @@
       "type": "object",
       "description": "User-configurable settings for Convex AI files behavior.",
       "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "When false, disables all Convex AI files prompts and staleness messages in `npx convex dev`. Use `npx convex ai-files enable` to re-enable.",
+          "default": true
+        },
         "disableStalenessMessage": {
           "type": "boolean",
-          "description": "When true, suppresses Convex AI files install/staleness nags in `npx convex dev`.",
+          "description": "Deprecated. Use `enabled` instead.",
+          "deprecated": true,
           "default": false
         }
       },

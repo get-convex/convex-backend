@@ -196,15 +196,13 @@ export async function statusAiFiles({
     logMessage(`Convex AI files: ${chalkStderr.yellow("not installed")}`);
     logMessage(
       `  Run ${chalkStderr.bold("npx convex ai-files install")} to get started, ` +
-        `or ${chalkStderr.bold("npx convex ai-files disable")} to silence this message.`,
+        `or ${chalkStderr.bold("npx convex ai-files disable")} to opt out.`,
     );
     return;
   }
 
-  if (config.disableStalenessMessage) {
-    logMessage(
-      `Convex AI files: ${chalkStderr.yellow("staleness/install messages disabled")}`,
-    );
+  if (!config.enabled) {
+    logMessage(`Convex AI files: ${chalkStderr.yellow("disabled")}`);
     logMessage(
       `  Run ${chalkStderr.bold("npx convex ai-files enable")} to re-enable.`,
     );

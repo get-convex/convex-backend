@@ -6,7 +6,7 @@ import {
   hasAiFilesConfig,
   readAiConfig,
   writeAiConfig,
-  writeAiDisabledToProjectConfig,
+  writeAiEnabledToProjectConfig,
 } from "./config.js";
 
 vi.mock("@sentry/node", () => ({
@@ -98,7 +98,7 @@ describe("readAiConfig", () => {
     expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
-  test("returns parsed state with disableStalenessMessage=false when convex.json is missing", async () => {
+  test("returns parsed state with enabled=true when convex.json is missing", async () => {
     mockFs.readFile
       .mockRejectedValueOnce(
         Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
@@ -123,7 +123,7 @@ describe("readAiConfig", () => {
       claudeMdHash: null,
       agentSkillsSha: null,
       installedSkillNames: [],
-      disableStalenessMessage: false,
+      enabled: true,
     });
   });
 
@@ -147,7 +147,7 @@ describe("readAiConfig", () => {
       claudeMdHash: null,
       agentSkillsSha: null,
       installedSkillNames: [],
-      disableStalenessMessage: true,
+      enabled: false,
     });
   });
 
@@ -188,12 +188,12 @@ describe("readAiConfig", () => {
     expect(mockCaptureException).toHaveBeenCalledWith(expect.any(Error));
   });
 
-  test("returns parsed state and reads disableStalenessMessage from convex.json", async () => {
+  test("reads enabled=false from legacy disableStalenessMessage field for backward compat", async () => {
     const stored = {
       guidelinesHash: "abc",
       agentsMdSectionHash: "def",
       claudeMdHash: null,
-      agentSkillsSha: "deadbeef",
+      agentSkillsSha: null,
     };
     mockFs.readFile
       .mockResolvedValueOnce(
@@ -209,7 +209,34 @@ describe("readAiConfig", () => {
     expect(result).toEqual({
       ...stored,
       installedSkillNames: [],
-      disableStalenessMessage: true,
+      enabled: false,
+    });
+  });
+
+  test("enabled: true takes precedence over legacy disableStalenessMessage: true", async () => {
+    const stored = {
+      guidelinesHash: "abc",
+      agentsMdSectionHash: "def",
+      claudeMdHash: null,
+      agentSkillsSha: null,
+    };
+    mockFs.readFile
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          aiFiles: { enabled: true, disableStalenessMessage: true },
+        }),
+      )
+      .mockResolvedValueOnce(JSON.stringify(stored));
+
+    const result = await readAiConfig({
+      projectDir: dummyProjectDir,
+      convexDir: dummyConvexDir,
+    });
+
+    expect(result).toEqual({
+      ...stored,
+      installedSkillNames: [],
+      enabled: true,
     });
   });
 });
@@ -288,11 +315,11 @@ describe("writeAiConfig", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.resetAllMocks());
 
-  test("writes state file and does not persist disableStalenessMessage=false by default", async () => {
+  test("writes state file and does not persist enabled=true by default", async () => {
     mockFs.writeFile.mockResolvedValue(undefined);
 
     const config = {
-      disableStalenessMessage: false,
+      enabled: true,
       guidelinesHash: "abc",
       agentsMdSectionHash: "def",
       claudeMdHash: null,
@@ -324,13 +351,13 @@ describe("writeAiConfig", () => {
     );
   });
 
-  test("persists disableStalenessMessage=false when requested explicitly", async () => {
+  test("persists enabled=true when requested explicitly", async () => {
     mockFs.writeFile.mockResolvedValue(undefined);
     mockFs.readFile.mockResolvedValue("{}");
 
     await writeAiConfig({
       config: {
-        disableStalenessMessage: false,
+        enabled: true,
         guidelinesHash: null,
         agentsMdSectionHash: null,
         claudeMdHash: null,
@@ -339,7 +366,7 @@ describe("writeAiConfig", () => {
       },
       projectDir: dummyProjectDir,
       convexDir: dummyConvexDir,
-      options: { persistDisabledPreference: "always" },
+      options: { persistEnabledPreference: "always" },
     });
 
     expect(mockFs.writeFile).toHaveBeenNthCalledWith(
@@ -348,9 +375,7 @@ describe("writeAiConfig", () => {
       JSON.stringify(
         {
           $schema: "node_modules/convex/schemas/convex.schema.json",
-          aiFiles: {
-            disableStalenessMessage: false,
-          },
+          aiFiles: { enabled: true },
         },
         null,
         2,
@@ -359,13 +384,13 @@ describe("writeAiConfig", () => {
     );
   });
 
-  test("persists to convex.json by default when disableStalenessMessage is true", async () => {
+  test("persists enabled=false to convex.json by default", async () => {
     mockFs.writeFile.mockResolvedValue(undefined);
     mockFs.readFile.mockResolvedValue("{}");
 
     await writeAiConfig({
       config: {
-        disableStalenessMessage: true,
+        enabled: false,
         guidelinesHash: null,
         agentsMdSectionHash: null,
         claudeMdHash: null,
@@ -380,17 +405,17 @@ describe("writeAiConfig", () => {
     expect(mockFs.writeFile).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining("convex.json"),
-      expect.stringContaining('"disableStalenessMessage": true'),
+      expect.stringContaining('"enabled": false'),
       "utf8",
     );
   });
 
-  test("never writes to convex.json when persistDisabledPreference is 'never'", async () => {
+  test("never writes to convex.json when persistEnabledPreference is 'never'", async () => {
     mockFs.writeFile.mockResolvedValue(undefined);
 
     await writeAiConfig({
       config: {
-        disableStalenessMessage: true,
+        enabled: false,
         guidelinesHash: null,
         agentsMdSectionHash: null,
         claudeMdHash: null,
@@ -399,7 +424,7 @@ describe("writeAiConfig", () => {
       },
       projectDir: dummyProjectDir,
       convexDir: dummyConvexDir,
-      options: { persistDisabledPreference: "never" },
+      options: { persistEnabledPreference: "never" },
     });
 
     expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
@@ -411,24 +436,25 @@ describe("writeAiConfig", () => {
   });
 });
 
-describe("writeAiDisabledToProjectConfig", () => {
+describe("writeAiEnabledToProjectConfig", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.resetAllMocks());
 
-  test("writes only convex.json with disableStalenessMessage=true", async () => {
-    mockFs.readFile.mockResolvedValue("{}");
+  test("writes enabled=false to convex.json and drops legacy disableStalenessMessage", async () => {
+    mockFs.readFile.mockResolvedValue(
+      JSON.stringify({ aiFiles: { disableStalenessMessage: true } }),
+    );
     mockFs.writeFile.mockResolvedValue(undefined);
 
-    await writeAiDisabledToProjectConfig({
+    await writeAiEnabledToProjectConfig({
       projectDir: dummyProjectDir,
-      disableStalenessMessage: true,
+      enabled: false,
     });
 
     expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
-    expect(mockFs.writeFile).toHaveBeenCalledWith(
-      expect.stringContaining("convex.json"),
-      expect.stringContaining('"disableStalenessMessage": true'),
-      "utf8",
-    );
+    const written = mockFs.writeFile.mock.calls[0][1] as string;
+    const parsed = JSON.parse(written);
+    expect(parsed.aiFiles.enabled).toBe(false);
+    expect(parsed.aiFiles.disableStalenessMessage).toBeUndefined();
   });
 });

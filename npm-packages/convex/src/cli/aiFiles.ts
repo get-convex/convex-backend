@@ -35,11 +35,10 @@ const aiInstall = new Command("install")
   });
 
 const aiEnable = new Command("enable")
-  .summary("Enable Convex AI file staleness/install messages")
+  .summary("Enable Convex AI files")
   .description(
-    "Re-enables AI file staleness/install messages by writing\n" +
-      "`aiFiles.disableStalenessMessage: false` to `convex.json`, then installs\n" +
-      "or refreshes the managed AI files.",
+    "Re-enables Convex AI files by writing `aiFiles.enabled: true` to\n" +
+      "`convex.json`, then installs or refreshes the managed AI files.",
   )
   .allowExcessArguments(false)
   .action(async () => {
@@ -63,10 +62,10 @@ const aiUpdate = new Command("update")
   });
 
 const aiDisable = new Command("disable")
-  .summary("Suppress AI file staleness/install messages without removing files")
+  .summary("Disable Convex AI files without removing them")
   .description(
-    "Writes a suppression marker into `convex.json` (`aiFiles.disableStalenessMessage`) so\n" +
-      "`npx convex dev` stops suggesting you install AI files.\n\n" +
+    "Writes `aiFiles.enabled: false` to `convex.json` so `npx convex dev`\n" +
+      "stops prompting to install AI files and suppresses staleness messages.\n\n" +
       "Files already installed are left untouched - use `npx convex ai-files remove`\n" +
       "if you also want to delete them.\n\n" +
       "Run `npx convex ai-files enable` to re-enable at any time.",
@@ -106,7 +105,7 @@ const aiRemove = new Command("remove")
       "empty file is deleted. Otherwise the rest of the file is kept.\n\n" +
       "Skills installed from other sources are not affected.\n\n" +
       "Note: after `remove`, `npx convex dev` will suggest reinstalling AI files.\n" +
-      "Use `npx convex ai-files disable` to suppress that prompt without deleting files.",
+      "Use `npx convex ai-files disable` to opt out entirely without deleting files.",
   )
   .allowExcessArguments(false)
   .action(async () => {
