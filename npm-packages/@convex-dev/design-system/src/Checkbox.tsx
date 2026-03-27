@@ -46,7 +46,7 @@ export function Checkbox({
       }}
       disabled={disabled ?? false}
       checked={checkedBool}
-      aria-checked={checkedBool}
+      aria-checked={checked === "indeterminate" ? "mixed" : checkedBool}
       aria-label="Selected"
     />
   );
