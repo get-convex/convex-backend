@@ -246,8 +246,9 @@ export async function normalizeDevOptions(
     codegen: "enable" | "disable";
     once?: boolean;
     untilSuccess: boolean;
-    run?: string | undefined;
+    start?: string;
     runSh?: string;
+    run?: string | undefined;
     runComponent?: string;
     tailLogs?: string | true;
     traceEvents: boolean;
@@ -312,10 +313,10 @@ export async function normalizeDevOptions(
             name: cmdOptions.run,
             component: cmdOptions.runComponent,
           }
-        : cmdOptions.runSh !== undefined
+        : (cmdOptions.start ?? cmdOptions.runSh) !== undefined
           ? {
               kind: "shell",
-              command: cmdOptions.runSh,
+              command: (cmdOptions.start ?? cmdOptions.runSh)!,
             }
           : undefined,
     tailLogs:

@@ -1,4 +1,5 @@
 import { chalkStderr } from "chalk";
+import { spawn, ChildProcess } from "child_process";
 import { OneoffCtx } from "../../bundler/context.js";
 import {
   logError,
@@ -17,7 +18,6 @@ import { PushOptions } from "./components.js";
 import {
   formatDuration,
   getCurrentTimeString,
-  spawnAsync,
   waitForever,
   waitUntilCalled,
 } from "./utils/utils.js";
@@ -137,186 +137,235 @@ export async function watchAndPush(
   let numFailures = 0;
   let ran = false;
   let pushed = false;
+  let shellChild: ChildProcess | undefined;
+  let shellExited: Promise<void> | undefined;
+  let shellCleanupHandle: string | undefined;
   let tableNameTriggeringRetry;
   let shouldRetryOnDeploymentEnvVarChange;
   let isFirstPush = true; // Track if this is the first push in the session
 
-  while (true) {
-    const start = performance.now();
-    tableNameTriggeringRetry = null;
-    shouldRetryOnDeploymentEnvVarChange = false;
+  try {
+    while (true) {
+      const start = performance.now();
+      tableNameTriggeringRetry = null;
+      shouldRetryOnDeploymentEnvVarChange = false;
 
-    const ctx = new WatchContext(
-      cmdOptions.traceEvents,
-      outerCtx.bigBrainAuth(),
-      isFirstPush,
-    );
-    options.logManager?.beginDeploy();
-    showSpinner("Preparing Convex functions...");
-    try {
-      await runPush(ctx, options);
-      const end = performance.now();
-      // NOTE: If `runPush` throws, `endDeploy` will not be called.
-      // This allows you to see the output from the failed deploy without
-      // logs getting in the way.
-      options.logManager?.endDeploy();
-      numFailures = 0;
-      logFinishedStep(
-        `${getCurrentTimeString()} Convex functions ready! (${formatDuration(
-          end - start,
-        )})`,
+      const ctx = new WatchContext(
+        cmdOptions.traceEvents,
+        outerCtx.bigBrainAuth(),
+        isFirstPush,
       );
+      options.logManager?.beginDeploy();
+      showSpinner("Preparing Convex functions...");
+      try {
+        await runPush(ctx, options);
+        const end = performance.now();
+        // NOTE: If `runPush` throws, `endDeploy` will not be called.
+        // This allows you to see the output from the failed deploy without
+        // logs getting in the way.
+        options.logManager?.endDeploy();
+        numFailures = 0;
+        logFinishedStep(
+          `${getCurrentTimeString()} Convex functions ready! (${formatDuration(
+            end - start,
+          )})`,
+        );
 
-      // Sync AuthKit configuration if it has changed
-      const { projectConfig } = await readProjectConfig(ctx);
-      const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
+        // Sync AuthKit configuration if it has changed
+        const { projectConfig } = await readProjectConfig(ctx);
+        const authKitConfig = await getAuthKitConfig(ctx, projectConfig);
 
-      // Check if config has changed by comparing stringified versions
-      const currentConfigString = authKitConfig
-        ? JSON.stringify(authKitConfig)
-        : undefined;
+        // Check if config has changed by comparing stringified versions
+        const currentConfigString = authKitConfig
+          ? JSON.stringify(authKitConfig)
+          : undefined;
 
-      // Skip sync on first push since ensureAuthKitProvisionedBeforeBuild already configured WorkOS
-      if (
-        !isFirstPush &&
-        currentConfigString !== authKitCache.lastAppliedConfig
-      ) {
-        // Config has changed, sync it
-        await syncAuthKitConfigAfterPush(ctx, projectConfig, {
-          deploymentUrl: options.url,
-          adminKey: options.adminKey,
-        });
-      }
+        // Skip sync on first push since ensureAuthKitProvisionedBeforeBuild already configured WorkOS
+        if (
+          !isFirstPush &&
+          currentConfigString !== authKitCache.lastAppliedConfig
+        ) {
+          // Config has changed, sync it
+          await syncAuthKitConfigAfterPush(ctx, projectConfig, {
+            deploymentUrl: options.url,
+            adminKey: options.adminKey,
+          });
+        }
 
-      // Always update cache after push (even if we skipped sync)
-      authKitCache.lastAppliedConfig = currentConfigString;
-      isFirstPush = false;
-      if (cmdOptions.run !== undefined && !ran) {
-        switch (cmdOptions.run.kind) {
-          case "function":
-            await runFunctionInDev(
-              ctx,
-              options,
-              cmdOptions.run.name,
-              cmdOptions.run.component,
-            );
-            break;
-          case "shell":
-            try {
-              await spawnAsync(ctx, cmdOptions.run.command, [], {
-                stdio: "inherit",
+        // Always update cache after push (even if we skipped sync)
+        authKitCache.lastAppliedConfig = currentConfigString;
+        isFirstPush = false;
+        if (cmdOptions.run !== undefined && !ran) {
+          switch (cmdOptions.run.kind) {
+            case "function":
+              await runFunctionInDev(
+                ctx,
+                options,
+                cmdOptions.run.name,
+                cmdOptions.run.component,
+              );
+              break;
+            case "shell": {
+              // Spawn the shell command as a long-running child process,
+              // piping stdin/stdout/stderr. It runs alongside dev and is
+              // waited on during clean exit or killed on signal exit.
+              const shellCommand = cmdOptions.run.command;
+              shellChild = spawn(shellCommand, [], {
                 shell: true,
+                stdio: "inherit",
+                detached: true,
               });
-            } catch (e) {
-              // `spawnAsync` throws an error like `{ status: 1, error: Error }`
-              // when the command fails.
-              const errorMessage =
-                e === null || e === undefined
-                  ? null
-                  : (e as any).error instanceof Error
-                    ? ((e as any).error.message ?? null)
-                    : null;
-              const printedMessage = `Failed to run command \`${cmdOptions.run.command}\`: ${errorMessage ?? "Unknown error"}`;
+              shellCleanupHandle = outerCtx.registerCleanup(async () => {
+                if (shellChild) {
+                  const child = shellChild;
+                  shellChild = undefined;
+                  // Kill the entire process group so children of the shell
+                  // are also killed.
+                  if (child.pid !== undefined) {
+                    try {
+                      process.kill(-child.pid, "SIGTERM");
+                    } catch {
+                      // Process group may already be dead.
+                      child.kill();
+                    }
+                  } else {
+                    child.kill();
+                  }
+                }
+                await shellExited;
+              });
+              shellExited = new Promise<void>((resolve) => {
+                shellChild!.on("error", (error) => {
+                  logError(
+                    `Failed to run command \`${shellCommand}\`: ${error.message}`,
+                  );
+                  shellChild = undefined;
+                  resolve();
+                  void outerCtx.flushAndExit(1);
+                });
+                shellChild!.on("exit", (code, signal) => {
+                  shellChild = undefined;
+                  resolve();
+                  // If killed by a signal (e.g. from cleanup on shutdown),
+                  // don't treat it as a failure — convex dev is already
+                  // shutting down.
+                  if (signal) {
+                    return;
+                  }
+                  if (code !== null && code !== 0) {
+                    logError(
+                      `Command \`${shellCommand}\` exited with code ${code}`,
+                    );
+                    void outerCtx.flushAndExit(1);
+                  }
+                });
+              });
+              break;
+            }
+            default: {
+              cmdOptions.run satisfies never;
               // Don't return this since it'll bypass the `catch` below.
               await ctx.crash({
                 exitCode: 1,
                 errorType: "fatal",
-                printedMessage,
+                printedMessage: `Unexpected arguments for --run`,
+                errForSentry: `Unexpected arguments for --run: ${JSON.stringify(
+                  cmdOptions.run,
+                )}`,
               });
             }
-            break;
-          default: {
-            cmdOptions.run satisfies never;
-            // Don't return this since it'll bypass the `catch` below.
-            await ctx.crash({
-              exitCode: 1,
-              errorType: "fatal",
-              printedMessage: `Unexpected arguments for --run`,
-              errForSentry: `Unexpected arguments for --run: ${JSON.stringify(
-                cmdOptions.run,
-              )}`,
-            });
           }
+          ran = true;
         }
-        ran = true;
-      }
-      pushed = true;
-    } catch (e: any) {
-      // Crash the app on unexpected errors.
-      if (!(e instanceof Crash) || !e.errorType) {
-        // eslint-disable-next-line no-restricted-syntax
-        throw e;
-      }
-      if (e.errorType === "fatal") {
-        break;
-      }
-      // Retry after an exponential backoff if we hit a transient error.
-      if (e.errorType === "transient" || e.errorType === "already handled") {
-        const delay = nextBackoff(numFailures);
-        numFailures += 1;
-        if (e.errorType === "transient") {
-          logWarning(
-            chalkStderr.yellow(
-              `Failed due to network error, retrying in ${formatDuration(
-                delay,
-              )}...`,
-            ),
-          );
+        pushed = true;
+      } catch (e: any) {
+        // Crash the app on unexpected errors.
+        if (!(e instanceof Crash) || !e.errorType) {
+          // eslint-disable-next-line no-restricted-syntax
+          throw e;
         }
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
+        if (e.errorType === "fatal") {
+          break;
+        }
+        // Retry after an exponential backoff if we hit a transient error.
+        if (e.errorType === "transient" || e.errorType === "already handled") {
+          const delay = nextBackoff(numFailures);
+          numFailures += 1;
+          if (e.errorType === "transient") {
+            logWarning(
+              chalkStderr.yellow(
+                `Failed due to network error, retrying in ${formatDuration(
+                  delay,
+                )}...`,
+              ),
+            );
+          }
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
 
-      // Fall through if we had a filesystem-based error.
-      // TODO(sarah): Replace this with `logError`.
-      // eslint-disable-next-line no-console
-      console.assert(
-        e.errorType === "invalid filesystem data" ||
-          e.errorType === "invalid filesystem or env vars" ||
-          e.errorType["invalid filesystem or db data"] !== undefined,
-      );
-      if (e.errorType === "invalid filesystem or env vars") {
-        shouldRetryOnDeploymentEnvVarChange = true;
-      } else if (
-        e.errorType !== "invalid filesystem data" &&
-        e.errorType["invalid filesystem or db data"] !== undefined
-      ) {
-        tableNameTriggeringRetry = e.errorType["invalid filesystem or db data"];
+        // Fall through if we had a filesystem-based error.
+        // TODO(sarah): Replace this with `logError`.
+        // eslint-disable-next-line no-console
+        console.assert(
+          e.errorType === "invalid filesystem data" ||
+            e.errorType === "invalid filesystem or env vars" ||
+            e.errorType["invalid filesystem or db data"] !== undefined,
+        );
+        if (e.errorType === "invalid filesystem or env vars") {
+          shouldRetryOnDeploymentEnvVarChange = true;
+        } else if (
+          e.errorType !== "invalid filesystem data" &&
+          e.errorType["invalid filesystem or db data"] !== undefined
+        ) {
+          tableNameTriggeringRetry =
+            e.errorType["invalid filesystem or db data"];
+        }
+        if (cmdOptions.once) {
+          await outerCtx.flushAndExit(1, e.errorType);
+        }
+        // Make sure that we don't spin if this push failed
+        // in any edge cases that didn't call `logFailure`
+        // before throwing.
+        stopSpinner();
       }
       if (cmdOptions.once) {
-        await outerCtx.flushAndExit(1, e.errorType);
+        return;
       }
-      // Make sure that we don't spin if this push failed
-      // in any edge cases that didn't call `logFailure`
-      // before throwing.
-      stopSpinner();
+      if (pushed && cmdOptions.untilSuccess) {
+        return;
+      }
+      const fileSystemWatch = getFileSystemWatch(ctx, watch, cmdOptions);
+      const tableWatch = getTableWatch(
+        ctx,
+        options,
+        tableNameTriggeringRetry?.tableName ?? null,
+        tableNameTriggeringRetry?.componentPath,
+      );
+      const envVarWatch = getDeplymentEnvVarWatch(
+        ctx,
+        options,
+        shouldRetryOnDeploymentEnvVarChange,
+      );
+      await Promise.race([
+        fileSystemWatch.watch(),
+        tableWatch.watch(),
+        envVarWatch.watch(),
+      ]);
+      fileSystemWatch.stop();
+      void tableWatch.stop();
+      void envVarWatch.stop();
     }
-    if (cmdOptions.once) {
-      return;
+  } finally {
+    // On clean exit (e.g. --once, --until-success), wait for the shell
+    // command to finish naturally. On signal exit (e.g. Ctrl+C), the
+    // registered cleanup handler will have already killed it.
+    if (shellExited) {
+      await shellExited;
     }
-    if (pushed && cmdOptions.untilSuccess) {
-      return;
+    if (shellCleanupHandle) {
+      outerCtx.removeCleanup(shellCleanupHandle);
     }
-    const fileSystemWatch = getFileSystemWatch(ctx, watch, cmdOptions);
-    const tableWatch = getTableWatch(
-      ctx,
-      options,
-      tableNameTriggeringRetry?.tableName ?? null,
-      tableNameTriggeringRetry?.componentPath,
-    );
-    const envVarWatch = getDeplymentEnvVarWatch(
-      ctx,
-      options,
-      shouldRetryOnDeploymentEnvVarChange,
-    );
-    await Promise.race([
-      fileSystemWatch.watch(),
-      tableWatch.watch(),
-      envVarWatch.watch(),
-    ]);
-    fileSystemWatch.stop();
-    void tableWatch.stop();
-    void envVarWatch.stop();
   }
 }
 

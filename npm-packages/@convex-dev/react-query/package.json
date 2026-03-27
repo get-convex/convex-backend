@@ -4,9 +4,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "npm-run-all --parallel dev:db dev:frontend",
-    "dev:db": "convex dev",
-    "dev:frontend": "vite --open --clearScreen false",
+    "dev": "convex dev --start 'vite --open'",
     "build": "tshy",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -58,7 +56,6 @@
     "convex-helpers": "^0.1.105",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.0.0",
-    "npm-run-all2": "^8.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "tshy": "^3.0.0",

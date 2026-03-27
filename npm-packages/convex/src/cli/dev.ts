@@ -22,7 +22,7 @@ export const dev = new Command("dev")
     "Develop against a dev deployment, watching for changes\n\n" +
       "  1. Configures a new or existing project (if needed)\n" +
       "  2. Updates generated types and pushes code to the configured dev deployment\n" +
-      "  3. Runs the provided command (if `--run` or `--run-sh` is used)\n" +
+      "  3. Runs the provided command (if `--start` or `--run` is used)\n" +
       "  4. Watches for file changes, and repeats step 2\n",
   )
   .allowExcessArguments(false)
@@ -65,22 +65,28 @@ export const dev = new Command("dev")
   )
   .addOption(
     new Option(
+      "--start <command>",
+      "Start a long-running command alongside `convex dev`, like a frontend " +
+        "dev server. The command inherits stdin/stdout so you can interact " +
+        "with it directly. Example: npx convex dev --start 'vite --open'",
+    ).conflicts(["--run", "--run-sh"]),
+  )
+  .addOption(
+    new Option("--run-sh <command>", "Deprecated: use --start instead.")
+      .conflicts(["--start", "--run"])
+      .hideHelp(),
+  )
+  .addOption(
+    new Option(
       "--run <functionName>",
       "The identifier of the function to run in step 3, " +
         "like `api.init.createData` or `myDir/myFile:myFunction`",
-    ).conflicts(["--run-sh"]),
+    ).conflicts(["--start"]),
   )
   .option(
     "--run-component <functionName>",
     "If --run is used and the function is in a component, the path the component tree defined in convex.config.ts. " +
       "Components are a beta feature. This flag is unstable and may change in subsequent releases.",
-  )
-  .addOption(
-    new Option(
-      "--run-sh <command>",
-      "A shell command to run in step 3, like `node myScript.js`. " +
-        "If you just want to run a Convex function, use `--run` instead.",
-    ).conflicts(["--run"]),
   )
   .addOption(
     new Option(

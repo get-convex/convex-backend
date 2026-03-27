@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "convex dev",
-    "build": "tsc",
-    "dev:backend": "convex dev"
+    "build": "tsc"
   },
   "dependencies": {
     "convex": "workspace:*",
@@ -13,7 +12,6 @@
   },
   "devDependencies": {
     "@types/node": "^18.17.0",
-    "typescript": "^5.9.2",
-    "npm-run-all2": "^8.0.0"
+    "typescript": "^5.9.2"
   }
 }

@@ -3,11 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "dev": "convex dev --start 'next dev'",
     "build": "tsc && next build 2>&1",
-    "dev:backend": "convex dev",
-    "dev:frontend": "next dev",
-    "predev": "convex init",
     "start": "next start",
     "lint": "eslint ."
   },
@@ -31,7 +28,6 @@
     "clsx": "2.1.1",
     "eslint": "^9.37.0",
     "eslint-config-next": "^15.5.4",
-    "npm-run-all2": "^8.0.0",
     "postcss": "^8.4.19",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",

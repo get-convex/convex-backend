@@ -6,9 +6,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently -r npm:dev:web npm:dev:db",
-    "dev:web": "vite dev",
-    "dev:db": "just convex dev",
+    "dev": "convex dev --start 'vite dev'",
     "build": "vite build",
     "start": "node dist/server/server.js",
     "lint": "prettier --check '**/*' --ignore-unknown && eslint --ext .ts,.tsx ./src",
@@ -34,7 +32,6 @@
     "@types/react-dom": "^18.2.21",
     "@tailwindcss/postcss": "^4.1.11",
     "@vitejs/plugin-react": "^4.2.1",
-    "concurrently": "~8.2.2",
     "postcss": "^8.4.19",
     "postcss-nesting": "^13.0.2",
     "tailwindcss": "^4.1.11",
