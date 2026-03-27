@@ -281,7 +281,7 @@ pub static TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES: LazyLock<usize> 
 // SCHEDULED_JOB_EXECUTION_PARALLELISM overhead for every executed job, so we
 // don't want to set this number too high.
 pub static SCHEDULED_JOB_EXECUTION_PARALLELISM: LazyLock<usize> =
-    LazyLock::new(|| env_config("SCHEDULED_JOB_EXECUTION_PARALLELISM", 10));
+    LazyLock::new(|| env_config("SCHEDULED_JOB_EXECUTION_PARALLELISM", 8));
 
 /// Initial backoff in milliseconds on a system error from a scheduled job.
 pub static SCHEDULED_JOB_INITIAL_BACKOFF: LazyLock<Duration> =
@@ -812,12 +812,8 @@ pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> = LazyLock::new
 /// knob.
 ///
 /// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "APPLICATION_MAX_CONCURRENT_V8_ACTIONS",
-        DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
-    )
-});
+pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_V8_ACTIONS", 64));
 
 /// The maximum number of node actions that can be run concurrently by an
 /// application
@@ -828,12 +824,8 @@ pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> = LazyLock::ne
 /// limit, we'll see 429 error responses for node actions.
 ///
 /// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "APPLICATION_MAX_CONCURRENT_NODE_ACTIONS",
-        DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
-    )
-});
+pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_NODE_ACTIONS", 64));
 
 /// The maximum number of concurrent package uploads during
 /// `/api/deploy2/start_push` + `/api/deploy2/evaluate_push`.
