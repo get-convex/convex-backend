@@ -174,6 +174,14 @@ export class AuthenticationManager {
       return;
     }
 
+    this._logVerbose(
+      `auth state is ${this.authState.state} when handling transition`,
+    );
+
+    // This transition advanced the auth version, which means the token used was valid
+    // and the client and server auth states are in sync.
+    this.syncState.markAuthCompletion();
+
     if (this.authState.state === "waitingForServerConfirmationOfCachedToken") {
       this._logVerbose("server confirmed auth token is valid");
       void this.refetchToken();
@@ -455,11 +463,8 @@ export class AuthenticationManager {
       }
     }
     if (this.authState.state === "waitingForScheduledRefetch") {
+      // TODO: this side-effect would be better situated with scheduling refetch
       clearTimeout(this.authState.refetchTokenTimeoutId);
-
-      // The waitingForScheduledRefetch state is the most quiesced authed state.
-      // Let the syncState know that auth is in a good state, so it can reset failure backoffs
-      this.syncState.markAuthCompletion();
     }
     this.authState = newAuth;
   }

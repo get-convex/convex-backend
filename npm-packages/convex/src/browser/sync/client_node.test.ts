@@ -2,6 +2,7 @@ import child_process from "child_process";
 
 import { test, expect } from "vitest";
 import { Long } from "../../vendor/long.js";
+import { createHmac } from "crypto";
 
 import { BaseConvexClient } from "./client.js";
 import {
@@ -852,3 +853,301 @@ test("TransitionChunk messages are assembled into a Transition", async () => {
     await client.close();
   });
 });
+
+test("Backoff does not reset when queries synced but mutation is still inflight", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
+    const client = new BaseConvexClient(address, () => null, {
+      webSocketConstructor: nodeWebSocket,
+      unsavedChangesWarning: false,
+    });
+
+    client.subscribe("queries:myQuery", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    // Start a mutation, then server closes while it's inflight
+    const mutP = client.mutation("myMutation", {});
+    const mutReq = await receive();
+    expect(mutReq.type).toEqual("Mutation");
+    const requestId = (mutReq as MutationRequest).requestId;
+
+    close();
+
+    expect((await receive()).type).toEqual("Connect");
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+    expect((await receive()).type).toEqual("Mutation");
+
+    // Server sends query results but NOT mutation response
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result 2",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result 2") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    // Retries should NOT reset — mutation is still inflight
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+
+    // Now complete the mutation
+    send({
+      type: "MutationResponse",
+      requestId: requestId,
+      success: true,
+      result: null,
+      ts: Long.fromNumber(300),
+      logLines: [],
+    });
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(400) },
+      modifications: [],
+    });
+
+    await mutP;
+
+    // Both queries and mutations synced — retries should reset
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    await client.close();
+  });
+});
+
+test("Backoff does not reset for idle client until server re-confirms queries", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
+    const client = new BaseConvexClient(address, () => null, {
+      webSocketConstructor: nodeWebSocket,
+      unsavedChangesWarning: false,
+    });
+
+    client.subscribe("queries:myQuery", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    // Server closes (idle client, no mutations in flight)
+    close();
+
+    expect((await receive()).type).toEqual("Connect");
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    // Empty transition — query not re-confirmed yet, retries should hold
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(150) },
+      modifications: [],
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(client.connectionState().connectionRetries).toBeGreaterThan(0);
+
+    // Server re-confirms the query
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(150) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result refreshed",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result refreshed")
+        break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    // Query re-confirmed — retries should reset
+    expect(client.connectionState().connectionRetries).toBe(0);
+
+    await client.close();
+  });
+});
+
+// We had an issue where fixing a bug related to having the client do proper exponential backoff
+// resulted in revealing that if a client was authenticated and had a WebSocket disconnect, the
+// count of retries would never get reset upon reconnect. This test covers that scenario.
+test("Retries do not increase across connections for auth'd clients", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
+    const client = new BaseConvexClient(address, () => null, {
+      webSocketConstructor: nodeWebSocket,
+      unsavedChangesWarning: false,
+      logger: true,
+      verbose: true,
+    });
+
+    // Setup auth
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 3600;
+    const token = encodeJwt({ sub: "user_123", exp, iat }, "test-secret");
+    client.setAuth(
+      async () => token,
+      (_) => {},
+    );
+
+    // Verify client handshake on "server" side.
+    expect((await receive()).type).toEqual("Connect");
+    expect((await receive()).type).toEqual("Authenticate");
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    // Respond to the handshake noting that the identity was accepted (increased version).
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 0, identity: 1, ts: Long.fromNumber(100) },
+      modifications: [],
+    });
+
+    // Subscribe to a query and verify the "server" receives it.
+    client.subscribe("queries:myQuery", {});
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    // Respond to the subscription with a result.
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 1, ts: Long.fromNumber(100) },
+      endVersion: { querySet: 1, identity: 1, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    // Verify the client gets the subscription result.
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "result") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(client.localQueryResult("queries:myQuery", {})).toEqual("result");
+
+    // Unceremoniously drop the connection.
+    close();
+
+    // The "server" should see the client handshake for a reconnect.
+    expect((await receive()).type).toEqual("Connect");
+    expect((await receive()).type).toEqual("Authenticate");
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    // The client should record that it has begun a retry.
+    expect(client.connectionState().connectionRetries).toBe(1);
+
+    // Respond to the handshake noting that the identity was accepted (increased version).
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 0, identity: 1, ts: Long.fromNumber(100) },
+      modifications: [],
+    });
+    // Let client handle the transition.
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Respond to the re-subscription with a result.
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 1, ts: Long.fromNumber(100) },
+      endVersion: { querySet: 1, identity: 1, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "updated result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    for (let i = 0; i < 20; i++) {
+      if (client.localQueryResult("queries:myQuery", {}) === "updated result")
+        break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    // Verify the client gets the subscription result.
+    expect(client.localQueryResult("queries:myQuery", {})).toEqual(
+      "updated result",
+    );
+
+    // Client has resynced - should be at 0 retries
+    expect(client.connectionState().connectionRetries).toBe(0);
+  });
+});
+
+function encodeJwt(payload: object, secret: string): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: "HS256", typ: "JWT" }),
+  ).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = createHmac("sha256", secret)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+  return `${header}.${body}.${sig}`;
+}

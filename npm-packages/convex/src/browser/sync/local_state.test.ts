@@ -12,7 +12,7 @@ test("has outstanding state older than restart", () => {
   expect(state.hasSyncedPastLastReconnect()).toBe(true);
 
   // Restarting w/o outstanding queries
-  state.restart(new Set());
+  state.restart();
   expect(state.hasSyncedPastLastReconnect()).toBe(true);
 
   // Do two subscriptions.
@@ -23,7 +23,7 @@ test("has outstanding state older than restart", () => {
   expect(state.hasSyncedPastLastReconnect()).toBe(true);
 
   // Restart before we get results. This should flip synced to false.
-  state.restart(new Set());
+  state.restart();
   expect(state.hasSyncedPastLastReconnect()).toBe(false);
 
   // If we provide partial results, then synced should remain false
@@ -85,7 +85,7 @@ test("unsubscribe resets outstanding state older than restart", () => {
   const sub1 = state.subscribe("hello:world", {});
 
   // Restart before we get results. This should flip synced to false.
-  state.restart(new Set());
+  state.restart();
   expect(state.hasSyncedPastLastReconnect()).toBe(false);
 
   // Unsubscribe. This should flip synced back to true, even before getting result.
@@ -102,7 +102,7 @@ test("complete auth resets outstanding state older than restart", () => {
   expect(state.hasSyncedPastLastReconnect()).toBe(true);
 
   // Restart before we get results. This should flip synced to false.
-  state.restart(new Set());
+  state.restart();
   expect(state.hasSyncedPastLastReconnect()).toBe(false);
 
   // Mark auth completion
@@ -119,7 +119,7 @@ test("cleared auth resets outstanding state older than restart", () => {
   expect(state.hasSyncedPastLastReconnect()).toBe(true);
 
   // Restart before we get results. This should flip synced to false.
-  state.restart(new Set());
+  state.restart();
   expect(state.hasSyncedPastLastReconnect()).toBe(false);
 
   // Mark auth cleared
