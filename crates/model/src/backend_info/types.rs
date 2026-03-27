@@ -20,6 +20,7 @@ pub struct BackendInfoPersisted {
     pub project: ProjectId,
     pub deployment: DeploymentId,
     pub deployment_type: DeploymentType,
+    pub deployment_ref: Option<String>,
     pub project_name: Option<String>,
     pub project_slug: Option<String>,
 
@@ -38,6 +39,7 @@ impl From<BackendInfoPersisted> for BackendInfo {
             project_id: bi.project,
             deployment_id: bi.deployment,
             deployment_type: bi.deployment_type,
+            deployment_ref: bi.deployment_ref,
             project_name: bi.project_name,
             project_slug: bi.project_slug,
             streaming_export_enabled: Some(bi.streaming_export_enabled),
@@ -57,6 +59,7 @@ impl From<BackendInfo> for BackendInfoPersisted {
             deployment: bi.deployment_id,
             project_name: bi.project_name,
             project_slug: bi.project_slug,
+            deployment_ref: bi.deployment_ref,
             streaming_export_enabled: bi.streaming_export_enabled.unwrap_or_default(),
             deployment_type: bi.deployment_type,
             provision_concurrency: bi
@@ -84,6 +87,8 @@ pub struct SerializedBackendInfo {
     instance: i64,
     deployment_type: String,
     #[serde(default)]
+    deployment_ref: Option<String>,
+    #[serde(default)]
     streaming_export_enabled: bool,
     #[serde(default)]
     provision_concurrency: Option<i64>,
@@ -109,6 +114,7 @@ impl From<BackendInfoPersisted> for SerializedBackendInfo {
             project: (project as i64),
             instance: (deployment as i64),
             deployment_type,
+            deployment_ref: b.deployment_ref,
             streaming_export_enabled: b.streaming_export_enabled,
             provision_concurrency: Some(b.provision_concurrency as i64),
             log_streaming_enabled: b.log_streaming_enabled,
@@ -128,6 +134,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
         let project = ProjectId(o.project as u64);
         let deployment = DeploymentId(o.instance as u64);
         let deployment_type: DeploymentType = o.deployment_type.parse()?;
+        let deployment_ref = o.deployment_ref;
         let streaming_export_enabled = o.streaming_export_enabled;
         let provision_concurrency = o
             .provision_concurrency
@@ -143,6 +150,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
             project,
             deployment,
             deployment_type,
+            deployment_ref,
             project_name,
             project_slug,
             streaming_export_enabled,
@@ -188,6 +196,7 @@ mod tests {
                 project: ProjectId(6688466498098154475),
                 deployment: DeploymentId(1926612683017131100),
                 deployment_type: DeploymentType::Prod,
+                deployment_ref: None,
                 project_name: None,
                 project_slug: Some("ayaya".to_string()),
                 streaming_export_enabled: false,

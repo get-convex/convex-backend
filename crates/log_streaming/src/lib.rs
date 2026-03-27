@@ -235,6 +235,7 @@ pub struct LogManager<RT: Runtime> {
 pub struct LoggingDeploymentMetadata {
     deployment_name: String,
     deployment_type: Option<DeploymentType>,
+    deployment_ref: Option<String>,
     project_name: Option<String>,
     project_slug: Option<String>,
     deployment_region: Option<String>,
@@ -432,6 +433,7 @@ impl<RT: Runtime> LogManager<RT> {
         let metadata = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: instance_name,
             deployment_type: None,
+            deployment_ref: None,
             project_name: None,
             project_slug: None,
             deployment_region,
@@ -443,6 +445,7 @@ impl<RT: Runtime> LogManager<RT> {
             if let Some(bi) = bi_model.get().await? {
                 let mut metadata_guard = metadata.lock();
                 metadata_guard.deployment_type = Some(bi.deployment_type);
+                metadata_guard.deployment_ref = bi.deployment_ref.clone();
                 metadata_guard.project_name = bi.project_name.clone();
                 metadata_guard.project_slug = bi.project_slug.clone();
             }
@@ -760,6 +763,7 @@ mod tests {
         let metadata = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: "carnitas".to_string(),
             deployment_type: Some(DeploymentType::Dev),
+            deployment_ref: None,
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
             deployment_region: Some("aws-us-east-1".to_string()),
@@ -795,6 +799,7 @@ mod tests {
         let metadata = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: "carnitas".to_string(),
             deployment_type: Some(DeploymentType::Dev),
+            deployment_ref: None,
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
             deployment_region: Some("aws-us-east-1".to_string()),
@@ -855,6 +860,7 @@ mod tests {
         let metadata = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: "carnitas".to_string(),
             deployment_type: Some(DeploymentType::Dev),
+            deployment_ref: None,
             project_name: Some("test".to_string()),
             project_slug: Some("test".to_string()),
             deployment_region: Some("aws-us-east-1".to_string()),

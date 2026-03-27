@@ -326,6 +326,7 @@ mod tests {
             Arc::new(Mutex::new(LoggingDeploymentMetadata {
                 deployment_name: "flying-fish-123".to_string(),
                 deployment_type: Some(DeploymentType::Dev),
+                deployment_ref: None,
                 project_name: Some("test".to_string()),
                 project_slug: Some("test".to_string()),
                 deployment_region: Some("test".to_string()),

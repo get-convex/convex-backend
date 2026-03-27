@@ -422,6 +422,7 @@ mod tests {
         let meta = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: "".to_owned(),
             deployment_type: None,
+            deployment_ref: None,
             project_name: None,
             project_slug: None,
             deployment_region: Some("test".to_string()),
@@ -501,6 +502,7 @@ mod tests {
         let meta = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: "".to_owned(),
             deployment_type: None,
+            deployment_ref: None,
             project_name: None,
             project_slug: None,
             deployment_region: Some("test".to_string()),
@@ -565,6 +567,7 @@ mod tests {
         let meta = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: "".to_owned(),
             deployment_type: None,
+            deployment_ref: None,
             project_name: None,
             project_slug: None,
             deployment_region: Some("test".to_string()),

@@ -22,6 +22,7 @@ pub struct BackendInfo {
 
     pub deployment_id: DeploymentId,
     pub deployment_type: DeploymentType,
+    pub deployment_ref: Option<String>,
 
     // If None, the value is overwritten with the default value.
     pub streaming_export_enabled: Option<bool>,
@@ -42,6 +43,7 @@ impl BackendInfo {
             project_slug,
             deployment_id,
             deployment_type,
+            deployment_ref,
             streaming_export_enabled,
             provision_concurrency,
             log_streaming_enabled,
@@ -66,6 +68,10 @@ impl BackendInfo {
         if self.deployment_type != *deployment_type {
             return Some("backend_info.deployment_type");
         }
+        // TODO: Enable deployment_ref verification once all conductors
+        // understand this field.
+        let _ = deployment_ref;
+
         if self.streaming_export_enabled != *streaming_export_enabled {
             return Some("backend_info.streaming_export_enabled");
         }
@@ -93,6 +99,7 @@ impl Default for BackendInfo {
             project_id: ProjectId(17),
             deployment_id: DeploymentId(2021),
             deployment_type: DeploymentType::Dev,
+            deployment_ref: None,
             project_name: Some("Default Project".to_string()),
             project_slug: Some("default-project".to_string()),
             streaming_export_enabled: Some(false),
