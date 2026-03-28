@@ -123,13 +123,6 @@ const allDeployments = [
 
 const meta = {
   component: DeploymentLabel,
-  decorators: [
-    (Story) => (
-      <div style={{ width: "500px" }}>
-        <Story />
-      </div>
-    ),
-  ],
   render: (args) => <DeploymentLabel {...args} />,
   beforeEach: () => {
     mocked(useCurrentTeam).mockReturnValue(mockTeam);
