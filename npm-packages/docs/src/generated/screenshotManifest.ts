@@ -46,12 +46,12 @@ export const screenshots = [
     "light": {
       "filename": "components_usage_by_project_chart_light.webp",
       "width": 2048,
-      "height": 702
+      "height": 918
     },
     "dark": {
       "filename": "components_usage_by_project_chart_dark.webp",
       "width": 2048,
-      "height": 702
+      "height": 918
     }
   },
   {
