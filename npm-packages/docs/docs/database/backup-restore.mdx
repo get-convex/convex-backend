@@ -124,3 +124,11 @@ storage. In particular it lacks:
    table.
 3. Environment variables. Environment variables can be copied from Settings in
    the Convex dashboard.
+
+### How do backups work on dedicated hardware like D1024?
+
+Dedicated deployments (D1024) have backups configured automatically for every 12
+hours and accessible for up to 2 days. Backups are faster and cheaper due to the
+ability to use physical backups on dedicated database hardware, however restores
+require contacting Convex support. Cross-deployment restores are not supported
+to/from D1024. Backups are included in the price of dedicated hardware.
