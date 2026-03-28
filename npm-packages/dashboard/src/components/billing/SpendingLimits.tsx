@@ -354,7 +354,14 @@ function SpendLimitInput({
           </div>
         }
         rightAddon={
-          <div className="text-sm text-content-secondary">/ month</div>
+          <div
+            className={cn(
+              "text-sm",
+              inputDisabled ? "text-content-primary" : "text-content-secondary",
+            )}
+          >
+            / month
+          </div>
         }
         className="pr-16"
         disabled={inputDisabled}

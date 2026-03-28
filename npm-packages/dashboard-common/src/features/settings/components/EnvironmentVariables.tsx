@@ -414,6 +414,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
       <div className="flex min-h-(--env-var-contents-height) min-w-0 items-center gap-1 font-mono">
         <Button
           tip={showValue ? "Hide" : "Show"}
+          aria-label={showValue ? "Hide" : "Show"}
           type="button"
           onClick={() => setShowValue(!showValue)}
           variant="neutral"
@@ -444,6 +445,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
               ? "You do not have permission to edit environment variables."
               : "Edit"
           }
+          aria-label="Edit"
           type="button"
           onClick={() => onEdit()}
           variant="neutral"
@@ -452,6 +454,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
         />
         <Button
           tip="Copy Value"
+          aria-label="Copy Value"
           type="button"
           onClick={async () => {
             await copyTextToClipboard(environmentVariable.value);
@@ -470,6 +473,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
               ? "You do not have permission to delete environment variables."
               : "Delete"
           }
+          aria-label="Delete"
           type="button"
           onClick={() => onDelete()}
           variant="danger"
@@ -914,6 +918,7 @@ function NewEnvVar<T extends BaseEnvironmentVariable>({
 
       <Button
         tip="Remove"
+        aria-label="Remove"
         type="button"
         onClick={() => {
           onDelete();
@@ -952,6 +957,7 @@ function EnvVarNameInput({
     <TextInput
       id={id}
       className="font-mono"
+      label="Name"
       labelHidden
       disabled={formState.isSubmitting}
       {...formState.getFieldProps(formKey)}
@@ -1064,6 +1070,7 @@ function EnvVarValueInput({
         <textarea
           ref={textareaRef}
           id={id}
+          aria-label="Value"
           className={cn(
             "block min-h-(--env-var-contents-height) w-full",
             "resize-none",

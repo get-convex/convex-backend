@@ -29,9 +29,6 @@ const project: ProjectDetails = {
 
 const meta = {
   component: ProjectCard,
-  parameters: {
-    a11y: { test: "todo" },
-  },
   args: {
     project,
   },

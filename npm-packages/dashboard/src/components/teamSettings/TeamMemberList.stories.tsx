@@ -5,7 +5,6 @@ import { TeamMemberList } from "./TeamMemberList";
 
 const meta = {
   component: TeamMemberList,
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof TeamMemberList>;
 
 export default meta;

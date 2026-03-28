@@ -28,7 +28,7 @@ export function UsageDataError({ entity = "usage" }: { entity?: string }) {
   return (
     <div className="flex h-56 animate-fadeInFromLoading flex-col justify-center p-2 text-center">
       <CrossCircledIcon className="mx-auto h-6 w-6 text-content-error" />
-      <h5 className="mt-2">{title}</h5>
+      <h4 className="mt-2">{title}</h4>
       <p className="mt-1 text-sm text-content-secondary">{description}</p>
     </div>
   );
@@ -53,7 +53,7 @@ export function TeamUsageError({
   return (
     <div className="flex h-56 animate-fadeInFromLoading flex-col justify-center p-2 text-center">
       <QuestionMarkCircledIcon className="mx-auto h-6 w-6 text-content-tertiary" />
-      <h5 className="mt-2">{title}</h5>
+      <h4 className="mt-2">{title}</h4>
       <p className="mt-1 text-sm text-content-secondary">{description}</p>
     </div>
   );

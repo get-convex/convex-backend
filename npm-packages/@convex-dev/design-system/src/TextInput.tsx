@@ -137,6 +137,7 @@ export const TextInput = forwardRef<
               Icon && "pr-10",
               className,
             )}
+            aria-label={labelHidden ? label : undefined}
             {...rest}
           />
           {rightAddon !== undefined && (

@@ -87,9 +87,6 @@ const meta = {
       error: undefined,
     }));
   },
-  parameters: {
-    a11y: { test: "todo" },
-  },
 } satisfies Meta<typeof FunctionCallsUsage>;
 
 export default meta;

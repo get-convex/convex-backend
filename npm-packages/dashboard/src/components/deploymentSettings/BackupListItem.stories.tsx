@@ -71,7 +71,6 @@ const meta = {
     progressMessage: null,
   },
   render: StoryRender,
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof BackupListItem>;
 
 export default meta;

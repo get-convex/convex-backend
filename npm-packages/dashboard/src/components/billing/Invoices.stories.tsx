@@ -4,7 +4,6 @@ import { Invoices } from "./Invoices";
 
 const meta = {
   component: Invoices,
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof Invoices>;
 
 export default meta;

@@ -33,7 +33,6 @@ const meta = {
       <EnvironmentVariables {...args} />
     </Sheet>
   ),
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof EnvironmentVariables<BaseEnvironmentVariable>>;
 
 export default meta;

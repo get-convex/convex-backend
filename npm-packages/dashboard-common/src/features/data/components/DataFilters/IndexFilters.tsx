@@ -448,13 +448,14 @@ export function IndexOption({
         {inButton ? (
           <FingerPrintIcon className="size-4 text-content-primary" />
         ) : value.type === "database" ? (
-          <Tooltip side="left" tip="Index">
+          <Tooltip side="left" tip="Index" aria-label="Index">
             <FingerPrintIcon className="size-4" />
           </Tooltip>
         ) : value.type === "search" ? (
           <Tooltip
             side="left"
             tip="Search index"
+            aria-label="Search index"
             className="inline-flex size-4 justify-center"
           >
             <MagnifyingGlassIcon />

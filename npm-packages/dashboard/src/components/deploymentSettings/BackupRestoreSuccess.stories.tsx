@@ -58,7 +58,6 @@ const meta = {
     backup,
     snapshotImportCheckpoints: undefined,
   },
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof BackupRestoreSuccess>;
 
 export default meta;

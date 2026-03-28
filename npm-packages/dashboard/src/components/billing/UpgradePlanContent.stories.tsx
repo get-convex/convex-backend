@@ -43,7 +43,6 @@ const meta = {
       <Callout className="w-fit">Billing address inputs would be here</Callout>
     ),
   },
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof UpgradePlanContent>;
 
 export default meta;

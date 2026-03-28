@@ -67,6 +67,7 @@ function DiscordAccountListRow({ account }: { account: DiscordAccount }) {
       <div className="ml-auto">
         <Button
           tip="Unlink"
+          aria-label="Unlink"
           type="button"
           onClick={() => {
             void unlinkAccount({ discordId: account.id });

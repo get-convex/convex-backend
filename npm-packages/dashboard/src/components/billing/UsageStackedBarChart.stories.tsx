@@ -40,7 +40,6 @@ const meta = {
       <UsageStackedBarChartWrapper {...args} />
     </Sheet>
   ),
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof UsageStackedBarChartWrapper>;
 
 export default meta;

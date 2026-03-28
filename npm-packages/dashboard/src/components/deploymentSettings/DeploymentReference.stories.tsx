@@ -9,7 +9,6 @@ const meta: Meta<typeof DeploymentReference> = {
     canManage: true,
     onUpdate: fn(),
   },
-  parameters: { a11y: { test: "todo" } },
 };
 
 export default meta;
