@@ -137,7 +137,7 @@ function Details({
   );
 }
 
-function CronJobLogListItem({ cronJobLog }: { cronJobLog: CronJobLog }) {
+export function CronJobLogListItem({ cronJobLog }: { cronJobLog: CronJobLog }) {
   const url = useFunctionUrl(cronJobLog.udfPath);
   return (
     <div className="flex items-start gap-4 font-mono text-xs">

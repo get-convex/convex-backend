@@ -56,6 +56,10 @@ const config: StorybookConfig = {
             import.meta.dirname,
             "../../@convex-dev/design-system/src",
           ),
+          // Storybook's Vite build can't bundle `saffron`'s `.wasm` dependency
+          // (see vite:wasm-fallback errors). For Storybook only, swap in a
+          // minimal JS mock so stories can render.
+          saffron: path.resolve(import.meta.dirname, "./mocks/saffron.ts"),
         },
       },
       server: {
