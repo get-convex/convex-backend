@@ -18,6 +18,21 @@ import {
   useUsageTeamDocumentCountPerDayByTable,
   useUsageTeamActionComputeDailyByProject,
 } from "hooks/usageMetrics";
+import {
+  useUsageTeamSummaryV2,
+  useUsageTeamMetricsByFunctionV2,
+  useDatabaseStoragePerDayByProjectAndClassV2,
+  useDatabaseStoragePerDayByTableV2,
+  useDocumentCountPerDayByTableV2,
+  useDatabaseIOPerDayByProjectAndClassV2,
+  useFunctionCallsPerDayByProjectAndClassV2,
+  useComputePerDayByProjectV2,
+  useFileStoragePerDayByProjectV2,
+  useSearchStoragePerDayByProjectV2,
+  useDataEgressPerDayByProjectV2,
+  useSearchQueriesPerDayByProjectV2,
+  useDeploymentsByClassAndRegionV2,
+} from "hooks/usageMetricsV2";
 import { useCurrentBillingPeriod } from "api/usage";
 import { TeamUsagePage } from "../../pages/t/[team]/settings/usage";
 
@@ -123,6 +138,58 @@ const meta = {
       error: undefined,
     });
     mocked(useUsageTeamActionComputeDailyByProject).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useUsageTeamSummaryV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useUsageTeamMetricsByFunctionV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useDatabaseStoragePerDayByProjectAndClassV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useDatabaseStoragePerDayByTableV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useDocumentCountPerDayByTableV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useDatabaseIOPerDayByProjectAndClassV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useFunctionCallsPerDayByProjectAndClassV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useComputePerDayByProjectV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useFileStoragePerDayByProjectV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useSearchStoragePerDayByProjectV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useDataEgressPerDayByProjectV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useSearchQueriesPerDayByProjectV2).mockReturnValue({
+      data: undefined,
+      error: undefined,
+    });
+    mocked(useDeploymentsByClassAndRegionV2).mockReturnValue({
       data: undefined,
       error: undefined,
     });

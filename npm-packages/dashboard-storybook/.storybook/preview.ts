@@ -23,6 +23,7 @@ sb.mock(import("../../dashboard/src/hooks/useLaunchDarkly.tsx"), { spy: true });
 sb.mock(import("../../dashboard/src/api/usage.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/auditLog.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/hooks/usageMetrics.ts"), { spy: true });
+sb.mock(import("../../dashboard/src/hooks/usageMetricsV2.ts"), { spy: true });
 sb.mock(import("../../dashboard-common/src/elements/LocalDevCallout.tsx"), {
   spy: true,
 });
