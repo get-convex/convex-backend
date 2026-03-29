@@ -72,7 +72,8 @@ show install or update suggestions during `npx convex dev`.
 :::caution This setting is supported in Convex CLI `1.34.1` and later. :::
 
 To suppress those suggestions, set `aiFiles.enabled` to `false` in
-`convex.json`:
+`convex.json` (this field was previously called
+`aiFiles.disableStalenessMessage`):
 
 ```json title="convex.json"
 {
