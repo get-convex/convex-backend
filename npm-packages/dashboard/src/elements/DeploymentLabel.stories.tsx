@@ -128,7 +128,7 @@ const meta = {
     mocked(useCurrentTeam).mockReturnValue(mockTeam);
     mocked(useCurrentProject).mockReturnValue(mockProject);
   },
-  parameters: { a11y: { test: "todo" } },
+  tags: ["autodocs"],
 } satisfies Meta<typeof DeploymentLabel>;
 
 export default meta;

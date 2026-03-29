@@ -28,7 +28,6 @@ const deployments: PlatformDeploymentResponse[] = [];
 
 const meta = {
   component: DeploymentLabelProjectSettings,
-  parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof DeploymentLabelProjectSettings>;
 
 export default meta;
