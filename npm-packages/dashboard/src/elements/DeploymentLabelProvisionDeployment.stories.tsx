@@ -1,5 +1,6 @@
 import { DeploymentLabelProvisionDeployment } from "./DeploymentDisplay";
 import { type Meta, type StoryObj } from "@storybook/nextjs";
+import { Sheet } from "@ui/Sheet";
 import {
   ProjectDetails,
   TeamResponse,
@@ -33,6 +34,13 @@ const meta = {
     currentProject: mockProject,
     deployments,
   },
+  decorators: [
+    (Story) => (
+      <Sheet>
+        <Story />
+      </Sheet>
+    ),
+  ],
   parameters: { a11y: { test: "todo" } },
 } satisfies Meta<typeof DeploymentLabelProvisionDeployment>;
 

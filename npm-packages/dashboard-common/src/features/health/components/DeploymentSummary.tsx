@@ -31,25 +31,7 @@ import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { Spinner } from "@ui/Spinner";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-
-function getBackgroundColor(
-  deploymentType: PlatformDeploymentResponse["deploymentType"],
-): string {
-  switch (deploymentType) {
-    case "prod":
-      return "border-purple-600 dark:border-purple-100 bg-purple-100 text-purple-600 dark:bg-purple-700 dark:text-purple-100";
-    case "preview":
-      return "border-orange-600 dark:border-orange-400 bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400";
-    case "dev":
-      return "border-green-600 dark:border-green-400 bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400";
-    case "custom":
-      return "border-neutral-4 dark:border-neutral-6 bg-neutral-1 text-neutral-11 dark:bg-neutral-12 dark:text-neutral-2";
-    default: {
-      deploymentType satisfies never;
-      return "";
-    }
-  }
-}
+import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
 
 function useLatestConvexVersion(currentVersion: string | undefined) {
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -234,7 +216,7 @@ export function DeploymentSummary({
             <div
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                getBackgroundColor(deployment.deploymentType),
+                deploymentTypeColorClasses(deployment.deploymentType),
               )}
             >
               <DeploymentIcon deployment={deployment} className="size-3.5" />

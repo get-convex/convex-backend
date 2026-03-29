@@ -5,7 +5,7 @@ import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { MemberResponse } from "generatedApi";
-import { getBackgroundColor } from "elements/DeploymentDisplay";
+import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
 import {
   CommandLineIcon,
   SignalIcon,
@@ -86,7 +86,7 @@ export function DeploymentRow({
           <div
             className={cn(
               "relative z-10 inline-flex shrink-0 items-center justify-center self-center rounded-full p-1 ring-3 ring-background-secondary",
-              getBackgroundColor(deployment.deploymentType),
+              deploymentTypeColorClasses(deployment.deploymentType),
             )}
           >
             <DeploymentIcon deployment={deployment} />

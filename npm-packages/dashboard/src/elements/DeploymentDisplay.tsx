@@ -11,12 +11,7 @@ import { useRememberLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import {
-  ProjectDetails,
-  DeploymentType,
-  DeploymentResponse,
-  TeamResponse,
-} from "generatedApi";
+import { ProjectDetails, DeploymentResponse, TeamResponse } from "generatedApi";
 import { Button } from "@ui/Button";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { DeploymentMenuOptions } from "components/header/ProjectSelector/DeploymentMenuOptions";
@@ -26,6 +21,7 @@ import {
   PROVISION_DEV_PAGE_NAME,
   PROVISION_PROD_PAGE_NAME,
 } from "@common/lib/deploymentContext";
+import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useListVanityDomains } from "api/vanityDomains";
 import { useQuery } from "convex/react";
@@ -275,7 +271,7 @@ export function DeploymentLabel({
           "flex h-[2.3125rem] items-center gap-2 truncate rounded-full border text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",
           "focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-hidden",
-          getBackgroundColor(deployment.deploymentType),
+          deploymentTypeColorClasses(deployment.deploymentType),
         )}
         type="button"
         ref={buttonRef}
@@ -352,7 +348,7 @@ export function DeploymentLabel({
           <CaretSortIcon
             className={cn(
               "ml-auto size-5 shrink-0",
-              getBackgroundColor(deployment.deploymentType),
+              deploymentTypeColorClasses(deployment.deploymentType),
               "bg-transparent",
             )}
           />
@@ -445,9 +441,8 @@ export function DeploymentLabelProvisionDeployment({
           "border border-dashed",
           "truncate text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",
-          isProvisionProd
-            ? "border-purple-600 bg-purple-100/50 text-purple-600 dark:border-purple-100 dark:bg-purple-700/50 dark:text-purple-100"
-            : "border-green-600 bg-green-100/50 text-green-600 dark:border-green-400 dark:bg-green-900/50 dark:text-green-400",
+          deploymentTypeColorClasses(isProvisionProd ? "prod" : "dev"),
+          "[--bg-opacity:50%]",
         )}
         ref={buttonRef}
         tabIndex={0}
@@ -478,23 +473,6 @@ export function DeploymentLabelProvisionDeployment({
       </Button>
     </div>
   );
-}
-
-export function getBackgroundColor(deploymentType: DeploymentType): string {
-  switch (deploymentType) {
-    case "prod":
-      return "border-purple-600 dark:border-purple-100 bg-purple-100 text-purple-600 dark:bg-purple-700 dark:text-purple-100";
-    case "preview":
-      return "border-orange-600 dark:border-orange-400 bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400";
-    case "dev":
-      return "border-green-600 dark:border-green-400 bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400";
-    case "custom":
-      return "border-neutral-4 dark:border-neutral-6 bg-neutral-1 text-neutral-11 dark:bg-neutral-12 dark:text-neutral-2";
-    default: {
-      deploymentType satisfies never;
-      return "";
-    }
-  }
 }
 
 export function getDeploymentLabel({

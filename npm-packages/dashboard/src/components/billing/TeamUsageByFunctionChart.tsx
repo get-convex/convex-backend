@@ -15,11 +15,13 @@ import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { DeploymentType, TeamResponse, ProjectDetails } from "generatedApi";
 import { PuzzlePieceIcon } from "@common/elements/icons";
 import { BANDWIDTH_CATEGORIES } from "./lib/teamUsageCategories";
+import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
 import {
   QuantityType,
   formatQuantity,
   formatQuantityCompact,
 } from "./lib/formatQuantity";
+import { cn } from "@ui/cn";
 
 const ITEMS_SHOWN_INITIALLY = 6;
 const ITEMS_SHOW_MORE_INCREMENT = 20;
@@ -412,56 +414,18 @@ function DeploymentTypeIndicator({
 }: {
   deploymentType: DeploymentType;
 }) {
-  switch (deploymentType) {
-    case "prod":
-      return (
-        <>
-          <span
-            className={classNames(
-              "size-4 rounded-xl mr-2 border bg-purple-100 dark:bg-purple-900",
-            )}
-          />
-          <span className="capitalize">{deploymentType}</span>
-        </>
-      );
-    case "dev":
-      return (
-        <>
-          <span
-            className={classNames(
-              "size-4 rounded-xl mr-2 border bg-background-success",
-            )}
-          />
-          <span className="capitalize">{deploymentType}</span>
-        </>
-      );
-    case "preview":
-      return (
-        <>
-          <span
-            className={classNames(
-              "size-4 rounded-xl mr-2 border bg-orange-100 dark:bg-orange-900",
-            )}
-          />
-          <span className="capitalize">Preview</span>
-        </>
-      );
-    case "custom":
-      return (
-        <>
-          <span
-            className={classNames(
-              "size-4 rounded-xl mr-2 border bg-neutral-2 dark:bg-neutral-9",
-            )}
-          />
-          <span className="capitalize">Custom</span>
-        </>
-      );
-    default: {
-      deploymentType satisfies never;
-      return null;
-    }
-  }
+  return (
+    <>
+      <span
+        className={cn(
+          "mr-2 size-4 rounded-xl border",
+          deploymentTypeColorClasses(deploymentType),
+          "border-border-transparent",
+        )}
+      />
+      <span className="capitalize">{deploymentType}</span>
+    </>
+  );
 }
 
 /**
