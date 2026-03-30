@@ -420,7 +420,7 @@ function DeploymentTypeIndicator({
         className={cn(
           "mr-2 size-4 rounded-xl border",
           deploymentTypeColorClasses(deploymentType),
-          "border-border-transparent",
+          "border-border-transparent dark:border-border-transparent",
         )}
       />
       <span className="capitalize">{deploymentType}</span>
