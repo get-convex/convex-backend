@@ -7,6 +7,8 @@ description:
   variables, authentication, backups, integrations, and deployment management."
 ---
 
+import { Screenshot } from "@site/src/components/Screenshot";
+
 The [deployment settings page](https://dashboard.convex.dev/deployment/settings)
 gives you access to information and configuration options related to a specific
 deployment (**production**, your personal **development** deployment, or a
@@ -25,7 +27,10 @@ shows:
   and
   [syncing data with Fivetran and Airbyte](/production/integrations/streaming-import-export.md).
 
-![Deployment Settings Dashboard Page](/screenshots/deployment_settings.png)
+<Screenshot
+  story="docs/pages/project/deployment/DeploymentSettings"
+  alt="Deployment Settings Dashboard Page"
+/>
 
 ## Environment Variables
 

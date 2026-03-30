@@ -39,7 +39,7 @@ These HTTP endpoints allow you to call Convex functions and get the result as a
 value.
 
 You can find your backend deployment URL on the dashboard
-[Settings](/dashboard/deployments/settings.md) page, then the API URL will be
+[Settings](/dashboard/deployments/settings.mdx) page, then the API URL will be
 `<CONVEX_URL>/api/query` etc., for example:
 
 <Tabs>
@@ -116,7 +116,7 @@ is formatted as a string as defined
 [here](/functions/query-functions#query-names) with a `/` replacing the `:`.
 
 You can find your backend deployment URL on the dashboard
-[Settings](/dashboard/deployments/settings.md) page, then the API URL will be
+[Settings](/dashboard/deployments/settings.mdx) page, then the API URL will be
 `<CONVEX_URL>/api/run/{functionIdentifier}` etc., for example:
 
 <Tabs>

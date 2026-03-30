@@ -25,7 +25,7 @@ _development_ deployment's URL will be saved in `.env.local` or `.env` file,
 depending on the frontend framework or bundler you're using.
 
 You can find the URLs of all deployments in a project by visiting the
-[deployment settings](/dashboard/deployments/settings.md) on your Convex
+[deployment settings](/dashboard/deployments/settings.mdx) on your Convex
 [dashboard](https://dashboard.convex.dev).
 
 ### Configure the client

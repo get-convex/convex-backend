@@ -20,7 +20,7 @@ import { useMemo, useRef } from "react";
 
 export { getServerSideProps } from "lib/ssr";
 
-export default withAuthenticatedPage(() => {
+export function DeploymentSettingsPage() {
   const router = useRouter();
   const envVars = router.query.var;
   const pathname = usePathname();
@@ -40,7 +40,9 @@ export default withAuthenticatedPage(() => {
       <DeploymentURLAndDeployKey />
     </DeploymentSettingsLayout>
   );
-});
+}
+
+export default withAuthenticatedPage(DeploymentSettingsPage);
 
 function DeploymentURLAndDeployKey() {
   const deployment = useCurrentDeployment();

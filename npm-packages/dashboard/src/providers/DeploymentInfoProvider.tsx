@@ -50,6 +50,7 @@ import {
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { useConvexStatus } from "hooks/useConvexStatus";
 import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
+import { deploymentAuth } from "lib/deploymentAuth";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
@@ -232,39 +233,3 @@ export function DeploymentInfoProvider({
     <>{children}</>
   );
 }
-
-const deploymentAuthInner = async (
-  deploymentName: string,
-  authHeader: string,
-  authMethod: string,
-): Promise<
-  | { deploymentUrl: string; adminKey: string; ok: true }
-  | { ok: false; errorMessage: string; errorCode: string }
-> => {
-  const resp = await fetch(
-    `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/instances/${deploymentName}/${authMethod}`,
-    {
-      method: "POST",
-      headers: { Authorization: authHeader },
-    },
-  );
-  const data = await resp.json();
-  if (!resp.ok) {
-    return { ok: false, errorCode: data.code, errorMessage: data.message };
-  }
-  const { adminKey, instanceUrl } = data;
-  const deploymentUrl = instanceUrl.endsWith("/")
-    ? instanceUrl.slice(0, -1)
-    : instanceUrl;
-  return { deploymentUrl, adminKey, ok: true };
-};
-
-// Obtain a deploy key to be displayed to the user for them to use
-// in machine based workflows like CI/CD.
-const deploymentAuth = async (
-  deploymentName: string,
-  authHeader: string,
-): Promise<
-  | { deploymentUrl: string; adminKey: string; ok: true }
-  | { ok: false; errorMessage: string; errorCode: string }
-> => deploymentAuthInner(deploymentName, authHeader, "auth");

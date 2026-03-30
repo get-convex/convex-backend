@@ -131,5 +131,18 @@ export const screenshots = [
       "width": 2048,
       "height": 1400
     }
+  },
+  {
+    "storyTitle": "docs/pages/project/deployment/DeploymentSettings",
+    "light": {
+      "filename": "pages_project_deployment_deployment_settings_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_project_deployment_deployment_settings_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
   }
 ] as const;

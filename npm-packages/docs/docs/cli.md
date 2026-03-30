@@ -200,7 +200,7 @@ npx convex env remove <name>
 See and update the
 [deployment environment variables](/production/environment-variables). You can
 alternatively use the
-[settings page on the dashboard](/dashboard/deployments/settings.md#environment-variables).
+[settings page on the dashboard](/dashboard/deployments/settings.mdx#environment-variables).
 
 Tip: to avoid secrets from ending up in your terminal shell history, you can
 pass the value via stdin, from a file, or interactively.
