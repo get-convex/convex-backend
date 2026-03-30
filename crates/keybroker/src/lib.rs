@@ -17,6 +17,8 @@ pub use sync_types::UserIdentityAttributes;
 
 pub use self::{
     broker::{
+        operations_for_deploy_key,
+        read_only_operations,
         AdminIdentity,
         AdminIdentityPrincipal,
         CoreIdTokenWithCustomClaims,

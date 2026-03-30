@@ -65,6 +65,7 @@ use pb::{
     convex_identity::{
         unchecked_identity::Identity as UncheckedIdentityProto,
         ActingUser,
+        DeploymentOperation,
         UnknownIdentity,
     },
     convex_keys::{
@@ -617,6 +618,29 @@ fn extract_custom_jwt_claims(
     result
 }
 
+pub fn read_only_operations() -> Vec<i32> {
+    vec![
+        DeploymentOperation::ViewEnvironmentVariables as i32,
+        DeploymentOperation::ViewLogs as i32,
+        DeploymentOperation::ViewMetrics as i32,
+        DeploymentOperation::ViewIntegrations as i32,
+        DeploymentOperation::ViewData as i32,
+        DeploymentOperation::ViewBackups as i32,
+        DeploymentOperation::DownloadBackups as i32,
+        DeploymentOperation::RunInternalQueries as i32,
+        DeploymentOperation::RunTestQuery as i32,
+    ]
+}
+
+pub fn operations_for_deploy_key(is_read_only: bool) -> Vec<i32> {
+    if is_read_only {
+        read_only_operations()
+    } else {
+        // Empty means all operations are allowed.
+        vec![]
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum AdminIdentityPrincipal {
@@ -697,13 +721,14 @@ impl AdminIdentity {
         principal: AdminIdentityPrincipal,
         access_token: String,
         is_read_only: bool,
+        allowed_operations: Vec<i32>,
     ) -> Self {
         Self {
             instance_name,
             principal,
             key: access_token,
             is_read_only,
-            allowed_operations: vec![],
+            allowed_operations,
         }
     }
 
@@ -717,6 +742,10 @@ impl AdminIdentity {
     // allowed to read data from user and system tables but not write to them.
     pub fn is_read_only(&self) -> bool {
         self.is_read_only
+    }
+
+    pub fn allowed_operations(&self) -> &[i32] {
+        &self.allowed_operations
     }
 }
 
@@ -935,7 +964,7 @@ impl KeyBroker {
                 principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
                 is_read_only,
-                allowed_operations: vec![],
+                allowed_operations: operations_for_deploy_key(is_read_only),
             }),
             AdminIdentityProto::System(()) => Identity::system(),
         })

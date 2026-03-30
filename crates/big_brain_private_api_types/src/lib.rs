@@ -109,6 +109,8 @@ pub struct AccessTokenDeploymentAuthResponse {
     pub is_authorized: bool,
     pub authorized_entity: Option<AdminIdentityPrincipal>,
     pub is_read_only: Option<bool>,
+    #[serde(default)]
+    pub allowed_operations: Option<Vec<i32>>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
