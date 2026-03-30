@@ -11,10 +11,10 @@ import { reportHttpError } from "hooks/fetching";
 import {
   DeploymentInfo,
   DeploymentInfoContext,
-  LocalDeploymentDisconnectOverlay,
-  CloudDisconnectOverlay,
   ConnectedDeployment,
 } from "@common/lib/deploymentContext";
+import { LocalDeploymentDisconnectOverlay } from "@common/features/disconnectOverlay/LocalDeploymentDisconnectOverlay";
+import { CloudDisconnectOverlay } from "@common/features/disconnectOverlay/CloudDisconnectOverlay";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useCurrentDeployment } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";

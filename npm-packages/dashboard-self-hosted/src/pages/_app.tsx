@@ -13,6 +13,7 @@ import { ToastContainer } from "@common/elements/ToastContainer";
 import { ThemeConsumer } from "@common/elements/ThemeConsumer";
 import { Favicon } from "@common/elements/Favicon";
 import { ToggleTheme } from "@common/elements/ToggleTheme";
+import { SelfHostedDisconnectOverlay } from "@common/features/disconnectOverlay/SelfHostedDisconnectOverlay";
 import { Menu, MenuItem } from "@ui/Menu";
 import { ThemeProvider } from "next-themes";
 import React, {
@@ -30,7 +31,6 @@ import {
   WaitForDeploymentApi,
   DeploymentInfo,
   DeploymentInfoContext,
-  SelfHostedDisconnectOverlay,
 } from "@common/lib/deploymentContext";
 import { Tooltip } from "@ui/Tooltip";
 import { DeploymentCredentialsForm } from "components/DeploymentCredentialsForm";

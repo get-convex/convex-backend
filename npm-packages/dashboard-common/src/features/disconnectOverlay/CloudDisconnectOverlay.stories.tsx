@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
-import { CloudDisconnectOverlay } from "./deploymentContext";
+import { CloudDisconnectOverlay } from "./CloudDisconnectOverlay";
 import { fn } from "storybook/test";
 
 const meta: Meta<typeof CloudDisconnectOverlay> = {
