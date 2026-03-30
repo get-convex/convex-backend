@@ -588,7 +588,8 @@
           "total_index_size_bytes",
           "total_vector_storage_bytes",
           "total_file_storage_bytes",
-          "total_backup_storage_bytes"
+          "total_backup_storage_bytes",
+          "total_system_table_document_size_bytes"
         ],
         "properties": {
           "timestamp": {
@@ -615,6 +616,17 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "total_system_table_document_size_bytes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            },
+            "propertyNames": {
+              "type": "string"
+            }
           },
           "total_vector_storage_bytes": {
             "type": "integer",

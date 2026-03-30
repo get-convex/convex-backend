@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fmt,
     fmt::Display,
     str::FromStr,
@@ -184,6 +185,7 @@ pub enum StructuredLogEvent {
         total_vector_storage_bytes: u64,
         total_file_storage_bytes: u64,
         total_backup_storage_bytes: u64,
+        total_system_table_document_size_bytes: BTreeMap<String, u64>,
     },
     /// Topic for function concurrency metrics. These are periodic snapshots of
     /// running and queued functions for each function type.
@@ -418,6 +420,7 @@ impl LogEvent {
                     total_vector_storage_bytes,
                     total_file_storage_bytes,
                     total_backup_storage_bytes,
+                    total_system_table_document_size_bytes,
                 } => serialize_map!({
                     "_timestamp": ms,
                     "_topic": "_current_storage_usage",
@@ -426,6 +429,7 @@ impl LogEvent {
                     "total_vector_storage_bytes": total_vector_storage_bytes,
                     "total_file_storage_bytes": total_file_storage_bytes,
                     "total_backup_storage_bytes": total_backup_storage_bytes,
+                    "total_system_table_document_size_bytes": total_system_table_document_size_bytes,
                 }),
                 StructuredLogEvent::ConcurrencyStats {
                     query,
@@ -613,6 +617,7 @@ impl LogEvent {
                     total_vector_storage_bytes,
                     total_file_storage_bytes,
                     total_backup_storage_bytes,
+                    total_system_table_document_size_bytes,
                 } => {
                     serialize_map!({
                         "timestamp": ms,
@@ -622,6 +627,7 @@ impl LogEvent {
                         "total_vector_storage_bytes": total_vector_storage_bytes,
                         "total_file_storage_bytes": total_file_storage_bytes,
                         "total_backup_storage_bytes": total_backup_storage_bytes,
+                        "total_system_table_document_size_bytes": total_system_table_document_size_bytes,
                     })
                 },
                 StructuredLogEvent::ConcurrencyStats {
@@ -807,6 +813,8 @@ pub struct StreamUdfExecutionQueryArgs {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use serde::{
         Deserialize,
         Serialize,
@@ -1015,6 +1023,7 @@ mod tests {
         total_vector_storage_bytes: u64,
         total_file_storage_bytes: u64,
         total_backup_storage_bytes: u64,
+        total_system_table_document_size_bytes: BTreeMap<String, u64>,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]

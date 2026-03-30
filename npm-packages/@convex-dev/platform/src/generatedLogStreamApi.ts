@@ -144,6 +144,9 @@ export interface components {
             total_file_storage_bytes: number;
             /** Format: int64 */
             total_index_size_bytes: number;
+            total_system_table_document_size_bytes: {
+                [key: string]: number;
+            };
             /** Format: int64 */
             total_vector_storage_bytes: number;
         };

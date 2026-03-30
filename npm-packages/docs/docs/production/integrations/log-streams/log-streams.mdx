@@ -394,6 +394,8 @@ Schema:
 - `total_file_storage_bytes`: number, total size in bytes of file storage
 - `total_backup_storage_bytes`: number, total size in bytes of snapshot/backup
   storage
+- `total_system_table_document_size_bytes`: object, document size in bytes per
+  system virtual table (e.g. `_storage`, `_scheduled_functions`)
 
 Example event:
 
@@ -405,7 +407,11 @@ Example event:
   "total_index_size_bytes": 10485760,
   "total_vector_storage_bytes": 5242880,
   "total_file_storage_bytes": 52428800,
-  "total_backup_storage_bytes": 209715200
+  "total_backup_storage_bytes": 209715200,
+  "total_system_table_document_size_bytes": {
+    "_storage": 1048576,
+    "_scheduled_functions": 2097152
+  }
 }
 ```
 
