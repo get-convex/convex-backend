@@ -692,7 +692,7 @@ export function cacheDir() {
  *
  * This fetch() also has retries and throws if the response is not ok.
  */
-export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
+export function bigBrainFetch(ctx: Context): typeof fetch {
   const authHeader = ctx.bigBrainAuth()?.header;
   const bigBrainHeaders: Record<string, string> = authHeader
     ? {
@@ -767,13 +767,7 @@ function typedBigBrainClientFactory<T>(baseUrl: string) {
         : never;
     const bigBrainClient = createClient<Paths>({
       baseUrl,
-      fetch: async (
-        resource: Request,
-        options?: RequestInit,
-      ): Promise<Response> => {
-        const fetch = await bigBrainFetch(ctx);
-        return fetch(resource, options);
-      },
+      fetch: bigBrainFetch(ctx),
     });
 
     // Wrap the client with error handling - go back to proxy since middleware doesn't catch parsing errors
@@ -828,7 +822,7 @@ export async function bigBrainAPIMaybeThrows({
   path: string;
   data?: any;
 }): Promise<any> {
-  const fetch = await bigBrainFetch(ctx);
+  const fetch = bigBrainFetch(ctx);
   const dataString =
     data === undefined
       ? method === "POST"

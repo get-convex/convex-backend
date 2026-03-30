@@ -38,7 +38,7 @@ export const docs = new Command("docs")
       `get_cookie/${configuredDeployment}`,
       BIG_BRAIN_URL,
     );
-    const fetch = await bigBrainFetch(ctx);
+    const fetch = bigBrainFetch(ctx);
     try {
       const res = await fetch(getCookieUrl);
       deprecationCheckWarning(ctx, res);

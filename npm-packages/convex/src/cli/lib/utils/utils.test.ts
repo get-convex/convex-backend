@@ -65,7 +65,7 @@ describe("bigBrainFetch", () => {
     const mockFetch = stubFetch();
     const ctx = makeContext(null);
 
-    const fetch = await bigBrainFetch(ctx);
+    const fetch = bigBrainFetch(ctx);
     await fetch("https://api.convex.dev/api/test", { method: "GET" });
 
     expect(mockFetch).toHaveBeenCalledOnce();
@@ -82,7 +82,7 @@ describe("bigBrainFetch", () => {
       accessToken: "test-token",
     });
 
-    const fetch = await bigBrainFetch(ctx);
+    const fetch = bigBrainFetch(ctx);
     await fetch("https://api.convex.dev/api/test", { method: "GET" });
 
     expect(mockFetch).toHaveBeenCalledOnce();
@@ -99,7 +99,7 @@ describe("bigBrainFetch", () => {
       accessToken: "original-token",
     });
 
-    const fetch = await bigBrainFetch(ctx);
+    const fetch = bigBrainFetch(ctx);
     await fetch("https://api.convex.dev/api/test", {
       method: "POST",
       headers: {
@@ -124,7 +124,7 @@ describe("bigBrainFetch", () => {
       headers: { "X-Custom-Header": "custom-value" },
     });
 
-    const fetch = await bigBrainFetch(ctx);
+    const fetch = bigBrainFetch(ctx);
     await fetch(request, undefined);
 
     expect(mockFetch).toHaveBeenCalledOnce();
@@ -143,7 +143,7 @@ describe("bigBrainFetch", () => {
       headers: { "X-Custom-Header": "from-request" },
     });
 
-    const fetch = await bigBrainFetch(ctx);
+    const fetch = bigBrainFetch(ctx);
     await fetch(request, {
       headers: { "X-Custom-Header": "from-options" },
     });
@@ -160,7 +160,7 @@ describe("bigBrainFetch", () => {
       method: "POST",
     });
 
-    const fetch = await bigBrainFetch(ctx);
+    const fetch = bigBrainFetch(ctx);
     await fetch(request);
 
     expect(mockFetch).toHaveBeenCalledOnce();
