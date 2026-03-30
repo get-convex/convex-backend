@@ -633,6 +633,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             table_registry.table_mapping().clone(),
             reader,
             None,
+            None,
         );
 
         let mut tx = make_transaction(

@@ -5528,6 +5528,7 @@ dependencies = [
  "http-body-util",
  "http_client",
  "hyper-util",
+ "indexing",
  "isolate",
  "jsonschema",
  "keybroker",

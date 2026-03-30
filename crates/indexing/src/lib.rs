@@ -9,6 +9,7 @@
 #![feature(anonymous_lifetime_in_impl_trait)]
 
 pub mod backend_in_memory_indexes;
+pub mod index_cache;
 pub mod index_registry;
 pub mod metrics;
 

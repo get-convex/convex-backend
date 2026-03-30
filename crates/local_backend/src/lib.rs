@@ -59,6 +59,7 @@ use function_runner::{
 };
 use governor::Quota;
 use http_client::CachedHttpClient;
+use indexing::index_cache::SharedIndexCache;
 use model::{
     initialize_application_system_tables,
     virtual_system_mapping,
@@ -161,6 +162,7 @@ pub async fn make_app(
         searcher.clone(),
         preempt_tx.clone(),
         virtual_system_mapping().clone(),
+        Some(SharedIndexCache),
         Arc::new(new_rate_limiter(
             runtime.clone(),
             Quota::per_second(*DOCUMENT_RETENTION_RATE_LIMIT),

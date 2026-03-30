@@ -214,6 +214,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             searcher.clone(),
             ShutdownSignal::panic(),
             virtual_system_mapping().clone(),
+            None,
             // Essentially unlimited rate limit for testing
             Arc::new(new_unlimited_rate_limiter(rt.clone())),
             deleted_tablet_sender,

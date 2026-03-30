@@ -128,6 +128,7 @@ use indexing::{
         NoInMemoryIndexes,
         TimestampedIndexCache,
     },
+    index_cache::SharedIndexCache,
     index_registry::IndexRegistry,
 };
 use itertools::Itertools;
@@ -288,6 +289,7 @@ pub struct Database<RT: Runtime> {
     retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
+    shared_index_cache: Option<SharedIndexCache>,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
     // Caches of snapshot TableMapping and by_id index ids, which are used repeatedly by
@@ -320,6 +322,7 @@ pub struct DatabaseSnapshot<RT: Runtime> {
     pub bootstrap_metadata: BootstrapMetadata,
     pub snapshot: Snapshot,
     pub persistence_snapshot: PersistenceSnapshot,
+    shared_index_cache: Option<SharedIndexCache>,
 
     // To read lots of data at the snapshot, sometimes you need
     // to look at current data and walk backwards.
@@ -811,6 +814,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 vector_indexes: vector,
             },
             persistence_snapshot,
+            shared_index_cache: None,
 
             persistence_reader: persistence,
             retention_validator,
@@ -911,6 +915,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             Arc::new(NoInMemoryIndexes),
             self.snapshot.table_registry.table_mapping().clone(),
             Arc::new(self.persistence_snapshot.clone()),
+            self.shared_index_cache.clone(),
             None,
         );
 
@@ -968,6 +973,7 @@ impl<RT: Runtime> Database<RT> {
         searcher: Arc<dyn Searcher>,
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
+        shared_index_cache: Option<SharedIndexCache>,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
         deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<Self> {
@@ -1010,6 +1016,7 @@ impl<RT: Runtime> Database<RT> {
             snapshot,
             persistence_reader: _,
             retention_validator: _,
+            ..
         } = db_snapshot;
 
         let snapshot_manager = SnapshotManager::new(*ts, snapshot);
@@ -1056,6 +1063,7 @@ impl<RT: Runtime> Database<RT> {
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
             search_storage: Arc::new(OnceLock::new()),
+            shared_index_cache,
             virtual_system_mapping,
             bootstrap_metadata,
             table_mapping_snapshot_cache,
@@ -1547,6 +1555,7 @@ impl<RT: Runtime> Database<RT> {
             Arc::new(snapshot.in_memory_indexes),
             snapshot.table_registry.table_mapping().clone(),
             Arc::new(persistence_snapshot),
+            self.shared_index_cache.clone(),
             None,
         );
         let (results, cursor) = db_index_snapshot
@@ -1805,6 +1814,7 @@ impl<RT: Runtime> Database<RT> {
                     )
                     .read_snapshot(repeatable_ts)?,
                 ),
+                self.shared_index_cache.clone(),
                 index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -1869,6 +1879,7 @@ impl<RT: Runtime> Database<RT> {
             bootstrap_metadata: self.bootstrap_metadata.clone(),
             snapshot,
             persistence_snapshot: repeatable_persistence.read_snapshot(ts)?,
+            shared_index_cache: self.shared_index_cache.clone(),
             persistence_reader: self.reader.clone(),
             retention_validator: self.retention_validator(),
         })

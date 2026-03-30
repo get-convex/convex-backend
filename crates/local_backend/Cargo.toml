@@ -15,6 +15,7 @@ testing = [
     "database/testing",
     "errors/testing",
     "function_runner/testing",
+    "indexing/testing",
     "isolate/testing",
     "keybroker/testing",
     "metrics/testing",
@@ -68,6 +69,7 @@ http = { workspace = true }
 http-body-util = { workspace = true }
 http_client = { workspace = true }
 hyper-util = { workspace = true }
+indexing = { workspace = true }
 isolate = { workspace = true }
 keybroker = { workspace = true }
 maplit = { workspace = true }
@@ -123,6 +125,7 @@ errors = { workspace = true, features = ["testing"] }
 events = { workspace = true, features = ["testing"] }
 exports = { workspace = true, features = ["testing"] }
 function_runner = { workspace = true, features = ["testing"] }
+indexing = { workspace = true, features = ["testing"] }
 isolate = { workspace = true, features = ["testing"] }
 jsonschema = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }

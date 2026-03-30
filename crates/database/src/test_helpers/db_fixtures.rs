@@ -94,6 +94,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             searcher.clone(),
             ShutdownSignal::panic(),
             virtual_system_mapping,
+            None,
             Arc::new(new_unlimited_rate_limiter(rt.clone())),
             deleted_tablet_sender,
         )

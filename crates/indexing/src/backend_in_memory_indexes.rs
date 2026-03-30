@@ -93,6 +93,7 @@ use value::{
 };
 
 use crate::{
+    index_cache::SharedIndexCache,
     index_registry::{
         IndexRegistry,
         IndexedDocument,
@@ -596,6 +597,8 @@ pub struct DatabaseIndexSnapshot {
 
     reader: Arc<dyn IndexReader>,
 
+    #[allow(dead_code)]
+    shared_index_cache: Option<SharedIndexCache>,
     // Cache results reads from the snapshot. The snapshot is immutable and thus
     // we don't have to do any invalidation.
     cache: DatabaseIndexSnapshotCache,
@@ -624,6 +627,7 @@ impl DatabaseIndexSnapshot {
         in_memory_indexes: Arc<dyn InMemoryIndexes>,
         table_mapping: TableMapping,
         reader: Arc<dyn IndexReader>,
+        shared_index_cache: Option<SharedIndexCache>,
         cache: Option<TimestampedIndexCache>,
     ) -> Self {
         let cache = cache
@@ -634,6 +638,7 @@ impl DatabaseIndexSnapshot {
             in_memory_indexes,
             table_mapping: ReadOnly::new(table_mapping),
             reader,
+            shared_index_cache,
             cache,
         }
     }
