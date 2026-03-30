@@ -1550,6 +1550,7 @@ function DeploymentCountUsage({
               categories={deploymentTypeCategories}
               selectedDate={selectedDate}
               setSelectedDate={setSelectedDate}
+              isGauge
             />
           )
         ) : // Show deployment count by project
@@ -1563,6 +1564,7 @@ function DeploymentCountUsage({
             team={team}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
+            isGauge
           />
         )}
       </div>
@@ -1669,6 +1671,7 @@ function BusinessDeploymentCountUsage({
               categories={deploymentTypeCategories}
               selectedDate={selectedDate}
               setSelectedDate={setSelectedDate}
+              isGauge
             />
           )
         ) : viewMode === "byProject" ? (
@@ -1682,6 +1685,7 @@ function BusinessDeploymentCountUsage({
               team={team}
               selectedDate={selectedDate}
               setSelectedDate={setSelectedDate}
+              isGauge
             />
           )
         ) : deploymentsByClassError ? (
@@ -1694,6 +1698,7 @@ function BusinessDeploymentCountUsage({
             categories={DEPLOYMENT_CLASS_CATEGORIES}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
+            isGauge
           />
         )}
       </div>
