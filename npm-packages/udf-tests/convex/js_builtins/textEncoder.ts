@@ -69,6 +69,24 @@ function textDecoder2() {
   ]);
   const decoder = new TextDecoder();
   assert.strictEqual(decoder.decode(fixture), "𝓽𝓮𝔁𝓽");
+  // should be able to reuse the decoder
+  assert.strictEqual(decoder.decode(fixture), "𝓽𝓮𝔁𝓽");
+}
+
+function textDecoderStream() {
+  const decoder = new TextDecoder();
+  // Run twice to check that the decoder state is cleaned up
+  for (let i = 0; i < 2; i++) {
+    assert.strictEqual(
+      decoder.decode(new Uint8Array([0xf0, 0x9f]), { stream: true }),
+      "",
+    );
+    assert.strictEqual(
+      decoder.decode(new Uint8Array([0xab]), { stream: true }),
+      "",
+    );
+    assert.strictEqual(decoder.decode(new Uint8Array([0xaa])), "\u{1faea}");
+  }
 }
 
 // Regression test.
@@ -269,6 +287,7 @@ export default query(async (): Promise<string> => {
     btoaFailed,
 
     textDecoder2,
+    textDecoderStream,
     textDecoderSubarray,
     textDecoderASCII,
     textDecoderErrorEncoding,
