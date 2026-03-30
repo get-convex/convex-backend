@@ -356,6 +356,7 @@ pub fn router(st: LocalAppState) -> Router {
     let (platform_routes, platform_openapi) =
         OpenApiRouter::with_openapi(PlatformApiDoc::openapi())
             .merge(platform_router())
+            .merge(crate::deployment_info::platform_router())
             .merge(crate::canonical_urls::platform_router())
             .merge(crate::log_sinks::platform_router())
             .merge(crate::deployment_state::platform_router())

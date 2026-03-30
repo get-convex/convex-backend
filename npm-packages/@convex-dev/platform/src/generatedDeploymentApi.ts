@@ -49,6 +49,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployment_info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get deployment info
+         * @description Returns identity information about this deployment.
+         */
+        get: operations["get deployment info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/update_canonical_url": {
         parameters: {
             query?: never;
@@ -398,6 +418,24 @@ export interface components {
          * @enum {string}
          */
         DatadogSiteLocation: "US1" | "US3" | "US5" | "EU" | "US1_FED" | "AP1";
+        /** Format: int64 */
+        DeploymentId: number;
+        DeploymentInfoResponse: {
+            deploymentType: components["schemas"]["DeploymentType"];
+            id: components["schemas"]["DeploymentId"];
+            /** @enum {string} */
+            kind: "cloud";
+            projectId: components["schemas"]["ProjectId"];
+            projectName?: string | null;
+            projectSlug?: string | null;
+            reference?: string | null;
+            teamId: components["schemas"]["TeamId"];
+        } | {
+            /** @enum {string} */
+            kind: "selfHosted";
+        };
+        /** @enum {string} */
+        DeploymentType: "dev" | "prod" | "preview" | "custom";
         GetCanonicalUrlsResponse: {
             convexCloudUrl: string;
             convexSiteUrl: string;
@@ -462,6 +500,8 @@ export interface components {
             /** @description Status of the log stream */
             status: components["schemas"]["LogStreamStatus"];
         };
+        /** Format: int64 */
+        ProjectId: number;
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
         RotateLogStreamSecretResponse: {
@@ -479,6 +519,8 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
+        /** Format: int64 */
+        TeamId: number;
         UpdateAxiomSinkArgs: {
             /** @description Axiom API key for authentication. */
             apiKey?: string | null;
@@ -595,15 +637,20 @@ export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLog
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
 export type DatadogLogStreamConfig = components['schemas']['DatadogLogStreamConfig'];
 export type DatadogSiteLocation = components['schemas']['DatadogSiteLocation'];
+export type DeploymentId = components['schemas']['DeploymentId'];
+export type DeploymentInfoResponse = components['schemas']['DeploymentInfoResponse'];
+export type DeploymentType = components['schemas']['DeploymentType'];
 export type GetCanonicalUrlsResponse = components['schemas']['GetCanonicalUrlsResponse'];
 export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
 export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type LogStreamStatus = components['schemas']['LogStreamStatus'];
 export type PostHogErrorTrackingLogStreamConfig = components['schemas']['PostHogErrorTrackingLogStreamConfig'];
 export type PostHogLogsLogStreamConfig = components['schemas']['PostHogLogsLogStreamConfig'];
+export type ProjectId = components['schemas']['ProjectId'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStreamSecretResponse'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
+export type TeamId = components['schemas']['TeamId'];
 export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
 export type UpdateCanonicalUrlRequest = components['schemas']['UpdateCanonicalUrlRequest'];
 export type UpdateDatadogSinkArgs = components['schemas']['UpdateDatadogSinkArgs'];
@@ -654,6 +701,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListEnvVarsResponse"];
+                };
+            };
+        };
+    };
+    "get deployment info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentInfoResponse"];
                 };
             };
         };

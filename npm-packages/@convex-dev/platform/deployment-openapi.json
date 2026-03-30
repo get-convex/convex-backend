@@ -91,6 +91,39 @@
         ]
       }
     },
+    "/deployment_info": {
+      "get": {
+        "summary": "Get deployment info",
+        "description": "Returns identity information about this deployment.",
+        "operationId": "get deployment info",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentInfoResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
     "/update_canonical_url": {
       "post": {
         "summary": "Update canonical URL",
@@ -991,6 +1024,86 @@
           "AP1"
         ]
       },
+      "DeploymentId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "DeploymentInfoResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "teamId",
+              "projectId",
+              "id",
+              "deploymentType",
+              "kind"
+            ],
+            "properties": {
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType"
+              },
+              "id": {
+                "$ref": "#/components/schemas/DeploymentId"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cloud"
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId"
+              },
+              "projectName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "projectSlug": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "teamId": {
+                "$ref": "#/components/schemas/TeamId"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "selfHosted"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "DeploymentType": {
+        "type": "string",
+        "enum": [
+          "dev",
+          "prod",
+          "preview",
+          "custom"
+        ]
+      },
       "GetCanonicalUrlsResponse": {
         "type": "object",
         "required": [
@@ -1293,6 +1406,11 @@
           }
         }
       },
+      "ProjectId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
       "RequestDestination": {
         "type": "string",
         "enum": [
@@ -1352,6 +1470,11 @@
             }
           }
         }
+      },
+      "TeamId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
       },
       "UpdateAxiomSinkArgs": {
         "type": "object",
