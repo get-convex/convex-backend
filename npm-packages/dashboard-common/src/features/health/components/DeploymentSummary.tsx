@@ -211,7 +211,7 @@ export function DeploymentSummary({
             mainPanelRounding,
           )}
         >
-          {/* Row 1: Type + Name (always together) */}
+          {/* Row 1: Type + Reference + Name (always together) */}
           <div className="flex flex-wrap items-center gap-2">
             <div
               className={cn(
@@ -222,9 +222,18 @@ export function DeploymentSummary({
               <DeploymentIcon deployment={deployment} className="size-3.5" />
               <span>{getDeploymentTypeLabel(deployment.deploymentType)}</span>
             </div>
-            <div className="font-mono text-sm text-content-primary">
-              {deployment.name}
-            </div>
+            {deployment.kind === "cloud" ? (
+              <div className="flex flex-wrap gap-x-1.5 text-sm text-content-primary">
+                <strong className="font-medium">{deployment.reference}</strong>{" "}
+                <span className="font-mono text-content-secondary">
+                  ({deployment.name})
+                </span>
+              </div>
+            ) : (
+              <span className="font-mono text-sm text-content-secondary">
+                {deployment.name}
+              </span>
+            )}
           </div>
 
           {/* Row 2: Region/Port + Class + Version */}
