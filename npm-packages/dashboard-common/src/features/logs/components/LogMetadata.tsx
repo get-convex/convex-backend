@@ -132,6 +132,10 @@ export function LogMetadata({
       storageWriteBytes: 0,
       vectorIndexReadBytes: 0,
       vectorIndexWriteBytes: 0,
+      textIndexQueryBytes: 0,
+      textIndexWriteQueryBytes: 0,
+      vectorIndexReadQueryBytes: 0,
+      vectorIndexWriteQueryBytes: 0,
       runtimeMs: 0,
       computeMbMs: 0,
     };

@@ -370,6 +370,10 @@
           "storageWriteBytes",
           "vectorIndexReadBytes",
           "vectorIndexWriteBytes",
+          "textIndexQueryBytes",
+          "textIndexWriteQueryBytes",
+          "vectorIndexReadQueryBytes",
+          "vectorIndexWriteQueryBytes",
           "memoryUsedMb"
         ],
         "properties": {
@@ -403,12 +407,32 @@
             "format": "int64",
             "minimum": 0
           },
+          "textIndexQueryBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "textIndexWriteQueryBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
           "vectorIndexReadBytes": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
           },
+          "vectorIndexReadQueryBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
           "vectorIndexWriteBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "vectorIndexWriteQueryBytes": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

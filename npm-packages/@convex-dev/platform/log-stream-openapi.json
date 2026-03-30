@@ -254,6 +254,10 @@
               "file_storage_write_bytes",
               "vector_storage_read_bytes",
               "vector_storage_write_bytes",
+              "text_search_query_bytes",
+              "text_search_write_query_bytes",
+              "vector_search_query_bytes",
+              "vector_search_write_query_bytes",
               "network_egress_bytes"
             ],
             "properties": {
@@ -291,6 +295,26 @@
                 "minimum": 0
               },
               "network_egress_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "text_search_query_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "text_search_write_query_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "vector_search_query_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "vector_search_write_query_bytes": {
                 "type": "integer",
                 "format": "int64",
                 "minimum": 0

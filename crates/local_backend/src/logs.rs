@@ -190,6 +190,10 @@ fn usage_stats_to_json(
         storage_write_bytes: stats.storage_write_bytes,
         vector_index_read_bytes: stats.vector_index_read_bytes,
         vector_index_write_bytes: stats.vector_index_write_bytes,
+        text_index_query_bytes: stats.text_index_query_bytes,
+        text_index_write_query_bytes: stats.text_index_write_query_bytes,
+        vector_index_read_query_bytes: stats.vector_index_read_query_bytes,
+        vector_index_write_query_bytes: stats.vector_index_write_query_bytes,
         memory_used_mb,
     }
 }

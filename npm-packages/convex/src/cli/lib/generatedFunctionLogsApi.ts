@@ -101,9 +101,17 @@ export interface components {
             /** Format: int64 */
             storageWriteBytes: number;
             /** Format: int64 */
+            textIndexQueryBytes: number;
+            /** Format: int64 */
+            textIndexWriteQueryBytes: number;
+            /** Format: int64 */
             vectorIndexReadBytes: number;
             /** Format: int64 */
+            vectorIndexReadQueryBytes: number;
+            /** Format: int64 */
             vectorIndexWriteBytes: number;
+            /** Format: int64 */
+            vectorIndexWriteQueryBytes: number;
         };
         Value: unknown;
     };

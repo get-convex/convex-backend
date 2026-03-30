@@ -72,6 +72,14 @@ export interface components {
                 /** Format: int64 */
                 network_egress_bytes: number;
                 /** Format: int64 */
+                text_search_query_bytes: number;
+                /** Format: int64 */
+                text_search_write_query_bytes: number;
+                /** Format: int64 */
+                vector_search_query_bytes: number;
+                /** Format: int64 */
+                vector_search_write_query_bytes: number;
+                /** Format: int64 */
                 vector_storage_read_bytes: number;
                 /** Format: int64 */
                 vector_storage_write_bytes: number;

@@ -1163,9 +1163,19 @@ impl FunctionUsageStats {
             storage_write_bytes: self.storage_ingress.values().sum(),
             vector_index_read_bytes: self.vector_egress.values().sum(),
             vector_index_write_bytes: self.vector_ingress.values().sum(),
-            text_index_write_bytes: self.text_ingress.values().sum(),
+            text_index_write_query_bytes: self.text_ingress.values().sum(),
+            text_index_query_bytes: self
+                .text_query_usage
+                .values()
+                .map(|u| u.bytes_searched)
+                .sum(),
+            vector_index_read_query_bytes: self
+                .vector_query_usage
+                .values()
+                .map(|u| u.bytes_searched)
+                .sum(),
             network_egress_bytes: self.fetch_egress.values().sum(),
-            vector_index_write_bytes_v2: self.vector_ingress_v2.values().sum(),
+            vector_index_write_query_bytes: self.vector_ingress_v2.values().sum(),
         }
     }
 
@@ -1486,9 +1496,11 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
-    pub text_index_write_bytes: u64,
+    pub text_index_write_query_bytes: u64,
+    pub text_index_query_bytes: u64,
+    pub vector_index_read_query_bytes: u64,
     pub network_egress_bytes: u64,
-    pub vector_index_write_bytes_v2: u64,
+    pub vector_index_write_query_bytes: u64,
 }
 
 #[cfg(test)]

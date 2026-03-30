@@ -39,6 +39,10 @@ export type UsageStats = {
   storageWriteBytes: number;
   vectorIndexReadBytes: number;
   vectorIndexWriteBytes: number;
+  textIndexQueryBytes: number;
+  textIndexWriteQueryBytes: number;
+  vectorIndexReadQueryBytes: number;
+  vectorIndexWriteQueryBytes: number;
 };
 
 export type FunctionExecutionCompletion = {
