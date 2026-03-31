@@ -62,8 +62,8 @@ code to backend.
 To make the local backend run the included demo project, do:
 
 ```bash
+just rush install
 cd npm-packages/demos/tutorial
-npm i
 just convex dev
 ```
 

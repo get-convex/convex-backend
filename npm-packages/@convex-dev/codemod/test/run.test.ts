@@ -26,7 +26,7 @@ describe("explicit-ids", () => {
       // Verify that the project’s dependencies are installed (node_modules exist)
       if (!fs.existsSync(path.join(folderPath, "node_modules"))) {
         throw new Error(
-          "node_modules not found in the project, was `npm install` ran before the test?",
+          "node_modules not found in the project, was `just rush install` ran before the test?",
         );
       }
 

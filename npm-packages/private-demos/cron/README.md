@@ -9,6 +9,6 @@ user to type send a messages that we'll delete ever 10s or something.
 Run:
 
 ```
-npm install
+just rush install
 npm run dev
 ```
