@@ -856,6 +856,30 @@ async fn client_version_state_middleware(
     Ok(resp)
 }
 
+/// Guard that records request metrics on drop. Always reports — uses
+/// the stored status (defaulting to "499" for cancelled/timed-out requests).
+struct RequestStatsGuard {
+    start: Instant,
+    route: String,
+    method: Method,
+    client_version: String,
+    is_test: bool,
+    status: String,
+}
+
+impl Drop for RequestStatsGuard {
+    fn drop(&mut self) {
+        log_http_request(
+            &self.client_version,
+            &self.route,
+            self.method.as_str(),
+            &self.status,
+            self.start.elapsed(),
+            self.is_test,
+        );
+    }
+}
+
 pub async fn stats_middleware<RM: RouteMapper>(
     State(route_metric_mapper): State<RM>,
     matched_path: Option<axum::extract::MatchedPath>,
@@ -877,7 +901,22 @@ pub async fn stats_middleware<RM: RouteMapper>(
     // Capture URI before req is moved
     let uri = req.uri().to_string();
 
+    let client_version_s = client_version.to_string();
+    let is_test = resolved_host.instance_name.starts_with("test-");
+    let mapped_route = route_metric_mapper.map_route(route.clone());
+
+    let mut stats_guard = RequestStatsGuard {
+        start,
+        route: mapped_route.clone(),
+        method: method.clone(),
+        client_version: client_version_s,
+        is_test,
+        status: "499".to_string(),
+    };
+
     // Sampling isn't done here, and should be done upstream
+    // Use the raw route (not mapped) for the tracing span so specific
+    // endpoint paths are preserved in distributed traces.
     let root = match traceparent {
         Some(span_ctx) if *PROPAGATE_UPSTREAM_TRACES => {
             Span::root(route.to_owned(), span_ctx).with_property(|| ("span.kind", "server"))
@@ -890,23 +929,12 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
     let resp = next.run(req).in_span(root).await;
 
-    let client_version_s = client_version.to_string();
-
-    if route == "unknown" {
+    if mapped_route == "unknown" {
         tracing::info!("stats_middleware: matched_path is None, uri: {}", uri);
     }
 
-    let route = route_metric_mapper.map_route(route);
-    let is_test = resolved_host.instance_name.starts_with("test-");
-
-    log_http_request(
-        &client_version_s,
-        &route,
-        method.as_str(),
-        resp.status().as_str(),
-        start.elapsed(),
-        is_test,
-    );
+    // Set the real status — drop will report metrics.
+    stats_guard.status = resp.status().as_str().to_string();
 
     Ok::<_, _>(resp)
 }
@@ -1202,6 +1230,120 @@ async fn tokio_instrumentation_middleware(
     Ok(resp)
 }
 
+fn sanitize_uri_for_logging(uri: &Uri) -> Cow<'_, str> {
+    let path = uri.path();
+    let path_and_query_str = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or(path);
+
+    let uri_for_logging: Cow<str> = if let Some(query) = uri.query() {
+        if query.contains("adminKey=") {
+            // Remove the entire query string to avoid logging the admin key
+            Cow::Borrowed(path)
+        } else {
+            Cow::Borrowed(path_and_query_str)
+        }
+    } else {
+        Cow::Borrowed(path_and_query_str)
+    };
+
+    // Then handle PII in path if present
+    if path.contains("deployment/local-") {
+        Cow::Owned(
+            LOCAL_DEPLOYMENT_NAME_PII_REGEX
+                .replace(&uri_for_logging, r"deployment/local-*/")
+                .into_owned(),
+        )
+    } else {
+        uri_for_logging
+    }
+}
+
+fn is_high_volume_path(path: &str) -> bool {
+    path == "/instance_version"
+        || path == "/instance_name"
+        || path == "/get_backend_info"
+        || path == "/get_deployment_state"
+        || path == "/api/shapes2"
+        || path == "/api/actions/query"
+        || path == "/api/actions/mutation"
+        || path == "/api/actions/action"
+        || path == "/api/stream_function_logs"
+        || path == "/api/app_metrics/stream_function_logs"
+        || path == "/"
+}
+
+/// Emit an HTTP access log line. Used by both the normal completion path
+/// and the drop guard (cancelled/timed-out requests).
+fn log_http_access(
+    site_id: &str,
+    remote_addr: Option<SocketAddr>,
+    method: &Method,
+    uri: &Uri,
+    version: http::Version,
+    status: impl fmt::Display,
+    referer: Option<&str>,
+    user_agent: Option<&str>,
+    content_type: Option<&str>,
+    content_length: Option<&str>,
+    elapsed: Duration,
+) {
+    let uri_for_logging = sanitize_uri_for_logging(uri);
+    let level = if is_high_volume_path(uri.path()) {
+        tracing::Level::DEBUG
+    } else {
+        tracing::Level::INFO
+    };
+    dyn_event!(
+        level,
+        target: "convex-cloud-http",
+        "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:.3}ms",
+        site_id,
+        LogOptFmt(remote_addr),
+        method,
+        uri_for_logging,
+        version,
+        status,
+        LogOptFmt(referer),
+        LogOptFmt(user_agent),
+        LogOptFmt(content_type.as_ref()),
+        LogOptFmt(content_length.as_ref()),
+        elapsed.as_secs_f64() * 1000.0,
+    );
+}
+
+/// Guard that logs the HTTP access line on drop. Always reports — defaults
+/// to status 499 (client closed request) for cancelled/timed-out requests.
+struct RequestLogGuard {
+    site_id: String,
+    remote_addr: Option<SocketAddr>,
+    method: Method,
+    uri: Uri,
+    version: http::Version,
+    referer: Option<String>,
+    user_agent: Option<String>,
+    start: Instant,
+    status: u16,
+    content_type: Option<String>,
+    content_length: Option<String>,
+}
+
+impl Drop for RequestLogGuard {
+    fn drop(&mut self) {
+        log_http_access(
+            &self.site_id,
+            self.remote_addr,
+            &self.method,
+            &self.uri,
+            self.version,
+            self.status,
+            self.referer.as_deref(),
+            self.user_agent.as_deref(),
+            self.content_type.as_deref(),
+            self.content_length.as_deref(),
+            self.start.elapsed(),
+        );
+    }
+}
+
 async fn log_middleware(
     remote_addr: Result<axum::extract::ConnectInfo<SocketAddr>, ExtensionRejection>,
     ExtractResolvedHostname(resolved_host): ExtractResolvedHostname,
@@ -1223,67 +1365,27 @@ async fn log_middleware(
     let referer = get_header(req.headers(), http::header::REFERER);
     let user_agent = get_header(req.headers(), http::header::USER_AGENT);
 
+    let mut guard = RequestLogGuard {
+        site_id,
+        remote_addr,
+        method,
+        uri,
+        version,
+        referer,
+        user_agent,
+        start,
+        status: 499,
+        content_type: None,
+        content_length: None,
+    };
+
     let resp = next.run(req).await;
 
-    let content_length = get_header(resp.headers(), http::header::CONTENT_LENGTH);
-    let content_type = get_header(resp.headers(), http::header::CONTENT_TYPE);
+    // Set the real values — drop will log.
+    guard.status = resp.status().as_u16();
+    guard.content_length = get_header(resp.headers(), http::header::CONTENT_LENGTH);
+    guard.content_type = get_header(resp.headers(), http::header::CONTENT_TYPE);
 
-    let path = uri.path();
-
-    let path_and_query_str = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or(path);
-
-    let uri_for_logging: Cow<str> = if let Some(query) = uri.query() {
-        if query.contains("adminKey=") {
-            // Remove the entire query string to avoid logging the admin key
-            Cow::Borrowed(path)
-        } else {
-            Cow::Borrowed(path_and_query_str)
-        }
-    } else {
-        Cow::Borrowed(path_and_query_str)
-    };
-
-    // Then handle PII in path if present
-    let uri_for_logging = if path.contains("deployment/local-") {
-        LOCAL_DEPLOYMENT_NAME_PII_REGEX.replace(&uri_for_logging, r"deployment/local-*/")
-    } else {
-        uri_for_logging
-    };
-
-    // Reduce to debug for these high volume, less useful endpoints
-    let high_volume = path == "/instance_version"
-        || path == "/instance_name"
-        || path == "/get_backend_info"
-        || path == "/get_deployment_state"
-        || path == "/api/shapes2"
-        || path == "/api/actions/query"
-        || path == "/api/actions/mutation"
-        || path == "/api/actions/action"
-        || path == "/api/stream_function_logs"
-        || path == "/api/app_metrics/stream_function_logs"
-        || path == "/";
-
-    let level = if high_volume {
-        tracing::Level::DEBUG
-    } else {
-        tracing::Level::INFO
-    };
-    dyn_event!(
-        level,
-        target: "convex-cloud-http",
-        "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:.3}ms",
-        site_id,
-        LogOptFmt(remote_addr),
-        method,
-        uri_for_logging,
-        version,
-        resp.status().as_u16(),
-        LogOptFmt(referer),
-        LogOptFmt(user_agent),
-        LogOptFmt(content_type),
-        LogOptFmt(content_length),
-        start.elapsed().as_secs_f64() * 1000.0,
-    );
     Ok(resp)
 }
 
@@ -1377,15 +1479,34 @@ where
 
 #[cfg(test)]
 mod tests {
-    use axum::response::IntoResponse;
+    use std::{
+        sync::Arc,
+        time::Duration,
+    };
+
+    use axum::{
+        body::Body,
+        response::IntoResponse,
+        routing::get,
+        Router,
+    };
     use errors::{
         ErrorMetadata,
         INTERNAL_SERVER_ERROR,
         INTERNAL_SERVER_ERROR_MSG,
     };
-    use http::StatusCode;
+    use http::{
+        Request,
+        StatusCode,
+    };
+    use metrics::CONVEX_METRICS_REGISTRY;
+    use tower::ServiceExt;
 
-    use super::HttpResponseError;
+    use super::{
+        ConvexHttpService,
+        HttpResponseError,
+        NoopRouteMapper,
+    };
     use crate::http::HttpError;
 
     #[tokio::test]
@@ -1451,5 +1572,59 @@ mod tests {
         assert_eq!(error.error_code(), error_code);
         assert_eq!(error.message(), msg);
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancelled_request_logs_499() {
+        // Handler that hangs until signaled (simulates a slow request).
+        let notify = Arc::new(tokio::sync::Notify::new());
+        let notify2 = notify.clone();
+        let router = Router::new().route(
+            "/slow",
+            get(move || {
+                let n = notify2.clone();
+                async move {
+                    n.notified().await;
+                    "done"
+                }
+            }),
+        );
+
+        // Full middleware stack via ConvexHttpService::new().
+        let svc = ConvexHttpService::new(
+            router,
+            "test",
+            String::new(),
+            10,
+            Duration::from_secs(60),
+            NoopRouteMapper,
+        );
+        let app = svc.router();
+
+        // Send a request, then drop the future before the handler completes.
+        let req = Request::builder()
+            .uri("/slow")
+            .header("Host", "test-instance.convex.cloud")
+            .body(Body::empty())
+            .unwrap();
+        let fut = app.oneshot(req);
+        // timeout causes the future to be dropped mid-handler, simulating
+        // a client disconnect.
+        let result = tokio::time::timeout(Duration::from_millis(50), fut).await;
+        assert!(result.is_err(), "expected timeout (handler should hang)");
+
+        // The drop guards should have fired, recording a 499 metric.
+        let metrics = CONVEX_METRICS_REGISTRY.gather();
+        // The metric name has a crate-specific prefix, so match by suffix.
+        let histogram = metrics
+            .iter()
+            .find(|m| m.name().ends_with("http_handle_duration_seconds"))
+            .expect("http_handle_duration_seconds histogram not found");
+        let has_499 = histogram.get_metric().iter().any(|m| {
+            m.get_label()
+                .iter()
+                .any(|l| l.name() == "status" && l.value() == "499")
+        });
+        assert!(has_499, "expected status=499 metric from cancelled request");
     }
 }
