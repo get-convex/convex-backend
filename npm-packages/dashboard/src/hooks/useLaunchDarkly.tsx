@@ -9,7 +9,6 @@ export const flagDefaults: {
   enableNewDashboardVersionNotification: boolean;
   enableStatuspageWidget: boolean;
   connectionStateCheckIntervalMs: number;
-  deploymentList: boolean;
   postHogIntegrations: boolean;
   usageDashboardV2: boolean;
   personalAccessTokens: boolean;
@@ -22,7 +21,6 @@ export const flagDefaults: {
   enableNewDashboardVersionNotification: false,
   enableStatuspageWidget: true,
   connectionStateCheckIntervalMs: 2500,
-  deploymentList: false,
   postHogIntegrations: false,
   personalAccessTokens: false,
   usageDashboardV2: false,

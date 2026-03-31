@@ -30,7 +30,6 @@ import { useState, useEffect } from "react";
 import { useDebounce } from "react-use";
 import { cn } from "@ui/cn";
 import { SegmentedControl } from "@ui/SegmentedControl";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { EmptySection } from "@common/elements/EmptySection";
 import { OpenInVercel } from "components/OpenInVercel";
 import { LoadingLogo } from "@ui/Loading";
@@ -42,7 +41,6 @@ export { getServerSideProps } from "lib/ssr";
 export default withAuthenticatedPage(() => {
   const team = useCurrentTeam();
   const router = useRouter();
-  const { deploymentList: deploymentListEnabled } = useLaunchDarkly();
   const referralState = useReferralState(team?.id);
   const { subscription } = useTeamOrbSubscription(team?.id);
   const isFreePlan =
@@ -51,7 +49,7 @@ export default withAuthenticatedPage(() => {
     useGlobalLocalStorage("prefersReferralsBannerHidden", false);
 
   const viewFromQuery = (router.query.view as string | undefined) ?? "projects";
-  const currentView = deploymentListEnabled ? viewFromQuery : "projects";
+  const currentView = viewFromQuery;
   const isDeploymentsView = currentView === "deployments";
   const projectFilter = router.query.projectId
     ? Number(router.query.projectId)
@@ -80,7 +78,6 @@ export default withAuthenticatedPage(() => {
                   isDeploymentsView={isDeploymentsView}
                   currentView={currentView}
                   onViewChange={handleViewChange}
-                  deploymentListEnabled={deploymentListEnabled}
                   projectFilter={projectFilter}
                   referralState={referralState}
                   isFreePlan={isFreePlan}
@@ -108,7 +105,6 @@ function TeamContent({
   isDeploymentsView,
   currentView,
   onViewChange,
-  deploymentListEnabled,
   projectFilter,
   referralState,
   isFreePlan,
@@ -119,7 +115,6 @@ function TeamContent({
   isDeploymentsView: boolean;
   currentView: string;
   onViewChange: (view: string) => void;
-  deploymentListEnabled: boolean;
   projectFilter?: number;
   referralState: any;
   isFreePlan: boolean | undefined;
@@ -154,20 +149,11 @@ function TeamContent({
       )}
       <div className="mb-4 flex w-full animate-fadeInFromLoading flex-col gap-3">
         <div className="flex items-center gap-4">
-          {deploymentListEnabled ? (
-            <SegmentedControl
-              options={[...VIEW_OPTIONS]}
-              value={currentView}
-              onChange={onViewChange}
-            />
-          ) : (
-            <h3
-              // eslint-disable-next-line no-restricted-syntax
-              className="text-lg font-semibold"
-            >
-              Projects
-            </h3>
-          )}
+          <SegmentedControl
+            options={[...VIEW_OPTIONS]}
+            value={currentView}
+            onChange={onViewChange}
+          />
           {!isDeploymentsView && <ProjectActions team={team} />}
         </div>
         {!isDeploymentsView && (
