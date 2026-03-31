@@ -27,7 +27,7 @@ use crate::{
 
 #[convex_macro::test_runtime]
 async fn test_schedule_after(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let (_, outcome) = t
             .mutation_outcome(
                 "scheduler:scheduleAfter",
@@ -53,7 +53,7 @@ async fn test_schedule_after(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_schedule_with_arbitrary_json(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("scheduler:scheduleWithArbitraryJson", assert_obj!())
             .await?;
         Ok(())
@@ -63,7 +63,7 @@ async fn test_schedule_with_arbitrary_json(rt: TestRuntime) -> anyhow::Result<()
 
 #[convex_macro::test_runtime]
 async fn test_schedule_at_unix_timestamp(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let ts = t.rt.unix_timestamp().as_secs_f64();
         t.mutation(
             "scheduler:scheduleAtTimestamp",
@@ -87,7 +87,7 @@ async fn test_schedule_at_unix_timestamp(rt: TestRuntime) -> anyhow::Result<()> 
 
 #[convex_macro::test_runtime]
 async fn test_schedule_at_date(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let ts = t.rt.unix_timestamp().as_secs_f64();
         t.mutation("scheduler:scheduleAtDate", assert_obj!("ts" => ts * 1000.0))
             .await?;
@@ -107,7 +107,7 @@ async fn test_schedule_at_date(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_invalid_schedule(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
 
         let err = t
             .mutation_js_error("scheduler:scheduleAfter", assert_obj!("delayMs" => "abc"))
@@ -153,7 +153,7 @@ async fn test_invalid_schedule(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_schedule_missing_function(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Invalid path
         let err = t
             .mutation_js_error(
@@ -198,7 +198,7 @@ async fn test_schedule_missing_function(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_schedule_too_many(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Scheduling a hundred should work.
         t.mutation(
             "scheduler:scheduleMany",
@@ -225,7 +225,7 @@ async fn test_schedule_too_many(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_schedule_many(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let mut log_lines = t
             .mutation_log_lines(
                 "scheduler:scheduleMany",
@@ -245,7 +245,7 @@ async fn test_schedule_many(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_schedule_arguments_too_large(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let mut rng = t.rt.rng();
 
         // Scheduling a hundred functions with 1KB argument should work.
@@ -288,7 +288,7 @@ async fn test_schedule_arguments_too_large(rt: TestRuntime) -> anyhow::Result<()
 
 #[convex_macro::test_runtime]
 async fn test_schedule_arguments_large(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let mut rng = t.rt.rng();
         let bytes_2m = {
             let mut bytes = [0u8; 2 * 1000 * 1024];

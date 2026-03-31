@@ -12,7 +12,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_query_throws(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .query_js_error("custom_errors:queryThrows", assert_obj!())
             .await?;
@@ -24,7 +24,7 @@ async fn test_custom_errors_query_throws(rt: TestRuntime) -> anyhow::Result<()> 
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_query_throws_async(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .query_js_error("custom_errors:queryThrowsAsync", assert_obj!())
             .await?;
@@ -36,7 +36,7 @@ async fn test_custom_errors_query_throws_async(rt: TestRuntime) -> anyhow::Resul
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_mutation_throws(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .mutation_js_error("custom_errors:mutationThrows", assert_obj!())
             .await?;
@@ -48,7 +48,7 @@ async fn test_custom_errors_mutation_throws(rt: TestRuntime) -> anyhow::Result<(
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_mutation_throws_null(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .mutation_js_error("custom_errors:mutationThrowsNull", assert_obj!())
             .await?;
@@ -60,7 +60,7 @@ async fn test_custom_errors_mutation_throws_null(rt: TestRuntime) -> anyhow::Res
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_mutation_throws_string(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .mutation_js_error("custom_errors:mutationThrowsString", assert_obj!())
             .await?;
@@ -72,7 +72,7 @@ async fn test_custom_errors_mutation_throws_string(rt: TestRuntime) -> anyhow::R
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_mutation_throws_object(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .mutation_js_error("custom_errors:mutationThrowsObject", assert_obj!())
             .await?;
@@ -86,7 +86,7 @@ async fn test_custom_errors_mutation_throws_object(rt: TestRuntime) -> anyhow::R
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_query_throws_message(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .query_js_error("custom_errors:queryThrowsMessage", assert_obj!())
             .await?;
@@ -102,7 +102,7 @@ async fn test_custom_errors_query_throws_message(rt: TestRuntime) -> anyhow::Res
 async fn test_custom_errors_query_throws_object_with_message(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .query_js_error("custom_errors:queryThrowsObjectWithMessage", assert_obj!())
             .await?;
@@ -117,7 +117,7 @@ async fn test_custom_errors_query_throws_object_with_message(
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_query_throws_custom_subclass(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .query_js_error("custom_errors:queryThrowsCustomSubclass", assert_obj!())
             .await?;
@@ -133,7 +133,7 @@ async fn test_custom_errors_query_throws_custom_subclass(rt: TestRuntime) -> any
 async fn test_custom_errors_query_throws_custom_subclass_with_object(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .query_js_error(
                 "custom_errors:queryThrowsCustomSubclassWithObject",
@@ -154,7 +154,7 @@ async fn test_custom_errors_query_throws_custom_subclass_with_object(
 
 #[convex_macro::test_runtime]
 async fn test_custom_errors_query_throws_not_custom(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let js_error = t
             .query_js_error("custom_errors:queryThrowsNotCustom", assert_obj!())
             .await?;

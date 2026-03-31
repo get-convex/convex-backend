@@ -129,7 +129,7 @@ fn assert_headroom(h: &ConvexObject, expected: &ExpectedHeadroom) {
 
 #[convex_macro::test_runtime]
 async fn test_headroom_empty(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Object(h) = t.query("headroom:headroomEmpty", assert_obj!()).await?);
         assert_headroom(&h, &ExpectedHeadroom::max());
         Ok(())
@@ -139,7 +139,7 @@ async fn test_headroom_empty(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_headroom_after_insert(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Object(r) = t.mutation("headroom:headroomAfterInsert", assert_obj!()).await?);
         let doc_size = get_f64(&r, "docSize");
         assert_headroom(
@@ -153,7 +153,7 @@ async fn test_headroom_after_insert(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_headroom_after_query(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("headroom:headroomAfterInsert", assert_obj!())
             .await?;
         must_let!(let ConvexValue::Object(r) = t.query("headroom:headroomAfterQuery", assert_obj!()).await?);
@@ -168,7 +168,6 @@ async fn test_headroom_after_query(rt: TestRuntime) -> anyhow::Result<()> {
     .await
 }
 
-// Subtransactions not yet supported in isolate2.
 #[convex_macro::test_runtime]
 async fn test_headroom_with_subtransactions(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
@@ -222,7 +221,7 @@ async fn test_headroom_from_action(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_headroom_system_reads(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Object(r) = t.mutation(
             "headroom:headroomAfterSystemRead", assert_obj!()
         ).await?);
@@ -236,7 +235,7 @@ async fn test_headroom_system_reads(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_headroom_after_schedule(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Object(r) = t.mutation(
             "headroom:headroomAfterSchedule", assert_obj!()
         ).await?);
@@ -272,7 +271,7 @@ async fn test_headroom_after_schedule(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_headroom_exceed_limit(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Object(r) = t.mutation(
             "headroom:headroomExceedLimit", assert_obj!()
         ).await?);

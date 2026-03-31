@@ -55,7 +55,7 @@ async fn add_and_backfill_text_index(
 
 #[convex_macro::test_runtime]
 async fn test_search_disk_index_backfill_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // To use the disk search index, first populate the data and then create
         // and backfill the index.
         t.mutation("search:populateSearch", assert_obj!()).await?;
@@ -89,7 +89,7 @@ fn assert_search_result_order(results: ConvexArray) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_search_disk_index(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // To use the disk search index, first populate the data and then create
         // and backfill the index.
         t.mutation("search:populateSearch", assert_obj!()).await?;
@@ -107,7 +107,7 @@ async fn test_search_disk_index(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_search_in_memory_index(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // To use the in-memory search index, first create and backfill the search
         // index, and then add additional data that won't be included on disk.
         add_and_backfill_text_index(&t).await?;
@@ -125,7 +125,7 @@ async fn test_search_in_memory_index(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_paginated_search(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("search:populateSearch", assert_obj!()).await?;
         add_and_backfill_text_index(&t).await?;
 
@@ -190,7 +190,7 @@ async fn test_paginated_search(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_query_journal_is_idempotent_search_query(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("search:populateSearch", assert_obj!()).await?;
         add_and_backfill_text_index(&t).await?;
 
@@ -212,7 +212,7 @@ async fn test_query_journal_is_idempotent_search_query(rt: TestRuntime) -> anyho
 /// Test that mutations can search for documents that they create.
 #[convex_macro::test_runtime]
 async fn test_search_for_pending_document(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
         must_let!(let ConvexValue::Array(results) = t.mutation("search:createDocumentAndSearchForIt", assert_obj!()).await?);
         assert_eq!(results.len(), 1);
@@ -224,7 +224,7 @@ async fn test_search_for_pending_document(rt: TestRuntime) -> anyhow::Result<()>
 
 #[convex_macro::test_runtime]
 async fn test_incorrect_search_field(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
         let e = t
             .query_js_error("search:incorrectSearchField", assert_obj!())
@@ -241,7 +241,7 @@ async fn test_incorrect_search_field(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_duplicate_search_filters(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
         let e = t
             .query_js_error("search:duplicateSearchFilters", assert_obj!())
@@ -258,7 +258,7 @@ async fn test_duplicate_search_filters(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_incorrect_filter_field(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
         let e = t
             .query_js_error("search:incorrectFilterField", assert_obj!())
@@ -275,7 +275,7 @@ async fn test_incorrect_filter_field(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_missing_search_filter(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
         let e = t
             .query_js_error("search:missingSearchFilter", assert_obj!())
@@ -292,7 +292,7 @@ async fn test_missing_search_filter(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_too_many_terms_in_search_query(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
 
         // Construct a query string with MAX_QUERY_TERMS terms, separated by spaces.
@@ -335,7 +335,7 @@ async fn test_too_many_terms_in_search_query(rt: TestRuntime) -> anyhow::Result<
 
 #[convex_macro::test_runtime]
 async fn test_too_many_filter_conditions_in_search_query(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
 
         // Querying with MAX_FILTER_CONDITIONS works fine.
@@ -364,7 +364,7 @@ async fn test_too_many_filter_conditions_in_search_query(rt: TestRuntime) -> any
 
 #[convex_macro::test_runtime]
 async fn test_search_query_scanned_too_many_documents(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_and_backfill_text_index(&t).await?;
 
         println!("1");

@@ -22,7 +22,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_basic(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Float64(r) = t.query("directory/udfs:f", assert_obj!("a" => 10., "b" => 3.)).await?);
         assert_eq!(r, 57.);
 
@@ -41,7 +41,7 @@ async fn test_basic(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_int64(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let v = t.query("basic:addOneInt", assert_obj!("x" => 1)).await?;
         assert_eq!(v, ConvexValue::Int64(2));
         Ok(())
@@ -51,7 +51,7 @@ async fn test_int64(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_javascript(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let v = t.query("js:addOneInt", assert_obj!("x" => 1)).await?;
         assert_eq!(v, ConvexValue::Int64(2));
         Ok(())
@@ -61,7 +61,7 @@ async fn test_javascript(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_insert_object(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let values = [
             assert_val!(10),
             assert_val!(-0.),
@@ -88,7 +88,7 @@ async fn test_insert_object(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_references(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let field_name: FieldName = "field".parse()?;
         must_let!(let ConvexValue::Object(obj) = t.mutation(
                 "basic:insertObject",
@@ -102,7 +102,7 @@ async fn test_references(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_observed_time(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let (v, e) = t
             .query_outcome("basic:addOneInt", assert_obj!("x" => 1), Identity::system())
             .await?;
@@ -120,7 +120,7 @@ async fn test_observed_time(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_names(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // No function name specified -> default
         assert_eq!(t.query("name", assert_obj!()).await?, assert_val!(1.));
         // Can also specify "default" explicitly
@@ -169,7 +169,7 @@ async fn test_names(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_insert_and_get(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let value = assert_val!("I am here to stay");
         must_let!(let ConvexValue::Object(obj) = t.mutation(
             "basic:insertObject",
@@ -189,7 +189,7 @@ async fn test_insert_and_get(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_insert_increase_and_delete(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("basic:insertModifyDeleteObject", assert_obj!())
             .await?;
         Ok(())
@@ -199,7 +199,7 @@ async fn test_insert_increase_and_delete(rt: TestRuntime) -> anyhow::Result<()> 
 
 #[convex_macro::test_runtime]
 async fn test_insert_and_delete(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let value = assert_val!("I am a phantom");
         must_let!(let ConvexValue::Object(obj) = t.mutation(
                 "basic:insertAndDeleteObject",
@@ -219,7 +219,7 @@ async fn test_insert_and_delete(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_count(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Counting an empty table.
         must_let!(let ConvexValue::Float64(count) = t.query(
             "basic:count",
@@ -273,7 +273,7 @@ async fn test_count(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_patch(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Insert an object.
         must_let!(let ConvexValue::Object(obj) = t.mutation(
             "basic:insertObject",
@@ -343,7 +343,7 @@ async fn test_patch(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_replace(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Insert an object.
         must_let!(let ConvexValue::Object(obj) = t.mutation(
             "basic:insertObject",
@@ -383,7 +383,7 @@ async fn test_replace(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_query_missing_table(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Tables are implicitly created when we insert the first record.
         // This means that query before that is querying a missing table.
         // A user will expect no results instead of an error here.
@@ -395,7 +395,7 @@ async fn test_query_missing_table(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_explicit_db_table_api(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("basic:explicitDbTableApi", assert_obj!())
             .await?;
         Ok(())
@@ -405,7 +405,7 @@ async fn test_explicit_db_table_api(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_time_constructor_args(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let ms_in: f64 = 1234567890123.0;
         must_let!(let ConvexValue::Float64(ms_out) = t.query("basic:createTimeMs",  assert_obj!("args" => [ms_in] )).await?);
         assert_eq!(ms_in, ms_out);

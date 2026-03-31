@@ -29,7 +29,7 @@ use crate::{
 
 #[convex_macro::test_runtime]
 async fn test_log_string(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:logString", assert_obj!())
             .await?;
@@ -47,7 +47,7 @@ async fn test_log_string(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_number(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:logNumber", assert_obj!())
             .await?;
@@ -65,7 +65,7 @@ async fn test_log_number(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_undefined(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:logUndefined", assert_obj!())
             .await?;
@@ -83,7 +83,7 @@ async fn test_log_undefined(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_null(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t.query_log_lines("logging:logNull", assert_obj!()).await?;
         assert_eq!(
             vec!["[LOG] null"],
@@ -99,7 +99,7 @@ async fn test_log_null(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_function(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:logFunction", assert_obj!())
             .await?;
@@ -117,7 +117,7 @@ async fn test_log_function(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_instance(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:logInstance", assert_obj!())
             .await?;
@@ -135,7 +135,7 @@ async fn test_log_instance(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_object(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:logObject", assert_obj!())
             .await?;
@@ -153,7 +153,7 @@ async fn test_log_object(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_array(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t.query_log_lines("logging:logArray", assert_obj!()).await?;
         assert_eq!(
             vec!["[LOG] [ 'string', 42 ]"],
@@ -169,7 +169,7 @@ async fn test_log_array(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_log_document(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .mutation_log_lines("logging:logDocument", assert_obj!())
             .await?;
@@ -233,7 +233,7 @@ async fn test_log_from_subfunction(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_console_trace(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:consoleTrace", assert_obj!())
             .await?;
@@ -253,7 +253,7 @@ async fn test_console_trace(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_error_stack(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.query("logging:errorStack", assert_obj!()).await?;
         Ok(())
     })
@@ -262,7 +262,7 @@ async fn test_error_stack(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_console_time(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("logging:consoleTime", assert_obj!())
             .await?;

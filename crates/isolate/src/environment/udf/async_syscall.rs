@@ -122,7 +122,6 @@ use crate::{
         },
     },
     helpers::UdfArgsJson,
-    isolate2::client::QueryId,
     metrics::{
         async_syscall_timer,
         log_component_get_user_identity,
@@ -282,7 +281,8 @@ pub enum ManagedQuery<RT: Runtime> {
     Active(DeveloperQuery<RT>),
 }
 
-// Trait for allowing code reuse between `DatabaseUdfEnvironment` and isolate2.
+pub type QueryId = u32;
+
 #[allow(async_fn_in_trait)]
 pub trait AsyncSyscallProvider<RT: Runtime> {
     fn rt(&self) -> &RT;

@@ -18,7 +18,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_globals(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.query("globals:globals", assert_obj!()).await?;
         Ok(())
     })
@@ -27,7 +27,7 @@ async fn test_globals(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_date(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let global_date1 = t.query("globals:getGlobalDate", assert_obj!()).await?;
         t.rt.advance_time(Duration::from_secs(1)).await;
         let udf_date1 = t.query("globals:getDate", assert_obj!()).await?;
@@ -49,7 +49,7 @@ async fn test_date(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_date_now_integral(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let ConvexValue::Float64(n) = t.query("globals:getDateNow", assert_obj!()).await? else {
             panic!("Expected Float64 from getDateNow");
         };
@@ -61,7 +61,7 @@ async fn test_date_now_integral(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_rand(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let global_rand1 = t.query("globals:getGlobalRandom", assert_obj!()).await?;
         let udf_rand1 = t.query("globals:getRandom", assert_obj!()).await?;
 
@@ -79,7 +79,7 @@ async fn test_rand(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_finalization_registry(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let ConvexValue::Null = t
             .query("globals:createFinalizationRegistry", assert_obj!())
             .await?
@@ -93,7 +93,7 @@ async fn test_finalization_registry(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_weak_ref(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let ConvexValue::Null = t.query("globals:createWeakRef", assert_obj!()).await? else {
             panic!("Expected null from createWeakRef");
         };

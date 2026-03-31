@@ -20,7 +20,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_auth_basic(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate(rt, async move |t| {
         // UDF with no identity should return `null`
         let (result, outcome) = t
             .query_outcome("auth:getName", assert_obj!(), Identity::system())
@@ -72,7 +72,7 @@ async fn test_conditionally_observed_identity_inner(
 
 #[convex_macro::test_runtime]
 async fn test_conditionally_observed_identity(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate(rt, async move |t| {
         test_conditionally_observed_identity_inner(t, false).await
     })
     .await
@@ -88,7 +88,7 @@ async fn test_conditionally_observed_identity_in_subquery(rt: TestRuntime) -> an
 
 #[convex_macro::test_runtime]
 async fn test_auth_identity_for_acting_user(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate(rt, async move |t| {
         // UDF with no identity should return `null`
         must_let!(let ConvexValue::Null = t.query("auth:getName", assert_obj!()).await?);
         // With an identity, it should return the user's name
@@ -106,7 +106,7 @@ async fn test_auth_identity_for_acting_user(rt: TestRuntime) -> anyhow::Result<(
 
 #[convex_macro::test_runtime]
 async fn test_auth_identity_for_admin(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate(rt, async move |t| {
         // UDF with no identity should return `null`
         must_let!(let ConvexValue::Null = t.query("auth:getName", assert_obj!()).await?);
         // With an identity, it should return the user's name

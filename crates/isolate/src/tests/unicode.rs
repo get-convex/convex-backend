@@ -10,7 +10,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_partial_escape_sequence_return(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let err = t
             .query("unicode:partialEscapeSequenceReturn", assert_obj!())
             .await
@@ -23,7 +23,7 @@ async fn test_partial_escape_sequence_return(rt: TestRuntime) -> anyhow::Result<
 
 #[convex_macro::test_runtime]
 async fn test_partial_escape_sequence_on_insert(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let err = t
             .mutation_js_error("unicode:partialEscapeSequenceDbInsert", assert_obj!())
             .await?;
@@ -35,7 +35,7 @@ async fn test_partial_escape_sequence_on_insert(rt: TestRuntime) -> anyhow::Resu
 
 #[convex_macro::test_runtime]
 async fn test_partial_escape_sequence_console_log(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let log_lines = t
             .query_log_lines("unicode:partialEscapeSequenceConsoleLog", assert_obj!())
             .await?;

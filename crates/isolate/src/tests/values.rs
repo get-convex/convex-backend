@@ -28,7 +28,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_bigint(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let value = t.query("values:intQuery", assert_obj!()).await?;
         must_let!(let ConvexValue::Int64(v) = value);
         assert_eq!(v, 1);
@@ -39,7 +39,7 @@ async fn test_bigint(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_empty_key(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Check that an object with an empty key round trips through mutation and
         // query.
         let id = t

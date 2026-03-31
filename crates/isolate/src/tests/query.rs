@@ -48,7 +48,7 @@ async fn add_index<RT: Runtime, P: Persistence>(t: &UdfTest<RT, P>) -> anyhow::R
 
 #[convex_macro::test_runtime]
 async fn test_full_table_scan(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_index(&t).await?;
         t.mutation("query:insert", assert_obj!( "number" => 1))
             .await?;
@@ -68,7 +68,7 @@ async fn test_full_table_scan(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_filter_first(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_index(&t).await?;
         // Create two documents with different numbers, and filter for them.
         // This tests that Limit and Filter are applied in the correct order,
@@ -90,7 +90,7 @@ async fn test_filter_first(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_query_parallel(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Batch size for queries running in parallel is 16.
         let mut ids = Vec::new();
         for i in 1..20 {
@@ -138,7 +138,7 @@ async fn test_query_parallel(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_boolean_value_filters(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("query:insert", assert_obj!( "number" => 1))
             .await?;
 
@@ -154,7 +154,7 @@ async fn test_boolean_value_filters(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_index(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_index(&t).await?;
         t.backfill_indexes().await?;
 
@@ -173,7 +173,7 @@ async fn test_index(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("indexing:insert", assert_obj!("a" => 1, "b" => 1))
             .await?;
 
@@ -190,7 +190,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_index_backfill_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Create the index and don't backfill it.
         add_index(&t).await?;
 
@@ -209,7 +209,7 @@ async fn test_index_backfill_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_index_ranges(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         add_index(&t).await?;
         t.backfill_indexes().await?;
 
@@ -343,7 +343,7 @@ async fn test_index_range_errors(rt: TestRuntime) -> anyhow::Result<()> {
         );
     }
 
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         assert_error_contains(
             &t,
             "indexing:allItemsInIndex",
@@ -422,7 +422,7 @@ fn pagination_opts(cursor: ConvexValue) -> ConvexObject {
 
 #[convex_macro::test_runtime]
 async fn test_pagination(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // First, paginate through an empty table.
         must_let!(let ConvexValue::Object(o) = t.query("query:paginateTableScan", pagination_opts(ConvexValue::Null)).await?);
         must_let!(let Some(ConvexValue::Array(page)) = o.get("page"));
@@ -490,7 +490,7 @@ async fn test_pagination(rt: TestRuntime) -> anyhow::Result<()> {
 /// Tests for the `maximumBytesRead` pagination option.
 #[convex_macro::test_runtime]
 async fn test_pagination_max_bytes_read(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
 
         let object = assert_obj!("number" => 1);
         must_let!(let ConvexValue::String(id1) = t.mutation("query:insert", object.clone()).await?);
@@ -564,7 +564,7 @@ async fn test_pagination_max_bytes_read(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_invalid_cursor_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Get a cursor from `paginateTableScan`.
         must_let!(let ConvexValue::Object(o) = t.query("query:paginateTableScan",  pagination_opts(ConvexValue::Null)).await?);
         must_let!(let Some(cursor) = o.get("continueCursor"));
@@ -584,7 +584,7 @@ async fn test_invalid_cursor_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_multiple_paginated_queries_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = t
             .query_js_error("query:multiplePaginatedQueries", assert_obj!())
             .await?;
@@ -712,7 +712,7 @@ fn unpack_pagination_result(
 
 #[convex_macro::test_runtime]
 async fn test_query_journal_start_to_middle(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Add 2 documents.
         t.mutation("query:insert", assert_obj!("number" => 1))
             .await?;
@@ -759,7 +759,7 @@ async fn test_query_journal_start_to_middle(rt: TestRuntime) -> anyhow::Result<(
 
 #[convex_macro::test_runtime]
 async fn test_query_journal_start_to_end(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         // Query begins at the start and ends at the end.
         // Ordered by creation time ascending.
         // --- start cursor
@@ -781,7 +781,7 @@ async fn test_query_journal_start_to_end(rt: TestRuntime) -> anyhow::Result<()> 
 
 #[convex_macro::test_runtime]
 async fn test_query_journal_middle_to_middle(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.add_index(IndexMetadata::new_backfilling(
             *t.database.now_ts_for_reads(),
             "test.by_hello".parse()?,
@@ -832,7 +832,7 @@ async fn test_query_journal_middle_to_middle(rt: TestRuntime) -> anyhow::Result<
 
 #[convex_macro::test_runtime]
 async fn test_query_journal_middle_to_end(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("query:insert", assert_obj!("number" => 1))
             .await?;
 
@@ -864,7 +864,7 @@ async fn test_query_journal_middle_to_end(rt: TestRuntime) -> anyhow::Result<()>
 
 #[convex_macro::test_runtime]
 async fn test_query_order_filter(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("query:insert", assert_obj!("number" => 1))
             .await?;
         t.mutation("query:insert", assert_obj!("number" => 2))
@@ -904,7 +904,7 @@ async fn test_query_order_filter(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_query_with_pending_deletes(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         for i in 0..10 {
             t.mutation("query:insert", assert_obj!("number" => i))
                 .await?;

@@ -14,7 +14,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_creation_times_within_table_are_monotonic(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.mutation("creationTime:createFiveDocuments", assert_obj!())
             .await?;
         must_let!(let ConvexValue::Array(array) = t
@@ -47,7 +47,7 @@ async fn test_creation_times_within_table_are_monotonic(rt: TestRuntime) -> anyh
 
 #[convex_macro::test_runtime]
 async fn test_creation_time_between_system_time(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Float64(t1) = t.query("basic:readTimeMs", assert_obj!()).await?);
         t.rt.advance_time(Duration::from_secs(1)).await;
         must_let!(let ConvexValue::Object(obj) = t.mutation(

@@ -14,7 +14,7 @@ Uncaught Error: Oh bother!
 
 #[convex_macro::test_runtime]
 async fn test_source_mapping(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = t
             .query_js_error("sourceMaps:throwsError", assert_obj!())
             .await?;

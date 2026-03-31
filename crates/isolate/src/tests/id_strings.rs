@@ -34,7 +34,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_table_mapping_from_system_udf(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let mut tx = t.database.begin(Identity::system()).await?;
         let document = TestFacingModel::new(&mut tx)
             .insert_and_get("table".parse()?, assert_obj!())
@@ -58,7 +58,7 @@ async fn test_table_mapping_from_system_udf(rt: TestRuntime) -> anyhow::Result<(
 
 #[convex_macro::test_runtime]
 async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
 
         let internal_id = InternalId::MIN;
         let mut tx = t.database.begin(Identity::system()).await?;
@@ -149,7 +149,7 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_virtual_id_query(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let scheduled_id = t.mutation("idStrings:schedule", assert_obj!()).await?;
 
         t.query(
@@ -163,8 +163,7 @@ async fn test_virtual_id_query(rt: TestRuntime) -> anyhow::Result<()> {
     .await
 }
 
-// Since we run this test with proptest, don't run it in both isolate1 and
-// isolate2.
+// Since we run this test with proptest, don't use run_test_with_isolate.
 async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     // Initialize table mapping with two tables

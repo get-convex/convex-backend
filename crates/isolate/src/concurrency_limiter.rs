@@ -50,7 +50,6 @@ impl ConcurrencyLimiter {
         Self { tx, rx, tracker }
     }
 
-    // TODO(presley): Replace this when we have isolate_v2.
     // If a client uses a thread for too long. We still want to log periodically.
     pub fn go_log<RT: Runtime>(
         &self,
@@ -96,7 +95,6 @@ impl ConcurrencyLimiter {
 struct PermitId(usize);
 
 // This is allow us to track the currently acquired permits.
-// TODO(presley): Remove this when we have isolate_v2.
 #[derive(Debug)]
 struct ActivePermitsTracker {
     // Generate a separate id for each concurrency limit to simplify deregistering.

@@ -20,7 +20,7 @@ use crate::test_helpers::{
 
 #[convex_macro::test_runtime]
 async fn test_incorrect_arg(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = t
             .query_js_error("args_validation:stringArg", assert_obj!("arg" => 123))
             .await?;
@@ -32,7 +32,7 @@ async fn test_incorrect_arg(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_missing_arg(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = t
             .query_js_error("args_validation:stringArg", assert_obj!())
             .await?;
@@ -44,7 +44,7 @@ async fn test_missing_arg(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_extra_arg(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = t
             .query_js_error(
                 "args_validation:stringArg",
@@ -73,7 +73,7 @@ async fn query_js_error_args_array(
 
 #[convex_macro::test_runtime]
 async fn test_no_arg(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = query_js_error_args_array(t, "args_validation:stringArg", vec![]).await?;
         assert_contains(&e, "ArgumentValidationError");
         Ok(())
@@ -83,7 +83,7 @@ async fn test_no_arg(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_too_many_args(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = query_js_error_args_array(
             t,
             "args_validation:stringArg",
@@ -101,7 +101,7 @@ async fn test_too_many_args(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_arg_not_an_object(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let e = query_js_error_args_array(
             t,
             "args_validation:stringArg",
@@ -116,7 +116,7 @@ async fn test_arg_not_an_object(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_correct_arg(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(
             let ConvexValue::String(result) = t
                 .query(
@@ -133,7 +133,7 @@ async fn test_correct_arg(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_record(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(
             let ConvexValue::Object(record) = t
                 .mutation(

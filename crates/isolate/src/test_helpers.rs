@@ -177,10 +177,6 @@ use crate::{
         UdfRequest,
     },
     concurrency_limiter::ConcurrencyLimiter,
-    isolate2::runner::{
-        run_isolate_v2_udf,
-        SeedData,
-    },
     metrics::queue_timer,
     ActionCallbacks,
     IsolateClient,
@@ -284,8 +280,6 @@ pub struct UdfTest<RT: Runtime, P: Persistence> {
     search_storage: Arc<dyn Storage>,
     file_storage: TransactionalFileStorage<RT>,
     environment_data: EnvironmentData<RT>,
-
-    isolate_v2_enabled: bool,
 }
 
 impl<RT: Runtime, P: Persistence> Clone for UdfTest<RT, P> {
@@ -300,7 +294,6 @@ impl<RT: Runtime, P: Persistence> Clone for UdfTest<RT, P> {
             search_storage: self.search_storage.clone(),
             file_storage: self.file_storage.clone(),
             environment_data: self.environment_data.clone(),
-            isolate_v2_enabled: self.isolate_v2_enabled,
         }
     }
 }
@@ -421,7 +414,6 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             module_loader,
             file_storage,
             environment_data,
-            isolate_v2_enabled: false,
         }))
     }
 
@@ -441,10 +433,6 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         .await?
         .expect("Unexpected JSError");
         Ok(result)
-    }
-
-    pub fn enable_isolate_v2(&mut self) {
-        self.isolate_v2_enabled = true;
     }
 
     pub async fn create_index(&self, name: &str, field: &str) -> anyhow::Result<()> {
@@ -583,57 +571,32 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             Ok(path_and_args) => path_and_args,
         };
 
-        if self.isolate_v2_enabled {
-            let rng_seed = self.rt.rng().random();
-            let (tx, outcome) = run_isolate_v2_udf(
-                self.rt.clone(),
-                tx,
-                self.module_loader.clone(),
-                SeedData {
-                    rng_seed,
-                    unix_timestamp: self.rt.unix_timestamp(),
-                },
+        let rng_seed = self.rt.rng().random();
+        let unix_timestamp = self.rt.unix_timestamp();
+        let (tx, outcome) = self
+            .isolate
+            .execute_udf(
                 UdfType::Mutation,
                 path_and_args,
-                self.key_broker.clone(),
-                ExecutionContext::new_for_test(),
+                tx,
                 QueryJournal::new(),
+                ExecutionContext::new_for_test(),
+                self.environment_data.clone(),
+                rng_seed,
+                unix_timestamp,
+                0,
+                DEV_INSTANCE_NAME.to_string(),
+                None,
             )
             .await?;
-            let path: UdfPath = udf_path.parse()?;
-            let canonicalized_path = path.canonicalize();
-            self.database
-                .commit_with_write_source(tx, Some(canonicalized_path.into()))
-                .await?;
-            Ok(outcome)
-        } else {
-            let rng_seed = self.rt.rng().random();
-            let unix_timestamp = self.rt.unix_timestamp();
-            let (tx, outcome) = self
-                .isolate
-                .execute_udf(
-                    UdfType::Mutation,
-                    path_and_args,
-                    tx,
-                    QueryJournal::new(),
-                    ExecutionContext::new_for_test(),
-                    self.environment_data.clone(),
-                    rng_seed,
-                    unix_timestamp,
-                    0,
-                    DEV_INSTANCE_NAME.to_string(),
-                    None,
-                )
-                .await?;
-            let FunctionOutcome::Mutation(outcome) = outcome else {
-                anyhow::bail!("Called raw_mutation on a non-mutation");
-            };
+        let FunctionOutcome::Mutation(outcome) = outcome else {
+            anyhow::bail!("Called raw_mutation on a non-mutation");
+        };
 
-            self.database
-                .commit_with_write_source(tx, Some(canonicalized_path.udf_path.into()))
-                .await?;
-            Ok(outcome)
-        }
+        self.database
+            .commit_with_write_source(tx, Some(canonicalized_path.udf_path.into()))
+            .await?;
+        Ok(outcome)
     }
 
     pub async fn query(&self, udf_path: &str, args: ConvexObject) -> anyhow::Result<ConvexValue> {
@@ -740,52 +703,30 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             Ok(path_and_args) => path_and_args,
         };
 
-        if self.isolate_v2_enabled {
-            let rng_seed = self.rt.rng().random();
-            let (tx, outcome) = run_isolate_v2_udf(
-                self.rt.clone(),
-                tx,
-                self.module_loader.clone(),
-                SeedData {
-                    rng_seed,
-                    unix_timestamp: self.rt.unix_timestamp(),
-                },
+        let rng_seed = self.rt.rng().random();
+        let unix_timestamp = self.rt.unix_timestamp();
+        let (tx, outcome) = self
+            .isolate
+            .execute_udf(
                 UdfType::Query,
                 path_and_args,
-                self.key_broker.clone(),
-                ExecutionContext::new_for_test(),
+                tx,
                 journal.unwrap_or_else(QueryJournal::new),
+                ExecutionContext::new_for_test(),
+                self.environment_data.clone(),
+                rng_seed,
+                unix_timestamp,
+                0,
+                DEV_INSTANCE_NAME.to_string(),
+                None,
             )
             .await?;
-            // Ensure the transaction is readonly by turning it into a subscription token.
-            let token = tx.into_token()?;
-            Ok((outcome, token))
-        } else {
-            let rng_seed = self.rt.rng().random();
-            let unix_timestamp = self.rt.unix_timestamp();
-            let (tx, outcome) = self
-                .isolate
-                .execute_udf(
-                    UdfType::Query,
-                    path_and_args,
-                    tx,
-                    journal.unwrap_or_else(QueryJournal::new),
-                    ExecutionContext::new_for_test(),
-                    self.environment_data.clone(),
-                    rng_seed,
-                    unix_timestamp,
-                    0,
-                    DEV_INSTANCE_NAME.to_string(),
-                    None,
-                )
-                .await?;
-            // Ensure the transaction is readonly by turning it into a subscription token.
-            let token = tx.into_token()?;
-            let FunctionOutcome::Query(query_outcome) = outcome else {
-                anyhow::bail!("Called raw_query on a non-query");
-            };
-            Ok((query_outcome, token))
-        }
+        // Ensure the transaction is readonly by turning it into a subscription token.
+        let token = tx.into_token()?;
+        let FunctionOutcome::Query(query_outcome) = outcome else {
+            anyhow::bail!("Called raw_query on a non-query");
+        };
+        Ok((query_outcome, token))
     }
 
     /// Run a query, bypassing the validation done in `ValidatedUdfPathAndArgs`,
@@ -811,49 +752,29 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         let path_and_args =
             ValidatedPathAndArgs::new_for_tests(path.canonicalize(), args, Some(npm_version));
 
-        if self.isolate_v2_enabled {
-            let rng_seed = self.rt.rng().random();
-            let (_, outcome) = run_isolate_v2_udf(
-                self.rt.clone(),
-                tx,
-                self.module_loader.clone(),
-                SeedData {
-                    rng_seed,
-                    unix_timestamp: self.rt.unix_timestamp(),
-                },
+        let rng_seed = self.rt.rng().random();
+        let unix_timestamp = self.rt.unix_timestamp();
+        let (_, outcome) = self
+            .isolate
+            .execute_udf(
                 UdfType::Query,
                 path_and_args,
-                self.key_broker.clone(),
-                ExecutionContext::new_for_test(),
+                tx,
                 QueryJournal::new(),
+                ExecutionContext::new_for_test(),
+                self.environment_data.clone(),
+                rng_seed,
+                unix_timestamp,
+                0,
+                DEV_INSTANCE_NAME.to_string(),
+                None,
             )
             .await?;
-            Ok(outcome.result.unwrap_err())
-        } else {
-            let rng_seed = self.rt.rng().random();
-            let unix_timestamp = self.rt.unix_timestamp();
-            let (_, outcome) = self
-                .isolate
-                .execute_udf(
-                    UdfType::Query,
-                    path_and_args,
-                    tx,
-                    QueryJournal::new(),
-                    ExecutionContext::new_for_test(),
-                    self.environment_data.clone(),
-                    rng_seed,
-                    unix_timestamp,
-                    0,
-                    DEV_INSTANCE_NAME.to_string(),
-                    None,
-                )
-                .await?;
-            match outcome {
-                FunctionOutcome::Query(query_outcome) => Ok(query_outcome.result.unwrap_err()),
-                _ => Err(anyhow::anyhow!(
-                    "Called query_js_error_no_validation on a non-query"
-                )),
-            }
+        match outcome {
+            FunctionOutcome::Query(query_outcome) => Ok(query_outcome.result.unwrap_err()),
+            _ => Err(anyhow::anyhow!(
+                "Called query_js_error_no_validation on a non-query"
+            )),
         }
     }
 
@@ -1230,21 +1151,6 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
     {
         let test = Self::default(rt.clone()).await?;
         f(test).await?;
-
-        Ok(())
-    }
-
-    pub async fn run_test_with_isolate2<F, Fut>(rt: RT, mut f: F) -> anyhow::Result<()>
-    where
-        F: FnMut(Self) -> Fut,
-        Fut: Future<Output = anyhow::Result<()>>,
-    {
-        let test = Self::default(rt.clone()).await?;
-        f(test).await.context("test failed on isolate1")?;
-
-        let mut test = Self::default(rt.clone()).await?;
-        test.enable_isolate_v2();
-        f(test).await.context("test failed on isolate2")?;
 
         Ok(())
     }
