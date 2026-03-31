@@ -2,9 +2,8 @@
   "name": "convex",
   "private": true,
   "devDependencies": {
-    "@microsoft/rush": "^5.169.3",
-    "@rushstack/lockfile-explorer": "^2.2.7",
-    "pnpm": "10.30.3"
+    "@microsoft/rush": "5.172.1",
+    "pnpm": "10.33.0"
   },
   "overrides": {
     "js-yaml@>=4.0.0 <4.1.1": "4.1.1",

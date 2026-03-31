@@ -16,25 +16,25 @@
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 179896:
-/*!*********************!*\
-  !*** external "fs" ***!
-  \*********************/
-/***/ ((module) => {
+/***/ 973024
+/*!**************************!*\
+  !*** external "node:fs" ***!
+  \**************************/
+(module) {
 
-module.exports = require("fs");
+module.exports = require("node:fs");
 
-/***/ }),
+/***/ },
 
-/***/ 16928:
-/*!***********************!*\
-  !*** external "path" ***!
-  \***********************/
-/***/ ((module) => {
+/***/ 176760
+/*!****************************!*\
+  !*** external "node:path" ***!
+  \****************************/
+(module) {
 
-module.exports = require("path");
+module.exports = require("node:path");
 
-/***/ })
+/***/ }
 
 /******/ 	});
 /************************************************************************/
@@ -47,6 +47,12 @@ module.exports = require("path");
 /******/ 		var cachedModule = __webpack_module_cache__[moduleId];
 /******/ 		if (cachedModule !== undefined) {
 /******/ 			return cachedModule.exports;
+/******/ 		}
+/******/ 		// Check if module exists (development only)
+/******/ 		if (__webpack_modules__[moduleId] === undefined) {
+/******/ 			var e = new Error("Cannot find module '" + moduleId + "'");
+/******/ 			e.code = 'MODULE_NOT_FOUND';
+/******/ 			throw e;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
@@ -105,16 +111,16 @@ module.exports = require("path");
 /******/
 /************************************************************************/
 var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
+// This entry needs to be wrapped in an IIFE because it needs to be isolated against other modules in the chunk.
 (() => {
-/*!************************************************!*\
-  !*** ./lib-esnext/scripts/install-run-rush.js ***!
-  \************************************************/
+/*!**********************************************************!*\
+  !*** ./lib-intermediate-esm/scripts/install-run-rush.js ***!
+  \**********************************************************/
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! path */ 16928);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(path__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! fs */ 179896);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(fs__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var node_path__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! node:path */ 176760);
+/* harmony import */ var node_path__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(node_path__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var node_fs__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! node:fs */ 973024);
+/* harmony import */ var node_fs__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(node_fs__WEBPACK_IMPORTED_MODULE_1__);
 // Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 /* eslint-disable no-console */
@@ -123,6 +129,7 @@ __webpack_require__.r(__webpack_exports__);
 const { installAndRun, findRushJsonFolder, RUSH_JSON_FILENAME, runWithErrorAndStatusCode } = require('./install-run');
 const PACKAGE_NAME = '@microsoft/rush';
 const RUSH_PREVIEW_VERSION = 'RUSH_PREVIEW_VERSION';
+const RUSH_QUIET_MODE = 'RUSH_QUIET_MODE';
 const INSTALL_RUN_RUSH_LOCKFILE_PATH_VARIABLE = 'INSTALL_RUN_RUSH_LOCKFILE_PATH';
 function _getRushVersion(logger) {
     const rushPreviewVersion = process.env[RUSH_PREVIEW_VERSION];
@@ -131,9 +138,9 @@ function _getRushVersion(logger) {
         return rushPreviewVersion;
     }
     const rushJsonFolder = findRushJsonFolder();
-    const rushJsonPath = path__WEBPACK_IMPORTED_MODULE_0__.join(rushJsonFolder, RUSH_JSON_FILENAME);
+    const rushJsonPath = node_path__WEBPACK_IMPORTED_MODULE_0__.join(rushJsonFolder, RUSH_JSON_FILENAME);
     try {
-        const rushJsonContents = fs__WEBPACK_IMPORTED_MODULE_1__.readFileSync(rushJsonPath, 'utf-8');
+        const rushJsonContents = node_fs__WEBPACK_IMPORTED_MODULE_1__.readFileSync(rushJsonPath, 'utf-8');
         // Use a regular expression to parse out the rushVersion value because rush.json supports comments,
         // but JSON.parse does not and we don't want to pull in more dependencies than we need to in this script.
         const rushJsonMatches = rushJsonContents.match(/\"rushVersion\"\s*\:\s*\"([0-9a-zA-Z.+\-]+)\"/);
@@ -159,13 +166,14 @@ function _run() {
     const [nodePath /* Ex: /bin/node */, scriptPath /* /repo/common/scripts/install-run-rush.js */, ...packageBinArgs /* [build, --to, myproject] */] = process.argv;
     // Detect if this script was directly invoked, or if the install-run-rushx script was invokved to select the
     // appropriate binary inside the rush package to run
-    const scriptName = path__WEBPACK_IMPORTED_MODULE_0__.basename(scriptPath);
+    const scriptName = node_path__WEBPACK_IMPORTED_MODULE_0__.basename(scriptPath);
     const bin = _getBin(scriptName);
     if (!nodePath || !scriptPath) {
         throw new Error('Unexpected exception: could not detect node path or script path');
     }
     let commandFound = false;
-    let logger = { info: console.log, error: console.error };
+    const quietModeEnvValue = process.env[RUSH_QUIET_MODE];
+    let quiet = quietModeEnvValue === '1' || quietModeEnvValue === 'true';
     for (const arg of packageBinArgs) {
         if (arg === '-q' || arg === '--quiet') {
             // The -q/--quiet flag is supported by both `rush` and `rushx`, and will suppress
@@ -174,10 +182,7 @@ function _run() {
             // To maintain the same user experience, the install-run* scripts pass along this
             // flag but also use it to suppress any diagnostic information normally printed
             // to stdout.
-            logger = {
-                info: () => { },
-                error: console.error
-            };
+            quiet = true;
         }
         else if (!arg.startsWith('-') || arg === '-h' || arg === '--help') {
             // We either found something that looks like a command (i.e. - doesn't start with a "-"),
@@ -198,6 +203,9 @@ function _run() {
         }
         process.exit(1);
     }
+    const logger = quiet
+        ? { info: () => { }, error: console.error }
+        : { info: console.log, error: console.error };
     runWithErrorAndStatusCode(logger, () => {
         const version = _getRushVersion(logger);
         logger.info(`The ${RUSH_JSON_FILENAME} configuration requests Rush version ${version}`);
