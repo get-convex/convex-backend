@@ -45,7 +45,7 @@ export const handler = awslambda.streamifyResponse(
       numInvocations >= MAX_INVOKE_COUNT
     ) {
       logDebug(
-        `analyze or build_deps has run ${numInvocations} times, restarting node process`,
+        `analyze or build_deps ran ${numInvocations} times, restarting node process`,
       );
       ogProcessExit(0);
     }
