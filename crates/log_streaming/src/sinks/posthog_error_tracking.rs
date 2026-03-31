@@ -106,8 +106,8 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
     }
 
     async fn verify_creds(&mut self) -> anyhow::Result<()> {
-        // PostHog's ingestion endpoints return 200 even for invalid API keys,
-        // so we use the /decide endpoint which actually validates the key.
+        // PostHog's ingestion endpoints return 200 even for invalid project tokens,
+        // so we use the /decide endpoint which actually validates the token.
         let mut decide_url = self.capture_url.clone();
         decide_url.set_path("/decide");
         decide_url.set_query(Some("v=3"));
@@ -134,8 +134,8 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
             Ok(_) => Ok(()),
             Err(e) => {
                 anyhow::bail!(ErrorMetadata::bad_request(
-                    "PostHogErrorTrackingInvalidApiKey",
-                    format!("Failed to verify PostHog API key: {e}"),
+                    "PostHogErrorTrackingInvalidProjectToken",
+                    format!("Failed to verify PostHog project token: {e}"),
                 ));
             },
         }
@@ -309,7 +309,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
     }
 
     async fn send_batch(&mut self, batch_json: Vec<u8>) -> anyhow::Result<()> {
-        // PostHog capture API uses api_key in the body, no Authorization header
+        // PostHog capture API uses the project token in the body, no Authorization header
         let header_map = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
         let batch_json = Bytes::from(batch_json);
 

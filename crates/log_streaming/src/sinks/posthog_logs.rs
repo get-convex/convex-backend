@@ -117,8 +117,8 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
     }
 
     async fn verify_creds(&mut self) -> anyhow::Result<()> {
-        // PostHog's ingestion endpoints return 200 even for invalid API keys,
-        // so we use the /decide endpoint which actually validates the key.
+        // PostHog's ingestion endpoints return 200 even for invalid project tokens,
+        // so we use the /decide endpoint which actually validates the token.
         let mut decide_url = self.endpoint_url.clone();
         decide_url.set_path("/decide");
         decide_url.set_query(Some("v=3"));
@@ -145,8 +145,8 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
             Ok(_) => Ok(()),
             Err(e) => {
                 anyhow::bail!(ErrorMetadata::bad_request(
-                    "PostHogLogsInvalidApiKey",
-                    format!("Failed to verify PostHog API key: {e}"),
+                    "PostHogLogsInvalidProjectToken",
+                    format!("Failed to verify PostHog project token: {e}"),
                 ));
             },
         }
