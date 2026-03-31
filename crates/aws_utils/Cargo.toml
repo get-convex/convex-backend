@@ -11,6 +11,7 @@ aws-credential-types = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 aws-smithy-types-convert = { workspace = true }
 aws-types = { workspace = true }
+cmd_util = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

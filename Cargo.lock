@@ -1131,6 +1131,7 @@ dependencies = [
  "aws-sdk-s3",
  "aws-smithy-types-convert",
  "aws-types",
+ "cmd_util",
  "futures",
  "tokio",
  "tracing",

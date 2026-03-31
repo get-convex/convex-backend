@@ -1,7 +1,14 @@
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    sync::LazyLock,
+    time::Duration,
+};
 
 use anyhow::Context;
-use aws_config::retry::RetryConfig;
+use aws_config::{
+    retry::RetryConfig,
+    timeout::TimeoutConfig,
+};
 use aws_sdk_s3::{
     types::{
         Delete,
@@ -12,6 +19,7 @@ use aws_sdk_s3::{
     Client,
 };
 use aws_smithy_types_convert::stream::PaginationStreamExt;
+use cmd_util::env::env_config;
 use futures::{
     stream::TryStreamExt,
     Stream,
@@ -25,6 +33,9 @@ pub struct S3Client(pub Client);
 
 static S3_TRASH_FOLDER: &str = ".trash/";
 
+static S3_OPERATION_ATTEMPT_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("S3_OPERATION_ATTEMPT_TIMEOUT_SECONDS", 30)));
+
 impl S3Client {
     pub async fn new(enable_retries: bool) -> anyhow::Result<Self> {
         let retry_config = match enable_retries {
@@ -36,6 +47,11 @@ impl S3Client {
             .context(
                 "Failed to create S3 configuration. Check AWS env variables or IAM permissions.",
             )?
+            .timeout_config(
+                TimeoutConfig::builder()
+                    .operation_attempt_timeout(*S3_OPERATION_ATTEMPT_TIMEOUT)
+                    .build(),
+            )
             .retry_config(retry_config)
             .build();
 
