@@ -324,10 +324,18 @@ export function configToUrl(config: IntegrationConfig): string {
     case "webhook":
       return config.url;
     case "postHogLogs": {
-      return `https://app.posthog.com/logs`;
+      const logsHost = (config.host ?? "https://us.i.posthog.com").replace(
+        ".i.",
+        ".",
+      );
+      return `${logsHost}/logs`;
     }
     case "postHogErrorTracking": {
-      return `https://app.posthog.com/error_tracking`;
+      const etHost = (config.host ?? "https://us.i.posthog.com").replace(
+        ".i.",
+        ".",
+      );
+      return `${etHost}/error_tracking`;
     }
     default:
       // eslint-disable-next-line no-case-declarations

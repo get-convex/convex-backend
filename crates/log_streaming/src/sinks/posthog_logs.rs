@@ -119,9 +119,9 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
     async fn verify_creds(&mut self) -> anyhow::Result<()> {
         // PostHog's ingestion endpoints return 200 even for invalid API keys,
         // so we use the /decide endpoint which actually validates the key.
-        let host = self.endpoint_url.host_str().unwrap_or("us.i.posthog.com");
-        let scheme = self.endpoint_url.scheme();
-        let decide_url: reqwest::Url = format!("{scheme}://{host}/decide?v=3").parse()?;
+        let mut decide_url = self.endpoint_url.clone();
+        decide_url.set_path("/decide");
+        decide_url.set_query(Some("v=3"));
 
         let payload = json!({
             "api_key": self.api_key,
@@ -297,19 +297,13 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
             }]
         });
 
-        self.send_batch(serde_json::to_vec(&payload)?, false, track_egress)
-            .await?;
+        self.send_batch(serde_json::to_vec(&payload)?, track_egress).await?;
         crate::metrics::posthog_logs_sink_logs_sent(batch_size);
 
         Ok(())
     }
 
-    async fn send_batch(
-        &mut self,
-        batch_json: Vec<u8>,
-        is_verification: bool,
-        track_egress: bool,
-    ) -> anyhow::Result<()> {
+    async fn send_batch(&mut self, batch_json: Vec<u8>, track_egress: bool) -> anyhow::Result<()> {
         let header_map = HeaderMap::from_iter([
             (
                 AUTHORIZATION,
@@ -332,10 +326,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
                 })
                 .await;
 
-            if !is_verification
-                && track_egress
-                && let Ok(r) = &response
-            {
+            if track_egress && let Ok(r) = &response {
                 let num_bytes_egress = r.request_size.load(Ordering::Relaxed);
                 utils::track_log_sink_bandwidth(
                     num_bytes_egress,
