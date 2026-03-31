@@ -80,6 +80,21 @@ export const mockDeploymentInfo: DeploymentInfo = {
   TeamMemberLink: ({ name }: { name: string }) => (
     <span className="font-semibold">{name}</span>
   ),
+  Link: ({
+    href,
+    children,
+    ...props
+  }: {
+    href: string;
+    children?: React.ReactNode;
+    className?: string;
+    target?: string;
+    rel?: string;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
   DisconnectOverlay: () => <div>Disconnected</div>,
   useTeamUsageState: () => "Default",
   teamsURI: "",

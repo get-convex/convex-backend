@@ -271,6 +271,13 @@ export type DeploymentInfo = (
     memberId?: number | null;
     name: string;
   }): JSX.Element;
+  Link(props: {
+    href: string;
+    className?: string;
+    target?: string;
+    rel?: string;
+    children?: ReactNode;
+  }): ReactNode;
   ErrorBoundary(props: {
     children: ReactNode;
     fallback?: FallbackRender;

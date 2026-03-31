@@ -1,5 +1,6 @@
 import { ExceptionReportingIntegration } from "@common/lib/integrationHelpers";
 import { Button } from "@ui/Button";
+import { Link } from "@ui/Link";
 import { TextInput } from "@ui/TextInput";
 import { useFormik } from "formik";
 import {
@@ -70,7 +71,19 @@ export function PostHogErrorTrackingConfigurationForm({
         placeholder="phc_..."
         id="apiKey"
         error={formState.errors.apiKey}
-        description="Your PostHog project API key. Found in PostHog under Settings > Project > Project API Key."
+        description={
+          <>
+            Your PostHog project API key. Found in PostHog under{" "}
+            <Link
+              href="https://app.posthog.com/settings/project-details#variables"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Settings &gt; General &gt; Project Token
+            </Link>
+            .
+          </>
+        }
       />
       <TextInput
         value={formState.values.host}

@@ -295,6 +295,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
       </div>
     </Tooltip>
   ),
+  Link,
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
     <ErrorBoundary>{children}</ErrorBoundary>
   ),

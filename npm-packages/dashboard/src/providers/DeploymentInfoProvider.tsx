@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import {
   captureException,
@@ -196,6 +197,7 @@ export function DeploymentInfoProvider({
           useProvisionProjectWorkOSEnvironment,
           useDeleteProjectWorkOSEnvironment,
         },
+        Link,
         TeamMemberLink,
         CloudImport,
         ErrorBoundary: DeploymentErrorBoundary,
