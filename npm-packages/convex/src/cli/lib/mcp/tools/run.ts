@@ -43,6 +43,7 @@ export const RunTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   description,
   inputSchema,
   outputSchema,
+  annotations: { destructiveHint: true, openWorldHint: true },
   handler: async (ctx, args) => {
     const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
