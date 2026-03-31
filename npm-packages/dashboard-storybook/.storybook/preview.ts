@@ -32,6 +32,7 @@ sb.mock(import("../../dashboard/src/hooks/useServerSideData.ts"), {
 sb.mock(import("../../dashboard/src/api/usage.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/auditLog.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/api/oauth.ts"), { spy: true });
+sb.mock(import("../../dashboard/src/api/referrals.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/lib/deploymentAuth.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/hooks/usageMetrics.ts"), { spy: true });
 sb.mock(import("../../dashboard/src/hooks/usageMetricsV2.ts"), { spy: true });

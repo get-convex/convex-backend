@@ -43,6 +43,7 @@ import {
 } from "../../dashboard/src/api/deployments";
 import { deploymentAuth } from "../../dashboard/src/lib/deploymentAuth";
 import { useTeamUsageState } from "../../dashboard/src/api/usage";
+import { useReferralState } from "../../dashboard/src/api/referrals";
 import { usePostHog } from "../../dashboard/src/hooks/usePostHog";
 import { useListCloudBackups } from "../../dashboard/src/api/backups";
 import {
@@ -266,6 +267,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     },
   });
   mocked(useTeamUsageState).mockReturnValue("Default");
+  mocked(useReferralState).mockReturnValue(null);
   const DEV_DEPLOYMENT: PlatformDeploymentResponse = {
     id: 11,
     name: "happy-capybara-123",

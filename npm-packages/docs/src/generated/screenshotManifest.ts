@@ -55,6 +55,19 @@ export const screenshots = [
     }
   },
   {
+    "storyTitle": "docs/pages/Projects",
+    "light": {
+      "filename": "pages_projects_light.webp",
+      "width": 2048,
+      "height": 1400
+    },
+    "dark": {
+      "filename": "pages_projects_dark.webp",
+      "width": 2048,
+      "height": 1400
+    }
+  },
+  {
     "storyTitle": "docs/pages/TeamAuditLog",
     "light": {
       "filename": "pages_team_audit_log_light.webp",

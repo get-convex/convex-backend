@@ -38,7 +38,7 @@ import { useRouter } from "next/router";
 
 export { getServerSideProps } from "lib/ssr";
 
-export default withAuthenticatedPage(() => {
+export function TeamIndexPage() {
   const team = useCurrentTeam();
   const router = useRouter();
   const referralState = useReferralState(team?.id);
@@ -93,7 +93,9 @@ export default withAuthenticatedPage(() => {
       </div>
     </>
   );
-});
+}
+
+export default withAuthenticatedPage(TeamIndexPage);
 
 const VIEW_OPTIONS = [
   { label: "Projects", value: "projects" },
