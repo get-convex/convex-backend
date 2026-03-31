@@ -230,7 +230,7 @@ tokio-postgres = { version = "0.7.13", features = [ "with-serde_json-1" ] }
 tokio-postgres-rustls = { version = "0.13" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = { version = "0.28.0", features = [ "native-tls-vendored" ] }
-tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util" ] }
+tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util", "join-map" ] }
 tonic = { package = "tonic", version = "0.13", features = [ "gzip", "tls-aws-lc", "tls-native-roots" ] }
 tonic-build = "0.13"
 tonic-health = "0.13"
