@@ -1,3 +1,4 @@
+import { paths as PlatformDeploymentPaths } from "@convex-dev/platform/deploymentApi";
 import { paths as PlatformManagementPaths } from "@convex-dev/platform/managementApi";
 import { chalkStderr } from "chalk";
 import os from "os";
@@ -758,20 +759,25 @@ export async function bigBrainAPI<T = any>({
  *
  * Pass { throw: true } to throw ThrowingFetchErrors instead of exiting the process.
  */
-function typedBigBrainClientFactory<T>(baseUrl: string) {
+function typedApiClientFactory<T>(
+  baseUrl: string,
+  fetchBuilder: (ctx: Context) => typeof fetch,
+) {
   return (ctx: Context, options: { throw?: boolean } = {}) => {
     type Paths = T extends CliManagementPaths
       ? CliManagementPaths
       : T extends PlatformManagementPaths
         ? PlatformManagementPaths
-        : never;
-    const bigBrainClient = createClient<Paths>({
+        : T extends PlatformDeploymentPaths
+          ? PlatformDeploymentPaths
+          : never;
+    const client = createClient<Paths>({
       baseUrl,
-      fetch: bigBrainFetch(ctx),
+      fetch: fetchBuilder(ctx),
     });
 
     // Wrap the client with error handling - go back to proxy since middleware doesn't catch parsing errors
-    return new Proxy(bigBrainClient, {
+    return new Proxy(client, {
       get(target, prop) {
         const originalMethod = target[prop as keyof typeof target];
 
@@ -804,12 +810,30 @@ function typedBigBrainClientFactory<T>(baseUrl: string) {
   };
 }
 
-export const typedBigBrainClient =
-  typedBigBrainClientFactory<CliManagementPaths>(BIG_BRAIN_URL);
+export const typedBigBrainClient = typedApiClientFactory<CliManagementPaths>(
+  BIG_BRAIN_URL,
+  bigBrainFetch,
+);
 export const typedPlatformClient =
-  typedBigBrainClientFactory<PlatformManagementPaths>(
+  typedApiClientFactory<PlatformManagementPaths>(
     PLATFORM_MANAGEMENT_API_URL,
+    bigBrainFetch,
   );
+
+export function typedDeploymentClient(
+  ctx: Context,
+  args: { deploymentUrl: string; adminKey: string },
+  options: { throw?: boolean } = {},
+) {
+  return typedApiClientFactory<PlatformDeploymentPaths>(
+    `${args.deploymentUrl}/api/v1`,
+    (ctx) =>
+      deploymentFetch(ctx, {
+        deploymentUrl: args.deploymentUrl,
+        adminKey: args.adminKey,
+      }),
+  )(ctx, options);
+}
 
 export async function bigBrainAPIMaybeThrows({
   ctx,
@@ -1230,7 +1254,7 @@ export function deploymentFetch(
     adminKey: string;
     onError?: (err: any) => void;
   },
-): typeof throwingFetch {
+): typeof fetch {
   const { deploymentUrl, adminKey, onError } = options;
   const onErrorWithAttempt = (err: any, attempt: number) => {
     onError?.(err);
