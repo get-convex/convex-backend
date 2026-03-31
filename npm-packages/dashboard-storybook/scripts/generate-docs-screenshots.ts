@@ -29,12 +29,19 @@ function toSnakeCase(str: string): string {
     .toLowerCase();
 }
 
-/** Derive output filename from story title and theme */
-function filenameFromTitle(title: string, theme: "light" | "dark"): string {
+/** Derive output filename from story title, story name, and theme */
+function filenameFromTitle(
+  title: string,
+  storyName: string,
+  theme: "light" | "dark",
+): string {
   // Strip "docs/" prefix
   const withoutPrefix = title.replace(/^docs\//i, "");
   // Split by "/" and convert each segment to snake_case
   const segments = withoutPrefix.split("/").map(toSnakeCase);
+  if (storyName !== "Default") {
+    segments.push(storyName.toLowerCase().replace(/\s+/g, "_"));
+  }
   return `${segments.join("_")}_${theme}.webp`;
 }
 
@@ -108,7 +115,10 @@ if (!indexRes.ok) {
   process.exit(1);
 }
 const index = (await indexRes.json()) as {
-  entries: Record<string, { id: string; title: string; type: string }>;
+  entries: Record<
+    string,
+    { id: string; title: string; name: string; type: string }
+  >;
 };
 
 const docsStories = Object.values(index.entries).filter(
@@ -155,7 +165,7 @@ function updateSpinner() {
 }
 
 async function captureScreenshot(
-  story: { id: string; title: string; type: string },
+  story: { id: string; title: string; name: string; type: string },
   theme: "light" | "dark",
 ): Promise<{
   filename: string;
@@ -163,7 +173,9 @@ async function captureScreenshot(
   storyTitle: string;
   status: "created" | "updated" | "unchanged";
 } | null> {
-  const filename = filenameFromTitle(story.title, theme);
+  const filename = filenameFromTitle(story.title, story.name, theme);
+  const storyTitle =
+    story.name === "Default" ? story.title : `${story.title}#${story.name}`;
   const outputPath = path.join(OUTPUT_DIR, filename);
   const url = `http://127.0.0.1:${port}/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story&globals=theme:${theme}`;
 
@@ -343,7 +355,7 @@ async function captureScreenshot(
     updateSpinner();
     spinner.render();
 
-    return { filename, theme, storyTitle: story.title, status };
+    return { filename, theme, storyTitle, status };
   } catch (error) {
     inProgress.delete(filename);
     completed++;
@@ -355,7 +367,7 @@ async function captureScreenshot(
     // If the file already existed, preserve it by returning an "unchanged"
     // result so it won't be deleted as stale and stays in the manifest.
     if (existingWebp !== null) {
-      return { filename, theme, storyTitle: story.title, status: "unchanged" };
+      return { filename, theme, storyTitle, status: "unchanged" };
     }
     return null;
   } finally {
