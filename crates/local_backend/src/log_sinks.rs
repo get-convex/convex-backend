@@ -387,6 +387,7 @@ impl From<LogStreamType> for SinkType {
 #[utoipa::path(
     post,
     path = "/delete_log_stream/{id}",
+    tag = "Log Streams",
     responses((status = 200)),
     params(
         ("id" = String, Path, description = "id of the log stream to delete"),
@@ -629,6 +630,7 @@ async fn ensure_log_sink_does_not_exist(
 #[utoipa::path(
     post,
     path = "/create_log_stream",
+    tag = "Log Streams",
     responses((status = 200, body = CreateLogStreamResponse)),
     security(
         ("Deploy Key" = []),
@@ -766,6 +768,7 @@ pub enum RotateLogStreamSecretResponse {
 #[utoipa::path(
     post,
     path = "/rotate_webhook_secret/{id}",
+    tag = "Log Streams",
     responses((status = 200, body = RotateLogStreamSecretResponse)),
     params(
         ("id" = String, Path, description = "id of the webhook log stream for which to rotate the secret"),
@@ -985,6 +988,7 @@ fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig>
 #[utoipa::path(
     get,
     path = "/list_log_streams",
+    tag = "Log Streams",
     responses((status = 200, body = Vec<LogStreamConfig>)),
     security(
         ("Deploy Key" = []),
@@ -1015,6 +1019,7 @@ pub async fn list_log_streams(
 #[utoipa::path(
     get,
     path = "/get_log_stream/{id}",
+    tag = "Log Streams",
     responses((status = 200, body = LogStreamConfig)),
     params(
         ("id" = String, Path, description = "id of the log stream to retrieve"),
@@ -1160,6 +1165,7 @@ pub enum UpdateLogStreamArgs {
 #[utoipa::path(
     post,
     path = "/update_log_stream/{id}",
+    tag = "Log Streams",
     responses((status = 200)),
     params(
         ("id" = String, Path, description = "id of the log stream to update"),

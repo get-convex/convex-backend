@@ -4,6 +4,18 @@ import { default as deploymentApiSidebar } from "./docs/deployment-api/sidebar";
 //import { default as publicHttpApiSidebar } from "./docs/public-deployment-api/sidebar";
 import { default as managementApiSidebar } from "./docs/management-api/sidebar";
 
+// Tag categories and top-level items (skip the info doc at index 0).
+// Flatten any UNTAGGED category so its items appear at the top level.
+function apiSidebarItems(sidebar) {
+  return sidebar
+    .slice(1)
+    .flatMap((entry) =>
+      entry.type === "category" && entry.label === "UNTAGGED"
+        ? entry.items
+        : [entry],
+    );
+}
+
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
   docs: [
@@ -359,8 +371,7 @@ const sidebars = {
           type: "category",
           label: "Platform",
           link: { type: "doc", id: "deployment-platform-api" },
-          // the UNTAGGED section
-          items: deploymentApiSidebar[1].items,
+          items: apiSidebarItems(deploymentApiSidebar),
         },
       ],
       className: "convex-sidebar-http-api",
@@ -369,15 +380,7 @@ const sidebars = {
       type: "category",
       label: "Management API",
       link: { type: "doc", id: "management-api" },
-      // Tag categories and top-level items (skip the info doc at index 0).
-      // Flatten any UNTAGGED category so its items appear at the top level.
-      items: managementApiSidebar
-        .slice(1)
-        .flatMap((entry) =>
-          entry.type === "category" && entry.label === "UNTAGGED"
-            ? entry.items
-            : [entry],
-        ),
+      items: apiSidebarItems(managementApiSidebar),
       className: "convex-sidebar-http-api",
     },
     {

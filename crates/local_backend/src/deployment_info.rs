@@ -51,6 +51,7 @@ pub enum DeploymentInfoResponse {
 #[utoipa::path(
     get,
     path = "/deployment_info",
+    tag = "Deployment Info",
     operation_id = "get deployment info",
     security(
         ("Deploy Key" = []),

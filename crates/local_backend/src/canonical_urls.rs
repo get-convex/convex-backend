@@ -55,6 +55,7 @@ pub struct UpdateCanonicalUrlRequest {
 #[utoipa::path(
     post,
     path = "/update_canonical_url",
+    tag = "Canonical URLs",
     request_body = UpdateCanonicalUrlRequest,
     responses((status = 200)),
     security(
@@ -115,6 +116,7 @@ pub struct GetCanonicalUrlsResponse {
 #[utoipa::path(
     get,
     path = "/get_canonical_urls",
+    tag = "Canonical URLs",
     responses(
         (status = 200, body = GetCanonicalUrlsResponse)
     ),

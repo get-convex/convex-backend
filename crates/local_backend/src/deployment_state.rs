@@ -31,6 +31,7 @@ use crate::{
 #[utoipa::path(
     post,
     path = "/pause_deployment",
+    tag = "Pause/Unpause",
     responses((status = 200)),
     security(
         ("Deploy Key" = []),
@@ -73,6 +74,7 @@ pub async fn pause_deployment(
 #[utoipa::path(
     post,
     path = "/unpause_deployment",
+    tag = "Pause/Unpause",
     responses((status = 200)),
     security(
         ("Deploy Key" = []),

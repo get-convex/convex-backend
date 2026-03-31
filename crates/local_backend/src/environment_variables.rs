@@ -77,6 +77,7 @@ pub struct UpdateEnvVarsRequest {
 #[utoipa::path(
     post,
     path = "/update_environment_variables",
+    tag = "Environment Variables",
     request_body = UpdateEnvVarsRequest,
     responses((status = 200)),
     security(
@@ -126,6 +127,7 @@ pub struct ListEnvVarsResponse {
 #[utoipa::path(
     get,
     path = "/list_environment_variables",
+    tag = "Environment Variables",
     responses(
         (status = 200, body = ListEnvVarsResponse)
     ),

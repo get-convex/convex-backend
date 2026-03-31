@@ -24,6 +24,9 @@
   "paths": {
     "/update_environment_variables": {
       "post": {
+        "tags": [
+          "Environment Variables"
+        ],
         "summary": "Update environment variables",
         "description": "Update one or many environment variables in a deployment.\nThis will invalidate all subscriptions, since environment variables\nare accessible in queries but are not part of the cache key of a query\nresult.",
         "operationId": "update_environment_variables",
@@ -60,6 +63,9 @@
     },
     "/list_environment_variables": {
       "get": {
+        "tags": [
+          "Environment Variables"
+        ],
         "summary": "List environment variables",
         "description": "Get all environment variables in a deployment.\nIn the future this might not include \"secret\" environment\nvariables.",
         "operationId": "list_environment_variables",
@@ -93,6 +99,9 @@
     },
     "/deployment_info": {
       "get": {
+        "tags": [
+          "Deployment Info"
+        ],
         "summary": "Get deployment info",
         "description": "Returns identity information about this deployment.",
         "operationId": "get deployment info",
@@ -126,6 +135,9 @@
     },
     "/update_canonical_url": {
       "post": {
+        "tags": [
+          "Canonical URLs"
+        ],
         "summary": "Update canonical URL",
         "description": "Set or unset the canonical URL for a deployment's convex.cloud or\nconvex.site domain. This allows you to customize the  CONVEX_SITE_URL and\nCONVEX_CLOUD_URL environment variables in your deployment.",
         "operationId": "update_canonical_url",
@@ -162,6 +174,9 @@
     },
     "/get_canonical_urls": {
       "get": {
+        "tags": [
+          "Canonical URLs"
+        ],
         "summary": "Get canonical URLs",
         "description": "Get the canonical URLs for a deployment.",
         "operationId": "get_canonical_urls",
@@ -195,6 +210,9 @@
     },
     "/list_log_streams": {
       "get": {
+        "tags": [
+          "Log Streams"
+        ],
         "summary": "List log streams",
         "description": "List configs for all existing log streams in a deployment.",
         "operationId": "list_log_streams",
@@ -231,6 +249,9 @@
     },
     "/get_log_stream/{id}": {
       "get": {
+        "tags": [
+          "Log Streams"
+        ],
         "summary": "Get log stream",
         "description": "Get the config for a specific log stream by id.",
         "operationId": "get_log_stream",
@@ -275,6 +296,9 @@
     },
     "/delete_log_stream/{id}": {
       "post": {
+        "tags": [
+          "Log Streams"
+        ],
         "summary": "Delete log stream",
         "description": "Delete the deployment's log stream with the given id.",
         "operationId": "delete_log_stream",
@@ -312,6 +336,9 @@
     },
     "/create_log_stream": {
       "post": {
+        "tags": [
+          "Log Streams"
+        ],
         "summary": "Create log stream",
         "description": "Create a new log stream for the deployment. Errors if a log stream of the\ngiven type already exists.",
         "operationId": "create_log_stream",
@@ -355,6 +382,9 @@
     },
     "/update_log_stream/{id}": {
       "post": {
+        "tags": [
+          "Log Streams"
+        ],
         "summary": "Update log stream",
         "description": "Update an existing log stream for the deployment. Omit a field to keep the\nexisting value, and use `null` to unset a field.",
         "operationId": "update_log_stream",
@@ -402,6 +432,9 @@
     },
     "/rotate_webhook_secret/{id}": {
       "post": {
+        "tags": [
+          "Log Streams"
+        ],
         "summary": "Rotate webhook log stream secret",
         "description": "Rotate the secret for the webhook log stream.",
         "operationId": "rotate_webhook_secret",
@@ -446,6 +479,9 @@
     },
     "/pause_deployment": {
       "post": {
+        "tags": [
+          "Pause/Unpause"
+        ],
         "summary": "Pause deployment",
         "description": "Disables a deployment without deleting any data. The deployment will not\noperate until it is unpaused. While a deployment is paused, new functions\ncalls will return an error, scheduled jobs will queue and run when the\ndeployment is resumed, and cron jobs will be skipped. This means that no\nfunction calls or bandwidth usage will be charged while the deployment is\npaused, but storage costs will still apply.",
         "operationId": "pause_deployment",
@@ -472,6 +508,9 @@
     },
     "/unpause_deployment": {
       "post": {
+        "tags": [
+          "Pause/Unpause"
+        ],
         "summary": "Unpause deployment",
         "description": "Reenables a deployment that was previously paused. The deployment will\nresume normal operation, including any scheduled jobs that were queued while\npaused.",
         "operationId": "unpause_deployment",
