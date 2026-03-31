@@ -47,6 +47,9 @@ sb.mock(
   import("../../dashboard/src/components/projectSettings/CustomDomains.tsx"),
   { spy: true },
 );
+sb.mock(import("../../dashboard-common/src/lib/deploymentApi.ts"), {
+  spy: true,
+});
 
 const preview: Preview = {
   initialGlobals: {

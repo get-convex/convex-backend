@@ -1,5 +1,5 @@
 import { DeploymentInfoProvider } from "../../dashboard/src/providers/DeploymentInfoProvider";
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useContext, useEffect } from "react";
 import { DecoratorFunction } from "storybook/internal/types";
 import { ReactRenderer } from "@storybook/nextjs";
 import { mocked, fn } from "storybook/test";
@@ -61,6 +61,12 @@ import { DeploymentProvider } from "../../dashboard/src/components/projectSettin
 import { mockConvexReactClient } from "../../dashboard-common/src/lib/mockConvexReactClient";
 import udfs from "../../dashboard-common/src/udfs";
 import { ConvexProvider } from "convex/react";
+import { DeploymentDashboardLayout } from "../../dashboard-common/src/layouts/DeploymentDashboardLayout";
+import {
+  ConnectedDeploymentContext,
+  DeploymentInfoContext,
+} from "../../dashboard-common/src/lib/deploymentContext";
+import { useTableShapes } from "../../dashboard-common/src/lib/deploymentApi";
 
 const MOCK_PROFILE_PICTURE_URL =
   "data:image/webp;base64,UklGRqYFAABXRUJQVlA4IJoFAACwFwCdASpAAEAAPpE8mUiloyIhLBqqaLASCWwAnTLLxB/G+ZjZ2vaGntzejrbgc7TpzPoAT6/2j/VfBXxxe2cz3GXaB9XkZTJNa93iEAHVd6qaw5QA9wD5YNDD1inUcsafQyKkL3va9r5b6tHRyOzYkfx3XdT7BBLNpPvVQDroRE+86vqS4IbQ/TuVbxR22x/qQ3ATiNd6VDuwkyEDi67ee40Djosp8rgLpxKRgzL15tn235yg5nJiZkZLMqLeVsk+AqZEJiAA/ub/+ti932/SJ7Ed6JWfB5D7z9NBn34kJK3wWGn17qnGuhyXm3arHw5zYWWoqoTVlBBWsym+VLk6FBA3KCPlX9hyu9YNhcCear7jv4Onz3JXFtmd7O7nog1WPOQgejCX4W5PJ6mLS19O3AZfSyn/rGPbQOBZuqsw51VzDBoJXR8K6rio+Qt3X1nLwwdc5Yr8Ki/duH8c9/F6rcRW30/0I8fHTkJ0IY53taSJfuiaGJ5VsghdyUG3p7mkvD/HMN+467NVP26wO3v+cAd5ke9N8pM0FyM4moFWtHw3FSUH/jzn4+38UZuYpNYI1v8Noumcs/sfQ/IEhE76bFQMsGvAgUCsd89hWG2w+g1U0Nd4Ugiv0deXMH28+lq6JHYXKBsj9uy6LLvK4sx/yXtsYfF3uj8z8bGpcWLNdZ3hWNmYZH7dTCzFm6P/zRcH0Pd0VNZ8rRc2/+Pq6f5Hq5qHwywa8Dq6FL9dr5xmIowIfzxyKWEITu6bfUBOdaloCxcD6+NhKroqeAL2dLq1qW58eXyrZFVb1adugT9qIC+YlnbzZMyR3d5L7vezSng58Pd4scxsgu7Koi5/PE1MS3+JD1vmLd+0eQwd5Shk1pSTkwI7raQgwPAtF0br9RaLsW+p7wPb1fY51wj++AyVK/i5dlmaktv7o/T49TCUfqLRPm796NCM16jK/tViNOlBonU7rLcOvq0S2wXjm9KhUFJmOrwM5c8l+LmdFEOFZQdFzRg4bgxZPe380SUQev6O/kSjPKz/yqt4QFFvkvOQhWc1o4Yk98XA1XOQiPwzr3eouH/uQaGw4WOF86+dKXsk0rPhzqh/ThVbS9T/SQUKj1HbQ8LHwUt3RRXju1cZK6V3CmfO8Ep0abVycofCiBlgse12mpsP+/yhR0jtAnjjaq5D1P7bQq8Suck/kJWBEU2MpwqU3JZ62GEDddHiKi/D7Z5jcvBzSGTF1wmlEbl1MAF8rfPq7ncROFLF1busN73evw9mEUN+kIS1WuWxOGz66zIZS+gF098q9kXHq7xhV2bsPemqpqHJ/FAkDqOM1AS6Mg+3MJVD/JsDWETX5nUO6W1I1Nts35WcLI4wUtbtKvfp+1XbB+h9FP1OZ8DeGiMX+iL+KzLUPzNbrYb0+4ZGXOmhl0HYdAvWzd6Zd7JssNGNKVOgvYcqi6ljy/JYLnk0JgePXqg2jEpZuYRG8Zz66yg/NOPHn96zN4EeppQtzso6paGyrrGJ3fR+eh6+y2kV/vXInPU3dw7mbC/8gQUnTFoHg2RrQCCRypP3HO0LlG8uT47z+yFSx3lDXFs/iPETPXP9RhDYkg2Ja7XozibpaLMr3uNfNzb9Z8YuCEeB5OBrg19n92+08SgaHjVK/m+1jjv1s4vAhJCMJOZRUS0VZXTMD2kRQTPcgYosp7Tt/uo0i3yX4zzb25rvbeR+smvjoMuqG6MrXqZ2w0eU22DOdWSd3kuKUfYxZvLEuWwqtVKawcX5yyUHo7wryoMcnJzF/iqh1lVkmla8pBdBBISSOA8u1Ef+tvGYOf3nVscALWEwwgjIgW5Jz17pmObucgE9xNaEfwpu72nhFZOPecK8zRkTPZ00iotWPZav6MaJ3rd9bXN3uG1VzJABCQrEAFDkONmytDf6AAA=";
@@ -342,21 +348,46 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   mocked(useInstanceAccessTokens).mockReturnValue([]);
   mocked(LocalDevCallout).mockReturnValue(null);
   mocked(CloudDisconnectOverlay).mockReturnValue(null);
+  mocked(useTableShapes).mockReturnValue({
+    tables: new Map(),
+    hadError: false,
+  });
 
   // DeploymentProvider normally creates a real ConvexReactClient that opens a
   // WebSocket connection. Replace the real provider chain with a lightweight
   // ConvexProvider backed by a mock client so the components inside (e.g.
   // DeploymentDomainInfo) can still call useQuery without hitting a real backend.
-  const headerMockClient = mockConvexReactClient()
+  const mockClient = mockConvexReactClient()
     .registerQueryFake(udfs.convexCloudUrl.default, () => undefined)
-    .registerQueryFake(udfs.components.list, () => []);
+    .registerQueryFake(udfs.components.list, () => [])
+    .registerQueryFake(udfs.deploymentState.deploymentState, () => ({
+      _id: "" as any,
+      _creationTime: 0,
+      state: "running" as const,
+    }))
+    .registerQueryFake(udfs.modules.listForAllComponents, () => [])
+    .registerQueryFake(udfs.getSchemas.default, () => ({}));
   mocked(DeploymentProvider).mockImplementation(({ children }) => (
-    <ConvexProvider client={headerMockClient}>{children}</ConvexProvider>
+    <ConvexProvider client={mockClient}>{children}</ConvexProvider>
   ));
+  const mockConnectedDeployment = {
+    deployment: {
+      client: mockClient,
+      httpClient: {} as never,
+      deploymentUrl: DEV_DEPLOYMENT.deploymentUrl,
+      adminKey: "STORYBOOK-FAKE-KEY",
+      deploymentName: DEV_DEPLOYMENT.name,
+    },
+    isDisconnected: false,
+  };
 
   return (
     <DocsShell
       deployment={shouldMockCurrentDeployment ? DEV_DEPLOYMENT.name : null}
+      mockConnectedDeployment={
+        shouldMockCurrentDeployment ? mockConnectedDeployment : null
+      }
+      mockClient={shouldMockCurrentDeployment ? mockClient : null}
     >
       {storyFn()}
     </DocsShell>
@@ -366,8 +397,21 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
 function DocsShell({
   children,
   deployment,
+  mockConnectedDeployment,
+  mockClient,
 }: React.PropsWithChildren<{
   deployment: string | null;
+  mockConnectedDeployment: {
+    deployment: {
+      client: any;
+      httpClient: never;
+      deploymentUrl: string;
+      adminKey: string;
+      deploymentName: string;
+    };
+    isDisconnected: boolean;
+  } | null;
+  mockClient: any | null;
 }>) {
   const [accessToken, setAccessToken] = useAccessToken();
 
@@ -378,7 +422,17 @@ function DocsShell({
   const pageContents = (
     <div className="flex h-screen flex-col">
       <DashboardHeader />
-      <div className="flex-1 overflow-auto">{children}</div>
+      <div className="flex-1 overflow-auto">
+        {deployment && mockConnectedDeployment && mockClient ? (
+          <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
+            <ConvexProvider client={mockClient}>
+              <DeploymentLayoutWhenReady>{children}</DeploymentLayoutWhenReady>
+            </ConvexProvider>
+          </ConnectedDeploymentContext.Provider>
+        ) : (
+          children
+        )}
+      </div>
     </div>
   );
 
@@ -404,5 +458,20 @@ function DocsShell({
         pageContents
       )}
     </AuthContext.Provider>
+  );
+}
+
+// DeploymentInfoProvider renders children without the context on the first
+// render (before the async deploymentAuth resolves). Guard against calling
+// DeploymentDashboardLayout until the context is available.
+function DeploymentLayoutWhenReady({
+  children,
+}: React.PropsWithChildren<object>) {
+  const deploymentInfo = useContext(DeploymentInfoContext);
+  if (!deploymentInfo) return null;
+  return (
+    <DeploymentDashboardLayout>
+      {children as JSX.Element}
+    </DeploymentDashboardLayout>
   );
 }
