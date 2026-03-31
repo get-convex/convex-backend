@@ -19,6 +19,9 @@ const MANIFEST_PATH = path.resolve(
   "../docs/src/generated/screenshotManifest.ts",
 );
 
+const CROP_PADDING = 32; // in (real) pixels
+const DEVICE_SCALE_FACTOR = 2;
+
 /** Convert PascalCase to snake_case */
 function toSnakeCase(str: string): string {
   return str
@@ -179,11 +182,28 @@ async function captureScreenshot(
     // rendering caused by shared state between stories.
     context = await browser.newContext({
       viewport: { width: 1024, height: 700 },
-      deviceScaleFactor: 2,
+      deviceScaleFactor: DEVICE_SCALE_FACTOR,
     });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
     await page.evaluate(() => document.fonts.ready);
+
+    // Check for element-level crop selector from story parameters.
+    // In Storybook 10, the store API is storyStoreValue.loadStory().
+    const screenshotSelector: string | null = await page.evaluate(
+      async (storyId: string) => {
+        try {
+          const preview = (window as any).__STORYBOOK_PREVIEW__;
+          const store = preview?.storyStoreValue;
+          if (!store) return null;
+          const story = await store.loadStory({ storyId });
+          return story?.parameters?.screenshotSelector ?? null;
+        } catch {
+          return null;
+        }
+      },
+      story.id,
+    );
 
     const isComponentStory = story.title
       .toLowerCase()
@@ -201,14 +221,65 @@ async function captureScreenshot(
       png = await page.screenshot({ fullPage: false });
     }
 
-    const PADDING = 32;
+    // If a screenshotSelector is specified, crop to the union bounding box
+    // of all matching elements with 16px padding.
+    if (screenshotSelector) {
+      const elements = await page.locator(screenshotSelector).all();
+      const boxes = (
+        await Promise.all(elements.map((el) => el.boundingBox()))
+      ).filter(
+        (b): b is { x: number; y: number; width: number; height: number } =>
+          b !== null,
+      );
+
+      if (boxes.length > 0) {
+        // Compute union bounding box in CSS pixels
+        const minX = Math.min(...boxes.map((b) => b.x));
+        const minY = Math.min(...boxes.map((b) => b.y));
+        const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+        const maxY = Math.max(...boxes.map((b) => b.y + b.height));
+
+        // Get image dimensions to clamp
+        const meta = await sharp(png).metadata();
+        const imgW = meta.width!;
+        const imgH = meta.height!;
+
+        // Convert to pixel coordinates and add padding, clamped to image bounds
+        const left = Math.max(
+          0,
+          Math.round(minX * DEVICE_SCALE_FACTOR) - CROP_PADDING,
+        );
+        const top = Math.max(
+          0,
+          Math.round(minY * DEVICE_SCALE_FACTOR) - CROP_PADDING,
+        );
+        const right = Math.min(
+          imgW,
+          Math.round(maxX * DEVICE_SCALE_FACTOR) + CROP_PADDING,
+        );
+        const bottom = Math.min(
+          imgH,
+          Math.round(maxY * DEVICE_SCALE_FACTOR) + CROP_PADDING,
+        );
+
+        png = await sharp(png)
+          .extract({
+            left,
+            top,
+            width: right - left,
+            height: bottom - top,
+          })
+          .toBuffer();
+      }
+    }
+
     const pipeline = sharp(png);
-    if (isComponentStory && bgColor) {
+    if (!screenshotSelector && isComponentStory && bgColor) {
       pipeline.trim().extend({
-        top: PADDING,
-        bottom: PADDING,
-        left: PADDING,
-        right: PADDING,
+        top: CROP_PADDING,
+        bottom: CROP_PADDING,
+        left: CROP_PADDING,
+        right: CROP_PADDING,
         background: bgColor,
       });
     }
