@@ -35,6 +35,7 @@ export const EnvListTool: ConvexTool<
   description: "List all environment variables in your Convex deployment.",
   inputSchema: envListInputSchema,
   outputSchema: envListOutputSchema,
+  annotations: { readOnlyHint: true },
   handler: async (ctx, args) => {
     const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
@@ -84,6 +85,7 @@ export const EnvGetTool: ConvexTool<
     "Get a specific environment variable from your Convex deployment.",
   inputSchema: envGetInputSchema,
   outputSchema: envGetOutputSchema,
+  annotations: { readOnlyHint: true },
   handler: async (ctx, args) => {
     const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
@@ -131,6 +133,7 @@ export const EnvSetTool: ConvexTool<
   description: "Set an environment variable in your Convex deployment.",
   inputSchema: envSetInputSchema,
   outputSchema: envSetOutputSchema,
+  annotations: { destructiveHint: true },
   handler: async (ctx, args) => {
     const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
@@ -176,6 +179,7 @@ export const EnvRemoveTool: ConvexTool<
   description: "Remove an environment variable from your Convex deployment.",
   inputSchema: envRemoveInputSchema,
   outputSchema: envRemoveOutputSchema,
+  annotations: { destructiveHint: true },
   handler: async (ctx, args) => {
     const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
