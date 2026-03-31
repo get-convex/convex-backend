@@ -472,6 +472,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/list_personal_access_tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List personal access tokens
+         * @description Lists all personal access tokens for the authenticated user.
+         */
+        get: operations["list personal access tokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/create_personal_access_token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create personal access token
+         * @description Creates a new personal access token for the authenticated user.
+         */
+        post: operations["create personal access token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/delete_personal_access_token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete personal access token
+         * @description Deletes a personal access token for the authenticated user. The `id` in the
+         *     request body can be the encoded token secret or the name of the token.
+         */
+        post: operations["delete personal access token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/token_details": {
         parameters: {
             query?: never;
@@ -633,9 +694,22 @@ export interface components {
             email: string;
             role: components["schemas"]["Role"];
         };
+        CreatePersonalAccessTokenArgs: {
+            /** @description Name for the personal access token. */
+            name: string;
+        };
+        CreatePersonalAccessTokenResponse: {
+            /** @description The generated personal access token. */
+            accessToken: string;
+        };
         CreateTeamAccessTokenResponse: {
             accessToken: string;
             tokenType: string;
+        };
+        DeletePersonalAccessTokenArgs: {
+            /** @description The token to delete. This can be the secret value of the token or the
+             *     token's unique name. */
+            id: string;
         };
         /** @enum {string} */
         DeploymentClass: "s16" | "s256" | "d1024";
@@ -679,6 +753,16 @@ export interface components {
         PaginationMetadata: {
             hasMore: boolean;
             nextCursor?: string | null;
+        };
+        PersonalAccessTokenResponse: {
+            /** Format: int64 */
+            creationTime: number;
+            /** Format: int64 */
+            expirationTime?: number | null;
+            /** Format: int64 */
+            lastUsedTime?: number | null;
+            name: components["schemas"]["DeviceName"];
+            ssoTeamId?: null | components["schemas"]["TeamId"];
         };
         PlatformCreateDeployKeyArgs: {
             /** @description Name for the deploy key. */
@@ -1018,7 +1102,10 @@ export interface components {
 export type AdminKey = components['schemas']['AdminKey'];
 export type CreateDeploymentType = components['schemas']['CreateDeploymentType'];
 export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs'];
+export type CreatePersonalAccessTokenArgs = components['schemas']['CreatePersonalAccessTokenArgs'];
+export type CreatePersonalAccessTokenResponse = components['schemas']['CreatePersonalAccessTokenResponse'];
 export type CreateTeamAccessTokenResponse = components['schemas']['CreateTeamAccessTokenResponse'];
+export type DeletePersonalAccessTokenArgs = components['schemas']['DeletePersonalAccessTokenArgs'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
 export type DeploymentId = components['schemas']['DeploymentId'];
@@ -1034,6 +1121,7 @@ export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
 export type PaginatedDeploymentsResponse = components['schemas']['PaginatedDeploymentsResponse'];
 export type PaginationMetadata = components['schemas']['PaginationMetadata'];
+export type PersonalAccessTokenResponse = components['schemas']['PersonalAccessTokenResponse'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateDeploymentArgs = components['schemas']['PlatformCreateDeploymentArgs'];
@@ -1636,6 +1724,69 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlatformDeletePreviewDeployKeyArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "list personal access tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalAccessTokenResponse"][];
+                };
+            };
+        };
+    };
+    "create personal access token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePersonalAccessTokenArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatePersonalAccessTokenResponse"];
+                };
+            };
+        };
+    };
+    "delete personal access token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeletePersonalAccessTokenArgs"];
             };
         };
         responses: {

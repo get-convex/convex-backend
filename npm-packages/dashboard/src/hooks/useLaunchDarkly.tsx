@@ -12,6 +12,7 @@ export const flagDefaults: {
   deploymentList: boolean;
   postHogIntegrations: boolean;
   usageDashboardV2: boolean;
+  personalAccessTokens: boolean;
   transferDeployment: boolean;
 } = {
   commandPalette: false,
@@ -23,6 +24,7 @@ export const flagDefaults: {
   connectionStateCheckIntervalMs: 2500,
   deploymentList: false,
   postHogIntegrations: false,
+  personalAccessTokens: false,
   usageDashboardV2: false,
   transferDeployment: false,
 };

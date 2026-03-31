@@ -59,6 +59,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -102,6 +105,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -183,6 +189,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -267,6 +276,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -361,6 +373,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -394,6 +409,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -435,6 +453,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -489,6 +510,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -540,6 +564,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -573,6 +600,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -618,6 +648,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -662,6 +695,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -710,6 +746,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -750,6 +789,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -904,6 +946,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -944,6 +989,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -993,6 +1041,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -1037,6 +1088,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -1080,6 +1134,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -1135,6 +1192,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -1188,6 +1248,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -1235,6 +1298,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -1242,6 +1308,103 @@
           },
           {
             "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/list_personal_access_tokens": {
+      "get": {
+        "tags": [
+          "Access Tokens"
+        ],
+        "summary": "List personal access tokens",
+        "description": "Lists all personal access tokens for the authenticated user.",
+        "operationId": "list personal access tokens",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonalAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
+      }
+    },
+    "/create_personal_access_token": {
+      "post": {
+        "tags": [
+          "Access Tokens"
+        ],
+        "summary": "Create personal access token",
+        "description": "Creates a new personal access token for the authenticated user.",
+        "operationId": "create personal access token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePersonalAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePersonalAccessTokenResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          }
+        ]
+      }
+    },
+    "/delete_personal_access_token": {
+      "post": {
+        "tags": [
+          "Access Tokens"
+        ],
+        "summary": "Delete personal access token",
+        "description": "Deletes a personal access token for the authenticated user. The `id` in the\nrequest body can be the encoded token secret or the name of the token.",
+        "operationId": "delete personal access token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletePersonalAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "PAT": []
           }
         ]
       }
@@ -1267,6 +1430,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -1310,6 +1476,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -1355,6 +1524,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -1396,6 +1568,9 @@
         },
         "security": [
           {
+            "PAT": []
+          },
+          {
             "OAuth Team Token": []
           },
           {
@@ -1436,6 +1611,9 @@
           }
         },
         "security": [
+          {
+            "PAT": []
+          },
           {
             "OAuth Team Token": []
           },
@@ -1576,6 +1754,31 @@
           }
         }
       },
+      "CreatePersonalAccessTokenArgs": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for the personal access token."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreatePersonalAccessTokenResponse": {
+        "type": "object",
+        "required": [
+          "accessToken"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "The generated personal access token."
+          }
+        }
+      },
       "CreateTeamAccessTokenResponse": {
         "type": "object",
         "required": [
@@ -1590,6 +1793,19 @@
             "type": "string"
           }
         }
+      },
+      "DeletePersonalAccessTokenArgs": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The token to delete. This can be the secret value of the token or the\ntoken's unique name."
+          }
+        },
+        "additionalProperties": false
       },
       "DeploymentClass": {
         "type": "string",
@@ -1757,6 +1973,46 @@
             "type": [
               "string",
               "null"
+            ]
+          }
+        }
+      },
+      "PersonalAccessTokenResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "creationTime"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expirationTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "lastUsedTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "name": {
+            "$ref": "#/components/schemas/DeviceName"
+          },
+          "ssoTeamId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamId"
+              }
             ]
           }
         }
@@ -2613,6 +2869,12 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api)."
+      },
+      "PAT": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "PAT",
+        "description": "Personal access token created in the Convex dashboard under user settings."
       },
       "Team Token": {
         "type": "http",
