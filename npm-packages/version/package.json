@@ -4,8 +4,6 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "convex dev",
-    "predev": "convex dev --until-success && convex dashboard",
-    "logs": "convex logs",
     "test": "vitest run --typecheck",
     "dev:test": "vitest --typecheck",
     "build": "convex typecheck 2>&1"

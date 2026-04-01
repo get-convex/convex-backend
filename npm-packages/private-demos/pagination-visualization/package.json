@@ -5,9 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "convex dev --start 'vite --open'",
-    "predev": "convex dashboard",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "build": "tsc -b && vite build"
   },
   "dependencies": {
     "@faker-js/faker": "^10.0.0",
