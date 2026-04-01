@@ -7,7 +7,7 @@ description: "Set up and manage Single Sign-On (SSO) for your Convex team"
 
 <Admonition type="info">
 
-Single Sign-On is only available on Convex Business and Enterprise.
+Single Sign-On is only available on Convex Business and Enterprise plans.
 
 </Admonition>
 
