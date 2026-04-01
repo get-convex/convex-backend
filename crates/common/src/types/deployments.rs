@@ -38,6 +38,13 @@ impl DeploymentClass {
             DeploymentClass::S16 | DeploymentClass::S256 => false,
         }
     }
+
+    pub fn is_dedicated(&self) -> bool {
+        match self {
+            DeploymentClass::D1024 => true,
+            DeploymentClass::S16 | DeploymentClass::S256 => false,
+        }
+    }
 }
 
 #[derive(
