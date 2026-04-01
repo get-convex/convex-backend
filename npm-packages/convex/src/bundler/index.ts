@@ -112,7 +112,9 @@ async function doEsbuild({
       if (
         relPath.indexOf("(disabled):") !== -1 ||
         relPath.startsWith("wasm-binary:") ||
-        relPath.startsWith("wasm-stub:")
+        relPath.startsWith("wasm-stub:") ||
+        relPath.startsWith("async-hooks-shim:") ||
+        relPath.startsWith("events-shim:")
       ) {
         continue;
       }
