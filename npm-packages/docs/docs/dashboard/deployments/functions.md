@@ -35,12 +35,12 @@ Mutation and action results will be visible once you click the "Run" button.
 
 Note that these results will show the logs and value returned from the function.
 To see what changed when you ran your function, see the
-[data page](/dashboard/deployments/data.md).
+[data page](/dashboard/deployments/data.mdx).
 
 ![Running a function](/screenshots/run_function.png)
 
 You can also
-[write a custom query function](/dashboard/deployments/data.md#writing-custom-queries)
+[write a custom query function](/dashboard/deployments/data.mdx#writing-custom-queries)
 by choosing the “Custom test query“ option instead of one of your deployed
 functions.
 

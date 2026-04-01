@@ -162,7 +162,7 @@ npx convex data <table>
 ```
 
 Display a simple view of the
-[dashboard data page](/dashboard/deployments/data.md) in the command line.
+[dashboard data page](/dashboard/deployments/data.mdx) in the command line.
 
 The command supports `--limit` and `--order` flags to change data displayed. For
 more complex filters, use the dashboard data page or write a
