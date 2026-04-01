@@ -1074,8 +1074,8 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
       react-hotkeys-hook:
-        specifier: ~4.4.0
-        version: 4.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ~4.6.0
+        version: 4.6.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-popper:
         specifier: ^2.3.0
         version: 2.3.0(@popperjs/core@2.11.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1372,8 +1372,8 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
       react-hotkeys-hook:
-        specifier: ~4.4.0
-        version: 4.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ~4.6.0
+        version: 4.6.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-popper:
         specifier: ^2.3.0
         version: 2.3.0(@popperjs/core@2.11.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -19648,8 +19648,8 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
 
-  react-hotkeys-hook@4.4.4:
-    resolution: {integrity: sha512-wzZmqb/Obr0ds9Myc1sIFPJ52GA/Eeg/vXBWV0HA1LvHlVAW5Va3KB0q6EZNlNSHQWscWZ2K8+6w0GYSie2o7A==}
+  react-hotkeys-hook@4.6.2:
+    resolution: {integrity: sha512-FmP+ZriY3EG59Ug/lxNfrObCnW9xQShgk7Nb83+CkpfkcCpfS95ydv+E9JuXA5cp8KtskU7LGlIARpkc92X22Q==}
     peerDependencies:
       react: '>=16.8.1'
       react-dom: '>=16.8.1'
@@ -42585,7 +42585,7 @@ snapshots:
     dependencies:
       react: 18.3.1
 
-  react-hotkeys-hook@4.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-hotkeys-hook@4.6.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)

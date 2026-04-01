@@ -62,7 +62,7 @@
     "posthog-js": "~1.336.0",
     "shx": "~0.4.0",
     "cmdk": "~1.1.1",
-    "react-hotkeys-hook": "~4.4.0",
+    "react-hotkeys-hook": "~4.6.0",
     "@workos-inc/authkit-nextjs": "~2.13.0",
     "@workos-inc/node": "~7.69.0"
   },

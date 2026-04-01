@@ -213,11 +213,19 @@ export function useActionHotkeys({
   return mergeHotkeyRefs(...refs);
 }
 
+type HotkeyRef<T extends HTMLElement> =
+  | ((instance: RefType<T>) => void)
+  | MutableRefObject<RefType<T>>;
+
 const mergeHotkeyRefs =
-  (...refs: MutableRefObject<RefType<HTMLDivElement>>[]) =>
+  (...refs: HotkeyRef<HTMLDivElement>[]) =>
   (node: RefType<HTMLDivElement>) => {
     for (const ref of refs) {
-      ref.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else {
+        ref.current = node;
+      }
     }
   };
 
