@@ -16,4 +16,7 @@ pub fn set_sentry_tags(scope: &mut Scope) {
     if let Ok(dc) = std::env::var("NOMAD_DC") {
         scope.set_tag("nomad_dc", dc);
     }
+    if let Ok(shell_user) = std::env::var("USER") {
+        scope.set_tag("shell_user", shell_user);
+    }
 }
