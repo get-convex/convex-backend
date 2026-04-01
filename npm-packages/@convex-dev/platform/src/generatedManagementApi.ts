@@ -776,6 +776,15 @@ export interface components {
             /** @description The class to use for this deployment. If not provided, the default
              *     deployment class for your team will be used. */
             class?: string | null;
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment will be deleted.
+             *     Preview deployments have this set by default unless overridden.
+             *     Must be at least 30 minutes in the future and cannot exceed the
+             *     team’s preview deployment retention days entitlement from now.
+             *     Set to `null` to clear the expiration.
+             */
+            expiresAt?: number | null;
             /** @description When creating a prod deployment, whether the deployment is the default
              *     production deployment for the project (i.e. the one used by default
              *     when running `npx convex deploy`).

@@ -2055,6 +2055,14 @@
             ],
             "description": "The class to use for this deployment. If not provided, the default\ndeployment class for your team will be used."
           },
+          "expiresAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this deployment will be deleted.\nPreview deployments have this set by default unless overridden.\nMust be at least 30 minutes in the future and cannot exceed the\nteam’s preview deployment retention days entitlement from now.\nSet to `null` to clear the expiration."
+          },
           "isDefault": {
             "type": [
               "boolean",
