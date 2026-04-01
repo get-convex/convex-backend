@@ -919,7 +919,7 @@
         "properties": {
           "apiKey": {
             "type": "string",
-            "description": "PostHog project API key."
+            "description": "PostHog project token."
           },
           "host": {
             "type": [
@@ -938,7 +938,7 @@
         "properties": {
           "apiKey": {
             "type": "string",
-            "description": "PostHog project API key."
+            "description": "PostHog project token."
           },
           "host": {
             "type": [
@@ -1785,7 +1785,7 @@
               "string",
               "null"
             ],
-            "description": "PostHog project API key."
+            "description": "PostHog project token."
           },
           "host": {
             "type": [
@@ -1804,7 +1804,7 @@
               "string",
               "null"
             ],
-            "description": "PostHog project API key."
+            "description": "PostHog project token."
           },
           "host": {
             "type": [

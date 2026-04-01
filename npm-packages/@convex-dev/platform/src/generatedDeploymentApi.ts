@@ -367,13 +367,13 @@ export interface components {
             logStreamType: "postHogErrorTracking";
         };
         CreatePostHogErrorTrackingLogStreamArgs: {
-            /** @description PostHog project API key. */
+            /** @description PostHog project token. */
             apiKey: string;
             /** @description PostHog host URL. Defaults to https://us.i.posthog.com. */
             host?: string | null;
         };
         CreatePostHogLogsLogStreamArgs: {
-            /** @description PostHog project API key. */
+            /** @description PostHog project token. */
             apiKey: string;
             /** @description PostHog host URL. Defaults to https://us.i.posthog.com. */
             host?: string | null;
@@ -576,13 +576,13 @@ export interface components {
             logStreamType: "postHogErrorTracking";
         });
         UpdatePostHogErrorTrackingSinkArgs: {
-            /** @description PostHog project API key. */
+            /** @description PostHog project token. */
             apiKey?: string | null;
             /** @description PostHog host URL. */
             host?: string | null;
         };
         UpdatePostHogLogsSinkArgs: {
-            /** @description PostHog project API key. */
+            /** @description PostHog project token. */
             apiKey?: string | null;
             /** @description PostHog host URL. */
             host?: string | null;

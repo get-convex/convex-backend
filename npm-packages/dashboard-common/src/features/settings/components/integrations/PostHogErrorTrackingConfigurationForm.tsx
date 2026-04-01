@@ -11,7 +11,7 @@ import { toast } from "@common/lib/utils";
 import * as Yup from "yup";
 
 const validationSchema = Yup.object().shape({
-  apiKey: Yup.string().required("PostHog project API key is required"),
+  apiKey: Yup.string().required("PostHog project token is required"),
   host: Yup.string().url("Must be a valid URL").nullable(),
 });
 
@@ -67,19 +67,19 @@ export function PostHogErrorTrackingConfigurationForm({
       <TextInput
         value={formState.values.apiKey}
         onChange={formState.handleChange}
-        label="Project API Key"
+        label="Project Token"
         placeholder="phc_..."
         id="apiKey"
         error={formState.errors.apiKey}
         description={
           <>
-            Your PostHog project API key. Found in PostHog under{" "}
+            Your PostHog project token. Found in PostHog under{" "}
             <Link
               href="https://app.posthog.com/settings/project-details#variables"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Settings &gt; General &gt; Project Token
+              Settings &gt; Project &gt; General
             </Link>
             .
           </>

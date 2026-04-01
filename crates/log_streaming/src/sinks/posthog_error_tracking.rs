@@ -106,25 +106,39 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
     }
 
     async fn verify_creds(&mut self) -> anyhow::Result<()> {
-        // Send a minimal $exception event to verify the API key is valid.
-        // PostHog rejects empty batches, so we send a single verification event.
+        // PostHog's ingestion endpoints return 200 even for invalid project tokens,
+        // so we use the /decide endpoint which actually validates the token.
+        let mut decide_url = self.capture_url.clone();
+        decide_url.set_path("/decide");
+        decide_url.set_query(Some("v=3"));
+
         let payload = json!({
             "api_key": self.api_key,
-            "batch": [{
-                "event": "$exception",
-                "distinct_id": "convex-verification",
-                "properties": {
-                    "$exception_list": [{
-                        "type": "ConvexVerification",
-                        "value": "Verifying PostHog Error Tracking integration",
-                        "mechanism": { "handled": true, "type": "generic" },
-                    }],
-                    "$lib": "convex",
-                }
-            }]
+            "distinct_id": "convex-verification",
         });
-        self.send_batch(serde_json::to_vec(&payload)?, true).await?;
-        Ok(())
+        let header_map = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
+        let body = Bytes::from(serde_json::to_vec(&payload)?);
+
+        let response = self
+            .fetch_client
+            .fetch(HttpRequestStream {
+                url: decide_url,
+                method: http::Method::POST,
+                headers: header_map,
+                body: Box::pin(futures::stream::once(async { Ok(body) })),
+                signal: Box::pin(futures::future::pending()),
+            })
+            .await;
+
+        match response.and_then(categorize_http_response_stream) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "PostHogErrorTrackingInvalidProjectToken",
+                    format!("Failed to verify PostHog project token: {e}"),
+                ));
+            },
+        }
     }
 
     async fn go(mut self) {
@@ -288,19 +302,15 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
             "batch": batch_events,
         });
 
-        self.send_batch(serde_json::to_vec(&payload)?, false)
-            .await?;
+        self.send_batch(serde_json::to_vec(&payload)?).await?;
         crate::metrics::posthog_et_sink_logs_sent(batch_size);
 
         Ok(())
     }
 
-    async fn send_batch(
-        &mut self,
-        batch_json: Vec<u8>,
-        is_verification: bool,
-    ) -> anyhow::Result<()> {
-        // PostHog capture API uses api_key in the body, no Authorization header
+    async fn send_batch(&mut self, batch_json: Vec<u8>) -> anyhow::Result<()> {
+        // PostHog capture API uses the project token in the body, no Authorization
+        // header
         let header_map = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
         let batch_json = Bytes::from(batch_json);
 
@@ -317,7 +327,7 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                 })
                 .await;
 
-            if !is_verification && let Ok(r) = &response {
+            if let Ok(r) = &response {
                 let num_bytes_egress = r.request_size.load(Ordering::Relaxed);
                 utils::track_log_sink_bandwidth(
                     num_bytes_egress,
@@ -391,6 +401,35 @@ mod tests {
         LoggingDeploymentMetadata,
     };
 
+    fn register_decide_handler(
+        fetch_client: &mut StaticFetchClient,
+        expected_api_key: &str,
+    ) -> anyhow::Result<()> {
+        let decide_url: reqwest::Url = "https://us.i.posthog.com/decide?v=3".parse()?;
+        let expected_key = expected_api_key.to_string();
+        let handler = move |request: HttpRequestStream| {
+            let expected_key = expected_key.clone();
+            async move {
+                let request = request.into_http_request().await.unwrap();
+                let json: JsonValue = serde_json::from_slice(&request.body.unwrap()).unwrap();
+                if json["api_key"].as_str() != Some(&expected_key) {
+                    anyhow::bail!(ErrorMetadata::forbidden("InvalidAPIKey", "Invalid API key"));
+                }
+                Ok(HttpResponse {
+                    status: http::StatusCode::OK,
+                    headers: HeaderMap::new(),
+                    body: Some(r#"{"featureFlags":{}}"#.to_string().into_bytes()),
+                    url: None,
+                    request_size: r#"{"featureFlags":{}}"#.len() as u64,
+                }
+                .into())
+            }
+            .boxed()
+        };
+        fetch_client.register_http_route(decide_url, reqwest::Method::POST, handler);
+        Ok(())
+    }
+
     #[convex_macro::test_runtime]
     async fn test_posthog_error_tracking_receives_only_exceptions(
         rt: TestRuntime,
@@ -403,6 +442,10 @@ mod tests {
         let captured_events: Arc<Mutex<Vec<JsonValue>>> = Arc::new(Mutex::new(Vec::new()));
 
         let mut fetch_client = StaticFetchClient::new();
+
+        // Register /decide handler for verification
+        register_decide_handler(&mut fetch_client, "phc_test_key")?;
+
         {
             let events = Arc::clone(&captured_events);
             let url: reqwest::Url = "https://us.i.posthog.com/i/v0/e/".parse()?;
@@ -458,22 +501,10 @@ mod tests {
             .await?;
         rt.wait(Duration::from_secs(1)).await;
 
-        let all_events = captured_events.lock().clone();
-        // Filter out the verification event sent during startup
-        let events: Vec<_> = all_events
-            .iter()
-            .filter(|e| {
-                e.get("properties")
-                    .and_then(|p| p.get("$exception_list"))
-                    .and_then(|l| l.as_array())
-                    .and_then(|a| a.first())
-                    .and_then(|e| e.get("type"))
-                    .and_then(|t| t.as_str())
-                    != Some("ConvexVerification")
-            })
-            .collect();
-        // Only the exception should be captured (verification event is filtered
-        // out, and the non-exception LogEvent is dropped by the filter)
+        let events = captured_events.lock().clone();
+        // Only the exception should be captured (verification uses /decide
+        // instead of the capture endpoint, and non-exception LogEvents are
+        // dropped by the filter)
         assert_eq!(events.len(), 1);
 
         let exception_event = &events[0];
@@ -519,26 +550,8 @@ mod tests {
         };
 
         let mut fetch_client = StaticFetchClient::new();
-        let url: reqwest::Url = "https://us.i.posthog.com/i/v0/e/".parse()?;
-        let handler = |request: HttpRequestStream| {
-            async move {
-                let request = request.into_http_request().await.unwrap();
-                let json: JsonValue = serde_json::from_slice(&request.body.unwrap()).unwrap();
-                if json["api_key"] != "CORRECT_KEY" {
-                    anyhow::bail!(ErrorMetadata::forbidden("InvalidAPIKey", "Invalid API key"));
-                }
-                Ok(HttpResponse {
-                    status: http::StatusCode::OK,
-                    headers: HeaderMap::new(),
-                    body: Some(r#"{"status": 1}"#.to_string().into_bytes()),
-                    url: None,
-                    request_size: r#"{"status": 1}"#.len() as u64,
-                }
-                .into())
-            }
-            .boxed()
-        };
-        fetch_client.register_http_route(url, reqwest::Method::POST, Box::new(handler));
+        // Register /decide handler that expects a different key
+        register_decide_handler(&mut fetch_client, "CORRECT_KEY")?;
 
         let meta = Arc::new(Mutex::new(LoggingDeploymentMetadata {
             deployment_name: "test-deployment".to_owned(),
@@ -574,6 +587,7 @@ mod tests {
         let actual_request_size = Arc::new(Mutex::new(0u64));
 
         let mut fetch_client = StaticFetchClient::new();
+        register_decide_handler(&mut fetch_client, "phc_test_key")?;
         let url: reqwest::Url = "https://us.i.posthog.com/i/v0/e/".parse()?;
         let size_tracker = actual_request_size.clone();
         let handler = move |request: HttpRequestStream| {

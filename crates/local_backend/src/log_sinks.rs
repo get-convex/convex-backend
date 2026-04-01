@@ -525,7 +525,7 @@ fn validate_posthog_host(host: Option<&String>) -> anyhow::Result<()> {
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CreatePostHogLogsLogStreamArgs {
-    /// PostHog project API key.
+    /// PostHog project token.
     api_key: String,
     /// PostHog host URL. Defaults to https://us.i.posthog.com.
     host: Option<String>,
@@ -549,7 +549,7 @@ impl TryFrom<CreatePostHogLogsLogStreamArgs> for PostHogLogsConfig {
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CreatePostHogErrorTrackingLogStreamArgs {
-    /// PostHog project API key.
+    /// PostHog project token.
     api_key: String,
     /// PostHog host URL. Defaults to https://us.i.posthog.com.
     host: Option<String>,
@@ -1119,7 +1119,7 @@ pub struct UpdateSentrySinkArgs {
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdatePostHogLogsSinkArgs {
-    /// PostHog project API key.
+    /// PostHog project token.
     #[serde(default)]
     api_key: Option<String>,
     /// PostHog host URL.
@@ -1133,7 +1133,7 @@ pub struct UpdatePostHogLogsSinkArgs {
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdatePostHogErrorTrackingSinkArgs {
-    /// PostHog project API key.
+    /// PostHog project token.
     #[serde(default)]
     api_key: Option<String>,
     /// PostHog host URL.
