@@ -49,7 +49,7 @@ export function SearchValueEditor({
         <Tooltip tip="You cannot edit this field because it is a part of the definition of the selected index.">
           <label
             htmlFor={inputId}
-            className="flex h-full max-w-[7rem] min-w-[1rem] cursor-not-allowed items-center truncate rounded-l border border-r-0 bg-background-secondary px-2 py-1 text-xs"
+            className="flex h-full max-w-[12rem] min-w-[1rem] cursor-not-allowed items-center truncate rounded-l border border-r-0 bg-background-secondary px-2 py-1 text-xs"
           >
             {field}
           </label>

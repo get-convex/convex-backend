@@ -622,7 +622,7 @@ export function DatabaseIndexFilterEditor({
         >
           <div
             className={cn(
-              "flex h-full max-w-[7rem] min-w-[1rem] cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
+              "flex h-full max-w-[12rem] min-w-[1rem] cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
               filter.enabled
                 ? "bg-background-secondary"
                 : "bg-background-tertiary text-content-secondary",
