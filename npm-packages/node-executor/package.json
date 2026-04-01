@@ -12,7 +12,7 @@
   "dependencies": {
     "adm-zip": "^0.5.10",
     "archiver": "~7.0.0",
-    "commander": "^14.0.2",
+    "commander": "^14.0.3",
     "concat-stream": "^2.0.0",
     "convex": "workspace:*",
     "express": "^5.0.0",

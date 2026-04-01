@@ -38,7 +38,7 @@
     "@sentry/node": "^7.23.0",
     "@types/babel__code-frame": "^7.0.6",
     "chalk": "5",
-    "commander": "^14.0.2",
+    "commander": "^14.0.3",
     "execa": "^9.6.0",
     "jest-diff": "^30.0.3",
     "ora": "^9.0.0",
