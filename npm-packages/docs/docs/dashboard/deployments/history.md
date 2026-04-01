@@ -12,7 +12,7 @@ description:
 
 <Admonition type="info">
 
-The history page is only available on Convex Professional.
+The history page is only available on Convex Professional and above.
 
 </Admonition>
 
