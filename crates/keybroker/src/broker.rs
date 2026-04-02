@@ -643,7 +643,7 @@ pub struct AdminIdentity {
     // but not write to them.
     is_read_only: bool,
     // Operations this identity is allowed to perform. Empty means all operations allowed.
-    allowed_operations: Vec<DeploymentOp>,
+    allowed_ops: Vec<DeploymentOp>,
 }
 
 impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
@@ -653,7 +653,7 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
             principal,
             key,
             is_read_only,
-            allowed_operations,
+            allowed_ops,
         }: AdminIdentity,
     ) -> Self {
         Self {
@@ -668,7 +668,7 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
             },
             key: Some(key),
             is_read_only,
-            allowed_operations: allowed_operations
+            allowed_operations: allowed_ops
                 .into_iter()
                 .map(|op| ProtoDeploymentOperation::from(op) as i32)
                 .collect(),
@@ -692,21 +692,21 @@ impl AdminIdentity {
         };
         let key = msg.key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
         let is_read_only: bool = msg.is_read_only;
-        let allowed_operations = msg
+        let allowed_ops = msg
             .allowed_operations
             .into_iter()
-            .filter_map(|i| {
-                ProtoDeploymentOperation::try_from(i)
-                    .ok()
-                    .and_then(|proto| DeploymentOp::try_from(proto).ok())
+            .map(|i| {
+                let proto = ProtoDeploymentOperation::try_from(i)
+                    .map_err(|_| anyhow::anyhow!("Unrecognized DeploymentOperation value: {i}"))?;
+                DeploymentOp::try_from(proto)
             })
-            .collect();
+            .collect::<anyhow::Result<Vec<_>>>()?;
         Ok(Self {
             instance_name,
             principal,
             key,
             is_read_only,
-            allowed_operations,
+            allowed_ops,
         })
     }
 
@@ -715,14 +715,14 @@ impl AdminIdentity {
         principal: AdminIdentityPrincipal,
         access_token: String,
         is_read_only: bool,
-        allowed_operations: Vec<DeploymentOp>,
+        allowed_ops: Vec<DeploymentOp>,
     ) -> Self {
         Self {
             instance_name,
             principal,
             key: access_token,
             is_read_only,
-            allowed_operations,
+            allowed_ops,
         }
     }
 
@@ -738,8 +738,14 @@ impl AdminIdentity {
         self.is_read_only
     }
 
-    pub fn allowed_operations(&self) -> &[DeploymentOp] {
-        &self.allowed_operations
+    pub fn allowed_ops(&self) -> &[DeploymentOp] {
+        &self.allowed_ops
+    }
+
+    /// Check whether this identity is allowed to perform a specific operation.
+    /// Empty `allowed_ops` means all operations are allowed.
+    pub fn is_operation_allowed(&self, operation: DeploymentOp) -> bool {
+        self.allowed_ops.is_empty() || self.allowed_ops.contains(&operation)
     }
 }
 
@@ -756,7 +762,7 @@ impl Arbitrary for AdminIdentity {
             principal,
             key,
             is_read_only: false,
-            allowed_operations: vec![],
+            allowed_ops: vec![],
         })
     }
 }
@@ -769,7 +775,7 @@ impl AdminIdentity {
             principal: AdminIdentityPrincipal::Member(member_id),
             key: "chocolate-charlies-cupcake".to_string(),
             is_read_only: false,
-            allowed_operations: vec![],
+            allowed_ops: vec![],
         }
     }
 
@@ -958,7 +964,7 @@ impl KeyBroker {
                 principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
                 is_read_only,
-                allowed_operations: operations_for_deploy_key(is_read_only),
+                allowed_ops: operations_for_deploy_key(is_read_only),
             }),
             AdminIdentityProto::System(()) => Identity::system(),
         })
@@ -1465,5 +1471,56 @@ mod tests {
             assert_eq!(admin_identity, roundtripped);
         }
 
+    }
+
+    #[test]
+    fn test_admin_identity_proto_rejects_unrecognized_operations() {
+        let proto = pb::convex_identity::AdminIdentity {
+            instance_name: Some("test-instance".to_string()),
+            principal: Some(pb::convex_identity::admin_identity::Principal::MemberId(1)),
+            key: Some("test-key".to_string()),
+            is_read_only: false,
+            allowed_operations: vec![9999], // unrecognized value
+        };
+        let result = AdminIdentity::from_proto_unchecked(proto);
+        assert!(
+            result.is_err(),
+            "Should reject unrecognized DeploymentOperation values"
+        );
+    }
+
+    #[test]
+    fn test_admin_identity_proto_accepts_valid_operations() {
+        use crate::{
+            DeploymentOp,
+            DeploymentOperation,
+        };
+
+        let proto = pb::convex_identity::AdminIdentity {
+            instance_name: Some("test-instance".to_string()),
+            principal: Some(pb::convex_identity::admin_identity::Principal::MemberId(1)),
+            key: Some("test-key".to_string()),
+            is_read_only: false,
+            allowed_operations: vec![DeploymentOperation::Deploy as i32],
+        };
+        let identity = AdminIdentity::from_proto_unchecked(proto).unwrap();
+        assert!(identity.is_operation_allowed(DeploymentOp::Deploy));
+        assert!(!identity.is_operation_allowed(DeploymentOp::RunTestQuery));
+    }
+
+    #[test]
+    fn test_admin_identity_proto_empty_operations_allows_all() {
+        use crate::DeploymentOp;
+
+        let proto = pb::convex_identity::AdminIdentity {
+            instance_name: Some("test-instance".to_string()),
+            principal: Some(pb::convex_identity::admin_identity::Principal::MemberId(1)),
+            key: Some("test-key".to_string()),
+            is_read_only: false,
+            allowed_operations: vec![],
+        };
+        let identity = AdminIdentity::from_proto_unchecked(proto).unwrap();
+        assert!(identity.is_operation_allowed(DeploymentOp::Deploy));
+        assert!(identity.is_operation_allowed(DeploymentOp::RunTestQuery));
     }
 }

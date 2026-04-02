@@ -14,6 +14,7 @@ pub mod testing;
 #[cfg(test)]
 mod tests;
 
+pub use pb::convex_identity::DeploymentOperation;
 pub use sync_types::UserIdentityAttributes;
 
 pub use self::{

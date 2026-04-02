@@ -61,6 +61,7 @@ pub struct TestLocalBackend {
     app: ConvexHttpService,
     pub st: LocalAppState,
     pub admin_auth_header: Authorization<ConvexAdminAuthorization>,
+    pub config: LocalConfig,
 }
 
 pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<TestLocalBackend> {
@@ -92,6 +93,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
         app,
         st,
         admin_auth_header,
+        config,
     })
 }
 
@@ -127,6 +129,14 @@ impl TestLocalBackend {
         assert_eq!(error.status_code(), expected_code);
         assert_eq!(error.error_code(), expected_short_msg);
         Ok(())
+    }
+
+    pub async fn send_request(
+        &self,
+        req: Request<axum::body::Body>,
+    ) -> anyhow::Result<http::Response<axum::body::Body>> {
+        tracing::info!("Sending req {req:?}");
+        Ok(self.app.router().clone().oneshot(req).await?)
     }
 
     pub async fn run_query(

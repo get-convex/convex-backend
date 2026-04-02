@@ -49,6 +49,7 @@ use crate::{
     admin::{
         must_be_admin,
         must_be_admin_from_key,
+        must_be_admin_with_operation,
         must_be_admin_with_write_access,
     },
     authentication::ExtractIdentity,
@@ -275,6 +276,7 @@ pub async fn run_test_function(
         req.admin_key.clone(),
     )
     .await?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::RunTestQuery)?;
     let args = req.args.into_serialized_args()?;
     let module: ModuleConfig = req.bundle.try_into()?;
     let component_id = ComponentId::deserialize_from_string(req.component_id.as_deref())?;
@@ -318,4 +320,101 @@ where
         .routes(utoipa_axum::routes!(delete_tables))
         .routes(utoipa_axum::routes!(delete_component))
         .routes(utoipa_axum::routes!(delete_scheduled_functions_table))
+}
+
+#[cfg(test)]
+mod tests {
+    use common::{
+        http::HttpError,
+        types::MemberId,
+    };
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+    use serde_json::json;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    fn run_test_function_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({
+            "adminKey": admin_key,
+            "bundle": {
+                "path": "test.js",
+                "source": "export default function() { return 42; }",
+                "sourceMap": null,
+                "environment": "isolate",
+            },
+            "args": "[]",
+            "format": "json",
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/run_test_function")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header("Convex-Client", "actions-0.0.0")
+            .body(body)?)
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_run_test_function_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = run_test_function_request(admin_key.as_str())?;
+        // A full admin key (empty allowed_ops) should pass the operation
+        // check. The request may fail later during module execution, but it
+        // should NOT fail with an Unauthorized error.
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the RunTestQuery operation check"
+            );
+        }
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_run_test_function_read_only_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = run_test_function_request(read_only_key.as_str())?;
+        // A read-only admin key includes RunTestQuery in its allowed_ops,
+        // so it should pass the operation check.
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Read-only key should pass the RunTestQuery operation check"
+            );
+        }
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_run_test_function_invalid_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = run_test_function_request("invalid-key")?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        assert!(
+            status == http::StatusCode::BAD_REQUEST
+                || status == http::StatusCode::UNAUTHORIZED
+                || status == http::StatusCode::FORBIDDEN,
+            "Expected auth-related error, got {status}"
+        );
+        Ok(())
+    }
 }
