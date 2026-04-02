@@ -53,6 +53,7 @@ run_persistence_test_suite!(
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
             true,
+            true,
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name.clone(),
@@ -75,6 +76,7 @@ mod multitenant {
         MySqlPersistence::new(
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
+                true,
                 true,
                 Option::<ProdRuntime>::None,
             )?),
@@ -102,6 +104,7 @@ mod raw_statements {
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
                 false,
+                true,
                 Option::<ProdRuntime>::None,
             )?),
             opts.db_name.clone(),
@@ -130,6 +133,7 @@ async fn test_loading_locally() -> anyhow::Result<()> {
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
             false, /* use_prepared_statements */
+            true,  /* require_leader */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
@@ -179,6 +183,7 @@ async fn test_writing_locally() -> anyhow::Result<()> {
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
             false, /* use_prepared_statements */
+            true,  /* require_leader */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
@@ -243,6 +248,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
                 false, /* use_prepared_statements */
+                true,  /* require_leader */
                 Option::<ProdRuntime>::None,
             )?),
             opts.db_name.clone(),
@@ -284,6 +290,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
                 false, /* use_prepared_statements */
+                true,  /* require_leader */
                 Option::<ProdRuntime>::None,
             )?),
             opts.db_name,
@@ -342,6 +349,7 @@ async fn test_table_count() -> anyhow::Result<()> {
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
             false, /* use_prepared_statements */
+            true,  /* require_leader */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
@@ -372,6 +380,7 @@ async fn test_max_system_size_value() -> anyhow::Result<()> {
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
             false, /* use_prepared_statements */
+            true,  /* require_leader */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
@@ -407,6 +416,7 @@ async fn test_read_only() -> anyhow::Result<()> {
     let pool = Arc::new(ConvexMySqlPool::new(
         &opts.url.clone(),
         false, /* use_prepared_statements */
+        true,  /* require_leader */
         Option::<ProdRuntime>::None,
     )?);
     let load = |allow_read_only| {

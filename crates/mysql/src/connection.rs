@@ -3,6 +3,7 @@ use std::{
     mem,
     path::PathBuf,
     str::FromStr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -601,6 +602,7 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
     pub fn new(
         url: &Url,
         use_prepared_statements: bool,
+        require_leader: bool,
         runtime: Option<RT>,
     ) -> anyhow::Result<Self> {
         let cluster_name = derive_cluster_name(url).to_owned();
@@ -619,6 +621,28 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
             .with_abs_conn_ttl_jitter(Some(*MYSQL_MAX_CONNECTION_LIFETIME / 10))
             .with_reset_connection(false); // persist prepared statements
         let mut opts = OptsBuilder::from_opts(Opts::from_str(url.as_ref())?).pool_opts(pool_opts);
+        if require_leader {
+            opts = opts.after_connect(Arc::new(|conn| {
+                async move {
+                    let readonly: Option<(bool,)> = conn
+                        .query_first("SELECT @@global.innodb_read_only OR @@global.read_only")
+                        .await?;
+                    let Some((readonly,)) = readonly else {
+                        return Err(mysql_async::Error::Other("expected a result".into()));
+                    };
+                    if readonly {
+                        return Err(mysql_async::Error::Other(
+                            database_operational_error(anyhow::anyhow!(
+                                "Connected to a read-only database"
+                            ))
+                            .into(),
+                        ));
+                    }
+                    Ok(())
+                }
+                .boxed()
+            }));
+        }
         if let Some(ca_file_path) = env::var_os("MYSQL_CA_FILE")
             && !ca_file_path.is_empty()
         {

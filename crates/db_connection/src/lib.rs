@@ -114,6 +114,7 @@ pub fn persistence_seed<RT: Runtime>(
                     url,
                     db_name,
                     multitenant,
+                    require_leader,
                 } => {
                     let options = MySqlOptions {
                         allow_read_only: flags.allow_read_only,
@@ -125,6 +126,7 @@ pub fn persistence_seed<RT: Runtime>(
                         pool: Arc::new(ConvexMySqlPool::new(
                             &url,
                             *DATABASE_USE_PREPARED_STATEMENTS,
+                            require_leader,
                             Some(runtime),
                         )?),
                         db_name,

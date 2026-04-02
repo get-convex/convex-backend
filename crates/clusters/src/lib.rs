@@ -12,6 +12,7 @@ pub enum PersistenceArgs {
         url: Url,
         db_name: String,
         multitenant: bool,
+        require_leader: bool,
     },
     Postgres {
         url: Url,
@@ -101,6 +102,7 @@ pub fn persistence_args_from_cluster_url(
                 url: cluster_url,
                 db_name,
                 multitenant: false,
+                require_leader,
             })
         },
         DbDriverTag::MySqlAwsIam(_) => {
@@ -116,6 +118,7 @@ pub fn persistence_args_from_cluster_url(
                 url: cluster_url,
                 db_name,
                 multitenant: false,
+                require_leader,
             })
         },
         DbDriverTag::MySqlMultitenant(_) => {
@@ -135,6 +138,7 @@ pub fn persistence_args_from_cluster_url(
                 db_name: path,
                 url: cluster_url,
                 multitenant: true,
+                require_leader,
             })
         },
         DbDriverTag::Sqlite => anyhow::bail!("no url for sqlite"),

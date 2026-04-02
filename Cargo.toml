@@ -137,7 +137,7 @@ moka = { version = "0.12", features = [ "future", "sync" ] }
 multer = "3.1.0"
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
 mysql = { path = "crates/mysql" }
-mysql_async = { git = "https://github.com/goffrie/mysql_async", rev = "90ff86d613d8c466baa4da7b0c49c148bc14a019", default-features = false, features = [ "default-rustls" ] }
+mysql_async = { git = "https://github.com/get-convex/mysql_async", rev = "deac775566d62246248a48fd3df58d6b5c03b729", default-features = false, features = [ "default-rustls" ] }
 native-tls = { version = "0.2", features = [ "alpn", "vendored" ] }
 node_executor = { path = "crates/node_executor" }
 num_cpus = "1.16.0"
