@@ -750,6 +750,10 @@ export interface components {
             items: components["schemas"]["PlatformDeploymentResponse"][];
             pagination: components["schemas"]["PaginationMetadata"];
         };
+        PaginatedPersonalAccessTokensResponse: {
+            items: components["schemas"]["PersonalAccessTokenResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
+        };
         PaginationMetadata: {
             hasMore: boolean;
             nextCursor?: string | null;
@@ -1129,6 +1133,7 @@ export type ListLocalDeploymentsResponse = components['schemas']['ListLocalDeplo
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
 export type PaginatedDeploymentsResponse = components['schemas']['PaginatedDeploymentsResponse'];
+export type PaginatedPersonalAccessTokensResponse = components['schemas']['PaginatedPersonalAccessTokensResponse'];
 export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PersonalAccessTokenResponse = components['schemas']['PersonalAccessTokenResponse'];
 export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
@@ -1746,7 +1751,12 @@ export interface operations {
     };
     "list personal access tokens": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Maximum number of tokens to return (default 10, max 100) */
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1758,7 +1768,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PersonalAccessTokenResponse"][];
+                    "application/json": components["schemas"]["PaginatedPersonalAccessTokensResponse"];
                 };
             };
         };

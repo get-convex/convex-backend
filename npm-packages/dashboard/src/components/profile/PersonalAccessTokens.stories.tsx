@@ -1,7 +1,7 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, fn } from "storybook/test";
 import {
-  usePersonalAccessTokens,
+  usePaginatedPersonalAccessTokens,
   useCreatePersonalAccessToken,
   useDeletePersonalAccessToken,
 } from "api/personalAccessTokens";
@@ -34,49 +34,83 @@ type Story = StoryObj<typeof meta>;
 
 export const Empty: Story = {
   beforeEach: () => {
-    mocked(usePersonalAccessTokens).mockReturnValue([]);
+    mocked(usePaginatedPersonalAccessTokens).mockReturnValue({
+      data: { items: [], pagination: { hasMore: false } },
+      isLoading: false,
+    });
   },
 };
 
 export const WithTokens: Story = {
   beforeEach: () => {
-    mocked(usePersonalAccessTokens).mockReturnValue([
-      {
-        name: "ci-deploy",
-        creationTime: now - 30 * oneDay,
-        lastUsedTime: now - 2 * oneDay,
+    mocked(usePaginatedPersonalAccessTokens).mockReturnValue({
+      data: {
+        items: [
+          {
+            name: "ci-deploy",
+            creationTime: now - 30 * oneDay,
+            lastUsedTime: now - 2 * oneDay,
+          },
+          {
+            name: "local-dev",
+            creationTime: now - 7 * oneDay,
+            lastUsedTime: null,
+          },
+        ],
+        pagination: { hasMore: false },
       },
-      {
-        name: "local-dev",
-        creationTime: now - 7 * oneDay,
-        lastUsedTime: null,
-      },
-    ]);
+      isLoading: false,
+    });
   },
 };
 
 export const WithSSOToken: Story = {
   beforeEach: () => {
-    mocked(usePersonalAccessTokens).mockReturnValue([
-      {
-        name: "ci-deploy",
-        creationTime: now - 30 * oneDay,
-        lastUsedTime: now - 2 * oneDay,
-        ssoTeamId: 1,
+    mocked(usePaginatedPersonalAccessTokens).mockReturnValue({
+      data: {
+        items: [
+          {
+            name: "ci-deploy",
+            creationTime: now - 30 * oneDay,
+            lastUsedTime: now - 2 * oneDay,
+            ssoTeamId: 1,
+          },
+          {
+            name: "personal-token",
+            creationTime: now - 14 * oneDay,
+            lastUsedTime: now - oneDay,
+          },
+        ],
+        pagination: { hasMore: false },
       },
-      {
-        name: "personal-token",
-        creationTime: now - 14 * oneDay,
-        lastUsedTime: now - oneDay,
+      isLoading: false,
+    });
+  },
+};
+
+export const WithPagination: Story = {
+  beforeEach: () => {
+    mocked(usePaginatedPersonalAccessTokens).mockReturnValue({
+      data: {
+        items: [
+          {
+            name: "ci-deploy",
+            creationTime: now - 30 * oneDay,
+            lastUsedTime: now - 2 * oneDay,
+          },
+        ],
+        pagination: { hasMore: true, nextCursor: "abc123" },
       },
-    ]);
+      isLoading: false,
+    });
   },
 };
 
 export const Loading: Story = {
   beforeEach: () => {
-    mocked(usePersonalAccessTokens).mockReturnValue(
-      undefined as unknown as ReturnType<typeof usePersonalAccessTokens>,
-    );
+    mocked(usePaginatedPersonalAccessTokens).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof usePaginatedPersonalAccessTokens>);
   },
 };

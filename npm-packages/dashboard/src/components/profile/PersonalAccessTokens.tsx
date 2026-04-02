@@ -12,11 +12,12 @@ import { TextInput } from "@ui/TextInput";
 import { Formik } from "formik";
 import * as Yup from "yup";
 import {
-  usePersonalAccessTokens,
+  usePaginatedPersonalAccessTokens,
   useCreatePersonalAccessToken,
   useDeletePersonalAccessToken,
 } from "api/personalAccessTokens";
 import { useTeams } from "api/teams";
+import { PaginationControls } from "elements/PaginationControls";
 
 type PersonalAccessToken = {
   name: string;
@@ -27,9 +28,37 @@ type PersonalAccessToken = {
 };
 
 export function PersonalAccessTokens() {
-  const tokens = usePersonalAccessTokens();
   const createToken = useCreatePersonalAccessToken();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
+    undefined,
+  );
+  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
+
+  const { data, isLoading } = usePaginatedPersonalAccessTokens(currentCursor);
+
+  const tokens = data?.items;
+  const hasMore = data?.pagination.hasMore ?? false;
+  const nextCursor = data?.pagination.nextCursor;
+  const currentPage = cursorHistory.length;
+
+  const handleNextPage = () => {
+    if (nextCursor) {
+      setCursorHistory((prev) => [...prev, nextCursor]);
+      setCurrentCursor(nextCursor);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (cursorHistory.length > 1) {
+      const newHistory = [...cursorHistory];
+      newHistory.pop();
+      setCursorHistory(newHistory);
+      setCurrentCursor(newHistory[newHistory.length - 1]);
+    }
+  };
 
   return (
     <Sheet className="flex flex-col gap-4">
@@ -49,20 +78,31 @@ export function PersonalAccessTokens() {
       >
         {tokens !== undefined && (
           <div className="flex w-full flex-col divide-y">
-            {tokens.length > 0 ? (
-              [...tokens]
-                .sort((a, b) => b.creationTime - a.creationTime)
-                .map((token) => (
+            {tokens.length > 0
+              ? tokens.map((token) => (
                   <PersonalAccessTokenItem key={token.name} token={token} />
                 ))
-            ) : (
-              <div className="my-6 flex w-full justify-center text-content-secondary">
-                You have not created any personal access tokens yet.
-              </div>
-            )}
+              : !isLoading && (
+                  <div className="my-6 flex w-full justify-center text-content-secondary">
+                    You have not created any personal access tokens yet.
+                  </div>
+                )}
           </div>
         )}
       </LoadingTransition>
+      {tokens && tokens.length > 0 && (hasMore || cursorHistory.length > 1) && (
+        <PaginationControls
+          isCursorBasedPagination
+          currentPage={currentPage}
+          hasMore={hasMore}
+          pageSize={10}
+          onPageSizeChange={() => {}}
+          onPreviousPage={handlePrevPage}
+          onNextPage={handleNextPage}
+          canGoPrevious={cursorHistory.length > 1}
+          showPageSize={false}
+        />
+      )}
       <p className="max-w-prose text-xs text-content-secondary">
         The Convex Dashboard uses your oldest personal access token to
         authenticate with deployments.

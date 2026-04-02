@@ -1,11 +1,16 @@
+import { useMemo } from "react";
 import { useManagementApiMutation, useManagementApiQuery } from "./api";
 
-export function usePersonalAccessTokens() {
-  const { data } = useManagementApiQuery({
+export function usePaginatedPersonalAccessTokens(cursor?: string) {
+  const queryParams = useMemo(() => ({ cursor }), [cursor]);
+
+  const { data, isLoading } = useManagementApiQuery({
     path: "/list_personal_access_tokens",
     pathParams: undefined as never,
+    queryParams,
   });
-  return data;
+
+  return { data, isLoading };
 }
 
 export function useCreatePersonalAccessToken() {
