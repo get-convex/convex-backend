@@ -33,6 +33,7 @@ use tokio_stream::wrappers::{
 };
 
 pub mod decoding;
+pub mod encoding;
 mod metrics;
 
 pub struct ImmediateMode;
