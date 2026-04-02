@@ -733,8 +733,8 @@ impl<RT: Runtime> Application<RT> {
             )
             .await
             .map_err(|e| {
-                if let Some((_table_name, _document_id, write_source)) = e.occ_info()
-                    && let Some(write_source) = write_source
+                if let Some(occ_error_info) = e.occ_info()
+                    && let Some(write_source) = occ_error_info.write_source
                     && write_source == finish_push_write_source
                 {
                     e.context(ErrorMetadata::bad_request(

@@ -25,7 +25,10 @@ use database::{
     TableModel,
     Transaction,
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    OccErrorInfo,
+};
 use events::{
     testing::BasicTestUsageEventLogger,
     usage::{
@@ -453,7 +456,9 @@ async fn test_scheduled_job_retry_on_occ(
     // Simulate an OCC failure on the first commit attempt.
     let mut pause_guard = attempt_commit.wait_for_blocked().await.unwrap();
     pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(
-        None, None, None, None, None
+        OccErrorInfo::default(),
+        None,
+        None
     )));
     // The retry happens in-process within handle_mutation's OCC retry loop,
     // so hold the next commit attempt directly.

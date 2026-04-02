@@ -258,6 +258,12 @@
           "retryCount"
         ],
         "properties": {
+          "componentPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "documentId": {
             "type": [
               "string",

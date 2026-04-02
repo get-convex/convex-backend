@@ -956,8 +956,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             {
                                 self.database.wait_for_write_ts(write_ts).await;
                             }
-                            let (table_name, document_id, write_source) =
-                                e.occ_info().unwrap_or((None, None, None));
+                            let occ_error_info = e.occ_info().unwrap_or_default();
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -967,9 +966,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     usage_tracker,
                                     context.clone(),
                                     OccInfo {
-                                        table_name,
-                                        document_id,
-                                        write_source,
+                                        table_name: occ_error_info.table_name,
+                                        document_id: occ_error_info.document_id,
+                                        write_source: occ_error_info.write_source,
+                                        component_path: occ_error_info.component_path,
                                         retry_count: mutation_retry_count as u64,
                                     },
                                     mutation_queue_length,
@@ -981,8 +981,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         outcome.result = Err(JsError::from_error_ref(&e));
 
                         if e.is_occ() {
-                            let (table_name, document_id, write_source) =
-                                e.occ_info().unwrap_or((None, None, None));
+                            let occ_error_info = e.occ_info().unwrap_or_default();
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -992,9 +991,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     usage_tracker,
                                     context.clone(),
                                     OccInfo {
-                                        table_name,
-                                        document_id,
-                                        write_source,
+                                        table_name: occ_error_info.table_name,
+                                        document_id: occ_error_info.document_id,
+                                        write_source: occ_error_info.write_source,
+                                        component_path: occ_error_info.component_path,
                                         retry_count: mutation_retry_count as u64,
                                     },
                                     mutation_queue_length,

@@ -61,6 +61,7 @@ pub enum ErrorCode {
         table_name: Option<String>,
         document_id: Option<String>,
         write_source: Option<String>,
+        component_path: Option<String>,
         is_system: bool,
         /// The timestamp of the conflicting write, if known.
         /// Used by retry loops to wait until the write is observable.
@@ -72,6 +73,15 @@ pub enum ErrorCode {
     OperationalInternalServerError,
     MisdirectedRequest,
     TooEarly,
+}
+
+/// Information extracted from an OCC error, used for logging and diagnostics.
+#[derive(Debug, Clone, Default)]
+pub struct OccErrorInfo {
+    pub table_name: Option<String>,
+    pub document_id: Option<String>,
+    pub write_source: Option<String>,
+    pub component_path: Option<String>,
 }
 
 impl ErrorMetadata {
@@ -325,6 +335,7 @@ impl ErrorMetadata {
                 table_name: None,
                 document_id: None,
                 write_source,
+                component_path: None,
                 is_system: true,
                 write_ts,
             },
@@ -336,13 +347,12 @@ impl ErrorMetadata {
 
     /// User-caused Optimistic Concurrency Control / Commit Race Error
     pub fn user_occ(
-        table_name: Option<String>,
-        document_id: Option<String>,
-        write_source: Option<String>,
+        info: OccErrorInfo,
         description: Option<String>,
         write_ts: Option<u64>,
     ) -> Self {
-        let table_description = table_name
+        let table_description = info
+            .table_name
             .clone()
             .map(|name| format!("the \"{name}\" table"))
             .unwrap_or("some table".to_owned());
@@ -351,9 +361,10 @@ impl ErrorMetadata {
             .unwrap_or_default();
         Self {
             code: ErrorCode::OCC {
-                table_name,
-                document_id,
-                write_source,
+                table_name: info.table_name,
+                document_id: info.document_id,
+                write_source: info.write_source,
+                component_path: info.component_path,
                 is_system: false,
                 write_ts,
             },
@@ -730,7 +741,7 @@ impl ErrorCode {
 
 pub trait ErrorMetadataAnyhowExt {
     fn is_occ(&self) -> bool;
-    fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)>;
+    fn occ_info(&self) -> Option<OccErrorInfo>;
     fn occ_write_ts(&self) -> Option<u64>;
     fn is_pagination_limit(&self) -> bool;
     fn is_unauthenticated(&self) -> bool;
@@ -771,20 +782,22 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         false
     }
 
-    fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)> {
+    fn occ_info(&self) -> Option<OccErrorInfo> {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return match &e.code {
                 ErrorCode::OCC {
                     table_name,
                     document_id,
                     write_source,
+                    component_path,
                     is_system: _,
                     write_ts: _,
-                } => Some((
-                    table_name.clone(),
-                    document_id.clone(),
-                    write_source.clone(),
-                )),
+                } => Some(OccErrorInfo {
+                    table_name: table_name.clone(),
+                    document_id: document_id.clone(),
+                    write_source: write_source.clone(),
+                    component_path: component_path.clone(),
+                }),
                 _ => None,
             };
         }
@@ -1061,6 +1074,7 @@ mod proptest {
     use super::{
         ErrorCode,
         ErrorMetadata,
+        OccErrorInfo,
     };
 
     impl Arbitrary for ErrorMetadata {
@@ -1086,11 +1100,15 @@ mod proptest {
                     table_name,
                     document_id,
                     write_source,
+                    component_path,
                     ..
                 } => ErrorMetadata::user_occ(
-                    table_name,
-                    document_id,
-                    write_source,
+                    OccErrorInfo {
+                        table_name,
+                        document_id,
+                        write_source,
+                        component_path,
+                    },
                     Some("description".to_string()),
                     None,
                 ),

@@ -278,6 +278,7 @@ impl FunctionExecution {
                         table_name: occ_info.table_name.clone(),
                         document_id: occ_info.document_id.clone(),
                         write_source: occ_info.write_source.clone(),
+                        component_path: occ_info.component_path.clone(),
                         retry_count: occ_info.retry_count,
                     }),
                     None => None,

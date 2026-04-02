@@ -210,6 +210,7 @@ fn execution_to_json(
             table_name: occ.table_name.clone(),
             document_id: occ.document_id.clone(),
             write_source: occ.write_source.clone(),
+            component_path: occ.component_path.clone(),
             retry_count: occ.retry_count,
         });
     let identity_type = execution.identity.tag().value.to_string();

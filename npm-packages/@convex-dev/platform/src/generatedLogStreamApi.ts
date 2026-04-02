@@ -44,6 +44,7 @@ export interface components {
                 type: string;
             };
             occ_info?: null | {
+                component_path?: string | null;
                 document_id?: string | null;
                 /** Format: int64 */
                 retry_count: number;

@@ -809,7 +809,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         outcome.result = Err(JsError::from_error(err));
                     } else if err.is_occ() || err.short_msg() == "TooManyWrites" {
                         metrics::log_scheduled_job_failure(&err, mutation_retry_count as u32);
-                        if let Some((table_name, document_id, write_source)) = err.occ_info() {
+                        if let Some(occ_error_info) = err.occ_info() {
                             // TODO log errors on write throughput limit too
                             self.function_log
                                 .log_mutation_occ_error(
@@ -820,9 +820,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                                     usage_tracker,
                                     context,
                                     OccInfo {
-                                        table_name,
-                                        document_id,
-                                        write_source,
+                                        table_name: occ_error_info.table_name,
+                                        document_id: occ_error_info.document_id,
+                                        write_source: occ_error_info.write_source,
+                                        component_path: occ_error_info.component_path,
                                         retry_count: mutation_retry_count as u64,
                                     },
                                     None,

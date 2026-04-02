@@ -60,6 +60,7 @@ export interface components {
             udfPath?: string | null;
         };
         OccInfoJson: {
+            componentPath?: string | null;
             documentId?: string | null;
             /** Format: int64 */
             retryCount: number;

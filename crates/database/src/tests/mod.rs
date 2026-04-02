@@ -13,6 +13,16 @@ use cmd_util::env::env_config;
 use common::{
     assert_obj,
     bootstrap_model::{
+        components::{
+            definition::{
+                ComponentDefinitionMetadata,
+                ComponentDefinitionType,
+                ComponentInstantiation,
+            },
+            ComponentMetadata,
+            ComponentState,
+            ComponentType,
+        },
         index::{
             database_index::{
                 DatabaseIndexSpec,
@@ -23,6 +33,7 @@ use common::{
         },
         schema::SchemaState,
     },
+    components::ComponentDefinitionPath,
     db_schema,
     document::{
         CreationTime,
@@ -101,6 +112,10 @@ use value::{
 };
 
 use crate::{
+    bootstrap_model::components::{
+        definition::COMPONENT_DEFINITIONS_TABLE,
+        COMPONENTS_TABLE,
+    },
     committer::AFTER_PENDING_WRITE_SNAPSHOT,
     query::{
         PaginationOptions,
@@ -2489,6 +2504,137 @@ async fn test_execute_with_retries_observes_write_ts(
         retry_ts >= conflict_ts,
         "retry begin_ts ({retry_ts:?}) should be >= conflict_ts ({conflict_ts:?})"
     );
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_occ_error_component_path_is_none_for_root(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = new_test_database(rt).await;
+    let table_name: TableName = "test_table".parse()?;
+
+    // Insert a document in the root component namespace.
+    let mut tx = db.begin(Identity::system()).await?;
+    let doc_id = TestFacingModel::new(&mut tx)
+        .insert(&table_name, assert_obj!("value" => 1))
+        .await?;
+    db.commit(tx).await?;
+
+    // tx1 reads the document.
+    let mut tx1 = db.begin(Identity::system()).await?;
+    tx1.get(doc_id).await?;
+    TestFacingModel::new(&mut tx1)
+        .insert(&"other_table".parse()?, assert_obj!())
+        .await?;
+
+    // tx2 modifies the same document and commits first, creating a conflict.
+    let mut tx2 = db.begin(Identity::system()).await?;
+    UserFacingModel::new_root_for_test(&mut tx2)
+        .replace(doc_id.into(), assert_obj!("value" => 2))
+        .await?;
+    db.commit(tx2).await?;
+
+    // tx1 should fail with an OCC error with no component_path (root).
+    let err = db.commit(tx1).await.unwrap_err();
+    assert!(err.is_occ());
+    let occ_error_info = err.occ_info().expect("should have occ_info");
+    assert_eq!(occ_error_info.component_path, None);
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_occ_error_component_path_for_child_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = new_test_database(rt).await;
+
+    // Set up a child component.
+    let mut tx = db.begin(Identity::system()).await?;
+    let child_definition_path: ComponentDefinitionPath = "../app/child".parse().unwrap();
+    let child_definition_id = SystemMetadataModel::new_global(&mut tx)
+        .insert(
+            &COMPONENT_DEFINITIONS_TABLE,
+            ComponentDefinitionMetadata {
+                path: child_definition_path.clone(),
+                definition_type: ComponentDefinitionType::ChildComponent {
+                    name: "child".parse().unwrap(),
+                    args: BTreeMap::new(),
+                },
+                child_components: Vec::new(),
+                http_mounts: BTreeMap::new(),
+                exports: BTreeMap::new(),
+            }
+            .try_into()?,
+        )
+        .await?;
+    let root_definition_id = SystemMetadataModel::new_global(&mut tx)
+        .insert(
+            &COMPONENT_DEFINITIONS_TABLE,
+            ComponentDefinitionMetadata {
+                path: "".parse().unwrap(),
+                definition_type: ComponentDefinitionType::App,
+                child_components: vec![ComponentInstantiation {
+                    name: "my_child".parse().unwrap(),
+                    path: child_definition_path,
+                    args: Some(BTreeMap::new()),
+                }],
+                http_mounts: BTreeMap::new(),
+                exports: BTreeMap::new(),
+            }
+            .try_into()?,
+        )
+        .await?;
+    let root_id = SystemMetadataModel::new_global(&mut tx)
+        .insert(
+            &COMPONENTS_TABLE,
+            ComponentMetadata {
+                definition_id: root_definition_id.into(),
+                component_type: ComponentType::App,
+                state: ComponentState::Active,
+            }
+            .try_into()?,
+        )
+        .await?;
+    let child_id = SystemMetadataModel::new_global(&mut tx)
+        .insert(
+            &COMPONENTS_TABLE,
+            ComponentMetadata {
+                definition_id: child_definition_id.into(),
+                component_type: ComponentType::ChildComponent {
+                    parent: root_id.into(),
+                    name: "my_child".parse()?,
+                    args: Default::default(),
+                },
+                state: ComponentState::Active,
+            }
+            .try_into()?,
+        )
+        .await?;
+    let child_namespace = TableNamespace::ByComponent(child_id.into());
+
+    // Insert a document in the child component's namespace.
+    let table_name: TableName = "child_table".parse()?;
+    let doc_id = SystemMetadataModel::new(&mut tx, child_namespace)
+        .insert_metadata(&table_name, assert_obj!("value" => 1))
+        .await?;
+    db.commit(tx).await?;
+
+    // tx1 reads the document in the child component.
+    let mut tx1 = db.begin(Identity::system()).await?;
+    tx1.get(doc_id).await?;
+    SystemMetadataModel::new(&mut tx1, child_namespace)
+        .insert_metadata(&"other_child_table".parse()?, assert_obj!())
+        .await?;
+
+    // tx2 modifies the same document and commits first.
+    let mut tx2 = db.begin(Identity::system()).await?;
+    tx2.replace_inner(doc_id, assert_obj!("value" => 2)).await?;
+    db.commit(tx2).await?;
+
+    // tx1 should fail with an OCC error containing the child component path.
+    let err = db.commit(tx1).await.unwrap_err();
+    assert!(err.is_occ());
+    let occ_error_info = err.occ_info().expect("should have occ_info");
+    assert_eq!(occ_error_info.component_path, Some("my_child".to_string()));
 
     Ok(())
 }

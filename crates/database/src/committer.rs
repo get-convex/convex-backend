@@ -696,7 +696,11 @@ impl<RT: Runtime> Committer<RT> {
             *transaction.begin_timestamp,
             commit_ts,
         )? {
-            anyhow::bail!(conflicting_read.into_error(&transaction.table_mapping, &write_source));
+            anyhow::bail!(conflicting_read.into_error(
+                &transaction.table_mapping,
+                &transaction.component_registry,
+                &write_source
+            ));
         }
         timer.finish();
 

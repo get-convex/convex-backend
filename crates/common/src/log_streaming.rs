@@ -82,6 +82,7 @@ pub struct OccInfo {
     pub table_name: Option<String>,
     pub document_id: Option<String>,
     pub write_source: Option<String>,
+    pub component_path: Option<String>,
     pub retry_count: u64,
 }
 
@@ -92,6 +93,7 @@ pub struct OccInfoJson {
     pub table_name: Option<String>,
     pub document_id: Option<String>,
     pub write_source: Option<String>,
+    pub component_path: Option<String>,
     pub retry_count: u64,
 }
 
@@ -938,6 +940,7 @@ mod tests {
         table_name: Option<String>,
         document_id: Option<String>,
         write_source: Option<String>,
+        component_path: Option<String>,
         retry_count: u64,
     }
 
@@ -1132,6 +1135,7 @@ mod tests {
                         table_name: Some("test_table".to_string()),
                         document_id: Some("doc123".to_string()),
                         write_source: Some("mutation".to_string()),
+                        component_path: Some("chatApp".to_string()),
                         retry_count: 1,
                     }),
                     scheduler_info: Some(SchedulerInfo {

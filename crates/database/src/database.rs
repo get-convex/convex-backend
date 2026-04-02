@@ -111,6 +111,7 @@ use common::{
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
+    OccErrorInfo,
 };
 use futures::{
     future::Either,
@@ -2613,14 +2614,30 @@ pub struct ConflictingReadWithWriteSource {
 }
 
 impl ConflictingReadWithWriteSource {
-    pub fn into_error(self, mapping: &TableMapping, current_writer: &WriteSource) -> anyhow::Error {
+    pub fn into_error(
+        self,
+        mapping: &TableMapping,
+        component_registry: &ComponentRegistry,
+        current_writer: &WriteSource,
+    ) -> anyhow::Error {
         let write_ts_val = Some(u64::from(self.write_ts));
         let table_name = mapping.tablet_name(*self.read.index.table());
 
         let Ok(table_name) = table_name else {
-            let metadata = ErrorMetadata::user_occ(None, None, None, None, write_ts_val);
+            let metadata = ErrorMetadata::user_occ(OccErrorInfo::default(), None, write_ts_val);
             return anyhow::anyhow!(metadata);
         };
+
+        // Resolve the component path for the table's namespace.
+        let component_path_str = mapping
+            .tablet_namespace(*self.read.index.table())
+            .ok()
+            .and_then(|ns| {
+                let component_id = ComponentId::from(ns);
+                let path = component_registry
+                    .get_component_path(component_id, &mut TransactionReadSet::new());
+                path.and_then(|p| p.serialize())
+            });
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
@@ -2636,9 +2653,12 @@ impl ConflictingReadWithWriteSource {
 
         if !table_name.is_system() {
             let metadata = ErrorMetadata::user_occ(
-                Some(table_name.into()),
-                Some(self.read.id.developer_id.encode()),
-                write_source,
+                OccErrorInfo {
+                    table_name: Some(table_name.into()),
+                    document_id: Some(self.read.id.developer_id.encode()),
+                    write_source,
+                    component_path: component_path_str,
+                },
                 occ_msg,
                 write_ts_val,
             );

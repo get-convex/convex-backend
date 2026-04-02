@@ -59,6 +59,7 @@ pub struct OccInfo {
     pub table_name: Option<String>,
     pub document_id: Option<String>,
     pub write_source: Option<String>,
+    pub component_path: Option<String>,
     pub retry_count: u64,
 }
 

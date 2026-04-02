@@ -510,8 +510,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 if err.is_deterministic_user_error() {
                     outcome.result = Err(JsError::from_error(err));
                 } else if err.is_occ() {
-                    let (table_name, document_id, write_source) =
-                        err.occ_info().unwrap_or((None, None, None));
+                    let occ_error_info = err.occ_info().unwrap_or_default();
                     self.function_log
                         .log_mutation_occ_error(
                             outcome,
@@ -521,9 +520,10 @@ impl<RT: Runtime> CronJobContext<RT> {
                             usage_tracker,
                             context,
                             OccInfo {
-                                table_name,
-                                document_id,
-                                write_source,
+                                table_name: occ_error_info.table_name,
+                                document_id: occ_error_info.document_id,
+                                write_source: occ_error_info.write_source,
+                                component_path: occ_error_info.component_path,
                                 retry_count: mutation_retry_count as u64,
                             },
                             None,
