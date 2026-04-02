@@ -200,6 +200,7 @@ use crate::{
         StreamingExportSelection,
     },
     subscription::{
+        InvalidationMetricCallback,
         Subscription,
         SubscriptionsClient,
         SubscriptionsWorker,
@@ -292,6 +293,7 @@ pub struct Database<RT: Runtime> {
     shared_index_cache: Option<SharedIndexCache>,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
+    invalidation_callback: InvalidationMetricCallback,
     // Caches of snapshot TableMapping and by_id index ids, which are used repeatedly by
     // /api/list_snapshot.
     table_mapping_snapshot_cache: AsyncLru<RT, Timestamp, TableMapping>,
@@ -1034,7 +1036,9 @@ impl<RT: Runtime> Database<RT> {
 
         let persistence_reader = persistence.reader();
         let (log_owner, log_reader, log_writer) = new_write_log(*ts);
-        let subscriptions = SubscriptionsWorker::start(log_owner, runtime.clone());
+        let invalidation_callback = InvalidationMetricCallback::new();
+        let subscriptions =
+            SubscriptionsWorker::start(log_owner, runtime.clone(), invalidation_callback.clone());
         let committer = Committer::start(
             log_writer,
             snapshot_writer,
@@ -1066,6 +1070,7 @@ impl<RT: Runtime> Database<RT> {
             shared_index_cache,
             virtual_system_mapping,
             bootstrap_metadata,
+            invalidation_callback,
             table_mapping_snapshot_cache,
             by_id_indexes_snapshot_cache,
             component_paths_snapshot_cache,
@@ -1073,6 +1078,16 @@ impl<RT: Runtime> Database<RT> {
         };
 
         Ok(database)
+    }
+
+    /// Sets the invalidation callback for tracking which mutations invalidate
+    /// subscriptions. Must be called after `load` and before any subscriptions
+    /// are invalidated.
+    pub fn set_invalidation_callback(
+        &self,
+        callback: Arc<dyn Fn(Vec<crate::InvalidationEvent>) + Send + Sync>,
+    ) -> anyhow::Result<()> {
+        self.invalidation_callback.set(callback)
     }
 
     pub fn set_search_storage(&self, search_storage: Arc<dyn Storage>) {

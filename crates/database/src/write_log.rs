@@ -208,6 +208,11 @@ impl WriteSource {
         }
     }
 
+    /// Returns true if this is a user UDF write source.
+    pub fn is_udf(&self) -> bool {
+        matches!(self, Self::Udf(_))
+    }
+
     /// Returns the UDF identifier if this is a user function write source.
     pub fn udf_identifier(&self) -> Option<&UdfIdentifier> {
         match self {
@@ -495,12 +500,12 @@ impl LogReader {
 
     pub fn for_each<F>(&self, from: Timestamp, to: Timestamp, mut f: F) -> anyhow::Result<()>
     where
-        for<'a> F: FnMut(Timestamp, IterWrites<'a>),
+        for<'a> F: FnMut(Timestamp, IterWrites<'a>, &WriteSource),
     {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
-            for (ts, writes, _) in snapshot.iter(from, to)? {
-                f(*ts, writes);
+            for (ts, writes, write_source) in snapshot.iter(from, to)? {
+                f(*ts, writes, write_source);
             }
             Ok(())
         })
@@ -532,7 +537,7 @@ impl LogReader {
         }
         if *begin_ts != *end_ts {
             let from = (*begin_ts).succ()?;
-            let result = self.for_each(from, *end_ts, |ts, writes| {
+            let result = self.for_each(from, *end_ts, |ts, writes, _write_source| {
                 for (_doc_id, index_keys_update, maybe_document) in writes {
                     let old_keys = resolve_db_index_keys(
                         index_registry,

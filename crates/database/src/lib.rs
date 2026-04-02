@@ -196,7 +196,10 @@ pub use self::{
         Snapshot,
         TableSummaries,
     },
-    subscription::Subscription,
+    subscription::{
+        InvalidationEvent,
+        Subscription,
+    },
     table_iteration::{
         MultiTableIterator,
         TableIterator,

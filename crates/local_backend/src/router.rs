@@ -68,6 +68,7 @@ use crate::{
         function_concurrency,
         latency_percentiles,
         scheduled_job_lag,
+        subscription_invalidations_top_k,
         table_rate,
         udf_rate,
     },
@@ -496,6 +497,10 @@ where
             get(cache_hit_percentage_top_k),
         )
         .route("/function_call_count_top_k", get(function_call_count_top_k))
+        .route(
+            "/subscription_invalidations_top_k",
+            get(subscription_invalidations_top_k),
+        )
         .route("/cache_hit_percentage", get(cache_hit_percentage))
         .route("/table_rate", get(table_rate))
         .route("/latency_percentiles", get(latency_percentiles))

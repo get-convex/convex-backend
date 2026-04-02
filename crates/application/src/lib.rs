@@ -749,6 +749,14 @@ impl<RT: Runtime> Application<RT> {
             usage_counter.clone(),
             Arc::new(log_manager_client.clone()),
         );
+
+        {
+            let function_log = function_log.clone();
+            database.set_invalidation_callback(Arc::new(move |events| {
+                function_log.record_subscription_invalidations(events);
+            }))?;
+        }
+
         let runner = Arc::new(ApplicationFunctionRunner::new(
             runtime.clone(),
             database.clone(),

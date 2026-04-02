@@ -20,6 +20,10 @@ use common::{
 use errors::ErrorMetadata;
 use serde::Deserialize;
 use sync_types::UdfPath;
+use value::{
+    TableMapping,
+    TabletId,
+};
 
 use crate::{
     authentication::ExtractIdentity,
@@ -100,6 +104,48 @@ pub(crate) async fn cache_hit_percentage_top_k(
         .application
         .function_log(identity, "cache_hit_percentage_top_k")?
         .cache_hit_percentage_top_k(window, k)?;
+    Ok(Json(timeseries))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SubscriptionInvalidationsTopKArgs {
+    component_path: Option<String>,
+    #[serde(alias = "path")]
+    udf_path: Option<String>,
+    window: String,
+    udf_type: Option<String>,
+    k: Option<usize>,
+}
+
+pub(crate) async fn subscription_invalidations_top_k(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Query(args): Query<SubscriptionInvalidationsTopKArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let window_json: serde_json::Value =
+        serde_json::from_str(&args.window).map_err(anyhow::Error::new)?;
+    let window = window_json.try_into()?;
+    let k = validate_k(args.k)?;
+    let table_mapping = st.application.latest_snapshot()?.table_mapping().clone();
+
+    let udf_identifier = args
+        .udf_path
+        .map(|path| parse_udf_identifier(args.udf_type, args.component_path, path))
+        .transpose()?;
+
+    let timeseries = st
+        .application
+        .function_log(identity, "subscription_invalidations_top_k")?
+        .subscription_invalidations_top_k(window, k, udf_identifier.as_ref())?;
+
+    // When filtered to a specific function, keys are tablet IDs.
+    // Otherwise, keys are "{mutation}:{tablet_id}".
+    let timeseries = if udf_identifier.is_some() {
+        resolve_tablet_keys(timeseries, &table_mapping)
+    } else {
+        resolve_mutation_tablet_keys(timeseries, &table_mapping)
+    };
     Ok(Json(timeseries))
 }
 
@@ -291,4 +337,55 @@ fn validate_k(k: Option<usize>) -> anyhow::Result<usize> {
         ));
     }
     Ok(k)
+}
+
+fn resolve_tablet_id(tablet_id_str: &str, table_mapping: &TableMapping) -> String {
+    tablet_id_str
+        .parse::<TabletId>()
+        .ok()
+        .and_then(|id| table_mapping.tablet_name(id).ok())
+        .map(|name| name.to_string())
+        .unwrap_or_else(|| tablet_id_str.to_string())
+}
+
+/// Resolve keys of the form "{tablet_id}" to table names.
+fn resolve_tablet_keys<T>(
+    timeseries: Vec<(String, T)>,
+    table_mapping: &TableMapping,
+) -> Vec<(String, T)> {
+    timeseries
+        .into_iter()
+        .map(|(key, ts)| {
+            if key == "_rest" {
+                return (key, ts);
+            }
+            (resolve_tablet_id(&key, table_mapping), ts)
+        })
+        .collect()
+}
+
+/// Resolve keys of the form "{mutation}:{tablet_id}" to
+/// "{mutation}:{table_name}".
+fn resolve_mutation_tablet_keys<T>(
+    timeseries: Vec<(String, T)>,
+    table_mapping: &TableMapping,
+) -> Vec<(String, T)> {
+    timeseries
+        .into_iter()
+        .map(|(key, ts)| {
+            if key == "_rest" {
+                return (key, ts);
+            }
+            // The key is "{mutation}:{tablet_id}". The mutation path can
+            // contain colons, so split from the right.
+            if let Some(pos) = key.rfind(':') {
+                let mutation = &key[..pos];
+                let tablet_id_str = &key[pos + 1..];
+                let table_name = resolve_tablet_id(tablet_id_str, table_mapping);
+                (format!("{mutation}:{table_name}"), ts)
+            } else {
+                (key, ts)
+            }
+        })
+        .collect()
 }

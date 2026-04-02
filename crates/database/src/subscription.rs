@@ -5,6 +5,7 @@ use std::{
     collections::{
         BTreeMap,
         BTreeSet,
+        HashMap,
     },
     future::Future,
     sync::{
@@ -14,6 +15,7 @@ use std::{
             Ordering,
         },
         Arc,
+        OnceLock,
     },
     time::Duration,
 };
@@ -66,7 +68,10 @@ use tokio::sync::{
     },
     watch,
 };
-use value::ResolvedDocumentId;
+use value::{
+    ResolvedDocumentId,
+    TabletId,
+};
 
 use crate::{
     metrics::{
@@ -77,9 +82,48 @@ use crate::{
     write_log::{
         LogOwner,
         LogReader,
+        WriteSource,
     },
     Token,
 };
+
+pub struct InvalidationEvent {
+    pub write_source: Option<WriteSource>,
+    pub tablet_id: TabletId,
+    /// Number of subscriptions invalidated.
+    pub count: usize,
+}
+
+/// Holds a callback invoked after `advance_log` processes invalidations.
+/// Set after construction since the callback target (`FunctionExecutionLog`)
+/// is created after the database.
+#[derive(Clone)]
+pub struct InvalidationMetricCallback {
+    inner: Arc<OnceLock<Arc<dyn Fn(Vec<InvalidationEvent>) + Send + Sync>>>,
+}
+
+impl InvalidationMetricCallback {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(OnceLock::new()),
+        }
+    }
+
+    pub fn set(
+        &self,
+        callback: Arc<dyn Fn(Vec<InvalidationEvent>) + Send + Sync>,
+    ) -> anyhow::Result<()> {
+        self.inner
+            .set(callback)
+            .map_err(|_| anyhow::anyhow!("Invalidation callback already set"))
+    }
+
+    fn invoke(&self, events: Vec<InvalidationEvent>) {
+        if let Some(callback) = self.inner.get() {
+            callback(events);
+        }
+    }
+}
 
 type Sequence = usize;
 
@@ -213,7 +257,11 @@ impl RetentionCoordinator {
 pub enum SubscriptionsWorker {}
 
 impl SubscriptionsWorker {
-    pub(crate) fn start<RT: Runtime>(log: LogOwner, runtime: RT) -> SubscriptionsClient {
+    pub(crate) fn start<RT: Runtime>(
+        log: LogOwner,
+        runtime: RT,
+        invalidation_callback: InvalidationMetricCallback,
+    ) -> SubscriptionsClient {
         let num_managers = *NUM_SUBSCRIPTION_MANAGERS;
         let log_reader = log.reader();
         let initial_ts = log_reader.max_ts();
@@ -229,8 +277,13 @@ impl SubscriptionsWorker {
 
             let manager_log = log_reader.clone();
             let coordinator = retention_coordinator.clone();
-            let mut manager =
-                SubscriptionManager::new(manager_id, manager_log, coordinator, initial_ts);
+            let mut manager = SubscriptionManager::new(
+                manager_id,
+                manager_log,
+                coordinator,
+                initial_ts,
+                invalidation_callback.clone(),
+            );
             let handle = runtime.spawn("subscription_worker", async move {
                 manager.run_worker(rx).await
             });
@@ -321,6 +374,8 @@ pub struct SubscriptionManager {
     // Invariant: All `ReadSet` in `subscribers` have a timestamp greater than or equal to
     // `processed_ts`.
     processed_ts: Timestamp,
+
+    invalidation_callback: InvalidationMetricCallback,
 }
 
 struct Subscriber {
@@ -339,7 +394,13 @@ impl SubscriptionManager {
         let (log_owner, log_reader, _) = new_write_log(Timestamp::MIN);
         let initial_ts = log_reader.max_ts();
         let retention_coordinator = RetentionCoordinator::new(1, initial_ts, log_owner);
-        Self::new(0, log_reader, retention_coordinator, initial_ts)
+        Self::new(
+            0,
+            log_reader,
+            retention_coordinator,
+            initial_ts,
+            InvalidationMetricCallback::new(),
+        )
     }
 
     fn new(
@@ -347,6 +408,7 @@ impl SubscriptionManager {
         log: LogReader,
         retention_coordinator: RetentionCoordinator,
         initial_ts: Timestamp,
+        invalidation_callback: InvalidationMetricCallback,
     ) -> Self {
         Self {
             manager_id,
@@ -357,6 +419,7 @@ impl SubscriptionManager {
             log,
             retention_coordinator,
             processed_ts: initial_ts,
+            invalidation_callback,
         }
     }
 
@@ -432,44 +495,54 @@ impl SubscriptionManager {
         block_in_place(|| {
             let from_ts = self.processed_ts.succ()?;
 
-            let mut to_notify = BTreeMap::new();
+            // Maps subscriber_id -> (earliest invalidating write_ts, write_source,
+            // tablet_id)
+            let mut to_notify: BTreeMap<SubscriberId, (Timestamp, Option<WriteSource>, TabletId)> =
+                BTreeMap::new();
             {
                 let _timer = metrics::subscriptions_log_iterate_timer();
                 let mut log_len = 0;
                 let mut num_writes = 0;
-                self.log.for_each(from_ts, next_ts, |write_ts, writes| {
-                    let process_log_timer = metrics::subscription_process_write_log_entry_timer();
-                    log_len += 1;
-                    num_writes += writes.len();
-                    let mut tablet_ids = BTreeSet::new();
-                    let mut notify = |subscriber_id| {
-                        // Always take the earliest matching write_ts
-                        to_notify.entry(subscriber_id).or_insert(write_ts);
-                    };
-                    for (resolved_id, document_change, _) in writes {
-                        tablet_ids.insert(resolved_id.tablet_id);
-                        // We're applying a mutation to the document so if it already exists
-                        // we need to remove it before writing the new version.
-                        if let Some(ref old_document_keys) = document_change.old_document_keys {
-                            self.overlapping(resolved_id, old_document_keys, &mut notify);
+                self.log
+                    .for_each(from_ts, next_ts, |write_ts, writes, write_source| {
+                        let process_log_timer =
+                            metrics::subscription_process_write_log_entry_timer();
+                        log_len += 1;
+                        num_writes += writes.len();
+                        let mut tablet_ids = BTreeSet::new();
+                        let write_source_clone =
+                            write_source.is_udf().then(|| write_source.clone());
+                        for (resolved_id, document_change, _) in writes {
+                            let tablet_id = resolved_id.tablet_id;
+                            tablet_ids.insert(tablet_id);
+                            let mut notify = |subscriber_id| {
+                                // Always take the earliest matching write_ts
+                                to_notify.entry(subscriber_id).or_insert_with(|| {
+                                    (write_ts, write_source_clone.clone(), tablet_id)
+                                });
+                            };
+                            // We're applying a mutation to the document so if it already exists
+                            // we need to remove it before writing the new version.
+                            if let Some(ref old_document_keys) = document_change.old_document_keys {
+                                self.overlapping(resolved_id, old_document_keys, &mut notify);
+                            }
+                            // If we're doing anything other than deleting the document then
+                            // we'll also need to insert a new value.
+                            if let Some(ref new_document_keys) = document_change.new_document_keys {
+                                self.overlapping(resolved_id, new_document_keys, &mut notify);
+                            }
                         }
-                        // If we're doing anything other than deleting the document then
-                        // we'll also need to insert a new value.
-                        if let Some(ref new_document_keys) = document_change.new_document_keys {
-                            self.overlapping(resolved_id, new_document_keys, &mut notify);
-                        }
-                    }
 
-                    if process_log_timer.elapsed()
-                        > Duration::from_secs(*SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD)
-                    {
-                        tracing::info!(
-                            "[{next_ts}: advance_log] simple commit took {:?}, affected tables: \
-                             {tablet_ids:?}",
-                            process_log_timer.elapsed()
-                        );
-                    }
-                })?;
+                        if process_log_timer.elapsed()
+                            > Duration::from_secs(*SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD)
+                        {
+                            tracing::info!(
+                                "[{next_ts}: advance_log] simple commit took {:?}, affected \
+                                 tables: {tablet_ids:?}",
+                                process_log_timer.elapsed()
+                            );
+                        }
+                    })?;
                 metrics::log_subscriptions_log_processed_commits(log_len);
                 metrics::log_subscriptions_log_processed_writes(num_writes);
                 if _timer.elapsed()
@@ -528,7 +601,23 @@ impl SubscriptionManager {
                         splay_amt_millis,
                     );
                 }
-                for (subscriber_id, invalid_ts) in to_notify {
+                // Aggregate invalidation events by (write_source, tablet_id).
+                // We use a Vec and aggregate manually since WriteSource doesn't
+                // implement Ord.
+                // Use display_name as the grouping key since WriteSource
+                // doesn't implement Ord/Hash.
+                let mut invalidation_counts: HashMap<
+                    (Option<String>, TabletId),
+                    (Option<WriteSource>, usize),
+                > = HashMap::new();
+
+                for (subscriber_id, (invalid_ts, write_source, tablet_id)) in to_notify {
+                    let display_key = write_source.as_ref().and_then(|ws| ws.display_name());
+                    let entry = invalidation_counts
+                        .entry((display_key, tablet_id))
+                        .or_insert_with(|| (write_source.clone(), 0));
+                    entry.1 += 1;
+
                     let delay = if should_splay_invalidations {
                         let is_system_subscription = self
                             .subscribers
@@ -544,6 +633,21 @@ impl SubscriptionManager {
                     self._remove(subscriber_id, delay, Some(invalid_ts));
                 }
                 log_subscriptions_invalidated(num_subscriptions_invalidated);
+
+                // Invoke the invalidation callback with aggregated events.
+                if !invalidation_counts.is_empty() {
+                    let events: Vec<InvalidationEvent> = invalidation_counts
+                        .into_iter()
+                        .map(|((_display_key, tablet_id), (write_source, count))| {
+                            InvalidationEvent {
+                                write_source,
+                                tablet_id,
+                                count,
+                            }
+                        })
+                        .collect();
+                    self.invalidation_callback.invoke(events);
+                }
 
                 assert!(self.processed_ts <= next_ts);
                 self.processed_ts = next_ts;
@@ -845,6 +949,7 @@ mod tests {
     use crate::{
         subscription::{
             CountingReceiver,
+            InvalidationMetricCallback,
             RetentionCoordinator,
             SubscriptionManager,
         },
@@ -1348,7 +1453,13 @@ mod tests {
 
         let mut managers: Vec<_> = (0..num_managers)
             .map(|id| {
-                SubscriptionManager::new(id, log_reader.clone(), coordinator.clone(), initial_ts)
+                SubscriptionManager::new(
+                    id,
+                    log_reader.clone(),
+                    coordinator.clone(),
+                    initial_ts,
+                    InvalidationMetricCallback::new(),
+                )
             })
             .collect();
 
