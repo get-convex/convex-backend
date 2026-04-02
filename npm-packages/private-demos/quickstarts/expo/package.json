@@ -1,5 +1,5 @@
 {
-  "name": "my-app",
+  "name": "quickstart-expo",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -8,8 +8,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "jest --watchAll",
-    "lint": "expo lint"
+    "test": "",
+    "lint": "expo lint",
+    "build": ""
   },
   "jest": {
     "preset": "jest-expo"
@@ -17,7 +18,7 @@
   "dependencies": {
     "@expo/vector-icons": "^14.0.6",
     "@react-navigation/native": "^7.0.0",
-    "convex": "^1.12.1",
+    "convex": "workspace:*",
     "expo": "~52.0.11",
     "expo-constants": "~17.1.0",
     "expo-font": "~13.3.0",
@@ -27,8 +28,8 @@
     "expo-status-bar": "~2.2.0",
     "expo-system-ui": "~4.0.1",
     "expo-web-browser": "~14.2.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-native": "0.76.5",
     "react-native-gesture-handler": "~2.29.0",
     "react-native-reanimated": "~3.19.0",
@@ -39,12 +40,12 @@
   "devDependencies": {
     "@babel/core": "^7.27.1",
     "@types/jest": "^30.0.0",
-    "@types/react": "~18.3.0",
+    "@types/react": "^18",
     "@types/react-test-renderer": "^19.0.0",
     "jest": "^30.0.0",
     "jest-expo": "~51.0.1",
-    "react-test-renderer": "18.3.1",
-    "typescript": "~5.3.3"
+    "react-test-renderer": "^18.3.1",
+    "typescript": "^5.9.2"
   },
   "private": true
 }

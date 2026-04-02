@@ -732,6 +732,62 @@
       "projectFolder": "private-demos/openauth-react"
     },
     {
+      "packageName": "quickstart-bun",
+      "projectFolder": "private-demos/quickstarts/bun"
+    },
+    {
+      "packageName": "quickstart-expo",
+      "projectFolder": "private-demos/quickstarts/expo"
+    },
+    {
+      "packageName": "quickstart-nextjs",
+      "projectFolder": "private-demos/quickstarts/nextjs"
+    },
+    {
+      "packageName": "quickstart-nextjs-app-dir",
+      "projectFolder": "private-demos/quickstarts/nextjs-app-dir"
+    },
+    {
+      "packageName": "quickstart-nextjs-app-dir-14",
+      "projectFolder": "private-demos/quickstarts/nextjs-app-dir-14"
+    },
+    {
+      "packageName": "quickstart-nextjs-app-dir-js",
+      "projectFolder": "private-demos/quickstarts/nextjs-app-dir-js"
+    },
+    {
+      "packageName": "quickstart-nodejs",
+      "projectFolder": "private-demos/quickstarts/nodejs"
+    },
+    {
+      "packageName": "quickstart-nuxt",
+      "projectFolder": "private-demos/quickstarts/nuxt"
+    },
+    {
+      "packageName": "quickstart-react-vite",
+      "projectFolder": "private-demos/quickstarts/react-vite"
+    },
+    {
+      "packageName": "quickstart-react-vite-ts",
+      "projectFolder": "private-demos/quickstarts/react-vite-ts"
+    },
+    {
+      "packageName": "quickstart-remix",
+      "projectFolder": "private-demos/quickstarts/remix"
+    },
+    {
+      "packageName": "quickstart-sveltekit",
+      "projectFolder": "private-demos/quickstarts/sveltekit"
+    },
+    {
+      "packageName": "quickstart-tanstack-start",
+      "projectFolder": "private-demos/quickstarts/tanstack-start"
+    },
+    {
+      "packageName": "quickstart-vue",
+      "projectFolder": "private-demos/quickstarts/vue"
+    },
+    {
       "packageName": "local-store",
       "projectFolder": "local-store"
     },

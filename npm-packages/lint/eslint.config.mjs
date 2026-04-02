@@ -216,6 +216,7 @@ export default defineConfig([
   globalIgnores([
     "**/.next/**",
     "**/.nuxt/**",
+    "**/.output/**",
     "**/node_modules",
     "**/dist",
     "**/.next",
