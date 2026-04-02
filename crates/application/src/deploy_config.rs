@@ -320,7 +320,7 @@ impl<RT: Runtime> Application<RT> {
             .execute_with_occ_retries(
                 Identity::system(),
                 FunctionUsageTracker::new(),
-                WriteSource::new("start_push"),
+                WriteSource::system("start_push"),
                 |tx| {
                     async move {
                         let schema_change = ComponentConfigModel::new(tx)

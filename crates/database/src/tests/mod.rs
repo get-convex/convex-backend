@@ -1844,7 +1844,7 @@ async fn test_retries(rt: TestRuntime) -> anyhow::Result<()> {
     db.execute_with_occ_retries(
         Identity::system(),
         FunctionUsageTracker::new(),
-        WriteSource::unknown(),
+        WriteSource::system("test"),
         |tx| insert(tx).into(),
     )
     .await
@@ -1887,7 +1887,7 @@ async fn test_retries_includes_f(rt: TestRuntime) -> anyhow::Result<()> {
         Backoff::new(Duration::from_secs(0), Duration::from_millis(10)),
         FunctionUsageTracker::new(),
         |e: &anyhow::Error| e.is_overloaded(),
-        WriteSource::unknown(),
+        WriteSource::system("test"),
         |tx| overloaded(tx, receiver.clone()).into(),
     )
     .await?;
@@ -1904,7 +1904,7 @@ async fn test_retries_includes_f(rt: TestRuntime) -> anyhow::Result<()> {
             Backoff::new(Duration::from_secs(0), Duration::from_millis(10)),
             FunctionUsageTracker::new(),
             |e: &anyhow::Error| e.is_overloaded(),
-            WriteSource::unknown(),
+            WriteSource::system("test"),
             |tx| overloaded(tx, receiver.clone()).into(),
         )
         .await
@@ -2421,7 +2421,7 @@ async fn test_execute_with_retries_observes_write_ts(
             .execute_with_occ_retries(
                 Identity::system(),
                 FunctionUsageTracker::new(),
-                WriteSource::unknown(),
+                WriteSource::system("test"),
                 |tx| {
                     let attempt_count = attempt_count_clone.clone();
                     let retry_begin_ts = retry_begin_ts_clone.clone();

@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::{
         BTreeMap,
         VecDeque,
@@ -28,6 +27,7 @@ use common::{
         IndexId,
         RepeatableTimestamp,
         Timestamp,
+        UdfIdentifier,
     },
     value::ResolvedDocumentId,
 };
@@ -166,43 +166,70 @@ pub fn index_keys_from_full_documents(
     )
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct WriteSource(pub(crate) Option<Cow<'static, str>>);
+#[derive(Clone, PartialEq, Eq)]
+pub enum WriteSource {
+    /// A user-defined function (mutation) that performed the write.
+    Udf(UdfIdentifier),
+    /// A system UDF (e.g. _system/ mutations) that performed the write.
+    /// Separated from `Udf` so callers can choose whether to expose it.
+    SystemUdf(UdfIdentifier),
+    /// An internal system operation (e.g. "system_table_cleanup").
+    System(&'static str),
+}
+
+impl std::fmt::Debug for WriteSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Udf(id) => write!(f, "Udf({id})"),
+            Self::SystemUdf(id) => write!(f, "SystemUdf({id})"),
+            Self::System(s) => write!(f, "System({s:?})"),
+        }
+    }
+}
+
 impl WriteSource {
-    pub fn unknown() -> Self {
-        Self(None)
+    /// Create a system write source from a static label.
+    pub fn system(label: &'static str) -> Self {
+        Self::System(label)
     }
 
-    pub fn new(source: impl Into<Cow<'static, str>>) -> Self {
-        Self(Some(source.into()))
+    /// Returns a display string for this write source, including the
+    /// component path for UDF sources.
+    pub fn display_name(&self) -> Option<String> {
+        match self {
+            Self::Udf(identifier) | Self::SystemUdf(identifier) => {
+                let (component, id) = identifier.clone().into_component_and_udf_path();
+                Some(match component {
+                    Some(component) => format!("{component}/{id}"),
+                    None => id,
+                })
+            },
+            Self::System(s) => Some(s.to_string()),
+        }
     }
-}
 
-impl From<Option<String>> for WriteSource {
-    fn from(value: Option<String>) -> Self {
-        Self(value.map(|value| value.into()))
-    }
-}
-
-impl From<String> for WriteSource {
-    fn from(value: String) -> Self {
-        Self(Some(value.into()))
+    /// Returns the UDF identifier if this is a user function write source.
+    pub fn udf_identifier(&self) -> Option<&UdfIdentifier> {
+        match self {
+            Self::Udf(id) => Some(id),
+            Self::SystemUdf(_) => None,
+            Self::System(_) => None,
+        }
     }
 }
 
 impl From<&'static str> for WriteSource {
     fn from(value: &'static str) -> Self {
-        Self(Some(value.into()))
+        Self::System(value)
     }
 }
 
 impl HeapSize for WriteSource {
     fn heap_size(&self) -> usize {
-        self.0
-            .as_ref()
-            .filter(|value| Cow::is_owned(value))
-            .map(|value| value.len())
-            .unwrap_or_default()
+        match self {
+            Self::Udf(_) | Self::SystemUdf(_) => std::mem::size_of::<UdfIdentifier>(),
+            Self::System(_) => 0,
+        }
     }
 }
 
@@ -776,7 +803,11 @@ mod tests {
         assert_eq!(log_manager.log.max_ts(), Timestamp::must(1000));
 
         for ts in (1002..=1010).step_by(2) {
-            log_manager.append(Timestamp::must(ts), vec![].into(), WriteSource::unknown());
+            log_manager.append(
+                Timestamp::must(ts),
+                vec![].into(),
+                WriteSource::system("test"),
+            );
             assert_eq!(log_manager.log.purged_ts, Timestamp::must(1000));
             assert_eq!(log_manager.log.max_ts(), Timestamp::must(ts));
         }
@@ -871,7 +902,7 @@ mod tests {
                 None,
             )]
             .into(),
-            WriteSource::unknown(),
+            WriteSource::system("test"),
         );
         let read_set = |interval: Interval| -> ReadSet {
             let field_path: FieldPath = "k".parse().unwrap();
@@ -988,7 +1019,7 @@ mod tests {
                 None,
             )]
             .into(),
-            WriteSource::unknown(),
+            WriteSource::system("test"),
         );
         assert_eq!(
             delete_log_manager
@@ -1212,7 +1243,7 @@ mod tests {
                 Some(doc),
             )]
             .into(),
-            WriteSource::unknown(),
+            WriteSource::system("test"),
         );
 
         let index_cache = f.cache_tracking_index();
@@ -1245,7 +1276,11 @@ mod tests {
         let f = FastForwardIndexCacheFixture::new()?;
         let (mut owner, reader, mut writer) = new_write_log(Timestamp::must(1000));
 
-        writer.append(Timestamp::must(1001), vec![].into(), WriteSource::unknown());
+        writer.append(
+            Timestamp::must(1001),
+            vec![].into(),
+            WriteSource::system("test"),
+        );
 
         // Enforce retention far in the future so ts=1001 gets purged.
         owner.enforce_retention_policy(

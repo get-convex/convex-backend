@@ -69,6 +69,7 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         Timestamp,
+        UdfIdentifier,
         UdfType,
     },
     RequestId,
@@ -77,6 +78,7 @@ use database::{
     unauthorized_error,
     Database,
     Transaction,
+    WriteSource,
 };
 use errors::{
     ErrorMetadata,
@@ -805,7 +807,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
-        let udf_path_string = (!path.is_system()).then_some(path.udf_path().to_string());
+        let write_source = {
+            let component_path = path.clone().debug_into_component_path();
+            if path.is_system() {
+                WriteSource::SystemUdf(UdfIdentifier::Function(component_path))
+            } else {
+                WriteSource::Udf(UdfIdentifier::Function(component_path))
+            }
+        };
 
         let mut backoff = Backoff::new(
             *UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
@@ -855,7 +864,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     {
                         let sleep = backoff.fail(&mut self.runtime.rng());
                         tracing::warn!(
-                            "Write throughput limit exceeded, retrying {udf_path_string:?} after \
+                            "Write throughput limit exceeded, retrying {write_source:?} after \
                              {sleep:?}",
                         );
                         self.runtime.wait(sleep).await;
@@ -916,7 +925,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             // errors from the log.
             let result = match self
                 .database
-                .commit_with_write_source(tx, udf_path_string.clone())
+                .commit_with_write_source(tx, write_source.clone())
                 .await
             {
                 Ok(ts) => Ok(MutationReturn {
@@ -939,7 +948,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             let sleep = backoff.fail(&mut self.runtime.rng());
                             tracing::warn!(
                                 "Optimistic concurrency control failed ({e}), retrying \
-                                 {udf_path_string:?} after {sleep:?}",
+                                 {write_source:?} after {sleep:?}",
                             );
                             self.runtime.wait(sleep).await;
                             if let Some(write_ts_raw) = e.occ_write_ts()

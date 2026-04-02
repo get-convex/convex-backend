@@ -1891,7 +1891,7 @@ impl<RT: Runtime> Database<RT> {
 
     #[cfg(any(test, feature = "testing"))]
     pub async fn commit(&self, transaction: Transaction<RT>) -> anyhow::Result<Timestamp> {
-        self.commit_with_write_source(transaction, WriteSource::unknown())
+        self.commit_with_write_source(transaction, WriteSource::system("test"))
             .await
     }
 
@@ -2609,15 +2609,15 @@ impl ConflictingReadWithWriteSource {
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
-        let occ_msg = self.write_source.0.as_deref().map(|write_source| {
+        let occ_msg = self.write_source.display_name().map(|write_source| {
             occ_write_source_string(
-                write_source,
+                &write_source,
                 self.read.id.to_string(),
                 *current_writer == self.write_source,
             )
         });
 
-        let write_source = self.write_source.0.as_ref().map(|s| s.to_string());
+        let write_source = self.write_source.display_name();
 
         if !table_name.is_system() {
             let metadata = ErrorMetadata::user_occ(
@@ -2636,7 +2636,10 @@ impl ConflictingReadWithWriteSource {
         let index = format!("{table_name}.{}", self.read.index.descriptor());
         let msg = format!(
             "{msg}(conflicts with read of system table {index} in this writer \"{}\")",
-            current_writer.0.as_deref().unwrap_or("unknownwriter")
+            current_writer
+                .display_name()
+                .as_deref()
+                .unwrap_or("unknownwriter")
         );
 
         let formatted = format!(

@@ -114,7 +114,7 @@ fn create_write_log_with_standard_index_writes(num_writes: usize) -> Result<(Log
         log_writer.append(
             Timestamp::must((1001 + i) as i32),
             writes.into(),
-            WriteSource::unknown(),
+            WriteSource::system("bench"),
         );
     }
 
@@ -252,7 +252,7 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
         log_writer.append(
             Timestamp::must((1001 + i) as i32),
             writes.into(),
-            WriteSource::unknown(),
+            WriteSource::system("bench"),
         );
     }
 

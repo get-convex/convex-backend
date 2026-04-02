@@ -50,6 +50,7 @@ use common::{
     types::{
         AllowedVisibility,
         ModuleEnvironment,
+        UdfIdentifier,
         UdfType,
     },
     value::ConvexValue,
@@ -68,6 +69,7 @@ use database::{
     IndexWorker,
     Token,
     Transaction,
+    WriteSource,
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
@@ -594,7 +596,10 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         };
 
         self.database
-            .commit_with_write_source(tx, Some(canonicalized_path.udf_path.into()))
+            .commit_with_write_source(
+                tx,
+                WriteSource::Udf(UdfIdentifier::Function(canonicalized_path)),
+            )
             .await?;
         Ok(outcome)
     }
