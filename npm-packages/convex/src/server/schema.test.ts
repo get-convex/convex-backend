@@ -7,8 +7,16 @@ import {
   defineSchema,
   defineTable,
   DataModelFromSchemaDefinition,
+  GenericSchema,
+  SchemaDefinition,
 } from "./schema.js";
 import { v, Infer } from "../values/validator.js";
+import {
+  AnyDataModel,
+  GenericDataModel,
+  IndexNames,
+  NamedTableInfo,
+} from "./data_model.js";
 
 describe("DataModelFromSchemaDefinition", () => {
   test("defineSchema produces the correct data model for basic types", () => {
@@ -405,7 +413,7 @@ describe("DataModelFromSchemaDefinition", () => {
       [tableName: string]: {
         document: any;
         fieldPaths: string;
-        indexes: {};
+        indexes: SystemIndexes;
         searchIndexes: {};
         vectorIndexes: {};
       };
@@ -888,6 +896,75 @@ describe("defineSchema/defineTable expose table validators", () => {
     expect(schema.tables.table.validator).not.toHaveProperty("_id");
     expect(schema.tables.table.validator).not.toHaveProperty("_creationTime");
   });
+});
+
+describe("GenericSchema assignability", () => {
+  test("DataModelFromSchemaDefinition<GenericSchema> extends GenericDataModel", () => {
+    type GenericDM = DataModelFromSchemaDefinition<
+      SchemaDefinition<GenericSchema, boolean>
+    >;
+    type _check = GenericDM extends GenericDataModel ? true : false;
+    assert<Equals<_check, true>>();
+  });
+
+  test("a specific schema’s DataModel extends GenericDataModel", () => {
+    const specificSchema = defineSchema({
+      users: defineTable({ name: v.string() }).index("by_name", ["name"]),
+    });
+    type SpecificDM = DataModelFromSchemaDefinition<typeof specificSchema>;
+
+    // This is the key assignability check: specific DataModels must extend
+    // GenericDataModel so that generic code can accept any schema.
+    type _check = SpecificDM extends GenericDataModel ? true : false;
+    assert<Equals<_check, true>>();
+  });
+
+  test("SchemaDefinition<SpecificSchema> extends SchemaDefinition<GenericSchema, boolean>", () => {
+    const specificSchema = defineSchema({
+      messages: defineTable({ body: v.string() }),
+    });
+    type SpecificSD = typeof specificSchema;
+    type GenericSD = SchemaDefinition<GenericSchema, boolean>;
+
+    type _check = SpecificSD extends GenericSD ? true : false;
+    assert<Equals<_check, true>>();
+  });
+
+  test("specific DM from boolean-strict schema extends generic DM", () => {
+    // This mirrors the convexTest() return type: Schema is specific, but
+    // StrictTableNameTypes is widened to boolean.
+    const specificSchema = defineSchema({
+      users: defineTable({ name: v.string() }).index("by_name", ["name"]),
+    });
+    type SpecificDM = DataModelFromSchemaDefinition<
+      SchemaDefinition<(typeof specificSchema)["tables"], boolean>
+    >;
+    type GenericDM = DataModelFromSchemaDefinition<
+      SchemaDefinition<GenericSchema, boolean>
+    >;
+
+    // The specific DM must extend the generic DM for TestConvex covariance.
+    type _check = SpecificDM extends GenericDM ? true : false;
+    assert<Equals<_check, true>>();
+  });
+
+  test("AnyDataModel exposes system indexes", () => {
+    // AnyDataModel is used as the DataModel when no schema is defined.
+    // Verify that system indexes (by_id, by_creation_time) are available,
+    // since every table always has them.
+    type AnyTable = NamedTableInfo<AnyDataModel, string>;
+    type AnyIndexNames = IndexNames<AnyTable>;
+    type _check = "by_id" | "by_creation_time" extends AnyIndexNames
+      ? true
+      : false;
+    assert<Equals<_check, true>>();
+  });
+
+  // SpecificDM extends GenericDM because:
+  // 1. GenericSchema uses TableDefinition defaults (Validator<any,any,any>)
+  //    producing document: any and fieldPaths: any
+  // 2. AnyDataModel includes SystemIndexes, so the loose variant's index
+  //    signature satisfies GenericDM's SystemIndexes requirement
 });
 
 test("defineTable fails if it can’t export the validator", () => {
