@@ -21,6 +21,8 @@ message FunctionUsageStats {
   repeated TextQueryUsage text_query_usage = 17;
   repeated VectorQueryUsage vector_query_usage = 18;
   repeated CounterWithUrl fetch_egress = 15;
+  repeated CounterWithTag virtual_table_ingress = 19;
+  repeated CounterWithTag virtual_table_egress = 20;
 }
 
 message CounterWithTag {

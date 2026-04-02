@@ -1042,18 +1042,20 @@ impl<RT: Runtime> Committer<RT> {
                         table_name.is_system() || index_write.is_system_index,
                     );
                     usage_tracker.track_database_ingress_v2(
-                        component_path,
-                        virtual_system_mapping
-                            .associated_virtual_table_name(&table_name)
-                            .unwrap_or(&table_name)
-                            .to_string(),
+                        component_path.clone(),
+                        table_name.to_string(),
                         index_write.key.size() as u64,
-                        // Exclude indexes on system tables that are not virtual tables or reserved
-                        // system indexes on user tables
-                        (table_name.is_system()
-                            && !virtual_system_mapping.has_virtual_table(&table_name))
-                            || index_write.is_system_index,
+                        table_name.is_system() || index_write.is_system_index,
                     );
+                    if let Some(virtual_table_name) =
+                        virtual_system_mapping.associated_virtual_table_name(&table_name)
+                    {
+                        usage_tracker.track_virtual_table_ingress(
+                            component_path,
+                            virtual_table_name.to_string(),
+                            index_write.key.size() as u64,
+                        );
+                    }
                 }
             }
         }
@@ -1085,14 +1087,19 @@ impl<RT: Runtime> Committer<RT> {
                     );
                     usage_tracker.track_database_ingress_v2(
                         component_path.clone(),
-                        virtual_system_mapping
-                            .associated_virtual_table_name(&table_name)
-                            .unwrap_or(&table_name)
-                            .to_string(),
+                        table_name.to_string(),
                         document_write_size as u64,
-                        table_name.is_system()
-                            && !virtual_system_mapping.has_virtual_table(&table_name),
+                        table_name.is_system(),
                     );
+                    if let Some(virtual_table_name) =
+                        virtual_system_mapping.associated_virtual_table_name(&table_name)
+                    {
+                        usage_tracker.track_virtual_table_ingress(
+                            component_path.clone(),
+                            virtual_table_name.to_string(),
+                            document_write_size as u64,
+                        );
+                    }
                     if vector_index_write_size.0 > 0 {
                         usage_tracker.track_vector_ingress(
                             component_path.clone(),

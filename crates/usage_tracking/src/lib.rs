@@ -390,6 +390,8 @@ impl UsageCounter {
                 egress: 0,
                 egress_rows: 0,
                 egress_v2: 0,
+                virtual_table_ingress: 0,
+                virtual_table_egress: 0,
             });
         }
         for ((component_path, table_name), ingress) in stats.database_ingress_v2 {
@@ -404,6 +406,8 @@ impl UsageCounter {
                 egress: 0,
                 egress_rows: 0,
                 egress_v2: 0,
+                virtual_table_ingress: 0,
+                virtual_table_egress: 0,
             });
         }
         for ((component_path, table_name), egress) in stats.database_egress.clone() {
@@ -422,6 +426,8 @@ impl UsageCounter {
                 egress,
                 egress_rows: *rows,
                 egress_v2: 0,
+                virtual_table_ingress: 0,
+                virtual_table_egress: 0,
             });
         }
         for ((component_path, table_name), egress) in stats.database_egress_v2.clone() {
@@ -440,6 +446,40 @@ impl UsageCounter {
                 egress: 0,
                 egress_rows: *rows,
                 egress_v2: egress,
+                virtual_table_ingress: 0,
+                virtual_table_egress: 0,
+            });
+        }
+        for ((component_path, table_name), ingress) in stats.virtual_table_ingress {
+            usage_metrics.push(UsageEvent::DatabaseBandwidth {
+                id: execution_id.to_string(),
+                request_id: request_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                ingress: 0,
+                ingress_v2: 0,
+                egress: 0,
+                egress_rows: 0,
+                egress_v2: 0,
+                virtual_table_ingress: ingress,
+                virtual_table_egress: 0,
+            });
+        }
+        for ((component_path, table_name), egress) in stats.virtual_table_egress {
+            usage_metrics.push(UsageEvent::DatabaseBandwidth {
+                id: execution_id.to_string(),
+                request_id: request_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                ingress: 0,
+                ingress_v2: 0,
+                egress: 0,
+                egress_rows: 0,
+                egress_v2: 0,
+                virtual_table_ingress: 0,
+                virtual_table_egress: egress,
             });
         }
 
@@ -806,6 +846,32 @@ impl FunctionUsageTracker {
             .or_default() += egress;
     }
 
+    pub fn track_virtual_table_ingress(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        ingress: u64,
+    ) {
+        let mut state = self.state.lock();
+        *state
+            .virtual_table_ingress
+            .entry((component_path, table_name))
+            .or_default() += ingress;
+    }
+
+    pub fn track_virtual_table_egress(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        egress: u64,
+    ) {
+        let mut state = self.state.lock();
+        *state
+            .virtual_table_egress
+            .entry((component_path, table_name))
+            .or_default() += egress;
+    }
+
     pub fn track_database_egress_rows(
         &self,
         component_path: ComponentPath,
@@ -1087,6 +1153,22 @@ pub struct FunctionUsageStats {
             )")
     )]
     pub database_egress_v2: BTreeMap<(ComponentPath, TableName), u64>,
+    /// Ingress for virtual tables, keyed by virtual table name
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub virtual_table_ingress: BTreeMap<(ComponentPath, TableName), u64>,
+    /// Egress for virtual tables, keyed by virtual table name
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::collection::btree_map(
+              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
+            )")
+    )]
+    pub virtual_table_egress: BTreeMap<(ComponentPath, TableName), u64>,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(strategy = "proptest::collection::btree_map(
@@ -1189,6 +1271,8 @@ impl FunctionUsageStats {
             database_ingress_v2,
             database_egress,
             database_egress_v2,
+            virtual_table_ingress,
+            virtual_table_egress,
             database_egress_rows,
             vector_ingress,
             vector_ingress_v2,
@@ -1220,6 +1304,12 @@ impl FunctionUsageStats {
         }
         for (key, egress) in database_egress_v2 {
             *self.database_egress_v2.entry(key).or_default() += egress;
+        }
+        for (key, ingress) in virtual_table_ingress {
+            *self.virtual_table_ingress.entry(key).or_default() += ingress;
+        }
+        for (key, egress) in virtual_table_egress {
+            *self.virtual_table_egress.entry(key).or_default() += egress;
         }
         for (key, egress_rows) in database_egress_rows {
             *self.database_egress_rows.entry(key.clone()).or_default() += egress_rows;
@@ -1438,6 +1528,8 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             vector_query_usage: to_vector_query_usage(stats.vector_query_usage.into_iter()),
             vector_ingress_v2: to_by_tag_count(stats.vector_ingress_v2.into_iter()),
             fetch_egress: to_by_url_count(stats.fetch_egress.into_iter()),
+            virtual_table_ingress: to_by_tag_count(stats.virtual_table_ingress.into_iter()),
+            virtual_table_egress: to_by_tag_count(stats.virtual_table_egress.into_iter()),
         }
     }
 }
@@ -1463,6 +1555,8 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let vector_query_usage = from_vector_query_usage(stats.vector_query_usage)?.collect();
         let vector_ingress_v2 = from_by_tag_count(stats.vector_ingress_v2)?.collect();
         let fetch_egress = from_by_url_count(stats.fetch_egress)?.collect();
+        let virtual_table_ingress = from_by_tag_count(stats.virtual_table_ingress)?.collect();
+        let virtual_table_egress = from_by_tag_count(stats.virtual_table_egress)?.collect();
 
         Ok(FunctionUsageStats {
             storage_calls,
@@ -1473,6 +1567,8 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             database_egress_rows,
             database_egress,
             database_egress_v2,
+            virtual_table_ingress,
+            virtual_table_egress,
             vector_ingress,
             vector_egress,
             text_ingress,

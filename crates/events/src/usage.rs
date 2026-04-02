@@ -131,6 +131,12 @@ pub enum UsageEvent {
         egress_rows: u64,
         // Includes egress for tables that have virtual tables
         egress_v2: u64,
+        #[serde(default)]
+        #[cfg_attr(any(test, feature = "testing"), proptest(value = "0"))]
+        virtual_table_ingress: u64,
+        #[serde(default)]
+        #[cfg_attr(any(test, feature = "testing"), proptest(value = "0"))]
+        virtual_table_egress: u64,
     },
     NetworkBandwidth {
         id: String,
@@ -413,6 +419,8 @@ mod tests {
             egress: 200,
             egress_rows: 5,
             egress_v2: 250,
+            virtual_table_ingress: 0,
+            virtual_table_egress: 0,
         };
 
         let output = serde_json::to_string(&event).unwrap();
@@ -427,6 +435,8 @@ mod tests {
             "egress": 200,
             "egress_rows": 5,
             "egress_v2": 250,
+            "virtual_table_ingress": 0,
+            "virtual_table_egress": 0,
         }})
         .to_string();
 
