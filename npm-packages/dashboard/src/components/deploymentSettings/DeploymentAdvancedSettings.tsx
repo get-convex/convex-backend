@@ -239,15 +239,19 @@ export function DeploymentAdvancedSettings() {
         disabled={disabled}
         onSave={modifySettings}
       />
-      {deploymentType !== "prod" && (
-        <DeploymentExpirySheet
-          expiresAt={deployment.expiresAt ?? null}
-          deploymentType={deploymentType}
-          previewRetentionDays={entitlements?.previewDeploymentRetentionDays}
-          disabled={disabled}
-          onSave={modifySettings}
-        />
-      )}
+      <DeploymentExpirySheet
+        expiresAt={deployment.expiresAt ?? null}
+        deploymentType={deploymentType}
+        previewRetentionDays={entitlements?.previewDeploymentRetentionDays}
+        disabled={
+          !isTeamAdmin
+            ? "Only team admins can edit deployment expiry."
+            : deploymentType === "prod"
+              ? "Production deployments cannot be set to expire."
+              : undefined
+        }
+        onSave={modifySettings}
+      />
     </>
   );
 }
@@ -366,7 +370,7 @@ function TriStateSettingSheet({
   );
 }
 
-function DeploymentExpirySheet({
+export function DeploymentExpirySheet({
   expiresAt: initialExpiresAt,
   deploymentType,
   previewRetentionDays,
@@ -376,7 +380,7 @@ function DeploymentExpirySheet({
   expiresAt: number | null;
   deploymentType: DeploymentType;
   previewRetentionDays: number | undefined;
-  disabled: boolean;
+  disabled?: string;
   onSave: SaveFn;
 }) {
   const [hasExpiry, setHasExpiry] = useState(initialExpiresAt !== null);
@@ -431,50 +435,56 @@ function DeploymentExpirySheet({
         Set a time at which this deployment will be automatically deleted.
       </p>
       <div className="flex flex-col gap-3">
-        <label
-          className={cn(
-            "flex items-center gap-2 text-sm",
-            (disabled || isSaving) && "cursor-not-allowed opacity-50",
-          )}
-        >
-          <Checkbox
-            checked={hasExpiry}
-            onChange={() => setHasExpiry(!hasExpiry)}
-            disabled={disabled || isSaving}
-          />
-          <span>This deployment will expire at</span>
-          {hasExpiry ? (
-            <input
-              type="datetime-local"
-              value={toDateTimeLocalValue(expiryDate)}
-              min={toDateTimeLocalValue(minExpiryDate)}
-              max={
-                maxExpiryDate ? toDateTimeLocalValue(maxExpiryDate) : undefined
-              }
-              onChange={(e) => {
-                if (e.target.value) {
-                  setExpiryDate(new Date(e.target.value));
-                }
-              }}
-              disabled={disabled || isSaving}
+        <div>
+          <Tooltip className="w-auto" tip={disabled}>
+            <label
               className={cn(
-                "w-fit rounded-md border bg-background-secondary px-3 py-1.5 text-sm text-content-primary",
-                "focus:border-border-selected focus:outline-none",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-              )}
-            />
-          ) : (
-            <span
-              className={cn(
-                "w-fit rounded-md border bg-background-secondary px-3 py-1.5 text-sm text-content-secondary",
-                "cursor-not-allowed opacity-50",
+                "flex items-center gap-2 text-sm",
+                (!!disabled || isSaving) && "cursor-not-allowed opacity-50",
               )}
             >
-              Never
-            </span>
-          )}
-          {hasExpiry && <LiveTimestampDistance date={expiryDate} />}
-        </label>
+              <Checkbox
+                checked={hasExpiry}
+                onChange={() => setHasExpiry(!hasExpiry)}
+                disabled={!!disabled || isSaving}
+              />
+              <span>This deployment will expire at</span>
+              {hasExpiry ? (
+                <input
+                  type="datetime-local"
+                  value={toDateTimeLocalValue(expiryDate)}
+                  min={toDateTimeLocalValue(minExpiryDate)}
+                  max={
+                    maxExpiryDate
+                      ? toDateTimeLocalValue(maxExpiryDate)
+                      : undefined
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setExpiryDate(new Date(e.target.value));
+                    }
+                  }}
+                  disabled={!!disabled || isSaving}
+                  className={cn(
+                    "w-fit rounded-md border bg-background-secondary px-3 py-1.5 text-sm text-content-primary",
+                    "focus:border-border-selected focus:outline-none",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                  )}
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "w-fit rounded-md border bg-background-secondary px-3 py-1.5 text-sm text-content-secondary",
+                    "cursor-not-allowed",
+                  )}
+                >
+                  Never
+                </span>
+              )}
+              {hasExpiry && <LiveTimestampDistance date={expiryDate} />}
+            </label>
+          </Tooltip>
+        </div>
         {hasExpiry && !isExpiryValid && (
           <div className="flex w-fit items-center gap-2 rounded-lg border bg-background-error px-3 py-2 text-sm text-content-error">
             <ExclamationTriangleIcon className="size-4 shrink-0" />
@@ -487,7 +497,7 @@ function DeploymentExpirySheet({
         <div className="flex justify-start">
           <Button
             variant={hasExpiry ? "danger" : "primary"}
-            disabled={!isDirty || isSaving || disabled || !isExpiryValid}
+            disabled={!isDirty || isSaving || !!disabled || !isExpiryValid}
             loading={isSaving}
             onClick={handleSave}
           >
