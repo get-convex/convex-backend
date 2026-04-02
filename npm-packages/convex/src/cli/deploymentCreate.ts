@@ -24,6 +24,11 @@ import { saveSelectedDeployment } from "./deploymentSelect.js";
 import { promptOptions, promptString } from "./lib/utils/prompts.js";
 import { chalkStderr } from "chalk";
 import { parseDeploymentSelector } from "./lib/deploymentSelector.js";
+import {
+  parseExpiration,
+  resolveExpiration,
+  validateExpiration,
+} from "./lib/expiration.js";
 
 const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
 
@@ -48,6 +53,10 @@ export const deploymentCreate = new Command("create")
     "--default",
     "Make the new deployment your default production deployment (used by `npx convex deploy`) or your personal dev deployment.",
   )
+  .option(
+    "--expiration <value>",
+    'When the deployment expires (e.g. "none", "in 7 days", "2026-04-01T00:00:00Z", or a UNIX timestamp in seconds or milliseconds)',
+  )
   .action(async (refParam, options) => {
     const ctx = await oneoffContext({
       url: undefined,
@@ -60,6 +69,8 @@ export const deploymentCreate = new Command("create")
       adminKey: undefined,
       envFile: undefined,
     });
+
+    const expiresAt = await resolveExpiresAtOrCrash(ctx, options.expiration);
 
     const {
       ref,
@@ -101,6 +112,7 @@ export const deploymentCreate = new Command("create")
             region: regionDetails?.name ?? null,
             reference: ref ?? null,
             isDefault,
+            ...(expiresAt !== undefined ? { expiresAt } : {}),
           },
         },
       )
@@ -551,6 +563,36 @@ async function crashInvalidRegion(
     errorType: "fatal",
     printedMessage: invalidRegionMessage(availableRegions, region),
   });
+}
+
+async function resolveExpiresAtOrCrash(
+  ctx: Context,
+  expiration: string | undefined,
+): Promise<number | null | undefined> {
+  if (!expiration) {
+    return undefined;
+  }
+  const parsed = parseExpiration(expiration);
+  if (parsed.kind === "error") {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: parsed.message,
+    });
+  }
+  const now = Date.now();
+  const resolved = resolveExpiration(parsed, now);
+  if (resolved !== null) {
+    const validation = validateExpiration(resolved, now);
+    if (validation.kind === "error") {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: validation.message,
+      });
+    }
+  }
+  return resolved;
 }
 
 /**

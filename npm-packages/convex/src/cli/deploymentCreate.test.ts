@@ -349,6 +349,83 @@ describe("non-interactive create flow", () => {
     });
   });
 
+  describe("--expiration flag", () => {
+    beforeEach(() => {
+      vi.mocked(getDeploymentSelection).mockResolvedValue({
+        kind: "existingDeployment",
+        deploymentToActOn: {
+          url: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "admin-key",
+          deploymentFields: {
+            deploymentName: "joyful-capybara-123",
+            deploymentType: "dev",
+            teamSlug: "my-team",
+            projectSlug: "my-project",
+          },
+          source: "deployKey" as const,
+        },
+      });
+      vi.mocked(getProjectDetails).mockResolvedValue(fakeProject);
+    });
+
+    test("--expiration none sends expiresAt: null", async () => {
+      setupPlatformForCreate();
+
+      await deploymentCreate.parseAsync(
+        ["my-deployment", "--type", "dev", "--expiration", "none"],
+        { from: "user" },
+      );
+
+      expect(mockPlatformPost).toHaveBeenCalledWith(
+        "/projects/{project_id}/create_deployment",
+        expect.objectContaining({
+          body: expect.objectContaining({
+            expiresAt: null,
+          }),
+        }),
+      );
+    });
+
+    test("--expiration with timestamp sends correct ms value", async () => {
+      setupPlatformForCreate();
+
+      // Use a timestamp far enough in the future to pass validation
+      const futureMs = Date.now() + 2 * 60 * 60 * 1000; // 2 hours from now
+      const futureSec = Math.floor(futureMs / 1000);
+
+      await deploymentCreate.parseAsync(
+        [
+          "my-deployment",
+          "--type",
+          "dev",
+          "--expiration",
+          futureSec.toString(),
+        ],
+        { from: "user" },
+      );
+
+      expect(mockPlatformPost).toHaveBeenCalledWith(
+        "/projects/{project_id}/create_deployment",
+        expect.objectContaining({
+          body: expect.objectContaining({
+            expiresAt: futureSec * 1000,
+          }),
+        }),
+      );
+    });
+
+    test("no --expiration flag does not include expiresAt in body", async () => {
+      setupPlatformForCreate();
+
+      await deploymentCreate.parseAsync(["my-deployment", "--type", "dev"], {
+        from: "user",
+      });
+
+      const call = mockPlatformPost.mock.calls[0];
+      expect(call[1].body).not.toHaveProperty("expiresAt");
+    });
+  });
+
   describe("without project configured", () => {
     beforeEach(() => {
       vi.mocked(getDeploymentSelection).mockResolvedValue({
