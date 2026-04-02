@@ -19,7 +19,7 @@ import { useProvisionDeployment } from "api/deployments";
 import { Fieldset, Legend, RadioGroup } from "@headlessui/react";
 import { cn } from "@ui/cn";
 import { Sheet } from "@ui/Sheet";
-import { useTheme } from "next-themes";
+import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import createGlobe from "cobe";
 import { SignalIcon } from "@heroicons/react/24/outline";
 import { GlobeIcon } from "@radix-ui/react-icons";
@@ -285,8 +285,8 @@ export function ProvisionDeploymentFormInner({
 function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const focusRef = useRef<[number, number]>([0, 0]);
-  const { forcedTheme, resolvedTheme } = useTheme();
-  const isDark = (forcedTheme ?? resolvedTheme) === "dark";
+  const currentTheme = useCurrentTheme();
+  const isDark = currentTheme === "dark";
 
   // Update focus when region changes
   useEffect(() => {

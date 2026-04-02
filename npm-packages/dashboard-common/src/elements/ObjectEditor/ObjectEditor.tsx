@@ -4,7 +4,6 @@ import Editor, {
   EditorProps,
 } from "@monaco-editor/react";
 import { ValidatorJSON, Value } from "convex/values";
-import { useTheme } from "next-themes";
 import isEqual from "lodash/isEqual";
 import React, {
   useCallback,
@@ -18,6 +17,7 @@ import isArray from "lodash/isArray";
 import isPlainObject from "lodash/isPlainObject";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { stringifyValue } from "@common/lib/stringifyValue";
+import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
@@ -195,7 +195,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
 
   const { deploymentsURI, captureMessage } = useContext(DeploymentInfoContext);
 
-  const { resolvedTheme: currentTheme } = useTheme();
+  const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
   return (

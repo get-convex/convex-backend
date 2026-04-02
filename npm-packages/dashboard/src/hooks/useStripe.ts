@@ -6,7 +6,7 @@ import {
 import { useCreateSetupIntent } from "api/billing";
 import { useState, useEffect, useCallback } from "react";
 import { TeamResponse } from "generatedApi";
-import { useTheme } from "next-themes";
+import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
 
@@ -30,7 +30,7 @@ export function useStripePaymentSetup(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentMethod, hasAdminPermissions]);
 
-  const { resolvedTheme: currentTheme } = useTheme();
+  const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
   // Unfortunately, the Stripe API does not allow for dynamic theming via CSS variables,

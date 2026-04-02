@@ -5,8 +5,8 @@ import Editor, {
   EditorProps,
 } from "@monaco-editor/react";
 import { RefObject, useEffect, useRef, useState } from "react";
-import { useTheme } from "next-themes";
 import { editorOptions } from "@common/elements/ObjectEditor/ObjectEditor";
+import { useCurrentTheme } from "../lib/useCurrentTheme";
 
 // The editor will have a height of 100% and will scroll.
 type ParentHeight = {
@@ -159,7 +159,7 @@ export function ReadonlyCode({
     };
   }
 
-  const { resolvedTheme: currentTheme } = useTheme();
+  const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
   return (
     <div ref={ref} style={initialHeight} key={path}>
@@ -201,7 +201,7 @@ export function ReadonlyCodeDiff({
   const initialHeight =
     height.type === "content" ? { height: "200px" } : { height: "100%" };
 
-  const { resolvedTheme: currentTheme } = useTheme();
+  const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
   return (
     <div ref={ref} style={initialHeight}>

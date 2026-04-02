@@ -4,7 +4,6 @@ import classNames from "classnames";
 import { FunctionResult } from "convex/browser";
 import { useQuery } from "convex/react";
 // special case: too annoying to move convexServerTypes to a separate file right now
-import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import udfs from "@common/udfs";
 import { Uri } from "monaco-editor/esm/vs/editor/editor.api";
@@ -14,6 +13,7 @@ import { stringifyValue } from "@common/lib/stringifyValue";
 import { SchemaJson, displaySchema } from "@common/lib/format";
 import { useRunTestFunction } from "@common/features/functionRunner/lib/client";
 import { ComponentId } from "@common/lib/useNents";
+import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {
   RunHistory,
@@ -178,7 +178,7 @@ export function useFunctionEditor(
   setRunHistoryItem: (item: RunHistoryItem) => void,
   onRanCustomQuery?: () => void,
 ) {
-  const { resolvedTheme: currentTheme } = useTheme();
+  const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
 
   const [prevInitialTable, setPrevInitialTable] = useState<

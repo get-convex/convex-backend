@@ -1,10 +1,10 @@
 import { BeforeMount } from "@monaco-editor/react";
 import { useQuery } from "convex/react";
-import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import udfs from "@common/udfs";
 import { useRouter } from "next/router";
 import { cn } from "@ui/cn";
+import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import { GenericDocument } from "convex/server";
 import { SourceLocation } from "acorn";
 import type { editor } from "monaco-editor/esm/vs/editor/editor.api";
@@ -28,7 +28,7 @@ export function useIdDecorations(
   showTableNames: boolean = true,
 ): (ids: LiteralNode[]) => void {
   const router = useRouter();
-  const { resolvedTheme: currentTheme } = useTheme();
+  const currentTheme = useCurrentTheme();
   const prefersDark = currentTheme === "dark";
   const [ids, setIds] = useState<LiteralNode[]>([]);
 

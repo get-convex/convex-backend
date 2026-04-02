@@ -1,6 +1,6 @@
 import { cn } from "@ui/cn";
 import { Spinner } from "@ui/Spinner";
-import { useTheme } from "next-themes";
+import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Convex brand colors — sourced from the design-system CSS variables
@@ -803,8 +803,8 @@ function SlotMachineAnimated({
   onReplay: () => void;
   onComplete?: () => void;
 }) {
-  const { forcedTheme, resolvedTheme } = useTheme();
-  const isDark = (forcedTheme ?? resolvedTheme) === "dark";
+  const currentTheme = useCurrentTheme();
+  const isDark = currentTheme === "dark";
   const itemHeight = showEmoji ? ITEM_HEIGHT_EMOJI : ITEM_HEIGHT_TEXT;
   const parts = deploymentName?.split("-");
   const finalAdjective = parts?.[0];
