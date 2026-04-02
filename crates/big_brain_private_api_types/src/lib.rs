@@ -11,7 +11,10 @@ use common::types::{
     ProjectId,
     TeamId,
 };
-use keybroker::AdminIdentityPrincipal;
+use keybroker::{
+    AdminIdentityPrincipal,
+    DeploymentOp,
+};
 use serde::{
     Deserialize,
     Serialize,
@@ -110,7 +113,7 @@ pub struct AccessTokenDeploymentAuthResponse {
     pub authorized_entity: Option<AdminIdentityPrincipal>,
     pub is_read_only: Option<bool>,
     #[serde(default)]
-    pub allowed_operations: Option<Vec<i32>>,
+    pub allowed_ops: Option<Vec<DeploymentOp>>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]

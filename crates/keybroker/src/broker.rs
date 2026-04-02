@@ -65,7 +65,7 @@ use pb::{
     convex_identity::{
         unchecked_identity::Identity as UncheckedIdentityProto,
         ActingUser,
-        DeploymentOperation,
+        DeploymentOperation as ProtoDeploymentOperation,
         UnknownIdentity,
     },
     convex_keys::{
@@ -618,28 +618,10 @@ fn extract_custom_jwt_claims(
     result
 }
 
-pub fn read_only_operations() -> Vec<i32> {
-    vec![
-        DeploymentOperation::ViewEnvironmentVariables as i32,
-        DeploymentOperation::ViewLogs as i32,
-        DeploymentOperation::ViewMetrics as i32,
-        DeploymentOperation::ViewIntegrations as i32,
-        DeploymentOperation::ViewData as i32,
-        DeploymentOperation::ViewBackups as i32,
-        DeploymentOperation::DownloadBackups as i32,
-        DeploymentOperation::RunInternalQueries as i32,
-        DeploymentOperation::RunTestQuery as i32,
-    ]
-}
-
-pub fn operations_for_deploy_key(is_read_only: bool) -> Vec<i32> {
-    if is_read_only {
-        read_only_operations()
-    } else {
-        // Empty means all operations are allowed.
-        vec![]
-    }
-}
+use crate::operations::{
+    operations_for_deploy_key,
+    DeploymentOp,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -661,7 +643,7 @@ pub struct AdminIdentity {
     // but not write to them.
     is_read_only: bool,
     // Operations this identity is allowed to perform. Empty means all operations allowed.
-    allowed_operations: Vec<i32>,
+    allowed_operations: Vec<DeploymentOp>,
 }
 
 impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
@@ -686,7 +668,10 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
             },
             key: Some(key),
             is_read_only,
-            allowed_operations,
+            allowed_operations: allowed_operations
+                .into_iter()
+                .map(|op| ProtoDeploymentOperation::from(op) as i32)
+                .collect(),
         }
     }
 }
@@ -707,12 +692,21 @@ impl AdminIdentity {
         };
         let key = msg.key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
         let is_read_only: bool = msg.is_read_only;
+        let allowed_operations = msg
+            .allowed_operations
+            .into_iter()
+            .filter_map(|i| {
+                ProtoDeploymentOperation::try_from(i)
+                    .ok()
+                    .and_then(|proto| DeploymentOp::try_from(proto).ok())
+            })
+            .collect();
         Ok(Self {
             instance_name,
             principal,
             key,
             is_read_only,
-            allowed_operations: msg.allowed_operations,
+            allowed_operations,
         })
     }
 
@@ -721,7 +715,7 @@ impl AdminIdentity {
         principal: AdminIdentityPrincipal,
         access_token: String,
         is_read_only: bool,
-        allowed_operations: Vec<i32>,
+        allowed_operations: Vec<DeploymentOp>,
     ) -> Self {
         Self {
             instance_name,
@@ -744,7 +738,7 @@ impl AdminIdentity {
         self.is_read_only
     }
 
-    pub fn allowed_operations(&self) -> &[i32] {
+    pub fn allowed_operations(&self) -> &[DeploymentOp] {
         &self.allowed_operations
     }
 }

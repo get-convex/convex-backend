@@ -6,6 +6,7 @@ mod broker;
 mod encryptor;
 mod legacy_encryptor;
 mod metrics;
+mod operations;
 mod secret;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
@@ -17,8 +18,6 @@ pub use sync_types::UserIdentityAttributes;
 
 pub use self::{
     broker::{
-        operations_for_deploy_key,
-        read_only_operations,
         AdminIdentity,
         AdminIdentityPrincipal,
         CoreIdTokenWithCustomClaims,
@@ -33,6 +32,11 @@ pub use self::{
     },
     encryptor::Encryptor,
     legacy_encryptor::LegacyEncryptor,
+    operations::{
+        operations_for_deploy_key,
+        read_only_operations,
+        DeploymentOp,
+    },
     secret::{
         InstanceSecret,
         Secret,
