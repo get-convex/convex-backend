@@ -43,6 +43,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PauseReason {
     DatabaseSyscall { name: String },
+    ConcurrencyPermitReacquire,
     LoadComponentArgs,
     LoadUdfConfig,
     LoadEnvironmentVariables,
@@ -57,6 +58,7 @@ impl PauseReason {
     pub fn as_str(&self) -> String {
         match self {
             Self::DatabaseSyscall { name } => format!("database_syscall({name})"),
+            Self::ConcurrencyPermitReacquire => "concurrency_permit_reacquire".to_string(),
             Self::LoadComponentArgs => "load_component_args".to_string(),
             Self::LoadUdfConfig => "load_udf_config".to_string(),
             Self::LoadEnvironmentVariables => "load_environment_variables".to_string(),
@@ -295,12 +297,29 @@ impl<RT: Runtime> Timeout<RT> {
                 "SystemTimeoutError",
                 TIMEOUT_ERROR_MESSAGE,
             ))?;
-        let permit = pause_guard
+        let suspended_permit = pause_guard
             .suspended_permit
             .take()
-            .context("lost the suspended permit")?
-            .acquire()
-            .await;
+            .context("lost the suspended permit")?;
+        drop(pause_guard);
+
+        // Time the permit reacquire separately.
+        let timeout = self.with_timeout();
+        let (pause_start, tx) = self.pause_start(PauseReason::ConcurrencyPermitReacquire);
+        let pause_guard = PauseGuard {
+            timeout: self,
+            pause_start,
+            pause_done: Some(tx),
+            reason: PauseReason::ConcurrencyPermitReacquire,
+            suspended_permit: None,
+        };
+        let permit =
+            timeout(suspended_permit.acquire())
+                .await
+                .context(ErrorMetadata::overloaded(
+                    "SystemTimeoutError",
+                    TIMEOUT_ERROR_MESSAGE,
+                ))?;
         drop(pause_guard);
         self.permit = Some(permit);
         result
