@@ -139,6 +139,7 @@ pub struct RunRequestArgs {
     /// If set, use this IndexReader for index scans instead of reading from
     /// persistence directly. Used to route index reads to conductor.
     pub index_reader_override: Option<Arc<dyn IndexReader>>,
+    pub subfunctions_in_same_isolate: bool,
 }
 
 #[derive(Clone)]
@@ -311,6 +312,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
             in_memory_index_last_modified,
             context,
             index_reader_override,
+            subfunctions_in_same_isolate,
         }: RunRequestArgs,
         function_metadata: Option<FunctionMetadata>,
         http_action_metadata: Option<HttpActionMetadata>,
@@ -398,6 +400,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                         0,
                         instance_name,
                         function_started_sender,
+                        subfunctions_in_same_isolate,
                     )
                     .await?;
                 Ok((

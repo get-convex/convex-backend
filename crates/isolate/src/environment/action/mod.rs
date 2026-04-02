@@ -181,8 +181,9 @@ use crate::{
     },
     strings,
     termination::{
+        ContextTerminationReason,
         IsolateHandle,
-        TerminationReason,
+        IsolateTerminationReason,
     },
     timeout::{
         FunctionExecutionTime,
@@ -1039,10 +1040,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 let err = match scope.format_traceback(as_local) {
                     Ok(e) => e,
                     Err(e) => {
-                        handle.terminate_and_throw(TerminationReason::SystemError(Some(e)))?;
+                        handle.terminate_and_throw(
+                            IsolateTerminationReason::SystemError(Some(e)).into(),
+                        )?;
                     },
                 };
-                handle.terminate_and_throw(TerminationReason::UnhandledPromiseRejection(err))?;
+                handle.terminate_and_throw(
+                    ContextTerminationReason::UnhandledPromiseRejection(err).into(),
+                )?;
             }
 
             // Check for dynamic import requests.
@@ -1177,7 +1182,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     anyhow::bail!("Cancelled");
                 },
             }
-            let permit = timeout.with_timeout(regain_permit.acquire()).await?;
+            let permit = timeout.with_timeout()(regain_permit.acquire()).await?;
             timeout.permit = Some(permit);
             handle.check_terminated()?;
         };

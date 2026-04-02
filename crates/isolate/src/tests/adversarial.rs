@@ -1045,3 +1045,13 @@ async fn test_blob_oom(rt: TestRuntime) -> anyhow::Result<()> {
     })
     .await
 }
+
+#[convex_macro::prod_rt_test]
+async fn test_can_catch_unhandled_rejection_in_subfunction(rt: ProdRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let r = t
+        .query("adversarial:unhandledRejectionInSubfunction", assert_obj!())
+        .await?;
+    assert_contains(&r, "Uncaught Error: i am uncaught");
+    Ok(())
+}

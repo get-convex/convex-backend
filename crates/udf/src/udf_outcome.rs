@@ -28,6 +28,7 @@ use rand::Rng;
 use sync_types::types::SerializedArgs;
 use value::{
     heap_size::HeapSize,
+    ConvexValue,
     JsonPackedValue,
 };
 
@@ -86,6 +87,21 @@ impl HeapSize for UdfOutcome {
             + self.result.heap_size()
             + self.syscall_trace.heap_size()
     }
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
+pub struct NestedUdfOutcome {
+    pub observed_identity: bool,
+    pub observed_rng: bool,
+    pub observed_time: bool,
+    pub log_lines: LogLines,
+    pub journal: QueryJournal,
+    pub result: Result<ConvexValue, JsError>,
+    pub syscall_trace: SyscallTrace,
 }
 
 impl TryFrom<UdfOutcome> for UdfOutcomeProto {

@@ -208,6 +208,20 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<
             .ok_or_else(|| anyhow!("ContextState disappeared?"))
     }
 
+    pub fn take_state(&mut self) -> anyhow::Result<RequestState<RT, E>> {
+        self.v8_context
+            .remove_context_slot(self.v8_scope)
+            .ok_or_else(|| anyhow!("ContextState disappeared?"))
+    }
+
+    pub fn return_state(&mut self, state: RequestState<RT, E>) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.v8_context.set_context_slot(self.v8_scope, state),
+            "Two ContextStates appeared"
+        );
+        Ok(())
+    }
+
     pub fn with_state_mut<T>(
         &mut self,
         f: impl FnOnce(&mut RequestState<RT, E>) -> T,

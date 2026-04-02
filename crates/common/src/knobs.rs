@@ -985,6 +985,11 @@ pub static MAX_SEGMENT_DELETED_PERCENTAGE: LazyLock<f64> =
 /// (true) or InProcessFunctionRunner (false).
 pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE_FUNRUN", true));
 
+/// Whether transactional subfunctions (runQuery/runMutation from inside a
+/// query/mutation) should run in the same isolate as the caller.
+pub static SUBFUNCTIONS_IN_SAME_ISOLATE: LazyLock<bool> =
+    LazyLock::new(|| env_config("SUBFUNCTIONS_IN_SAME_ISOLATE", false));
+
 /// The amount of time to wait for the primary request to finish before starting
 /// a second backup request when running a vector search.
 pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =

@@ -69,8 +69,10 @@ use crate::{
     },
     strings,
     termination::{
+        ContextId,
+        ContextTerminationReason,
         IsolateHandle,
-        TerminationReason,
+        IsolateTerminationReason,
     },
 };
 
@@ -93,6 +95,7 @@ pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<R
 pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     pub rt: RT,
     pub environment: E,
+    pub context_id: ContextId,
 
     pub streams: WithHeapSize<BTreeMap<uuid::Uuid, anyhow::Result<ReadableStream>>>,
     pub stream_listeners: WithHeapSize<BTreeMap<uuid::Uuid, StreamListener>>,
@@ -102,6 +105,21 @@ pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     // This is not wrapped in `WithHeapSize` so we can return `&mut TextDecoderStream`.
     // Additionally, `TextDecoderResource` should have a fairly small heap size.
     pub text_decoders: BTreeMap<uuid::Uuid, TextDecoderResource>,
+}
+
+impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
+    pub fn new(rt: RT, environment: E, context_id: ContextId) -> Self {
+        RequestState {
+            rt,
+            environment,
+            context_id,
+            streams: WithHeapSize::default(),
+            stream_listeners: WithHeapSize::default(),
+            request_stream_state: None,
+            console_timers: WithHeapSize::default(),
+            text_decoders: BTreeMap::new(),
+        }
+    }
 }
 
 pub struct RequestStreamState {
@@ -348,11 +366,12 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
 
     fn handle_syscall_or_op_error(scope: &mut ExecutionScope<RT, E>, err: anyhow::Error) {
         if let Some(uncatchable_error) = err.downcast_ref::<UncatchableDeveloperError>() {
-            scope
-                .handle()
-                .terminate(TerminationReason::UncatchableDeveloperError(
+            scope.handle().terminate(
+                ContextTerminationReason::UncatchableDeveloperError(
                     uncatchable_error.js_error.clone(),
-                ));
+                )
+                .into(),
+            );
             let message = uncatchable_error.js_error.message.to_string();
             let message_v8 = v8::String::new(scope, &message[..]).unwrap();
             let exception = v8::Exception::error(scope, message_v8);
@@ -383,7 +402,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a
         // on the UDF context and and forcibly abort the isolate.
         scope
             .handle()
-            .terminate(TerminationReason::SystemError(Some(err)));
+            .terminate(IsolateTerminationReason::SystemError(Some(err)).into());
         // It turns out that `terminate_execution` doesn't, well, terminate execution
         // immediately [1]. So, throw an exception in case the rest of
         // `convex/server`'s syscall handler still runs after this call.

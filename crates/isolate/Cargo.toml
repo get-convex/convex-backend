@@ -91,6 +91,7 @@ rand_chacha = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, optional = true }
 runtime = { workspace = true }
+scopeguard = { workspace = true }
 search = { workspace = true }
 semver = { workspace = true }
 sentry = { workspace = true }

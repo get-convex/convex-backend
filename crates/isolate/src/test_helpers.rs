@@ -36,7 +36,10 @@ use common::{
         fetch::ProxiedFetchClient,
         RoutedHttpPath,
     },
-    knobs::ISOLATE_MAX_HEAP_FOR_ANALYZE,
+    knobs::{
+        ISOLATE_MAX_HEAP_FOR_ANALYZE,
+        SUBFUNCTIONS_IN_SAME_ISOLATE,
+    },
     log_lines::LogLines,
     pause::HoldGuard,
     persistence::Persistence,
@@ -175,7 +178,6 @@ use crate::{
         Request,
         RequestType,
         SharedIsolateHeapStats,
-        UdfCallback,
         UdfRequest,
     },
     concurrency_limiter::ConcurrencyLimiter,
@@ -589,6 +591,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 0,
                 DEV_INSTANCE_NAME.to_string(),
                 None,
+                *SUBFUNCTIONS_IN_SAME_ISOLATE,
             )
             .await?;
         let FunctionOutcome::Mutation(outcome) = outcome else {
@@ -724,6 +727,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 0,
                 DEV_INSTANCE_NAME.to_string(),
                 None,
+                *SUBFUNCTIONS_IN_SAME_ISOLATE,
             )
             .await?;
         // Ensure the transaction is readonly by turning it into a subscription token.
@@ -773,6 +777,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 0,
                 DEV_INSTANCE_NAME.to_string(),
                 None,
+                *SUBFUNCTIONS_IN_SAME_ISOLATE,
             )
             .await?;
         match outcome {
@@ -1415,6 +1420,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
         ),
         udf_type: UdfType::Query,
         transaction: tx,
+        unix_timestamp: UnixTimestamp::from_millis(1),
         journal: QueryJournal::new(),
         context: ExecutionContext::new_for_test(),
     };
@@ -1423,38 +1429,16 @@ pub async fn bogus_udf_request<RT: Runtime>(
         environment_data: test_environment_data(db.runtime().clone())?,
         response: sender,
         queue_timer: queue_timer(),
-        udf_callback: Box::new(BogusUdfCallback),
         rng_seed: [0; 32],
-        unix_timestamp: UnixTimestamp::from_millis(1),
         reactor_depth: 0,
         function_started_sender: None,
+        udf_callback: None,
     };
     Ok(Request {
         client_id: client_id.to_string(),
         inner,
         parent_trace: EncodedSpan::empty(),
     })
-}
-
-struct BogusUdfCallback;
-
-#[async_trait]
-impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
-    async fn execute_udf(
-        &self,
-        _client_id: String,
-        _udf_type: UdfType,
-        _path_and_args: ValidatedPathAndArgs,
-        _environment_data: EnvironmentData<RT>,
-        _transaction: Transaction<RT>,
-        _journal: QueryJournal,
-        _context: ExecutionContext,
-        _rng_seed: [u8; 32],
-        _unix_timestamp: UnixTimestamp,
-        _reactor_depth: usize,
-    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        anyhow::bail!("BogusUdfCallback called")
-    }
 }
 
 pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWorker<RT>>(

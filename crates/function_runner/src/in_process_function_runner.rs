@@ -22,6 +22,7 @@ use common::{
     errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
+    knobs::SUBFUNCTIONS_IN_SAME_ISOLATE,
     log_lines::LogLine,
     persistence::PersistenceReader,
     runtime::{
@@ -257,6 +258,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             in_memory_index_last_modified,
             context,
             index_reader_override: None,
+            subfunctions_in_same_isolate: *SUBFUNCTIONS_IN_SAME_ISOLATE,
         };
 
         // NOTE: We run the function without checking retention until after the

@@ -96,8 +96,7 @@ use udf::{
         validate_schedule_args,
         ValidatedPathAndArgs,
     },
-    FunctionOutcome,
-    UdfOutcome,
+    NestedUdfOutcome,
 };
 use value::{
     heap_size::HeapSize,
@@ -110,7 +109,11 @@ use value::{
 
 use super::DatabaseUdfEnvironment;
 use crate::{
-    client::EnvironmentData,
+    client::{
+        EnvironmentData,
+        UdfCallback,
+        UdfRequest,
+    },
     environment::{
         action::parse_name_or_reference,
         helpers::{
@@ -284,7 +287,7 @@ pub enum ManagedQuery<RT: Runtime> {
 pub type QueryId = u32;
 
 #[allow(async_fn_in_trait)]
-pub trait AsyncSyscallProvider<RT: Runtime> {
+pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
     fn rt(&self) -> &RT;
     fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>>;
     fn key_broker(&self) -> &FunctionRunnerKeyBroker;
@@ -329,6 +332,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
         udf_type: UdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
+        udf_callback: impl UdfCallback<RT>,
     ) -> anyhow::Result<ConvexValue>;
 
     async fn create_function_handle(
@@ -487,6 +491,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         udf_type: UdfType,
         path: ResolvedComponentFunctionPath,
         args: ConvexObject,
+        udf_callback: impl UdfCallback<RT>,
     ) -> anyhow::Result<ConvexValue> {
         match (self.udf_type, udf_type) {
             // Queries can call other queries.
@@ -545,58 +550,42 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         } else {
             QueryJournal::new()
         };
-        let (mut tx, outcome) = self
-            .udf_callback
-            .execute_udf(
+        let (mut tx, outcome) = udf_callback
+            .execute_nested_udf(
                 self.client_id.clone(),
-                udf_type,
-                path_and_args,
+                UdfRequest {
+                    udf_type,
+                    path_and_args,
+                    transaction: tx,
+                    unix_timestamp,
+                    journal: query_journal,
+                    context: self.context.clone(),
+                },
                 EnvironmentData {
                     key_broker: self.key_broker.clone(),
                     default_system_env_vars: BTreeMap::new(),
                     file_storage: self.file_storage.clone(),
                     module_loader: self.phase.module_loader().clone(),
                 },
-                tx,
-                query_journal,
-                self.context.clone(),
                 rng_seed,
-                unix_timestamp,
                 new_reactor_depth,
             )
             .await
             .map_err(remove_rejected_before_execution)?;
-        match (udf_type, &outcome) {
-            (UdfType::Mutation, FunctionOutcome::Mutation(UdfOutcome { result: Err(_), .. })) => {
-                tx.rollback_subtransaction(tokens)?
-            },
+        match udf_type {
+            UdfType::Mutation if outcome.result.is_err() => tx.rollback_subtransaction(tokens)?,
             _ => tx.commit_subtransaction(tokens)?,
         }
         self.phase.put_tx(tx)?;
 
-        let outcome = match (udf_type, outcome) {
-            (UdfType::Query, FunctionOutcome::Query(outcome))
-            | (UdfType::Mutation, FunctionOutcome::Mutation(outcome)) => outcome,
-            _ => anyhow::bail!("Unexpected outcome for {udf_type:?}"),
-        };
-
-        let UdfOutcome {
+        let NestedUdfOutcome {
             result,
             observed_identity,
             observed_rng,
             observed_time,
-            // TODO: consider propagating syscall traces
-            syscall_trace: _,
+            syscall_trace,
             log_lines,
             journal,
-            arguments: _,
-            identity: _,
-            path: _,
-            udf_server_version: _,
-            unix_timestamp: _,
-            rng_seed: _,
-            memory_in_mb: _,
-            user_execution_time: _,
         } = outcome;
 
         log_run_udf(
@@ -618,6 +607,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             self.phase.unix_timestamp()?;
         }
 
+        self.syscall_trace.merge(&syscall_trace);
+
         if self.is_system() && udf_type == UdfType::Query && result.is_ok() {
             self.next_journal = journal;
         }
@@ -626,13 +617,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         // limiting them only when they are returned to the parent.
         self.emit_sub_function_log_lines(path.for_logging(), log_lines);
 
-        let result = match result {
-            Ok(r) => r.unpack()?,
-            Err(e) => {
-                // TODO: How do we want to propagate stack traces between component calls?
-                anyhow::bail!(e);
-            },
-        };
+        // TODO: How do we want to propagate stack traces between component calls?
+        let result = result?;
         let tx = self.phase.tx()?;
         let table_mapping = tx.table_mapping().namespace(called_component_id.into());
         if let Some(e) =
@@ -690,6 +676,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     pub async fn run_async_syscall_batch(
         provider: &mut P,
         batch: AsyncSyscallBatch,
+        udf_callback: impl UdfCallback<RT>,
     ) -> Vec<anyhow::Result<String>> {
         let start = provider.rt().monotonic_now();
         let batch_name = batch.name().to_string();
@@ -729,7 +716,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/cancel_job" => Box::pin(Self::cancel_job(provider, args)).await,
 
                     // Components
-                    "1.0/runUdf" => Box::pin(Self::run_udf(provider, args)).await,
+                    "1.0/runUdf" => Box::pin(Self::run_udf(provider, args, udf_callback)).await,
                     "1.0/createFunctionHandle" => {
                         Box::pin(Self::create_function_handle(provider, args)).await
                     },
@@ -1346,7 +1333,11 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     }
 
     #[convex_macro::instrument_future]
-    async fn run_udf(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn run_udf(
+        provider: &mut P,
+        args: JsonValue,
+        udf_callback: impl UdfCallback<RT>,
+    ) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RunUdfArgs {
@@ -1409,7 +1400,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 }
             },
         };
-        let value = provider.run_udf(udf_type, path, args).await?;
+        let value = provider.run_udf(udf_type, path, args, udf_callback).await?;
         Ok(value.into())
     }
 

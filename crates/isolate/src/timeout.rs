@@ -1,5 +1,9 @@
 use std::{
     collections::HashMap,
+    ops::{
+        Deref,
+        DerefMut,
+    },
     sync::Arc,
     time::Duration,
 };
@@ -16,18 +20,21 @@ use common::{
 };
 use errors::ErrorMetadata;
 use futures::{
-    future,
-    future::Either,
-    select_biased,
+    future::{
+        self,
+        Either,
+    },
     Future,
-    FutureExt,
 };
 use parking_lot::Mutex;
+use tokio::select;
 
 use crate::{
+    concurrency_limiter::SuspendedPermit,
     metrics,
     termination::{
-        ContextHandle,
+        IsolateHandle,
+        IsolateTerminationReason,
         TerminationReason,
     },
     ConcurrencyPermit,
@@ -103,15 +110,13 @@ impl<RT: Runtime> TimeoutInner<RT> {
                 let now = self.rt.monotonic_now();
                 if now >= deadline {
                     metrics::log_user_timeout();
-                    return Ok(Some(TerminationReason::UserTimeout(timeout)));
+                    return Ok(Some(IsolateTerminationReason::UserTimeout(timeout).into()));
                 }
                 // Wait on our current deadline to pass.
-                // TODO: Cancel the timer on `Timeout::finish` so we don't keep an
-                // `IsolateHandle` alive for the wait duration.
                 Err(Either::Left(self.rt.wait(deadline - now)))
             },
             TimeoutState::Paused {
-                ref mut pause_done,
+                ref pause_done,
                 ref pause_start,
                 ref reason,
             } => {
@@ -138,7 +143,9 @@ impl<RT: Runtime> TimeoutInner<RT> {
                             current_pause_duration,
                         );
 
-                        return Ok(Some(TerminationReason::SystemTimeout(max_time_paused)));
+                        return Ok(Some(
+                            IsolateTerminationReason::SystemTimeout(max_time_paused).into(),
+                        ));
                     }
                     Either::Left(self.rt.wait(max_time_paused - total_pause_elapsed))
                 } else {
@@ -176,7 +183,7 @@ impl<RT: Runtime> Drop for Timeout<RT> {
 impl<RT: Runtime> Timeout<RT> {
     pub fn new(
         rt: RT,
-        handle: ContextHandle,
+        handle: IsolateHandle,
         timeout: Option<Duration>,
         max_time_paused: Option<Duration>,
         permit: ConcurrencyPermit,
@@ -216,43 +223,39 @@ impl<RT: Runtime> Timeout<RT> {
     /// Returns an error in the latter case.
     pub fn with_timeout<T, F: Future<Output = T>>(
         &self,
-        f: F,
-    ) -> impl Future<Output = anyhow::Result<T>> + use<T, F, RT> {
+    ) -> impl FnOnce(F) -> (impl Future<Output = anyhow::Result<T>> + use<T, F, RT>) + use<T, F, RT>
+    {
         let completed = self.wait_until_completed();
-        async move {
-            select_biased! {
-                result = f.fuse() => Ok(result),
+        move |f| async move {
+            select! {
+                biased;
+                result = f => Ok(result),
                 // NOTE: When the background thread returns, it either means we have
                 // terminated due to timeout or have been dropped. Either way, it
                 // is ok to stop executing. The exact error we throw here doesn't
                 // matter since we know the isolate layer overrides the error if there
                 // is a termination reason.
-                _ = completed.fuse() => anyhow::bail!("Timed out"),
+                _ = completed => anyhow::bail!("Timed out"),
             }
         }
     }
 
-    pub fn pause(&mut self, reason: PauseReason) -> PauseGuard<'_, RT> {
+    fn pause_start(
+        &mut self,
+        reason: PauseReason,
+    ) -> (tokio::time::Instant, async_broadcast::Sender<()>) {
         let (tx, rx) = broadcast(1);
-        let pause_start = {
-            let mut inner = self.inner.lock();
-            let TimeoutState::Running = inner.state else {
-                panic!("Overlapping calls to timeout.pause()");
-            };
-            let pause_start = inner.rt.monotonic_now();
-            inner.state = TimeoutState::Paused {
-                pause_done: rx,
-                pause_start,
-                reason: reason.clone(),
-            };
-            pause_start
+        let mut inner = self.inner.lock();
+        let TimeoutState::Running = inner.state else {
+            panic!("Overlapping calls to timeout.pause()");
         };
-        PauseGuard {
-            timeout: self,
+        let pause_start = inner.rt.monotonic_now();
+        inner.state = TimeoutState::Paused {
+            pause_done: rx,
             pause_start,
-            pause_done: Some(tx),
             reason,
-        }
+        };
+        (pause_start, tx)
     }
 
     pub fn finish(&mut self) {
@@ -270,25 +273,50 @@ impl<RT: Runtime> Timeout<RT> {
     // ConcurrencyPermit when entering async code on the V8 thread. This helper also
     // integrates with our user time tracking to not count async code against the
     // user timeout.
+    pub async fn with_release_permit_regainable<T>(
+        &mut self,
+        reason: PauseReason,
+        f: impl AsyncFnOnce(&mut PauseGuard<'_, RT>) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        let permit = self.permit.take().context("lost the permit")?;
+        let timeout = self.with_timeout();
+        let (pause_start, tx) = self.pause_start(reason.clone());
+        let suspended_permit = permit.suspend();
+        let mut pause_guard = PauseGuard {
+            timeout: self,
+            pause_start,
+            pause_done: Some(tx),
+            reason,
+            suspended_permit: Some(suspended_permit),
+        };
+        let result = timeout(f(&mut pause_guard))
+            .await
+            .context(ErrorMetadata::overloaded(
+                "SystemTimeoutError",
+                TIMEOUT_ERROR_MESSAGE,
+            ))?;
+        let permit = pause_guard
+            .suspended_permit
+            .take()
+            .context("lost the suspended permit")?
+            .acquire()
+            .await;
+        drop(pause_guard);
+        self.permit = Some(permit);
+        result
+    }
+
     pub async fn with_release_permit<T>(
         &mut self,
         reason: PauseReason,
         f: impl Future<Output = anyhow::Result<T>>,
     ) -> anyhow::Result<T> {
-        let permit = self.permit.take().context("lost the permit")?;
-        let f = self.with_timeout(permit.with_suspend(f));
-        let pause_guard = self.pause(reason);
-        let (result, permit) = f.await.context(ErrorMetadata::overloaded(
-            "SystemTimeoutError",
-            TIMEOUT_ERROR_MESSAGE,
-        ))?;
-        pause_guard.resume();
-        self.permit = Some(permit);
-        result
+        self.with_release_permit_regainable(reason, async move |_| f.await)
+            .await
     }
 
     async fn go(
-        handle: ContextHandle,
+        handle: IsolateHandle,
         inner: Arc<Mutex<TimeoutInner<RT>>>,
         done_tx: async_broadcast::Sender<()>,
     ) {
@@ -328,16 +356,53 @@ pub struct PauseGuard<'a, RT: Runtime> {
     pause_start: tokio::time::Instant,
     pause_done: Option<async_broadcast::Sender<()>>,
     reason: PauseReason,
+    suspended_permit: Option<SuspendedPermit>,
 }
 
-impl<RT: Runtime> PauseGuard<'_, RT> {
-    pub fn resume(self) {
-        drop(self);
+pub struct RegainedTimeout<'a, 'b, RT: Runtime> {
+    paused: &'b mut PauseGuard<'a, RT>,
+}
+
+impl<'a, 'b, RT: Runtime> Deref for RegainedTimeout<'a, 'b, RT> {
+    type Target = Timeout<RT>;
+
+    fn deref(&self) -> &Self::Target {
+        self.paused.timeout
+    }
+}
+impl<'a, 'b, RT: Runtime> DerefMut for RegainedTimeout<'a, 'b, RT> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.paused.timeout
     }
 }
 
-impl<RT: Runtime> Drop for PauseGuard<'_, RT> {
+impl<'a, 'b, RT: Runtime> Drop for RegainedTimeout<'a, 'b, RT> {
     fn drop(&mut self) {
+        if let Some(permit) = self.paused.timeout.permit.take() {
+            self.paused.suspended_permit = Some(permit.suspend());
+        }
+        let (pause_start, tx) = self.paused.timeout.pause_start(self.paused.reason.clone());
+        self.paused.pause_start = pause_start;
+        self.paused.pause_done = Some(tx);
+    }
+}
+
+impl<'a, RT: Runtime> PauseGuard<'a, RT> {
+    pub async fn regain<'b>(&'b mut self) -> anyhow::Result<RegainedTimeout<'a, 'b, RT>> {
+        let permit = self
+            .suspended_permit
+            .take()
+            .context("lost the suspended permit")?
+            .acquire()
+            .await;
+        self.timeout.permit = Some(permit);
+        self.unpause();
+        Ok(RegainedTimeout { paused: self })
+    }
+}
+
+impl<RT: Runtime> PauseGuard<'_, RT> {
+    fn unpause(&mut self) {
         let Some(tx) = self.pause_done.take() else {
             return;
         };
@@ -358,5 +423,11 @@ impl<RT: Runtime> Drop for PauseGuard<'_, RT> {
             inner.state = TimeoutState::Running;
         }
         let _ = tx.try_broadcast(());
+    }
+}
+
+impl<RT: Runtime> Drop for PauseGuard<'_, RT> {
+    fn drop(&mut self) {
+        self.unpause();
     }
 }

@@ -37,5 +37,8 @@ pub use crate::{
     },
     syscall_stats::SyscallStats,
     syscall_trace::SyscallTrace,
-    udf_outcome::UdfOutcome,
+    udf_outcome::{
+        NestedUdfOutcome,
+        UdfOutcome,
+    },
 };

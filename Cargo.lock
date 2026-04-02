@@ -5113,6 +5113,7 @@ dependencies = [
  "regex",
  "reqwest",
  "runtime",
+ "scopeguard",
  "search",
  "semver",
  "sentry",

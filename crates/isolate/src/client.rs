@@ -102,6 +102,7 @@ use futures::{
         StreamExt,
     },
 };
+use itertools::Either;
 use keybroker::{
     FunctionRunnerKeyBroker,
     Identity,
@@ -146,6 +147,7 @@ use udf::{
     FunctionResult,
     HttpActionOutcome,
     HttpActionResponseStreamer,
+    NestedUdfOutcome,
 };
 use usage_tracking::FunctionUsageStats;
 use value::{
@@ -326,6 +328,7 @@ pub struct UdfRequest<RT: Runtime> {
     pub path_and_args: ValidatedPathAndArgs,
     pub udf_type: UdfType,
     pub transaction: Transaction<RT>,
+    pub unix_timestamp: UnixTimestamp,
     pub journal: QueryJournal,
     pub context: ExecutionContext,
 }
@@ -383,9 +386,8 @@ pub enum RequestType<RT: Runtime> {
         response: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
         queue_timer: Timer<VMHistogram>,
         rng_seed: [u8; 32],
-        unix_timestamp: UnixTimestamp,
         reactor_depth: usize,
-        udf_callback: Box<dyn UdfCallback<RT>>,
+        udf_callback: Option<IsolateClient<RT>>,
         function_started_sender: Option<oneshot::Sender<()>>,
     },
     Action {
@@ -449,21 +451,57 @@ pub enum RequestType<RT: Runtime> {
     },
 }
 
-#[async_trait]
-pub trait UdfCallback<RT: Runtime>: Send + Sync {
-    async fn execute_udf(
-        &self,
+#[allow(async_fn_in_trait)]
+pub trait UdfCallback<RT: Runtime> {
+    /// Execute a subfunction in a new V8 context.
+    /// This can either be in the same isolate (RunUdf), or another one
+    /// (IsolateClient).
+    async fn execute_nested_udf(
+        self,
         client_id: String,
-        udf_type: UdfType,
-        path_and_args: ValidatedPathAndArgs,
+        udf_request: UdfRequest<RT>,
         environment_data: EnvironmentData<RT>,
-        transaction: Transaction<RT>,
-        journal: QueryJournal,
-        context: ExecutionContext,
         rng_seed: [u8; 32],
-        unix_timestamp: UnixTimestamp,
         reactor_depth: usize,
-    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)>;
+    ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)>;
+}
+
+impl<RT: Runtime, T, U> UdfCallback<RT> for Either<T, U>
+where
+    T: UdfCallback<RT>,
+    U: UdfCallback<RT>,
+{
+    async fn execute_nested_udf(
+        self,
+        client_id: String,
+        udf_request: UdfRequest<RT>,
+        environment_data: EnvironmentData<RT>,
+        rng_seed: [u8; 32],
+        reactor_depth: usize,
+    ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
+        match self {
+            Either::Left(l) => {
+                l.execute_nested_udf(
+                    client_id,
+                    udf_request,
+                    environment_data,
+                    rng_seed,
+                    reactor_depth,
+                )
+                .await
+            },
+            Either::Right(r) => {
+                r.execute_nested_udf(
+                    client_id,
+                    udf_request,
+                    environment_data,
+                    rng_seed,
+                    reactor_depth,
+                )
+                .await
+            },
+        }
+    }
 }
 
 impl<RT: Runtime> Request<RT> {
@@ -701,6 +739,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         reactor_depth: usize,
         instance_name: String,
         function_started_sender: Option<oneshot::Sender<()>>,
+        subfunctions_in_same_isolate: bool,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         let (tx, rx) = oneshot::channel();
         let request = RequestType::Udf {
@@ -708,6 +747,7 @@ impl<RT: Runtime> IsolateClient<RT> {
                 path_and_args,
                 udf_type,
                 transaction,
+                unix_timestamp,
                 journal,
                 context,
             },
@@ -715,10 +755,13 @@ impl<RT: Runtime> IsolateClient<RT> {
             response: tx,
             queue_timer: queue_timer(),
             rng_seed,
-            unix_timestamp,
             reactor_depth,
-            udf_callback: Box::new(self.clone()),
             function_started_sender,
+            udf_callback: if subfunctions_in_same_isolate {
+                None
+            } else {
+                Some(self.clone())
+            },
         };
         self.send_request(Request::new(
             instance_name,
@@ -1041,35 +1084,51 @@ impl<RT: Runtime> IsolateClient<RT> {
     }
 }
 
-#[async_trait]
-impl<RT: Runtime> UdfCallback<RT> for IsolateClient<RT> {
-    async fn execute_udf(
-        &self,
+impl<RT: Runtime> UdfCallback<RT> for &IsolateClient<RT> {
+    async fn execute_nested_udf(
+        self,
         client_id: String,
-        udf_type: UdfType,
-        path_and_args: ValidatedPathAndArgs,
+        udf_request: UdfRequest<RT>,
         environment_data: EnvironmentData<RT>,
-        transaction: Transaction<RT>,
-        journal: QueryJournal,
-        context: ExecutionContext,
         rng_seed: [u8; 32],
-        unix_timestamp: UnixTimestamp,
         reactor_depth: usize,
-    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        self.execute_udf(
-            udf_type,
-            path_and_args,
-            transaction,
-            journal,
-            context,
-            environment_data,
-            rng_seed,
-            unix_timestamp,
-            reactor_depth,
-            client_id,
-            None, /* function_started_sender */
-        )
-        .await
+    ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
+        let (tx, outcome) = self
+            .execute_udf(
+                udf_request.udf_type,
+                udf_request.path_and_args,
+                udf_request.transaction,
+                udf_request.journal,
+                udf_request.context,
+                environment_data,
+                rng_seed,
+                udf_request.unix_timestamp,
+                reactor_depth,
+                client_id,
+                None,  /* function_started_sender */
+                false, /* subfunctions_in_same_isolate */
+            )
+            .await?;
+        let outcome = match outcome {
+            FunctionOutcome::Query(outcome) | FunctionOutcome::Mutation(outcome) => {
+                NestedUdfOutcome {
+                    observed_identity: outcome.observed_identity,
+                    observed_rng: outcome.observed_rng,
+                    observed_time: outcome.observed_time,
+                    log_lines: outcome.log_lines,
+                    journal: outcome.journal,
+                    result: match outcome.result {
+                        Ok(t) => Ok(t.unpack()?),
+                        Err(e) => Err(e),
+                    },
+                    syscall_trace: outcome.syscall_trace,
+                }
+            },
+            FunctionOutcome::Action(_) | FunctionOutcome::HttpAction(_) => {
+                anyhow::bail!("nested udf must be query or mutation")
+            },
+        };
+        Ok((tx, outcome))
     }
 }
 

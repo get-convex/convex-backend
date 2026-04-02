@@ -1,3 +1,4 @@
+use astral_future::AstralBody;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
@@ -7,14 +8,18 @@ use common::{
         MAX_DOCUMENT_NESTING,
         MAX_USER_SIZE,
     },
+    errors::report_error_sync,
     execution_context::ExecutionContext,
     knobs::ISOLATE_MAX_USER_HEAP_SIZE,
 };
 use futures::{
-    future::BoxFuture,
-    select_biased,
+    future::{
+        self,
+        BoxFuture,
+    },
     FutureExt,
 };
+use itertools::Either;
 use model::{
     environment_variables::types::{
         EnvVarName,
@@ -26,17 +31,30 @@ use model::{
     },
 };
 use sync_types::types::SerializedArgs;
-use tokio::sync::oneshot;
+use tokio::{
+    select,
+    sync::oneshot,
+};
 use udf::{
     helpers::parse_udf_args,
     warnings::scheduled_arg_size_warning,
     FunctionOutcome,
+    NestedUdfOutcome,
     SyscallTrace,
 };
 
-use crate::timeout::PauseReason;
+use crate::{
+    environment::udf::astral_future::RecursiveExecutor,
+    termination::{
+        ContextTerminationReason,
+        IsolateTerminationReason,
+    },
+    timeout::PauseReason,
+    IsolateClient,
+};
 pub mod async_syscall;
 
+mod astral_future;
 mod phase;
 pub mod syscall;
 use std::{
@@ -45,7 +63,10 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
+use anyhow::{
+    anyhow,
+    Context as _,
+};
 use common::{
     errors::JsError,
     identity::InertIdentity,
@@ -92,7 +113,6 @@ use deno_core::{
     v8::{
         self,
         scope,
-        scope_with_context,
     },
 };
 use errors::ErrorMetadata;
@@ -160,11 +180,15 @@ use crate::{
         self,
         log_isolate_request_cancelled,
     },
-    request_scope::RequestScope,
+    request_scope::{
+        RequestScope,
+        RequestState,
+    },
     strings,
-    termination::TerminationReason,
+    termination::IsolateHandle,
     timeout::{
         FunctionExecutionTime,
+        PauseGuard,
         Timeout,
     },
 };
@@ -204,7 +228,6 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     context: ExecutionContext,
 
     reactor_depth: usize,
-    udf_callback: Box<dyn UdfCallback<RT>>,
 }
 
 fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
@@ -313,6 +336,84 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     }
 }
 
+type UdfRecursiveExecutor<RT> = RecursiveExecutor<
+    anyhow::Result<(
+        DatabaseUdfEnvironment<RT>,
+        anyhow::Result<Result<ConvexValue, JsError>>,
+    )>,
+>;
+struct RunUdf<'a, 'b, RT: Runtime> {
+    rt: &'a RT,
+    v8_scope: &'a mut v8::Isolate,
+    paused_timeout: &'a mut PauseGuard<'b, RT>,
+    isolate_handle: &'a IsolateHandle,
+    executor: &'a UdfRecursiveExecutor<RT>,
+    heap_stats: &'a SharedIsolateHeapStats,
+}
+
+impl<'a, 'b, RT: Runtime> UdfCallback<RT> for RunUdf<'a, 'b, RT> {
+    async fn execute_nested_udf(
+        self,
+        client_id: String,
+        udf_request: UdfRequest<RT>,
+        environment_data: EnvironmentData<RT>,
+        rng_seed: [u8; 32],
+        reactor_depth: usize,
+    ) -> anyhow::Result<(Transaction<RT>, NestedUdfOutcome)> {
+        let function_timestamp = udf_request.unix_timestamp;
+        let nested_provider = DatabaseUdfEnvironment::new(
+            self.rt.clone(),
+            environment_data,
+            self.heap_stats.clone(),
+            udf_request,
+            reactor_depth,
+            client_id,
+        );
+        // it is not necessary to propagate cancellation as the parent will already
+        // cancel the entire tree of futures.
+        let cancellation = future::pending().boxed();
+        // N.B.: `run_nested` calls the corresponding `pop_context`.
+        // This may not happen in case of a system error, but in that case we
+        // are going to throw away the entire context stack anyway.
+        let context_id = self.isolate_handle.push_context(true /* nested */);
+        let request_state = RequestState::new(self.rt.clone(), nested_provider, context_id);
+        // N.B.: we don't use this value here; only the top-level `run_nested` matters.
+        let mut isolate_clean = false;
+        // User code is going to run again; regain the concurrency permit.
+        let mut unpause_guard = self.paused_timeout.regain().await?;
+        // Actually run the UDF.
+        let future = DatabaseUdfEnvironment::<RT>::run_nested(
+            self.executor,
+            rng_seed,
+            function_timestamp,
+            self.v8_scope,
+            None,
+            self.isolate_handle.clone(),
+            request_state,
+            &mut *unpause_guard,
+            &mut isolate_clean,
+            cancellation,
+            None, /* udf_callback */
+        );
+        // Use an AstralFuture to move the responsibility of polling `future`
+        // to the `RecursiveExecutor` (created by DatabaseUdfEnvironment::run()).
+        // This avoids creating a deep stack of recursive `run_udf` calls.
+        let body = std::pin::pin!(AstralBody::new(future));
+        // safety: this future must not be leaked
+        let (nested_provider, result) = self.executor.spawn(unsafe { body.project() }).await??;
+        let outcome = NestedUdfOutcome {
+            observed_identity: nested_provider.phase.observed_identity(),
+            observed_rng: nested_provider.phase.observed_rng(),
+            observed_time: nested_provider.phase.observed_time(),
+            log_lines: nested_provider.log_lines,
+            journal: nested_provider.next_journal,
+            result: result?,
+            syscall_trace: nested_provider.syscall_trace,
+        };
+        Ok((nested_provider.phase.into_transaction()?, outcome))
+    }
+}
+
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     pub fn new(
         rt: RT,
@@ -327,11 +428,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             path_and_args,
             udf_type,
             transaction,
+            unix_timestamp: _,
             journal,
             context,
         }: UdfRequest<RT>,
         reactor_depth: usize,
-        udf_callback: Box<dyn UdfCallback<RT>>,
         client_id: String,
     ) -> Self {
         let persistence_version = transaction.persistence_version();
@@ -368,14 +469,14 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             context,
 
             reactor_depth,
-            udf_callback,
             client_id,
         }
     }
 
+    /// Runs a top-level query or mutation.
     #[fastrace::trace]
     pub async fn run(
-        mut self,
+        self,
         client_id: String,
         isolate: &mut Isolate<RT>,
         v8_context: v8::Global<v8::Context>,
@@ -384,27 +485,131 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
         function_started: Option<oneshot::Sender<()>>,
+        udf_callback: Option<IsolateClient<RT>>,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        let heap_stats = self.heap_stats.clone();
+        let executor = UdfRecursiveExecutor::new();
 
         let client_id = Arc::new(client_id);
-        let path = self.path.clone();
         let (handle, state, mut timeout) = isolate.start_request(client_id, self).await?;
+        let heap_stats = state.environment.heap_stats.clone();
+        let path_for_logging = format!("{:?}", state.environment.path.clone().for_logging());
         if let Some(tx) = function_started {
             // At this point we have acquired a permit and aren't going to
             // reject the function for capacity reasons.
             _ = tx.send(());
         }
-        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
+        let (this, mut result) = executor
+            .run_until(Self::run_nested(
+                &executor,
+                rng_seed,
+                unix_timestamp,
+                isolate.isolate(),
+                Some(v8_context),
+                handle.clone(),
+                state,
+                &mut timeout,
+                isolate_clean,
+                cancellation,
+                udf_callback,
+            ))
+            .await?;
+
+        // Override the top-level result if there was an isolate termination error.
+        // Our environment may be in an inconsistent state after a system error (e.g.
+        // the transaction may be missing if we hit a system error during a
+        // cross-component call), so be sure to error out here before using the
+        // environment.
+        match handle.take_termination_error(Some(heap_stats.get()), &path_for_logging) {
+            Ok(Ok(())) => (),
+            Ok(Err(e)) => result = Ok(Err(e)),
+            Err(e) => result = Err(e),
+        }
+        let result = result?;
+
+        let execution_time = timeout.into_function_execution_time(this.udf_type);
+        let user_execution_time = execution_time.elapsed;
+
+        let success_result_value = result.as_ref().ok();
+        let parsed_args = parse_udf_args(&this.path.udf_path, this.arguments.clone().into_args()?)?;
+        let mut log_lines = this.log_lines;
+        Self::add_warnings_to_log_lines(
+            &this.path.clone().for_logging(),
+            &parsed_args,
+            execution_time,
+            this.phase.execution_size()?,
+            this.phase.biggest_document_writes()?,
+            success_result_value,
+            |warning| {
+                // Note: accessing the current time here is still deterministic since
+                // we don't externalize the time to the function.
+                log_lines.push(warning.into_log_line(this.rt.unix_timestamp()));
+            },
+        )?;
+        let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
+            .try_into()
+            .unwrap();
+        // TODO: Add num_writes and write_bandwidth to UdfOutcome,
+        // and use them in log_mutation.
+        let outcome = UdfOutcome {
+            path: this.path.for_logging(),
+            arguments: this.arguments,
+            identity: this.identity,
+            observed_identity: this.phase.observed_identity(),
+            rng_seed,
+            observed_rng: this.phase.observed_rng(),
+            unix_timestamp,
+            observed_time: this.phase.observed_time(),
+            log_lines,
+            journal: this.next_journal,
+            result: match result {
+                Ok(v) => Ok(JsonPackedValue::pack(v)),
+                Err(e) => Err(e),
+            },
+            syscall_trace: this.syscall_trace,
+            udf_server_version: this.udf_server_version,
+            memory_in_mb,
+            user_execution_time: Some(user_execution_time),
+        };
+        let outcome = match this.udf_type {
+            UdfType::Query => FunctionOutcome::Query(outcome),
+            UdfType::Mutation => FunctionOutcome::Mutation(outcome),
+            _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
+        };
+        Ok((this.phase.into_transaction()?, outcome))
+    }
+
+    /// Runs a query or mutation, possibly nested via `runQuery`/`runMutation`.
+    async fn run_nested(
+        executor: &UdfRecursiveExecutor<RT>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
+        isolate: &mut v8::Isolate,
+        v8_context: Option<v8::Global<v8::Context>>,
+        isolate_handle: IsolateHandle,
+        request_state: RequestState<RT, Self>,
+        timeout: &mut Timeout<RT>,
+        isolate_clean: &mut bool,
+        cancellation: BoxFuture<'_, ()>,
+        udf_callback: Option<IsolateClient<RT>>,
+    ) -> anyhow::Result<(Self, anyhow::Result<Result<ConvexValue, JsError>>)> {
+        scope!(let handle_scope, isolate);
+        let v8_context = if let Some(context) = v8_context {
+            v8::Local::new(handle_scope, context)
+        } else {
+            v8::Context::new(handle_scope, v8::ContextOptions::default())
+        };
+        let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
 
         let mut isolate_context =
-            RequestScope::new(context_scope, handle.clone(), state, false).await?;
+            RequestScope::new(context_scope, isolate_handle.clone(), request_state, false).await?;
         let mut result = Self::run_inner(
+            executor,
             &mut isolate_context,
-            &mut timeout,
+            timeout,
             cancellation,
             rng_seed,
             unix_timestamp,
+            udf_callback,
         )
         .await;
 
@@ -414,103 +619,27 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         isolate_context.checkpoint();
         *isolate_clean = true;
 
+        let request_state = isolate_context.take_state().context("Lost RequestState?")?;
+        let this = request_state.environment;
         // Override the returned result if we hit a termination error.
-        let termination_error = handle
-            .take_termination_error(Some(heap_stats.get()), &format!("{:?}", path.for_logging()));
-        match termination_error {
-            Ok(Ok(..)) => (),
-            Ok(Err(e)) => {
-                result = Ok(Err(e));
-            },
-            Err(e) => {
-                result = Err(e);
-            },
+        match isolate_handle.pop_context(request_state.context_id)? {
+            Ok(()) => (),
+            Err(e) => result = Ok(Err(e)),
         }
-        // Our environment may be in an inconsistent state after a system error (e.g.
-        // the transaction may be missing if we hit a system error during a
-        // cross-component call), so be sure to error out here before using the
-        // environment.
-        let result = result?;
 
-        self = isolate_context.take_environment();
-        let execution_time = timeout.into_function_execution_time(self.udf_type);
-        let user_execution_time = execution_time.elapsed;
-
-        let success_result_value = result.as_ref().ok();
-        let parsed_args = parse_udf_args(&self.path.udf_path, self.arguments.clone().into_args()?)?;
-        Self::add_warnings_to_log_lines(
-            &self.path.clone().for_logging(),
-            &parsed_args,
-            execution_time,
-            self.phase.execution_size()?,
-            self.phase.biggest_document_writes()?,
-            success_result_value,
-            |warning| {
-                // Note: accessing the current time here is still deterministic since
-                // we don't externalize the time to the function.
-                self.log_lines
-                    .push(warning.into_log_line(self.rt.unix_timestamp()));
-            },
-        )?;
-        let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
-            .try_into()
-            .unwrap();
-        let outcome = match self.udf_type {
-            UdfType::Query => FunctionOutcome::Query(UdfOutcome {
-                path: self.path.for_logging(),
-                arguments: self.arguments,
-                identity: self.identity,
-                observed_identity: self.phase.observed_identity(),
-                rng_seed,
-                observed_rng: self.phase.observed_rng(),
-                unix_timestamp,
-                observed_time: self.phase.observed_time(),
-                log_lines: self.log_lines,
-                journal: self.next_journal,
-                result: match result {
-                    Ok(v) => Ok(JsonPackedValue::pack(v)),
-                    Err(e) => Err(e),
-                },
-                syscall_trace: self.syscall_trace,
-                udf_server_version: self.udf_server_version,
-                memory_in_mb,
-                user_execution_time: Some(user_execution_time),
-            }),
-            // TODO: Add num_writes and write_bandwidth to UdfOutcome,
-            // and use them in log_mutation.
-            UdfType::Mutation => FunctionOutcome::Mutation(UdfOutcome {
-                path: self.path.for_logging(),
-                arguments: self.arguments,
-                identity: self.identity,
-                observed_identity: self.phase.observed_identity(),
-                rng_seed,
-                observed_rng: self.phase.observed_rng(),
-                unix_timestamp,
-                observed_time: self.phase.observed_time(),
-                log_lines: self.log_lines,
-                journal: self.next_journal,
-                result: match result {
-                    Ok(v) => Ok(JsonPackedValue::pack(v)),
-                    Err(e) => Err(e),
-                },
-                syscall_trace: self.syscall_trace,
-                udf_server_version: self.udf_server_version,
-                memory_in_mb,
-                user_execution_time: Some(user_execution_time),
-            }),
-            _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
-        };
-        Ok((self.phase.into_transaction()?, outcome))
+        Ok((this, result))
     }
 
     #[convex_macro::instrument_future]
     #[fastrace::trace]
     async fn run_inner(
+        executor: &UdfRecursiveExecutor<RT>,
         isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
         timeout: &mut Timeout<RT>,
         cancellation: BoxFuture<'_, ()>,
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
+        udf_callback: Option<IsolateClient<RT>>,
     ) -> anyhow::Result<Result<ConvexValue, JsError>> {
         let handle = isolate.handle();
         scope!(let v8_scope, isolate.scope());
@@ -524,13 +653,15 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             state.environment.phase.initialize(timeout).await?;
         }
 
-        let (udf_type, path, udf_args) = {
+        let (rt, udf_type, path, udf_args, heap_stats) = {
             let state = scope.state()?;
             let environment = &state.environment;
             (
+                environment.rt.clone(),
                 environment.udf_type,
                 environment.path.clone(),
                 environment.arguments.clone(),
+                environment.heap_stats.clone(),
             )
         };
         let udf_path = path.udf_path.clone();
@@ -666,7 +797,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Ok(None) => anyhow::bail!("Successful invocation returned None"),
             Err(e) => return Ok(Err(e)),
         };
-        let mut cancellation = cancellation.fuse();
+        let mut cancellation = cancellation;
         loop {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
@@ -684,10 +815,14 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 let err = match scope.format_traceback(as_local) {
                     Ok(e) => e,
                     Err(e) => {
-                        handle.terminate_and_throw(TerminationReason::SystemError(Some(e)))?;
+                        handle.terminate_and_throw(
+                            IsolateTerminationReason::SystemError(Some(e)).into(),
+                        )?;
                     },
                 };
-                handle.terminate_and_throw(TerminationReason::UnhandledPromiseRejection(err))?;
+                handle.terminate_and_throw(
+                    ContextTerminationReason::UnhandledPromiseRejection(err).into(),
+                )?;
             }
 
             if let v8::PromiseState::Rejected = promise.state() {
@@ -702,7 +837,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // a batch together.
             // Results are externalized to user space in FIFO order.
             let (resolvers, results) = {
-                let state = scope.state_mut()?;
+                let state = scope.take_state()?;
+                let mut guard = scopeguard::guard((state, &mut scope), |(state, scope)| {
+                    if let Err(mut e) = scope.return_state(state) {
+                        report_error_sync(&mut e);
+                    }
+                });
+                let (ref mut state, ref mut scope) = *guard;
                 let Some(p) = state.environment.pending_syscalls.pop_front() else {
                     // No syscalls or javascript to run, so we're done.
                     break;
@@ -731,18 +872,38 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 // Even though the future would be blocking on the database most of the
                 // time it still does some processing that might result in oversubscribing
                 // the CPU threads dedicated to v8.
-                let results = select_biased! {
-                    _ = cancellation => {
-                        log_isolate_request_cancelled();
-                        anyhow::bail!("Cancelled");
-                    },
-                    results = timeout.with_release_permit(
-                        PauseReason::DatabaseSyscall{name: batch.name().to_string()},
-                        DatabaseSyscallsV1::run_async_syscall_batch(
-                            &mut state.environment, batch,
-                        ).map(Ok),
-                    ).fuse() => results?,
-                };
+                let results = timeout
+                    .with_release_permit_regainable(
+                        PauseReason::DatabaseSyscall {
+                            name: batch.name().to_string(),
+                        },
+                        async |paused_timeout| {
+                            let run_udf = RunUdf {
+                                rt: &rt,
+                                v8_scope: scope,
+                                paused_timeout,
+                                isolate_handle: &handle,
+                                executor,
+                                heap_stats: &heap_stats,
+                            };
+                            let udf_callback = if let Some(callback) = &udf_callback {
+                                Either::Left(callback)
+                            } else {
+                                Either::Right(run_udf)
+                            };
+                            select! {
+                                biased;
+                                _ = &mut cancellation => {
+                                    log_isolate_request_cancelled();
+                                    anyhow::bail!("Cancelled");
+                                },
+                                results = DatabaseSyscallsV1::run_async_syscall_batch(
+                                    &mut state.environment, batch, udf_callback,
+                                ) => Ok(results),
+                            }
+                        },
+                    )
+                    .await?;
                 (resolvers, results)
             };
             // Every syscall must have a result (which could be an error or None).

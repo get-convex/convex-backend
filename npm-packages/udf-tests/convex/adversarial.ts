@@ -435,3 +435,16 @@ export const paginateTooManyItems = query(async ({ db }) => {
     .query("test")
     .paginate({ cursor: null, numItems: Number.MAX_SAFE_INTEGER });
 });
+
+export const unhandledRejection = query(async () => {
+  new Promise((_, reject) => reject(new Error("i am uncaught")));
+});
+
+export const unhandledRejectionInSubfunction = query(async (ctx) => {
+  try {
+    await ctx.runQuery(api.adversarial.unhandledRejection, {});
+    return "no error";
+  } catch (e) {
+    return (e as Error).message;
+  }
+});

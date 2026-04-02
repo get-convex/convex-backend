@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     ffi,
     ptr,
     sync::Arc,
@@ -32,7 +31,6 @@ use humansize::{
     FormatSize,
     BINARY,
 };
-use value::heap_size::WithHeapSize;
 
 use crate::{
     array_buffer_allocator::ArrayBufferMemoryLimit,
@@ -47,9 +45,9 @@ use crate::{
     strings,
     termination::{
         IsolateHandle,
-        TerminationReason,
+        IsolateTerminationReason,
     },
-    timeout::Timeout,
+    Timeout,
 };
 
 pub const CONVEX_SCHEME: &str = "convex";
@@ -79,10 +77,6 @@ pub struct Isolate<RT: Runtime> {
 pub enum IsolateNotClean {
     #[error("Isolate failed with system error.")]
     SystemError,
-    #[error("Isolate failed with uncatchable developer error.")]
-    UncatchableDeveloperError,
-    #[error("Isolate failed with unhandled promise rejection.")]
-    UnhandledPromiseRejection,
     #[error("Isolate hit user timeout")]
     UserTimeout,
     #[error("Isolate hit system timeout")]
@@ -102,8 +96,6 @@ impl IsolateNotClean {
     pub fn reason(&self) -> &'static str {
         match self {
             Self::SystemError => "system_error",
-            Self::UncatchableDeveloperError => "uncatchable_developer_error",
-            Self::UnhandledPromiseRejection => "unhandled_promise_rejection",
             Self::UserTimeout => "user_timeout",
             Self::SystemTimeout => "system_timeout",
             Self::OutOfMemory => "out_of_memory",
@@ -279,7 +271,8 @@ impl<RT: Runtime> Isolate<RT> {
         let stats = self.v8_isolate.get_heap_statistics();
         log_heap_statistics(&stats);
         if stats.total_available_size() < *ISOLATE_MAX_USER_HEAP_SIZE {
-            self.handle.terminate(TerminationReason::OutOfMemory);
+            self.handle
+                .terminate(IsolateTerminationReason::OutOfMemory.into());
             return Err(IsolateNotClean::TooMuchMemoryCarryOver(
                 stats.total_available_size().format_size(BINARY),
                 stats.heap_size_limit().format_size(BINARY),
@@ -321,7 +314,7 @@ impl<RT: Runtime> Isolate<RT> {
                 ));
             }
         };
-        let context_handle = self.handle.new_context_created();
+        let context_id = self.handle.push_context(false /* nested */);
         let mut user_timeout = environment.user_timeout();
         if let Some(max_user_timeout) = self.max_user_timeout {
             // We apply the minimum between the timeout from the environment
@@ -330,20 +323,12 @@ impl<RT: Runtime> Isolate<RT> {
         }
         let timeout = Timeout::new(
             self.rt.clone(),
-            context_handle,
+            self.handle.clone(),
             Some(user_timeout),
             Some(environment.system_timeout()),
             permit,
         );
-        let state = RequestState {
-            rt: self.rt.clone(),
-            environment,
-            streams: WithHeapSize::default(),
-            stream_listeners: WithHeapSize::default(),
-            request_stream_state: None,
-            console_timers: WithHeapSize::default(),
-            text_decoders: BTreeMap::new(),
-        };
+        let state = RequestState::new(self.rt.clone(), environment, context_id);
         Ok((self.handle.clone(), state, timeout))
     }
 
@@ -394,7 +379,9 @@ extern "C" fn near_heap_limit_callback(
         ]
     }));
     let heap_ctx = unsafe { &mut *(data as *mut HeapContext) };
-    heap_ctx.handle.terminate(TerminationReason::OutOfMemory);
+    heap_ctx
+        .handle
+        .terminate(IsolateTerminationReason::OutOfMemory.into());
 
     // Raise the heap limit a lot to avoid a hard OOM.
     // This is unfortunate but there is some C++ code in V8 that will abort the

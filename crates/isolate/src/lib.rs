@@ -7,6 +7,7 @@
 #![feature(type_alias_impl_trait)]
 #![feature(never_type)]
 #![feature(impl_trait_in_assoc_type)]
+#![feature(impl_trait_in_fn_trait_return)]
 #![feature(ptr_metadata)]
 #![feature(exit_status_error)]
 
@@ -45,7 +46,6 @@ pub use self::{
         ActionRequestParams,
         IsolateClient,
         IsolateConfig,
-        UdfCallback,
     },
     concurrency_limiter::{
         ConcurrencyLimiter,

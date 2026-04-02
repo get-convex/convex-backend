@@ -68,7 +68,6 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 mut response,
                 queue_timer,
                 rng_seed,
-                unix_timestamp,
                 reactor_depth,
                 udf_callback,
                 function_started_sender,
@@ -78,13 +77,13 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let timer = service_request_timer(&request.udf_type);
                 record_component_function_path(request.path_and_args.path());
                 let udf_path = request.path_and_args.path().udf_path.to_owned();
+                let function_timestamp = request.unix_timestamp;
                 let environment = DatabaseUdfEnvironment::new(
                     self.rt.clone(),
                     environment_data,
                     heap_stats.clone(),
                     request,
                     reactor_depth,
-                    udf_callback,
                     client_id.clone(),
                 );
                 let r = environment
@@ -95,8 +94,9 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         isolate_clean,
                         response.closed().boxed(),
                         rng_seed,
-                        unix_timestamp,
+                        function_timestamp,
                         function_started_sender,
+                        udf_callback,
                     )
                     .await;
                 let status = match &r {

@@ -161,6 +161,10 @@ impl ConcurrencyPermit {
         let limiter = self.limiter.clone();
         SuspendedPermit { client_id, limiter }
     }
+
+    pub fn limiter(&self) -> &ConcurrencyLimiter {
+        &self.limiter
+    }
 }
 
 impl Drop for ConcurrencyPermit {
