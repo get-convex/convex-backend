@@ -30,11 +30,21 @@ describe("hasGuidelinesInstalled", () => {
     expect(await hasGuidelinesInstalled(convexDir)).toBe(true);
   });
 
-  test("returns true even when guidelines.md is empty", async () => {
+  test("returns false when guidelines.md is empty", async () => {
     fs.writeFileSync(
       path.join(convexDir, "_generated", "ai", "guidelines.md"),
       "",
     );
-    expect(await hasGuidelinesInstalled(convexDir)).toBe(true);
+    expect(await hasGuidelinesInstalled(convexDir)).toBe(false);
+  });
+
+  test("throws when guidelines.md cannot be read", async () => {
+    fs.rmSync(path.join(convexDir, "_generated", "ai", "guidelines.md"), {
+      force: true,
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(convexDir, "_generated", "ai", "guidelines.md"));
+
+    await expect(hasGuidelinesInstalled(convexDir)).rejects.toThrow();
   });
 });

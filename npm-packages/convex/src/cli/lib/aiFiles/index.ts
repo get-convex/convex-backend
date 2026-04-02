@@ -12,25 +12,26 @@ import {
   hasGuidelinesInstalled,
 } from "./guidelinesmd.js";
 import {
-  type AiFilesConfig,
-  hasAiFilesConfig,
-  readAiConfig,
-  writeAiConfig,
-  writeAiEnabledToProjectConfig,
-} from "./config.js";
-import { isInInteractiveTerminal } from "./utils.js";
+  attemptReadAiState,
+  readAiStateOrDefault,
+  writeAiState,
+  hasAiState,
+} from "./state.js";
+import { type AiFilesProjectConfig } from "../config.js";
+import { exhaustiveCheck, isInInteractiveTerminal } from "./utils.js";
 import {
   hasAgentsMdInstalled,
   applyAgentsMdSection,
-  removeAgentsMdSection,
+  attemptToRemoveAgentsMdSection,
 } from "./agentsmd.js";
 import {
   hasClaudeMdInstalled,
   applyClaudeMdSection,
-  removeClaudeMdSection,
+  attemptToRemoveClaudeMdSection,
 } from "./claudemd.js";
 import { installSkills, removeInstalledSkills } from "./skills.js";
 import { removeLegacyCursorRulesFile as removeLegacyCursorRules } from "./cursorrules.js";
+
 async function hasExistingAiFilesArtifacts({
   projectDir,
   convexDir,
@@ -45,53 +46,22 @@ async function hasExistingAiFilesArtifacts({
 /**
  * Install or refresh all Convex AI files.
  *
- * Reads the existing config if present, or starts from a blank one for a
- * fresh install. Each component can be individually skipped via the optional
- * flags (all default to true).
+ * Reads the existing state if present, or starts from a blank one for a
+ * fresh install.
  */
 export async function installAiFiles({
   projectDir,
   convexDir,
-  shouldWriteGuidelines = true,
-  shouldWriteAgentsMd = true,
-  shouldWriteClaudeMd = true,
-  shouldWriteSkills = true,
-}: AiFilesPaths & {
-  shouldWriteGuidelines?: boolean;
-  shouldWriteAgentsMd?: boolean;
-  shouldWriteClaudeMd?: boolean;
-  shouldWriteSkills?: boolean;
-}): Promise<void> {
-  await fs.mkdir(aiDirForConvexDir(convexDir), { recursive: true });
-
-  const config: AiFilesConfig = (await readAiConfig({
-    projectDir,
-    convexDir,
-  })) ?? {
-    enabled: true,
-    guidelinesHash: null,
-    agentsMdSectionHash: null,
-    claudeMdHash: null,
-    agentSkillsSha: null,
-    installedSkillNames: [],
-  };
-
-  if (shouldWriteGuidelines) await installGuidelinesFile({ convexDir, config });
-
+}: AiFilesPaths): Promise<void> {
   const convexDirName = path.relative(projectDir, convexDir);
+  const state = await readAiStateOrDefault(convexDir);
 
-  if (shouldWriteAgentsMd)
-    await applyAgentsMdSection({ projectDir, config, convexDirName });
-
-  if (shouldWriteClaudeMd)
-    await applyClaudeMdSection({ projectDir, config, convexDirName });
-
-  if (shouldWriteSkills) await installSkills({ projectDir, config });
-
+  await installGuidelinesFile({ convexDir, state });
+  await applyAgentsMdSection({ projectDir, state, convexDirName });
+  await applyClaudeMdSection({ projectDir, state, convexDirName });
+  await installSkills({ projectDir, state });
   await removeLegacyCursorRules(projectDir);
-  await writeAiConfig({ config, projectDir, convexDir });
-
-  logMessage(`${chalkStderr.green("✔")} Convex AI files installed.`);
+  await writeAiState({ state, convexDir });
 }
 
 async function attemptToInstallAiFiles(
@@ -104,58 +74,70 @@ async function attemptToInstallAiFiles(
   }
 }
 
-type AiFilesStalenessStatus =
-  | "not-installed" // no config AND no artifacts — show install nag
-  | "has-artifacts" // no config but files exist on disk (e.g. fresh checkout) — stay quiet
-  | "disabled" // user opted out of nag messages
-  | "stale" // one or more files are out of date
-  | "up-to-date"; // everything looks fine
+type AiFilesStalenessStatus = "not-installed" | "stale" | "silent";
+
+export function isAiFilesDisabled(
+  aiFilesConfig: AiFilesProjectConfig | undefined,
+): boolean {
+  if (aiFilesConfig?.enabled !== undefined)
+    return aiFilesConfig.enabled === false;
+  return aiFilesConfig?.disableStalenessMessage === true;
+}
 
 async function determineAiFilesStaleness({
   canonicalGuidelinesHash,
   canonicalAgentSkillsSha,
+  aiFilesConfig,
   projectDir,
   convexDir,
 }: {
   canonicalGuidelinesHash: string | null;
   canonicalAgentSkillsSha: string | null;
+  aiFilesConfig?: AiFilesProjectConfig | undefined;
 } & AiFilesPaths): Promise<AiFilesStalenessStatus> {
-  const config = await readAiConfig({ projectDir, convexDir });
+  if (isAiFilesDisabled(aiFilesConfig)) return "silent";
 
-  if (config === null) {
+  const result = await attemptReadAiState(convexDir);
+
+  if (result.kind === "no-file" || result.kind === "parse-error") {
     const hasArtifacts = await hasExistingAiFilesArtifacts({
       projectDir,
       convexDir,
     });
-    return hasArtifacts ? "has-artifacts" : "not-installed";
+    return hasArtifacts ? "silent" : "not-installed";
   }
 
-  if (!config.enabled) return "disabled";
+  if (result.kind === "ok") {
+    const { state } = result;
 
-  if (canonicalGuidelinesHash === null && canonicalAgentSkillsSha === null)
-    return "up-to-date";
+    if (canonicalGuidelinesHash === null && canonicalAgentSkillsSha === null)
+      return "silent";
 
-  const guidelinesStale =
-    canonicalGuidelinesHash !== null &&
-    config.guidelinesHash !== null &&
-    config.guidelinesHash !== canonicalGuidelinesHash;
+    const guidelinesStale =
+      canonicalGuidelinesHash !== null &&
+      state.guidelinesHash !== null &&
+      state.guidelinesHash !== canonicalGuidelinesHash;
 
-  const skillsStale =
-    canonicalAgentSkillsSha !== null &&
-    config.agentSkillsSha !== null &&
-    config.agentSkillsSha !== canonicalAgentSkillsSha;
+    const skillsStale =
+      canonicalAgentSkillsSha !== null &&
+      state.agentSkillsSha !== null &&
+      state.agentSkillsSha !== canonicalAgentSkillsSha;
 
-  return guidelinesStale || skillsStale ? "stale" : "up-to-date";
+    return guidelinesStale || skillsStale ? "stale" : "silent";
+  }
+
+  return exhaustiveCheck(result);
 }
 
 /**
  * Check whether the Convex AI files are out of date and log a nag message
  * if so.
  */
-export async function checkAiFilesStaleness(
+export async function checkAiFilesStalenessAndLog(
   opts: {
     canonicalGuidelinesHash: string | null;
     canonicalAgentSkillsSha: string | null;
+    aiFilesConfig?: AiFilesProjectConfig | undefined;
   } & AiFilesPaths,
 ): Promise<void> {
   const status = await determineAiFilesStaleness(opts);
@@ -166,6 +148,7 @@ export async function checkAiFilesStaleness(
         `Convex AI files are not installed. Run ${chalkStderr.bold(`npx convex ai-files install`)} to get started or ${chalkStderr.bold(`npx convex ai-files disable`)} to hide this message.`,
       ),
     );
+    return;
   }
 
   if (status === "stale") {
@@ -174,23 +157,39 @@ export async function checkAiFilesStaleness(
         `Your Convex AI files are out of date. Run ${chalkStderr.bold(`npx convex ai-files update`)} to get the latest.`,
       ),
     );
+    return;
   }
+
+  if (status === "silent") return;
+
+  exhaustiveCheck(status);
 }
 
+/**
+ * Installs AI files and returns the aiFiles config to write.
+ */
 export async function enableAiFiles({
   projectDir,
   convexDir,
-}: AiFilesPaths): Promise<void> {
+  aiFilesConfig,
+}: AiFilesPaths & {
+  aiFilesConfig?: AiFilesProjectConfig | undefined;
+}): Promise<AiFilesProjectConfig> {
   await installAiFiles({ projectDir, convexDir });
-  const config = await readAiConfig({ projectDir, convexDir });
-  if (config === null) return;
-  config.enabled = true;
-  await writeAiConfig({
-    config,
-    projectDir,
-    convexDir,
-    options: { persistEnabledPreference: "always" },
-  });
+  // Deleting the deprecated disableStalenessMessage key
+  const { disableStalenessMessage: _, ...rest } = aiFilesConfig ?? {};
+  return { ...rest, enabled: true };
+}
+
+/**
+ * Returns the aiFiles config to write when disabling AI files.
+ */
+export function disableAiFiles(
+  aiFilesConfig?: AiFilesProjectConfig | undefined,
+): AiFilesProjectConfig {
+  // Deleting the deprecated disableStalenessMessage key
+  const { disableStalenessMessage: _, ...rest } = aiFilesConfig ?? {};
+  return { ...rest, enabled: false };
 }
 
 /**
@@ -201,51 +200,31 @@ export async function removeAiFiles({
   projectDir,
   convexDir,
 }: AiFilesPaths): Promise<void> {
-  const config = await readAiConfig({ projectDir, convexDir });
-  if (config === null) {
-    logMessage("No Convex AI files found — nothing to remove.");
-    return;
-  }
+  const result = await attemptReadAiState(convexDir);
+
+  // Skill names are only known when the state file exists and parses.
+  // All other artifacts (AGENTS.md, CLAUDE.md sections, ai dir) can exist
+  // independently, so we always attempt their removal.
+  const installedSkillNames =
+    result.kind === "ok"
+      ? result.state.installedSkillNames
+      : result.kind === "no-file" || result.kind === "parse-error"
+        ? []
+        : exhaustiveCheck(result);
 
   const removals = [
-    await removeAgentsMdSection(projectDir),
-    await removeClaudeMdSection(projectDir),
+    await attemptToRemoveAgentsMdSection(projectDir),
+    await attemptToRemoveClaudeMdSection(projectDir),
     await removeInstalledSkills({
       projectDir,
-      skillNames: config.installedSkillNames,
+      skillNames: installedSkillNames,
     }),
     await removeLegacyCursorRules(projectDir),
     await attemptToDeleteAiDir({ projectDir, convexDir }),
   ];
 
   if (removals.some(Boolean)) logMessage("Convex AI files removed.");
-}
-
-/**
- * Called by `npx convex ai-files disable`.
- *
- * Writes a suppression flag into `convex.json` so `npx convex dev` stops
- * showing AI files install/staleness messages. Files are left in place.
- */
-export async function safelyAttemptToDisableAiFiles(
-  projectDir: string,
-): Promise<void> {
-  try {
-    await writeAiEnabledToProjectConfig({
-      projectDir,
-      enabled: false,
-    });
-    logMessage(
-      `${chalkStderr.green(`✔`)} Convex AI files disabled. Run ${chalkStderr.bold(`npx convex ai-files enable`)} to re-enable.`,
-    );
-  } catch (error) {
-    Sentry.captureException(error);
-    logMessage(
-      chalkStderr.yellow(
-        "Could not write AI message suppression config. Message may reappear.",
-      ),
-    );
-  }
+  else logMessage("No Convex AI files found — nothing to remove.");
 }
 
 async function attemptToDeleteAiDir({
@@ -255,10 +234,11 @@ async function attemptToDeleteAiDir({
   const aiDir = aiDirForConvexDir(convexDir);
   const relPath = path.relative(projectDir, aiDir);
   try {
-    await fs.rm(aiDir, { recursive: true, force: true });
+    await fs.rm(aiDir, { recursive: true });
     logMessage(`${chalkStderr.green("✔")} Deleted ${relPath}/`);
     return true;
   } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
     Sentry.captureException(error);
     logMessage(
       chalkStderr.yellow(`Could not delete ${relPath}/. Remove it manually.`),
@@ -270,26 +250,36 @@ async function attemptToDeleteAiDir({
 async function hasAiFilesBeenInstalledBefore({
   projectDir,
   convexDir,
-}: AiFilesPaths): Promise<boolean> {
+  aiFilesConfig,
+}: AiFilesPaths & {
+  aiFilesConfig?: AiFilesProjectConfig | undefined;
+}): Promise<boolean> {
+  if (isAiFilesDisabled(aiFilesConfig)) return false;
   return (
-    (await hasAiFilesConfig({ projectDir, convexDir })) ||
+    (await hasAiState(convexDir)) ||
     (await hasExistingAiFilesArtifacts({ projectDir, convexDir }))
   );
 }
 
-export async function maybeSetupAiFiles({
+export async function attemptSetupAiFiles({
   ctx,
   convexDir,
   projectDir,
+  aiFilesConfig,
 }: {
   ctx: Context;
+  aiFilesConfig?: AiFilesProjectConfig | undefined;
 } & AiFilesPaths): Promise<void> {
   if (!isInInteractiveTerminal()) return;
+  if (isAiFilesDisabled(aiFilesConfig)) return;
 
-  const config = await readAiConfig({ projectDir, convexDir });
-  if (config !== null && !config.enabled) return;
-
-  if (await hasAiFilesBeenInstalledBefore({ projectDir, convexDir })) {
+  if (
+    await hasAiFilesBeenInstalledBefore({
+      projectDir,
+      convexDir,
+      aiFilesConfig,
+    })
+  ) {
     await attemptToInstallAiFiles({ projectDir, convexDir });
     return;
   }

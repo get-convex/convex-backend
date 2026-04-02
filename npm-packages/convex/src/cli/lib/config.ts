@@ -1,5 +1,7 @@
 import { chalkStderr } from "chalk";
 import path from "path";
+// eslint-disable-next-line no-restricted-imports
+import { promises as nodeFs } from "fs";
 import { z } from "zod";
 import { Context } from "../../bundler/context.js";
 import { TypescriptCompiler } from "./typecheck.js";
@@ -744,12 +746,10 @@ export async function readConfig(
 /**
  * Ensure the functions directory exists.
  *
- * Note: This function no longer writes to or deletes `convex.json`. The config
- * file is now treated as user-owned and is not modified by the CLI. This allows
- * users to maintain their preferred formatting and any comments they may add
- * (if we later support JSONC parsing).
+ * Note: convex.json is treated as user-owned and is not modified by the CLI.
+ * Use writeAiFilesConfig() to explicitly patch the aiFiles section.
  */
-export async function writeProjectConfig(
+export async function ensureConvexFunctionsDir(
   ctx: Context,
   projectConfig: ProjectConfig,
 ) {
@@ -1006,4 +1006,53 @@ export async function handlePushConfigError(
 
   logFailure(defaultMessage);
   return await logAndHandleFetchError(ctx, error);
+}
+
+export type AiFilesProjectConfig = NonNullable<ProjectConfig["aiFiles"]>;
+
+function tryParseJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function toRecord(val: unknown): Record<string, unknown> {
+  if (val !== null && typeof val === "object" && !Array.isArray(val))
+    return val as Record<string, unknown>;
+  return {};
+}
+
+/**
+ * Write the `aiFiles` section of `convex.json`, preserving all other keys.
+ * Writes the given object as-is with no merging or default logic.
+ * If `aiFiles` is undefined, the key is removed from the file.
+ */
+export async function writeAiFilesConfig({
+  projectDir,
+  aiFiles,
+}: {
+  projectDir: string;
+  aiFiles: AiFilesProjectConfig | undefined;
+}): Promise<void> {
+  const filePath = path.join(projectDir, "convex.json");
+  const raw = await nodeFs.readFile(filePath, "utf8").catch(() => null);
+  const base = toRecord(raw !== null ? tryParseJson(raw) : {});
+
+  const { $schema, aiFiles: _existing, ...rest } = base;
+
+  const hasContent = aiFiles !== undefined && Object.keys(aiFiles).length > 0;
+
+  const next: Record<string, unknown> = {
+    $schema: $schema ?? "node_modules/convex/schemas/convex.schema.json",
+    ...rest,
+    ...(hasContent ? { aiFiles } : {}),
+  };
+
+  await nodeFs.writeFile(
+    filePath,
+    JSON.stringify(next, null, 2) + "\n",
+    "utf8",
+  );
 }

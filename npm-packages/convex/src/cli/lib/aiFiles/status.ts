@@ -19,23 +19,25 @@ import {
   claudeMdPath,
   guidelinesPathForConvexDir,
 } from "./paths.js";
-import { type AiFilesConfig, readAiConfig } from "./config.js";
-import { readFileSafe } from "./utils.js";
+import { type AiFilesState, attemptReadAiState } from "./state.js";
+import { type AiFilesProjectConfig } from "../config.js";
+import { isAiFilesDisabled } from "./index.js";
+import { readFileOrNull } from "./utils.js";
 
 function logGuidelinesStatus({
   guidelinesFile,
   guidelinesRelPath,
-  config,
+  state,
   canonicalGuidelinesHash,
   networkAvailable,
 }: {
   guidelinesFile: string | null;
   guidelinesRelPath: string;
-  config: AiFilesConfig;
+  state: AiFilesState;
   canonicalGuidelinesHash: string | null;
   networkAvailable: boolean;
 }): void {
-  if (guidelinesFile === null) {
+  if (guidelinesFile === null || guidelinesFile === "") {
     logMessage(
       `  ${chalkStderr.yellow("⚠")} ${guidelinesRelPath}: not on disk — run ${chalkStderr.bold("npx convex ai-files install")} to reinstall`,
     );
@@ -43,8 +45,8 @@ function logGuidelinesStatus({
   }
 
   const isLocallyModified =
-    config.guidelinesHash !== null &&
-    hashSha256(guidelinesFile) !== config.guidelinesHash;
+    state.guidelinesHash !== null &&
+    hashSha256(guidelinesFile) !== state.guidelinesHash;
 
   if (isLocallyModified) {
     logMessage(
@@ -56,8 +58,8 @@ function logGuidelinesStatus({
   const isOutOfDate =
     networkAvailable &&
     canonicalGuidelinesHash !== null &&
-    config.guidelinesHash !== null &&
-    config.guidelinesHash !== canonicalGuidelinesHash;
+    state.guidelinesHash !== null &&
+    state.guidelinesHash !== canonicalGuidelinesHash;
 
   if (isOutOfDate) {
     logMessage(
@@ -73,11 +75,11 @@ function logGuidelinesStatus({
 
 function logAgentsMdStatus({
   agentsContent,
-  config,
+  state,
   convexDirName,
 }: {
   agentsContent: string | null;
-  config: AiFilesConfig;
+  state: AiFilesState;
   convexDirName: string;
 }): void {
   const hasSection =
@@ -94,8 +96,8 @@ function logAgentsMdStatus({
 
   const currentHash = hashSha256(agentsMdConvexSection(convexDirName));
   if (
-    config.agentsMdSectionHash !== null &&
-    config.agentsMdSectionHash !== currentHash
+    state.agentsMdSectionHash !== null &&
+    state.agentsMdSectionHash !== currentHash
   ) {
     logMessage(
       `  ${chalkStderr.yellow("⚠")} AGENTS.md: Convex section out of date — run ${chalkStderr.bold("npx convex ai-files update")}`,
@@ -109,11 +111,11 @@ function logAgentsMdStatus({
 
 function logClaudeMdStatus({
   claudeContent,
-  config,
+  state,
   convexDirName,
 }: {
   claudeContent: string | null;
-  config: AiFilesConfig;
+  state: AiFilesState;
   convexDirName: string;
 }): void {
   const hasSection =
@@ -135,7 +137,7 @@ function logClaudeMdStatus({
   }
 
   const currentHash = hashSha256(claudeMdConvexSection(convexDirName));
-  if (config.claudeMdHash !== null && config.claudeMdHash !== currentHash) {
+  if (state.claudeMdHash !== null && state.claudeMdHash !== currentHash) {
     logMessage(
       `  ${chalkStderr.yellow("⚠")} CLAUDE.md: Convex section out of date - run ${chalkStderr.bold("npx convex ai-files update")}`,
     );
@@ -147,27 +149,27 @@ function logClaudeMdStatus({
 }
 
 function logSkillsStatus({
-  config,
+  state,
   canonicalAgentSkillsSha,
   networkAvailable,
 }: {
-  config: AiFilesConfig;
+  state: AiFilesState;
   canonicalAgentSkillsSha: string | null;
   networkAvailable: boolean;
 }): void {
-  if (config.installedSkillNames.length === 0) {
+  if (state.installedSkillNames.length === 0) {
     logMessage(
       `  ${chalkStderr.yellow("⚠")} Agent skills: not installed — run ${chalkStderr.bold("npx convex ai-files install")} to install`,
     );
     return;
   }
 
-  const skillsList = config.installedSkillNames.join(", ");
+  const skillsList = state.installedSkillNames.join(", ");
   const isStale =
     networkAvailable &&
     canonicalAgentSkillsSha !== null &&
-    config.agentSkillsSha !== null &&
-    config.agentSkillsSha !== canonicalAgentSkillsSha;
+    state.agentSkillsSha !== null &&
+    state.agentSkillsSha !== canonicalAgentSkillsSha;
 
   if (isStale) {
     logMessage(
@@ -183,25 +185,17 @@ function logSkillsStatus({
 export async function statusAiFiles({
   projectDir,
   convexDir,
-}: AiFilesPaths): Promise<void> {
+  aiFilesConfig,
+}: AiFilesPaths & {
+  aiFilesConfig?: AiFilesProjectConfig | undefined;
+}): Promise<void> {
   const convexDirName = path.relative(projectDir, convexDir);
   const guidelinesRelPath = path.relative(
     projectDir,
     guidelinesPathForConvexDir(convexDir),
   );
 
-  const config = await readAiConfig({ projectDir, convexDir });
-
-  if (config === null) {
-    logMessage(`Convex AI files: ${chalkStderr.yellow("not installed")}`);
-    logMessage(
-      `  Run ${chalkStderr.bold("npx convex ai-files install")} to get started, ` +
-        `or ${chalkStderr.bold("npx convex ai-files disable")} to opt out.`,
-    );
-    return;
-  }
-
-  if (!config.enabled) {
+  if (isAiFilesDisabled(aiFilesConfig)) {
     logMessage(`Convex AI files: ${chalkStderr.yellow("disabled")}`);
     logMessage(
       `  Run ${chalkStderr.bold("npx convex ai-files enable")} to re-enable.`,
@@ -209,14 +203,26 @@ export async function statusAiFiles({
     return;
   }
 
+  const stateResult = await attemptReadAiState(convexDir);
+
+  if (stateResult.kind !== "ok") {
+    logMessage(`Convex AI files: ${chalkStderr.yellow("not installed")}`);
+    logMessage(
+      `Run ${chalkStderr.bold("npx convex ai-files install")} to get started.`,
+    );
+    return;
+  }
+
+  const { state } = stateResult;
+
   logMessage(`Convex AI files: ${chalkStderr.green("enabled")}`);
 
   const [versionData, guidelinesFile, agentsContent, claudeContent] =
     await Promise.all([
       getVersion(),
-      readFileSafe(guidelinesPathForConvexDir(convexDir)),
-      readFileSafe(agentsMdPath(projectDir)),
-      readFileSafe(claudeMdPath(projectDir)),
+      readFileOrNull(guidelinesPathForConvexDir(convexDir)),
+      readFileOrNull(agentsMdPath(projectDir)),
+      readFileOrNull(claudeMdPath(projectDir)),
     ]);
 
   const networkAvailable = versionData.kind === "ok";
@@ -230,11 +236,11 @@ export async function statusAiFiles({
   logGuidelinesStatus({
     guidelinesFile,
     guidelinesRelPath,
-    config,
+    state,
     canonicalGuidelinesHash,
     networkAvailable,
   });
-  logAgentsMdStatus({ agentsContent, config, convexDirName });
-  logClaudeMdStatus({ claudeContent, config, convexDirName });
-  logSkillsStatus({ config, canonicalAgentSkillsSha, networkAvailable });
+  logAgentsMdStatus({ agentsContent, state, convexDirName });
+  logClaudeMdStatus({ claudeContent, state, convexDirName });
+  logSkillsStatus({ state, canonicalAgentSkillsSha, networkAvailable });
 }

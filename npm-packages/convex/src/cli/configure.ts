@@ -16,7 +16,7 @@ import {
   checkAccessToSelectedProject,
   DeploymentSelectionWithinProject,
 } from "./lib/api.js";
-import { readProjectConfig, writeProjectConfig } from "./lib/config.js";
+import { readProjectConfig, ensureConvexFunctionsDir } from "./lib/config.js";
 import {
   DeploymentDetails,
   eraseDeploymentEnvVar,
@@ -44,7 +44,7 @@ import {
   promptYesNo,
 } from "./lib/utils/prompts.js";
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
-import { maybeSetupAiFiles } from "./lib/aiFiles/index.js";
+import { attemptSetupAiFiles } from "./lib/aiFiles/index.js";
 import {
   DeploymentSelection,
   deploymentNameFromSelection,
@@ -622,8 +622,9 @@ async function selectNewProject(
   await doInitConvexFolder(ctx);
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const folder = functionsDir(configPath, projectConfig);
-  await maybeSetupAiFiles({
+  await attemptSetupAiFiles({
     ctx,
+    aiFilesConfig: projectConfig.aiFiles,
     convexDir: path.resolve(folder),
     projectDir: path.resolve(path.dirname(configPath)),
   });
@@ -682,8 +683,9 @@ async function selectExistingProject(
 
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const folder = functionsDir(configPath, projectConfig);
-  await maybeSetupAiFiles({
+  await attemptSetupAiFiles({
     ctx,
+    aiFilesConfig: projectConfig.aiFiles,
     convexDir: path.resolve(folder),
     projectDir: path.resolve(path.dirname(configPath)),
   });
@@ -794,7 +796,7 @@ export async function updateEnvAndConfigForDeploymentSelection(
       },
       existingValue,
     );
-  await writeProjectConfig(ctx, projectConfig);
+  await ensureConvexFunctionsDir(ctx, projectConfig);
   await finalizeConfiguration(ctx, {
     deploymentType: options.deploymentType,
     deploymentName: options.deploymentName,

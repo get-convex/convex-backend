@@ -1,10 +1,23 @@
-import { vi, test, expect, beforeEach, MockInstance, beforeAll } from "vitest";
+import {
+  vi,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  describe,
+  MockInstance,
+  beforeAll,
+} from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import {
   parseProjectConfig,
-  ProjectConfig,
-  writeProjectConfig,
+  type ProjectConfig,
+  ensureConvexFunctionsDir,
   readProjectConfig,
   resetUnknownKeyWarnings,
+  writeAiFilesConfig,
 } from "./config.js";
 import { Context, oneoffContext } from "../../bundler/context.js";
 import { logFailure } from "../../bundler/log.js";
@@ -250,7 +263,7 @@ test("parseProjectConfig - top-level validation", async () => {
   );
 });
 
-test("writeProjectConfig - creates functions directory", async () => {
+test("ensureConvexFunctionsDir - creates functions directory", async () => {
   let mkdirCalled = false;
   let mkdirPath = "";
   const testCtx = {
@@ -272,12 +285,12 @@ test("writeProjectConfig - creates functions directory", async () => {
     codegen: { staticApi: false, staticDataModel: false },
   };
 
-  await writeProjectConfig(testCtx, config);
+  await ensureConvexFunctionsDir(testCtx, config);
   expect(mkdirCalled).toBe(true);
   expect(mkdirPath).toMatch(/^my-functions[\\/]$/);
 });
 
-test("writeProjectConfig - does not write to convex.json", async () => {
+test("ensureConvexFunctionsDir - does not write to convex.json", async () => {
   let writeUtf8FileCalled = false;
   const testCtx = {
     ...ctx,
@@ -299,7 +312,7 @@ test("writeProjectConfig - does not write to convex.json", async () => {
     codegen: { staticApi: true, staticDataModel: true },
   };
 
-  await writeProjectConfig(testCtx, config);
+  await ensureConvexFunctionsDir(testCtx, config);
   expect(writeUtf8FileCalled).toBe(false);
 });
 
@@ -849,4 +862,131 @@ test("parseProjectConfig - authKit preview and prod restrictions", async () => {
       },
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// writeAiFilesConfig
+// ---------------------------------------------------------------------------
+
+describe("writeAiFilesConfig", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test("creates convex.json with $schema when file does not exist", async () => {
+    await writeAiFilesConfig({
+      projectDir: tmpDir,
+      aiFiles: { enabled: false },
+    });
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "convex.json"), "utf8"),
+    );
+    expect(written.$schema).toBe(
+      "node_modules/convex/schemas/convex.schema.json",
+    );
+    expect(written.aiFiles).toEqual({ enabled: false });
+  });
+
+  test("writes aiFiles as-is without merging sub-keys", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "convex.json"),
+      JSON.stringify({ aiFiles: { disableStalenessMessage: true } }, null, 2),
+      "utf8",
+    );
+
+    await writeAiFilesConfig({
+      projectDir: tmpDir,
+      aiFiles: { enabled: false },
+    });
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "convex.json"), "utf8"),
+    );
+    expect(written.aiFiles).toEqual({ enabled: false });
+  });
+
+  test("preserves other existing fields in convex.json", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "convex.json"),
+      JSON.stringify(
+        { functions: "src/convex/", customKey: "preserved" },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await writeAiFilesConfig({
+      projectDir: tmpDir,
+      aiFiles: { enabled: false },
+    });
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "convex.json"), "utf8"),
+    );
+    expect(written.functions).toBe("src/convex/");
+    expect(written.customKey).toBe("preserved");
+    expect(written.aiFiles).toEqual({ enabled: false });
+  });
+
+  test("removes aiFiles key when undefined", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "convex.json"),
+      JSON.stringify({ aiFiles: { enabled: false } }, null, 2),
+      "utf8",
+    );
+
+    await writeAiFilesConfig({
+      projectDir: tmpDir,
+      aiFiles: undefined,
+    });
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "convex.json"), "utf8"),
+    );
+    expect(written.aiFiles).toBeUndefined();
+  });
+
+  test("preserves existing $schema when file already has one", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "convex.json"),
+      JSON.stringify({ $schema: "./custom-schema.json" }, null, 2),
+      "utf8",
+    );
+
+    await writeAiFilesConfig({
+      projectDir: tmpDir,
+      aiFiles: undefined,
+    });
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "convex.json"), "utf8"),
+    );
+    expect(written.$schema).toBe("./custom-schema.json");
+  });
+
+  test("handles invalid JSON in existing convex.json gracefully", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "convex.json"),
+      "not valid json",
+      "utf8",
+    );
+
+    await writeAiFilesConfig({
+      projectDir: tmpDir,
+      aiFiles: { enabled: false },
+    });
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "convex.json"), "utf8"),
+    );
+    expect(written.aiFiles).toEqual({ enabled: false });
+  });
 });

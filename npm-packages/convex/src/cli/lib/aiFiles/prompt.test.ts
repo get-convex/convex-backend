@@ -56,7 +56,7 @@ vi.mock("../utils/prompts.js", async (importOriginal) => {
   };
 });
 
-import { maybeSetupAiFiles } from "./index.js";
+import { attemptSetupAiFiles } from "./index.js";
 
 function makeTmpDir(): string {
   return fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
@@ -111,7 +111,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   test("user accepts prompt: AI files are installed", async () => {
     mockPromptYesNo.mockResolvedValue(true);
 
-    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
+    await attemptSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(guidelinesPath())).toBe(true);
     expect(fs.existsSync(statePath())).toBe(true);
@@ -125,7 +125,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   test("user declines prompt: no config and no AI files are written", async () => {
     mockPromptYesNo.mockResolvedValue(false);
 
-    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
+    await attemptSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(guidelinesPath())).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(false);
@@ -136,7 +136,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
   test("non-interactive terminal skips the prompt and does not install AI files", async () => {
     process.stdin.isTTY = false;
 
-    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
+    await attemptSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(guidelinesPath())).toBe(false);
     expect(fs.existsSync(statePath())).toBe(false);
@@ -163,7 +163,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
       ),
     );
 
-    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
+    await attemptSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(path.join(stateDir, "ai-files.state.json"))).toBe(
       true,
@@ -187,7 +187,7 @@ describe("maybeSetupAiFiles interactive prompt", () => {
       ].join("\n"),
     );
 
-    await maybeSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
+    await attemptSetupAiFiles({ ctx: fakeCtx, convexDir, projectDir: tmpDir });
 
     expect(fs.existsSync(statePath())).toBe(true);
     expect(fs.existsSync(guidelinesPath())).toBe(true);

@@ -14,7 +14,7 @@ import {
   getDeploymentSelection,
   type DeploymentSelection,
 } from "./lib/deploymentSelection.js";
-import { checkVersion } from "./lib/updates.js";
+import { checkVersionAndAiFilesStaleness } from "./lib/updates.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -295,7 +295,7 @@ Same format as .env.local or .env files, and overrides them.`,
       ...(credentials.deploymentFields !== null
         ? [
             usageStateWarning(ctx, credentials.deploymentFields.deploymentName),
-            checkVersion(ctx),
+            checkVersionAndAiFilesStaleness(ctx),
           ]
         : []),
     ]);

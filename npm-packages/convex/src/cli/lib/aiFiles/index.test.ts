@@ -1,10 +1,10 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { logMessage } from "../../../bundler/log.js";
 import {
-  readAiConfig,
-  writeAiConfig,
-  writeAiEnabledToProjectConfig,
-} from "./config.js";
+  attemptReadAiState,
+  readAiStateOrDefault,
+  writeAiState,
+} from "./state.js";
 import {
   downloadGuidelines,
   fetchAgentSkillsSha,
@@ -14,10 +14,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import {
-  checkAiFilesStaleness,
+  checkAiFilesStalenessAndLog,
   installAiFiles,
   removeAiFiles,
-  safelyAttemptToDisableAiFiles,
 } from "./index.js";
 import { statusAiFiles } from "./status.js";
 import {
@@ -42,10 +41,11 @@ vi.mock("../../../bundler/log.js", () => ({
   logMessage: vi.fn(),
 }));
 
-vi.mock("./config.js", () => ({
-  readAiConfig: vi.fn(),
-  writeAiConfig: vi.fn(),
-  writeAiEnabledToProjectConfig: vi.fn(),
+vi.mock("./state.js", () => ({
+  attemptReadAiState: vi.fn(),
+  readAiStateOrDefault: vi.fn(),
+  writeAiState: vi.fn(),
+  hasAiState: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("../versionApi.js", () => ({
@@ -69,23 +69,20 @@ vi.mock("child_process", () => ({
 }));
 
 const mockLogMessage = vi.mocked(logMessage);
-const mockReadAiConfig = vi.mocked(readAiConfig);
-const mockWriteAiConfig = vi.mocked(writeAiConfig);
-const mockWriteAiEnabledToProjectConfig = vi.mocked(
-  writeAiEnabledToProjectConfig,
-);
+const mockAttemptReadAiState = vi.mocked(attemptReadAiState);
+const mockReadAiStateOrDefault = vi.mocked(readAiStateOrDefault);
+const mockWriteAiState = vi.mocked(writeAiState);
 const mockDownloadGuidelines = vi.mocked(downloadGuidelines);
 const mockFetchAgentSkillsSha = vi.mocked(fetchAgentSkillsSha);
 const mockGetVersion = vi.mocked(getVersion);
 
-/** Minimal valid config used across tests; includes all required fields. */
-const baseConfig = {
+/** Minimal valid state used across tests; includes all required fields. */
+const baseState = {
   guidelinesHash: null,
   agentsMdSectionHash: null,
   claudeMdHash: null,
   agentSkillsSha: null,
   installedSkillNames: [] as string[],
-  enabled: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -93,7 +90,9 @@ const baseConfig = {
 // ---------------------------------------------------------------------------
 
 describe("checkAiFilesStaleness", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetAllMocks();
@@ -103,16 +102,16 @@ describe("checkAiFilesStaleness", () => {
   const dummyConvexDir = "/tmp/test-project/convex";
 
   test("logs install nudge when no state file exists, even with null canonical values", async () => {
-    mockReadAiConfig.mockResolvedValue(null);
+    mockAttemptReadAiState.mockResolvedValue({ kind: "no-file" });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: null,
       canonicalAgentSkillsSha: null,
       projectDir: dummyProjectDir,
       convexDir: dummyConvexDir,
     });
 
-    expect(mockReadAiConfig).toHaveBeenCalled();
+    expect(mockAttemptReadAiState).toHaveBeenCalled();
     expect(mockLogMessage).toHaveBeenCalledWith(
       expect.stringContaining("npx convex ai-files install"),
     );
@@ -121,13 +120,13 @@ describe("checkAiFilesStaleness", () => {
     );
   });
 
-  test("does nothing when both canonical values are null but config exists (version server unavailable)", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      guidelinesHash: "some-hash",
+  test("does nothing when both canonical values are null but state exists (version server unavailable)", async () => {
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, guidelinesHash: "some-hash" },
     });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: null,
       canonicalAgentSkillsSha: null,
       projectDir: dummyProjectDir,
@@ -138,9 +137,9 @@ describe("checkAiFilesStaleness", () => {
   });
 
   test("logs install nudge when no state file exists, even if canonical hashes are available", async () => {
-    mockReadAiConfig.mockResolvedValue(null);
+    mockAttemptReadAiState.mockResolvedValue({ kind: "no-file" });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: "canonical-hash",
       canonicalAgentSkillsSha: null,
       projectDir: dummyProjectDir,
@@ -159,14 +158,12 @@ describe("checkAiFilesStaleness", () => {
   });
 
   test("does nothing when config has enabled=false (user opted out)", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      enabled: false,
-    });
+    mockAttemptReadAiState.mockResolvedValue({ kind: "no-file" });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: "canonical-hash",
       canonicalAgentSkillsSha: null,
+      aiFilesConfig: { enabled: false },
       projectDir: dummyProjectDir,
       convexDir: dummyConvexDir,
     });
@@ -175,12 +172,12 @@ describe("checkAiFilesStaleness", () => {
   });
 
   test("does nothing when stored guidelines hash matches canonical", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      guidelinesHash: "same-hash",
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, guidelinesHash: "same-hash" },
     });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: "same-hash",
       canonicalAgentSkillsSha: null,
       projectDir: dummyProjectDir,
@@ -191,12 +188,12 @@ describe("checkAiFilesStaleness", () => {
   });
 
   test("logs nag message when guidelines hash is stale", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      guidelinesHash: "old-hash",
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, guidelinesHash: "old-hash" },
     });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: "new-canonical-hash",
       canonicalAgentSkillsSha: null,
       projectDir: dummyProjectDir,
@@ -209,13 +206,16 @@ describe("checkAiFilesStaleness", () => {
   });
 
   test("logs nag message when agent skills SHA is stale", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      guidelinesHash: "current-hash",
-      agentSkillsSha: "old-sha",
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: {
+        ...baseState,
+        guidelinesHash: "current-hash",
+        agentSkillsSha: "old-sha",
+      },
     });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: "current-hash",
       canonicalAgentSkillsSha: "new-sha",
       projectDir: dummyProjectDir,
@@ -228,9 +228,12 @@ describe("checkAiFilesStaleness", () => {
   });
 
   test("does nothing when stored guidelinesHash is null (never written)", async () => {
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
 
-    await checkAiFilesStaleness({
+    await checkAiFilesStalenessAndLog({
       canonicalGuidelinesHash: "some-hash",
       canonicalAgentSkillsSha: "some-sha",
       projectDir: dummyProjectDir,
@@ -261,8 +264,8 @@ describe("installAiFiles", () => {
   });
   afterEach(() => vi.resetAllMocks());
 
-  test("runs full init and installs skills when no config exists", async () => {
-    mockReadAiConfig.mockResolvedValue(null);
+  test("runs full init and installs skills when no state exists", async () => {
+    mockReadAiStateOrDefault.mockResolvedValue(baseState);
 
     const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
     const convexDir = path.join(tmpDir, "convex");
@@ -309,79 +312,19 @@ describe("installAiFiles", () => {
       }
 
       mockDownloadGuidelines.mockResolvedValue(null);
-      mockReadAiConfig.mockResolvedValue({
-        ...baseConfig,
+      mockReadAiStateOrDefault.mockResolvedValue({
+        ...baseState,
         agentSkillsSha: "old-sha",
       });
 
       await installAiFiles({ projectDir: tmpDir, convexDir });
 
-      expect(mockWriteAiConfig).toHaveBeenCalledWith(
+      expect(mockWriteAiState).toHaveBeenCalledWith(
         expect.objectContaining({
-          config: expect.objectContaining({
+          state: expect.objectContaining({
             agentSkillsSha: "canonical-sha-abc123",
             installedSkillNames: ["migration-helper", "schema-builder"],
           }),
-        }),
-      );
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("update does not clear enabled=false when set", async () => {
-    const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-    const convexDir = path.join(tmpDir, "convex");
-    try {
-      mockReadAiConfig.mockResolvedValue({
-        ...baseConfig,
-        enabled: false,
-      });
-      mockDownloadGuidelines.mockResolvedValue(null);
-
-      await installAiFiles({ projectDir: tmpDir, convexDir });
-
-      expect(mockWriteAiConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          config: expect.objectContaining({ enabled: false }),
-        }),
-      );
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("update recreates convex/_generated/ai when only disable config exists", async () => {
-    const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-    const convexDir = path.join(tmpDir, "convex");
-    try {
-      fs.mkdirSync(convexDir, { recursive: true });
-      fs.writeFileSync(path.join(convexDir, "schema.ts"), "");
-      fs.writeFileSync(path.join(tmpDir, "convex.json"), "{}");
-      mockReadAiConfig.mockResolvedValue({
-        ...baseConfig,
-        enabled: false,
-        guidelinesHash: null,
-      });
-      mockDownloadGuidelines.mockResolvedValue("fresh guidelines");
-
-      await installAiFiles({ projectDir: tmpDir, convexDir });
-
-      expect(fs.existsSync(path.join(convexDir, "_generated", "ai"))).toBe(
-        true,
-      );
-      expect(
-        fs.existsSync(
-          path.join(convexDir, "_generated", "ai", "guidelines.md"),
-        ),
-      ).toBe(true);
-      expect(mockWriteAiConfig).toHaveBeenCalledWith(
-        expect.objectContaining({
-          config: expect.objectContaining({
-            enabled: false,
-            guidelinesHash: expect.any(String),
-          }),
-          projectDir: tmpDir,
         }),
       );
     } finally {
@@ -393,7 +336,7 @@ describe("installAiFiles", () => {
     const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
     const convexDir = path.join(tmpDir, "convex");
     try {
-      mockReadAiConfig.mockResolvedValue(baseConfig);
+      mockReadAiStateOrDefault.mockResolvedValue(baseState);
       mockDownloadGuidelines.mockResolvedValue(null);
 
       await installAiFiles({ projectDir: tmpDir, convexDir });
@@ -410,7 +353,7 @@ describe("installAiFiles", () => {
     const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
     const convexDir = path.join(tmpDir, "convex");
     try {
-      mockReadAiConfig.mockResolvedValue(baseConfig);
+      mockReadAiStateOrDefault.mockResolvedValue(baseState);
       mockDownloadGuidelines.mockResolvedValue("guidelines content");
       mockGetVersion.mockResolvedValue({
         kind: "ok",
@@ -470,17 +413,9 @@ describe("removeAiFiles", () => {
     vi.resetAllMocks();
   });
 
-  function writeConfig(override: Partial<typeof baseConfig> = {}) {
-    const config = { ...baseConfig, ...override };
-    fs.writeFileSync(
-      path.join(tmpDir, "convex", "_generated", "ai", "ai-files.state.json"),
-      JSON.stringify(config, null, 2) + "\n",
-      "utf8",
-    );
-  }
-
-  test("logs nothing-to-remove when no config exists", async () => {
-    mockReadAiConfig.mockResolvedValue(null);
+  test("logs nothing-to-remove when no state and no artifacts exist", async () => {
+    mockAttemptReadAiState.mockResolvedValue({ kind: "no-file" });
+    fs.rmSync(path.join(convexDir, "_generated", "ai"), { recursive: true });
 
     await removeAiFiles({ projectDir: tmpDir, convexDir });
 
@@ -489,9 +424,22 @@ describe("removeAiFiles", () => {
     );
   });
 
+  test("removes ai dir even when no state file exists", async () => {
+    mockAttemptReadAiState.mockResolvedValue({ kind: "no-file" });
+
+    await removeAiFiles({ projectDir: tmpDir, convexDir });
+
+    expect(mockLogMessage).toHaveBeenCalledWith(
+      expect.stringContaining("Convex AI files removed"),
+    );
+    expect(fs.existsSync(path.join(convexDir, "_generated", "ai"))).toBe(false);
+  });
+
   test("deletes AGENTS.md if stripping the Convex section leaves it empty", async () => {
-    writeConfig();
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
 
     const agentsMdContent = `${AGENTS_MD_START_MARKER}\n## Convex\nGuidelines.\n${AGENTS_MD_END_MARKER}\n`;
     fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), agentsMdContent, "utf8");
@@ -502,8 +450,10 @@ describe("removeAiFiles", () => {
   });
 
   test("strips Convex section from AGENTS.md", async () => {
-    writeConfig();
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
 
     const agentsMdContent =
       `# My project\n\n` +
@@ -521,8 +471,10 @@ describe("removeAiFiles", () => {
   });
 
   test("deletes CLAUDE.md when it only contains the managed section", async () => {
-    writeConfig();
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
     const managed = `${CLAUDE_MD_START_MARKER}\n## Convex\nRead guidelines.\n${CLAUDE_MD_END_MARKER}\n`;
     fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), managed, "utf8");
 
@@ -532,8 +484,10 @@ describe("removeAiFiles", () => {
   });
 
   test("leaves CLAUDE.md when it has no managed markers", async () => {
-    writeConfig();
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
 
     fs.writeFileSync(path.join(tmpDir, "CLAUDE.md"), "User content\n", "utf8");
 
@@ -543,8 +497,10 @@ describe("removeAiFiles", () => {
   });
 
   test("strips only the Convex section from CLAUDE.md", async () => {
-    writeConfig();
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
     const managed = `${CLAUDE_MD_START_MARKER}\n## Convex\nRead guidelines.\n${CLAUDE_MD_END_MARKER}`;
     fs.writeFileSync(
       path.join(tmpDir, "CLAUDE.md"),
@@ -562,9 +518,9 @@ describe("removeAiFiles", () => {
   });
 
   test("leaves CLAUDE.md alone when it has no managed markers (legacy)", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      claudeMdHash: "some-hash",
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, claudeMdHash: "some-hash" },
     });
 
     fs.writeFileSync(
@@ -583,9 +539,9 @@ describe("removeAiFiles", () => {
 
   test("calls skills remove for each tracked skill name", async () => {
     const skillNames = ["migration-helper", "schema-builder"];
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      installedSkillNames: skillNames,
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, installedSkillNames: skillNames },
     });
 
     await removeAiFiles({ projectDir: tmpDir, convexDir });
@@ -602,10 +558,9 @@ describe("removeAiFiles", () => {
 
   test("deletes skills-lock.json if it becomes empty after removing our skills", async () => {
     const skillNames = ["migration-helper"];
-    writeConfig({ installedSkillNames: skillNames });
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      installedSkillNames: skillNames,
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, installedSkillNames: skillNames },
     });
 
     const lockfileContent = {
@@ -627,10 +582,9 @@ describe("removeAiFiles", () => {
 
   test("preserves skills-lock.json if it contains other skills", async () => {
     const skillNames = ["migration-helper"];
-    writeConfig({ installedSkillNames: skillNames });
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      installedSkillNames: skillNames,
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, installedSkillNames: skillNames },
     });
 
     const lockfileContent = {
@@ -653,9 +607,9 @@ describe("removeAiFiles", () => {
 
   test("skips skills remove when server kill switch is enabled", async () => {
     const skillNames = ["migration-helper"];
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      installedSkillNames: skillNames,
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: { ...baseState, installedSkillNames: skillNames },
     });
     mockGetVersion.mockResolvedValue({
       kind: "ok",
@@ -680,45 +634,15 @@ describe("removeAiFiles", () => {
     );
   });
 
-  test("does NOT write a disabled config after plain remove", async () => {
-    writeConfig();
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+  test("does NOT write state after plain remove", async () => {
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
 
     await removeAiFiles({ projectDir: tmpDir, convexDir });
 
-    expect(mockWriteAiConfig).not.toHaveBeenCalled();
-  });
-
-  test("safelyAttemptToDisableAiFiles writes enabled=false without removing files", async () => {
-    writeConfig({ guidelinesHash: null });
-    mockReadAiConfig.mockResolvedValue(baseConfig);
-
-    fs.writeFileSync(
-      path.join(convexDir, "_generated", "ai", "guidelines.md"),
-      "guidelines content",
-      "utf8",
-    );
-
-    await safelyAttemptToDisableAiFiles(tmpDir);
-
-    expect(mockWriteAiEnabledToProjectConfig).toHaveBeenCalledWith({
-      enabled: false,
-      projectDir: tmpDir,
-    });
-    expect(
-      fs.existsSync(path.join(convexDir, "_generated", "ai", "guidelines.md")),
-    ).toBe(true);
-  });
-
-  test("safelyAttemptToDisableAiFiles writes config to project root, not convex dir", async () => {
-    mockReadAiConfig.mockResolvedValue(null);
-
-    await safelyAttemptToDisableAiFiles(tmpDir);
-
-    expect(mockWriteAiEnabledToProjectConfig).toHaveBeenCalledWith({
-      enabled: false,
-      projectDir: tmpDir,
-    });
+    expect(mockWriteAiState).not.toHaveBeenCalled();
   });
 });
 
@@ -744,8 +668,8 @@ describe("statusAiFiles", () => {
   });
   afterEach(() => vi.resetAllMocks());
 
-  test("reports not installed when config is null", async () => {
-    mockReadAiConfig.mockResolvedValue(null);
+  test("reports not installed when state is missing", async () => {
+    mockAttemptReadAiState.mockResolvedValue({ kind: "no-file" });
 
     await statusAiFiles({
       projectDir: dummyProjectDir,
@@ -761,14 +685,10 @@ describe("statusAiFiles", () => {
   });
 
   test("reports disabled when config has enabled=false", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      enabled: false,
-    });
-
     await statusAiFiles({
       projectDir: dummyProjectDir,
       convexDir: dummyConvexDir,
+      aiFilesConfig: { enabled: false },
     });
 
     expect(mockLogMessage).toHaveBeenCalledWith(
@@ -779,8 +699,11 @@ describe("statusAiFiles", () => {
     );
   });
 
-  test("reports enabled when config exists and enabled=true", async () => {
-    mockReadAiConfig.mockResolvedValue(baseConfig);
+  test("reports enabled when state exists and messages are not disabled", async () => {
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: baseState,
+    });
 
     await statusAiFiles({
       projectDir: dummyProjectDir,
@@ -809,9 +732,9 @@ describe("statusAiFiles", () => {
         "utf8",
       );
 
-      mockReadAiConfig.mockResolvedValue({
-        ...baseConfig,
-        guidelinesHash: hash,
+      mockAttemptReadAiState.mockResolvedValue({
+        kind: "ok",
+        state: { ...baseState, guidelinesHash: hash },
       });
       mockGetVersion.mockResolvedValue({
         kind: "ok",
@@ -850,9 +773,9 @@ describe("statusAiFiles", () => {
         "utf8",
       );
 
-      mockReadAiConfig.mockResolvedValue({
-        ...baseConfig,
-        guidelinesHash: hashSha256(content),
+      mockAttemptReadAiState.mockResolvedValue({
+        kind: "ok",
+        state: { ...baseState, guidelinesHash: hashSha256(content) },
       });
       mockGetVersion.mockResolvedValue({
         kind: "ok",
@@ -892,9 +815,12 @@ describe("statusAiFiles", () => {
         "utf8",
       );
 
-      mockReadAiConfig.mockResolvedValue({
-        ...baseConfig,
-        guidelinesHash: hashSha256("original content"),
+      mockAttemptReadAiState.mockResolvedValue({
+        kind: "ok",
+        state: {
+          ...baseState,
+          guidelinesHash: hashSha256("original content"),
+        },
       });
 
       await statusAiFiles({ projectDir: tmpDir, convexDir });
@@ -907,11 +833,42 @@ describe("statusAiFiles", () => {
     }
   });
 
+  test("reports guidelines as missing when guidelines.md is empty", async () => {
+    const tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
+    const convexDir = path.join(tmpDir, "convex");
+    try {
+      fs.mkdirSync(path.join(convexDir, "_generated", "ai"), {
+        recursive: true,
+      });
+      fs.writeFileSync(
+        path.join(convexDir, "_generated", "ai", "guidelines.md"),
+        "",
+        "utf8",
+      );
+
+      mockAttemptReadAiState.mockResolvedValue({
+        kind: "ok",
+        state: baseState,
+      });
+
+      await statusAiFiles({ projectDir: tmpDir, convexDir });
+
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        expect.stringContaining("guidelines.md: not on disk"),
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test("reports agent skills as out of date when SHA differs from canonical", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      installedSkillNames: ["migration-helper"],
-      agentSkillsSha: "old-sha",
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: {
+        ...baseState,
+        installedSkillNames: ["migration-helper"],
+        agentSkillsSha: "old-sha",
+      },
     });
     mockGetVersion.mockResolvedValue({
       kind: "ok",
@@ -937,11 +894,14 @@ describe("statusAiFiles", () => {
   });
 
   test("skips staleness check when network is unavailable", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      guidelinesHash: "old-hash",
-      agentSkillsSha: "old-sha",
-      installedSkillNames: ["migration-helper"],
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: {
+        ...baseState,
+        guidelinesHash: "old-hash",
+        agentSkillsSha: "old-sha",
+        installedSkillNames: ["migration-helper"],
+      },
     });
     mockGetVersion.mockResolvedValue({ kind: "error" });
 
@@ -955,10 +915,13 @@ describe("statusAiFiles", () => {
   });
 
   test("reports skills with names when installed", async () => {
-    mockReadAiConfig.mockResolvedValue({
-      ...baseConfig,
-      installedSkillNames: ["migration-helper", "schema-builder"],
-      agentSkillsSha: "canonical-skills-sha",
+    mockAttemptReadAiState.mockResolvedValue({
+      kind: "ok",
+      state: {
+        ...baseState,
+        installedSkillNames: ["migration-helper", "schema-builder"],
+        agentSkillsSha: "canonical-skills-sha",
+      },
     });
 
     await statusAiFiles({
@@ -983,7 +946,10 @@ describe("statusAiFiles", () => {
         "User content\n",
         "utf8",
       );
-      mockReadAiConfig.mockResolvedValue(baseConfig);
+      mockAttemptReadAiState.mockResolvedValue({
+        kind: "ok",
+        state: baseState,
+      });
 
       await statusAiFiles({ projectDir: tmpDir, convexDir });
 

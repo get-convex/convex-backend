@@ -3,7 +3,7 @@ import { oneoffContext } from "../bundler/context.js";
 import { logVerbose } from "../bundler/log.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
-import { checkVersion } from "./lib/updates.js";
+import { checkVersionAndAiFilesStaleness } from "./lib/updates.js";
 import { usageStateWarning } from "./lib/usage.js";
 
 // Equivalent to `npx convex dev --once --skip-push`.
@@ -37,7 +37,7 @@ export const init = new Command("init")
     if (credentials.deploymentFields !== null) {
       await Promise.all([
         usageStateWarning(ctx, credentials.deploymentFields.deploymentName),
-        checkVersion(ctx),
+        checkVersionAndAiFilesStaleness(ctx),
       ]);
     }
 

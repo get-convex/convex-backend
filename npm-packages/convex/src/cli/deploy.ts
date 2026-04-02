@@ -26,7 +26,7 @@ import {
   getDeploymentSelection,
 } from "./lib/deploymentSelection.js";
 import { deploymentNameAndTypeFromSelection } from "./lib/deploymentSelection.js";
-import { checkVersion } from "./lib/updates.js";
+import { checkVersionAndAiFilesStaleness } from "./lib/updates.js";
 import { readProjectConfig, getAuthKitConfig } from "./lib/config.js";
 import { ensureAuthKitProvisionedBeforeBuild } from "./lib/workos/workos.js";
 import { DASHBOARD_HOST } from "./lib/dashboard.js";
@@ -386,7 +386,7 @@ async function deployToExistingDeployment(
     ...(isCloudDeployment
       ? [
           usageStateWarning(ctx, deploymentFields.deploymentName),
-          checkVersion(ctx),
+          checkVersionAndAiFilesStaleness(ctx),
         ]
       : []),
   ]);

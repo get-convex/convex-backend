@@ -4,14 +4,17 @@ import { chalkStderr } from "chalk";
 import { logMessage } from "../../../bundler/log.js";
 import { downloadGuidelines } from "../versionApi.js";
 import { hashSha256 } from "../utils/hash.js";
-import { guidelinesPathForConvexDir } from "./paths.js";
-import { readFileSafe } from "./utils.js";
-import { type AiFilesConfig } from "./config.js";
+import { aiDirForConvexDir, guidelinesPathForConvexDir } from "./paths.js";
+import { attemptReadFile, exhaustiveCheck } from "./utils.js";
+import { type AiFilesState } from "./state.js";
 
 export async function hasGuidelinesInstalled(
   convexDir: string,
 ): Promise<boolean> {
-  return (await readFileSafe(guidelinesPathForConvexDir(convexDir))) !== null;
+  const result = await attemptReadFile(guidelinesPathForConvexDir(convexDir));
+  if (result.kind === "content") return true;
+  if (result.kind === "empty" || result.kind === "not-found") return false;
+  return exhaustiveCheck(result);
 }
 
 /**
@@ -21,10 +24,10 @@ export async function hasGuidelinesInstalled(
  */
 export async function installGuidelinesFile({
   convexDir,
-  config,
+  state,
 }: {
   convexDir: string;
-  config: AiFilesConfig;
+  state: AiFilesState;
 }): Promise<void> {
   const guidelines = await downloadGuidelines();
   if (guidelines === null) {
@@ -36,6 +39,11 @@ export async function installGuidelinesFile({
     return;
   }
 
+  await fs.mkdir(aiDirForConvexDir(convexDir), { recursive: true });
   await fs.writeFile(guidelinesPathForConvexDir(convexDir), guidelines, "utf8");
-  config.guidelinesHash = hashSha256(guidelines);
+  state.guidelinesHash = hashSha256(guidelines);
+
+  logMessage(
+    `${chalkStderr.green("✔")} ${guidelinesPathForConvexDir(convexDir)} written`,
+  );
 }

@@ -8,12 +8,33 @@ export function isInInteractiveTerminal(): boolean {
   return process.stdin.isTTY === true;
 }
 
-export async function readFileSafe(filePath: string): Promise<string | null> {
+export type ReadFileResult =
+  | { kind: "not-found" }
+  | { kind: "empty" }
+  | { kind: "content"; content: string };
+
+export async function attemptReadFile(
+  filePath: string,
+): Promise<ReadFileResult> {
   try {
-    return await fs.readFile(filePath, "utf8");
-  } catch {
-    return null;
+    const content = await fs.readFile(filePath, "utf8");
+    if (content.length === 0) return { kind: "empty" };
+    return { kind: "content", content };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      return { kind: "not-found" };
+
+    // eslint-disable-next-line no-restricted-syntax
+    throw error;
   }
+}
+
+export async function readFileOrNull(filePath: string): Promise<string | null> {
+  const result = await attemptReadFile(filePath);
+  if (result.kind === "content") return result.content;
+  if (result.kind === "empty") return "";
+  if (result.kind === "not-found") return null;
+  return exhaustiveCheck(result);
 }
 
 /**
@@ -61,7 +82,7 @@ export async function injectManagedSection(
 ): Promise<InjectResult> {
   const { filePath, startMarker, endMarker, section } = opts;
 
-  const existing = (await readFileSafe(filePath)) ?? "";
+  const existing = (await readFileOrNull(filePath)) ?? "";
 
   const startIdx = existing.indexOf(startMarker);
   const endIdx = existing.indexOf(endMarker);
@@ -95,12 +116,12 @@ export type StripResult = "none" | "section" | "file";
  * `"section"` if the section was stripped, or `"file"` if the entire
  * file was deleted.
  */
-export async function stripManagedSection(
+export async function attemptToStripManagedSection(
   opts: ManagedSectionTarget,
 ): Promise<StripResult> {
   const { filePath, startMarker, endMarker } = opts;
 
-  const content = await readFileSafe(filePath);
+  const content = await readFileOrNull(filePath);
   if (content === null) return "none";
 
   const startIdx = content.indexOf(startMarker);
@@ -122,7 +143,12 @@ export async function stripManagedSection(
   return "section";
 }
 
-export async function removeMarkdownSection({
+export function exhaustiveCheck(_param: never): never {
+  // eslint-disable-next-line no-restricted-syntax
+  throw new Error("Internal error: exhaustive check failed.");
+}
+
+export async function attemptToRemoveMarkdownSection({
   projectDir,
   strip,
   fileName,
@@ -145,7 +171,9 @@ export async function removeMarkdownSection({
     return true;
   }
 
-  return false;
+  if (result === "none") return false;
+
+  return exhaustiveCheck(result);
 }
 
 /**
@@ -154,7 +182,7 @@ export async function removeMarkdownSection({
 export async function hasManagedSection(
   opts: ManagedSectionTarget,
 ): Promise<boolean> {
-  const content = await readFileSafe(opts.filePath);
+  const content = await readFileOrNull(opts.filePath);
   return (
     content !== null &&
     content.includes(opts.startMarker) &&

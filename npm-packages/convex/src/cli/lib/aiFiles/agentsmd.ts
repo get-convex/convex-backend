@@ -4,16 +4,18 @@ import {
   agentsMdConvexSection,
 } from "../../codegen_templates/agentsmd.js";
 import { agentsMdPath } from "./paths.js";
-import { type AiFilesConfig } from "./config.js";
+import { type AiFilesState } from "./state.js";
 import {
   type ManagedSectionTarget,
   type InjectResult,
   type StripResult,
   injectManagedSection,
-  stripManagedSection,
+  attemptToStripManagedSection,
   hasManagedSection,
-  removeMarkdownSection,
+  attemptToRemoveMarkdownSection,
 } from "./utils.js";
+import { logMessage } from "../../../bundler/log.js";
+import { chalkStderr } from "chalk";
 
 function target(projectDir?: string): ManagedSectionTarget {
   return {
@@ -33,18 +35,18 @@ export async function injectAgentsMdSection({
   return injectManagedSection({ ...target(projectDir), section });
 }
 
-export async function stripAgentsMdSection(
+export async function attemptToStripAgentsMdSection(
   projectDir: string,
 ): Promise<StripResult> {
-  return stripManagedSection(target(projectDir));
+  return attemptToStripManagedSection(target(projectDir));
 }
 
-export async function removeAgentsMdSection(
+export async function attemptToRemoveAgentsMdSection(
   projectDir: string,
 ): Promise<boolean> {
-  return removeMarkdownSection({
+  return attemptToRemoveMarkdownSection({
     projectDir,
-    strip: stripAgentsMdSection,
+    strip: attemptToStripAgentsMdSection,
     fileName: "AGENTS.md",
   });
 }
@@ -61,17 +63,19 @@ export async function hasAgentsMdInstalled(
  */
 export async function applyAgentsMdSection({
   projectDir,
-  config,
+  state,
   convexDirName,
 }: {
   projectDir: string;
-  config: AiFilesConfig;
+  state: AiFilesState;
   convexDirName: string;
 }): Promise<boolean> {
   const result = await injectAgentsMdSection({
     section: agentsMdConvexSection(convexDirName),
     projectDir,
   });
-  config.agentsMdSectionHash = result.sectionHash;
+  if (result.didWrite)
+    logMessage(`${chalkStderr.green("✔")} AGENTS.md written`);
+  state.agentsMdSectionHash = result.sectionHash;
   return result.didWrite;
 }

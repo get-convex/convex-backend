@@ -136,7 +136,7 @@ vi.mock("./lib/updates.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./lib/updates.js")>();
   return {
     ...actual,
-    checkVersion: vi.fn(),
+    checkVersionAndAiFilesStaleness: vi.fn(),
   };
 });
 
@@ -174,7 +174,7 @@ vi.mock("./lib/login.js", async (importOriginal) => {
 vi.mock("./lib/aiFiles/index.js", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("./lib/aiFiles/index.js")>();
-  return { ...actual, maybeSetupAiFiles: vi.fn() };
+  return { ...actual, attemptSetupAiFiles: vi.fn() };
 });
 
 vi.mock("./configure.js", async (importOriginal) => {

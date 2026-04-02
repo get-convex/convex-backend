@@ -5,8 +5,8 @@ import { promises as fs } from "fs";
 import { chalkStderr } from "chalk";
 import { logMessage } from "../../../bundler/log.js";
 import { getVersion, fetchAgentSkillsSha } from "../versionApi.js";
-import { type AiFilesConfig } from "./config.js";
-import { iife, readFileSafe } from "./utils.js";
+import { type AiFilesState } from "./state.js";
+import { exhaustiveCheck, iife, readFileOrNull } from "./utils.js";
 
 /**
  * Read the frontmatter `name:` values from skills installed by the skills CLI.
@@ -28,7 +28,7 @@ async function readInstalledSkillNames(projectDir: string): Promise<string[]> {
   const names: string[] = [];
   for (const entry of entries) {
     const skillMdPath = path.join(skillsDir, entry, "SKILL.md");
-    const content = await readFileSafe(skillMdPath);
+    const content = await readFileOrNull(skillMdPath);
     if (content === null) continue;
     const match = content.match(/^---[\s\S]*?^name:\s*(.+?)\s*$/m);
     if (match) {
@@ -69,12 +69,15 @@ async function shouldRunSkillsCli(): Promise<boolean> {
 
   if (versionData.kind === "error") return true;
 
-  if (versionData.data.disableSkillsCli) {
-    logMessage(chalkStderr.yellow(`Agent skills are temporarily disabled.`));
-    return false;
+  if (versionData.kind === "ok") {
+    if (versionData.data.disableSkillsCli) {
+      logMessage(chalkStderr.yellow(`Agent skills are temporarily disabled.`));
+      return false;
+    }
+    return true;
   }
 
-  return true;
+  return exhaustiveCheck(versionData);
 }
 
 /**
@@ -118,15 +121,15 @@ async function removeSkillsLockIfEmpty({
 }
 
 /**
- * Install Convex agent skills and record the SHA and names into the config.
+ * Install Convex agent skills and record the SHA and names into the state.
  * Handles the kill-switch check and all logging internally.
  */
 export async function installSkills({
   projectDir,
-  config,
+  state,
 }: {
   projectDir: string;
-  config: AiFilesConfig;
+  state: AiFilesState;
 }): Promise<void> {
   if (!(await shouldRunSkillsCli())) return;
 
@@ -142,10 +145,12 @@ export async function installSkills({
   }
 
   const sha = await fetchAgentSkillsSha();
-  if (sha) config.agentSkillsSha = sha;
+  if (sha) state.agentSkillsSha = sha;
 
   const names = await readInstalledSkillNames(projectDir);
-  if (names.length > 0) config.installedSkillNames = names;
+  if (names.length > 0) state.installedSkillNames = names;
+
+  logMessage(`${chalkStderr.green("✔")} Skills installed`);
 }
 
 /**
@@ -159,7 +164,8 @@ export async function removeInstalledSkills({
   projectDir: string;
   skillNames: string[];
 }): Promise<boolean> {
-  if (skillNames.length === 0 || !(await shouldRunSkillsCli())) return false;
+  if (skillNames.length === 0) return false;
+  if (!(await shouldRunSkillsCli())) return false;
 
   logMessage(`Removing Convex agent skills: ${skillNames.join(", ")}`);
   const skillsOk = await runSkillsRemove({ cwd: projectDir, skillNames });
@@ -176,8 +182,10 @@ export async function removeInstalledSkills({
     projectDir,
     removedSkillNames: skillNames,
   });
+
   if (lockRemoved)
     logMessage(`${chalkStderr.green("✔")} Deleted skills-lock.json.`);
+
   return true;
 }
 
