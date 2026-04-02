@@ -239,13 +239,15 @@ export function DeploymentAdvancedSettings() {
         disabled={disabled}
         onSave={modifySettings}
       />
-      <DeploymentExpirySheet
-        expiresAt={deployment.expiresAt ?? null}
-        deploymentType={deploymentType}
-        previewRetentionDays={entitlements?.previewDeploymentRetentionDays}
-        disabled={disabled}
-        onSave={modifySettings}
-      />
+      {deploymentType !== "prod" && (
+        <DeploymentExpirySheet
+          expiresAt={deployment.expiresAt ?? null}
+          deploymentType={deploymentType}
+          previewRetentionDays={entitlements?.previewDeploymentRetentionDays}
+          disabled={disabled}
+          onSave={modifySettings}
+        />
+      )}
     </>
   );
 }
