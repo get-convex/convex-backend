@@ -195,7 +195,6 @@ use http_client::{
     CachedHttpClient,
     ClientPurpose,
 };
-use isolate::helpers::source_map_from_slice;
 use keybroker::{
     Identity,
     KeyBroker,
@@ -224,7 +223,6 @@ use model::{
         ComponentsModel,
     },
     config::{
-        module_loader::ModuleLoader,
         types::{
             ConfigFile,
             ConfigMetadata,
@@ -335,7 +333,6 @@ use sync_types::{
     CanonicalizedModulePath,
     CanonicalizedUdfPath,
     FunctionName,
-    ModulePath,
     SerializedQueryJournal,
 };
 use system_table_cleanup::SystemTableCleanupWorker;
@@ -997,41 +994,6 @@ impl<RT: Runtime> Application<RT> {
         query: VectorSearch,
     ) -> anyhow::Result<(Vec<PublicVectorSearchQueryResult>, FunctionUsageStats)> {
         self.database.vector_search(identity, query).await
-    }
-
-    pub async fn get_source_code(
-        &self,
-        identity: Identity,
-        path: ModulePath,
-        component: ComponentId,
-    ) -> anyhow::Result<Option<String>> {
-        let mut tx = self.begin(identity).await?;
-        let path = CanonicalizedComponentModulePath {
-            component,
-            module_path: path.canonicalize(),
-        };
-        let Some(metadata) = ModuleModel::new(&mut tx).get_metadata(path.clone()).await? else {
-            return Ok(None);
-        };
-        let Some(analyze_result) = &metadata.analyze_result else {
-            return Ok(None);
-        };
-        let Some(source_index) = analyze_result.source_index else {
-            return Ok(None);
-        };
-        let Some(full_source) = self.module_cache.get_module(&mut tx, path).await? else {
-            return Ok(None);
-        };
-        let Some(source_map_str) = &full_source.source_map else {
-            return Ok(None);
-        };
-        let Some(source_map) = source_map_from_slice(source_map_str.as_bytes()) else {
-            return Ok(None);
-        };
-        let Some(source_map_content) = source_map.get_source_contents(source_index) else {
-            return Ok(None);
-        };
-        Ok(Some(source_map_content.to_owned()))
     }
 
     pub async fn storage_generate_upload_url(

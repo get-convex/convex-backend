@@ -1,4 +1,3 @@
-use anyhow::Context;
 use application::{
     deploy_config::ModuleJson,
     valid_identifier::ValidIdentifier,
@@ -28,7 +27,6 @@ use common::{
     types::FunctionCaller,
 };
 use database::IndexModel;
-use errors::ErrorMetadata;
 use http::StatusCode;
 use isolate::UdfArgsJson;
 use model::{
@@ -224,43 +222,6 @@ pub async fn get_indexes(
     }))
 }
 
-#[derive(Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct GetSourceCodeArgs {
-    path: String,
-    component: Option<String>,
-}
-
-/// Get source code
-///
-/// Returns the source code for the specified module path.
-#[utoipa::path(
-    get,
-    path = "/get_source_code",
-    params(
-        ("path" = String, Query, description = "Module path to get source code for"),
-        ("component" = Option<String>, Query, description = "Component ID")
-    ),
-    responses((status = 200, body = String)),
-)]
-pub async fn get_source_code(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Query(GetSourceCodeArgs { path, component }): Query<GetSourceCodeArgs>,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
-    let component = ComponentId::deserialize_from_string(component.as_deref())?;
-    let path = path.parse().context(ErrorMetadata::bad_request(
-        "InvalidModulePath",
-        "Invalid module path",
-    ))?;
-    let source_code = st
-        .application
-        .get_source_code(identity, path, component)
-        .await?;
-    Ok(Json(source_code))
-}
-
 /// Check admin key validity
 ///
 /// This endpoint checks if the admin key included in the header is valid for
@@ -356,6 +317,5 @@ where
         .routes(utoipa_axum::routes!(get_indexes))
         .routes(utoipa_axum::routes!(delete_tables))
         .routes(utoipa_axum::routes!(delete_component))
-        .routes(utoipa_axum::routes!(get_source_code))
         .routes(utoipa_axum::routes!(delete_scheduled_functions_table))
 }

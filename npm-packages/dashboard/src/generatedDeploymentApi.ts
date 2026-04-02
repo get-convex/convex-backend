@@ -84,26 +84,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/get_source_code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get source code
-         * @description Returns the source code for the specified module path.
-         */
-        get: operations["get_source_code"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/delete_scheduled_functions_table": {
         parameters: {
             query?: never;
@@ -254,30 +234,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    get_source_code: {
-        parameters: {
-            query: {
-                /** @description Module path to get source code for */
-                path: string;
-                /** @description Component ID */
-                component?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
             };
         };
     };

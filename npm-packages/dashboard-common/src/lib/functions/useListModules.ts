@@ -2,7 +2,6 @@ import { useQuery } from "convex/react";
 import { useMemo } from "react";
 import udfs from "@common/udfs";
 import { Module } from "system-udfs/convex/_system/frontend/common";
-import { useInvalidateSourceCode } from "@common/lib/deploymentApi";
 import { ComponentId, useNents } from "@common/lib/useNents";
 
 export function useListModules(): Map<string, Module> | undefined {
@@ -20,7 +19,6 @@ export function useListModulesAllNents():
   | undefined {
   const rawModules = useQuery(udfs.modules.listForAllComponents);
 
-  const invalidateSourceCode = useInvalidateSourceCode();
   const allModules: Map<ComponentId | null, Map<string, Module>> | undefined =
     useMemo(() => {
       if (rawModules === undefined) {
@@ -33,14 +31,10 @@ export function useListModulesAllNents():
           componentId as ComponentId | null,
           new Map(modules as [string, Module][]),
         );
-
-        for (const [path, _] of modules) {
-          void invalidateSourceCode(componentId, path);
-        }
       }
 
       return allModulesMap;
-    }, [invalidateSourceCode, rawModules]);
+    }, [rawModules]);
 
   return allModules;
 }
