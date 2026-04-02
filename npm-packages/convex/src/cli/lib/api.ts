@@ -659,7 +659,7 @@ async function resolveDeploymentNameByReference(
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `Deployment “${reference}” not found. To create a new deployment, use ${chalkStderr.bold(`npx convex deployment create ${reference} --team ${teamSlug} --project ${projectSlug} --select`)}`,
+        printedMessage: `Deployment “${reference}” not found. To create a new deployment, use ${chalkStderr.bold(`npx convex deployment create ${teamSlug}:${projectSlug}:${reference} --select`)}`,
         errForSentry: err,
       });
     }
