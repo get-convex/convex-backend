@@ -62,8 +62,8 @@ use value::{
 
 use crate::{
     admin::{
-        must_be_admin,
-        must_be_admin_from_key_with_write_access,
+        must_be_admin_from_key,
+        must_be_admin_with_operation,
     },
     authentication::ExtractIdentity,
     LocalAppState,
@@ -251,12 +251,13 @@ pub async fn prepare_schema_handler(
     req: PrepareSchemaArgs,
 ) -> Result<(Json<PrepareSchemaResponse>, bool), HttpResponseError> {
     let bundle = req.bundle.try_into()?;
-    let identity = must_be_admin_from_key_with_write_access(
+    let identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key,
     )
     .await?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
     let schema = match st.application.evaluate_schema(bundle).await {
         Ok(m) => m,
         Err(e) => return Err(e.into()),
@@ -354,7 +355,7 @@ pub async fn schema_state(
     Path(schema_id): Path<String>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
     let mut tx = st.application.begin(identity.clone()).await?;
     // This endpoint is only used in non-components push.
     let table_namespace = TableNamespace::root_component();
@@ -378,4 +379,116 @@ pub async fn schema_state(
             .collect::<anyhow::Result<_>>()?,
         schema_state: state.into(),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum_extra::headers::authorization::Credentials;
+    use common::{
+        http::HttpError,
+        types::MemberId,
+    };
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+    use serde_json::json;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    fn prepare_schema_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({
+            "adminKey": admin_key,
+            "bundle": {
+                "path": "schema.js",
+                "source": "export default {};",
+                "sourceMap": null,
+                "environment": "isolate",
+            },
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/prepare_schema")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)?)
+    }
+
+    fn schema_state_request(
+        auth_header_value: http::HeaderValue,
+    ) -> anyhow::Result<Request<axum::body::Body>> {
+        Ok(Request::builder()
+            .uri("/api/schema_state/fake_schema_id")
+            .method("GET")
+            .header("Authorization", auth_header_value)
+            .body(axum::body::Body::empty())?)
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_prepare_schema_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = prepare_schema_request(read_only_key.as_str())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_prepare_schema_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = prepare_schema_request(admin_key.as_str())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_schema_state_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let auth_header = read_only_key.as_header()?;
+        let req = schema_state_request(auth_header.0.encode())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_schema_state_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let auth_header = admin_key.as_header()?;
+        let req = schema_state_request(auth_header.0.encode())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
+    }
 }

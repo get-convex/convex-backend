@@ -53,7 +53,7 @@ use value::{
 use crate::{
     admin::{
         must_be_admin_from_key,
-        must_be_admin_with_write_access,
+        must_be_admin_with_operation,
     },
     EmptyResponse,
     LocalAppState,
@@ -195,6 +195,7 @@ pub async fn get_config(
         req.admin_key,
     )
     .await?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
 
     let mut tx = st.application.begin(identity).await?;
     let component = ComponentId::Root; // This endpoint is only used pre-components.
@@ -224,6 +225,7 @@ pub async fn get_config_hashes(
         req.admin_key,
     )
     .await?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
 
     let mut tx = st.application.begin(identity).await?;
     let component = ComponentId::Root; // This endpoint is not used in components push.
@@ -278,7 +280,7 @@ pub async fn push_config_handler(
         .await
         .context("bad admin key error")?;
 
-    must_be_admin_with_write_access(&identity)?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
 
     let modules: Vec<ModuleConfig> = config
         .modules
@@ -314,4 +316,105 @@ pub async fn push_config_handler(
         )
         .await?;
     Ok((identity, analytics, metrics))
+}
+
+#[cfg(test)]
+mod tests {
+    use common::{
+        http::HttpError,
+        types::MemberId,
+    };
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+    use serde_json::json;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    fn get_config_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({ "adminKey": admin_key });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/get_config")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)?)
+    }
+
+    fn get_config_hashes_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({ "adminKey": admin_key });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/get_config_hashes")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)?)
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_config_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = get_config_request(read_only_key.as_str())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_config_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = get_config_request(admin_key.as_str())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_config_hashes_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = get_config_hashes_request(read_only_key.as_str())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_config_hashes_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = get_config_hashes_request(admin_key.as_str())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
+    }
 }

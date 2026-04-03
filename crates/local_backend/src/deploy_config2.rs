@@ -70,7 +70,7 @@ use value::{
 use crate::{
     admin::{
         must_be_admin_from_key,
-        must_be_admin_from_key_with_write_access,
+        must_be_admin_with_operation,
     },
     LocalAppState,
 };
@@ -202,12 +202,13 @@ pub async fn start_push(
     State(st): State<LocalAppState>,
     Json(req): Json<StartPushRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let _identity = must_be_admin_from_key_with_write_access(
+    let _identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key.clone(),
     )
     .await?;
+    must_be_admin_with_operation(&_identity, keybroker::DeploymentOp::Deploy)?;
     let config = req.into_project_config().map_err(|e| {
         anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
     })?;
@@ -228,12 +229,13 @@ pub async fn evaluate_push(
     MtState(st): MtState<LocalAppState>,
     Json(req): Json<StartPushRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let _identity = must_be_admin_from_key_with_write_access(
+    let _identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key.clone(),
     )
     .await?;
+    must_be_admin_with_operation(&_identity, keybroker::DeploymentOp::Deploy)?;
     let config = req.into_project_config().map_err(|e| {
         anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
     })?;
@@ -265,6 +267,7 @@ pub async fn wait_for_schema(
         req.admin_key,
     )
     .await?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
     let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(DEFAULT_SCHEMA_TIMEOUT_MS) as u64);
     let schema_change = req.schema_change.try_into()?;
 
@@ -290,12 +293,13 @@ pub async fn finish_push_internal(
     st: &LocalAppState,
     req: FinishPushRequest,
 ) -> anyhow::Result<(SerializedFinishPushDiff, Option<common::types::Timestamp>)> {
-    let identity = must_be_admin_from_key_with_write_access(
+    let identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key.clone(),
     )
     .await?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
 
     let start_push = StartPushResponse::try_from(req.start_push)?;
 
@@ -334,12 +338,13 @@ pub async fn report_push_completed(
     st: LocalAppState,
     req: ReportPushCompletedRequest,
 ) -> anyhow::Result<Vec<SpanRecord>> {
-    let _identity = must_be_admin_from_key_with_write_access(
+    let _identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key.clone(),
     )
     .await?;
+    must_be_admin_with_operation(&_identity, keybroker::DeploymentOp::Deploy)?;
     let spans = req
         .spans
         .into_iter()
@@ -467,5 +472,232 @@ impl TryFrom<SerializedEventRecord> for EventRecord {
             timestamp_unix_ns,
             properties,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use common::{
+        http::HttpError,
+        types::MemberId,
+    };
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+    use serde_json::json;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    fn start_push_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({
+            "adminKey": admin_key,
+            "functions": "{}",
+            "appDefinition": {
+                "definition": null,
+                "dependencies": [],
+                "schema": null,
+                "changedModules": [],
+                "unchangedModuleHashes": [],
+                "udfServerVersion": "1.0.0",
+            },
+            "componentDefinitions": [],
+            "nodeDependencies": [],
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/deploy2/start_push")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)?)
+    }
+
+    fn evaluate_push_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({
+            "adminKey": admin_key,
+            "functions": "{}",
+            "appDefinition": {
+                "definition": null,
+                "dependencies": [],
+                "schema": null,
+                "changedModules": [],
+                "unchangedModuleHashes": [],
+                "udfServerVersion": "1.0.0",
+            },
+            "componentDefinitions": [],
+            "nodeDependencies": [],
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/deploy2/evaluate_push")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)?)
+    }
+
+    fn wait_for_schema_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({
+            "adminKey": admin_key,
+            "schemaChange": {
+                "allocatedComponentIds": {},
+                "schemaIds": {},
+                "indexDiffs": {},
+            },
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/deploy2/wait_for_schema")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)?)
+    }
+
+    fn report_push_completed_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
+        let json_body = json!({
+            "adminKey": admin_key,
+            "spans": [],
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        Ok(Request::builder()
+            .uri("/api/deploy2/report_push_completed")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body)?)
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_start_push_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = start_push_request(read_only_key.as_str())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_start_push_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = start_push_request(admin_key.as_str())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_evaluate_push_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = evaluate_push_request(read_only_key.as_str())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_evaluate_push_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = evaluate_push_request(admin_key.as_str())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_wait_for_schema_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = wait_for_schema_request(read_only_key.as_str())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_wait_for_schema_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = wait_for_schema_request(admin_key.as_str())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_report_push_completed_read_only_key_rejected(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let read_only_key = backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2));
+        let req = report_push_completed_request(read_only_key.as_str())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_report_push_completed_full_admin_key_passes_operation_check(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let admin_key = backend.config.key_broker()?.issue_admin_key(MemberId(2));
+        let req = report_push_completed_request(admin_key.as_str())?;
+        let response = backend.send_request(req).await?;
+        let status = response.status();
+        if status == http::StatusCode::FORBIDDEN {
+            let error = HttpError::from_response(response).await?;
+            assert_ne!(
+                error.error_code(),
+                "Unauthorized",
+                "Full admin key should pass the Deploy operation check"
+            );
+        }
+        Ok(())
     }
 }
