@@ -26,6 +26,9 @@ export async function finalizeConfiguration(
     (envFileConfig.convexUrlEnvVar || envFileConfig.siteUrlEnvVar);
 
   if (isEnvFileConfigChanged) {
+    const deploymentEnvVarMessage = options.changedDeploymentEnvVar
+      ? `    name as CONVEX_DEPLOYMENT\n`
+      : "";
     const urlUpdateMessages = [];
     if (envFileConfig.convexUrlEnvVar) {
       urlUpdateMessages.push(
@@ -39,7 +42,7 @@ export async function finalizeConfiguration(
     }
     logFinishedStep(
       `${messageForDeploymentType(options.deploymentType, options.url)} and saved its:\n` +
-        `    name as CONVEX_DEPLOYMENT\n` +
+        deploymentEnvVarMessage +
         urlUpdateMessages.join("") +
         ` to ${envFileConfig.envFile}`,
     );

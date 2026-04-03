@@ -786,16 +786,18 @@ export async function updateEnvAndConfigForDeploymentSelection(
   const { configPath, projectConfig } = await readProjectConfig(ctx);
 
   const { wroteToGitIgnore, changedDeploymentEnvVar } =
-    await writeDeploymentEnvVar(
-      ctx,
-      options.deploymentType,
-      {
-        team: options.teamSlug,
-        project: options.projectSlug,
-        deploymentName: options.deploymentName,
-      },
-      existingValue,
-    );
+    options.deploymentType !== "prod"
+      ? await writeDeploymentEnvVar(
+          ctx,
+          options.deploymentType,
+          {
+            team: options.teamSlug,
+            project: options.projectSlug,
+            deploymentName: options.deploymentName,
+          },
+          existingValue,
+        )
+      : { wroteToGitIgnore: false, changedDeploymentEnvVar: false };
   await ensureConvexFunctionsDir(ctx, projectConfig);
   await finalizeConfiguration(ctx, {
     deploymentType: options.deploymentType,
