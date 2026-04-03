@@ -80,6 +80,12 @@ function JobItemImpl({
   );
   const canCancelJobs =
     deployment?.deploymentType !== "prod" || hasAdminPermissions;
+  const { showScheduledJobArgsInComponents } = useContext(
+    DeploymentInfoContext,
+  );
+  const isComponentJob = componentId !== null;
+  const canViewArgs =
+    !isComponentJob || !argsId || showScheduledJobArgsInComponents;
 
   if (nextTs === null) {
     throw new Error("Could not find timestamp to run scheduled job at");
@@ -98,7 +104,11 @@ function JobItemImpl({
         (udfArgs ? (
           <ShowArgsPanelWithArgs udfArgs={udfArgs} setShowArgs={setShowArgs} />
         ) : argsId ? (
-          <ShowArgsPanel argsId={argsId} setShowArgs={setShowArgs} />
+          <ShowArgsPanel
+            argsId={argsId}
+            setShowArgs={setShowArgs}
+            componentId={selectedNent?.id ?? null}
+          />
         ) : null)}
       <div className="flex items-center gap-4 p-2 text-sm">
         {/* eslint-disable-next-line react/forbid-elements */}
@@ -135,7 +145,16 @@ function JobItemImpl({
               variant: "neutral",
             }}
           >
-            <MenuItem action={() => setShowArgs(true)}>View Arguments</MenuItem>
+            <MenuItem
+              action={() => setShowArgs(true)}
+              disabled={!canViewArgs}
+              tip={
+                !canViewArgs &&
+                "Cannot currently show arguments for scheduled jobs in a component. Please try again later."
+              }
+            >
+              View Arguments
+            </MenuItem>
             <MenuItem
               action={() => setShowDeleteModal(true)}
               disabled={currentlyRunning || !canCancelJobs}
@@ -170,16 +189,22 @@ function JobItemImpl({
 function ShowArgsPanel({
   argsId,
   setShowArgs,
+  componentId,
 }: {
   argsId: Id<"_scheduled_job_args">;
   setShowArgs: React.Dispatch<React.SetStateAction<boolean>>;
+  componentId: string | null;
 }) {
-  const args = useQuery(udfs.scheduler.getArgs, { argsId });
+  const args = useQuery(udfs.scheduler.getArgs, { argsId, componentId });
   const udfArgs = args?.args;
   return udfArgs ? (
     <ShowArgsPanelWithArgs udfArgs={udfArgs} setShowArgs={setShowArgs} />
   ) : (
-    <Loading />
+    <DetailPanel
+      onClose={() => setShowArgs(false)}
+      header="Arguments for scheduled function"
+      content={undefined}
+    />
   );
 }
 

@@ -4,6 +4,7 @@ import { v } from "convex/values";
 
 export const getArgs = queryPrivateSystem({
   args: {
+    componentId: v.optional(v.union(v.string(), v.null())),
     argsId: v.id("_scheduled_job_args"),
   },
   handler: async function (

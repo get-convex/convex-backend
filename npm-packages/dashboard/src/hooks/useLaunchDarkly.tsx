@@ -12,6 +12,7 @@ export const flagDefaults: {
   postHogIntegrations: boolean;
   usageDashboardV2: boolean;
   personalAccessTokens: boolean;
+  showScheduledJobArgsInComponents: boolean;
   subscriptionInvalidationsChart: boolean;
   transferDeployment: boolean;
 } = {
@@ -25,6 +26,7 @@ export const flagDefaults: {
   postHogIntegrations: false,
   personalAccessTokens: false,
   usageDashboardV2: false,
+  showScheduledJobArgsInComponents: false,
   subscriptionInvalidationsChart: false,
   transferDeployment: false,
 };

@@ -292,6 +292,7 @@ export type DeploymentInfo = (
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
+  showScheduledJobArgsInComponents: boolean;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(
