@@ -63,6 +63,8 @@ pub struct LogEvent {
 pub struct AggregatedFunctionUsageStats {
     pub database_read_bytes: u64,
     pub database_write_bytes: u64,
+    pub database_io_read_bytes: u64,
+    pub database_io_write_bytes: u64,
     pub database_read_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
@@ -103,6 +105,8 @@ pub struct OccInfoJson {
 pub struct UsageStatsJson {
     pub database_read_bytes: u64,
     pub database_write_bytes: u64,
+    pub database_io_read_bytes: u64,
+    pub database_io_write_bytes: u64,
     pub database_read_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
@@ -365,6 +369,8 @@ impl LogEvent {
                         "userExecutionTimeMs": user_execution_time_ms,
                         "databaseReadBytes": usage_stats.database_read_bytes,
                         "databaseWriteBytes": usage_stats.database_write_bytes,
+                        "databaseIoReadBytes": usage_stats.database_io_read_bytes,
+                        "databaseIoWriteBytes": usage_stats.database_io_write_bytes,
                         "storageReadBytes": usage_stats.storage_read_bytes,
                         "storageWriteBytes": usage_stats.storage_write_bytes,
                         "networkEgressBytes": usage_stats.network_egress_bytes,
@@ -511,6 +517,8 @@ impl LogEvent {
                     struct Usage {
                         database_read_bytes: u64,
                         database_write_bytes: u64,
+                        database_io_read_bytes: u64,
+                        database_io_write_bytes: u64,
                         database_read_documents: u64,
                         file_storage_read_bytes: u64,
                         file_storage_write_bytes: u64,
@@ -545,6 +553,8 @@ impl LogEvent {
                         "usage": Usage {
                             database_read_bytes: usage_stats.database_read_bytes,
                             database_write_bytes: usage_stats.database_write_bytes,
+                            database_io_read_bytes: usage_stats.database_io_read_bytes,
+                            database_io_write_bytes: usage_stats.database_io_write_bytes,
                             database_read_documents: usage_stats.database_read_documents,
                             file_storage_read_bytes: usage_stats.storage_read_bytes,
                             file_storage_write_bytes: usage_stats.storage_write_bytes,
@@ -981,6 +991,8 @@ mod tests {
     struct UsageStats {
         database_read_bytes: u64,
         database_write_bytes: u64,
+        database_io_read_bytes: u64,
+        database_io_write_bytes: u64,
         database_read_documents: u64,
         file_storage_read_bytes: u64,
         file_storage_write_bytes: u64,
@@ -1118,6 +1130,8 @@ mod tests {
                     usage_stats: AggregatedFunctionUsageStats {
                         database_read_bytes: 512,
                         database_write_bytes: 256,
+                        database_io_read_bytes: 1024,
+                        database_io_write_bytes: 512,
                         database_read_documents: 3,
                         storage_read_bytes: 0,
                         storage_write_bytes: 0,

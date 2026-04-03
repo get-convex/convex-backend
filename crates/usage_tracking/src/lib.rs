@@ -1241,6 +1241,8 @@ impl FunctionUsageStats {
         AggregatedFunctionUsageStats {
             database_read_bytes: self.database_egress.values().sum(),
             database_write_bytes: self.database_ingress.values().sum(),
+            database_io_read_bytes: self.database_egress_v2.values().sum(),
+            database_io_write_bytes: self.database_ingress_v2.values().sum(),
             database_read_documents: self.database_egress_rows.values().sum(),
             storage_read_bytes: self.storage_egress.values().sum(),
             storage_write_bytes: self.storage_ingress.values().sum(),
@@ -1588,6 +1590,8 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
 pub struct AggregatedFunctionUsageStats {
     pub database_read_bytes: u64,
     pub database_write_bytes: u64,
+    pub database_io_read_bytes: u64,
+    pub database_io_write_bytes: u64,
     pub database_read_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,

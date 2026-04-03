@@ -90,6 +90,10 @@ export interface components {
         UdfTypeJson: "Query" | "Mutation" | "Action" | "HttpAction";
         UsageStatsJson: {
             /** Format: int64 */
+            databaseIoReadBytes: number;
+            /** Format: int64 */
+            databaseIoWriteBytes: number;
+            /** Format: int64 */
             databaseReadBytes: number;
             /** Format: int64 */
             databaseReadDocuments: number;

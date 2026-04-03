@@ -126,8 +126,10 @@ export function LogMetadata({
     const totals: RequestUsageStats = {
       memoryUsedMb: 0,
       databaseReadBytes: 0,
-      databaseReadDocuments: 0,
       databaseWriteBytes: 0,
+      databaseIoReadBytes: 0,
+      databaseIoWriteBytes: 0,
+      databaseReadDocuments: 0,
       storageReadBytes: 0,
       storageWriteBytes: 0,
       vectorIndexReadBytes: 0,

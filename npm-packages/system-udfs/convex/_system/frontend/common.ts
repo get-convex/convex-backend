@@ -34,6 +34,8 @@ export type UsageStats = {
   memoryUsedMb: number | null;
   databaseReadBytes: number;
   databaseWriteBytes: number;
+  databaseIoReadBytes: number;
+  databaseIoWriteBytes: number;
   databaseReadDocuments: number;
   storageReadBytes: number;
   storageWriteBytes: number;

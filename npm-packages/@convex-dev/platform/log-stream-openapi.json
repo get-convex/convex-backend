@@ -255,6 +255,8 @@
             "required": [
               "database_read_bytes",
               "database_write_bytes",
+              "database_io_read_bytes",
+              "database_io_write_bytes",
               "database_read_documents",
               "file_storage_read_bytes",
               "file_storage_write_bytes",
@@ -272,6 +274,16 @@
                   "integer",
                   "null"
                 ],
+                "format": "int64",
+                "minimum": 0
+              },
+              "database_io_read_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "database_io_write_bytes": {
+                "type": "integer",
                 "format": "int64",
                 "minimum": 0
               },
