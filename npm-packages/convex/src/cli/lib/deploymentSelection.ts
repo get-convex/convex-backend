@@ -656,6 +656,16 @@ async function getDeploymentSelectionFromEnv(
       };
     }
 
+    // Overwrite the selection within project
+    const newSelectionWithinProject =
+      selectionWithinProject.kind === "unspecified" &&
+      // Fetching local deployment credentials uses the "unspecified" code path
+      targetDeploymentType !== "local"
+        ? {
+            kind: "deploymentName" as const,
+            deploymentName: targetDeploymentName,
+          }
+        : selectionWithinProject;
     return {
       kind: "success",
       metadata: {
@@ -665,7 +675,7 @@ async function getDeploymentSelectionFromEnv(
           deploymentName: targetDeploymentName,
           deploymentType: targetDeploymentType,
         },
-        selectionWithinProject,
+        selectionWithinProject: newSelectionWithinProject,
       },
     };
   }

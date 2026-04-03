@@ -496,7 +496,7 @@ describe("deployment selection flows", () => {
       expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
     });
 
-    it("resolves CONVEX_DEPLOYMENT to dev deployment by default", async () => {
+    it("resolves CONVEX_DEPLOYMENT to CONVEX_DEPLOYMENT by default", async () => {
       process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
       vi.mocked(readGlobalConfig).mockReturnValue({
         accessToken: "test-token",
@@ -509,10 +509,11 @@ describe("deployment selection flows", () => {
           teamId: 1,
           projectId: 1,
         }),
-        "deployment/provision_and_authorize": () => ({
+        "deployment/authorize_within_current_project": () => ({
           adminKey: "dev-key",
-          url: "https://swift-squirrel-234.convex.cloud",
-          deploymentName: "swift-squirrel-234",
+          url: "https://joyful-capybara-123.convex.cloud",
+          deploymentName: "joyful-capybara-123",
+          deploymentType: "dev",
         }),
       });
 
@@ -524,7 +525,7 @@ describe("deployment selection flows", () => {
       expect(deploymentFetch).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          deploymentUrl: "https://swift-squirrel-234.convex.cloud",
+          deploymentUrl: "https://joyful-capybara-123.convex.cloud",
           adminKey: "dev-key",
         }),
       );
@@ -537,11 +538,16 @@ describe("deployment selection flows", () => {
         }),
       );
 
-      // checkAccessToSelectedProject calls getTeamAndProjectSlugForDeployment
-      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+      expect(bigBrainAPI).toHaveBeenCalledWith(
         expect.objectContaining({
-          path: "deployment/joyful-capybara-123/team_and_project",
-          method: "GET",
+          path: "deployment/authorize_within_current_project",
+          data: expect.objectContaining({
+            selectedDeploymentName: "joyful-capybara-123",
+            projectSelection: expect.objectContaining({
+              kind: "deploymentName",
+              deploymentName: "joyful-capybara-123",
+            }),
+          }),
         }),
       );
     });
@@ -1648,7 +1654,7 @@ describe("deployment selection flows", () => {
       expect(devAgainstDeployment).not.toHaveBeenCalled();
     });
 
-    it("defaults to dev deployment with CONVEX_DEPLOYMENT", async () => {
+    it("resolves CONVEX_DEPLOYMENT to the configured deployment", async () => {
       process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
       vi.mocked(readGlobalConfig).mockReturnValue({
         accessToken: "test-token",
@@ -1661,7 +1667,7 @@ describe("deployment selection flows", () => {
           teamId: 1,
           projectId: 1,
         }),
-        "deployment/provision_and_authorize": () => ({
+        "deployment/authorize_within_current_project": () => ({
           adminKey: "dev-key",
           url: "https://joyful-capybara-123.convex.cloud",
           deploymentName: "joyful-capybara-123",
@@ -1671,10 +1677,12 @@ describe("deployment selection flows", () => {
 
       await dev.parseAsync([], { from: "user" });
 
-      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+      expect(bigBrainAPI).toHaveBeenCalledWith(
         expect.objectContaining({
-          path: "deployment/provision_and_authorize",
-          data: expect.objectContaining({ deploymentType: "dev" }),
+          path: "deployment/authorize_within_current_project",
+          data: expect.objectContaining({
+            selectedDeploymentName: "joyful-capybara-123",
+          }),
         }),
       );
       expect(devAgainstDeployment).toHaveBeenCalledWith(
@@ -1735,7 +1743,7 @@ describe("deployment selection flows", () => {
       expect(bigBrainAPIMaybeThrows).not.toHaveBeenCalled();
     });
 
-    it("uses --cloud flag with CONVEX_DEPLOYMENT to force cloud dev deployment", async () => {
+    it("resolves CONVEX_DEPLOYMENT with --cloud to the configured deployment", async () => {
       process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
       vi.mocked(readGlobalConfig).mockReturnValue({
         accessToken: "test-token",
@@ -1748,7 +1756,7 @@ describe("deployment selection flows", () => {
           teamId: 1,
           projectId: 1,
         }),
-        "deployment/provision_and_authorize": () => ({
+        "deployment/authorize_within_current_project": () => ({
           adminKey: "cloud-dev-key",
           url: "https://joyful-capybara-123.convex.cloud",
           deploymentName: "joyful-capybara-123",
@@ -1795,7 +1803,7 @@ describe("deployment selection flows", () => {
         expect(validateOrSelectProject).not.toHaveBeenCalled();
       });
 
-      it("non-interactive with CONVEX_DEPLOYMENT → uses configured deployment", async () => {
+      it("non-interactive with CONVEX_DEPLOYMENT → resolves to the configured deployment", async () => {
         process.env.CONVEX_DEPLOYMENT = "dev:joyful-capybara-123";
         vi.mocked(readGlobalConfig).mockReturnValue({
           accessToken: "test-token",
@@ -1808,7 +1816,7 @@ describe("deployment selection flows", () => {
             teamId: 1,
             projectId: 1,
           }),
-          "deployment/provision_and_authorize": () => ({
+          "deployment/authorize_within_current_project": () => ({
             adminKey: "dev-key",
             url: "https://joyful-capybara-123.convex.cloud",
             deploymentName: "joyful-capybara-123",

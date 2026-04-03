@@ -257,7 +257,7 @@ Same format as .env.local or .env files, and overrides them.`,
             kind: "chooseProject",
             selectionWithinProject: {
               // For backwards compatibility, allow `--configure --prod`
-              kind: cmdOptions.prod ? "prod" : "ownDev",
+              kind: cmdOptions.prod ? "prod" : "unspecified",
             },
           } satisfies DeploymentSelection)
         : await getDeploymentSelection(ctx, cmdOptions);

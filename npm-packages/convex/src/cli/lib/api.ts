@@ -104,7 +104,7 @@ export const deploymentSelectionWithinProjectSchema = z.discriminatedUnion(
     z.object({ kind: z.literal("deploymentName"), deploymentName: z.string() }),
     z.object({ kind: z.literal("prod") }),
     z.object({ kind: z.literal("implicitProd") }),
-    z.object({ kind: z.literal("ownDev") }),
+    z.object({ kind: z.literal("unspecified") }),
     z.object({
       kind: z.literal("deploymentSelector"),
       selector: z.string(),
@@ -152,7 +152,7 @@ export function deploymentSelectionWithinProjectFromOptions(
   if (options.implicitProd) {
     return { kind: "implicitProd" };
   }
-  return { kind: "ownDev" };
+  return { kind: "unspecified" };
 }
 
 export async function validateDeploymentSelectionForExistingDeployment(
@@ -161,7 +161,7 @@ export async function validateDeploymentSelectionForExistingDeployment(
   source: "selfHosted" | "deployKey" | "cliArgs",
 ) {
   if (
-    deploymentSelection.kind === "ownDev" ||
+    deploymentSelection.kind === "unspecified" ||
     deploymentSelection.kind === "implicitProd"
   ) {
     // These are both considered the "default" selection depending on the command, so this is always fine
@@ -595,7 +595,9 @@ async function fetchDeploymentCredentialsWithinCurrentProject(
   deploymentType: DeploymentType;
 }> {
   switch (deploymentSelection.kind) {
-    case "ownDev": {
+    case "unspecified": {
+      // default to the user's default dev deployment
+      // TODO: this currently also handles local dev, but that should probably be split out into a different DeploymenSelection kind
       return await handleOwnDev(ctx, projectSelection);
     }
     case "implicitProd":
