@@ -762,8 +762,8 @@ impl SnapshotManager {
         self.write_throughput_limiter.record_write(ts, write_bytes);
     }
 
-    pub fn check_write_throughput_limit(&self) -> anyhow::Result<()> {
-        if !self.write_throughput_limiter.check_limit() {
+    pub fn check_write_throughput_limit(&self, ts: Timestamp) -> anyhow::Result<()> {
+        if !self.write_throughput_limiter.check_limit(ts) {
             anyhow::bail!(ErrorMetadata::rate_limited(
                 "TooManyWrites",
                 format!(

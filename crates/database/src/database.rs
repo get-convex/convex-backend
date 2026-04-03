@@ -1902,7 +1902,10 @@ impl<RT: Runtime> Database<RT> {
     }
 
     pub fn check_write_throughput_limit(&self) -> anyhow::Result<()> {
-        self.snapshot_manager.lock().check_write_throughput_limit()
+        let ts = self.runtime.generate_timestamp()?;
+        self.snapshot_manager
+            .lock()
+            .check_write_throughput_limit(ts)
     }
 
     #[cfg(any(test, feature = "testing"))]

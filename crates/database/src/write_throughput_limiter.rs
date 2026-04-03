@@ -63,11 +63,26 @@ impl WriteThroughputLimiter {
         self.total_bytes_written_in_window += write_bytes;
     }
 
-    pub fn check_limit(&self) -> bool {
+    pub fn check_limit(&self, current_ts: Timestamp) -> bool {
         log_write_throughput(self.total_bytes_written_in_window);
         if self.total_bytes_written_in_window > self.max_bytes_written_in_window {
-            log_write_throughput_limit_exceeded();
-            false
+            // N.B. Check the actual bytes written in the window relative to
+            // the current ts passed in, because old_entries are only evicted
+            // on writes.
+            let actual_bytes_written_in_window: u64 = self
+                .bytes_written
+                .iter()
+                .filter(|(event_ts, _)| {
+                    current_ts < *event_ts || (current_ts - *event_ts) <= *WRITE_THROUGHPUT_WINDOW
+                })
+                .map(|(_, bytes)| bytes)
+                .sum();
+            if actual_bytes_written_in_window > self.max_bytes_written_in_window {
+                log_write_throughput_limit_exceeded();
+                false
+            } else {
+                true
+            }
         } else {
             if self.total_bytes_written_in_window > self.proposed_max_bytes_written_in_window {
                 log_write_throughput_limit_would_be_exceeded();
@@ -96,7 +111,7 @@ mod tests {
         // Write just under the limit
         let bytes_under_limit = limiter.max_bytes_written_in_window - 1;
         limiter.record_write(ts, bytes_under_limit);
-        assert!(limiter.check_limit());
+        assert!(limiter.check_limit(ts));
     }
 
     #[test]
@@ -107,11 +122,11 @@ mod tests {
         // Write over the limit
         let bytes_over_limit = limiter.max_bytes_written_in_window + 1;
         limiter.record_write(ts, bytes_over_limit);
-        assert!(!limiter.check_limit());
+        assert!(!limiter.check_limit(ts));
     }
 
     #[test]
-    fn test_write_throughput_limiter_cleans_up_old_writes() {
+    fn test_write_throughput_limiter_evicts_old_writes() {
         let mut limiter = WriteThroughputLimiter::new();
         let ts1 = Timestamp::MIN;
 
@@ -119,7 +134,7 @@ mod tests {
         limiter.record_write(ts1, limiter.max_bytes_written_in_window + 1);
 
         // Should fail
-        assert!(!limiter.check_limit());
+        assert!(!limiter.check_limit(ts1));
 
         // Move forward past the window
         let ts2 = ts1
@@ -129,9 +144,35 @@ mod tests {
             .unwrap();
         limiter.record_write(ts2, 100);
 
-        // Should succeed now since the old write is outside the window
-        assert!(limiter.check_limit());
+        assert!(limiter.check_limit(ts2));
         assert_eq!(limiter.total_bytes_written_in_window, 100);
+    }
+
+    #[test]
+    fn test_write_throughput_limiter_passes_after_window_ends_without_writes() {
+        let mut limiter = WriteThroughputLimiter::new();
+        let ts1 = Timestamp::MIN;
+
+        // Write over the limit
+        limiter.record_write(ts1, limiter.max_bytes_written_in_window + 1);
+
+        // Should fail
+        assert!(!limiter.check_limit(ts1));
+
+        // Move forward past the window without any new writes
+        let ts2 = ts1
+            .add(*WRITE_THROUGHPUT_WINDOW)
+            .unwrap()
+            .add(Duration::from_millis(1))
+            .unwrap();
+
+        // Should succeed now since time has advanced past the window, even without a
+        // new write but the total bytes written hasn't been incremented.
+        assert!(limiter.check_limit(ts2));
+        assert_eq!(
+            limiter.total_bytes_written_in_window,
+            limiter.max_bytes_written_in_window + 1
+        );
     }
 
     #[test]
@@ -142,13 +183,13 @@ mod tests {
         // First write
         let half_limit = limiter.max_bytes_written_in_window / 2;
         limiter.record_write(ts1, half_limit);
-        assert!(limiter.check_limit());
+        assert!(limiter.check_limit(ts1));
 
         // Second write within window
         let ts2 = ts1.add(Duration::from_millis(100)).unwrap();
         limiter.record_write(ts2, half_limit + 1);
 
         // Should fail since we're over the limit
-        assert!(!limiter.check_limit());
+        assert!(!limiter.check_limit(ts2));
     }
 }
