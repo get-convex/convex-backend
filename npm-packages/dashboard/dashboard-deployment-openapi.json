@@ -144,7 +144,7 @@
           "public_api"
         ],
         "summary": "Check admin key validity",
-        "description": "This endpoint checks if the admin key included in the header is valid for\nthis instance and validates that the provided admin key has write access.",
+        "description": "This endpoint checks if the admin key included in the header is valid for\nthis instance.",
         "operationId": "check_admin_key",
         "responses": {
           "200": {

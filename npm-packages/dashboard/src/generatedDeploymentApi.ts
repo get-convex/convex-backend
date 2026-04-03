@@ -110,7 +110,7 @@ export interface paths {
         /**
          * Check admin key validity
          * @description This endpoint checks if the admin key included in the header is valid for
-         *     this instance and validates that the provided admin key has write access.
+         *     this instance.
          */
         get: operations["check_admin_key"];
         put?: never;

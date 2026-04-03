@@ -50,7 +50,6 @@ use crate::{
         must_be_admin,
         must_be_admin_from_key,
         must_be_admin_with_operation,
-        must_be_admin_with_write_access,
     },
     authentication::ExtractIdentity,
     public_api::{
@@ -102,7 +101,7 @@ pub async fn shapes2(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut out = serde_json::Map::new();
 
-    must_be_admin(&identity)?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::ViewData)?;
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping().namespace(component.into());
@@ -144,7 +143,7 @@ pub async fn delete_tables(
         component_id,
     }): Json<DeleteTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::WriteData)?;
     let table_names = table_names
         .into_iter()
         .map(|t| Ok(t.parse::<ValidIdentifier<TableName>>()?.0))
@@ -172,7 +171,7 @@ pub async fn delete_component(
     ExtractIdentity(identity): ExtractIdentity,
     Json(DeleteComponentArgs { component_id }): Json<DeleteComponentArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::WriteData)?;
     let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     st.application
         .delete_component(&identity, component_id)
@@ -209,7 +208,7 @@ pub async fn get_indexes(
     ExtractIdentity(identity): ExtractIdentity,
     Query(GetIndexesArgs { component_id }): Query<GetIndexesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::ViewData)?;
     let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     let mut tx = st.application.begin(identity.clone()).await?;
     let indexes = IndexModel::new(&mut tx)
@@ -226,7 +225,7 @@ pub async fn get_indexes(
 /// Check admin key validity
 ///
 /// This endpoint checks if the admin key included in the header is valid for
-/// this instance and validates that the provided admin key has write access.
+/// this instance.
 #[utoipa::path(
     get,
     path = "/check_admin_key",
@@ -238,7 +237,7 @@ pub async fn check_admin_key(
     State(_st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    must_be_admin(&identity)?;
     Ok(Json(json!({ "success": true })))
 }
 
@@ -324,6 +323,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use axum_extra::headers::{
+        authorization::Credentials,
+        Authorization,
+    };
     use common::{
         http::HttpError,
         types::MemberId,
@@ -331,8 +334,12 @@ mod tests {
     use http::Request;
     use runtime::prod::ProdRuntime;
     use serde_json::json;
+    use sync_types::headers::ConvexAdminAuthorization;
 
-    use crate::test_helpers::setup_backend_for_test;
+    use crate::test_helpers::{
+        setup_backend_for_test,
+        TestLocalBackend,
+    };
 
     fn run_test_function_request(admin_key: &str) -> anyhow::Result<Request<axum::body::Body>> {
         let json_body = json!({
@@ -354,6 +361,42 @@ mod tests {
             .header("Convex-Client", "actions-0.0.0")
             .body(body)?)
     }
+
+    fn read_only_auth_header(
+        backend: &TestLocalBackend,
+    ) -> anyhow::Result<Authorization<ConvexAdminAuthorization>> {
+        backend
+            .config
+            .key_broker()?
+            .issue_read_only_admin_key(MemberId(2))
+            .as_header()
+    }
+
+    fn get_request(
+        uri: &str,
+        auth: &Authorization<ConvexAdminAuthorization>,
+    ) -> anyhow::Result<Request<axum::body::Body>> {
+        Ok(Request::builder()
+            .uri(uri)
+            .method("GET")
+            .header("Authorization", auth.0.encode())
+            .body(axum::body::Body::empty())?)
+    }
+
+    fn post_request(
+        uri: &str,
+        auth: &Authorization<ConvexAdminAuthorization>,
+        body: serde_json::Value,
+    ) -> anyhow::Result<Request<axum::body::Body>> {
+        Ok(Request::builder()
+            .uri(uri)
+            .method("POST")
+            .header("Authorization", auth.0.encode())
+            .header("Content-Type", "application/json")
+            .body(axum::body::Body::from(serde_json::to_vec(&body)?))?)
+    }
+
+    // run_test_function tests
 
     #[convex_macro::prod_rt_test]
     async fn test_run_test_function_full_admin_key_passes_operation_check(
@@ -415,6 +458,103 @@ mod tests {
                 || status == http::StatusCode::FORBIDDEN,
             "Expected auth-related error, got {status}"
         );
+        Ok(())
+    }
+
+    // shapes2 tests
+
+    #[convex_macro::prod_rt_test]
+    async fn test_shapes2_full_admin_key(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = get_request("/api/shapes2", &backend.admin_auth_header)?;
+        let _: serde_json::Value = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_shapes2_read_only_key(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let auth = read_only_auth_header(&backend)?;
+        let req = get_request("/api/shapes2", &auth)?;
+        // ViewData is a read-only operation, so this should succeed.
+        let _: serde_json::Value = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    // get_indexes tests
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_indexes_full_admin_key(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = get_request("/api/get_indexes", &backend.admin_auth_header)?;
+        let _: serde_json::Value = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_indexes_read_only_key(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let auth = read_only_auth_header(&backend)?;
+        let req = get_request("/api/get_indexes", &auth)?;
+        let _: serde_json::Value = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    // delete_tables tests
+
+    #[convex_macro::prod_rt_test]
+    async fn test_delete_tables_full_admin_key(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = post_request(
+            "/api/delete_tables",
+            &backend.admin_auth_header,
+            json!({ "tableNames": [] }),
+        )?;
+        let _: () = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_delete_tables_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let auth = read_only_auth_header(&backend)?;
+        let req = post_request("/api/delete_tables", &auth, json!({ "tableNames": [] }))?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    // delete_component tests
+
+    #[convex_macro::prod_rt_test]
+    async fn test_delete_component_read_only_key_rejected(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let auth = read_only_auth_header(&backend)?;
+        let req = post_request("/api/delete_component", &auth, json!({}))?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    // check_admin_key tests
+
+    #[convex_macro::prod_rt_test]
+    async fn test_check_admin_key_full_admin_key(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = get_request("/api/check_admin_key", &backend.admin_auth_header)?;
+        let _: serde_json::Value = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_check_admin_key_read_only_key(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let auth = read_only_auth_header(&backend)?;
+        let req = get_request("/api/check_admin_key", &auth)?;
+        // check_admin_key should accept read-only keys.
+        let _: serde_json::Value = backend.expect_success(req).await?;
         Ok(())
     }
 }
