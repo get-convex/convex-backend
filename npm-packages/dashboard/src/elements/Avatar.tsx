@@ -66,10 +66,11 @@ export function Avatar({
   colorSchemeIdx,
   rotation,
 }: AvatarProps) {
-  const initial =
+  const initial = (
     name.split(" ").length > 1
       ? name.split(" ")[0][0] + name.split(" ")[1][0]
-      : name.slice(0, 2);
+      : name.slice(0, 2)
+  ).replace(/[^a-zA-Z0-9]/g, "");
 
   // Simple hash function for deterministic color selection
   function hashString(str: string) {
