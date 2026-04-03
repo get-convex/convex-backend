@@ -12,6 +12,7 @@ export const flagDefaults: {
   postHogIntegrations: boolean;
   usageDashboardV2: boolean;
   personalAccessTokens: boolean;
+  subscriptionInvalidationsChart: boolean;
   transferDeployment: boolean;
 } = {
   commandPalette: false,
@@ -24,6 +25,7 @@ export const flagDefaults: {
   postHogIntegrations: false,
   personalAccessTokens: false,
   usageDashboardV2: false,
+  subscriptionInvalidationsChart: false,
   transferDeployment: false,
 };
 

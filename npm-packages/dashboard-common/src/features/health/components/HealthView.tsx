@@ -12,6 +12,7 @@ import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { HealthCard } from "@common/elements/HealthCard";
 import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
 import { DeploymentSummary } from "@common/features/health/components/DeploymentSummary";
+import { SubscriptionInvalidations } from "@common/features/health/components/SubscriptionInvalidations";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 
 export function HealthView({
@@ -24,6 +25,7 @@ export function HealthView({
   lastBackupTime,
   teamMembers,
   regions,
+  showSubscriptionInvalidations = false,
 }: {
   header: JSX.Element;
   PageWrapper: React.FC<{ children: React.ReactNode }>;
@@ -34,13 +36,14 @@ export function HealthView({
   lastBackupTime?: number | null;
   teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
+  showSubscriptionInvalidations?: boolean;
 }) {
   const {
     closedDescription: concurrencyClosedDescription,
     lag,
     running,
     queued,
-  } = useConcurrencyStatus();
+  } = useConcurrencyStatus(true, showSubscriptionInvalidations ? 4 : 3);
 
   return (
     <PageContent>
@@ -86,7 +89,7 @@ export function HealthView({
                 defaultOpen={false}
                 closedDescription={concurrencyClosedDescription}
               >
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   <SchedulerStatus lag={lag} />
                   <HealthCard
                     title="Running Functions"
@@ -106,6 +109,9 @@ export function HealthView({
                       kind="functionConcurrency"
                     />
                   </HealthCard>
+                  {showSubscriptionInvalidations && (
+                    <SubscriptionInvalidations />
+                  )}
                 </div>
               </DisclosureSection>
             </div>

@@ -33,6 +33,7 @@ import {
   functionIdentifierValue,
   functionIdentifierFromValue,
 } from "@common/lib/functions/generateFileTree";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";
@@ -67,6 +68,7 @@ export function HealthWithInsights() {
   const [selectedFunctions, setSelectedFunctions] =
     useState<MultiSelectValue>("all");
 
+  const { subscriptionInvalidationsChart } = useLaunchDarkly();
   const insights = useInsights();
   const { from } = useInsightsPeriod();
 
@@ -247,6 +249,7 @@ export function HealthWithInsights() {
         lastBackupTime={lastBackupTime}
         teamMembers={teamMembers}
         regions={regions}
+        showSubscriptionInvalidations={subscriptionInvalidationsChart}
       />
     </InsightsContext.Provider>
   );

@@ -35,7 +35,7 @@ export function HealthCard({
         "flex w-full min-w-48 animate-fadeInFromLoading flex-col transition-all",
         size === "xs" && "h-fit",
         size === "sm" && "min-h-fit",
-        size === "md" && "max-h-72 min-h-36",
+        size === "md" && "min-h-[14rem]",
         size === "lg" && "max-h-[21rem] min-h-fit w-full",
       )}
     >

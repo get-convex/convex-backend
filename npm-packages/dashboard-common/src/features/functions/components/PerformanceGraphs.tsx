@@ -10,10 +10,17 @@ import {
   udfRate,
   cacheHitPercentage,
   latencyPercentiles,
+  useSubscriptionInvalidationsTopK,
 } from "@common/lib/appMetrics";
+import { HealthCard } from "@common/elements/HealthCard";
+import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
 import { calcBuckets } from "@common/lib/charts/buckets";
 
-export function PerformanceGraphs() {
+export function PerformanceGraphs({
+  showSubscriptionInvalidations = false,
+}: {
+  showSubscriptionInvalidations?: boolean;
+} = {}) {
   const currentOpenFunction = useCurrentOpenFunction();
   const deploymentUrl = useDeploymentUrl();
   const authHeader = useDeploymentAuthHeader();
@@ -194,6 +201,42 @@ export function PerformanceGraphs() {
           syncId="fnMetrics"
         />
       )}
+      {showSubscriptionInvalidations &&
+        currentOpenFunction.udfType === "Mutation" && (
+          <SubscriptionInvalidationsGraph
+            udfIdentifier={file.displayName}
+            componentPath={file.componentPath ?? undefined}
+            udfType={file.udfType}
+          />
+        )}
     </div>
+  );
+}
+
+function SubscriptionInvalidationsGraph({
+  udfIdentifier,
+  componentPath,
+  udfType,
+}: {
+  udfIdentifier: string;
+  componentPath?: string;
+  udfType: "Query" | "Mutation" | "Action" | "HttpAction";
+}) {
+  const chartData = useSubscriptionInvalidationsTopK(5, {
+    udfIdentifier,
+    componentPath,
+    udfType,
+  });
+
+  return (
+    <HealthCard
+      title="Subscription Invalidations"
+      tip="The tables whose subscriptions are most frequently invalidated by this mutation, bucketed by minute."
+    >
+      <ChartForFunctionRate
+        chartData={chartData}
+        kind="subscriptionInvalidations"
+      />
+    </HealthCard>
   );
 }

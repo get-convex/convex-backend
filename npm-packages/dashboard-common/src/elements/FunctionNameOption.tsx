@@ -1,7 +1,6 @@
 import { ROUTABLE_HTTP_METHODS } from "convex/server";
 import { useHoverDirty } from "react-use";
-import { useRef } from "react";
-import { cn } from "@ui/cn";
+import { useRef, useState, useEffect } from "react";
 import {
   displayName,
   functionIdentifierFromValue,
@@ -34,7 +33,7 @@ const MAX_CHARS_SHOWN = 36;
 
 export function FunctionNameOption({
   label,
-  oneLine = false,
+  oneLine: _oneLine = false,
   disableTruncation = false,
   maxChars = MAX_CHARS_SHOWN,
   error = false,
@@ -69,15 +68,22 @@ export function FunctionNameOption({
 
   const ref = useRef<HTMLDivElement>(null);
   const isHovering = useHoverDirty(ref);
+  const [isHoveringDelayed, setIsHoveringDelayed] = useState(false);
+
+  useEffect(() => {
+    if (!isHovering) {
+      setIsHoveringDelayed(false);
+      return;
+    }
+    const timer = setTimeout(() => setIsHoveringDelayed(true), 50);
+    return () => clearTimeout(timer);
+  }, [isHovering]);
 
   if (primary === "_other" && secondary === "") {
     return <span className="w-full">Other functions</span>;
   }
 
-  const showHover =
-    !disableTruncation &&
-    isHovering &&
-    (primary !== hoverPrimary || secondary !== hoverSecondary);
+  const showFull = disableTruncation || isHoveringDelayed;
   return (
     <div className="flex w-full items-center space-x-1" ref={ref}>
       {componentPath && (
@@ -85,34 +91,16 @@ export function FunctionNameOption({
           <PuzzlePieceIcon />
         </Tooltip>
       )}
-      <div className="group/overlay relative" role="tooltip">
+      <span aria-label={hoverSecondary + hoverPrimary}>
         <span
-          className={cn(
-            "absolute top-[-3px] z-10 hidden rounded-sm border bg-background-secondary p-0.5",
-            oneLine
-              ? "right-[-3px]"
-              : "max-w-full break-words whitespace-normal",
-            showHover && "block",
-            !disableTruncation &&
-              "group-focus/overlay:block group-focus/overlay:ring-3",
-          )}
+          className={error ? "text-content-error" : "text-content-secondary"}
         >
-          <span className="text-content-secondary">{hoverSecondary}</span>
-          <span className="text-content-primary">{hoverPrimary}</span>
+          {showFull ? hoverSecondary : secondary}
         </span>
-        <span aria-label={hoverSecondary + hoverPrimary}>
-          <span
-            className={error ? "text-content-error" : "text-content-secondary"}
-          >
-            {disableTruncation ? hoverSecondary : secondary}
-          </span>
-          <span
-            className={error ? "text-content-error" : "text-content-primary"}
-          >
-            {disableTruncation ? hoverPrimary : primary}
-          </span>
+        <span className={error ? "text-content-error" : "text-content-primary"}>
+          {showFull ? hoverPrimary : primary}
         </span>
-      </div>
+      </span>
     </div>
   );
 }

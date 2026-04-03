@@ -20,8 +20,36 @@ import { ChartData } from "@common/lib/charts/types";
 import { DeploymentTimes } from "@common/features/health/components/DeploymentTimes";
 import { Button } from "@ui/Button";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
+import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { LoadingTransition } from "@ui/Loading";
 import { Spinner } from "@ui/Spinner";
+
+function SubscriptionInvalidationLabel({
+  dataKey,
+  maxChars = 24,
+}: {
+  dataKey: string;
+  maxChars?: number;
+}) {
+  // Keys are either "mutation:table" (health page) or just "table" (function page).
+  const lastColon = dataKey.lastIndexOf(":");
+  if (lastColon === -1) {
+    // Just a table name
+    return <span>{dataKey}</span>;
+  }
+  const mutation = dataKey.substring(0, lastColon);
+  const table = dataKey.substring(lastColon + 1);
+  return (
+    <span className="flex items-center gap-1">
+      <FunctionNameOption
+        maxChars={maxChars}
+        label={functionIdentifierValue(mutation)}
+      />
+      <span className="text-content-secondary">→</span>
+      <span>{table}</span>
+    </span>
+  );
+}
 
 function PortalTooltip({
   active,
@@ -108,7 +136,8 @@ export function ChartForFunctionRate({
     | "failureRate"
     | "schedulerStatus"
     | "functionConcurrency"
-    | "functionCalls";
+    | "functionCalls"
+    | "subscriptionInvalidations";
 }) {
   const [shown, setShown] = useState<string | null>(null);
   const [startDate] = useState(new Date(Date.now() - 3600 * 1000));
@@ -177,7 +206,8 @@ export function ChartForFunctionRate({
                   tickLine={false}
                   width="auto"
                   tickFormatter={(value) =>
-                    kind === "functionCalls"
+                    kind === "functionCalls" ||
+                    kind === "subscriptionInvalidations"
                       ? formatNumberCompact(value as number)
                       : kind === "schedulerStatus" ||
                           kind === "functionConcurrency"
@@ -187,18 +217,23 @@ export function ChartForFunctionRate({
                   domain={
                     kind !== "schedulerStatus" &&
                     kind !== "functionConcurrency" &&
-                    kind !== "functionCalls"
+                    kind !== "functionCalls" &&
+                    kind !== "subscriptionInvalidations"
                       ? [0, 100]
                       : undefined
                   }
                   interval={
                     kind === "schedulerStatus" ||
                     kind === "functionConcurrency" ||
-                    kind === "functionCalls"
+                    kind === "functionCalls" ||
+                    kind === "subscriptionInvalidations"
                       ? 0
                       : undefined
                   }
-                  allowDecimals={kind !== "functionCalls"}
+                  allowDecimals={
+                    kind !== "functionCalls" &&
+                    kind !== "subscriptionInvalidations"
+                  }
                   tick={{ fontSize: 11, fill: "currentColor" }}
                 />
                 <Legend
@@ -226,15 +261,19 @@ export function ChartForFunctionRate({
                         }
                       >
                         {dataKey === "_rest" ? (
-                          `All${[].length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
+                          kind === "subscriptionInvalidations" ? (
+                            "Other"
+                          ) : (
+                            `All${[].length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
+                          )
                         ) : kind === "schedulerStatus" ? (
                           "Lag Time (minutes)"
                         ) : kind === "functionConcurrency" ? (
                           (dataKey as string)
-                        ) : kind === "functionCalls" ? (
-                          <FunctionNameOption
+                        ) : kind === "subscriptionInvalidations" ? (
+                          <SubscriptionInvalidationLabel
+                            dataKey={dataKey as string}
                             maxChars={24}
-                            label={dataKey as string}
                           />
                         ) : (
                           <FunctionNameOption
@@ -270,18 +309,23 @@ export function ChartForFunctionRate({
                               .map((dataPoint: any) => ({
                                 ...dataPoint,
                                 formattedValue: (
-                                  <span className="flex min-w-48 items-center justify-between">
+                                  <span className="flex min-w-48 items-center justify-between gap-2">
                                     <div>
                                       {dataPoint.dataKey === "_rest" ? (
-                                        `All${payload.length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
+                                        kind === "subscriptionInvalidations" ? (
+                                          "Other"
+                                        ) : (
+                                          `All${payload.length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
+                                        )
                                       ) : kind === "schedulerStatus" ? (
                                         "Lag Time"
                                       ) : kind === "functionConcurrency" ? (
                                         (dataPoint.dataKey as string)
-                                      ) : kind === "functionCalls" ? (
-                                        <FunctionNameOption
+                                      ) : kind ===
+                                        "subscriptionInvalidations" ? (
+                                        <SubscriptionInvalidationLabel
+                                          dataKey={dataPoint.dataKey as string}
                                           maxChars={24}
-                                          label={dataPoint.dataKey as string}
                                         />
                                       ) : (
                                         <FunctionNameOption
@@ -296,15 +340,17 @@ export function ChartForFunctionRate({
                                         : kind === "functionConcurrency" ||
                                             kind === "functionCalls"
                                           ? `${formatNumberCompact(dataPoint.value as number)} ${(dataPoint.value as number) === 1 ? "call" : "calls"}`
-                                          : `${(
-                                              dataPoint.value as number
-                                            ).toFixed(
-                                              (dataPoint.value as number) %
-                                                1 ===
-                                                0
-                                                ? 0
-                                                : 2,
-                                            )}%`}
+                                          : kind === "subscriptionInvalidations"
+                                            ? `${formatNumberCompact(dataPoint.value as number)} ${(dataPoint.value as number) === 1 ? "invalidation" : "invalidations"}`
+                                            : `${(
+                                                dataPoint.value as number
+                                              ).toFixed(
+                                                (dataPoint.value as number) %
+                                                  1 ===
+                                                  0
+                                                  ? 0
+                                                  : 2,
+                                              )}%`}
                                     </div>
                                   </span>
                                 ),

@@ -13,7 +13,12 @@ import {
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { ChartData } from "@common/lib/charts/types";
 
-export type UdfMetric = "invocations" | "errors" | "cacheHits" | "cacheMisses";
+export type UdfMetric =
+  | "invocations"
+  | "errors"
+  | "cacheHits"
+  | "cacheMisses"
+  | "subscriptionInvalidations";
 export type TableMetric = "rowsRead" | "rowsWritten";
 
 type TimeseriesResponse = [SerializedDate, number | null][];
@@ -360,6 +365,121 @@ export function useFunctionCallCountTopK(k: number = 5) {
     const lineKey = {
       key,
       name: key,
+      color: colorForFunction.get(f)!,
+    };
+    lineKeys.push(lineKey);
+  }
+
+  return {
+    data: hadDataAt > -1 ? data.slice(hadDataAt === 59 ? 58 : hadDataAt) : data,
+    xAxisKey,
+    lineKeys,
+  };
+}
+
+export function useSubscriptionInvalidationsTopK(
+  k: number = 5,
+  opts?: {
+    udfIdentifier: string;
+    componentPath?: string;
+    udfType: UdfType;
+  },
+) {
+  const url = "/api/app_metrics/subscription_invalidations_top_k";
+  const isDisconnected = useDeploymentIsDisconnected();
+  const deploymentUrl = useDeploymentUrl();
+  const authHeader = useDeploymentAuthHeader();
+  const cacheKey = `${deploymentUrl}${url}?k=${k}${opts ? `&path=${opts.udfIdentifier}` : ""}`;
+
+  const fetcher = async () => {
+    const start = new Date(Date.now() - 60 * 60 * 1000);
+    const end = new Date();
+    const windowArgs = {
+      start: serializeDate(start),
+      end: serializeDate(end),
+      num_buckets: 60,
+    };
+    const params: Record<string, string> = {
+      window: JSON.stringify(windowArgs),
+      k: k.toString(),
+    };
+    if (opts) {
+      params.udfPath = opts.udfIdentifier;
+      params.udfType = opts.udfType;
+      if (opts.componentPath) {
+        params.componentPath = opts.componentPath;
+      }
+    }
+    const queryString = new URLSearchParams(params).toString();
+    return deploymentFetch([
+      deploymentUrl,
+      `${url}?${queryString}`,
+      authHeader,
+    ]);
+  };
+
+  const { data: d } = useSWR(isDisconnected ? null : cacheKey, fetcher, {
+    refreshInterval: 2.5 * 1000,
+  });
+
+  return useTopKChartData(d as TopKMetricsResponse | undefined);
+}
+
+function useTopKChartData(d: TopKMetricsResponse | undefined) {
+  if (!d) {
+    return undefined;
+  }
+
+  const mapFunctionToBuckets = multiResponseToTimeSeries(d);
+  const data = [];
+  const lineKeys = [];
+  const functions: string[] = [...mapFunctionToBuckets.keys()];
+  const xAxisKey = "time";
+
+  if (!mapFunctionToBuckets || !functions.length) {
+    return null;
+  }
+
+  let hadDataAt = -1;
+  for (const [i, bucket] of mapFunctionToBuckets.get(functions[0])!.entries()) {
+    const dataPoint: any = {};
+    dataPoint[xAxisKey] = format(bucket.time, "h:mm a");
+    for (const f of functions) {
+      const { metric } = mapFunctionToBuckets.get(f)![i];
+      if (hadDataAt === -1) {
+        hadDataAt = metric !== null ? i : hadDataAt;
+      }
+      dataPoint[f] = metric ?? (hadDataAt > -1 ? 0 : null);
+    }
+    data.push(dataPoint);
+  }
+
+  const colorForFunction = new Map<string, string>();
+  for (const f of functions) {
+    if (f === "_rest") {
+      colorForFunction.set(f, restColor);
+      continue;
+    }
+
+    const colorIndex =
+      [...f].reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+      lineColors.length;
+    let color = lineColors[colorIndex];
+    let attempts = 0;
+    while (
+      [...colorForFunction.values()].includes(color) &&
+      attempts < lineColors.length
+    ) {
+      attempts++;
+      color = lineColors[(colorIndex + attempts) % lineColors.length];
+    }
+    colorForFunction.set(f, color);
+  }
+
+  for (const f of functions) {
+    const lineKey = {
+      key: f,
+      name: f,
       color: colorForFunction.get(f)!,
     };
     lineKeys.push(lineKey);

@@ -15,7 +15,10 @@ type ConcurrencyIssue = {
   type: "scheduler" | "concurrency";
 };
 
-export function useConcurrencyStatus(showConcurrencyIssues: boolean = true): {
+export function useConcurrencyStatus(
+  showConcurrencyIssues: boolean = true,
+  chartCount: number = 3,
+): {
   issues: ConcurrencyIssue[];
   closedDescription: React.ReactNode;
   lag: ChartData | null | undefined;
@@ -99,7 +102,7 @@ export function useConcurrencyStatus(showConcurrencyIssues: boolean = true): {
     if (issues.length === 0) {
       return (
         <span className="animate-fadeInFromLoading text-xs text-content-secondary">
-          3 charts
+          {chartCount} charts
         </span>
       );
     }
@@ -123,7 +126,7 @@ export function useConcurrencyStatus(showConcurrencyIssues: boolean = true): {
         )}
       </span>
     );
-  }, [issues, lag, queued, running, showConcurrencyIssues]);
+  }, [chartCount, issues, lag, queued, running, showConcurrencyIssues]);
 
   return { issues, closedDescription, lag, running, queued };
 }
