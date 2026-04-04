@@ -3870,6 +3870,13 @@
           "includeStorage"
         ],
         "properties": {
+          "completedTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "expirationTime": {
             "type": "integer",
             "format": "int64"

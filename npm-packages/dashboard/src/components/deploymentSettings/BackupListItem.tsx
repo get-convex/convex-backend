@@ -114,10 +114,18 @@ export function BackupListItem({
         <div className="my-2 flex flex-wrap items-center gap-4">
           <div className="flex flex-1 flex-col items-start gap-1">
             <span className="min-w-fit text-sm font-medium">
-              Backup from {new Date(backup.requestedTime).toLocaleString()}{" "}
-              <span className="text-xs font-normal text-content-secondary">
-                (<TimestampDistance date={new Date(backup.requestedTime)} />)
-              </span>
+              Backup from {new Date(backup.requestedTime).toLocaleString()}
+              {backup.state === "complete" &&
+                typeof backup.completedTime === "number" && (
+                  <span className="text-xs font-normal text-content-secondary">
+                    {" "}
+                    (completed in{" "}
+                    {formatBackupDuration(
+                      backup.completedTime - backup.requestedTime,
+                    )}
+                    )
+                  </span>
+                )}
             </span>
             <BackupIdentifier backup={backup} />
             {(backup.state === "requested" ||
@@ -816,6 +824,21 @@ export function progressMessageForBackup(
     existingCloudBackup._id === backup.snapshotId
     ? existingCloudBackup.progress_message || null
     : null;
+}
+
+function formatBackupDuration(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) {
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
 function DeploymentLabel({

@@ -1956,6 +1956,8 @@ export interface components {
         CloudBackupId: number;
         CloudBackupResponse: {
             /** Format: int64 */
+            completedTime?: number | null;
+            /** Format: int64 */
             expirationTime: number;
             id: components["schemas"]["CloudBackupId"];
             includeStorage: boolean;
