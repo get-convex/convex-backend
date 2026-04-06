@@ -798,6 +798,10 @@
     {
       "packageName": "lint",
       "projectFolder": "lint"
+    },
+    {
+      "packageName": "demo_browser_tests",
+      "projectFolder": "demo_browser_tests"
     }
     // {
     //   /**

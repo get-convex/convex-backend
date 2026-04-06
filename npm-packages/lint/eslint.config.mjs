@@ -110,6 +110,7 @@ export default defineConfig([
       "npm-packages/udf-runtime/**",
       "npm-packages/udf-tests/**",
       "npm-packages/version/**",
+      "npm-packages/demo_browser_tests/**",
       "npm-packages/components/ratelimiter/node10stubs.mjs",
     ],
   },
