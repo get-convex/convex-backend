@@ -149,6 +149,10 @@
       "import": "./dist/Spinner.jsx",
       "types": "./dist/Spinner.d.ts"
     },
+    "./Stepper": {
+      "import": "./dist/Stepper.jsx",
+      "types": "./dist/Stepper.d.ts"
+    },
     "./Tab": {
       "import": "./dist/Tab.jsx",
       "types": "./dist/Tab.d.ts"

@@ -1,5 +1,6 @@
 import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
+import { Stepper } from "@ui/Stepper";
 import { TextInput } from "@ui/TextInput";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDebounce } from "react-use";
@@ -433,71 +434,14 @@ export function UpgradePlanContent({
           teamManagedBy={teamManagedBy}
         />
 
-        {/* Vertical Timeline */}
-        <div className="flex flex-col">
-          {steps.map((step, index) => {
-            const isCompleted = index < currentStep;
-            const isCurrent = index === currentStep;
-            const isLast = index === steps.length - 1;
-
-            return (
-              <div key={step.label} className="flex">
-                {/* Left column: circle + connecting line */}
-                <div className="mr-3 flex flex-col items-center">
-                  {/* eslint-disable-next-line react/forbid-elements -- custom timeline step circle indicator */}
-                  <button
-                    type="button"
-                    disabled={!isCompleted}
-                    onClick={() => isCompleted && setCurrentStep(index)}
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                      isCompleted
-                        ? "cursor-pointer bg-util-accent text-white"
-                        : isCurrent
-                          ? "border-2 border-util-accent text-content-primary"
-                          : "border border-border-transparent text-content-tertiary"
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                  {!isLast && (
-                    <div
-                      className={`w-px grow ${isCompleted ? "bg-util-accent" : "bg-border-transparent"}`}
-                    />
-                  )}
-                </div>
-
-                {/* Right column: label + content */}
-                <div
-                  className={`flex min-w-0 grow flex-col pb-6 ${isLast ? "pb-0" : ""}`}
-                >
-                  {/* eslint-disable-next-line react/forbid-elements -- custom timeline step label */}
-                  <button
-                    type="button"
-                    disabled={!isCompleted}
-                    onClick={() => isCompleted && setCurrentStep(index)}
-                    className={`flex h-7 items-center text-left font-semibold ${
-                      isCompleted
-                        ? "cursor-pointer text-content-primary"
-                        : isCurrent
-                          ? "text-content-primary"
-                          : "text-content-tertiary"
-                    }`}
-                  >
-                    {step.label}
-                  </button>
-                  <div
-                    className={
-                      isCurrent ? "mt-3 flex flex-col gap-4" : "hidden"
-                    }
-                  >
-                    {stepContent(index)}
-                    {isCurrent && navigationButtons}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <Stepper activeStep={currentStep} onSelectStep={setCurrentStep}>
+          {steps.map((step, index) => (
+            <Stepper.Step key={step.label} label={step.label}>
+              {stepContent(index)}
+              {index === currentStep && navigationButtons}
+            </Stepper.Step>
+          ))}
+        </Stepper>
       </div>
     </>
   );
