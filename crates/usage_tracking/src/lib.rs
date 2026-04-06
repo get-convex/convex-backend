@@ -54,14 +54,7 @@ pub struct UsageCounter {
     usage_logger: Arc<dyn UsageEventLogger>,
 }
 
-#[derive(Debug, Clone)]
-pub struct OccInfo {
-    pub table_name: Option<String>,
-    pub document_id: Option<String>,
-    pub write_source: Option<String>,
-    pub component_path: Option<String>,
-    pub retry_count: u64,
-}
+pub use common::log_streaming::OccInfo;
 
 pub enum CallType {
     Action {
@@ -151,7 +144,7 @@ impl CallType {
 
     fn occ_retry_count(&self) -> Option<u64> {
         match self {
-            Self::Mutation { occ_info, .. } => occ_info.as_ref().map(|info| info.retry_count),
+            Self::Mutation { occ_info, .. } => occ_info.as_ref().and_then(|info| info.retry_count),
             _ => None,
         }
     }

@@ -74,10 +74,7 @@ use model::{
 use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
-use usage_tracking::{
-    FunctionUsageTracker,
-    OccInfo,
-};
+use usage_tracking::FunctionUsageTracker;
 use value::{
     JsonPackedValue,
     ResolvedDocumentId,
@@ -87,6 +84,7 @@ use value::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     function_log::FunctionExecutionLog,
+    occ_info_for_logging,
 };
 
 mod metrics;
@@ -510,7 +508,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 if err.is_deterministic_user_error() {
                     outcome.result = Err(JsError::from_error(err));
                 } else if err.is_occ() {
-                    let occ_error_info = err.occ_info().unwrap_or_default();
+                    let occ_info = occ_info_for_logging(err.occ_info(), mutation_retry_count);
                     self.function_log
                         .log_mutation_occ_error(
                             outcome,
@@ -519,13 +517,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                             caller,
                             usage_tracker,
                             context,
-                            OccInfo {
-                                table_name: occ_error_info.table_name,
-                                document_id: occ_error_info.document_id,
-                                write_source: occ_error_info.write_source,
-                                component_path: occ_error_info.component_path,
-                                retry_count: mutation_retry_count as u64,
-                            },
+                            occ_info,
                             None,
                             mutation_retry_count,
                         )

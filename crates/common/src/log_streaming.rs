@@ -79,14 +79,7 @@ pub struct AggregatedFunctionUsageStats {
     pub return_bytes: Option<u64>,
 }
 
-#[derive(Serialize, Debug, Clone)]
-pub struct OccInfo {
-    pub table_name: Option<String>,
-    pub document_id: Option<String>,
-    pub write_source: Option<String>,
-    pub component_path: Option<String>,
-    pub retry_count: u64,
-}
+pub use errors::OccInfo;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
@@ -96,7 +89,19 @@ pub struct OccInfoJson {
     pub document_id: Option<String>,
     pub write_source: Option<String>,
     pub component_path: Option<String>,
-    pub retry_count: u64,
+    pub retry_count: Option<u64>,
+}
+
+impl From<OccInfo> for OccInfoJson {
+    fn from(info: OccInfo) -> Self {
+        Self {
+            table_name: info.table_name,
+            document_id: info.document_id,
+            write_source: info.write_source,
+            component_path: info.component_path,
+            retry_count: info.retry_count,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -951,7 +956,7 @@ mod tests {
         document_id: Option<String>,
         write_source: Option<String>,
         component_path: Option<String>,
-        retry_count: u64,
+        retry_count: Option<u64>,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -1150,7 +1155,7 @@ mod tests {
                         document_id: Some("doc123".to_string()),
                         write_source: Some("mutation".to_string()),
                         component_path: Some("chatApp".to_string()),
-                        retry_count: 1,
+                        retry_count: Some(1),
                     }),
                     scheduler_info: Some(SchedulerInfo {
                         job_id: "scheduled_job_456".to_string(),

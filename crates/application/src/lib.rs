@@ -425,6 +425,16 @@ use crate::{
     worker_handles::WorkerHandles,
 };
 
+/// Set the retry count on an `OccInfo` from an error for logging purposes.
+pub(crate) fn occ_info_for_logging(
+    info: Option<errors::OccInfo>,
+    retry_count: usize,
+) -> errors::OccInfo {
+    let mut occ_info = info.unwrap_or_default();
+    occ_info.retry_count = Some(retry_count as u64);
+    occ_info
+}
+
 pub struct ConfigMetadataAndSchema {
     pub config_metadata: ConfigMetadata,
     pub schema: Option<DatabaseSchema>,

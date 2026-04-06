@@ -183,7 +183,6 @@ use udf::{
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
-    OccInfo,
 };
 use value::{
     id_v6::DeveloperDocumentId,
@@ -222,6 +221,7 @@ use crate::{
         FunctionExecutionLog,
         OutstandingFunctionState,
     },
+    occ_info_for_logging,
     ActionError,
     ActionReturn,
     MutationError,
@@ -956,7 +956,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             {
                                 self.database.wait_for_write_ts(write_ts).await;
                             }
-                            let occ_error_info = e.occ_info().unwrap_or_default();
+                            let occ_info = occ_info_for_logging(e.occ_info(), mutation_retry_count);
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -965,13 +965,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     caller.clone(),
                                     usage_tracker,
                                     context.clone(),
-                                    OccInfo {
-                                        table_name: occ_error_info.table_name,
-                                        document_id: occ_error_info.document_id,
-                                        write_source: occ_error_info.write_source,
-                                        component_path: occ_error_info.component_path,
-                                        retry_count: mutation_retry_count as u64,
-                                    },
+                                    occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
                                 )
@@ -981,7 +975,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         outcome.result = Err(JsError::from_error_ref(&e));
 
                         if e.is_occ() {
-                            let occ_error_info = e.occ_info().unwrap_or_default();
+                            let occ_info = occ_info_for_logging(e.occ_info(), mutation_retry_count);
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -990,13 +984,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     caller,
                                     usage_tracker,
                                     context.clone(),
-                                    OccInfo {
-                                        table_name: occ_error_info.table_name,
-                                        document_id: occ_error_info.document_id,
-                                        write_source: occ_error_info.write_source,
-                                        component_path: occ_error_info.component_path,
-                                        retry_count: mutation_retry_count as u64,
-                                    },
+                                    occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
                                 )

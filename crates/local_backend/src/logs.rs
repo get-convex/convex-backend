@@ -207,14 +207,7 @@ fn execution_to_json(
     let usage_stats_json = usage_stats_to_json(&execution.usage_stats, execution.memory_used_mb);
     let occ_info_json = execution
         .occ_info
-        .as_ref()
-        .map(|occ| common::log_streaming::OccInfoJson {
-            table_name: occ.table_name.clone(),
-            document_id: occ.document_id.clone(),
-            write_source: occ.write_source.clone(),
-            component_path: occ.component_path.clone(),
-            retry_count: occ.retry_count,
-        });
+        .map(common::log_streaming::OccInfoJson::from);
     let identity_type = execution.identity.tag().value.to_string();
     let environment = execution.environment.to_string();
     let execution_timestamp = execution.execution_timestamp.as_secs_f64();

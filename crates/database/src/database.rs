@@ -111,7 +111,7 @@ use common::{
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
-    OccErrorInfo,
+    OccInfo,
 };
 use futures::{
     future::Either,
@@ -2627,7 +2627,7 @@ impl ConflictingReadWithWriteSource {
         let table_name = mapping.tablet_name(*self.read.index.table());
 
         let Ok(table_name) = table_name else {
-            let metadata = ErrorMetadata::user_occ(OccErrorInfo::default(), None, write_ts_val);
+            let metadata = ErrorMetadata::user_occ(None, None, write_ts_val);
             return anyhow::anyhow!(metadata);
         };
 
@@ -2656,12 +2656,13 @@ impl ConflictingReadWithWriteSource {
 
         if !table_name.is_system() {
             let metadata = ErrorMetadata::user_occ(
-                OccErrorInfo {
+                Some(OccInfo {
                     table_name: Some(table_name.into()),
                     document_id: Some(self.read.id.developer_id.encode()),
                     write_source,
                     component_path: component_path_str,
-                },
+                    ..Default::default()
+                }),
                 occ_msg,
                 write_ts_val,
             );

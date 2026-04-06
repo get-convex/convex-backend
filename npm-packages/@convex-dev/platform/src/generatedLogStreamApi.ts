@@ -47,7 +47,7 @@ export interface components {
                 component_path?: string | null;
                 document_id?: string | null;
                 /** Format: int64 */
-                retry_count: number;
+                retry_count?: number | null;
                 table_name?: string | null;
                 write_source?: string | null;
             };

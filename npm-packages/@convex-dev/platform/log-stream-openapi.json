@@ -187,9 +187,6 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "retry_count"
-                ],
                 "properties": {
                   "component_path": {
                     "type": [
@@ -204,7 +201,10 @@
                     ]
                   },
                   "retry_count": {
-                    "type": "integer",
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
                     "format": "int64",
                     "minimum": 0
                   },

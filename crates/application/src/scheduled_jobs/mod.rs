@@ -107,10 +107,7 @@ use parking_lot::Mutex;
 use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
-use usage_tracking::{
-    FunctionUsageTracker,
-    OccInfo,
-};
+use usage_tracking::FunctionUsageTracker;
 use value::{
     ConvexValue,
     ResolvedDocumentId,
@@ -119,6 +116,7 @@ use value::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     function_log::FunctionExecutionLog,
+    occ_info_for_logging,
 };
 
 mod metrics;
@@ -809,8 +807,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         outcome.result = Err(JsError::from_error(err));
                     } else if err.is_occ() || err.short_msg() == "TooManyWrites" {
                         metrics::log_scheduled_job_failure(&err, mutation_retry_count as u32);
-                        if let Some(occ_error_info) = err.occ_info() {
+                        if err.occ_info().is_some() {
                             // TODO log errors on write throughput limit too
+                            let occ_info =
+                                occ_info_for_logging(err.occ_info(), mutation_retry_count);
                             self.function_log
                                 .log_mutation_occ_error(
                                     outcome,
@@ -819,13 +819,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                                     caller.clone(),
                                     usage_tracker,
                                     context,
-                                    OccInfo {
-                                        table_name: occ_error_info.table_name,
-                                        document_id: occ_error_info.document_id,
-                                        write_source: occ_error_info.write_source,
-                                        component_path: occ_error_info.component_path,
-                                        retry_count: mutation_retry_count as u64,
-                                    },
+                                    occ_info,
                                     None,
                                     mutation_retry_count,
                                 )

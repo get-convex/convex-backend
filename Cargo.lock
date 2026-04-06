@@ -3344,6 +3344,7 @@ dependencies = [
  "proptest",
  "proptest-derive",
  "sentry",
+ "serde",
  "thiserror 2.0.17",
  "tonic",
  "tracing",

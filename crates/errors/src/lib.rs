@@ -75,13 +75,14 @@ pub enum ErrorCode {
     TooEarly,
 }
 
-/// Information extracted from an OCC error, used for logging and diagnostics.
-#[derive(Debug, Clone, Default)]
-pub struct OccErrorInfo {
+/// Information about an OCC error, used for logging and diagnostics.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct OccInfo {
     pub table_name: Option<String>,
     pub document_id: Option<String>,
     pub write_source: Option<String>,
     pub component_path: Option<String>,
+    pub retry_count: Option<u64>,
 }
 
 impl ErrorMetadata {
@@ -347,18 +348,19 @@ impl ErrorMetadata {
 
     /// User-caused Optimistic Concurrency Control / Commit Race Error
     pub fn user_occ(
-        info: OccErrorInfo,
+        info: Option<OccInfo>,
         description: Option<String>,
         write_ts: Option<u64>,
     ) -> Self {
         let table_description = info
-            .table_name
-            .clone()
-            .map(|name| format!("the \"{name}\" table"))
+            .as_ref()
+            .and_then(|i| i.table_name.as_ref())
+            .map(|t| format!("the \"{t}\" table"))
             .unwrap_or("some table".to_owned());
         let write_source_description = description
             .map(|source| format!("{source}. "))
             .unwrap_or_default();
+        let info = info.unwrap_or_default();
         Self {
             code: ErrorCode::OCC {
                 table_name: info.table_name,
@@ -741,7 +743,7 @@ impl ErrorCode {
 
 pub trait ErrorMetadataAnyhowExt {
     fn is_occ(&self) -> bool;
-    fn occ_info(&self) -> Option<OccErrorInfo>;
+    fn occ_info(&self) -> Option<OccInfo>;
     fn occ_write_ts(&self) -> Option<u64>;
     fn is_pagination_limit(&self) -> bool;
     fn is_unauthenticated(&self) -> bool;
@@ -782,7 +784,7 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         false
     }
 
-    fn occ_info(&self) -> Option<OccErrorInfo> {
+    fn occ_info(&self) -> Option<OccInfo> {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return match &e.code {
                 ErrorCode::OCC {
@@ -792,11 +794,12 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
                     component_path,
                     is_system: _,
                     write_ts: _,
-                } => Some(OccErrorInfo {
+                } => Some(OccInfo {
                     table_name: table_name.clone(),
                     document_id: document_id.clone(),
                     write_source: write_source.clone(),
                     component_path: component_path.clone(),
+                    retry_count: None,
                 }),
                 _ => None,
             };
@@ -1074,7 +1077,7 @@ mod proptest {
     use super::{
         ErrorCode,
         ErrorMetadata,
-        OccErrorInfo,
+        OccInfo,
     };
 
     impl Arbitrary for ErrorMetadata {
@@ -1103,12 +1106,13 @@ mod proptest {
                     component_path,
                     ..
                 } => ErrorMetadata::user_occ(
-                    OccErrorInfo {
+                    Some(OccInfo {
                         table_name,
                         document_id,
                         write_source,
                         component_path,
-                    },
+                        ..Default::default()
+                    }),
                     Some("description".to_string()),
                     None,
                 ),

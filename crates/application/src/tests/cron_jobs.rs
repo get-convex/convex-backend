@@ -26,10 +26,7 @@ use database::{
     TableModel,
     Transaction,
 };
-use errors::{
-    ErrorMetadata,
-    OccErrorInfo,
-};
+use errors::ErrorMetadata;
 use events::{
     testing::BasicTestUsageEventLogger,
     usage::{
@@ -216,11 +213,7 @@ async fn test_cron_occ_gets_logged(
     create_cron_job(&mut tx).await?;
     application.commit_test(tx).await?;
     let mut pause_guard = attempt_commit.wait_for_blocked().await.unwrap();
-    pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(
-        OccErrorInfo::default(),
-        None,
-        None
-    )));
+    pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None)));
     // Hold the commit pause again so the retry blocks there, guaranteeing the
     // OCC event from the first attempt has been logged.
     let second_attempt_commit = pause_controller.hold(CRON_COMITTING);

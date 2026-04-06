@@ -63,7 +63,7 @@ export interface components {
             componentPath?: string | null;
             documentId?: string | null;
             /** Format: int64 */
-            retryCount: number;
+            retryCount?: number | null;
             tableName?: string | null;
             writeSource?: string | null;
         };

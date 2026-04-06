@@ -254,9 +254,6 @@
       },
       "OccInfoJson": {
         "type": "object",
-        "required": [
-          "retryCount"
-        ],
         "properties": {
           "componentPath": {
             "type": [
@@ -271,7 +268,10 @@
             ]
           },
           "retryCount": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
             "minimum": 0
           },
