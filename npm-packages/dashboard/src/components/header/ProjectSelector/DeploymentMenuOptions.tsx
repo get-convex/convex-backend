@@ -56,28 +56,35 @@ export function DeploymentMenuOptions({
     .sort((a, b) => b.createTime - a.createTime);
 
   const members = useTeamMembers(team.id);
-  const teamMemberDeployments = deployments
-    .filter(
-      (d): d is PlatformDeploymentResponse & { kind: "cloud" } =>
-        d.kind === "cloud" &&
-        d.deploymentType === "dev" &&
-        d.creator !== member?.id,
-    )
-    .map((d) => {
-      const whose = members?.find((tm) => tm.id === d.creator);
-      return {
-        name: d.name,
-        creator: whose?.name || whose?.email || "Teammate",
-        isDefault: d.isDefault,
-        reference: d.reference,
-      };
-    })
+  const teamMemberDevDeployments = deployments.filter(
+    (d): d is PlatformDeploymentResponse & { kind: "cloud" } =>
+      d.kind === "cloud" &&
+      d.deploymentType === "dev" &&
+      d.creator !== member?.id,
+  );
+  const nonDefaultTeamDevs = teamMemberDevDeployments.filter(
+    (d) => !d.isDefault,
+  );
+
+  function mapTeamDev(d: PlatformDeploymentResponse & { kind: "cloud" }) {
+    const whose = members?.find((tm) => tm.id === d.creator);
+    return {
+      name: d.name,
+      creator: whose?.name || whose?.email || "Teammate",
+      isDefault: d.isDefault,
+      reference: d.reference,
+    };
+  }
+
+  // If there are too many non-default team devs, move them all to "Other Deployments"
+  const showNonDefaultTeamDevsInMainMenu = nonDefaultTeamDevs.length < 10;
+  const otherDeployments = teamMemberDevDeployments
+    .filter((d) => (showNonDefaultTeamDevsInMainMenu ? d.isDefault : true))
+    .map(mapTeamDev)
     .sort((a, b) => {
-      // Non-default deployments come first
       if (a.isDefault !== b.isDefault) {
         return a.isDefault ? 1 : -1;
       }
-      // Then sort by creator name
       return a.creator.toLowerCase().localeCompare(b.creator.toLowerCase());
     });
 
@@ -158,10 +165,13 @@ export function DeploymentMenuOptions({
           ))}
         </ContextMenu.Submenu>
       )}
-      <AllPersonalDeployments
+      <MainMenuDevItems
         team={team}
         project={project}
         deployments={deployments}
+        nonDefaultTeamDevs={
+          showNonDefaultTeamDevsInMainMenu ? nonDefaultTeamDevs : []
+        }
       />
       {previews.length === 0 && (
         <ContextMenu.Item
@@ -247,11 +257,11 @@ export function DeploymentMenuOptions({
         </ContextMenu.Submenu>
       )}
       <ContextMenu.Submenu
-        disabled={teamMemberDeployments.length === 0}
+        disabled={otherDeployments.length === 0}
         label={
           <p className="flex flex-col">
             Other Deployments
-            {teamMemberDeployments.length === 0 ? (
+            {otherDeployments.length === 0 ? (
               <span className="text-xs text-content-secondary">
                 <span className="text-content-tertiary">
                   Team member deployments appear here
@@ -259,14 +269,14 @@ export function DeploymentMenuOptions({
               </span>
             ) : (
               <span className="text-xs text-content-secondary">
-                {`${teamMemberDeployments.length} deployment${teamMemberDeployments.length === 1 ? "" : "s"}`}
+                {`${otherDeployments.length} deployment${otherDeployments.length === 1 ? "" : "s"}`}
               </span>
             )}
           </p>
         }
         icon={<Share1Icon />}
       >
-        {teamMemberDeployments.map((d) => (
+        {otherDeployments.map((d) => (
           <ContextMenu.Item
             key={d.name}
             label={
@@ -299,14 +309,16 @@ export function DeploymentMenuOptions({
   );
 }
 
-function AllPersonalDeployments({
+function MainMenuDevItems({
   team,
   project,
   deployments,
+  nonDefaultTeamDevs,
 }: {
   project: ProjectDetails;
   team: TeamResponse;
   deployments: (PlatformDeploymentResponse | DeploymentResponse)[];
+  nonDefaultTeamDevs: (PlatformDeploymentResponse | DeploymentResponse)[];
 }) {
   const member = useProfile();
   const router = useRouter();
@@ -318,64 +330,65 @@ function AllPersonalDeployments({
   // 0-4 are /t/[team]/[project]/[deploymentName].
   // 5- is the currentView
   const currentView = router.asPath.split("?")[0].split("/").slice(5).join("/");
-  const allDevDeployments = sortDevDeployments(
+  const personalDevs = sortDevDeployments(
     deployments.filter(
       (d: PlatformDeploymentResponse | DeploymentResponse) =>
         d.deploymentType === "dev" && d.creator === member?.id,
     ),
-  );
+  ).filter((d) => (d.kind === "local" ? d.isActive : true));
 
-  if (allDevDeployments.length === 0) {
-    return (
-      <ContextMenu.Item
-        icon={<CommandLineIcon className="h-4 w-4" />}
-        label={
-          <DeploymentOption
-            name="Select to create a Dev deployment."
-            identifier="Development"
-          />
-        }
-        shortcut={["Ctrl", "Alt", "2"]}
-        action={`${projectsURI}/${PROVISION_DEV_PAGE_NAME}`}
-        blankTarget={false}
-      />
-    );
-  }
+  const allDevs = [...personalDevs, ...nonDefaultTeamDevs];
+  // When personalDevs is empty, the "create dev" item occupies slot 2,
+  // so allDevs items must start at slot 3 to avoid a duplicate shortcut.
+  const devIdxOffset = personalDevs.length === 0 ? 1 : 0;
+
   return (
     <>
-      {allDevDeployments
-        .filter((d) => (d.kind === "local" ? d.isActive : true))
-        .map((d, idx) => (
-          <ContextMenu.Item
-            key={d.name}
-            icon={
-              d.kind === "local" ? (
-                <CommandLineIcon className="h-4 w-4" />
-              ) : (
-                <GlobeIcon className="h-4 w-4" />
-              )
-            }
-            shortcut={
-              idx + 2 > 9
-                ? undefined
-                : ["Ctrl", "Alt", (idx + 2).toString() as Key]
-            }
-            label={
-              <DeploymentOption
-                identifier={
-                  d.kind === "local"
-                    ? d.deviceName
-                    : d.isDefault
-                      ? "Development (Cloud)"
-                      : d.reference
-                }
-                name={d.kind === "local" ? `Port ${d.port}` : d.name}
-              />
-            }
-            action={`${projectsURI}/${d.name}/${currentView}`}
-            blankTarget={false}
-          />
-        ))}
+      {personalDevs.length === 0 && (
+        <ContextMenu.Item
+          icon={<CommandLineIcon className="h-4 w-4" />}
+          label={
+            <DeploymentOption
+              name="Select to create your dev deployment."
+              identifier="Development"
+            />
+          }
+          shortcut={["Ctrl", "Alt", "2"]}
+          action={`${projectsURI}/${PROVISION_DEV_PAGE_NAME}`}
+          blankTarget={false}
+        />
+      )}
+      {allDevs.map((d, idx) => (
+        <ContextMenu.Item
+          key={d.name}
+          icon={
+            d.kind === "local" ? (
+              <CommandLineIcon className="h-4 w-4" />
+            ) : (
+              <GlobeIcon className="h-4 w-4" />
+            )
+          }
+          shortcut={
+            idx + devIdxOffset + 2 > 9
+              ? undefined
+              : ["Ctrl", "Alt", (idx + devIdxOffset + 2).toString() as Key]
+          }
+          label={
+            <DeploymentOption
+              identifier={
+                d.kind === "local"
+                  ? d.deviceName
+                  : d.isDefault
+                    ? "Development (Cloud)"
+                    : d.reference
+              }
+              name={d.kind === "local" ? `Port ${d.port}` : d.name}
+            />
+          }
+          action={`${projectsURI}/${d.name}/${currentView}`}
+          blankTarget={false}
+        />
+      ))}
     </>
   );
 }

@@ -71,9 +71,12 @@ describe("DeploymentMenuOptions", () => {
   describe("custom deployments", () => {
     test("when there are no custom deployments, 'Custom' doesn't appear", async () => {
       const deployments: DeploymentResponse[] = [
-        createDeployment({ name: "prod-deployment", deploymentType: "prod" }),
         createDeployment({
-          name: "dev-deployment",
+          name: "happy-elephant-101",
+          deploymentType: "prod",
+        }),
+        createDeployment({
+          name: "lazy-panda-202",
           deploymentType: "dev",
           creator: 1,
         }),
@@ -87,13 +90,16 @@ describe("DeploymentMenuOptions", () => {
 
     test("when there is at least one custom deployment, they appear under 'Custom Deployments' submenu", async () => {
       const deployments: DeploymentResponse[] = [
-        createDeployment({ name: "prod-deployment", deploymentType: "prod" }),
         createDeployment({
-          name: "custom-deployment-1",
+          name: "happy-elephant-101",
+          deploymentType: "prod",
+        }),
+        createDeployment({
+          name: "bright-falcon-111",
           deploymentType: "custom",
         }),
         createDeployment({
-          name: "custom-deployment-2",
+          name: "swift-tiger-222",
           deploymentType: "custom",
         }),
       ];
@@ -111,7 +117,7 @@ describe("DeploymentMenuOptions", () => {
     test("when there are no prod deployments, shows 'Select to create a Prod deployment'", async () => {
       const deployments: DeploymentResponse[] = [
         createDeployment({
-          name: "dev-deployment",
+          name: "lazy-panda-202",
           deploymentType: "dev",
           creator: 1,
         }),
@@ -127,7 +133,7 @@ describe("DeploymentMenuOptions", () => {
     test("when there is a single default prod deployment, it appears as a single option", async () => {
       const deployments: DeploymentResponse[] = [
         createDeployment({
-          name: "my-prod-deployment",
+          name: "calm-dolphin-789",
           deploymentType: "prod",
           isDefault: true,
         }),
@@ -138,7 +144,7 @@ describe("DeploymentMenuOptions", () => {
       // Should show the Production identifier
       expect(screen.getByText("Production")).toBeInTheDocument();
       // Should show the deployment name
-      expect(screen.getByText("my-prod-deployment")).toBeInTheDocument();
+      expect(screen.getByText("calm-dolphin-789")).toBeInTheDocument();
       // Should NOT show the "select to create" text
       expect(
         screen.queryByText("Select to create a Prod deployment"),
@@ -148,12 +154,12 @@ describe("DeploymentMenuOptions", () => {
     test("when there are multiple prod deployments, they appear in a submenu", async () => {
       const deployments: DeploymentResponse[] = [
         createDeployment({
-          name: "prod-deployment-1",
+          name: "happy-elephant-101",
           deploymentType: "prod",
           isDefault: true,
         }),
         createDeployment({
-          name: "prod-deployment-2",
+          name: "calm-dolphin-789",
           deploymentType: "prod",
           isDefault: false,
         }),
@@ -171,7 +177,7 @@ describe("DeploymentMenuOptions", () => {
       const deployments: DeploymentResponse[] = [
         // Non-default created later (would normally sort first by createTime)
         createDeployment({
-          name: "wandering-fish-513",
+          name: "quick-lion-987",
           deploymentType: "prod",
           isDefault: false,
           createTime: now + 1000,
@@ -179,7 +185,7 @@ describe("DeploymentMenuOptions", () => {
         }),
         // Default created earlier
         createDeployment({
-          name: "knowing-antelope-914",
+          name: "gentle-bear-654",
           deploymentType: "prod",
           isDefault: true,
           createTime: now,
@@ -211,7 +217,7 @@ describe("DeploymentMenuOptions", () => {
     test("when there is a single non-default prod deployment, it appears in a submenu", async () => {
       const deployments: DeploymentResponse[] = [
         createDeployment({
-          name: "non-default-prod",
+          name: "quiet-badger-333",
           deploymentType: "prod",
           isDefault: false,
         }),
@@ -239,40 +245,31 @@ describe("DeploymentMenuOptions", () => {
       useTeamMembers.mockReturnValue([]);
     });
 
-    test("non-default dev deployments from other members appear in 'Other Deployments' submenu", async () => {
-      const user = userEvent.setup();
+    test("non-default dev deployments from other members appear in main menu when fewer than 10", async () => {
       const deployments: DeploymentResponse[] = [
         createDeployment({
-          name: "alice-non-default-dev",
+          name: "fancy-rabbit-444",
           deploymentType: "dev",
           creator: 2,
           isDefault: false,
+          reference: "wonderful-fish-321",
         }),
       ];
 
       await renderComponent(deployments);
 
-      // Should show "Other Deployments" submenu with count
-      expect(screen.getByText("Other Deployments")).toBeInTheDocument();
-      expect(screen.getByText("1 deployment")).toBeInTheDocument();
-
-      // Open the submenu
-      const otherDeploymentsSubmenu = screen.getByText("Other Deployments");
-      await user.hover(otherDeploymentsSubmenu);
-
-      // Wait for the submenu to open and verify the deployment appears
-      await waitFor(() => {
-        expect(screen.getByText("alice-non-default-dev")).toBeInTheDocument();
-      });
+      // Should appear directly in the main menu, not in Other Deployments
+      // Non-default dev deployments show reference as the prominent identifier
+      expect(screen.getByText("wonderful-fish-321")).toBeInTheDocument();
     });
 
-    test("non-default dev deployments appear above default dev deployments from other members", async () => {
+    test("non-default team devs appear in main menu and defaults in Other Deployments", async () => {
       const user = userEvent.setup();
       const now = Date.now();
       const deployments: DeploymentResponse[] = [
         // Alice's default dev deployment (created first)
         createDeployment({
-          name: "alice-default-dev",
+          name: "gentle-bear-654",
           deploymentType: "dev",
           creator: 2,
           isDefault: true,
@@ -280,96 +277,73 @@ describe("DeploymentMenuOptions", () => {
         }),
         // Bob's non-default dev deployment (created later)
         createDeployment({
-          name: "bob-non-default-dev",
+          name: "quick-lion-987",
           deploymentType: "dev",
           creator: 3,
           isDefault: false,
           createTime: now + 1000,
+          reference: "bob-ref",
         }),
       ];
 
       await renderComponent(deployments);
 
-      // Open the "Other Deployments" submenu
+      // Non-default should be in the main menu, shown by its reference
+      expect(screen.getByText("bob-ref")).toBeInTheDocument();
+
+      // Other Deployments should only contain the default dev
+      expect(screen.getByText("1 deployment")).toBeInTheDocument();
       const otherDeploymentsSubmenu = screen.getByText("Other Deployments");
       await user.hover(otherDeploymentsSubmenu);
 
-      // Wait for the submenu to open
       await waitFor(() => {
-        expect(screen.getByText("bob-non-default-dev")).toBeInTheDocument();
+        // Default dev in submenu is shown as "<MemberName>'s dev"
+        expect(screen.getByText("Alice's dev")).toBeInTheDocument();
       });
-
-      // Verify non-default deployment appears before default deployment
-      const allDeploymentNames = screen.getAllByText(
-        /alice-default-dev|bob-non-default-dev/,
-      );
-      expect(allDeploymentNames[0]).toHaveTextContent("bob-non-default-dev");
-      expect(allDeploymentNames[1]).toHaveTextContent("alice-default-dev");
     });
 
-    test("multiple non-default dev deployments appear above multiple default dev deployments", async () => {
+    test("when >= 10 non-default team devs, all go to Other Deployments", async () => {
       const user = userEvent.setup();
       const now = Date.now();
       const deployments: DeploymentResponse[] = [
-        // Alice's default dev deployment
+        // Alice's default dev
         createDeployment({
-          name: "alice-default-dev",
+          name: "gentle-bear-654",
           deploymentType: "dev",
           creator: 2,
           isDefault: true,
           createTime: now,
         }),
-        // Bob's default dev deployment
-        createDeployment({
-          name: "bob-default-dev",
-          deploymentType: "dev",
-          creator: 3,
-          isDefault: true,
-          createTime: now + 100,
-        }),
-        // Alice's non-default dev deployment
-        createDeployment({
-          name: "alice-non-default-dev",
-          deploymentType: "dev",
-          creator: 2,
-          isDefault: false,
-          createTime: now + 200,
-        }),
-        // Bob's non-default dev deployment
-        createDeployment({
-          name: "bob-non-default-dev",
-          deploymentType: "dev",
-          creator: 3,
-          isDefault: false,
-          createTime: now + 300,
-        }),
+        // 10 non-default devs from Bob
+        ...Array.from({ length: 10 }, (_, i) =>
+          createDeployment({
+            name: `brave-wolf-${100 + i}`,
+            deploymentType: "dev",
+            creator: 3,
+            isDefault: false,
+            createTime: now + i + 1,
+            reference: `bob-ref-${i}`,
+          }),
+        ),
       ];
 
       await renderComponent(deployments);
 
-      // Should show count for all 4 deployments
-      expect(screen.getByText("4 deployments")).toBeInTheDocument();
+      // Non-default devs should NOT be in the main menu (check by reference)
+      expect(screen.queryByText("bob-ref-0")).not.toBeInTheDocument();
 
-      // Open the "Other Deployments" submenu
+      // Other Deployments should contain all 11 (10 non-default + 1 default)
+      expect(screen.getByText("11 deployments")).toBeInTheDocument();
+
       const otherDeploymentsSubmenu = screen.getByText("Other Deployments");
       await user.hover(otherDeploymentsSubmenu);
 
-      // Wait for the submenu to open
       await waitFor(() => {
-        expect(screen.getByText("alice-non-default-dev")).toBeInTheDocument();
+        // Non-default devs are shown by their reference
+        expect(screen.getByText("bob-ref-0")).toBeInTheDocument();
+        // Default dev is shown as "<MemberName>'s dev"
+        expect(screen.getByText("Alice's dev")).toBeInTheDocument();
       });
-
-      // Verify all non-default deployments appear before all default deployments
-      const allDeploymentNames = screen.getAllByText(
-        /alice-default-dev|bob-default-dev|alice-non-default-dev|bob-non-default-dev/,
-      );
-
-      // First two should be non-default (sorted by creator name within the group)
-      expect(allDeploymentNames[0]).toHaveTextContent("alice-non-default-dev");
-      expect(allDeploymentNames[1]).toHaveTextContent("bob-non-default-dev");
-      // Last two should be default (sorted by creator name within the group)
-      expect(allDeploymentNames[2]).toHaveTextContent("alice-default-dev");
-      expect(allDeploymentNames[3]).toHaveTextContent("bob-default-dev");
     });
   });
 });

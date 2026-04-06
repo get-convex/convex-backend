@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { mocked } from "storybook/test";
+import { screen, expect, mocked, userEvent, waitFor } from "storybook/test";
 import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { useProfile } from "api/profile";
@@ -81,7 +81,7 @@ export const NoProdDeployment: Story = {
   args: {
     deployments: [
       createCloudDeployment({
-        name: "dev-deployment",
+        name: "lazy-panda-202",
         deploymentType: "dev",
         creator: 1,
       }),
@@ -98,7 +98,7 @@ export const SingleDefaultProd: Story = {
         isDefault: true,
       }),
       createCloudDeployment({
-        name: "dev-deployment",
+        name: "lazy-panda-202",
         deploymentType: "dev",
         creator: 1,
       }),
@@ -122,13 +122,13 @@ export const MultipleDevDeployments: Story = {
   args: {
     deployments: [
       createCloudDeployment({
-        name: "prod-default",
+        name: "happy-elephant-101",
         deploymentType: "prod",
         isDefault: true,
       }),
       // Default dev — shows "Development (Cloud)"
       createCloudDeployment({
-        name: "dev-default",
+        name: "gentle-bear-654",
         deploymentType: "dev",
         isDefault: true,
         creator: 1,
@@ -136,7 +136,7 @@ export const MultipleDevDeployments: Story = {
       }),
       // Non-default dev — shows reference instead
       createCloudDeployment({
-        name: "dev-secondary",
+        name: "fancy-rabbit-444",
         deploymentType: "dev",
         isDefault: false,
         creator: 1,
@@ -150,17 +150,17 @@ export const MultipleProds: Story = {
   args: {
     deployments: [
       createCloudDeployment({
-        name: "prod-default",
+        name: "happy-elephant-101",
         deploymentType: "prod",
         isDefault: true,
       }),
       createCloudDeployment({
-        name: "prod-secondary",
+        name: "calm-dolphin-789",
         deploymentType: "prod",
         isDefault: false,
       }),
       createCloudDeployment({
-        name: "prod-tertiary",
+        name: "quiet-badger-333",
         deploymentType: "prod",
         isDefault: false,
       }),
@@ -172,16 +172,16 @@ export const WithCustomDeployments: Story = {
   args: {
     deployments: [
       createCloudDeployment({
-        name: "prod-deployment",
+        name: "bright-falcon-111",
         deploymentType: "prod",
         isDefault: true,
       }),
       createCloudDeployment({
-        name: "custom-staging",
+        name: "swift-tiger-222",
         deploymentType: "custom",
       }),
       createCloudDeployment({
-        name: "custom-qa",
+        name: "brave-wolf-100",
         deploymentType: "custom",
       }),
     ],
@@ -192,17 +192,17 @@ export const WithPreviewDeployments: Story = {
   args: {
     deployments: [
       createCloudDeployment({
-        name: "prod-deployment",
+        name: "bright-falcon-111",
         deploymentType: "prod",
         isDefault: true,
       }),
       createCloudDeployment({
-        name: "preview-feature-login",
+        name: "quick-lion-987",
         deploymentType: "preview",
         previewIdentifier: "feature/new-login",
       }),
       createCloudDeployment({
-        name: "preview-fix-bug",
+        name: "wandering-fish-513",
         deploymentType: "preview",
         previewIdentifier: "fix/bug-123",
       }),
@@ -215,25 +215,25 @@ export const FullMenu: Story = {
     deployments: [
       // Multiple prods
       createCloudDeployment({
-        name: "prod-default",
+        name: "happy-elephant-101",
         deploymentType: "prod",
         isDefault: true,
       }),
       createCloudDeployment({
-        name: "prod-secondary",
+        name: "calm-dolphin-789",
         deploymentType: "prod",
         isDefault: false,
       }),
       // Dev deployment (default - shows "Development (Cloud)")
       createCloudDeployment({
-        name: "dev-deployment",
+        name: "lazy-panda-202",
         deploymentType: "dev",
         isDefault: true,
         creator: 1,
       }),
       // Non-default dev deployment (shows reference, not "Development (Cloud)")
       createCloudDeployment({
-        name: "dev-secondary",
+        name: "fancy-rabbit-444",
         deploymentType: "dev",
         isDefault: false,
         creator: 1,
@@ -241,20 +241,30 @@ export const FullMenu: Story = {
       }),
       // Previews
       createCloudDeployment({
-        name: "preview-feature",
+        name: "knowing-antelope-914",
         deploymentType: "preview",
         previewIdentifier: "feature/awesome",
       }),
       // Custom
       createCloudDeployment({
-        name: "custom-staging",
+        name: "swift-tiger-222",
         deploymentType: "custom",
       }),
     ],
   },
 };
 
-export const NonDefaultTeammateDev: Story = {
+export const NonDefaultDev: Story = {
+  play: async () => {
+    // Non-default deployments are a main-menu item below 10 items.
+    // Use waitFor because the ContextMenu has a fade-in animation (opacity 0→1).
+    await waitFor(async () => {
+      await expect(screen.getByText("teammate-dev-secondary")).toBeVisible();
+    });
+    await waitFor(async () => {
+      await expect(screen.getByText("dev/vercel")).toBeVisible();
+    });
+  },
   beforeEach: () => {
     mocked(useTeamMembers).mockReturnValue([
       {
@@ -268,13 +278,13 @@ export const NonDefaultTeammateDev: Story = {
   args: {
     deployments: [
       createCloudDeployment({
-        name: "prod-default",
+        name: "calm-panda-321",
         deploymentType: "prod",
         isDefault: true,
       }),
       // Teammate's default dev — shows "Jane Smith's dev"
       createCloudDeployment({
-        name: "teammate-dev-default",
+        name: "happy-koala-456",
         deploymentType: "dev",
         isDefault: true,
         creator: 2,
@@ -282,12 +292,140 @@ export const NonDefaultTeammateDev: Story = {
       }),
       // Teammate's non-default dev — shows reference only
       createCloudDeployment({
-        name: "teammate-dev-secondary",
+        name: "swift-eagle-789",
         deploymentType: "dev",
         isDefault: false,
         creator: 2,
         reference: "teammate-dev-secondary",
       }),
+      // System non-default dev — shows reference only
+      createCloudDeployment({
+        name: "quiet-husky-173",
+        deploymentType: "dev",
+        isDefault: false,
+        creator: null,
+        reference: "dev/vercel",
+      }),
+    ],
+  },
+};
+
+export const NonDefaultDevAndDefaultDev: Story = {
+  play: async () => {
+    // Non-default deployments are a main-menu item below 10 items.
+    // Use waitFor because the ContextMenu has a fade-in animation (opacity 0→1).
+    await waitFor(async () => {
+      await expect(screen.getByText("teammate-dev-secondary")).toBeVisible();
+    });
+    await waitFor(async () => {
+      await expect(screen.getByText("dev/vercel")).toBeVisible();
+    });
+  },
+  beforeEach: () => {
+    mocked(useTeamMembers).mockReturnValue([
+      {
+        id: 2,
+        name: "Jane Smith",
+        email: "jane@example.com",
+        role: "developer",
+      },
+    ]);
+  },
+  args: {
+    deployments: [
+      createCloudDeployment({
+        name: "happy-elephant-101",
+        deploymentType: "dev",
+        isDefault: true,
+        creator: 1,
+        reference: "dev/nicolas",
+      }),
+      // Teammate's default dev — shows "Jane Smith's dev"
+      createCloudDeployment({
+        name: "happy-koala-456",
+        deploymentType: "dev",
+        isDefault: true,
+        creator: 2,
+        reference: "teammate-dev-default",
+      }),
+      // Teammate's non-default dev — shows reference only
+      createCloudDeployment({
+        name: "swift-eagle-789",
+        deploymentType: "dev",
+        isDefault: false,
+        creator: 2,
+        reference: "teammate-dev-secondary",
+      }),
+      // System non-default dev — shows reference only
+      createCloudDeployment({
+        name: "quiet-husky-173",
+        deploymentType: "dev",
+        isDefault: false,
+        creator: null,
+        reference: "dev/vercel",
+      }),
+    ],
+  },
+};
+
+export const TenNonDefaultTeammateDevsWithoutDefaultDev: Story = {
+  play: async () => {
+    await expect(
+      screen.queryByText("non-default-dev-1"),
+    ).not.toBeInTheDocument();
+    // Open the "Other Deployments" submenu
+    await userEvent.hover(screen.getByText("Other Deployments"));
+    // Submenu items appear in a Floating UI portal — query from document.body
+    await expect(screen.findByText("non-default-dev-1")).resolves.toBeVisible();
+  },
+  args: {
+    deployments: [
+      createCloudDeployment({
+        name: "happy-elephant-101",
+        deploymentType: "prod",
+        isDefault: true,
+      }),
+      ...Array.from({ length: 10 }, (_, i) =>
+        createCloudDeployment({
+          name: `brave-husky-1${i + 1}`,
+          deploymentType: "dev",
+          isDefault: false,
+          creator: 2,
+          reference: `non-default-dev-${i + 1}`,
+        }),
+      ),
+    ],
+  },
+};
+
+export const TenNonDefaultTeammateDevsWithDefaultDev: Story = {
+  play: async () => {
+    await expect(
+      screen.queryByText("non-default-dev-1"),
+    ).not.toBeInTheDocument();
+    // Open the "Other Deployments" submenu
+    await userEvent.hover(screen.getByText("Other Deployments"));
+    // Submenu items appear in a Floating UI portal — query from document.body
+    await expect(screen.findByText("non-default-dev-1")).resolves.toBeVisible();
+  },
+  args: {
+    deployments: [
+      createCloudDeployment({
+        name: "happy-elephant-101",
+        deploymentType: "dev",
+        isDefault: true,
+        creator: 1,
+        reference: "dev/nicolas",
+      }),
+      ...Array.from({ length: 10 }, (_, i) =>
+        createCloudDeployment({
+          name: `brave-husky-1${i + 1}`,
+          deploymentType: "dev",
+          isDefault: false,
+          creator: 2,
+          reference: `non-default-dev-${i + 1}`,
+        }),
+      ),
     ],
   },
 };
