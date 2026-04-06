@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "storybook": "storybook dev -p 6006 --no-open",
+    "storybook": "storybook dev --no-open",
     "build": "storybook build",
     "test-storybook": "vitest --project=storybook",
     "generate-docs-screenshots": "tsx scripts/generate-docs-screenshots.ts"
