@@ -767,8 +767,8 @@ impl SnapshotManager {
             anyhow::bail!(ErrorMetadata::rate_limited(
                 "TooManyWrites",
                 format!(
-                    "Too many writes per second. Your deployment is limited to {} writes per \
-                     {}ms. Reduce your write rate.",
+                    "Too many writes per second. Your deployment is limited to {} bytes written \
+                     per {}ms. Reduce your write rate or upgrade to a larger deployment.",
                     *MAX_BYTES_WRITTEN_PER_SECOND,
                     WRITE_THROUGHPUT_WINDOW.as_millis(),
                 )
