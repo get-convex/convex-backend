@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/platform",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "A client for the Convex Platform APIs",
   "type": "module",
   "homepage": "https://docs.convex.dev/platform-apis",
