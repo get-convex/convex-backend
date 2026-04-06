@@ -360,7 +360,11 @@ impl ValidatedPathAndArgs {
                 },
                 PublicFunctionPath::Component(path) => {
                     let (_, component) = BootstrapComponentsModel::new(tx)
-                        .must_component_path_to_ids(&path.component)?;
+                        .component_path_to_ids(&path.component)?
+                        .context(ErrorMetadata::bad_request(
+                            "ComponentPathNotFound",
+                            format!("Component path '{}' not found", path.component),
+                        ))?;
                     ResolvedComponentFunctionPath {
                         component,
                         udf_path: path.udf_path,
@@ -411,7 +415,11 @@ impl ValidatedPathAndArgs {
             },
             PublicFunctionPath::Component(path) => {
                 let (_, component) = BootstrapComponentsModel::new(tx)
-                    .must_component_path_to_ids(&path.component)?;
+                    .component_path_to_ids(&path.component)?
+                    .context(ErrorMetadata::bad_request(
+                        "ComponentPathNotFound",
+                        format!("Component path '{}' not found", path.component),
+                    ))?;
                 ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
