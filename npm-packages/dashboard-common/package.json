@@ -7,8 +7,8 @@
   "scripts": {
     "build": "npm run build:generated && tsc --noEmit",
     "build:generated": "python3 scripts/build-convexServerTypes.py",
-    "lint": "bash scripts/checkNode20.sh && ESLINT_USE_FLAT_CONFIG=false eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx' --cache",
-    "lint:fix": "bash scripts/checkNode20.sh && ESLINT_USE_FLAT_CONFIG=false eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx' --cache"
+    "lint": "bash scripts/checkNode22.sh && ESLINT_USE_FLAT_CONFIG=false eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx' --cache",
+    "lint:fix": "bash scripts/checkNode22.sh && ESLINT_USE_FLAT_CONFIG=false eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx' --cache"
   },
   "peerDependencies": {
     "@radix-ui/react-icons": "~1.3.0",
