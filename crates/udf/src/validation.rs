@@ -342,7 +342,6 @@ impl ValidatedPathAndArgs {
 
     /// Do argument validation and get returns validator without retrieving
     /// the analyze result twice.
-
     #[fastrace::trace]
     pub async fn new_with_returns_validator<RT: Runtime>(
         allowed_visibility: AllowedVisibility,
