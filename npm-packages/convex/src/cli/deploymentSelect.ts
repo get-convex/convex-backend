@@ -8,7 +8,7 @@ import {
 } from "./lib/deploymentSelection.js";
 import { parseDeploymentSelector } from "./lib/deploymentSelector.js";
 import { updateEnvAndConfigForDeploymentSelection } from "./configure.js";
-import { fetchDeploymentCanonicalSiteUrl } from "./lib/env.js";
+import { fetchDeploymentCanonicalUrls } from "./lib/deploy2.js";
 import { chalkStderr } from "chalk";
 
 export const deploymentSelect = new Command("select")
@@ -94,7 +94,7 @@ export async function saveSelectedDeployment(
     });
   }
 
-  const siteUrl = await fetchDeploymentCanonicalSiteUrl(ctx, {
+  const { convexSiteUrl: siteUrl } = await fetchDeploymentCanonicalUrls(ctx, {
     adminKey: deployment.adminKey,
     deploymentUrl: deployment.url,
   });

@@ -3,11 +3,11 @@ import path from "path";
 import { nodeFs } from "../bundler/fs.js";
 import { deploymentSelect } from "./deploymentSelect.js";
 import { bigBrainAPI, bigBrainAPIMaybeThrows } from "./lib/utils/utils.js";
-import { runSystemQuery } from "./lib/run.js";
 import { globalConfigPath } from "./lib/utils/globalConfig.js";
 
-// Mock typedPlatformClient GET function — can be configured per test
+// Mock GET functions — can be configured per test
 const mockPlatformGet = vi.fn();
+const mockDeploymentGet = vi.fn();
 
 // In-memory filesystem — populated in beforeEach, written to by real configure code
 let testFiles: Map<string, string>;
@@ -33,6 +33,7 @@ vi.mock("./lib/utils/utils.js", async (importOriginal) => {
     bigBrainAPI: vi.fn(),
     bigBrainAPIMaybeThrows: vi.fn(),
     typedPlatformClient: vi.fn(() => ({ GET: mockPlatformGet })),
+    typedDeploymentClient: vi.fn(() => ({ GET: mockDeploymentGet })),
   };
 });
 
@@ -47,10 +48,6 @@ vi.mock("dotenv", async (importOriginal) => {
 vi.mock("@sentry/node", () => ({
   captureException: vi.fn(),
   close: vi.fn(),
-}));
-
-vi.mock("./lib/run.js", () => ({
-  runSystemQuery: vi.fn(),
 }));
 
 /**
@@ -107,10 +104,12 @@ describe("npx convex select", () => {
       },
     );
 
-    // runSystemQuery is called by fetchDeploymentCanonicalSiteUrl to look up CONVEX_SITE_URL
-    vi.mocked(runSystemQuery).mockResolvedValue({
-      name: "CONVEX_SITE_URL",
-      value: "https://example.convex.site",
+    // typedDeploymentClient GET is called by fetchDeploymentCanonicalUrls
+    mockDeploymentGet.mockResolvedValue({
+      data: {
+        convexCloudUrl: "https://example.convex.cloud",
+        convexSiteUrl: "https://example.convex.site",
+      },
     });
 
     // typedPlatformClient is used for reference-based deployment resolution
@@ -350,7 +349,7 @@ describe("npx convex select", () => {
     });
 
     describe("side effects on successful selection", () => {
-      it("fetches the site URL using the resolved deployment credentials", async () => {
+      it("fetches the canonical URLs using the resolved deployment credentials", async () => {
         setupBigBrainRoutes({
           "deployment/joyful-capybara-123/team_and_project": () => ({
             team: "my-team",
@@ -368,19 +367,15 @@ describe("npx convex select", () => {
 
         await deploymentSelect.parseAsync(["dev"], { from: "user" });
 
-        expect(runSystemQuery).toHaveBeenCalledWith(
-          expect.anything(),
-          expect.objectContaining({
-            adminKey: "dev-key",
-            deploymentUrl: "https://joyful-capybara-123.convex.cloud",
-          }),
-        );
+        expect(mockDeploymentGet).toHaveBeenCalledWith("/get_canonical_urls");
       });
 
       it("writes the fetched site URL to the env file", async () => {
-        vi.mocked(runSystemQuery).mockResolvedValue({
-          name: "CONVEX_SITE_URL",
-          value: "https://joyful-capybara-123.convex.site",
+        mockDeploymentGet.mockResolvedValue({
+          data: {
+            convexCloudUrl: "https://joyful-capybara-123.convex.cloud",
+            convexSiteUrl: "https://joyful-capybara-123.convex.site",
+          },
         });
         setupBigBrainRoutes({
           "deployment/joyful-capybara-123/team_and_project": () => ({

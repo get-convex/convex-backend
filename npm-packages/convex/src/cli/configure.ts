@@ -52,7 +52,7 @@ import {
 } from "./lib/deploymentSelection.js";
 import { ensureLoggedIn } from "./lib/login.js";
 import { handleAnonymousDeployment } from "./lib/localDeployment/anonymous.js";
-import { fetchDeploymentCanonicalSiteUrl } from "./lib/env.js";
+import { fetchDeploymentCanonicalUrls } from "./lib/deploy2.js";
 type DeploymentCredentials = {
   url: string;
   adminKey: string;
@@ -122,7 +122,7 @@ export async function deploymentCredentialsOrConfigure(
     chosenConfiguration,
     cmdOptions,
   );
-  const siteUrl = await fetchDeploymentCanonicalSiteUrl(ctx, {
+  const { convexSiteUrl: siteUrl } = await fetchDeploymentCanonicalUrls(ctx, {
     adminKey: selectedDeployment.adminKey,
     deploymentUrl: selectedDeployment.url,
   });

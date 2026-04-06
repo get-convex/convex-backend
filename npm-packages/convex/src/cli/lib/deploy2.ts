@@ -8,7 +8,11 @@ import {
   showSpinner,
 } from "../../bundler/log.js";
 import { spawnSync } from "child_process";
-import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
+import {
+  deploymentFetch,
+  logAndHandleFetchError,
+  typedDeploymentClient,
+} from "./utils/utils.js";
 import {
   EvaluatePushResponse,
   evaluatePushResponse,
@@ -31,7 +35,6 @@ import { PushOptions } from "./components.js";
 import { DeploymentType } from "./api.js";
 import { runPush } from "./components.js";
 import { suggestedEnvVarNames } from "./envvars.js";
-import { runSystemQuery } from "./run.js";
 import {
   handlePushConfigError,
   readProjectConfig,
@@ -40,7 +43,6 @@ import {
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { addProgressLinkIfSlow } from "./indexes.js";
 import { ensureAuthKitProvisionedBeforeBuild } from "./workos/workos.js";
-import { fetchDeploymentCanonicalSiteUrl } from "./env.js";
 
 const brotli = promisify(zlib.brotliCompress);
 
@@ -485,14 +487,10 @@ export async function runCommand(
       deploymentUrl: options.url,
       adminKey: options.adminKey,
     };
-    const canonicalCloudUrl = await fetchDeploymentCanonicalCloudUrl(
-      ctx,
-      deployment,
-    );
-    const canonicalSiteUrl = await fetchDeploymentCanonicalSiteUrl(
-      ctx,
-      deployment,
-    );
+    const {
+      convexCloudUrl: canonicalCloudUrl,
+      convexSiteUrl: canonicalSiteUrl,
+    } = await fetchDeploymentCanonicalUrls(ctx, deployment);
 
     const env = { ...process.env };
     env[urlVar] = canonicalCloudUrl;
@@ -517,22 +515,11 @@ export async function runCommand(
   );
 }
 
-export async function fetchDeploymentCanonicalCloudUrl(
+export async function fetchDeploymentCanonicalUrls(
   ctx: Context,
   options: { deploymentUrl: string; adminKey: string },
-): Promise<string> {
-  const result = await runSystemQuery(ctx, {
-    ...options,
-    functionName: "_system/cli/convexUrl:cloudUrl",
-    componentPath: undefined,
-    args: {},
-  });
-  if (typeof result !== "string") {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem or env vars",
-      printedMessage: "Invalid process.env.CONVEX_CLOUD_URL",
-    });
-  }
-  return result;
+): Promise<{ convexCloudUrl: string; convexSiteUrl: string }> {
+  const client = typedDeploymentClient(ctx, options);
+  const result = await client.GET("/get_canonical_urls");
+  return result.data!;
 }
