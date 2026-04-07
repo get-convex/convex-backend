@@ -61,7 +61,6 @@ export function BackupRestoreStatus({
           completedTime={new Date(Number(state.timestamp / BigInt(1000000)))}
           restoredRowsCount={state.num_rows_written}
           deployment={deployment}
-          team={team}
           backup={backup}
           snapshotImportCheckpoints={currentRestore.checkpoints}
         />
@@ -72,7 +71,6 @@ export function BackupRestoreStatus({
           errorMessage={state.error_message}
           restoreStartTime={new Date(currentRestore._creationTime)}
           deployment={deployment}
-          team={team}
           backup={backup}
         />
       );
@@ -95,13 +93,11 @@ export function BackupRestoreFail({
   errorMessage,
   restoreStartTime,
   deployment,
-  team,
   backup,
 }: {
   errorMessage: string;
   restoreStartTime: Date;
   deployment: PlatformDeploymentResponse;
-  team: TeamResponse;
   backup: BackupResponse | null;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -143,7 +139,6 @@ export function BackupRestoreFail({
             backup={backup}
             targetDeployment={deployment}
             latestBackupInTargetDeployment={undefined}
-            team={team}
           />
 
           <p className="my-2">Encountered an error while restoring:</p>
@@ -158,7 +153,6 @@ export function BackupRestoreSuccess({
   completedTime,
   restoredRowsCount,
   deployment,
-  team,
   backup,
   snapshotImportCheckpoints,
 }: {
@@ -168,7 +162,6 @@ export function BackupRestoreSuccess({
   restoredRowsCount: bigint | number;
 
   deployment: PlatformDeploymentResponse;
-  team: TeamResponse;
   backup: BackupResponse | null;
   snapshotImportCheckpoints: Doc<"_snapshot_imports">["checkpoints"] | null;
 }) {
@@ -214,7 +207,6 @@ export function BackupRestoreSuccess({
             backup={backup}
             targetDeployment={deployment}
             latestBackupInTargetDeployment={undefined}
-            team={team}
           />
 
           <ImportSummary

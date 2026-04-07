@@ -1,3 +1,4 @@
+use errors::ErrorMetadata;
 use pb::convex_identity::DeploymentOperation as ProtoDeploymentOperation;
 use serde::{
     Deserialize,
@@ -105,6 +106,19 @@ impl TryFrom<ProtoDeploymentOperation> for DeploymentOp {
             ProtoDeploymentOperation::RunTestQuery => Ok(Self::RunTestQuery),
         }
     }
+}
+
+pub fn bad_admin_key_error(instance_name: Option<String>) -> ErrorMetadata {
+    let msg = match instance_name {
+        Some(name) => format!(
+            "The provided deploy key was invalid for deployment '{name}'. Double check that the \
+             environment this key was generated for matches the desired deployment."
+        ),
+        None => "The provided deploy key was invalid for this deployment. Double check that the \
+                 environment this key was generated for matches the desired deployment."
+            .to_string(),
+    };
+    ErrorMetadata::forbidden("BadDeployKey", msg)
 }
 
 pub fn read_only_operations() -> Vec<DeploymentOp> {

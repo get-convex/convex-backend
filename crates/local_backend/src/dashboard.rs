@@ -49,7 +49,6 @@ use crate::{
     admin::{
         must_be_admin,
         must_be_admin_from_key,
-        must_be_admin_with_operation,
     },
     authentication::ExtractIdentity,
     public_api::{
@@ -101,7 +100,7 @@ pub async fn shapes2(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut out = serde_json::Map::new();
 
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::ViewData)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping().namespace(component.into());
@@ -143,7 +142,7 @@ pub async fn delete_tables(
         component_id,
     }): Json<DeleteTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::WriteData)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteData)?;
     let table_names = table_names
         .into_iter()
         .map(|t| Ok(t.parse::<ValidIdentifier<TableName>>()?.0))
@@ -171,7 +170,7 @@ pub async fn delete_component(
     ExtractIdentity(identity): ExtractIdentity,
     Json(DeleteComponentArgs { component_id }): Json<DeleteComponentArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::WriteData)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteData)?;
     let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     st.application
         .delete_component(&identity, component_id)
@@ -208,7 +207,7 @@ pub async fn get_indexes(
     ExtractIdentity(identity): ExtractIdentity,
     Query(GetIndexesArgs { component_id }): Query<GetIndexesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::ViewData)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     let mut tx = st.application.begin(identity.clone()).await?;
     let indexes = IndexModel::new(&mut tx)
@@ -275,7 +274,7 @@ pub async fn run_test_function(
         req.admin_key.clone(),
     )
     .await?;
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::RunTestQuery)?;
+    identity.require_operation(keybroker::DeploymentOp::RunTestQuery)?;
     let args = req.args.into_serialized_args()?;
     let module: ModuleConfig = req.bundle.try_into()?;
     let component_id = ComponentId::deserialize_from_string(req.component_id.as_deref())?;

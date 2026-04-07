@@ -145,7 +145,6 @@ use common::{
 };
 use cron_jobs::CronJobExecutor;
 use database::{
-    unauthorized_error,
     BootstrapComponentsModel,
     Database,
     FastForwardIndexWorker,
@@ -196,6 +195,7 @@ use http_client::{
     ClientPurpose,
 };
 use keybroker::{
+    DeploymentOp,
     Identity,
     KeyBroker,
 };
@@ -897,15 +897,8 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub fn function_log(
-        &self,
-        identity: Identity,
-        endpoint: &'static str,
-    ) -> anyhow::Result<&FunctionExecutionLog<RT>> {
-        anyhow::ensure!(
-            identity.is_admin() || identity.is_system(),
-            unauthorized_error(endpoint)
-        );
+    pub fn function_log(&self, identity: &Identity) -> anyhow::Result<&FunctionExecutionLog<RT>> {
+        identity.require_operation(DeploymentOp::ViewMetrics)?;
         Ok(&self.function_log)
     }
 
@@ -1444,10 +1437,7 @@ impl<RT: Runtime> Application<RT> {
         requestor: ExportRequestor,
         expiration_ts_ns: Option<u64>,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        anyhow::ensure!(
-            identity.is_admin() || identity.is_system(),
-            unauthorized_error("request_export")
-        );
+        identity.require_operation(DeploymentOp::CreateBackups)?;
         if let Some(expiration_ts_ns) = expiration_ts_ns {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -2238,12 +2228,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
     ) -> anyhow::Result<ClientDrivenUploadToken> {
-        if !identity.is_admin() {
-            anyhow::bail!(ErrorMetadata::forbidden(
-                "InvalidImport",
-                "Only an admin of the deployment can import"
-            ));
-        }
+        identity.require_operation(DeploymentOp::ImportBackups)?;
         let upload = self
             .application_storage
             .snapshot_imports_storage
@@ -2259,12 +2244,7 @@ impl<RT: Runtime> Application<RT> {
         part_number: u16,
         part: Bytes,
     ) -> anyhow::Result<ClientDrivenUploadPartToken> {
-        if !identity.is_admin() {
-            anyhow::bail!(ErrorMetadata::forbidden(
-                "InvalidImport",
-                "Only an admin of the deployment can import"
-            ));
-        }
+        identity.require_operation(DeploymentOp::ImportBackups)?;
         let part_token = self
             .application_storage
             .snapshot_imports_storage
@@ -2282,12 +2262,7 @@ impl<RT: Runtime> Application<RT> {
         upload_token: ClientDrivenUploadToken,
         part_tokens: Vec<ClientDrivenUploadPartToken>,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        if !identity.is_admin() {
-            anyhow::bail!(ErrorMetadata::forbidden(
-                "InvalidImport",
-                "Only an admin of the deployment can import"
-            ));
-        }
+        identity.require_operation(DeploymentOp::ImportBackups)?;
         let object_key = self
             .application_storage
             .snapshot_imports_storage
@@ -2944,10 +2919,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         component_id: ComponentId,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            identity.is_admin() || identity.is_system(),
-            unauthorized_error("delete_scheduled_jobs_table")
-        );
+        identity.require_operation(DeploymentOp::WriteData)?;
         let mut tx = self.begin(identity).await?;
         let mut model = TableModel::new(&mut tx);
         model

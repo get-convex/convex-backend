@@ -33,7 +33,6 @@ use utoipa::ToSchema;
 use value::TableNamespace;
 
 use crate::{
-    admin::must_be_admin_with_write_access,
     authentication::ExtractIdentity,
     parse::parse_document_id,
     LocalAppState,
@@ -68,7 +67,7 @@ pub async fn cancel_all_jobs(
         end_next_ts,
     }): Json<CancelAllJobsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteData)?;
 
     let udf_path = udf_path
         .map(|p| p.parse())
@@ -121,7 +120,7 @@ pub async fn cancel_job(
     ExtractIdentity(identity): ExtractIdentity,
     Json(cancel_job_request): Json<CancelJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteData)?;
     let component_id =
         ComponentId::deserialize_from_string(cancel_job_request.component_id.as_deref())?;
     st.application
@@ -164,10 +163,81 @@ pub async fn delete_scheduled_functions_table(
         DeleteScheduledFunctionsTableRequest,
     >,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
     let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     st.application
         .delete_scheduled_jobs_table(identity, component_id)
         .await?;
     Ok(StatusCode::OK)
+}
+
+#[cfg(test)]
+mod tests {
+    use axum_extra::headers::authorization::Credentials;
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+    use serde_json::json;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    #[convex_macro::prod_rt_test]
+    async fn test_cancel_all_jobs_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({"componentId": null});
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/cancel_all_jobs")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_cancel_job_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({"id": "fake_id"});
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/cancel_job")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_delete_scheduled_functions_table_denied_for_read_only(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({"componentId": null});
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/delete_scheduled_functions_table")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
 }

@@ -871,41 +871,6 @@
         }
       }
     },
-    "/projects/{project_id}/provision": {
-      "post": {
-        "operationId": "provision_deployment_dashboard",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProvisionDeploymentDashboardArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProvisionDeploymentDashboardResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/teams/{team_id}/deployments/{deployment_id}": {
       "get": {
         "operationId": "get_deployment_by_id",
@@ -5839,45 +5804,6 @@
       },
       "ProposedTeamName": {
         "type": "string"
-      },
-      "ProvisionDeploymentDashboardArgs": {
-        "type": "object",
-        "required": [
-          "deploymentType"
-        ],
-        "properties": {
-          "deploymentClass": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "deploymentType": {
-            "$ref": "#/components/schemas/DeploymentType"
-          },
-          "region": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/RegionName"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false
-      },
-      "ProvisionDeploymentDashboardResponse": {
-        "type": "object",
-        "required": [
-          "deploymentName"
-        ],
-        "properties": {
-          "deploymentName": {
-            "type": "string"
-          }
-        }
       },
       "ProvisionEnvironmentResponse": {
         "type": "object",

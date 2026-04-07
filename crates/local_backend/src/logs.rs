@@ -42,7 +42,7 @@ pub async fn stream_udf_execution(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let entries_future = st
         .application
-        .function_log(identity, "stream_udf_execution")?
+        .function_log(&identity)?
         .stream(query_args.cursor);
     let mut zombify_rx = st.zombify_rx.clone();
     futures::select_biased! {
@@ -86,7 +86,7 @@ pub async fn stream_function_logs(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let entries_future = st
         .application
-        .function_log(identity, "stream_function_logs")?
+        .function_log(&identity)?
         .stream_parts(query_args.cursor);
     let mut zombify_rx = st.zombify_rx.clone();
     let request_id = match (query_args.session_id, query_args.client_request_counter) {

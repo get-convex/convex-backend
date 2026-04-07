@@ -912,19 +912,40 @@ export function waitUntilCalled(): [Promise<unknown>, () => void] {
   return [waitPromise, () => onCalled(null)];
 }
 
-// We can eventually switch to something like `filesize` for i18n and
-// more robust formatting, but let's keep our CLI bundle small for now.
+const BYTE_UNITS: [number, string][] = [
+  [1 << 30, "GiB"],
+  [1_000_000_000, "GB"],
+  [1 << 20, "MiB"],
+  [1_000_000, "MB"],
+  [1 << 10, "KiB"],
+  [1_000, "KB"],
+];
+
+/**
+ * Format a byte count into a human-friendly string.
+ *
+ * Picks the unit (binary or decimal) that divides most cleanly.
+ * Shows one decimal place only when it divides exactly (e.g. "4.1 MiB").
+ * Falls back to raw bytes when no unit divides cleanly.
+ */
 export function formatSize(n: number): string {
-  if (n < 1024) {
-    return `${n} B`;
+  if (n === 0) {
+    return "0 bytes";
   }
-  if (n < 1024 * 1024) {
-    return `${(n / 1024).toFixed(1)} KB`;
+  for (const [unitSize, unitName] of BYTE_UNITS) {
+    if (n < unitSize) {
+      continue;
+    }
+    if (n % unitSize === 0) {
+      return `${n / unitSize} ${unitName}`;
+    }
+    if ((n * 10) % unitSize === 0) {
+      const whole = Math.floor(n / unitSize);
+      const frac = Math.floor((n * 10) / unitSize) % 10;
+      return `${whole}.${frac} ${unitName}`;
+    }
   }
-  if (n < 1024 * 1024 * 1024) {
-    return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  }
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  return `${n} bytes`;
 }
 
 export function formatDuration(ms: number): string {

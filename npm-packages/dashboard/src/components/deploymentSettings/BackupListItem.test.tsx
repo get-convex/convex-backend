@@ -96,7 +96,7 @@ jest.mock("api/deployments", () => {
   };
 
   return {
-    useDeploymentById: jest.fn().mockReturnValue(deployment),
+    useDeploymentByName: jest.fn().mockReturnValue(deployment),
     useDeployments: jest.fn().mockReturnValue([deployment]),
   };
 });

@@ -9,6 +9,7 @@ use common::{
     runtime::Runtime,
 };
 use errors::ErrorMetadata;
+use keybroker::DeploymentOp;
 use value::{
     ConvexObject,
     ConvexValue,
@@ -67,12 +68,9 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
                 .all(|t| t.table_name() != table_name),
             "Cannot import into bootstrap system table {table_name}"
         );
-        if !(self.tx.identity.is_admin() || self.tx.identity.is_system()) {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "UnauthorizedImport",
-                "Import requires admin auth"
-            ));
-        }
+        self.tx
+            .identity
+            .require_operation(DeploymentOp::ImportBackups)?;
 
         self.tx.retention_validator.fail_if_falling_behind()?;
         let id_field = FieldName::from(ID_FIELD.clone());
@@ -149,12 +147,9 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
                 .all(|t| t.table_name() != table_name),
             "Cannot import into bootstrap system table {table_name}"
         );
-        if !(self.tx.identity.is_admin() || self.tx.identity.is_system()) {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "UnauthorizedImport",
-                "Import requires admin auth"
-            ));
-        }
+        self.tx
+            .identity
+            .require_operation(DeploymentOp::ImportBackups)?;
 
         let id_field = FieldName::from(ID_FIELD.clone());
         let developer_id = if let Some(ConvexValue::String(s)) = value.get(&id_field) {
@@ -226,12 +221,9 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
                 .all(|t| t.table_name() != table_name),
             "Cannot import into bootstrap system table {table_name}"
         );
-        if !(self.tx.identity.is_admin() || self.tx.identity.is_system()) {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "UnauthorizedImport",
-                "Import requires admin auth"
-            ));
-        }
+        self.tx
+            .identity
+            .require_operation(DeploymentOp::ImportBackups)?;
 
         let id = ResolvedDocumentId::new(table_id.tablet_id, developer_id);
         let existing_doc = self.tx.get_with_ts(id).await?;

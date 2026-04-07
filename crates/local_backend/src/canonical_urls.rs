@@ -29,10 +29,6 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
-    admin::{
-        must_be_admin,
-        must_be_admin_with_write_access,
-    },
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -70,7 +66,7 @@ pub async fn update_canonical_url(
     ExtractIdentity(identity): ExtractIdentity,
     Json(request): Json<UpdateCanonicalUrlRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteEnvironmentVariables)?;
 
     let mut tx = st.application.begin(identity).await?;
 
@@ -131,7 +127,7 @@ pub async fn get_canonical_urls(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewEnvironmentVariables)?;
 
     let mut tx = st.application.begin(identity).await?;
     let urls = CanonicalUrlsModel::new(&mut tx)
@@ -334,6 +330,44 @@ mod tests {
         let response = get_canonical_urls_helper(&backend).await?;
         assert_eq!(response.convex_cloud_url, backend.st.origin.to_string());
         assert_eq!(response.convex_site_url, backend.st.site_origin.to_string());
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_update_canonical_url_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({
+            "requestDestination": RequestDestination::ConvexCloud,
+            "url": "https://example.com",
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/v1/update_canonical_url")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_canonical_urls_allowed_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/v1/get_canonical_urls")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        let _: GetCanonicalUrlsResponse = backend.expect_success(req).await?;
         Ok(())
     }
 }

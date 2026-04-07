@@ -34,6 +34,7 @@ pub use self::{
     encryptor::Encryptor,
     legacy_encryptor::LegacyEncryptor,
     operations::{
+        bad_admin_key_error,
         operations_for_deploy_key,
         read_only_operations,
         DeploymentOp,

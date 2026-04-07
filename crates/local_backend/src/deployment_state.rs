@@ -15,7 +15,6 @@ use model::backend_state::{
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
-    admin::must_be_admin_with_write_access,
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -44,7 +43,7 @@ pub async fn pause_deployment(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::PauseDeployment)?;
 
     let mut tx = st.application.begin(identity.clone()).await?;
     let current_state = BackendStateModel::new(&mut tx)
@@ -87,7 +86,7 @@ pub async fn unpause_deployment(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::UnpauseDeployment)?;
 
     let mut tx = st.application.begin(identity.clone()).await?;
     let current_state = BackendStateModel::new(&mut tx)
@@ -117,4 +116,47 @@ where
     OpenApiRouter::new()
         .routes(utoipa_axum::routes!(pause_deployment))
         .routes(utoipa_axum::routes!(unpause_deployment))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum_extra::headers::authorization::Credentials;
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    #[convex_macro::prod_rt_test]
+    async fn test_pause_deployment_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/v1/pause_deployment")
+            .method("POST")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_unpause_deployment_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/v1/unpause_deployment")
+            .method("POST")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
 }

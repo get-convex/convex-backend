@@ -22,7 +22,7 @@ import { Menu, MenuItem } from "@ui/Menu";
 import { useEffect, useId, useRef, useState } from "react";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
-import { useDeploymentById } from "api/deployments";
+import { useDeploymentByName } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProjectById } from "api/projects";
 import { useProfile } from "api/profile";
@@ -304,7 +304,6 @@ export function BackupListItem({
             <RestoreConfirmation
               backup={backup}
               targetDeployment={targetDeployment}
-              team={team}
               latestBackupInTargetDeployment={latestBackupInTargetDeployment}
               onClose={() => setModal(null)}
             />
@@ -371,13 +370,11 @@ function SuggestBackup({
 function RestoreConfirmation({
   backup,
   targetDeployment,
-  team,
   latestBackupInTargetDeployment,
   onClose,
 }: {
   backup: BackupResponse;
   targetDeployment: PlatformDeploymentResponse;
-  team: TeamResponse;
   latestBackupInTargetDeployment: BackupResponse | null;
   onClose: () => void;
 }) {
@@ -397,7 +394,6 @@ function RestoreConfirmation({
         backup={backup}
         targetDeployment={targetDeployment}
         latestBackupInTargetDeployment={latestBackupInTargetDeployment}
-        team={team}
       />
 
       <p className="my-2 text-sm">
@@ -475,11 +471,7 @@ function DeleteOrCancelBackupModal({
     >
       <p className="text-content-secondary">This action cannot be undone.</p>
 
-      <BackupSummary
-        backup={backup}
-        sourceDeploymentAppearance="inline"
-        team={team}
-      />
+      <BackupSummary backup={backup} sourceDeploymentAppearance="inline" />
 
       <div className="flex justify-end gap-2">
         <Button
@@ -512,18 +504,13 @@ function DeleteOrCancelBackupModal({
 export type BackupSummaryProps = {
   backup: BackupResponse | null;
   sourceDeploymentAppearance: null | "inline" | "differentDeploymentWarning";
-  team: TeamResponse;
 };
 
 function BackupSummary({
   backup,
   sourceDeploymentAppearance,
-  team,
 }: BackupSummaryProps) {
-  const backupDeployment = useDeploymentById(
-    team.id,
-    backup?.sourceDeploymentId,
-  );
+  const backupDeployment = useDeploymentByName(backup?.sourceDeploymentName);
   const sourceDeployment = backupDeployment ? (
     <Tooltip tip={<code>{backupDeployment.name}</code>}>
       <FullDeploymentName deployment={backupDeployment} />
@@ -606,12 +593,10 @@ export function TransferSummary({
   backup,
   targetDeployment,
   latestBackupInTargetDeployment,
-  team,
 }: {
   backup: BackupResponse | null;
   targetDeployment: PlatformDeploymentResponse;
   latestBackupInTargetDeployment: BackupResponse | null | undefined;
-  team: TeamResponse;
 }) {
   return (
     <div className="mb-4 grid justify-center gap-2 rounded-lg border p-4 md:flex md:gap-5">
@@ -624,7 +609,6 @@ export function TransferSummary({
             ? "differentDeploymentWarning"
             : null
         }
-        team={team}
       />
 
       <div className="flex w-full justify-center md:my-4 md:w-fit">

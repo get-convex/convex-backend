@@ -298,8 +298,8 @@ impl Writes {
                 ErrorMetadata::pagination_limit(
                     "TooManyBytesWritten",
                     format!(
-                        "Too many bytes written in a single function execution (limit: {} bytes)",
-                        *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
+                        "Too many bytes written in a single function execution (limit: {})",
+                        common::fmt::format_bytes(*TRANSACTION_MAX_USER_WRITE_SIZE_BYTES as u64),
                     )
                 ),
             );

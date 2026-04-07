@@ -17,9 +17,6 @@ static IMPORT_SIZE_LIMIT: LazyLock<String> =
 
 #[derive(AsRefStr, Debug, thiserror::Error)]
 pub enum ImportError {
-    #[error("Only deployment admins can import new tables")]
-    Unauthorized,
-
     #[error(
         "Table {0} already exists. Please choose a new table name or use replace/append modes."
     )]
@@ -70,12 +67,7 @@ pub enum ImportError {
 
 impl ImportError {
     pub fn error_metadata(&self) -> ErrorMetadata {
-        match self {
-            ImportError::Unauthorized => {
-                ErrorMetadata::forbidden(self.as_ref().to_string(), self.to_string())
-            },
-            _ => ErrorMetadata::bad_request(self.as_ref().to_string(), self.to_string()),
-        }
+        ErrorMetadata::bad_request(self.as_ref().to_string(), self.to_string())
     }
 }
 

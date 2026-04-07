@@ -30,10 +30,6 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
-    admin::{
-        must_be_admin,
-        must_be_admin_with_write_access,
-    },
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -92,7 +88,7 @@ pub async fn update_environment_variables(
     ExtractIdentity(identity): ExtractIdentity,
     Json(UpdateEnvVarsRequest { changes }): Json<UpdateEnvVarsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteEnvironmentVariables)?;
 
     let mut env_var_changes = vec![];
     for change in changes {
@@ -142,7 +138,7 @@ pub async fn list_environment_variables(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewEnvironmentVariables)?;
 
     let mut tx = st.application.begin(identity).await?;
     let env_vars = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
@@ -295,6 +291,41 @@ mod tests {
                 "name1".parse()? => "value1".parse()?,
             }
         );
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_update_env_vars_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({"changes": [{"name": "name1", "value": "value1"}]});
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/update_environment_variables")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_list_env_vars_allowed_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/v1/list_environment_variables")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        let _: super::ListEnvVarsResponse = backend.expect_success(req).await?;
         Ok(())
     }
 }

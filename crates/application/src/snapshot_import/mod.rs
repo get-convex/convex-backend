@@ -96,7 +96,10 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use keybroker::Identity;
+use keybroker::{
+    DeploymentOp,
+    Identity,
+};
 use model::{
     deployment_audit_log::{
         types::DeploymentAuditLogEvent,
@@ -503,9 +506,7 @@ pub async fn start_stored_import<RT: Runtime>(
     fq_object_key: FullyQualifiedObjectKey,
     requestor: ImportRequestor,
 ) -> anyhow::Result<DeveloperDocumentId> {
-    if !(identity.is_admin() || identity.is_system()) {
-        anyhow::bail!(ImportError::Unauthorized);
-    }
+    identity.require_operation(DeploymentOp::ImportBackups)?;
     let (_, id, _) = application
         .database
         .execute_with_overloaded_retries(
@@ -537,9 +538,7 @@ pub async fn perform_import<RT: Runtime>(
     identity: Identity,
     import_id: DeveloperDocumentId,
 ) -> anyhow::Result<()> {
-    if !identity.is_admin() {
-        anyhow::bail!(ImportError::Unauthorized);
-    }
+    identity.require_operation(DeploymentOp::ImportBackups)?;
     application
         .database
         .execute_with_overloaded_retries(
@@ -565,9 +564,7 @@ pub async fn cancel_import<RT: Runtime>(
     identity: Identity,
     import_id: DeveloperDocumentId,
 ) -> anyhow::Result<()> {
-    if !identity.is_admin() {
-        anyhow::bail!(ImportError::Unauthorized);
-    }
+    identity.require_operation(DeploymentOp::ImportBackups)?;
     application
         .database
         .execute_with_overloaded_retries(

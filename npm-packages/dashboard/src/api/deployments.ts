@@ -3,11 +3,7 @@ import { useMemo } from "react";
 import { useInitialData } from "hooks/useServerSideData";
 import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
-import {
-  useBBQuery,
-  useManagementApiMutation,
-  useManagementApiQuery,
-} from "./api";
+import { useManagementApiMutation, useManagementApiQuery } from "./api";
 import { useDeploymentsPageSize } from "hooks/useDeploymentsPageSize";
 
 export function useDeployments(projectId?: number) {
@@ -128,15 +124,11 @@ export function useDeploymentRegions(teamId: number | undefined) {
   return { regions: data?.items, isLoading };
 }
 
-export function useDeploymentById(
-  teamId: number,
-  deploymentId?: number | string,
-) {
-  const { data: deployment } = useBBQuery({
-    path: "/teams/{team_id}/deployments/{deployment_id}",
+export function useDeploymentByName(deploymentName?: string) {
+  const { data: deployment } = useManagementApiQuery({
+    path: "/deployments/{deployment_name}",
     pathParams: {
-      team_id: teamId,
-      deployment_id: deploymentId?.toString() || "",
+      deployment_name: deploymentName || "",
     },
   });
 

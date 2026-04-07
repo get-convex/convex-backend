@@ -61,10 +61,7 @@ use value::{
 };
 
 use crate::{
-    admin::{
-        must_be_admin_from_key,
-        must_be_admin_with_operation,
-    },
+    admin::must_be_admin_from_key,
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -257,7 +254,7 @@ pub async fn prepare_schema_handler(
         req.admin_key,
     )
     .await?;
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
+    identity.require_operation(keybroker::DeploymentOp::Deploy)?;
     let schema = match st.application.evaluate_schema(bundle).await {
         Ok(m) => m,
         Err(e) => return Err(e.into()),
@@ -355,7 +352,7 @@ pub async fn schema_state(
     Path(schema_id): Path<String>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
+    identity.require_operation(keybroker::DeploymentOp::Deploy)?;
     let mut tx = st.application.begin(identity.clone()).await?;
     // This endpoint is only used in non-components push.
     let table_namespace = TableNamespace::root_component();

@@ -89,7 +89,6 @@ use value::{
 };
 
 use crate::{
-    admin::must_be_admin,
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -333,7 +332,7 @@ pub async fn get_tables_and_columns(
         .await?;
     let mut out = serde_json::Map::new();
 
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewBackups)?;
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping();
 
@@ -364,7 +363,7 @@ pub async fn get_table_column_names(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewBackups)?;
 
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping();
@@ -468,7 +467,7 @@ pub async fn json_schemas(
     identity.assert_present()?;
     let mut out = serde_json::Map::new();
 
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewBackups)?;
     let mut tx = st.application.begin(identity.clone()).await?;
     let snapshot = st.application.snapshot(tx.begin_timestamp())?;
     let component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
@@ -1228,6 +1227,38 @@ mod test {
             })
         );
 
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_tables_and_columns_allowed_for_read_only(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/get_tables_and_columns")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(Body::empty())?;
+        let _: serde_json::Value = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_json_schemas_allowed_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/json_schemas")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(Body::empty())?;
+        let _: serde_json::Value = backend.expect_success(req).await?;
         Ok(())
     }
 }
