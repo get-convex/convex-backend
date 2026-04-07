@@ -1544,6 +1544,10 @@ pub static EXPORT_MAX_INFLIGHT_PREFETCH_BYTES: LazyLock<usize> = LazyLock::new(|
 pub static EXPORT_WORKER_PAGE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("EXPORT_WORKER_PAGE_SIZE", 1000));
 
+/// How often to update the client-facing progress message during export.
+pub static EXPORT_PROGRESS_UPDATE_INTERVAL: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("EXPORT_PROGRESS_UPDATE_INTERVAL_SECS", 5)));
+
 /// Whether or not a service should propagate all upstream traces or perform its
 /// own sampling
 pub static PROPAGATE_UPSTREAM_TRACES: LazyLock<bool> =

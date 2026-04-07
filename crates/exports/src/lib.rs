@@ -4,10 +4,7 @@
 use std::{
     collections::BTreeMap,
     sync::Arc,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::Instant,
 };
 
 use anyhow::Context as _;
@@ -20,7 +17,10 @@ use common::{
         ComponentPath,
     },
     fastrace_helpers::get_sampled_span,
-    knobs::EXPORT_WORKER_PAGE_SIZE,
+    knobs::{
+        EXPORT_PROGRESS_UPDATE_INTERVAL,
+        EXPORT_WORKER_PAGE_SIZE,
+    },
     persistence::LatestDocument,
     runtime::Runtime,
     types::{
@@ -118,7 +118,7 @@ where
     let timer = export_timer(&components.instance_name);
     let exports_storage = &components.exports_storage;
     update_progress("Beginning backup".to_string()).await?;
-    let (tables, component_ids_to_paths, by_id_indexes, system_tables) = {
+    let (tables, component_ids_to_paths, by_id_indexes, system_tables, storage_table_counts) = {
         let mut tx = components.database.begin_tx(
             Identity::system(),
             Arc::new(SearchNotEnabled),
@@ -155,7 +155,18 @@ where
             .iter_active_system_tables()
             .map(|(id, namespace, _, name)| ((namespace, name.clone()), id))
             .collect();
-        (tables, component_ids_to_paths, by_id_indexes, system_tables)
+        let storage_table_counts: BTreeMap<TableNamespace, u64> = system_tables
+            .iter()
+            .filter(|((_, name), _)| *name == *FILE_STORAGE_TABLE)
+            .map(|((ns, _), id)| (*ns, table_summaries.tablet_summary(id).num_values()))
+            .collect();
+        (
+            tables,
+            component_ids_to_paths,
+            by_id_indexes,
+            system_tables,
+            storage_table_counts,
+        )
     };
     let export = match format {
         ExportFormat::Zip { include_storage } => {
@@ -191,6 +202,7 @@ where
                 component_ids_to_paths,
                 by_id_indexes,
                 system_tables,
+                storage_table_counts,
                 include_storage,
                 usage.clone(),
                 requestor,
@@ -236,7 +248,7 @@ async fn write_tables_table<'a, 'b: 'a>(
     Ok(())
 }
 
-pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
+pub async fn write_table<'a, 'b: 'a, F, Fut, RT: Runtime>(
     path_prefix: &str,
     zip_snapshot_upload: &'a mut ZipSnapshotUpload<'b>,
     table_iterator: &mut MultiTableIterator<RT>,
@@ -245,7 +257,14 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     table_name: TableName,
     by_id: &InternalId,
     usage: &FunctionUsageTracker,
-) -> anyhow::Result<()> {
+    update_progress: &F,
+    table_total_docs: u64,
+    in_component_str: &str,
+) -> anyhow::Result<()>
+where
+    F: Fn(String) -> Fut + Send,
+    Fut: Future<Output = anyhow::Result<()>> + Send,
+{
     let mut table_upload = zip_snapshot_upload
         .start_table(path_prefix, table_name.clone())
         .await?;
@@ -257,7 +276,6 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     let mut num_documents: u64 = 0;
     let mut total_bytes: u64 = 0;
     let mut last_log_time = Instant::now();
-    let log_interval = Duration::from_secs(60 * 60);
     while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
         let doc_size = doc.size() as u64;
         usage.track_database_egress(
@@ -275,11 +293,16 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
         table_upload.write(doc).await?;
         num_documents += 1;
         total_bytes += doc_size;
-        if last_log_time.elapsed() >= log_interval {
+        if last_log_time.elapsed() >= *EXPORT_PROGRESS_UPDATE_INTERVAL {
             tracing::info!(
                 "Export table {table_name} in progress: {num_documents} documents, {total_bytes} \
                  bytes written so far",
             );
+            update_progress(format!(
+                "Backing up {table_name}{in_component_str}: {num_documents} / {table_total_docs} \
+                 documents"
+            ))
+            .await?;
             last_log_time = Instant::now();
         }
     }
@@ -306,6 +329,7 @@ async fn construct_zip_snapshot<F, Fut, RT: Runtime>(
     component_ids_to_paths: BTreeMap<ComponentId, ComponentPath>,
     by_id_indexes: BTreeMap<TabletId, IndexId>,
     system_tables: BTreeMap<(TableNamespace, TableName), TabletId>,
+    storage_table_counts: BTreeMap<TableNamespace, u64>,
     include_storage: bool,
     usage: FunctionUsageTracker,
     requestor: ExportRequestor,
@@ -348,7 +372,7 @@ where
     // sort tables small to large, and write them to the zip.
     let mut sorted_tables: Vec<_> = tables.iter().collect();
     sorted_tables.sort_by_key(|(_, (_, _, _, table_summary))| table_summary.total_size());
-    for (tablet_id, (namespace, _, table_name, _table_summary)) in sorted_tables {
+    for (tablet_id, (namespace, _, table_name, table_summary)) in sorted_tables {
         let component_id: ComponentId = (*namespace).into();
         let Some(component_path) = component_ids_to_paths.get(&component_id) else {
             tracing::info!(
@@ -385,6 +409,9 @@ where
             table_name.clone(),
             by_id,
             &usage,
+            &update_progress,
+            table_summary.num_values(),
+            &in_component_str,
         )
         .in_span(root)
         .await?;
@@ -411,6 +438,7 @@ where
                     ("dev.convex.table_name", "_storage".to_string()),
                 ]
             });
+            let storage_total_entries = storage_table_counts.get(&namespace).copied().unwrap_or(0);
             write_storage_table(
                 components,
                 &path_prefix,
@@ -422,6 +450,9 @@ where
                 &system_tables,
                 &usage,
                 requestor,
+                &update_progress,
+                &in_component_str,
+                storage_total_entries,
             )
             .in_span(root)
             .await?;
