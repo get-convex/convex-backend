@@ -63,17 +63,20 @@ those types to model your data.
 ## Schemas
 
 Though optional, schemas ensure that your data looks exactly how you want. For a
-simple chat app, the schema will look like this:
+simple chat app, the schema could look like this:
 
 ```typescript
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// @snippet start schema
 export default defineSchema({
   messages: defineTable({
     author: v.id("users"),
     body: v.string(),
+  }),
+  users: defineTable({
+    name: v.string(),
+    userName: v.string(),
   }),
 });
 ```
