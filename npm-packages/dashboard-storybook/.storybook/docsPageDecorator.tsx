@@ -38,7 +38,7 @@ import {
 import {
   useDeployments,
   useCurrentDeployment,
-  useDeploymentById,
+  useDeploymentByName,
   useDeploymentRegions,
 } from "../../dashboard/src/api/deployments";
 import { deploymentAuth } from "../../dashboard/src/lib/deploymentAuth";
@@ -322,7 +322,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       adminKey: "STORYBOOK-FAKE-KEY",
     };
   });
-  mocked(useDeploymentById).mockReturnValue(undefined);
+  mocked(useDeploymentByName).mockReturnValue(undefined);
   mocked(useDeploymentRegions).mockReturnValue({
     regions: [
       {
