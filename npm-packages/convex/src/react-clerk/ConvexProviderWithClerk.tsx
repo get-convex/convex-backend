@@ -30,7 +30,7 @@ type UseAuth = () => {
  * authenticated with Clerk.
  *
  * It must be wrapped by a configured `ClerkProvider`, from
- * `@clerk/clerk-react`, `@clerk/clerk-expo`, `@clerk/nextjs` or
+ * `@clerk/react`, `@clerk/clerk-expo`, `@clerk/nextjs` or
  * another React-based Clerk client library and have the corresponding
  * `useAuth` hook passed in.
  *

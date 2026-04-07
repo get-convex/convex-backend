@@ -10,6 +10,7 @@ overrides:
   '@hono/node-server@>=1.0.0 <1.19.10': ^1.19.10
   '@isaacs/brace-expansion@<=5.0.0': ^5.0.1
   '@remix-run/router@<=1.23.1': ^1.23.2
+  '@tanstack/query-core@>=5.0.0 <5.90.16': ^5.90.16
   ajv@>=8.0.0 <8.18.0: ^8.18.0
   ajv@>=6.0.0 <6.14.0: ^6.14.0
   axios@>=1.0.0 <1.13.5: ^1.13.5
@@ -596,7 +597,7 @@ importers:
     dependencies:
       convex:
         specifier: workspace:*
-        version: file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
+        version: file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
     dependenciesMeta:
       convex:
         injected: true
@@ -606,7 +607,7 @@ importers:
         version: 18.19.130
       convex-test:
         specifier: ^0.0.41
-        version: 0.0.41(convex@file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4))
+        version: 0.0.41(convex@file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4))
       prettier:
         specifier: ^3.8.0
         version: 3.8.0
@@ -635,6 +636,9 @@ importers:
 
   ../../convex:
     dependencies:
+      '@clerk/clerk-react':
+        specifier: ^4.12.8 || ^5.0.0
+        version: 5.61.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       esbuild:
         specifier: 0.27.0
         version: 0.27.0
@@ -654,9 +658,9 @@ importers:
       '@babel/types':
         specifier: ^7.27.1
         version: 7.28.5
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@commander-js/extra-typings':
         specifier: ^14.0.0
         version: 14.0.0(commander@14.0.3)
@@ -1836,9 +1840,9 @@ importers:
 
   ../../demos/clerk:
     dependencies:
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -2964,9 +2968,9 @@ importers:
 
   ../../demos/users-and-clerk:
     dependencies:
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -3005,11 +3009,11 @@ importers:
   ../../demos/users-and-clerk-webhooks:
     dependencies:
       '@clerk/backend':
-        specifier: ^1.19.2
-        version: 1.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(svix@1.81.0)
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^3.0.0
+        version: 3.2.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -3711,9 +3715,9 @@ importers:
 
   ../../private-demos/clerk-initial-auth:
     dependencies:
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -4180,12 +4184,9 @@ importers:
 
   ../../private-demos/nextjs-15-app-clerk:
     dependencies:
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@clerk/nextjs':
-        specifier: ^6.23.3
-        version: 6.35.1(next@15.5.14(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: ^7.0.0
+        version: 7.0.11(next@15.5.14(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@next/eslint-plugin-next':
         specifier: ~15.1.0
         version: 15.1.8
@@ -4841,9 +4842,9 @@ importers:
       '@auth0/auth0-react':
         specifier: 2.11.0
         version: 2.11.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.61.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex:
         specifier: workspace:*
         version: link:../../../convex
@@ -5050,7 +5051,7 @@ importers:
         version: 1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router-ssr-query':
         specifier: ^1.163.3
-        version: 1.166.3(@tanstack/query-core@5.90.8)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.166.3(@tanstack/query-core@5.96.2)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-start':
         specifier: ^1.163.3
         version: 1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4)
@@ -5138,9 +5139,9 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@convex-dev/eslint-plugin':
         specifier: workspace:*
         version: link:../../@convex-dev/eslint-plugin
@@ -5214,9 +5215,9 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@eslint/compat':
         specifier: ~2.0.0
         version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
@@ -5290,9 +5291,9 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
-      '@clerk/clerk-react':
-        specifier: ^5.20.0
-        version: 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react':
+        specifier: ^6.0.0
+        version: 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@eslint/compat':
         specifier: ~2.0.0
         version: 2.0.0(eslint@9.39.1(jiti@2.6.1))
@@ -5361,7 +5362,7 @@ importers:
         version: 1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router-ssr-query':
         specifier: ^1.163.3
-        version: 1.166.3(@tanstack/query-core@5.90.8)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.166.3(@tanstack/query-core@5.96.2)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-start':
         specifier: ^1.163.3
         version: 1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4)
@@ -5412,8 +5413,8 @@ importers:
   ../../private-demos/tanstack-start-clerk:
     dependencies:
       '@clerk/tanstack-react-start':
-        specifier: ^0.29.7
-        version: 0.29.8(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^1.0.0
+        version: 1.0.11(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@convex-dev/react-query':
         specifier: workspace:*
         version: link:../../@convex-dev/react-query
@@ -5428,7 +5429,7 @@ importers:
         version: 1.166.3(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(csstype@3.2.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router-ssr-query':
         specifier: ^1.163.3
-        version: 1.166.3(@tanstack/query-core@5.90.8)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.166.3(@tanstack/query-core@5.96.2)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-start':
         specifier: ^1.163.3
         version: 1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4)
@@ -5501,7 +5502,7 @@ importers:
         version: 1.166.3(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(csstype@3.2.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router-ssr-query':
         specifier: ^1.163.3
-        version: 1.166.3(@tanstack/query-core@5.90.8)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.166.3(@tanstack/query-core@5.96.2)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-start':
         specifier: ^1.163.3
         version: 1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@20.19.25)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4)
@@ -7580,33 +7581,13 @@ packages:
   '@clack/prompts@1.2.0':
     resolution: {integrity: sha512-4jmztR9fMqPMjz6H/UZXj0zEmE43ha1euENwkckKKel4XpSfokExPo5AiVStdHSAlHekz4d0CA/r45Ok1E4D3w==}
 
-  '@clerk/backend@1.34.0':
-    resolution: {integrity: sha512-9rZ8hQJVpX5KX2bEpiuVXfpjhojQCiqCWADJDdCI0PCeKxn58Ep0JPYiIcczg4VKUc3a7jve9vXylykG2XajLQ==}
-    engines: {node: '>=18.17.0'}
-    peerDependencies:
-      svix: ^1.62.0
-    peerDependenciesMeta:
-      svix:
-        optional: true
-
-  '@clerk/backend@2.22.0':
-    resolution: {integrity: sha512-d/PWhQ9l531SJArX3vYXzAMPLYkkSmfVOl6/MxuiCWTUzx8J8ZIxXT/duXQNM6jM8NRfyQbnt+kLPoE+L0zBlg==}
-    engines: {node: '>=18.17.0'}
-
-  '@clerk/backend@2.33.0':
-    resolution: {integrity: sha512-sVR214TlJ5vsRprDE9EiZpqeNq/YVhCQLtAZ19ugjNf1C9xMX28JoMyodI/dU5FLBelmgSyjBAjodPULjIeF+w==}
-    engines: {node: '>=18.17.0'}
-
   '@clerk/backend@2.33.1':
     resolution: {integrity: sha512-DRwmFu6gEmzHRUeXXB5y02QxMihHDEgetSQrb0ME6KaYe29+LnenBUQAmlASXmsovIi9cBqk4hE4WHWNRXX+Bw==}
     engines: {node: '>=18.17.0'}
 
-  '@clerk/clerk-react@5.55.0':
-    resolution: {integrity: sha512-CWLV0f87utJY2tS40n7imCPJHP2+DPwhoZhCRS2dtYd/c29kLAR5rgydBAy4KkvzZLCPG3Hyt4Vlw1EuMLTq1A==}
-    engines: {node: '>=18.17.0'}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0 || ^19.0.0-0
-      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-0
+  '@clerk/backend@3.2.7':
+    resolution: {integrity: sha512-8IdAKqFpmWhaK0HkyheXv4kP5E3eE1KCCbTokNvVKA3xWh8Jk1CjrYCk+Uq1R/PA3b2h418qbsA21ZCFoSUY7g==}
+    engines: {node: '>=20.9.0'}
 
   '@clerk/clerk-react@5.61.3':
     resolution: {integrity: sha512-W21aNEeHtqh3xJLuW5g2ydben/1D5pSnxsl/kCnv0IY1zma7lO+aIJ7Br2bR4FKKkiu695mPnjtY+fvkQmCXBg==}
@@ -7616,37 +7597,20 @@ packages:
       react: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
       react-dom: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
 
-  '@clerk/nextjs@6.35.1':
-    resolution: {integrity: sha512-J398mgB/qTmhGOdCQ76YnwDftiI3ry01TJOP82yL+dsNKCDlC4G/ocv3fa4iJ1kw9h6NaUXdEXt0VJQjs12XkA==}
-    engines: {node: '>=18.17.0'}
+  '@clerk/nextjs@7.0.11':
+    resolution: {integrity: sha512-ocwMVsw3AVmYwNsgksz1nkfyXewtfykwXbTXCmOv3VkmOLW8ogOxEeyC9ILznLz4DlsMjMLLRotlGQ4UNqCeww==}
+    engines: {node: '>=20.9.0'}
     peerDependencies:
-      next: ^13.5.7 || ^14.2.25 || ^15.2.3 || ^16
-      react: ^18.0.0 || ^19.0.0 || ^19.0.0-0
-      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-0
+      next: ^15.2.8 || ^15.3.8 || ^15.4.10 || ^15.5.9 || ^15.6.0-0 || ^16.0.10 || ^16.1.0-0
+      react: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
+      react-dom: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
 
-  '@clerk/shared@3.34.0':
-    resolution: {integrity: sha512-ZuruC+VtvejdnNj+e1sI5JK8tRdOc9wsMWyLNeumXrsZGh92DHTT+FGxCSDPJcmro0iIYw8ZiZqjHT9Fb2gMTg==}
-    engines: {node: '>=18.17.0'}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0 || ^19.0.0-0
-      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-0
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
-
-  '@clerk/shared@3.47.2':
-    resolution: {integrity: sha512-dwUT27DKq3Gr9vn9lAfc/LSe79P1rKIib8/mTWA7ZEzY7XX2Yq5UnDMCMznYrI8oVLdJrCT4ypFXRgnH306Oew==}
-    engines: {node: '>=18.17.0'}
+  '@clerk/react@6.2.0':
+    resolution: {integrity: sha512-+w8/5byq8qJuCABXHzO4TRZbM+QVsODBBBQN2EWb9E4KX52YCyoVeEOB6C4QOhLCJtd0VwJsAPO/H9Mjn3XlrA==}
+    engines: {node: '>=20.9.0'}
     peerDependencies:
       react: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
       react-dom: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
 
   '@clerk/shared@3.47.3':
     resolution: {integrity: sha512-jG0wMIZuuc8zaKieg9Os8ocTphG+llluRukUUdyVnu4+ZI1syVf+dkpDP3ZK69yLavTX3D0KAmkmQqTPzQV/Nw==}
@@ -7660,9 +7624,21 @@ packages:
       react-dom:
         optional: true
 
-  '@clerk/tanstack-react-start@0.29.8':
-    resolution: {integrity: sha512-5Njd6FLKuJ76WJApDzhVA7rJ4crLoqF01GMFvPBCQQweiMSl3CYvvNEK+rRHjRz61Dzegr/rfGbSBtHgSjRXHQ==}
-    engines: {node: '>=18.17.0'}
+  '@clerk/shared@4.5.0':
+    resolution: {integrity: sha512-01xc2Mb6/srZa9kvk9apEFr98Zsoe3XZusTUrSzAQDaX0ltQn5W0r7V1cJiDGHKTYG5vv4ACeNfZ7sZgspKTbA==}
+    engines: {node: '>=20.9.0'}
+    peerDependencies:
+      react: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
+      react-dom: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
+  '@clerk/tanstack-react-start@1.0.11':
+    resolution: {integrity: sha512-UTThjjR607WCT0H6bxo+ONfxXiU12hlvIRP8P8zjYda+ZK/gWgoRRAU9IkGeQQeLAAPvu3tlgm3oUwjLucCn1Q==}
+    engines: {node: '>=20.9.0'}
     peerDependencies:
       '@tanstack/react-router': ^1.157.0
       '@tanstack/react-start': ^1.157.0
@@ -7680,15 +7656,6 @@ packages:
         optional: true
       cypress:
         optional: true
-
-  '@clerk/types@4.100.0':
-    resolution: {integrity: sha512-QT9GIO3bDL4R+ojAtc8XeJc/ehkdcF/+6PN3tcRWwGe4eMbX2TQ54/mhXJiY01DhMwBnF5cgK3O/z3D+34B07Q==}
-    engines: {node: '>=18.17.0'}
-
-  '@clerk/types@4.101.20':
-    resolution: {integrity: sha512-MHvr1tGL5lwxD6zdzzixkHICbbZz/S1LChONKR52Qeu0yRGChZomPknsgqBMG9J3yNeyhaj0SWa5phQgQUk0lg==}
-    engines: {node: '>=18.17.0'}
-    deprecated: 'This package is no longer supported. Please import types from @clerk/shared/types instead. See the upgrade guide for more info: https://clerk.com/docs/guides/development/upgrading/upgrade-guides/core-3'
 
   '@clerk/types@4.101.21':
     resolution: {integrity: sha512-/70W603A6bRv1n24dDNAs3kWHLSIgXebEyzXZ46IuROWcq0+guSqqLa+nKekxxIdk6I/vnI9SWjBvBRuZVMnhQ==}
@@ -13637,8 +13604,11 @@ packages:
     resolution: {integrity: sha512-Kp/WSt411ZWYvgXy6uiv5RmhHrz9cAml05AQPrtdAp7eUqvIDbMGPnML25OKbzR3RJ1q4wgENxDTvlGPa9+Mww==}
     engines: {node: '>=20.19'}
 
-  '@tanstack/query-core@5.90.8':
-    resolution: {integrity: sha512-4E0RP/0GJCxSNiRF2kAqE/LQkTJVlL/QNU7gIJSptaseV9HP6kOuA+N11y4bZKZxa3QopK3ZuewwutHx6DqDXQ==}
+  '@tanstack/query-core@5.90.16':
+    resolution: {integrity: sha512-MvtWckSVufs/ja463/K4PyJeqT+HMlJWtw6PrCpywznd2NSgO3m4KwO9RqbFqGg6iDE8vVMFWMeQI4Io3eEYww==}
+
+  '@tanstack/query-core@5.96.2':
+    resolution: {integrity: sha512-hzI6cTVh4KNRk8UtoIBS7Lv9g6BnJPXvBKsvYH1aGWvv0347jT3BnSvztOE+kD76XGvZnRC/t6qdW1CaIfwCeA==}
 
   '@tanstack/query-devtools@5.90.1':
     resolution: {integrity: sha512-GtINOPjPUH0OegJExZ70UahT9ykmAhmtNVcmtdnOZbxLwT7R5OmRztR5Ahe3/Cu7LArEmR6/588tAycuaWb1xQ==}
@@ -13670,7 +13640,7 @@ packages:
     resolution: {integrity: sha512-9/Kz+yH5RaJ9wlU0LEPF0YrLdIGFKK1UHCI3OCar9R6EGtz2jIIqdp7gUrCGuGWTGCKrCEybHoEClqK2fDIw/w==}
     engines: {node: '>=20.19'}
     peerDependencies:
-      '@tanstack/query-core': '>=5.90.0'
+      '@tanstack/query-core': ^5.90.16
       '@tanstack/react-query': '>=5.90.0'
       '@tanstack/react-router': '>=1.127.0'
       react: '>=18.0.0 || >=19.0.0'
@@ -13767,7 +13737,7 @@ packages:
     resolution: {integrity: sha512-syzrtCFtCX/TFK0sy/VqwPtRamg3TL/vr8KTbmksERnHzgRYNm+XynEc0BF9u0LZ/m3gkmY+4n2F4//PUjMG2w==}
     engines: {node: '>=20.19'}
     peerDependencies:
-      '@tanstack/query-core': '>=5.90.0'
+      '@tanstack/query-core': ^5.90.16
       '@tanstack/router-core': '>=1.127.0'
 
   '@tanstack/router-utils@1.161.4':
@@ -16794,11 +16764,14 @@ packages:
     peerDependencies:
       '@auth0/auth0-react': ^2.0.1
       '@clerk/clerk-react': ^4.12.8 || ^5.0.0
+      '@clerk/react': ^6.0.0
       react: ^18.0.0 || ^19.0.0-0 || ^19.0.0
     peerDependenciesMeta:
       '@auth0/auth0-react':
         optional: true
       '@clerk/clerk-react':
+        optional: true
+      '@clerk/react':
         optional: true
       react:
         optional: true
@@ -21223,10 +21196,6 @@ packages:
   makeerror@1.0.12:
     resolution: {integrity: sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg==}
 
-  map-obj@4.3.0:
-    resolution: {integrity: sha512-hdN1wVrZbb29eBGiGjJbeP8JbKjq1urkHJ/LIP/NY48MZ1QVXUsQBV1G1zvYFHn1XE06cwjBsOI2K3Ulnj1YXQ==}
-    engines: {node: '>=8'}
-
   markdown-extensions@1.1.1:
     resolution: {integrity: sha512-WWC0ZuMzCyDHYCasEGs4IPvLyTGftYwh6wIEOULOF0HXcqZlhwRzrK0w2VUlxWA98xnvb/jszw4ZSkJ6ADpM6Q==}
     engines: {node: '>=0.10.0'}
@@ -25302,10 +25271,6 @@ packages:
 
   snake-case@3.0.4:
     resolution: {integrity: sha512-LAOh4z89bGQvl9pFfNF8V146i7o7/CqFPbqzYgP+yYzDIDeS9HaNFtXABamRW+AQzEVODcvE79ljJ+8a9YSdMg==}
-
-  snakecase-keys@8.0.1:
-    resolution: {integrity: sha512-Sj51kE1zC7zh6TDlNNz0/Jn1n5HiHdoQErxO8jLtnyrkJW/M5PrI7x05uDgY3BO7OUQYKCvmeMurW6BPUdwEOw==}
-    engines: {node: '>=18'}
 
   snowflake-sdk@2.3.1:
     resolution: {integrity: sha512-4XRwiazsq35DLRy737er2/Q5revfH+PAw56ClS1X3cbYGWI2koCfcHQ8FYQ4gn/utMObQ8fQRsbICBMw7LpO5g==}
@@ -31538,40 +31503,6 @@ snapshots:
       fast-wrap-ansi: 0.1.6
       sisteransi: 1.0.5
 
-  '@clerk/backend@1.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(svix@1.81.0)':
-    dependencies:
-      '@clerk/shared': 3.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@clerk/types': 4.100.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      cookie: 1.0.2
-      snakecase-keys: 8.0.1
-      tslib: 2.8.1
-    optionalDependencies:
-      svix: 1.81.0
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
-  '@clerk/backend@2.22.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@clerk/shared': 3.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@clerk/types': 4.100.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      cookie: 1.0.2
-      standardwebhooks: 1.0.0
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
-  '@clerk/backend@2.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      '@clerk/shared': 3.47.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@clerk/types': 4.101.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      standardwebhooks: 1.0.0
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
   '@clerk/backend@2.33.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@clerk/shared': 3.47.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -31582,48 +31513,65 @@ snapshots:
       - react
       - react-dom
 
-  '@clerk/clerk-react@5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@clerk/backend@3.2.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@clerk/shared': 3.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
+      '@clerk/shared': 4.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      standardwebhooks: 1.0.0
       tslib: 2.8.1
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
-  '@clerk/clerk-react@5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@clerk/backend@3.2.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
-      '@clerk/shared': 3.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
+      '@clerk/shared': 4.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      standardwebhooks: 1.0.0
       tslib: 2.8.1
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   '@clerk/clerk-react@5.61.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@clerk/shared': 3.47.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/shared': 3.47.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tslib: 2.8.1
 
   '@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
-      '@clerk/shared': 3.47.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@clerk/shared': 3.47.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
       tslib: 2.8.1
     optional: true
 
-  '@clerk/nextjs@6.35.1(next@15.5.14(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@clerk/nextjs@7.0.11(next@15.5.14(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
-      '@clerk/backend': 2.22.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@clerk/clerk-react': 5.55.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@clerk/shared': 3.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@clerk/types': 4.100.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@clerk/backend': 3.2.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@clerk/react': 6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@clerk/shared': 4.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next: 15.5.14(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
       server-only: 0.0.1
       tslib: 2.8.1
 
-  '@clerk/shared@3.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@clerk/react@6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@clerk/shared': 4.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      tslib: 2.8.1
+
+  '@clerk/react@6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@clerk/shared': 4.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      tslib: 2.8.1
+
+  '@clerk/shared@3.47.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       csstype: 3.1.3
       dequal: 2.0.3
@@ -31634,43 +31582,6 @@ snapshots:
     optionalDependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-
-  '@clerk/shared@3.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      csstype: 3.1.3
-      dequal: 2.0.3
-      glob-to-regexp: 0.4.1
-      js-cookie: 3.0.5
-      std-env: 3.10.0
-      swr: 2.3.4(react@19.2.4)
-    optionalDependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-
-  '@clerk/shared@3.47.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      csstype: 3.1.3
-      dequal: 2.0.3
-      glob-to-regexp: 0.4.1
-      js-cookie: 3.0.5
-      std-env: 3.10.0
-      swr: 2.3.4(react@18.3.1)
-    optionalDependencies:
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-
-  '@clerk/shared@3.47.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      csstype: 3.1.3
-      dequal: 2.0.3
-      glob-to-regexp: 0.4.1
-      js-cookie: 3.0.5
-      std-env: 3.10.0
-      swr: 2.3.4(react@19.2.4)
-    optionalDependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
-    optional: true
 
   '@clerk/shared@3.47.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -31684,12 +31595,33 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@clerk/tanstack-react-start@0.29.8(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@clerk/shared@4.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@clerk/backend': 2.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@clerk/clerk-react': 5.61.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@clerk/shared': 3.47.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@clerk/types': 4.101.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/query-core': 5.90.16
+      dequal: 2.0.3
+      glob-to-regexp: 0.4.1
+      js-cookie: 3.0.5
+      std-env: 3.10.0
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
+  '@clerk/shared@4.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@tanstack/query-core': 5.90.16
+      dequal: 2.0.3
+      glob-to-regexp: 0.4.1
+      js-cookie: 3.0.5
+      std-env: 3.10.0
+    optionalDependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
+  '@clerk/tanstack-react-start@1.0.11(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@clerk/backend': 3.2.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/react': 6.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@clerk/shared': 4.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router': 1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-start': 1.166.3(crossws@0.4.4(srvx@0.11.13))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@7.2.2(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.3))(webpack@5.105.4)
       react: 18.3.1
@@ -31704,27 +31636,6 @@ snapshots:
       dotenv: 17.2.2
     optionalDependencies:
       '@playwright/test': 1.59.1
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
-  '@clerk/types@4.100.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      '@clerk/shared': 3.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
-  '@clerk/types@4.100.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@clerk/shared': 3.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
-  '@clerk/types@4.101.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      '@clerk/shared': 3.47.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - react
       - react-dom
@@ -39037,7 +38948,9 @@ snapshots:
 
   '@tanstack/history@1.161.4': {}
 
-  '@tanstack/query-core@5.90.8': {}
+  '@tanstack/query-core@5.90.16': {}
+
+  '@tanstack/query-core@5.96.2': {}
 
   '@tanstack/query-devtools@5.90.1': {}
 
@@ -39049,7 +38962,7 @@ snapshots:
 
   '@tanstack/react-query@5.90.8(react@18.3.1)':
     dependencies:
-      '@tanstack/query-core': 5.90.8
+      '@tanstack/query-core': 5.96.2
       react: 18.3.1
 
   '@tanstack/react-router-devtools@1.166.3(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(csstype@3.2.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
@@ -39063,12 +38976,12 @@ snapshots:
     transitivePeerDependencies:
       - csstype
 
-  '@tanstack/react-router-ssr-query@1.166.3(@tanstack/query-core@5.90.8)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@tanstack/react-router-ssr-query@1.166.3(@tanstack/query-core@5.96.2)(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.166.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@tanstack/query-core': 5.90.8
+      '@tanstack/query-core': 5.96.2
       '@tanstack/react-query': 5.90.8(react@18.3.1)
       '@tanstack/react-router': 1.166.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/router-ssr-query-core': 1.166.2(@tanstack/query-core@5.90.8)(@tanstack/router-core@1.166.2)
+      '@tanstack/router-ssr-query-core': 1.166.2(@tanstack/query-core@5.96.2)(@tanstack/router-core@1.166.2)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     transitivePeerDependencies:
@@ -39242,9 +39155,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@tanstack/router-ssr-query-core@1.166.2(@tanstack/query-core@5.90.8)(@tanstack/router-core@1.166.2)':
+  '@tanstack/router-ssr-query-core@1.166.2(@tanstack/query-core@5.96.2)(@tanstack/router-core@1.166.2)':
     dependencies:
-      '@tanstack/query-core': 5.90.8
+      '@tanstack/query-core': 5.96.2
       '@tanstack/router-core': 1.166.2
 
   '@tanstack/router-utils@1.161.4':
@@ -43550,9 +43463,9 @@ snapshots:
     dependencies:
       convex: link:../../convex
 
-  convex-test@0.0.41(convex@file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)):
+  convex-test@0.0.41(convex@file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)):
     dependencies:
-      convex: file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
+      convex: file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4)
 
   convex-vue@0.1.5(convex@..+convex)(vue@3.5.32(typescript@5.9.3)):
     dependencies:
@@ -43584,7 +43497,7 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  convex@file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4):
+  convex@file:../../convex(@auth0/auth0-react@2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/clerk-react@5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@clerk/react@6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(bufferutil@4.0.9)(react@19.2.4):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.8.0
@@ -43592,6 +43505,7 @@ snapshots:
     optionalDependencies:
       '@auth0/auth0-react': 2.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@clerk/clerk-react': 5.61.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@clerk/react': 6.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
     transitivePeerDependencies:
       - bufferutil
@@ -50092,8 +50006,6 @@ snapshots:
     dependencies:
       tmpl: 1.0.5
 
-  map-obj@4.3.0: {}
-
   markdown-extensions@1.1.1: {}
 
   markdown-extensions@2.0.0: {}
@@ -55718,12 +55630,6 @@ snapshots:
     dependencies:
       dot-case: 3.0.4
       tslib: 2.8.1
-
-  snakecase-keys@8.0.1:
-    dependencies:
-      map-obj: 4.3.0
-      snake-case: 3.0.4
-      type-fest: 4.41.0
 
   snowflake-sdk@2.3.1(asn1.js@5.4.1):
     dependencies:

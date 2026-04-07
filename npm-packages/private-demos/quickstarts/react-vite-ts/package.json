@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "2.11.0",
-    "@clerk/clerk-react": "^5.20.0",
+    "@clerk/react": "^6.0.0",
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"

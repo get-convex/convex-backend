@@ -14,7 +14,7 @@
     "prettier": "^3.8.0"
   },
   "devDependencies": {
-    "@clerk/clerk-react": "^5.20.0",
+    "@clerk/react": "^6.0.0",
     "@eslint/compat": "~2.0.0",
     "@eslint/eslintrc": "^3",
     "@eslint/js": "~9.39.0",
