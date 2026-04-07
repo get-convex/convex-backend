@@ -17,7 +17,7 @@ or use one click deploy buttons below:
 
 Convex + SQLite
 
-[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/template/OKpPqB)
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/OKpPqB)
 
 Convex + Postgres
 
@@ -25,7 +25,7 @@ Convex + Postgres
 
 Convex + Mysql
 
-[![Deploy on Railway.com](https://railway.com/button.svg)](<[https://railway.com/deploy/convex-postgres](https://railway.com/deploy/convex-mysql)>)
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/convex-mysql)
 
 ## Setup
 
