@@ -62,10 +62,6 @@ use value::{
 };
 
 use crate::{
-    admin::{
-        must_be_admin,
-        must_be_admin_with_write_access,
-    },
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -150,7 +146,7 @@ pub async fn add_datadog_sink(
     Json(args): Json<DatadogSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     tracing::info!("add_datadog_sink called (deprecated, use create_log_stream instead)");
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -169,7 +165,7 @@ pub async fn regenerate_webhook_secret(
     tracing::info!(
         "regenerate_webhook_secret called (deprecated, use rotate_webhook_secret instead)"
     );
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -211,7 +207,7 @@ pub async fn add_webhook_sink(
     Json(args): Json<WebhookSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     tracing::info!("add_webhook_sink called (deprecated, use create_log_stream instead)");
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -292,7 +288,7 @@ pub async fn add_axiom_sink(
     Json(args): Json<AxiomSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     tracing::info!("add_axiom_sink called (deprecated, use create_log_stream instead)");
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -326,7 +322,7 @@ pub async fn add_sentry_sink(
     Json(args): Json<SerializedSentryConfig>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     tracing::info!("add_sentry_sink called (deprecated, use create_log_stream instead)");
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -348,7 +344,7 @@ pub async fn delete_log_sink(
     Json(LogSinkDeleteArgs { sink_type }): Json<LogSinkDeleteArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     tracing::info!("delete_log_sink called (deprecated, use delete_log_stream instead)");
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -404,7 +400,7 @@ pub async fn delete_log_stream(
     ExtractIdentity(identity): ExtractIdentity,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -644,7 +640,7 @@ pub async fn create_log_stream(
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<CreateLogStreamArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -785,7 +781,7 @@ pub async fn rotate_webhook_secret(
     ExtractIdentity(identity): ExtractIdentity,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -1001,7 +997,7 @@ pub async fn list_log_streams(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewIntegrations)?;
 
     Ok(Json(
         st.application
@@ -1036,7 +1032,7 @@ pub async fn get_log_stream(
     ExtractIdentity(identity): ExtractIdentity,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewIntegrations)?;
 
     let Some(log_sink_with_id) = st.application.get_log_sink_by_id(&id).await? else {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
@@ -1183,7 +1179,7 @@ pub async fn update_log_stream(
     Path(id): Path<String>,
     Json(args): Json<UpdateLogStreamArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
     st.application
         .ensure_log_streaming_allowed(identity)
         .await?;
@@ -2344,6 +2340,62 @@ mod tests {
         let streams = list_log_streams(&backend).await?;
         assert_eq!(streams.len(), 3);
 
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_create_log_stream_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({
+            "logStreamType": "webhook",
+            "url": "https://example.com/webhook",
+            "format": "jsonl",
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = http::Request::builder()
+            .uri("/api/v1/create_log_stream")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_list_log_streams_allowed_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = http::Request::builder()
+            .uri("/api/v1/list_log_streams")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        let _: serde_json::Value = backend.expect_success(req).await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_delete_log_stream_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = http::Request::builder()
+            .uri("/api/v1/delete_log_stream/fake_id")
+            .method("POST")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
         Ok(())
     }
 }

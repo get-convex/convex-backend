@@ -41,7 +41,6 @@ use sync_types::Timestamp;
 use value::DeveloperDocumentId;
 
 use crate::{
-    admin::must_be_admin_with_write_access,
     authentication::ExtractIdentity,
     custom_headers::ContentDispositionAttachment,
     LocalAppState,
@@ -67,7 +66,6 @@ pub async fn request_zip_export(
         component,
     }): Query<RequestZipExport>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
     st.application
         .request_export(
@@ -92,7 +90,7 @@ pub async fn get_zip_export(
     ExtractIdentity(identity): ExtractIdentity,
     Path(ZipExportRequest { id }): Path<ZipExportRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::DownloadBackups)?;
     let id: Either<DeveloperDocumentId, Timestamp> = match id.parse() {
         Ok(id) => Either::Left(id),
         Err(_) => Either::Right(id.parse().context(ErrorMetadata::bad_request(
@@ -134,12 +132,7 @@ pub async fn set_export_expiration(
     Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
     Json(SetExportExpirationRequest { expiration_ts_ns }): Json<SetExportExpirationRequest>,
 ) -> Result<StatusCode, HttpResponseError> {
-    if !(identity.is_system() || identity.is_admin()) {
-        Err(anyhow::anyhow!(ErrorMetadata::forbidden(
-            "SetExportExpirationForbidden",
-            "Must have system or admin identity to set export expiration"
-        )))?;
-    }
+    identity.require_operation(keybroker::DeploymentOp::DeleteBackups)?;
     let snapshot_id: DeveloperDocumentId = snapshot_id
         .parse::<DeveloperDocumentId>()
         .map_err(|e| anyhow::anyhow!(e))?;
@@ -157,13 +150,7 @@ pub async fn cancel_export(
     ExtractIdentity(identity): ExtractIdentity,
     Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
 ) -> Result<StatusCode, HttpResponseError> {
-    // This route is accessed directly from the admin dashboard
-    if !(identity.is_system() || identity.is_admin()) {
-        Err(anyhow::anyhow!(ErrorMetadata::forbidden(
-            "CancelExportForbidden",
-            "Must have system or admin identity to cancel cloud export"
-        )))?;
-    }
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
     let snapshot_id: DeveloperDocumentId = snapshot_id
         .parse::<DeveloperDocumentId>()
         .map_err(|e| anyhow::anyhow!(e))?;
@@ -171,4 +158,89 @@ pub async fn cancel_export(
     ExportsModel::new(&mut tx).cancel(snapshot_id).await?;
     st.application.commit(tx, "cancel_export").await?;
     Ok(StatusCode::OK)
+}
+
+#[cfg(test)]
+mod tests {
+    use axum_extra::headers::authorization::Credentials;
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    #[convex_macro::prod_rt_test]
+    async fn test_request_zip_export_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/export/request/zip")
+            .method("POST")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_set_export_expiration_denied_for_read_only(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/export/set_expiration/fake_id")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::from(serde_json::to_vec(
+                &serde_json::json!({"expirationTsNs": 0}),
+            )?))?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_cancel_export_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/export/cancel/fake_id")
+            .method("POST")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_zip_export_allowed_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        // Use a fake ID — will fail with a not-found error, but that proves the
+        // auth check (DownloadBackups) passed for the read-only key.
+        let req = Request::builder()
+            .uri("/api/export/zip/0")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        // We expect a not-found error (fake export ID), not a 403 forbidden.
+        backend
+            .expect_error(req, http::StatusCode::NOT_FOUND, "ExportNotFound")
+            .await?;
+        Ok(())
+    }
 }

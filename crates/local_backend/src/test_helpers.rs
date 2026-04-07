@@ -61,6 +61,7 @@ pub struct TestLocalBackend {
     app: ConvexHttpService,
     pub st: LocalAppState,
     pub admin_auth_header: Authorization<ConvexAdminAuthorization>,
+    pub read_only_admin_auth_header: Authorization<ConvexAdminAuthorization>,
     pub config: LocalConfig,
 }
 
@@ -85,14 +86,16 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
         Duration::from_secs(125),
         NoopRouteMapper,
     );
-    let admin_auth_header = config
-        .key_broker()?
-        .issue_admin_key(MemberId(2))
+    let key_broker = config.key_broker()?;
+    let admin_auth_header = key_broker.issue_admin_key(MemberId(2)).as_header()?;
+    let read_only_admin_auth_header = key_broker
+        .issue_read_only_admin_key(MemberId(3))
         .as_header()?;
     Ok(TestLocalBackend {
         app,
         st,
         admin_auth_header,
+        read_only_admin_auth_header,
         config,
     })
 }

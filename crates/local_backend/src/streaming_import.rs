@@ -49,10 +49,6 @@ use value::{
 };
 
 use crate::{
-    admin::{
-        must_be_admin,
-        must_be_admin_with_write_access,
-    },
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -69,7 +65,7 @@ pub async fn import_airbyte_records(
     ExtractIdentity(identity): ExtractIdentity,
     Json(AirbyteImportArgs { tables, messages }): Json<AirbyteImportArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
 
     let usage = FunctionUsageTracker::new();
 
@@ -97,7 +93,7 @@ pub async fn apply_fivetran_operations(
     ExtractIdentity(identity): ExtractIdentity,
     Json(rows): Json<Vec<BatchWriteRow>>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
 
     let usage = FunctionUsageTracker::new();
 
@@ -115,7 +111,7 @@ pub async fn get_schema(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
     let schema = st
         .application
         .get_schema(TableNamespace::root_component(), &identity)
@@ -131,7 +127,7 @@ pub async fn fivetran_create_table(
     ExtractIdentity(identity): ExtractIdentity,
     Json(CreateTableArgs { table_definition }): Json<CreateTableArgs>,
 ) -> Result<StatusCode, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
     let table_definition = table_definition.try_into()?;
     st.application
         .fivetran_create_table(&identity, table_definition)
@@ -151,7 +147,7 @@ pub async fn clear_tables(
     ExtractIdentity(identity): ExtractIdentity,
     Json(ClearTableArgs { table_names }): Json<ClearTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
 
     let usage = FunctionUsageTracker::new();
 
@@ -203,7 +199,7 @@ pub async fn fivetran_truncate_table(
         delete_type,
     }): Json<TruncateTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
 
     let usage = FunctionUsageTracker::new();
 
@@ -275,7 +271,7 @@ pub async fn add_primary_key_indexes(
     ExtractIdentity(identity): ExtractIdentity,
     Json(AddIndexesArgs { indexes }): Json<AddIndexesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
     let indexes: BTreeMap<TableName, PrimaryKey> = indexes
         .into_iter()
         .map(|(stream, primary_key)| {
@@ -312,7 +308,7 @@ pub async fn primary_key_indexes_ready(
     ExtractIdentity(identity): ExtractIdentity,
     Json(IndexesReadyArgs { tables }): Json<IndexesReadyArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ImportBackups)?;
     let table_names = tables
         .into_iter()
         .map(|t| Ok(t.parse::<ValidIdentifier<TableName>>()?.0))
@@ -322,4 +318,97 @@ pub async fn primary_key_indexes_ready(
         .primary_key_indexes_ready(identity, table_names)
         .await?;
     Ok(Json(IndexesReadyResponse { indexes_ready }))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum_extra::headers::authorization::Credentials;
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+    use serde_json::json;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    #[convex_macro::prod_rt_test]
+    async fn test_import_airbyte_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({"tables": {}, "messages": []});
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/streaming_import/import_airbyte_records")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_clear_tables_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({"tableNames": []});
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/streaming_import/clear_tables")
+            .method("PUT")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_get_schema_denied_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/streaming_import/get_schema")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_fivetran_truncate_table_denied_for_read_only(
+        rt: ProdRuntime,
+    ) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let json_body = json!({
+            "tableName": "test_table",
+            "deleteBefore": null,
+            "deleteType": "HardDelete"
+        });
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
+        let req = Request::builder()
+            .uri("/api/streaming_import/fivetran_truncate_table")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(body)?;
+        backend
+            .expect_error(req, http::StatusCode::FORBIDDEN, "Unauthorized")
+            .await?;
+        Ok(())
+    }
 }

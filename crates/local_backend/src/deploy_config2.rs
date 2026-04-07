@@ -68,10 +68,7 @@ use value::{
 };
 
 use crate::{
-    admin::{
-        must_be_admin_from_key,
-        must_be_admin_with_operation,
-    },
+    admin::must_be_admin_from_key,
     LocalAppState,
 };
 
@@ -208,7 +205,7 @@ pub async fn start_push(
         req.admin_key.clone(),
     )
     .await?;
-    must_be_admin_with_operation(&_identity, keybroker::DeploymentOp::Deploy)?;
+    _identity.require_operation(keybroker::DeploymentOp::Deploy)?;
     let config = req.into_project_config().map_err(|e| {
         anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
     })?;
@@ -235,7 +232,7 @@ pub async fn evaluate_push(
         req.admin_key.clone(),
     )
     .await?;
-    must_be_admin_with_operation(&_identity, keybroker::DeploymentOp::Deploy)?;
+    _identity.require_operation(keybroker::DeploymentOp::Deploy)?;
     let config = req.into_project_config().map_err(|e| {
         anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
     })?;
@@ -267,7 +264,7 @@ pub async fn wait_for_schema(
         req.admin_key,
     )
     .await?;
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
+    identity.require_operation(keybroker::DeploymentOp::Deploy)?;
     let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(DEFAULT_SCHEMA_TIMEOUT_MS) as u64);
     let schema_change = req.schema_change.try_into()?;
 
@@ -299,7 +296,7 @@ pub async fn finish_push_internal(
         req.admin_key.clone(),
     )
     .await?;
-    must_be_admin_with_operation(&identity, keybroker::DeploymentOp::Deploy)?;
+    identity.require_operation(keybroker::DeploymentOp::Deploy)?;
 
     let start_push = StartPushResponse::try_from(req.start_push)?;
 
@@ -338,13 +335,13 @@ pub async fn report_push_completed(
     st: LocalAppState,
     req: ReportPushCompletedRequest,
 ) -> anyhow::Result<Vec<SpanRecord>> {
-    let _identity = must_be_admin_from_key(
+    let identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key.clone(),
     )
     .await?;
-    must_be_admin_with_operation(&_identity, keybroker::DeploymentOp::Deploy)?;
+    identity.require_operation(keybroker::DeploymentOp::Deploy)?;
     let spans = req
         .spans
         .into_iter()

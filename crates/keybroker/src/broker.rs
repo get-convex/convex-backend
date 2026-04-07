@@ -109,6 +109,10 @@ use crate::{
         log_legacy_admin_key,
         log_store_file_auth_expired,
     },
+    operations::{
+        bad_admin_key_error,
+        DeploymentOp,
+    },
     secret::InstanceSecret,
 };
 
@@ -360,6 +364,28 @@ impl Identity {
             return Some(id.clone());
         }
         None
+    }
+
+    /// Check that this identity is an admin allowed to perform `operation`.
+    /// System identities are always allowed. Admin identities are checked
+    /// against their allowed operations. All other identities are rejected.
+    pub fn require_operation(&self, operation: DeploymentOp) -> anyhow::Result<()> {
+        let admin_identity = match self {
+            Identity::System(_) => return Ok(()),
+            Identity::InstanceAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                admin_identity
+            },
+            Identity::User(_) | Identity::Unknown(_) => {
+                return Err(bad_admin_key_error(self.instance_name()).into());
+            },
+        };
+        if !admin_identity.is_operation_allowed(operation) {
+            anyhow::bail!(ErrorMetadata::forbidden(
+                "Unauthorized",
+                format!("You do not have permission to perform this operation ({operation:?})."),
+            ));
+        }
+        Ok(())
     }
 
     pub fn assert_present(&self) -> anyhow::Result<()> {
@@ -618,10 +644,7 @@ fn extract_custom_jwt_claims(
     result
 }
 
-use crate::operations::{
-    operations_for_deploy_key,
-    DeploymentOp,
-};
+use crate::operations::operations_for_deploy_key;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]

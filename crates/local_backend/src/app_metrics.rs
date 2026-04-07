@@ -57,10 +57,11 @@ pub(crate) async fn udf_rate(
     let window = window_json.try_into()?;
     let udf_identifier = parse_udf_identifier(udf_type, component_path, udf_path)?;
 
-    let timeseries = st
-        .application
-        .function_log(identity, "udf_rate")?
-        .udf_rate(udf_identifier, metric.parse()?, window)?;
+    let timeseries = st.application.function_log(&identity)?.udf_rate(
+        udf_identifier,
+        metric.parse()?,
+        window,
+    )?;
     Ok(Json(timeseries))
 }
 
@@ -84,7 +85,7 @@ pub(crate) async fn failure_percentage_top_k(
 
     let timeseries = st
         .application
-        .function_log(identity, "failure_percentage_top_k")?
+        .function_log(&identity)?
         .failure_percentage_top_k(window, k)?;
     Ok(Json(timeseries))
 }
@@ -102,7 +103,7 @@ pub(crate) async fn cache_hit_percentage_top_k(
 
     let timeseries = st
         .application
-        .function_log(identity, "cache_hit_percentage_top_k")?
+        .function_log(&identity)?
         .cache_hit_percentage_top_k(window, k)?;
     Ok(Json(timeseries))
 }
@@ -136,7 +137,7 @@ pub(crate) async fn subscription_invalidations_top_k(
 
     let timeseries = st
         .application
-        .function_log(identity, "subscription_invalidations_top_k")?
+        .function_log(&identity)?
         .subscription_invalidations_top_k(window, k, udf_identifier.as_ref())?;
 
     // When filtered to a specific function, keys are tablet IDs.
@@ -162,7 +163,7 @@ pub(crate) async fn function_call_count_top_k(
 
     let timeseries = st
         .application
-        .function_log(identity, "function_call_count_top_k")?
+        .function_log(&identity)?
         .function_call_count_top_k(window, k)?;
     Ok(Json(timeseries))
 }
@@ -191,7 +192,7 @@ pub(crate) async fn cache_hit_percentage(
     )?;
     let timeseries = st
         .application
-        .function_log(identity, "cache_hit_percentage")?
+        .function_log(&identity)?
         .cache_hit_percentage(udf_identifier, window)?;
     Ok(Json(timeseries))
 }
@@ -223,7 +224,7 @@ pub(crate) async fn latency_percentiles(
     let window = window_json.try_into()?;
     let timeseries: Vec<_> = st
         .application
-        .function_log(identity, "latency_percentiles")?
+        .function_log(&identity)?
         .latency_percentiles(udf_identifier, percentiles, window)?
         .into_iter()
         .collect();
@@ -248,7 +249,7 @@ pub(crate) async fn table_rate(
     let window = window_json.try_into()?;
     let timeseries = st
         .application
-        .function_log(identity, "table_rate")?
+        .function_log(&identity)?
         .table_rate(name, metric, window)?;
     Ok(Json(timeseries))
 }
@@ -300,7 +301,7 @@ pub(crate) async fn scheduled_job_lag(
     let window = window_json.try_into()?;
     let timeseries = st
         .application
-        .function_log(identity, "scheduled_job_lag")?
+        .function_log(&identity)?
         .scheduled_job_lag(window)?;
     Ok(Json(timeseries))
 }
@@ -319,7 +320,7 @@ pub(crate) async fn function_concurrency(
     let window = window_json.try_into()?;
     let metrics = st
         .application
-        .function_log(identity, "function_concurrency")?
+        .function_log(&identity)?
         .function_concurrency(window)?;
     Ok(Json(metrics))
 }
@@ -388,4 +389,48 @@ fn resolve_mutation_tablet_keys<T>(
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use axum_extra::headers::authorization::Credentials;
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    #[convex_macro::prod_rt_test]
+    async fn test_udf_rate_allowed_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/app_metrics/udf_rate?udfPath=test&metric=invocations&window=%2210m%22")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        // ViewMetrics is in read_only_operations, so the operation check passes.
+        // The request may still fail for other reasons (e.g. invalid UDF path),
+        // but a 403 Unauthorized would indicate the operation check failed.
+        let response = backend.send_request(req).await?;
+        assert_ne!(response.status(), http::StatusCode::FORBIDDEN);
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_scheduled_job_lag_allowed_for_read_only(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+        let req = Request::builder()
+            .uri("/api/app_metrics/scheduled_job_lag?window=%2210m%22")
+            .method("GET")
+            .header(
+                "Authorization",
+                backend.read_only_admin_auth_header.0.encode(),
+            )
+            .body(axum::body::Body::empty())?;
+        let response = backend.send_request(req).await?;
+        assert_ne!(response.status(), http::StatusCode::FORBIDDEN);
+        Ok(())
+    }
 }
