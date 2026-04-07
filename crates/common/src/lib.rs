@@ -35,6 +35,7 @@ pub mod execution_context;
 pub mod ext;
 pub mod fastrace_helpers;
 pub mod floating_point;
+pub mod fmt;
 pub mod grpc;
 pub mod heap_size;
 pub mod http;

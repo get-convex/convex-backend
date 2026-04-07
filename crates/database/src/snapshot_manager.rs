@@ -768,9 +768,9 @@ impl SnapshotManager {
                 "TooManyWrites",
                 format!(
                     "Too many writes per second. Your deployment is limited to {} bytes written \
-                     per {}ms. Reduce your write rate or upgrade to a larger deployment.",
-                    *MAX_BYTES_WRITTEN_PER_SECOND,
-                    WRITE_THROUGHPUT_WINDOW.as_millis(),
+                     per {}. Reduce your write rate or upgrade to a larger deployment.",
+                    common::fmt::format_bytes(*MAX_BYTES_WRITTEN_PER_SECOND),
+                    common::fmt::format_duration(*WRITE_THROUGHPUT_WINDOW),
                 )
             ));
         }
