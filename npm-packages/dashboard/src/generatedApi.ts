@@ -500,22 +500,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/provision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["provision_deployment_dashboard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/deployments/{deployment_id}": {
         parameters: {
             query?: never;
@@ -2507,14 +2491,6 @@ export interface components {
         ProjectSlug: string;
         ProjectsResponse: components["schemas"]["PaginatedProjectsResponse"] | components["schemas"]["ProjectDetails"][];
         ProposedTeamName: string;
-        ProvisionDeploymentDashboardArgs: {
-            deploymentClass?: string | null;
-            deploymentType: components["schemas"]["DeploymentType"];
-            region?: null | components["schemas"]["RegionName"];
-        };
-        ProvisionDeploymentDashboardResponse: {
-            deploymentName: string;
-        };
         ProvisionEnvironmentResponse: {
             apiKey: string;
             clientId: string;
@@ -2922,8 +2898,6 @@ export type ProjectRoleUpdateArg = components['schemas']['ProjectRoleUpdateArg']
 export type ProjectSlug = components['schemas']['ProjectSlug'];
 export type ProjectsResponse = components['schemas']['ProjectsResponse'];
 export type ProposedTeamName = components['schemas']['ProposedTeamName'];
-export type ProvisionDeploymentDashboardArgs = components['schemas']['ProvisionDeploymentDashboardArgs'];
-export type ProvisionDeploymentDashboardResponse = components['schemas']['ProvisionDeploymentDashboardResponse'];
 export type ProvisionEnvironmentResponse = components['schemas']['ProvisionEnvironmentResponse'];
 export type ProvisionProjectEnvironmentRequest = components['schemas']['ProvisionProjectEnvironmentRequest'];
 export type ProvisionProjectEnvironmentResponse = components['schemas']['ProvisionProjectEnvironmentResponse'];
@@ -3703,31 +3677,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceAuthForDashboardInteractionsResponse"];
-                };
-            };
-        };
-    };
-    provision_deployment_dashboard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProvisionDeploymentDashboardArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProvisionDeploymentDashboardResponse"];
                 };
             };
         };
