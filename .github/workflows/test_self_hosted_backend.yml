@@ -68,10 +68,10 @@ jobs:
         run: |
           just rush install
           just rush build -t .
-        working-directory: npm-packages/js-integration-tests
+        working-directory: npm-packages/tests/js-integration-tests
 
       - name: Run integration tests
-        working-directory: npm-packages/js-integration-tests
+        working-directory: npm-packages/tests/js-integration-tests
         env:
           SKIP_INSTANCE_SECRET_TESTS: 1
           DEPLOYMENT_URL: http://127.0.0.1:3210

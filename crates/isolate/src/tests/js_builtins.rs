@@ -72,7 +72,9 @@ async fn test_crypto_in_action(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_crypto_interop_from_node(rt: TestRuntime) -> anyhow::Result<()> {
     let output = Command::new("npm")
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../npm-packages/udf-tests"))
+        .current_dir(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../npm-packages/tests/udf-tests"),
+        )
         .args(["-s", "run", "generate_crypto_interop_data"])
         .stderr(Stdio::inherit())
         .output()?
@@ -110,7 +112,9 @@ async fn test_crypto_interop_to_node(rt: TestRuntime) -> anyhow::Result<()> {
         .await?
         .try_into()?;
     let mut cmd = Command::new("npm")
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../npm-packages/udf-tests"))
+        .current_dir(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../npm-packages/tests/udf-tests"),
+        )
         .args(["-s", "run", "consume_crypto_interop_data"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

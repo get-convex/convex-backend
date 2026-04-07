@@ -92,23 +92,23 @@ export default defineConfig([
       "npm-packages-private/data/**",
       "npm-packages-private/postalservice/**",
       "npm-packages/@convex-dev/codemod/**",
-      "npm-packages/component-tests/**",
+      "npm-packages/tests/component-tests/**",
       "npm-packages/convex-analytics/**",
       "npm-packages/convex-chat-speculative/**",
       "npm-packages/demos/**",
       "npm-packages/docs/**",
-      "npm-packages/js-integration-tests/**",
+      "npm-packages/tests/js-integration-tests/**",
       "npm-packages/local-store/**",
       "npm-packages/node-executor/**",
       "npm-packages/private-demos/**",
-      "npm-packages/publishing-tests/**",
-      "npm-packages/retention-tester/**",
+      "npm-packages/tests/publishing-tests/**",
+      "npm-packages/tests/retention-tester/**",
       "npm-packages/scenario-runner/**",
       "npm-packages/shared-cursors/**",
-      "npm-packages/simulation/**",
+      "npm-packages/tests/simulation/**",
       "npm-packages/text-importer/**",
       "npm-packages/udf-runtime/**",
-      "npm-packages/udf-tests/**",
+      "npm-packages/tests/udf-tests/**",
       "npm-packages/version/**",
       "npm-packages/demo_browser_tests/**",
       "npm-packages/components/ratelimiter/node10stubs.mjs",
@@ -126,10 +126,10 @@ export default defineConfig([
   // Set-up typescript-eslint rules that need a project configuration
   ...[
     "@convex-dev/eslint-plugin",
-    "js-integration-tests",
+    "tests/js-integration-tests",
     "scenario-runner/convex",
     "system-udfs",
-    "udf-tests/convex",
+    "tests/udf-tests/convex",
     "components/ratelimiter",
     // FIXME: Ideally we’d add many more packages here
   ].map((pkg) => ({
@@ -149,8 +149,8 @@ export default defineConfig([
     ignores: [
       // Some tests rely on using the old Convex function syntax, so we disable
       // the linter on test files
-      "js-integration-tests/**",
-      "udf-tests/**",
+      "tests/js-integration-tests/**",
+      "tests/udf-tests/**",
 
       // TODO(nicolas) Lint Postalservice too
       "postalservice/**",

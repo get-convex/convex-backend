@@ -289,11 +289,11 @@
     },
     {
       "packageName": "publishing-tests",
-      "projectFolder": "publishing-tests"
+      "projectFolder": "tests/publishing-tests"
     },
     {
       "packageName": "package-tests",
-      "projectFolder": "package-tests"
+      "projectFolder": "tests/package-tests"
     },
     {
       "packageName": "@convex-dev/platform",
@@ -421,7 +421,7 @@
     },
     {
       "packageName": "js-integration-tests",
-      "projectFolder": "js-integration-tests"
+      "projectFolder": "tests/js-integration-tests"
     },
     {
       "packageName": "react-query-demo",
@@ -637,7 +637,7 @@
     },
     {
       "packageName": "simulation",
-      "projectFolder": "simulation"
+      "projectFolder": "tests/simulation"
     },
     {
       "packageName": "system-udfs",
@@ -649,35 +649,35 @@
     },
     {
       "packageName": "udf-tests",
-      "projectFolder": "udf-tests"
+      "projectFolder": "tests/udf-tests"
     },
     {
       "packageName": "component-tests",
-      "projectFolder": "component-tests"
+      "projectFolder": "tests/component-tests"
     },
     {
       "packageName": "component-tests-empty",
-      "projectFolder": "component-tests/projects/empty"
+      "projectFolder": "tests/component-tests/projects/empty"
     },
     {
       "packageName": "component-tests-mounted",
-      "projectFolder": "component-tests/projects/mounted"
+      "projectFolder": "tests/component-tests/projects/mounted"
     },
     {
       "packageName": "component-tests-with-schema",
-      "projectFolder": "component-tests/projects/with-schema"
+      "projectFolder": "tests/component-tests/projects/with-schema"
     },
     {
       "packageName": "component-tests-schema-with-index",
-      "projectFolder": "component-tests/projects/schema_with_index"
+      "projectFolder": "tests/component-tests/projects/schema_with_index"
     },
     {
       "packageName": "component-tests-basic",
-      "projectFolder": "component-tests/projects/basic"
+      "projectFolder": "tests/component-tests/projects/basic"
     },
     {
       "packageName": "component-tests-http-actions",
-      "projectFolder": "component-tests/projects/http_actions"
+      "projectFolder": "tests/component-tests/projects/http_actions"
     },
     {
       "packageName": "scenario-runner",
@@ -689,7 +689,7 @@
     },
     {
       "packageName": "retention-tester",
-      "projectFolder": "retention-tester"
+      "projectFolder": "tests/retention-tester"
     },
     {
       "packageName": "shapes",

@@ -31,15 +31,15 @@ const PACKAGES_DIR: &str = "../../npm-packages";
 const NPM_DIR: &str = "../../npm-packages/convex";
 const SYSTEM_UDFS_DIR: &str = "../system-udfs/convex/_system";
 const UDF_RUNTIME_DIR: &str = "../udf-runtime/src";
-const UDF_TESTS_DIR: &str = "../../npm-packages/udf-tests";
+const UDF_TESTS_DIR: &str = "../../npm-packages/tests/udf-tests";
 const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
 
-const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests";
+const COMPONENT_TESTS_DIR: &str = "../../npm-packages/tests/component-tests";
 /// Exceptions to the rule that all directories in `component-tests` are
 /// components.
 const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: [&str; 3] = [".rush", "node_modules", "projects"];
 /// Directory where test projects that use components live.
-const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/component-tests/projects";
+const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/tests/component-tests/projects";
 const COMPONENT_TESTS_PROJECTS: [&str; 6] = [
     "basic",
     "with-schema",
@@ -135,12 +135,14 @@ fn main() -> anyhow::Result<()> {
 
     // Note that we only include the component directory,`convex` directory, and
     // package.json so we ignore changes to rush files.
-    rerun_if_changed("../../npm-packages/udf-tests/convex/")?;
-    rerun_if_changed("../../npm-packages/udf-tests/src/")?;
-    rerun_if_changed("../../npm-packages/udf-tests/package.json")?;
-    rerun_if_changed("../../npm-packages/component-tests/package.json")?;
+    rerun_if_changed("../../npm-packages/tests/udf-tests/convex/")?;
+    rerun_if_changed("../../npm-packages/tests/udf-tests/src/")?;
+    rerun_if_changed("../../npm-packages/tests/udf-tests/package.json")?;
+    rerun_if_changed("../../npm-packages/tests/component-tests/package.json")?;
     for component in COMPONENTS {
-        rerun_if_changed(&format!("../../npm-packages/component-tests/{component}/"))?;
+        rerun_if_changed(&format!(
+            "../../npm-packages/tests/component-tests/{component}/"
+        ))?;
     }
     // Make sure we are not missing any directories that could be components.
     for dir in fs::read_dir(COMPONENT_TESTS_DIR)? {
@@ -161,15 +163,15 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
-    rerun_if_changed("../../npm-packages/component-tests/component/")?;
-    rerun_if_changed("../../npm-packages/component-tests/envVars/")?;
-    rerun_if_changed("../../npm-packages/component-tests/errors/")?;
+    rerun_if_changed("../../npm-packages/tests/component-tests/component/")?;
+    rerun_if_changed("../../npm-packages/tests/component-tests/envVars/")?;
+    rerun_if_changed("../../npm-packages/tests/component-tests/errors/")?;
     for project in COMPONENT_TESTS_PROJECTS {
         rerun_if_changed(&format!(
-            "../../npm-packages/component-tests/projects/{project}/convex"
+            "../../npm-packages/tests/component-tests/projects/{project}/convex"
         ))?;
         rerun_if_changed(&format!(
-            "../../npm-packages/component-tests/projects/{project}/package.json"
+            "../../npm-packages/tests/component-tests/projects/{project}/package.json"
         ))?;
     }
 
@@ -297,7 +299,7 @@ fn main() -> anyhow::Result<()> {
     // Step 7: Record dependencies for the simulation test build. It's a bit of a
     // hack that it's in this build script, but we can't safely invoke Rush
     // across two build scripts since it'll fail if called concurrently.
-    let metafile = Path::new(PACKAGES_DIR).join("simulation/dist/metafile.json");
+    let metafile = Path::new(PACKAGES_DIR).join("tests/simulation/dist/metafile.json");
     let metafile_contents = fs::read_to_string(metafile).context("Failed to read metafile")?;
     let metafile: Metafile =
         serde_json::from_str(&metafile_contents).context("Failed to parse metafile")?;
@@ -309,10 +311,14 @@ fn main() -> anyhow::Result<()> {
         if rel_path.contains("convex/dist/esm") {
             continue;
         }
-        let path = fs::canonicalize(Path::new(PACKAGES_DIR).join("simulation").join(rel_path))?;
+        let path = fs::canonicalize(
+            Path::new(PACKAGES_DIR)
+                .join("tests/simulation")
+                .join(rel_path),
+        )?;
         rerun_if_changed(path.as_os_str().to_str().unwrap())?;
     }
-    for entry in WalkDir::new(Path::new(PACKAGES_DIR).join("simulation/convex")) {
+    for entry in WalkDir::new(Path::new(PACKAGES_DIR).join("tests/simulation/convex")) {
         rerun_if_changed(entry?.path().to_str().expect("Invalid path"))?;
     }
 

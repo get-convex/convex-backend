@@ -160,10 +160,10 @@ pub trait ApplicationTestExt<RT: Runtime> {
         &self,
         job: ParsedDocument<ScheduledJobMetadata>,
     ) -> anyhow::Result<()>;
-    /// Load the modules from npm-packages/udf-tests
+    /// Load the modules from npm-packages/tests/udf-tests
     async fn load_udf_tests_modules(&self) -> anyhow::Result<()>;
     async fn load_udf_tests_modules_with_node(&self) -> anyhow::Result<()>;
-    /// Load the modules form npm-packages/component-tests
+    /// Load the modules form npm-packages/tests/component-tests
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()>;
     async fn start_push_for_layout(&self, layout: &str) -> anyhow::Result<StartPushResponse>;
     async fn start_push_from_request(

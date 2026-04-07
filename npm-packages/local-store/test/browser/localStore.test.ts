@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { CopyOnWriteLocalStore } from "../../browser/core/localStore";
-import { sync as syncSchema } from "../../../simulation/convex/sync/schema";
+import { sync as syncSchema } from "../../../tests/simulation/convex/sync/schema";
 import { anyApi, defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { Writes } from "../../browser/core/protocol";

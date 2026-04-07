@@ -33,7 +33,7 @@ test-self-hosted *ARGS:
     just rush build -t .
     cargo build backend-harness
     just _test self-hosted-backend "$@"
-    docker compose -f ../../self-hosted/docker/docker-compose.yml down
+    docker compose -f ../../../self-hosted/docker/docker-compose.yml down
 
 # Run tests without building the NPM packages or binaries
 _test *ARGS:
@@ -45,6 +45,6 @@ _test *ARGS:
     export CONVEX_TRACE_FILE="1"  # log to a file
     export RUST_LOG=${RUST_LOG:-0}
     export FUNRUN_INDEX_READS_TO_CONDUCTOR_PERCENT=100
-    echo "Additional logs are available in npm-packages/js-integration-tests/*.log"
-    UDF_USE_FUNRUN=true ../../target/debug/backend-harness --provisioner "$1" \
+    echo "Additional logs are available in npm-packages/tests/js-integration-tests/*.log"
+    UDF_USE_FUNRUN=true ../../../target/debug/backend-harness --provisioner "$1" \
       --package-dir . -- npm run test-integration -- "${@:2}"

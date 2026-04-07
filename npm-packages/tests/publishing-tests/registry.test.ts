@@ -15,7 +15,7 @@ import {
 } from "vitest";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const convexDir = path.resolve(path.join(__dirname, "..", "convex"));
+const convexDir = path.resolve(path.join(__dirname, "..", "..", "convex"));
 const require = Module.createRequire(import.meta.url);
 
 function runRegistry(args: string[] = []): Promise<ChildProcess> {
