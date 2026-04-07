@@ -134,6 +134,8 @@
   --animate-blinkFill: blinkFill 1.2s ease-in-out infinite;
   --animate-rotate: fadeIn 0.8s, rotate 0.75s linear infinite;
   --animate-dashLength: dashLength 1.5s ease-in-out infinite;
+  --animate-slideUp: slideUp 0.3s ease-out;
+  --animate-fadeInBackdrop: fadeIn 0.3s ease-out;
 
   /* Keyframes */
   @keyframes rotate {
@@ -275,6 +277,15 @@
     }
     100% {
       opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
     }
   }
 
