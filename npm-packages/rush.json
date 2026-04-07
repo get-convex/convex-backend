@@ -324,6 +324,10 @@
       "projectFolder": "private-demos/test-data"
     },
     {
+      "packageName": "private-demos-e2e",
+      "projectFolder": "private-demos/e2e"
+    },
+    {
       "packageName": "typescript-demo",
       "projectFolder": "demos/typescript"
     },

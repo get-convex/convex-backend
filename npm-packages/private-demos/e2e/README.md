@@ -1,8 +1,7 @@
 # Private Demos E2E Tests
 
 Playwright tests for private demo projects against a local
-`convex-local-backend`. `quickstarts/tanstack-start` is intentionally outside
-Rush, so the `just` target installs it separately.
+`convex-local-backend`.
 
 ```bash
 just test-private-demos         # build backend, install deps, run all tests
