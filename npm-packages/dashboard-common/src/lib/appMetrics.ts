@@ -746,10 +746,20 @@ export function useFunctionConcurrency(): {
       data.push(dataPoint);
     }
 
+    const functionTypeColors: Record<string, string> = {
+      Queries: "var(--chart-line-3)",
+      Mutations: "var(--chart-line-2)",
+      Actions: "var(--chart-line-1)",
+      "Actions (Node)": "var(--chart-line-5)",
+      "HTTP Actions": "var(--chart-line-6)",
+    };
+
     const colorForFunction = new Map<string, string>();
     for (const [index, functionType] of functionTypes.entries()) {
-      const colorIndex = index % lineColors.length;
-      colorForFunction.set(functionType, lineColors[colorIndex]);
+      const color =
+        functionTypeColors[functionType] ??
+        lineColors[index % lineColors.length];
+      colorForFunction.set(functionType, color);
     }
 
     for (const functionType of functionTypes) {
