@@ -4,8 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "build": "rm -rf dist && tsc && esbuild index.ts --bundle --sourcemap --outfile=dist/scenario-runner.js --platform=node --log-level=warning",
-    "start": "node dist/scenario-runner.js",
-    "lint": "eslint convex --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "start": "node dist/scenario-runner.js"
   },
   "bin": "dist/scenario-runner.mjs",
   "dependencies": {
@@ -28,8 +27,6 @@
     "react-dom": "^18.0.0",
     "typescript": "~5.0.3",
     "ws": "8.18.0",
-    "eslint": "^8.29.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@commander-js/extra-typings": "^14.0.0"
   }
 }

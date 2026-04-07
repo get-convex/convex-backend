@@ -275,7 +275,7 @@
     "@commander-js/extra-typings": "^14.0.0",
     "@convex-dev/platform": "0.1.6",
     "@eslint/compat": "~2.0.0",
-    "@eslint/eslintrc": "~3.3.0",
+    "@eslint/eslintrc": "^3",
     "@eslint/js": "~9.39.0",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@octokit/openapi-types": "~25.0.0",
