@@ -42,7 +42,7 @@ export function RunHistory({
   return (
     <div className="flex gap-2">
       <Button
-        icon={<FunctionIcon />}
+        icon={<FunctionIcon className="w-4 text-content-tertiary" />}
         size="xs"
         variant="neutral"
         tip="Jump to Function"
