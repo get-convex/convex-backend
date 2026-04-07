@@ -538,6 +538,79 @@ function hasUseNodeDirective(ctx: Context, fpath: string): boolean {
   }
 }
 
+function containsDynamicImport(node: any): boolean {
+  if (!node || typeof node !== "object") return false;
+  if (node.type === "CallExpression" && node.callee?.type === "Import") {
+    return true;
+  }
+  for (const key of Object.keys(node)) {
+    if (key === "leadingComments" || key === "trailingComments") continue;
+    const child = node[key];
+    if (Array.isArray(child)) {
+      if (child.some((c) => containsDynamicImport(c))) return true;
+    } else if (child && typeof child.type === "string") {
+      if (containsDynamicImport(child)) return true;
+    }
+  }
+  return false;
+}
+
+export function hasDynamicImport(source: string): boolean {
+  if (!source.includes("import(")) {
+    return false;
+  }
+  try {
+    const ast = parseAST(source, {
+      sourceType: "module",
+      plugins: ["jsx", "typescript"],
+    });
+    return containsDynamicImport(ast.program);
+  } catch {
+    return false;
+  }
+}
+
+function importsQueryOrMutation(source: string): boolean {
+  if (
+    !source.includes("query") &&
+    !source.includes("mutation") &&
+    !source.includes("internalQuery") &&
+    !source.includes("internalMutation")
+  ) {
+    return false;
+  }
+  try {
+    const ast = parseAST(source, {
+      sourceType: "module",
+      plugins: ["jsx", "typescript"],
+    });
+    for (const node of ast.program.body) {
+      if (node.type !== "ImportDeclaration") continue;
+      for (const specifier of node.specifiers) {
+        if (specifier.type !== "ImportSpecifier") continue;
+        const imported = specifier.imported as Identifier;
+        const name = imported.name;
+        if (
+          name === "query" ||
+          name === "mutation" ||
+          name === "internalQuery" ||
+          name === "internalMutation"
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch {
+    return (
+      source.includes("query") ||
+      source.includes("mutation") ||
+      source.includes("internalQuery") ||
+      source.includes("internalMutation")
+    );
+  }
+}
+
 export function mustBeIsolate(relPath: string): boolean {
   // Check if the path without extension matches any of the static paths.
   return ["http", "crons", "schema", "auth.config"].includes(
@@ -585,6 +658,23 @@ export async function entryPointsByEnvironment(ctx: Context, dir: string) {
       node.push(entryPoint);
     } else {
       isolate.push(entryPoint);
+    }
+  }
+
+  for (const entryPoint of isolate) {
+    const source = ctx.fs.readUtf8File(entryPoint);
+    if (hasDynamicImport(source) && importsQueryOrMutation(source)) {
+      const relPath = path.relative(dir, entryPoint);
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage:
+          `Dynamic import (\`import()\`) is not allowed in "${relPath}" ` +
+          `because it contains queries or mutations. ` +
+          `Dynamic imports are not supported in queries or mutations. ` +
+          `Move query/mutation code to a separate file, or replace the ` +
+          `dynamic import with a static import.`,
+      });
     }
   }
 

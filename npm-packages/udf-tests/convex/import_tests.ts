@@ -4,7 +4,7 @@ import {
   use as chaiUse,
 } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { action, query } from "./_generated/server";
+import { action } from "./_generated/server";
 
 import * as helpersStatic from "./helpers";
 
@@ -40,13 +40,9 @@ export const dynamicImportNonexistent = action({
   },
 });
 
-export const dynamicImportQuery = query({
-  args: {},
-  handler: async () => {
-    const helpers = await import("./helpers");
-    return helpers.fibonacci(6);
-  },
-});
+// NOTE: dynamicImportQuery was removed because dynamic imports in files that
+// contain queries are now blocked at build time. The runtime error
+// "dynamic module import unsupported" is no longer reachable.
 
 export const dynamicImportLoadFailure = action({
   args: {},
