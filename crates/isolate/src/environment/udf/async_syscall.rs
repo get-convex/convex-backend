@@ -698,7 +698,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/replace" => Box::pin(Self::replace(provider, args)).await,
                     "1.0/remove" => Box::pin(Self::remove(provider, args)).await,
                     "1.0/queryPage" => Box::pin(Self::query_page(provider, args)).await,
-                    "1.0/headroom" => Self::headroom(provider),
+                    "1.0/getTransactionMetrics" => Self::tx_metrics(provider),
                     // Auth
                     "1.0/getUserIdentity" => {
                         Box::pin(Self::get_user_identity(provider, args)).await
@@ -754,7 +754,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
     /// Returns the remaining headroom for this transaction before hitting
     /// limits.
-    fn headroom(provider: &mut P) -> anyhow::Result<JsonValue> {
+    fn tx_metrics(provider: &mut P) -> anyhow::Result<JsonValue> {
         let tx = provider.tx()?;
         let s = tx.execution_size();
         let limit_value = |limit: usize, used: usize| {

@@ -8,6 +8,7 @@ import {
   StorageReader,
   StorageWriter,
 } from "./index.js";
+import { ActionMeta, MutationMeta, QueryMeta } from "./meta.js";
 import {
   FunctionReference,
   FunctionReturnType,
@@ -147,6 +148,8 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
     mutation: Mutation,
     ...args: OptionalRestArgs<Mutation>
   ) => Promise<FunctionReturnType<Mutation>>;
+
+  meta: MutationMeta;
 }
 
 /**
@@ -238,6 +241,8 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
     query: Query,
     ...args: OptionalRestArgs<Query>
   ) => Promise<FunctionReturnType<Query>>;
+
+  meta: QueryMeta;
 }
 
 /**
@@ -398,6 +403,8 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
       VectorSearchQuery<NamedTableInfo<DataModel, TableName>, IndexName>
     >,
   ): Promise<Array<{ _id: Id<TableName>; _score: number }>>;
+
+  meta: ActionMeta;
 }
 
 /**

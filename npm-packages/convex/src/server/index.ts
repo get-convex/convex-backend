@@ -103,6 +103,13 @@ export {
   internalMutationGeneric,
   internalQueryGeneric,
 } from "./impl/registration_impl.js";
+export type {
+  TransactionMetric,
+  TransactionMetrics,
+  QueryMeta,
+  MutationMeta,
+  ActionMeta,
+} from "./meta.js";
 export type { IndexRange, IndexRangeBuilder } from "./index_range_builder.js";
 export * from "./pagination.js";
 export type { OrderedQuery, Query, QueryInitializer } from "./query.js";

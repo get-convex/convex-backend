@@ -39,6 +39,11 @@ import { parseArgs } from "../../common/index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { asObjectValidator } from "../../values/validator.js";
 import { getFunctionAddress } from "../components/paths.js";
+import {
+  setupQueryMeta,
+  setupMutationMeta,
+  setupActionMeta,
+} from "./meta_impl.js";
 
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,
@@ -52,6 +57,7 @@ async function invokeMutation<
     auth: setupAuth(requestId),
     storage: setupStorageWriter(requestId),
     scheduler: setupMutationScheduler(),
+    meta: setupMutationMeta(),
 
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
     runMutation: (reference: any, args?: any) =>
@@ -326,6 +332,7 @@ async function invokeQuery<
     db: setupReader(),
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
+    meta: setupQueryMeta(),
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
   };
   const result = await invokeFunction(func, queryCtx, args as any);
@@ -488,6 +495,7 @@ async function invokeAction<
     scheduler: setupActionScheduler(requestId),
     storage: setupStorageActionWriter(requestId),
     vectorSearch: setupActionVectorSearch(requestId) as any,
+    meta: setupActionMeta(),
   };
   const result = await invokeFunction(func, ctx, args as any);
   return JSON.stringify(convexToJson(result === undefined ? null : result));
@@ -670,6 +678,7 @@ async function invokeHttpAction<
     storage: setupStorageActionWriter(requestId),
     scheduler: setupActionScheduler(requestId),
     vectorSearch: setupActionVectorSearch(requestId) as any,
+    meta: setupActionMeta(),
   };
   return await invokeFunction(func, ctx, [request]);
 }
