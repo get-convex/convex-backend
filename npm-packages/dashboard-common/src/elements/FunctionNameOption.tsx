@@ -1,6 +1,4 @@
 import { ROUTABLE_HTTP_METHODS } from "convex/server";
-import { useHoverDirty } from "react-use";
-import { useRef, useState, useEffect } from "react";
 import {
   displayName,
   functionIdentifierFromValue,
@@ -50,11 +48,15 @@ export function FunctionNameOption({
     displayName(functionIdentifier.identifier),
   );
 
-  const hoverPrimary = primary;
-  const hoverSecondary = secondary;
+  const fullName = secondary + primary;
 
   // Leave some room for the component icon if there is a component path.
   const maxCharsShown = componentPath ? maxChars - 2 : maxChars;
+
+  const isTruncated =
+    !disableTruncation &&
+    (primary.length > maxCharsShown ||
+      secondary.length + primary.length > maxCharsShown);
 
   if (primary.length > maxCharsShown) {
     primary = `...${primary.slice(primary.length - maxCharsShown + 3)}`;
@@ -66,41 +68,33 @@ export function FunctionNameOption({
     )}`;
   }
 
-  const ref = useRef<HTMLDivElement>(null);
-  const isHovering = useHoverDirty(ref);
-  const [isHoveringDelayed, setIsHoveringDelayed] = useState(false);
-
-  useEffect(() => {
-    if (!isHovering) {
-      setIsHoveringDelayed(false);
-      return;
-    }
-    const timer = setTimeout(() => setIsHoveringDelayed(true), 50);
-    return () => clearTimeout(timer);
-  }, [isHovering]);
-
   if (primary === "_other" && secondary === "") {
     return <span className="w-full">Other functions</span>;
   }
 
-  const showFull = disableTruncation || isHoveringDelayed;
-  return (
-    <div className="flex w-full items-center space-x-1" ref={ref}>
+  const content = (
+    <div className="flex w-full items-center space-x-1">
       {componentPath && (
         <Tooltip tip={componentPath}>
           <PuzzlePieceIcon />
         </Tooltip>
       )}
-      <span aria-label={hoverSecondary + hoverPrimary}>
+      <span aria-label={fullName}>
         <span
           className={error ? "text-content-error" : "text-content-secondary"}
         >
-          {showFull ? hoverSecondary : secondary}
+          {secondary}
         </span>
         <span className={error ? "text-content-error" : "text-content-primary"}>
-          {showFull ? hoverPrimary : primary}
+          {primary}
         </span>
       </span>
     </div>
   );
+
+  if (isTruncated) {
+    return <Tooltip tip={fullName}>{content}</Tooltip>;
+  }
+
+  return content;
 }
