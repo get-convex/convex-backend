@@ -3216,9 +3216,6 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.0.0
         version: 8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
-      dprint:
-        specifier: 0.51.1
-        version: 0.51.1
       eslint:
         specifier: ^9.37.0
         version: 9.39.1(jiti@2.6.1)
@@ -8486,68 +8483,6 @@ packages:
   '@docusaurus/utils@3.9.2':
     resolution: {integrity: sha512-lBSBiRruFurFKXr5Hbsl2thmGweAPmddhF3jb99U4EMDA5L+e5Y1rAkOS07Nvrup7HUMBDrCV45meaxZnt28nQ==}
     engines: {node: '>=20.0'}
-
-  '@dprint/darwin-arm64@0.51.1':
-    resolution: {integrity: sha512-C7fkaz0/NGf/X4G9Cq65izdJgerND5jWShOaPiOgGs4A0CyCMKMLRd45m3xKIttuO8x0IQiZVixD22qmVglXmQ==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@dprint/darwin-x64@0.51.1':
-    resolution: {integrity: sha512-/CESb4SJejshTWb/nO2gucrioKdLD/fK2gKB5Immi4XecAjhkV1HZpUMRLsIeVDQ6ha7xktKbnnvudJRI0maSg==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@dprint/linux-arm64-glibc@0.51.1':
-    resolution: {integrity: sha512-W+QD/4TkQKMPq02uz+ZIz/EI91YEtS2zHBu/Jihx2lfNh3HjUKgyY1KfqCTg2WGJVDkJtPc5KDw+M8yd4rI+Rg==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [glibc]
-
-  '@dprint/linux-arm64-musl@0.51.1':
-    resolution: {integrity: sha512-P4Cfn8wrdSvdoMoz0HtsC5zZpbh8Kk3OjRzgG4qs/gub5Ba3CCLcVaQvQmIOCvgPzdhPB41eSn5qAK87mh7vCQ==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [musl]
-
-  '@dprint/linux-loong64-glibc@0.51.1':
-    resolution: {integrity: sha512-dxDShELBrSGB9PktRqhYrm1UWCL+7N430rGuDTFg+i4d1wL4JD7EI5NDS/5IVbg3lrKJUu6gAJoY9NWF4sZ0mQ==}
-    cpu: [loong64]
-    os: [linux]
-    libc: [glibc]
-
-  '@dprint/linux-loong64-musl@0.51.1':
-    resolution: {integrity: sha512-l+uNPzUBNxkywGN1HgvTV0CzUDpzXC+s6VEvjYRdVAEKl9TAsIfLMfZifS8rnlOi9hz/0sckmpny+wL40G6dhQ==}
-    cpu: [loong64]
-    os: [linux]
-    libc: [musl]
-
-  '@dprint/linux-riscv64-glibc@0.51.1':
-    resolution: {integrity: sha512-YI6SemJRMsLUrtognhkAYOJ67j/AkiufHfx6+cPv/7qO6zBoBL6otR1e5yFYvAgEJOzRZD5g51EdqCcuK19B+g==}
-    cpu: [riscv64]
-    os: [linux]
-    libc: [glibc]
-
-  '@dprint/linux-x64-glibc@0.51.1':
-    resolution: {integrity: sha512-Hm9ntOWeclXU6/rZGYIN2XjuAhsRUZ77lRJC5EiM1rP6Ayh0J/YMsDdqlPAs+xZGdFFzt8ZeUpqJJJsbc54ZjQ==}
-    cpu: [x64]
-    os: [linux]
-    libc: [glibc]
-
-  '@dprint/linux-x64-musl@0.51.1':
-    resolution: {integrity: sha512-iUs/9Z4Ky6+2GAK+i1jF1ZwM27CSIGaqw3LxTXtmE8eBCRwyCW+opzn9bzaFtlT9REUAGMC5PXihAPmzP3ttWg==}
-    cpu: [x64]
-    os: [linux]
-    libc: [musl]
-
-  '@dprint/win32-arm64@0.51.1':
-    resolution: {integrity: sha512-oXjEL7Blf/160/j7U8MapRzSOVQvLIdAKEZbslIHA4Fwj10fvoDizqpfVU/aVj/BVrlIcZ/+AH8kfSC9XAyjLw==}
-    cpu: [arm64]
-    os: [win32]
-
-  '@dprint/win32-x64@0.51.1':
-    resolution: {integrity: sha512-RM9thb/+Jm6GkXJS+eW+0Pzmz2PNeDk8ZOWcjunE1jv2RabHgm+GbeGpS+WZPOM9W3LSntswv6f4wjzfUkWD0g==}
-    cpu: [x64]
-    os: [win32]
 
   '@dxup/nuxt@0.4.0':
     resolution: {integrity: sha512-28LDotpr9G2knUse3cQYsOo6NJq5yhABv4ByRVRYJUmzf9Q31DI7rpRek4POlKy1aAcYyKgu5J2616pyqLohYg==}
@@ -17725,10 +17660,6 @@ packages:
 
   dpop@2.1.1:
     resolution: {integrity: sha512-J0Of2JTiM4h5si0tlbPQ/lkqfZ5wAEVkKYBhkwyyANnPJfWH4VsR5uIkZ+T+OSPIwDYUg1fbd5Mmodd25HjY1w==}
-
-  dprint@0.51.1:
-    resolution: {integrity: sha512-CEx+wYARxLAe9o7RCZ77GKae6DF7qjn5Rd98xbWdA3hB4PFBr+kHwLANmNHscNumBAIrCg5ZJj/Kz+OYbJ+GBA==}
-    hasBin: true
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -33007,39 +32938,6 @@ snapshots:
       - uglify-js
       - webpack-cli
 
-  '@dprint/darwin-arm64@0.51.1':
-    optional: true
-
-  '@dprint/darwin-x64@0.51.1':
-    optional: true
-
-  '@dprint/linux-arm64-glibc@0.51.1':
-    optional: true
-
-  '@dprint/linux-arm64-musl@0.51.1':
-    optional: true
-
-  '@dprint/linux-loong64-glibc@0.51.1':
-    optional: true
-
-  '@dprint/linux-loong64-musl@0.51.1':
-    optional: true
-
-  '@dprint/linux-riscv64-glibc@0.51.1':
-    optional: true
-
-  '@dprint/linux-x64-glibc@0.51.1':
-    optional: true
-
-  '@dprint/linux-x64-musl@0.51.1':
-    optional: true
-
-  '@dprint/win32-arm64@0.51.1':
-    optional: true
-
-  '@dprint/win32-x64@0.51.1':
-    optional: true
-
   '@dxup/nuxt@0.4.0(magicast@0.5.2)(typescript@5.9.3)':
     dependencies:
       '@dxup/unimport': 0.1.2
@@ -44577,20 +44475,6 @@ snapshots:
   dotenv@17.4.1: {}
 
   dpop@2.1.1: {}
-
-  dprint@0.51.1:
-    optionalDependencies:
-      '@dprint/darwin-arm64': 0.51.1
-      '@dprint/darwin-x64': 0.51.1
-      '@dprint/linux-arm64-glibc': 0.51.1
-      '@dprint/linux-arm64-musl': 0.51.1
-      '@dprint/linux-loong64-glibc': 0.51.1
-      '@dprint/linux-loong64-musl': 0.51.1
-      '@dprint/linux-riscv64-glibc': 0.51.1
-      '@dprint/linux-x64-glibc': 0.51.1
-      '@dprint/linux-x64-musl': 0.51.1
-      '@dprint/win32-arm64': 0.51.1
-      '@dprint/win32-x64': 0.51.1
 
   dunder-proto@1.0.1:
     dependencies:
