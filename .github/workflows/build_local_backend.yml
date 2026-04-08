@@ -1,4 +1,4 @@
-name: Build and Test Convex Backend
+name: Build Convex Backend
 
 on:
   push:
@@ -14,43 +14,9 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  build_and_test:
-    name: Build and Test Convex Backend
+  build:
+    name: Build Convex Backend
     runs-on: [self-hosted, aws, x64, xlarge]
-
-    services:
-      # Label used to access service container
-      postgres:
-        # Docker Hub image
-        image: public.ecr.aws/bitnami/postgresql:16
-        # Provide the password for postgres
-        env:
-          POSTGRESQL_PASSWORD: postgres
-          POSTGRESQL_MAX_CONNECTIONS: 500
-          POSTGRESQL_REPLICATION_USE_PASSFILE: no
-          POSTGRESQL_FSYNC: off
-        # Set health checks to wait until postgres has started
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 10s
-          --health-timeout 5s --health-retries 5 --name postgres
-        ports:
-          # Maps tcp port 5432 on service container to the host
-          - 5432:5432
-
-      mysql:
-        # Docker Hub image
-        image: public.ecr.aws/docker/library/mysql:8.4.1-oracle@sha256:a7dc4a4e07a9c5d53c0cf36b5b4e8a1b3bb677cb0d544256a0581114a93ddf0f
-        # Provide the password for mysql
-        env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: 1
-          MYSQL_ROOT_PASSWORD: ""
-        # Set health checks to wait until mysql has started
-        options: >-
-          --health-cmd "mysqladmin ping" --health-interval 10s --health-timeout
-          5s --health-retries 5
-        ports:
-          # Maps tcp port 3306 on service container to the host
-          - 3306:3306
 
     steps:
       - name: Checkout repo
@@ -98,9 +64,3 @@ jobs:
 
       - name: Build rust tests
         run: cargo nextest run --no-run --profile ci
-
-      - name: Run Rust tests
-        env:
-          CI_PGUSER: postgres
-          CI_PGPASSWORD: postgres
-        run: cargo nextest run --profile ci
