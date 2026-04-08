@@ -32,7 +32,7 @@ export function HealthCard({
     <Sheet
       padding={false}
       className={cn(
-        "flex w-full min-w-48 animate-fadeInFromLoading flex-col transition-all",
+        "flex w-full min-w-64 animate-fadeInFromLoading flex-col transition-all",
         size === "xs" && "h-fit",
         size === "sm" && "min-h-fit",
         size === "md" && "min-h-[14rem]",

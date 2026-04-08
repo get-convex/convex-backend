@@ -41,12 +41,14 @@ function SubscriptionInvalidationLabel({
   const table = dataKey.substring(lastColon + 1);
   return (
     <span className="flex items-center gap-1">
-      <FunctionNameOption
-        maxChars={maxChars}
-        label={functionIdentifierValue(mutation)}
-      />
-      <span className="text-content-secondary">→</span>
-      <span>{table}</span>
+      <span className="truncate">
+        <FunctionNameOption
+          maxChars={maxChars}
+          label={functionIdentifierValue(mutation)}
+        />
+      </span>
+      <span className="shrink-0 text-content-secondary">→</span>
+      <span className="shrink-0">{table}</span>
     </span>
   );
 }
@@ -242,48 +244,59 @@ export function ChartForFunctionRate({
                   iconType="plainline"
                   iconSize={12}
                   layout="horizontal"
-                  formatter={(_value, entry, idx) => {
-                    const { dataKey } = entry;
-                    return (
-                      <Button
-                        variant="unstyled"
-                        key={idx}
-                        className={classNames(
-                          "span items-center gap-1 transition-opacity text-content-primary",
-                          shown === dataKey || shown === null
-                            ? "opacity-100"
-                            : "opacity-50",
-                        )}
-                        onClick={() =>
-                          shown === dataKey
-                            ? setShown(null)
-                            : setShown(dataKey as string)
-                        }
-                      >
-                        {dataKey === "_rest" ? (
-                          kind === "subscriptionInvalidations" ? (
-                            "Other"
+                  content={() => (
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
+                      {chartData.lineKeys.map((line) => (
+                        <Button
+                          variant="unstyled"
+                          key={line.key}
+                          className={classNames(
+                            "flex items-center gap-1 transition-opacity text-content-primary",
+                            shown === line.key || shown === null
+                              ? "opacity-100"
+                              : "opacity-50",
+                          )}
+                          onClick={() =>
+                            shown === line.key
+                              ? setShown(null)
+                              : setShown(line.key)
+                          }
+                        >
+                          <svg className="w-3" viewBox="0 0 12 12" aria-hidden>
+                            <line
+                              x1="0"
+                              y1="6"
+                              x2="12"
+                              y2="6"
+                              stroke={line.color}
+                              strokeWidth="2"
+                            />
+                          </svg>
+                          {line.key === "_rest" ? (
+                            kind === "subscriptionInvalidations" ? (
+                              "Other"
+                            ) : (
+                              `All${[].length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
+                            )
+                          ) : kind === "schedulerStatus" ? (
+                            "Lag Time (minutes)"
+                          ) : kind === "functionConcurrency" ? (
+                            line.key
+                          ) : kind === "subscriptionInvalidations" ? (
+                            <SubscriptionInvalidationLabel
+                              dataKey={line.key}
+                              maxChars={24}
+                            />
                           ) : (
-                            `All${[].length > 1 ? " other" : ""} ${kind === "cacheHitRate" ? "queries" : "functions"}`
-                          )
-                        ) : kind === "schedulerStatus" ? (
-                          "Lag Time (minutes)"
-                        ) : kind === "functionConcurrency" ? (
-                          (dataKey as string)
-                        ) : kind === "subscriptionInvalidations" ? (
-                          <SubscriptionInvalidationLabel
-                            dataKey={dataKey as string}
-                            maxChars={24}
-                          />
-                        ) : (
-                          <FunctionNameOption
-                            maxChars={24}
-                            label={dataKey as string}
-                          />
-                        )}
-                      </Button>
-                    );
-                  }}
+                            <FunctionNameOption
+                              maxChars={24}
+                              label={line.key}
+                            />
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 />
 
                 <Tooltip
@@ -306,11 +319,18 @@ export function ChartForFunctionRate({
                                 ({ dataKey }: any) =>
                                   shown === dataKey || shown === null,
                               )
+                              .sort((a: any, b: any) =>
+                                a.dataKey === "_rest"
+                                  ? 1
+                                  : b.dataKey === "_rest"
+                                    ? -1
+                                    : 0,
+                              )
                               .map((dataPoint: any) => ({
                                 ...dataPoint,
                                 formattedValue: (
-                                  <span className="flex min-w-48 items-center justify-between gap-2">
-                                    <div>
+                                  <span className="flex flex-1 items-center justify-between gap-2">
+                                    <div className="flex-1 truncate">
                                       {dataPoint.dataKey === "_rest" ? (
                                         kind === "subscriptionInvalidations" ? (
                                           "Other"
@@ -334,7 +354,7 @@ export function ChartForFunctionRate({
                                         />
                                       )}
                                     </div>
-                                    <div>
+                                    <div className="shrink-0 text-right">
                                       {kind === "schedulerStatus"
                                         ? `${(dataPoint.value as number).toLocaleString()} minutes`
                                         : kind === "functionConcurrency" ||

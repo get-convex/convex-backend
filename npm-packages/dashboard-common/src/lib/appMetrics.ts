@@ -433,7 +433,9 @@ function useTopKChartData(d: TopKMetricsResponse | undefined) {
   const mapFunctionToBuckets = multiResponseToTimeSeries(d);
   const data = [];
   const lineKeys = [];
-  const functions: string[] = [...mapFunctionToBuckets.keys()];
+  const functions: string[] = [...mapFunctionToBuckets.keys()].sort((a, b) =>
+    a === "_rest" ? 1 : b === "_rest" ? -1 : 0,
+  );
   const xAxisKey = "time";
 
   if (!mapFunctionToBuckets || !functions.length) {
@@ -484,6 +486,7 @@ function useTopKChartData(d: TopKMetricsResponse | undefined) {
     };
     lineKeys.push(lineKey);
   }
+  lineKeys.sort((a, b) => (a.key === "_rest" ? 1 : b.key === "_rest" ? -1 : 0));
 
   return {
     data: hadDataAt > -1 ? data.slice(hadDataAt === 59 ? 58 : hadDataAt) : data,
