@@ -1,5 +1,6 @@
 import { expect, test, afterEach, vi } from "vitest";
 import { oneoffContext } from "./context.js";
+import { normalizeModulePath } from "./index.js";
 
 // Although these tests are run as ESM by ts-lint, this file is built as both
 // CJS and ESM by TypeScript so normal recipes like `__dirname` for getting the
@@ -186,4 +187,18 @@ test("must use isolate", () => {
   expect(mustBeIsolate("https.js")).not.toBeTruthy();
   expect(mustBeIsolate("schema2.js")).not.toBeTruthy();
   expect(mustBeIsolate("schema/http.js")).not.toBeTruthy();
+});
+
+test("normalizeModulePath creates valid module identifiers from output paths", () => {
+  // Test typical case: esbuild output in out/ directory
+  expect(normalizeModulePath("out/convex/myFunction.js")).toBe("convex/myFunction.js");
+  expect(normalizeModulePath("out\\actions\\myAction.js")).toBe("actions/myAction.js");
+  
+  // Test Windows absolute paths (typical Windows scenario)
+  expect(normalizeModulePath("C:\\project\\out\\convex\\foo.js")).toBe("convex/foo.js");
+  expect(normalizeModulePath("D:/Users/dev/myapp/out/convex/bar.js")).toBe("convex/bar.js");
+  
+  // Test custom base directory
+  expect(normalizeModulePath("build/convex/test.js", "build")).toBe("convex/test.js");
+  expect(normalizeModulePath("C:/project/dist/actions/upload.js", "dist")).toBe("actions/upload.js");
 });
