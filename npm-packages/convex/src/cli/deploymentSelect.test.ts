@@ -50,6 +50,15 @@ vi.mock("@sentry/node", () => ({
   close: vi.fn(),
 }));
 
+vi.mock("./lib/localDeployment/run.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./lib/localDeployment/run.js")>();
+  return {
+    ...actual,
+    fetchLocalBackendStatus: vi.fn().mockResolvedValue({ kind: "running" }),
+  };
+});
+
 /**
  * Routes mock Big Brain API calls by path.
  * Both `bigBrainAPI` and `bigBrainAPIMaybeThrows` delegate to this.
@@ -459,6 +468,48 @@ describe("npx convex select", () => {
         );
       });
     });
+
+    it("selects local deployment with 'local' selector", async () => {
+      testFiles.set(
+        path.resolve(".convex/local/default/config.json"),
+        JSON.stringify({
+          ports: { cloud: 3210, site: 3211 },
+          adminKey: "local-key",
+          backendVersion: "1.0.0",
+          deploymentName: "local-my_team-my_project-abc",
+        }),
+      );
+      // The local deployment name is looked up via Big Brain for project
+      // access checks (checkAccessToSelectedProject)
+      // FIXME We should probably avoid the Big Brain call here so that it works offline
+      setupBigBrainRoutes({
+        "deployment/local-my_team-my_project-abc/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+      });
+
+      await deploymentSelect.parseAsync(["local"], { from: "user" });
+
+      const envContent = testFiles.get(path.resolve(".env.local"))!;
+      expect(envContent).toContain(
+        "CONVEX_DEPLOYMENT=local:local-my_team-my_project-abc",
+      );
+      // Site URL fetch should be skipped for local deployments
+      expect(envContent).not.toContain("CONVEX_SITE_URL");
+    });
+
+    it("fails with 'No local deployment found' when no local config exists", async () => {
+      await expect(
+        deploymentSelect.parseAsync(["local"], { from: "user" }),
+      ).rejects.toThrow();
+
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        expect.stringContaining("No local deployment found"),
+      );
+    });
   });
 
   describe("without project configured", () => {
@@ -557,6 +608,33 @@ describe("npx convex select", () => {
       // configure treats this as a brand-new selection.
       const envContent = testFiles.get(path.resolve(".env.local"))!;
       expect(envContent).toContain("CONVEX_DEPLOYMENT=dev:clever-otter-890");
+    });
+
+    it("selects local deployment without project configured", async () => {
+      testFiles.set(
+        path.resolve(".convex/local/default/config.json"),
+        JSON.stringify({
+          ports: { cloud: 3210, site: 3211 },
+          adminKey: "local-key",
+          backendVersion: "1.0.0",
+          deploymentName: "local-my_team-my_project-abc",
+        }),
+      );
+      setupBigBrainRoutes({
+        "deployment/local-my_team-my_project-abc/team_and_project": () => ({
+          team: "my-team",
+          project: "my-project",
+          teamId: 1,
+          projectId: 1,
+        }),
+      });
+
+      await deploymentSelect.parseAsync(["local"], { from: "user" });
+
+      const envContent = testFiles.get(path.resolve(".env.local"))!;
+      expect(envContent).toContain(
+        "CONVEX_DEPLOYMENT=local:local-my_team-my_project-abc",
+      );
     });
   });
 });

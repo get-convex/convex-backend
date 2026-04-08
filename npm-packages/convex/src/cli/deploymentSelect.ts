@@ -17,8 +17,8 @@ export const deploymentSelect = new Command("select")
     "Select the deployment to use when running commands.\n\n" +
       "The deployment will be used by all `npx convex` commands, except `npx convex deploy`. You can also run individual commands on another deployment by using the --deployment flag on that command.\n\n" +
       "Examples:\n" +
-      "  npx convex select dev                              # Select your personal dev deployment in the current project\n" +
-      "  npx convex select dev/james                        # Select a deployment in the same project by its reference\n" +
+      "  npx convex select dev                              # Select your personal cloud dev deployment in the current project\n" +
+      "  npx convex select local                            # Select your local deployment\n" +
       "  npx convex select dev/james                        # Select a deployment in the same project by its reference\n" +
       "  npx convex select some-project:dev/james           # Select a deployment in another project in the same team\n" +
       "  npx convex select some-team:some-project:dev/james # Select a deployment in a particular team/project\n",
@@ -40,7 +40,8 @@ export const deploymentSelect = new Command("select")
     if (
       currentSelection.kind === "chooseProject" &&
       parsed.kind !== "inTeamProject" &&
-      parsed.kind !== "deploymentName"
+      parsed.kind !== "deploymentName" &&
+      parsed.kind !== "local"
     ) {
       return await ctx.crash({
         exitCode: 1,
@@ -94,10 +95,13 @@ export async function saveSelectedDeployment(
     });
   }
 
-  const { convexSiteUrl: siteUrl } = await fetchDeploymentCanonicalUrls(ctx, {
-    adminKey: deployment.adminKey,
-    deploymentUrl: deployment.url,
-  });
+  const { convexSiteUrl: siteUrl } =
+    deployment.deploymentFields.deploymentType === "local"
+      ? { convexSiteUrl: null }
+      : await fetchDeploymentCanonicalUrls(ctx, {
+          adminKey: deployment.adminKey,
+          deploymentUrl: deployment.url,
+        });
 
   await updateEnvAndConfigForDeploymentSelection(
     ctx,

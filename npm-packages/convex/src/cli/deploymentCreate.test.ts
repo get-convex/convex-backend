@@ -15,6 +15,16 @@ import {
 } from "./lib/deploymentSelection.js";
 import { saveSelectedDeployment } from "./deploymentSelect.js";
 import { deploymentCreate, resolveRegionDetails } from "./deploymentCreate.js";
+import { ensureBackendBinaryDownloaded } from "./lib/localDeployment/download.js";
+import {
+  loadProjectLocalConfig,
+  saveDeploymentConfig,
+} from "./lib/localDeployment/filePaths.js";
+import {
+  chooseLocalBackendPorts,
+  LOCAL_BACKEND_INSTANCE_SECRET,
+} from "./lib/localDeployment/utils.js";
+import { bigBrainStart } from "./lib/localDeployment/bigBrain.js";
 
 vi.mock("@sentry/node", () => ({
   captureException: vi.fn(),
@@ -37,6 +47,24 @@ vi.mock("./lib/deploymentSelection.js", () => ({
 
 vi.mock("./deploymentSelect.js", () => ({
   saveSelectedDeployment: vi.fn(),
+}));
+
+vi.mock("./lib/localDeployment/download.js", () => ({
+  ensureBackendBinaryDownloaded: vi.fn(),
+}));
+
+vi.mock("./lib/localDeployment/filePaths.js", () => ({
+  loadProjectLocalConfig: vi.fn(),
+  saveDeploymentConfig: vi.fn(),
+}));
+
+vi.mock("./lib/localDeployment/utils.js", () => ({
+  chooseLocalBackendPorts: vi.fn(),
+  LOCAL_BACKEND_INSTANCE_SECRET: "MockSecret123",
+}));
+
+vi.mock("./lib/localDeployment/bigBrain.js", () => ({
+  bigBrainStart: vi.fn(),
 }));
 
 const mockRegions = [
@@ -132,6 +160,165 @@ describe("non-interactive create flow", () => {
         expect.stringContaining("--type is required"),
       );
     });
+
+    test("creates a local deployment: downloads binary, chooses ports, registers with Big Brain, saves config", async () => {
+      vi.mocked(getDeploymentSelection).mockResolvedValue({
+        kind: "existingDeployment",
+        deploymentToActOn: {
+          url: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "admin-key",
+          deploymentFields: {
+            deploymentName: "joyful-capybara-123",
+            deploymentType: "dev",
+            teamSlug: "my-team",
+            projectSlug: "my-project",
+          },
+          source: "deployKey" as const,
+        },
+      });
+      vi.mocked(getProjectDetails).mockResolvedValue(fakeProject);
+      vi.mocked(loadProjectLocalConfig).mockReturnValue(null);
+      vi.mocked(ensureBackendBinaryDownloaded).mockResolvedValue({
+        binaryPath: "/path",
+        version: "1.0.0",
+      });
+      vi.mocked(chooseLocalBackendPorts).mockResolvedValue({
+        cloudPort: 3210,
+        sitePort: 3211,
+      });
+      vi.mocked(bigBrainStart).mockResolvedValue({
+        deploymentName: "local-test-123",
+        adminKey: "test-key",
+      });
+
+      await deploymentCreate.parseAsync(["local"], { from: "user" });
+
+      expect(saveDeploymentConfig).toHaveBeenCalledWith(
+        expect.anything(),
+        "local",
+        "local-test-123",
+        {
+          backendVersion: "1.0.0",
+          ports: { cloud: 3210, site: 3211 },
+          adminKey: "test-key",
+          instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
+        },
+      );
+      expect(mockPlatformPost).not.toHaveBeenCalled();
+    });
+
+    test("creates a local deployment with --select and selects it", async () => {
+      vi.mocked(getDeploymentSelection).mockResolvedValue({
+        kind: "existingDeployment",
+        deploymentToActOn: {
+          url: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "admin-key",
+          deploymentFields: {
+            deploymentName: "joyful-capybara-123",
+            deploymentType: "dev",
+            teamSlug: "my-team",
+            projectSlug: "my-project",
+          },
+          source: "deployKey" as const,
+        },
+      });
+      vi.mocked(getProjectDetails).mockResolvedValue(fakeProject);
+      vi.mocked(loadProjectLocalConfig).mockReturnValue(null);
+      vi.mocked(ensureBackendBinaryDownloaded).mockResolvedValue({
+        binaryPath: "/path",
+        version: "1.0.0",
+      });
+      vi.mocked(chooseLocalBackendPorts).mockResolvedValue({
+        cloudPort: 3210,
+        sitePort: 3211,
+      });
+      vi.mocked(bigBrainStart).mockResolvedValue({
+        deploymentName: "local-test-123",
+        adminKey: "test-key",
+      });
+
+      await deploymentCreate.parseAsync(["local", "--select"], {
+        from: "user",
+      });
+
+      expect(saveSelectedDeployment).toHaveBeenCalledWith(
+        expect.anything(),
+        "local",
+        {
+          kind: "deploymentWithinProject",
+          targetProject: {
+            kind: "deploymentName",
+            deploymentName: "local-test-123",
+            deploymentType: "local",
+          },
+          selectionWithinProject: {
+            kind: "deploymentSelector",
+            selector: "local",
+          },
+        },
+        null,
+      );
+    });
+
+    test("crashes when creating a local deployment with --type", async () => {
+      await expect(
+        deploymentCreate.parseAsync(["local", "--type", "dev"], {
+          from: "user",
+        }),
+      ).rejects.toThrow();
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "--type cannot be used when creating a local deployment",
+        ),
+      );
+      expect(mockPlatformPost).not.toHaveBeenCalled();
+    });
+
+    test("errors when local deployment already exists", async () => {
+      vi.mocked(getDeploymentSelection).mockResolvedValue({
+        kind: "existingDeployment",
+        deploymentToActOn: {
+          url: "https://joyful-capybara-123.convex.cloud",
+          adminKey: "admin-key",
+          deploymentFields: {
+            deploymentName: "joyful-capybara-123",
+            deploymentType: "dev",
+            teamSlug: "my-team",
+            projectSlug: "my-project",
+          },
+          source: "deployKey" as const,
+        },
+      });
+      vi.mocked(loadProjectLocalConfig).mockReturnValue({
+        deploymentName: "existing-local-123",
+        config: {} as any,
+      });
+
+      await expect(
+        deploymentCreate.parseAsync(["local"], { from: "user" }),
+      ).rejects.toThrow();
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        expect.stringContaining("A local deployment already exists"),
+      );
+    });
+
+    test.each(["region", "default", "expiration"] as const)(
+      "rejects --%s with local",
+      async (flag) => {
+        const args = ["local", `--${flag}`];
+        if (flag === "region") args.push("us");
+        if (flag === "expiration") args.push("none");
+
+        await expect(
+          deploymentCreate.parseAsync(args, { from: "user" }),
+        ).rejects.toThrow();
+        expect(process.stderr.write).toHaveBeenCalledWith(
+          expect.stringContaining(
+            `--${flag} cannot be used when creating a local deployment`,
+          ),
+        );
+      },
+    );
   });
 
   describe("with project configured", () => {
@@ -657,6 +844,41 @@ describe("interactive create flow", () => {
         body: expect.objectContaining({
           reference: "dev/my-feature",
           isDefault: null,
+        }),
+      }),
+    );
+  });
+
+  test("interactive ref prompt rejects 'local' as a deployment reference", async () => {
+    setupDefaultRoutes();
+
+    const promise = deploymentCreate.parseAsync(["--type", "dev"], {
+      from: "user",
+    });
+
+    // Ref prompt — enter "local"
+    await screen.next();
+    expect(screen.getScreen()).toContain("How to name this deployment?");
+    screen.type("local");
+    screen.keypress("enter");
+
+    // Inline validation error
+    await screen.next();
+    expect(screen.getScreen()).toContain(
+      '"local" is not a valid deployment reference',
+    );
+
+    // Fix the input
+    screen.type("ization-improvements");
+    screen.keypress("enter");
+
+    await promise;
+
+    expect(mockPlatformPost).toHaveBeenCalledWith(
+      "/projects/{project_id}/create_deployment",
+      expect.objectContaining({
+        body: expect.objectContaining({
+          reference: "localization-improvements",
         }),
       }),
     );

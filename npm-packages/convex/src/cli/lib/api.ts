@@ -23,6 +23,7 @@ import {
   parseDeploymentSelector,
   InProjectSelector,
 } from "./deploymentSelector.js";
+import { loadProjectLocalConfig } from "./localDeployment/filePaths.js";
 import { chalkStderr } from "chalk";
 export type DeploymentName = string;
 export type CloudDeploymentType = "prod" | "dev" | "preview" | "custom";
@@ -749,6 +750,26 @@ async function handleDeploymentSelector(
         parsed.deploymentName,
         projectSelection,
       );
+    case "local": {
+      const localConfig = loadProjectLocalConfig(ctx);
+      if (localConfig === null) {
+        return ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `No local deployment found. Run ${chalkStderr.bold("npx convex deployment create local")} to create one.`,
+        });
+      }
+      const credentials = await loadLocalDeploymentCredentials(
+        ctx,
+        localConfig.deploymentName,
+      );
+      return {
+        deploymentName: localConfig.deploymentName,
+        adminKey: credentials.adminKey,
+        url: credentials.deploymentUrl,
+        deploymentType: "local",
+      };
+    }
     case "inCurrentProject":
       return await handleRefInProject(ctx, parsed.selector, projectSelection);
     case "inProject": {

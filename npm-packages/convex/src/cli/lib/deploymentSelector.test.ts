@@ -16,6 +16,12 @@ describe("parseDeploymentSelector", () => {
     });
   });
 
+  test('"local"', () => {
+    expect(parseDeploymentSelector("local")).toEqual({
+      kind: "local",
+    });
+  });
+
   test('"tall-forest-123"', () => {
     expect(parseDeploymentSelector("tall-forest-123")).toEqual({
       kind: "deploymentName",

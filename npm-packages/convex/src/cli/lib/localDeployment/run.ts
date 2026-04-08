@@ -295,7 +295,7 @@ type LocalBackendStatus =
   | { kind: "different"; name: string }
   | { kind: "not-running" };
 
-async function fetchLocalBackendStatus(args: {
+export async function fetchLocalBackendStatus(args: {
   url: string;
   deploymentName: string;
 }): Promise<LocalBackendStatus> {

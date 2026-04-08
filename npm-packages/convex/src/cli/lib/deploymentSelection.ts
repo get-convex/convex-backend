@@ -22,6 +22,8 @@ import {
   stripDeploymentTypePrefix,
 } from "./deployment.js";
 import { parseDeploymentSelector } from "./deploymentSelector.js";
+import { loadProjectLocalConfig } from "./localDeployment/filePaths.js";
+import { chalkStderr } from "chalk";
 import { getBuildEnvironment } from "./envvars.js";
 import { readGlobalConfig } from "./utils/globalConfig.js";
 import {
@@ -382,9 +384,9 @@ async function _getDeploymentSelection(
     };
   }
 
-  // If --deployment is a fully qualified selector (team:project:ref or a
-  // deployment name), we don't need a current project context — handle it
-  // before env var resolution.
+  // If --deployment is a fully qualified selector (team:project:ref,
+  // deployment name, or "local"), we don't need a current project context
+  // → handle it before env var resolution.
   if (cliArgs.deployment !== undefined) {
     const parsed = parseDeploymentSelector(cliArgs.deployment);
     if (parsed.kind === "inTeamProject") {
@@ -414,6 +416,25 @@ async function _getDeploymentSelection(
           selector: cliArgs.deployment,
         },
       };
+    }
+    if (parsed.kind === "local") {
+      const localConfig = loadProjectLocalConfig(ctx);
+      if (localConfig !== null) {
+        return {
+          kind: "deploymentWithinProject",
+          targetProject: {
+            kind: "deploymentName",
+            deploymentName: localConfig.deploymentName,
+            deploymentType: "local",
+          },
+          selectionWithinProject,
+        };
+      }
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `No local deployment found. Run ${chalkStderr.bold("npx convex deployment create local")} to create one.`,
+      });
     }
   }
 

@@ -29,15 +29,26 @@ import {
   resolveExpiration,
   validateExpiration,
 } from "./lib/expiration.js";
+import { ensureBackendBinaryDownloaded } from "./lib/localDeployment/download.js";
+import {
+  loadProjectLocalConfig,
+  saveDeploymentConfig,
+} from "./lib/localDeployment/filePaths.js";
+import {
+  chooseLocalBackendPorts,
+  LOCAL_BACKEND_INSTANCE_SECRET,
+} from "./lib/localDeployment/utils.js";
+import { bigBrainStart } from "./lib/localDeployment/bigBrain.js";
 
 const SUPPORTED_TYPES = ["dev", "prod", "preview"] as const;
 
 export const deploymentCreate = new Command("create")
-  .summary("Create a new cloud deployment for a project")
+  .summary("Create a new deployment for a project")
   .description(
-    "Create a new cloud deployment for a project.\n\n" +
+    "Create a new deployment for a project.\n\n" +
       "  Create a dev deployment and select it:    `npx convex deployment create dev/my-new-feature --type dev --select`\n" +
-      "  Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`\n",
+      "  Create a prod deployment named “staging”: `npx convex deployment create staging --type prod`\n" +
+      "  Create a local deployment:                `npx convex deployment create local`\n",
   )
   .argument("[ref]")
   .allowExcessArguments(false)
@@ -69,6 +80,33 @@ export const deploymentCreate = new Command("create")
       adminKey: undefined,
       envFile: undefined,
     });
+
+    // Handle `deployment create local`
+    if (refParam !== undefined) {
+      if (refParam === "local") {
+        const cloudOnlyFlags = [
+          "type",
+          "region",
+          "default",
+          "expiration",
+        ] as const;
+        for (const flag of cloudOnlyFlags) {
+          if (options[flag]) {
+            return await ctx.crash({
+              exitCode: 1,
+              errorType: "fatal",
+              printedMessage: `--${flag} cannot be used when creating a local deployment`,
+            });
+          }
+        }
+        await createLocalDeployment(
+          ctx,
+          currentDeployment,
+          options.select ?? false,
+        );
+        return;
+      }
+    }
 
     const expiresAt = await resolveExpiresAtOrCrash(ctx, options.expiration);
 
@@ -167,6 +205,76 @@ export const deploymentCreate = new Command("create")
       );
     }
   });
+
+async function createLocalDeployment(
+  ctx: Context,
+  currentDeployment: DeploymentSelection,
+  select: boolean,
+): Promise<void> {
+  const existing = loadProjectLocalConfig(ctx);
+  if (existing) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "A local deployment already exists.",
+    });
+  }
+
+  const { teamSlug, slug: projectSlug } = await resolveProject(
+    ctx,
+    currentDeployment,
+  );
+
+  showSpinner("Downloading local backend...");
+  const { version } = await ensureBackendBinaryDownloaded(ctx, {
+    kind: "latest",
+  });
+
+  const { cloudPort, sitePort } = await chooseLocalBackendPorts(ctx);
+
+  showSpinner("Registering local deployment...");
+  const { deploymentName, adminKey } = await bigBrainStart(ctx, {
+    port: cloudPort,
+    projectSlug,
+    teamSlug,
+    instanceName: null,
+  });
+
+  saveDeploymentConfig(ctx, "local", deploymentName, {
+    backendVersion: version,
+    ports: { cloud: cloudPort, site: sitePort },
+    adminKey,
+    instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
+  });
+
+  logFinishedStep("Created local deployment.");
+
+  if (select) {
+    const selection: DeploymentSelection = {
+      kind: "deploymentWithinProject",
+      targetProject: {
+        kind: "deploymentName",
+        deploymentName,
+        deploymentType: "local",
+      },
+      selectionWithinProject: {
+        kind: "deploymentSelector",
+        selector: "local",
+      },
+    };
+    await saveSelectedDeployment(
+      ctx,
+      "local",
+      selection,
+      deploymentNameFromSelection(currentDeployment),
+    );
+  }
+
+  const devCommand = select
+    ? "npx convex dev"
+    : "npx convex dev --deployment local";
+  logMessage(`\nRun ${chalkStderr.bold(devCommand)} to start it.`);
+}
 
 type RefParam = Parameters<Parameters<typeof deploymentCreate.action>[0]>[0];
 type OptionsParam = Parameters<
@@ -373,6 +481,11 @@ function parseSelectorForNewDeployment(
 ): NewDeploymentSelectorResult {
   const selector = parseDeploymentSelector(selectorString);
   switch (selector.kind) {
+    case "local":
+      return {
+        kind: "invalid",
+        message: `"local" is not a valid deployment reference. To create a local deployment, run ${chalkStderr.bold("npx convex deployment create local")}`,
+      };
     case "deploymentName":
       return {
         kind: "invalid",
@@ -619,6 +732,9 @@ function validateTentativeReference(tentativeReference: string): true | string {
   }
   if (tentativeReference === "prod") {
     return '"prod" is not a valid deployment reference.';
+  }
+  if (tentativeReference === "local") {
+    return `"local" is not a valid deployment reference. To create a local deployment, run ${chalkStderr.bold("npx convex deployment create local")}`;
   }
   if (/^[a-z]+-[a-z]+-\d+$/.test(tentativeReference)) {
     return "References cannot be in the format abc-xyz-123, as it is reserved for deployment names";

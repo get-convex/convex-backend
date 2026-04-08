@@ -5,6 +5,7 @@ export type InProjectSelector =
 
 export type ParsedDeploymentSelector =
   | { kind: "deploymentName"; deploymentName: string }
+  | { kind: "local" }
   | { kind: "inCurrentProject"; selector: InProjectSelector }
   | { kind: "inProject"; projectSlug: string; selector: InProjectSelector }
   | {
@@ -26,6 +27,7 @@ function parseInProjectSelector(s: string): InProjectSelector {
 export function parseDeploymentSelector(
   selector: string,
 ): ParsedDeploymentSelector {
+  if (selector === "local") return { kind: "local" };
   if (/^[a-z]+-[a-z]+-[0-9]+$/.test(selector)) {
     return { kind: "deploymentName", deploymentName: selector };
   }

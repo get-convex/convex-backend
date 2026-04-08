@@ -19,6 +19,7 @@ import {
   loadLocalDeploymentCredentials,
 } from "./lib/localDeployment/localDeployment.js";
 import { handleAnonymousDeployment } from "./lib/localDeployment/anonymous.js";
+import { loadProjectLocalConfig } from "./lib/localDeployment/filePaths.js";
 import {
   validateOrSelectTeam,
   validateOrSelectProject,
@@ -68,7 +69,7 @@ vi.mock("./lib/localDeployment/run.js", async (importOriginal) => {
         await action();
       },
     ),
-    assertLocalBackendRunning: vi.fn(),
+    fetchLocalBackendStatus: vi.fn().mockResolvedValue({ kind: "running" }),
   };
 });
 
@@ -154,6 +155,15 @@ vi.mock("./lib/localDeployment/localDeployment.js", async (importOriginal) => {
     ...actual,
     handleLocalDeployment: vi.fn(),
     loadLocalDeploymentCredentials: vi.fn(),
+  };
+});
+
+vi.mock("./lib/localDeployment/filePaths.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./lib/localDeployment/filePaths.js")>();
+  return {
+    ...actual,
+    loadProjectLocalConfig: vi.fn().mockReturnValue(null),
   };
 });
 
@@ -1409,6 +1419,109 @@ describe("deployment selection flows", () => {
             { from: "user" },
           ),
         ).rejects.toThrow();
+      });
+
+      it("resolves --deployment local to local deployment credentials", async () => {
+        vi.mocked(loadProjectLocalConfig).mockReturnValue({
+          deploymentName: "local-my_team-my_project-abc",
+          config: {
+            ports: { cloud: 3210, site: 3211 },
+            adminKey: "local-key",
+            backendVersion: "1.0.0",
+          },
+        });
+        vi.mocked(loadLocalDeploymentCredentials).mockResolvedValue({
+          deploymentName: "local-my_team-my_project-abc",
+          deploymentUrl: "http://127.0.0.1:3210",
+          adminKey: "local-key",
+        });
+        // The local deployment name is resolved via Big Brain for project
+        // access checks (checkAccessToSelectedProject)
+        setupBigBrainRoutes({
+          "deployment/local-my_team-my_project-abc/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(["set", "ABC", "DEF", "--deployment", "local"], {
+          from: "user",
+        });
+
+        expect(loadLocalDeploymentCredentials).toHaveBeenCalledWith(
+          expect.anything(),
+          "local-my_team-my_project-abc",
+        );
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "http://127.0.0.1:3210",
+            adminKey: "local-key",
+          }),
+        );
+      });
+
+      it("resolves --deployment local without CONVEX_DEPLOYMENT set", async () => {
+        delete process.env.CONVEX_DEPLOYMENT;
+
+        vi.mocked(loadProjectLocalConfig).mockReturnValue({
+          deploymentName: "local-my_team-my_project-abc",
+          config: {
+            ports: { cloud: 3210, site: 3211 },
+            adminKey: "local-key",
+            backendVersion: "1.0.0",
+          },
+        });
+        vi.mocked(loadLocalDeploymentCredentials).mockResolvedValue({
+          deploymentName: "local-my_team-my_project-abc",
+          deploymentUrl: "http://127.0.0.1:3210",
+          adminKey: "local-key",
+        });
+        setupBigBrainRoutes({
+          "deployment/local-my_team-my_project-abc/team_and_project": () => ({
+            team: "my-team",
+            project: "my-project",
+            teamId: 1,
+            projectId: 1,
+          }),
+        });
+
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.mocked(deploymentFetch).mockReturnValue(mockFetch as any);
+
+        await env.parseAsync(["set", "ABC", "DEF", "--deployment", "local"], {
+          from: "user",
+        });
+
+        expect(deploymentFetch).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            deploymentUrl: "http://127.0.0.1:3210",
+            adminKey: "local-key",
+          }),
+        );
+      });
+
+      it("errors when --deployment local but no local deployment exists", async () => {
+        vi.mocked(loadProjectLocalConfig).mockReturnValue(null);
+
+        await expect(
+          env.parseAsync(["set", "ABC", "DEF", "--deployment", "local"], {
+            from: "user",
+          }),
+        ).rejects.toThrow();
+
+        expect(process.stderr.write).toHaveBeenCalledWith(
+          expect.stringContaining("No local deployment found"),
+        );
+        expect(process.stderr.write).toHaveBeenCalledWith(
+          expect.stringContaining("npx convex deployment create local"),
+        );
       });
     });
   });
