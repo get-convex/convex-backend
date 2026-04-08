@@ -200,6 +200,7 @@ impl LocalSyncState {
         }
         self.query_set.remove(&query_token);
         self.query_id_to_token.remove(&query_id);
+        self.latest_results.results.remove(&query_id);
 
         let base_version = self.query_set_version;
         self.query_set_version += 1;
@@ -813,12 +814,13 @@ mod tests {
     use convex_sync_types::{
         AuthenticationToken,
         ClientMessage,
+        LogLinesMessage,
         QuerySetVersion,
         UdfPath,
     };
     use maplit::btreemap;
 
-    use super::BaseConvexClient;
+    use super::*;
 
     /// Simulates the server-side version tracking from
     /// `sync::state::SyncState::modify_query_set`. Returns Err with the
@@ -933,6 +935,114 @@ mod tests {
                 base_version: 0,
                 token: AuthenticationToken::User("refetched-token".into()),
             }
+        );
+    }
+
+    fn drain_add_message(client: &mut BaseConvexClient) -> QueryId {
+        match client.pop_next_message() {
+            Some(ClientMessage::ModifyQuerySet { modifications, .. }) => {
+                let [QuerySetModification::Add(query)] = modifications.as_slice() else {
+                    panic!("expected a single add modification, got {modifications:?}");
+                };
+                query.query_id
+            },
+            other => panic!("expected add query message, got {other:?}"),
+        }
+    }
+
+    fn drain_remove_message(client: &mut BaseConvexClient) -> QueryId {
+        match client.pop_next_message() {
+            Some(ClientMessage::ModifyQuerySet { modifications, .. }) => {
+                let [QuerySetModification::Remove { query_id }] = modifications.as_slice() else {
+                    panic!("expected a single remove modification, got {modifications:?}");
+                };
+                *query_id
+            },
+            other => panic!("expected remove query message, got {other:?}"),
+        }
+    }
+
+    fn apply_query_update(
+        client: &mut BaseConvexClient,
+        version: &mut StateVersion,
+        query_id: QueryId,
+        value: Value,
+    ) {
+        let end_version = StateVersion {
+            ts: version.ts.succ().expect("timestamp overflow in test"),
+            ..*version
+        };
+        let transition = ServerMessage::Transition {
+            start_version: *version,
+            end_version,
+            modifications: vec![StateModification::QueryUpdated {
+                query_id,
+                value,
+                log_lines: LogLinesMessage(vec![]),
+                journal: None,
+            }],
+            client_clock_skew: None,
+            server_ts: None,
+        };
+
+        let latest_results = client
+            .receive_message(transition)
+            .expect("transition should be accepted");
+        assert!(
+            latest_results.is_some(),
+            "query update should publish results"
+        );
+        *version = end_version;
+    }
+
+    #[test]
+    fn test_final_unsubscribe_removes_cached_query_result() {
+        let mut client = BaseConvexClient::new();
+        let mut version = StateVersion::initial();
+        // Add a subscriber.
+        let subscriber_id = client.subscribe("getValue1".parse().unwrap(), BTreeMap::new());
+        let query_id = drain_add_message(&mut client);
+        assert!(client.pop_next_message().is_none());
+
+        apply_query_update(&mut client, &mut version, query_id, 10.into());
+        assert!(client.state.latest_results.results.contains_key(&query_id));
+        assert_eq!(
+            client.latest_results().get(&subscriber_id),
+            Some(&FunctionResult::Value(10.into()))
+        );
+
+        client.unsubscribe(subscriber_id);
+
+        assert_eq!(drain_remove_message(&mut client), query_id);
+        assert!(client.pop_next_message().is_none());
+
+        // The latest_results are gone since there are no more subscribers.
+        assert!(client.state.latest_results.subscribers.is_empty());
+        assert!(!client.state.latest_results.results.contains_key(&query_id));
+    }
+
+    #[test]
+    fn test_cached_query_result_persists_while_subscribers_exist() {
+        let mut client = BaseConvexClient::new();
+        let mut version = StateVersion::initial();
+        // Add two subscribers.
+        let subscriber_a = client.subscribe("getValue1".parse().unwrap(), BTreeMap::new());
+        let query_id = drain_add_message(&mut client);
+        let subscriber_b = client.subscribe("getValue1".parse().unwrap(), BTreeMap::new());
+        assert!(client.pop_next_message().is_none());
+
+        apply_query_update(&mut client, &mut version, query_id, 10.into());
+
+        // The first subscriber drops.
+        client.unsubscribe(subscriber_a);
+
+        assert!(client.pop_next_message().is_none());
+
+        // The latest_results persist since a subscriber still exists.
+        assert!(client.state.latest_results.results.contains_key(&query_id));
+        assert_eq!(
+            client.latest_results().get(&subscriber_b),
+            Some(&FunctionResult::Value(10.into()))
         );
     }
 }
