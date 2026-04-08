@@ -25,6 +25,10 @@ pub struct ComponentMetadata {
     pub definition_id: DeveloperDocumentId,
     pub component_type: ComponentType,
     pub state: ComponentState,
+    /// The HTTP path prefix under which this component's HTTP routes are
+    /// served. Populated from `CheckedComponent::http_prefix` during deploy.
+    /// `None` if the component has no HTTP prefix assignment.
+    pub http_prefix: Option<String>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -71,6 +75,7 @@ pub struct SerializedComponentMetadata {
     pub name: Option<String>,
     pub args: Option<Vec<(String, SerializedResource)>>,
     pub state: Option<String>,
+    pub http_prefix: Option<String>,
 }
 
 impl TryFrom<ComponentMetadata> for SerializedComponentMetadata {
@@ -99,6 +104,7 @@ impl TryFrom<ComponentMetadata> for SerializedComponentMetadata {
             name,
             args,
             state: Some(state.to_string()),
+            http_prefix: m.http_prefix,
         })
     }
 }
@@ -128,6 +134,7 @@ impl TryFrom<SerializedComponentMetadata> for ComponentMetadata {
             definition_id: m.definition_id.parse()?,
             component_type,
             state,
+            http_prefix: m.http_prefix,
         })
     }
 }

@@ -414,6 +414,7 @@ mod tests {
             definition_id: DeveloperDocumentId::MIN,
             component_type: ComponentType::App,
             state: ComponentState::Active,
+            http_prefix: None,
         };
 
         let id = SystemMetadataModel::new_global(&mut tx)

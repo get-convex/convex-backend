@@ -93,6 +93,7 @@ impl<RT: Runtime> DatabaseExt for Database<RT> {
                                 definition_type: ComponentDefinitionType::App,
                                 child_components: Vec::new(),
                                 http_mounts: BTreeMap::new(),
+                                http_prefix: None,
                                 exports: BTreeMap::new(),
                             }
                             .try_into()?,
@@ -105,6 +106,7 @@ impl<RT: Runtime> DatabaseExt for Database<RT> {
                                 definition_id: root_definition_id.developer_id,
                                 component_type: ComponentType::App,
                                 state: ComponentState::Active,
+                                http_prefix: None,
                             }
                             .try_into()?,
                         )
@@ -129,6 +131,7 @@ impl<RT: Runtime> DatabaseExt for Database<RT> {
                     },
                     child_components: Vec::new(),
                     http_mounts: BTreeMap::new(),
+                    http_prefix: None,
                     exports: BTreeMap::new(),
                 }
                 .try_into()?,
@@ -146,6 +149,7 @@ impl<RT: Runtime> DatabaseExt for Database<RT> {
                         args: BTreeMap::new(),
                     },
                     state: ComponentState::Active,
+                    http_prefix: None,
                 }
                 .try_into()?,
             )

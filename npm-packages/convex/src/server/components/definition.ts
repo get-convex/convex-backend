@@ -45,6 +45,9 @@ export type ComponentDefinitionAnalysis = {
 };
 export type AppDefinitionAnalysis = {
   definitionType: AppDefinitionType;
+  // Top-level field (not inside definitionType) to match Rust's
+  // SerializedComponentDefinitionMetadata.http_prefix field.
+  httpPrefix?: string;
   childComponents: ComponentInstantiation[];
   httpMounts: Record<string, HttpMount>;
   exports: ComponentExport;

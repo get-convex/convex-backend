@@ -309,6 +309,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                         child_components: Vec::new(),
                         exports: BTreeMap::new(),
                         http_mounts: BTreeMap::new(),
+                        http_prefix: None,
                     })
                 } else {
                     anyhow::bail!(ErrorMetadata::bad_request(
@@ -426,6 +427,7 @@ mod tests {
                     },
                     child_components: Vec::new(),
                     http_mounts: BTreeMap::new(),
+                    http_prefix: None,
                     exports: BTreeMap::new(),
                 }
                 .try_into()?,
@@ -443,6 +445,7 @@ mod tests {
                         args: Some(BTreeMap::new()),
                     }],
                     http_mounts: BTreeMap::new(),
+                    http_prefix: None,
                     exports: BTreeMap::new(),
                 }
                 .try_into()?,
@@ -455,6 +458,7 @@ mod tests {
                     definition_id: root_definition_id.into(),
                     component_type: ComponentType::App,
                     state: ComponentState::Active,
+                    http_prefix: None,
                 }
                 .try_into()?,
             )
@@ -470,6 +474,7 @@ mod tests {
                         args: Default::default(),
                     },
                     state: ComponentState::Active,
+                    http_prefix: None,
                 }
                 .try_into()?,
             )

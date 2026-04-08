@@ -94,6 +94,7 @@ export type ComponentDefinition<Exports extends ComponentExports = any> = {
     definition: Definition,
     options?: {
       name?: string;
+      httpPrefix?: string;
     },
   ): InstalledComponent<Definition>;
 
@@ -128,6 +129,7 @@ export type AppDefinition = {
     definition: Definition,
     options?: {
       name?: string;
+      httpPrefix?: string;
     },
   ): InstalledComponent<Definition>;
 };
@@ -143,6 +145,7 @@ type CommonDefinitionData = {
     string,
     ImportedComponentDefinition,
     Record<string, any> | null,
+    string | undefined,
   ][];
   _exportTree: ExportTree;
 };
@@ -152,7 +155,9 @@ type ComponentDefinitionData = CommonDefinitionData & {
   _name: string;
   _onInitCallbacks: Record<string, (argsStr: string) => string>;
 };
-type AppDefinitionData = CommonDefinitionData;
+type AppDefinitionData = CommonDefinitionData & {
+  _httpPrefix?: string;
+};
 
 /**
  * Used to refer to an already-installed component.
@@ -204,6 +209,7 @@ function use<Definition extends ComponentDefinition<any>>(
   definition: Definition,
   options?: {
     name?: string;
+    httpPrefix?: string;
   },
 ): InstalledComponent<Definition> {
   // At runtime an imported component will have this shape.
@@ -232,7 +238,21 @@ function use<Definition extends ComponentDefinition<any>>(
     throw new Error("Component name cannot be empty.");
   }
 
-  this._childComponents.push([name, importedComponentDefinition, {}]);
+  const httpPrefix = options?.httpPrefix;
+  if (httpPrefix !== undefined) {
+    if (!httpPrefix.startsWith("/")) {
+      throw new Error(
+        `httpPrefix must start with "/". Received: "${httpPrefix}"`,
+      );
+    }
+  }
+
+  this._childComponents.push([
+    name,
+    importedComponentDefinition,
+    {},
+    httpPrefix,
+  ]);
   return new InstalledComponent(definition, name);
 }
 
@@ -255,10 +275,14 @@ function exportAppForAnalysis(
 ): AppDefinitionAnalysis {
   const definitionType = { type: "app" as const };
   const childComponents = serializeChildComponents(this._childComponents);
+  const httpMounts = buildHttpMounts(this._childComponents);
   return {
     definitionType,
+    ...(this._httpPrefix !== undefined
+      ? { httpPrefix: normalizeHttpPrefix(this._httpPrefix) }
+      : {}),
     childComponents: childComponents as any,
-    httpMounts: {},
+    httpMounts,
     exports: serializeExportTree(this._exportTree),
   };
 }
@@ -277,11 +301,35 @@ function serializeExportTree(tree: ExportTree): any {
   return { type: "branch", branch };
 }
 
+function normalizeHttpPrefix(prefix: string): string {
+  // Ensure the prefix ends with "/" as required by HttpMountPath in Rust.
+  return prefix.endsWith("/") ? prefix : prefix + "/";
+}
+
+function buildHttpMounts(
+  childComponents: [
+    string,
+    ImportedComponentDefinition,
+    Record<string, any> | null,
+    string | undefined,
+  ][],
+): Record<string, string> {
+  const httpMounts: Record<string, string> = {};
+  for (const [name, , , httpPrefix] of childComponents) {
+    if (httpPrefix !== undefined) {
+      const normalized = normalizeHttpPrefix(httpPrefix);
+      httpMounts[normalized] = `_reference/childComponent/${name}`;
+    }
+  }
+  return httpMounts;
+}
+
 function serializeChildComponents(
   childComponents: [
     string,
     ImportedComponentDefinition,
     Record<string, any> | null,
+    string | undefined,
   ][],
 ): {
   name: string;
@@ -289,6 +337,7 @@ function serializeChildComponents(
   args: [string, { type: "value"; value: string }][] | null;
 }[] {
   return childComponents.map(([name, definition, p]) => {
+    // Note: httpPrefix (4th element) is used separately in buildHttpMounts()
     let args: [string, { type: "value"; value: string }][] | null = null;
     if (p !== null) {
       args = [];
@@ -335,11 +384,12 @@ function exportComponentForAnalysis(
     args,
   };
   const childComponents = serializeChildComponents(this._childComponents);
+  const httpMounts = buildHttpMounts(this._childComponents);
   return {
     name: this._name,
     definitionType,
     childComponents: childComponents as any,
-    httpMounts: {},
+    httpMounts,
     exports: serializeExportTree(this._exportTree),
   };
 }
@@ -394,11 +444,18 @@ export function defineComponent<Exports extends ComponentExports = any>(
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
-export function defineApp(): AppDefinition {
+export function defineApp(options?: { httpPrefix?: string }): AppDefinition {
+  const httpPrefix = options?.httpPrefix;
+  if (httpPrefix !== undefined && !httpPrefix.startsWith("/")) {
+    throw new Error(
+      `httpPrefix must start with "/". Received: "${httpPrefix}"`,
+    );
+  }
   const ret: RuntimeAppDefinition = {
     _isRoot: true,
     _childComponents: [],
     _exportTree: {},
+    ...(httpPrefix !== undefined ? { _httpPrefix: httpPrefix } : {}),
 
     export: exportAppForAnalysis,
     use,

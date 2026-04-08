@@ -680,6 +680,22 @@
       "projectFolder": "tests/component-tests/projects/http_actions"
     },
     {
+      "packageName": "component-tests-http-mount-routing",
+      "projectFolder": "tests/component-tests/projects/http_mount_routing"
+    },
+    {
+      "packageName": "component-tests-http-prefix-and-mount-routing",
+      "projectFolder": "tests/component-tests/projects/http_prefix_and_mount_routing"
+    },
+    {
+      "packageName": "component-tests-http-legacy-routes",
+      "projectFolder": "tests/component-tests/projects/http_legacy_routes"
+    },
+    {
+      "packageName": "component-tests-http-no-prefix-mounting",
+      "projectFolder": "tests/component-tests/projects/http_no_prefix_mounting"
+    },
+    {
       "packageName": "scenario-runner",
       "projectFolder": "scenario-runner"
     },

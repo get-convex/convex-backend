@@ -63,6 +63,7 @@ use keybroker::{
     Identity,
 };
 use model::{
+    components::auth::propagate_component_auth,
     config::types::ModuleConfig,
     environment_variables::types::{
         EnvVarName,
@@ -443,6 +444,11 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 } = http_action_metadata.context("Missing http action metadata")?;
                 let log_line_sender =
                     log_line_sender.context("Missing log line sender for http action")?;
+                // Set the proper identity for component HTTP actions. Note that for HTTP,
+                // the component is both the caller and the callee.
+                let component_id = http_module_path.path().component;
+                let identity =
+                    propagate_component_auth(&identity, component_id, component_id.is_root());
                 let outcome = self
                     .isolate_client
                     .execute_http_action(

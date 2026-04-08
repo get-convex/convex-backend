@@ -50,6 +50,11 @@ pub struct ComponentDefinitionMetadata {
     )]
     pub http_mounts: BTreeMap<HttpMountPath, Reference>,
 
+    /// For App definitions only: the HTTP path prefix under which the app's
+    /// own `http.ts` routes are served. Child component mounts are specified
+    /// as absolute paths (via `http_mounts`) and are unaffected by this field.
+    pub http_prefix: Option<HttpMountPath>,
+
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
@@ -67,6 +72,7 @@ impl ComponentDefinitionMetadata {
             definition_type: ComponentDefinitionType::App,
             child_components: Vec::new(),
             http_mounts: BTreeMap::new(),
+            http_prefix: None,
             exports: BTreeMap::new(),
         }
     }
@@ -166,6 +172,7 @@ pub struct SerializedComponentDefinitionMetadata {
     definition_type: SerializedComponentDefinitionType,
     child_components: Vec<SerializedComponentInstantiation>,
     http_mounts: Option<BTreeMap<String, String>>,
+    http_prefix: Option<String>,
     exports: SerializedComponentExport,
 }
 
@@ -228,6 +235,7 @@ impl TryFrom<ComponentDefinitionMetadata> for SerializedComponentDefinitionMetad
                     .map(|(k, v)| (String::from(k), String::from(v)))
                     .collect(),
             ),
+            http_prefix: m.http_prefix.map(String::from),
             exports: ComponentExport::Branch(m.exports).try_into()?,
         })
     }
@@ -254,6 +262,7 @@ impl TryFrom<SerializedComponentDefinitionMetadata> for ComponentDefinitionMetad
                 .into_iter()
                 .map(|(k, v)| anyhow::Ok((k.parse()?, v.parse()?)))
                 .try_collect()?,
+            http_prefix: m.http_prefix.map(|s| s.parse()).transpose()?,
             exports,
         })
     }

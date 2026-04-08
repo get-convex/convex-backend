@@ -460,6 +460,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                         definition_id,
                         component_type,
                         state: ComponentState::Active,
+                        http_prefix: new_node.http_prefix.clone(),
                     })
                 })
                 .transpose()?;
@@ -780,6 +781,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                             definition_type: ComponentDefinitionType::App,
                             child_components: Vec::new(),
                             http_mounts: BTreeMap::new(),
+                            http_prefix: None,
                             exports: BTreeMap::new(),
                         },
                     )

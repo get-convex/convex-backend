@@ -45,6 +45,13 @@ pub struct CheckedComponent {
     pub definition_path: ComponentDefinitionPath,
     pub component_path: ComponentPath,
 
+    /// The HTTP path prefix under which this component's HTTP routes are
+    /// served. For the root component, this comes from `http_prefix` on
+    /// its definition. For child components, this is the mount path declared
+    /// in the parent's `http_mounts`. `None` if the component has no HTTP
+    /// prefix.
+    pub http_prefix: Option<String>,
+
     pub args: BTreeMap<Identifier, Resource>,
     pub child_components: BTreeMap<ComponentName, CheckedComponent>,
     pub http_routes: CheckedHttpRoutes,
@@ -88,7 +95,18 @@ impl<'a> TypecheckContext<'a> {
         let definition_path = ComponentDefinitionPath::root();
         let component_path = ComponentPath::root();
         let args = BTreeMap::new();
-        self.instantiate(definition_path, component_path, args)
+        let evaluated = self
+            .evaluated_definitions
+            .get(&definition_path)
+            .ok_or_else(|| {
+                ErrorMetadata::bad_request("TypecheckError", "Root component definition not found")
+            })?;
+        let http_prefix = evaluated
+            .definition
+            .http_prefix
+            .as_ref()
+            .map(|p| p.to_string());
+        self.instantiate(definition_path, component_path, args, http_prefix)
             .await
     }
 
@@ -98,6 +116,7 @@ impl<'a> TypecheckContext<'a> {
         definition_path: ComponentDefinitionPath,
         component_path: ComponentPath,
         args: BTreeMap<Identifier, Resource>,
+        http_prefix: Option<String>,
     ) -> anyhow::Result<CheckedComponent> {
         let evaluated = self
             .evaluated_definitions
@@ -115,6 +134,26 @@ impl<'a> TypecheckContext<'a> {
             evaluated,
             args,
         )?;
+
+        // Pre-compute the HTTP mount path for each child component by name.
+        // Child mount paths are absolute from the deployment root.
+        let http_mount_by_child: BTreeMap<ComponentName, &HttpMountPath> = evaluated
+            .definition
+            .http_mounts
+            .iter()
+            .filter_map(|(mount_path, reference)| {
+                if let Reference::ChildComponent {
+                    component: name,
+                    attributes,
+                } = reference
+                    && attributes.is_empty()
+                {
+                    Some((name.clone(), mount_path))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // Instantiate our children in order, since we'd like to support one
         // instantiation depending on another (e.g. passing a function reference
@@ -138,11 +177,31 @@ impl<'a> TypecheckContext<'a> {
                 },
             };
             let child_component_path = component_path.push(instantiation.name.clone());
+            // The child's http_prefix is its absolute mount path (if mounted via HTTP).
+            let child_http_prefix =
+                http_mount_by_child
+                    .get(&instantiation.name)
+                    .map(|mount_path| {
+                        let mount_str: &str = mount_path;
+                        // For non-root components, the http_prefix is the
+                        // absolute URL path where the parent is mounted, so we
+                        // compose it with the child's mount path. For the root,
+                        // http_prefix is the app's httpPrefix (only affects the
+                        // root's own routes), and mount paths are already
+                        // absolute.
+                        if !component_path.is_root()
+                            && let Some(parent_prefix) = &http_prefix
+                        {
+                            return format!("{}{}", parent_prefix.trim_end_matches('/'), mount_str);
+                        }
+                        mount_str.to_string()
+                    });
             let child_component = self
                 .instantiate(
                     instantiation.path.clone(),
                     child_component_path,
                     resolved_args,
+                    child_http_prefix,
                 )
                 .await?;
             builder.insert_child_component(instantiation.name.clone(), child_component)?;
@@ -154,7 +213,7 @@ impl<'a> TypecheckContext<'a> {
         }
 
         // Finally, resolve our exports and build the component.
-        let component = builder.build_exports()?;
+        let component = builder.build_exports(http_prefix)?;
 
         Ok(component)
     }
@@ -326,12 +385,13 @@ impl<'a> CheckedComponentBuilder<'a> {
         Ok(())
     }
 
-    fn build_exports(self) -> anyhow::Result<CheckedComponent> {
+    fn build_exports(self, http_prefix: Option<String>) -> anyhow::Result<CheckedComponent> {
         let exports = file_based_exports(&self.evaluated.functions)?;
         let exports = self.resolve_exports(&exports)?;
         Ok(CheckedComponent {
             definition_path: self.definition_path.clone(),
             component_path: self.component_path.clone(),
+            http_prefix,
             args: self.args,
             http_routes: self.http_routes,
             child_components: self.child_components,
@@ -501,6 +561,14 @@ impl CheckedHttpRoutes {
             .unwrap_or(true)
             && self.mounts.is_empty()
     }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn for_testing(routes: Option<Vec<HttpActionRoute>>) -> Self {
+        Self {
+            http_module_routes: routes,
+            mounts: BTreeSet::new(),
+        }
+    }
 }
 
 mod json {
@@ -526,6 +594,7 @@ mod json {
     pub struct SerializedCheckedComponent {
         definition_path: String,
         component_path: String,
+        http_prefix: Option<String>,
 
         args: BTreeMap<String, SerializedResource>,
         child_components: BTreeMap<String, SerializedCheckedComponent>,
@@ -540,6 +609,7 @@ mod json {
             Ok(Self {
                 definition_path: String::from(value.definition_path),
                 component_path: String::from(value.component_path),
+                http_prefix: value.http_prefix,
                 args: value
                     .args
                     .into_iter()
@@ -567,6 +637,7 @@ mod json {
             Ok(Self {
                 definition_path: value.definition_path.parse()?,
                 component_path: value.component_path.parse()?,
+                http_prefix: value.http_prefix,
                 args: value
                     .args
                     .into_iter()
@@ -682,3 +753,67 @@ pub use self::json::{
     SerializedCheckedComponent,
     SerializedResourceTree,
 };
+
+#[cfg(test)]
+mod tests {
+    use common::types::{
+        HttpActionRoute,
+        RoutableMethod,
+    };
+    use errors::ErrorMetadataAnyhowExt;
+
+    use super::CheckedHttpRoutes;
+
+    fn prefix_route(path: &str) -> HttpActionRoute {
+        HttpActionRoute {
+            method: RoutableMethod::Get,
+            path: path.to_string(),
+            matched: true,
+        }
+    }
+
+    #[test]
+    fn mount_succeeds_with_no_conflicts() {
+        let mut checked = CheckedHttpRoutes::for_testing(None);
+        checked.mount("/api/".parse().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn mount_fails_on_duplicate() {
+        let mut checked = CheckedHttpRoutes::for_testing(None);
+        checked.mount("/api/".parse().unwrap()).unwrap();
+        let result = checked.mount("/api/".parse().unwrap());
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.is_bad_request());
+        assert_eq!(err.short_msg(), "TypecheckError");
+        assert!(
+            err.to_string()
+                .contains("Overlap with previously mounted route"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn mount_fails_when_prefix_route_overlaps() {
+        let routes = vec![prefix_route("/api/*")];
+        let mut checked = CheckedHttpRoutes::for_testing(Some(routes));
+        let result = checked.mount("/api/".parse().unwrap());
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.is_bad_request());
+        assert_eq!(err.short_msg(), "TypecheckError");
+        assert!(
+            err.to_string()
+                .contains("Overlap with existing prefix route"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn mount_succeeds_when_non_overlapping_prefix_route_exists() {
+        let routes = vec![prefix_route("/other/*")];
+        let mut checked = CheckedHttpRoutes::for_testing(Some(routes));
+        checked.mount("/api/".parse().unwrap()).unwrap();
+    }
+}

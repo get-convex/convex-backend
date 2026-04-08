@@ -147,14 +147,14 @@ pub struct HttpActionRoute {
 impl HttpActionRoute {
     pub fn overlaps_with_mount(&self, mount_path: &HttpMountPath) -> bool {
         // Only prefix routes can overlap with mounts.
-        let Some(mut suffix) = mount_path.strip_suffix('*') else {
+        let Some(mut prefix) = self.path.strip_suffix('*') else {
             return false;
         };
         // For backwards compatibility, permit bare `*` paths as a synonym for `/*`.
-        if suffix.is_empty() {
-            suffix = "/";
+        if prefix.is_empty() {
+            prefix = "/";
         }
-        suffix == &mount_path[..]
+        prefix == &mount_path[..]
     }
 }
 
@@ -221,7 +221,19 @@ impl TryFrom<SerializedHttpActionRoute> for HttpActionRoute {
 mod tests {
     use value::assert_obj;
 
-    use super::NodeDependency;
+    use super::{
+        HttpActionRoute,
+        NodeDependency,
+        RoutableMethod,
+    };
+
+    fn route(method: RoutableMethod, path: &str) -> HttpActionRoute {
+        HttpActionRoute {
+            method,
+            path: path.to_string(),
+            matched: true,
+        }
+    }
 
     #[test]
     fn test_backwards_compatibility() {
@@ -237,5 +249,29 @@ mod tests {
                 version: "1.0.0".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn prefix_route_overlaps_with_matching_mount() {
+        let r = route(RoutableMethod::Get, "/api/*");
+        assert!(r.overlaps_with_mount(&"/api/".parse().unwrap()));
+    }
+
+    #[test]
+    fn prefix_route_does_not_overlap_with_different_mount() {
+        let r = route(RoutableMethod::Get, "/api/*");
+        assert!(!r.overlaps_with_mount(&"/other/".parse().unwrap()));
+    }
+
+    #[test]
+    fn exact_route_does_not_overlap_with_mount() {
+        let r = route(RoutableMethod::Get, "/api/foo");
+        assert!(!r.overlaps_with_mount(&"/api/".parse().unwrap()));
+    }
+
+    #[test]
+    fn bare_star_overlaps_with_root_mount() {
+        let r = route(RoutableMethod::Get, "*");
+        assert!(r.overlaps_with_mount(&"/".parse().unwrap()));
     }
 }

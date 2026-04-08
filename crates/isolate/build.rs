@@ -40,16 +40,26 @@ const COMPONENT_TESTS_DIR: &str = "../../npm-packages/tests/component-tests";
 const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: [&str; 3] = [".rush", "node_modules", "projects"];
 /// Directory where test projects that use components live.
 const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/tests/component-tests/projects";
-const COMPONENT_TESTS_PROJECTS: [&str; 6] = [
+const COMPONENT_TESTS_PROJECTS: [&str; 10] = [
     "basic",
     "with-schema",
     "schema_with_index",
     "mounted",
     "empty",
     "http_actions",
+    "http_mount_routing",
+    "http_prefix_and_mount_routing",
+    "http_legacy_routes",
+    "http_no_prefix_mounting",
 ];
 /// Components in `component-tests` directory that are used in projects.
-const COMPONENTS: [&str; 3] = ["component", "envVars", "errors"];
+const COMPONENTS: [&str; 5] = [
+    "component",
+    "envVars",
+    "errors",
+    "httpComponent",
+    "httpGrandchild",
+];
 
 const ADMIN_KEY: &str = include_str!("../keybroker/dev/admin_key.txt");
 

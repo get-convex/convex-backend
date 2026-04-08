@@ -12,7 +12,10 @@ export const componentArgumentValidator = looseObject({
 });
 
 export const componentDefinitionType = z.union([
-  looseObject({ type: z.literal("app") }),
+  looseObject({
+    type: z.literal("app"),
+    httpPrefix: z.string().optional(),
+  }),
   looseObject({
     type: z.literal("childComponent"),
     name: identifier,

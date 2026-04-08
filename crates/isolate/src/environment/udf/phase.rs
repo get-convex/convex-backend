@@ -44,7 +44,10 @@ use rand::{
 };
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
-use udf::environment::system_env_vars;
+use udf::environment::{
+    system_env_vars,
+    CONVEX_SITE,
+};
 use value::{
     identifier::Identifier,
     ConvexValue,
@@ -175,12 +178,35 @@ impl<RT: Runtime> UdfPhase<RT> {
             None
         };
 
-        let system_env_vars = timeout
+        let mut system_env_vars = timeout
             .with_release_permit(
                 PauseReason::LoadSystemEnvironmentVariables,
                 system_env_vars(self.tx_mut()?, default_system_env_vars.clone()),
             )
             .await?;
+
+        // For non-root components with an HTTP prefix, override CONVEX_SITE_URL
+        // with the prefixed URL so components can construct correct absolute URLs.
+        if !component.is_root() {
+            let component_metadata = timeout
+                .with_release_permit(
+                    PauseReason::LoadComponentArgs,
+                    BootstrapComponentsModel::new(self.tx_mut()?).load_component(component),
+                )
+                .await?;
+            if let Some(http_prefix) = component_metadata
+                .as_ref()
+                .and_then(|m| m.http_prefix.as_deref())
+                && let Some(base_url) = system_env_vars.get(&*CONVEX_SITE).cloned()
+            {
+                let prefixed_url = format!(
+                    "{}{}",
+                    base_url.as_ref().trim_end_matches('/'),
+                    http_prefix.trim_end_matches('/')
+                );
+                system_env_vars.insert(CONVEX_SITE.clone(), prefixed_url.parse()?);
+            }
+        }
 
         self.preloaded = UdfPreloaded::Ready {
             rng,
@@ -391,7 +417,9 @@ impl<RT: Runtime> UdfPhase<RT> {
             .as_mut()
             .context("Transaction missing due to concurrent component call")?;
         let Some(env_vars) = env_vars else {
-            return Ok(None);
+            // Non-root components don't have user env vars, but system env vars
+            // (such as the prefixed CONVEX_SITE_URL) are still accessible.
+            return Ok(system_env_vars.get(&name).cloned());
         };
         if let Some(var) = env_vars.get(tx, &name)? {
             return Ok(Some(var));

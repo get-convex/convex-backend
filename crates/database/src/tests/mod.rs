@@ -2562,6 +2562,7 @@ async fn test_occ_error_component_path_for_child_component(rt: TestRuntime) -> a
                 child_components: Vec::new(),
                 http_mounts: BTreeMap::new(),
                 exports: BTreeMap::new(),
+                http_prefix: None,
             }
             .try_into()?,
         )
@@ -2579,6 +2580,7 @@ async fn test_occ_error_component_path_for_child_component(rt: TestRuntime) -> a
                 }],
                 http_mounts: BTreeMap::new(),
                 exports: BTreeMap::new(),
+                http_prefix: None,
             }
             .try_into()?,
         )
@@ -2590,6 +2592,7 @@ async fn test_occ_error_component_path_for_child_component(rt: TestRuntime) -> a
                 definition_id: root_definition_id.into(),
                 component_type: ComponentType::App,
                 state: ComponentState::Active,
+                http_prefix: None,
             }
             .try_into()?,
         )
@@ -2605,6 +2608,7 @@ async fn test_occ_error_component_path_for_child_component(rt: TestRuntime) -> a
                     args: Default::default(),
                 },
                 state: ComponentState::Active,
+                http_prefix: None,
             }
             .try_into()?,
         )
