@@ -46,10 +46,7 @@ use value::{
 };
 
 use crate::{
-    admin::{
-        must_be_admin,
-        must_be_admin_from_key,
-    },
+    admin::must_be_admin_from_key,
     authentication::ExtractIdentity,
     public_api::{
         export_value,
@@ -236,7 +233,7 @@ pub async fn check_admin_key(
     State(_st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     Ok(Json(json!({ "success": true })))
 }
 

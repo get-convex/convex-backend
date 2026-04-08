@@ -23,7 +23,6 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
-    admin::must_be_admin,
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -67,7 +66,7 @@ pub async fn get_deployment_info(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
 
     let mut tx = st.application.begin(identity).await?;
     let backend_info_doc = BackendInfoModel::new(&mut tx).get().await?;
