@@ -421,6 +421,9 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
 // Helpers for `loadSelectedDeploymentCredentials`
 // ----------------------------------------------------------------------
 
+// Returns the user's own dev deployment, which may be a local deployment
+// if one is configured. Used for dev commands (including `npx convex dev`)
+// when no specific deployment is specified.
 async function handleOwnDev(
   ctx: Context,
   projectSelection: ProjectSelection,
@@ -680,8 +683,31 @@ async function handleRefInProject(
   deploymentType: DeploymentType;
 }> {
   switch (selector.kind) {
-    case "dev":
-      return await handleOwnDev(ctx, projectSelection);
+    case "dev": {
+      const access = await checkAccessToSelectedProject(ctx, projectSelection);
+      if (access.kind !== "hasAccess") {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "You don't have access to the selected project. Run `npx convex dev` to select a different project.",
+        });
+      }
+      const deploymentName = await resolveDefaultCloudDevDeploymentName(
+        ctx,
+        access.teamSlug,
+        access.projectSlug,
+      );
+      // Pass teamAndProjectSlugs instead of the original projectSelection,
+      // because handleDeploymentName sends projectSelection to Big Brain's
+      // authorize_within_current_project endpoint, which doesn't understand
+      // deploymentType "local".
+      return await handleDeploymentName(ctx, deploymentName, {
+        kind: "teamAndProjectSlugs",
+        teamSlug: access.teamSlug,
+        projectSlug: access.projectSlug,
+      });
+    }
     case "prod":
       return await handleProd(ctx, projectSelection);
     case "reference": {
@@ -971,4 +997,36 @@ export async function getTeamsForUser(ctx: Context) {
     },
   );
   return teams;
+}
+
+async function resolveDefaultCloudDevDeploymentName(
+  ctx: Context,
+  teamSlug: string,
+  projectSlug: string,
+): Promise<string> {
+  try {
+    const result = await typedPlatformClient(ctx, { throw: true }).GET(
+      "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
+      {
+        params: {
+          path: { team_id_or_slug: teamSlug, project_slug: projectSlug },
+          query: { defaultDev: true },
+        },
+      },
+    );
+    return result.data!.name;
+  } catch (err) {
+    if (
+      err instanceof ThrowingFetchError &&
+      err.serverErrorData?.code === "DeploymentNotFound"
+    ) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `You don’t have a personal cloud dev deployment in this project. Run ${chalkStderr.bold("npx convex deployment create --type dev --default")} to create one.`,
+        errForSentry: err,
+      });
+    }
+    return await logAndHandleFetchError(ctx, err);
+  }
 }

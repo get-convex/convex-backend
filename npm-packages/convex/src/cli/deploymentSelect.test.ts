@@ -186,20 +186,36 @@ describe("npx convex select", () => {
           teamId: 1,
           projectId: 1,
         }),
-        "deployment/provision_and_authorize": () => ({
+        "teams/my-team/projects/my-project/deployments": () => true,
+        "deployment/authorize_within_current_project": () => ({
           adminKey: "dev-key",
           url: "https://joyful-capybara-123.convex.cloud",
           deploymentName: "joyful-capybara-123",
           deploymentType: "dev",
         }),
       });
+      mockPlatformGet.mockResolvedValue({
+        data: { name: "joyful-capybara-123" },
+        error: undefined,
+      });
 
       await deploymentSelect.parseAsync(["dev"], { from: "user" });
 
-      expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+      expect(mockPlatformGet).toHaveBeenCalledWith(
+        "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
         expect.objectContaining({
-          path: "deployment/provision_and_authorize",
-          data: expect.objectContaining({ deploymentType: "dev" }),
+          params: expect.objectContaining({
+            path: { team_id_or_slug: "my-team", project_slug: "my-project" },
+            query: { defaultDev: true },
+          }),
+        }),
+      );
+      expect(bigBrainAPI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "deployment/authorize_within_current_project",
+          data: expect.objectContaining({
+            selectedDeploymentName: "joyful-capybara-123",
+          }),
         }),
       );
       const envContent = testFiles.get(path.resolve(".env.local"))!;
@@ -357,12 +373,17 @@ describe("npx convex select", () => {
             teamId: 1,
             projectId: 1,
           }),
-          "deployment/provision_and_authorize": () => ({
+          "teams/my-team/projects/my-project/deployments": () => true,
+          "deployment/authorize_within_current_project": () => ({
             adminKey: "dev-key",
             url: "https://joyful-capybara-123.convex.cloud",
             deploymentName: "joyful-capybara-123",
             deploymentType: "dev",
           }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "joyful-capybara-123" },
+          error: undefined,
         });
 
         await deploymentSelect.parseAsync(["dev"], { from: "user" });
@@ -384,12 +405,17 @@ describe("npx convex select", () => {
             teamId: 1,
             projectId: 1,
           }),
-          "deployment/provision_and_authorize": () => ({
+          "teams/my-team/projects/my-project/deployments": () => true,
+          "deployment/authorize_within_current_project": () => ({
             adminKey: "dev-key",
             url: "https://joyful-capybara-123.convex.cloud",
             deploymentName: "joyful-capybara-123",
             deploymentType: "dev",
           }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "joyful-capybara-123" },
+          error: undefined,
         });
 
         await deploymentSelect.parseAsync(["dev"], { from: "user" });
@@ -412,12 +438,17 @@ describe("npx convex select", () => {
             teamId: 1,
             projectId: 1,
           }),
-          "deployment/provision_and_authorize": () => ({
+          "teams/my-team/projects/my-project/deployments": () => true,
+          "deployment/authorize_within_current_project": () => ({
             adminKey: "dev-key",
             url: "https://joyful-capybara-123.convex.cloud",
             deploymentName: "joyful-capybara-123",
             deploymentType: "dev",
           }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "joyful-capybara-123" },
+          error: undefined,
         });
 
         await deploymentSelect.parseAsync(["dev"], { from: "user" });

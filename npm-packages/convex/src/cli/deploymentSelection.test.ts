@@ -918,11 +918,17 @@ describe("deployment selection flows", () => {
             teamId: 1,
             projectId: 1,
           }),
-          "deployment/provision_and_authorize": () => ({
+          "teams/my-team/projects/my-project/deployments": () => true,
+          "deployment/authorize_within_current_project": () => ({
             adminKey: "dev-key",
             url: "https://joyful-capybara-123.convex.cloud",
             deploymentName: "joyful-capybara-123",
+            deploymentType: "dev",
           }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "joyful-capybara-123" },
+          error: undefined,
         });
 
         const mockFetch = vi.fn().mockResolvedValue({ ok: true });
@@ -932,10 +938,24 @@ describe("deployment selection flows", () => {
           from: "user",
         });
 
-        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect(mockPlatformGet).toHaveBeenCalledWith(
+          "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
           expect.objectContaining({
-            path: "deployment/provision_and_authorize",
-            data: expect.objectContaining({ deploymentType: "dev" }),
+            params: expect.objectContaining({
+              path: {
+                team_id_or_slug: "my-team",
+                project_slug: "my-project",
+              },
+              query: { defaultDev: true },
+            }),
+          }),
+        );
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
+            data: expect.objectContaining({
+              selectedDeploymentName: "joyful-capybara-123",
+            }),
           }),
         );
       });
@@ -1177,11 +1197,17 @@ describe("deployment selection flows", () => {
             teamId: 1,
             projectId: 1,
           }),
-          "deployment/provision_and_authorize": () => ({
+          "teams/my-team/projects/other-project/deployments": () => true,
+          "deployment/authorize_within_current_project": () => ({
             adminKey: "other-project-dev-key",
             url: "https://other-project-dev.convex.cloud",
             deploymentName: "other-project-dev",
+            deploymentType: "dev",
           }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "other-project-dev" },
+          error: undefined,
         });
 
         const mockFetch = vi.fn().mockResolvedValue({ ok: true });
@@ -1192,13 +1218,23 @@ describe("deployment selection flows", () => {
           { from: "user" },
         );
 
-        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect(mockPlatformGet).toHaveBeenCalledWith(
+          "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
           expect.objectContaining({
-            path: "deployment/provision_and_authorize",
+            params: expect.objectContaining({
+              path: {
+                team_id_or_slug: "my-team",
+                project_slug: "other-project",
+              },
+              query: { defaultDev: true },
+            }),
+          }),
+        );
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
             data: expect.objectContaining({
-              teamSlug: "my-team",
-              projectSlug: "other-project",
-              deploymentType: "dev",
+              selectedDeploymentName: "other-project-dev",
             }),
           }),
         );
@@ -1293,11 +1329,16 @@ describe("deployment selection flows", () => {
       it("resolves --deployment team:project:dev to dev deployment in fully qualified team/project", async () => {
         setupBigBrainRoutes({
           "teams/myteam/projects/myproject/deployments": () => true,
-          "deployment/provision_and_authorize": () => ({
+          "deployment/authorize_within_current_project": () => ({
             adminKey: "fq-dev-key",
             url: "https://fq-dev-deploy.convex.cloud",
             deploymentName: "fq-dev-deploy",
+            deploymentType: "dev",
           }),
+        });
+        mockPlatformGet.mockResolvedValue({
+          data: { name: "fq-dev-deploy" },
+          error: undefined,
         });
 
         const mockFetch = vi.fn().mockResolvedValue({ ok: true });
@@ -1308,13 +1349,23 @@ describe("deployment selection flows", () => {
           { from: "user" },
         );
 
-        expect(bigBrainAPIMaybeThrows).toHaveBeenCalledWith(
+        expect(mockPlatformGet).toHaveBeenCalledWith(
+          "/teams/{team_id_or_slug}/projects/{project_slug}/deployment",
           expect.objectContaining({
-            path: "deployment/provision_and_authorize",
+            params: expect.objectContaining({
+              path: {
+                team_id_or_slug: "myteam",
+                project_slug: "myproject",
+              },
+              query: { defaultDev: true },
+            }),
+          }),
+        );
+        expect(bigBrainAPI).toHaveBeenCalledWith(
+          expect.objectContaining({
+            path: "deployment/authorize_within_current_project",
             data: expect.objectContaining({
-              teamSlug: "myteam",
-              projectSlug: "myproject",
-              deploymentType: "dev",
+              selectedDeploymentName: "fq-dev-deploy",
             }),
           }),
         );
