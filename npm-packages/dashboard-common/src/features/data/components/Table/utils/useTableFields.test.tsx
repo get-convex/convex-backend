@@ -162,6 +162,57 @@ describe("useTableFields", () => {
     expect(result.current).toEqual(["_id", "name", "_creationTime"]);
   });
 
+  it("preserves schema field order instead of sorting alphabetically", () => {
+    const shape: Shape = {
+      type: "Record",
+      keyShape: { type: "String" },
+      valueShape: {
+        optional: false,
+        shape: { type: "Boolean" },
+      },
+    };
+    const activeSchema: SchemaJson = {
+      schemaValidation: true,
+      tables: [
+        {
+          tableName: "test",
+          documentType: {
+            type: "object",
+            value: {
+              zebra: {
+                fieldType: { type: "string" },
+                optional: false,
+              },
+              apple: {
+                fieldType: { type: "string" },
+                optional: false,
+              },
+              middle: {
+                fieldType: { type: "string" },
+                optional: false,
+              },
+            },
+          },
+          indexes: [],
+          searchIndexes: [],
+        },
+      ],
+    };
+
+    const { result } = renderHook(() =>
+      useTableFields("test", shape, activeSchema, []),
+    );
+
+    // Fields should be in schema order (zebra, apple, middle) not alphabetical (apple, middle, zebra)
+    expect(result.current).toEqual([
+      "_id",
+      "_creationTime",
+      "zebra",
+      "apple",
+      "middle",
+    ]);
+  });
+
   it("preserves partial schema-derived fields while shape is loading", () => {
     const activeSchema: SchemaJson = {
       schemaValidation: false,
