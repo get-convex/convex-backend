@@ -35,7 +35,7 @@ import { handlePotentialUpgrade } from "./upgrade.js";
 import {
   isOffline,
   generateInstanceSecret,
-  choosePorts,
+  chooseLocalBackendPorts,
   LOCAL_BACKEND_INSTANCE_SECRET,
 } from "./utils.js";
 import { handleDashboard } from "./dashboard.js";
@@ -147,11 +147,10 @@ export async function handleAnonymousDeployment(
     adminKey = data.adminKey;
   }
 
-  const [cloudPort, sitePort] = await choosePorts(ctx, {
-    count: 2,
-    startPort: 3210,
-    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
-  });
+  const { cloudPort, sitePort } = await chooseLocalBackendPorts(
+    ctx,
+    options.ports,
+  );
   const onActivity = async (isOffline: boolean, _wasOffline: boolean) => {
     await ensureBackendRunning(ctx, {
       cloudPort,

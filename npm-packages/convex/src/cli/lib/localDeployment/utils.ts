@@ -39,6 +39,18 @@ export async function choosePorts(
   return ports;
 }
 
+export async function chooseLocalBackendPorts(
+  ctx: Context,
+  ports?: { cloud?: number | null; site?: number | null },
+): Promise<{ cloudPort: number; sitePort: number }> {
+  const [cloudPort, sitePort] = await choosePorts(ctx, {
+    count: 2,
+    startPort: 3210,
+    requestedPorts: [ports?.cloud ?? null, ports?.site ?? null],
+  });
+  return { cloudPort, sitePort };
+}
+
 export async function isOffline(): Promise<boolean> {
   // TODO(ENG-7080) -- implement this for real
   return false;

@@ -25,7 +25,7 @@ import { OnDeploymentActivityFunc } from "../deployment.js";
 import { promptSearch } from "../utils/prompts.js";
 import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
 import {
-  choosePorts,
+  chooseLocalBackendPorts,
   printLocalDeploymentWelcomeMessage,
   isOffline,
   LOCAL_BACKEND_INSTANCE_SECRET,
@@ -93,11 +93,10 @@ export async function handleLocalDeployment(
         }
       : { kind: "version", version: options.backendVersion },
   );
-  const [cloudPort, sitePort] = await choosePorts(ctx, {
-    count: 2,
-    startPort: 3210,
-    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
-  });
+  const { cloudPort, sitePort } = await chooseLocalBackendPorts(
+    ctx,
+    options.ports,
+  );
   const { deploymentName, adminKey } = await bigBrainStart(ctx, {
     port: cloudPort,
     projectSlug: options.projectSlug,
@@ -207,11 +206,10 @@ async function handleOffline(
     kind: "version",
     version: config.backendVersion,
   });
-  const [cloudPort, sitePort] = await choosePorts(ctx, {
-    count: 2,
-    startPort: 3210,
-    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
-  });
+  const { cloudPort, sitePort } = await chooseLocalBackendPorts(
+    ctx,
+    options.ports,
+  );
   saveDeploymentConfig(ctx, "local", deploymentName, config);
   await runLocalBackend(ctx, {
     binaryPath,
