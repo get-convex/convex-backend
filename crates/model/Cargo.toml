@@ -13,6 +13,7 @@ testing = [
     "common/testing",
     "database/testing",
     "errors/testing",
+    "fivetran_destination/testing",
     "keybroker/testing",
     "metrics/testing",
     "migrations_model/testing",
@@ -80,6 +81,7 @@ value = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
+fivetran_destination = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
 migrations_model = { workspace = true, features = ["testing"] }

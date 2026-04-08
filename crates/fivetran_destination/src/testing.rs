@@ -2,20 +2,21 @@ use fivetran_common::fivetran_sdk::{
     self,
     DataType as FivetranDataType,
 };
-use fivetran_destination::{
-    api_types::FivetranFieldName,
-    constants::{
-        ID_FIVETRAN_FIELD_NAME,
-        SOFT_DELETE_FIVETRAN_FIELD_NAME,
-        SYNCED_FIVETRAN_FIELD_NAME,
-    },
-};
 use proptest::{
     arbitrary::any,
     prop_oneof,
     strategy::{
         Just,
         Strategy,
+    },
+};
+
+use crate::{
+    api_types::FivetranFieldName,
+    constants::{
+        ID_FIVETRAN_FIELD_NAME,
+        SOFT_DELETE_FIVETRAN_FIELD_NAME,
+        SYNCED_FIVETRAN_FIELD_NAME,
     },
 };
 

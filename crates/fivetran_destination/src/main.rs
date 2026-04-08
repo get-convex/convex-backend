@@ -11,24 +11,15 @@ use std::net::{
 };
 
 use clap::Parser;
-use connector::ConvexFivetranDestination;
 use fivetran_common::fivetran_sdk::destination_connector_server::DestinationConnectorServer;
-use serde::Serialize;
+use fivetran_destination::{
+    connector::ConvexFivetranDestination,
+    log,
+};
 use tonic::{
     codec::CompressionEncoding,
     transport::Server,
 };
-
-mod aes;
-mod application;
-pub mod connector;
-mod convert;
-mod convex_api;
-mod error;
-mod file_reader;
-mod schema;
-#[cfg(test)]
-mod testing;
 
 /// The command-line arguments received by the destination.
 #[derive(Parser, Debug)]
@@ -58,23 +49,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "kebab-case")]
-struct LogLine<'a> {
-    level: &'a str,
-    message: &'a str,
-    message_origin: &'a str,
-}
-pub fn log(message: &str) {
-    let result = serde_json::to_string(&LogLine {
-        level: "INFO",
-        message,
-        message_origin: "sdk_destination",
-    });
-    match result {
-        Ok(msg) => println!("{msg}"),
-        Err(e) => println!("Unable to serialize to json: {message}: {e}"),
-    }
 }

@@ -145,44 +145,47 @@ fn main() -> anyhow::Result<()> {
 
     // Note that we only include the component directory,`convex` directory, and
     // package.json so we ignore changes to rush files.
-    rerun_if_changed("../../npm-packages/tests/udf-tests/convex/")?;
-    rerun_if_changed("../../npm-packages/tests/udf-tests/src/")?;
-    rerun_if_changed("../../npm-packages/tests/udf-tests/package.json")?;
-    rerun_if_changed("../../npm-packages/tests/component-tests/package.json")?;
-    for component in COMPONENTS {
-        rerun_if_changed(&format!(
-            "../../npm-packages/tests/component-tests/{component}/"
-        ))?;
-    }
-    // Make sure we are not missing any directories that could be components.
-    for dir in fs::read_dir(COMPONENT_TESTS_DIR)? {
-        let dir = dir?;
-        if dir.path().is_dir() {
-            let dir_name = dir.file_name();
-            let dir_name = dir_name
-                .to_str()
-                .context("Failed to convert dir_name to string")?;
-            if !COMPONENTS.contains(&dir_name)
-                && !COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS.contains(&dir_name)
-            {
-                anyhow::bail!(
-                    "Found directory in component-tests that is not in `COMPONENTS`. Please add \
-                     it: {}",
-                    dir_name
-                );
+    let has_tests = Path::new("../../npm-packages/tests/udf-tests/convex/").exists();
+    if has_tests {
+        rerun_if_changed("../../npm-packages/tests/udf-tests/convex/")?;
+        rerun_if_changed("../../npm-packages/tests/udf-tests/src/")?;
+        rerun_if_changed("../../npm-packages/tests/udf-tests/package.json")?;
+        rerun_if_changed("../../npm-packages/tests/component-tests/package.json")?;
+        for component in COMPONENTS {
+            rerun_if_changed(&format!(
+                "../../npm-packages/tests/component-tests/{component}/"
+            ))?;
+        }
+        // Make sure we are not missing any directories that could be components.
+        for dir in fs::read_dir(COMPONENT_TESTS_DIR)? {
+            let dir = dir?;
+            if dir.path().is_dir() {
+                let dir_name = dir.file_name();
+                let dir_name = dir_name
+                    .to_str()
+                    .context("Failed to convert dir_name to string")?;
+                if !COMPONENTS.contains(&dir_name)
+                    && !COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS.contains(&dir_name)
+                {
+                    anyhow::bail!(
+                        "Found directory in component-tests that is not in `COMPONENTS`. Please \
+                         add it: {}",
+                        dir_name
+                    );
+                }
             }
         }
-    }
-    rerun_if_changed("../../npm-packages/tests/component-tests/component/")?;
-    rerun_if_changed("../../npm-packages/tests/component-tests/envVars/")?;
-    rerun_if_changed("../../npm-packages/tests/component-tests/errors/")?;
-    for project in COMPONENT_TESTS_PROJECTS {
-        rerun_if_changed(&format!(
-            "../../npm-packages/tests/component-tests/projects/{project}/convex"
-        ))?;
-        rerun_if_changed(&format!(
-            "../../npm-packages/tests/component-tests/projects/{project}/package.json"
-        ))?;
+        rerun_if_changed("../../npm-packages/tests/component-tests/component/")?;
+        rerun_if_changed("../../npm-packages/tests/component-tests/envVars/")?;
+        rerun_if_changed("../../npm-packages/tests/component-tests/errors/")?;
+        for project in COMPONENT_TESTS_PROJECTS {
+            rerun_if_changed(&format!(
+                "../../npm-packages/tests/component-tests/projects/{project}/convex"
+            ))?;
+            rerun_if_changed(&format!(
+                "../../npm-packages/tests/component-tests/projects/{project}/package.json"
+            ))?;
+        }
     }
 
     // This is a little janky because we aren't including the node_modules directory
@@ -215,23 +218,17 @@ fn main() -> anyhow::Result<()> {
         anyhow::ensure!(output.status.success(), "Failed to 'rush install'");
         break;
     }
-    let status = Command::new(RUSH)
-        .current_dir(PACKAGES_DIR)
-        .args([
-            "build",
-            "-t",
-            "convex",
-            "-t",
-            "node-executor",
-            "-t",
-            "udf-runtime",
-            "-t",
-            "udf-tests",
-            "-t",
-            "simulation",
-        ])
-        .status()
-        .context("Failed on rush build")?;
+    let mut pkgs = vec!["convex", "node-executor", "udf-runtime"];
+    if has_tests {
+        pkgs.extend(["simulation", "udf-tests"]);
+    }
+    let mut cmd = Command::new(RUSH);
+    cmd.current_dir(PACKAGES_DIR).arg("build");
+    for pkg in pkgs {
+        cmd.arg("-t");
+        cmd.arg(pkg);
+    }
+    let status = cmd.status().context("Failed on rush build")?;
     anyhow::ensure!(status.success(), "Failed to 'rush build'");
     // Step 2: Use `build-server` to package up our builtin `_system` UDFs.
     let output = Command::new(NPM)
@@ -280,56 +277,61 @@ fn main() -> anyhow::Result<()> {
     }
     write_bundles(out_dir, "node_executor_js_data.rs", bundles)?;
 
-    // Step 5: Build and bundle the udf test project.
-    eprintln!("Building udf test bundle");
-    write_udf_test_bundle(out_dir)?;
+    if has_tests {
+        // Step 5: Build and bundle the udf test project.
+        eprintln!("Building udf test bundle");
+        write_udf_test_bundle(out_dir)?;
 
-    // Step 6: Build and bundle component-test projects.
-    for entry in fs::read_dir(COMPONENT_TESTS_PROJECTS_DIR)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            eprintln!("Building component test bundle {path:?}");
-            let out_path = &out_dir.join(&path);
-            if Path::exists(out_path) {
-                fs::remove_dir_all(out_path)?;
+        // Step 6: Build and bundle component-test projects.
+        for entry in fs::read_dir(COMPONENT_TESTS_PROJECTS_DIR)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                eprintln!("Building component test bundle {path:?}");
+                let out_path = &out_dir.join(&path);
+                if Path::exists(out_path) {
+                    fs::remove_dir_all(out_path)?;
+                }
+                let suffix = path.strip_prefix(COMPONENT_TESTS_PROJECTS_DIR)?;
+                anyhow::ensure!(&COMPONENT_TESTS_PROJECTS.contains(
+                    &suffix
+                        .to_str()
+                        .context("Failed to convert suffix to string")?
+                ));
+                let out_with_project = out_dir.join(suffix);
+                fs::create_dir_all(&out_with_project)?;
+                write_start_push_request(
+                    &path,
+                    &out_with_project.join(format!("start_push_request")),
+                )?;
             }
-            let suffix = path.strip_prefix(COMPONENT_TESTS_PROJECTS_DIR)?;
-            anyhow::ensure!(&COMPONENT_TESTS_PROJECTS.contains(
-                &suffix
-                    .to_str()
-                    .context("Failed to convert suffix to string")?
-            ));
-            let out_with_project = out_dir.join(suffix);
-            fs::create_dir_all(&out_with_project)?;
-            write_start_push_request(&path, &out_with_project.join(format!("start_push_request")))?;
         }
-    }
 
-    // Step 7: Record dependencies for the simulation test build. It's a bit of a
-    // hack that it's in this build script, but we can't safely invoke Rush
-    // across two build scripts since it'll fail if called concurrently.
-    let metafile = Path::new(PACKAGES_DIR).join("tests/simulation/dist/metafile.json");
-    let metafile_contents = fs::read_to_string(metafile).context("Failed to read metafile")?;
-    let metafile: Metafile =
-        serde_json::from_str(&metafile_contents).context("Failed to parse metafile")?;
+        // Step 7: Record dependencies for the simulation test build. It's a bit of a
+        // hack that it's in this build script, but we can't safely invoke Rush
+        // across two build scripts since it'll fail if called concurrently.
+        let metafile = Path::new(PACKAGES_DIR).join("tests/simulation/dist/metafile.json");
+        let metafile_contents = fs::read_to_string(metafile).context("Failed to read metafile")?;
+        let metafile: Metafile =
+            serde_json::from_str(&metafile_contents).context("Failed to parse metafile")?;
 
-    for (rel_path, _) in metafile.inputs {
-        // TODO: Building `convex` seems to bump the files' mtime even on cache hit.
-        // [simulation 0.1.0] ==[ convex ]==============================[ 1 of 2 ]==
-        // [simulation 0.1.0] "convex" was restored from the build cache.
-        if rel_path.contains("convex/dist/esm") {
-            continue;
+        for (rel_path, _) in metafile.inputs {
+            // TODO: Building `convex` seems to bump the files' mtime even on cache hit.
+            // [simulation 0.1.0] ==[ convex ]==============================[ 1 of 2 ]==
+            // [simulation 0.1.0] "convex" was restored from the build cache.
+            if rel_path.contains("convex/dist/esm") {
+                continue;
+            }
+            let path = fs::canonicalize(
+                Path::new(PACKAGES_DIR)
+                    .join("tests/simulation")
+                    .join(rel_path),
+            )?;
+            rerun_if_changed(path.as_os_str().to_str().unwrap())?;
         }
-        let path = fs::canonicalize(
-            Path::new(PACKAGES_DIR)
-                .join("tests/simulation")
-                .join(rel_path),
-        )?;
-        rerun_if_changed(path.as_os_str().to_str().unwrap())?;
-    }
-    for entry in WalkDir::new(Path::new(PACKAGES_DIR).join("tests/simulation/convex")) {
-        rerun_if_changed(entry?.path().to_str().expect("Invalid path"))?;
+        for entry in WalkDir::new(Path::new(PACKAGES_DIR).join("tests/simulation/convex")) {
+            rerun_if_changed(entry?.path().to_str().expect("Invalid path"))?;
+        }
     }
 
     Ok(())

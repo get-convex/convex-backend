@@ -22,7 +22,6 @@ use fivetran_common::fivetran_sdk::{
     DataType as FivetranDataType,
     FileParams,
 };
-use fivetran_destination::api_types::FivetranFieldName;
 use futures::{
     stream::BoxStream,
     StreamExt,
@@ -41,6 +40,7 @@ use crate::{
         Aes256Key,
         AesDecryptor,
     },
+    api_types::FivetranFieldName,
     schema::FivetranTableSchema,
 };
 
@@ -261,10 +261,6 @@ mod tests {
         Compression as FivetranFileCompression,
         DataType as FivetranDataType,
     };
-    use fivetran_destination::api_types::{
-        FivetranFieldName,
-        FivetranTableName,
-    };
     use futures::StreamExt;
     use maplit::btreemap;
     use proptest::prelude::*;
@@ -276,6 +272,10 @@ mod tests {
 
     use crate::{
         aes::Aes256Key,
+        api_types::{
+            FivetranFieldName,
+            FivetranTableName,
+        },
         convert::fivetran_data_type,
         file_reader::{
             create_csv_deserializer,

@@ -22,6 +22,14 @@ ignored = [
 name = "fivetran_destination"
 path = "src/lib.rs"
 
+[features]
+testing = [
+    "common/testing",
+    "fivetran_common/testing",
+    "proptest",
+    "proptest-derive",
+]
+
 [dependencies]
 aes = { workspace = true }
 anyhow = { workspace = true }
@@ -38,6 +46,8 @@ fivetran_common = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 maplit = { workspace = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 reqwest = { workspace = true }

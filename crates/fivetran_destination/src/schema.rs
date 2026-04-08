@@ -32,7 +32,8 @@ use fivetran_common::fivetran_sdk::{
     Column,
     DataType as FivetranDataType,
 };
-use fivetran_destination::{
+
+use crate::{
     api_types::{
         FivetranFieldName,
         FivetranTableName,
@@ -52,9 +53,6 @@ use fivetran_destination::{
         SYNCED_FIVETRAN_FIELD_NAME,
         UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME,
     },
-};
-
-use crate::{
     error::{
         DestinationError,
         MetadataFieldError,
@@ -1001,10 +999,6 @@ mod tests {
         DataType as FivetranDataType,
         Table,
     };
-    use fivetran_destination::constants::{
-        FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
-        FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
-    };
     use maplit::{
         btreemap,
         btreeset,
@@ -1020,6 +1014,10 @@ mod tests {
         FivetranTableSchema,
     };
     use crate::{
+        constants::{
+            FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+            FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
+        },
         error::DestinationError,
         schema::to_fivetran_table,
         testing::fivetran_table_strategy,

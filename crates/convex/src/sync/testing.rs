@@ -1,4 +1,4 @@
-/// Testing helpers for the protocol module.
+#![allow(missing_docs)]
 use std::{
     sync::Arc,
     time::Duration,
@@ -29,6 +29,7 @@ struct TestProtocolInner {
     closed: bool,
     sent_messages: Vec<ClientMessage>,
 }
+/// TestProtocolManager
 #[derive(Debug, Clone)]
 pub struct TestProtocolManager {
     inner: Arc<Mutex<TestProtocolInner>>,

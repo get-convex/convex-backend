@@ -20,11 +20,12 @@ use common::{
     },
 };
 use fivetran_common::fivetran_sdk;
-use fivetran_destination::api_types::{
+use thiserror::Error;
+
+use crate::api_types::{
     FivetranFieldName,
     FivetranTableName,
 };
-use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DestinationError {

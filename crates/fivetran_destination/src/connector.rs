@@ -31,7 +31,6 @@ use fivetran_common::{
         WriteHistoryBatchRequest,
     },
 };
-use fivetran_destination::api_types::DeleteType;
 use prost_types::Timestamp;
 use tonic::{
     Request,
@@ -40,6 +39,7 @@ use tonic::{
 };
 
 use crate::{
+    api_types::DeleteType,
     application::{
         alter_table,
         create_table,

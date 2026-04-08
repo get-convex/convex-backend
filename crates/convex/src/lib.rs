@@ -58,6 +58,8 @@ pub use client::{
     ConvexClient,
     ConvexClientBuilder,
 };
+#[cfg(any(test, feature = "testing"))]
+pub use sync::testing;
 pub use sync::WebSocketState;
 
 pub mod base_client;

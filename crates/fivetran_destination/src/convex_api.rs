@@ -19,12 +19,6 @@ use common::{
     value::TableName,
 };
 use fivetran_common::config::Config;
-use fivetran_destination::api_types::{
-    BatchWriteRow,
-    CreateTableArgs,
-    DeleteType,
-    TruncateTableArgs,
-};
 use serde::{
     de::DeserializeOwned,
     Serialize,
@@ -33,6 +27,13 @@ use serde_json::Value as JsonValue;
 use tonic::codegen::http::{
     HeaderName,
     HeaderValue,
+};
+
+use crate::api_types::{
+    BatchWriteRow,
+    CreateTableArgs,
+    DeleteType,
+    TruncateTableArgs,
 };
 
 #[allow(clippy::declare_interior_mutable_const)]
