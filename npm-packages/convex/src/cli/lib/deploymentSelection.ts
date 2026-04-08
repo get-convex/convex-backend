@@ -8,6 +8,7 @@ import {
   deploymentSelectionWithinProjectFromOptions,
   DeploymentType,
   fetchTeamAndProjectForKey,
+  getTeamAndProjectSlugForDeployment,
   validateDeploymentSelectionForExistingDeployment,
 } from "./api.js";
 import {
@@ -765,6 +766,25 @@ export async function getProjectDetails(
 ): Promise<PlatformProjectDetails> {
   switch (projectSelection.kind) {
     case "deploymentName": {
+      if (projectSelection.deploymentType === "local") {
+        const result = await getTeamAndProjectSlugForDeployment(ctx, {
+          deploymentName: projectSelection.deploymentName,
+        });
+        if (result === null) {
+          return ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage:
+              "You don't have access to the selected project. Run `npx convex dev` to select a different project.",
+          });
+        }
+        return await getProjectDetails(ctx, {
+          kind: "teamAndProjectSlugs",
+          teamSlug: result.teamSlug,
+          projectSlug: result.projectSlug,
+        });
+      }
+
       const deployment = (
         await typedPlatformClient(ctx).GET("/deployments/{deployment_name}", {
           params: {
