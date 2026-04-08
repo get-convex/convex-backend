@@ -13,6 +13,7 @@ async function getTableId(
   const tablesWithName = await db
     .query("_tables")
     .withIndex("by_name", (q) => q.eq("name", tableName))
+    // eslint-disable-next-line @convex-dev/no-filter-in-query -- FIXME: we could have a `_by_name_and_state` index here (but we’re already using a filter for name so it’s still okay)
     .filter((q) => q.eq(q.field("state"), "active"))
     .collect();
   let tableId;
@@ -61,6 +62,7 @@ export default queryPrivateSystem({
     const indexes = await db
       .query("_index")
       .withIndex("by_id", (q) => q)
+      // eslint-disable-next-line @convex-dev/no-filter-in-query -- FIXME
       .filter((q) => q.eq(q.field("table_id"), tableId))
       .collect();
     const userIndexes = indexes.filter(

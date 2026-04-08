@@ -15,6 +15,7 @@ export const version = queryPrivateSystem({
     const version = await db
       .query("_aws_lambda_versions")
       .order("desc")
+      // eslint-disable-next-line @convex-dev/no-filter-in-query -- very small table
       .filter((q) => q.eq(q.field("typeConfig.type"), "static"))
       .first();
 

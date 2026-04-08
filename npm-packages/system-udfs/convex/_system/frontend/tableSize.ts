@@ -24,6 +24,7 @@ export const sizeOfAllTables = queryGeneric({
     // system UDF.
     const tables = await ((db as any).privateSystem as DatabaseReader)
       .query("_tables")
+      // eslint-disable-next-line @convex-dev/no-filter-in-query -- very small system table
       .filter((q) => q.eq(q.field("state"), "active"))
       .collect();
     const tablesWithoutSystemTables = tables

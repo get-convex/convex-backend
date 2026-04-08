@@ -13,6 +13,7 @@ export const lastPushEvent = queryPrivateSystem({
   handler: async function ({ db }): Promise<PushConfigEvent | null> {
     const lastPushEvent = await db
       .query("_deployment_audit_log")
+      // eslint-disable-next-line @convex-dev/no-filter-in-query -- FIXME: _deployment_audit_log has no by_action index
       .filter((q) =>
         q.or(
           q.eq(q.field("action"), "push_config"),

@@ -184,9 +184,9 @@ export default queryGeneric({
         };
       }
 
-      query = (query || queryInitializer.order(order)).filter((q) =>
-        applyBuiltinFilters(q, builtinFilters),
-      );
+      query = (query || queryInitializer.order(order))
+        // eslint-disable-next-line @convex-dev/no-filter-in-query -- we allow filtering by multiple fields/operators
+        .filter((q) => applyBuiltinFilters(q, builtinFilters));
     }
 
     const internalPaginateOpts = {

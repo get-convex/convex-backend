@@ -111,6 +111,7 @@ const nextConfig: NextConfig = {
 | [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br/>Prefer object syntax for registered functions |     ✅      |      🔧      |
 | [`@convex-dev/require-argument-validators`](#require-argument-validators)<br/>Require argument validators for Convex functions          |     ✅      |      🔧      |
 | [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br/>Require explicit table names in database operations                         |     ✅      |      🔧      |
+| [`@convex-dev/no-filter-in-query`](#no-filter-in-query)<br/>Warn on `.filter()` in database queries (inefficient)                       |     ✅      |              |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
 | [`@convex-dev/no-collect-in-query`](#no-collect-in-query)<br/>Prefer `.take()` / `.paginate()` over `.collect()` in queries             |             |              |
 
@@ -260,6 +261,48 @@ npx @convex-dev/codemod@latest explicit-ids
 ```
 
 [Learn more on news.convex.dev →](https://news.convex.dev/db-table-name/)
+
+### no-filter-in-query
+
+Warn when using `.filter()` in database queries.
+
+Convex supports filtering queries with the `.filter()` method, but it is
+inefficient because the database will read all the documents, and only then
+filter out the documents that don’t match the filter.
+
+Try replacing the call to `.filter()` with a call to `.withIndex()` if possible.
+This is especially important if the number of documents you’re filtering on is
+large (1000+) or unbounded.
+
+Instead, you can use [indexes](/database/reading-data/indexes/) so that the
+database only needs to read the relevant documents.
+
+See
+[_Indexes and Query Performance_](/database/reading-data/indexes/indexes-and-query-perf.md)
+to learn more, and
+[_Using TypeScript to Write Complex Query Filters_](https://stack.convex.dev/complex-filters-in-convex)
+for more advanced filtering strategies.
+
+```ts
+// ❌ This looks through all the books, and then collects the ones authored by Jane Austen
+const books = await ctx.db
+  .query("books")
+  .filter((q) => q.eq(q.field("author"), "Jane Austen"))
+  .collect();
+
+// ✅ This only reads the books authored by Jane Austen
+const austenBooks = await ctx.db
+  .query("books")
+  .withIndex("by_author", (q) => q.eq("author", "Jane Austen"))
+  .collect();
+```
+
+If it is not possible to replace `.filter()` in your query, you can silence this
+warning with:
+
+```ts
+// eslint-disable-next-line @convex-dev/no-filter-in-query
+```
 
 ### import-wrong-runtime
 

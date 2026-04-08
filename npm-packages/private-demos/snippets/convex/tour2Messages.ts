@@ -37,6 +37,8 @@ export const list_ = query({
         // @snippet start likesWithFilter
         const likes = await ctx.db
           .query("likes")
+          // @skipNextLine
+          // eslint-disable-next-line @convex-dev/no-filter-in-query -- snippet intentionally demonstrates an inefficient pattern
           .filter((q) => q.eq(q.field("messageId"), message._id))
           .collect();
         // @snippet end likesWithFilter

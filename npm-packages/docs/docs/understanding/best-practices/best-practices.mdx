@@ -55,6 +55,9 @@ for an overview of how to define indexes and how they work.
 Search for `.filter` in your Convex codebase — a regex like `\.filter\(\(?q`
 will probably find all the ones on database queries.
 
+You can also check automatically that your functions don’t use `.filter` with
+the [`@convex-dev/no-filter-in-query` ESLint rule](/eslint#no-filter-in-query).
+
 Decide whether they should be replaced with a `.withIndex` condition — per
 [this section](/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results),
 if you are filtering over a large (1000+) or potentially unbounded number of

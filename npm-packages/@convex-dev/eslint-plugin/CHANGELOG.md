@@ -1,5 +1,10 @@
 # Changelog
 
+### 2.0.0 (unreleased)
+
+- Add a new rule `@convex-dev/no-filter-in-query` (enabled by default as a
+  warning).
+
 ## 1.2.2
 
 - Updated `@typescript-eslint/utils` to v8.58.0 to properly support ESLint v10.

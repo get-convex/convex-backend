@@ -117,6 +117,8 @@ declare const OMIT_ME: any;
   // ❌
   const tomsMessages = ctx.db
     .query("messages")
+    // @skipNextLine
+    // eslint-disable-next-line @convex-dev/no-filter-in-query -- snippet intentionally demonstrates an inefficient pattern
     .filter((q) => q.eq(q.field("author"), "Tom"))
     .collect();
   // @skipNextLine
