@@ -84,7 +84,7 @@ macro_rules! expect_diff {
 }
 pub(crate) use expect_diff;
 
-use super::types::ConfigMetadata;
+use crate::config::types::ConfigMetadata;
 
 pub fn assert_root_cause_contains<T: Debug>(result: anyhow::Result<T>, expected: &str) {
     let error = result.unwrap_err();

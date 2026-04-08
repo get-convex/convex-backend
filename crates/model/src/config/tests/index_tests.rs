@@ -44,7 +44,7 @@ use runtime::testing::TestRuntime;
 use value::TableNamespace;
 
 use crate::{
-    config::index_test_utils::{
+    config::tests::index_test_utils::{
         apply_config,
         assert_root_cause_contains,
         backfill_indexes,

@@ -15,7 +15,7 @@ use runtime::testing::TestRuntime;
 use value::TableNamespace;
 
 use crate::{
-    config::index_test_utils::{
+    config::tests::index_test_utils::{
         backfill_indexes,
         deploy_schema,
         expect_diff,

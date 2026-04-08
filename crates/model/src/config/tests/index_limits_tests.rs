@@ -36,7 +36,7 @@ use value::{
 };
 
 use crate::{
-    config::index_test_utils::deploy_schema,
+    config::tests::index_test_utils::deploy_schema,
     test_helpers::DbFixturesWithModel,
 };
 
