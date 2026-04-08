@@ -19,6 +19,14 @@ describe("env setup", () => {
       "Environment variable NEXT_PUBLIC_CONVEX_URL is not set.",
     );
   });
+
+  test("throws on explicit undefined url instead of falling back to env", async () => {
+    global.process.env.NEXT_PUBLIC_CONVEX_URL = "https://127.0.0.1:3001";
+    await expect(
+      preloadQuery(anyApi.myQuery.default, {}, { url: undefined }),
+    ).rejects.toThrow("explicitly set to `undefined`");
+    delete global.process.env.NEXT_PUBLIC_CONVEX_URL;
+  });
 });
 
 describe("preloadQuery and usePreloadedQuery", () => {
