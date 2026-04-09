@@ -19,8 +19,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         match name {
             "1.0/componentArgument" => syscall_component_argument(self, args),
 
-            #[cfg(any(test, feature = "testing"))]
-            "throwSystemError" => anyhow::bail!("I can't go for that."),
             _ => {
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "UnknownOperation",

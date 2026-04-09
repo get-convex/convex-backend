@@ -4,7 +4,6 @@ use value::InternalId;
 /// Generic backfill state for search indexes (text and vector).
 /// Parameterized by the segment type `S`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct BackfillState<S> {
     pub segments: Vec<S>,
     /// None at the start of the backfill, set after the first iteration of the
@@ -17,7 +16,6 @@ pub struct BackfillState<S> {
 /// to backfill. We can collapse this enum when we've migrated successfully to
 /// `WalkingForwards`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SearchBackfillCursor {
     /// Backfilling cursor when iterating over a single snapshot.
     AtSnapshot {

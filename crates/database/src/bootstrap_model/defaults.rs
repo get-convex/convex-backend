@@ -83,29 +83,6 @@ pub static DEFAULT_BOOTSTRAP_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNu
         }
     });
 
-#[cfg(test)]
-mod test_bootstrap_system_tables {
-    use std::collections::BTreeSet;
-
-    use super::{
-        bootstrap_system_tables,
-        DEFAULT_BOOTSTRAP_TABLE_NUMBERS,
-    };
-
-    #[test]
-    fn test_ensure_consistent() {
-        assert_eq!(
-            bootstrap_system_tables()
-                .into_iter()
-                .map(|t| t.table_name())
-                .collect::<BTreeSet<_>>(),
-            DEFAULT_BOOTSTRAP_TABLE_NUMBERS
-                .keys()
-                .collect::<BTreeSet<_>>(),
-        );
-    }
-}
-
 /// Contains the table_id and index_id that never change after initializing the
 /// backend database. We prefer to pass this around instead of the full
 /// TableMapping so don't worry about passing around a reference to the

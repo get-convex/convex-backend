@@ -563,11 +563,4 @@ impl TextIndexManager {
         Ok(())
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn ready_indexes(&self) -> &OrdMap<IndexId, TextIndex> {
-        match self.indexes {
-            TextIndexManagerState::Bootstrapping => panic!("Search indexes not ready"),
-            TextIndexManagerState::Ready(ref indexes) => indexes,
-        }
-    }
 }

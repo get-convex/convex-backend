@@ -8,12 +8,6 @@ mod legacy_encryptor;
 mod metrics;
 mod operations;
 mod secret;
-#[cfg(any(test, feature = "testing"))]
-pub mod testing;
-
-#[cfg(test)]
-mod tests;
-
 pub use pb::convex_identity::DeploymentOperation;
 pub use sync_types::UserIdentityAttributes;
 

@@ -415,11 +415,6 @@ mod table_summary_worker;
 pub mod valid_identifier;
 mod worker_handles;
 
-#[cfg(any(test, feature = "testing"))]
-pub mod test_helpers;
-#[cfg(test)]
-mod tests;
-
 pub use crate::cache::QueryCache;
 use crate::{
     metrics::{
@@ -926,11 +921,6 @@ impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
     pub async fn begin(&self, identity: Identity) -> anyhow::Result<Transaction<RT>> {
         self.database.begin(identity).await
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn commit_test(&self, transaction: Transaction<RT>) -> anyhow::Result<Timestamp> {
-        self.commit(transaction, "test").await
     }
 
     #[fastrace::trace]

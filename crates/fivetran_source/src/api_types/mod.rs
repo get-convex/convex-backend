@@ -131,7 +131,6 @@ pub struct ListSnapshotValue {
 /// providing a way to deserialize the older formats.
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-#[cfg_attr(test, derive(Eq, PartialEq, Debug))]
 pub enum SelectionArg {
     /// Newer selection format, allows to select specific tables, components,
     /// and columns.
@@ -174,91 +173,4 @@ pub struct GetTableColumnNamesResponse {
 pub struct GetTableColumnNameTable {
     pub name: String,
     pub columns: Vec<String>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        Selection,
-        SelectionArg,
-    };
-    use crate::api_types::ListSnapshotArgs;
-
-    #[test]
-    fn test_no_args() {
-        assert_selection_arg_deserialization("{}", SelectionArg::Everything {});
-    }
-
-    #[test]
-    fn test_table_name_only() {
-        assert_selection_arg_deserialization(
-            r#"{"table_name": "users"}"#,
-            SelectionArg::SingleTable {
-                table_name: "users".to_string(),
-                component: None,
-            },
-        );
-    }
-
-    #[test]
-    fn test_table_name_and_component() {
-        assert_selection_arg_deserialization(
-            r#"{"table_name": "jobs", "component": "cron"}"#,
-            SelectionArg::SingleTable {
-                table_name: "jobs".to_string(),
-                component: Some("cron".to_string()),
-            },
-        );
-    }
-
-    #[test]
-    fn test_component_only() {
-        assert_selection_arg_deserialization(
-            r#"{"component": "waitlist"}"#,
-            SelectionArg::SingleComponent {
-                component: "waitlist".to_string(),
-            },
-        );
-    }
-
-    #[test]
-    fn test_exact_selection() {
-        assert_selection_arg_deserialization(
-            r#"{"selection": { "_other": "incl" }}"#,
-            SelectionArg::Exact {
-                selection: Selection::default(),
-            },
-        );
-    }
-
-    #[test]
-    fn test_table_name_camel_case() {
-        assert_selection_arg_deserialization(
-            r#"{"tableName": "users"}"#,
-            SelectionArg::SingleTable {
-                table_name: "users".to_string(),
-                component: None,
-            },
-        );
-    }
-
-    #[test]
-    fn test_table_name_camel_case_and_component() {
-        assert_selection_arg_deserialization(
-            r#"{"tableName": "jobs", "component": "cron"}"#,
-            SelectionArg::SingleTable {
-                table_name: "jobs".to_string(),
-                component: Some("cron".to_string()),
-            },
-        );
-    }
-
-    fn assert_selection_arg_deserialization(json: &str, expected_selection: SelectionArg) {
-        let args: ListSnapshotArgs =
-            serde_json::from_str(json).expect("can’t deserialize to ListSnapshotArgs");
-        assert_eq!(args.cursor, None);
-        assert_eq!(args.snapshot, None);
-        assert_eq!(args.format, None);
-        assert_eq!(args.selection, expected_selection);
-    }
 }

@@ -21,7 +21,6 @@ use crate::source_packages::types::SourcePackageId;
 
 /// In-memory representation of a module's metadata.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ModuleMetadata {
     /// Path stored as a "path" field.
     pub path: CanonicalizedModulePath,

@@ -384,7 +384,6 @@ impl HeapSize for FunctionExecutionPart {
 }
 
 #[derive(Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ActionCompletion {
     pub outcome: ValidatedActionOutcome,
     pub execution_time: Duration,

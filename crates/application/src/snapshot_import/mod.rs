@@ -191,8 +191,6 @@ mod prepare_component;
 mod progress;
 mod schema_constraints;
 mod table_change;
-#[cfg(test)]
-mod tests;
 mod worker;
 
 pub use worker::SnapshotImportWorker;

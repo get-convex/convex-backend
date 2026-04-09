@@ -381,12 +381,6 @@ impl<RT: Runtime> Committer<RT> {
                                 span_commit_id = None;
                             }
                         },
-                        #[cfg(any(test, feature = "testing"))]
-                        Some(CommitterMessage::BumpMaxRepeatableTs { result }) => {
-                            let span = Span::noop();
-                            self.bump_max_repeatable_ts(result, commit_id, &span);
-                            commit_id += 1;
-                        },
                         Some(CommitterMessage::FinishTextAndVectorBootstrap {
                             bootstrapped_indexes,
                             bootstrap_ts,
@@ -1271,16 +1265,6 @@ impl CommitterClient {
         self.handle.lock().shutdown();
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn bump_max_repeatable_ts(&self) -> anyhow::Result<Timestamp> {
-        let (tx, rx) = oneshot::channel();
-        let message = CommitterMessage::BumpMaxRepeatableTs { result: tx };
-        self.sender
-            .try_send(message)
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
-        Ok(rx.await?)
-    }
-
     async fn check_generated_ids<RT: Runtime>(
         &self,
         transaction: &Transaction<RT>,
@@ -1349,8 +1333,6 @@ enum CommitterMessage {
         write_source: WriteSource,
         parent_trace: EncodedSpan,
     },
-    #[cfg(any(test, feature = "testing"))]
-    BumpMaxRepeatableTs { result: oneshot::Sender<Timestamp> },
     LoadIndexesIntoMemory {
         tables: BTreeSet<TableName>,
         result: oneshot::Sender<anyhow::Result<()>>,

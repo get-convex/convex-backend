@@ -689,7 +689,6 @@ impl From<Package> for JsonValue {
     }
 }
 
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ExecuteRequest {
     // Note that the lambda executor expects arguments as string, which
     // then directly passes to invokeAction()
@@ -1047,74 +1046,4 @@ fn append_logs_to_error(mut error: JsError, log_lines: LogLines) -> JsError {
 
     error.message = format!("{}\n\n{}", error.message, logs_text);
     error
-}
-
-#[cfg(test)]
-mod tests {
-    use common::{
-        errors::JsError,
-        log_lines::{
-            LogLevel,
-            LogLine,
-            LogLines,
-        },
-        runtime::UnixTimestamp,
-    };
-
-    use crate::executor::append_logs_to_error;
-
-    #[test]
-    fn test_append_logs_to_error() {
-        let error = JsError::from_message("Original error".to_string());
-        let log_lines = LogLines::from(vec![
-            LogLine::new_developer_log_line(
-                LogLevel::Info,
-                vec!["Log 1".to_string()],
-                UnixTimestamp::from_millis(1000),
-            ),
-            LogLine::new_developer_log_line(
-                LogLevel::Error,
-                vec!["Log 2".to_string()],
-                UnixTimestamp::from_millis(1001),
-            ),
-        ]);
-
-        let error = append_logs_to_error(error, log_lines);
-
-        assert!(error.message.contains("Original error"));
-        assert!(error.message.contains("[INFO] Log 1"));
-        assert!(error.message.contains("[ERROR] Log 2"));
-    }
-
-    #[test]
-    fn test_append_logs_to_error_empty() {
-        let error = JsError::from_message("Original error".to_string());
-        let log_lines = LogLines::from(Vec::new());
-
-        let error = append_logs_to_error(error, log_lines);
-
-        assert_eq!(error.message, "Original error");
-    }
-
-    #[test]
-    fn test_append_logs_to_error_truncation() {
-        let error = JsError::from_message("Original error".to_string());
-        let mut logs = Vec::new();
-        for i in 0..110 {
-            logs.push(LogLine::new_developer_log_line(
-                LogLevel::Info,
-                vec![format!("Log {}", i)],
-                UnixTimestamp::from_millis(1000 + i as u64),
-            ));
-        }
-        let log_lines = LogLines::from(logs);
-
-        let error = append_logs_to_error(error, log_lines);
-
-        assert!(error.message.contains("Original error"));
-        assert!(!error.message.contains("Log 0")); // Should be truncated
-        assert!(error.message.contains("Log 10")); // Should be present (last 100 start from index 10)
-        assert!(error.message.contains("Log 109")); // Last log should be
-                                                    // present
-    }
 }

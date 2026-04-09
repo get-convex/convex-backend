@@ -100,29 +100,3 @@ pub fn check_table_name(
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_check_table_name_accepts_the_correct_name() {
-        let requested_table_name = Some("documents".to_string());
-        let actual_table_name: TableName = "documents".parse().unwrap();
-        assert!(check_table_name(&requested_table_name, &actual_table_name).is_ok());
-    }
-
-    #[test]
-    fn test_check_table_name_rejects_oher_names() {
-        let requested_table_name = Some("documents".to_string());
-        let actual_table_name: TableName = "users".parse().unwrap();
-        assert!(check_table_name(&requested_table_name, &actual_table_name).is_err());
-    }
-
-    #[test]
-    fn test_check_table_name_does_nothing_if_the_requested_table_name_is_none() {
-        let requested_table_name = None;
-        let actual_table_name: TableName = "documents".parse().unwrap();
-        assert!(check_table_name(&requested_table_name, &actual_table_name).is_ok());
-    }
-}

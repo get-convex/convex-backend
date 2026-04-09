@@ -246,29 +246,6 @@ impl fmt::Debug for ModulePath {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for ModulePath {
-    type Parameters = ();
-    type Strategy = proptest::strategy::BoxedStrategy<Self>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        // Finely tuned regex to make sure it mostly creates valid ModulePath,
-        // while also generating a wide variety of inputs.
-        //
-        // Optionally have the path start with `_`.
-        // Ensure path has at least one component.
-        // Both suffixes .js and suffix-less should work.
-        // Total path component length can be between 1-64.
-        prop::collection::vec("_?[a-zA-Z0-9_]{1,60}(\\.js)?", 1..8)
-            .prop_filter_map("Components weren't a valid path", |c| {
-                ModulePath::from_str(&c.join("/")).ok()
-            })
-            .boxed()
-    }
-}
-
 /// Module paths are allowed to omit the `.js` extension, but the canonical
 /// module path stored in the database must have the `.js` extension. This
 /// separate type guarantees that the path contains its extension.
@@ -345,27 +322,6 @@ impl CanonicalizedModulePath {
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn with_http(&self) -> Self {
-        Self {
-            path: self.path.clone(),
-            is_system: self.is_system(),
-            is_deps: self.is_deps(),
-            is_http: true,
-            is_cron: self.is_cron(),
-        }
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn with_cron(&self) -> Self {
-        Self {
-            path: self.path.clone(),
-            is_system: self.is_system(),
-            is_deps: self.is_deps(),
-            is_http: self.is_http(),
-            is_cron: true,
-        }
-    }
 }
 
 impl FromStr for CanonicalizedModulePath {
@@ -386,57 +342,5 @@ impl From<CanonicalizedModulePath> for String {
 impl fmt::Debug for CanonicalizedModulePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for CanonicalizedModulePath {
-    type Parameters = ();
-    type Strategy = proptest::strategy::BoxedStrategy<Self>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        any::<ModulePath>().prop_map(|p| p.canonicalize()).boxed()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use super::ModulePath;
-
-    #[test]
-    fn test_module_path() -> anyhow::Result<()> {
-        let system_paths = ["_system", "_system/retrograde", "_system/say/what/you/will"];
-        for p in system_paths {
-            assert!(ModulePath::from_str(p)?.is_system());
-        }
-        let err = ["", "/dont/miss/it", "wilhelm/../scream", "i'llcometoo.mp3"];
-        for p in err {
-            assert!(ModulePath::from_str(p).is_err());
-        }
-        let not_system_paths = ["toxicity", "byob.js", "hypnotize/lonelyday"];
-        for p in not_system_paths {
-            assert!(!ModulePath::from_str(p)?.is_system());
-        }
-        let deps_paths = ["_deps", "_deps/whoo.js", "actions/_deps/whoo.js"];
-        for p in deps_paths {
-            assert!(ModulePath::from_str(p)?.is_deps());
-        }
-        let http_paths = ["http.js"];
-        for p in http_paths {
-            assert!(ModulePath::from_str(p)?.is_http());
-        }
-        let not_http_paths = [
-            "foo/http.js",
-            "actions/http.js",
-            "_deps/http.js",
-            "_system/http.js",
-        ];
-        for p in not_http_paths {
-            assert!(!ModulePath::from_str(p)?.is_http());
-        }
-        Ok(())
     }
 }

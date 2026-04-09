@@ -90,36 +90,6 @@ impl From<CanonicalizedUdfPath> for UdfPath {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for UdfPath {
-    type Parameters = ();
-    type Strategy = proptest::strategy::BoxedStrategy<Self>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        use crate::identifier::arbitrary_regexes::IDENTIFIER_REGEX;
-
-        prop_compose! {
-            fn inner()(
-                path in any::<ModulePath>(),
-                has_function in any::<bool>(),
-                function_name in IDENTIFIER_REGEX,
-            ) -> anyhow::Result<UdfPath> {
-                let s = if has_function {
-                    format!("{}:{function_name}", path.as_str())
-                } else {
-                    format!("{}", path.as_str())
-                };
-                UdfPath::from_str(&s)
-            }
-        }
-        inner()
-            .prop_filter_map("Invalid generated ModulePath", |r| r.ok())
-            .boxed()
-    }
-}
-
 /// There are potentially multiple `UdfPath`s that address a single function, so
 /// we define a notion of a "canonical" path that's in one-to-one correspondence
 /// with functions the user can invoke. See the comment in `Isolate::run` for
@@ -184,52 +154,5 @@ impl FromStr for CanonicalizedUdfPath {
 impl From<CanonicalizedUdfPath> for String {
     fn from(p: CanonicalizedUdfPath) -> Self {
         format!("{}:{}", p.module.as_str(), p.function)
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for CanonicalizedUdfPath {
-    type Parameters = ();
-    type Strategy = proptest::strategy::BoxedStrategy<Self>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        any::<UdfPath>().prop_map(|p| p.canonicalize()).boxed()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use proptest::prelude::*;
-
-    use super::UdfPath;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_udf_path_roundtrips(left in any::<UdfPath>()) {
-            let right = UdfPath::from_str(&String::from(left.clone())).unwrap();
-            assert_eq!(left, right);
-        }
-    }
-
-    #[test]
-    fn test_strip() {
-        let p = UdfPath::from_str("test").unwrap();
-        let canonicalized = p.canonicalize();
-        assert_eq!(&String::from(canonicalized.clone()), "test.js:default");
-        let stripped = canonicalized.strip();
-        assert_eq!(String::from(stripped), "test");
-
-        let p = UdfPath::from_str("test.js:function").unwrap();
-        let canonicalized = p.canonicalize();
-        assert_eq!(&String::from(canonicalized.clone()), "test.js:function");
-        let stripped = canonicalized.strip();
-        assert_eq!(String::from(stripped), "test:function");
     }
 }

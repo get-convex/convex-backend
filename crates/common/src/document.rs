@@ -64,8 +64,6 @@ use value::{
     VALUE_TOO_LARGE_SHORT_MSG,
 };
 
-#[cfg(any(test, feature = "testing"))]
-use crate::value::FieldType;
 use crate::{
     floating_point::MAX_EXACT_F64_INT,
     index::{
@@ -125,12 +123,7 @@ pub const MAX_DOCUMENT_NESTING: usize = 16;
 pub const CREATION_TIME_PRECISION: Duration = Duration::from_nanos(500);
 
 #[derive(Clone, Copy)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct CreationTime {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "(1.)..33224882812.")
-    )]
     ts_ms: f64,
 }
 
@@ -220,9 +213,6 @@ impl fmt::Debug for CreationTime {
 impl CreationTime {
     // CreationTime::ONE is a default for tests. We don't use zero because zero
     // is a likely value that a bug may produce in prod, so it is invalid.
-    #[cfg(any(test, feature = "testing"))]
-    pub const ONE: Self = Self { ts_ms: 1. };
-
     pub fn increment(&mut self) -> anyhow::Result<Self> {
         let result = *self;
 
@@ -601,7 +591,6 @@ impl ResolvedDocument {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct DocumentUpdateWithPrevTs {
     pub id: ResolvedDocumentId,
     /// The old document and its timestamp in the document log.
@@ -660,7 +649,6 @@ impl TryFrom<DocumentUpdateWithPrevTsProto> for DocumentUpdateWithPrevTs {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct DocumentUpdate {
     pub id: ResolvedDocumentId,
     pub old_document: Option<ResolvedDocument>,
@@ -780,7 +768,6 @@ impl DeveloperDocument {
 /// document ID will contain more information that the `_id` field of the value
 /// when we are using ID strings.
 #[derive(Clone, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct PackedDocument {
     value: PackedValue<ByteBuffer>,
     id: ResolvedDocumentId,
@@ -871,7 +858,6 @@ impl HeapSize for PackedDocument {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ParsedDocument<D> {
     id: ResolvedDocumentId,
     creation_time: CreationTime,
@@ -1039,237 +1025,5 @@ impl DocumentValidationError {
             DocumentValidationError::CreationTimeMissing => "_creationTime missing",
             DocumentValidationError::TooNested(_) => "too nested",
         }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for ResolvedDocument {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = ResolvedDocument>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        use value::proptest::{
-            RestrictNaNs,
-            ValueBranching,
-        };
-        any_with::<(ResolvedDocumentId, CreationTime, ConvexObject)>((
-            (),
-            (),
-            (
-                prop::collection::SizeRange::default(),
-                FieldType::User,
-                ValueBranching::default(),
-                RestrictNaNs(false),
-            ),
-        ))
-        .prop_filter_map(
-            "Invalid generated object for document",
-            |(id, creation_time, object)| {
-                let mut object = BTreeMap::from(object);
-                object.insert(ID_FIELD.clone().into(), id.into());
-                object.insert(
-                    CREATION_TIME_FIELD.clone().into(),
-                    ConvexValue::from(f64::from(creation_time)),
-                );
-                let value = ConvexObject::try_from(object).unwrap();
-                let doc = ResolvedDocument::new(id, creation_time, value);
-                doc.ok()
-            },
-        )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{
-        assert_eq,
-        collections::BTreeMap,
-        str::FromStr as _,
-    };
-
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-    use value::{
-        id_v6::DeveloperDocumentId,
-        proptest::{
-            RestrictNaNs,
-            ValueBranching,
-        },
-        ConvexObject,
-        ConvexValue,
-        FieldType,
-        IdentifierFieldName,
-        InternalId,
-        ResolvedDocumentId,
-        TableMapping,
-        TableName,
-        TableNamespace,
-        TableNumber,
-        TabletId,
-    };
-
-    use super::{
-        CreationTime,
-        DocumentUpdate,
-        DocumentUpdateProto,
-        DocumentUpdateWithPrevTs,
-        DocumentUpdateWithPrevTsProto,
-        IndexKeyBuffer,
-        PackedDocument,
-        ResolvedDocument,
-        ResolvedDocumentProto,
-    };
-    use crate::{
-        assert_obj,
-        document::{
-            CREATION_TIME_FIELD,
-            ID_FIELD,
-        },
-        paths::FieldPath,
-    };
-    #[test]
-    fn test_map_table() -> anyhow::Result<()> {
-        let internal_id = InternalId::MAX;
-        let tablet_id = TabletId::MIN;
-        let table_number = TableNumber::MIN;
-        let table_name: TableName = "hewo".parse()?;
-        let mut table_mapping = TableMapping::new();
-        table_mapping.insert(
-            tablet_id,
-            TableNamespace::test_user(),
-            table_number,
-            table_name,
-        );
-        let doc = ResolvedDocument::new(
-            ResolvedDocumentId::new(
-                tablet_id,
-                DeveloperDocumentId::new(table_number, internal_id),
-            ),
-            CreationTime::ONE,
-            assert_obj!(
-                "f" => 5
-            ),
-        )?;
-        let mapped = doc.to_developer();
-        assert_eq!(mapped.id().table(), table_number);
-        Ok(())
-    }
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_document_proto_roundtrips(left in any::<ResolvedDocument>()) {
-            assert_roundtrips::<ResolvedDocument, ResolvedDocumentProto>(left);
-        }
-
-
-        #[test]
-        fn test_document_update_proto_roundtrips(left in any::<DocumentUpdateWithPrevTs>()) {
-            assert_roundtrips::<DocumentUpdateWithPrevTs, DocumentUpdateWithPrevTsProto>(left);
-        }
-
-
-        #[test]
-        fn test_index_document_update_proto_roundtrips(left in any::<DocumentUpdate>()) {
-            assert_roundtrips::<DocumentUpdate, DocumentUpdateProto>(left);
-        }
-
-        #[test]
-        fn test_packed_document_index_key_matches(
-            id in any::<ResolvedDocumentId>(),
-            creation_time in any::<CreationTime>(),
-            value in any_with::<ConvexObject>((
-                prop::collection::SizeRange::default(),
-                FieldType::UserIdentifier,
-                ValueBranching::medium(),
-                RestrictNaNs(false),
-            )),
-            field_paths in prop::collection::vec(
-                prop::collection::vec(
-                    any::<Option<prop::sample::Index>>(),
-                    1..3
-                ),
-                0..4
-            )
-        ) {
-            let mut object = BTreeMap::from(value);
-            object.insert(ID_FIELD.clone().into(), id.into());
-            object.insert(
-                CREATION_TIME_FIELD.clone().into(),
-                ConvexValue::from(f64::from(creation_time)),
-            );
-            let value = ConvexObject::try_from(object).unwrap();
-            let doc = ResolvedDocument::new(id, creation_time, value).unwrap();
-            // Generate field paths that have a chance of resolving to something for `doc`
-            let mut current_doc = Some(&**doc.value());
-            let field_paths: Vec<_> = field_paths.into_iter().filter_map(|indexes| {
-                let ids = indexes.into_iter().map(|index| {
-                    if let (Some(index), Some(c)) = (index, current_doc) && !c.is_empty() {
-                        let k = c.keys().nth(index.index(c.len())).unwrap().clone();
-                        current_doc = c.get(&k).and_then(|x| {
-                            if let ConvexValue::Object(o) = x { Some(o) } else { None }
-                        });
-                        k
-                    } else {
-                        current_doc = None;
-                        "unknown".parse().unwrap()
-                    }
-                })
-                    .filter_map(|field_name| IdentifierFieldName::from_str(&field_name).ok())
-                    .collect();
-                FieldPath::new(ids).ok()
-            }).collect();
-            let index_key_bytes = doc.index_key(&field_paths).to_bytes();
-            assert_eq!(
-                index_key_bytes,
-                *PackedDocument::pack(&doc).index_key(
-                    &field_paths, &mut IndexKeyBuffer::new()
-                ),
-            );
-        }
-    }
-
-    #[test]
-    fn test_index_key_missing_field() -> anyhow::Result<()> {
-        let doc1 = ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            assert_obj!(
-                "_id" => DeveloperDocumentId::MIN,
-                "foo" => {
-                    "bar" => 5,
-                    "baz" => false,
-                },
-            ),
-        )?;
-        let doc2 = ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            assert_obj!(
-                "_id" => DeveloperDocumentId::MIN,
-                "foo" => {"bar" => 5},
-            ),
-        )?;
-        let fields = vec![
-            FieldPath::new(vec!["foo".parse()?, "bar".parse()?])?,
-            FieldPath::new(vec!["foo".parse()?, "baz".parse()?])?,
-        ];
-        // When document has all fields for the index, index_key extracts those fields.
-        assert_eq!(
-            doc1.index_key(&fields[..]).indexed_values(),
-            &vec![Some(ConvexValue::from(5)), Some(ConvexValue::from(false))][..]
-        );
-        // When document is missing a field, assume Null.
-        assert_eq!(
-            doc2.index_key(&fields[..]).indexed_values(),
-            &vec![Some(ConvexValue::from(5)), None][..]
-        );
-        Ok(())
     }
 }

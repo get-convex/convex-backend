@@ -19,7 +19,6 @@ pub const LOG_SINKS_LIMIT: usize = 5;
 
 /// Data model for an entry in the LOG_SINKS_TABLE
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct LogSinksRow {
     pub status: SinkState,
     pub config: SinkConfig,
@@ -79,7 +78,6 @@ codegen_convex_serialization!(LogSinksRow, SerializedLogSinksRow);
 /// +------------+
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SinkState {
     Pending,
     Restarting,
@@ -138,7 +136,6 @@ codegen_convex_serialization!(SinkState, SerializedSinkState);
 /// https://www.notion.so/convex-dev/Log-streams-round-2-da990dc843e24e13b4a2051f51d0bb9c
 /// They will eventually replace `Datadog` and `Axiom`
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub enum SinkType {
     Local,
@@ -150,16 +147,11 @@ pub enum SinkType {
     Sentry,
     PostHogLogs,
     PostHogErrorTracking,
-    #[cfg(any(test, feature = "testing"))]
-    Mock,
-    #[cfg(any(test, feature = "testing"))]
-    Mock2,
 }
 
 /// The configurations associated with each LogSinkType above.
 /// Meant to be used for the subscription API.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SinkConfig {
     Local(String),
     Datadog(datadog::DatadogConfig),
@@ -168,10 +160,6 @@ pub enum SinkConfig {
     Sentry(sentry::SentryConfig),
     PostHogLogs(posthog_logs::PostHogLogsConfig),
     PostHogErrorTracking(posthog_error_tracking::PostHogErrorTrackingConfig),
-    #[cfg(any(test, feature = "testing"))]
-    Mock,
-    #[cfg(any(test, feature = "testing"))]
-    Mock2,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -187,10 +175,6 @@ pub enum SerializedSinkConfig {
     Sentry(sentry::SerializedSentryConfig),
     PostHogLogs(posthog_logs::SerializedPostHogLogsConfig),
     PostHogErrorTracking(posthog_error_tracking::SerializedPostHogErrorTrackingConfig),
-    #[cfg(any(test, feature = "testing"))]
-    Mock,
-    #[cfg(any(test, feature = "testing"))]
-    Mock2,
 }
 
 impl TryFrom<SerializedSinkConfig> for SinkConfig {
@@ -215,10 +199,6 @@ impl TryFrom<SerializedSinkConfig> for SinkConfig {
             SerializedSinkConfig::PostHogErrorTracking(config) => {
                 Ok(SinkConfig::PostHogErrorTracking(config.into()))
             },
-            #[cfg(any(test, feature = "testing"))]
-            SerializedSinkConfig::Mock => Ok(SinkConfig::Mock),
-            #[cfg(any(test, feature = "testing"))]
-            SerializedSinkConfig::Mock2 => Ok(SinkConfig::Mock2),
         }
     }
 }
@@ -245,10 +225,6 @@ impl TryFrom<SinkConfig> for SerializedSinkConfig {
             SinkConfig::PostHogErrorTracking(config) => {
                 Ok(SerializedSinkConfig::PostHogErrorTracking(config.into()))
             },
-            #[cfg(any(test, feature = "testing"))]
-            SinkConfig::Mock => Ok(SerializedSinkConfig::Mock),
-            #[cfg(any(test, feature = "testing"))]
-            SinkConfig::Mock2 => Ok(SerializedSinkConfig::Mock2),
         }
     }
 }
@@ -265,10 +241,6 @@ impl fmt::Display for SinkConfig {
             Self::Sentry(config) => write!(f, "Sentry({config})"),
             Self::PostHogLogs(config) => write!(f, "PostHogLogs({config})"),
             Self::PostHogErrorTracking(config) => write!(f, "PostHogErrorTracking({config})"),
-            #[cfg(any(test, feature = "testing"))]
-            Self::Mock => write!(f, "Mock"),
-            #[cfg(any(test, feature = "testing"))]
-            Self::Mock2 => write!(f, "Mock2"),
         }
     }
 }
@@ -283,10 +255,6 @@ impl SinkConfig {
             Self::Sentry(_) => SinkType::Sentry,
             Self::PostHogLogs(_) => SinkType::PostHogLogs,
             Self::PostHogErrorTracking(_) => SinkType::PostHogErrorTracking,
-            #[cfg(any(test, feature = "testing"))]
-            Self::Mock => SinkType::Mock,
-            #[cfg(any(test, feature = "testing"))]
-            Self::Mock2 => SinkType::Mock2,
         }
     }
 }

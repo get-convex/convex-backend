@@ -364,10 +364,6 @@ pub struct SnapshotPage {
     pub usage: FunctionUsageStats,
 }
 
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, Debug, PartialEq,)
-)]
 #[derive(Clone)]
 pub struct BootstrapMetadata {
     pub tables_by_id: IndexId,
@@ -1108,13 +1104,6 @@ impl<RT: Runtime> Database<RT> {
 
     pub async fn finish_table_summary_bootstrap(&self) -> anyhow::Result<()> {
         self.committer.finish_table_summary_bootstrap().await
-    }
-
-    #[cfg(test)]
-    pub fn new_search_and_vector_bootstrap_worker_for_testing(
-        &self,
-    ) -> SearchIndexBootstrapWorker<RT> {
-        self.new_search_and_vector_bootstrap_worker()
     }
 
     fn new_search_and_vector_bootstrap_worker(&self) -> SearchIndexBootstrapWorker<RT> {
@@ -1908,12 +1897,6 @@ impl<RT: Runtime> Database<RT> {
             .check_write_throughput_limit(ts)
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn commit(&self, transaction: Transaction<RT>) -> anyhow::Result<Timestamp> {
-        self.commit_with_write_source(transaction, WriteSource::system("test"))
-            .await
-    }
-
     #[fastrace::trace]
     pub async fn commit_with_write_source(
         &self,
@@ -1938,11 +1921,6 @@ impl<RT: Runtime> Database<RT> {
         tables: BTreeSet<TableName>,
     ) -> anyhow::Result<()> {
         self.committer.load_indexes_into_memory(tables).await
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn bump_max_repeatable_ts(&self) -> anyhow::Result<Timestamp> {
-        self.committer.bump_max_repeatable_ts().await
     }
 
     pub fn write_commits_since_load(&self) -> usize {
@@ -2387,21 +2365,6 @@ impl<RT: Runtime> Database<RT> {
             has_more,
             usage: usage.gather_user_stats(),
         })
-    }
-
-    #[cfg(test)]
-    pub fn table_names(&self, identity: Identity) -> anyhow::Result<BTreeSet<TableName>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("table_names"));
-        }
-        Ok(self
-            .snapshot_manager
-            .lock()
-            .latest_snapshot()
-            .table_registry
-            .user_table_names()
-            .map(|(_, name)| name.clone())
-            .collect())
     }
 
     /// Attempt to pull a token forward to a given timestamp, returning `Err`

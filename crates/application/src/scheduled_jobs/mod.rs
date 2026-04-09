@@ -193,20 +193,6 @@ pub struct ScheduledJobContext<RT: Runtime> {
 }
 
 impl<RT: Runtime> ScheduledJobContext<RT> {
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new(
-        rt: RT,
-        database: Database<RT>,
-        runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: FunctionExecutionLog<RT>,
-    ) -> Self {
-        ScheduledJobContext {
-            rt,
-            database,
-            runner,
-            function_log,
-        }
-    }
 }
 
 impl<RT: Runtime> ScheduledJobExecutor<RT> {

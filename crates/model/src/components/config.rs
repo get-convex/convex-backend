@@ -851,10 +851,6 @@ struct TreeDiffChild<'a> {
 }
 
 #[derive(Debug, Clone, AsRefStr)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub enum ComponentDiffType {
     Create,
     Modify,
@@ -863,10 +859,6 @@ pub enum ComponentDiffType {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub struct ComponentDiff {
     pub diff_type: ComponentDiffType,
     pub module_diff: ModuleDiff,

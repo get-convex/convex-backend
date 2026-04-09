@@ -7,7 +7,6 @@ use sync_types::Timestamp;
 /// Represents state of currently backfilling index.
 /// We currently do not checkpoint. Will extend the struct when we do.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct DatabaseIndexBackfillState {
     // A timestamp when the index was created. Note that this timestamp is slightly
     // before the index was committed because we don't know the commit timestamp.

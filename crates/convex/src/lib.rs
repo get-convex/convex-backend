@@ -42,8 +42,6 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 
 mod value;
-#[cfg(any(test, feature = "testing"))]
-pub use value::export::roundtrip::ExportContext;
 pub use value::{
     ConvexError,
     Value,
@@ -58,8 +56,6 @@ pub use client::{
     ConvexClient,
     ConvexClientBuilder,
 };
-#[cfg(any(test, feature = "testing"))]
-pub use sync::testing;
 pub use sync::WebSocketState;
 
 pub mod base_client;

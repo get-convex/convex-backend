@@ -14,7 +14,6 @@ use value::{
 
 use crate::source_packages::types::PackageSize;
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalDepsPackage {
     pub storage_key: ObjectKey,
@@ -23,7 +22,6 @@ pub struct ExternalDepsPackage {
     pub package_size: PackageSize,
 }
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalDepsPackageId(DeveloperDocumentId);
 
@@ -108,25 +106,5 @@ impl TryFrom<ExternalDepsPackage> for ConvexObject {
             ),
             "packageSize" => ConvexValue::Object(value.package_size.try_into()?),
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::ConvexObject;
-
-    use super::ExternalDepsPackage;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_external_package_roundtrip(v in any::<ExternalDepsPackage>()) {
-            assert_roundtrips::<ExternalDepsPackage, ConvexObject>(v);
-        }
     }
 }

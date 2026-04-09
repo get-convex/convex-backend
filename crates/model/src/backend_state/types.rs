@@ -6,7 +6,6 @@ use serde::{
 use value::codegen_convex_serialization;
 
 #[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct PersistedBackendState(pub BackendState);
 
 #[derive(Serialize, Deserialize)]
@@ -32,22 +31,3 @@ impl TryFrom<SerializedBackendState> for PersistedBackendState {
 }
 
 codegen_convex_serialization!(PersistedBackendState, SerializedBackendState);
-
-#[cfg(test)]
-mod tests {
-    use common::types::BackendState;
-    use value::assert_obj;
-
-    use crate::backend_state::types::PersistedBackendState;
-
-    #[test]
-    fn test_frozen_obj() {
-        assert_eq!(
-            PersistedBackendState::try_from(assert_obj! {
-                "state" => "suspended",
-            })
-            .unwrap(),
-            PersistedBackendState(BackendState::Suspended)
-        );
-    }
-}

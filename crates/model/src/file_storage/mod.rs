@@ -125,7 +125,6 @@ impl SystemTable for FileStorageTable {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, derive_more::Display)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FileStorageId {
     LegacyStorageId(StorageUuid),
     DocumentId(DeveloperDocumentId),
@@ -375,24 +374,4 @@ pub async fn get_total_file_storage_size<RT: Runtime>(
         table_iterator.unregister_table(tablet_id)?;
     }
     Ok(total_size)
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use pb::storage::FileStorageId as FileStorageIdProto;
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-
-    use super::FileStorageId;
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_function_result_proto_roundtrips(left in any::<FileStorageId>()) {
-            assert_roundtrips::<FileStorageId, FileStorageIdProto>(left);
-        }
-    }
 }

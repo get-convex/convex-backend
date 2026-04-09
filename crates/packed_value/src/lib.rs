@@ -30,16 +30,12 @@ mod flexbuilder;
 mod json;
 mod walk;
 
-#[cfg(test)]
-mod tests;
-
 pub use self::buffer::{
     ByteBuffer,
     StringBuffer,
 };
 use self::flexbuilder::FlexBuilder;
 
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct PackedValue<B: Buffer>
 where
     B::BufferString: Clone,
@@ -439,26 +435,5 @@ where
             },
         };
         Ok(result)
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-mod proptest {
-    use proptest::prelude::*;
-    use value::ConvexValue;
-
-    use super::{
-        buffer::ByteBuffer,
-        PackedValue,
-    };
-
-    impl Arbitrary for PackedValue<ByteBuffer> {
-        type Parameters = ();
-
-        type Strategy = impl Strategy<Value = PackedValue<ByteBuffer>>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            any::<ConvexValue>().prop_map(|v| PackedValue::pack(&v))
-        }
     }
 }

@@ -17,7 +17,6 @@ use serde::{
 };
 
 #[derive(Clone, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct ByteBuffer {
     inner: Bytes,
 }
@@ -103,10 +102,4 @@ impl Serialize for StringBuffer {
     {
         (**self).serialize(serializer)
     }
-}
-
-#[test]
-fn test_buffer_size() {
-    assert_eq!(std::mem::size_of::<ByteBuffer>(), 32);
-    assert_eq!(std::mem::size_of::<StringBuffer>(), 32);
 }

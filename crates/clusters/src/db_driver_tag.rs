@@ -3,7 +3,6 @@ use std::str::FromStr;
 use common::types::PersistenceVersion;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(any(test, feature = "testing")), non_exhaustive)]
 pub enum DbDriverTag {
     Sqlite,
     Postgres(PersistenceVersion),
@@ -11,8 +10,6 @@ pub enum DbDriverTag {
     MySql(PersistenceVersion),
     MySqlAwsIam(PersistenceVersion),
     MySqlMultitenant(PersistenceVersion),
-    #[cfg(any(test, feature = "testing"))]
-    TestPersistence,
 }
 
 impl clap::ValueEnum for DbDriverTag {
@@ -24,8 +21,6 @@ impl clap::ValueEnum for DbDriverTag {
             DbDriverTag::MySqlMultitenant(PersistenceVersion::V5),
             DbDriverTag::Postgres(PersistenceVersion::V5),
             DbDriverTag::PostgresMultitenant(PersistenceVersion::V5),
-            #[cfg(any(test, feature = "testing"))]
-            DbDriverTag::TestPersistence,
         ]
     }
 
@@ -45,10 +40,6 @@ impl DbDriverTag {
             Self::Sqlite => {
                 anyhow::bail!("sqlite has no persistence version")
             },
-            #[cfg(any(test, feature = "testing"))]
-            Self::TestPersistence => {
-                anyhow::bail!("test persistence has no persistence version")
-            },
         }
     }
 
@@ -60,8 +51,6 @@ impl DbDriverTag {
             DbDriverTag::MySql(PersistenceVersion::V5) => "mysql-v5",
             DbDriverTag::MySqlAwsIam(PersistenceVersion::V5) => "mysql-v5-aws-iam",
             DbDriverTag::MySqlMultitenant(PersistenceVersion::V5) => "mysql-v5-multitenant",
-            #[cfg(any(test, feature = "testing"))]
-            DbDriverTag::TestPersistence => "test-persistence",
         }
     }
 }
@@ -79,8 +68,6 @@ impl FromStr for DbDriverTag {
             "mysql-v5" => Ok(DbDriverTag::MySql(PersistenceVersion::V5)),
             "mysql-v5-aws-iam" => Ok(DbDriverTag::MySqlAwsIam(PersistenceVersion::V5)),
             "mysql-v5-multitenant" => Ok(DbDriverTag::MySqlMultitenant(PersistenceVersion::V5)),
-            #[cfg(any(test, feature = "testing"))]
-            "test-persistence" => Ok(DbDriverTag::TestPersistence),
             _ => anyhow::bail!("unrecognized db_driver {s}"),
         }
     }

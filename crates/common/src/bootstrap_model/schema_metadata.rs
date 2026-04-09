@@ -12,7 +12,6 @@ use super::schema_state::{
 use crate::schemas::DatabaseSchema;
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct SchemaMetadata {
     pub state: SchemaState,
     pub raw_schema: String,

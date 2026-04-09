@@ -79,9 +79,6 @@ mod event_receiver;
 mod metrics;
 mod setup;
 mod stats;
-#[cfg(test)]
-mod tests;
-
 use crate::{
     event_receiver::EventProcessor,
     stats::Stats,

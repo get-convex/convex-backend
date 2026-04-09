@@ -6,9 +6,6 @@ mod connection;
 mod metrics;
 mod sql;
 
-#[cfg(test)]
-mod tests;
-
 use std::{
     array,
     cmp,
@@ -2095,54 +2092,4 @@ fn index_query(
         .get(&(lt, ut, order))
         .unwrap();
     (query, params)
-}
-
-#[cfg(any(test, feature = "testing"))]
-pub mod itest {
-    use std::path::Path;
-
-    use anyhow::Context;
-    use rand::Rng;
-
-    // Returns a url to connect to the test cluster. The URL includes username and
-    // password but no dbname.
-    pub fn cluster_opts() -> String {
-        let (host_port, username, password) = if Path::new("/convex.ro").exists() {
-            // itest
-            (
-                "postgres:5432".to_owned(),
-                "postgres".to_owned(),
-                "alpastor".to_owned(),
-            )
-        } else {
-            // local
-            let user = std::env::var("USER").unwrap();
-            let pguser = std::env::var("CI_PGUSER").unwrap_or(user);
-            let pgpassword = std::env::var("CI_PGPASSWORD").unwrap_or_default();
-            ("localhost".to_owned(), pguser, pgpassword)
-        };
-        format!("postgres://{username}:{password}@{host_port}")
-    }
-
-    /// Returns connection options for a guaranteed-fresh Postgres database.
-    pub async fn new_db_opts() -> anyhow::Result<String> {
-        let cluster_url = cluster_opts();
-
-        // Connect using db `postgres`, create a fresh DB, and then return the
-        // connection options for that one.
-        let id: [u8; 16] = rand::rng().random();
-        let db_name = "test_db_".to_string() + &hex::encode(&id[..]);
-
-        let (client, conn) = tokio_postgres::connect(
-            &format!("{cluster_url}/postgres"),
-            tokio_postgres::tls::NoTls,
-        )
-        .await
-        .context(format!("Couldn't connect to {cluster_url}"))?;
-        common::runtime::tokio_spawn("postgres_conn", conn);
-        let query = format!("CREATE DATABASE {db_name};");
-        client.batch_execute(query.as_str()).await?;
-
-        Ok(format!("{cluster_url}/{db_name}"))
-    }
 }

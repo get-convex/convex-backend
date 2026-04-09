@@ -52,7 +52,6 @@ pub type DeveloperIndexMetadata = IndexMetadata<TableName>;
 
 /// In-memory representation of an index's metadata.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct IndexMetadata<T: IndexTableIdentifier> {
     /// Unique name for the index.
     pub name: GenericIndexName<T>,
@@ -143,32 +142,6 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                 },
                 on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(false)),
             },
-        }
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn inject_backfill_snapshot_ts_into_backfilling_vector_index(
-        &mut self,
-    ) -> anyhow::Result<()> {
-        match self {
-            Self {
-                name: _,
-                config:
-                    IndexConfig::Vector {
-                        spec: _,
-                        on_disk_state: VectorIndexState::Backfilling(state),
-                    },
-            } => {
-                use value::InternalId;
-
-                use crate::bootstrap_model::index::search_index::SearchBackfillCursor;
-                state.cursor = Some(SearchBackfillCursor::AtSnapshot {
-                    backfill_snapshot_ts: Timestamp::MIN,
-                    cursor: InternalId::MIN,
-                });
-                Ok(())
-            },
-            _ => Err(anyhow::anyhow!("Not a vector index in backfilling state")),
         }
     }
 

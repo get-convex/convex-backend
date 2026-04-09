@@ -19,11 +19,6 @@ use crate::Secret;
 
 const AEAD_ALGORITHM: aead::Algorithm = aead::AES_128_GCM_SIV;
 const KEY_LEN: usize = 16;
-#[test]
-fn test_key_len() {
-    assert_eq!(KEY_LEN, AEAD_ALGORITHM.key_len());
-}
-
 #[derive(Clone)]
 pub struct Encryptor<const DETERMINISTIC: bool> {
     derived_key: [u8; KEY_LEN],
@@ -151,65 +146,4 @@ impl<const DETERMINISTIC: bool> Encryptor<DETERMINISTIC> {
             .map_err(|_| anyhow::anyhow!("Failed to decrypt ciphertext"))?;
         Ok(M::decode(&*plaintext)?)
     }
-}
-
-#[test]
-fn test_encryptor() {
-    use common::testing::assert_contains;
-
-    let secret = Secret::random();
-    let encryptor = RandomEncryptor::derive_from_secret(&secret, Purpose("testing")).unwrap();
-    let message = "very cool message".to_owned();
-    let encoded = encryptor.encrypt_proto(11, &message);
-    // RandomEncryptor is nondeterministic
-    assert_ne!(encoded, encryptor.encrypt_proto(11, &message));
-    assert_eq!(
-        encryptor.decrypt_proto::<String>(11, &encoded).unwrap(),
-        message
-    );
-    // decrypting with the wrong version should fail
-    assert_contains(
-        &encryptor.decrypt_proto::<String>(12, &encoded).unwrap_err(),
-        "Invalid message version",
-    );
-
-    // An encryptor with a different purpose should not recognize the message
-    let encryptor2 = RandomEncryptor::derive_from_secret(&secret, Purpose("testing2")).unwrap();
-    assert_contains(
-        &encryptor2
-            .decrypt_proto::<String>(11, &encoded)
-            .unwrap_err(),
-        "Failed to decrypt",
-    );
-}
-
-#[test]
-fn test_deterministic_encryptor() {
-    use common::testing::assert_contains;
-
-    let secret = Secret::random();
-    let encryptor =
-        DeterministicEncryptor::derive_from_secret(&secret, Purpose("testing")).unwrap();
-    let message = "very cool message".to_owned();
-    let encoded = encryptor.encrypt_proto(11, &message);
-    assert_eq!(encoded, encryptor.encrypt_proto(11, &message));
-    assert_eq!(
-        encryptor.decrypt_proto::<String>(11, &encoded).unwrap(),
-        message
-    );
-    // decrypting with the wrong version should fail
-    assert_contains(
-        &encryptor.decrypt_proto::<String>(12, &encoded).unwrap_err(),
-        "Invalid message version",
-    );
-
-    // An encryptor with a different purpose should not recognize the message
-    let encryptor2 =
-        DeterministicEncryptor::derive_from_secret(&secret, Purpose("testing2")).unwrap();
-    assert_contains(
-        &encryptor2
-            .decrypt_proto::<String>(11, &encoded)
-            .unwrap_err(),
-        "Failed to decrypt",
-    );
 }

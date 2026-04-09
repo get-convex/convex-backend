@@ -153,21 +153,6 @@ impl Size for ConvexArray {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for ConvexArray {
-    type Parameters = proptest::collection::SizeRange;
-
-    type Strategy = impl proptest::strategy::Strategy<Value = ConvexArray>;
-
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        prop::collection::vec(any::<ConvexValue>(), args)
-            .prop_filter_map("Vec wasn't a valid Convex value", |s| {
-                Self::try_from(s).ok()
-            })
-    }
-}
-
 #[macro_export]
 /// Create an array.
 ///

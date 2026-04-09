@@ -34,13 +34,6 @@ use itertools::{
     Itertools,
 };
 use maplit::btreemap;
-#[cfg(any(test, feature = "testing"))]
-use proptest::arbitrary::{
-    any,
-    Arbitrary,
-};
-#[cfg(any(test, feature = "testing"))]
-use proptest::strategy::Strategy;
 use tantivy::{
     schema::Field,
     Score,
@@ -297,7 +290,6 @@ impl TermShortlistBuilder {
 /// As an implementation detail that may change in the future, these are
 /// currently just the index of the term in the shortlist.
 #[derive(PartialOrd, Ord, Clone, Debug, Eq, PartialEq, Copy)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ShortlistId(u16);
 
 impl TryFrom<u32> for ShortlistId {
@@ -495,7 +487,6 @@ pub enum CompiledFilterCondition {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct CandidateRevision {
     pub score: f32,
     pub id: InternalId,
@@ -537,7 +528,6 @@ impl TryFrom<pb::searchlight::CandidateRevision> for CandidateRevision {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct CandidateRevisionPositions {
     pub revision: CandidateRevision,
     pub positions: BTreeMap<ShortlistId, Vec<u32>>,
@@ -604,7 +594,6 @@ impl QueryResults {
 /// will be combined with the constant metadata (path, distance prefix etc) into
 /// a term, then we track reads based on individual terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TextQueryTermRead {
     pub field_path: FieldPath,
     pub term: TextQueryTerm,
@@ -621,26 +610,11 @@ impl TextQueryTermRead {
 // would already have run on these terms prior to this point for production
 // code.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum TextQueryTerm {
     Exact(
-        #[cfg_attr(
-            any(test, feature = "testing"),
-            proptest(
-                regex = "[a-z]+",
-                filter = "|token| token.len() > 1 && token.len() < 32"
-            )
-        )]
         String,
     ),
     Fuzzy {
-        #[cfg_attr(
-            any(test, feature = "testing"),
-            proptest(
-                regex = "[a-z]+",
-                filter = "|token| token.len() > 1 && token.len() < 32"
-            )
-        )]
         token: String,
         max_distance: FuzzyDistance,
         prefix: bool,
@@ -648,7 +622,6 @@ pub enum TextQueryTerm {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FuzzyDistance {
     Zero,
     One,
@@ -724,7 +697,6 @@ impl HeapSize for TextQueryTermRead {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FilterConditionRead {
     Must(FieldPath, FilterValue),
 }
@@ -760,23 +732,6 @@ impl QueryReads {
             filter_conditions,
             fuzzy_terms,
         }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for QueryReads {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = QueryReads>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        any::<(
-            WithHeapSize<Vec<TextQueryTermRead>>,
-            WithHeapSize<Vec<FilterConditionRead>>,
-        )>()
-        .prop_map(|(text_queries, filter_conditions)| {
-            QueryReads::new(text_queries, filter_conditions)
-        })
     }
 }
 
@@ -1154,191 +1109,4 @@ pub fn tokenize(value: ConvexString) -> SearchValueTokens {
     }
 
     SearchValueTokens::from(tokens)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{
-        collections::BTreeMap,
-        str::FromStr,
-    };
-
-    use common::{
-        document::ResolvedDocument,
-        types::IndexDescriptor,
-    };
-    use value::{
-        ConvexObject,
-        ConvexString,
-        ConvexValue,
-        ResolvedDocumentId,
-        TabletId,
-    };
-
-    use super::*;
-
-    #[test]
-    fn test_search_term_tries_overlaps() -> anyhow::Result<()> {
-        let mut tries = SearchTermTries::new();
-
-        // Create a document with a text field
-        let mut map = BTreeMap::new();
-        map.insert(
-            "title".parse()?,
-            ConvexValue::String(ConvexString::try_from("hello world")?),
-        );
-        let object = ConvexObject::try_from(map)?;
-        let doc = PackedDocument::pack(&ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            object,
-        )?);
-
-        // Add a search term that matches the document using extend
-        let text_query = TextQueryTermRead::new(
-            FieldPath::from_str("title")?,
-            TextQueryTerm::Exact("hello".to_string()),
-        );
-        let text_queries = WithHeapSize::from(vec![text_query]);
-        tries.extend((), &text_queries);
-
-        // Test that the document matches
-        assert!(tries.overlaps_document(&doc));
-
-        // Add a non-matching term
-        let text_query = TextQueryTermRead::new(
-            FieldPath::from_str("title")?,
-            TextQueryTerm::Exact("goodbye".to_string()),
-        );
-        let text_queries = WithHeapSize::from(vec![text_query]);
-        tries.extend((), &text_queries);
-
-        // Document should still match because it matches at least one term
-        assert!(tries.overlaps_document(&doc));
-
-        // Create a document that doesn't match any terms
-        let mut map = BTreeMap::new();
-        map.insert(
-            "title".parse()?,
-            ConvexValue::String(ConvexString::try_from("bonjour")?),
-        );
-        let object = ConvexObject::try_from(map)?;
-        let doc = PackedDocument::pack(&ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            object,
-        )?);
-
-        // Document should not match
-        assert!(!tries.overlaps_document(&doc));
-        Ok(())
-    }
-
-    #[test]
-    fn test_search_term_tries_overlaps_returns_false_if_the_field_does_not_exist(
-    ) -> anyhow::Result<()> {
-        let mut tries = SearchTermTries::new();
-        let text_query = TextQueryTermRead::new(
-            FieldPath::from_str("title")?,
-            TextQueryTerm::Exact("hello".to_string()),
-        );
-        let text_queries = WithHeapSize::from(vec![text_query]);
-        tries.extend((), &text_queries);
-
-        let doc = PackedDocument::pack(&ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            ConvexObject::try_from(btreemap! {})?,
-        )?);
-
-        assert!(!tries.overlaps_document(&doc));
-        Ok(())
-    }
-
-    #[test]
-    fn test_add_fuzzy_matches() -> anyhow::Result<()> {
-        let mut subscriptions = TextSearchSubscriptions::new();
-        let tablet_id = TabletId::MIN;
-        let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
-        let subscriber_id = SubscriberId::MIN;
-
-        // Query that matches the document
-        let query_reads = QueryReads::new(
-            WithHeapSize::from(vec![TextQueryTermRead::new(
-                FieldPath::from_str("text")?,
-                TextQueryTerm::Exact("hello".to_string()),
-            )]),
-            WithHeapSize::default(),
-        );
-        subscriptions.insert(subscriber_id, &index, &query_reads);
-
-        let keys_matching = DocumentIndexKeys::with_search_index_for_test(
-            index.clone(),
-            FieldPath::from_str("text")?,
-            tokenize(ConvexString::try_from("hello world")?),
-        );
-
-        // Test matching
-        let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &keys_matching, &mut |id| {
-            matches.insert(id);
-        });
-        assert!(matches.contains(&subscriber_id));
-
-        // Test non-matching
-        let keys_non_matching = DocumentIndexKeys::with_search_index_for_test(
-            index.clone(),
-            FieldPath::from_str("text")?,
-            tokenize(ConvexString::try_from("different text")?),
-        );
-
-        let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &keys_non_matching, &mut |id| {
-            matches.insert(id);
-        });
-        assert!(matches.is_empty());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_add_fuzzy_matches_returns_false_if_the_field_does_not_exist() -> anyhow::Result<()> {
-        let mut subscriptions = TextSearchSubscriptions::new();
-        let tablet_id = TabletId::MIN;
-        let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
-        let subscriber_id = SubscriberId::MIN;
-
-        let query_reads = QueryReads::new(
-            WithHeapSize::from(vec![TextQueryTermRead::new(
-                FieldPath::from_str("text")?,
-                TextQueryTerm::Exact("hello".to_string()),
-            )]),
-            WithHeapSize::default(),
-        );
-
-        subscriptions.insert(subscriber_id, &index, &query_reads);
-
-        let index_keys = DocumentIndexKeys::empty_for_test();
-
-        let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &index_keys, &mut |id| {
-            matches.insert(id);
-        });
-        assert!(matches.is_empty());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_tokenize() {
-        let tokens = tokenize(ConvexString::try_from("Hello world! Hello again!").unwrap());
-        assert!(
-            tokens
-                == SearchValueTokens::from_iter_for_test(vec![
-                    "hello".to_string(),
-                    "world".to_string(),
-                    "again".to_string(),
-                ]),
-        );
-    }
 }

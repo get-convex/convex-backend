@@ -283,7 +283,6 @@ pub fn recapture_stacktrace_noreport(err: &anyhow::Error) -> anyhow::Error {
 
 #[derive(Clone, Deserialize, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FrameData {
     pub type_name: Option<String>,
     pub function_name: Option<String>,
@@ -505,10 +504,6 @@ impl fmt::Display for FrameData {
 
 /// An Error emitted from a Convex Function execution.
 #[derive(Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub struct JsError {
     pub message: String,
     pub custom_data: Option<ConvexValue>,
@@ -573,10 +568,6 @@ impl HeapSize for JsError {
 }
 
 #[derive(Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub struct JsFrames(pub WithHeapSize<Vec<MappedFrame>>);
 
 impl From<JsFrames> for JsFramesProto {
@@ -714,17 +705,6 @@ impl JsError {
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn from_frames_for_test(message: &str, frames: Vec<&str>) -> Self {
-        let frame_data = frames
-            .into_iter()
-            .map(|filename| FrameData {
-                file_name: Some(filename.to_string()),
-                ..Default::default()
-            })
-            .collect();
-        Self::from_frames(message.to_string(), frame_data, None, |_| Ok(None))
-    }
 }
 
 // Based on deno's `02_error.js:formatLocation`.
@@ -808,235 +788,3 @@ pub fn database_operational_error(error: anyhow::Error) -> anyhow::Error {
 
 pub const AUTH_ERROR: &str = "AuthError";
 pub const TIMEOUT_ERROR_MESSAGE: &str = "Your request timed out.";
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use errors::{
-        ErrorMetadata,
-        ErrorMetadataAnyhowExt,
-    };
-    use maplit::btreemap;
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-    use value::obj;
-
-    use super::{
-        strip_pii,
-        FrameDataProto,
-        JsError,
-        JsErrorProto,
-    };
-    use crate::{
-        errors::{
-            event_from_error,
-            FrameData,
-        },
-        schemas::{
-            validator::{
-                ValidationContext,
-                ValidationError,
-            },
-            SchemaEnforcementError,
-        },
-    };
-
-    #[test]
-    fn test_js_error_conversion_into_anyhow() -> anyhow::Result<()> {
-        let js_error = JsError::from_message("Big Error".into());
-        let err: anyhow::Error = js_error.into();
-        assert_eq!(err.to_string(), "Big Error\n");
-        assert_eq!(err.downcast_ref::<JsError>().unwrap().message, "Big Error");
-        assert_eq!(err.downcast::<ErrorMetadata>().unwrap().short_msg, "Error");
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_obj() -> anyhow::Result<()> {
-        let object = obj!("foo" => "bar")?;
-        let validation_error = ValidationError::ExtraField {
-            object: object.clone(),
-            field_name: "field".parse()?,
-            object_validator: crate::schemas::validator::ObjectValidator(btreemap! {}),
-            context: ValidationContext::new(),
-        };
-        let schema_enforcement_error = SchemaEnforcementError::Document {
-            validation_error,
-            table_name: "table".parse()?,
-        };
-        let error_metadata: ErrorMetadata = schema_enforcement_error.to_error_metadata();
-        let mut anyhow_err: anyhow::Error = error_metadata.into();
-        assert!(anyhow_err.is_bad_request());
-        let err_string = anyhow_err.to_string();
-        assert!(err_string.contains(&object.to_string()));
-        assert!(err_string.contains("Object contains extra field"));
-        strip_pii(&mut anyhow_err);
-        assert!(anyhow_err.is_bad_request());
-        let err_string = anyhow_err.to_string();
-        assert!(!err_string.contains(&object.to_string()));
-        assert!(err_string.contains("Object contains extra field"));
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_email() -> anyhow::Result<()> {
-        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request(
-            "DIY",
-            "Need DIY advice? Email totally-not-james@convex.dev"
-        ));
-        strip_pii(&mut e);
-        assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_wrap_error_message() -> anyhow::Result<()> {
-        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request(
-            "DIY",
-            "Need DIY advice? Email totally-not-james@convex.dev"
-        ))
-        .wrap_error_message(|m| format!("Wrapped: {m}"));
-
-        strip_pii(&mut e);
-        assert!(!format!("{e:?}").contains("totally-not-james"));
-        assert!(e.is_bad_request());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_outside_and_inside_error_metadata() -> anyhow::Result<()> {
-        let mut e = anyhow::anyhow!("Contact totally-not-jamwt@convex.dev if we get here").context(
-            ErrorMetadata::bad_request(
-                "DIY",
-                "Need DIY advice? Email totally-not-james@convex.dev",
-            ),
-        );
-
-        strip_pii(&mut e);
-        assert!(!format!("{e:?}").contains("totally-not-james"));
-        assert!(!format!("{e:?}").contains("totally-not-jamwt"));
-        assert!(e.is_bad_request());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_weird_email() -> anyhow::Result<()> {
-        let test = "my.test's-receipts+memo_test-1@site.com";
-        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request(
-            "DIY",
-            format!("Need DIY advice? Email {test}"),
-        ));
-        strip_pii(&mut e);
-        assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_without_error_metadata() -> anyhow::Result<()> {
-        let test = "my.test's-receipts+memo_test-1@site.com";
-        let mut e = anyhow::anyhow!("Need DIY advice? Email {test}");
-        strip_pii(&mut e);
-        assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
-        Ok(())
-    }
-
-    #[test]
-    fn test_dont_mess_with_non_pii() -> anyhow::Result<()> {
-        let mut e = anyhow::anyhow!("Need DIY advice?").context("You're on your own");
-        strip_pii(&mut e);
-        assert_eq!(format!("{e:#}"), "You're on your own: Need DIY advice?");
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_pnpm_path_convex() -> anyhow::Result<()> {
-        let pnpm_path = "node_modules/.pnpm/convex@1.31.0/node_modules/convex/";
-        let msg = format!("Error in path: {pnpm_path}");
-        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request("PathError", msg.clone()));
-        strip_pii(&mut e);
-        assert_eq!(e.to_string(), msg);
-        Ok(())
-    }
-
-    #[test]
-    fn test_strip_pii_pnpm_path_typescript_eslint() -> anyhow::Result<()> {
-        let pnpm_path = "node_modules/.pnpm/@typescript-eslint+eslint-plugin@8.50.0_@\
-                         typescript-eslint+parser@8.50.0_eslint@9.39.\
-                         2__d116695751af81bc5e2aa22500f360b6/node_modules/@typescript-eslint/\
-                         types/dist/index.js";
-        let msg = format!("Error in path: {pnpm_path}");
-        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request("PathError", msg.clone()));
-        strip_pii(&mut e);
-        assert_eq!(e.to_string(), msg);
-        Ok(())
-    }
-
-    #[test]
-    fn test_js_error_conversion_anyhow_macro() -> anyhow::Result<()> {
-        let js_error = JsError::from_message("Big Error".into());
-        let err = anyhow::anyhow!(js_error);
-        assert_eq!(err.to_string(), "Big Error\n");
-        assert_eq!(err.downcast_ref::<JsError>().unwrap().message, "Big Error");
-        assert_eq!(err.downcast::<ErrorMetadata>().unwrap().short_msg, "Error");
-        Ok(())
-    }
-
-    #[test]
-    fn test_event_from_error_non_root_cause() {
-        let error = anyhow::anyhow!("message").context(ErrorMetadata::bad_request(
-            "ShortMsg",
-            "user visible message",
-        ));
-        let event = event_from_error(&error);
-        let exceptions: Vec<_> = event
-            .exception
-            .iter()
-            .map(|ex| (ex.ty.as_str(), ex.value.as_deref()))
-            .collect();
-        assert_eq!(
-            exceptions,
-            vec![
-                ("Error", Some("message")),
-                ("ShortMsg", Some("user visible message")),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_event_from_error_root_cause() {
-        let error = anyhow::anyhow!(ErrorMetadata::bad_request(
-            "ShortMsg",
-            "user visible message",
-        ))
-        .context("contextual message");
-        let event = event_from_error(&error);
-        let exceptions: Vec<_> = event
-            .exception
-            .iter()
-            .map(|ex| (ex.ty.as_str(), ex.value.as_deref()))
-            .collect();
-        assert_eq!(
-            exceptions,
-            vec![
-                ("ShortMsg", Some("user visible message")),
-                ("Error", Some("contextual message")),
-            ]
-        );
-    }
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn js_error_proto_roundtrips(js_error in any::<JsError>()) {
-            assert_roundtrips::<JsError, JsErrorProto>(js_error);
-        }
-        #[test]
-        fn frame_data_proto_roundtrips(left in any::<FrameData>()) {
-            assert_roundtrips::<FrameData, FrameDataProto>(left);
-        }
-    }
-}

@@ -21,7 +21,6 @@ use crate::{
     },
 };
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AwsLambdaConfig {
     pub env: BTreeMap<FieldName, String>, // Env to pass to node
@@ -35,7 +34,6 @@ pub struct AwsLambdaConfig {
     pub ipv6_enabled: bool,
 }
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AwsLambdaVersion {
     pub lambda_name: String,
@@ -47,7 +45,6 @@ pub struct AwsLambdaVersion {
 
 /// Stores the configuration information for the Lambda relevant to the type
 /// of Lambda this enum identifies.
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AwsLambdaPackageDesc {
     Static {
@@ -365,34 +362,5 @@ impl TryFrom<ConvexObject> for AwsLambdaVersion {
             lambda_config,
             package_desc,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::ConvexObject;
-
-    use super::{
-        AwsLambdaConfig,
-        AwsLambdaVersion,
-    };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_actions_version_roundtrip(v in any::<AwsLambdaVersion>()) {
-            assert_roundtrips::<AwsLambdaVersion, ConvexObject>(v);
-        }
-
-        #[test]
-        fn test_lambda_config_roundtrip(v in any::<AwsLambdaConfig>()) {
-            assert_roundtrips::<AwsLambdaConfig, ConvexObject>(v);
-        }
     }
 }

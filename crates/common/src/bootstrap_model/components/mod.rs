@@ -20,7 +20,6 @@ use crate::components::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentMetadata {
     pub definition_id: DeveloperDocumentId,
     pub component_type: ComponentType,
@@ -32,7 +31,6 @@ pub struct ComponentMetadata {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ComponentState {
     /// The component is mounted and can be used.
     Active,
@@ -51,7 +49,6 @@ impl ComponentMetadata {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ComponentType {
     App,
     ChildComponent {

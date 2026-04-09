@@ -142,10 +142,6 @@ pub fn persistence_args_from_cluster_url(
             })
         },
         DbDriverTag::Sqlite => anyhow::bail!("no url for sqlite"),
-        #[cfg(any(test, feature = "testing"))]
-        DbDriverTag::TestPersistence => {
-            anyhow::bail!("no url for test persistence")
-        },
     }
 }
 

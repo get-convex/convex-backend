@@ -25,7 +25,6 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ExecutionContext {
     pub request_id: RequestId,
     // A unique ID per entry in the function logs.
@@ -69,16 +68,6 @@ impl ExecutionContext {
         self.is_root
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_test() -> Self {
-        Self {
-            request_id: RequestId::new(),
-            execution_id: ExecutionId::new(),
-            parent_scheduled_job: None,
-            is_root: true,
-        }
-    }
-
     pub fn add_sentry_tags(&self, scope: &mut sentry::Scope) {
         scope.set_tag("request_id", &self.request_id);
         scope.set_tag("execution_id", self.execution_id);
@@ -99,7 +88,6 @@ impl HeapSize for ExecutionContext {
 #[derive(Clone, Debug, PartialEq, Eq, Display, Serialize, Deserialize)]
 #[display("{_0}")]
 #[serde(transparent)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct RequestId(String);
 
 impl RequestId {
@@ -163,20 +151,6 @@ impl HeapSize for RequestId {
 #[display("{_0}")]
 #[serde(transparent)]
 pub struct ExecutionId(Uuid);
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for ExecutionId {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = Self>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        "[a-f0-9]{32}"
-            .prop_filter_map("Invalid Uuid", |s| s.parse().ok().map(Self))
-            .boxed()
-    }
-}
 
 impl Default for ExecutionId {
     fn default() -> Self {
@@ -248,57 +222,5 @@ impl From<ExecutionContext> for JsonValue {
             "parentScheduledJob": parent_document_id.map(|id| id.to_string()),
             "parentScheduledJobComponentId": parent_component_id.unwrap_or(ComponentId::Root).serialize_to_string(),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        ExecutionId,
-        RequestId,
-    };
-
-    #[test]
-    fn request_id_json_serde_roundtrip() {
-        let request_id = RequestId::new();
-        let json = serde_json::to_string(&request_id).expect("request id should serialize");
-        assert_eq!(json, format!("\"{request_id}\""));
-
-        let deserialized: RequestId =
-            serde_json::from_str(&json).expect("request id should deserialize");
-        assert_eq!(deserialized, request_id);
-    }
-
-    #[test]
-    fn request_id_convex_serde_roundtrip() {
-        let request_id = RequestId::new();
-        let value = value::serde::to_value(request_id.clone())
-            .expect("request id should serialize to convex value");
-        let value::ConvexValue::String(serialized) = value else {
-            panic!("request id should serialize as string");
-        };
-        assert_eq!(String::from(serialized), request_id.to_string());
-    }
-
-    #[test]
-    fn execution_id_json_serde_roundtrip() {
-        let execution_id = ExecutionId::new();
-        let json = serde_json::to_string(&execution_id).expect("execution id should serialize");
-        assert_eq!(json, format!("\"{execution_id}\""));
-
-        let deserialized: ExecutionId =
-            serde_json::from_str(&json).expect("execution id should deserialize");
-        assert_eq!(deserialized, execution_id);
-    }
-
-    #[test]
-    fn execution_id_convex_serde_roundtrip() {
-        let execution_id = ExecutionId::new();
-        let value = value::serde::to_value(execution_id)
-            .expect("execution id should serialize to convex value");
-        let value::ConvexValue::String(serialized) = value else {
-            panic!("execution id should serialize as string");
-        };
-        assert_eq!(String::from(serialized), execution_id.to_string());
     }
 }

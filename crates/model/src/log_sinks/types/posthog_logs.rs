@@ -9,7 +9,6 @@ use serde::{
 pub const DEFAULT_POSTHOG_HOST: &str = "https://us.i.posthog.com";
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct PostHogLogsConfig {
     pub api_key: PII<String>,
     pub host: Option<String>,

@@ -102,8 +102,6 @@ pub use region::{
 pub use search_index_metric_labels::SearchIndexMetricLabels;
 pub use snapshot_export::SetExportExpirationRequest;
 pub use table::TableStats;
-#[cfg(any(test, feature = "testing"))]
-pub use timestamp::unchecked_repeatable_ts;
 pub use timestamp::{
     RepeatableReason,
     RepeatableTimestamp,
@@ -127,14 +125,6 @@ pub type CursorMs = f64;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PersistenceVersion {
     V5,
-}
-
-#[cfg(any(test, feature = "testing"))]
-#[allow(clippy::derivable_impls)]
-impl Default for PersistenceVersion {
-    fn default() -> Self {
-        Self::V5
-    }
 }
 
 impl PersistenceVersion {

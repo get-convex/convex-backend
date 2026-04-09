@@ -71,10 +71,6 @@ use crate::{
     RedactedQueryReturn,
 };
 
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, Debug, Clone, PartialEq)
-)]
 pub enum ExecuteQueryTimestamp {
     // Execute the query at the latest timestamp.
     Latest,

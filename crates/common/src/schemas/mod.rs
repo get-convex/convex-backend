@@ -14,15 +14,11 @@ use itertools::{
     Either,
     Itertools,
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
 use shape_inference::{
     Shape,
     ShapeConfig,
     ShapeCounter,
 };
-#[cfg(any(test, feature = "testing"))]
-use value::TableType;
 use value::{
     id_v6::DeveloperDocumentId,
     ConvexObject,
@@ -55,10 +51,6 @@ use crate::{
 };
 
 pub mod json;
-#[cfg(any(test, feature = "testing"))]
-pub mod test_helpers;
-#[cfg(test)]
-mod tests;
 pub mod validator;
 
 pub const MAX_INDEXES_PER_TABLE: usize = 64;
@@ -451,51 +443,6 @@ impl DatabaseSchema {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl Default for DatabaseSchema {
-    fn default() -> Self {
-        Self {
-            tables: BTreeMap::new(),
-            schema_validation: true,
-        }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for DatabaseSchema {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = DatabaseSchema>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        // To generate valid schemas, first generate the set of table names.
-        // In each table, only generate references to names in this set.
-        (
-            prop::collection::btree_set(any_with::<TableName>(TableType::User), 0..8),
-            any::<bool>(),
-        )
-            .prop_flat_map(|(table_names, schema_validation)| {
-                let cloned_names = table_names.clone();
-                let table_names_and_definitions: Vec<_> = table_names
-                    .into_iter()
-                    .map(move |table_name| {
-                        (
-                            Just(table_name.clone()),
-                            any_with::<TableDefinition>((table_name, cloned_names.clone())),
-                        )
-                    })
-                    .collect();
-
-                table_names_and_definitions.prop_map(move |names_and_defintiions| Self {
-                    tables: names_and_defintiions.into_iter().collect(),
-                    schema_validation,
-                })
-            })
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TableDefinition {
     pub table_name: TableName,
@@ -562,118 +509,7 @@ impl TableDefinition {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for TableDefinition {
-    type Parameters = (TableName, BTreeSet<TableName>);
-
-    type Strategy = impl proptest::strategy::Strategy<Value = TableDefinition>;
-
-    fn arbitrary_with((table_name, all_table_names): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        (
-            prop::collection::vec(any::<IndexSchema>(), 0..6),
-            prop::collection::vec(any::<IndexSchema>(), 0..6),
-            prop::collection::vec(any::<TextIndexSchema>(), 0..3),
-            prop::collection::vec(any::<TextIndexSchema>(), 0..3),
-            prop::collection::vec(any::<VectorIndexSchema>(), 0..3),
-            prop::collection::vec(any::<VectorIndexSchema>(), 0..3),
-            any_with::<Option<DocumentSchema>>((
-                prop::option::Probability::default(),
-                all_table_names,
-            )),
-        )
-            .prop_filter_map(
-                "index names must be unique",
-                move |(
-                    indexes,
-                    staged_db_indexes,
-                    search_indexes,
-                    staged_search_indexes,
-                    vector_indexes,
-                    staged_vector_indexes,
-                    document_type,
-                )| {
-                    // Can't have two indexes with same name
-                    let index_descriptors: BTreeSet<_> = indexes
-                        .iter()
-                        .map(|i| &i.index_descriptor)
-                        .chain(staged_db_indexes.iter().map(|i| &i.index_descriptor))
-                        .chain(search_indexes.iter().map(|i| &i.index_descriptor))
-                        .chain(staged_search_indexes.iter().map(|i| &i.index_descriptor))
-                        .chain(vector_indexes.iter().map(|i| &i.index_descriptor))
-                        .chain(staged_vector_indexes.iter().map(|i| &i.index_descriptor))
-                        .collect();
-                    let expected = indexes.len()
-                        + staged_db_indexes.len()
-                        + search_indexes.len()
-                        + staged_search_indexes.len()
-                        + vector_indexes.len()
-                        + staged_vector_indexes.len();
-                    assert!(index_descriptors.len() <= expected);
-                    if index_descriptors.len() != expected {
-                        return None;
-                    }
-
-                    // Can't have two search fields with same name
-                    let search_fields: BTreeSet<_> = search_indexes
-                        .iter()
-                        .map(|i| &i.search_field)
-                        .chain(staged_search_indexes.iter().map(|i| &i.search_field))
-                        .collect();
-                    let expected = search_indexes.len() + staged_search_indexes.len();
-                    assert!(search_fields.len() <= expected);
-                    if search_fields.len() != expected {
-                        return None;
-                    }
-
-                    // Can't have two vector fields with same name
-                    let vector_fields: BTreeSet<_> = vector_indexes
-                        .iter()
-                        .map(|i| &i.vector_field)
-                        .chain(staged_vector_indexes.iter().map(|i| &i.vector_field))
-                        .collect();
-                    let expected = vector_indexes.len() + staged_vector_indexes.len();
-                    assert!(vector_fields.len() <= expected);
-                    if vector_fields.len() != expected {
-                        return None;
-                    }
-
-                    Some(Self {
-                        table_name: table_name.clone(),
-                        indexes: indexes
-                            .into_iter()
-                            .map(|i| (i.index_descriptor.clone(), i))
-                            .collect(),
-                        staged_db_indexes: staged_db_indexes
-                            .into_iter()
-                            .map(|i| (i.index_descriptor.clone(), i))
-                            .collect(),
-                        text_indexes: search_indexes
-                            .into_iter()
-                            .map(|i| (i.index_descriptor.clone(), i))
-                            .collect(),
-                        staged_text_indexes: staged_search_indexes
-                            .into_iter()
-                            .map(|i| (i.index_descriptor.clone(), i))
-                            .collect(),
-                        vector_indexes: vector_indexes
-                            .into_iter()
-                            .map(|i| (i.index_descriptor.clone(), i))
-                            .collect(),
-                        staged_vector_indexes: staged_vector_indexes
-                            .into_iter()
-                            .map(|i| (i.index_descriptor.clone(), i))
-                            .collect(),
-                        document_type,
-                    })
-                },
-            )
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct IndexSchema {
     pub index_descriptor: IndexDescriptor,
     pub fields: IndexedFields,
@@ -686,14 +522,9 @@ impl Display for IndexSchema {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TextIndexSchema {
     pub index_descriptor: IndexDescriptor,
     pub search_field: FieldPath,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::btree_set(any::<FieldPath>(), 0..8)")
-    )]
     pub filter_fields: BTreeSet<FieldPath>,
 
     // Private field to force all creations to go through the constructor.
@@ -721,15 +552,10 @@ impl TextIndexSchema {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct VectorIndexSchema {
     pub index_descriptor: IndexDescriptor,
     pub vector_field: FieldPath,
     pub dimension: VectorDimensions,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::btree_set(any::<FieldPath>(), 0..8)")
-    )]
     pub filter_fields: BTreeSet<FieldPath>,
 
     // Private field to force all creations to go through the constructor.
@@ -761,21 +587,9 @@ impl VectorIndexSchema {
 /// [`DocumentSchema`] corresponds to the `DocumentSchema` TS type in
 /// `TableDefinition`. `Any` means no schema will be enforced.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    proptest(params = "BTreeSet<TableName>")
-)]
 pub enum DocumentSchema {
     Any,
 
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::collection::vec(any_with::<ObjectValidator>(params), \
-                        1..8).prop_map(DocumentSchema::Union)"
-        )
-    )]
     Union(Vec<ObjectValidator>),
 }
 

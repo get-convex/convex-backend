@@ -169,19 +169,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             .await
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn enable_index_for_testing(
-        &mut self,
-        namespace: TableNamespace,
-        index: &IndexName,
-    ) -> anyhow::Result<()> {
-        let metadata = self
-            .pending_index_metadata(namespace, index)?
-            .ok_or_else(|| anyhow::anyhow!("Failed to find pending index: {}", index))?;
-        self.enable_index(&metadata.into_value()).await?;
-        Ok(())
-    }
-
     async fn enable_index(&mut self, backfilled_index: &TabletIndexMetadata) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.tx.identity().is_admin() || self.tx.identity().is_system(),
@@ -376,20 +363,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 .await?;
         }
         Ok(())
-    }
-
-    #[cfg(test)]
-    pub async fn disable_index_for_test(
-        &mut self,
-        index_id: ResolvedDocumentId,
-    ) -> anyhow::Result<()> {
-        use common::document::ParseDocument;
-
-        let doc: ParsedDocument<TabletIndexMetadata> =
-            self.tx.get(index_id).await?.context("Not found")?.parse()?;
-        let table_mapping = self.tx.table_mapping().clone();
-        self.disable_index(doc.map(|metadata| metadata.map_table(&table_mapping.tablet_to_name()))?)
-            .await
     }
 
     async fn disable_index(

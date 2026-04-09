@@ -73,27 +73,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         Self { tx, namespace }
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
-        Self {
-            tx,
-            namespace: TableNamespace::test_user(),
-        }
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    #[convex_macro::instrument_future]
-    pub async fn get(
-        &mut self,
-        id: DeveloperDocumentId,
-        version: Option<Version>,
-    ) -> anyhow::Result<Option<DeveloperDocument>> {
-        Ok(self
-            .get_with_ts(id, version)
-            .await?
-            .map(|(document, _)| document))
-    }
-
     #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn get_with_ts(

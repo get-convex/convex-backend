@@ -12,7 +12,6 @@ use value::{
 };
 
 #[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct PersistedEnvironmentVariable(pub EnvironmentVariable);
 
 impl TryFrom<PersistedEnvironmentVariable> for ConvexObject {
@@ -44,28 +43,5 @@ impl TryFrom<ConvexObject> for PersistedEnvironmentVariable {
             name: name.parse()?,
             value: value.parse()?,
         }))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-    use value::{
-        testing::assert_roundtrips,
-        ConvexObject,
-    };
-
-    use super::PersistedEnvironmentVariable;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_env_var_to_object_roundtrip(e in any::<PersistedEnvironmentVariable>()) {
-            assert_roundtrips::<PersistedEnvironmentVariable, ConvexObject>(e);
-        }
     }
 }

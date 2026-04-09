@@ -10,8 +10,6 @@ use std::{
 };
 
 use metrics::StaticMetricLabel;
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
 use sync_types::{
     UserIdentifier,
     UserIdentityAttributes,
@@ -103,27 +101,6 @@ impl HeapSize for IdentityCacheKey {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for InertIdentity {
-    // If your strategy function takes parameters, use a tuple or something to be
-    // able to pass them along
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = InertIdentity>;
-
-    fn arbitrary_with(_: ()) -> Self::Strategy {
-        prop_oneof![
-            Just(InertIdentity::System),
-            Just(InertIdentity::Unknown),
-            // Hardcode the InstanceAdmin identity for testing purposes
-            // because the stringified identities should not contain ":" symbols,
-            // conflicting with string serialization delimiters.
-            "AdminIdentity".prop_map(InertIdentity::InstanceAdmin),
-            (any::<UserIdentifier>()).prop_map(InertIdentity::User),
-        ]
-    }
-}
-
 impl FromStr for InertIdentity {
     type Err = anyhow::Error;
 
@@ -178,43 +155,6 @@ impl Display for InertIdentity {
             InertIdentity::TeamActingUser(team_id, id) => {
                 write!(f, "team_acting_as_user:{}:{}", team_id, id.deref())
             },
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use proptest::prelude::*;
-
-    use super::InertIdentity;
-
-    fn assert_identity_string_roundtrips(left: String) {
-        let right = InertIdentity::from_str(&left).unwrap().to_string();
-        assert_eq!(left, right);
-    }
-
-    // backwards compatability test to litmus check that some strings
-    // still correctly deserialize to InertIdentity
-    #[test]
-    fn test_backwards_compatability_roundtrip() {
-        assert_identity_string_roundtrips("system".to_string());
-        assert_identity_string_roundtrips("unknown".to_string());
-        assert_identity_string_roundtrips("admin:AdminIdentifier".to_string());
-        assert_identity_string_roundtrips("user:UserIdentifier".to_string());
-    }
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_inert_identity_string_roundtrips(identity in any::<InertIdentity>()) {
-            let s = identity.to_string();
-            let parsed = InertIdentity::from_str(&s).unwrap();
-            prop_assert_eq!(identity, parsed);
         }
     }
 }

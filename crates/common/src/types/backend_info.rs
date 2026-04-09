@@ -90,23 +90,3 @@ impl BackendInfo {
         None
     }
 }
-
-#[cfg(any(test, feature = "testing"))]
-impl Default for BackendInfo {
-    fn default() -> Self {
-        Self {
-            team_id: TeamId(4),
-            project_id: ProjectId(17),
-            deployment_id: DeploymentId(2021),
-            deployment_type: DeploymentType::Dev,
-            deployment_ref: None,
-            project_name: Some("Default Project".to_string()),
-            project_slug: Some("default-project".to_string()),
-            streaming_export_enabled: Some(false),
-            provision_concurrency: Some(DEFAULT_PROVISION_CONCURRENCY),
-            log_streaming_enabled: Some(false),
-            audit_log_retention_days: Some(0),
-            send_logs_to_client: None,
-        }
-    }
-}

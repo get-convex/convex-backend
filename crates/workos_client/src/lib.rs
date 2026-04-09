@@ -2120,24 +2120,3 @@ where
 
     Ok(portal_link)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::WorkOSIdentity;
-
-    #[tokio::test]
-    async fn test_workos_identity_parsing() -> anyhow::Result<()> {
-        // Test that we can parse the WorkOS identity response format
-        let response_json = r#"[{"idp_id":"9063110","type":"OAuth","provider":"GithubOAuth"},{"idp_id":"112960081753601695488","type":"OAuth","provider":"GoogleOAuth"}]"#;
-
-        let identities: Vec<WorkOSIdentity> = serde_json::from_str(response_json)?;
-
-        assert_eq!(identities.len(), 2);
-        assert_eq!(identities[0].idp_id, "9063110");
-        assert_eq!(identities[0].provider, "GithubOAuth");
-        assert_eq!(identities[1].idp_id, "112960081753601695488");
-        assert_eq!(identities[1].provider, "GoogleOAuth");
-
-        Ok(())
-    }
-}

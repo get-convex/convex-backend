@@ -52,8 +52,6 @@ pub enum PersistenceSeed<RT: Runtime> {
         db_name: String,
         options: MySqlOptions,
     },
-    #[cfg(any(test, feature = "testing"))]
-    Test,
 }
 
 pub fn persistence_seed<RT: Runtime>(
@@ -135,9 +133,6 @@ pub fn persistence_seed<RT: Runtime>(
                 },
             }
         },
-        #[cfg(any(test, feature = "testing"))]
-        DbDriverTag::TestPersistence => Ok(PersistenceSeed::Test),
-        #[cfg(not(any(test, feature = "testing")))]
         _ => unreachable!(),
     }
 }
@@ -176,12 +171,6 @@ pub async fn connect_persistence<RT: Runtime>(
                 MySqlPersistence::new(pool, db_name.clone(), options, shutdown_signal).await?,
             );
             tracing::info!("Connected to MySQL database: {}", db_name);
-            Ok(persistence)
-        },
-        #[cfg(any(test, feature = "testing"))]
-        PersistenceSeed::Test => {
-            let persistence = Arc::new(common::testing::TestPersistence::new());
-            tracing::info!("Connected to TestPersistence");
             Ok(persistence)
         },
     }
@@ -240,8 +229,6 @@ pub async fn connect_persistence_reader<RT: Runtime>(
                 pool, db_name, options,
             )))
         },
-        #[cfg(any(test, feature = "testing"))]
-        PersistenceSeed::Test => Ok(Arc::new(common::testing::TestPersistence::new())),
     }
 }
 

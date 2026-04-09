@@ -13,6 +13,3 @@ pub mod schema_validation_progress;
 pub mod system_metadata;
 pub mod table;
 pub mod user_facing;
-
-#[cfg(any(test, feature = "testing"))]
-pub mod test_facing;

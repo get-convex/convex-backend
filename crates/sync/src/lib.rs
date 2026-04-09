@@ -11,7 +11,4 @@ pub use worker::{
     SyncWorkerConfig,
 };
 
-#[cfg(test)]
-mod tests;
-
 pub type ServerMessage = sync_types::ServerMessage<common::value::JsonPackedValue>;

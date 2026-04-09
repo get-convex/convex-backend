@@ -213,22 +213,6 @@ impl From<HttpRequest> for HttpRequestStream {
 }
 
 impl HttpRequestStream {
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn into_http_request(mut self) -> anyhow::Result<HttpRequest> {
-        use futures::TryStreamExt;
-
-        let mut body = vec![];
-        while let Some(chunk) = self.body.try_next().await? {
-            body.append(&mut chunk.to_vec());
-        }
-
-        Ok(HttpRequest {
-            headers: self.headers,
-            url: self.url,
-            method: self.method,
-            body: Some(body.into()),
-        })
-    }
 }
 
 impl HeapSize for HttpRequest {
@@ -236,42 +220,6 @@ impl HeapSize for HttpRequest {
         // Assume heap size is dominated by body (because the rest is annoying
         // to calculate).
         self.body.as_ref().map_or(0, |body| body.len())
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for HttpRequest {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = HttpRequest>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        use proptest_http::{
-            ArbitraryHeaderMap,
-            ArbitraryMethod,
-            ArbitraryUri,
-        };
-        prop_compose! {
-            fn inner()(
-                ArbitraryHeaderMap(headers) in any::<ArbitraryHeaderMap>(),
-                ArbitraryMethod(method) in any::<ArbitraryMethod>(),
-                ArbitraryUri(uri) in any::<ArbitraryUri>(),
-                body in any::<Option<Vec<u8>>>()
-            ) -> anyhow::Result<HttpRequest> {
-                let origin: String = "http://example-deployment.convex.site/".to_string();
-                let path_and_query: String =  uri.path_and_query().ok_or_else(|| anyhow::anyhow!("No path and query"))?.to_string();
-                let url: Url = Url::parse(&(origin + &path_and_query))?;
-                let body = body.map(Bytes::from);
-                Ok(HttpRequest {
-                    headers,
-                    method,
-                    url,
-                    body,
-                })
-            }
-        };
-        inner().prop_filter_map("Invalid HttpRequest", |r| r.ok())
     }
 }
 
@@ -351,42 +299,6 @@ impl From<HttpResponse> for HttpResponseStream {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for HttpResponse {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = HttpResponse>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        use proptest_http::{
-            ArbitraryHeaderMap,
-            ArbitraryStatusCode,
-            ArbitraryUri,
-        };
-        prop_compose! {
-            fn inner()(
-                ArbitraryHeaderMap(headers) in any::<ArbitraryHeaderMap>(),
-                ArbitraryStatusCode(status) in any::<ArbitraryStatusCode>(),
-                ArbitraryUri(uri) in any::<ArbitraryUri>(),
-                request_size in any::<u64>(),
-                body in any::<Option<Vec<u8>>>()) -> anyhow::Result<HttpResponse> {
-                    let origin: String = "http://example-deployment.convex.site/".to_string();
-                    let path_and_query: String =  uri.path_and_query().ok_or_else(|| anyhow::anyhow!("No path and query"))?.to_string();
-                    let url: Url = Url::parse(&(origin + &path_and_query))?;
-                Ok(HttpResponse {
-                    status,
-                    headers,
-                    body,
-                    url: Some(url),
-                    request_size,
-                })
-            }
-        };
-        inner().prop_filter_map("Invalid HttpEndpoitnRequest", |r| r.ok())
-    }
-}
-
 pub struct HttpResponseStream {
     pub body: Option<BoxStream<'static, anyhow::Result<bytes::Bytes>>>,
     pub status: StatusCode,
@@ -443,25 +355,12 @@ pub fn categorize_http_response_stream(
     Err(em.into())
 }
 
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
-
-#[cfg(any(test, feature = "testing"))]
-fn status_code_strategy() -> impl Strategy<Value = StatusCode> {
-    proptest_http::ArbitraryStatusCode::arbitrary().prop_map(|v| v.0)
-}
-
 /// `HttpError` is used as a vehicle for getting client facing error messages
 /// to clients on the HTTP protocol. Errors that are tagged with ErrorMetadata
 /// can be used to build these.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct HttpError {
     /// HTTP Status Code
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "status_code_strategy()")
-    )]
     status_code: StatusCode,
     /// Human-readable error code sent in HTTP response
     error_code: Cow<'static, str>,
@@ -747,21 +646,6 @@ impl ConvexHttpService {
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_test(router: Router) -> Self {
-        Self {
-            router,
-            version: String::new(),
-            meta_routes_enabled: true,
-            service_name: "test-service",
-            _concurrency_gauge: None,
-        }
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn router(&self) -> Router {
-        self.router.clone()
-    }
 }
 
 /// Serves an HTTP server using the given service.
@@ -942,7 +826,6 @@ pub async fn stats_middleware<RM: RouteMapper>(
 pub struct InstanceNameExt(pub String);
 
 #[derive(ToSchema, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Ord, PartialOrd)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub enum RequestDestination {
     ConvexCloud,
@@ -1475,156 +1358,4 @@ where
             .expect("HeaderMap should not have a None key without a previous Some key");
         (key, value)
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{
-        sync::Arc,
-        time::Duration,
-    };
-
-    use axum::{
-        body::Body,
-        response::IntoResponse,
-        routing::get,
-        Router,
-    };
-    use errors::{
-        ErrorMetadata,
-        INTERNAL_SERVER_ERROR,
-        INTERNAL_SERVER_ERROR_MSG,
-    };
-    use http::{
-        Request,
-        StatusCode,
-    };
-    use metrics::CONVEX_METRICS_REGISTRY;
-    use tower::ServiceExt;
-
-    use super::{
-        ConvexHttpService,
-        HttpResponseError,
-        NoopRouteMapper,
-    };
-    use crate::http::HttpError;
-
-    #[tokio::test]
-    async fn test_http_response_error_internal_server_error() -> anyhow::Result<()> {
-        let err_text = "some random error";
-        let err = anyhow::anyhow!(err_text);
-        let err_clone = anyhow::anyhow!(err_text);
-        let http_response_err: HttpResponseError = err.into();
-        // Check the backtraces are the same
-        assert_eq!(http_response_err.trace.to_string(), err_clone.to_string());
-        // Check the HttpError is an internal server error
-        assert_eq!(
-            HttpError::new(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                INTERNAL_SERVER_ERROR,
-                INTERNAL_SERVER_ERROR_MSG,
-            ),
-            http_response_err.http_error
-        );
-
-        // Check the Response contains the ResponseErrorMessage
-        let http_response_err: HttpResponseError = err_clone.into();
-        let response = http_response_err.into_response();
-        let error = HttpError::from_response(response).await?;
-        assert_eq!(error.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(error.error_code(), "InternalServerError");
-        assert_eq!(error.msg, INTERNAL_SERVER_ERROR_MSG);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_http_error_400() -> anyhow::Result<()> {
-        let status_code = StatusCode::BAD_REQUEST;
-        let error_code = "ErrorCode";
-        let msg = "Nice error message!";
-        let first_error = "some random error";
-        let middle_error = ErrorMetadata::bad_request(error_code, msg);
-        let last_error = "another random error";
-        let err = anyhow::anyhow!(first_error)
-            .context(middle_error.clone())
-            .context(last_error);
-        let err_clone = anyhow::anyhow!(first_error)
-            .context(middle_error)
-            .context(last_error);
-
-        let http_response_err: HttpResponseError = err.into();
-        // Check the HttpError in the middle of the stack matches the http_error that
-        // the anyhow::Error is downcast to
-        assert_eq!(
-            HttpError::new(status_code, error_code, msg,),
-            http_response_err.http_error
-        );
-
-        // Check the backtraces are the same - note that the full stack trace including
-        // first_error, HttpError, and last_error, is preserved
-        assert_eq!(http_response_err.trace.to_string(), err_clone.to_string());
-
-        // Check the Response contains the ResponseErrorMessage
-        let http_response_err: HttpResponseError = err_clone.into();
-        let response = http_response_err.into_response();
-        let error = HttpError::from_response(response).await?;
-        assert_eq!(error.status_code(), status_code);
-        assert_eq!(error.error_code(), error_code);
-        assert_eq!(error.message(), msg);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_cancelled_request_logs_499() {
-        // Handler that hangs until signaled (simulates a slow request).
-        let notify = Arc::new(tokio::sync::Notify::new());
-        let notify2 = notify.clone();
-        let router = Router::new().route(
-            "/slow",
-            get(move || {
-                let n = notify2.clone();
-                async move {
-                    n.notified().await;
-                    "done"
-                }
-            }),
-        );
-
-        // Full middleware stack via ConvexHttpService::new().
-        let svc = ConvexHttpService::new(
-            router,
-            "test",
-            String::new(),
-            10,
-            Duration::from_secs(60),
-            NoopRouteMapper,
-        );
-        let app = svc.router();
-
-        // Send a request, then drop the future before the handler completes.
-        let req = Request::builder()
-            .uri("/slow")
-            .header("Host", "test-instance.convex.cloud")
-            .body(Body::empty())
-            .unwrap();
-        let fut = app.oneshot(req);
-        // timeout causes the future to be dropped mid-handler, simulating
-        // a client disconnect.
-        let result = tokio::time::timeout(Duration::from_millis(50), fut).await;
-        assert!(result.is_err(), "expected timeout (handler should hang)");
-
-        // The drop guards should have fired, recording a 499 metric.
-        let metrics = CONVEX_METRICS_REGISTRY.gather();
-        // The metric name has a crate-specific prefix, so match by suffix.
-        let histogram = metrics
-            .iter()
-            .find(|m| m.name().ends_with("http_handle_duration_seconds"))
-            .expect("http_handle_duration_seconds histogram not found");
-        let has_499 = histogram.get_metric().iter().any(|m| {
-            m.get_label()
-                .iter()
-                .any(|l| l.name() == "status" && l.value() == "499")
-        });
-        assert!(has_499, "expected status=499 metric from cancelled request");
-    }
 }

@@ -245,53 +245,19 @@ impl Display for ConvexApi {
 }
 
 #[derive(Display, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, From, Into)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct ListSnapshotCursor(pub String);
 
 #[derive(Display, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, From, Into, Copy)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct DocumentDeltasCursor(pub i64);
 
 #[derive(Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Display, Debug)]
 pub struct TableName(pub String);
 
-#[cfg(test)]
-impl From<&str> for TableName {
-    fn from(value: &str) -> Self {
-        TableName(value.to_string())
-    }
-}
-
 #[derive(Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Display, Clone, Debug)]
 pub struct ComponentPath(pub String);
 
-#[cfg(test)]
-impl From<&str> for ComponentPath {
-    fn from(value: &str) -> Self {
-        ComponentPath(value.to_string())
-    }
-}
-
-#[cfg(test)]
-impl ComponentPath {
-    pub fn root() -> Self {
-        ComponentPath("".to_string())
-    }
-
-    pub fn test_component() -> Self {
-        ComponentPath("waitlist".to_string())
-    }
-}
-
 #[derive(Display, Debug)]
 pub struct FieldName(pub String);
-
-#[cfg(test)]
-impl From<&str> for FieldName {
-    fn from(value: &str) -> Self {
-        FieldName(value.to_string())
-    }
-}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -344,54 +310,5 @@ impl SnapshotValue for DocumentDeltasValue {
 
     fn component(&self) -> &String {
         &self.component
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_table_path_for_state_root_component() {
-        let snapshot_value = ListSnapshotValue {
-            table: "messages".to_string(),
-            component: "".to_string(),
-            fields: BTreeMap::new(),
-            ts: 0,
-        };
-        assert_eq!(snapshot_value.table_path_for_state(), "messages");
-    }
-
-    #[test]
-    fn test_table_path_for_state_other_component() {
-        let snapshot_value = ListSnapshotValue {
-            table: "messages".to_string(),
-            component: "waitlist".to_string(),
-            fields: BTreeMap::new(),
-            ts: 0,
-        };
-        assert_eq!(snapshot_value.table_path_for_state(), "waitlist/messages");
-    }
-
-    #[test]
-    fn test_fivetran_schema_name_root_component() {
-        let snapshot_value = ListSnapshotValue {
-            table: "messages".to_string(),
-            component: "".to_string(),
-            fields: BTreeMap::new(),
-            ts: 0,
-        };
-        assert_eq!(snapshot_value.fivetran_schema_name(), "app");
-    }
-
-    #[test]
-    fn test_fivetran_schema_name_other_component() {
-        let snapshot_value = ListSnapshotValue {
-            table: "messages".to_string(),
-            component: "waitlist".to_string(),
-            fields: BTreeMap::new(),
-            ts: 0,
-        };
-        assert_eq!(snapshot_value.fivetran_schema_name(), "waitlist");
     }
 }

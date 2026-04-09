@@ -55,15 +55,9 @@ use model::{
     udf_config::UdfConfigModel,
     virtual_system_mapping,
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::arbitrary::Arbitrary;
-#[cfg(any(test, feature = "testing"))]
-use proptest::strategy::Strategy;
 use rand::Rng;
 use serde_json::Value as JsonValue;
 use sync_types::types::SerializedArgs;
-#[cfg(any(test, feature = "testing"))]
-use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
     serialized_args_ext::SerializedArgsExt,
@@ -284,41 +278,11 @@ async fn udf_version<RT: Runtime>(
 /// This should only be constructed via `ValidatedPathAndArgs::new` to use the
 /// type system to enforce that validation is never skipped.
 #[derive(Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ValidatedPathAndArgs {
     path: ResolvedComponentFunctionPath,
     args: SerializedArgs,
     // Not set for system modules.
     npm_version: Option<Version>,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for ValidatedPathAndArgs {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = ValidatedPathAndArgs>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        any::<(
-            sync_types::CanonicalizedUdfPath,
-            SerializedArgs,
-            ComponentId,
-            ComponentPath,
-        )>()
-        .prop_map(|(udf_path, args, component_id, component_path)| {
-            ValidatedPathAndArgs {
-                path: ResolvedComponentFunctionPath {
-                    component: component_id,
-                    udf_path,
-                    component_path,
-                },
-                args,
-                npm_version: None,
-            }
-        })
-    }
 }
 
 impl ValidatedPathAndArgs {
@@ -555,39 +519,6 @@ impl ValidatedPathAndArgs {
         self.args.heap_size()
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_tests(
-        udf_path: CanonicalizedUdfPath,
-        args: SerializedArgs,
-        npm_version: Option<Version>,
-    ) -> Self {
-        Self::new_for_tests_in_component(
-            CanonicalizedComponentFunctionPath {
-                component: ComponentPath::test_user(),
-                udf_path,
-            },
-            args,
-            npm_version,
-        )
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_tests_in_component(
-        path: CanonicalizedComponentFunctionPath,
-        args: SerializedArgs,
-        npm_version: Option<Version>,
-    ) -> Self {
-        Self {
-            path: ResolvedComponentFunctionPath {
-                component: ComponentId::test_user(),
-                udf_path: path.udf_path,
-                component_path: path.component,
-            },
-            args,
-            npm_version,
-        }
-    }
-
     pub fn path(&self) -> &ResolvedComponentFunctionPath {
         &self.path
     }
@@ -666,54 +597,7 @@ pub struct ValidatedHttpPath {
     npm_version: Option<Version>,
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for ValidatedHttpPath {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = ValidatedHttpPath>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        any::<(sync_types::CanonicalizedUdfPath, ComponentId, ComponentPath)>().prop_map(
-            |(udf_path, component_id, component_path)| ValidatedHttpPath {
-                path: ResolvedComponentFunctionPath {
-                    component: component_id,
-                    udf_path,
-                    component_path,
-                },
-                npm_version: Some(Version::parse("0.0.0").unwrap()),
-            },
-        )
-    }
-}
-
 impl ValidatedHttpPath {
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn new_for_tests<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        udf_path: sync_types::CanonicalizedUdfPath,
-        npm_version: Option<Version>,
-    ) -> anyhow::Result<Result<Self, JsError>> {
-        if !udf_path.is_system() {
-            match fail_while_not_running(tx).await {
-                Ok(Ok(())) => {},
-                Ok(Err(e)) => {
-                    return Ok(Err(e));
-                },
-                Err(e) => return Err(e),
-            }
-        }
-        Ok(Ok(Self {
-            path: ResolvedComponentFunctionPath {
-                component: ComponentId::test_user(),
-                udf_path,
-                component_path: ComponentPath::test_user(),
-            },
-            npm_version,
-        }))
-    }
-
     pub async fn new<RT: Runtime>(
         tx: &mut Transaction<RT>,
         path: CanonicalizedComponentFunctionPath,
@@ -798,40 +682,7 @@ impl TryFrom<ValidatedHttpPath> for pb::common::ValidatedHttpPath {
     }
 }
 
-#[cfg(test)]
-mod test {
-
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-
-    use super::{
-        ValidatedHttpPath,
-        ValidatedPathAndArgs,
-    };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_http_action_path_proto_roundtrip(v in any::<ValidatedHttpPath>()) {
-            let proto = pb::common::ValidatedHttpPath::try_from(v.clone()).unwrap();
-            let v2 = ValidatedHttpPath::from_proto(proto).unwrap();
-            assert_eq!(v, v2);
-        }
-
-        #[test]
-        fn test_udf_path_proto_roundtrip(v in any::<ValidatedPathAndArgs>()) {
-            let proto = pb::common::ValidatedPathAndArgs::try_from(v.clone()).unwrap();
-            let v2 = ValidatedPathAndArgs::from_proto(proto).unwrap();
-            assert_eq!(v, v2);
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct ValidatedUdfOutcome {
     pub path: CanonicalizedComponentFunctionPath,
     pub arguments: SerializedArgs,
@@ -949,7 +800,6 @@ impl ValidatedUdfOutcome {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct ValidatedActionOutcome {
     pub path: CanonicalizedComponentFunctionPath,
     pub arguments: SerializedArgs,

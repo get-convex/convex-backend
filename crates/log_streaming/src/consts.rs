@@ -6,13 +6,6 @@ pub const MANAGER_MAX_BACKOFF: Duration = Duration::from_secs(30);
 pub const SINK_STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
 
 // MockSink
-#[cfg(any(test, feature = "testing"))]
-pub const MOCK_SINK_EVENTS_BUFFER_SIZE: usize = 5;
-#[cfg(any(test, feature = "testing"))]
-pub const MOCK_SINK_INITIAL_BACKOFF: Duration = Duration::from_secs(1);
-#[cfg(any(test, feature = "testing"))]
-pub const MOCK_SINK_MAX_BACKOFF: Duration = Duration::from_secs(10);
-
 // LocalSink
 pub const LOCAL_SINK_EVENTS_BUFFER_SIZE: usize = 50;
 pub const LOCAL_SINK_INITIAL_BACKOFF: Duration = Duration::from_secs(1);

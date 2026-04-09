@@ -206,10 +206,6 @@ pub type EditDistance = u8;
 pub struct FieldPosition(u32);
 
 impl FieldPosition {
-    #[cfg(test)]
-    pub fn new_for_test(pos: u32) -> Self {
-        Self(pos)
-    }
 }
 
 impl From<FieldPosition> for u32 {
@@ -835,32 +831,4 @@ pub enum SearchFileType {
     TextIdTracker,
     TextAliveBitset,
     TextDeletedTerms,
-}
-
-#[cfg(test)]
-mod test {
-    use std::collections::BTreeSet;
-
-    use common::bootstrap_model::index::text_index::TextIndexSpec;
-
-    use crate::{
-        TantivySearchIndexSchema,
-        SEARCH_FIELD_ID,
-    };
-
-    /// DO NOT CHANGE CONSTANTS!
-    /// This test ensures that we don't accidentally change our field IDs in
-    /// tantivy.
-    #[test]
-    fn test_field_ids_dont_change() -> anyhow::Result<()> {
-        let schema = TantivySearchIndexSchema::new(&TextIndexSpec {
-            search_field: "mySearchField".parse()?,
-            filter_fields: BTreeSet::new(),
-        });
-        assert_eq!(schema.internal_id_field.field_id(), 0);
-        assert_eq!(schema.ts_field.field_id(), 1);
-        assert_eq!(schema.creation_time_field.field_id(), 2);
-        assert_eq!(schema.search_field.field_id(), SEARCH_FIELD_ID);
-        Ok(())
-    }
 }

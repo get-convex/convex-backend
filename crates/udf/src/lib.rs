@@ -14,8 +14,6 @@ mod udf_outcome;
 pub mod validation;
 pub mod warnings;
 
-#[cfg(any(test, feature = "testing"))]
-pub use crate::http_action::HttpActionResponse;
 pub use crate::{
     action_outcome::{
         ActionOutcome,

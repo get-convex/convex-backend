@@ -46,8 +46,6 @@ use common::{
     },
     RequestId,
 };
-#[cfg(any(test, feature = "testing"))]
-use events::usage::NoOpUsageEventLogger;
 use fastrace::future::FutureExt as _;
 use futures::FutureExt as _;
 use hashlink::LinkedHashSet;
@@ -91,9 +89,6 @@ use crate::{
 };
 
 pub mod index_writer;
-#[cfg(test)]
-mod tests;
-
 pub struct IndexWorker<RT: Runtime> {
     /// Index IDs that are currently being backfilled.
     in_progress_index_ids: HashSet<IndexId, ahash::RandomState>,
@@ -113,8 +108,6 @@ pub struct IndexWorker<RT: Runtime> {
     usage_tracking: UsageCounter,
     backoff: Backoff,
     runtime: RT,
-    #[cfg(any(test, feature = "testing"))]
-    pub should_terminate: bool,
 }
 
 impl<RT: Runtime> IndexWorker<RT> {
@@ -148,8 +141,6 @@ impl<RT: Runtime> IndexWorker<RT> {
             usage_tracking,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
             runtime,
-            #[cfg(any(test, feature = "testing"))]
-            should_terminate: false,
         };
 
         tracing::info!("Starting IndexWorker");
@@ -170,68 +161,6 @@ impl<RT: Runtime> IndexWorker<RT> {
                         delay.as_millis()
                     );
                     worker.runtime.wait(delay).await;
-                }
-            }
-        }
-    }
-
-    /// Test-only variant that terminates when there are no more indexes to
-    /// backfill.
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_terminating(
-        runtime: RT,
-        persistence: Arc<dyn Persistence>,
-        retention_validator: Arc<dyn RetentionValidator>,
-        database: Database<RT>,
-        usage_tracking: Option<UsageCounter>,
-    ) -> impl Future<Output = anyhow::Result<u64>> + Send {
-        let usage_tracking =
-            usage_tracking.unwrap_or_else(|| UsageCounter::new(Arc::new(NoOpUsageEventLogger)));
-        let mut total_docs_indexed = 0;
-        let reader = persistence.reader();
-        let (progress_tx, progress_rx) = mpsc::channel(10);
-        let index_writer = IndexWriter::new(
-            persistence.clone(),
-            reader.clone(),
-            retention_validator,
-            runtime.clone(),
-            Some(progress_tx),
-        );
-        let mut worker = IndexWorker {
-            in_progress_index_ids: Default::default(),
-            in_progress: JoinMap::new(),
-            pending: Default::default(),
-            progress_rx,
-            max_concurrency: 10,
-            metadata_mutex: Default::default(),
-            database,
-            index_writer,
-            usage_tracking,
-            backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
-            runtime,
-            should_terminate: true,
-        };
-
-        async move {
-            loop {
-                use errors::ErrorMetadataAnyhowExt;
-
-                let r = worker.run().await;
-
-                if let Err(ref e) = r
-                    && e.is_occ()
-                {
-                    tracing::error!("IndexWorker loop failed: {e:?}");
-                    continue;
-                }
-                if let Ok(docs_indexed) = r {
-                    total_docs_indexed += docs_indexed;
-                }
-                if worker.in_progress.is_empty()
-                    && worker.pending.is_empty()
-                    && worker.progress_rx.is_empty()
-                {
-                    return r.map(|_| total_docs_indexed);
                 }
             }
         }
@@ -282,15 +211,6 @@ impl<RT: Runtime> IndexWorker<RT> {
         );
 
         let token = tx.into_token()?;
-
-        #[cfg(any(test, feature = "testing"))]
-        if self.should_terminate
-            && self.in_progress.is_empty()
-            && self.pending.is_empty()
-            && self.progress_rx.is_empty()
-        {
-            return Ok(docs_indexed);
-        }
 
         // Start new work if allowed by the concurrency limit
         while self.in_progress.len() < self.max_concurrency

@@ -68,8 +68,6 @@ pub mod sha256;
 pub mod shapes;
 pub mod shutdown;
 pub mod sync;
-#[cfg(any(test, feature = "testing"))]
-pub mod testing;
 pub mod tracing;
 pub mod tracing_util;
 pub mod try_anyhow;
@@ -84,8 +82,6 @@ pub mod ws;
 
 pub use execution_context::RequestId;
 pub use tokio;
-#[cfg(any(test, feature = "testing"))]
-pub use value::assert_obj;
 pub use value::{
     obj,
     val,

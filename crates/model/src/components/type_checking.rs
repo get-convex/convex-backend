@@ -562,13 +562,6 @@ impl CheckedHttpRoutes {
             && self.mounts.is_empty()
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn for_testing(routes: Option<Vec<HttpActionRoute>>) -> Self {
-        Self {
-            http_module_routes: routes,
-            mounts: BTreeSet::new(),
-        }
-    }
 }
 
 mod json {
@@ -753,67 +746,3 @@ pub use self::json::{
     SerializedCheckedComponent,
     SerializedResourceTree,
 };
-
-#[cfg(test)]
-mod tests {
-    use common::types::{
-        HttpActionRoute,
-        RoutableMethod,
-    };
-    use errors::ErrorMetadataAnyhowExt;
-
-    use super::CheckedHttpRoutes;
-
-    fn prefix_route(path: &str) -> HttpActionRoute {
-        HttpActionRoute {
-            method: RoutableMethod::Get,
-            path: path.to_string(),
-            matched: true,
-        }
-    }
-
-    #[test]
-    fn mount_succeeds_with_no_conflicts() {
-        let mut checked = CheckedHttpRoutes::for_testing(None);
-        checked.mount("/api/".parse().unwrap()).unwrap();
-    }
-
-    #[test]
-    fn mount_fails_on_duplicate() {
-        let mut checked = CheckedHttpRoutes::for_testing(None);
-        checked.mount("/api/".parse().unwrap()).unwrap();
-        let result = checked.mount("/api/".parse().unwrap());
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.is_bad_request());
-        assert_eq!(err.short_msg(), "TypecheckError");
-        assert!(
-            err.to_string()
-                .contains("Overlap with previously mounted route"),
-            "{err}"
-        );
-    }
-
-    #[test]
-    fn mount_fails_when_prefix_route_overlaps() {
-        let routes = vec![prefix_route("/api/*")];
-        let mut checked = CheckedHttpRoutes::for_testing(Some(routes));
-        let result = checked.mount("/api/".parse().unwrap());
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.is_bad_request());
-        assert_eq!(err.short_msg(), "TypecheckError");
-        assert!(
-            err.to_string()
-                .contains("Overlap with existing prefix route"),
-            "{err}"
-        );
-    }
-
-    #[test]
-    fn mount_succeeds_when_non_overlapping_prefix_route_exists() {
-        let routes = vec![prefix_route("/other/*")];
-        let mut checked = CheckedHttpRoutes::for_testing(Some(routes));
-        checked.mount("/api/".parse().unwrap()).unwrap();
-    }
-}

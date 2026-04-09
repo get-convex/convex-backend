@@ -28,17 +28,3 @@ impl<RT: Runtime> dyn ModuleCache<RT> {
         }
     }
 }
-
-#[cfg(any(test, feature = "testing"))]
-mod test_helpers {
-    use model::config::module_loader::test_module_loader::UncachedModuleLoader;
-
-    use super::*;
-    impl<RT: Runtime> ModuleCache<RT> for UncachedModuleLoader {
-        fn put_cached_code(&self, _module_metadata: &ModuleMetadata, _cached_data: Arc<[u8]>) {}
-
-        fn get_cached_code(&self, _module_metadata: &ModuleMetadata) -> Option<Arc<[u8]>> {
-            None
-        }
-    }
-}

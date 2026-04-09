@@ -7,19 +7,13 @@ use serde::{
 };
 use utoipa::ToSchema;
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct WebhookConfig {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::reqwest_url_strategy()")
-    )]
     pub url: reqwest::Url,
     pub format: WebhookFormat,
     pub hmac_secret: String,
 }
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum WebhookFormat {
@@ -65,16 +59,4 @@ impl fmt::Display for WebhookConfig {
 
 pub fn generate_webhook_hmac_secret<RT: Runtime>(rt: RT) -> String {
     rt.new_uuid_v4().as_simple().to_string()
-}
-
-#[cfg(any(test, feature = "testing"))]
-mod proptest {
-    use proptest::prelude::*;
-
-    pub fn reqwest_url_strategy() -> impl Strategy<Value = reqwest::Url> {
-        any::<proptest_http::ArbitraryUri>()
-            .prop_filter_map("Invalid URL for WebhookConfig", |url| {
-                reqwest::Url::parse(url.0.to_string().as_str()).ok()
-            })
-    }
 }

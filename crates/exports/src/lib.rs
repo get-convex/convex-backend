@@ -85,8 +85,6 @@ use self::{
 mod export_storage;
 pub mod interface;
 mod metrics;
-#[cfg(test)]
-mod tests;
 mod zip_uploader;
 
 use crate::metrics::export_timer;

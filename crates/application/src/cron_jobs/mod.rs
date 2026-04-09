@@ -254,23 +254,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 }
 
 impl<RT: Runtime> CronJobContext<RT> {
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new(
-        rt: RT,
-        instance_name: String,
-        database: Database<RT>,
-        runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: FunctionExecutionLog<RT>,
-    ) -> Self {
-        Self {
-            rt,
-            instance_name,
-            database,
-            runner,
-            function_log,
-        }
-    }
-
     // This handles re-running the cron job on transient errors. It
     // guarantees that the job was successfully run or the job state changed.
     pub async fn execute_job(&self, job: CronJob) -> ResolvedDocumentId {

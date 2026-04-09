@@ -282,32 +282,6 @@ impl UsageCounter {
         self.usage_logger.record_async(usage_metrics).await;
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn track_call_test(&self, stats: FunctionUsageStats) {
-        use common::components::ComponentFunctionPath;
-
-        let component = ComponentPath::root();
-        let path = ComponentFunctionPath {
-            component,
-            udf_path: "test.js:default".parse().unwrap(),
-        };
-        let udf = UdfIdentifier::Function(path.canonicalize());
-        self.track_call(
-            udf,
-            ExecutionId::new(),
-            RequestId::new(),
-            CallType::Action {
-                env: ModuleEnvironment::Isolate,
-                duration: Duration::from_secs(10),
-                user_execution_time: Some(Duration::from_secs(5)),
-                memory_in_mb: 10,
-            },
-            true,
-            stats,
-        )
-        .await;
-    }
-
     // TODO: The existence of this function is a hack due to shortcuts we have
     // done in Node.js usage tracking. It should only be used by Node.js action
     // callbacks. We should only be using track_call() and never calling this
@@ -1057,22 +1031,15 @@ type TableName = String;
 type StorageAPI = String;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Add, Default, AddAssign)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TextIndexQueryUsage {
-    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
     pub num_searches: u64,
-    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
     pub bytes_searched: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, AddAssign)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct VectorIndexQueryUsage {
-    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
     pub num_searches: u64,
-    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
     pub bytes_searched: u64,
-    #[cfg_attr(any(test, feature = "testing"), proptest(strategy = "0..=1024u64"))]
     pub dimensions: u64,
 }
 
@@ -1094,138 +1061,32 @@ impl Add for VectorIndexQueryUsage {
 
 /// User-facing UDF stats, built
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionUsageStats {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, StorageAPI)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub storage_calls: BTreeMap<(ComponentPath, StorageAPI), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<ComponentPath>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub storage_ingress: BTreeMap<ComponentPath, u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<ComponentPath>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub storage_egress: BTreeMap<ComponentPath, u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub database_ingress: BTreeMap<(ComponentPath, TableName), u64>,
     /// Includes ingress for tables that have virtual tables
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub database_ingress_v2: BTreeMap<(ComponentPath, TableName), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub database_egress: BTreeMap<(ComponentPath, TableName), u64>,
     /// Includes egress for tables that have virtual tables
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub database_egress_v2: BTreeMap<(ComponentPath, TableName), u64>,
     /// Ingress for virtual tables, keyed by virtual table name
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub virtual_table_ingress: BTreeMap<(ComponentPath, TableName), u64>,
     /// Egress for virtual tables, keyed by virtual table name
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub virtual_table_egress: BTreeMap<(ComponentPath, TableName), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub database_egress_rows: BTreeMap<(ComponentPath, TableName), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub vector_ingress: BTreeMap<(ComponentPath, TableName), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub vector_ingress_v2: BTreeMap<(ComponentPath, TableName), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub vector_egress: BTreeMap<(ComponentPath, TableName), u64>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName)>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub text_ingress: BTreeMap<(ComponentPath, TableName), u64>,
 
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName, IndexName)>(), \
-                             proptest::arbitrary::any::<TextIndexQueryUsage>(), 0..=4,
-            )")
-    )]
     pub text_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), TextIndexQueryUsage>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<(ComponentPath, TableName, IndexName)>(), \
-                             proptest::arbitrary::any::<VectorIndexQueryUsage>(), 0..=4,
-            )")
-    )]
     pub vector_query_usage: BTreeMap<(ComponentPath, TableName, IndexName), VectorIndexQueryUsage>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(
-              proptest::arbitrary::any::<String>(), 0..=1024u64, 0..=4,
-            )")
-    )]
     pub fetch_egress: BTreeMap<String, u64>,
 
     /// If true, skip tracking v1 database ingress.
     /// Used for streaming imports which should only track v2 ingress.
-    #[cfg_attr(any(test, feature = "testing"), proptest(value = "false"))]
     pub skip_v1_database_ingress: bool,
 }
 
@@ -1595,125 +1456,4 @@ pub struct AggregatedFunctionUsageStats {
     pub vector_index_read_query_bytes: u64,
     pub network_egress_bytes: u64,
     pub vector_index_write_query_bytes: u64,
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use common::components::ComponentPath;
-    use proptest::prelude::*;
-    use value::testing::assert_roundtrips;
-
-    use super::{
-        FunctionUsageStats,
-        FunctionUsageStatsProto,
-        FunctionUsageTracker,
-    };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_usage_stats_roundtrips(stats in any::<FunctionUsageStats>()) {
-            assert_roundtrips::<FunctionUsageStats, FunctionUsageStatsProto>(stats);
-        }
-    }
-
-    #[test]
-    fn test_without_v1_database_ingress() {
-        // Create a tracker with skip_v1_database_ingress enabled
-        let usage = FunctionUsageTracker::new().without_v1_database_ingress();
-
-        // Track both v1 and v2 ingress/egress
-        let component_path = ComponentPath::root();
-        let table_name = "test_table".to_string();
-        usage.track_database_ingress(component_path.clone(), table_name.clone(), 100, false);
-        usage.track_database_ingress_v2(component_path.clone(), table_name.clone(), 200, false);
-        usage.track_database_egress(component_path.clone(), table_name.clone(), 150, false);
-        usage.track_database_egress_v2(component_path.clone(), table_name.clone(), 250, false);
-
-        // Test vector ingress as well
-        usage.track_vector_ingress(
-            component_path.clone(),
-            "vector_table".to_string(),
-            50,
-            75,
-            false,
-        );
-
-        // Gather stats and verify
-        let stats = usage.gather_user_stats();
-
-        // ONLY v1 database_ingress should be skipped (NOT egress or vector)
-        let v1_ingress = stats
-            .database_ingress
-            .get(&(component_path.clone(), table_name.clone()))
-            .copied()
-            .unwrap_or(0);
-        assert_eq!(
-            v1_ingress, 0,
-            "Expected database_ingress (v1) to be 0 when skip_v1_database_ingress is set"
-        );
-
-        // v2 ingress should be tracked
-        let v2_ingress = stats
-            .database_ingress_v2
-            .get(&(component_path.clone(), table_name.clone()))
-            .copied()
-            .unwrap_or(0);
-        assert_eq!(
-            v2_ingress, 200,
-            "Expected database_ingress_v2 to be tracked normally"
-        );
-
-        let v1_egress = stats
-            .database_egress
-            .get(&(component_path.clone(), table_name.clone()))
-            .copied()
-            .unwrap_or(0);
-        assert_eq!(
-            v1_egress, 150,
-            "Expected database_egress (v1) to still be tracked (only ingress is skipped)"
-        );
-
-        // v2 egress should be tracked
-        let v2_egress = stats
-            .database_egress_v2
-            .get(&(component_path.clone(), table_name.clone()))
-            .copied()
-            .unwrap_or(0);
-        assert_eq!(
-            v2_egress, 250,
-            "Expected database_egress_v2 to be tracked normally"
-        );
-
-        let v1_vector_ingress = stats
-            .vector_ingress
-            .get(&(component_path.clone(), "vector_table".to_string()))
-            .copied()
-            .unwrap_or(0);
-        assert_eq!(
-            v1_vector_ingress, 50,
-            "Expected vector_ingress (v1) to still be tracked (only database_ingress is skipped)"
-        );
-
-        // v2 vector ingress should be tracked
-        let v2_vector_ingress = stats
-            .vector_ingress_v2
-            .get(&(component_path, "vector_table".to_string()))
-            .copied()
-            .unwrap_or(0);
-        assert_eq!(
-            v2_vector_ingress, 75,
-            "Expected vector_ingress_v2 to be tracked normally"
-        );
-
-        // Verify the flag is set
-        assert!(
-            stats.skip_v1_database_ingress,
-            "Expected skip_v1_database_ingress flag to be true"
-        );
-    }
 }

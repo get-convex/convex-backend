@@ -21,7 +21,6 @@ use crate::{
 /// slightly differs from `UdfExecution`, which is what we store in memory for
 /// logs.
 #[derive(Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub enum FunctionOutcome {
     Query(UdfOutcome),
     Mutation(UdfOutcome),

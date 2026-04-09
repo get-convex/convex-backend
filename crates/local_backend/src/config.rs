@@ -217,22 +217,4 @@ impl LocalConfig {
         }
     }
 
-    #[cfg(test)]
-    pub fn new_for_test() -> anyhow::Result<Self> {
-        use anyhow::Context;
-
-        let tempdir_handle = tempfile::tempdir()?;
-        let db_path = tempdir_handle.path().join("convex_local_backend.sqlite3");
-        // Easiest way to get a config object with defaults is to parse from cmd line
-        let config = Self::try_parse_from([
-            "convex-local-backend",
-            db_path.to_str().context("invalid db path")?,
-            "--local-storage",
-            tempdir_handle
-                .path()
-                .to_str()
-                .context("invalid local storage path")?,
-        ])?;
-        Ok(config)
-    }
 }

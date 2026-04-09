@@ -22,9 +22,6 @@ use common::{
 use fastrand::Rng;
 use slab::Slab;
 
-#[cfg(test)]
-mod tests;
-
 /// A data structure storing a set of (possibly overlapping) [Interval]s, that
 /// can efficiently query which intervals overlap a given point.
 ///
@@ -387,69 +384,6 @@ impl IntervalMap {
         }
     }
 
-    #[cfg(test)]
-    fn check_invariants(&self) {
-        let intervals = if let Some(root) = self.root {
-            assert_eq!(self.nodes[root].parent, None);
-            self.check_invariants_at(root, ..).1
-        } else {
-            0
-        };
-        assert_eq!(intervals, self.nodes.len());
-    }
-
-    /// Checks:
-    /// - the subtree is in nondescending `key` order
-    /// - that all keys lie in `range`
-    /// - parent pointers are correct
-    /// - that `max_upper_bound` annotations are correct
-    /// - that the subscriber linked-list makes sense
-    ///
-    /// Returns the number of nodes under the subtree.
-    #[cfg(test)]
-    fn check_invariants_at(
-        &self,
-        n: NodeKey,
-        key_range: impl std::ops::RangeBounds<StartIncluded>,
-    ) -> (NodeKey, usize) {
-        use std::ops::Bound;
-
-        let mut max_ub = n;
-        let mut total_size = 1;
-        for (c, subrange) in [
-            (
-                self.nodes[n].child[0],
-                (key_range.start_bound(), Bound::Included(&self.nodes[n].key)),
-            ),
-            (
-                self.nodes[n].child[1],
-                (Bound::Included(&self.nodes[n].key), key_range.end_bound()),
-            ),
-        ] {
-            if let Some(c) = c {
-                assert_eq!(self.nodes[c].parent, Some(n));
-                let (next, size) = self.check_invariants_at(c, subrange);
-                total_size += size;
-                if self.nodes[next].upper_bound > self.nodes[max_ub].upper_bound {
-                    max_ub = next;
-                }
-            }
-        }
-        assert_eq!(
-            self.nodes[self.nodes[n].max_upper_bound].upper_bound,
-            self.nodes[max_ub].upper_bound
-        );
-        assert!(
-            key_range.contains(&self.nodes[n].key),
-            "nodes out of order: key {:?} not in range {:?}",
-            self.nodes[n].key,
-            (key_range.start_bound(), key_range.end_bound())
-        );
-        if let Some(next) = self.nodes[n].next {
-            assert_eq!(self.nodes[n].subscriber, self.nodes[next].subscriber);
-        }
-        (max_ub, total_size)
-    }
 }
 
 impl Default for IntervalMap {

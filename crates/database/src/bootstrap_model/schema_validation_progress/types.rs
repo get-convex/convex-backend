@@ -8,7 +8,6 @@ use value::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 /// Schema validation progress is written by the SchemaWorker for `Pending` and
 /// `Validated` schemas. `Active`, `Overwritten`, and `Failed` schemas should
 /// not have `SchemaValidationProgressMetadata` documents.

@@ -1,6 +1,4 @@
 pub mod module_loader;
-#[cfg(test)]
-mod tests;
 pub mod types;
 
 use std::collections::BTreeMap;

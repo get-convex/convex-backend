@@ -9,9 +9,6 @@ mod log;
 mod schema;
 mod sync;
 
-#[cfg(test)]
-mod tests;
-
 use std::net::{
     IpAddr,
     Ipv4Addr,

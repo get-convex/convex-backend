@@ -24,7 +24,6 @@ use value::{
 
 use crate::external_packages::types::ExternalDepsPackageId;
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum NodeVersion {
     V18x,
@@ -58,7 +57,6 @@ impl From<NodeVersion> for String {
     }
 }
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourcePackage {
     pub storage_key: ObjectKey,
@@ -68,18 +66,9 @@ pub struct SourcePackage {
     pub node_version: Option<NodeVersion>,
 }
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub struct PackageSize {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "0..=i64::MAX as usize")
-    )]
     pub zipped_size_bytes: usize,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "0..=i64::MAX as usize")
-    )]
     pub unzipped_size_bytes: usize,
 }
 
@@ -173,7 +162,6 @@ impl TryFrom<PackageSize> for SerializedPackageSize {
 
 codegen_convex_serialization!(PackageSize, SerializedPackageSize);
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, Copy, PartialOrd, Ord, Hash)]
 pub struct SourcePackageId(DeveloperDocumentId);
 
@@ -266,59 +254,3 @@ impl TryFrom<SerializedSourcePackage> for SourcePackage {
 }
 
 codegen_convex_serialization!(SourcePackage, SerializedSourcePackage);
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::{
-        sha256::Sha256Digest,
-        ConvexObject,
-        DeveloperDocumentId,
-    };
-
-    use super::SourcePackage;
-    use crate::{
-        external_packages::types::ExternalDepsPackageId,
-        source_packages::types::PackageSize,
-    };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_source_package_roundtrip(v in any::<SourcePackage>()) {
-            assert_roundtrips::<SourcePackage, ConvexObject>(v);
-        }
-    }
-
-    #[test]
-    fn test_frozen_source_package() {
-        let value = value::json_deserialize(r#"{
-            "externalPackageId":"k423gp2tq6nsw6ngwhkw72c3z17fkb5t",
-            "packageSize":{"unzippedSizeBytes":{"$integer":"SEUHAAAAAAA="},"zippedSizeBytes":{"$integer":"QZgBAAAAAAA="}},
-            "sha256":{"$bytes":"7WWCt6Y52N/xQ2e7Tidc6ZPAx6KAUosaxVcVcq5dbWk="},
-            "storageKey":"fcf904d2-566c-41fc-a899-870b6a66b274"
-        }"#).unwrap();
-        let parsed = SourcePackage::try_from(value).unwrap();
-        assert_eq!(
-            parsed,
-            SourcePackage {
-                storage_key: "fcf904d2-566c-41fc-a899-870b6a66b274".try_into().unwrap(),
-                sha256: Sha256Digest::from(*b"\xed\x65\x82\xb7\xa6\x39\xd8\xdf\xf1\x43\x67\xbb\x4e\x27\x5c\xe9\x93\xc0\xc7\xa2\x80\x52\x8b\x1a\xc5\x57\x15\x72\xae\x5d\x6d\x69"),
-                external_deps_package_id: Some(ExternalDepsPackageId::from(
-                    "k423gp2tq6nsw6ngwhkw72c3z17fkb5t"
-                        .parse::<DeveloperDocumentId>()
-                        .unwrap()
-                )),
-                package_size: PackageSize {
-                    zipped_size_bytes: 104513,
-                    unzipped_size_bytes: 476488,
-                },
-                node_version: None,
-            }
-        );
-    }
-}

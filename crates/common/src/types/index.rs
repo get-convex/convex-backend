@@ -81,21 +81,6 @@ impl From<IndexDescriptor> for FieldName {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for IndexDescriptor {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = IndexDescriptor>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        use crate::identifier::arbitrary_regexes::USER_IDENTIFIER_REGEX;
-        USER_IDENTIFIER_REGEX
-            .prop_filter_map("Invalid IndexDescriptor", |s| IndexDescriptor::new(s).ok())
-    }
-}
-
 /// Unique name for an index.
 ///
 /// `Ord` orders by table, then index name.
@@ -181,7 +166,6 @@ impl<T: IndexTableIdentifier + FromStr<Err = anyhow::Error>> FromStr for Generic
 ///
 /// Note that this is unrelated to the storage state
 #[derive(Debug, Clone, Default)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct IndexDiff {
     /// missing -> exists
     /// missing -> staged
@@ -333,22 +317,6 @@ impl IndexName {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl<T: IndexTableIdentifier + proptest::arbitrary::Arbitrary> proptest::arbitrary::Arbitrary
-    for GenericIndexName<T>
-{
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = GenericIndexName<T>>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        any::<(T, IndexDescriptor)>().prop_filter_map("Invalid IndexName", |(t, d)| {
-            GenericIndexName::new(t, d).ok()
-        })
-    }
-}
-
 pub type IndexId = InternalId;
 
 #[derive(Eq, PartialEq, Clone, Debug, Ord, PartialOrd)]
@@ -373,32 +341,5 @@ pub enum DatabaseIndexValue {
 impl DatabaseIndexValue {
     pub fn is_delete(&self) -> bool {
         matches!(self, DatabaseIndexValue::Deleted)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    mod test_min_index_descriptor {
-        use cmd_util::env::env_config;
-        use proptest::prelude::*;
-
-        use super::super::IndexDescriptor;
-
-        proptest! {
-            #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-            #[test]
-            fn proptest(index_name in any::<IndexDescriptor>()) {
-                assert!(IndexDescriptor::MIN <= index_name);
-            }
-        }
-
-        #[test]
-        fn proptest_trophies() {
-            // #2716: `IndexDescriptor::min` was "a", where "A" < "a".
-            assert!(IndexDescriptor::MIN <= IndexDescriptor::new("B").unwrap());
-        }
     }
 }

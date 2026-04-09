@@ -737,16 +737,6 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         Box::pin(Self::create_function_handle(provider, args)).await
                     },
 
-                    #[cfg(test)]
-                    "slowSyscall" => {
-                        provider.rt().wait(std::time::Duration::from_secs(1)).await;
-                        Ok(JsonValue::Number(1017.into()))
-                    },
-                    #[cfg(test)]
-                    "reallySlowSyscall" => {
-                        provider.rt().wait(std::time::Duration::from_secs(3)).await;
-                        Ok(JsonValue::Number(1017.into()))
-                    },
                     _ => Err(ErrorMetadata::bad_request(
                         "UnknownAsyncOperation",
                         format!("Unknown async operation {name}"),

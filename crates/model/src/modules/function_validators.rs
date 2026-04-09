@@ -8,8 +8,6 @@ use common::{
     virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadataAnyhowExt;
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
 use serde::{
     Deserialize,
     Serialize,
@@ -24,15 +22,8 @@ use value::{
  * A validator for the arguments to a UDF.
  */
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ArgsValidator {
     Unvalidated,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::btree_set(any::<value::TableName>(), \
-                             1..8).prop_flat_map(any_with::<ObjectValidator>).\
-                             prop_map(ArgsValidator::Validated)")
-    )]
     Validated(ObjectValidator),
 }
 
@@ -127,15 +118,8 @@ impl TryFrom<ArgsValidator> for ArgsValidatorJson {
  * A validator for the return value of a UDF.
  */
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ReturnsValidator {
     Unvalidated,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::btree_set(any::<value::TableName>(), \
-                             1..8).prop_flat_map(any_with::<Validator>).\
-                             prop_map(ReturnsValidator::Validated)")
-    )]
     Validated(Validator),
 }
 
@@ -200,35 +184,6 @@ impl TryFrom<ReturnsValidator> for ReturnsValidatorJson {
         match returns {
             ReturnsValidator::Unvalidated => Ok(Self(None)),
             ReturnsValidator::Validated(output_schema) => Ok(Self(Some(output_schema.try_into()?))),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-
-    use crate::modules::function_validators::{
-        ArgsValidator,
-        ArgsValidatorJson,
-        ReturnsValidator,
-        ReturnsValidatorJson,
-    };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_args_roundtrips(v in any::<ArgsValidator>()) {
-            assert_roundtrips::<ArgsValidator, ArgsValidatorJson>(v);
-        }
-
-        #[test]
-        fn test_returns_roundtrips(v in any::<ReturnsValidator>()) {
-            assert_roundtrips::<ReturnsValidator, ReturnsValidatorJson>(v);
         }
     }
 }

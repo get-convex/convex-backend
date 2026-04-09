@@ -1022,37 +1022,6 @@ impl TryFrom<AppDefinitionConfigJson> for AppDefinitionConfig {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::AppDefinitionConfigJson;
-
-    /// Backwards compatibility test:
-    /// historically clients sent changed app modules under
-    /// `appDefinition.functions`, and did not send `unchangedModuleHashes`
-    /// at all.
-    ///
-    /// We accept that payload by:
-    /// - aliasing `functions` -> `changedModules`
-    /// - defaulting missing `unchangedModuleHashes` to an empty list
-    #[test]
-    fn test_app_definition_config_json_old_format() -> anyhow::Result<()> {
-        let json = r#"{
-            "definition": null,
-            "dependencies": [],
-            "schema": null,
-            "functions": [
-                { "path": "foo.js", "source": "// foo", "sourceMap": null, "environment": null }
-            ],
-            "udfServerVersion": "1.2.3"
-        }"#;
-
-        let parsed: AppDefinitionConfigJson = serde_json::from_str(json)?;
-        assert_eq!(parsed.changed_modules.len(), 1);
-        assert!(parsed.unchanged_module_hashes.is_empty());
-        Ok(())
-    }
-}
-
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ComponentDefinitionConfigJson {

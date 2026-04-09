@@ -13,9 +13,6 @@ mod convex_api;
 mod error;
 mod file_reader;
 mod schema;
-#[cfg(any(test, feature = "testing"))]
-pub mod testing;
-
 use serde::Serialize;
 
 #[derive(Serialize)]

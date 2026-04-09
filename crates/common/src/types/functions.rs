@@ -30,7 +30,6 @@ use crate::{
 
 #[derive(Serialize, Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum UdfType {
     Query,
     Mutation,
@@ -39,7 +38,6 @@ pub enum UdfType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 pub enum UdfTypeJson {
     Query,
     Mutation,
@@ -175,7 +173,6 @@ pub enum AllowedVisibility {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FunctionCaller {
     SyncWorker(ClientVersion),
     HttpApi(ClientVersion),
@@ -193,9 +190,6 @@ pub enum FunctionCaller {
         parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
         parent_execution_id: Option<ExecutionId>,
     },
-    #[cfg(any(test, feature = "testing"))]
-    #[proptest(weight = 0)]
-    Test,
 }
 
 impl FunctionCaller {
@@ -208,8 +202,6 @@ impl FunctionCaller {
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => None,
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => None,
         }
         .cloned()
     }
@@ -221,8 +213,6 @@ impl FunctionCaller {
             | FunctionCaller::Tester(_)
             | FunctionCaller::HttpEndpoint
             | FunctionCaller::Cron => None,
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => None,
             FunctionCaller::Scheduler {
                 job_id,
                 component_id,
@@ -246,8 +236,6 @@ impl FunctionCaller {
                 parent_execution_id,
                 ..
             } => *parent_execution_id,
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => None,
         }
     }
 
@@ -260,8 +248,6 @@ impl FunctionCaller {
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. } => true,
             FunctionCaller::Action { .. } => false,
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => true,
         }
     }
 
@@ -277,8 +263,6 @@ impl FunctionCaller {
             FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => false,
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => true,
         }
     }
 
@@ -295,8 +279,6 @@ impl FunctionCaller {
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => AllowedVisibility::All,
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => AllowedVisibility::PublicOnly,
         }
     }
 }
@@ -311,8 +293,6 @@ impl fmt::Display for FunctionCaller {
             FunctionCaller::Cron => "Cron",
             FunctionCaller::Scheduler { .. } => "Scheduler",
             FunctionCaller::Action { .. } => "Action",
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => "Test",
         };
         write!(f, "{s}")
     }
@@ -357,8 +337,6 @@ impl From<FunctionCaller> for pb::common::FunctionCaller {
                 };
                 pb::common::function_caller::Caller::Action(caller)
             },
-            #[cfg(any(test, feature = "testing"))]
-            FunctionCaller::Test => panic!("Can't use test function caller"),
         };
         Self {
             caller: Some(caller),
@@ -421,7 +399,6 @@ impl TryFrom<pb::common::FunctionCaller> for FunctionCaller {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ModuleEnvironment {
     Isolate,
     Node,
@@ -462,35 +439,6 @@ impl ModuleEnvironment {
             ModuleEnvironment::Isolate => "default",
             ModuleEnvironment::Node => "node",
             ModuleEnvironment::Invalid => "unknown",
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-
-    use super::{
-        UdfType,
-        UdfTypeProto,
-    };
-    use crate::types::FunctionCaller;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_udf_type_roundtrips(u in any::<UdfType>()) {
-            assert_roundtrips::<UdfType, UdfTypeProto>(u);
-        }
-
-        #[test]
-        fn test_function_caller_roundtrips(u in any::<FunctionCaller>()) {
-            assert_roundtrips::<FunctionCaller, pb::common::FunctionCaller>(u);
         }
     }
 }

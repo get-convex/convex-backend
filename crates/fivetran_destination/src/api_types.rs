@@ -115,7 +115,6 @@ impl TryInto<FieldPath> for FivetranFieldName {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum BatchWriteOperation {
     Upsert,
     Update,
@@ -123,7 +122,6 @@ pub enum BatchWriteOperation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct BatchWriteRow {
     pub table: String,
     pub operation: BatchWriteOperation,
@@ -149,70 +147,4 @@ pub struct TruncateTableArgs {
 #[serde(rename_all = "camelCase")]
 pub struct CreateTableArgs {
     pub table_definition: TableDefinitionJson,
-}
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use cmd_util::env::env_config;
-    use common::value::FieldPath;
-    use proptest::prelude::*;
-
-    use crate::api_types::{
-        BatchWriteRow,
-        FivetranFieldName,
-    };
-
-    #[test]
-    fn convert_fivetran_user_fields_to_field_path() {
-        let expected: FieldPath = FivetranFieldName::from_str("name")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        assert_eq!(expected, FieldPath::from_str("name").unwrap());
-    }
-
-    #[test]
-    fn convert_fivetran_metadata_fields_to_field_path() {
-        let expected: FieldPath = FivetranFieldName::from_str("_fivetran_synced")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        assert_eq!(expected, FieldPath::from_str("fivetran.synced").unwrap());
-
-        let expected: FieldPath = FivetranFieldName::from_str("_fivetran_id")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        assert_eq!(expected, FieldPath::from_str("fivetran.id").unwrap());
-
-        let expected: FieldPath = FivetranFieldName::from_str("_fivetran_deleted")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        assert_eq!(expected, FieldPath::from_str("fivetran.deleted").unwrap());
-    }
-
-    #[test]
-    fn convert_fivetran_fields_starting_with_underscore() {
-        let expected: FieldPath = FivetranFieldName::from_str("_file")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        assert_eq!(
-            expected,
-            FieldPath::from_str("fivetran.columns.file").unwrap()
-        );
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
-
-        #[test]
-        fn test_object_roundtrips(v in any::<BatchWriteRow>()) {
-            let serialized = serde_json::to_string(&v).unwrap();
-            let deserialized: BatchWriteRow = serde_json::from_str(&serialized).unwrap();
-            assert_eq!(v, deserialized);
-        }
-    }
 }

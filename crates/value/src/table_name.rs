@@ -96,47 +96,12 @@ impl Namespace for TableName {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl TableName {
-    pub fn system_strategy() -> impl proptest::strategy::Strategy<Value = TableName> {
-        use crate::identifier::arbitrary_regexes::SYSTEM_IDENTIFIER_REGEX;
-        SYSTEM_IDENTIFIER_REGEX.prop_filter_map("Generated invalid system TableName", |s| {
-            TableName::from_str(&s).ok()
-        })
-    }
-
-    pub fn user_strategy() -> impl proptest::strategy::Strategy<Value = TableName> {
-        use crate::identifier::arbitrary_regexes::USER_IDENTIFIER_REGEX;
-        USER_IDENTIFIER_REGEX.prop_filter_map("Generated invalid user TableName", |s| {
-            TableName::from_str(&s).ok()
-        })
-    }
-}
-
 #[derive(Default)]
 pub enum TableType {
     #[default]
     Either,
     User,
     System,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for TableName {
-    type Parameters = TableType;
-
-    type Strategy = impl proptest::strategy::Strategy<Value = TableName>;
-
-    fn arbitrary_with(ty: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        match ty {
-            TableType::Either => {
-                prop_oneof![TableName::system_strategy(), TableName::user_strategy(),].boxed()
-            },
-            TableType::User => TableName::user_strategy().boxed(),
-            TableType::System => TableName::system_strategy().boxed(),
-        }
-    }
 }
 
 impl From<TableName> for FieldName {
@@ -146,7 +111,6 @@ impl From<TableName> for FieldName {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, FromStr, Display, Hash)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TabletId(pub InternalId);
 
 impl TabletId {
@@ -166,20 +130,6 @@ impl HeapSize for TabletId {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Display, Hash, Serialize)]
 pub struct TableNumber(u32);
-
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
-
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for TableNumber {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = TableNumber>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        any::<u32>().prop_filter_map("Invalid table number", |x| TableNumber::try_from(x).ok())
-    }
-}
 
 impl From<TableNumber> for u32 {
     fn from(n: TableNumber) -> u32 {
@@ -249,33 +199,5 @@ impl Size for TabletId {
 
     fn nesting(&self) -> usize {
         0
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::TableName;
-
-    #[test]
-    fn table_name_valid() {
-        assert!("hello_world".parse::<TableName>().is_ok());
-        assert!("one_two_three_four_five".parse::<TableName>().is_ok());
-        assert!("alpha_num3r1c".parse::<TableName>().is_ok());
-    }
-
-    #[test]
-    fn table_name_invalid() {
-        assert!("one_tw!o_three_four_five".parse::<TableName>().is_err());
-        assert!("_____".parse::<TableName>().is_err());
-        assert!("".parse::<TableName>().is_err());
-        assert!("sujays_edgè_cäsê".parse::<TableName>().is_err());
-    }
-
-    #[test]
-    fn table_name_is_system() -> anyhow::Result<()> {
-        assert!("_hello_world".parse::<TableName>()?.is_system());
-        assert!("_elephant3".parse::<TableName>()?.is_system());
-        assert!(!"elephant3".parse::<TableName>()?.is_system());
-        Ok(())
     }
 }

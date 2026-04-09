@@ -21,7 +21,6 @@ pub const VALID_AXIOM_INGEST_URLS: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct AxiomConfig {
     pub api_key: PII<String>,
     pub dataset_name: String,
@@ -89,7 +88,6 @@ impl fmt::Display for AxiomConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, ToSchema)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct AxiomAttribute {
     pub key: String,
     pub value: String,

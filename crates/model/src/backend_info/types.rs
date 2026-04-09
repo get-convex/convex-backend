@@ -14,7 +14,6 @@ use value::codegen_convex_serialization;
 
 /// Information and configuration about the backend.
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct BackendInfoPersisted {
     pub team: TeamId,
     pub project: ProjectId,
@@ -69,13 +68,6 @@ impl From<BackendInfo> for BackendInfoPersisted {
             audit_log_retention_days: bi.audit_log_retention_days.unwrap_or_default(),
             send_logs_to_client: bi.send_logs_to_client,
         }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Default for BackendInfoPersisted {
-    fn default() -> Self {
-        BackendInfo::default().into()
     }
 }
 
@@ -163,48 +155,3 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
 }
 
 codegen_convex_serialization!(BackendInfoPersisted, SerializedBackendInfo);
-
-#[cfg(test)]
-mod tests {
-    use common::types::{
-        DeploymentId,
-        DeploymentType,
-        ProjectId,
-        TeamId,
-    };
-    use value::assert_obj;
-
-    use super::BackendInfoPersisted;
-
-    #[test]
-    fn test_frozen_obj() {
-        assert_eq!(
-            BackendInfoPersisted::try_from(assert_obj! {
-                "deploymentType" => "prod",
-                "instance" => 1926612683017131100i64,
-                "logStreamingEnabled" => true,
-                "org" => -667731666772323580i64,
-                "project" => 6688466498098154475i64,
-                "projectName" => null,
-                "projectSlug" => "ayaya",
-                "provisionConcurrency" => 1740011963i64,
-                "streamingExportEnabled" => false,
-            })
-            .unwrap(),
-            BackendInfoPersisted {
-                team: TeamId(17779012406937228036),
-                project: ProjectId(6688466498098154475),
-                deployment: DeploymentId(1926612683017131100),
-                deployment_type: DeploymentType::Prod,
-                deployment_ref: None,
-                project_name: None,
-                project_slug: Some("ayaya".to_string()),
-                streaming_export_enabled: false,
-                provision_concurrency: 1740011963,
-                log_streaming_enabled: true,
-                audit_log_retention_days: 0,
-                send_logs_to_client: None,
-            }
-        );
-    }
-}

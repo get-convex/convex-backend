@@ -116,23 +116,10 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
         "1.0/db/normalizeId" => syscall_normalize_id(provider, args),
         "1.0/componentArgument" => syscall_component_argument(provider, args),
 
-        #[cfg(any(test, feature = "testing"))]
-        "throwSystemError" => anyhow::bail!("I can't go for that."),
         "throwOcc" => anyhow::bail!(ErrorMetadata::user_occ(None, None, None)),
         "throwOverloaded" => {
             anyhow::bail!(ErrorMetadata::overloaded("Busy", "I'm a bit busy."))
         },
-        #[cfg(test)]
-        "slowSyscall" => {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            Ok(JsonValue::Number(1017.into()))
-        },
-        #[cfg(test)]
-        "reallySlowSyscall" => {
-            std::thread::sleep(std::time::Duration::from_secs(3));
-            Ok(JsonValue::Number(1017.into()))
-        },
-
         _ => {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "UnknownOperation",

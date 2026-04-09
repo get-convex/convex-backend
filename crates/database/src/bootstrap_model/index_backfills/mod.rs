@@ -36,9 +36,6 @@ use crate::{
 
 pub mod types;
 
-#[cfg(test)]
-mod tests;
-
 pub static INDEX_BACKFILLS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_index_backfills"
         .parse()

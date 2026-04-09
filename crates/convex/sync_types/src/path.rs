@@ -64,16 +64,3 @@ impl From<FunctionName> for PathComponent {
             .expect("FunctionName isn't a valid PathComponent")
     }
 }
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for PathComponent {
-    type Parameters = ();
-    type Strategy = proptest::strategy::BoxedStrategy<Self>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        "_?[a-zA-Z0-9_]{1,60}(\\.js)?"
-            .prop_filter_map("Invalid path component", |s| s.parse().ok())
-            .boxed()
-    }
-}

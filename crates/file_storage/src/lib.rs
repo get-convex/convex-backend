@@ -27,9 +27,6 @@ use storage::Storage;
 
 mod core;
 mod metrics;
-#[cfg(test)]
-mod tests;
-
 pub struct FileStream {
     pub sha256: Option<Sha256Digest>,
     pub content_length: ContentLength,

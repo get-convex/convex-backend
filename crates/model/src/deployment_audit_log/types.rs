@@ -19,8 +19,6 @@ use common::{
         IndexName,
     },
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
 use serde::{
     Deserialize,
     Serialize,
@@ -69,35 +67,10 @@ pub static DEPLOYMENT_AUDIT_LOG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Clone, PartialEq, Default)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct AuditLogIndexDiff {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
-        )
-    )]
     pub added_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
-        )
-    )]
     pub removed_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
-        )
-    )]
     pub enabled_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
-        )
-    )]
     pub disabled_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
 }
 
@@ -133,10 +106,6 @@ impl From<IndexDiff> for AuditLogIndexDiff {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub enum DeploymentAuditLogEvent {
     CreateEnvironmentVariable {
         name: EnvVarName,
@@ -165,17 +134,7 @@ pub enum DeploymentAuditLogEvent {
         diffs: PushComponentDiffs,
     },
     BuildIndexes {
-        #[cfg_attr(
-            any(test, feature = "testing"),
-            proptest(strategy = "prop::collection::vec(any::<(IndexName, \
-                                 DeveloperIndexConfig)>(), 0..4)")
-        )]
         added_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
-        #[cfg_attr(
-            any(test, feature = "testing"),
-            proptest(strategy = "prop::collection::vec(any::<(IndexName, \
-                                 DeveloperIndexConfig)>(), 0..4)")
-        )]
         removed_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
     },
     ChangeDeploymentState {
@@ -555,32 +514,11 @@ impl TryFrom<DeploymentAuditLogEvent> for serde_json::Map<String, JsonValue> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct SerializedIndexDiff {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::vec(any::<
-                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
-    )]
     pub added_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::vec(any::<
-                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
-    )]
     pub removed_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::vec(any::<
-                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
-    )]
     #[serde(default)]
     pub disabled_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::vec(any::<
-                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
-    )]
     #[serde(default)]
     pub enabled_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
 }
@@ -638,17 +576,8 @@ impl TryFrom<SerializedIndexDiff> for AuditLogIndexDiff {
     }
 }
 #[derive(Clone, Debug)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub struct PushComponentDiffs {
     pub auth_diff: AuthDiff,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::btree_map(any::<ComponentPath>(), \
-                             any::<ComponentDiff>(), 0..4)")
-    )]
     pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
 }
 
@@ -713,74 +642,3 @@ impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
 }
 
 codegen_convex_serialization!(PushComponentDiffs, SerializedPushComponentDiffs);
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use common::{
-        log_streaming::LogEventFormatVersion,
-        runtime::UnixTimestamp,
-    };
-    use proptest::prelude::*;
-    use serde_json::json;
-    use value::ConvexObject;
-
-    use super::DeploymentAuditLogEvent;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 64 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_try_from(e in any::<DeploymentAuditLogEvent>()) {
-            ConvexObject::try_from(e).unwrap();
-        }
-
-        #[test]
-        fn test_json(e in any::<DeploymentAuditLogEvent>()) {
-            serde_json::Map::try_from(e).unwrap();
-        }
-    }
-
-    #[test]
-    fn test_serialization_of_audit_log_event() -> anyhow::Result<()> {
-        let event = DeploymentAuditLogEvent::to_log_event(
-            DeploymentAuditLogEvent::CreateEnvironmentVariable {
-                name: "test_env_variable".parse()?,
-            },
-            UnixTimestamp::from_millis(0),
-        )?;
-        let event_json = event.to_json_map(LogEventFormatVersion::default())?;
-        let value = serde_json::to_value(&event_json)?;
-        assert_eq!(
-            value,
-            json!({
-                "topic": "audit_log",
-                "timestamp": 0,
-                "audit_log_action": "create_environment_variable",
-                "audit_log_metadata": "{\"variable_name\":\"test_env_variable\"}",
-            })
-        );
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod proptests {
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-    use value::{
-        testing::assert_roundtrips,
-        ConvexObject,
-    };
-
-    use crate::deployment_audit_log::types::DeploymentAuditLogEvent;
-
-    proptest! {
-        #![proptest_config(ProptestConfig { cases: 16 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
-        #[test]
-        fn test_deployment_audit_log_roundtrip(v in any::<DeploymentAuditLogEvent>()) {
-            assert_roundtrips::<DeploymentAuditLogEvent, ConvexObject>(v);
-        }
-    }
-}

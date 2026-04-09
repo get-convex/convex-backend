@@ -55,8 +55,6 @@ use model::{
     },
     udf_config::types::UdfConfig,
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::strategy::Strategy;
 use server::{
     FunctionMetadata,
     HttpActionMetadata,
@@ -151,10 +149,6 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
 }
 
 /// Reads and writes from a UDF that executed in Funrun
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(Clone, Debug, PartialEq, proptest_derive::Arbitrary)
-)]
 pub struct FunctionFinalTransaction {
     pub begin_timestamp: Timestamp,
     pub reads: FunctionReads,
@@ -189,10 +183,6 @@ impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
     }
 }
 
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(Clone, Debug, PartialEq, proptest_derive::Arbitrary)
-)]
 pub struct FunctionReads {
     pub reads: ReadSet,
     pub num_intervals: usize,
@@ -217,26 +207,8 @@ impl From<TransactionReadSet> for FunctionReads {
 
 /// Subset of [`Writes`] that is returned by [FunctionRunner] after a function
 /// has executed.
-#[cfg_attr(any(test, feature = "testing"), derive(Clone, Debug, PartialEq))]
 #[derive(Default)]
 pub struct FunctionWrites {
     /// N.B.: these are expected to have unique `id`s
     pub updates: Vec<DocumentUpdateWithPrevTs>,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for FunctionWrites {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = FunctionWrites>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        proptest::collection::vec(proptest::prelude::any::<DocumentUpdateWithPrevTs>(), 0..4)
-            .prop_map(|mut updates| {
-                updates.sort_by_key(|u| u.id);
-                updates.dedup_by_key(|u| u.id);
-                Self { updates }
-            })
-            .boxed()
-    }
 }

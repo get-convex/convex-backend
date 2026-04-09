@@ -28,26 +28,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentDefinitionMetadata {
     pub path: ComponentDefinitionPath,
     pub definition_type: ComponentDefinitionType,
 
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "proptest::collection::vec(proptest::prelude::any::<ComponentInstantiation>(), 0..2)"
-        )
-    )]
     pub child_components: Vec<ComponentInstantiation>,
 
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "proptest::collection::btree_map(proptest::prelude::any::<HttpMountPath>(), \
-                             proptest::prelude::any::<Reference>(), 0..2)"
-        )
-    )]
     pub http_mounts: BTreeMap<HttpMountPath, Reference>,
 
     /// For App definitions only: the HTTP path prefix under which the app's
@@ -55,13 +41,6 @@ pub struct ComponentDefinitionMetadata {
     /// as absolute paths (via `http_mounts`) and are unaffected by this field.
     pub http_prefix: Option<HttpMountPath>,
 
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "proptest::collection::btree_map(proptest::prelude::any::<PathComponent>(), \
-                        proptest::prelude::any::<ComponentExport>(), 0..4)"
-        )
-    )]
     pub exports: BTreeMap<PathComponent, ComponentExport>,
 }
 
@@ -99,18 +78,6 @@ impl From<HttpMountPath> for String {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for HttpMountPath {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = Self>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        r"/([a-zA-Z0-9_]/)+".prop_map(|s| s.parse().unwrap())
-    }
-}
-
 impl HeapSize for HttpMountPath {
     fn heap_size(&self) -> usize {
         self.0.heap_size()
@@ -131,7 +98,6 @@ impl FromStr for HttpMountPath {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ComponentDefinitionType {
     App,
     ChildComponent {
@@ -154,13 +120,11 @@ pub enum ComponentExport {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ComponentArgumentValidator {
     Value(Validator),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ComponentArgument {
     Value(ConvexValue),
 }
@@ -427,41 +391,3 @@ codegen_convex_serialization!(
     ComponentDefinitionMetadata,
     SerializedComponentDefinitionMetadata
 );
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for ComponentExport {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = ComponentExport>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        let leaf = any::<Reference>().prop_map(ComponentExport::Leaf);
-        leaf.prop_recursive(2, 4, 2, |inner| {
-            prop::collection::btree_map(any::<PathComponent>(), inner, 1..4)
-                .prop_map(ComponentExport::Branch)
-        })
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for ComponentInstantiation {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = ComponentInstantiation>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        (
-            any::<ComponentName>(),
-            any::<ComponentDefinitionPath>(),
-            prop::option::of(prop::collection::btree_map(
-                any::<Identifier>(),
-                any::<ComponentArgument>(),
-                0..4,
-            )),
-        )
-            .prop_map(|(name, path, args)| ComponentInstantiation { name, path, args })
-    }
-}

@@ -17,7 +17,6 @@ use sha2::Digest;
 use crate::ConvexValue;
 
 #[must_use]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Eq, PartialEq)]
 pub struct Sha256Digest([u8; 32]);
 

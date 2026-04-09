@@ -1,5 +1,3 @@
-#[cfg(any(test, feature = "testing"))]
-use std::fmt::Debug;
 use std::{
     collections::{
         BTreeMap,
@@ -182,15 +180,6 @@ pub struct Transaction<RT: Runtime> {
     pub usage_tracker: FunctionUsageTracker,
     pub(crate) virtual_system_mapping: VirtualSystemMapping,
 
-    #[cfg(any(test, feature = "testing"))]
-    index_size_override: Option<usize>,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl<RT: Runtime> Debug for Transaction<RT> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Transaction").finish()
-    }
 }
 
 #[async_trait]
@@ -241,8 +230,6 @@ impl<RT: Runtime> Transaction<RT> {
             retention_validator,
             usage_tracker,
             virtual_system_mapping,
-            #[cfg(any(test, feature = "testing"))]
-            index_size_override: None,
         }
     }
 
@@ -796,17 +783,6 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     // XXX move to table model?
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn create_system_table_testing(
-        &mut self,
-        namespace: TableNamespace,
-        table_name: &TableName,
-        default_table_number: Option<TableNumber>,
-    ) -> anyhow::Result<bool> {
-        self.create_system_table(namespace, table_name, default_table_number)
-            .await
-    }
-
     async fn table_number_for_system_table(
         &mut self,
         namespace: TableNamespace,
@@ -1157,11 +1133,6 @@ impl<RT: Runtime> Transaction<RT> {
             .await
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn set_index_size_hard_limit(&mut self, size: usize) {
-        self.index_size_override = Some(size);
-    }
-
     pub fn finalize(self) -> anyhow::Result<FinalTransaction> {
         FinalTransaction::new(self)
     }
@@ -1189,8 +1160,6 @@ pub struct FinalTransaction {
 
     pub(crate) usage_tracker: FunctionUsageTracker,
 
-    #[cfg(any(test, feature = "testing"))]
-    index_size_override: Option<usize>,
 }
 
 impl FinalTransaction {
@@ -1211,8 +1180,6 @@ impl FinalTransaction {
             writes: transaction.writes.into_flat()?,
             usage_tracker: transaction.usage_tracker,
 
-            #[cfg(any(test, feature = "testing"))]
-            index_size_override: transaction.index_size_override,
         })
     }
 
@@ -1222,18 +1189,8 @@ impl FinalTransaction {
     ) -> anyhow::Result<()> {
         #[allow(unused_mut)]
         let mut vector_size_limit = *VECTOR_INDEX_SIZE_HARD_LIMIT;
-        #[cfg(any(test, feature = "testing"))]
-        if let Some(size) = self.index_size_override {
-            vector_size_limit = size;
-        }
-
         #[allow(unused_mut)]
         let mut search_size_limit = *TEXT_INDEX_SIZE_HARD_LIMIT;
-        #[cfg(any(test, feature = "testing"))]
-        if let Some(size) = self.index_size_override {
-            search_size_limit = size;
-        }
-
         let modified_tables: BTreeSet<_> = self
             .writes
             .coalesced_writes()

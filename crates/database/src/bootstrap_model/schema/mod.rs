@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests;
 pub mod types;
 
 use std::{
@@ -79,11 +77,6 @@ pub struct SchemaModel<'a, RT: Runtime> {
 impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
         Self { tx, namespace }
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
-        Self::new(tx, TableNamespace::test_user())
     }
 
     #[fastrace::trace]

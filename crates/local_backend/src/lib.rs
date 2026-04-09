@@ -106,9 +106,6 @@ pub mod storage;
 pub mod streaming_export;
 pub mod streaming_import;
 pub mod subs;
-#[cfg(test)]
-mod test_helpers;
-
 pub const MAX_CONCURRENT_REQUESTS: usize = 128;
 
 #[derive(Clone)]

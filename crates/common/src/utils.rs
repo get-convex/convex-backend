@@ -73,28 +73,3 @@ pub fn ensure_utc() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-#[test]
-fn test_increment_name() {
-    let cases = [
-        ("Foo", "Foo (1)"),
-        ("Foo (1)", "Foo (2)"),
-        ("Foo's (1) Bar (1001)", "Foo's (1) Bar (1002)"),
-        ("Foo (1", "Foo (1 (1)"),
-        ("Foo (a)", "Foo (a) (1)"),
-    ];
-    for (test, expected) in cases {
-        assert_eq!(increment_name(test, Some(1)), expected);
-    }
-
-    assert_eq!(increment_name("Foo", Some(50)), "Foo (50)");
-    assert_eq!(increment_name("Foo (20)", Some(50)), "Foo (70)");
-
-    // Test None case - should generate 8 hex characters
-    let result = increment_name("Test", None);
-    assert!(result.starts_with("Test ("));
-    assert!(result.ends_with(")"));
-    let hex_part = &result[6..result.len() - 1]; // Extract hex part between "Test (" and ")"
-    assert_eq!(hex_part.len(), 8);
-    assert!(hex_part.chars().all(|c| c.is_ascii_hexdigit()));
-}

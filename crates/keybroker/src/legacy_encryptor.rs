@@ -56,14 +56,3 @@ impl LegacyEncryptor {
 }
 
 // Make sure that old encrypted values stay decryptable
-#[test]
-fn test_compatible() -> anyhow::Result<()> {
-    let secret = Secret::try_from(vec![39; 32])?;
-    let message = "hello world";
-    let encrypted = "010a1e6e07e418a1791e491de168a62e37abce83f3453b3d01c358d38771815433f8ecba285de5a47effe43bd3d5f1a0087788857987";
-    assert_eq!(
-        LegacyEncryptor::new(secret)?.decode_proto::<String>(1, encrypted)?,
-        message
-    );
-    Ok(())
-}

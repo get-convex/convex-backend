@@ -12,8 +12,6 @@ use value::{
     FieldPath,
 };
 
-#[cfg(any(test, feature = "testing"))]
-use crate::index::IndexKey;
 use crate::{
     index::IndexKeyBytes,
     query::FilterValue as SearchFilterValue,
@@ -28,7 +26,6 @@ use crate::{
 /// document) and faster (because we don’t need to reconstruct the index keys
 /// every time we need them).
 #[derive(Clone, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Eq))]
 pub struct DocumentIndexKeys(WithHeapSize<BTreeMap<TabletIndexName, DocumentIndexKeyValue>>);
 
 impl From<BTreeMap<TabletIndexName, DocumentIndexKeyValue>> for DocumentIndexKeys {
@@ -46,60 +43,6 @@ impl DocumentIndexKeys {
         self.0.iter()
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn empty_for_test() -> Self {
-        Self(Default::default())
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn with_standard_index_for_test(
-        index_name: TabletIndexName,
-        index_value: IndexKey,
-    ) -> Self {
-        let mut keys = BTreeMap::new();
-        keys.insert(
-            index_name,
-            DocumentIndexKeyValue::Standard(index_value.to_bytes()),
-        );
-        Self(keys.into())
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn with_search_index_for_test(
-        index_name: TabletIndexName,
-        search_field: FieldPath,
-        search_field_value: SearchValueTokens,
-    ) -> Self {
-        let mut keys = BTreeMap::new();
-        keys.insert(
-            index_name,
-            DocumentIndexKeyValue::Search(SearchIndexKeyValue {
-                filter_values: Default::default(),
-                search_field,
-                search_field_value: Some(search_field_value),
-            }),
-        );
-        Self(keys.into())
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn with_search_index_for_test_with_filters(
-        index_name: TabletIndexName,
-        search_field: FieldPath,
-        search_field_value: SearchValueTokens,
-        filter_values: BTreeMap<FieldPath, SearchFilterValue>,
-    ) -> Self {
-        let mut keys = BTreeMap::new();
-        keys.insert(
-            index_name,
-            DocumentIndexKeyValue::Search(SearchIndexKeyValue {
-                filter_values: filter_values.into(),
-                search_field,
-                search_field_value: Some(search_field_value),
-            }),
-        );
-        Self(keys.into())
-    }
 }
 
 impl HeapSize for DocumentIndexKeys {
@@ -109,7 +52,6 @@ impl HeapSize for DocumentIndexKeys {
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Eq))]
 pub enum DocumentIndexKeyValue {
     Standard(IndexKeyBytes),
     Search(SearchIndexKeyValue),
@@ -118,7 +60,6 @@ pub enum DocumentIndexKeyValue {
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Eq))]
 pub struct SearchIndexKeyValue {
     /// These are values for the fields present in the must
     /// clauses of the search index.
@@ -205,32 +146,6 @@ impl SearchValueTokens {
         set.into_iter()
     }
 }
-
-#[cfg(any(test, feature = "testing"))]
-impl SearchValueTokens {
-    pub fn from_iter_for_test<T: IntoIterator<Item = String>>(iter: T) -> Self {
-        let tokens: Box<[CompactString]> = iter.into_iter().map(|x| x.into()).collect();
-        Self(tokens.into())
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl PartialEq for SearchValueTokens {
-    fn eq(&self, other: &Self) -> bool {
-        if self.0.len() != other.0.len() {
-            return false;
-        }
-
-        let sorted_this: std::collections::BTreeSet<CompactString> =
-            self.0.clone().into_iter().collect();
-        let sorted_other: std::collections::BTreeSet<CompactString> =
-            other.0.clone().into_iter().collect();
-        sorted_this == sorted_other
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Eq for SearchValueTokens {}
 
 impl HeapSize for SearchValueTokens {
     fn heap_size(&self) -> usize {

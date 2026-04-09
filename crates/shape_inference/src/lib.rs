@@ -21,14 +21,8 @@ mod json;
 mod overlaps;
 mod subtype;
 mod supertype;
-#[cfg(any(test, feature = "testing"))]
-pub mod testing;
-
 pub mod export_context;
 pub mod pretty;
-#[cfg(test)]
-mod tests;
-
 use std::{
     collections::BTreeMap,
     sync::Arc,

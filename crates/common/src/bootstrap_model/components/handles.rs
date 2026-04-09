@@ -16,7 +16,6 @@ use value::{
 use crate::components::ComponentId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionHandleMetadata {
     pub component: ComponentId,
     pub path: CanonicalizedUdfPath,

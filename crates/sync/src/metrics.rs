@@ -356,7 +356,6 @@ pub fn log_client_connect_timings(partition_id: u64, marks: Vec<ClientMark>) {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum ClientMarkName {
     /// When a client is constructed (the browser client, not the React client)
     ClientConstructed,
@@ -367,7 +366,6 @@ pub enum ClientMarkName {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct ClientMark {
     pub name: ClientMarkName,
     pub start_time: f64,

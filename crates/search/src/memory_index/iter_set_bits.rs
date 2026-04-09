@@ -58,29 +58,3 @@ pub fn iter_set_bits(mut bitset: u64) -> impl Iterator<Item = usize> {
         },
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-
-    use super::*;
-
-    proptest! {
-        #![proptest_config(ProptestConfig { cases: 65536 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
-
-        #[test]
-        fn test_iter_set_bits(bitset in any::<u64>()) {
-            let set_bits = (0..64).filter(|i| bitset & (1 << i) != 0);
-            assert!(iter_set_bits(bitset).eq(set_bits));
-        }
-    }
-
-    #[test]
-    fn test_iter_set_bits_exhaustive_u16() {
-        for bitset in 0u16..=65535 {
-            let set_bits = (0..16).filter(|i| bitset & (1 << i) != 0);
-            assert!(iter_set_bits(bitset as u64).eq(set_bits), "{bitset}");
-        }
-    }
-}

@@ -142,30 +142,6 @@ impl UpdatableTextSegment {
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn load(paths: &TextSegmentPaths) -> anyhow::Result<Self> {
-        let id_tracker = StaticIdTracker::load_from_path(&paths.id_tracker_path)?;
-        let deletion_tracker =
-            MemoryDeletionTracker::load(&paths.alive_bit_set_path, &paths.deleted_terms_path)?;
-        Ok(UpdatableTextSegment {
-            id_tracker,
-            deletion_tracker,
-            num_deletes_in_updated: 0,
-            // TODO(sam): We should probably create this outside of this method, then pass it
-            // through here. For now this is unused in these tests.
-            original: FragmentedTextSegment {
-                segment_key: "segment".try_into()?,
-                id_tracker_key: "id_tracker".try_into()?,
-                deleted_terms_table_key: "deleted_terms".try_into()?,
-                alive_bitset_key: "bitset".try_into()?,
-                num_indexed_documents: 0,
-                num_deleted_documents: 0,
-                id: "test_id".to_string(),
-                size_bytes_total: 0,
-            },
-        })
-    }
-
     pub async fn upload_metadata(
         self,
         storage: Arc<dyn Storage>,

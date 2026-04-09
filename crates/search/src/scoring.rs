@@ -22,7 +22,6 @@ pub fn term_from_str(term_value: &str) -> Term {
 /// Note that this only includes terms for the search field of the query.
 /// Filter fields are not included.
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct Bm25StatisticsDiff {
     pub term_statistics: BTreeMap<String, i64>,
     pub num_documents_diff: i64,

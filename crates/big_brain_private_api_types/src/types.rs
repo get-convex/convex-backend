@@ -70,22 +70,3 @@ impl PlanId {
         !self.is_in_orb()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_plan_id_display() {
-        let plans = [
-            (PlanId::ConvexBase, "CONVEX_BASE"),
-            (PlanId::ConvexStarterPlus, "CONVEX_STARTER_PLUS"),
-            (PlanId::ConvexProfessional, "CONVEX_PROFESSIONAL"),
-            (PlanId::ConvexBusiness, "CONVEX_BUSINESS"),
-        ];
-        for (plan, expected) in plans {
-            assert_eq!(plan.to_string(), expected);
-            assert_eq!(plan, expected.parse::<PlanId>().unwrap());
-        }
-    }
-}

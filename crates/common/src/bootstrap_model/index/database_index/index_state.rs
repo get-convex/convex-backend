@@ -16,7 +16,6 @@ use super::{
 /// `Enabled` by the index backfill routine. Disabled indexes are not
 /// implicitly transitioned to any other state.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum DatabaseIndexState {
     // We are backfilling this index. All new writes should update the index.
     Backfilling(DatabaseIndexBackfillState),

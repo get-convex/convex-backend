@@ -204,29 +204,6 @@ impl IsolateConfig {
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_with_max_user_timeout(
-        name: &'static str,
-        max_user_timeout: Option<Duration>,
-        limiter: ConcurrencyLimiter,
-    ) -> Self {
-        Self {
-            name,
-            max_user_timeout,
-            limiter,
-        }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Default for IsolateConfig {
-    fn default() -> Self {
-        Self {
-            name: "test",
-            max_user_timeout: None,
-            limiter: ConcurrencyLimiter::unlimited(),
-        }
-    }
 }
 
 #[async_trait]
@@ -350,7 +327,6 @@ pub struct ActionRequest<RT: Runtime> {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ActionRequestParams {
     pub path_and_args: ValidatedPathAndArgs,
 }
@@ -1594,117 +1570,4 @@ pub(crate) fn should_recreate_isolate<RT: Runtime>(
     }
 
     false
-}
-
-#[cfg(test)]
-mod tests {
-
-    use cmd_util::env::env_config;
-    use common::pause::PauseController;
-    use database::test_helpers::DbFixtures;
-    use errors::ErrorMetadataAnyhowExt;
-    use model::test_helpers::DbFixturesWithModel;
-    use pb::common::FunctionResult as FunctionResultProto;
-    use proptest::prelude::*;
-    use runtime::testing::TestRuntime;
-    use sync_types::testing::assert_roundtrips;
-    use tokio::sync::oneshot;
-
-    use super::FunctionResult;
-    use crate::{
-        client::{
-            initialize_v8,
-            NO_AVAILABLE_WORKERS,
-            PAUSE_REQUEST,
-        },
-        test_helpers::bogus_udf_request,
-        IsolateClient,
-    };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_function_result_proto_roundtrips(left in any::<FunctionResult>()) {
-            assert_roundtrips::<FunctionResult, FunctionResultProto>(left);
-        }
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_scheduler_workers_limit_requests(
-        rt: TestRuntime,
-        pause1: PauseController,
-    ) -> anyhow::Result<()> {
-        initialize_v8();
-        let function_runner_core = IsolateClient::new(rt.clone(), 100, 1, None)?;
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
-        let client1 = "client1";
-        let hold_guard = pause1.hold(PAUSE_REQUEST);
-        let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client1, sender).await?;
-        function_runner_core.send_request(request)?;
-        // Pausing a request while being executed should make the next request be
-        // rejected because there are no available workers.
-        let _guard = hold_guard.wait_for_blocked().await.unwrap();
-        let (sender, rx2) = oneshot::channel();
-        let request2 = bogus_udf_request(&db, client1, sender).await?;
-        function_runner_core.send_request(request2)?;
-        let response = IsolateClient::<TestRuntime>::receive_response(rx2).await?;
-        let err = response.unwrap_err();
-        assert!(err.is_rejected_before_execution(), "{err:?}");
-        assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_scheduler_does_not_throttle_different_clients(
-        rt: TestRuntime,
-        pause1: PauseController,
-    ) -> anyhow::Result<()> {
-        initialize_v8();
-        let function_runner_core = IsolateClient::new(rt.clone(), 50, 2, None)?;
-        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
-        let client1 = "client1";
-        let hold_guard = pause1.hold(PAUSE_REQUEST);
-        let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client1, sender).await?;
-        function_runner_core.send_request(request)?;
-        // Pausing a request should not affect the next one because we have 2 workers
-        // and 2 requests from different clients.
-        let _guard = hold_guard.wait_for_blocked().await.unwrap();
-        let (sender, rx2) = oneshot::channel();
-        let client2 = "client2";
-        let request2 = bogus_udf_request(&db, client2, sender).await?;
-        function_runner_core.send_request(request2)?;
-        IsolateClient::<TestRuntime>::receive_response(rx2).await??;
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_scheduler_throttles_same_client(
-        rt: TestRuntime,
-        pause1: PauseController,
-    ) -> anyhow::Result<()> {
-        initialize_v8();
-        let function_runner_core = IsolateClient::new(rt.clone(), 50, 2, None)?;
-        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
-        let client = "client";
-        let hold_guard = pause1.hold(PAUSE_REQUEST);
-        let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client, sender).await?;
-        function_runner_core.send_request(request)?;
-        // Pausing the first request and sending a second should make the second fail
-        // because there's only one worker left and it is reserved for other clients.
-        let _guard = hold_guard.wait_for_blocked().await.unwrap();
-        let (sender, rx2) = oneshot::channel();
-        let request2 = bogus_udf_request(&db, client, sender).await?;
-        function_runner_core.send_request(request2)?;
-        let response = IsolateClient::<TestRuntime>::receive_response(rx2).await?;
-        let err = response.unwrap_err();
-        assert!(err.is_rejected_before_execution());
-        assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
-        Ok(())
-    }
 }

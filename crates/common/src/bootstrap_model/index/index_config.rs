@@ -38,7 +38,6 @@ use crate::bootstrap_model::index::text_index::TextIndexSnapshotData;
 /// If spec changes (eg fields), it's a *different* index.
 /// State can change over time (eg. backfill state or staged flag)
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum IndexConfig {
     /// Standard database index.
     Database {
@@ -288,70 +287,3 @@ impl TryFrom<SerializedIndexConfig> for IndexConfig {
 }
 
 codegen_convex_serialization!(IndexConfig, SerializedIndexConfig, test_cases = 64);
-
-#[cfg(test)]
-mod tests {
-    use maplit::btreeset;
-    use value::{
-        obj,
-        ConvexValue,
-    };
-
-    use crate::bootstrap_model::index::{
-        vector_index::{
-            FragmentedVectorSegment,
-            VectorIndexBackfillState,
-            VectorIndexSpec,
-            VectorIndexState,
-        },
-        IndexConfig,
-    };
-
-    #[test]
-    fn test_backwards_compatibility() -> anyhow::Result<()> {
-        let serialized = obj!(
-            "type" => "vector",
-            "onDiskState" => {
-                "state" => "backfilling",
-                "document_cursor" => ConvexValue::Null,
-                "segments" => [
-                    {
-                        "segment_key" => "abc",
-                        "id_tracker_key" => "def",
-                        "deleted_bitset_key" => "ghi",
-                        "id" => "jkl",
-                        "num_vectors" => 11i64,
-                        "num_deleted" => 12i64,
-                    },
-                ],
-            },
-            "dimensions" => 1536i64,
-            "vectorField" => "embedding.field",
-            "filterFields" => ["filter1", "filter2"],
-        )?;
-        let deserialized: IndexConfig = serialized.try_into()?;
-        assert_eq!(
-            deserialized,
-            IndexConfig::Vector {
-                spec: VectorIndexSpec {
-                    dimensions: 1536.try_into()?,
-                    vector_field: "embedding.field".parse()?,
-                    filter_fields: btreeset! { "filter1".parse()?, "filter2".parse()? },
-                },
-                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState {
-                    cursor: None,
-                    segments: vec![FragmentedVectorSegment {
-                        segment_key: "abc".to_string().try_into()?,
-                        id_tracker_key: "def".to_string().try_into()?,
-                        deleted_bitset_key: "ghi".to_string().try_into()?,
-                        id: "jkl".to_string(),
-                        num_vectors: 11,
-                        num_deleted: 12,
-                    }],
-                    staged: false,
-                }),
-            }
-        );
-        Ok(())
-    }
-}

@@ -22,8 +22,6 @@ use pb::{
     },
     outcome::UdfOutcome as UdfOutcomeProto,
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
 use rand::Rng;
 use sync_types::types::SerializedArgs;
 use value::{
@@ -38,10 +36,6 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub struct UdfOutcome {
     pub path: CanonicalizedComponentFunctionPath,
     pub arguments: SerializedArgs,
@@ -63,16 +57,8 @@ pub struct UdfOutcome {
 
     pub syscall_trace: SyscallTrace,
 
-    #[cfg_attr(any(test, feature = "testing"), proptest(value = "None"))]
     pub udf_server_version: Option<semver::Version>,
     pub memory_in_mb: u64,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "(0..=i64::MAX as u64, any::<u32>()).prop_map(|(secs, nanos)| \
-                        Some(Duration::new(secs, nanos)))"
-        )
-    )]
     // TODO(ENG-10204): Make required
     pub user_execution_time: Option<Duration>,
 }
@@ -90,10 +76,6 @@ impl HeapSize for UdfOutcome {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
 pub struct NestedUdfOutcome {
     pub observed_identity: bool,
     pub observed_rng: bool,
@@ -230,44 +212,5 @@ impl UdfOutcome {
             memory_in_mb,
             user_execution_time: user_execution_time.map(|d| d.try_into()).transpose()?,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-
-    use super::{
-        UdfOutcome,
-        UdfOutcomeProto,
-        ValidatedPathAndArgs,
-    };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_udf_outcome_roundtrips(udf_outcome in any::<UdfOutcome>()) {
-            let udf_outcome_clone = udf_outcome.clone();
-            let path = udf_outcome.path.clone();
-            let arguments = udf_outcome.arguments.clone();
-            let version = udf_outcome.udf_server_version.clone();
-            let identity = udf_outcome_clone.identity.clone();
-            let path_and_args = ValidatedPathAndArgs::new_for_tests_in_component(
-                path,
-                arguments,
-                version
-            );
-            let proto = UdfOutcomeProto::try_from(udf_outcome_clone).unwrap();
-            let udf_outcome_from_proto = UdfOutcome::from_proto(
-                proto,
-                path_and_args,
-                identity
-            ).unwrap();
-            assert_eq!(udf_outcome, udf_outcome_from_proto);
-        }
     }
 }

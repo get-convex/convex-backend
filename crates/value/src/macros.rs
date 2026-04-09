@@ -251,26 +251,3 @@ macro_rules! obj {
         $crate::ConvexObject::try_from(object)
     });
 }
-
-#[cfg(any(test, feature = "testing"))]
-#[macro_export(local_inner_macros)]
-macro_rules! assert_val {
-    ( $($tt:tt)+ ) => ({
-        try bikeshed anyhow::Result<_> {
-            val!( $($tt)+ )
-        }.unwrap()
-    });
-}
-
-#[cfg(any(test, feature = "testing"))]
-#[macro_export(local_inner_macros)]
-macro_rules! assert_obj {
-    () => ({
-        $crate::ConvexObject::empty()
-    });
-    ( $($tt:tt)+ ) => ({
-        try bikeshed anyhow::Result<_> {
-            obj!( $($tt)+ )?
-        }.unwrap()
-    });
-}

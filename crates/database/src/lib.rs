@@ -40,9 +40,6 @@ mod transaction_index;
 pub mod vector_index_worker;
 mod virtual_tables;
 mod write_limits;
-#[cfg(any(test, feature = "testing"))]
-pub mod write_log;
-#[cfg(not(any(test, feature = "testing")))]
 mod write_log;
 mod write_throughput_limiter;
 mod writes;
@@ -50,10 +47,6 @@ mod writes;
 mod component_registry;
 mod schema_registry;
 mod table_iteration;
-#[cfg(any(test, feature = "testing"))]
-pub mod test_helpers;
-#[cfg(test)]
-pub mod tests;
 pub mod text_index_worker;
 pub use committer::table_dependency_sort_key;
 pub use component_registry::ComponentRegistry;
@@ -216,6 +209,4 @@ pub use self::{
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::TransactionIndex,
 };
-#[cfg(any(test, feature = "testing"))]
-pub use crate::bootstrap_model::test_facing::TestFacingModel;
 pub use crate::metrics::shutdown_error;

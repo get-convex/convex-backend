@@ -58,7 +58,6 @@ pub struct IndexEntry {
 /// We don't parse these because we don't need to, it's inefficient, and that
 /// would require knowing the encoding format which may depend on DbDriverTag.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deref)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct IndexKeyBytes(pub Vec<u8>);
 
 impl Borrow<[u8]> for IndexKeyBytes {
@@ -131,49 +130,5 @@ impl Ord for IndexKey {
 impl PartialOrd for IndexKey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-mod proptest {
-    use proptest::prelude::*;
-    use value::{
-        id_v6::DeveloperDocumentId,
-        ConvexValue,
-    };
-
-    use super::IndexKey;
-
-    impl Arbitrary for IndexKey {
-        type Parameters = ();
-
-        type Strategy = impl Strategy<Value = IndexKey>;
-
-        fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-            any::<(Vec<Option<ConvexValue>>, DeveloperDocumentId)>()
-                .prop_map(|(values, id)| IndexKey::new_allow_missing(values, id))
-        }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-pub mod test_helpers {
-    use crate::types::{
-        IndexDescriptor,
-        IndexName,
-    };
-
-    pub fn new_index_name(table_name: &str, index_name: &str) -> anyhow::Result<IndexName> {
-        IndexName::new(
-            str::parse(table_name)?,
-            IndexDescriptor::new(index_name.to_string())?,
-        )
-    }
-
-    pub fn new_index_descriptor(
-        table_name: &str,
-        index_name: &str,
-    ) -> anyhow::Result<IndexDescriptor> {
-        new_index_name(table_name, index_name).map(|name| name.descriptor().clone())
     }
 }

@@ -11,8 +11,6 @@ mod connection;
 mod document_encoding;
 mod metrics;
 mod sql;
-#[cfg(test)]
-mod tests;
 use std::{
     cmp,
     collections::{
@@ -349,19 +347,6 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             .is_none())
     }
 
-    #[cfg(test)]
-    pub(crate) async fn get_table_count(&self) -> anyhow::Result<usize> {
-        let mut client = self
-            .read_pool
-            .acquire("get_table_count", &self.db_name)
-            .await?;
-        client
-            .query_optional(sql::GET_TABLE_COUNT, vec![(&self.db_name).into()])
-            .await?
-            .context("GET_TABLE_COUNT query returned no rows?")?
-            .get(0)
-            .context("GET_TABLE_COUNT query returned zero columns?")
-    }
 }
 
 #[async_trait]
@@ -1773,56 +1758,4 @@ fn index_params(query: &mut Vec<mysql_async::Value>, update: &PersistenceIndexEn
     query.push(deleted.into());
     query.push(tablet_id.into());
     query.push(doc_id.into());
-}
-
-#[cfg(any(test, feature = "testing"))]
-pub mod itest {
-    use std::path::Path;
-
-    use mysql_async::{
-        prelude::Queryable,
-        Conn,
-        Params,
-    };
-    use rand::Rng;
-    use url::Url;
-
-    // Returns a url to connect to the test cluster. The URL includes username and
-    // password but no dbname.
-    pub fn cluster_opts() -> String {
-        let mysql_host = if Path::new("/convex.ro").exists() {
-            // itest
-            "mysql"
-        } else {
-            // local
-            "localhost"
-        };
-        format!("mysql://root:@{mysql_host}:3306")
-    }
-
-    pub struct MySqlOpts {
-        pub db_name: String,
-        pub url: Url,
-    }
-
-    /// Returns connection options for a guaranteed-fresh Postgres database.
-    pub async fn new_db_opts() -> anyhow::Result<MySqlOpts> {
-        let cluster_url = cluster_opts();
-        let id: [u8; 16] = rand::rng().random();
-        let db_name = "test_db_".to_string() + &hex::encode(&id[..]);
-
-        // Connect using db `mysql`, create a fresh DB, and then return the connection
-        // options for that one.
-        let mut conn = Conn::from_url(format!("{cluster_url}/mysql")).await?;
-        let query = "CREATE DATABASE ".to_string() + &db_name;
-        conn.exec_drop(query.as_str(), Params::Empty).await?;
-
-        println!("DBNAME @{db_name}");
-        Ok(MySqlOpts {
-            // We use the cluster URL to connect to connect to persistence and
-            // then pass the db_name in the query themselves.
-            url: cluster_url.parse()?,
-            db_name,
-        })
-    }
 }

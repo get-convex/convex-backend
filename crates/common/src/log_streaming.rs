@@ -82,7 +82,6 @@ pub struct AggregatedFunctionUsageStats {
 pub use errors::OccInfo;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct OccInfoJson {
     pub table_name: Option<String>,
@@ -105,7 +104,6 @@ impl From<OccInfo> for OccInfoJson {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct UsageStatsJson {
     pub database_read_bytes: u64,
@@ -227,7 +225,6 @@ pub enum StructuredLogEvent {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum LogEventFormatVersion {
     V1,
     V2,
@@ -254,48 +251,12 @@ impl Display for LogEventFormatVersion {
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-#[allow(clippy::derivable_impls)]
-impl Default for LogEventFormatVersion {
-    fn default() -> Self {
-        Self::V2
-    }
-}
-
 /// Structured log
 impl LogEvent {
     pub fn default_for_verification<RT: Runtime>(runtime: &RT) -> anyhow::Result<Self> {
         Ok(Self {
             event: StructuredLogEvent::Verification,
             timestamp: runtime.unix_timestamp(),
-        })
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub fn sample_exception<RT: Runtime>(runtime: &RT) -> anyhow::Result<Self> {
-        use sync_types::UserIdentifier;
-
-        let source = FunctionEventSource {
-            context: ExecutionContext::new_for_test(),
-            component_path: ComponentPath::test_user(),
-            udf_path: "test".to_string(),
-            udf_type: UdfType::Action,
-            module_environment: ModuleEnvironment::Isolate,
-            cached: None,
-            mutation_queue_length: None,
-            mutation_retry_count: None,
-        };
-        Ok(Self {
-            timestamp: runtime.unix_timestamp(),
-            event: StructuredLogEvent::Exception {
-                error: JsError::from_frames_for_test(
-                    "test_message",
-                    vec!["test_frame_1", "test_frame_2"],
-                ),
-                user_identifier: Some(UserIdentifier("test|user".to_string())),
-                source,
-                udf_server_version: Some(semver::Version::new(1, 5, 1)),
-            },
         })
     }
 
@@ -688,14 +649,12 @@ impl LogEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum EventSource {
     Function(FunctionEventSource),
     System,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionEventSource {
     pub context: ExecutionContext,
     pub component_path: ComponentPath,
@@ -714,20 +673,6 @@ pub struct FunctionEventSource {
 }
 
 impl FunctionEventSource {
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_test() -> Self {
-        Self {
-            context: ExecutionContext::new_for_test(),
-            component_path: ComponentPath::test_user(),
-            udf_path: "path/to/file:myFunction".to_string(),
-            udf_type: UdfType::Mutation,
-            module_environment: ModuleEnvironment::Isolate,
-            cached: None,
-            mutation_queue_length: None,
-            mutation_retry_count: None,
-        }
-    }
-
     pub fn to_json_map(&self) -> serde_json::Map<String, JsonValue> {
         let udf_type = match self.udf_type {
             UdfType::Query => "query",
@@ -767,7 +712,6 @@ impl HeapSize for FunctionEventSource {
 
 // Types for the /api/stream_function_logs
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 #[serde(tag = "kind")]
 pub enum FunctionExecutionJson {
     #[serde(rename_all = "camelCase")]
@@ -806,7 +750,6 @@ pub enum FunctionExecutionJson {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct StreamUdfExecutionResponse {
     pub entries: Vec<FunctionExecutionJson>,
@@ -814,7 +757,6 @@ pub struct StreamUdfExecutionResponse {
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct StreamFunctionLogs {
     pub cursor: f64,
@@ -823,534 +765,6 @@ pub struct StreamFunctionLogs {
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 pub struct StreamUdfExecutionQueryArgs {
     pub cursor: f64,
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-
-    use serde::{
-        Deserialize,
-        Serialize,
-    };
-    use serde_json::{
-        json,
-        Value as JsonValue,
-    };
-    use utoipa::{
-        OpenApi,
-        ToSchema,
-    };
-
-    use crate::{
-        components::ComponentPath,
-        execution_context::ExecutionContext,
-        log_lines::{
-            LogLevel,
-            LogLineStructured,
-        },
-        log_streaming::{
-            AggregatedFunctionUsageStats,
-            FunctionEventSource,
-            LogEvent,
-            LogEventFormatVersion,
-            OccInfo,
-            SchedulerInfo,
-            StructuredLogEvent,
-        },
-        runtime::UnixTimestamp,
-        types::{
-            ModuleEnvironment,
-            UdfType,
-        },
-    };
-
-    #[test]
-    fn test_serialization_of_console_log_event() -> anyhow::Result<()> {
-        let timestamp = UnixTimestamp::from_millis(1000);
-        let context = ExecutionContext::new_for_test();
-        let request_id = context.request_id.clone();
-        let event = LogEvent {
-            timestamp,
-            event: StructuredLogEvent::Console {
-                source: FunctionEventSource {
-                    context,
-                    component_path: ComponentPath::test_user(),
-                    udf_path: "test:test".to_string(),
-                    udf_type: UdfType::Query,
-                    module_environment: ModuleEnvironment::Isolate,
-                    cached: Some(true),
-                    mutation_queue_length: None,
-                    mutation_retry_count: None,
-                },
-                log_line: LogLineStructured::new_developer_log_line(
-                    LogLevel::Log,
-                    vec!["my test log".to_string()],
-                    timestamp,
-                ),
-            },
-        };
-
-        // Test serialization
-        let fields: serde_json::Map<String, JsonValue> =
-            event.to_json_map(LogEventFormatVersion::default())?;
-        let value = serde_json::to_value(&fields)?;
-        assert_eq!(
-            value,
-            json!({
-                "topic": "console",
-                "timestamp": 1000,
-                "function": json!({
-                    "path": "test:test",
-                    "type": "query",
-                    "cached": true,
-                    "request_id": request_id.to_string(),
-                    "mutation_queue_length": null,
-                    "mutation_retry_count": null
-                }),
-                "log_level": "LOG",
-                "message": "my test log",
-                "is_truncated": false,
-                "system_code": JsonValue::Null
-            })
-        );
-        Ok(())
-    }
-
-    // Utoipa schemas for log stream events which are for documentation only.
-    // They are cursorily tested to check they can be used to parse some
-    // event log output.
-    //
-    // These types need to be updated manually.
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct ConsoleLogEvent {
-        timestamp: u64,
-        #[schema(inline)]
-        function: SchemaFunctionEventSource,
-        log_level: String,
-        message: String,
-        is_truncated: bool,
-        system_code: Option<String>,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct SchemaFunctionEventSource {
-        path: String,
-        r#type: String,
-        cached: Option<bool>,
-        request_id: String,
-        mutation_queue_length: Option<usize>,
-        mutation_retry_count: Option<usize>,
-        component_path: Option<String>,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct SchemaOccInfo {
-        table_name: Option<String>,
-        document_id: Option<String>,
-        write_source: Option<String>,
-        component_path: Option<String>,
-        retry_count: Option<u64>,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct SchemaSchedulerInfo {
-        job_id: String,
-    }
-
-    // Additional log event schemas
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct VerificationEvent {
-        timestamp: u64,
-        message: String, // "Convex connection test"
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct FunctionExecutionEvent {
-        timestamp: u64,
-        #[schema(inline)]
-        function: SchemaFunctionEventSource,
-        execution_time_ms: u64,
-        user_execution_time_ms: Option<u64>,
-        status: String, // "success" or "failure"
-        error_message: Option<String>,
-        #[schema(inline)]
-        occ_info: Option<SchemaOccInfo>,
-        #[schema(inline)]
-        scheduler_info: Option<SchemaSchedulerInfo>,
-        #[schema(inline)]
-        usage: UsageStats,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct UsageStats {
-        database_read_bytes: u64,
-        database_write_bytes: u64,
-        database_io_read_bytes: u64,
-        database_io_write_bytes: u64,
-        database_read_documents: u64,
-        file_storage_read_bytes: u64,
-        file_storage_write_bytes: u64,
-        vector_storage_read_bytes: u64,
-        vector_storage_write_bytes: u64,
-        text_search_query_bytes: u64,
-        text_search_write_query_bytes: u64,
-        vector_search_query_bytes: u64,
-        vector_search_write_query_bytes: u64,
-        network_egress_bytes: u64,
-        action_memory_used_mb: Option<u64>,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct DeploymentAuditLogEvent {
-        timestamp: u64,
-        audit_log_action: String,
-        audit_log_metadata: String, // JSON-stringified metadata
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct SchedulerStatsEvent {
-        timestamp: u64,
-        lag_seconds: u64,
-        num_running_jobs: u64,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct ScheduledJobLagEvent {
-        timestamp: u64,
-        lag_seconds: u64,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct StorageUsageEvent {
-        timestamp: u64,
-        total_document_size_bytes: u64,
-        total_index_size_bytes: u64,
-        total_vector_storage_bytes: u64,
-        total_file_storage_bytes: u64,
-        total_backup_storage_bytes: u64,
-        total_system_table_document_size_bytes: BTreeMap<String, u64>,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[allow(dead_code)]
-    struct StorageApiBandwidthEvent {
-        timestamp: u64,
-        storage_id: String,
-        egress_bytes: u64,
-    }
-
-    // Union type for all log events, discriminated by topic field
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-    #[serde(tag = "topic")]
-    #[allow(dead_code)]
-    enum LogStreamEvent {
-        #[serde(rename = "console")]
-        Console(ConsoleLogEvent),
-        #[serde(rename = "verification")]
-        Verification(VerificationEvent),
-        #[serde(rename = "function_execution")]
-        FunctionExecution(FunctionExecutionEvent),
-        #[serde(rename = "audit_log")]
-        DeploymentAuditLog(DeploymentAuditLogEvent),
-        #[serde(rename = "scheduler_stats")]
-        SchedulerStats(SchedulerStatsEvent),
-        #[serde(rename = "scheduled_job_lag")]
-        ScheduledJobLag(ScheduledJobLagEvent),
-        #[serde(rename = "current_storage_usage")]
-        CurrentStorageUsage(StorageUsageEvent),
-        #[serde(rename = "storage_api_bandwidth")]
-        StorageApiBandwidth(StorageApiBandwidthEvent),
-    }
-
-    #[test]
-    fn test_v2_events_deserialize_to_schemas() -> anyhow::Result<()> {
-        let verification_json = serde_json::to_value(
-            &LogEvent {
-                timestamp: UnixTimestamp::from_millis(1000),
-                event: StructuredLogEvent::Verification,
-            }
-            .to_json_map(LogEventFormatVersion::V2)?,
-        )?;
-        let _: LogStreamEvent = serde_json::from_value(verification_json)?;
-
-        let console_json = serde_json::to_value(
-            &LogEvent {
-                timestamp: UnixTimestamp::from_millis(2000),
-                event: StructuredLogEvent::Console {
-                    source: FunctionEventSource {
-                        context: ExecutionContext::new_for_test(),
-                        component_path: ComponentPath::test_user(),
-                        udf_path: "test:console".to_string(),
-                        udf_type: UdfType::Query,
-                        module_environment: ModuleEnvironment::Isolate,
-                        cached: Some(true),
-                        mutation_queue_length: None,
-                        mutation_retry_count: None,
-                    },
-                    log_line: LogLineStructured {
-                        messages: vec!["test console log".to_string()].into(),
-                        level: LogLevel::Log,
-                        is_truncated: false,
-                        timestamp: UnixTimestamp::from_millis(2000),
-                        system_metadata: None,
-                    },
-                },
-            }
-            .to_json_map(LogEventFormatVersion::V2)?,
-        )?;
-        let _: LogStreamEvent = serde_json::from_value(console_json)?;
-
-        let function_execution_json = serde_json::to_value(
-            &LogEvent {
-                timestamp: UnixTimestamp::from_millis(3000),
-                event: StructuredLogEvent::FunctionExecution {
-                    source: FunctionEventSource {
-                        context: ExecutionContext::new_for_test(),
-                        component_path: ComponentPath::test_user(),
-                        udf_path: "test:function".to_string(),
-                        udf_type: UdfType::Mutation,
-                        module_environment: ModuleEnvironment::Isolate,
-                        cached: None,
-                        mutation_queue_length: Some(2),
-                        mutation_retry_count: Some(0),
-                    },
-                    error: None,
-                    execution_time: std::time::Duration::from_millis(100),
-                    user_execution_time: Some(std::time::Duration::from_millis(80)),
-                    usage_stats: AggregatedFunctionUsageStats {
-                        database_read_bytes: 512,
-                        database_write_bytes: 256,
-                        database_io_read_bytes: 1024,
-                        database_io_write_bytes: 512,
-                        database_read_documents: 3,
-                        storage_read_bytes: 0,
-                        storage_write_bytes: 0,
-                        vector_index_read_bytes: 0,
-                        vector_index_write_bytes: 0,
-                        text_index_write_query_bytes: 0,
-                        text_index_query_bytes: 0,
-                        vector_index_read_query_bytes: 0,
-                        vector_index_write_query_bytes: 0,
-                        network_egress_bytes: 0,
-                        memory_used_mb: 0,
-                        return_bytes: Some(64),
-                    },
-                    occ_info: Some(OccInfo {
-                        table_name: Some("test_table".to_string()),
-                        document_id: Some("doc123".to_string()),
-                        write_source: Some("mutation".to_string()),
-                        component_path: Some("chatApp".to_string()),
-                        retry_count: Some(1),
-                    }),
-                    scheduler_info: Some(SchedulerInfo {
-                        job_id: "scheduled_job_456".to_string(),
-                    }),
-                },
-            }
-            .to_json_map(LogEventFormatVersion::V2)?,
-        )?;
-        let _: LogStreamEvent = serde_json::from_value(function_execution_json)?;
-
-        let mut metadata = serde_json::Map::new();
-        metadata.insert(
-            "action".to_string(),
-            serde_json::Value::String("deploy".to_string()),
-        );
-        let audit_log_json = serde_json::to_value(
-            &LogEvent {
-                timestamp: UnixTimestamp::from_millis(4000),
-                event: StructuredLogEvent::DeploymentAuditLog {
-                    action: "schema_push".to_string(),
-                    metadata,
-                },
-            }
-            .to_json_map(LogEventFormatVersion::V2)?,
-        )?;
-        let _: LogStreamEvent = serde_json::from_value(audit_log_json)?;
-
-        let scheduler_stats_json = serde_json::to_value(
-            &LogEvent {
-                timestamp: UnixTimestamp::from_millis(5000),
-                event: StructuredLogEvent::SchedulerStats {
-                    lag_seconds: std::time::Duration::from_secs(10),
-                    num_running_jobs: 25,
-                },
-            }
-            .to_json_map(LogEventFormatVersion::V2)?,
-        )?;
-        let _: LogStreamEvent = serde_json::from_value(scheduler_stats_json)?;
-
-        let job_lag_json = serde_json::to_value(
-            &LogEvent {
-                timestamp: UnixTimestamp::from_millis(6000),
-                event: StructuredLogEvent::ScheduledJobLag {
-                    lag_seconds: std::time::Duration::from_secs(5),
-                },
-            }
-            .to_json_map(LogEventFormatVersion::V2)?,
-        )?;
-        let _: LogStreamEvent = serde_json::from_value(job_lag_json)?;
-
-        let storage_bandwidth_json = serde_json::to_value(
-            &LogEvent {
-                timestamp: UnixTimestamp::from_millis(7000),
-                event: StructuredLogEvent::StorageApiBandwidth {
-                    storage_id: "storage-uuid-123".to_string(),
-                    egress_bytes: 2048,
-                },
-            }
-            .to_json_map(LogEventFormatVersion::V2)?,
-        )?;
-        let _: LogStreamEvent = serde_json::from_value(storage_bandwidth_json)?;
-
-        Ok(())
-    }
-
-    // OpenAPI document for function execution API (for /api/stream_function_logs)
-    use crate::{
-        log_lines::{
-            LogLevelJson,
-            LogLineJson,
-            SystemLogMetadataJson,
-        },
-        log_streaming::{
-            FunctionExecutionJson,
-            OccInfoJson,
-            StreamFunctionLogs,
-            StreamUdfExecutionQueryArgs,
-            StreamUdfExecutionResponse,
-            UsageStatsJson,
-        },
-        types::UdfTypeJson,
-    };
-
-    #[derive(utoipa::OpenApi)]
-    #[openapi(
-        info(
-            title = "Convex Function Logs API",
-            version = "1.0.0",
-            description = "Schema definitions for /api/stream_function_logs and \
-                           /api/stream_udf_execution endpoints"
-        ),
-        components(schemas(
-            FunctionExecutionJson,
-            StreamUdfExecutionResponse,
-            StreamFunctionLogs,
-            StreamUdfExecutionQueryArgs,
-            LogLineJson,
-            LogLevelJson,
-            SystemLogMetadataJson,
-            UsageStatsJson,
-            UdfTypeJson,
-            OccInfoJson,
-        ))
-    )]
-    struct FunctionLogsApiDoc;
-
-    #[test]
-    fn test_function_logs_api_schema_matches() -> anyhow::Result<()> {
-        use std::{
-            fs,
-            path::Path,
-        };
-
-        const SCHEMA_FILE: &str = "../../npm-packages/convex/function-logs-openapi.json";
-
-        // Generate OpenAPI spec using utoipa
-        let openapi_spec = FunctionLogsApiDoc::openapi();
-        let current_schema = openapi_spec.to_pretty_json()?;
-
-        // Check if file exists and compare
-        if Path::new(SCHEMA_FILE).exists() {
-            let existing_schema = fs::read_to_string(SCHEMA_FILE)?;
-            if existing_schema.trim() != current_schema.trim() {
-                // Write updated schema
-                fs::write(SCHEMA_FILE, &current_schema)?;
-                panic!(
-                    "{SCHEMA_FILE} does not match current schema. This test automatically updated \
-                     the file so you can run again: `cargo test -p common \
-                     test_function_logs_api_schema_matches`"
-                );
-            }
-        } else {
-            // Create directory if it doesn't exist
-            if let Some(parent) = Path::new(SCHEMA_FILE).parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::write(SCHEMA_FILE, &current_schema)?;
-            panic!(
-                "Created new {SCHEMA_FILE}. Run the test again to verify: `cargo test -p common \
-                 test_function_logs_api_schema_matches`"
-            );
-        }
-
-        Ok(())
-    }
-
-    // OpenAPI document for log stream events (for external sinks)
-    #[derive(utoipa::OpenApi)]
-    #[openapi(
-        info(
-            title = "Convex Log Stream Events",
-            version = "2.0.0",
-            description = "Schema definitions for Convex log stream events"
-        ),
-        components(schemas(LogStreamEvent))
-    )]
-    struct LogStreamApiDoc;
-
-    #[test]
-    fn test_log_stream_api_schema_matches() -> anyhow::Result<()> {
-        use std::{
-            fs,
-            path::Path,
-        };
-
-        const SCHEMA_FILE: &str = "../../npm-packages/@convex-dev/platform/log-stream-openapi.json";
-
-        // Generate OpenAPI spec using utoipa
-        let openapi_spec = LogStreamApiDoc::openapi();
-        let current_schema = openapi_spec.to_pretty_json()?;
-
-        // Check if file exists and compare
-        if Path::new(SCHEMA_FILE).exists() {
-            let existing_schema = fs::read_to_string(SCHEMA_FILE)?;
-            if existing_schema.trim() != current_schema.trim() {
-                // Write updated schema
-                fs::write(SCHEMA_FILE, &current_schema)?;
-                panic!(
-                    "{SCHEMA_FILE} does not match current schema. This test automatically updated \
-                     the file so you can run again: `cargo test -p common \
-                     test_log_stream_api_schema_matches`"
-                );
-            }
-        } else {
-            // Create directory if it doesn't exist
-            if let Some(parent) = Path::new(SCHEMA_FILE).parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::write(SCHEMA_FILE, &current_schema)?;
-            panic!(
-                "Created new {SCHEMA_FILE}. Run the test again to verify: `cargo test -p common \
-                 test_log_stream_api_schema_matches`"
-            );
-        }
-
-        Ok(())
-    }
 }

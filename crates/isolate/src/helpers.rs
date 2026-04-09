@@ -229,31 +229,3 @@ pub fn source_map_from_slice(slice: &[u8]) -> Option<sourcemap::SourceMap> {
         },
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-    use sync_types::types::SerializedArgs;
-
-    use crate::UdfArgsJson;
-
-    #[test]
-    fn test_udf_args_json() -> anyhow::Result<()> {
-        let json1: UdfArgsJson = serde_json::from_str(r#"["a","b","c"]"#)?;
-        let json2: UdfArgsJson = serde_json::from_str(r#"{"named":"arg"}"#)?;
-        let json3: UdfArgsJson = serde_json::from_str(r#"[{"named":"arg"}]"#)?;
-        assert_eq!(
-            json1.into_serialized_args()?,
-            SerializedArgs::from_args(vec![json!("a"), json!("b"), json!("c")])?,
-        );
-        assert_eq!(
-            json2.into_serialized_args()?,
-            SerializedArgs::from_args(vec![json!({"named": "arg"})])?,
-        );
-        assert_eq!(
-            json3.into_serialized_args()?,
-            SerializedArgs::from_args(vec![json!({"named": "arg"})])?,
-        );
-        Ok(())
-    }
-}

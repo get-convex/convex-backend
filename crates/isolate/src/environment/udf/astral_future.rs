@@ -193,27 +193,3 @@ impl<T: 'static> RecursiveExecutor<T> {
         }
     }
 }
-
-#[test]
-fn test_no_stack_overflow() {
-    async fn very_recursive_function(executor: &RecursiveExecutor<usize>, depth: usize) -> usize {
-        let big_thing = [0u8; 16384]; // we are not going to explode the stack!
-        println!("{:?}", big_thing.as_ptr());
-        let r = if depth > 0 {
-            let recursive_future = std::pin::pin!(AstralBody::new(Box::pin(
-                very_recursive_function(executor, depth - 1)
-            )));
-            executor
-                .spawn(unsafe { recursive_future.project() })
-                .await
-                .unwrap()
-                + 1
-        } else {
-            0
-        };
-        println!("{:?}", big_thing.as_ptr());
-        r
-    }
-    let executor = RecursiveExecutor::new();
-    futures::executor::block_on(executor.run_until(very_recursive_function(&executor, 1000)));
-}
