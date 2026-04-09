@@ -232,12 +232,53 @@ See below for other strategies for static configuration.
 
 ### HTTP Actions
 
-A component cannot expose HTTP actions itself because the routes could conflict
-with the main app's routes. Similar to other functions (queries, mutations, and
-actions), a component can define HTTP action handlers which the app can choose
-to mount. There’s an example in the
+Components can define their own `http.ts` file with HTTP routes, just like the
+main app. The app that installs the component chooses where these routes are
+accessible by specifying an `httpPrefix` (see
+[Using Components: HTTP Routes](/components/using.mdx#http-routes)).
+
+Here’s what a component’s `http.ts` looks like:
+
+```ts title="convex/components/myComponent/http.ts"
+import { httpRouter } from "convex/server";
+import { httpAction } from "./_generated/server";
+
+const http = httpRouter();
+
+http.route({
+  path: "/hello",
+  method: "GET",
+  handler: httpAction(async () => {
+    return new Response("hello from component", { status: 200 });
+  }),
+});
+
+export default http;
+```
+
+If your component has child components that define HTTP routes, you can mount
+them with their own `httpPrefix`:
+
+```ts title="convex/components/myComponent/convex.config.ts"
+import { defineComponent } from "convex/server";
+import childComponent from "../childComponent/convex.config.js";
+
+const component = defineComponent("myComponent");
+component.use(childComponent, { httpPrefix: "/child/" });
+export default component;
+```
+
+Within a component’s HTTP action, `process.env.CONVEX_SITE_URL` reflects the
+full URL where the component is mounted, including the `httpPrefix`. This allows
+the component to construct correct URLs for callbacks, redirects, or
+self-referencing links without needing to know its mount path at build time.
+
+**Limitation:** Component HTTP actions do not have access to `ctx.auth` or the
+app’s environment variables. If an HTTP handler needs to authenticate users or
+access data from the application, define the HTTP action handler in the
+component’s client code and mount it in the app’s `convex/http.ts` instead.
+There’s an example of this pattern in the
 [Twilio component](https://github.com/get-convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71).
-All HTTP actions need to be mounted in the main app’s `convex/http.ts` file.
 
 ### Authentication via ctx.auth
 

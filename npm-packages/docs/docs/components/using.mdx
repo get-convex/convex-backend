@@ -139,6 +139,42 @@ ignore rate limits if there is a development environment override. In this case,
 only the component mutation will be rolled back, and the rest of the mutation
 will continue.
 
+## HTTP Routes
+
+Components can define their own [HTTP actions](/functions/http-actions.mdx) in
+an `http.ts` file. To expose a component's HTTP routes, pass an `httpPrefix`
+when installing the component:
+
+```ts title="convex/convex.config.ts"
+import { defineApp } from "convex/server";
+import myComponent from "./components/myComponent/convex.config.js";
+
+const app = defineApp();
+app.use(myComponent, { httpPrefix: "/my-component/" });
+export default app;
+```
+
+With this configuration, if the component defines a route for `/hello`, it will
+be accessible at `/my-component/hello` on your deployment's `.convex.site`
+domain.
+
+If no `httpPrefix` is provided, the component's HTTP routes are not exposed.
+This ensures the app always controls its URL space.
+
+You can also set an `httpPrefix` on the app itself to namespace the routes
+defined in your `convex/http.ts`:
+
+```ts title="convex/convex.config.ts"
+const app = defineApp({ httpPrefix: "/app/" });
+```
+
+**Note:** An app `httpPrefix` doesn't influence component HTTP routes. Component
+routes mounted with their own `httpPrefix` are always relative to `/`.
+
+See [Authoring Components: HTTP Actions](/components/authoring.mdx#http-actions)
+for details on defining HTTP routes within a component, including limitations
+around `ctx.auth` and environment variables.
+
 ## Dashboard
 
 You can see your component’s data, functions, files, logs, and other info using

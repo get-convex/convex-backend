@@ -95,6 +95,26 @@ Like other Convex functions, you can view your HTTP actions in the
 [your dashboard](https://dashboard.convex.dev/) and view logs produced by them
 in the [Logs view](/dashboard/deployments/logs.md).
 
+## Routing with `httpPrefix`
+
+By default, all routes defined in `convex/http.ts` are served at the root of
+your deployment's `.convex.site` domain. You can use the `httpPrefix` option in
+`convex/convex.config.ts` to namespace your app's routes under a path prefix:
+
+```ts title="convex/convex.config.ts"
+import { defineApp } from "convex/server";
+
+const app = defineApp({ httpPrefix: "/app/" });
+export default app;
+```
+
+With this configuration, a route defined for `/hello` in `convex/http.ts` will
+be accessible at `/app/hello`.
+
+[Components](/components.mdx) can also define their own HTTP routes that are
+mounted under a prefix you choose. See
+[Using Components: HTTP Routes](/components/using.mdx#http-routes) for details.
+
 ## Limits
 
 HTTP actions run in the same environment as queries and mutations so also do not
