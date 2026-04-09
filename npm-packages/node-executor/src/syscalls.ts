@@ -321,6 +321,13 @@ export class SyscallsImpl {
           return JSON.stringify(
             await this.syscallCreateFunctionHandle(jsonArgs),
           );
+        case "1.0/getFunctionMetadata":
+          return JSON.stringify({
+            name: `${stripExtension(this.udfPath.canonicalizedPath)}:${this.udfPath.function}`,
+            // TODO: plumb componentPath through ExecuteRequest when we
+            // support node actions for components.
+            componentPath: "",
+          });
         default:
           throw new Error(`Unknown operation ${op}`);
       }
@@ -729,4 +736,8 @@ export class SyscallsImpl {
 function forwardErrorData(errorData: JSONValue, error: ConvexError<string>) {
   (error as ConvexError<any>).data = errorData;
   return error;
+}
+
+function stripExtension(path: string): string {
+  return path.replace(/\.[^/.]+$/, "");
 }

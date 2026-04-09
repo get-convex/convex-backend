@@ -3,6 +3,7 @@ import {
   ActionMeta,
   MutationMeta,
   QueryMeta,
+  FunctionMetadata,
   TransactionMetrics,
 } from "../meta.js";
 import { performAsyncSyscall } from "./syscall.js";
@@ -23,18 +24,51 @@ async function getTransactionMetrics(): Promise<TransactionMetrics> {
   return jsonToConvex(syscallJSON) as any;
 }
 
-export function setupQueryMeta(): QueryMeta {
+async function getFunctionMetadata(): Promise<{
+  name: string;
+  componentPath: string;
+}> {
+  const { name, componentPath } = await performAsyncSyscall(
+    "1.0/getFunctionMetadata",
+    {},
+  );
+  return { name, componentPath };
+}
+
+export function setupQueryMeta(
+  visibility: FunctionMetadata["visibility"],
+): QueryMeta {
   return {
+    getFunctionMetadata: async () => ({
+      ...(await getFunctionMetadata()),
+      type: "query",
+      visibility,
+    }),
     getTransactionMetrics,
   };
 }
 
-export function setupMutationMeta(): MutationMeta {
+export function setupMutationMeta(
+  visibility: FunctionMetadata["visibility"],
+): MutationMeta {
   return {
+    getFunctionMetadata: async () => ({
+      ...(await getFunctionMetadata()),
+      type: "mutation",
+      visibility,
+    }),
     getTransactionMetrics,
   };
 }
 
-export function setupActionMeta(): ActionMeta {
-  return {};
+export function setupActionMeta(
+  visibility: FunctionMetadata["visibility"],
+): ActionMeta {
+  return {
+    getFunctionMetadata: async () => ({
+      ...(await getFunctionMetadata()),
+      type: "action",
+      visibility,
+    }),
+  };
 }

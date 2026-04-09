@@ -11,6 +11,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
+        ComponentPath,
         PublicFunctionPath,
         Reference,
         ResolvedComponentFunctionPath,
@@ -90,7 +91,10 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::types::SerializedArgs;
+use sync_types::{
+    types::SerializedArgs,
+    udf_path::CanonicalizedUdfPath,
+};
 use udf::{
     validation::{
         validate_schedule_args,
@@ -302,6 +306,9 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
 
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
 
+    fn udf_path(&self) -> &CanonicalizedUdfPath;
+    fn component_path(&self) -> Option<&ComponentPath>;
+
     fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>>;
     fn insert_query(&mut self, query_id: QueryId, query: DeveloperQuery<RT>);
     fn cleanup_query(&mut self, query_id: QueryId) -> bool;
@@ -391,6 +398,14 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool) {
         self.syscall_trace
             .log_async_syscall(name, duration, is_success);
+    }
+
+    fn udf_path(&self) -> &CanonicalizedUdfPath {
+        &self.path.udf_path
+    }
+
+    fn component_path(&self) -> Option<&ComponentPath> {
+        self.path.component_path.as_ref()
     }
 
     fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>> {
@@ -699,6 +714,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/remove" => Box::pin(Self::remove(provider, args)).await,
                     "1.0/queryPage" => Box::pin(Self::query_page(provider, args)).await,
                     "1.0/getTransactionMetrics" => Self::tx_metrics(provider),
+                    "1.0/getFunctionMetadata" => Self::function_metadata(provider),
                     // Auth
                     "1.0/getUserIdentity" => {
                         Box::pin(Self::get_user_identity(provider, args)).await
@@ -772,6 +788,16 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             "documentsWritten": limit_value(*TRANSACTION_MAX_NUM_USER_WRITES, s.write_size.num_writes),
             "functionsScheduled": limit_value(*TRANSACTION_MAX_NUM_SCHEDULED, s.scheduled_size.num_writes),
             "scheduledFunctionArgsBytes": limit_value(*TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES, s.scheduled_size.size),
+        }))
+    }
+
+    /// Returns metadata about the currently executing function.
+    fn function_metadata(provider: &mut P) -> anyhow::Result<JsonValue> {
+        let udf_path = provider.udf_path();
+        let component_path = provider.component_path();
+        Ok(json!({
+            "name": udf_path.clone().strip().to_string(),
+            "componentPath": component_path.map(|p| p.to_string()).unwrap_or_default(),
         }))
     }
 

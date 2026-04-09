@@ -16,7 +16,10 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
-    components::ComponentId,
+    components::{
+        ComponentId,
+        ComponentPath,
+    },
     errors::JsError,
     execution_context::ExecutionContext,
     fastrace_helpers::EncodedSpan,
@@ -250,6 +253,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     pub fn new(
         rt: RT,
         component: ComponentId,
+        udf_path: CanonicalizedUdfPath,
+        component_path: Option<ComponentPath>,
         EnvironmentData {
             key_broker,
             default_system_env_vars,
@@ -284,6 +289,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             context,
             resources: resources.clone(),
             component_id: component,
+            udf_path,
+            component_path,
             convex_origin_override: convex_origin_override.clone(),
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();

@@ -129,9 +129,13 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 record_component_function_path(path);
                 let udf_path = path.udf_path.to_owned();
                 let component = path.component.to_owned();
+                let component_path = path.component_path.clone();
+                let log_string = format!("Action: {udf_path:?}");
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
                     component,
+                    udf_path,
+                    component_path,
                     environment_data,
                     request.identity,
                     request.transaction,
@@ -166,7 +170,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 };
                 finish_service_request_timer(timer, status);
                 let _ = response.send(r);
-                format!("Action: {udf_path:?}")
+                log_string
             },
             RequestType::Analyze {
                 udf_config,
@@ -201,12 +205,16 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = service_request_timer(&UdfType::HttpAction);
-                let udf_path: CanonicalizedUdfPath =
-                    request.http_module_path.path().udf_path.clone();
-                record_component_function_path(request.http_module_path.path());
+                let http_path = request.http_module_path.path();
+                let udf_path: CanonicalizedUdfPath = http_path.udf_path.clone();
+                let component_path = http_path.component_path.clone();
+                let log_string = format!("Http: {udf_path:?}");
+                record_component_function_path(http_path);
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
-                    request.http_module_path.path().component,
+                    http_path.component,
+                    udf_path,
+                    component_path,
                     environment_data,
                     request.identity,
                     request.transaction,
@@ -239,7 +247,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 };
                 finish_service_request_timer(timer, status);
                 let _ = response.send(r);
-                format!("Http: {udf_path:?}")
+                log_string
             },
             RequestType::EvaluateSchema {
                 schema_bundle,

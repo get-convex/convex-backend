@@ -68,6 +68,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 "1.0/actions/schedule" => self.async_syscall_schedule(args).await?.into(),
                 "1.0/actions/cancel_job" => self.async_syscall_cancel_job(args).await?.into(),
                 "1.0/actions/vectorSearch" => self.async_syscall_vectorSearch(args).await?.into(),
+                "1.0/getFunctionMetadata" => self.async_syscall_getFunctionMetadata()?.into(),
                 "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await?.into(),
                 "1.0/storageDelete" => self.async_syscall_storageDelete(args).await?.into(),
                 "1.0/storageGetMetadata" => {
@@ -343,6 +344,13 @@ impl<RT: Runtime> TaskExecutor<RT> {
         self.usage_tracker.add(usage_stats);
         let results: Vec<_> = results.into_iter().map(JsonValue::from).collect();
         Ok(json!({ "results": results }))
+    }
+
+    fn async_syscall_getFunctionMetadata(&self) -> anyhow::Result<JsonValue> {
+        Ok(json!({
+            "name": self.udf_path.clone().strip().to_string(),
+            "componentPath": self.component_path.as_ref().map(|p| p.to_string()).unwrap_or_default(),
+        }))
     }
 
     #[convex_macro::instrument_future]

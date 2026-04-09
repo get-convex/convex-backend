@@ -1,3 +1,6 @@
+import { FunctionType } from "./api.js";
+import { FunctionVisibility } from "./registration.js";
+
 /**
  * Used and remaining amounts for a single transaction limit.
  *
@@ -26,11 +29,33 @@ export type TransactionMetrics = {
 };
 
 /**
+ * Metadata about the currently executing Convex function.
+ *
+ * @public
+ */
+export type FunctionMetadata = {
+  /**
+   * The name of the function, in the format `"path/to/module:functionName"`
+   */
+  name: string;
+  /**
+   * The path of the component this function belongs to.
+   * This is an empty string `""` for the app.
+   */
+  componentPath: string;
+  /** Whether it's a query, mutation, or action. */
+  type: FunctionType;
+  /** Whether the function is public or internal. */
+  visibility: FunctionVisibility;
+};
+
+/**
  * Extra context available in Convex query functions.
  *
  * @public
  */
 export interface QueryMeta {
+  getFunctionMetadata(): Promise<FunctionMetadata>;
   getTransactionMetrics(): Promise<TransactionMetrics>;
 }
 
@@ -46,4 +71,6 @@ export interface MutationMeta extends QueryMeta {}
  *
  * @public
  */
-export interface ActionMeta {}
+export interface ActionMeta {
+  getFunctionMetadata(): Promise<FunctionMetadata>;
+}

@@ -11,6 +11,7 @@ mod creation_time;
 mod custom_errors;
 mod environment_variables;
 mod fetch;
+mod function_metadata;
 mod globals;
 mod http_action;
 mod id_encoding;
