@@ -119,7 +119,7 @@ pub async fn _document_deltas(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
-    identity.assert_present()?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let cursor = args
         .cursor
         .context(ErrorMetadata::bad_request(
@@ -215,7 +215,7 @@ async fn _list_snapshot(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
-    identity.assert_present()?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let snapshot = args.snapshot.map(Timestamp::try_from).transpose()?;
 
     #[derive(Serialize, Deserialize)]
@@ -312,6 +312,7 @@ pub async fn test_streaming_export_connection(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     Ok(Json(()))
 }
 
@@ -332,7 +333,7 @@ pub async fn get_tables_and_columns(
         .await?;
     let mut out = serde_json::Map::new();
 
-    identity.require_operation(keybroker::DeploymentOp::ViewBackups)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping();
 
@@ -363,7 +364,7 @@ pub async fn get_table_column_names(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
-    identity.require_operation(keybroker::DeploymentOp::ViewBackups)?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
 
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping();
@@ -464,10 +465,9 @@ pub async fn json_schemas(
     st.application
         .ensure_streaming_export_enabled(identity.clone())
         .await?;
-    identity.assert_present()?;
+    identity.require_operation(keybroker::DeploymentOp::ViewData)?;
     let mut out = serde_json::Map::new();
 
-    identity.require_operation(keybroker::DeploymentOp::ViewBackups)?;
     let mut tx = st.application.begin(identity.clone()).await?;
     let snapshot = st.application.snapshot(tx.begin_timestamp())?;
     let component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();

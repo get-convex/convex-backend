@@ -387,16 +387,6 @@ impl Identity {
         }
         Ok(())
     }
-
-    pub fn assert_present(&self) -> anyhow::Result<()> {
-        if matches!(self, Identity::Unknown(_)) {
-            anyhow::bail!(ErrorMetadata::unauthenticated(
-                "AuthorizationMissing",
-                "This request requires the HTTP `Authorization` header.",
-            ));
-        }
-        Ok(())
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
