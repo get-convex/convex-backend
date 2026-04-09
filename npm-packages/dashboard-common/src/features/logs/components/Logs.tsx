@@ -74,16 +74,15 @@ export function Logs({
       defaultSelectedNent,
     );
 
-  // When the selected nent changes from props, update the storage if not already set
+  // Seed the nent filter once when navigating to logs with a pre-selected component.
+  // Use a ref so users can still deselect the component after the initial seed.
+  const hasSeededNentRef = useRef<string | null>(null);
   useEffect(() => {
-    if (
-      selectedNent &&
-      selectedNents !== "all" &&
-      !selectedNents.includes(selectedNent.path)
-    ) {
+    if (selectedNent && selectedNent.path !== hasSeededNentRef.current) {
+      hasSeededNentRef.current = selectedNent.path;
       setSelectedNents([selectedNent.path]);
     }
-  }, [selectedNent, selectedNents, setSelectedNents]);
+  }, [selectedNent, setSelectedNents]);
 
   const moduleFunctions = useModuleFunctions();
   const functions = useMemo(
