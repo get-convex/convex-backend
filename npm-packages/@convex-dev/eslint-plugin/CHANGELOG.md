@@ -1,6 +1,6 @@
 # Changelog
 
-### 2.0.0 (unreleased)
+### 2.0.0
 
 - Add a new rule `@convex-dev/no-filter-in-query` (enabled by default as a
   warning).
