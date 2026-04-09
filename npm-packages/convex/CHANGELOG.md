@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.35.0 (Unreleased)
+## 1.35.0
 
 - You can now create and select local deployments explicitly with the CLI:
   - `npx convex deployment create local --select`: initialize local development.
