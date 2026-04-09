@@ -75,15 +75,23 @@ Use these commands to manage AI files:
 - `npx convex ai-files enable` - Re-enable install and staleness messages
 - `npx convex ai-files remove` - Remove Convex-managed AI files
 
-The message preference is controlled in `convex.json` with:
+The message preference and target agents are controlled in `convex.json` with:
 
 ```json title="convex.json"
 {
   "aiFiles": {
-    "enabled": false
+    "enabled": false,
+    "skills": {
+      "agents": ["claude-code", "codex", "cursor"]
+    }
   }
 }
 ```
+
+By default, `aiFiles.skills.agents` targets `["claude-code", "codex"]`. You can
+override this to target other agents supported by `npx skills`, such as `cursor`
+see https://github.com/vercel-labs/skills?tab=readme-ov-file#supported-agents
+for a full list.
 
 ## Using Convex with Background Agents
 

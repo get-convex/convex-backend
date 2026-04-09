@@ -69,7 +69,11 @@ have the following config:
 Convex can install AI helper files (for tools like Cursor and Claude Code) and
 show install or update suggestions during `npx convex dev`.
 
-:::caution This setting is supported in Convex CLI `1.34.1` and later. :::
+:::caution
+
+This setting is supported in Convex CLI `1.34.1` and later.
+
+:::
 
 To suppress those suggestions, set `aiFiles.enabled` to `false` in
 `convex.json`:
@@ -85,6 +89,20 @@ To suppress those suggestions, set `aiFiles.enabled` to `false` in
 
 When this is `false`, `npx convex dev` will not show the AI files install or
 staleness messages.
+
+You can also configure which agents the Convex skills are installed for
+(defaults to `["claude-code", "codex"]`):
+
+```json title="convex.json"
+{
+  "$schema": "./node_modules/convex/schemas/convex.schema.json",
+  "aiFiles": {
+    "skills": {
+      "agents": ["claude-code", "codex", "cursor"]
+    }
+  }
+}
+```
 
 ### Installing packages on the server
 

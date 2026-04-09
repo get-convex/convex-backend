@@ -199,6 +199,19 @@
           "description": "Deprecated. Use `enabled` instead.",
           "deprecated": true,
           "default": false
+        },
+        "skills": {
+          "type": "object",
+          "description": "Configuration for agent skills installed by Convex.",
+          "properties": {
+            "agents": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of agents to install skills for (e.g. 'claude-code', 'codex', 'cursor'). Defaults to ['claude-code', 'codex']. For a list of supported agents see: https://github.com/vercel-labs/skills?tab=readme-ov-file#supported-agents",
+              "default": ["claude-code", "codex"]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

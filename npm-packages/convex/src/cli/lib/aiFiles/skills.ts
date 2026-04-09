@@ -8,6 +8,8 @@ import { getVersion, fetchAgentSkillsSha } from "../versionApi.js";
 import { type AiFilesState } from "./state.js";
 import { exhaustiveCheck, iife, readFileOrNull } from "./utils.js";
 
+import { type AiFilesProjectConfig } from "../config.js";
+
 /**
  * Read the frontmatter `name:` values from skills installed by the skills CLI.
  */
@@ -39,11 +41,27 @@ async function readInstalledSkillNames(projectDir: string): Promise<string[]> {
 }
 
 /**
+ * Resolve the configured agent list, falling back to defaults.
+ */
+function configuredSkillAgents(
+  aiFilesConfig?: AiFilesProjectConfig | undefined,
+): string[] {
+  // We default to the two most popular agents for now, "codex" installs to `.agents` which also
+  // covers cursor and many other tools. See: https://github.com/vercel-labs/skills?tab=readme-ov-file#supported-agents
+  const defaultAgents = ["claude-code", "codex"];
+  return aiFilesConfig?.skills?.agents ?? defaultAgents;
+}
+
+/**
  * Runs `npx skills add get-convex/agent-skills --yes` in the given directory.
  * Returns true on success, false if the process fails or cannot be started.
  */
-function runSkillsAdd(cwd: string): Promise<boolean> {
-  return runSkillsCommand(cwd, ["add", "get-convex/agent-skills", "--yes"]);
+function runSkillsAdd(cwd: string, agents: string[]): Promise<boolean> {
+  const args = ["add", "get-convex/agent-skills", "--yes"];
+  for (const agent of agents) {
+    args.push("--agent", agent);
+  }
+  return runSkillsCommand(cwd, args);
 }
 
 /**
@@ -127,14 +145,18 @@ async function removeSkillsLockIfEmpty({
 export async function installSkills({
   projectDir,
   state,
+  aiFilesConfig,
 }: {
   projectDir: string;
   state: AiFilesState;
+  aiFilesConfig?: AiFilesProjectConfig | undefined;
 }): Promise<void> {
   if (!(await shouldRunSkillsCli())) return;
+  const agents = configuredSkillAgents(aiFilesConfig);
+  if (agents.length === 0) return;
 
   logMessage("Installing Convex agent skills...");
-  const skillsOk = await runSkillsAdd(projectDir);
+  const skillsOk = await runSkillsAdd(projectDir, agents);
   if (!skillsOk) {
     logMessage(
       chalkStderr.yellow(

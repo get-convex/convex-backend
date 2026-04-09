@@ -108,6 +108,12 @@ export interface ProjectConfig {
     enabled?: boolean;
     // @deprecated use `enabled` instead.
     disableStalenessMessage?: boolean;
+    // Configuration for agent skills installed by Convex.
+    skills?: {
+      // List of agents to install skills for (e.g. 'claude-code', 'codex', 'cursor').
+      // Defaults to ['claude-code', 'codex'].
+      agents?: string[];
+    };
   };
 }
 
@@ -295,6 +301,11 @@ const BundlerSchema = z.object({
 const AiFilesSchema = z.object({
   enabled: z.boolean().optional(),
   disableStalenessMessage: z.boolean().optional(),
+  skills: z
+    .object({
+      agents: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 const refineToObject = <T extends z.ZodTypeAny>(schema: T) =>

@@ -52,14 +52,17 @@ async function hasExistingAiFilesArtifacts({
 export async function installAiFiles({
   projectDir,
   convexDir,
-}: AiFilesPaths): Promise<void> {
+  aiFilesConfig,
+}: AiFilesPaths & {
+  aiFilesConfig?: AiFilesProjectConfig | undefined;
+}): Promise<void> {
   const convexDirName = path.relative(projectDir, convexDir);
   const state = await readAiStateOrDefault(convexDir);
 
   await installGuidelinesFile({ convexDir, state });
   await applyAgentsMdSection({ projectDir, state, convexDirName });
   await applyClaudeMdSection({ projectDir, state, convexDirName });
-  await installSkills({ projectDir, state });
+  await installSkills({ projectDir, state, aiFilesConfig });
   await removeLegacyCursorRules(projectDir);
   await writeAiState({ state, convexDir });
 }
@@ -175,7 +178,7 @@ export async function enableAiFiles({
 }: AiFilesPaths & {
   aiFilesConfig?: AiFilesProjectConfig | undefined;
 }): Promise<AiFilesProjectConfig> {
-  await installAiFiles({ projectDir, convexDir });
+  await installAiFiles({ projectDir, convexDir, aiFilesConfig });
   // Deleting the deprecated disableStalenessMessage key
   const { disableStalenessMessage: _, ...rest } = aiFilesConfig ?? {};
   return { ...rest, enabled: true };
@@ -280,7 +283,7 @@ export async function attemptSetupAiFiles({
       aiFilesConfig,
     })
   ) {
-    await attemptToInstallAiFiles({ projectDir, convexDir });
+    await attemptToInstallAiFiles({ projectDir, convexDir, aiFilesConfig });
     return;
   }
 
@@ -289,5 +292,6 @@ export async function attemptSetupAiFiles({
     default: true,
   });
 
-  if (shouldInstall) await attemptToInstallAiFiles({ projectDir, convexDir });
+  if (shouldInstall)
+    await attemptToInstallAiFiles({ projectDir, convexDir, aiFilesConfig });
 }

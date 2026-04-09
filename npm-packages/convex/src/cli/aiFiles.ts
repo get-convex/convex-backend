@@ -30,12 +30,13 @@ const aiInstall = new Command("install")
       "  - convex/_generated/ai/guidelines.md\n" +
       "  - AGENTS.md (Convex section only)\n" +
       "  - CLAUDE.md (Convex section only)\n" +
-      "  - Agent skills (installed to each coding agent's native path)",
+      "  - Agent skills (installed to each coding agent's native path, configured via convex.json)",
   )
   .allowExcessArguments(false)
   .action(async () => {
-    const { projectDir, convexDir } = await resolveProjectPaths();
-    await installAiFiles({ projectDir, convexDir });
+    const { projectDir, convexDir, aiFilesConfig } =
+      await resolveProjectPaths();
+    await installAiFiles({ projectDir, convexDir, aiFilesConfig });
 
     logMessage(`${chalkStderr.green("✔")} Convex AI files installed.`);
   });
@@ -67,12 +68,13 @@ const aiUpdate = new Command("update")
       "  - convex/_generated/ai/guidelines.md\n" +
       "  - AGENTS.md (Convex section only)\n" +
       "  - CLAUDE.md (Convex section only)\n" +
-      "  - Agent skills (installed to each coding agent's native path)\n\n",
+      "  - Agent skills (installed to each coding agent's native path, configured via convex.json)\n\n",
   )
   .allowExcessArguments(false)
   .action(async () => {
-    const { projectDir, convexDir } = await resolveProjectPaths();
-    await installAiFiles({ projectDir, convexDir });
+    const { projectDir, convexDir, aiFilesConfig } =
+      await resolveProjectPaths();
+    await installAiFiles({ projectDir, convexDir, aiFilesConfig });
 
     logMessage(`${chalkStderr.green("✔")} Convex AI files updated.`);
   });
