@@ -17,7 +17,11 @@ use http::{
     Method,
     StatusCode,
 };
-use keybroker::Identity;
+use keybroker::{
+    testing::TestUserIdentity,
+    Identity,
+    UserIdentity,
+};
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use serde_json::json;
@@ -1341,6 +1345,162 @@ async fn test_http_no_prefix_grandchild_routes_not_accessible(
             },
             _ => panic!("Expected head part first"),
         }
+    }
+
+    Ok(())
+}
+
+// --- Auth scenario tests ---
+
+#[convex_macro::test_runtime]
+async fn test_http_app_action_with_auth_identity(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application
+        .load_component_tests_modules("http_mount_routing")
+        .await?;
+
+    // App-level /whoami with an authenticated user identity should return 200
+    // with the identity data.
+    let http_request = HttpActionRequest {
+        head: HttpActionRequestHead {
+            headers: HeaderMap::new(),
+            url: Url::parse("http://127.0.0.1:8001/whoami")?,
+            method: Method::GET,
+        },
+        body: None,
+    };
+
+    let (response_sender, mut response_receiver) = mpsc::unbounded_channel();
+    let response_streamer = HttpActionResponseStreamer::new(response_sender);
+
+    application
+        .http_action_udf(
+            common::RequestId::new(),
+            http_request,
+            Identity::user(UserIdentity::test()),
+            FunctionCaller::HttpEndpoint,
+            response_streamer,
+        )
+        .await?;
+
+    let mut response_parts = Vec::new();
+    while let Some(part) = response_receiver.recv().await {
+        response_parts.push(part);
+    }
+
+    match &response_parts[0] {
+        HttpActionResponsePart::Head(head) => {
+            assert_eq!(head.status, StatusCode::OK);
+        },
+        _ => panic!("Expected head part first"),
+    }
+
+    match &response_parts[1] {
+        HttpActionResponsePart::BodyChunk(body) => {
+            let body_str = std::str::from_utf8(body)?;
+            let body_json: serde_json::Value = serde_json::from_str(body_str)?;
+            // The identity should include subject and issuer from UserIdentity::test()
+            assert!(
+                body_json.get("subject").is_some(),
+                "Expected identity to have subject, got: {body_str}"
+            );
+        },
+        _ => panic!("Expected body part second"),
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_http_app_action_without_auth_identity(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application
+        .load_component_tests_modules("http_mount_routing")
+        .await?;
+
+    // App-level /whoami without auth should return 401.
+    let http_request = HttpActionRequest {
+        head: HttpActionRequestHead {
+            headers: HeaderMap::new(),
+            url: Url::parse("http://127.0.0.1:8001/whoami")?,
+            method: Method::GET,
+        },
+        body: None,
+    };
+
+    let (response_sender, mut response_receiver) = mpsc::unbounded_channel();
+    let response_streamer = HttpActionResponseStreamer::new(response_sender);
+
+    application
+        .http_action_udf(
+            common::RequestId::new(),
+            http_request,
+            Identity::Unknown(None),
+            FunctionCaller::HttpEndpoint,
+            response_streamer,
+        )
+        .await?;
+
+    let mut response_parts = Vec::new();
+    while let Some(part) = response_receiver.recv().await {
+        response_parts.push(part);
+    }
+
+    match &response_parts[0] {
+        HttpActionResponsePart::Head(head) => {
+            assert_eq!(head.status, StatusCode::UNAUTHORIZED);
+        },
+        _ => panic!("Expected head part first"),
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_http_component_action_cannot_access_auth(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application
+        .load_component_tests_modules("http_mount_routing")
+        .await?;
+
+    // Component-level /auth/inspect with an authenticated user identity should
+    // return 401 because components should not be able to access auth data.
+    let http_request = HttpActionRequest {
+        head: HttpActionRequestHead {
+            headers: HeaderMap::new(),
+            url: Url::parse("http://127.0.0.1:8001/api/whoami")?,
+            method: Method::GET,
+        },
+        body: None,
+    };
+
+    let (response_sender, mut response_receiver) = mpsc::unbounded_channel();
+    let response_streamer = HttpActionResponseStreamer::new(response_sender);
+
+    application
+        .http_action_udf(
+            common::RequestId::new(),
+            http_request,
+            Identity::user(UserIdentity::test()),
+            FunctionCaller::HttpEndpoint,
+            response_streamer,
+        )
+        .await?;
+
+    let mut response_parts = Vec::new();
+    while let Some(part) = response_receiver.recv().await {
+        response_parts.push(part);
+    }
+
+    match &response_parts[0] {
+        HttpActionResponsePart::Head(head) => {
+            assert_eq!(
+                head.status,
+                StatusCode::UNAUTHORIZED,
+                "Component HTTP action should not have access to auth identity"
+            );
+        },
+        _ => panic!("Expected head part first"),
     }
 
     Ok(())
