@@ -13,8 +13,6 @@
   The routes exposed by a component are accessible through a URL prefix
   that isolates them from the other HTTP routes
   (e.g. `app.use(component, { httpPrefix: "/foo" })`).
-- Added a new function `ctx.meta.getTransactionMetrics()` to determine how much
-  capacity remains in the current transaction.
 - `npx convex dev` now supports a new `--start` flag that runs a command
   in parallel with the Convex dev server (e.g. `npx convex dev --start 'vite'`).
   This new option can be used to simplify the `dev` command of most projects.
@@ -29,6 +27,9 @@
   in. You will be prompted to link the deployment to a project if the terminal
   is interactive.
 - Enables `npx convex deployment create` when you don't yet have a project.
+- You can now customize the list of AI agents `npx convex ai-files` installs
+  skills for in the `aiFiles.skills.agents` field of `convex.json`
+  (defaults to ["claude-code", "codex"]).
 - Improved formatting of sizes in error messages.
 - Changes the default codegen to use the component's `ComponentApi` type instead
   of static code generation for components in `_generated/api.d.ts`.
