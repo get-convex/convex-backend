@@ -29,6 +29,7 @@ use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
+    admin::must_be_admin,
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -127,7 +128,12 @@ pub async fn get_canonical_urls(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    identity.require_operation(keybroker::DeploymentOp::ViewEnvironmentVariables)?;
+    if !identity.is_system() {
+        // Any admin can view canonical URLs as they are
+        // not secret & necessary information for deploying
+        // via CLI.
+        must_be_admin(&identity)?;
+    }
 
     let mut tx = st.application.begin(identity).await?;
     let urls = CanonicalUrlsModel::new(&mut tx)
