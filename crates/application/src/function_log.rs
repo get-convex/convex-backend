@@ -2283,6 +2283,137 @@ fn outstanding_functions_metric(
     format!("outstanding_functions:{env_str}:{udf_type}:{state_str}")
 }
 
+/// View over `FunctionExecutionLog` that only exposes metrics methods.
+/// Obtained by checking `DeploymentOp::ViewMetrics`.
+pub struct FunctionMetricsLog<'a, RT: Runtime> {
+    log: &'a FunctionExecutionLog<RT>,
+}
+
+impl<'a, RT: Runtime> FunctionMetricsLog<'a, RT> {
+    pub(crate) fn new(log: &'a FunctionExecutionLog<RT>) -> Self {
+        Self { log }
+    }
+
+    pub fn udf_rate(
+        &self,
+        identifier: UdfIdentifier,
+        metric: UdfRate,
+        window: MetricsWindow,
+    ) -> anyhow::Result<Timeseries> {
+        self.log.udf_rate(identifier, metric, window)
+    }
+
+    pub fn cache_hit_percentage(
+        &self,
+        identifier: UdfIdentifier,
+        window: MetricsWindow,
+    ) -> anyhow::Result<Timeseries> {
+        self.log.cache_hit_percentage(identifier, window)
+    }
+
+    pub fn failure_percentage_top_k(
+        &self,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        self.log.failure_percentage_top_k(window, k)
+    }
+
+    pub fn cache_hit_percentage_top_k(
+        &self,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        self.log.cache_hit_percentage_top_k(window, k)
+    }
+
+    pub fn get_all_function_calls(
+        &self,
+        window: &MetricsWindow,
+    ) -> anyhow::Result<HashMap<String, Timeseries>> {
+        self.log.get_all_function_calls(window)
+    }
+
+    pub fn function_call_count_top_k(
+        &self,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        self.log.function_call_count_top_k(window, k)
+    }
+
+    pub fn subscription_invalidations_top_k(
+        &self,
+        window: MetricsWindow,
+        k: usize,
+        identifier: Option<&UdfIdentifier>,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        self.log
+            .subscription_invalidations_top_k(window, k, identifier)
+    }
+
+    pub fn latency_percentiles(
+        &self,
+        identifier: UdfIdentifier,
+        percentiles: Vec<Percentile>,
+        window: MetricsWindow,
+    ) -> anyhow::Result<BTreeMap<Percentile, Timeseries>> {
+        self.log
+            .latency_percentiles(identifier, percentiles, window)
+    }
+
+    pub fn table_rate(
+        &self,
+        table_name: TableName,
+        metric: TableRate,
+        window: MetricsWindow,
+    ) -> anyhow::Result<Timeseries> {
+        self.log.table_rate(table_name, metric, window)
+    }
+
+    pub fn scheduled_job_lag(&self, window: MetricsWindow) -> anyhow::Result<Timeseries> {
+        self.log.scheduled_job_lag(window)
+    }
+
+    pub fn function_concurrency(
+        &self,
+        window: MetricsWindow,
+    ) -> anyhow::Result<BTreeMap<String, Timeseries>> {
+        self.log.function_concurrency(window)
+    }
+
+    pub fn udf_summary(
+        &self,
+        cursor: Option<CursorMs>,
+    ) -> (Option<UdfMetricSummary>, Option<CursorMs>) {
+        self.log.udf_summary(cursor)
+    }
+}
+
+/// View over `FunctionExecutionLog` that only exposes log entry streaming
+/// methods. Obtained by checking `DeploymentOp::ViewLogs`.
+pub struct FunctionEntriesLog<'a, RT: Runtime> {
+    log: &'a FunctionExecutionLog<RT>,
+}
+
+impl<'a, RT: Runtime> FunctionEntriesLog<'a, RT> {
+    pub(crate) fn new(log: &'a FunctionExecutionLog<RT>) -> Self {
+        Self { log }
+    }
+
+    pub async fn stream(&self, cursor: CursorMs) -> (Vec<FunctionExecution>, CursorMs) {
+        self.log.stream(cursor).await
+    }
+
+    pub async fn stream_parts(&self, cursor: CursorMs) -> (Vec<FunctionExecutionPart>, CursorMs) {
+        self.log.stream_parts(cursor).await
+    }
+
+    pub fn latest_cursor(&self) -> CursorMs {
+        self.log.latest_cursor()
+    }
+}
+
 fn udf_metric_name(identifier: &UdfIdentifier) -> String {
     let (component, id) = identifier.clone().into_component_and_udf_path();
     match component {

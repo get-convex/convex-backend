@@ -40,10 +40,8 @@ pub async fn stream_udf_execution(
     ExtractIdentity(identity): ExtractIdentity,
     Query(query_args): Query<StreamUdfExecutionQueryArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let entries_future = st
-        .application
-        .function_log(&identity)?
-        .stream(query_args.cursor);
+    let function_log = st.application.function_log(&identity)?;
+    let entries_future = function_log.stream(query_args.cursor);
     let mut zombify_rx = st.zombify_rx.clone();
     futures::select_biased! {
         entries_result = entries_future.fuse() => {
@@ -84,10 +82,8 @@ pub async fn stream_function_logs(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Query(query_args): Query<StreamFunctionLogs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let entries_future = st
-        .application
-        .function_log(&identity)?
-        .stream_parts(query_args.cursor);
+    let function_log = st.application.function_log(&identity)?;
+    let entries_future = function_log.stream_parts(query_args.cursor);
     let mut zombify_rx = st.zombify_rx.clone();
     let request_id = match (query_args.session_id, query_args.client_request_counter) {
         (Some(session_id), Some(client_request_counter)) => Some(RequestId::new_for_ws_session(

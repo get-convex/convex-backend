@@ -57,11 +57,10 @@ pub(crate) async fn udf_rate(
     let window = window_json.try_into()?;
     let udf_identifier = parse_udf_identifier(udf_type, component_path, udf_path)?;
 
-    let timeseries = st.application.function_log(&identity)?.udf_rate(
-        udf_identifier,
-        metric.parse()?,
-        window,
-    )?;
+    let timeseries =
+        st.application
+            .metrics_log(&identity)?
+            .udf_rate(udf_identifier, metric.parse()?, window)?;
     Ok(Json(timeseries))
 }
 
@@ -85,7 +84,7 @@ pub(crate) async fn failure_percentage_top_k(
 
     let timeseries = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .failure_percentage_top_k(window, k)?;
     Ok(Json(timeseries))
 }
@@ -103,7 +102,7 @@ pub(crate) async fn cache_hit_percentage_top_k(
 
     let timeseries = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .cache_hit_percentage_top_k(window, k)?;
     Ok(Json(timeseries))
 }
@@ -137,7 +136,7 @@ pub(crate) async fn subscription_invalidations_top_k(
 
     let timeseries = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .subscription_invalidations_top_k(window, k, udf_identifier.as_ref())?;
 
     // When filtered to a specific function, keys are tablet IDs.
@@ -163,7 +162,7 @@ pub(crate) async fn function_call_count_top_k(
 
     let timeseries = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .function_call_count_top_k(window, k)?;
     Ok(Json(timeseries))
 }
@@ -192,7 +191,7 @@ pub(crate) async fn cache_hit_percentage(
     )?;
     let timeseries = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .cache_hit_percentage(udf_identifier, window)?;
     Ok(Json(timeseries))
 }
@@ -224,7 +223,7 @@ pub(crate) async fn latency_percentiles(
     let window = window_json.try_into()?;
     let timeseries: Vec<_> = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .latency_percentiles(udf_identifier, percentiles, window)?
         .into_iter()
         .collect();
@@ -249,7 +248,7 @@ pub(crate) async fn table_rate(
     let window = window_json.try_into()?;
     let timeseries = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .table_rate(name, metric, window)?;
     Ok(Json(timeseries))
 }
@@ -301,7 +300,7 @@ pub(crate) async fn scheduled_job_lag(
     let window = window_json.try_into()?;
     let timeseries = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .scheduled_job_lag(window)?;
     Ok(Json(timeseries))
 }
@@ -320,7 +319,7 @@ pub(crate) async fn function_concurrency(
     let window = window_json.try_into()?;
     let metrics = st
         .application
-        .function_log(&identity)?
+        .metrics_log(&identity)?
         .function_concurrency(window)?;
     Ok(Json(metrics))
 }

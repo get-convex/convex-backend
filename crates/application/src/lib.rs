@@ -374,7 +374,11 @@ use vector::{
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
     exports::worker::ExportWorker,
-    function_log::FunctionExecutionLog,
+    function_log::{
+        FunctionEntriesLog,
+        FunctionExecutionLog,
+        FunctionMetricsLog,
+    },
     log_visibility::LogVisibility,
     module_cache::ModuleCache,
     redaction::{
@@ -897,9 +901,14 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub fn function_log(&self, identity: &Identity) -> anyhow::Result<&FunctionExecutionLog<RT>> {
+    pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {
         identity.require_operation(DeploymentOp::ViewMetrics)?;
-        Ok(&self.function_log)
+        Ok(FunctionMetricsLog::new(&self.function_log))
+    }
+
+    pub fn function_log(&self, identity: &Identity) -> anyhow::Result<FunctionEntriesLog<'_, RT>> {
+        identity.require_operation(DeploymentOp::ViewLogs)?;
+        Ok(FunctionEntriesLog::new(&self.function_log))
     }
 
     pub fn log_manager_client(&self) -> &LogManagerClient {
