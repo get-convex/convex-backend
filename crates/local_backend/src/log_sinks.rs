@@ -38,7 +38,6 @@ use model::log_sinks::types::{
     sentry::{
         ExceptionFormatVersion,
         SentryConfig,
-        SerializedSentryConfig,
     },
     webhook::{
         generate_webhook_hmac_secret,
@@ -56,10 +55,7 @@ use serde::{
 };
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
-use value::{
-    FieldName,
-    ResolvedDocumentId,
-};
+use value::FieldName;
 
 use crate::{
     authentication::ExtractIdentity,
@@ -108,249 +104,6 @@ fn validate_axiom_ingest_url(ingest_url: Option<&String>) -> anyhow::Result<()> 
         ));
     }
     Ok(())
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DatadogSinkPostArgs {
-    site_location: DatadogSiteLocation,
-    dd_api_key: String,
-    dd_tags: Vec<String>,
-    version: Option<String>,
-    service: Option<String>,
-}
-
-impl TryFrom<DatadogSinkPostArgs> for DatadogConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: DatadogSinkPostArgs) -> Result<Self, Self::Error> {
-        Ok(Self {
-            site_location: value.site_location,
-            dd_api_key: value.dd_api_key.into(),
-            dd_tags: value.dd_tags,
-            version: match value.version {
-                Some(v) => v.parse().context(ErrorMetadata::bad_request(
-                    "InvalidLogStreamVersion",
-                    format!("Invalid log stream version {v}"),
-                ))?,
-                None => LogEventFormatVersion::V1,
-            },
-            service: value.service,
-        })
-    }
-}
-
-pub async fn add_datadog_sink(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Json(args): Json<DatadogSinkPostArgs>,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    tracing::info!("add_datadog_sink called (deprecated, use create_log_stream instead)");
-    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity)
-        .await?;
-
-    let config: DatadogConfig = args.try_into()?;
-    st.application
-        .add_log_sink(SinkConfig::Datadog(config))
-        .await?;
-    Ok(StatusCode::OK)
-}
-
-pub async fn regenerate_webhook_secret(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    tracing::info!(
-        "regenerate_webhook_secret called (deprecated, use rotate_webhook_secret instead)"
-    );
-    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity)
-        .await?;
-
-    let Some(SinkConfig::Webhook(existing_webhook_sink)) =
-        st.application.get_log_sink(&SinkType::Webhook).await?
-    else {
-        return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-            "NoWebhookLogStream",
-            "No webhook log stream exists for this deployment"
-        ))
-        .into());
-    };
-
-    let hmac_secret = generate_webhook_hmac_secret(st.application.runtime());
-
-    let config = WebhookConfig {
-        url: existing_webhook_sink.url,
-        format: existing_webhook_sink.format,
-        hmac_secret,
-    };
-    st.application
-        .add_log_sink(SinkConfig::Webhook(config))
-        .await?;
-
-    Ok(StatusCode::OK)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebhookSinkPostArgs {
-    url: String,
-    format: WebhookFormat,
-}
-
-pub async fn add_webhook_sink(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Json(args): Json<WebhookSinkPostArgs>,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    tracing::info!("add_webhook_sink called (deprecated, use create_log_stream instead)");
-    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity)
-        .await?;
-
-    add_webhook_sink_inner(st.application, args).await?;
-
-    Ok(StatusCode::OK)
-}
-
-async fn add_webhook_sink_inner(
-    application: Application<ProdRuntime>,
-    args: WebhookSinkPostArgs,
-) -> Result<(ResolvedDocumentId, String), HttpResponseError> {
-    let existing_webhook_sink = application.get_log_sink(&SinkType::Webhook).await?;
-
-    let hmac_secret = match existing_webhook_sink {
-        Some(SinkConfig::Webhook(WebhookConfig {
-            hmac_secret: existing_secret,
-            ..
-        })) => existing_secret,
-        _ => generate_webhook_hmac_secret(application.runtime()),
-    };
-
-    let url = args.url.parse().map_err(|_| {
-        anyhow::anyhow!(ErrorMetadata::bad_request(
-            "InvalidWebhookUrl",
-            "The URL passed was invalid"
-        ))
-    })?;
-
-    let config = WebhookConfig {
-        url,
-        format: args.format,
-        hmac_secret: hmac_secret.clone(),
-    };
-    let id = application
-        .add_log_sink(SinkConfig::Webhook(config))
-        .await?;
-
-    Ok((id, hmac_secret))
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AxiomSinkPostArgs {
-    api_key: String,
-    dataset_name: String,
-    attributes: Vec<AxiomAttribute>,
-    version: Option<String>,
-    ingest_url: Option<String>,
-}
-
-impl TryFrom<AxiomSinkPostArgs> for AxiomConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: AxiomSinkPostArgs) -> Result<Self, Self::Error> {
-        validate_axiom_ingest_url(value.ingest_url.as_ref())?;
-
-        Ok(Self {
-            api_key: value.api_key.into(),
-            dataset_name: value.dataset_name,
-            attributes: value.attributes,
-            version: match value.version {
-                Some(v) => v.parse().context(ErrorMetadata::bad_request(
-                    "InvalidLogStreamVersion",
-                    format!("Invalid log stream version {v}"),
-                ))?,
-                None => LogEventFormatVersion::V1,
-            },
-            ingest_url: value.ingest_url,
-        })
-    }
-}
-
-pub async fn add_axiom_sink(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Json(args): Json<AxiomSinkPostArgs>,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    tracing::info!("add_axiom_sink called (deprecated, use create_log_stream instead)");
-    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity)
-        .await?;
-
-    add_axiom_sink_inner(st.application, args).await?;
-
-    Ok(StatusCode::OK)
-}
-
-async fn add_axiom_sink_inner(
-    application: Application<ProdRuntime>,
-    args: AxiomSinkPostArgs,
-) -> Result<ResolvedDocumentId, HttpResponseError> {
-    if args.attributes.len() > *AXIOM_MAX_ATTRIBUTES {
-        return Err(anyhow::anyhow!(
-            "Exceeded max number of Axiom attributes. Contact support@convex.dev to request a \
-             limit increase."
-        )
-        .into());
-    }
-
-    let config: AxiomConfig = args.try_into()?;
-    let id = application.add_log_sink(SinkConfig::Axiom(config)).await?;
-
-    Ok(id)
-}
-
-pub async fn add_sentry_sink(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Json(args): Json<SerializedSentryConfig>,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    tracing::info!("add_sentry_sink called (deprecated, use create_log_stream instead)");
-    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity)
-        .await?;
-    st.application
-        .add_log_sink(SinkConfig::Sentry(args.try_into()?))
-        .await?;
-    Ok(StatusCode::OK)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LogSinkDeleteArgs {
-    sink_type: SinkType,
-}
-
-pub async fn delete_log_sink(
-    MtState(st): MtState<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Json(LogSinkDeleteArgs { sink_type }): Json<LogSinkDeleteArgs>,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    tracing::info!("delete_log_sink called (deprecated, use delete_log_stream instead)");
-    identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity)
-        .await?;
-
-    st.application.remove_log_sink(sink_type).await?;
-    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -1427,8 +1180,8 @@ mod tests {
     use serde_json::json;
 
     use crate::log_sinks::{
-        AxiomSinkPostArgs,
-        DatadogSinkPostArgs,
+        CreateAxiomLogStreamArgs,
+        CreateDatadogLogStreamArgs,
     };
 
     #[test]
@@ -1439,8 +1192,8 @@ mod tests {
             "ddApiKey": "test_key",
             "ddTags": vec!["tag:abc","abc"],
         });
-        let post_args: DatadogSinkPostArgs = serde_json::from_value(json)?;
-        let config = DatadogConfig::try_from(post_args)?;
+        let args: CreateDatadogLogStreamArgs = serde_json::from_value(json)?;
+        let config = DatadogConfig::try_from(args)?;
         assert_eq!(config.site_location, DatadogSiteLocation::US1);
         assert_eq!(config.dd_api_key, "test_key".to_string().into());
         assert_eq!(
@@ -1454,8 +1207,8 @@ mod tests {
             "ddApiKey": "test_key",
             "ddTags": Vec::<String>::new()
         });
-        let post_args: DatadogSinkPostArgs = serde_json::from_value(json)?;
-        let config = DatadogConfig::try_from(post_args)?;
+        let args: CreateDatadogLogStreamArgs = serde_json::from_value(json)?;
+        let config = DatadogConfig::try_from(args)?;
         assert_eq!(config.site_location, DatadogSiteLocation::US1);
         assert_eq!(config.dd_api_key, "test_key".to_string().into());
         assert!(config.dd_tags.is_empty());
@@ -1466,8 +1219,8 @@ mod tests {
             "ddApiKey": "test_key",
             "ddTags": Vec::<String>::new()
         });
-        let post_args: DatadogSinkPostArgs = serde_json::from_value(json)?;
-        let config = DatadogConfig::try_from(post_args)?;
+        let args: CreateDatadogLogStreamArgs = serde_json::from_value(json)?;
+        let config = DatadogConfig::try_from(args)?;
         assert_eq!(config.site_location, DatadogSiteLocation::US1_FED);
         assert_eq!(config.dd_api_key, "test_key".to_string().into());
         assert!(config.dd_tags.is_empty());
@@ -1482,8 +1235,8 @@ mod tests {
             "datasetName": "test_dataset",
             "attributes": [],
         });
-        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
-        let config = AxiomConfig::try_from(post_args)?;
+        let args: CreateAxiomLogStreamArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(args)?;
         assert!(config.ingest_url.is_none());
 
         // Test with default URL
@@ -1493,8 +1246,8 @@ mod tests {
             "attributes": [],
             "ingestUrl": "https://api.axiom.co",
         });
-        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
-        let config = AxiomConfig::try_from(post_args)?;
+        let args: CreateAxiomLogStreamArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(args)?;
         assert_eq!(config.ingest_url, Some("https://api.axiom.co".to_string()));
 
         // Test with US East 1
@@ -1504,8 +1257,8 @@ mod tests {
             "attributes": [],
             "ingestUrl": "https://us-east-1.aws.edge.axiom.co",
         });
-        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
-        let config = AxiomConfig::try_from(post_args)?;
+        let args: CreateAxiomLogStreamArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(args)?;
         assert_eq!(
             config.ingest_url,
             Some("https://us-east-1.aws.edge.axiom.co".to_string())
@@ -1518,8 +1271,8 @@ mod tests {
             "attributes": [],
             "ingestUrl": "https://eu-central-1.aws.edge.axiom.co",
         });
-        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
-        let config = AxiomConfig::try_from(post_args)?;
+        let args: CreateAxiomLogStreamArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(args)?;
         assert_eq!(
             config.ingest_url,
             Some("https://eu-central-1.aws.edge.axiom.co".to_string())
@@ -1537,8 +1290,8 @@ mod tests {
             "attributes": [],
             "ingestUrl": "https://invalid.axiom.co",
         });
-        let post_args: AxiomSinkPostArgs = serde_json::from_value(json).unwrap();
-        let result = AxiomConfig::try_from(post_args);
+        let args: CreateAxiomLogStreamArgs = serde_json::from_value(json).unwrap();
+        let result = AxiomConfig::try_from(args);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.to_string().contains("Invalid Axiom ingest URL"));
@@ -1551,8 +1304,8 @@ mod tests {
             "attributes": [],
             "ingestUrl": "https://example.com",
         });
-        let post_args: AxiomSinkPostArgs = serde_json::from_value(json).unwrap();
-        let result = AxiomConfig::try_from(post_args);
+        let args: CreateAxiomLogStreamArgs = serde_json::from_value(json).unwrap();
+        let result = AxiomConfig::try_from(args);
         assert!(result.is_err());
     }
 

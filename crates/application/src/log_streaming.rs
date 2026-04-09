@@ -163,24 +163,6 @@ impl<RT: Runtime> Application<RT> {
         Ok(sinks)
     }
 
-    pub async fn remove_log_sink(&self, sink_type: SinkType) -> anyhow::Result<()> {
-        let mut tx = self.begin(Identity::system()).await?;
-        let mut model = LogSinksModel::new(&mut tx);
-
-        let Some(row) = model.get_by_provider(sink_type.clone()).await? else {
-            return Err(ErrorMetadata::bad_request(
-                "SinkDoesntExist",
-                "Cannot remove a sink that is not configured for this project.",
-            )
-            .into());
-        };
-
-        model.mark_for_removal(row.id()).await?;
-        self.commit(tx, "remove_log_sink").await?;
-
-        Ok(())
-    }
-
     pub async fn remove_log_sink_by_id(&self, id: String) -> anyhow::Result<()> {
         let mut tx = self.begin(Identity::system()).await?;
         let mut model = LogSinksModel::new(&mut tx);

@@ -11,7 +11,6 @@ use axum::{
         FromRef,
     },
     routing::{
-        delete,
         get,
         post,
         put,
@@ -90,14 +89,6 @@ use crate::{
         update_environment_variables,
     },
     http_actions::http_action_handler,
-    log_sinks::{
-        add_axiom_sink,
-        add_datadog_sink,
-        add_sentry_sink,
-        add_webhook_sink,
-        delete_log_sink,
-        regenerate_webhook_secret,
-    },
     logs::{
         stream_function_logs,
         stream_udf_execution,
@@ -374,7 +365,6 @@ pub fn router(st: LocalAppState) -> Router {
         .merge(streaming_export_routes())
         .nest("/actions", action_callback_routes(st.clone()))
         .nest("/export", snapshot_export_routes)
-        .nest("/logs", log_sink_routes())
         .nest("/streaming_import", streaming_import_routes())
         .nest("/v1", platform_routes);
 
@@ -596,26 +586,6 @@ where
         )
         .route("/get_tables_and_columns", get(get_tables_and_columns))
         .route("/get_table_column_names", get(get_table_column_names))
-}
-
-// IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
-// such as adding or removing a route, or changing limits, also need to be
-// applied to `crates_private/usher/src/proxy.rs`.
-pub fn log_sink_routes<S>() -> Router<S>
-where
-    LocalAppState: FromMtState<S>,
-    S: Clone + Send + Sync + 'static,
-{
-    Router::new()
-        .route("/datadog_sink", post(add_datadog_sink))
-        .route("/webhook_sink", post(add_webhook_sink))
-        .route(
-            "/regenerate_webhook_secret",
-            post(regenerate_webhook_secret),
-        )
-        .route("/axiom_sink", post(add_axiom_sink))
-        .route("/sentry_sink", post(add_sentry_sink))
-        .route("/delete_sink", delete(delete_log_sink))
 }
 
 pub fn cors() -> CorsLayer {
