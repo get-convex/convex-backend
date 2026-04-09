@@ -638,10 +638,10 @@ pub fn record_component_function_path(component_function_path: &ResolvedComponen
             Cow::Borrowed("udf_path"),
             Cow::Owned(component_function_path.udf_path.to_string()),
         )];
-        if let Some(component_path) = &component_function_path.component_path {
+        if !component_function_path.component_path.is_root() {
             labels.push((
                 Cow::Borrowed("component"),
-                Cow::Owned(component_path.to_string()),
+                Cow::Owned(component_function_path.component_path.to_string()),
             ));
         }
         labels

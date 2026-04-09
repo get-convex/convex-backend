@@ -28,13 +28,13 @@ pub struct ResolvedComponentFunctionPath {
     pub component: ComponentId,
     pub udf_path: CanonicalizedUdfPath,
     // For error messages and logging.
-    pub component_path: Option<ComponentPath>,
+    pub component_path: ComponentPath,
 }
 
 impl ResolvedComponentFunctionPath {
     pub fn for_logging(self) -> CanonicalizedComponentFunctionPath {
         CanonicalizedComponentFunctionPath {
-            component: self.component_path.unwrap_or_else(ComponentPath::root),
+            component: self.component_path,
             udf_path: self.udf_path,
         }
     }

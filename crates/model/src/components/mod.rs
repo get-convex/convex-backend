@@ -152,10 +152,12 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                         "CurrentSystemUdfInComponent must be called from a system UDF",
                     ));
                 }
+                let component_path = BootstrapComponentsModel::new(self.tx)
+                    .must_component_path(ComponentId::Child(*component_by_id))?;
                 Resource::ResolvedSystemUdf(ResolvedComponentFunctionPath {
                     component: ComponentId::Child(*component_by_id),
                     udf_path: current_udf_path.canonicalize(),
-                    component_path: None,
+                    component_path,
                 })
             },
         };

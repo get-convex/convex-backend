@@ -254,7 +254,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         rt: RT,
         component: ComponentId,
         udf_path: CanonicalizedUdfPath,
-        component_path: Option<ComponentPath>,
+        component_path: ComponentPath,
         EnvironmentData {
             key_broker,
             default_system_env_vars,

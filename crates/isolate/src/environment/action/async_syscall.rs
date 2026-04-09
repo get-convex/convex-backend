@@ -349,7 +349,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     fn async_syscall_getFunctionMetadata(&self) -> anyhow::Result<JsonValue> {
         Ok(json!({
             "name": self.udf_path.clone().strip().to_string(),
-            "componentPath": self.component_path.as_ref().map(|p| p.to_string()).unwrap_or_default(),
+            "componentPath": self.component_path.to_string(),
         }))
     }
 

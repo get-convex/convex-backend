@@ -82,7 +82,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
     pub component_id: ComponentId,
     pub udf_path: CanonicalizedUdfPath,
-    pub component_path: Option<ComponentPath>,
+    pub component_path: ComponentPath,
     pub convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
 }
 

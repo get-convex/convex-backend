@@ -307,7 +307,7 @@ pub trait AsyncSyscallProvider<RT: Runtime>: Sized {
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
 
     fn udf_path(&self) -> &CanonicalizedUdfPath;
-    fn component_path(&self) -> Option<&ComponentPath>;
+    fn component_path(&self) -> &ComponentPath;
 
     fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>>;
     fn insert_query(&mut self, query_id: QueryId, query: DeveloperQuery<RT>);
@@ -404,8 +404,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         &self.path.udf_path
     }
 
-    fn component_path(&self) -> Option<&ComponentPath> {
-        self.path.component_path.as_ref()
+    fn component_path(&self) -> &ComponentPath {
+        &self.path.component_path
     }
 
     fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>> {
@@ -797,7 +797,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let component_path = provider.component_path();
         Ok(json!({
             "name": udf_path.clone().strip().to_string(),
-            "componentPath": component_path.map(|p| p.to_string()).unwrap_or_default(),
+            "componentPath": component_path.to_string(),
         }))
     }
 
@@ -1399,7 +1399,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
-                    component_path: Some(path.component),
+                    component_path: path.component,
                 }
             },
             None => {
@@ -1420,7 +1420,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         ResolvedComponentFunctionPath {
                             component,
                             udf_path: path.udf_path,
-                            component_path: Some(path.component),
+                            component_path: path.component,
                         }
                     },
                 }

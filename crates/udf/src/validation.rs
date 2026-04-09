@@ -312,7 +312,7 @@ impl Arbitrary for ValidatedPathAndArgs {
                 path: ResolvedComponentFunctionPath {
                     component: component_id,
                     udf_path,
-                    component_path: Some(component_path),
+                    component_path,
                 },
                 args,
                 npm_version: None,
@@ -355,7 +355,7 @@ impl ValidatedPathAndArgs {
                 PublicFunctionPath::RootExport(path) => ResolvedComponentFunctionPath {
                     component: ComponentId::Root,
                     udf_path: path.into(),
-                    component_path: Some(ComponentPath::root()),
+                    component_path: ComponentPath::root(),
                 },
                 PublicFunctionPath::Component(path) => {
                     let (_, component) = BootstrapComponentsModel::new(tx)
@@ -367,7 +367,7 @@ impl ValidatedPathAndArgs {
                     ResolvedComponentFunctionPath {
                         component,
                         udf_path: path.udf_path,
-                        component_path: Some(path.component),
+                        component_path: path.component,
                     }
                 },
                 PublicFunctionPath::ResolvedComponent(path) => path,
@@ -409,7 +409,7 @@ impl ValidatedPathAndArgs {
                 ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
-                    component_path: Some(path.component),
+                    component_path: path.component,
                 }
             },
             PublicFunctionPath::Component(path) => {
@@ -422,7 +422,7 @@ impl ValidatedPathAndArgs {
                 ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
-                    component_path: Some(path.component),
+                    component_path: path.component,
                 }
             },
             PublicFunctionPath::ResolvedComponent(path) => path,
@@ -581,7 +581,7 @@ impl ValidatedPathAndArgs {
             path: ResolvedComponentFunctionPath {
                 component: ComponentId::test_user(),
                 udf_path: path.udf_path,
-                component_path: Some(path.component),
+                component_path: path.component,
             },
             args,
             npm_version,
@@ -619,13 +619,14 @@ impl ValidatedPathAndArgs {
             SerializedArgs::from_slice(&args.ok_or_else(|| anyhow::anyhow!("Missing args"))?)?;
         let component = ComponentId::deserialize_from_string(component_id.as_deref())?;
         let component_path = component_path
-            .context("Missing component path")?
-            .try_into()?;
+            .context("Missing component_path in proto")?
+            .try_into()
+            .context("Invalid component path in proto")?;
         Ok(Self {
             path: ResolvedComponentFunctionPath {
                 component,
                 udf_path: path.context("Missing udf_path")?.parse()?,
-                component_path: Some(component_path),
+                component_path,
             },
             args,
             npm_version: npm_version.map(|v| Version::parse(&v)).transpose()?,
@@ -644,9 +645,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
         }: ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
         let args = args.get().as_bytes().to_vec();
-        let component_path = path
-            .component_path
-            .map(|component_path| component_path.into());
+        let component_path = Some(path.component_path.into());
         Ok(Self {
             path: Some(path.udf_path.to_string()),
             args: Some(args),
@@ -681,7 +680,7 @@ impl Arbitrary for ValidatedHttpPath {
                 path: ResolvedComponentFunctionPath {
                     component: component_id,
                     udf_path,
-                    component_path: Some(component_path),
+                    component_path,
                 },
                 npm_version: Some(Version::parse("0.0.0").unwrap()),
             },
@@ -709,7 +708,7 @@ impl ValidatedHttpPath {
             path: ResolvedComponentFunctionPath {
                 component: ComponentId::test_user(),
                 udf_path,
-                component_path: Some(ComponentPath::test_user()),
+                component_path: ComponentPath::test_user(),
             },
             npm_version,
         }))
@@ -739,7 +738,7 @@ impl ValidatedHttpPath {
         let path = ResolvedComponentFunctionPath {
             component,
             udf_path: path.udf_path,
-            component_path: Some(path.component),
+            component_path: path.component,
         };
         let udf_version = match udf_version(&path, tx).await? {
             Ok(udf_version) => udf_version,
@@ -769,13 +768,14 @@ impl ValidatedHttpPath {
     ) -> anyhow::Result<Self> {
         let component = ComponentId::deserialize_from_string(component_id.as_deref())?;
         let component_path = component_path
-            .context("Missing component path")?
-            .try_into()?;
+            .context("Missing component_path in proto")?
+            .try_into()
+            .context("Invalid component path in proto")?;
         Ok(Self {
             path: ResolvedComponentFunctionPath {
                 component,
                 udf_path: path.context("Missing udf_path")?.parse()?,
-                component_path: Some(component_path),
+                component_path,
             },
             npm_version: npm_version.map(|v| Version::parse(&v)).transpose()?,
         })
@@ -788,9 +788,7 @@ impl TryFrom<ValidatedHttpPath> for pb::common::ValidatedHttpPath {
     fn try_from(
         ValidatedHttpPath { path, npm_version }: ValidatedHttpPath,
     ) -> anyhow::Result<Self> {
-        let component_path = path
-            .component_path
-            .map(|component_path| component_path.into());
+        let component_path = Some(path.component_path.into());
         Ok(Self {
             path: Some(path.udf_path.to_string()),
             npm_version: npm_version.map(|v| v.to_string()),
