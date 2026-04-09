@@ -142,7 +142,7 @@ dependencies = [
 
 [[package]]
 name = "convex"
-version = "0.10.3"
+version = "0.10.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -172,7 +172,7 @@ dependencies = [
 
 [[package]]
 name = "convex_sync_types"
-version = "0.10.3"
+version = "0.10.4"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
