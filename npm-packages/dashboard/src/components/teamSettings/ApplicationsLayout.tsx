@@ -5,8 +5,7 @@ import {
 import { AppAccessTokenResponse, TeamResponse } from "generatedApi";
 import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { OauthApps } from "components/teamSettings/OauthApps";
-import { InfoCircledIcon } from "@radix-ui/react-icons";
-import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import React, { Fragment } from "react";
 import {
   TabGroup as HeadlessTabGroup,
@@ -43,17 +42,20 @@ export function ApplicationsLayout({ team }: { team: TeamResponse }) {
           <li>
             <span className="flex items-center gap-1">
               Manage all projects on the team
-              <Tooltip tip="This includes actions like deleting projects, managing custom domains, managing project environment variable defaults, and managing cloud backups and restores.">
-                <InfoCircledIcon />
-              </Tooltip>
+              <HelpTooltip>
+                This includes actions like deleting projects, managing custom
+                domains, managing project environment variable defaults, and
+                managing cloud backups and restores.
+              </HelpTooltip>
             </span>
           </li>
           <li>
             <span className="flex items-center gap-1">
               Read and write data in all projects
-              <Tooltip tip="Write access to Production deployments will depend on your team-level and project-level roles.">
-                <InfoCircledIcon />
-              </Tooltip>
+              <HelpTooltip>
+                Write access to Production deployments will depend on your
+                team-level and project-level roles.
+              </HelpTooltip>
             </span>
           </li>
         </ul>

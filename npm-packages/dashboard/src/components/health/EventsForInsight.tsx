@@ -8,7 +8,6 @@ import {
   CaretDownIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { Insight } from "api/insights";
@@ -16,6 +15,7 @@ import { Button } from "@ui/Button";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { Loading } from "@ui/Loading";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { ComponentId, useNents } from "@common/lib/useNents";
@@ -590,9 +590,9 @@ function EventOccWriteSource({
         (insight.functionId === event.occWriteSource ? (
           <span className="flex items-center gap-1 text-content-secondary">
             Self{" "}
-            <Tooltip tip="Two calls to the same function resulted in this write conflict.">
-              <InfoCircledIcon />
-            </Tooltip>
+            <HelpTooltip>
+              Two calls to the same function resulted in this write conflict.
+            </HelpTooltip>
           </span>
         ) : (
           <FunctionNameOption

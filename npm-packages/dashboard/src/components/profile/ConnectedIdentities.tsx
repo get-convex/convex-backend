@@ -8,7 +8,7 @@ import GithubLogo from "logos/github-logo.svg";
 import VercelLogo from "logos/vercel.svg";
 import MicrosoftLogo from "logos/microsoft.svg";
 import { Tooltip } from "@ui/Tooltip";
-import { InfoCircledIcon } from "@radix-ui/react-icons";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
@@ -112,9 +112,9 @@ function IdentityCard({
               <span className="font-mono text-sm text-content-secondary">
                 {identity.id}
               </span>
-              <Tooltip tip="Email could not be retrieved from identity provider">
-                <InfoCircledIcon className="h-4 w-4 text-content-tertiary" />
-              </Tooltip>
+              <HelpTooltip>
+                Email could not be retrieved from identity provider
+              </HelpTooltip>
             </div>
           )}
         </div>

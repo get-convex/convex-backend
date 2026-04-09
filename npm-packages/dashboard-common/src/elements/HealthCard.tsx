@@ -1,12 +1,12 @@
 import {
   CrossCircledIcon,
   ExclamationTriangleIcon,
-  InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import React from "react";
 import { Sheet } from "@ui/Sheet";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { LoadingTransition } from "@ui/Loading";
 
 export function HealthCard({
@@ -60,11 +60,7 @@ export function HealthCard({
               </Tooltip>
             )}
             {action}
-            {tip && (
-              <Tooltip tip={tip} className="border border-transparent p-1">
-                <InfoCircledIcon />
-              </Tooltip>
-            )}
+            {tip && <HelpTooltip>{tip}</HelpTooltip>}
           </div>
         </div>
         {size !== "xs" && (

@@ -2,7 +2,6 @@ import {
   ArrowDownIcon,
   CaretDownIcon,
   HamburgerMenuIcon,
-  InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
@@ -23,6 +22,7 @@ import {
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { Sheet } from "@ui/Sheet";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
 import { Button } from "@ui/Button";
 import { Panel, PanelGroup } from "react-resizable-panels";
@@ -295,12 +295,11 @@ function WindowedLogList({
             {hasFilters && (
               <p className="mb-2 flex items-center gap-1">
                 No logs match your filters{" "}
-                <Tooltip
-                  tip="The logs page is a realtime stream of events in this deployment. To store a longer history of logs, you may
-configure a log stream."
-                >
-                  <InfoCircledIcon />
-                </Tooltip>
+                <HelpTooltip>
+                  The logs page is a realtime stream of events in this
+                  deployment. To store a longer history of logs, you may
+                  configure a log stream.
+                </HelpTooltip>
               </p>
             )}
             <p className="animate-blink">Waiting for new logs...</p>

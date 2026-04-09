@@ -10,11 +10,9 @@ import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import {
-  ExclamationTriangleIcon,
-  InfoCircledIcon,
-} from "@radix-ui/react-icons";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
 import { cn } from "@ui/cn";
 import type { DeploymentType } from "@convex-dev/platform/managementApi";
@@ -146,9 +144,7 @@ function TriStateRadioGroup({
             </div>
             {optionLabel}
             {optionValue === null && defaultTooltip && (
-              <Tooltip tip={defaultTooltip} side="right">
-                <InfoCircledIcon className="size-3.5 text-content-secondary" />
-              </Tooltip>
+              <HelpTooltip tipSide="right">{defaultTooltip}</HelpTooltip>
             )}
           </div>
         );

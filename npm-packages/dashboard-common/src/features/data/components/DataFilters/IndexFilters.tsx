@@ -3,7 +3,6 @@ import { ArrowsUpDownIcon, FingerPrintIcon } from "@heroicons/react/24/outline";
 import {
   ClockIcon,
   IdCardIcon,
-  InfoCircledIcon,
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
@@ -19,6 +18,7 @@ import {
 import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { SchemaJson } from "@common/lib/format";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { Index } from "@common/features/data/lib/api";
@@ -287,12 +287,10 @@ export function IndexFilters({
           <hr className="w-2" />{" "}
           <p className="flex items-center gap-1 text-xs text-content-secondary">
             Indexed Filters{" "}
-            <Tooltip
-              tip="Indexed filters are automatically generated based on the index selected above."
-              side="right"
-            >
-              <InfoCircledIcon />
-            </Tooltip>
+            <HelpTooltip tipSide="right">
+              Indexed filters are automatically generated based on the index
+              selected above.
+            </HelpTooltip>
           </p>{" "}
           <hr className="grow" />
         </div>

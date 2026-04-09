@@ -7,7 +7,7 @@ import {
   CrossCircledIcon,
   InfoCircledIcon,
 } from "@radix-ui/react-icons";
-import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 
@@ -119,9 +119,11 @@ Please help me troubleshoot this connection issue.`;
             <li>
               <span className="inline-flex items-center gap-1">
                 Reloading the browser page
-                <Tooltip tip="The Convex dashboard will automatically attempt to reconnect to your deployment, but refreshing the page may help in some cases.">
-                  <InfoCircledIcon className="shrink-0" />
-                </Tooltip>
+                <HelpTooltip>
+                  The Convex dashboard will automatically attempt to reconnect
+                  to your deployment, but refreshing the page may help in some
+                  cases.
+                </HelpTooltip>
               </span>
             </li>
             <li>Disabling your VPN</li>

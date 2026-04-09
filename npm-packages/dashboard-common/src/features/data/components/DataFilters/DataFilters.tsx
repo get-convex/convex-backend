@@ -3,7 +3,6 @@ import {
   ArrowRightIcon,
   CheckIcon,
   ExclamationTriangleIcon,
-  InfoCircledIcon,
   PlusIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
@@ -22,6 +21,7 @@ import {
 import { SchemaJson } from "@common/lib/format";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import {
   FilterButton,
   filterMenuId,
@@ -273,12 +273,10 @@ export function DataFilters({
                     <hr className="w-2" />{" "}
                     <p className="flex items-center gap-1 text-xs text-content-secondary">
                       Other Filters
-                      <Tooltip
-                        tip="Other filters are not indexed and are applied after the indexed filters. These filters are less efficient."
-                        side="right"
-                      >
-                        <InfoCircledIcon />
-                      </Tooltip>
+                      <HelpTooltip tipSide="right">
+                        Other filters are not indexed and are applied after the
+                        indexed filters. These filters are less efficient.
+                      </HelpTooltip>
                     </p>{" "}
                     <hr className="grow" />
                   </div>

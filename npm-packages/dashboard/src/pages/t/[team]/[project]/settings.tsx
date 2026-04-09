@@ -16,7 +16,7 @@ import { useHasProjectAdminPermissions } from "api/roles";
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import { ProjectForm } from "components/projects/ProjectForm";
-import { TrashIcon, InfoCircledIcon } from "@radix-ui/react-icons";
+import { TrashIcon } from "@radix-ui/react-icons";
 import {
   LostAccessCommand,
   LostAccessDescription,
@@ -34,7 +34,7 @@ import { CustomDomains } from "components/projectSettings/CustomDomains";
 import { TransferProject } from "components/projects/TransferProject";
 import { cn } from "@ui/cn";
 import { AuthorizedApplications } from "components/AuthorizedApplications";
-import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -267,17 +267,20 @@ function ProjectSettings() {
           <li>
             <span className="flex items-center gap-1">
               Manage this project
-              <Tooltip tip="This includes actions like managing custom domains, managing environment variable defaults, and managing cloud backups and restores.">
-                <InfoCircledIcon />
-              </Tooltip>
+              <HelpTooltip>
+                This includes actions like managing custom domains, managing
+                environment variable defaults, and managing cloud backups and
+                restores.
+              </HelpTooltip>
             </span>
           </li>
           <li>
             <span className="flex items-center gap-1">
               Read and write data in any deployment in this project
-              <Tooltip tip="Write access to Production deployments will depend on your team-level and project-level roles.">
-                <InfoCircledIcon />
-              </Tooltip>
+              <HelpTooltip>
+                Write access to Production deployments will depend on your
+                team-level and project-level roles.
+              </HelpTooltip>
             </span>
           </li>
         </ul>

@@ -1,12 +1,11 @@
 import { Button } from "@ui/Button";
-import { Tooltip } from "@ui/Tooltip";
 import { formatDate } from "@common/lib/format";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Checkbox } from "@ui/Checkbox";
 import { useState } from "react";
 import { Link } from "@ui/Link";
 import { useCancelSubscription } from "api/billing";
-import { InfoCircledIcon } from "@radix-ui/react-icons";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
 import startCase from "lodash/startCase";
 import { PlanCard } from "./PlanCard";
@@ -47,11 +46,9 @@ export function FreePlan({
           ) : typeof subscription.endDate === "number" ? (
             <p className="flex items-center gap-1 px-0.5 py-2 font-semibold">
               Next Billing Cycle{" "}
-              <Tooltip
-                tip={`Your subscription has been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`}
-              >
-                <InfoCircledIcon />
-              </Tooltip>
+              <HelpTooltip>
+                {`Your subscription has been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`}
+              </HelpTooltip>
             </p>
           ) : (
             <Button

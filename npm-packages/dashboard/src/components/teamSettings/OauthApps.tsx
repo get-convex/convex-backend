@@ -8,7 +8,6 @@ import {
   PlusIcon,
   EyeNoneIcon,
   EyeOpenIcon,
-  InfoCircledIcon,
   DotsVerticalIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
@@ -26,6 +25,7 @@ import * as Yup from "yup";
 import { Loading, LoadingTransition } from "@ui/Loading";
 import { CopyTextButton } from "dashboard-common/src/elements/CopyTextButton";
 import { Tooltip } from "@ui/Tooltip";
+import { HelpTooltip } from "@ui/HelpTooltip";
 import { Menu, MenuItem } from "@ui/Menu";
 import { cn } from "@ui/cn";
 import { toast } from "@common/lib/utils";
@@ -660,9 +660,9 @@ function OauthAppListItem({
           <div className="text-xs break-all">
             <div className="flex items-center gap-1 leading-6 font-semibold">
               Client Secret
-              <Tooltip tip="Only team admins can see the client secret.">
-                <InfoCircledIcon />
-              </Tooltip>
+              <HelpTooltip>
+                Only team admins can see the client secret.
+              </HelpTooltip>
             </div>
             <span className="text-xs leading-6.5">
               •••••••••••••••••••••••••••••••••
