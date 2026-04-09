@@ -34,6 +34,7 @@ testing = [
     "vector/testing",
     "exports/testing",
     "storage_zip_reader/testing",
+    "convex_macro/testing",
 ]
 
 [dependencies]
@@ -121,6 +122,7 @@ libc = { workspace = true }
 async_zip = { workspace = true }
 authentication = { workspace = true, features = ["testing"] }
 common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
 events = { workspace = true, features = ["testing"] }

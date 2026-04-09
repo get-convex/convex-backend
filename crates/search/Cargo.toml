@@ -72,7 +72,7 @@ xorf = { workspace = true }
 
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }
-convex_macro = { workspace = true }
+convex_macro = { workspace = true, features = ["testing"] }
 divan = { workspace = true }
 errors = { workspace = true, features = ["testing"] }
 indexing = { workspace = true, features = ["testing"] }

@@ -53,7 +53,7 @@ anyhow = "1"
 
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }
-convex_macro = { workspace = true }
+convex_macro = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
 isolate = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }

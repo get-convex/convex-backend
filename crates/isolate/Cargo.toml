@@ -39,6 +39,7 @@ testing = [
     "value/testing",
     "vector/testing",
     "udf/testing",
+    "convex_macro/testing",
 ]
 tracy-tracing = ["common/tracy-tracing"]
 
@@ -129,6 +130,7 @@ walkdir = { workspace = true }
 async-broadcast = { workspace = true }
 async-channel = { workspace = true }
 common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 divan = { workspace = true }
 errors = { workspace = true, features = ["testing"] }

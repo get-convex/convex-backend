@@ -24,6 +24,7 @@ use syn::{
 ///     Ok(())
 /// }
 /// ```
+#[cfg(any(test, feature = "testing"))]
 #[proc_macro_attribute]
 pub fn prod_rt_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ast: ItemFn = syn::parse(item).unwrap();
@@ -70,6 +71,7 @@ pub fn prod_rt_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     Ok(())
 /// }
 /// ```
+#[cfg(any(test, feature = "testing"))]
 #[proc_macro_attribute]
 pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ast: ItemFn = syn::parse(item).unwrap();

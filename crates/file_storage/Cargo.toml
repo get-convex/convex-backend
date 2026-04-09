@@ -28,7 +28,7 @@ value = { workspace = true }
 
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }
-convex_macro = { workspace = true }
+convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
 events = { workspace = true, features = ["testing"] }

@@ -29,6 +29,7 @@ testing = [
     "usage_tracking/testing",
     "value/testing",
     "vector/testing",
+    "convex_macro/testing",
 ]
 
 [dependencies]
@@ -87,6 +88,7 @@ vector = { workspace = true }
 async-channel = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 compact_str = { workspace = true }
+convex_macro = { workspace = true, features = ["testing"] }
 criterion = { workspace = true, features = ["async_tokio"] }
 errors = { workspace = true, features = ["testing"] }
 events = { workspace = true, features = ["testing"] }

@@ -119,7 +119,7 @@ application = { workspace = true, features = ["testing"] }
 authentication = { workspace = true, features = ["testing"] }
 clusters = { workspace = true, features = ["testing"] }
 common = { workspace = true, features = ["testing"] }
-convex_macro = { workspace = true }
+convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 db_connection = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
