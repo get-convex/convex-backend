@@ -135,7 +135,6 @@ pub fn read_only_operations() -> Vec<DeploymentOp> {
         DeploymentOp::DownloadBackups,
         DeploymentOp::RunInternalQueries,
         DeploymentOp::RunTestQuery,
-        DeploymentOp::ViewAuditLog,
     ]
 }
 
