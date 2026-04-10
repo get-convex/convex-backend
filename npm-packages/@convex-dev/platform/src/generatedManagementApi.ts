@@ -682,6 +682,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/list_default_environment_variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List default environment variables
+         * @description Lists all default environment variables for the specified project, with
+         *     optional filtering by name and deployment type.
+         */
+        get: operations["list default environment variables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/update_default_environment_variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update default environment variables
+         * @description Creates, updates, or deletes default environment variables for the specified
+         *     project. When `value` is a string, the variable is upserted. When `value` is
+         *     null, the variable is deleted.
+         */
+        post: operations["update default environment variables"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -705,6 +748,24 @@ export interface components {
         CreateTeamAccessTokenResponse: {
             accessToken: string;
             tokenType: string;
+        };
+        DefaultEnvironmentVariableChangeArgs: {
+            deploymentType: components["schemas"]["DeploymentType"];
+            name: string;
+            /** @description Set to a value to upsert the default environment variable
+             *     with the given name and type. If null, will delete the
+             *     environment variable with the given name and deployment
+             *     type if it exists (and do nothing if it doesn’t exist). */
+            value?: string | null;
+        };
+        DefaultEnvironmentVariableResponse: {
+            /** @description The deployment types that this env var name + value apply to.
+             *     Note that when filtering by a particular deployment type,
+             *     all items in the result will have a single element
+             *     in `deploymentType`. */
+            deploymentTypes: components["schemas"]["DeploymentType"][];
+            name: string;
+            value: string;
         };
         DeletePersonalAccessTokenArgs: {
             /** @description The token to delete. This can be the secret value of the token or the
@@ -746,6 +807,10 @@ export interface components {
         };
         /** Format: int64 */
         MemberId: number;
+        PaginatedDefaultEnvironmentVariablesResponse: {
+            items: components["schemas"]["DefaultEnvironmentVariableResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
+        };
         PaginatedDeploymentsResponse: {
             items: components["schemas"]["PlatformDeploymentResponse"][];
             pagination: components["schemas"]["PaginationMetadata"];
@@ -1105,6 +1170,9 @@ export interface components {
             suspended: boolean;
         };
         TeamSlug: string;
+        UpdateDefaultEnvironmentVariablesArgs: {
+            changes: components["schemas"]["DefaultEnvironmentVariableChangeArgs"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -1118,6 +1186,8 @@ export type CreateInvitationArgs = components['schemas']['CreateInvitationArgs']
 export type CreatePersonalAccessTokenArgs = components['schemas']['CreatePersonalAccessTokenArgs'];
 export type CreatePersonalAccessTokenResponse = components['schemas']['CreatePersonalAccessTokenResponse'];
 export type CreateTeamAccessTokenResponse = components['schemas']['CreateTeamAccessTokenResponse'];
+export type DefaultEnvironmentVariableChangeArgs = components['schemas']['DefaultEnvironmentVariableChangeArgs'];
+export type DefaultEnvironmentVariableResponse = components['schemas']['DefaultEnvironmentVariableResponse'];
 export type DeletePersonalAccessTokenArgs = components['schemas']['DeletePersonalAccessTokenArgs'];
 export type DeploymentClass = components['schemas']['DeploymentClass'];
 export type DeploymentClassMetadata = components['schemas']['DeploymentClassMetadata'];
@@ -1132,6 +1202,7 @@ export type ListDeploymentRegionsResponse = components['schemas']['ListDeploymen
 export type ListLocalDeploymentsResponse = components['schemas']['ListLocalDeploymentsResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
+export type PaginatedDefaultEnvironmentVariablesResponse = components['schemas']['PaginatedDefaultEnvironmentVariablesResponse'];
 export type PaginatedDeploymentsResponse = components['schemas']['PaginatedDeploymentsResponse'];
 export type PaginatedPersonalAccessTokensResponse = components['schemas']['PaginatedPersonalAccessTokensResponse'];
 export type PaginationMetadata = components['schemas']['PaginationMetadata'];
@@ -1171,6 +1242,7 @@ export type TeamMember = components['schemas']['TeamMember'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
+export type UpdateDefaultEnvironmentVariablesArgs = components['schemas']['UpdateDefaultEnvironmentVariablesArgs'];
 export type $defs = Record<string, never>;
 export interface operations {
     "create project": {
@@ -2000,6 +2072,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateInvitationArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "list default environment variables": {
+        parameters: {
+            query?: {
+                /** @description Filter by exact environment variable name. */
+                name?: string | null;
+                /** @description Filter by deployment type */
+                deploymentType?: null | components["schemas"]["DeploymentType"];
+            };
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDefaultEnvironmentVariablesResponse"];
+                };
+            };
+        };
+    };
+    "update default environment variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDefaultEnvironmentVariablesArgs"];
             };
         };
         responses: {

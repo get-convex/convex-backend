@@ -1740,6 +1740,131 @@
         },
         "security": []
       }
+    },
+    "/projects/{project_id}/list_default_environment_variables": {
+      "get": {
+        "tags": [
+          "Environment Variables"
+        ],
+        "summary": "List default environment variables",
+        "description": "Lists all default environment variables for the specified project, with\noptional filtering by name and deployment type.",
+        "operationId": "list default environment variables",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Filter by exact environment variable name.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "deploymentType",
+            "in": "query",
+            "description": "Filter by deployment type",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/DeploymentType"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDefaultEnvironmentVariablesResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
+    },
+    "/projects/{project_id}/update_default_environment_variables": {
+      "post": {
+        "tags": [
+          "Environment Variables"
+        ],
+        "summary": "Update default environment variables",
+        "description": "Creates, updates, or deletes default environment variables for the specified\nproject. When `value` is a string, the variable is upserted. When `value` is\nnull, the variable is deleted.",
+        "operationId": "update default environment variables",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDefaultEnvironmentVariablesArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1808,6 +1933,52 @@
             "type": "string"
           },
           "tokenType": {
+            "type": "string"
+          }
+        }
+      },
+      "DefaultEnvironmentVariableChangeArgs": {
+        "type": "object",
+        "required": [
+          "name",
+          "deploymentType"
+        ],
+        "properties": {
+          "deploymentType": {
+            "$ref": "#/components/schemas/DeploymentType"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set to a value to upsert the default environment variable\nwith the given name and type. If null, will delete the\nenvironment variable with the given name and deployment\ntype if it exists (and do nothing if it doesn’t exist)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DefaultEnvironmentVariableResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "deploymentTypes"
+        ],
+        "properties": {
+          "deploymentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentType"
+            },
+            "description": "The deployment types that this env var name + value apply to.\nNote that when filtering by a particular deployment type,\nall items in the result will have a single element\nin `deploymentType`."
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
             "type": "string"
           }
         }
@@ -1959,6 +2130,24 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "PaginatedDefaultEnvironmentVariablesResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DefaultEnvironmentVariableResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
+          }
+        }
       },
       "PaginatedDeploymentsResponse": {
         "type": "object",
@@ -2901,6 +3090,21 @@
       },
       "TeamSlug": {
         "type": "string"
+      },
+      "UpdateDefaultEnvironmentVariablesArgs": {
+        "type": "object",
+        "required": [
+          "changes"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DefaultEnvironmentVariableChangeArgs"
+            }
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
