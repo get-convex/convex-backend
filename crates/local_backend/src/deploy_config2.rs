@@ -52,6 +52,7 @@ use model::{
         type_checking::SerializedCheckedComponent,
         types::SerializedEvaluatedComponentDefinition,
     },
+    deployment_audit_log::types::PushMessage,
     external_packages::types::ExternalDepsPackageId,
     modules::module_versions::SerializedAnalyzedModule,
     source_packages::types::SourcePackage,
@@ -283,6 +284,7 @@ pub struct FinishPushRequest {
     pub admin_key: String,
     start_push: SerializedStartPushResponse,
     pub dry_run: bool,
+    pub message: Option<String>,
 }
 
 /// Internal version that returns the commit timestamp for use by conductor
@@ -299,6 +301,7 @@ pub async fn finish_push_internal(
     identity.require_operation(keybroker::DeploymentOp::Deploy)?;
 
     let start_push = StartPushResponse::try_from(req.start_push)?;
+    let message = req.message.map(PushMessage::try_from).transpose()?;
 
     // We can't actually run `finish_push` in a dry run, since we rolled back all of
     // our changes during start push.
@@ -310,7 +313,7 @@ pub async fn finish_push_internal(
 
     let (resp, ts) = st
         .application
-        .finish_push(identity, start_push)
+        .finish_push(identity, start_push, message)
         .await
         .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
     Ok((SerializedFinishPushDiff::try_from(resp)?, Some(ts)))

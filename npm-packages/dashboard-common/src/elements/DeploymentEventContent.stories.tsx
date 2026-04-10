@@ -1290,3 +1290,58 @@ export const SnapshotImportCsv: Story = {
     },
   },
 };
+
+export const PushConfigWithComponents: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config_with_components",
+      metadata: {
+        auth_diff: { added: [], removed: [] },
+        component_diffs: [
+          {
+            component_path: null,
+            component_diff: {
+              diffType: { type: "modify" },
+              moduleDiff: { added: ["convex/myFunction.js"], removed: [] },
+              cronDiff: { added: [], updated: [], deleted: [] },
+              schemaDiff: null,
+              udfConfigDiff: null,
+            },
+          },
+        ],
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const PushConfigWithComponentsAndMessage: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config_with_components",
+      metadata: {
+        auth_diff: { added: [], removed: [] },
+        component_diffs: [
+          {
+            component_path: null,
+            component_diff: {
+              diffType: { type: "modify" },
+              moduleDiff: { added: ["convex/myFunction.js"], removed: [] },
+              cronDiff: { added: [], updated: [], deleted: [] },
+              schemaDiff: null,
+              udfConfigDiff: null,
+            },
+          },
+        ],
+        message: "Deploy new feature: add myFunction",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};

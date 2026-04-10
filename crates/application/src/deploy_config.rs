@@ -97,6 +97,7 @@ use model::{
     deployment_audit_log::types::{
         DeploymentAuditLogEvent,
         PushComponentDiffs,
+        PushMessage,
     },
     environment_variables::EnvironmentVariablesModel,
     external_packages::types::ExternalDepsPackageId,
@@ -648,6 +649,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         mut start_push: StartPushResponse,
+        message: Option<PushMessage>,
     ) -> anyhow::Result<(FinishPushDiff, Timestamp)> {
         // Download all source packages. We can remove this once we don't store source
         // in the database.
@@ -678,6 +680,7 @@ impl<RT: Runtime> Application<RT> {
                 |tx| {
                     let start_push = &start_push;
                     let downloaded_source_packages = &downloaded_source_packages;
+                    let message = &message;
                     async move {
                         // Validate that environment variables haven't changed since `start_push`.
                         let environment_variables =
@@ -717,6 +720,7 @@ impl<RT: Runtime> Application<RT> {
                         let diffs = PushComponentDiffs {
                             auth_diff: auth_diff.clone(),
                             component_diffs: component_diffs.clone(),
+                            message: message.clone(),
                         };
                         let audit_log_events =
                             vec![DeploymentAuditLogEvent::PushConfigWithComponents { diffs }];

@@ -58,6 +58,11 @@ export function DeploymentEventContent({
     case "push_config_with_components":
       body = (
         <>
+          {event.metadata.message && (
+            <p className="mb-2 text-content-primary italic">
+              &ldquo;{event.metadata.message}&rdquo;
+            </p>
+          )}
           {event.metadata.component_diffs.map(
             ({ component_path, component_diff }) => {
               const auth =

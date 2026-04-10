@@ -12,6 +12,7 @@ use common::{
         LogEvent,
         StructuredLogEvent,
     },
+    pii::PII,
     runtime::UnixTimestamp,
     types::{
         GenericIndexName,
@@ -19,6 +20,7 @@ use common::{
         IndexName,
     },
 };
+use errors::ErrorMetadata;
 use serde::{
     Deserialize,
     Serialize,
@@ -575,10 +577,37 @@ impl TryFrom<SerializedIndexDiff> for AuditLogIndexDiff {
         })
     }
 }
+
 #[derive(Clone, Debug)]
 pub struct PushComponentDiffs {
     pub auth_diff: AuthDiff,
     pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
+    pub message: Option<PushMessage>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PushMessage(PII<String>);
+
+impl PushMessage {
+    const MAX_LENGTH: usize = 1024;
+}
+
+impl TryFrom<String> for PushMessage {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.len() > PushMessage::MAX_LENGTH {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "PushMessageTooLong",
+                format!(
+                    "Push messages can be at most {} bytes long",
+                    PushMessage::MAX_LENGTH
+                ),
+            ))
+        }
+
+        Ok(PushMessage(value.into()))
+    }
 }
 
 impl TryFrom<SerializedPushComponentDiffs> for PushComponentDiffs {
@@ -602,6 +631,7 @@ impl TryFrom<SerializedPushComponentDiffs> for PushComponentDiffs {
         Ok(PushComponentDiffs {
             auth_diff: value.auth_diff.unwrap_or_default(),
             component_diffs,
+            message: value.message.map(PushMessage::try_from).transpose()?,
         })
     }
 }
@@ -615,6 +645,7 @@ struct ComponentPathAndDiff {
 pub struct SerializedPushComponentDiffs {
     auth_diff: Option<AuthDiff>,
     component_diffs: Vec<ComponentPathAndDiff>,
+    message: Option<String>,
 }
 
 impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
@@ -637,6 +668,7 @@ impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
         Ok(SerializedPushComponentDiffs {
             auth_diff: Some(auth_diff),
             component_diffs,
+            message: value.message.map(|m| (m.0).0),
         })
     }
 }

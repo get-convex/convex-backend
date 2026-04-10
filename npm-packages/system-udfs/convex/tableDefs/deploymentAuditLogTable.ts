@@ -168,6 +168,7 @@ export const pushConfigWithComponents = v.object({
         component_diff: componentDiff,
       }),
     ),
+    message: v.optional(v.string()),
   }),
 });
 
