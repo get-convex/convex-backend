@@ -69,4 +69,11 @@ impl PlanId {
         // Until we support referrals in plans within orb, this is the case.
         !self.is_in_orb()
     }
+
+    pub fn allows_spending_limit_disable_threshold(&self) -> bool {
+        match self {
+            PlanId::ConvexBase | PlanId::ConvexStarterPlus | PlanId::ConvexProfessional => true,
+            PlanId::ConvexBusiness => false,
+        }
+    }
 }
