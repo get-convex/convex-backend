@@ -56,6 +56,7 @@ export const deploymentCreate = new Command("create")
     new Option("--type <type>", "Deployment type").choices(SUPPORTED_TYPES),
   )
   .option("--region <region>", "Deployment region")
+  .addOption(new Option("--class <class>", "Deployment class").hideHelp())
   .option(
     "--select",
     "Select the new deployment. This will update the Convex environment variables in .env.local. Subsequent `npx convex` commands will run against this deployment.",
@@ -87,6 +88,7 @@ export const deploymentCreate = new Command("create")
         const cloudOnlyFlags = [
           "type",
           "region",
+          "class",
           "default",
           "expiration",
         ] as const;
@@ -113,6 +115,7 @@ export const deploymentCreate = new Command("create")
     const {
       ref,
       regionDetails,
+      classDetails,
       projectId,
       type,
       isDefault,
@@ -135,6 +138,7 @@ export const deploymentCreate = new Command("create")
     showSpinner(
       `Creating ${type} deployment` +
         (regionDetails ? ` in region ${regionDetails.displayName}` : "") +
+        (classDetails ? ` with class ${classDetails.type}` : "") +
         "...",
     );
 
@@ -151,6 +155,7 @@ export const deploymentCreate = new Command("create")
             reference: ref ?? null,
             isDefault,
             ...(expiresAt !== undefined ? { expiresAt } : {}),
+            ...(classDetails ? { class: classDetails.type } : {}),
           },
         },
       )
@@ -341,11 +346,23 @@ async function resolveOptionsNoninteractively(
     );
   }
 
+  // If no class is passed in, the team's default class will be used
+  let classDetails: AvailableClass | null = null;
+  if (options.class) {
+    const availableClasses = await fetchAvailableClasses(ctx, project.teamId);
+    classDetails = await resolveClassDetailsOrCrash(
+      ctx,
+      availableClasses,
+      options.class,
+    );
+  }
+
   return {
     ref,
     isDefault: options.default ?? null,
     projectId,
     regionDetails,
+    classDetails,
     type: options.type,
     teamSlug: project.teamSlug,
     projectSlug: project.slug,
@@ -457,11 +474,23 @@ async function resolveOptionsInteractively(
     }
   }
 
+  let classDetails: AvailableClass | null = null;
+  if (options.class) {
+    const availableClasses = await fetchAvailableClasses(ctx, project.teamId);
+    classDetails = await resolveClassDetailsOrCrash(
+      ctx,
+      availableClasses,
+      options.class,
+    );
+    logAndUse("class", classDetails.type);
+  }
+
   return {
     ref,
     isDefault: options.default ?? null,
     projectId: project.id,
     regionDetails,
+    classDetails,
     type: deploymentType,
     teamSlug: project.teamSlug,
     projectSlug: project.slug,
@@ -675,6 +704,63 @@ async function crashInvalidRegion(
     exitCode: 1,
     errorType: "fatal",
     printedMessage: invalidRegionMessage(availableRegions, region),
+  });
+}
+
+export async function fetchAvailableClasses(ctx: Context, teamId: number) {
+  const classesResponse = (
+    await typedPlatformClient(ctx).GET(
+      "/teams/{team_id}/list_deployment_classes",
+      {
+        params: {
+          path: { team_id: `${teamId}` },
+        },
+      },
+    )
+  ).data!;
+  return classesResponse.items.filter((item) => item.available);
+}
+
+type AvailableClass = Awaited<ReturnType<typeof fetchAvailableClasses>>[number];
+
+export function resolveClassDetails(
+  availableClasses: AvailableClass[],
+  className: string,
+) {
+  return availableClasses.find((item) => item.type === className) ?? null;
+}
+
+async function resolveClassDetailsOrCrash(
+  ctx: Context,
+  availableClasses: AvailableClass[],
+  className: string,
+) {
+  const classDetails = resolveClassDetails(availableClasses, className);
+  if (!classDetails) {
+    return await crashInvalidClass(ctx, availableClasses, className);
+  }
+  return classDetails;
+}
+
+function invalidClassMessage(
+  availableClasses: AvailableClass[],
+  className: string,
+): string {
+  const formatted = availableClasses
+    .map((item) => `    \`--class ${item.type}\``)
+    .join("\n");
+  return `Invalid class "${className}".\n\nAvailable classes:\n` + formatted;
+}
+
+async function crashInvalidClass(
+  ctx: Context,
+  availableClasses: AvailableClass[],
+  className: string,
+): Promise<never> {
+  return await ctx.crash({
+    exitCode: 1,
+    errorType: "fatal",
+    printedMessage: invalidClassMessage(availableClasses, className),
   });
 }
 
