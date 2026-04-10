@@ -433,7 +433,9 @@ export function getBuildEnvironment(): string | false {
     ? "Vercel"
     : process.env.NETLIFY
       ? "Netlify"
-      : false;
+      : process.env.CF_PAGES || process.env.WORKERS_CI
+        ? "Cloudflare"
+        : false;
 }
 
 export function gitBranchFromEnvironment(): string | null {
@@ -444,6 +446,11 @@ export function gitBranchFromEnvironment(): string | null {
   if (process.env.NETLIFY) {
     // https://docs.netlify.com/configure-builds/environment-variables/
     return process.env.HEAD ?? null;
+  }
+  if (process.env.CF_PAGES || process.env.WORKERS_CI) {
+    // https://developers.cloudflare.com/pages/configuration/build-configuration/#environment-variables
+    // https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
+    return process.env.CF_PAGES_BRANCH ?? process.env.WORKERS_CI_BRANCH ?? null;
   }
 
   if (process.env.CI) {
@@ -465,6 +472,14 @@ export function isNonProdBuildEnvironment(): boolean {
   if (process.env.NETLIFY) {
     // https://docs.netlify.com/configure-builds/environment-variables/
     return process.env.CONTEXT !== "production";
+  }
+  if (process.env.CF_PAGES || process.env.WORKERS_CI) {
+    // https://developers.cloudflare.com/pages/configuration/build-configuration/#environment-variables
+    // https://developers.cloudflare.com/workers/ci-cd/builds/configuration/#environment-variables
+    // Branch !== "main" is the closest heuristic; Cloudflare Pages
+    // does not expose a dedicated production/preview flag.
+    const branch = process.env.CF_PAGES_BRANCH ?? process.env.WORKERS_CI_BRANCH;
+    return branch !== "main";
   }
   return false;
 }
