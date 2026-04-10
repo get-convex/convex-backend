@@ -1098,6 +1098,9 @@ export interface components {
             destinationProjectId: components["schemas"]["ProjectId"];
         };
         PlatformUpdateDeploymentArgs: {
+            /** @description The deployment class to move this deployment to (e.g. "s16", "s256").
+             *     Requires the deployment class selection entitlement. */
+            class?: string | null;
             /** @description Controls whether the dashboard requires a confirmation before allowing
              *     edits during a browser session for this deployment. If set to `null`,
              *     the setting is reset to the default behavior (true for prod deployments,

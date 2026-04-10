@@ -2900,6 +2900,13 @@
       "PlatformUpdateDeploymentArgs": {
         "type": "object",
         "properties": {
+          "class": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The deployment class to move this deployment to (e.g. \"s16\", \"s256\").\nRequires the deployment class selection entitlement."
+          },
           "dashboardEditConfirmation": {
             "type": [
               "boolean",
