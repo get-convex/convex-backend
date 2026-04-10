@@ -203,13 +203,14 @@ describe("useTableFields", () => {
       useTableFields("test", shape, activeSchema, []),
     );
 
-    // Fields should be in schema order (zebra, apple, middle) not alphabetical (apple, middle, zebra)
+    // Fields should be in schema order (zebra, apple, middle) not alphabetical,
+    // with _id first and _creationTime last
     expect(result.current).toEqual([
       "_id",
-      "_creationTime",
       "zebra",
       "apple",
       "middle",
+      "_creationTime",
     ]);
   });
 
