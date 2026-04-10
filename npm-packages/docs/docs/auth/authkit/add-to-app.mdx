@@ -336,7 +336,12 @@ working React app with Convex. If not follow the
       }
 
       function Content() {
-        const data = useQuery(api.myFunctions.listNumbers, { count: 10 });
+        const data =
+          useQuery({
+            query: api.myFunctions.listNumbers,
+            args: { count: 10 },
+            throwOnError: true,
+          }).data;
 
         if (!data) return <p>Loading...</p>;
 
@@ -675,7 +680,12 @@ working Next.js app with Convex. If not follow the
         }
 
         function Content() {
-          const data = useQuery(api.myFunctions.listNumbers, { count: 10 });
+          const data =
+            useQuery({
+              query: api.myFunctions.listNumbers,
+              args: { count: 10 },
+              throwOnError: true,
+            }).data;
 
           if (!data) return <p>Loading...</p>;
 

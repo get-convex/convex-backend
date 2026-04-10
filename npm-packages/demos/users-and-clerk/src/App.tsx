@@ -22,7 +22,9 @@ export default function App() {
 }
 
 function Content() {
-  const messages = useQuery(api.messages.list) || [];
+  const messages =
+    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
+    [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

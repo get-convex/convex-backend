@@ -7,7 +7,9 @@ import { useCallback } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 
 const Home = () => {
-  const counter = useQuery(api.counter.get, { counterName: "clicks" }) ?? 0;
+  const counter =
+    useQuery({ query: api.counter.get, args: { counterName: "clicks" } })
+      ?.data ?? 0;
   const increment = useMutation(api.counter.increment);
   const incrementByOne = useCallback(
     () => increment({ counterName: "clicks", increment: 1 }),

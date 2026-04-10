@@ -119,9 +119,11 @@ function Search() {
 }
 
 function SearchResults(props: { searchResults: SearchResult[] }) {
-  const searchResults = useQuery(api.movies.fetchResults, {
-    results: props.searchResults,
-  });
+  const searchResults = useQuery({
+    query: api.movies.fetchResults,
+    args: { results: props.searchResults },
+    throwOnError: true,
+  }).data;
   return searchResults === undefined ? (
     <div>Loading..</div>
   ) : (
@@ -170,7 +172,11 @@ function Populate() {
 }
 
 export default function Movies() {
-  const entries = useQuery(api.movies.list);
+  const entries = useQuery({
+    query: api.movies.list,
+    args: {},
+    throwOnError: true,
+  }).data;
 
   return (
     <main>

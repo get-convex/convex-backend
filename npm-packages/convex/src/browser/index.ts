@@ -40,3 +40,6 @@ export type { QueryJournal } from "./sync/protocol.js";
 /** @internal */
 export type { UserIdentityAttributes } from "./sync/protocol.js";
 export type { FunctionResult } from "./sync/function_result.js";
+/** @internal */
+export { convexQueryOptions } from "./query_options.js";
+export type { QueryOptions } from "./query_options.js";

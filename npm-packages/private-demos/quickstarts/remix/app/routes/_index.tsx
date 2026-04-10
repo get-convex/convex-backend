@@ -10,7 +10,7 @@ export const meta: MetaFunction = () => {
 };
 
 export default function Index() {
-  const tasks = useQuery(api.tasks.get);
+  const tasks = useQuery({ query: api.tasks.get, args: {}, throwOnError: true }).data;
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
       <h1>Welcome to Remix</h1>

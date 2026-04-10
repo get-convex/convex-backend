@@ -37,7 +37,20 @@ export const myQueryFunction = query({
 Using this query function in a React component looks like:
 
 \`\`\`ts
-const data = useQuery(api.myFunctions.myQueryFunction, { first: 10, second: "hello" });
+const state = useQuery({
+  query: api.myFunctions.myQueryFunction,
+  args: { first: 10, second: "hello" },
+});
+
+if (state.status === "pending") {
+  return <div>Loading...</div>;
+}
+
+if (state.status === "error") {
+  return <div>Error: {state.error.message}</div>;
+}
+
+const data = state.data;
 \`\`\`
 
 

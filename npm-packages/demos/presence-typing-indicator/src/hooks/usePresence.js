@@ -32,7 +32,11 @@ const OLD_MS = 10000;
  */
 export default (room, user, initialData) => {
   const [data, setData] = useState(initialData);
-  let presence = useQuery(api.presence.list, { room });
+  let presence = useQuery({
+    query: api.presence.list,
+    args: { room },
+    throwOnError: true,
+  }).data;
   if (presence) {
     presence = presence.filter((p) => p.user !== user);
   }

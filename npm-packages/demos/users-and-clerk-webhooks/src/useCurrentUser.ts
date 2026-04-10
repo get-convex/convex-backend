@@ -3,7 +3,11 @@ import { api } from "../convex/_generated/api";
 
 export function useCurrentUser() {
   const { isLoading, isAuthenticated } = useConvexAuth();
-  const user = useQuery(api.users.current);
+  const user = useQuery({
+    query: api.users.current,
+    args: {},
+    throwOnError: true,
+  }).data;
   // Combine the authentication state with the user existence check
   return {
     isLoading: isLoading || (isAuthenticated && user === null),

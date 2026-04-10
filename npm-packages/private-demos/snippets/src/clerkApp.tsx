@@ -17,7 +17,11 @@ function App() {
 }
 
 function Content() {
-  const messages = useQuery(api.messages.getForCurrentUser);
+  const messages = useQuery({
+    query: api.messages.getForCurrentUser,
+    args: {},
+    throwOnError: true,
+  }).data;
   return <div>Authenticated content: {messages?.length}</div>;
 }
 

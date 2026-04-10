@@ -3,7 +3,9 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export default function App() {
-  const messages = useQuery(api.messages.list) || [];
+  const messages =
+    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
+    [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);
@@ -17,7 +19,8 @@ export default function App() {
 
   const [searchText, setSearchText] = useState("");
   const searchResults =
-    useQuery(api.messages.search, { query: searchText }) || [];
+    useQuery({ query: api.messages.search, args: { query: searchText } })
+      ?.data ?? [];
 
   return (
     <main>

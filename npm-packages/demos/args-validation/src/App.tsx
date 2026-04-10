@@ -6,7 +6,9 @@ import { api } from "../convex/_generated/api";
 // @snippet end importHooks
 
 export default function App() {
-  const messages = useQuery(api.messages.list) || [];
+  const messages =
+    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
+    [];
 
   const [newMessageText, setNewMessageText] = useState("");
   // @snippet start sendMessage

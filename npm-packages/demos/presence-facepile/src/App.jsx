@@ -12,7 +12,9 @@ const Emojis =
 const initialEmoji = Emojis[Math.floor(Math.random() * Emojis.length)];
 
 export default function App() {
-  const messages = useQuery(api.listMessages.default) || [];
+  const messages =
+    useQuery({ query: api.listMessages.default, args: {}, throwOnError: true })
+      .data ?? [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.sendMessage.default);

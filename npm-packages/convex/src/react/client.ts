@@ -32,7 +32,7 @@ import {
   instantiateNoopLogger,
   Logger,
 } from "../browser/logging.js";
-import { ConvexQueryOptions } from "../browser/query_options.js";
+import type { QueryOptions } from "../browser/query_options.js";
 import { LoadMoreOfPaginatedQuery } from "../browser/sync/pagination.js";
 import {
   PaginatedQueryClient,
@@ -537,9 +537,7 @@ export class ConvexReactClient {
    * an optional extendSubscriptionFor for how long to subscribe to the query.
    */
   prewarmQuery<Query extends FunctionReference<"query">>(
-    queryOptions: ConvexQueryOptions<Query> & {
-      extendSubscriptionFor?: number;
-    },
+    queryOptions: QueryOptions<Query> & { extendSubscriptionFor?: number },
   ) {
     const extendSubscriptionFor =
       queryOptions.extendSubscriptionFor ?? DEFAULT_EXTEND_SUBSCRIPTION_FOR;
@@ -802,6 +800,34 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
     : [args: FuncRef["_args"] | "skip"];
 
 /**
+ * Result returned by object-form {@link useQuery}.
+ *
+ * @public
+ */
+export type UseQueryResult<QueryResult> =
+  | {
+      data: QueryResult;
+      error: undefined;
+      status: "success";
+    }
+  | {
+      data: undefined;
+      error: Error;
+      status: "error";
+    }
+  | {
+      data: undefined;
+      error: undefined;
+      status: "pending";
+    };
+
+type UseQueryOptions<Query extends FunctionReference<"query">> = {
+  query: Query;
+  args: FunctionArgs<Query> | "skip";
+  throwOnError?: boolean;
+};
+
+/**
  * Load a reactive query within a React component.
  *
  * This React hook subscribes to a Convex query and causes a rerender whenever
@@ -847,20 +873,82 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
 export function useQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
-): Query["_returnType"] | undefined {
-  const skip = args[0] === "skip";
-  const argsObject = args[0] === "skip" ? {} : parseArgs(args[0]);
+): Query["_returnType"] | undefined;
 
-  const queryReference =
-    typeof query === "string"
-      ? makeFunctionReference<"query", any, any>(query)
-      : query;
+/**
+ * Load a reactive query within a React component using an options object.
+ *
+ * This is an alternative form of {@link useQuery} that accepts a single
+ * {@link UseQueryOptions} object instead of positional arguments.
+ * Errors are returned in the result object unless `throwOnError` is set.
+ *
+ * @example
+ * ```tsx
+ * import { useQuery } from "convex/react";
+ * import { api } from "../convex/_generated/api";
+ *
+ * function TaskList() {
+ *   const state = useQuery({ query: api.tasks.list, args: { completed: false } });
+ *
+ *   if (state.status === "pending") return <div>Loading...</div>;
+ *   if (state.status === "error") return <div>Error: {state.error.message}</div>;
+ *   return state.data.map((task) => <div key={task._id}>{task.text}</div>);
+ * }
+ * ```
+ *
+ * @param options - Query options. Pass `args: "skip"` to disable the query.
+ * @returns the current query state as a {@link UseQueryResult} object.
+ *
+ * @see https://docs.convex.dev/client/react#fetching-data
+ * @public
+ */
+export function useQuery<Query extends FunctionReference<"query">>(
+  options: UseQueryOptions<Query>,
+): UseQueryResult<Query["_returnType"]>;
 
-  const queryName = getFunctionName(queryReference);
+export function useQuery<Query extends FunctionReference<"query">>(
+  queryOrOptions: Query | UseQueryOptions<Query>,
+  ...args: OptionalRestArgsOrSkip<Query>
+): Query["_returnType"] | undefined | UseQueryResult<Query["_returnType"]> {
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    "query" in queryOrOptions;
+  const throwOnError = isObjectOptions
+    ? (queryOrOptions.throwOnError ?? false)
+    : true;
+
+  let queryReference: Query | undefined;
+  let argsObject: Record<string, Value> = {};
+
+  if (isObjectOptions) {
+    const query = queryOrOptions.query;
+    queryReference =
+      typeof query === "string"
+        ? (makeFunctionReference<"query", any, any>(query) as Query)
+        : query;
+    if (queryOrOptions.args !== "skip") {
+      argsObject = parseArgs(queryOrOptions.args as Record<string, Value>);
+    }
+  } else {
+    const query = queryOrOptions;
+    queryReference =
+      typeof query === "string"
+        ? (makeFunctionReference<"query", any, any>(query) as Query)
+        : query;
+    argsObject = args[0] === "skip" ? {} : parseArgs(args[0] as Query["_args"]);
+  }
+
+  const queryName = queryReference
+    ? getFunctionName(queryReference)
+    : undefined;
+  const skip =
+    (isObjectOptions && queryOrOptions.args === "skip") ||
+    (!isObjectOptions && args[0] === "skip");
 
   const queries = useMemo(
     () =>
-      skip
+      skip || !queryReference
         ? ({} as RequestForQueries)
         : { query: { query: queryReference, args: argsObject } },
     // Stringify args so args that are semantically the same don't trigger a
@@ -871,6 +959,34 @@ export function useQuery<Query extends FunctionReference<"query">>(
 
   const results = useQueries(queries);
   const result = results["query"];
+
+  if (isObjectOptions) {
+    if (result instanceof Error) {
+      if (throwOnError) {
+        throw result;
+      }
+      return {
+        data: undefined,
+        error: result,
+        status: "error",
+      };
+    }
+
+    if (result === undefined) {
+      return {
+        data: undefined,
+        error: undefined,
+        status: "pending",
+      };
+    }
+
+    return {
+      data: result,
+      error: undefined,
+      status: "success",
+    };
+  }
+
   if (result instanceof Error) {
     throw result;
   }

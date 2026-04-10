@@ -6,7 +6,9 @@ import { api } from "./convex/_generated/api";
 import styles from "./styles";
 
 function InnerApp() {
-  const messages = useQuery(api.messages.list) || [];
+  const messages =
+    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
+    [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);

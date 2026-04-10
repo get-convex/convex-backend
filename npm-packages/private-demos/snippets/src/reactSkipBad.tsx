@@ -9,7 +9,14 @@ export function App() {
   const param = new URLSearchParams(window.location.search).get("param");
   // ERROR! React Hook "useQuery" is called conditionally. React Hooks must
   // be called in the exact same order in every component render.
-  const data = param !== null ? useQuery(api.functions.read, { param }) : null;
+  const data =
+    param !== null
+      ? useQuery({
+          query: api.functions.read,
+          args: { param },
+          throwOnError: true,
+        })
+      : null;
   //...
 }
 // @snippet end example

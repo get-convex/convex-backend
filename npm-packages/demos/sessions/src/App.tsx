@@ -7,7 +7,9 @@ import {
 import { api } from "../convex/_generated/api";
 
 export default function App() {
-  const messages = useQuery(api.messages.list) || [];
+  const messages =
+    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
+    [];
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useSessionMutation(api.messages.send);

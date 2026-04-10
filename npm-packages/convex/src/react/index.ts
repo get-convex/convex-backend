@@ -53,7 +53,11 @@
  * import { api } from "../convex/_generated/api";
  *
  * function App() {
- *   const counter = useQuery(api.getCounter.default);
+ *   const counter = useQuery({
+ *     query: api.getCounter.default,
+ *     args: {},
+ *     throwOnError: true,
+ *   }).data;
  *   const increment = useMutation(api.incrementCounter.default);
  *   // Your component here!
  * }
@@ -78,6 +82,7 @@ export {
   type MutationOptions,
   type ConvexReactClientOptions,
   type OptionalRestArgsOrSkip,
+  type UseQueryResult,
   ConvexReactClient,
   useConvex,
   ConvexProvider,
@@ -86,3 +91,6 @@ export {
   useAction,
   useConvexConnectionState,
 } from "./client.js";
+/** @internal */
+export { convexQueryOptions } from "../browser/query_options.js";
+export type { QueryOptions } from "../browser/query_options.js";

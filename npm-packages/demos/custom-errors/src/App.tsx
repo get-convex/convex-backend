@@ -46,7 +46,9 @@ export default function App() {
 }
 
 export function MessageList() {
-  const messages = useQuery(api.messages.list) || [];
+  const messages =
+    useQuery({ query: api.messages.list, args: {}, throwOnError: true }).data ??
+    [];
   return (
     <ul>
       {messages.map((message) => (

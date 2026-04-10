@@ -125,7 +125,11 @@ import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export function App() {
-  const data = useQuery(api.tasks.getTaskList);
+  const data = useQuery({
+    query: api.tasks.getTaskList,
+    args: {},
+    throwOnError: true,
+  }).data;
   return data ?? "Loading...";
 }
 ```
