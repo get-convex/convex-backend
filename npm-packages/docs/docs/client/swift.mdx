@@ -118,15 +118,14 @@ Assuming the `colors:get` query accepts an `onlyFavorites` argument, the value
 can be received and used to perform logic in the query function.
 
 <Admonition type="tip">
-Use [Decodable structs](/client/swift/data-types.md#custom-data-types)
-to automatically convert Convex objects to Swift structs.
+  Use [Decodable structs](/client/swift/data-types.md#custom-data-types) to
+  automatically convert Convex objects to Swift structs.
 </Admonition>
 
 <Admonition type="caution">
-* There are important gotchas when
-  [sending and receiving numbers](/client/swift/data-types.md#numerical-types)
-  between Swift and Convex.
-* Depending on your backend functions, you may need to deal with
+  * There are important gotchas when [sending and receiving
+  numbers](/client/swift/data-types.md#numerical-types) between Swift and
+  Convex. * Depending on your backend functions, you may need to deal with
   [reserved Swift keywords](/client/swift/data-types.md#field-name-conversion).
 </Admonition>
 
@@ -192,7 +191,7 @@ authentication provider. You'll need to choose an existing `AuthProvider`
 implementation or possibly create your own. See the `AuthProvider` options below
 and consult the overall [Convex authentication docs](/auth.mdx) as needed.
 
-### Auth0 {#authentication-with-auth0}
+### Auth0 {/* #authentication-with-auth0 */}
 
 To use Auth0, you'll need to add a dependency on
 the `convex-swift-auth0` library as well as have an Auth0 account and
@@ -204,7 +203,7 @@ the `convex-swift-auth0` repo for more detailed setup instructions, and
 the [Workout example app](https://github.com/get-convex/ios-convex-workout) which
 is configured for Auth0.
 
-### Clerk {#authentication-with-clerk}
+### Clerk {/* #authentication-with-clerk */}
 
 To use Clerk, you'll need to add a dependency on the `clerk-convex-swift`
 library as well as have a Clerk account and application configured to use
@@ -330,9 +329,9 @@ of the Convex client. Calling the `initConvexLogging()` function in your
 they can easily be viewed in XCode.
 
 <Admonition type="caution">
-The debug logs can contain sensitive data that your application sends to/from your
-Convex backend. Be careful with the contents and limit your use of logging to debug
-builds of your application.
+  The debug logs can contain sensitive data that your application sends to/from
+  your Convex backend. Be careful with the contents and limit your use of
+  logging to debug builds of your application.
 </Admonition>
 
 _Available since

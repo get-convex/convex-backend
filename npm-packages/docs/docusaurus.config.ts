@@ -23,6 +23,9 @@ const ENTRY_POINTS_TO_DOCUMENT = [
 ];
 
 const config: Config = {
+  future: {
+    v4: true,
+  },
   title: "Convex Developer Hub",
   tagline: "The source for documentation about Convex.",
   url: "https://docs.convex.dev",

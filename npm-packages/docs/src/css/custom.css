@@ -1,14 +1,14 @@
 /* stylelint-disable docusaurus/copyright-header */
 
+/* Customize the search button in nav and modal */
+@import url("./search.css");
+
 /* @import "tailwindcss"; but without preflight */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @source "../**/*.{js,jsx,ts,tsx}";
-
-/* Customize the search button in nav and modal */
-@import url("./search.css");
 
 @theme {
   --color-neutral-white: #ffffff;
