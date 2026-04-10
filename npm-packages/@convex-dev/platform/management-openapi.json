@@ -2252,8 +2252,7 @@
             "type": "string",
             "description": "Name for the deploy key."
           }
-        },
-        "additionalProperties": false
+        }
       },
       "PlatformCreateDeployKeyResponse": {
         "type": "object",
@@ -2329,8 +2328,7 @@
             "type": "string",
             "description": "Name for the preview deploy key."
           }
-        },
-        "additionalProperties": false
+        }
       },
       "PlatformCreatePreviewDeployKeyResponse": {
         "type": "object",
