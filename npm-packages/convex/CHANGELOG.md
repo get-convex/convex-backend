@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.35.1
+
+- Adds support for automatic preview deployments on Cloudflare Pages
+- Removes a new API in `useQuery` that was accidentally included as part
+  of the `1.35.0` release.
+
 ## 1.35.0
 
 - You can now create and select local deployments explicitly with the CLI:
