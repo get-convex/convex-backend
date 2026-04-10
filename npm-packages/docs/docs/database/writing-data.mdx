@@ -8,7 +8,6 @@ import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/w
 import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
 import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
 import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
-import transactionMetricsExample from "!!raw-loader!@site/../private-demos/snippets/convex/clearTasks.ts";
 import { ComponentCardList } from "@site/src/components/ComponentCard";
 
 [Mutations](/functions/mutation-functions.mdx) can insert, update, and remove
@@ -166,14 +165,3 @@ When using [paginated queries](/database/pagination), pass `maximumBytesRead` or
 [`PaginationOptions`](/api/interfaces/server.PaginationOptions) to limit how
 much data a single page reads. This is especially useful when filtering for rare
 items where a low `numItems` won't bound execution time.
-
-### Checking transaction headroom
-
-Use `ctx.meta.getTransactionMetrics()` to check how much capacity remains in the
-current transaction. Each field returns `{ used, remaining }`.
-
-<Snippet
-  title="convex/clearTasks.ts"
-  source={transactionMetricsExample}
-  highlightPatterns={["getTransactionMetrics"]}
-/>

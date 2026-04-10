@@ -149,6 +149,7 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
     ...args: OptionalRestArgs<Mutation>
   ) => Promise<FunctionReturnType<Mutation>>;
 
+  /** @internal */
   meta: MutationMeta;
 }
 
@@ -242,6 +243,7 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
     ...args: OptionalRestArgs<Query>
   ) => Promise<FunctionReturnType<Query>>;
 
+  /** @internal */
   meta: QueryMeta;
 }
 
@@ -404,6 +406,7 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
     >,
   ): Promise<Array<{ _id: Id<TableName>; _score: number }>>;
 
+  /** @internal */
   meta: ActionMeta;
 }
 
