@@ -48,7 +48,8 @@ import { usePostHog } from "../../dashboard/src/hooks/usePostHog";
 import { useListCloudBackups } from "../../dashboard/src/api/backups";
 import {
   useCreateTeamAccessToken,
-  useInstanceAccessTokens,
+  useDeployKeys,
+  useDeleteDeployKey,
 } from "../../dashboard/src/api/accessTokens";
 import {
   useCreateVanityDomain,
@@ -347,7 +348,8 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   mocked(useCreateVanityDomain).mockReturnValue(fn());
   mocked(useDeleteVanityDomain).mockReturnValue(fn());
   mocked(useCreateTeamAccessToken).mockReturnValue(fn());
-  mocked(useInstanceAccessTokens).mockReturnValue([]);
+  mocked(useDeployKeys).mockReturnValue([]);
+  mocked(useDeleteDeployKey).mockReturnValue(fn());
   mocked(LocalDevCallout).mockReturnValue(null);
   mocked(CloudDisconnectOverlay).mockReturnValue(null);
   mocked(useTableShapes).mockReturnValue({

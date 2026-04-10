@@ -15,6 +15,7 @@ export const flagDefaults: {
   showScheduledJobArgsInComponents: boolean;
   subscriptionInvalidationsChart: boolean;
   transferDeployment: boolean;
+  scopedDeployKeys: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
@@ -29,6 +30,7 @@ export const flagDefaults: {
   showScheduledJobArgsInComponents: false,
   subscriptionInvalidationsChart: false,
   transferDeployment: false,
+  scopedDeployKeys: false,
 };
 
 // Flag defaults need to be in the default kebab-case format:

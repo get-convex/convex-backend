@@ -7,8 +7,8 @@ import { useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import {
-  useCreateTeamAccessToken,
-  useProjectAccessTokens,
+  useCreatePreviewDeployKey,
+  usePreviewDeployKeys,
   useProjectAppAccessTokens,
   useDeleteAppAccessTokenByName,
 } from "api/accessTokens";
@@ -23,11 +23,9 @@ import {
 } from "components/projects/modals/LostAccessModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { DefaultEnvironmentVariables } from "components/projectSettings/DefaultEnvironmentVariables";
-import { getAccessTokenBasedDeployKeyForPreview } from "components/deploymentSettings/DeployKeysForDeployment";
 import { ProjectDetails } from "generatedApi";
 import { Link } from "@ui/Link";
 import Head from "next/head";
-import { useAccessToken } from "hooks/useServerSideData";
 import { MemberProjectRoles } from "components/projects/MemberProjectRoles";
 import { DeploymentAccessTokenList } from "components/deploymentSettings/DeploymentAccessTokenList";
 import { CustomDomains } from "components/projectSettings/CustomDomains";
@@ -539,15 +537,10 @@ function ProductionDeployKeys({ project }: { project: ProjectDetails }) {
 }
 
 function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
-  const createProjectAccessTokenMutation = useCreateTeamAccessToken({
-    projectId: project.id,
-    kind: "project",
-  });
-  const [accessToken] = useAccessToken();
+  const createPreviewDeployKey = useCreatePreviewDeployKey(project.id);
   const team = useCurrentTeam();
-  const selectedTeamSlug = team?.slug;
 
-  const projectAccessTokens = useProjectAccessTokens(project.id);
+  const previewDeployKeys = usePreviewDeployKeys(project.id);
 
   const deployKeyDescription = (
     <p className="mb-2 max-w-prose text-sm text-content-primary">
@@ -575,25 +568,26 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
   return (
     <Sheet className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        {team && accessToken && createProjectAccessTokenMutation && (
+        {team && (
           <DeploymentAccessTokenList
-            identifier={project.id.toString()}
-            tokenPrefix={`preview:${selectedTeamSlug}:${project.slug}`}
-            accessTokens={projectAccessTokens}
-            kind="project"
+            deploymentName={`preview:${team.slug}:${project.slug}`}
+            deployKeys={previewDeployKeys}
             disabledReason={null}
             buttonProps={{
               deploymentType: "preview",
               disabledReason: null,
-              getAdminKey: async (name: string) =>
-                getAccessTokenBasedDeployKeyForPreview(
-                  project,
-                  team,
-                  `preview:${selectedTeamSlug}:${project.slug}`,
-                  accessToken,
-                  createProjectAccessTokenMutation,
-                  name,
-                ),
+              getAdminKey: async (name: string) => {
+                try {
+                  const result = await createPreviewDeployKey({ name });
+                  if (!result) return { ok: false as const };
+                  return {
+                    ok: true as const,
+                    adminKey: result.previewDeployKey,
+                  };
+                } catch {
+                  return { ok: false as const };
+                }
+              },
             }}
             header="Preview Deploy Keys"
             headingLevel="h3"

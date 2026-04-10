@@ -10,10 +10,7 @@ import { useAccessToken } from "hooks/useServerSideData";
 export function TokensLayout({ team }: { team: TeamResponse }) {
   const [accessToken] = useAccessToken();
   const teamAccessTokens = useTeamAccessTokens(team.id);
-  const createTeamAccessToken = useCreateTeamAccessToken({
-    kind: "team",
-    teamId: team.id,
-  });
+  const createTeamAccessToken = useCreateTeamAccessToken(team.id);
 
   const handleCreateToken = async (tokenName: string) => {
     await createTeamAccessToken({

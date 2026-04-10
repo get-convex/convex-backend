@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, fn } from "storybook/test";
-import { TeamAccessTokenResponse } from "generatedApi";
+import { PlatformDeployKeyResponse } from "@convex-dev/platform/managementApi";
 import { ProjectSettingsPage } from "../../../pages/t/[team]/[project]/settings";
 import { useUpdateProject } from "api/projects";
 import {
@@ -9,17 +9,16 @@ import {
   useUpdateProjectRoles,
 } from "api/roles";
 import {
-  useCreateTeamAccessToken,
-  useDeleteAccessToken,
-  useDeleteAppAccessTokenByName,
-  useProjectAccessTokens,
+  useCreatePreviewDeployKey,
+  usePreviewDeployKeys,
   useProjectAppAccessTokens,
+  useDeleteAppAccessTokenByName,
 } from "api/accessTokens";
 import {
   useProjectEnvironmentVariables,
   useUpdateProjectEnvVars,
 } from "api/environmentVariables";
-import { useBBMutation } from "api/api";
+import { useBBMutation, useManagementApiMutation } from "api/api";
 
 const mockProjectRoles = [
   {
@@ -29,9 +28,7 @@ const mockProjectRoles = [
   },
 ];
 
-const mockToken: TeamAccessTokenResponse = {
-  accessToken: "tok_abc123",
-  serializedAccessToken: "preview_key_serialized",
+const mockDeployKey: PlatformDeployKeyResponse = {
   name: "storybook-preview-key",
   creator: 1,
   creationTime: Date.now() - 1000 * 60 * 60,
@@ -60,12 +57,12 @@ function applyProjectSettingsMocks() {
     configs: [],
   });
   mocked(useUpdateProjectEnvVars).mockReturnValue(fn());
-  mocked(useCreateTeamAccessToken).mockReturnValue(fn());
-  mocked(useProjectAccessTokens).mockReturnValue([mockToken]);
+  mocked(useCreatePreviewDeployKey).mockReturnValue(fn());
+  mocked(usePreviewDeployKeys).mockReturnValue([mockDeployKey]);
   mocked(useProjectAppAccessTokens).mockReturnValue([mockAppToken]);
-  mocked(useDeleteAccessToken).mockReturnValue(fn());
   mocked(useDeleteAppAccessTokenByName).mockReturnValue(fn());
   mocked(useBBMutation).mockReturnValue(fn());
+  mocked(useManagementApiMutation).mockReturnValue(fn());
 }
 
 const meta = {

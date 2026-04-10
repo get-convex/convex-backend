@@ -1,9 +1,7 @@
-import { useState } from "react";
-import { TeamAccessTokenResponse } from "generatedApi";
-import { AccessTokenListKind } from "api/accessTokens";
+import { PlatformDeployKeyResponse } from "@convex-dev/platform/managementApi";
 
 import { LoadingTransition } from "@ui/Loading";
-import { AccessTokenListItem } from "components/AccessTokenListItem";
+import { DeployKeyListItem } from "components/DeployKeyListItem";
 import {
   GenerateDeployKeyWithNameButton,
   GenerateDeployKeyWithNameButtonProps,
@@ -11,62 +9,44 @@ import {
 } from "./GenerateDeployKeyButton";
 
 export function DeploymentAccessTokenList({
-  identifier,
-  tokenPrefix,
-  accessTokens,
-  kind,
+  deploymentName,
+  deployKeys,
   disabledReason,
   buttonProps,
   header,
   description,
   headingLevel = "h4",
 }: {
-  identifier: string;
-  tokenPrefix: string;
-  accessTokens: TeamAccessTokenResponse[] | undefined;
-  kind: AccessTokenListKind;
+  deploymentName: string;
+  deployKeys: PlatformDeployKeyResponse[] | undefined;
   disabledReason: DeployKeyGenerationDisabledReason | null;
-  buttonProps: Omit<
-    GenerateDeployKeyWithNameButtonProps,
-    "onCreateAccessToken"
-  >;
+  buttonProps: GenerateDeployKeyWithNameButtonProps;
   header: string;
   description: React.ReactNode;
   headingLevel?: "h3" | "h4";
 }) {
-  const [latestToken, setLatestToken] = useState<string | null>(null);
   const HeadingTag = (headingLevel ?? "h4") as keyof JSX.IntrinsicElements;
   return (
     <>
       <div className="mb-2 flex w-full items-center justify-between">
         <HeadingTag>{header}</HeadingTag>
-        <GenerateDeployKeyWithNameButton
-          {...buttonProps}
-          onCreateAccessToken={setLatestToken}
-        />
+        <GenerateDeployKeyWithNameButton {...buttonProps} />
       </div>
       {description}
       {disabledReason === null && (
         <LoadingTransition
           loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
         >
-          {accessTokens && (
+          {deployKeys && (
             <div className="flex w-full flex-col divide-y">
-              {accessTokens.length > 0 ? (
-                accessTokens
+              {deployKeys.length > 0 ? (
+                deployKeys
                   ?.sort((a, b) => b.creationTime - a.creationTime)
-                  .map((token) => (
-                    <AccessTokenListItem
-                      token={token}
-                      identifier={identifier}
-                      tokenPrefix={tokenPrefix}
-                      kind={kind}
-                      key={token.accessToken}
-                      shouldShow={
-                        !!latestToken &&
-                        latestToken.endsWith(token.serializedAccessToken)
-                      }
-                      showMemberName
+                  .map((deployKey) => (
+                    <DeployKeyListItem
+                      deployKey={deployKey}
+                      deploymentName={deploymentName}
+                      key={deployKey.name}
                     />
                   ))
               ) : (
