@@ -320,6 +320,10 @@ impl Identity {
         matches!(self, Identity::InstanceAdmin(..))
     }
 
+    pub fn is_acting_as_user(&self) -> bool {
+        matches!(self, Identity::ActingUser(..))
+    }
+
     pub fn is_user(&self) -> bool {
         matches!(self, Identity::User(..))
     }

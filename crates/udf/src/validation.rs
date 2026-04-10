@@ -34,12 +34,14 @@ use common::{
     },
 };
 use database::{
-    unauthorized_error,
     BootstrapComponentsModel,
     Transaction,
 };
 use errors::ErrorMetadata;
-use keybroker::Identity;
+use keybroker::{
+    DeploymentOp,
+    Identity,
+};
 use model::{
     backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
@@ -210,6 +212,89 @@ pub async fn validate_schedule_args<RT: Runtime>(
     Ok((path, udf_args))
 }
 
+/// Check whether the caller's allowed visibility permits running a function
+/// with the given visibility, identity, component, and UDF type.
+///
+/// When `is_system_module` is true the function lives in a system module
+/// (`_system/`).  System modules are not analyzed, so they have no
+/// declared visibility.  We treat them like privileged endpoints: only
+/// admin/system identities with the appropriate View/WriteData operation
+/// may call them, regardless of component.
+///
+/// Returns:
+/// - `Ok(Ok(()))` if access is allowed
+/// - `Ok(Err(JsError))` if the function should appear as missing (e.g.
+///   non-admin calling an internal function)
+/// - `Err(anyhow)` if the caller lacks a required deployment operation
+fn check_visibility_access(
+    allowed_visibility: AllowedVisibility,
+    visibility: &Option<Visibility>,
+    identity: &Identity,
+    component: ComponentId,
+    expected_udf_type: UdfType,
+    path: PublicFunctionPath,
+    is_system_module: bool,
+) -> anyhow::Result<Result<(), JsError>> {
+    if identity.is_acting_as_user() {
+        identity.require_operation(DeploymentOp::ActAsUser)?;
+    }
+    // System modules always require admin/system with View/WriteData.
+    if is_system_module {
+        return require_admin_data_op(identity, expected_udf_type, path);
+    }
+    match allowed_visibility {
+        AllowedVisibility::All => Ok(Ok(())),
+        AllowedVisibility::PublicOnly => match visibility {
+            Some(Visibility::Public) => {
+                // In a component, public functions still require an
+                // admin/system identity with the appropriate operation.
+                // User and Unknown identities cannot reach into components.
+                if component != ComponentId::Root {
+                    return require_admin_data_op(identity, expected_udf_type, path);
+                }
+                Ok(Ok(()))
+            },
+            Some(Visibility::Internal) => {
+                // Admins may have the ability to run the internal function.
+                if identity.is_admin() || identity.is_system() || identity.is_acting_as_user() {
+                    let op = match expected_udf_type {
+                        UdfType::Query => DeploymentOp::RunInternalQueries,
+                        UdfType::Mutation => DeploymentOp::RunInternalMutations,
+                        UdfType::Action | UdfType::HttpAction => DeploymentOp::RunInternalActions,
+                    };
+                    identity.require_operation(op)?;
+                    Ok(Ok(()))
+                } else {
+                    Ok(Err(JsError::from_message(missing_or_internal_error(path)?)))
+                }
+            },
+            None => {
+                anyhow::bail!("No visibility found for analyzed function");
+            },
+        },
+    }
+}
+
+/// Require that the identity is admin/system with the appropriate
+/// View/WriteData operation. Returns `Ok(Err(JsError))` for
+/// User/Unknown identities so callers can produce a clean error response.
+fn require_admin_data_op(
+    identity: &Identity,
+    expected_udf_type: UdfType,
+    path: PublicFunctionPath,
+) -> anyhow::Result<Result<(), JsError>> {
+    if identity.is_admin() || identity.is_system() || identity.is_acting_as_user() {
+        let op = match expected_udf_type {
+            UdfType::Query => DeploymentOp::ViewData,
+            UdfType::Mutation | UdfType::Action | UdfType::HttpAction => DeploymentOp::WriteData,
+        };
+        identity.require_operation(op)?;
+        Ok(Ok(()))
+    } else {
+        Ok(Err(JsError::from_message(missing_or_internal_error(path)?)))
+    }
+}
+
 fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String> {
     let path = path.debug_into_component_path();
     Ok(format!(
@@ -338,21 +423,25 @@ impl ValidatedPathAndArgs {
             };
             // We don't analyze system modules, so we don't validate anything
             // except the identity for them.
-            let result = if tx.identity().is_admin() || tx.identity().is_system() {
-                Ok((
-                    ValidatedPathAndArgs {
-                        path,
-                        args,
-                        npm_version: None,
-                    },
-                    ReturnsValidator::Unvalidated,
-                ))
-            } else {
-                Err(JsError::from_message(
-                    unauthorized_error("Executing function").to_string(),
-                ))
-            };
-            return Ok(result);
+            if let Err(js_error) = check_visibility_access(
+                allowed_visibility,
+                &None,
+                tx.identity(),
+                path.component,
+                expected_udf_type,
+                PublicFunctionPath::ResolvedComponent(path.clone()),
+                true,
+            )? {
+                return Ok(Err(js_error));
+            }
+            return Ok(Ok((
+                ValidatedPathAndArgs {
+                    path,
+                    args,
+                    npm_version: None,
+                },
+                ReturnsValidator::Unvalidated,
+            )));
         }
 
         match fail_while_not_running(tx).await {
@@ -451,29 +540,17 @@ impl ValidatedPathAndArgs {
         analyzed_function: AnalyzedFunction,
         version: Version,
     ) -> anyhow::Result<Result<ValidatedPathAndArgs, JsError>> {
-        let identity = tx.identity();
-        match identity {
-            // This is an admin, so allow calling all functions
-            Identity::InstanceAdmin(_) | Identity::ActingUser(..) => (),
-            _ => match allowed_visibility {
-                AllowedVisibility::All => (),
-                AllowedVisibility::PublicOnly => match analyzed_function.visibility {
-                    Some(Visibility::Public) => (),
-                    Some(Visibility::Internal) => {
-                        return Ok(Err(JsError::from_message(missing_or_internal_error(
-                            PublicFunctionPath::ResolvedComponent(path),
-                        )?)));
-                    },
-                    None => {
-                        anyhow::bail!(
-                            "No visibility found for analyzed function {}{}",
-                            path.udf_path,
-                            path.clone().for_logging().component.in_component_str(),
-                        );
-                    },
-                },
-            },
-        };
+        if let Err(js_error) = check_visibility_access(
+            allowed_visibility,
+            &analyzed_function.visibility,
+            tx.identity(),
+            path.component,
+            expected_udf_type,
+            PublicFunctionPath::ResolvedComponent(path.clone()),
+            false,
+        )? {
+            return Ok(Err(js_error));
+        }
         if expected_udf_type != analyzed_function.udf_type {
             return Ok(Err(JsError::from_message(format!(
                 "Trying to execute {}{} as {}, but it is defined as {}.",
