@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    error::Error as _,
+    fmt::Display,
+};
 
 use anyhow::Context;
 use errors::{
@@ -155,15 +158,21 @@ impl ErrorMetadataStatusExt for tonic::Status {
                 return anyhow::anyhow!("Failed to decode StatusDetails proto: {}", err);
             },
         };
-        let mut error: anyhow::Error = self.into();
+        let message = self.message().to_string();
+        let mut source_chain = String::new();
+        let mut source = self.source();
+        while let Some(s) = source {
+            source_chain.push_str(&format!(": {s}"));
+            source = s.source();
+        }
+        let mut error: anyhow::Error =
+            anyhow::anyhow!("status: {code:?}, message: {message:?}{source_chain}");
         if let Some(error_metadata) = details.error_metadata {
             let error_metadata = match ErrorMetadata::try_from(error_metadata) {
                 Ok(error_metadata) => error_metadata,
                 Err(err) => return err.context("Failed to parse ErrorMetadata proto"),
             };
             error = error.context(error_metadata)
-        } else if error.downcast_ref::<tonic::transport::Error>().is_some() {
-            error = error.context(ErrorMetadata::operational_internal_server_error());
         } else if code == tonic::Code::ResourceExhausted {
             error = error.context(ErrorMetadata::overloaded(
                 INTERNAL_SERVER_ERROR,
