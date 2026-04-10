@@ -1,11 +1,12 @@
 import { v } from "convex/values";
-import { queryPrivateSystem } from "../secretSystemTables";
+import { queryPrivateSystem, requireOperation } from "../secretSystemTables";
 
 // This query returns a new result every time
 // the given table's document change in any way.
 export default queryPrivateSystem({
   args: {},
   handler: async ({ db }) => {
+    requireOperation("ViewEnvironmentVariables");
     return await db
       .query("_environment_variables")
       .withIndex("by_name")
@@ -19,6 +20,7 @@ export const get = queryPrivateSystem({
     name: v.string(),
   },
   handler: async (_, { name }) => {
+    requireOperation("ViewEnvironmentVariables");
     const value = process.env[name];
     if (value !== undefined) {
       return { name, value };

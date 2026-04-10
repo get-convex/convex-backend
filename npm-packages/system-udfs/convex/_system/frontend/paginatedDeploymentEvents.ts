@@ -18,6 +18,8 @@ export default queryPrivateSystem({
     }),
   },
   handler: async function ({ db }, { paginationOpts, filters }) {
+    // TODO(scoped-deploy-keys): Re-enable
+    // requireOperation("ViewAuditLog");
     filters.minDate = await clampForAuditLogRetention(db, filters.minDate);
 
     const paginatedResults = await db

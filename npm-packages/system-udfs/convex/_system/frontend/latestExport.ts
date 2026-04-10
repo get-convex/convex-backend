@@ -1,8 +1,13 @@
 import { Export } from "./common";
-import { queryGeneric, queryPrivateSystem } from "../secretSystemTables";
+import {
+  queryGeneric,
+  queryPrivateSystem,
+  requireOperation,
+} from "../secretSystemTables";
 export default queryPrivateSystem({
   args: {},
   handler: async function ({ db }): Promise<Export | null> {
+    requireOperation("ViewBackups");
     return await db
       .query("_exports")
       .withIndex("by_requestor", (q) => q.eq("requestor", "snapshotExport"))
@@ -14,6 +19,7 @@ export default queryPrivateSystem({
 export const latestCloudExport = queryPrivateSystem({
   args: {},
   handler: async function ({ db }): Promise<Export | null> {
+    requireOperation("ViewBackups");
     return await db
       .query("_exports")
       .withIndex("by_requestor", (q) => q.eq("requestor", "cloudBackup"))

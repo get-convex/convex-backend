@@ -34,6 +34,7 @@ pub enum DeploymentOp {
     RunInternalMutations,
     RunInternalActions,
     RunTestQuery,
+    ViewAuditLog,
     #[serde(other)]
     Unknown,
 }
@@ -66,6 +67,7 @@ impl From<DeploymentOp> for ProtoDeploymentOperation {
             DeploymentOp::RunInternalMutations => ProtoDeploymentOperation::RunInternalMutations,
             DeploymentOp::RunInternalActions => ProtoDeploymentOperation::RunInternalActions,
             DeploymentOp::RunTestQuery => ProtoDeploymentOperation::RunTestQuery,
+            DeploymentOp::ViewAuditLog => ProtoDeploymentOperation::ViewAuditLog,
             DeploymentOp::Unknown => ProtoDeploymentOperation::Unspecified,
         }
     }
@@ -104,6 +106,7 @@ impl TryFrom<ProtoDeploymentOperation> for DeploymentOp {
             ProtoDeploymentOperation::RunInternalMutations => Ok(Self::RunInternalMutations),
             ProtoDeploymentOperation::RunInternalActions => Ok(Self::RunInternalActions),
             ProtoDeploymentOperation::RunTestQuery => Ok(Self::RunTestQuery),
+            ProtoDeploymentOperation::ViewAuditLog => Ok(Self::ViewAuditLog),
         }
     }
 }
@@ -132,6 +135,7 @@ pub fn read_only_operations() -> Vec<DeploymentOp> {
         DeploymentOp::DownloadBackups,
         DeploymentOp::RunInternalQueries,
         DeploymentOp::RunTestQuery,
+        DeploymentOp::ViewAuditLog,
     ]
 }
 

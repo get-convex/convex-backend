@@ -13,6 +13,8 @@ export default queryPrivateSystem({
     { db },
     { fromTimestamp },
   ): Promise<Doc<"_deployment_audit_log">[]> {
+    // TODO(scoped-deploy-keys): Re-enable
+    // requireOperation("ViewAuditLog");
     fromTimestamp = await clampForAuditLogRetention(db, fromTimestamp);
     return await db
       .query("_deployment_audit_log")

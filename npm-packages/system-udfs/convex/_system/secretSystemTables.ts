@@ -10,6 +10,21 @@ import { GenericValidator } from "convex/values";
 import { query as baseQuery, queryGeneric as baseQueryGeneric } from "./server";
 import { Id } from "../_generated/dataModel";
 
+declare const Convex: {
+  syscall: (op: string, jsonArgs: string) => string;
+};
+
+/**
+ * Check that the current identity has the given deployment operation permission.
+ * Throws a forbidden error if the identity lacks the permission.
+ * System identities always pass.
+ *
+ * @param operation - PascalCase operation name (e.g. "ViewEnvironmentVariables")
+ */
+export function requireOperation(operation: string): void {
+  Convex.syscall("1.0/requireOperation", JSON.stringify({ operation }));
+}
+
 // This set must be kept up-to-date to prevent accidental access to secret
 // system tables in system UDFs.
 const VIRTUAL_TABLES: Set<TableNamesInDataModel<SystemDataModel>> = new Set([
