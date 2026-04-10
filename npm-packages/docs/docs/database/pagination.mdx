@@ -98,25 +98,25 @@ To paginate within a React component, use the
 gives you a simple interface for rendering the current items and requesting
 more. Internally, this hook manages the continuation cursors.
 
-The arguments to this hook are:
+The object form of this hook takes a single options object with:
 
-- The name of the paginated query function.
-- The arguments object to pass to the query function, excluding the
-  `paginationOpts` (that's injected by the hook).
-- An options object with the `initialNumItems` to load on the first page.
+- `query`: The paginated query function.
+- `args`: The arguments object to pass to the query function, excluding the
+  `paginationOpts` field that the hook injects. Pass `"skip"` here to disable
+  the query.
+- `initialNumItems`: The number of rows to load on the first page.
 
-The hook returns an object with:
+The object-form return value includes:
 
-- `results`: An array of the currently loaded results.
-- `isLoading` - Whether the hook is currently loading results.
-- `status`: The status of the pagination. The possible statuses are:
-  - `"LoadingFirstPage"`: The hook is loading the first page of results.
-  - `"CanLoadMore"`: This query may have more items to fetch. Call `loadMore` to
-    fetch another page.
-  - `"LoadingMore"`: We're currently loading another page of results.
-  - `"Exhausted"`: We've paginated to the end of the list.
-- `loadMore(n)`: A callback to fetch more results. This will only fetch more
-  results if the status is `"CanLoadMore"`.
+- `data`: An array of the currently loaded results, or `undefined` while the
+  first page is loading.
+- `isLoading`: Whether the hook is currently loading results.
+- `status`: `"pending"`, `"success"`, or `"error"`.
+- `canLoadMore`: Whether calling `loadMore` may fetch another page.
+- `loadMore(n)`: A callback to fetch more results.
+
+The older positional form is still supported and returns the legacy TitleCase
+pagination statuses.
 
 <Snippet
   source={SimpleCall}

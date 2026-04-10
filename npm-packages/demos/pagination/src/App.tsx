@@ -3,11 +3,11 @@ import { useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export default function App() {
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.messages.list,
-    {},
-    { initialNumItems: 5 },
-  );
+  const { data, canLoadMore, loadMore } = usePaginatedQuery({
+    query: api.messages.list,
+    args: {},
+    initialNumItems: 5,
+  });
 
   const [newMessageText, setNewMessageText] = useState("");
   const sendMessage = useMutation(api.messages.send);
@@ -33,7 +33,7 @@ export default function App() {
         <input type="submit" value="Send" disabled={!newMessageText} />
       </form>
       <ul>
-        {results.map((message) => (
+        {data?.map((message) => (
           <li key={message._id}>
             <span>{message.author}:</span>
             <span>{message.body}</span>
@@ -46,7 +46,7 @@ export default function App() {
           onClick={() => {
             loadMore(5);
           }}
-          disabled={status !== "CanLoadMore"}
+          disabled={!canLoadMore}
         >
           Load More
         </button>

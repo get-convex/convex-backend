@@ -4,7 +4,9 @@ import { FunctionReference, getFunctionName } from "../server/api.js";
 import {
   PaginatedQueryReference,
   PaginatedQueryArgs,
+  UsePaginatedQueryOptions,
   UsePaginatedQueryReturnType,
+  UsePaginatedQueryObjectReturnType,
 } from "./use_paginated_query.js";
 import { convexToJson, Value } from "../values/value.js";
 import { useQueries } from "./use_queries.js";
@@ -45,11 +47,11 @@ type UsePaginatedQueryState = {
  *
  * Example usage:
  * ```typescript
- * const { results, status, isLoading, loadMore } = usePaginatedQuery(
- *   api.messages.list,
- *   { channel: "#general" },
- *   { initialNumItems: 5 }
- * );
+ * const { data, status, canLoadMore, loadMore } = usePaginatedQuery({
+ *   query: api.messages.list,
+ *   args: { channel: "#general" },
+ *   initialNumItems: 5,
+ * });
  * ```
  *
  * If the query reference or arguments change, the pagination state will be reset
@@ -79,17 +81,51 @@ export function usePaginatedQuery_experimental<
   // - maximumBytesRead
   // - a cursor for where to start? although probably no endCursor
   options: { initialNumItems: number },
-): UsePaginatedQueryReturnType<Query> {
+): UsePaginatedQueryReturnType<Query>;
+
+export function usePaginatedQuery_experimental<
+  Query extends PaginatedQueryReference,
+>(
+  options: UsePaginatedQueryOptions<Query>,
+): UsePaginatedQueryObjectReturnType<Query>;
+
+export function usePaginatedQuery_experimental<
+  Query extends PaginatedQueryReference,
+>(
+  queryOrOptions: Query | UsePaginatedQueryOptions<Query>,
+  args?: PaginatedQueryArgs<Query> | "skip",
+  // Future options this hook might accept:
+  // - maximumRowsRead
+  // - maximumBytesRead
+  // - a cursor for where to start? although probably no endCursor
+  options?: { initialNumItems: number },
+):
+  | UsePaginatedQueryReturnType<Query>
+  | UsePaginatedQueryObjectReturnType<Query> {
+  const isObjectOptions =
+    typeof queryOrOptions === "object" &&
+    queryOrOptions !== null &&
+    "query" in queryOrOptions;
+
+  const query = isObjectOptions ? queryOrOptions.query : queryOrOptions;
+  const queryArgs = isObjectOptions ? queryOrOptions.args : args;
+  const throwOnError = isObjectOptions
+    ? (queryOrOptions.throwOnError ?? false)
+    : true;
+  const initialOptions = isObjectOptions
+    ? { initialNumItems: queryOrOptions.initialNumItems }
+    : options;
+
   if (
-    typeof options?.initialNumItems !== "number" ||
-    options.initialNumItems < 0
+    typeof initialOptions?.initialNumItems !== "number" ||
+    initialOptions.initialNumItems < 0
   ) {
     throw new Error(
-      `\`options.initialNumItems\` must be a positive number. Received \`${options?.initialNumItems}\`.`,
+      `\`options.initialNumItems\` must be a positive number. Received \`${initialOptions?.initialNumItems}\`.`,
     );
   }
-  const skip = args === "skip";
-  const argsObject = skip ? {} : args;
+  const skip = queryArgs === "skip";
+  const argsObject = skip ? {} : queryArgs;
 
   const convexClient = useConvex();
   const logger = convexClient.logger;
@@ -111,7 +147,7 @@ export function usePaginatedQuery_experimental<
                 ...argsObject,
               },
               paginationOptions: {
-                initialNumItems: options.initialNumItems,
+                initialNumItems: initialOptions.initialNumItems,
                 id,
               },
             },
@@ -144,14 +180,20 @@ export function usePaginatedQuery_experimental<
     if (!skip) {
       throw new Error("Why is it missing?");
     }
-    return {
-      results: [],
-      status: "LoadingFirstPage",
-      isLoading: true,
+    const internalResult = {
+      results: [] as Query["_returnType"]["page"],
+      status: "LoadingFirstPage" as const,
+      isLoading: true as const,
       loadMore: function skipNOP(_numItems: number) {
         return false;
       },
     };
+    if (isObjectOptions) {
+      return reshapeToObjectForm2(
+        internalResult,
+      ) as unknown as UsePaginatedQueryObjectReturnType<Query>;
+    }
+    return internalResult as unknown as UsePaginatedQueryReturnType<Query>;
   }
   const result = resultsObject.paginatedQuery as
     | PaginatedQueryResult<Query["_returnType"]["page"][number]>
@@ -162,12 +204,18 @@ export function usePaginatedQuery_experimental<
   // - or is it the paginated query's job to render the approproate loading state?
   // It comes back to why we'd ever get undefined when asking about a query; have we not yet called subscribe for it?
   if (result === undefined) {
-    return {
-      results: [],
+    const internalResult = {
+      results: [] as Query["_returnType"]["page"],
       loadMore: () => false,
-      isLoading: true,
-      status: "LoadingFirstPage",
+      isLoading: true as const,
+      status: "LoadingFirstPage" as const,
     };
+    if (isObjectOptions) {
+      return reshapeToObjectForm2(
+        internalResult,
+      ) as unknown as UsePaginatedQueryObjectReturnType<Query>;
+    }
+    return internalResult as unknown as UsePaginatedQueryReturnType<Query>;
   }
 
   if (result instanceof Error) {
@@ -190,29 +238,102 @@ export function usePaginatedQuery_experimental<
           result.message,
       );
       setState(createInitialState);
-      return {
-        results: [],
+      const internalResult = {
+        results: [] as Query["_returnType"]["page"],
         loadMore: () => false,
-        isLoading: true,
-        status: "LoadingFirstPage",
+        isLoading: true as const,
+        status: "LoadingFirstPage" as const,
       };
+      if (isObjectOptions) {
+        return reshapeToObjectForm2(
+          internalResult,
+        ) as unknown as UsePaginatedQueryObjectReturnType<Query>;
+      }
+      return internalResult as unknown as UsePaginatedQueryReturnType<Query>;
     } else {
-      throw result;
+      if (throwOnError) {
+        throw result;
+      }
+      const internalResult = {
+        results: [] as Query["_returnType"]["page"],
+        loadMore: () => false,
+        isLoading: false as const,
+        status: "Error" as const,
+        error: result,
+      };
+      if (isObjectOptions) {
+        return reshapeToObjectForm2(
+          internalResult,
+        ) as unknown as UsePaginatedQueryObjectReturnType<Query>;
+      }
+      return internalResult as unknown as UsePaginatedQueryReturnType<Query>;
     }
   }
 
-  return {
+  const internalResult = {
     ...result,
-    loadMore: (num) => {
+    loadMore: (num: number) => {
       return result.loadMore(num);
     },
     isLoading:
       result.status === "LoadingFirstPage"
-        ? true
+        ? (true as const)
         : result.status === "LoadingMore"
-          ? true
-          : false,
-  } as UsePaginatedQueryReturnType<Query>;
+          ? (true as const)
+          : (false as const),
+  };
+  if (isObjectOptions) {
+    return reshapeToObjectForm2(
+      internalResult,
+    ) as unknown as UsePaginatedQueryObjectReturnType<Query>;
+  }
+  return internalResult as unknown as UsePaginatedQueryReturnType<Query>;
+}
+
+/**
+ * Reshape the internal TitleCase pagination result into the object-form
+ * return type with lowercase `status`, `canLoadMore`, and `data`.
+ */
+function reshapeToObjectForm2<Item>(internal: {
+  results: Item[];
+  status: string;
+  isLoading: boolean;
+  loadMore: (...args: any[]) => any;
+  error?: Error;
+}) {
+  const { results, loadMore } = internal;
+  if (internal.status === "Error" && "error" in internal) {
+    return {
+      data: results,
+      status: "error" as const,
+      canLoadMore: false as const,
+      isLoading: false as const,
+      error: internal.error,
+      loadMore,
+    };
+  }
+  if (
+    internal.status === "LoadingFirstPage" ||
+    internal.status === "LoadingMore"
+  ) {
+    return {
+      data: internal.status === "LoadingFirstPage" ? undefined : results,
+      status: "pending" as const,
+      canLoadMore: false as const,
+      isLoading: true as const,
+      error: undefined,
+      loadMore,
+    };
+  }
+  // CanLoadMore or Exhausted
+  return {
+    data: results,
+    status: "success" as const,
+    canLoadMore: internal.status === "CanLoadMore",
+    isLoading: false as const,
+    error: undefined,
+    loadMore,
+  };
 }
 
 let paginationId = 0;

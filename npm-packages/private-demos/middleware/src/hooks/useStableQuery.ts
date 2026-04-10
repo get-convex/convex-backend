@@ -1,5 +1,11 @@
 import { useRef } from "react";
-import { useQuery, usePaginatedQuery } from "convex/react";
+import {
+  useQuery,
+  usePaginatedQuery,
+  type PaginatedQueryReference,
+  type PaginatedQueryArgs,
+  type UsePaginatedQueryReturnType,
+} from "convex/react";
 import { FunctionReference } from "convex/server";
 
 /**
@@ -55,4 +61,8 @@ export const useStablePaginatedQuery = ((name, ...args) => {
   }
 
   return stored.current;
-}) as typeof usePaginatedQuery;
+}) as <Query extends PaginatedQueryReference>(
+  query: Query,
+  args: PaginatedQueryArgs<Query> | "skip",
+  options: { initialNumItems: number },
+) => UsePaginatedQueryReturnType<Query>;

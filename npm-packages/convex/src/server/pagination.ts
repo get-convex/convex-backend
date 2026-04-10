@@ -150,11 +150,11 @@ export interface PaginationOptions {
  *
  * On the client, use `usePaginatedQuery` from `"convex/react"`:
  * ```tsx
- * const { results, status, loadMore } = usePaginatedQuery(
- *   api.messages.listMessages,
- *   { channelId },
- *   { initialNumItems: 25 },
- * );
+ * const { data, status, canLoadMore, loadMore } = usePaginatedQuery({
+ *   query: api.messages.listMessages,
+ *   args: { channelId },
+ *   initialNumItems: 25,
+ * });
  * ```
  *
  * @see https://docs.convex.dev/database/pagination
