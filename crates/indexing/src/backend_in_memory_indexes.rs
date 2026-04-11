@@ -101,6 +101,7 @@ use crate::{
     metrics::{
         index_page_timer,
         log_index_cache_cleared,
+        log_index_page_point_lookup,
         log_transaction_cache_query,
     },
 };
@@ -155,6 +156,9 @@ impl IndexReader for PersistenceSnapshot {
         max_results: usize,
     ) -> anyhow::Result<IndexPage> {
         let timer = index_page_timer("local");
+        if interval.is_singleton().is_some() {
+            log_index_page_point_lookup();
+        }
         let result = async {
             let mut stream = PersistenceSnapshot::index_scan(
                 self,

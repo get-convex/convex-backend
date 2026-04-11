@@ -40,3 +40,11 @@ pub fn index_page_timer(source: &'static str) -> StatusTimer {
     t.add_label(StaticMetricLabel::new("source", source));
     t
 }
+
+register_convex_counter!(
+    INDEX_PAGE_POINT_LOOKUP_TOTAL,
+    "Count of index_page calls where the interval is a point lookup (single key)"
+);
+pub fn log_index_page_point_lookup() {
+    log_counter(&INDEX_PAGE_POINT_LOOKUP_TOTAL, 1);
+}
