@@ -21,7 +21,7 @@ use crate::{
 
 pub mod types;
 
-use types::BackendState;
+use types::OldBackendState;
 
 use self::types::PersistedBackendState;
 
@@ -58,13 +58,13 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         SystemMetadataModel::new_global(self.tx)
             .insert(
                 &BACKEND_STATE_TABLE,
-                PersistedBackendState::Old(BackendState::Running).try_into()?,
+                PersistedBackendState::Old(OldBackendState::Running).try_into()?,
             )
             .await?;
         Ok(())
     }
 
-    pub async fn get_backend_state(&mut self) -> anyhow::Result<ParsedDocument<BackendState>> {
+    pub async fn get_backend_state(&mut self) -> anyhow::Result<ParsedDocument<OldBackendState>> {
         let backend_state = self
             .tx
             .query_system(
@@ -77,7 +77,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         (*backend_state).clone().map(|bs| Ok(bs.to_old_lossy()))
     }
 
-    pub async fn toggle_backend_state(&mut self, new_state: BackendState) -> anyhow::Result<()> {
+    pub async fn toggle_backend_state(&mut self, new_state: OldBackendState) -> anyhow::Result<()> {
         let (id, current_state) = self.get_backend_state().await?.into_id_and_value();
         anyhow::ensure!(
             current_state != new_state,

@@ -9,7 +9,7 @@ use serde::{
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 /// Represents the different states a backend can be in.
-pub enum BackendState {
+pub enum OldBackendState {
     /// Disabled - will not serve any requests. Set when exceeds the allowed
     /// usage based on the tier etc. May leave this state after some time.
     Disabled,
@@ -23,17 +23,17 @@ pub enum BackendState {
     Suspended,
 }
 
-impl BackendState {
+impl OldBackendState {
     pub fn is_stopped(&self) -> bool {
         matches!(
             self,
-            BackendState::Disabled | BackendState::Paused | BackendState::Suspended
+            OldBackendState::Disabled | OldBackendState::Paused | OldBackendState::Suspended
         )
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct NewBackendState {
+pub struct BackendState {
     pub system: SystemStopState,
     pub user: UserStopState,
 }
@@ -65,36 +65,36 @@ pub enum UserStopState {
     Paused,
 }
 
-impl NewBackendState {
-    pub fn to_old_lossy(self) -> BackendState {
+impl BackendState {
+    pub fn to_old_lossy(self) -> OldBackendState {
         match (self.system, self.user) {
-            (SystemStopState::Disabled, _) => BackendState::Disabled,
-            (SystemStopState::Suspended, _) => BackendState::Suspended,
-            (SystemStopState::Resumable, _) => BackendState::Paused,
-            (SystemStopState::None, UserStopState::Paused) => BackendState::Paused,
-            (SystemStopState::None, UserStopState::None) => BackendState::Running,
+            (SystemStopState::Disabled, _) => OldBackendState::Disabled,
+            (SystemStopState::Suspended, _) => OldBackendState::Suspended,
+            (SystemStopState::Resumable, _) => OldBackendState::Paused,
+            (SystemStopState::None, UserStopState::Paused) => OldBackendState::Paused,
+            (SystemStopState::None, UserStopState::None) => OldBackendState::Running,
         }
     }
 }
 
-impl BackendState {
+impl OldBackendState {
     pub fn user_state(&self) -> UserStopState {
         match self {
-            BackendState::Paused => UserStopState::Paused,
+            OldBackendState::Paused => UserStopState::Paused,
             _ => UserStopState::None,
         }
     }
 
     pub fn system_state(&self) -> SystemStopState {
         match self {
-            BackendState::Disabled => SystemStopState::Disabled,
-            BackendState::Suspended => SystemStopState::Suspended,
+            OldBackendState::Disabled => SystemStopState::Disabled,
+            OldBackendState::Suspended => SystemStopState::Suspended,
             _ => SystemStopState::None,
         }
     }
 }
 
-impl NewBackendState {
+impl BackendState {
     pub fn is_stopped(&self) -> bool {
         self.system != SystemStopState::None || self.user != UserStopState::None
     }

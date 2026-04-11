@@ -1,6 +1,6 @@
 pub use common::types::{
     BackendState,
-    NewBackendState,
+    OldBackendState,
 };
 use serde::{
     Deserialize,
@@ -10,8 +10,8 @@ use value::codegen_convex_serialization;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum PersistedBackendState {
-    Old(BackendState),
-    New(NewBackendState),
+    Old(OldBackendState),
+    New(BackendState),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -41,7 +41,7 @@ impl TryFrom<SerializedBackendState> for PersistedBackendState {
     fn try_from(object: SerializedBackendState) -> anyhow::Result<Self> {
         Ok(match object {
             SerializedBackendState::Old { state } => Self::Old(state.parse()?),
-            SerializedBackendState::New { system, user } => Self::New(NewBackendState {
+            SerializedBackendState::New { system, user } => Self::New(BackendState {
                 system: system.parse()?,
                 user: user.parse()?,
             }),
@@ -50,7 +50,7 @@ impl TryFrom<SerializedBackendState> for PersistedBackendState {
 }
 
 impl PersistedBackendState {
-    pub fn to_old_lossy(&self) -> BackendState {
+    pub fn to_old_lossy(&self) -> OldBackendState {
         match self {
             PersistedBackendState::Old(old_backend_state) => *old_backend_state,
             PersistedBackendState::New(backend_state) => backend_state.to_old_lossy(),

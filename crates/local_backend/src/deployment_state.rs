@@ -9,7 +9,7 @@ use common::http::{
 use errors::ErrorMetadata;
 use http::StatusCode;
 use model::backend_state::{
-    types::BackendState,
+    types::OldBackendState,
     BackendStateModel,
 };
 use utoipa_axum::router::OpenApiRouter;
@@ -50,7 +50,7 @@ pub async fn pause_deployment(
         .get_backend_state()
         .await?
         .into_value();
-    if current_state == BackendState::Disabled || current_state == BackendState::Suspended {
+    if current_state == OldBackendState::Disabled || current_state == OldBackendState::Suspended {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
             "PauseDeploymentFailed",
             "Deployment is currently disabled or suspended by Convex and cannot be paused."
@@ -59,7 +59,7 @@ pub async fn pause_deployment(
     }
 
     st.application
-        .change_deployment_state(identity, BackendState::Paused)
+        .change_deployment_state(identity, OldBackendState::Paused)
         .await?;
 
     Ok(StatusCode::OK)
@@ -93,7 +93,7 @@ pub async fn unpause_deployment(
         .get_backend_state()
         .await?
         .into_value();
-    if current_state != BackendState::Paused {
+    if current_state != OldBackendState::Paused {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
             "UnpauseDeploymentFailed",
             "Deployment is not currently paused."
@@ -102,7 +102,7 @@ pub async fn unpause_deployment(
     }
 
     st.application
-        .change_deployment_state(identity, BackendState::Running)
+        .change_deployment_state(identity, OldBackendState::Running)
         .await?;
 
     Ok(StatusCode::OK)

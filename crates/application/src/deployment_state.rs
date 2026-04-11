@@ -2,7 +2,7 @@ use common::runtime::Runtime;
 use keybroker::Identity;
 use model::{
     backend_state::{
-        types::BackendState,
+        types::OldBackendState,
         BackendStateModel,
     },
     deployment_audit_log::types::DeploymentAuditLogEvent,
@@ -14,7 +14,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn change_deployment_state(
         &self,
         identity: Identity,
-        new_state: BackendState,
+        new_state: OldBackendState,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity).await?;
         let mut model = BackendStateModel::new(&mut tx);

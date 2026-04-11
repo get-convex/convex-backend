@@ -54,7 +54,7 @@ pub use backend_info::{
 };
 pub use backend_state::{
     BackendState,
-    NewBackendState,
+    OldBackendState,
     SystemStopState,
     UserStopState,
 };

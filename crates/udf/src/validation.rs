@@ -25,7 +25,7 @@ use common::{
     },
     types::{
         AllowedVisibility,
-        BackendState,
+        OldBackendState,
         UdfType,
     },
     version::{
@@ -115,11 +115,11 @@ pub async fn fail_while_not_running<RT: Runtime>(
         .await?
         .into_value();
     match backend_state {
-        BackendState::Running => {},
-        BackendState::Paused => {
+        OldBackendState::Running => {},
+        OldBackendState::Paused => {
             return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
         },
-        BackendState::Disabled => {
+        OldBackendState::Disabled => {
             if is_paid {
                 return Ok(Err(JsError::from_message(
                     DISABLED_ERROR_MESSAGE_PAID_PLAN.to_string(),
@@ -130,7 +130,7 @@ pub async fn fail_while_not_running<RT: Runtime>(
                 )));
             }
         },
-        BackendState::Suspended => {
+        OldBackendState::Suspended => {
             return Ok(Err(JsError::from_message(
                 SUSPENDED_ERROR_MESSAGE.to_string(),
             )));

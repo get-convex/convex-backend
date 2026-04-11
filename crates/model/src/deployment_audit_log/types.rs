@@ -43,7 +43,7 @@ use value::{
 
 use crate::{
     auth::types::AuthDiff,
-    backend_state::types::BackendState,
+    backend_state::types::OldBackendState,
     components::config::{
         ComponentDiff,
         SerializedComponentDiff,
@@ -140,8 +140,8 @@ pub enum DeploymentAuditLogEvent {
         removed_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
     },
     ChangeDeploymentState {
-        old_state: BackendState,
-        new_state: BackendState,
+        old_state: OldBackendState,
+        new_state: OldBackendState,
     },
     // TODO: consider adding table names once this is logged for more places
     // and we have a story about limiting size.
