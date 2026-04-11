@@ -52,7 +52,12 @@ pub use backend_info::{
     BackendInfo,
     DEFAULT_PROVISION_CONCURRENCY,
 };
-pub use backend_state::BackendState;
+pub use backend_state::{
+    BackendState,
+    NewBackendState,
+    SystemStopState,
+    UserStopState,
+};
 pub use deployments::{
     DeploymentClass,
     DeploymentType,

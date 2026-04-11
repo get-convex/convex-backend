@@ -58,7 +58,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         SystemMetadataModel::new_global(self.tx)
             .insert(
                 &BACKEND_STATE_TABLE,
-                PersistedBackendState(BackendState::Running).try_into()?,
+                PersistedBackendState::Old(BackendState::Running).try_into()?,
             )
             .await?;
         Ok(())
@@ -74,7 +74,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             .unique()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Backend must have a state."))?;
-        (*backend_state).clone().map(|bs| Ok(bs.0))
+        (*backend_state).clone().map(|bs| Ok(bs.to_old_lossy()))
     }
 
     pub async fn toggle_backend_state(&mut self, new_state: BackendState) -> anyhow::Result<()> {
@@ -87,7 +87,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             )
         );
         SystemMetadataModel::new_global(self.tx)
-            .replace(id, PersistedBackendState(new_state).try_into()?)
+            .replace(id, PersistedBackendState::Old(new_state).try_into()?)
             .await?;
         Ok(())
     }
