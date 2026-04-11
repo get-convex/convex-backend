@@ -6,6 +6,7 @@ import {
   TeamResponse,
 } from "generatedApi";
 import { AuditLogItem } from "./AuditLogItem";
+import { Sheet } from "@ui/Sheet";
 
 const team: TeamResponse = {
   id: 1,
@@ -32,6 +33,13 @@ const meta = {
     members: [member],
   },
   parameters: { a11y: { test: "todo" } },
+  decorators: [
+    (Story) => (
+      <Sheet>
+        <Story />
+      </Sheet>
+    ),
+  ],
 } satisfies Meta<typeof AuditLogItem>;
 
 export default meta;

@@ -1,6 +1,7 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
 import { fn } from "storybook/test";
+import { Sheet } from "@ui/Sheet";
 
 const meta = {
   component: DateTimePicker,
@@ -11,6 +12,13 @@ const meta = {
   parameters: {
     a11y: { test: "todo" },
   },
+  decorators: [
+    (Story) => (
+      <Sheet>
+        <Story />
+      </Sheet>
+    ),
+  ],
 } satisfies Meta<typeof DateTimePicker>;
 
 export default meta;

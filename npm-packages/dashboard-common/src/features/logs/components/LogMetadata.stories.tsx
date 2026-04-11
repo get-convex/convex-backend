@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { LogMetadata } from "./LogMetadata";
+import { Sheet } from "@ui/Sheet";
 
 const meta: Meta<typeof LogMetadata> = {
   component: LogMetadata,
@@ -8,6 +9,13 @@ const meta: Meta<typeof LogMetadata> = {
     layout: "padded",
     a11y: { test: "todo" },
   },
+  decorators: [
+    (Story) => (
+      <Sheet>
+        <Story />
+      </Sheet>
+    ),
+  ],
 };
 
 export default meta;

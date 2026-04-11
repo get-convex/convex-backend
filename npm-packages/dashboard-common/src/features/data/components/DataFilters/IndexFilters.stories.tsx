@@ -7,6 +7,7 @@ import udfs from "@common/udfs";
 import { SearchIndexFilter } from "system-udfs/convex/_system/frontend/lib/filters";
 import { fn } from "storybook/test";
 import { IndexFilters } from "./IndexFilters";
+import { Sheet } from "@ui/Sheet";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.components.list, () => [])
@@ -123,7 +124,9 @@ const meta: Meta<typeof IndexFilters> = {
   render: (args) => (
     <ConvexProvider client={mockClient}>
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-        <IndexFilters {...args} />
+        <Sheet>
+          <IndexFilters {...args} />
+        </Sheet>
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),

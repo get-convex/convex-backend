@@ -7,6 +7,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import udfs from "@common/udfs";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import { Sheet } from "@ui/Sheet";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.components.list, () => [])
@@ -33,7 +34,9 @@ const meta: Meta<typeof SearchIndexFilterEditor> = {
   render: (args) => (
     <ConvexProvider client={mockClient}>
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-        <SearchIndexFilterEditor {...args} />
+        <Sheet>
+          <SearchIndexFilterEditor {...args} />
+        </Sheet>
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),

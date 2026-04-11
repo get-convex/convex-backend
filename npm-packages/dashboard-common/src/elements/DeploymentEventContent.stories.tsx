@@ -4,6 +4,7 @@ import { DeploymentEventContent } from "@common/elements/DeploymentEventContent"
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { SchemaJson } from "@common/lib/format";
+import { Sheet } from "@ui/Sheet";
 
 /** Helper to make sure the serialized values in the story are correct */
 function schemaJsonAsString(value: SchemaJson): string {
@@ -15,7 +16,9 @@ const meta = {
   decorators: [
     (Story) => (
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-        <Story />
+        <Sheet>
+          <Story />
+        </Sheet>
       </DeploymentInfoContext.Provider>
     ),
   ],
