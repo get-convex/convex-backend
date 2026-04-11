@@ -50,7 +50,6 @@ errors = { workspace = true }
 event-listener = { workspace = true }
 fastrace = { workspace = true }
 flate2 = { workspace = true }                                                 # enable the zlib-ng feature
-float_next_after = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }

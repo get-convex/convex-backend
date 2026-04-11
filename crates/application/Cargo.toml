@@ -59,7 +59,6 @@ exports = { workspace = true }
 fastrace = { workspace = true }
 file_storage = { workspace = true }
 fivetran_destination = { workspace = true }
-float_next_after = { workspace = true }
 function_runner = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }

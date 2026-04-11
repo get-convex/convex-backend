@@ -20,7 +20,6 @@ use std::{
 
 use anyhow::Context;
 use errors::ErrorMetadata;
-use float_next_after::NextAfter;
 use humansize::{
     FormatSize as _,
     BINARY,
@@ -216,7 +215,7 @@ impl CreationTime {
     pub fn increment(&mut self) -> anyhow::Result<Self> {
         let result = *self;
 
-        let next_float = self.ts_ms.next_after(f64::INFINITY);
+        let next_float = self.ts_ms.next_up();
         *self = Self::try_from(next_float)?;
 
         Ok(result)
