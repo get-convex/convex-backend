@@ -141,6 +141,7 @@ export function SearchIndexFilterEditor({
               onChange={handleDateChange}
               disabled={!filter.enabled}
               className="rounded-r border p-1 text-xs"
+              aria-label="Creation time"
             />
           ) : (
             <ObjectEditorWithPlaceholder

@@ -237,6 +237,7 @@ function ValueEditor({
         />
       ) : isDatepicker ? (
         <DateTimePicker
+          aria-label="Creation time"
           date={
             // Convert to date from Unix timestamp, defaulting to now.
             typeof state.value === "number" ? new Date(state.value) : new Date()

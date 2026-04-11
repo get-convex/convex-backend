@@ -7,6 +7,7 @@ type DateTimePickerProps = {
   disabled?: boolean;
   autoFocus?: boolean;
   className?: string;
+  "aria-label": string;
 };
 
 const toDateTimeLocalValue = (d: Date) => {
@@ -26,9 +27,11 @@ export function DateTimePicker({
   disabled = false,
   autoFocus = false,
   className,
+  "aria-label": ariaLabel,
 }: DateTimePickerProps) {
   return (
     <input
+      aria-label={ariaLabel}
       autoFocus={autoFocus}
       type="datetime-local"
       className={cn(

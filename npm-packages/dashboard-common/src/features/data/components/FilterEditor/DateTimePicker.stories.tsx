@@ -8,6 +8,7 @@ const meta = {
   args: {
     onChange: fn(),
     date: new Date("2024-10-07T14:35:32"),
+    "aria-label": "Date and time",
   },
   parameters: {
     a11y: { test: "todo" },

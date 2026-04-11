@@ -93,6 +93,7 @@ export function CellEditor({
             onSave={() => saveEditedValue(editedValue)}
             className="mb-5 -ml-px font-mono"
             autoFocus
+            aria-label="Edit timestamp as date and time"
           />
         </div>
       ) : (

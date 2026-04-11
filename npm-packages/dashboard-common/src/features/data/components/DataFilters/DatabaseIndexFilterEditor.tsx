@@ -451,6 +451,7 @@ export function DatabaseIndexFilterEditor({
     <DateTimePicker
       date={getTimestampValue(value)}
       onChange={onChangeHandler}
+      aria-label="Creation time"
       disabled={!filter.enabled}
       className={cn("align-top", className)}
     />
