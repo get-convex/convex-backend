@@ -117,7 +117,7 @@ function IndexListSection({
   const indexesByName = groupBy(indexes, "name");
 
   return (
-    <div className="flex flex-col gap-3">
+    <section aria-label={title} className="flex flex-col gap-3">
       <header className="flex items-center gap-1.5 text-content-primary">
         <Icon className="size-5 text-content-secondary" />
         <h5 className="text-base font-medium">{title}</h5>
@@ -144,7 +144,7 @@ function IndexListSection({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 

@@ -1013,10 +1013,10 @@ function SpendingLimitLine({
 }) {
   return (
     <div className="contents">
-      <header className="mr-2 flex items-center gap-1">
+      <div className="mr-2 flex items-center gap-1">
         <div className="text-content-secondary">{label}</div>
         <HelpTooltip tipSide="top">{tooltip}</HelpTooltip>
-      </header>
+      </div>
       <SpendingValue valueCents={previousValue} />
       <ArrowRightIcon className="text-content-tertiary" />
       <SpendingValue valueCents={currentValue} />
