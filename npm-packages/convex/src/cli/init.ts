@@ -21,9 +21,25 @@ export const init = new Command("init")
       adminKey: undefined,
       envFile: undefined,
     });
+    const duplicateSigintGraceMs = 500;
+    let cleanupStartTime: number | null = null;
     process.on("SIGINT", async () => {
+      if (cleanupStartTime !== null) {
+        // `bun run <script>` can deliver an immediate duplicate SIGINT while the
+        // first handler is starting cleanup. Ignore that short-window signal, but
+        // keep a later Ctrl+C as a force-exit escape hatch.
+        if (Date.now() - cleanupStartTime < duplicateSigintGraceMs) {
+          logVerbose(
+            "Received SIGINT during cleanup, ignoring duplicate signal...",
+          );
+          return;
+        }
+        logVerbose("Received SIGINT during cleanup, exiting immediately...");
+        process.exit(130);
+      }
+      cleanupStartTime = Date.now();
       logVerbose("Received SIGINT, cleaning up...");
-      await ctx.flushAndExit(-2);
+      await ctx.flushAndExit(130);
     });
 
     const deploymentSelection = await getDeploymentSelection(ctx, {});

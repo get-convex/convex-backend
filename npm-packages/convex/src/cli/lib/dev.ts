@@ -140,6 +140,7 @@ export async function watchAndPush(
   let shellChild: ChildProcess | undefined;
   let shellExited: Promise<void> | undefined;
   let shellCleanupHandle: string | undefined;
+  let shellSigintListener: (() => void) | undefined;
   let tableNameTriggeringRetry;
   let shouldRetryOnDeploymentEnvVarChange;
   let isFirstPush = true; // Track if this is the first push in the session
@@ -210,32 +211,47 @@ export async function watchAndPush(
               // piping stdin/stdout/stderr. It runs alongside dev and is
               // waited on during clean exit or killed on signal exit.
               const shellCommand = cmdOptions.run.command;
+              const signalShellChild = (signal: NodeJS.Signals) => {
+                if (!shellChild) {
+                  return;
+                }
+                const child = shellChild;
+                // Kill the entire process group so children of the shell
+                // are also killed.
+                if (child.pid !== undefined) {
+                  try {
+                    process.kill(-child.pid, signal);
+                  } catch {
+                    // Process group may already be dead.
+                    child.kill(signal);
+                  }
+                } else {
+                  child.kill(signal);
+                }
+              };
+              const clearShellSigintListener = () => {
+                if (shellSigintListener) {
+                  process.off("SIGINT", shellSigintListener);
+                  shellSigintListener = undefined;
+                }
+              };
               shellChild = spawn(shellCommand, [], {
                 shell: true,
                 stdio: "inherit",
                 detached: true,
               });
+              shellSigintListener = () => {
+                signalShellChild("SIGINT");
+              };
+              process.prependListener("SIGINT", shellSigintListener);
               shellCleanupHandle = outerCtx.registerCleanup(async () => {
-                if (shellChild) {
-                  const child = shellChild;
-                  shellChild = undefined;
-                  // Kill the entire process group so children of the shell
-                  // are also killed.
-                  if (child.pid !== undefined) {
-                    try {
-                      process.kill(-child.pid, "SIGTERM");
-                    } catch {
-                      // Process group may already be dead.
-                      child.kill();
-                    }
-                  } else {
-                    child.kill();
-                  }
-                }
+                clearShellSigintListener();
+                signalShellChild("SIGTERM");
                 await shellExited;
               });
               shellExited = new Promise<void>((resolve) => {
                 shellChild!.on("error", (error) => {
+                  clearShellSigintListener();
                   logError(
                     `Failed to run command \`${shellCommand}\`: ${error.message}`,
                   );
@@ -244,6 +260,7 @@ export async function watchAndPush(
                   void outerCtx.flushAndExit(1);
                 });
                 shellChild!.on("exit", (code, signal) => {
+                  clearShellSigintListener();
                   shellChild = undefined;
                   resolve();
                   // If killed by a signal (e.g. from cleanup on shutdown),
@@ -360,6 +377,10 @@ export async function watchAndPush(
     // On clean exit (e.g. --once, --until-success), wait for the shell
     // command to finish naturally. On signal exit (e.g. Ctrl+C), the
     // registered cleanup handler will have already killed it.
+    if (shellSigintListener) {
+      process.off("SIGINT", shellSigintListener);
+      shellSigintListener = undefined;
+    }
     if (shellExited) {
       await shellExited;
     }
