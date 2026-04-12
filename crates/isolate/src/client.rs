@@ -598,7 +598,6 @@ pub fn initialize_v8() {
         // https://github.com/v8/v8/blob/master/src/flags/flag-definitions.h
         let mut argv = vec![
             "".to_owned(), // first arg is ignored
-            "--harmony-import-assertions".to_owned(),
             // See https://github.com/denoland/deno/issues/2544
             "--no-wasm-async-compilation".to_string(),
             // Disable `eval` or `new Function()`.
